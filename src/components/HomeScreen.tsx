@@ -3,6 +3,7 @@ import React from 'react';
 import { QrCode, Link } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from '@/hooks/use-toast';
+import PromoBanner from './PromoBanner';
 
 const HomeScreen = () => {
   const navigate = useNavigate();
@@ -33,8 +34,11 @@ const HomeScreen = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-gray-900 dark:via-purple-900 dark:to-blue-900">
-      <div className="container mx-auto px-4 py-8">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-gray-900 dark:via-purple-900 dark:to-blue-900 relative">
+      {/* Promo Banner */}
+      <PromoBanner />
+      
+      <div className="container mx-auto px-4 py-8 pt-20">
         <div className="flex flex-col items-center justify-center min-h-screen space-y-8">
           
           {/* Hero Banner */}
