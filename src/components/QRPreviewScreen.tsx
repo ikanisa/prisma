@@ -66,7 +66,7 @@ const QRPreviewScreen = () => {
   };
 
   const shareQRCode = async () => {
-    const shareText = `Payment Request: ${formattedAmount} UGX to ${phone}\nUSSD Code: ${ussdCode}`;
+    const shareText = `Payment Request: ${formattedAmount} RWF to ${phone}\nUSSD Code: ${ussdCode}`;
 
     if (navigator.share) {
       try {
@@ -105,89 +105,81 @@ const QRPreviewScreen = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 dark:from-gray-900 dark:via-indigo-900 dark:to-purple-900">
-      <div className="container mx-auto px-4 py-8">
-        
+    <div className="min-h-screen h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 dark:from-gray-900 dark:via-indigo-900 dark:to-purple-900 flex flex-col">
+      <div className="flex-1 flex flex-col justify-between container mx-auto px-2 py-3 max-w-md">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between mb-2 mt-1">
           <button
             onClick={() => navigate('/get-paid')}
-            className="glass-card p-3 hover:scale-110 transition-transform"
+            className="glass-card p-2 hover:scale-110 transition-transform"
+            style={{ minWidth: 40 }}
           >
-            <ArrowLeft className="w-6 h-6" />
+            <ArrowLeft className="w-5 h-5" />
           </button>
-          
-          <h1 className="text-2xl font-bold text-gray-800 dark:text-white">
+          <h1 className="text-lg font-bold text-gray-800 dark:text-white text-center">
             Payment QR Code
           </h1>
-          
-          <div className="w-12"></div>
+          <div style={{ width: 40 }}></div>
+        </div>
+        
+        {/* QR Code Display */}
+        <div className="glass-card flex flex-col items-center p-4 mb-2 max-h-60 min-h-fit">
+          {qrDataUrl ? (
+            <div className="space-y-2 flex flex-col items-center justify-center">
+              <div className="bg-white p-2 rounded-2xl inline-block qr-glow max-w-xs max-h-44 w-44 h-44 flex items-center justify-center">
+                <img 
+                  src={qrDataUrl} 
+                  alt="Payment QR Code"
+                  className="max-w-full max-h-full"
+                  style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                />
+              </div>
+              <h2 className="text-base font-bold text-gray-800 dark:text-white mt-1">
+                Pay {formattedAmount} RWF
+              </h2>
+            </div>
+          ) : (
+            <div className="py-10">
+              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-purple-600 mx-auto"></div>
+              <p className="text-gray-600 dark:text-gray-400 mt-2 text-sm">Generating QR code...</p>
+            </div>
+          )}
         </div>
 
-        <div className="max-w-md mx-auto">
-          
-          {/* QR Code Display */}
-          <div className="glass-card p-8 text-center mb-8">
-            {qrDataUrl ? (
-              <div className="space-y-6">
-                <div className="bg-white p-6 rounded-3xl inline-block qr-glow">
-                  <img 
-                    src={qrDataUrl} 
-                    alt="Payment QR Code"
-                    className="w-full max-w-xs mx-auto"
-                  />
-                </div>
-                
-                <div>
-                  <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-2">
-                    Pay {formattedAmount} UGX
-                  </h2>
-                </div>
-              </div>
-            ) : (
-              <div className="py-12">
-                <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-purple-600 mx-auto"></div>
-                <p className="text-gray-600 dark:text-gray-400 mt-4">Generating QR code...</p>
-              </div>
-            )}
-          </div>
+        {/* USSD Code Display - Responsive */}
+        <div className="glass-card p-2 sm:p-3 text-center mb-2">
+          <h3 className="text-xs sm:text-sm font-semibold text-gray-800 dark:text-white mb-1">
+            USSD Payment Code:
+          </h3>
+          <button
+            onClick={copyToClipboard}
+            className="bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 px-2 sm:px-4 py-2 rounded-xl text-xs sm:text-lg font-mono font-bold hover:scale-105 transition-transform flex items-center space-x-2 mx-auto break-all min-h-[32px]"
+          >
+            <span className="break-all">{ussdCode}</span>
+            <Copy className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
+          </button>
+          <p className="text-xs text-gray-500 mt-2">
+            Tap to copy • Dial this code to pay
+          </p>
+        </div>
 
-          {/* USSD Code Display - Fully Responsive */}
-          <div className="glass-card p-4 sm:p-6 text-center mb-8">
-            <h3 className="text-base sm:text-lg font-semibold text-gray-800 dark:text-white mb-3">
-              USSD Payment Code:
-            </h3>
-            <button
-              onClick={copyToClipboard}
-              className="bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 px-3 sm:px-6 py-3 rounded-2xl text-sm sm:text-xl font-mono font-bold hover:scale-105 transition-transform flex items-center space-x-2 mx-auto break-all"
-            >
-              <span className="break-all">{ussdCode}</span>
-              <Copy className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
-            </button>
-            <p className="text-xs sm:text-sm text-gray-500 mt-3">
-              Tap to copy • Dial this code to complete payment
-            </p>
-          </div>
+        {/* Action Buttons */}
+        <div className="grid grid-cols-2 gap-2 mb-1">
+          <button
+            onClick={saveQRCode}
+            className="btn-secondary ripple flex items-center justify-center space-x-1 py-2 text-xs"
+          >
+            <Download className="w-5 h-5" />
+            <span>Save QR</span>
+          </button>
 
-          {/* Action Buttons */}
-          <div className="grid grid-cols-2 gap-4 mb-8">
-            <button
-              onClick={saveQRCode}
-              className="btn-secondary ripple flex items-center justify-center space-x-2"
-            >
-              <Download className="w-6 h-6" />
-              <span>Save QR</span>
-            </button>
-
-            <button
-              onClick={shareQRCode}
-              className="btn-primary ripple flex items-center justify-center space-x-2"
-            >
-              <Share2 className="w-6 h-6" />
-              <span>Share QR</span>
-            </button>
-          </div>
-
+          <button
+            onClick={shareQRCode}
+            className="btn-primary ripple flex items-center justify-center space-x-1 py-2 text-xs"
+          >
+            <Share2 className="w-5 h-5" />
+            <span>Share QR</span>
+          </button>
         </div>
       </div>
     </div>
