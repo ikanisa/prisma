@@ -9,15 +9,9 @@ type TranslationDict = typeof en;
 
 const translations: Record<LangCode, TranslationDict> = { en, fr, rw, pt };
 
+// Always use Kinyarwanda for the app
 function detectLang(): LangCode {
-  // 1. Look for manual preference
-  const stored = localStorage.getItem('locale');
-  if (stored && translations[stored as LangCode]) return stored as LangCode;
-  // 2. Browser
-  const browser = navigator.language.split('-')[0];
-  if (translations[browser as LangCode]) return browser as LangCode;
-  // 3. Default
-  return 'en';
+  return 'rw';
 }
 
 /**
@@ -53,3 +47,4 @@ export function setLocale(lang: LangCode) {
 export function getLocale(): LangCode {
   return detectLang();
 }
+
