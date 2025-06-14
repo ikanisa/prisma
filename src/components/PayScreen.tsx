@@ -105,22 +105,22 @@ const PayScreen = () => {
   return (
     <div className="min-h-screen bg-black relative overflow-hidden">
       
-      {/* Header */}
-      <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between p-6">
+      {/* Header - Responsive */}
+      <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between p-4 sm:p-6 safe-area-top">
         <button
           onClick={() => navigate('/')}
-          className="glass-card p-3 text-white hover:scale-110 transition-transform"
+          className="glass-card p-2 sm:p-3 text-white hover:scale-110 transition-transform"
         >
-          <ArrowLeft className="w-6 h-6" />
+          <ArrowLeft className="w-5 h-5 sm:w-6 sm:h-6" />
         </button>
         
-        <h1 className="text-white text-xl font-semibold">Scan to Pay</h1>
+        <h1 className="text-white text-lg sm:text-xl font-semibold">Scan to Pay</h1>
         
         <button
           onClick={toggleFlash}
-          className={`glass-card p-3 transition-all ${flashEnabled ? 'bg-yellow-500/20' : ''}`}
+          className={`glass-card p-2 sm:p-3 transition-all ${flashEnabled ? 'bg-yellow-500/20' : ''}`}
         >
-          <Flashlight className={`w-6 h-6 ${flashEnabled ? 'text-yellow-400' : 'text-white'}`} />
+          <Flashlight className={`w-5 h-5 sm:w-6 sm:h-6 ${flashEnabled ? 'text-yellow-400' : 'text-white'}`} />
         </button>
       </div>
 
@@ -135,18 +135,21 @@ const PayScreen = () => {
             className="w-full h-full object-cover"
           />
           
-          {/* QR Scan Frame */}
-          <div className="absolute inset-0 flex items-center justify-center">
+          {/* QR Scan Frame - Centered and Responsive */}
+          <div className="absolute inset-0 flex items-center justify-center p-4">
             <div className="relative">
-              <div className="w-72 h-72 border-4 border-white rounded-3xl qr-glow">
-                <div className="absolute top-0 left-0 w-12 h-12 border-l-4 border-t-4 border-blue-500 rounded-tl-2xl"></div>
-                <div className="absolute top-0 right-0 w-12 h-12 border-r-4 border-t-4 border-blue-500 rounded-tr-2xl"></div>
-                <div className="absolute bottom-0 left-0 w-12 h-12 border-l-4 border-b-4 border-blue-500 rounded-bl-2xl"></div>
-                <div className="absolute bottom-0 right-0 w-12 h-12 border-r-4 border-b-4 border-blue-500 rounded-br-2xl"></div>
+              {/* Responsive QR frame */}
+              <div className="w-64 h-64 xs:w-72 xs:h-72 sm:w-80 sm:h-80 md:w-96 md:h-96 border-4 border-white rounded-3xl qr-glow">
+                {/* Corner indicators - responsive */}
+                <div className="absolute top-0 left-0 w-8 h-8 sm:w-12 sm:h-12 border-l-4 border-t-4 border-blue-500 rounded-tl-2xl"></div>
+                <div className="absolute top-0 right-0 w-8 h-8 sm:w-12 sm:h-12 border-r-4 border-t-4 border-blue-500 rounded-tr-2xl"></div>
+                <div className="absolute bottom-0 left-0 w-8 h-8 sm:w-12 sm:h-12 border-l-4 border-b-4 border-blue-500 rounded-bl-2xl"></div>
+                <div className="absolute bottom-0 right-0 w-8 h-8 sm:w-12 sm:h-12 border-r-4 border-b-4 border-blue-500 rounded-br-2xl"></div>
               </div>
               
-              <div className="absolute -bottom-16 left-1/2 transform -translate-x-1/2">
-                <p className="text-white text-center text-lg font-semibold">
+              {/* Instruction text - responsive positioning */}
+              <div className="absolute -bottom-12 sm:-bottom-16 left-1/2 transform -translate-x-1/2 px-4">
+                <p className="text-white text-center text-base sm:text-lg font-semibold whitespace-nowrap">
                   Point camera at QR code
                 </p>
               </div>
@@ -154,33 +157,33 @@ const PayScreen = () => {
           </div>
         </div>
       ) : (
-        <div className="flex flex-col items-center justify-center h-full text-white text-center p-8">
-          <Camera className="w-24 h-24 mb-6 text-gray-400" />
-          <h2 className="text-2xl font-bold mb-4">Camera Not Available</h2>
-          <p className="text-gray-300 mb-8">
+        <div className="flex flex-col items-center justify-center h-full text-white text-center p-6 sm:p-8">
+          <Camera className="w-16 h-16 sm:w-24 sm:h-24 mb-4 sm:mb-6 text-gray-400" />
+          <h2 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4">Camera Not Available</h2>
+          <p className="text-gray-300 mb-6 sm:mb-8 text-sm sm:text-base max-w-xs sm:max-w-md">
             Please allow camera access or try on a different device
           </p>
           <button
             onClick={simulateQRScan}
-            className="btn-primary"
+            className="btn-primary text-sm sm:text-base px-6 py-3 sm:px-8 sm:py-4"
           >
             Simulate QR Scan (Demo)
           </button>
         </div>
       )}
 
-      {/* USSD Button (appears after scan) */}
+      {/* USSD Button (appears after scan) - Responsive */}
       {scannedData && (
-        <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/90 to-transparent">
-          <div className="glass-card p-6 text-center">
-            <p className="text-white text-sm mb-4">Scanned Payment Code:</p>
+        <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-6 bg-gradient-to-t from-black/90 to-transparent safe-area-bottom">
+          <div className="glass-card p-4 sm:p-6 text-center max-w-md mx-auto">
+            <p className="text-white text-xs sm:text-sm mb-3 sm:mb-4">Scanned Payment Code:</p>
             <button
               onClick={launchUSSD}
-              className="w-full bg-electric-ocean text-white py-4 px-6 rounded-2xl text-xxl font-bold"
+              className="w-full bg-electric-ocean text-white py-3 sm:py-4 px-4 sm:px-6 rounded-2xl text-lg sm:text-xl font-bold break-all"
             >
               {scannedData}
             </button>
-            <p className="text-gray-300 text-sm mt-3">
+            <p className="text-gray-300 text-xs sm:text-sm mt-2 sm:mt-3">
               Tap to copy and dial this code
             </p>
           </div>

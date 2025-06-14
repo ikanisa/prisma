@@ -110,6 +110,14 @@
     @apply focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20;
     @apply min-h-[64px];
   }
+
+  .safe-area-top {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
 }
 
 /* PWA Optimizations */
