@@ -38,8 +38,8 @@ const HomeScreen = () => {
       {/* Promo Banner */}
       <PromoBanner />
       
-      <div className="container mx-auto px-4 py-8 pt-20">
-        <div className="flex flex-col items-center justify-center min-h-screen space-y-8">
+      <div className="container mx-auto px-4 py-4 pt-16 h-screen overflow-hidden">
+        <div className="flex flex-col items-center justify-center h-full space-y-6">
           
           {/* Hero Banner */}
           <div className="text-center animate-fade-slide">
@@ -49,7 +49,7 @@ Instant. Secure.</p>
           </div>
 
           {/* Main Action Buttons */}
-          <div className="w-full max-w-md space-y-6">
+          <div className="w-full max-w-md space-y-4">
             <button 
               onClick={() => navigate('/pay')} 
               className="w-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 hover:from-blue-600 hover:via-purple-600 hover:to-pink-600 text-white font-semibold py-4 px-8 rounded-2xl min-h-[64px] text-button transform transition-all duration-200 hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl ripple flex items-center justify-center space-x-4"
