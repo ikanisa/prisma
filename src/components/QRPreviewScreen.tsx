@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Download, Share2, Copy } from 'lucide-react';
@@ -148,19 +147,19 @@ const QRPreviewScreen = () => {
             )}
           </div>
 
-          {/* USSD Code Display */}
-          <div className="glass-card p-6 text-center mb-8">
-            <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-3">
+          {/* USSD Code Display - Fully Responsive */}
+          <div className="glass-card p-4 sm:p-6 text-center mb-8">
+            <h3 className="text-base sm:text-lg font-semibold text-gray-800 dark:text-white mb-3">
               USSD Payment Code:
             </h3>
             <button
               onClick={copyToClipboard}
-              className="bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 px-6 py-3 rounded-2xl text-xl font-mono font-bold hover:scale-105 transition-transform flex items-center space-x-2 mx-auto"
+              className="bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 px-3 sm:px-6 py-3 rounded-2xl text-sm sm:text-xl font-mono font-bold hover:scale-105 transition-transform flex items-center space-x-2 mx-auto break-all"
             >
-              <span>{ussdCode}</span>
-              <Copy className="w-5 h-5" />
+              <span className="break-all">{ussdCode}</span>
+              <Copy className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
             </button>
-            <p className="text-sm text-gray-500 mt-3">
+            <p className="text-xs sm:text-sm text-gray-500 mt-3">
               Tap to copy • Dial this code to complete payment
             </p>
           </div>
@@ -182,19 +181,6 @@ const QRPreviewScreen = () => {
               <Share2 className="w-6 h-6" />
               <span>Share QR</span>
             </button>
-          </div>
-
-          {/* Instructions */}
-          <div className="glass-card p-6">
-            <h3 className="text-lg font-semibold mb-3 text-gray-800 dark:text-gray-200">
-              Instructions for Payer:
-            </h3>
-            <div className="space-y-2 text-gray-600 dark:text-gray-400">
-              <p>1. Scan the QR code with any camera app</p>
-              <p>2. Copy the USSD code that appears</p>
-              <p>3. Dial the code on your phone</p>
-              <p>4. Follow your mobile money prompts</p>
-            </div>
           </div>
 
         </div>
