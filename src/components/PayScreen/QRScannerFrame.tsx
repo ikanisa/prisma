@@ -3,32 +3,56 @@ import React from 'react';
 
 const QRScannerFrame: React.FC = () => {
   return (
-    <div className="absolute inset-0 flex items-center justify-center">
+    <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none z-10">
       <div className="relative">
-        {/* Much larger QR frame that extends closer to screen edges */}
-        <div className="w-72 h-72 xs:w-80 xs:h-80 sm:w-96 sm:h-96 md:w-[28rem] md:h-[28rem] lg:w-[32rem] lg:h-[32rem] border-4 border-white rounded-3xl qr-glow">
-          {/* Corner indicators - larger and more prominent */}
-          <div className="absolute -top-2 -left-2 w-12 h-12 sm:w-16 sm:h-16 border-l-8 border-t-8 border-blue-400 rounded-tl-3xl"></div>
-          <div className="absolute -top-2 -right-2 w-12 h-12 sm:w-16 sm:h-16 border-r-8 border-t-8 border-blue-400 rounded-tr-3xl"></div>
-          <div className="absolute -bottom-2 -left-2 w-12 h-12 sm:w-16 sm:h-16 border-l-8 border-b-8 border-blue-400 rounded-bl-3xl"></div>
-          <div className="absolute -bottom-2 -right-2 w-12 h-12 sm:w-16 sm:h-16 border-r-8 border-b-8 border-blue-400 rounded-br-3xl"></div>
-          
-          {/* Scanning line animation */}
-          <div className="absolute inset-4 rounded-2xl overflow-hidden">
-            <div className="w-full h-1 bg-gradient-to-r from-transparent via-blue-400 to-transparent animate-pulse"></div>
+        {/* Main scanner frame with glassmorphism, rounded corners, and accent glow */}
+        <div className="relative w-72 h-72 xs:w-80 xs:h-80 sm:w-96 sm:h-96 md:w-[28rem] md:h-[28rem] lg:w-[32rem] lg:h-[32rem] rounded-4xl backdrop-blur-4xl bg-white/5 dark:bg-black/20 border-4 border-white/25 shadow-2xl ring-4 ring-blue-400/30 qr-glow overflow-hidden">
+          {/* Animated scanning line */}
+          <div className="absolute top-6 left-6 right-6 h-[calc(100%-3rem)] z-10 pointer-events-none">
+            <div className="relative w-full h-full">
+              <div className="absolute left-0 right-0 h-1.5 rounded bg-gradient-to-r from-transparent via-blue-400 to-transparent animate-[scanline_2s_ease-in-out_infinite] shadow-lg" style={{
+                top: 0,
+                animationName: 'scanline'
+              }} />
+            </div>
+          </div>
+          {/* Custom corner indicators with accent glow */}
+          <div className="absolute -top-3 -left-3 w-14 h-14 border-l-8 border-t-8 border-blue-400/90 rounded-tl-[2.4rem] shadow-[0_0_8px_2px_rgba(57,106,252,0.4)]" />
+          <div className="absolute -top-3 -right-3 w-14 h-14 border-r-8 border-t-8 border-blue-400/90 rounded-tr-[2.4rem] shadow-[0_0_8px_2px_rgba(57,106,252,0.4)]" />
+          <div className="absolute -bottom-3 -left-3 w-14 h-14 border-l-8 border-b-8 border-blue-400/90 rounded-bl-[2.4rem] shadow-[0_0_8px_2px_rgba(57,106,252,0.4)]" />
+          <div className="absolute -bottom-3 -right-3 w-14 h-14 border-r-8 border-b-8 border-blue-400/90 rounded-br-[2.4rem] shadow-[0_0_8px_2px_rgba(57,106,252,0.4)]" />
+        </div>
+        {/* Spotlight overlay (outside the frame) */}
+        <div className="absolute inset-0 z-0 pointer-events-none" aria-hidden="true">
+          <svg width="100%" height="100%" viewBox="0 0 100 100" className="absolute inset-0 w-full h-full">
+            <defs>
+              <radialGradient id="spotlight" cx="50%" cy="50%" r="50%" fx="50%" fy="50%">
+                <stop offset="67%" stopColor="rgba(20,22,50,0)" />
+                <stop offset="81%" stopColor="rgba(13,15,30,0.38)" />
+                <stop offset="100%" stopColor="rgba(13,15,30,0.82)" />
+              </radialGradient>
+            </defs>
+            <rect width="100" height="100" fill="url(#spotlight)" />
+          </svg>
+        </div>
+        {/* Upgraded instruction text */}
+        <div className="absolute -bottom-16 sm:-bottom-20 left-1/2 transform -translate-x-1/2 w-full flex flex-col gap-1 items-center text-center select-none">
+          <div className="glass-panel px-6 py-3 rounded-xl shadow-lg shadow-blue-400/10 bg-gradient-to-r from-blue-400/10 to-indigo-400/10 backdrop-blur-md">
+            <p className="text-white font-semibold text-lg sm:text-xl drop-shadow">Point camera at QR code</p>
+            <p className="text-blue-100 text-xs sm:text-base mt-2">Position the QR code within the frame</p>
           </div>
         </div>
-        
-        {/* Instruction text - positioned below the larger frame */}
-        <div className="absolute -bottom-16 sm:-bottom-20 left-1/2 transform -translate-x-1/2 px-4">
-          <p className="text-white text-center text-lg sm:text-xl font-semibold whitespace-nowrap">
-            Point camera at QR code
-          </p>
-          <p className="text-gray-300 text-center text-sm sm:text-base mt-2">
-            Position the QR code within the frame
-          </p>
-        </div>
       </div>
+      <style>
+        {`
+          @keyframes scanline {
+            0% { top: 4px; opacity: 0.15;}
+            12% { opacity: 1;}
+            48% { top: calc(100% - 12px); opacity: 0.75;}
+            100% { top: 4px; opacity: 0.15;}
+          }
+        `}
+      </style>
     </div>
   );
 };
