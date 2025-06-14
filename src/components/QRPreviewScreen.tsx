@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Download, Share2, Copy } from 'lucide-react';
@@ -123,15 +122,15 @@ const QRPreviewScreen = () => {
         </div>
         
         {/* QR Code Display */}
-        <div className="glass-card flex flex-col items-center p-4 mb-2 max-h-60 min-h-fit">
+        <div className="glass-card flex flex-col items-center p-4 mb-2 min-h-fit">
           {qrDataUrl ? (
             <div className="space-y-2 flex flex-col items-center justify-center">
-              <div className="bg-white p-2 rounded-2xl inline-block qr-glow max-w-xs max-h-44 w-44 h-44 flex items-center justify-center">
+              <div className="bg-white p-2 rounded-2xl inline-block qr-glow max-w-full flex items-center justify-center" style={{ width: '320px', height: '320px' }}>
                 <img 
                   src={qrDataUrl} 
                   alt="Payment QR Code"
-                  className="max-w-full max-h-full"
-                  style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                  className="rounded-xl shadow-lg"
+                  style={{ width: '288px', height: '288px', objectFit: 'contain' }}
                 />
               </div>
               <h2 className="text-base font-bold text-gray-800 dark:text-white mt-1">
