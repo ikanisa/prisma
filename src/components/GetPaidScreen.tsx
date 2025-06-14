@@ -8,18 +8,37 @@ const GetPaidScreen = () => {
   const navigate = useNavigate();
   const [amount, setAmount] = useState('');
   const [phone, setPhone] = useState('');
+  const [showAmountLabel, setShowAmountLabel] = useState(true);
+  const [showPhoneLabel, setShowPhoneLabel] = useState(true);
+  const [amountInteracted, setAmountInteracted] = useState(false);
+  const [phoneInteracted, setPhoneInteracted] = useState(false);
 
   useEffect(() => {
     // Load saved phone number from localStorage
     const savedPhone = localStorage.getItem('userPhone');
     if (savedPhone) {
       setPhone(savedPhone);
+      setPhoneInteracted(true);
+      setShowPhoneLabel(false);
     }
   }, []);
 
+  const formatAmount = (value: string) => {
+    const numbers = value.replace(/[^0-9]/g, '');
+    return numbers.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  };
+
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value.replace(/[^0-9]/g, '');
-    setAmount(value);
+    const formatted = formatAmount(value);
+    setAmount(formatted);
+  };
+
+  const handleAmountFocus = () => {
+    if (!amountInteracted) {
+      setAmountInteracted(true);
+      setShowAmountLabel(false);
+    }
   };
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -29,8 +48,16 @@ const GetPaidScreen = () => {
     localStorage.setItem('userPhone', value);
   };
 
+  const handlePhoneFocus = () => {
+    if (!phoneInteracted) {
+      setPhoneInteracted(true);
+      setShowPhoneLabel(false);
+    }
+  };
+
   const generateQRCode = () => {
-    if (!amount || !phone) {
+    const rawAmount = amount.replace(/,/g, '');
+    if (!rawAmount || !phone) {
       toast({
         title: "Missing Information",
         description: "Please enter both amount and phone number",
@@ -48,11 +75,12 @@ const GetPaidScreen = () => {
       return;
     }
 
-    navigate(`/qr-preview?amount=${amount}&phone=${phone}`);
+    navigate(`/qr-preview?amount=${rawAmount}&phone=${phone}`);
   };
 
   const sharePaymentLink = async () => {
-    if (!amount || !phone) {
+    const rawAmount = amount.replace(/,/g, '');
+    if (!rawAmount || !phone) {
       toast({
         title: "Missing Information",
         description: "Please enter both amount and phone number",
@@ -61,8 +89,8 @@ const GetPaidScreen = () => {
       return;
     }
 
-    const paymentLink = `${window.location.origin}/pay?amount=${amount}&phone=${phone}`;
-    const shareText = `Request for ${amount} UGX. Pay via Mobile Money: *182*1*1*${phone}*${amount}#`;
+    const paymentLink = `${window.location.origin}/pay?amount=${rawAmount}&phone=${phone}`;
+    const shareText = `Request for ${rawAmount} UGX. Pay via Mobile Money: *182*1*1*${phone}*${rawAmount}#`;
 
     if (navigator.share) {
       try {
@@ -107,15 +135,19 @@ const GetPaidScreen = () => {
           
           {/* Amount Input */}
           <div className="space-y-3">
-            <label htmlFor="amount" className="block text-lg font-semibold text-gray-700 dark:text-gray-300">
-              Amount (UGX)
-            </label>
+            {showAmountLabel && (
+              <label htmlFor="amount" className="block text-lg font-semibold text-gray-700 dark:text-gray-300">
+                Amount (UGX)
+              </label>
+            )}
             <input
               id="amount"
               type="text"
+              inputMode="numeric"
               value={amount}
               onChange={handleAmountChange}
-              placeholder="Enter amount"
+              onFocus={handleAmountFocus}
+              placeholder={showAmountLabel ? "Enter amount" : "Amount (UGX)"}
               className="w-full mobile-input text-center text-2xl font-bold"
               autoFocus
             />
@@ -123,15 +155,19 @@ const GetPaidScreen = () => {
 
           {/* Phone Input */}
           <div className="space-y-3">
-            <label htmlFor="phone" className="block text-lg font-semibold text-gray-700 dark:text-gray-300">
-              Your Phone Number
-            </label>
+            {showPhoneLabel && (
+              <label htmlFor="phone" className="block text-lg font-semibold text-gray-700 dark:text-gray-300">
+                Your Phone Number
+              </label>
+            )}
             <input
               id="phone"
               type="tel"
+              inputMode="numeric"
               value={phone}
               onChange={handlePhoneChange}
-              placeholder="e.g., 0788767676"
+              onFocus={handlePhoneFocus}
+              placeholder={showPhoneLabel ? "e.g., 0788767676" : "Your Phone Number"}
               className="w-full mobile-input text-center text-xl"
             />
             <p className="text-sm text-gray-500 text-center">
