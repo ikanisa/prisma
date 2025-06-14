@@ -103,7 +103,7 @@ const PayScreen = () => {
   };
 
   return (
-    <div className="min-h-screen bg-black relative overflow-hidden">
+    <div className="fixed inset-0 w-full h-full relative overflow-hidden">
       
       {/* Header - Responsive */}
       <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between p-4 sm:p-6 safe-area-top">
@@ -124,15 +124,15 @@ const PayScreen = () => {
         </button>
       </div>
 
-      {/* Camera View */}
+      {/* Camera View - Full Screen */}
       {hasCamera ? (
-        <div className="relative w-full h-full">
+        <div className="absolute inset-0 w-full h-full">
           <video
             ref={videoRef}
             autoPlay
             playsInline
             muted
-            className="w-full h-full object-cover"
+            className="absolute inset-0 w-full h-full object-cover"
           />
           
           {/* QR Scan Frame - Larger and Perfectly Centered */}
@@ -177,7 +177,7 @@ const PayScreen = () => {
           </div>
         </div>
       ) : (
-        <div className="flex flex-col items-center justify-center h-full text-white text-center p-6 sm:p-8">
+        <div className="flex flex-col items-center justify-center h-full text-white text-center p-6 sm:p-8 bg-gray-900">
           <Camera className="w-16 h-16 sm:w-24 sm:h-24 mb-4 sm:mb-6 text-gray-400" />
           <h2 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4">Camera Not Available</h2>
           <p className="text-gray-300 mb-6 sm:mb-8 text-sm sm:text-base max-w-xs sm:max-w-md">
