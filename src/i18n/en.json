@@ -1,0 +1,33 @@
+
+{
+  "home": {
+    "welcomeTitle": "Mobile Money",
+    "welcomeSubtitle": "Send & Receive Money.\nInstant. Secure.",
+    "scanPay": "Scan & Pay",
+    "requestPayment": "Request Payment",
+    "shareApp": "Share this app",
+    "joinWhatsapp": "Join WhatsApp Channel",
+    "promoBanner": "🎉 Enjoy instant payments with zero fees!"
+  },
+  "generic": {
+    "copied": "Copied!",
+    "linkCopied": "App link copied to clipboard",
+    "shareError": "Error sharing:",
+    "shareFallback": "Your link has been copied.",
+    "save": "Save",
+    "close": "Close"
+  },
+  "pay": {
+    "startingCamera": "Starting camera...",
+    "demoCameraView": "📷 Demo Camera View",
+    "qrScanned": "QR Code Scanned!",
+    "paymentCodeDetected": "Payment code detected",
+    "ussdCopiedTitle": "USSD Code Copied!",
+    "ussdCopiedDesc": "Paste in your dialer to complete payment",
+    "flashOn": "Flash On",
+    "flashOff": "Flash Off",
+    "flashDesc": "Flash toggled (demo mode)",
+    "scannedPaymentCode": "Scanned Payment Code:",
+    "tapToCopy": "Tap to copy and dial this code"
+  }
+}

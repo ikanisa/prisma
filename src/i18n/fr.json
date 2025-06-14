@@ -1,0 +1,33 @@
+
+{
+  "home": {
+    "welcomeTitle": "Argent Mobile",
+    "welcomeSubtitle": "Envoyer & Recevoir de l'argent.\nInstantané. Sécurisé.",
+    "scanPay": "Scanner & Payer",
+    "requestPayment": "Demander Paiement",
+    "shareApp": "Partager cette application",
+    "joinWhatsapp": "Rejoindre le canal WhatsApp",
+    "promoBanner": "🎉 Profitez de paiements instantanés sans frais !"
+  },
+  "generic": {
+    "copied": "Copié !",
+    "linkCopied": "Lien de l'application copié",
+    "shareError": "Erreur de partage :",
+    "shareFallback": "Votre lien a été copié.",
+    "save": "Enregistrer",
+    "close": "Fermer"
+  },
+  "pay": {
+    "startingCamera": "Démarrage de la caméra...",
+    "demoCameraView": "📷 Vue démo caméra",
+    "qrScanned": "QR Code Scanné !",
+    "paymentCodeDetected": "Code de paiement détecté",
+    "ussdCopiedTitle": "Code USSD copié !",
+    "ussdCopiedDesc": "Collez dans votre composeur pour terminer le paiement",
+    "flashOn": "Flash activé",
+    "flashOff": "Flash désactivé",
+    "flashDesc": "Flash basculé (mode démo)",
+    "scannedPaymentCode": "Code de paiement scanné :",
+    "tapToCopy": "Touchez pour copier et composer ce code"
+  }
+}

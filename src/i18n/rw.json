@@ -1,0 +1,33 @@
+
+{
+  "home": {
+    "welcomeTitle": "Mobile Money",
+    "welcomeSubtitle": "Ohereza & Akira Amafaranga.\nAko kanya. Umutekano.",
+    "scanPay": "Sikana & I wishyure",
+    "requestPayment": "Shaka Kwishyurwa",
+    "shareApp": "Sangiza iyi porogaramu",
+    "joinWhatsapp": "Injira kuri WhatsApp Channel",
+    "promoBanner": "🎉 Kwishura vuba nta kiguzi!"
+  },
+  "generic": {
+    "copied": "Byakopywa!",
+    "linkCopied": "Link y'iporogaramu yakopwe",
+    "shareError": "Ikosa mu gusangiza:",
+    "shareFallback": "Ubwo link yawe yakopwe.",
+    "save": "Bika",
+    "close": "Funga"
+  },
+  "pay": {
+    "startingCamera": "Gutangira camera...",
+    "demoCameraView": "📷 Kwerekana camera demo",
+    "qrScanned": "QR Code Yabonetse!",
+    "paymentCodeDetected": "Kode yo kwishyura yabonetse",
+    "ussdCopiedTitle": "USSD yakopwe!",
+    "ussdCopiedDesc": "Shyira muri telephone ubarangize kwishyura",
+    "flashOn": "Flash iri ON",
+    "flashOff": "Flash iri OFF",
+    "flashDesc": "Flash yavanywemo (mode demo)",
+    "scannedPaymentCode": "Kode yo kwishyura isabwe:",
+    "tapToCopy": "Kanda ukopye uhamagare ukoresheje iyi kode"
+  }
+}
