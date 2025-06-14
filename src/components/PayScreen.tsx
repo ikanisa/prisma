@@ -4,6 +4,15 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Camera, Flashlight } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
+// Extended types for torch capability
+interface ExtendedMediaTrackCapabilities extends MediaTrackCapabilities {
+  torch?: boolean;
+}
+
+interface ExtendedMediaTrackConstraintSet extends MediaTrackConstraintSet {
+  torch?: boolean;
+}
+
 const PayScreen = () => {
   const navigate = useNavigate();
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -58,11 +67,11 @@ const PayScreen = () => {
       if (videoRef.current && videoRef.current.srcObject) {
         const stream = videoRef.current.srcObject as MediaStream;
         const track = stream.getVideoTracks()[0];
-        const capabilities = track.getCapabilities();
+        const capabilities = track.getCapabilities() as ExtendedMediaTrackCapabilities;
         
         if (capabilities.torch) {
           await track.applyConstraints({
-            advanced: [{ torch: !flashEnabled }]
+            advanced: [{ torch: !flashEnabled } as ExtendedMediaTrackConstraintSet]
           });
           setFlashEnabled(!flashEnabled);
         }
