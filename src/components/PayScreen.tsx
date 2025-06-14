@@ -16,6 +16,7 @@ const PayScreen = () => {
   const [scannedData, setScannedData] = useState<string>('');
   const [hasCamera, setHasCamera] = useState(true);
   const [flashEnabled, setFlashEnabled] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     initializeCamera();
@@ -25,11 +26,17 @@ const PayScreen = () => {
   }, []);
 
   const initializeCamera = async () => {
+    setIsLoading(true);
+    console.log('Initializing camera...');
+    
     const success = await CameraService.startCamera(videoRef);
+    
     if (success) {
+      console.log('Camera started successfully');
       setIsScanning(true);
       setHasCamera(true);
     } else {
+      console.log('Camera failed to start');
       setHasCamera(false);
       toast({
         title: "Camera Access Required",
@@ -37,6 +44,8 @@ const PayScreen = () => {
         variant: "destructive"
       });
     }
+    
+    setIsLoading(false);
   };
 
   const handleToggleFlash = async () => {
@@ -45,7 +54,7 @@ const PayScreen = () => {
   };
 
   const simulateQRScan = () => {
-    // Simulate successful QR scan for demo
+    console.log('Simulating QR scan...');
     const mockUSSD = "*182*1*1*0788767676*5000#";
     setScannedData(mockUSSD);
     toast({
@@ -56,7 +65,6 @@ const PayScreen = () => {
 
   const launchUSSD = () => {
     if (scannedData) {
-      // For demo purposes, we'll copy to clipboard
       navigator.clipboard.writeText(scannedData);
       toast({
         title: "USSD Code Copied!",
@@ -65,8 +73,20 @@ const PayScreen = () => {
     }
   };
 
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="fixed inset-0 w-full h-full bg-gray-900 flex items-center justify-center">
+        <div className="text-white text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
+          <p>Starting camera...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="fixed inset-0 w-full h-full relative overflow-hidden">
+    <div className="fixed inset-0 w-full h-full bg-gray-900 overflow-hidden">
       <PayScreenHeader
         onBack={() => navigate('/')}
         onToggleFlash={handleToggleFlash}
