@@ -41,15 +41,16 @@ const CameraView: React.FC<CameraViewProps> = ({ videoRef }) => {
         className="hidden"
       />
       
-      {/* Centered scanner frame always fitting viewport */}
-      <div className="relative flex items-center justify-center w-full h-full">
+      {/* Centered scanner frame—moved upward */}
+      <div className="relative flex items-start justify-center w-full h-full">
         <div
           className="relative"
           style={{
             width: 'min(90vw, 90vh)',
             height: 'min(90vw, 90vh)',
             maxWidth: '32rem',
-            maxHeight: '32rem'
+            maxHeight: '32rem',
+            marginTop: '8vh',       // add a top margin to raise the frame
           }}
         >
           <QRScannerFrame />
