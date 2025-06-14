@@ -68,6 +68,32 @@
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
   }
+
+  /* Focus improvements for accessibility */
+  *:focus {
+    outline: none;
+  }
+
+  *:focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+
+  /* High contrast mode support */
+  @media (prefers-contrast: high) {
+    .glass-card {
+      @apply border-2 border-gray-600;
+    }
+  }
+
+  /* Reduced motion support */
+  @media (prefers-reduced-motion: reduce) {
+    * {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
 }
 
 @layer components {
@@ -80,21 +106,24 @@
   }
 
   .btn-primary {
-    @apply bg-electric-ocean text-white font-semibold py-4 px-8 rounded-2xl min-h-[64px] text-button;
+    @apply bg-electric-ocean text-white font-semibold py-4 px-8 rounded-2xl min-h-[56px] text-button;
     @apply transform transition-all duration-200 hover:scale-105 active:scale-95;
     @apply shadow-lg hover:shadow-xl;
+    @apply focus:outline-none focus:ring-4 focus:ring-blue-500/20;
   }
 
   .btn-secondary {
-    @apply bg-sunset-dream text-white font-semibold py-4 px-8 rounded-2xl min-h-[64px] text-button;
+    @apply bg-sunset-dream text-white font-semibold py-4 px-8 rounded-2xl min-h-[56px] text-button;
     @apply transform transition-all duration-200 hover:scale-105 active:scale-95;
     @apply shadow-lg hover:shadow-xl;
+    @apply focus:outline-none focus:ring-4 focus:ring-orange-500/20;
   }
 
   .btn-royal {
-    @apply bg-royal-pulse text-white font-semibold py-4 px-8 rounded-2xl min-h-[64px] text-button;
+    @apply bg-royal-pulse text-white font-semibold py-4 px-8 rounded-2xl min-h-[56px] text-button;
     @apply transform transition-all duration-200 hover:scale-105 active:scale-95;
     @apply shadow-lg hover:shadow-xl;
+    @apply focus:outline-none focus:ring-4 focus:ring-purple-500/20;
   }
 
   .icon-large {
@@ -108,7 +137,8 @@
   .mobile-input {
     @apply text-lg py-4 px-6 rounded-2xl border-2 bg-white/80 dark:bg-black/20 backdrop-blur-lg;
     @apply focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20;
-    @apply min-h-[64px];
+    @apply min-h-[56px] min-w-[44px]; /* Accessibility: minimum touch target */
+    @apply transition-all duration-200;
   }
 
   .safe-area-top {
@@ -117,6 +147,21 @@
 
   .safe-area-bottom {
     padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  /* Improved button accessibility */
+  .ripple {
+    position: relative;
+    overflow: hidden;
+    min-height: 44px; /* Minimum touch target */
+    min-width: 44px;
+  }
+
+  /* Skip link for screen readers */
+  .skip-link {
+    @apply absolute -top-10 left-4 bg-blue-600 text-white px-4 py-2 rounded;
+    @apply focus:top-4 transition-all duration-200;
+    z-index: 1000;
   }
 }
 
@@ -128,12 +173,7 @@
   }
 }
 
-/* Ripple Effect */
-.ripple {
-  position: relative;
-  overflow: hidden;
-}
-
+/* Improved ripple effect with accessibility considerations */
 .ripple::before {
   content: '';
   position: absolute;
@@ -150,4 +190,11 @@
 .ripple:active::before {
   width: 300px;
   height: 300px;
+}
+
+/* High contrast mode adjustments */
+@media (prefers-contrast: high) {
+  .btn-primary, .btn-secondary, .btn-royal {
+    @apply border-2 border-white;
+  }
 }

@@ -3,6 +3,10 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, QrCode, Link } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { ValidationUtils } from '@/utils/validation';
+import { PaymentData } from '@/types';
+import AccessibleButton from './AccessibleButton';
+import LoadingSpinner from './LoadingSpinner';
 
 const GetPaidScreen = () => {
   const navigate = useNavigate();
@@ -12,9 +16,11 @@ const GetPaidScreen = () => {
   const [showPhoneLabel, setShowPhoneLabel] = useState(true);
   const [amountInteracted, setAmountInteracted] = useState(false);
   const [phoneInteracted, setPhoneInteracted] = useState(false);
+  const [errors, setErrors] = useState<{ amount?: string; phone?: string }>({});
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [isSharing, setIsSharing] = useState(false);
 
   useEffect(() => {
-    // Load saved phone number from localStorage
     const savedPhone = localStorage.getItem('userPhone');
     if (savedPhone) {
       setPhone(savedPhone);
@@ -29,9 +35,14 @@ const GetPaidScreen = () => {
   };
 
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value.replace(/[^0-9]/g, '');
-    const formatted = formatAmount(value);
+    const value = ValidationUtils.sanitizeInput(e.target.value);
+    const cleaned = value.replace(/[^0-9]/g, '');
+    const formatted = formatAmount(cleaned);
     setAmount(formatted);
+    
+    if (errors.amount) {
+      setErrors(prev => ({ ...prev, amount: undefined }));
+    }
   };
 
   const handleAmountFocus = () => {
@@ -42,10 +53,14 @@ const GetPaidScreen = () => {
   };
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value.replace(/[^0-9]/g, '');
-    setPhone(value);
-    // Save to localStorage
-    localStorage.setItem('userPhone', value);
+    const value = ValidationUtils.sanitizeInput(e.target.value);
+    const cleaned = value.replace(/[^0-9+]/g, '');
+    setPhone(cleaned);
+    localStorage.setItem('userPhone', cleaned);
+    
+    if (errors.phone) {
+      setErrors(prev => ({ ...prev, phone: undefined }));
+    }
   };
 
   const handlePhoneFocus = () => {
@@ -55,59 +70,76 @@ const GetPaidScreen = () => {
     }
   };
 
-  const generateQRCode = () => {
+  const validateInputs = (): boolean => {
     const rawAmount = amount.replace(/,/g, '');
-    if (!rawAmount || !phone) {
+    const amountValidation = ValidationUtils.validateAmount(rawAmount);
+    const phoneValidation = ValidationUtils.validatePhoneNumber(phone);
+    
+    const newErrors: { amount?: string; phone?: string } = {};
+    
+    if (!amountValidation.isValid) {
+      newErrors.amount = amountValidation.error;
+    }
+    
+    if (!phoneValidation.isValid) {
+      newErrors.phone = phoneValidation.error;
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const generateQRCode = async () => {
+    if (!validateInputs()) return;
+    
+    setIsGenerating(true);
+    
+    try {
+      const rawAmount = amount.replace(/,/g, '');
+      await new Promise(resolve => setTimeout(resolve, 500)); // Simulate processing
+      navigate(`/qr-preview?amount=${rawAmount}&phone=${phone}`);
+    } catch (error) {
       toast({
-        title: "Missing Information",
-        description: "Please enter both amount and phone number",
+        title: "Error",
+        description: "Failed to generate QR code. Please try again.",
         variant: "destructive"
       });
-      return;
+    } finally {
+      setIsGenerating(false);
     }
-
-    if (phone.length < 10) {
-      toast({
-        title: "Invalid Phone Number",
-        description: "Please enter a valid phone number",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    navigate(`/qr-preview?amount=${rawAmount}&phone=${phone}`);
   };
 
   const sharePaymentLink = async () => {
-    const rawAmount = amount.replace(/,/g, '');
-    if (!rawAmount || !phone) {
-      toast({
-        title: "Missing Information",
-        description: "Please enter both amount and phone number",
-        variant: "destructive"
-      });
-      return;
-    }
+    if (!validateInputs()) return;
+    
+    setIsSharing(true);
+    
+    try {
+      const rawAmount = amount.replace(/,/g, '');
+      const paymentLink = `${window.location.origin}/pay?amount=${rawAmount}&phone=${phone}`;
+      const shareText = `Request for ${rawAmount} UGX. Pay via Mobile Money: *182*1*1*${phone}*${rawAmount}#`;
 
-    const paymentLink = `${window.location.origin}/pay?amount=${rawAmount}&phone=${phone}`;
-    const shareText = `Request for ${rawAmount} UGX. Pay via Mobile Money: *182*1*1*${phone}*${rawAmount}#`;
-
-    if (navigator.share) {
-      try {
+      if (navigator.share) {
         await navigator.share({
           title: 'Payment Request',
           text: shareText,
           url: paymentLink
         });
-      } catch (error) {
-        console.log('Error sharing:', error);
+      } else {
+        await navigator.clipboard.writeText(`${shareText}\n\n${paymentLink}`);
+        toast({
+          title: "Payment Link Copied!",
+          description: "Share this with the person who needs to pay you",
+        });
       }
-    } else {
-      navigator.clipboard.writeText(`${shareText}\n\n${paymentLink}`);
+    } catch (error) {
       toast({
-        title: "Payment Link Copied!",
-        description: "Share this with the person who needs to pay you",
+        title: "Error",
+        description: "Failed to share payment link. Please try again.",
+        variant: "destructive"
       });
+    } finally {
+      setIsSharing(false);
     }
   };
 
@@ -119,7 +151,8 @@ const GetPaidScreen = () => {
         <div className="flex items-center justify-between mb-8">
           <button
             onClick={() => navigate('/')}
-            className="glass-card p-3 hover:scale-110 transition-transform"
+            className="glass-card p-3 hover:scale-110 transition-transform focus:outline-none focus:ring-2 focus:ring-blue-500"
+            aria-label="Go back to home"
           >
             <ArrowLeft className="w-6 h-6" />
           </button>
@@ -128,7 +161,7 @@ const GetPaidScreen = () => {
             Request Payment
           </h1>
           
-          <div className="w-12"></div>
+          <div className="w-12" aria-hidden="true"></div>
         </div>
 
         <div className="max-w-md mx-auto space-y-8">
@@ -148,9 +181,16 @@ const GetPaidScreen = () => {
               onChange={handleAmountChange}
               onFocus={handleAmountFocus}
               placeholder={showAmountLabel ? "Enter amount" : "Amount (UGX)"}
-              className="w-full mobile-input text-center text-2xl font-bold"
+              className={`w-full mobile-input text-center text-2xl font-bold ${errors.amount ? 'border-red-500 focus:ring-red-500/20' : ''}`}
               autoFocus
+              aria-invalid={!!errors.amount}
+              aria-describedby={errors.amount ? "amount-error" : undefined}
             />
+            {errors.amount && (
+              <p id="amount-error" className="text-red-500 text-sm text-center" role="alert">
+                {errors.amount}
+              </p>
+            )}
           </div>
 
           {/* Phone Input */}
@@ -168,30 +208,52 @@ const GetPaidScreen = () => {
               onChange={handlePhoneChange}
               onFocus={handlePhoneFocus}
               placeholder={showPhoneLabel ? "e.g., 0788767676" : "Your Phone Number"}
-              className="w-full mobile-input text-center text-xl"
+              className={`w-full mobile-input text-center text-xl ${errors.phone ? 'border-red-500 focus:ring-red-500/20' : ''}`}
+              aria-invalid={!!errors.phone}
+              aria-describedby={errors.phone ? "phone-error" : "phone-help"}
             />
-            <p className="text-sm text-gray-500 text-center">
-              This number will receive the payment
-            </p>
+            {errors.phone ? (
+              <p id="phone-error" className="text-red-500 text-sm text-center" role="alert">
+                {errors.phone}
+              </p>
+            ) : (
+              <p id="phone-help" className="text-sm text-gray-500 text-center">
+                This number will receive the payment
+              </p>
+            )}
           </div>
 
           {/* Action Buttons */}
           <div className="space-y-4">
-            <button
+            <AccessibleButton
               onClick={generateQRCode}
-              className="w-full btn-royal ripple flex items-center justify-center space-x-4"
+              variant="royal"
+              size="lg"
+              loading={isGenerating}
+              className="w-full flex items-center justify-center space-x-4"
+              aria-describedby="qr-description"
             >
-              <QrCode className="icon-large" />
+              {!isGenerating && <QrCode className="icon-large" />}
               <span>Generate QR Code</span>
-            </button>
+            </AccessibleButton>
+            <p id="qr-description" className="sr-only">
+              Generate a QR code that others can scan to pay you
+            </p>
 
-            <button
+            <AccessibleButton
               onClick={sharePaymentLink}
-              className="w-full btn-primary ripple flex items-center justify-center space-x-4"
+              variant="primary"
+              size="lg"
+              loading={isSharing}
+              className="w-full flex items-center justify-center space-x-4"
+              aria-describedby="share-description"
             >
-              <Link className="icon-large" />
+              {!isSharing && <Link className="icon-large" />}
               <span>Share Payment Link</span>
-            </button>
+            </AccessibleButton>
+            <p id="share-description" className="sr-only">
+              Share a payment link via messages, email, or social media
+            </p>
           </div>
 
         </div>
