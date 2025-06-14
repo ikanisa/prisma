@@ -89,21 +89,6 @@ const HomeScreen = () => {
             </button>
           </div>
 
-          {/* App Features */}
-          <div className="w-full max-w-md mt-12">
-            <div className="glass-card p-6 text-center">
-              <h3 className="text-lg font-semibold mb-3 text-gray-800 dark:text-gray-200">
-                Why Choose Mobile Money PWA?
-              </h3>
-              <div className="space-y-2 text-gray-600 dark:text-gray-400">
-                <p>✨ Instant QR code payments</p>
-                <p>🔒 Private & secure transactions</p>
-                <p>📱 Works on any mobile browser</p>
-                <p>⚡ Lightning fast & offline ready</p>
-              </div>
-            </div>
-          </div>
-
         </div>
       </div>
     </div>
