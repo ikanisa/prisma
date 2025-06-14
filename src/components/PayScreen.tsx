@@ -135,23 +135,43 @@ const PayScreen = () => {
             className="w-full h-full object-cover"
           />
           
-          {/* QR Scan Frame - Centered and Responsive */}
-          <div className="absolute inset-0 flex items-center justify-center p-4">
+          {/* QR Scan Frame - Larger and Perfectly Centered */}
+          <div className="absolute inset-0 flex items-center justify-center">
             <div className="relative">
-              {/* Responsive QR frame */}
-              <div className="w-64 h-64 xs:w-72 xs:h-72 sm:w-80 sm:h-80 md:w-96 md:h-96 border-4 border-white rounded-3xl qr-glow">
-                {/* Corner indicators - responsive */}
-                <div className="absolute top-0 left-0 w-8 h-8 sm:w-12 sm:h-12 border-l-4 border-t-4 border-blue-500 rounded-tl-2xl"></div>
-                <div className="absolute top-0 right-0 w-8 h-8 sm:w-12 sm:h-12 border-r-4 border-t-4 border-blue-500 rounded-tr-2xl"></div>
-                <div className="absolute bottom-0 left-0 w-8 h-8 sm:w-12 sm:h-12 border-l-4 border-b-4 border-blue-500 rounded-bl-2xl"></div>
-                <div className="absolute bottom-0 right-0 w-8 h-8 sm:w-12 sm:h-12 border-r-4 border-b-4 border-blue-500 rounded-br-2xl"></div>
+              {/* Much larger QR frame that extends closer to screen edges */}
+              <div className="w-72 h-72 xs:w-80 xs:h-80 sm:w-96 sm:h-96 md:w-[28rem] md:h-[28rem] lg:w-[32rem] lg:h-[32rem] border-4 border-white rounded-3xl qr-glow">
+                {/* Corner indicators - larger and more prominent */}
+                <div className="absolute -top-2 -left-2 w-12 h-12 sm:w-16 sm:h-16 border-l-8 border-t-8 border-blue-400 rounded-tl-3xl"></div>
+                <div className="absolute -top-2 -right-2 w-12 h-12 sm:w-16 sm:h-16 border-r-8 border-t-8 border-blue-400 rounded-tr-3xl"></div>
+                <div className="absolute -bottom-2 -left-2 w-12 h-12 sm:w-16 sm:h-16 border-l-8 border-b-8 border-blue-400 rounded-bl-3xl"></div>
+                <div className="absolute -bottom-2 -right-2 w-12 h-12 sm:w-16 sm:h-16 border-r-8 border-b-8 border-blue-400 rounded-br-3xl"></div>
+                
+                {/* Scanning line animation */}
+                <div className="absolute inset-4 rounded-2xl overflow-hidden">
+                  <div className="w-full h-1 bg-gradient-to-r from-transparent via-blue-400 to-transparent animate-pulse"></div>
+                </div>
               </div>
               
-              {/* Instruction text - responsive positioning */}
-              <div className="absolute -bottom-12 sm:-bottom-16 left-1/2 transform -translate-x-1/2 px-4">
-                <p className="text-white text-center text-base sm:text-lg font-semibold whitespace-nowrap">
+              {/* Instruction text - positioned below the larger frame */}
+              <div className="absolute -bottom-16 sm:-bottom-20 left-1/2 transform -translate-x-1/2 px-4">
+                <p className="text-white text-center text-lg sm:text-xl font-semibold whitespace-nowrap">
                   Point camera at QR code
                 </p>
+                <p className="text-gray-300 text-center text-sm sm:text-base mt-2">
+                  Position the QR code within the frame
+                </p>
+              </div>
+            </div>
+          </div>
+          
+          {/* Semi-transparent overlay to highlight the scanning area */}
+          <div className="absolute inset-0 bg-black/40">
+            {/* Cut out the center scanning area */}
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="w-72 h-72 xs:w-80 xs:h-80 sm:w-96 sm:h-96 md:w-[28rem] md:h-[28rem] lg:w-[32rem] lg:h-[32rem] rounded-3xl"
+                   style={{
+                     boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.5)'
+                   }}>
               </div>
             </div>
           </div>
@@ -174,7 +194,7 @@ const PayScreen = () => {
 
       {/* USSD Button (appears after scan) - Responsive */}
       {scannedData && (
-        <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-6 bg-gradient-to-t from-black/90 to-transparent safe-area-bottom">
+        <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-6 bg-gradient-to-t from-black/90 to-transparent safe-area-bottom z-30">
           <div className="glass-card p-4 sm:p-6 text-center max-w-md mx-auto">
             <p className="text-white text-xs sm:text-sm mb-3 sm:mb-4">Scanned Payment Code:</p>
             <button
