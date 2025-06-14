@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Download, Share2, Copy } from 'lucide-react';
@@ -12,6 +13,13 @@ const QRPreviewScreen = () => {
   const amount = searchParams.get('amount') || '';
   const phone = searchParams.get('phone') || '';
   const ussdCode = `*182*1*1*${phone}*${amount}#`;
+
+  // Format amount with commas
+  const formatAmount = (value: string) => {
+    return value.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  };
+
+  const formattedAmount = formatAmount(amount);
 
   useEffect(() => {
     generateQRCode();
@@ -58,7 +66,7 @@ const QRPreviewScreen = () => {
   };
 
   const shareQRCode = async () => {
-    const shareText = `Payment Request: ${amount} UGX to ${phone}\nUSSD Code: ${ussdCode}`;
+    const shareText = `Payment Request: ${formattedAmount} UGX to ${phone}\nUSSD Code: ${ussdCode}`;
 
     if (navigator.share) {
       try {
@@ -132,11 +140,8 @@ const QRPreviewScreen = () => {
                 
                 <div>
                   <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-2">
-                    Pay {amount} UGX to {phone}
+                    Pay {formattedAmount} UGX
                   </h2>
-                  <p className="text-gray-600 dark:text-gray-400">
-                    Scan this QR code to get the payment details
-                  </p>
                 </div>
               </div>
             ) : (
