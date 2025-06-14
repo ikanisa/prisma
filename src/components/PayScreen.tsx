@@ -1,12 +1,11 @@
 
 import React, { useRef, useEffect } from 'react';
 
-const autofocusBorderSize = 80; // px, very small focus frame
+const autofocusBorderSize = 'min(96vw, 96vh)'; // large border nearly as big as screen
 
 const PayScreen = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  // Try to get camera on mount
   useEffect(() => {
     let stream: MediaStream | null = null;
     const startCamera = async () => {
@@ -19,7 +18,7 @@ const PayScreen = () => {
           videoRef.current.srcObject = stream;
         }
       } catch (e) {
-        // no fallback/error UI per request
+        // silent fail as requested
       }
     };
     startCamera();
@@ -41,7 +40,7 @@ const PayScreen = () => {
         style={{ background: "#000" }}
       />
 
-      {/* Tiny autofocus border (centered) */}
+      {/* Huge autofocus border (centered, spanning nearly both sides) */}
       <div
         className="pointer-events-none absolute z-20"
         style={{
@@ -51,10 +50,10 @@ const PayScreen = () => {
           height: autofocusBorderSize,
           transform: 'translate(-50%, -50%)',
           boxSizing: 'border-box',
-          border: '2px solid #00fff5',
-          borderRadius: 12,
-          boxShadow: '0 0 8px 1px #00fff530',
-          background: 'none'
+          border: '3px solid #00fff5',    // slightly thicker for visibility
+          borderRadius: 32,
+          boxShadow: '0 0 24px 2px #00fff590',
+          background: 'none',
         }}
         aria-label="Autofocus border"
       />
