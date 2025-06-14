@@ -2,55 +2,36 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from '@/hooks/use-toast';
-import { CameraService } from '../services/CameraService';
 import PayScreenHeader from './PayScreen/PayScreenHeader';
 import CameraView from './PayScreen/CameraView';
-import CameraErrorView from './PayScreen/CameraErrorView';
 import USSDButton from './PayScreen/USSDButton';
 
 const PayScreen = () => {
   const navigate = useNavigate();
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [isScanning, setIsScanning] = useState(false);
+  const [isScanning, setIsScanning] = useState(true);
   const [scannedData, setScannedData] = useState<string>('');
-  const [hasCamera, setHasCamera] = useState(true);
   const [flashEnabled, setFlashEnabled] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    initializeCamera();
-    return () => {
-      CameraService.stopCamera(videoRef);
-    };
+    // Simulate camera initialization with dummy data
+    const timer = setTimeout(() => {
+      console.log('Simulating camera initialization...');
+      setIsLoading(false);
+      setIsScanning(true);
+    }, 1000);
+
+    return () => clearTimeout(timer);
   }, []);
 
-  const initializeCamera = async () => {
-    setIsLoading(true);
-    console.log('Initializing camera...');
-    
-    const success = await CameraService.startCamera(videoRef);
-    
-    if (success) {
-      console.log('Camera started successfully');
-      setIsScanning(true);
-      setHasCamera(true);
-    } else {
-      console.log('Camera failed to start');
-      setHasCamera(false);
-      toast({
-        title: "Camera Access Required",
-        description: "Please allow camera access to scan QR codes",
-        variant: "destructive"
-      });
-    }
-    
-    setIsLoading(false);
-  };
-
-  const handleToggleFlash = async () => {
-    const newFlashState = await CameraService.toggleFlash(videoRef, flashEnabled);
-    setFlashEnabled(newFlashState);
+  const handleToggleFlash = () => {
+    setFlashEnabled(!flashEnabled);
+    toast({
+      title: flashEnabled ? "Flash Off" : "Flash On",
+      description: "Flash toggled (demo mode)",
+    });
   };
 
   const simulateQRScan = () => {
@@ -73,6 +54,16 @@ const PayScreen = () => {
     }
   };
 
+  // Auto-simulate QR scan after 3 seconds for demo
+  useEffect(() => {
+    if (!isLoading && !scannedData) {
+      const timer = setTimeout(() => {
+        simulateQRScan();
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [isLoading, scannedData]);
+
   // Loading state
   if (isLoading) {
     return (
@@ -93,11 +84,7 @@ const PayScreen = () => {
         flashEnabled={flashEnabled}
       />
 
-      {hasCamera ? (
-        <CameraView videoRef={videoRef} />
-      ) : (
-        <CameraErrorView onSimulateScan={simulateQRScan} />
-      )}
+      <CameraView videoRef={videoRef} />
 
       {scannedData && (
         <USSDButton scannedData={scannedData} onLaunchUSSD={launchUSSD} />
