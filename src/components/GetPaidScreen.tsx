@@ -194,19 +194,6 @@ const GetPaidScreen = () => {
             </button>
           </div>
 
-          {/* Info Card */}
-          <div className="glass-card p-6">
-            <h3 className="text-lg font-semibold mb-3 text-gray-800 dark:text-gray-200">
-              How it works:
-            </h3>
-            <div className="space-y-2 text-gray-600 dark:text-gray-400">
-              <p>1. Enter the amount and your phone number</p>
-              <p>2. Generate a QR code or share payment link</p>
-              <p>3. The payer scans the code or uses the link</p>
-              <p>4. They dial the USSD code to complete payment</p>
-            </div>
-          </div>
-
         </div>
       </div>
     </div>
