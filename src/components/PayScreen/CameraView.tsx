@@ -8,7 +8,7 @@ interface CameraViewProps {
 
 const CameraView: React.FC<CameraViewProps> = ({ videoRef }) => {
   return (
-    <div className="absolute inset-0 w-full h-full">
+    <div className="absolute inset-0 w-full h-full flex items-center justify-center">
       {/* Placeholder camera background with gradient */}
       <div className="absolute inset-0 w-full h-full bg-gradient-to-br from-gray-800 via-gray-700 to-gray-900">
         {/* Subtle pattern overlay to simulate camera view */}
@@ -41,16 +41,26 @@ const CameraView: React.FC<CameraViewProps> = ({ videoRef }) => {
         className="hidden"
       />
       
-      <QRScannerFrame />
-      
-      {/* Semi-transparent overlay to highlight the scanning area */}
-      <div className="absolute inset-0 bg-black/40">
-        {/* Cut out the center scanning area */}
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="w-72 h-72 xs:w-80 xs:h-80 sm:w-96 sm:h-96 md:w-[28rem] md:h-[28rem] lg:w-[32rem] lg:h-[32rem] rounded-3xl"
-               style={{
-                 boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.5)'
-               }}>
+      {/* Centered scanner frame always fitting viewport */}
+      <div className="relative flex items-center justify-center w-full h-full">
+        <div
+          className="relative"
+          style={{
+            width: 'min(90vw, 90vh)',
+            height: 'min(90vw, 90vh)',
+            maxWidth: '32rem',
+            maxHeight: '32rem'
+          }}
+        >
+          <QRScannerFrame />
+          {/* Semi-transparent overlay to highlight the scanning area */}
+          <div className="absolute inset-0 pointer-events-none">
+            <div
+              className="relative w-full h-full rounded-3xl"
+              style={{
+                boxShadow: '0 0 0 9999px rgba(0, 0, 0, 0.5)'
+              }}
+            ></div>
           </div>
         </div>
       </div>
