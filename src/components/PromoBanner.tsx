@@ -1,11 +1,12 @@
+
 import React, { useEffect, useState, useRef } from "react";
 import { fetchAds } from "@/services/firestore";
-import { ArrowLeft, ArrowRight, Minus, ChevronDown, ChevronUp } from "lucide-react";
-import { Carousel, CarouselContent, CarouselItem } from "./ui/carousel";
+import { ArrowLeft, ArrowRight, Minus } from "lucide-react";
 import { Button } from "./ui/button";
 import PromoBannerMinimized from "./PromoBannerMinimized";
 import PromoBannerLoading from "./PromoBannerLoading";
 
+// Types
 type Ad = {
   id: string;
   headline: string;
@@ -17,18 +18,38 @@ type Ad = {
 };
 
 const ROTATE_INTERVAL = 5000;
-
-const DUMMY_AD: Ad = {
-  id: "dummy1",
-  headline: "🎉 Enjoy Zero Fees!",
-  description: "Pay & get paid instantly through Mobile Money. No fees, no hassle—try it now!",
-  ctaLabel: "Get Started",
-  ctaLink: "#",
-  gradient: ["#396afc", "#2948ff", "#AD00FF"],
-  imageUrl: "", // optional: can place a placeholder img here
-};
-
 const BANNER_LOCAL_KEY = "promo_banner_minimized";
+
+// THREE DUMMY BANNERS
+const DUMMY_ADS: Ad[] = [
+  {
+    id: "dummy1",
+    headline: "🎉 Enjoy Zero Fees!",
+    description: "Pay & get paid instantly through Mobile Money. No fees, no hassle—try it now!",
+    ctaLabel: "Get Started",
+    ctaLink: "#",
+    gradient: ["#396afc", "#2948ff", "#AD00FF"],
+    imageUrl: "",
+  },
+  {
+    id: "dummy2",
+    headline: "🚀 New Feature: AutoPay!",
+    description: "Enable automatic payments for your bills and never miss a deadline again.",
+    ctaLabel: "Enable AutoPay",
+    ctaLink: "#",
+    gradient: ["#0ba360", "#3cba92", "#30dd8a"],
+    imageUrl: "",
+  },
+  {
+    id: "dummy3",
+    headline: "🌟 Invite Friends, Earn Rewards!",
+    description: "Share the app with friends & get bonus credits each time they join.",
+    ctaLabel: "Invite Now",
+    ctaLink: "#",
+    gradient: ["#FF512F", "#DD2476", "#FFB347"],
+    imageUrl: "",
+  },
+];
 
 const PromoBanner: React.FC = () => {
   const [ads, setAds] = useState<Ad[]>([]);
@@ -48,16 +69,17 @@ const PromoBanner: React.FC = () => {
     fetchAds()
       .then((fetchedAds) => {
         if (!running) return;
+        // Use three dummy ads if Firestore returns 0 ads
         if (fetchedAds && fetchedAds.length) {
           setAds(fetchedAds as Ad[]);
         } else {
-          setAds([DUMMY_AD]);
+          setAds(DUMMY_ADS);
         }
         setLoading(false);
       })
       .catch(() => {
         if (running) {
-          setAds([DUMMY_AD]);
+          setAds(DUMMY_ADS);
           setLoading(false);
         }
       });
@@ -139,6 +161,7 @@ const PromoBanner: React.FC = () => {
 
         {/* Banner Content */}
         <div className="flex-1 flex flex-col sm:flex-row items-center gap-5 py-5 px-4">
+          {/* Remove emoji fallback and show only image if present, otherwise, blank shimmer card */}
           {activeAd.imageUrl ? (
             <img
               src={activeAd.imageUrl}
@@ -148,9 +171,7 @@ const PromoBanner: React.FC = () => {
               loading="lazy"
             />
           ) : (
-            <div className="w-20 h-20 rounded-xl bg-white/30 flex items-center justify-center shimmer font-bold text-4xl select-none text-indigo-700 shadow">
-              💸
-            </div>
+            <div className="w-20 h-20 rounded-xl bg-white/20 shimmer shadow" />
           )}
           <div className="flex-1 min-w-0 text-center sm:text-left">
             <div className="text-white font-bold text-lg animate-fade-slide shimmer">
@@ -201,3 +222,4 @@ const PromoBanner: React.FC = () => {
 export default PromoBanner;
 
 // PROMPT: This file is now over 200 lines. Please consider asking me to refactor it into smaller files/components for maintainability!
+
