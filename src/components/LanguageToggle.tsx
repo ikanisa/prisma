@@ -1,29 +1,41 @@
 
 import React from "react";
-import { t, getLocale, setLocale } from "@/i18n";
+import { Flag } from "lucide-react";
+import { getLocale, setLocale } from "@/i18n";
 
 const langs = [
-  { code: "rw", label: "🇷🇼 Kinyarwanda" },
-  { code: "en", label: "🇬🇧 English" }
+  { code: "rw", color: "#FFD600", "aria": "Kinyarwanda" },
+  { code: "en", color: "#3776f0", "aria": "English" }
 ];
 
 const LanguageToggle: React.FC = () => {
   const current = getLocale();
+
   return (
     <div className="fixed z-[220] top-3 right-3 flex gap-2 items-center bg-white/60 dark:bg-gray-800/80 rounded-xl p-1 px-2 shadow-lg transition-all backdrop-blur-lg">
       {langs.map(lang =>
         <button
           key={lang.code}
           onClick={() => setLocale(lang.code as any)}
-          className={`px-2 py-0.5 rounded font-bold text-sm hover:bg-blue-400/20 transition ${
-            current === lang.code ? "bg-blue-600 text-white" : "text-gray-900 dark:text-gray-100"
-          }`}
           aria-pressed={current === lang.code}
+          aria-label={lang.aria}
+          className={`p-1 rounded-full hover:bg-blue-300/20 dark:hover:bg-yellow-400/20 transition
+            ${current === lang.code ? "ring-2 ring-blue-500 dark:ring-yellow-400 ring-offset-2" : ""}
+          `}
         >
-          {lang.label}
+          <Flag
+            color={lang.color}
+            className={`w-6 h-6
+              ${current === lang.code ? "scale-125 drop-shadow" : "opacity-60"}
+              transition-transform
+            `}
+            strokeWidth={2.5}
+            fill={current === lang.code ? lang.color + "33" : "none"}
+          />
         </button>
       )}
     </div>
   );
 };
 export default LanguageToggle;
+
