@@ -5,12 +5,11 @@ import { toast } from '@/hooks/use-toast';
 import { ValidationUtils } from '@/utils/validation';
 import AccessibleButton from './AccessibleButton';
 import LoadingSpinner from './LoadingSpinner';
-import { addPhone, addAmount, addQRCode, getRecentPhones, getRecentAmounts, isSimulateOffline } from '@/utils/offlineCache';
+import { addPhone, addAmount, getRecentPhones, getRecentAmounts } from '@/utils/offlineCache';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetClose } from './ui/sheet';
 import SmartPayeeInput from "./SmartPayeeInput";
-import QRCode from "qrcode";
-import { db } from "@/services/firestore";
-import { collection, addDoc, Timestamp } from "firebase/firestore";
+import { api } from '@/services/api';
+import { cloudFunctions } from '@/services/cloudFunctions';
 
 const GetPaidScreen = () => {
   const navigate = useNavigate();
@@ -19,9 +18,7 @@ const GetPaidScreen = () => {
   const [payeeType, setPayeeType] = useState<"phone"|"code"|null>(null);
   const [payeeValid, setPayeeValid] = useState(false);
   const [showAmountLabel, setShowAmountLabel] = useState(true);
-  const [showPhoneLabel, setShowPhoneLabel] = useState(true);
   const [amountInteracted, setAmountInteracted] = useState(false);
-  const [phoneInteracted, setPhoneInteracted] = useState(false);
   const [errors, setErrors] = useState<{
     amount?: string;
     phone?: string;
@@ -116,58 +113,41 @@ const GetPaidScreen = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const getUSSDString = () => {
-    const amt = amount.replace(/,/g, "");
-    if (payeeType === "phone") {
-      return `*182*1*1*${payee}*${amt}#`;
-    } else if (payeeType === "code") {
-      return `*182*8*1*${payee}*${amt}#`;
-    }
-    return "";
-  };
-
   const generateQRCode = async () => {
     if (!validateInputs()) return;
     setIsGenerating(true);
     try {
       const rawAmount = amount.replace(/,/g, '');
-      const ussdString = getUSSDString();
+      
+      // Save to cache
       addAmount(amount);
-      addQRCode({
+      addPhone(payee);
+
+      // Use new backend API
+      const result = await api.generatePaymentLink({
         phone: payee,
-        amount,
-        ussdString,
-        timestamp: Date.now(),
+        amount: parseInt(rawAmount, 10)
       });
 
-      // Save to firestore
-      await addDoc(collection(db, "qrRequests"), {
-        sessionId: (localStorage.getItem("sessionId") || Math.random().toString(36).slice(2)),
-        ussdType: payeeType,
-        payee: payee,
-        amount: parseInt(rawAmount, 10),
-        ussdString,
-        createdAt: Timestamp.now(),
+      // Navigate to QR preview with the generated data
+      const searchParams = new URLSearchParams({
+        amount: rawAmount,
+        phone: payee,
+        ussd: result.ussdString,
+        qr: result.qrCodeUrl
       });
-
-      // Save to localStorage
-      localStorage.setItem("lastPayee", payee);
-      localStorage.setItem("lastAmount", amount);
-      localStorage.setItem("lastQRType", payeeType || "");
-
-      // Generate QR code using `qrcode` lib, errorCorrectionLevel Q
-      const qrData = await QRCode.toDataURL(ussdString, {
-        width: 400, margin: 2,
-        color: { dark: "#1f2937", light: "#fff" },
-        errorCorrectionLevel: "Q"
-      });
-
-      // Animate: (existing UI/animation for QR)
-      navigate(`/qr-preview?amount=${rawAmount}&payee=${payee}&type=${payeeType}&qr=${encodeURIComponent(qrData)}`);
-    } catch (error) {
+      
+      navigate(`/qr-preview?${searchParams.toString()}`);
+      
       toast({
-        title: "Ikosa",
-        description: "QR ntiyashobotse. Ongera ugerageze.",
+        title: "QR Code Generated!",
+        description: "Your payment QR code is ready",
+      });
+    } catch (error) {
+      console.error('QR generation failed:', error);
+      toast({
+        title: "Generation Failed",
+        description: "Could not generate QR code. Please try again.",
         variant: "destructive"
       });
     } finally {
@@ -181,25 +161,33 @@ const GetPaidScreen = () => {
 
     try {
       const rawAmount = amount.replace(/,/g, '');
-      const paymentLink = `${window.location.origin}/pay?amount=${rawAmount}&phone=${payee}`;
-      const shareText = `Request for ${rawAmount} RWF. Pay via Mobile Money Rwanda: *182*8*1*${payee}*${rawAmount}#`;
+      
+      // Generate payment link using backend
+      const result = await cloudFunctions.createPaymentLink(payee, parseInt(rawAmount, 10));
+      await cloudFunctions.logShareEvent('PAYMENT_LINK');
+      
+      const shareText = `Payment Request: ${amount} RWF to ${payee}\nPay via: ${result.paymentLink}`;
 
       if (navigator.share) {
         await navigator.share({
           title: 'Payment Request (Rwanda)',
           text: shareText,
-          url: paymentLink
+          url: result.paymentLink
         });
       } else {
-        // Fallback: open share bottom sheet
         setShowShareSheet(true);
-        // No need to copy yet, wait for button in modal
         return;
       }
-    } catch (error) {
+      
       toast({
-        title: "Ikosa",
-        description: "Gusangiza link ntibyakunze, ongera ugerageze.",
+        title: "Link Shared!",
+        description: "Payment link has been shared successfully",
+      });
+    } catch (error) {
+      console.error('Share failed:', error);
+      toast({
+        title: "Share Failed",
+        description: "Could not create payment link. Please try again.",
         variant: "destructive"
       });
     } finally {
@@ -209,22 +197,23 @@ const GetPaidScreen = () => {
 
   // Copy link for fallback share sheet
   const handleCopyLink = async () => {
-    const rawAmount = amount.replace(/,/g, '');
-    const paymentLink = `${window.location.origin}/pay?amount=${rawAmount}&phone=${payee}`;
-    const shareText = `Request for ${rawAmount} RWF. Pay via Mobile Money Rwanda: *182*8*1*${payee}*${rawAmount}#\n\n${paymentLink}`;
-
     try {
+      const rawAmount = amount.replace(/,/g, '');
+      const result = await cloudFunctions.createPaymentLink(payee, parseInt(rawAmount, 10));
+      const shareText = `Payment Request: ${amount} RWF to ${payee}\nPay via: ${result.paymentLink}`;
+
       await navigator.clipboard.writeText(shareText);
       toast({
-        title: "Link yakopwe!",
-        description: "Sangiza ubu butumwa na WhatsApp, SMS, Email, cyangwa ugakopera intoki.",
+        title: "Link copied!",
+        description: "Payment link copied to clipboard",
         duration: 4000
       });
       setShowShareSheet(false);
     } catch (err) {
+      console.error('Copy failed:', err);
       toast({
-        title: "Ntibyakunze",
-        description: "Kujya kuri clipboard byanze. Gerageza kopi intoki.",
+        title: "Copy failed",
+        description: "Could not copy link to clipboard",
         variant: "destructive"
       });
     }
@@ -254,16 +243,42 @@ const GetPaidScreen = () => {
             {showAmountLabel && <label htmlFor="amount" className="block text-lg font-semibold text-gray-700 dark:text-gray-300">
                 Ingano y'Amafaranga (RWF)
               </label>}
-            <input id="amount" type="text" inputMode="numeric" value={amount} onChange={handleAmountChange} onFocus={handleAmountFocus} placeholder={showAmountLabel ? "Andika ingano y'amafaranga" : "Ingano y'amafaranga (RWF)"} className={`w-full mobile-input text-center text-2xl font-bold ${errors.amount ? 'border-red-500 focus:ring-red-500/20' : ''}`} autoFocus aria-invalid={!!errors.amount} aria-describedby={errors.amount ? "amount-error" : undefined} list="recent-amounts" />
+            <input 
+              id="amount" 
+              type="text" 
+              inputMode="numeric" 
+              value={amount} 
+              onChange={(e) => {
+                const value = ValidationUtils.sanitizeInput(e.target.value);
+                const cleaned = value.replace(/[^0-9]/g, '');
+                const formatted = cleaned.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+                setAmount(formatted);
+                if (errors.amount) {
+                  setErrors(prev => ({ ...prev, amount: undefined }));
+                }
+              }}
+              onFocus={() => {
+                if (!amountInteracted) {
+                  setAmountInteracted(true);
+                  setShowAmountLabel(false);
+                }
+              }}
+              placeholder={showAmountLabel ? "Andika ingano y'amafaranga" : "Ingano y'amafaranga (RWF)"} 
+              className={`w-full mobile-input text-center text-2xl font-bold ${errors.amount ? 'border-red-500 focus:ring-red-500/20' : ''}`} 
+              autoFocus 
+              aria-invalid={!!errors.amount} 
+              aria-describedby={errors.amount ? "amount-error" : undefined} 
+              list="recent-amounts" 
+            />
             <datalist id="recent-amounts">
-              {amountSuggestions.map(a => <option value={a} key={a} />)}
+              {getRecentAmounts().map(a => <option value={a} key={a} />)}
             </datalist>
             {errors.amount && <p id="amount-error" className="text-error text-center" role="alert">
                 {errors.amount}
               </p>}
           </div>
 
-          {/* Payee Input: MoMo Phone or Code */}
+          {/* Payee Input */}
           <SmartPayeeInput
             value={payee}
             onChange={(val, type, valid) => {
@@ -277,37 +292,33 @@ const GetPaidScreen = () => {
             label="Numero yawe ya telefone CYANGWA MoMo Code"
           />
 
-          {/* Previous phone-related error removed, replaced by SmartPayeeInput's internal feedback */}
+          {errors.phone && <p className="text-error text-center" role="alert">
+            {errors.phone}
+          </p>}
 
-          {/* recent datalist if needed */}
-
-          {/* In the validateInputs function, change the logic to validate using payeeType/payeeValid */}
-
-          {/* On QR/USSD generation, use correct USSD format */}
-
-          {/* In dynamic preview section, add context examples: */}
+          {/* Preview */}
           <div className="text-center py-2 text-lg font-medium">
             {amount && payeeValid && payeeType === "phone" && (
-              <>You're paying <span className="font-bold">{amount} RWF</span> to <span className="font-mono">{payee}</span> (MoMo Phone Number)</>
+              <>You're requesting <span className="font-bold">{amount} RWF</span> from <span className="font-mono">{payee}</span> (MoMo Phone)</>
             )}
             {amount && payeeValid && payeeType === "code" && (
-              <>You're paying <span className="font-bold">{amount} RWF</span> to <span className="font-mono">{payee}</span> (MoMo Pay Code)</>
+              <>You're requesting <span className="font-bold">{amount} RWF</span> via <span className="font-mono">{payee}</span> (MoMo Code)</>
             )}
           </div>
 
-          {/* In generateQRCode, use new USSD generator for both QR and QR code object: */}
-
-          {/* When sharing or copying, always use getUSSDString() */}
-
           {/* Action Buttons */}
           <div className="space-y-4">
-            <AccessibleButton onClick={generateQRCode} variant="royal" size="lg" loading={isGenerating} className="w-full flex items-center justify-center space-x-4" aria-describedby="qr-description">
+            <AccessibleButton 
+              onClick={generateQRCode} 
+              variant="royal" 
+              size="lg" 
+              loading={isGenerating} 
+              className="w-full flex items-center justify-center space-x-4" 
+              aria-describedby="qr-description"
+            >
               {!isGenerating && <QrCode className="icon-large" />}
               <span>Kora QR Code</span>
             </AccessibleButton>
-            <p id="qr-description" className="sr-only">
-              Kora QR code kugirango abandi babashe kukwishyura byoroshye
-            </p>
 
             <AccessibleButton
               onClick={sharePaymentLink}
@@ -320,34 +331,22 @@ const GetPaidScreen = () => {
               {!isSharing && <LinkIcon className="icon-large" />}
               <span>Sangiza Link yo Kwishyura</span>
             </AccessibleButton>
-            <p id="share-description" className="sr-only">
-              Sangiza link yo kwishyura kuri message, email, cyangwa imbuga nkoranyambaga
-            </p>
           </div>
         </div>
       </div>
-      {/* Fallback Share Sheet for desktop or unsupported devices */}
+
+      {/* Share Sheet */}
       <Sheet open={showShareSheet} onOpenChange={setShowShareSheet}>
         <SheetContent side="bottom">
           <SheetHeader>
             <SheetTitle>Sangira Link yo Kwishyura</SheetTitle>
             <SheetDescription>
-              Shyira ubu butumwa kuri WhatsApp, SMS, Email cyangwa kopi intoki.
+              Share this payment request via WhatsApp, SMS, or email.
             </SheetDescription>
           </SheetHeader>
-          <div className="my-4 bg-gray-100 dark:bg-gray-800 rounded-xl p-4 text-gray-700 dark:text-gray-200 select-all text-base">
-            <div>
-              <span className="font-semibold">Amafaranga: </span>
-              <span>{amount ? `${amount} RWF` : '-'}</span>
-            </div>
-            <div>
-              <span className="font-semibold">Numero yawe: </span>
-              <span>{payee || '-'}</span>
-            </div>
-            <div className="my-2 bg-white dark:bg-black rounded p-2 break-all font-mono text-xs">
-              <span>*182*8*1*{payee}*{amount.replace(/,/g, '')}#</span>
-            </div>
-            <div className="my-2 text-xs italic">{window.location.origin}/pay?amount={amount.replace(/,/g, '')}&phone={payee}</div>
+          <div className="my-4 bg-gray-100 dark:bg-gray-800 rounded-xl p-4 text-gray-700 dark:text-gray-200">
+            <div><span className="font-semibold">Amount: </span>{amount} RWF</div>
+            <div><span className="font-semibold">To: </span>{payee}</div>
           </div>
           <AccessibleButton
             onClick={handleCopyLink}
@@ -356,10 +355,10 @@ const GetPaidScreen = () => {
             className="w-full flex items-center justify-center space-x-2"
           >
             <CopyIcon />
-            <span>Kopa Link</span>
+            <span>Copy Payment Link</span>
           </AccessibleButton>
           <SheetClose asChild>
-            <button className="mt-4 underline w-full text-sm text-center text-blue-600 dark:text-blue-300">Funga</button>
+            <button className="mt-4 underline w-full text-sm text-center text-blue-600 dark:text-blue-300">Close</button>
           </SheetClose>
         </SheetContent>
       </Sheet>
