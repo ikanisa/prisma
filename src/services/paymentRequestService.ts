@@ -1,6 +1,7 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { getSessionId } from './supabaseService';
+import { generateUSSDCode } from '@/utils/ussdHelper';
 
 export interface PaymentRequest {
   id: string;
@@ -14,7 +15,8 @@ export interface PaymentRequest {
 export const paymentRequestService = {
   async createPaymentRequest(momoNumber: string, amount: number): Promise<PaymentRequest> {
     const sessionId = getSessionId();
-    const ussdCode = `*182*1*1*${momoNumber}*${amount}#`;
+    // Use the helper function to ensure exact USSD format
+    const ussdCode = generateUSSDCode(momoNumber, amount);
     
     const { data, error } = await supabase
       .from('payment_requests')

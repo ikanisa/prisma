@@ -7,6 +7,7 @@ export const formatUSSDForTel = (ussdCode: string): string => {
 };
 
 export const generateUSSDCode = (momoNumber: string, amount: number | string): string => {
+  // Ensure exact format: *182*1*1*{phone}*{amount}#
   return `*182*1*1*${momoNumber}*${amount}#`;
 };
 
@@ -15,4 +16,10 @@ export const extractUSSDFromQR = (qrData: string): string | null => {
   const ussdRegex = /\*182\*[0-9\*#]+/;
   const match = qrData.match(ussdRegex);
   return match ? match[0] : null;
+};
+
+export const validateUSSDFormat = (ussdCode: string): boolean => {
+  // Validate USSD format: *182*1*1*{phone}*{amount}#
+  const ussdPattern = /^\*182\*1\*1\*\d+\*\d+#$/;
+  return ussdPattern.test(ussdCode);
 };

@@ -5,6 +5,7 @@ import { Button } from '../ui/button';
 import { Card, CardContent } from '../ui/card';
 import { useQRActions } from '@/hooks/useQRActions';
 import USSDDialButton from '../USSDDialButton';
+import SmartQRCode from '../SmartQRCode';
 
 interface QRResultProps {
   qrResult: any;
@@ -23,7 +24,8 @@ const QRResult: React.FC<QRResultProps> = ({
 
   if (!qrResult) return null;
 
-  const ussdString = qrResult?.ussdString || (phone && amount ? `*182*1*1*${phone}*${amount}#` : '');
+  // Ensure USSD string follows exact format: *182*1*1*{phone}*{amount}#
+  const ussdString = `*182*1*1*${phone}*${amount}#`;
 
   const handleDownloadQR = () => {
     downloadQR(qrResult, phone, amount);
@@ -49,18 +51,27 @@ const QRResult: React.FC<QRResultProps> = ({
             Payment QR Code
           </h3>
           <div className="bg-white p-4 rounded-xl shadow-sm inline-block">
-            <img 
-              src={qrResult.qrCodeImage} 
+            <SmartQRCode 
+              value={ussdString}
               alt="Payment QR Code"
-              className="w-48 h-48 mx-auto"
+              size={200}
+              gradient="electric-ocean"
+              className="mx-auto"
             />
+          </div>
+          
+          {/* Display the exact USSD string below QR */}
+          <div className="mt-4 bg-gray-900 rounded-xl p-4">
+            <p className="text-white font-mono text-lg font-bold tracking-wider break-all">
+              {ussdString}
+            </p>
           </div>
         </div>
 
         {/* USSD Dial Section */}
         <div className="space-y-3">
           <h4 className="text-md font-semibold text-gray-800 text-center">
-            USSD Payment Code
+            Mobile Money Payment Code
           </h4>
           <USSDDialButton 
             ussdCode={ussdString}
