@@ -1,3 +1,4 @@
+
 import { getSessionId } from './supabaseService';
 
 export interface AnalyticsEvent {

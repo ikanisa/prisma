@@ -1,62 +1,83 @@
 
 import { analyticsService } from './analyticsService';
+import { getConfig } from '@/utils/productionConfig';
 
-export interface ErrorDetails {
-  message: string;
-  stack?: string;
-  componentStack?: string;
-  errorBoundary?: string;
-  userAgent?: string;
-  url?: string;
-  timestamp?: string;
+interface ErrorContext {
+  component?: string;
+  action?: string;
+  userId?: string;
+  sessionId?: string;
+  [key: string]: any;
 }
 
-export const errorMonitoringService = {
-  async logError(error: Error | string, context?: string, additionalData?: Record<string, any>) {
-    try {
-      const errorDetails: ErrorDetails = {
-        message: typeof error === 'string' ? error : error.message,
-        stack: typeof error === 'object' && error.stack ? error.stack : undefined,
-        userAgent: navigator.userAgent,
-        url: window.location.href,
-        timestamp: new Date().toISOString(),
-        ...additionalData
-      };
+class ErrorMonitoringService {
+  private errorCount = 0;
+  private config = getConfig();
 
-      // Log to analytics
-      await analyticsService.trackError(errorDetails.message, context || 'unknown');
-
-      // Log to console for development
-      console.error('[Error Monitoring]', {
-        error: errorDetails,
-        context,
-        additionalData
-      });
-
-      return true;
-    } catch (monitoringError) {
-      console.error('Error monitoring failed:', monitoringError);
-      return false;
+  logError(error: Error, context?: string, metadata?: ErrorContext) {
+    this.errorCount++;
+    
+    // Prevent spam - max errors per session
+    if (this.errorCount > this.config.errorReporting.maxErrorsPerSession) {
+      return;
     }
-  },
 
-  // Specific error logging methods
-  logNetworkError(url: string, status?: number) {
-    return this.logError(`Network error: ${status || 'Unknown'} for ${url}`, 'network');
-  },
+    const errorData = {
+      message: error.message,
+      stack: error.stack,
+      context: context || 'unknown',
+      timestamp: new Date().toISOString(),
+      userAgent: this.config.errorReporting.includeUserAgent ? navigator.userAgent : undefined,
+      url: this.config.errorReporting.includeUrl ? window.location.href : undefined,
+      metadata
+    };
+
+    // Log to console in development
+    if (this.config.features.debugMode) {
+      console.error('[Error Monitor]', errorData);
+    }
+
+    // Track via analytics
+    analyticsService.trackError(error.message, context || 'unknown');
+  }
 
   logValidationError(field: string, value: any) {
-    return this.logError(`Validation failed for ${field}`, 'validation', { field, value });
-  },
-
-  logUserError(action: string, details?: Record<string, any>) {
-    return this.logError(`User error during ${action}`, 'user_action', details);
+    this.logError(new Error(`Validation failed for ${field}`), 'validation', {
+      field,
+      value: typeof value,
+      hasValue: !!value
+    });
   }
-};
+
+  logNetworkError(endpoint: string, status?: number) {
+    this.logError(new Error(`Network error at ${endpoint}`), 'network', {
+      endpoint,
+      status
+    });
+  }
+
+  logSupabaseError(operation: string, error: any) {
+    this.logError(new Error(`Supabase ${operation} failed: ${error.message}`), 'supabase', {
+      operation,
+      errorCode: error.code,
+      errorDetails: error.details
+    });
+  }
+
+  getErrorCount() {
+    return this.errorCount;
+  }
+
+  resetErrorCount() {
+    this.errorCount = 0;
+  }
+}
+
+export const errorMonitoringService = new ErrorMonitoringService();
 
 // Global error handler
 window.addEventListener('error', (event) => {
-  errorMonitoringService.logError(event.error || event.message, 'global_error', {
+  errorMonitoringService.logError(event.error, 'global', {
     filename: event.filename,
     lineno: event.lineno,
     colno: event.colno
@@ -66,7 +87,8 @@ window.addEventListener('error', (event) => {
 // Unhandled promise rejection handler
 window.addEventListener('unhandledrejection', (event) => {
   errorMonitoringService.logError(
-    `Unhandled promise rejection: ${event.reason}`,
-    'promise_rejection'
+    new Error(event.reason?.message || 'Unhandled promise rejection'),
+    'promise_rejection',
+    { reason: event.reason }
   );
 });

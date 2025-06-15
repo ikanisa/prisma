@@ -15,6 +15,19 @@ serve(async (req) => {
   try {
     const { setting_name, setting_value, is_local = false } = await req.json()
 
+    if (!setting_name || !setting_value) {
+      return new Response(
+        JSON.stringify({ 
+          error: 'Missing required fields: setting_name, setting_value',
+          code: 'MISSING_FIELDS'
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400,
+        }
+      )
+    }
+
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -26,7 +39,20 @@ serve(async (req) => {
       is_local
     })
 
-    if (error) throw error
+    if (error) {
+      console.error('Set config error:', error)
+      return new Response(
+        JSON.stringify({ 
+          error: 'Failed to set configuration',
+          code: 'CONFIG_SET_FAILED',
+          details: error.message
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 500,
+        }
+      )
+    }
 
     return new Response(
       JSON.stringify({ result: data }),
@@ -37,12 +63,16 @@ serve(async (req) => {
     )
 
   } catch (error) {
-    console.error('Error:', error)
+    console.error('Unexpected error:', error)
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: 'Internal server error',
+        code: 'INTERNAL_ERROR',
+        message: error.message
+      }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400,
+        status: 500,
       }
     )
   }

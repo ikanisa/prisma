@@ -16,7 +16,16 @@ serve(async (req) => {
     const { receiver, amount, sessionId } = await req.json()
 
     if (!receiver || !amount || !sessionId) {
-      throw new Error('Missing required fields: receiver, amount, sessionId')
+      return new Response(
+        JSON.stringify({ 
+          error: 'Missing required fields: receiver, amount, sessionId',
+          code: 'MISSING_FIELDS'
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400,
+        }
+      )
     }
 
     const supabaseClient = createClient(
@@ -25,11 +34,15 @@ serve(async (req) => {
     )
 
     // Set session context for RLS
-    await supabaseClient.rpc('set_config', {
-      setting_name: 'app.session_id',
-      setting_value: sessionId,
-      is_local: false
-    })
+    try {
+      await supabaseClient.rpc('set_config', {
+        setting_name: 'app.session_id',
+        setting_value: sessionId,
+        is_local: false
+      })
+    } catch (err) {
+      console.warn('Could not set session context:', err)
+    }
 
     // Create shared link
     const { data: linkData, error: linkError } = await supabaseClient
@@ -41,24 +54,42 @@ serve(async (req) => {
       })
       .select()
 
-    if (linkError) throw linkError
+    if (linkError) {
+      console.error('Link creation error:', linkError)
+      return new Response(
+        JSON.stringify({ 
+          error: 'Failed to create payment link',
+          code: 'LINK_CREATION_FAILED',
+          details: linkError.message
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 500,
+        }
+      )
+    }
 
     // Generate payment link URL
-    const baseUrl = req.headers.get('origin') || 'https://your-app.com'
-    const paymentLink = `${baseUrl}/pay/${linkData[0].link_token}`
+    const baseUrl = req.headers.get('origin') || req.headers.get('referer') || 'https://your-app.com'
+    const cleanBaseUrl = baseUrl.replace(/\/$/, '') // Remove trailing slash
+    const paymentLink = `${cleanBaseUrl}/shared/${linkData[0].link_token}`
 
     // Log analytics event
-    await supabaseClient
-      .from('events')
-      .insert({
-        session_id: sessionId,
-        event_type: 'payment_link_created',
-        event_data: {
-          receiver,
-          amount: parseInt(amount),
-          link_token: linkData[0].link_token
-        }
-      })
+    try {
+      await supabaseClient
+        .from('events')
+        .insert({
+          session_id: sessionId,
+          event_type: 'payment_link_created',
+          event_data: {
+            receiver,
+            amount: parseInt(amount),
+            link_token: linkData[0].link_token
+          }
+        })
+    } catch (analyticsError) {
+      console.warn('Analytics logging failed:', analyticsError)
+    }
 
     return new Response(
       JSON.stringify({
@@ -73,12 +104,16 @@ serve(async (req) => {
     )
 
   } catch (error) {
-    console.error('Error:', error)
+    console.error('Unexpected error:', error)
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: 'Internal server error',
+        code: 'INTERNAL_ERROR',
+        message: error.message
+      }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400,
+        status: 500,
       }
     )
   }

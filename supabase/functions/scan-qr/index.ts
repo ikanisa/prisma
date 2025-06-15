@@ -16,7 +16,16 @@ serve(async (req) => {
     const { qrImage, sessionId } = await req.json()
 
     if (!qrImage || !sessionId) {
-      throw new Error('Missing required fields: qrImage, sessionId')
+      return new Response(
+        JSON.stringify({ 
+          error: 'Missing required fields: qrImage, sessionId',
+          code: 'MISSING_FIELDS'
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400,
+        }
+      )
     }
 
     const supabaseClient = createClient(
@@ -25,11 +34,15 @@ serve(async (req) => {
     )
 
     // Set session context for RLS
-    await supabaseClient.rpc('set_config', {
-      setting_name: 'app.session_id',
-      setting_value: sessionId,
-      is_local: false
-    })
+    try {
+      await supabaseClient.rpc('set_config', {
+        setting_name: 'app.session_id',
+        setting_value: sessionId,
+        is_local: false
+      })
+    } catch (err) {
+      console.warn('Could not set session context:', err)
+    }
 
     // Simple pattern matching for USSD codes in the image
     // In a real implementation, you'd use OCR or QR code decoding
@@ -41,7 +54,16 @@ serve(async (req) => {
     const match = simulatedUssdString.match(ussdPattern)
     
     if (!match) {
-      throw new Error('Could not decode USSD string from QR code')
+      return new Response(
+        JSON.stringify({ 
+          error: 'Could not decode USSD string from QR code',
+          code: 'QR_DECODE_FAILED'
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400,
+        }
+      )
     }
 
     const [, receiver, amount] = match
@@ -57,19 +79,26 @@ serve(async (req) => {
         ussd_string: simulatedUssdString
       })
 
-    if (historyError) throw historyError
+    if (historyError) {
+      console.error('History insert error:', historyError)
+      // Continue anyway, as scan succeeded
+    }
 
     // Log analytics event
-    await supabaseClient
-      .from('events')
-      .insert({
-        session_id: sessionId,
-        event_type: 'qr_scanned',
-        event_data: {
-          receiver,
-          amount: parseInt(amount)
-        }
-      })
+    try {
+      await supabaseClient
+        .from('events')
+        .insert({
+          session_id: sessionId,
+          event_type: 'qr_scanned',
+          event_data: {
+            receiver,
+            amount: parseInt(amount)
+          }
+        })
+    } catch (analyticsError) {
+      console.warn('Analytics logging failed:', analyticsError)
+    }
 
     return new Response(
       JSON.stringify({
@@ -85,12 +114,16 @@ serve(async (req) => {
     )
 
   } catch (error) {
-    console.error('Error:', error)
+    console.error('Unexpected error:', error)
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: 'Internal server error',
+        code: 'INTERNAL_ERROR',
+        message: error.message
+      }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400,
+        status: 500,
       }
     )
   }

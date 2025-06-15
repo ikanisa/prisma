@@ -17,7 +17,16 @@ serve(async (req) => {
     const { receiver, amount, sessionId } = await req.json()
 
     if (!receiver || !amount || !sessionId) {
-      throw new Error('Missing required fields: receiver, amount, sessionId')
+      return new Response(
+        JSON.stringify({ 
+          error: 'Missing required fields: receiver, amount, sessionId',
+          code: 'MISSING_FIELDS'
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400,
+        }
+      )
     }
 
     const supabaseClient = createClient(
@@ -26,17 +35,34 @@ serve(async (req) => {
     )
 
     // Set session context for RLS
-    await supabaseClient.rpc('set_config', {
-      setting_name: 'app.session_id',
-      setting_value: sessionId,
-      is_local: false
-    })
+    try {
+      await supabaseClient.rpc('set_config', {
+        setting_name: 'app.session_id',
+        setting_value: sessionId,
+        is_local: false
+      })
+    } catch (err) {
+      console.warn('Could not set session context:', err)
+    }
 
     // Generate USSD string using database function
     const { data: ussdData, error: ussdError } = await supabaseClient
       .rpc('generate_ussd_string', { input_value: receiver, amount: parseInt(amount) })
 
-    if (ussdError) throw ussdError
+    if (ussdError) {
+      console.error('USSD generation error:', ussdError)
+      return new Response(
+        JSON.stringify({ 
+          error: 'Failed to generate USSD string',
+          code: 'USSD_GENERATION_FAILED',
+          details: ussdError.message
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 500,
+        }
+      )
+    }
 
     const ussdString = ussdData
 
@@ -44,7 +70,20 @@ serve(async (req) => {
     const { data: methodData, error: methodError } = await supabaseClient
       .rpc('detect_payment_method', { input_value: receiver })
 
-    if (methodError) throw methodError
+    if (methodError) {
+      console.error('Method detection error:', methodError)
+      return new Response(
+        JSON.stringify({ 
+          error: 'Failed to detect payment method',
+          code: 'METHOD_DETECTION_FAILED',
+          details: methodError.message
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 500,
+        }
+      )
+    }
 
     // Generate QR code
     const qrCodeDataURL = await QRCode.toDataURL(ussdString, {
@@ -63,18 +102,26 @@ serve(async (req) => {
 
     // Upload to Supabase Storage
     const fileName = `${sessionId}/${Date.now()}.png`
-    const { data: uploadData, error: uploadError } = await supabaseClient.storage
-      .from('qr-codes')
-      .upload(fileName, qrCodeBlob, {
-        contentType: 'image/png'
-      })
+    let publicUrl = qrCodeDataURL // Fallback to data URL
 
-    if (uploadError) throw uploadError
+    try {
+      const { data: uploadData, error: uploadError } = await supabaseClient.storage
+        .from('qr-codes')
+        .upload(fileName, qrCodeBlob, {
+          contentType: 'image/png'
+        })
 
-    // Get public URL
-    const { data: { publicUrl } } = supabaseClient.storage
-      .from('qr-codes')
-      .getPublicUrl(fileName)
+      if (!uploadError) {
+        const { data: { publicUrl: storageUrl } } = supabaseClient.storage
+          .from('qr-codes')
+          .getPublicUrl(fileName)
+        publicUrl = storageUrl
+      } else {
+        console.warn('Storage upload failed, using data URL:', uploadError)
+      }
+    } catch (storageError) {
+      console.warn('Storage operation failed:', storageError)
+    }
 
     // Save to payments table
     const { data: paymentData, error: paymentError } = await supabaseClient
@@ -90,7 +137,10 @@ serve(async (req) => {
       })
       .select()
 
-    if (paymentError) throw paymentError
+    if (paymentError) {
+      console.error('Payment insert error:', paymentError)
+      // Continue anyway, as QR generation succeeded
+    }
 
     // Save to QR history
     const { error: historyError } = await supabaseClient
@@ -104,27 +154,34 @@ serve(async (req) => {
         qr_image_url: publicUrl
       })
 
-    if (historyError) throw historyError
+    if (historyError) {
+      console.error('History insert error:', historyError)
+      // Continue anyway, as QR generation succeeded
+    }
 
     // Log analytics event
-    await supabaseClient
-      .from('events')
-      .insert({
-        session_id: sessionId,
-        event_type: 'qr_generated',
-        event_data: {
-          receiver,
-          amount: parseInt(amount),
-          method: methodData
-        }
-      })
+    try {
+      await supabaseClient
+        .from('events')
+        .insert({
+          session_id: sessionId,
+          event_type: 'qr_generated',
+          event_data: {
+            receiver,
+            amount: parseInt(amount),
+            method: methodData
+          }
+        })
+    } catch (analyticsError) {
+      console.warn('Analytics logging failed:', analyticsError)
+    }
 
     return new Response(
       JSON.stringify({
         qrCodeImage: qrCodeDataURL,
         qrCodeUrl: publicUrl,
         ussdString,
-        paymentId: paymentData[0]?.id
+        paymentId: paymentData?.[0]?.id
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -133,12 +190,16 @@ serve(async (req) => {
     )
 
   } catch (error) {
-    console.error('Error:', error)
+    console.error('Unexpected error:', error)
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: 'Internal server error',
+        code: 'INTERNAL_ERROR',
+        message: error.message
+      }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400,
+        status: 500,
       }
     )
   }
