@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { QrCode } from 'lucide-react';
 import { Button } from '../ui/button';
@@ -67,6 +68,9 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
             onFocus={onPhoneFocus}
             placeholder="Enter mobile money number"
             className="text-lg"
+            inputMode="numeric"
+            pattern="\d*"
+            autoComplete="off"
           />
         </div>
 
