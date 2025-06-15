@@ -1,0 +1,52 @@
+
+@tailwind components;
+
+@layer components {
+  .glass-panel {
+    @apply backdrop-blur-xl bg-white/10 dark:bg-black/10 border border-white/20 dark:border-white/10;
+  }
+  .glass-card {
+    @apply backdrop-blur-2xl bg-white/20 dark:bg-black/20 border border-white/30 dark:border-white/20 rounded-3xl;
+  }
+  .btn-primary {
+    @apply bg-electric-ocean text-white font-semibold py-4 px-8 rounded-2xl min-h-[56px] text-button;
+    @apply transform transition-all duration-200 hover:scale-105 active:scale-95;
+    @apply shadow-lg hover:shadow-xl;
+    @apply focus:outline-none focus:ring-4 focus:ring-blue-500/20;
+  }
+  .btn-secondary {
+    @apply bg-sunset-dream text-white font-semibold py-4 px-8 rounded-2xl min-h-[56px] text-button;
+    @apply transform transition-all duration-200 hover:scale-105 active:scale-95;
+    @apply shadow-lg hover:shadow-xl;
+    @apply focus:outline-none focus:ring-4 focus:ring-orange-500/20;
+  }
+  .btn-royal {
+    @apply bg-royal-pulse text-white font-semibold py-4 px-8 rounded-2xl min-h-[56px] text-button;
+    @apply transform transition-all duration-200 hover:scale-105 active:scale-95;
+    @apply shadow-lg hover:shadow-xl;
+    @apply focus:outline-none focus:ring-4 focus:ring-purple-500/20;
+  }
+  .icon-large { @apply w-12 h-12; }
+  .qr-glow { @apply animate-glow-pulse rounded-3xl; }
+  .mobile-input {
+    @apply text-lg py-4 px-6 rounded-2xl border-2 bg-white/80 dark:bg-black/20 backdrop-blur-lg;
+    @apply focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20;
+    @apply min-h-[56px] min-w-[44px];
+    @apply transition-all duration-200;
+  }
+  .safe-area-top { padding-top: env(safe-area-inset-top);}
+  .safe-area-bottom { padding-bottom: env(safe-area-inset-bottom);}
+  .ripple {
+    position: relative;
+    overflow: hidden;
+    min-height: 44px;
+    min-width: 44px;
+  }
+  .text-helper { @apply text-blue-800 dark:text-blue-200 text-opacity-90;}
+  .text-error { @apply text-red-600 dark:text-red-400 text-opacity-95 font-semibold;}
+  /* High contrast mode support */
+  @media (prefers-contrast: high) {
+    .glass-card { @apply border-2 border-gray-600; }
+    .btn-primary, .btn-secondary, .btn-royal { @apply border-2 border-white;}
+  }
+}
