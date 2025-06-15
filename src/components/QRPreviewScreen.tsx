@@ -4,6 +4,7 @@ import { ArrowLeft, Download, Share2, Copy } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import QRCode from 'qrcode';
 import FloatingBadge from './FloatingBadge';
+import { addQRCode, getRecentQRCodes, isSimulateOffline } from '@/utils/offlineCache';
 
 const QRPreviewScreen = () => {
   const navigate = useNavigate();
@@ -103,6 +104,37 @@ const QRPreviewScreen = () => {
     setTimeout(() => setShowCopied(false), 1200);
   };
 
+  const offline = !navigator.onLine || isSimulateOffline();
+
+  useEffect(() => {
+    // Generate/save QR to cache for offline revisit
+    if (amount && phone) {
+      const qrObj = {
+        phone,
+        amount,
+        ussdString: ussdCode,
+        qrDataUrl,
+        timestamp: Date.now()
+      };
+      addQRCode(qrObj);
+    }
+  }, [qrDataUrl]);
+
+  let displayQR = qrDataUrl;
+  let displayAmount = formattedAmount;
+  let displayPhone = phone;
+  let displayUSSD = ussdCode;
+
+  if (offline && !qrDataUrl) {
+    const cached = getRecentQRCodes()[0];
+    if (cached) {
+      displayQR = cached.qrDataUrl ?? "";
+      displayAmount = cached.amount;
+      displayPhone = cached.phone;
+      displayUSSD = cached.ussdString;
+    }
+  }
+
   return (
     <div className="min-h-screen h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 dark:from-gray-900 dark:via-indigo-900 dark:to-purple-900 flex flex-col">
       <div className="flex-1 flex flex-col justify-between container mx-auto px-2 py-3 max-w-md">
@@ -123,18 +155,18 @@ const QRPreviewScreen = () => {
         
         {/* QR Code Display */}
         <div className="glass-card flex flex-col items-center p-4 mb-2 min-h-fit animate-fade-in">
-          {qrDataUrl ? (
+          {displayQR ? (
             <div className="space-y-2 flex flex-col items-center justify-center">
               <div className="bg-white p-2 rounded-2xl inline-block qr-glow max-w-full flex items-center justify-center" style={{ width: '320px', height: '320px' }}>
                 <img 
-                  src={qrDataUrl} 
+                  src={displayQR} 
                   alt="Payment QR Code"
                   className="rounded-xl shadow-lg"
                   style={{ width: '288px', height: '288px', objectFit: 'contain' }}
                 />
               </div>
               <h2 className="text-base font-bold text-gray-800 dark:text-white mt-1">
-                Pay {formattedAmount} RWF
+                Pay {displayAmount} RWF
               </h2>
             </div>
           ) : (
@@ -182,6 +214,12 @@ const QRPreviewScreen = () => {
         </div>
       </div>
       {showCopied && <FloatingBadge label="Copied!" />}
+      {offline && (
+        <div className="bg-yellow-100 border-t border-yellow-400 text-yellow-900 p-2 text-center text-sm rounded-b-xl">
+          <span role="img" aria-label="offline" className="mr-1">📴</span>
+          You’re offline – displaying most recent QR. Some actions may be limited.
+        </div>
+      )}
     </div>
   );
 };

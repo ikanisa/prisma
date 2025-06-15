@@ -5,6 +5,7 @@ import { toast } from '@/hooks/use-toast';
 import { ValidationUtils } from '@/utils/validation';
 import AccessibleButton from './AccessibleButton';
 import LoadingSpinner from './LoadingSpinner';
+import { addPhone, addAmount, addQRCode, getRecentPhones, getRecentAmounts, isSimulateOffline } from '@/utils/offlineCache';
 
 const GetPaidScreen = () => {
   const navigate = useNavigate();
@@ -17,6 +18,15 @@ const GetPaidScreen = () => {
   const [errors, setErrors] = useState<{ amount?: string; phone?: string }>({});
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
+
+  useEffect(() => {
+    // Autofill from cache if nothing in localStorage
+    if (!phone) {
+      const fromCache = getRecentPhones()[0];
+      if (fromCache) setPhone(fromCache);
+    }
+    // Optionally autofill recent amount below
+  }, []);
 
   useEffect(() => {
     const savedPhone = localStorage.getItem('userPhone');
@@ -86,7 +96,25 @@ const GetPaidScreen = () => {
     setIsGenerating(true);
     try {
       const rawAmount = amount.replace(/,/g, '');
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Save to local cache for offline re-use
+      addPhone(phone);
+      addAmount(amount);
+      addQRCode({
+        phone,
+        amount,
+        ussdString: `*182*1*1*${phone}*${rawAmount}#`,
+        timestamp: Date.now()
+      });
+
+      const offline = !navigator.onLine || isSimulateOffline();
+      if (offline) {
+        toast({
+          title: "Offline Mode",
+          description: "QR generated offline. Save/share or revisit from QR history.",
+        });
+      } else {
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
       navigate(`/qr-preview?amount=${rawAmount}&phone=${phone}`);
     } catch (error) {
       toast({
@@ -131,6 +159,10 @@ const GetPaidScreen = () => {
     }
   };
 
+  // Autofill recent values if offline
+  const phoneSuggestions = getRecentPhones();
+  const amountSuggestions = getRecentAmounts();
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-orange-50 dark:from-gray-900 dark:via-purple-900 dark:to-pink-900">
       <div className="container mx-auto px-4 py-8">
@@ -169,7 +201,11 @@ const GetPaidScreen = () => {
               autoFocus
               aria-invalid={!!errors.amount}
               aria-describedby={errors.amount ? "amount-error" : undefined}
+              list="recent-amounts"
             />
+            <datalist id="recent-amounts">
+              {amountSuggestions.map((a) => (<option value={a} key={a}/>))}
+            </datalist>
             {errors.amount && (
               <p id="amount-error" className="text-error text-center" role="alert">
                 {errors.amount}
@@ -195,7 +231,11 @@ const GetPaidScreen = () => {
               className={`w-full mobile-input text-center text-xl ${errors.phone ? 'border-red-500 focus:ring-red-500/20' : ''}`}
               aria-invalid={!!errors.phone}
               aria-describedby={errors.phone ? "phone-error" : "phone-help"}
+              list="recent-phones"
             />
+            <datalist id="recent-phones">
+              {phoneSuggestions.map((p) => (<option value={p} key={p}/>))}
+            </datalist>
             {errors.phone ? (
               <p id="phone-error" className="text-error text-center" role="alert">
                 {errors.phone}
