@@ -133,22 +133,28 @@ const PromoBanner: React.FC = () => {
         </button>
 
         {/* Banner Content */}
-        <div className="flex-1 flex flex-col sm:flex-row items-center gap-5 py-5 px-4">
-          {/* Remove emoji fallback and show only image if present, otherwise, blank shimmer card */}
-          {activeAd.imageUrl ? <img src={activeAd.imageUrl} alt="Advertisement" className="w-20 h-20 rounded-xl object-cover bg-white/20 shadow-lg shimmer" style={{
-          flexShrink: 0
-        }} loading="lazy" /> : <div className="w-20 h-20 rounded-xl bg-white/20 shimmer shadow" />}
-          <div className="flex-1 min-w-0 text-center sm:text-left">
-            <div className="text-white font-bold text-lg animate-fade-slide shimmer">
-              {activeAd.headline}
-            </div>
-            <div className="text-white/90 text-sm mt-1 line-clamp-2">
-              {activeAd.description}
-            </div>
-            <Button variant="secondary" size="sm" className="mt-4 glow hover:scale-110" onClick={() => window.open(activeAd.ctaLink, "_blank")} aria-label={`Open promotion: ${activeAd.ctaLabel}`}>
-              {activeAd.ctaLabel}
-            </Button>
+        {/* Remove emoji fallback and show only image if present, otherwise, render nothing */}
+        {activeAd.imageUrl ? (
+          <img
+            src={activeAd.imageUrl}
+            alt="Advertisement"
+            className="w-20 h-20 rounded-xl object-cover bg-white/20 shadow-lg shimmer"
+            style={{
+              flexShrink: 0
+            }}
+            loading="lazy"
+          />
+        ) : null}
+        <div className="flex-1 min-w-0 text-center sm:text-left">
+          <div className="text-white font-bold text-lg animate-fade-slide shimmer">
+            {activeAd.headline}
           </div>
+          <div className="text-white/90 text-sm mt-1 line-clamp-2">
+            {activeAd.description}
+          </div>
+          <Button variant="secondary" size="sm" className="mt-4 glow hover:scale-110" onClick={() => window.open(activeAd.ctaLink, "_blank")} aria-label={`Open promotion: ${activeAd.ctaLabel}`}>
+            {activeAd.ctaLabel}
+          </Button>
         </div>
 
         {/* Right arrow */}
