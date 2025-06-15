@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { QrCode, Link } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -99,8 +98,16 @@ const HomeScreen = () => {
               </svg>
             </button>
             <button onClick={openWhatsApp} className="glass-card p-4 hover:scale-110 transition-transform duration-200 bg-gradient-to-r from-green-400/20 to-emerald-400/20 hover:from-green-400/30 hover:to-emerald-400/30">
-              {/* WhatsApp icon using dynamic loader */}
-              <LucideIconDynamic name="Whatsapp" className="w-8 h-8 text-green-600" />
+              {/* Static WhatsApp Logo SVG */}
+              <svg className="w-8 h-8 text-green-600" viewBox="0 0 32 32" fill="currentColor" aria-hidden="true">
+                <g>
+                  <circle cx="16" cy="16" r="16" fill="#25D366" />
+                  <path
+                    d="M22.732 18.755c-.36-.18-2.13-1.05-2.46-1.172-.33-.12-.57-.18-.81.183-.24.36-.93 1.173-1.14 1.413-.21.24-.42.27-.78.09-.36-.18-1.515-.557-2.888-1.767-1.067-.954-1.788-2.136-1.998-2.49-.21-.36-.022-.555.158-.732.162-.16.36-.42.54-.63.18-.21.24-.36.36-.6.12-.24.06-.45-.03-.63-.09-.18-.81-1.95-1.11-2.67-.294-.704-.6-.607-.81-.62-.21-.014-.45-.018-.69-.018-.24 0-.63.09-.96.45-.33.36-1.26 1.23-1.26 2.998s1.293 3.478 1.473 3.723c.18.24 2.547 3.866 6.183 4.965.867.243 1.543.39 2.07.497.87.175 1.665.151 2.293.092.7-.067 2.13-.87 2.432-1.71.273-.726.273-1.35.192-1.481-.082-.134-.294-.216-.654-.396z"
+                    fill="#fff"
+                  />
+                </g>
+              </svg>
             </button>
           </div>
         </div>
@@ -109,4 +116,3 @@ const HomeScreen = () => {
   );
 };
 export default HomeScreen;
-
