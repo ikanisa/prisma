@@ -1,10 +1,11 @@
 
 {
   "home": {
+    "title": "Mobile Money",
     "welcomeTitle": "Mobile Money",
     "welcomeSubtitle": "Ohereza & Akira Amafaranga.\nAko kanya. Umutekano.",
-    "scanPay": "Sikana & I wishyure",
-    "requestPayment": "Shaka Kwishyurwa",
+    "pay": "Skanira & Ohereza",
+    "receive": "Kwishyurwa",
     "shareApp": "Sangiza iyi porogaramu",
     "joinWhatsapp": "Injira kuri WhatsApp Channel",
     "promoBanner": "🎉 Kwishura vuba nta kiguzi!"
@@ -18,6 +19,7 @@
     "close": "Funga"
   },
   "pay": {
+    "scanTitle": "Skanira QR Code",
     "startingCamera": "Gutangira camera...",
     "demoCameraView": "📷 Kwerekana camera demo",
     "qrScanned": "QR Code Yabonetse!",
@@ -28,6 +30,47 @@
     "flashOff": "Flash iri OFF",
     "flashDesc": "Flash yavanywemo (mode demo)",
     "scannedPaymentCode": "Kode yo kwishyura isabwe:",
+    "tapToCopy": "Kanda ukopye uhamagare ukoresheje iyi kode",
+    "retryScan": "Ongera ugerageze"
+  },
+  "get": {
+    "screenTitle": "Saba Kwishyurwa",
+    "amountLabel": "Ingano y'Amafaranga (RWF)",
+    "phoneLabel": "Numero yawe ya telephone",
+    "amountPlaceholder": "Andika ingano y'amafaranga",
+    "phonePlaceholder": "Urugero: 07XX...",
+    "helper": "Uyu mubare uzakira ubwishyu",
+    "createQR": "Kora QR Code",
+    "shareLink": "Sangiza Link yo Kwishyura",
+    "recentAmounts": "Amafaranga aherutse",
+    "recentPhones": "Numero ziheruka"
+  },
+  "qr": {
+    "share": "Sangira",
+    "save": "Bika QR",
+    "label": "Ishyura {{amount}} RWF",
+    "ussd": "Kode yo kwishyura USSD:",
     "tapToCopy": "Kanda ukopye uhamagare ukoresheje iyi kode"
+  },
+  "offline": {
+    "message": "⚠️ Nta internet – zimwe mu bikorwa ntiziboneka",
+    "banner": "Uri offline. Zimwe mu bikorwa ntibiboneka.",
+    "showingRecentQR": "Uri offline – kwerekana QR ya nyuma. Hari ibyo utazashobora gukora."
+  },
+  "cta": {
+    "whatsapp": "Injira muri Channel yacu ya WhatsApp"
+  },
+  "toast": {
+    "linkCopied": "Link yakopwe!",
+    "shareFailed": "Gusangiza ntibyakunze, ongera ugerageze.",
+    "qrSaved": "QR yabitswe!",
+    "qrFailed": "QR ntiyashobotse",
+    "offlineQR": "QR yakozwe muri offline. Bika/sangira cyangwa yisubirire muri QR zakozwe vuba."
+  },
+  "error": {
+    "camera": "Yooo! Camera ntiboneka",
+    "cameraDesc": "Igikoresho ntigishobora kubona camera. Gerageza ikindi gikoresho, cyangwa kwerekana scan hasi.",
+    "noInternet": "Nta internet ihari",
+    "validation": "Nylyuzuzemo ibisabwa neza"
   }
 }
