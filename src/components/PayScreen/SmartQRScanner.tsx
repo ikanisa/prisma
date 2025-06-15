@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from "react";
 import QRScannerFrame from "./QRScannerFrame";
 import { useAmbientLightSensor } from "@/hooks/useAmbientLightSensor";
@@ -16,9 +17,9 @@ interface SmartQRScannerProps {
 }
 
 const holdTips = [
-  "Hold steady, auto-detecting…",
+  "Hold steady, scanning for Rwanda MoMo QR...",
   "Move closer to sharpen focus",
-  "Tilt phone to remove glare",
+  "Ensure good lighting for best results",
 ];
 
 const SmartQRScanner: React.FC<SmartQRScannerProps> = ({ onBack }) => {
@@ -31,7 +32,7 @@ const SmartQRScanner: React.FC<SmartQRScannerProps> = ({ onBack }) => {
   const navigate = useNavigate();
 
   // Custom hooks
-  const { scanStatus, setScanStatus, scanResult, setScanResult, videoRef, handleRetry } = useQRScanner();
+  const { scanStatus, setScanStatus, scanResult, setScanResult, videoRef, handleRetry, handleUSSDLaunch } = useQRScanner();
   const { isProcessingWithAI, canvasRef, processWithAI } = useAIProcessing();
   const light = useAmbientLightSensor();
 
@@ -41,7 +42,7 @@ const SmartQRScanner: React.FC<SmartQRScannerProps> = ({ onBack }) => {
     setShowFlashButton(typeof light === "number" && light < 60);
   }, [light]);
 
-  // Cycling smart tips based on scan status, e.g. if fail, set tip to 'Move closer...'
+  // Cycling smart tips based on scan status
   useEffect(() => {
     let tipCycle: NodeJS.Timeout | null = null;
     setShowTip(holdTips[0]);
@@ -55,13 +56,13 @@ const SmartQRScanner: React.FC<SmartQRScannerProps> = ({ onBack }) => {
         });
       }, 3400);
     } else if (scanStatus === "fail") {
-      setShowTip("QR not detected — try moving closer or adjusting tilt");
+      setShowTip("QR not detected — try moving closer or better lighting");
     } else if (scanStatus === "processing") {
       setShowTip("Decoding with AI – one moment…");
     } else if (scanStatus === "idle") {
       setShowTip("Align QR within frame to begin");
     } else if (scanStatus === "success") {
-      setShowTip("QR detected! Ready to use");
+      setShowTip("Rwanda MoMo QR detected! Ready to launch payment");
     }
     return () => {
       if (tipCycle) clearInterval(tipCycle);
@@ -75,7 +76,6 @@ const SmartQRScanner: React.FC<SmartQRScannerProps> = ({ onBack }) => {
 
   // Flashlight toggling
   const handleToggleFlash = async () => {
-    // Try to call camera-service for flash
     try {
       const { CameraService } = await import('@/services/CameraService');
       const success = await CameraService.toggleFlash(videoRef, flashEnabled);
@@ -98,21 +98,11 @@ const SmartQRScanner: React.FC<SmartQRScannerProps> = ({ onBack }) => {
     processWithAI(videoRef, setScanResult, setScanStatus);
   };
 
-  const handleUSSDPress = () => {
-    if (!scanResult) return;
-    navigator.clipboard.writeText(scanResult);
-    if ("vibrate" in navigator) navigator.vibrate([50, 40, 65]);
-    toast({
-      title: "Copied!",
-      description: "USSD code copied to clipboard",
-    });
-  };
-
   return (
     <div
       className="absolute inset-0 flex flex-col w-full h-full items-center justify-start z-50"
       role="region"
-      aria-label="Smart QR scanner, align QR code within the frame"
+      aria-label="Rwanda MoMo QR scanner, align QR code within the frame"
       tabIndex={-1}
     >
       {/* Camera background */}
@@ -125,16 +115,16 @@ const SmartQRScanner: React.FC<SmartQRScannerProps> = ({ onBack }) => {
         aria-label="Camera stream"
       />
       <canvas ref={canvasRef} className="hidden" />
+      
       {/* Dimmed glass overlay */}
       <div className="absolute inset-0 bg-black/80 pointer-events-none" />
+      
       {/* Scan overlay */}
       <div
         className={`absolute inset-0 z-10 flex flex-col items-center justify-center focus-visible:ring-4 focus-visible:ring-blue-400 transition`}
         aria-live="polite"
         tabIndex={0}
-        style={{
-          outline: "none",
-        }}
+        style={{ outline: "none" }}
       >
         <div
           className={`relative`}
@@ -147,12 +137,14 @@ const SmartQRScanner: React.FC<SmartQRScannerProps> = ({ onBack }) => {
         >
           {/* Scan box + shimmer */}
           <QRScannerFrame scanStatus={scanStatus} scanResult={scanResult} shimmer={shimmer} />
+          
           {/* Pulsing background on scan */}
           {(scanStatus === "scanning" || scanStatus === "processing") && (
             <div className="absolute inset-0 rounded-4xl animate-pulse bg-gradient-to-br from-blue-500/10 via-blue-700/10 to-indigo-500/10 shadow-[0_0_0_8px_rgba(57,106,252,0.12)] pointer-events-none" />
           )}
           <div className="absolute inset-0 rounded-4xl bg-white/6 backdrop-blur-[4px] shadow-inner pointer-events-none" />
         </div>
+        
         {/* Smart tip overlay at bottom of frame */}
         <div className="mt-6 mb-2 flex flex-col items-center justify-center pointer-events-none">
           <div
@@ -163,7 +155,8 @@ const SmartQRScanner: React.FC<SmartQRScannerProps> = ({ onBack }) => {
           </div>
         </div>
       </div>
-      {/* Always accessible flashlight toggle (top right) */}
+      
+      {/* Flashlight toggle (top right) */}
       {showFlashButton && (
         <button
           className={`absolute top-5 right-5 z-50 flex items-center gap-2 px-4 py-2 font-semibold rounded-full bg-yellow-100/90 shadow-lg border border-yellow-300 text-blue-900 backdrop-blur-lg hover:bg-yellow-200 focus-visible:ring-2 focus-visible:ring-yellow-500 transition active:scale-95`}
@@ -179,6 +172,7 @@ const SmartQRScanner: React.FC<SmartQRScannerProps> = ({ onBack }) => {
           {flashEnabled ? "Flash On" : "Flash"}
         </button>
       )}
+      
       {/* Status displays */}
       <ScannerStatusDisplay
         scanStatus={scanStatus}
@@ -186,8 +180,9 @@ const SmartQRScanner: React.FC<SmartQRScannerProps> = ({ onBack }) => {
         isProcessingWithAI={isProcessingWithAI}
         onRetry={handleRetry}
         onProcessWithAI={handleProcessWithAI}
-        onUSSDPress={handleUSSDPress}
+        onUSSDPress={handleUSSDLaunch}
       />
+      
       {/* Back button (top left) */}
       <button
         className="absolute top-4 left-4 z-50 glass-card p-2 rounded-2xl text-white shadow-xl bg-black/30 hover:scale-110 focus:outline-none focus-visible:ring-4 focus-visible:ring-blue-400 transition-all"

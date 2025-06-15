@@ -4,25 +4,26 @@ import { getSessionId } from './supabaseService';
 
 export interface Transaction {
   id: string;
-  payment_id: string;
+  payment_id?: string;
   payer_number?: string;
   scanned_at: string;
   launched_ussd: boolean;
   payment_status: string;
   session_id: string;
+  ussd_code?: string;
 }
 
 export const transactionService = {
-  async logQRScan(paymentId: string, payerNumber?: string): Promise<Transaction> {
+  async logQRScan(ussdCode: string, payerNumber?: string): Promise<Transaction> {
     const sessionId = getSessionId();
     
     const { data, error } = await supabase
       .from('transactions')
       .insert({
-        payment_id: paymentId,
+        ussd_code: ussdCode,
         payer_number: payerNumber,
         launched_ussd: false,
-        payment_status: 'initiated',
+        payment_status: 'scanned',
         session_id: sessionId
       })
       .select()
@@ -40,7 +41,7 @@ export const transactionService = {
       .from('transactions')
       .update({ 
         launched_ussd: true,
-        payment_status: 'ussd_launched'
+        payment_status: 'launched'
       })
       .eq('id', transactionId);
 
