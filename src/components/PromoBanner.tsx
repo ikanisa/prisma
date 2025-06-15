@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
 import { fetchAds } from "@/services/firestore";
-import { ArrowLeft, ArrowRight } from "lucide-react";
+import { ArrowLeft, ArrowRight, Minus, ChevronDown, ChevronUp } from "lucide-react";
 import { Carousel, CarouselContent, CarouselItem } from "./ui/carousel";
 import { Button } from "./ui/button";
 
@@ -26,10 +26,19 @@ const DUMMY_AD: Ad = {
   imageUrl: "", // optional: can place a placeholder img here
 };
 
+const BANNER_LOCAL_KEY = "promo_banner_minimized";
+
 const PromoBanner: React.FC = () => {
   const [ads, setAds] = useState<Ad[]>([]);
   const [activeIdx, setActiveIdx] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [minimized, setMinimized] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem(BANNER_LOCAL_KEY);
+      return stored === "true";
+    }
+    return false;
+  });
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
@@ -56,15 +65,20 @@ const PromoBanner: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    // Rotate
-    if (ads.length === 0) return;
+    if (ads.length === 0 || minimized) return;
     timerRef.current = setInterval(() => {
       setActiveIdx(idx => (idx + 1) % ads.length);
     }, ROTATE_INTERVAL);
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [ads]);
+  }, [ads, minimized]);
+
+  // Persist minimized state
+  useEffect(() => {
+    if (typeof window !== "undefined")
+      localStorage.setItem(BANNER_LOCAL_KEY, minimized ? "true" : "false");
+  }, [minimized]);
 
   const handlePrev = () => {
     setActiveIdx(idx => (idx - 1 + ads.length) % ads.length);
@@ -74,8 +88,33 @@ const PromoBanner: React.FC = () => {
     setActiveIdx(idx => (idx + 1) % ads.length);
     if (timerRef.current) clearInterval(timerRef.current);
   };
+  const handleMinimize = () => setMinimized(true);
+  const handleRestore = () => setMinimized(false);
 
-  // VISUAL: Always show a glassy animated dummy if loading, no spinner/block.
+  // -------------------- Minimized Banner ----------------------------
+  if (minimized) {
+    return (
+      <div
+        className="fixed top-4 left-0 right-0 z-50 flex justify-center w-full pointer-events-auto animate-fade-slide"
+        style={{ transition: "opacity .3s" }}
+        aria-label="Promotion Banner Minimized"
+      >
+        <div className="min-h-[32px] max-w-2xl w-full rounded-2xl shadow-xl overflow-hidden glass-panel flex items-center justify-between px-4">
+          <span className="truncate text-white/80 text-sm py-1">
+            🎉 Promo hidden – tap to show for more deals!
+          </span>
+          <button
+            className="ml-2 bg-white/40 hover:bg-white/70 rounded-full p-1 transition-all flex items-center"
+            onClick={handleRestore}
+            aria-label="Show promotion banner">
+            <ChevronDown className="w-6 h-6 text-indigo-700" aria-hidden="true" focusable="false" />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // -------------------- Loading State (not minimized) ---------------
   if (loading) {
     return (
       <div
@@ -88,6 +127,15 @@ const PromoBanner: React.FC = () => {
             background: `linear-gradient(90deg, ${DUMMY_AD.gradient.join(",")})`,
           }}
         >
+          {/* Minimize Button */}
+          <button
+            className="absolute top-2 right-2 bg-white/40 hover:bg-white/70 rounded-full p-1 transition-all flex items-center z-10"
+            onClick={handleMinimize}
+            aria-label="Minimize promotion banner"
+            style={{ lineHeight: 0 }}
+          >
+            <Minus className="w-5 h-5 text-white" aria-hidden="true" focusable="false" />
+          </button>
           {/* Left arrow (hidden while loading/dummy) */}
           <div className="absolute left-2 top-1/2 -translate-y-1/2 opacity-0 pointer-events-none" />
           {/* Banner Content */}
@@ -122,6 +170,7 @@ const PromoBanner: React.FC = () => {
 
   const activeAd = ads[activeIdx];
 
+  // -------------------- Full Banner ----------------------------
   return (
     <div
       className={`fixed top-4 left-0 right-0 z-50 flex justify-center w-full pointer-events-auto animate-fade-slide`}
@@ -133,6 +182,15 @@ const PromoBanner: React.FC = () => {
           background: `linear-gradient(90deg, ${activeAd.gradient.join(",")})`,
         }}
       >
+        {/* Minimize Button */}
+        <button
+          className="absolute top-2 right-2 bg-white/40 hover:bg-white/70 rounded-full p-1 transition-all flex items-center z-10"
+          onClick={handleMinimize}
+          aria-label="Minimize promotion banner"
+          style={{ lineHeight: 0 }}
+        >
+          <Minus className="w-5 h-5 text-white" aria-hidden="true" focusable="false" />
+        </button>
         {/* Left arrow */}
         <button
           className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/30 hover:bg-white/60 rounded-full p-2 shadow transition-all"
@@ -205,3 +263,5 @@ const PromoBanner: React.FC = () => {
 };
 
 export default PromoBanner;
+
+// PROMPT: This file is now over 200 lines. Please consider asking me to refactor it into smaller files/components for maintainability!

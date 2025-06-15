@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { QrCode, Link } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from '@/hooks/use-toast';
@@ -17,11 +17,30 @@ const LucideIconDynamic = ({ name, ...props }: { name: string } & React.SVGProps
   return <svg width={32} height={32} {...props}><rect width="100%" height="100%" fill="#25d366"/><text x="50%" y="55%" textAnchor="middle" fontSize="10" fill="#fff">WA</text></svg>;
 };
 
-const PROMO_BANNER_HEIGHT = 136; // px, slightly larger than min-h-[120px] for shadow/safe area
+const PROMO_BANNER_HEIGHT = 136; // px, matches min-h of banner
+const PROMO_MINI_HEIGHT = 40; // px, fake min banner when minimized
+
+function getBannerMinimized() {
+  if (typeof window === "undefined") return false;
+  return window.localStorage.getItem("promo_banner_minimized") === "true";
+}
 
 const HomeScreen = () => {
   const navigate = useNavigate();
-
+  const [bannerMinimized, setBannerMinimized] = useState<boolean>(getBannerMinimized());
+  // Listen for localStorage change, update if minimized elsewhere (reactivity hack)
+  useEffect(() => {
+    function handleStorage() {
+      setBannerMinimized(getBannerMinimized());
+    }
+    window.addEventListener("storage", handleStorage);
+    const timer = setInterval(handleStorage, 400); // Fallback as localStorage event doesn't fire on same tab.
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      clearInterval(timer);
+    };
+  }, []);
+  
   const handleShare = async () => {
     if (navigator.share) {
       try {
@@ -46,6 +65,20 @@ const HomeScreen = () => {
     window.open('https://wa.me/YOUR_CHANNEL_LINK', '_blank');
   };
 
+  // Use different spacer depending on minimized state
+  const topSpacer = (
+    <div
+      className="w-full"
+      style={{
+        height: bannerMinimized
+          ? `calc(${PROMO_MINI_HEIGHT}px + 1.2rem)` // 32px+margin
+          : `calc(${PROMO_BANNER_HEIGHT}px + 1rem)`, // 136px+margin
+        minHeight: bannerMinimized ? "2.5rem" : '5.5rem',
+      }}
+      aria-hidden="true"
+    />
+  );
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-gray-900 dark:via-purple-900 dark:to-blue-900 relative">
       {/* Language Toggle */}
@@ -57,16 +90,8 @@ const HomeScreen = () => {
       </div>
       {/* Offline Banner (remains fixed at top 0) */}
       <OfflineBanner />
-      {/* Spacer to ensure nothing hides behind the promo banner */}
-      <div
-        className="w-full"
-        // Spacer height matches banner + margin (top-4)
-        style={{
-          height: `calc(${PROMO_BANNER_HEIGHT}px + 1rem)`, // 1rem ~ 16px = top-4
-          minHeight: '5.5rem', // fallback
-        }}
-        aria-hidden="true"
-      />
+      {/* Spacer: dynamically sized to guard action buttons */}
+      {topSpacer}
       <div className="container mx-auto px-4 py-4 pt-0 h-screen overflow-hidden">
         <div className="flex flex-col items-center justify-center h-full space-y-6">
           {/* Hero Banner */}
