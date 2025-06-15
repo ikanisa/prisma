@@ -64,7 +64,7 @@ const HomeScreen = () => {
               className="w-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 hover:from-blue-600 hover:via-purple-600 hover:to-pink-600 text-white font-semibold py-4 px-8 rounded-2xl min-h-[64px] text-button transform transition-all duration-200 hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl ripple flex items-center justify-center space-x-4"
             >
               <QrCode className="icon-large" />
-              <span>{t('home.pay')}</span>
+              <span>Kwishyura</span>
             </button>
             <button 
               onClick={() => navigate('/get-paid')} 
