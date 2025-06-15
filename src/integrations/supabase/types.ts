@@ -33,6 +33,57 @@ export type Database = {
         }
         Relationships: []
       }
+      insurance_quotes: {
+        Row: {
+          created_at: string | null
+          id: string
+          id_card_url: string | null
+          logbook_url: string | null
+          passport_url: string | null
+          phone: string
+          premium: number | null
+          previous_insurance_url: string | null
+          reviewed_by: string | null
+          session_id: string
+          status: Database["public"]["Enums"]["quote_status"]
+          type: Database["public"]["Enums"]["insurance_type"]
+          updated_at: string | null
+          user_data: Json
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          id_card_url?: string | null
+          logbook_url?: string | null
+          passport_url?: string | null
+          phone: string
+          premium?: number | null
+          previous_insurance_url?: string | null
+          reviewed_by?: string | null
+          session_id: string
+          status?: Database["public"]["Enums"]["quote_status"]
+          type: Database["public"]["Enums"]["insurance_type"]
+          updated_at?: string | null
+          user_data: Json
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          id_card_url?: string | null
+          logbook_url?: string | null
+          passport_url?: string | null
+          phone?: string
+          premium?: number | null
+          previous_insurance_url?: string | null
+          reviewed_by?: string | null
+          session_id?: string
+          status?: Database["public"]["Enums"]["quote_status"]
+          type?: Database["public"]["Enums"]["insurance_type"]
+          updated_at?: string | null
+          user_data?: Json
+        }
+        Relationships: []
+      }
       payments: {
         Row: {
           amount: number
@@ -132,6 +183,33 @@ export type Database = {
         }
         Relationships: []
       }
+      trips: {
+        Row: {
+          client_name: string
+          created_at: string
+          destination: string
+          fare: number
+          id: string
+          session_id: string
+        }
+        Insert: {
+          client_name: string
+          created_at?: string
+          destination: string
+          fare: number
+          id?: string
+          session_id: string
+        }
+        Update: {
+          client_name?: string
+          created_at?: string
+          destination?: string
+          fare?: number
+          id?: string
+          session_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -145,11 +223,29 @@ export type Database = {
         Args: { input_value: string; amount: number }
         Returns: string
       }
+      record_payment: {
+        Args: { qr_content: string }
+        Returns: string
+      }
+      set_config: {
+        Args: {
+          setting_name: string
+          setting_value: string
+          is_local?: boolean
+        }
+        Returns: undefined
+      }
+      start_trip: {
+        Args: { name: string; destination: string; fare: number }
+        Returns: string
+      }
     }
     Enums: {
+      insurance_type: "motor" | "travel" | "health"
       payment_method: "number" | "code"
       payment_status: "pending" | "sent" | "confirmed"
       qr_type: "scan" | "generate"
+      quote_status: "draft" | "pending" | "approved" | "rejected" | "paid"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -265,9 +361,11 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      insurance_type: ["motor", "travel", "health"],
       payment_method: ["number", "code"],
       payment_status: ["pending", "sent", "confirmed"],
       qr_type: ["scan", "generate"],
+      quote_status: ["draft", "pending", "approved", "rejected", "paid"],
     },
   },
 } as const
