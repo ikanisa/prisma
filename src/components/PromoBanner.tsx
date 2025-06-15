@@ -4,7 +4,6 @@ import { fetchAds } from "@/services/firestore";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import { Carousel, CarouselContent, CarouselItem } from "./ui/carousel";
 import { Button } from "./ui/button";
-import LoadingSpinner from "./LoadingSpinner";
 
 type Ad = {
   id: string;
@@ -18,6 +17,16 @@ type Ad = {
 
 const ROTATE_INTERVAL = 5000;
 
+const DUMMY_AD: Ad = {
+  id: "dummy1",
+  headline: "🎉 Enjoy Zero Fees!",
+  description: "Pay & get paid instantly through Mobile Money. No fees, no hassle—try it now!",
+  ctaLabel: "Get Started",
+  ctaLink: "#",
+  gradient: ["#396afc", "#2948ff", "#AD00FF"],
+  imageUrl: "", // optional: can place a placeholder img here
+};
+
 const PromoBanner: React.FC = () => {
   const [ads, setAds] = useState<Ad[]>([]);
   const [activeIdx, setActiveIdx] = useState(0);
@@ -25,11 +34,26 @@ const PromoBanner: React.FC = () => {
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
+    let running = true;
     fetchAds()
       .then((fetchedAds) => {
-        setAds(fetchedAds as Ad[]);
+        if (!running) return;
+        if (fetchedAds && fetchedAds.length) {
+          setAds(fetchedAds as Ad[]);
+        } else {
+          setAds([DUMMY_AD]);
+        }
         setLoading(false);
+      })
+      .catch(() => {
+        if (running) {
+          setAds([DUMMY_AD]);
+          setLoading(false);
+        }
       });
+    return () => {
+      running = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -52,10 +76,46 @@ const PromoBanner: React.FC = () => {
     if (timerRef.current) clearInterval(timerRef.current);
   };
 
+  // VISUAL: Always show a glassy animated dummy if loading, no spinner/block.
   if (loading) {
     return (
-      <div className="fixed top-4 left-4 right-4 z-50 flex justify-center items-center">
-        <LoadingSpinner size="md" color="gray" text="Loading promotions..." />
+      <div
+        className="fixed top-4 left-0 right-0 z-50 flex justify-center w-full pointer-events-auto animate-fade-slide"
+        style={{ transition: "opacity .3s" }}
+      >
+        <div
+          className="relative min-h-[120px] w-full max-w-2xl rounded-2xl shadow-xl overflow-hidden glass-panel flex items-center"
+          style={{
+            background: `linear-gradient(90deg, ${DUMMY_AD.gradient.join(",")})`,
+          }}
+        >
+          {/* Left arrow (hidden while loading/dummy) */}
+          <div className="absolute left-2 top-1/2 -translate-y-1/2 opacity-0 pointer-events-none" />
+          {/* Banner Content */}
+          <div className="flex-1 flex flex-col sm:flex-row items-center gap-5 py-5 px-4">
+            <div className="w-20 h-20 rounded-xl bg-white/30 flex items-center justify-center shimmer font-bold text-4xl select-none text-indigo-700 shadow">
+              💸
+            </div>
+            <div className="flex-1 min-w-0 text-center sm:text-left">
+              <div className="text-white font-bold text-lg animate-fade-slide shimmer">
+                {DUMMY_AD.headline}
+              </div>
+              <div className="text-white/90 text-sm mt-1 line-clamp-2">
+                {DUMMY_AD.description}
+              </div>
+              <Button
+                variant="secondary"
+                size="sm"
+                className="mt-4 glow pointer-events-none opacity-80"
+                disabled
+              >
+                {DUMMY_AD.ctaLabel}
+              </Button>
+            </div>
+          </div>
+          {/* Right arrow (also hidden while loading/dummy) */}
+          <div className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 pointer-events-none" />
+        </div>
       </div>
     );
   }
@@ -87,13 +147,17 @@ const PromoBanner: React.FC = () => {
 
         {/* Banner Content */}
         <div className="flex-1 flex flex-col sm:flex-row items-center gap-5 py-5 px-4">
-          {activeAd.imageUrl && (
+          {activeAd.imageUrl ? (
             <img
               src={activeAd.imageUrl}
               alt="Promo"
               className="w-20 h-20 rounded-xl object-cover bg-white/20 shadow-lg shimmer"
               style={{ flexShrink: 0 }}
             />
+          ) : (
+            <div className="w-20 h-20 rounded-xl bg-white/30 flex items-center justify-center shimmer font-bold text-4xl select-none text-indigo-700 shadow">
+              💸
+            </div>
           )}
           <div className="flex-1 min-w-0 text-center sm:text-left">
             <div className="text-white font-bold text-lg animate-fade-slide shimmer">
@@ -139,3 +203,4 @@ const PromoBanner: React.FC = () => {
 };
 
 export default PromoBanner;
+
