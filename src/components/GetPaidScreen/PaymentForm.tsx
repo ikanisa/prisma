@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { QrCode } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -35,12 +35,13 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
   onAmountFocus,
   onGenerateQR
 }) => {
+  // State to track which field is focused for typing indicator
+  const [focusedField, setFocusedField] = useState<null | 'phone' | 'amount'>(null);
+
   // Intercept input to format as currency
   const handleAmountInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Strip formatting, allow only digits
     const unformattedValue = unformatCurrencyWithSpaces(e.target.value);
     const formatted = formatCurrencyWithSpaces(unformattedValue);
-    // Create a synthetic event to pass up only the plain digits for state management
     const syntheticEvent = {
       ...e,
       target: {
@@ -51,7 +52,6 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
     onAmountChange(syntheticEvent);
   };
 
-  // For displaying: always show with thousand separators
   const displayAmount = formatCurrencyWithSpaces(amount);
 
   return (
@@ -61,36 +61,66 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
           <Label htmlFor="phone" className={`transition-opacity ${showPhoneLabel ? 'opacity-100' : 'opacity-0'}`}>
             Mobile Money Number
           </Label>
-          <Input
-            id="phone"
-            value={phone}
-            onChange={onPhoneChange}
-            onFocus={onPhoneFocus}
-            placeholder="Enter mobile money number"
-            className="text-lg"
-            inputMode="numeric"
-            pattern="\d*"
-            autoComplete="off"
-          />
+          <div className="relative">
+            <Input
+              id="phone"
+              value={phone}
+              onChange={onPhoneChange}
+              onFocus={e => {
+                setFocusedField('phone');
+                onPhoneFocus();
+              }}
+              onBlur={() => setFocusedField(null)}
+              placeholder="Enter mobile money number"
+              className={`text-lg transition-shadow ${
+                focusedField === 'phone'
+                  ? 'ring-2 ring-blue-400 border-blue-500 shadow focus:ring-2'
+                  : 'border-gray-300'
+              }`}
+              inputMode="numeric"
+              pattern="\d*"
+              autoComplete="off"
+            />
+            {focusedField === 'phone' && (
+              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-blue-500 text-xs font-bold animate-pulse">
+                Typing...
+              </span>
+            )}
+          </div>
         </div>
 
         <div className="space-y-2">
           <Label htmlFor="amount" className={`transition-opacity ${amountInteracted ? 'opacity-0' : 'opacity-100'}`}>
             Amount (RWF)
           </Label>
-          <Input
-            id="amount"
-            value={displayAmount}
-            onChange={handleAmountInput}
-            onFocus={onAmountFocus}
-            placeholder="Enter amount"
-            type="text"
-            className="text-lg"
-            inputMode="numeric"
-            pattern="\d*"
-            maxLength={12}
-            autoComplete="off"
-          />
+          <div className="relative">
+            <Input
+              id="amount"
+              value={displayAmount}
+              onChange={handleAmountInput}
+              onFocus={e => {
+                setFocusedField('amount');
+                onAmountFocus();
+              }}
+              onBlur={() => setFocusedField(null)}
+              placeholder="Enter amount"
+              type="text"
+              className={`text-lg transition-shadow ${
+                focusedField === 'amount'
+                  ? 'ring-2 ring-blue-400 border-blue-500 shadow focus:ring-2'
+                  : 'border-gray-300'
+              }`}
+              inputMode="numeric"
+              pattern="\d*"
+              maxLength={12}
+              autoComplete="off"
+            />
+            {focusedField === 'amount' && (
+              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-blue-500 text-xs font-bold animate-pulse">
+                Typing...
+              </span>
+            )}
+          </div>
         </div>
 
         <Button 
