@@ -2,9 +2,9 @@
 import React, { useState } from "react";
 import {
   Flag,
-  FlagOff,
   FlagTriangleLeft,
   FlagTriangleRight,
+  FlagOff,
   ChevronDown,
   Check,
 } from "lucide-react";
@@ -23,7 +23,7 @@ const SUPPORTED_LANGUAGES = [
   { code: "en" },
   { code: "rw" },
   { code: "fr" },
-  // Note: "pt" or others omitted if not fully supported
+  // Extend here for more
 ];
 
 const LanguageToggle: React.FC = () => {
@@ -51,19 +51,20 @@ const LanguageToggle: React.FC = () => {
     >
       <button
         className={cn(
-          "flex items-center gap-1 font-semibold px-2 h-8 rounded hover:bg-white/80 dark:hover:bg-gray-900/80 transition-colors",
+          "flex items-center gap-1 px-1 h-7 rounded hover:bg-white/80 dark:hover:bg-gray-900/80 transition-colors",
           open && "bg-white dark:bg-gray-900"
         )}
         aria-haspopup="listbox"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
         tabIndex={0}
+        style={{ minWidth: 30, minHeight: 30 }}
       >
-        <ActiveFlag className="w-6 h-6" aria-label={activeLang.code} />
-        <ChevronDown className="w-4 h-4 ml-1" aria-hidden />
+        <ActiveFlag className="w-4 h-4" aria-label={activeLang.code} />
+        <ChevronDown className="w-3 h-3 ml-0.5" aria-hidden />
       </button>
       {open && (
-        <div className="absolute right-0 mt-2 min-w-[56px] rounded-xl shadow-lg bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 z-50 overflow-hidden animate-fade-in">
+        <div className="absolute right-0 mt-2 min-w-[40px] rounded-xl shadow-lg bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 z-50 overflow-hidden animate-fade-in">
           {otherLangs.map((lang) => {
             const FlagIcon = LANGUAGE_FLAGS[lang.code] || FlagOff;
             return (
@@ -71,14 +72,15 @@ const LanguageToggle: React.FC = () => {
                 key={lang.code}
                 onClick={() => handleSelect(lang.code)}
                 className={cn(
-                  "w-full px-4 py-2 text-left hover:bg-indigo-100 dark:hover:bg-indigo-900 transition-colors flex items-center gap-2 justify-center",
+                  "w-full px-2 py-2 hover:bg-indigo-100 dark:hover:bg-indigo-900 transition-colors flex items-center justify-center",
                   lang.code === currentLang && "bg-indigo-50 dark:bg-indigo-950"
                 )}
                 aria-selected={lang.code === currentLang}
+                style={{ minWidth: 32, minHeight: 32 }}
               >
-                <FlagIcon className="w-6 h-6" aria-label={lang.code} />
+                <FlagIcon className="w-4 h-4" aria-label={lang.code} />
                 {lang.code === currentLang && (
-                  <Check className="w-4 h-4 text-indigo-500 ml-1" />
+                  <Check className="w-3 h-3 text-indigo-500 ml-1" />
                 )}
               </button>
             );
