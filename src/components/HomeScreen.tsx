@@ -64,7 +64,8 @@ const HomeScreen = () => {
     }
   };
   const openWhatsApp = () => {
-    window.open("https://wa.me/YOUR_CHANNEL_LINK", "_blank");
+    // Updated to open the correct WhatsApp Channel
+    window.open("https://whatsapp.com/channel/0029VawjRH4EVccC71nJqv2H", "_blank");
   };
 
   const topSpacer = (
