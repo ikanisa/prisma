@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { QrCode, Link } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -17,6 +16,8 @@ const LucideIconDynamic = ({ name, ...props }: { name: string } & React.SVGProps
   // fallback: blank or error SVG 
   return <svg width={32} height={32} {...props}><rect width="100%" height="100%" fill="#25d366"/><text x="50%" y="55%" textAnchor="middle" fontSize="10" fill="#fff">WA</text></svg>;
 };
+
+const PROMO_BANNER_HEIGHT = 136; // px, slightly larger than min-h-[120px] for shadow/safe area
 
 const HomeScreen = () => {
   const navigate = useNavigate();
@@ -50,13 +51,23 @@ const HomeScreen = () => {
       {/* Language Toggle */}
       <LanguageToggle />
 
-      {/* Promo Banner */}
+      {/* Promo Banner (remains fixed at top) */}
       <div className="animate-fade-in">
         <PromoBanner />
       </div>
-      {/* Offline Banner */}
+      {/* Offline Banner (remains fixed at top 0) */}
       <OfflineBanner />
-      <div className="container mx-auto px-4 py-4 pt-16 h-screen overflow-hidden">
+      {/* Spacer to ensure nothing hides behind the promo banner */}
+      <div
+        className="w-full"
+        // Spacer height matches banner + margin (top-4)
+        style={{
+          height: `calc(${PROMO_BANNER_HEIGHT}px + 1rem)`, // 1rem ~ 16px = top-4
+          minHeight: '5.5rem', // fallback
+        }}
+        aria-hidden="true"
+      />
+      <div className="container mx-auto px-4 py-4 pt-0 h-screen overflow-hidden">
         <div className="flex flex-col items-center justify-center h-full space-y-6">
           {/* Hero Banner */}
           <div className="text-center animate-fade-slide">
@@ -125,4 +136,3 @@ const HomeScreen = () => {
   );
 };
 export default HomeScreen;
-
