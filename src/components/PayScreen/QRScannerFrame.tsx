@@ -1,4 +1,3 @@
-
 import React from 'react';
 
 type ScanStatus = "idle" | "scanning" | "success" | "fail" | "processing";
@@ -6,13 +5,19 @@ type ScanStatus = "idle" | "scanning" | "success" | "fail" | "processing";
 interface QRScannerFrameProps {
   scanStatus?: ScanStatus;
   scanResult?: string | null;
+  shimmer?: boolean;
 }
 
-const QRScannerFrame: React.FC<QRScannerFrameProps> = ({ scanStatus, scanResult }) => {
+const QRScannerFrame: React.FC<QRScannerFrameProps> = ({
+  scanStatus,
+  scanResult,
+  shimmer
+}) => {
   return (
     <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none z-10" aria-hidden="false">
       <div className="relative">
         {/* Main scanner frame with glassmorphism, rounded corners, and accent glow */}
+        {/* Optionally, you could use `shimmer` prop for a className or visual effect here */}
         <div className="relative w-72 h-72 xs:w-80 xs:h-80 sm:w-96 sm:h-96 md:w-[28rem] md:h-[28rem] lg:w-[32rem] lg:h-[32rem] rounded-4xl backdrop-blur-4xl bg-white/10 dark:bg-black/30 border-4 border-white/25 shadow-2xl ring-4 ring-blue-400/30 qr-glow overflow-hidden">
           {/* Animated scanning line */}
           <div className="absolute top-6 left-6 right-6 h-[calc(100%-3rem)] z-10 pointer-events-none">
