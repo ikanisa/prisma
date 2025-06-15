@@ -9,16 +9,147 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      events: {
+        Row: {
+          created_at: string | null
+          event_data: Json | null
+          event_type: string
+          id: string
+          session_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          event_data?: Json | null
+          event_type: string
+          id?: string
+          session_id: string
+        }
+        Update: {
+          created_at?: string | null
+          event_data?: Json | null
+          event_type?: string
+          id?: string
+          session_id?: string
+        }
+        Relationships: []
+      }
+      payments: {
+        Row: {
+          amount: number
+          created_at: string | null
+          id: string
+          method: Database["public"]["Enums"]["payment_method"]
+          momo_code: string | null
+          phone_number: string
+          session_id: string
+          status: Database["public"]["Enums"]["payment_status"] | null
+          ussd_string: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string | null
+          id?: string
+          method: Database["public"]["Enums"]["payment_method"]
+          momo_code?: string | null
+          phone_number: string
+          session_id: string
+          status?: Database["public"]["Enums"]["payment_status"] | null
+          ussd_string: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          id?: string
+          method?: Database["public"]["Enums"]["payment_method"]
+          momo_code?: string | null
+          phone_number?: string
+          session_id?: string
+          status?: Database["public"]["Enums"]["payment_status"] | null
+          ussd_string?: string
+        }
+        Relationships: []
+      }
+      qr_history: {
+        Row: {
+          amount: number
+          created_at: string | null
+          id: string
+          phone_number: string
+          qr_image_url: string | null
+          session_id: string
+          type: Database["public"]["Enums"]["qr_type"]
+          ussd_string: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string | null
+          id?: string
+          phone_number: string
+          qr_image_url?: string | null
+          session_id: string
+          type: Database["public"]["Enums"]["qr_type"]
+          ussd_string: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          id?: string
+          phone_number?: string
+          qr_image_url?: string | null
+          session_id?: string
+          type?: Database["public"]["Enums"]["qr_type"]
+          ussd_string?: string
+        }
+        Relationships: []
+      }
+      shared_links: {
+        Row: {
+          amount: number
+          created_at: string | null
+          expires_at: string | null
+          id: string
+          link_token: string
+          phone_number: string
+          session_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          link_token?: string
+          phone_number: string
+          session_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          link_token?: string
+          phone_number?: string
+          session_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      detect_payment_method: {
+        Args: { input_value: string }
+        Returns: Database["public"]["Enums"]["payment_method"]
+      }
+      generate_ussd_string: {
+        Args: { input_value: string; amount: number }
+        Returns: string
+      }
     }
     Enums: {
-      [_ in never]: never
+      payment_method: "number" | "code"
+      payment_status: "pending" | "sent" | "confirmed"
+      qr_type: "scan" | "generate"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -133,6 +264,10 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      payment_method: ["number", "code"],
+      payment_status: ["pending", "sent", "confirmed"],
+      qr_type: ["scan", "generate"],
+    },
   },
 } as const

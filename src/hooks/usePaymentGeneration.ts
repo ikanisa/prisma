@@ -1,12 +1,9 @@
-
 import { useState, useEffect } from 'react';
 import { toast } from '@/hooks/use-toast';
 import { cloudFunctions } from '@/services/cloudFunctions';
-// Import the offline cache helpers
-import { addPhone, getRecentPhones } from '@/utils/offlineCache';
+import { useSupabaseCache } from '@/hooks/useSupabaseCache';
 
 export const usePaymentGeneration = () => {
-  // Prefill phone using offline cache (useEffect below)
   const [phone, setPhone] = useState('');
   const [amount, setAmount] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -16,13 +13,15 @@ export const usePaymentGeneration = () => {
   const [showPhoneLabel, setShowPhoneLabel] = useState(true);
   const [phoneInteracted, setPhoneInteracted] = useState(false);
 
+  const { addPhone, getRecentPhones } = useSupabaseCache();
+
   // On mount: prefill phone field from cache
   useEffect(() => {
     const recents = getRecentPhones();
     if (recents?.[0]) {
       setPhone(recents[0]);
     }
-  }, []);
+  }, [getRecentPhones]);
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setPhone(e.target.value);
@@ -74,21 +73,20 @@ export const usePaymentGeneration = () => {
 
     setIsGenerating(true);
 
-    // Debug: log inputs before API call
     console.log('[QR DEBUG] generateQR called with:', { phone: phone.trim(), amount: numAmount });
 
     try {
-      // Generate QR code
+      // Generate QR code via Supabase
       const qrResponse = await cloudFunctions.generateQRCode(phone.trim(), numAmount);
       setQrResult(qrResponse);
       console.log('[QR DEBUG] generateQRCode result:', qrResponse);
 
-      // Generate payment link
+      // Generate payment link via Supabase
       const linkResponse = await cloudFunctions.createPaymentLink(phone.trim(), numAmount);
       setPaymentLink(linkResponse.paymentLink);
       console.log('[QR DEBUG] createPaymentLink result:', linkResponse);
 
-      // Save phone number to offline cache
+      // Save phone number to cache
       addPhone(phone.trim());
 
       toast({
@@ -127,4 +125,3 @@ export const usePaymentGeneration = () => {
     generateQR
   };
 };
-
