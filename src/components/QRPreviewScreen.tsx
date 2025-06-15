@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Download, Share2, Copy } from 'lucide-react';
@@ -144,8 +145,9 @@ const QRPreviewScreen = () => {
             onClick={() => navigate('/get-paid')}
             className="glass-card p-2 hover:scale-110 transition-transform"
             style={{ minWidth: 40 }}
+            aria-label="Back to Get Paid screen"
           >
-            <ArrowLeft className="w-5 h-5" />
+            <ArrowLeft className="w-5 h-5" aria-hidden="true" focusable="false" />
           </button>
           <h1 className="text-lg font-bold text-gray-800 dark:text-white text-center">
             Payment QR Code
@@ -185,9 +187,10 @@ const QRPreviewScreen = () => {
           <button
             onClick={copyToClipboard}
             className="bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 px-2 sm:px-4 py-2 rounded-xl text-xs sm:text-lg font-mono font-bold hover:scale-105 transition-transform flex items-center space-x-2 mx-auto break-all min-h-[32px]"
+            aria-label="Copy USSD code"
           >
             <span className="break-all">{ussdCode}</span>
-            <Copy className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
+            <Copy className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" aria-hidden="true" focusable="false" />
           </button>
           <p className="text-xs text-gray-500 mt-2">
             Tap to copy • Dial this code to pay
@@ -199,16 +202,18 @@ const QRPreviewScreen = () => {
           <button
             onClick={saveQRCode}
             className="btn-secondary ripple flex items-center justify-center space-x-1 py-2 text-xs"
+            aria-label="Save QR code"
           >
-            <Download className="w-5 h-5" />
+            <Download className="w-5 h-5" aria-hidden="true" focusable="false" />
             <span>Save QR</span>
           </button>
 
           <button
             onClick={shareQRCode}
             className="btn-primary ripple flex items-center justify-center space-x-1 py-2 text-xs"
+            aria-label="Share payment QR code"
           >
-            <Share2 className="w-5 h-5" />
+            <Share2 className="w-5 h-5" aria-hidden="true" focusable="false" />
             <span>Share QR</span>
           </button>
         </div>

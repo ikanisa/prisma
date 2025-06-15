@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState, useRef } from "react";
 import { fetchAds } from "@/services/firestore";
 import { ArrowLeft, ArrowRight } from "lucide-react";
@@ -142,7 +141,7 @@ const PromoBanner: React.FC = () => {
           tabIndex={0}
           aria-label="Previous promotion"
         >
-          <ArrowLeft className="w-6 h-6 text-white drop-shadow" />
+          <ArrowLeft className="w-6 h-6 text-white drop-shadow" aria-hidden="true" focusable="false" />
         </button>
 
         {/* Banner Content */}
@@ -150,7 +149,7 @@ const PromoBanner: React.FC = () => {
           {activeAd.imageUrl ? (
             <img
               src={activeAd.imageUrl}
-              alt="Promo"
+              alt="Advertisement"
               className="w-20 h-20 rounded-xl object-cover bg-white/20 shadow-lg shimmer"
               style={{ flexShrink: 0 }}
             />
@@ -171,6 +170,7 @@ const PromoBanner: React.FC = () => {
               size="sm"
               className="mt-4 glow hover:scale-110"
               onClick={() => window.open(activeAd.ctaLink, "_blank")}
+              aria-label={`Open promotion: ${activeAd.ctaLabel}`}
             >
               {activeAd.ctaLabel}
             </Button>
@@ -184,7 +184,7 @@ const PromoBanner: React.FC = () => {
           tabIndex={0}
           aria-label="Next promotion"
         >
-          <ArrowRight className="w-6 h-6 text-white drop-shadow" />
+          <ArrowRight className="w-6 h-6 text-white drop-shadow" aria-hidden="true" focusable="false" />
         </button>
 
         {/* Pager Indicators */}
@@ -194,6 +194,8 @@ const PromoBanner: React.FC = () => {
               key={i}
               className={`w-2.5 h-2.5 rounded-full transition-all duration-200 border border-white/40
                 ${i === activeIdx ? "bg-white/90 shadow-xl scale-110" : "bg-white/40"}`}
+              aria-label={i === activeIdx ? "Current promotion indicator" : "Inactive promotion indicator"}
+              role="presentation"
             />
           ))}
         </div>
@@ -203,4 +205,3 @@ const PromoBanner: React.FC = () => {
 };
 
 export default PromoBanner;
-

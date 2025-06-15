@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { QrCode, Link } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -70,24 +71,29 @@ const HomeScreen = () => {
           <div className="w-full max-w-md space-y-4">
             <button 
               onClick={() => navigate('/pay')} 
+              aria-label="Scan to Pay"
               className="w-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 hover:from-blue-600 hover:via-purple-600 hover:to-pink-600 text-white font-semibold py-4 px-8 rounded-2xl min-h-[64px] text-button transform transition-all duration-200 hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl ripple flex items-center justify-center space-x-4"
             >
-              <QrCode className="icon-large" />
+              <QrCode className="icon-large" aria-hidden="true" focusable="false" />
               <span>Kwishyura</span>
             </button>
             <button 
               onClick={() => navigate('/get-paid')} 
+              aria-label={t('home.receive') + " (Get Paid)"}
               className="w-full bg-gradient-to-r from-green-400 via-teal-500 to-blue-500 hover:from-green-500 hover:via-teal-600 hover:to-blue-600 text-white font-semibold py-4 px-8 rounded-2xl min-h-[64px] text-button transform transition-all duration-200 hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl ripple flex items-center justify-center space-x-4"
             >
-              <Link className="icon-large" />
+              <Link className="icon-large" aria-hidden="true" focusable="false" />
               <span>{t('home.receive')}</span>
             </button>
           </div>
           {/* Share Actions */}
           <div className="flex space-x-6">
-            <button onClick={handleShare} className="glass-card p-4 hover:scale-110 transition-transform duration-200 bg-gradient-to-r from-blue-400/20 to-purple-400/20 hover:from-blue-400/30 hover:to-purple-400/30">
-              {/* Lucide share icon only */}
-              <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <button 
+              onClick={handleShare} 
+              className="glass-card p-4 hover:scale-110 transition-transform duration-200 bg-gradient-to-r from-blue-400/20 to-purple-400/20 hover:from-blue-400/30 hover:to-purple-400/30"
+              aria-label="Share the app"
+            >
+              <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                 <g>
                   <circle cx="18" cy="5" r="3"/>
                   <circle cx="6" cy="12" r="3"/>
@@ -97,9 +103,12 @@ const HomeScreen = () => {
                 </g>
               </svg>
             </button>
-            <button onClick={openWhatsApp} className="glass-card p-4 hover:scale-110 transition-transform duration-200 bg-gradient-to-r from-green-400/20 to-emerald-400/20 hover:from-green-400/30 hover:to-emerald-400/30">
-              {/* Static WhatsApp Logo SVG */}
-              <svg className="w-8 h-8 text-green-600" viewBox="0 0 32 32" fill="currentColor" aria-hidden="true">
+            <button 
+              onClick={openWhatsApp} 
+              className="glass-card p-4 hover:scale-110 transition-transform duration-200 bg-gradient-to-r from-green-400/20 to-emerald-400/20 hover:from-green-400/30 hover:to-emerald-400/30"
+              aria-label="Open WhatsApp to chat (new window)"
+            >
+              <svg className="w-8 h-8 text-green-600" viewBox="0 0 32 32" fill="currentColor" aria-hidden="true" focusable="false">
                 <g>
                   <circle cx="16" cy="16" r="16" fill="#25D366" />
                   <path

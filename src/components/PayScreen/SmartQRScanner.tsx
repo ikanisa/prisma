@@ -50,6 +50,7 @@ const SmartQRScanner: React.FC<SmartQRScannerProps> = ({ onBack }) => {
         playsInline
         muted
         className="absolute inset-0 w-full h-full object-cover bg-black"
+        aria-label="Camera Stream"
       />
       <canvas ref={canvasRef} className="hidden" />
       <div className="absolute inset-0 bg-black/80 pointer-events-none" />
@@ -92,10 +93,10 @@ const SmartQRScanner: React.FC<SmartQRScannerProps> = ({ onBack }) => {
       {/* Back button */}
       <button
         className="absolute top-4 left-4 z-50 glass-card p-2 rounded-2xl text-white shadow-xl bg-black/30 hover:scale-110 transition-all"
-        aria-label="Back"
+        aria-label="Back to previous screen"
         onClick={onBack}
       >
-        <svg viewBox="0 0 24 24" className="w-8 h-8" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg viewBox="0 0 24 24" className="w-8 h-8" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
           <polyline points="15 18 9 12 15 6" />
         </svg>
       </button>

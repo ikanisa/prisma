@@ -18,8 +18,9 @@ const PayScreenHeader: React.FC<PayScreenHeaderProps> = ({
       <button
         onClick={onBack}
         className="glass-card p-2 sm:p-3 text-white hover:scale-110 transition-transform"
+        aria-label="Back"
       >
-        <ArrowLeft className="w-5 h-5 sm:w-6 sm:h-6" />
+        <ArrowLeft className="w-5 h-5 sm:w-6 sm:h-6" aria-hidden="true" focusable="false" />
       </button>
       
       <h1 className="text-white text-lg sm:text-xl font-semibold">Scan to Pay</h1>
@@ -27,8 +28,10 @@ const PayScreenHeader: React.FC<PayScreenHeaderProps> = ({
       <button
         onClick={onToggleFlash}
         className={`glass-card p-2 sm:p-3 transition-all ${flashEnabled ? 'bg-yellow-500/20' : ''}`}
+        aria-label={flashEnabled ? "Disable flashlight" : "Enable flashlight"}
+        aria-pressed={flashEnabled}
       >
-        <Flashlight className={`w-5 h-5 sm:w-6 sm:h-6 ${flashEnabled ? 'text-yellow-400' : 'text-white'}`} />
+        <Flashlight className={`w-5 h-5 sm:w-6 sm:h-6 ${flashEnabled ? 'text-yellow-400' : 'text-white'}`} aria-hidden="true" focusable="false" />
       </button>
     </div>
   );

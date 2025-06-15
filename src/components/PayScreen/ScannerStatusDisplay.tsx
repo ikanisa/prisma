@@ -1,3 +1,4 @@
+
 import React from "react";
 import { QrCode } from "lucide-react";
 import LoadingSpinner from "../LoadingSpinner";
@@ -48,6 +49,7 @@ const ScannerStatusDisplay: React.FC<ScannerStatusDisplayProps> = ({
           onClick={onUSSDPress}
           className="w-full py-5 px-6 text-2xl sm:text-3xl font-black rounded-3xl bg-gradient-to-r from-blue-500 via-indigo-500 to-blue-600 shadow-lg hover:scale-105 transition active:scale-95 text-white tracking-widest text-center ring-2 ring-blue-400/40 glow outline-none animate-pulse"
           style={{ letterSpacing: "0.1em" }}
+          aria-label="Copy USSD code"
         >
           {scanResult}
         </button>
@@ -58,12 +60,18 @@ const ScannerStatusDisplay: React.FC<ScannerStatusDisplayProps> = ({
   if (scanStatus === "fail") {
     return (
       <div className="absolute left-1/2 bottom-[15vh] -translate-x-1/2 w-[90vw] max-w-lg flex flex-col items-center transition-all animate-fade-in">
-        <div className="bg-red-700/85 rounded-2xl px-5 py-4 text-white font-semibold text-center mb-3 shadow-xl">
+        <div className="bg-red-700/85 rounded-2xl px-5 py-4 text-white font-semibold text-center mb-3 shadow-xl" role="alert">
           Scan failed — try AI processing or enter manually
         </div>
         <div className="flex gap-2">
-          <Button variant="secondary" size="lg" onClick={onRetry} className="shadow-xl flex items-center gap-2">
-            <QrCode className="mr-1" /> Retry Scan
+          <Button 
+            variant="secondary" 
+            size="lg" 
+            onClick={onRetry} 
+            className="shadow-xl flex items-center gap-2"
+            aria-label="Retry scan"
+          >
+            <QrCode className="mr-1" aria-hidden="true" focusable="false" /> Retry Scan
           </Button>
           <Button 
             onClick={onProcessWithAI}
@@ -71,6 +79,7 @@ const ScannerStatusDisplay: React.FC<ScannerStatusDisplayProps> = ({
             size="lg" 
             className="shadow-xl bg-blue-500 hover:bg-blue-600"
             disabled={isProcessingWithAI}
+            aria-label="Attempt AI decode"
           >
             {isProcessingWithAI ? "Processing..." : "AI Decode"}
           </Button>
