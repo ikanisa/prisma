@@ -1,4 +1,3 @@
-
 import React from "react";
 import { QrCode } from "lucide-react";
 import LoadingSpinner from "../LoadingSpinner";
@@ -29,15 +28,6 @@ const ScannerStatusDisplay: React.FC<ScannerStatusDisplayProps> = ({
       <div className="absolute left-1/2 bottom-[18vh] -translate-x-1/2 flex flex-col items-center">
         <LoadingSpinner />
         <span className="mt-2 text-base font-semibold text-white/90">Scanning…</span>
-        <Button 
-          onClick={onProcessWithAI}
-          variant="secondary" 
-          size="sm" 
-          className="mt-3 bg-blue-500/80 text-white hover:bg-blue-600/80"
-          disabled={isProcessingWithAI}
-        >
-          {isProcessingWithAI ? "Processing with AI..." : "Use AI to Decode"}
-        </Button>
       </div>
     );
   }
