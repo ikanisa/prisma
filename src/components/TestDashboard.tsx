@@ -1,8 +1,7 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CheckCircle, XCircle, Clock, Database, Zap, Share2, QrCode } from 'lucide-react';
-import { supabaseService } from '@/services/supabaseService';
+import { supabaseService, getSessionId } from '@/services/supabaseService';
 import { toast } from '@/hooks/use-toast';
 
 interface TestResult {
@@ -54,7 +53,7 @@ const TestDashboard = () => {
 
     // Test 1: Session ID Generation
     await runTest(0, async () => {
-      const sessionId = supabaseService.getSessionId();
+      const sessionId = getSessionId();
       if (!sessionId || sessionId.length < 10) {
         throw new Error('Invalid session ID generated');
       }
