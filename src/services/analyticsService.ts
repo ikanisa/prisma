@@ -1,5 +1,4 @@
-
-import { supabaseService } from './supabaseService';
+import { getSessionId } from './supabaseService';
 
 export interface AnalyticsEvent {
   event_name: string;
@@ -11,7 +10,7 @@ export interface AnalyticsEvent {
 export const analyticsService = {
   async trackEvent(eventName: string, properties: Record<string, any> = {}) {
     try {
-      const sessionId = supabaseService.getSessionId();
+      const sessionId = getSessionId();
       
       const event: AnalyticsEvent = {
         event_name: eventName,
@@ -25,10 +24,7 @@ export const analyticsService = {
         }
       };
 
-      // Log to Supabase events table
-      await supabaseService.logShareEvent(`analytics_${eventName}`);
-      
-      // Also log to console for development
+      // Log to console for development
       console.log('[Analytics]', eventName, properties);
       
       return true;

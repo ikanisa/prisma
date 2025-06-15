@@ -67,7 +67,10 @@ export const toastService = {
       variant: options.variant || 'default',
       duration: options.duration || 4000,
       action: options.action ? (
-        <ToastAction onClick={options.action.onClick}>
+        <ToastAction 
+          onClick={options.action.onClick}
+          altText={options.action.label}
+        >
           {options.action.label}
         </ToastAction>
       ) : undefined
