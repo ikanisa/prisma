@@ -95,7 +95,7 @@ const HomeScreen = () => {
             <div className="flex flex-col items-center justify-center h-full space-y-6">
               <div className="text-center animate-fade-slide">
                 <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-4">
-                  {t('home.welcomeTitle')}
+                  Easy MOMO
                 </h1>
                 <p className="md:text-2xl text-gray-700 dark:text-gray-300 font-medium text-xs">
                   {t('home.welcomeSubtitle')}
