@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { QrCode } from 'lucide-react';
 import { Button } from '../ui/button';
@@ -80,6 +79,7 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
               inputMode="numeric"
               pattern="\d*"
               autoComplete="off"
+              aria-label="Mobile money phone number"
             />
             {focusedField === 'phone' && (
               <span className="absolute right-2 top-1/2 -translate-y-1/2 text-blue-500 text-xs font-bold animate-pulse">
@@ -114,6 +114,7 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
               pattern="\d*"
               maxLength={12}
               autoComplete="off"
+              aria-label="Amount (RWF)"
             />
             {focusedField === 'amount' && (
               <span className="absolute right-2 top-1/2 -translate-y-1/2 text-blue-500 text-xs font-bold animate-pulse">
@@ -126,7 +127,9 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
         <Button 
           onClick={onGenerateQR}
           disabled={isGenerating || !phone.trim() || !amount.trim()}
-          className="w-full bg-blue-500 hover:bg-blue-600 text-white py-3 text-lg"
+          className="w-full bg-blue-500 hover:bg-blue-600 text-white py-3 text-lg focus:outline-none focus-visible:ring-4 focus-visible:ring-blue-400"
+          aria-label="Generate Payment QR"
+          tabIndex={0}
         >
           {isGenerating ? (
             <>
@@ -135,7 +138,7 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
             </>
           ) : (
             <>
-              <QrCode className="w-5 h-5 mr-2" />
+              <QrCode className="w-5 h-5 mr-2" aria-hidden="true" focusable="false"/>
               Generate Payment QR
             </>
           )}

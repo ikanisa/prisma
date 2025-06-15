@@ -64,9 +64,10 @@ const SmartQRScanner: React.FC<SmartQRScannerProps> = ({ onBack }) => {
           maxWidth: 370,
           maxHeight: 370,
         }}
+        aria-label="QR Scanner boundary"
       >
         <div className="relative w-full h-full">
-          <div className="absolute inset-0 z-10">
+          <div className="absolute inset-0 z-10" tabIndex={0} aria-live="polite">
             <QRScannerFrame scanStatus={scanStatus} scanResult={scanResult} />
             {/* Animated pulse - scanning */}
             {(scanStatus === "scanning" || scanStatus === "processing") && (
@@ -92,13 +93,15 @@ const SmartQRScanner: React.FC<SmartQRScannerProps> = ({ onBack }) => {
 
       {/* Back button */}
       <button
-        className="absolute top-4 left-4 z-50 glass-card p-2 rounded-2xl text-white shadow-xl bg-black/30 hover:scale-110 transition-all"
+        className="absolute top-4 left-4 z-50 glass-card p-2 rounded-2xl text-white shadow-xl bg-black/30 hover:scale-110 focus:outline-none focus-visible:ring-4 focus-visible:ring-blue-400 transition-all"
         aria-label="Back to previous screen"
         onClick={onBack}
+        tabIndex={0}
       >
         <svg viewBox="0 0 24 24" className="w-8 h-8" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
           <polyline points="15 18 9 12 15 6" />
         </svg>
+        <span className="sr-only">Back</span>
       </button>
     </div>
   );

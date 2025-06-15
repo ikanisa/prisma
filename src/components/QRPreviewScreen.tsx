@@ -142,11 +142,13 @@ const QRPreviewScreen = () => {
         <div className="flex items-center justify-between mb-2 mt-1">
           <button
             onClick={() => navigate('/get-paid')}
-            className="glass-card p-2 hover:scale-110 transition-transform"
+            className="glass-card p-2 hover:scale-110 transition-transform focus:outline-none focus-visible:ring-4 focus-visible:ring-blue-400"
             style={{ minWidth: 40 }}
             aria-label="Back to Get Paid screen"
+            tabIndex={0}
           >
             <ArrowLeft className="w-5 h-5" aria-hidden="true" focusable="false" />
+            <span className="sr-only">Back</span>
           </button>
           <h1 className="text-lg font-bold text-gray-800 dark:text-white text-center">
             Payment QR Code
@@ -165,6 +167,8 @@ const QRPreviewScreen = () => {
                   className="rounded-xl shadow-lg"
                   style={{ width: '288px', height: '288px', objectFit: 'contain' }}
                   loading="lazy"
+                  tabIndex={0}
+                  aria-label="Payment QR Code"
                 />
               </div>
               <h2 className="text-base font-bold text-gray-800 dark:text-white mt-1">
@@ -180,17 +184,19 @@ const QRPreviewScreen = () => {
         </div>
 
         {/* USSD Code Display - Responsive */}
-        <div className="glass-card p-2 sm:p-3 text-center mb-2">
+        <div className="glass-card p-2 sm:p-3 text-center mb-2" aria-live="polite">
           <h3 className="text-xs sm:text-sm font-semibold text-gray-800 dark:text-white mb-1">
             USSD Payment Code:
           </h3>
           <button
             onClick={copyToClipboard}
-            className="bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 px-2 sm:px-4 py-2 rounded-xl text-xs sm:text-lg font-mono font-bold hover:scale-105 transition-transform flex items-center space-x-2 mx-auto break-all min-h-[32px]"
-            aria-label="Copy USSD code"
+            className="bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 px-2 sm:px-4 py-2 rounded-xl text-xs sm:text-lg font-mono font-bold hover:scale-105 focus:outline-none focus-visible:ring-4 focus-visible:ring-blue-400 transition-transform flex items-center space-x-2 mx-auto break-all min-h-[32px]"
+            aria-label={`Copy USSD code ${ussdCode}`}
+            tabIndex={0}
           >
             <span className="break-all">{ussdCode}</span>
             <Copy className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" aria-hidden="true" focusable="false" />
+            <span className="sr-only">Copy Code</span>
           </button>
           <p className="text-xs text-gray-500 mt-2">
             Tap to copy • Dial this code to pay
@@ -201,8 +207,9 @@ const QRPreviewScreen = () => {
         <div className="grid grid-cols-2 gap-2 mb-1">
           <button
             onClick={saveQRCode}
-            className="btn-secondary ripple flex items-center justify-center space-x-1 py-2 text-xs"
+            className="btn-secondary ripple flex items-center justify-center space-x-1 py-2 text-xs focus:outline-none focus-visible:ring-4 focus-visible:ring-blue-400"
             aria-label="Save QR code"
+            tabIndex={0}
           >
             <Download className="w-5 h-5" aria-hidden="true" focusable="false" />
             <span>Save QR</span>
@@ -210,8 +217,9 @@ const QRPreviewScreen = () => {
 
           <button
             onClick={shareQRCode}
-            className="btn-primary ripple flex items-center justify-center space-x-1 py-2 text-xs"
+            className="btn-primary ripple flex items-center justify-center space-x-1 py-2 text-xs focus:outline-none focus-visible:ring-4 focus-visible:ring-blue-400"
             aria-label="Share payment QR code"
+            tabIndex={0}
           >
             <Share2 className="w-5 h-5" aria-hidden="true" focusable="false" />
             <span>Share QR</span>
