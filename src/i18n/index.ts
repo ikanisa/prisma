@@ -1,21 +1,23 @@
+
 import en from './en.json';
-// import fr from './fr.json'; // unused, and causes type errors due to structure mismatch
+import fr from './fr.json'; // now used
 import rw from './rw.json';
 // import pt from './pt.json'; // unused, and causes type errors due to structure mismatch
 
-type LangCode = 'en' | 'rw'; // Only languages currently present
-type TranslationDict = typeof en;
+type LangCode = 'en' | 'rw' | 'fr'; // now supports French
+type TranslationDict = typeof en; // we assume all language files follow the English structure
 
 // Only include languages with complete structures
 const translations: Record<LangCode, TranslationDict> = {
   en,
   rw,
+  fr,
 };
 
 function getBrowserLang(): LangCode {
   if (typeof navigator === 'undefined') return 'en';
   const lang = (navigator.language || navigator.languages?.[0] || 'en').slice(0, 2).toLowerCase();
-  if (['rw', 'en'].includes(lang)) return lang as LangCode;
+  if (['rw', 'en', 'fr'].includes(lang)) return lang as LangCode;
   return 'en';
 }
 
@@ -27,7 +29,7 @@ function getFirebaseLang(): LangCode | null {
 
 export function getStoredLang(): LangCode | null {
   const val = localStorage.getItem('locale');
-  if (['rw', 'en'].includes(val ?? '')) return val as LangCode;
+  if (['rw', 'en', 'fr'].includes(val ?? '')) return val as LangCode;
   return null;
 }
 
