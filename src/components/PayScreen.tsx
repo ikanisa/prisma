@@ -2,6 +2,7 @@ import React, { useRef, useEffect } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import SmartQRScanner from "./PayScreen/SmartQRScanner";
+import OfflineBanner from "./OfflineBanner";
 
 const autofocusBorderSize = 'min(96vw, 96vh)'; // nearly full screen
 
@@ -48,6 +49,7 @@ const PayScreen = () => {
   // Instead of native overlays/useEffect, display our new SmartQRScanner:
   return (
     <div className="fixed inset-0 w-full h-full z-50 bg-black overflow-hidden">
+      <OfflineBanner />
       <SmartQRScanner onBack={() => navigate(-1)} />
     </div>
   );

@@ -3,11 +3,13 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Download, Share2, Copy } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import QRCode from 'qrcode';
+import FloatingBadge from './FloatingBadge';
 
 const QRPreviewScreen = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [qrDataUrl, setQrDataUrl] = useState('');
+  const [showCopied, setShowCopied] = useState(false);
   
   const amount = searchParams.get('amount') || '';
   const phone = searchParams.get('phone') || '';
@@ -97,10 +99,8 @@ const QRPreviewScreen = () => {
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(ussdCode);
-    toast({
-      title: "USSD Code Copied!",
-      description: "Payment code copied to clipboard",
-    });
+    setShowCopied(true);
+    setTimeout(() => setShowCopied(false), 1200);
   };
 
   return (
@@ -122,7 +122,7 @@ const QRPreviewScreen = () => {
         </div>
         
         {/* QR Code Display */}
-        <div className="glass-card flex flex-col items-center p-4 mb-2 min-h-fit">
+        <div className="glass-card flex flex-col items-center p-4 mb-2 min-h-fit animate-fade-in">
           {qrDataUrl ? (
             <div className="space-y-2 flex flex-col items-center justify-center">
               <div className="bg-white p-2 rounded-2xl inline-block qr-glow max-w-full flex items-center justify-center" style={{ width: '320px', height: '320px' }}>
@@ -181,6 +181,7 @@ const QRPreviewScreen = () => {
           </button>
         </div>
       </div>
+      {showCopied && <FloatingBadge label="Copied!" />}
     </div>
   );
 };

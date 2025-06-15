@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, QrCode, Link } from 'lucide-react';
@@ -172,7 +171,7 @@ const GetPaidScreen = () => {
               aria-describedby={errors.amount ? "amount-error" : undefined}
             />
             {errors.amount && (
-              <p id="amount-error" className="text-red-500 text-sm text-center" role="alert">
+              <p id="amount-error" className="text-error text-center" role="alert">
                 {errors.amount}
               </p>
             )}
@@ -198,11 +197,11 @@ const GetPaidScreen = () => {
               aria-describedby={errors.phone ? "phone-error" : "phone-help"}
             />
             {errors.phone ? (
-              <p id="phone-error" className="text-red-500 text-sm text-center" role="alert">
+              <p id="phone-error" className="text-error text-center" role="alert">
                 {errors.phone}
               </p>
             ) : (
-              <p id="phone-help" className="text-sm text-gray-500 text-center">
+              <p id="phone-help" className="text-helper text-center">
                 Uyu mubare uzakira ubwishyu
               </p>
             )}

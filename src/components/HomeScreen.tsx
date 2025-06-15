@@ -3,6 +3,7 @@ import { QrCode, Link } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from '@/hooks/use-toast';
 import PromoBanner from './PromoBanner';
+import OfflineBanner from './OfflineBanner';
 import { t } from '@/i18n';
 
 const HomeScreen = () => {
@@ -35,8 +36,13 @@ const HomeScreen = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-gray-900 dark:via-purple-900 dark:to-blue-900 relative">
       {/* Promo Banner */}
-      <PromoBanner />
-      
+      <div className="animate-fade-in">
+        <PromoBanner />
+      </div>
+
+      {/* Offline Banner */}
+      <OfflineBanner />
+
       <div className="container mx-auto px-4 py-4 pt-16 h-screen overflow-hidden">
         <div className="flex flex-col items-center justify-center h-full space-y-6">
           
