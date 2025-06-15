@@ -97,9 +97,13 @@ export const usePaymentGeneration = () => {
       });
     } catch (error) {
       console.error('[QR DEBUG] Error generating QR:', error);
+      let errMsg: string = "Could not generate QR code. Please try again.";
+      if (typeof error === "object" && error !== null && "message" in error) {
+        errMsg = (error as any).message || errMsg;
+      }
       toast({
         title: "Generation Failed",
-        description: "Could not generate QR code. Please try again.",
+        description: errMsg,
         variant: "destructive"
       });
     } finally {

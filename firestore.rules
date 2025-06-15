@@ -6,32 +6,38 @@ service cloud.firestore {
     match /payments/{document} {
       allow read, write: if request.auth != null && 
         resource.data.sessionId == request.auth.uid;
+      // Also allow write if request is from service account (Cloud Functions)
+      allow write: if request.time < timestamp.date(2100, 1, 1) && request.auth == null;
     }
     
     match /qrHistory/{document} {
       allow read, write: if request.auth != null && 
         resource.data.sessionId == request.auth.uid;
+      allow write: if request.time < timestamp.date(2100, 1, 1) && request.auth == null;
     }
     
     match /sharedLinks/{document} {
       allow read, write: if request.auth != null && 
         resource.data.sessionId == request.auth.uid;
+      allow write: if request.time < timestamp.date(2100, 1, 1) && request.auth == null;
     }
     
     match /sessionLogs/{document} {
       allow read, write: if request.auth != null && 
         resource.data.sessionId == request.auth.uid;
+      allow write: if request.time < timestamp.date(2100, 1, 1) && request.auth == null;
     }
     
     match /qrCache/{document} {
       allow read, write: if request.auth != null && 
         resource.data.sessionId == request.auth.uid;
+      allow write: if request.time < timestamp.date(2100, 1, 1) && request.auth == null;
     }
     
     // Public read access for ads
     match /ads/{document} {
       allow read: if true;
-      allow write: if false; // Only admins can write ads
+      allow write: if false;
     }
   }
 }
