@@ -5,9 +5,8 @@ import { Flashlight, QrCode } from "lucide-react";
 import { useAmbientLightSensor } from "@/hooks/useAmbientLightSensor";
 import LoadingSpinner from "../LoadingSpinner";
 import { Button } from "../ui/button";
+import { BrowserQRCodeReader, IScannerControls } from "@zxing/browser";
 
-const FAKE_SCAN_DELAY_MS = 2300; // Demo: simulate scan/AI time
-const DEMO_FAKE_USSD = "*182*1234#";
 const SCAN_BOX_SIZE = "min(84vw, 80vh)";
 
 type ScanStatus = "idle" | "scanning" | "success" | "fail";
@@ -23,6 +22,9 @@ const SmartQRScanner: React.FC<SmartQRScannerProps> = ({ onBack }) => {
   const [scanResult, setScanResult] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
+  // ZXing controls
+  const scannerControls = useRef<IScannerControls | null>(null);
+
   // Low light detection
   const light = useAmbientLightSensor();
 
@@ -31,64 +33,68 @@ const SmartQRScanner: React.FC<SmartQRScannerProps> = ({ onBack }) => {
     setShowFlashSuggestion(typeof light === "number" && light < 16);
   }, [light]);
 
-  // Simulate camera stream
+  // Start/stop QR scanner
   useEffect(() => {
-    let stream: MediaStream | null = null;
-    const startCamera = async () => {
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "environment" },
-          audio: false,
-        });
-        if (videoRef.current) videoRef.current.srcObject = stream;
-      } catch (e) {
-        // TODO: handle camera fail
-      }
-    };
-    startCamera();
-    return () => {
-      if (stream) stream.getTracks().forEach((t) => t.stop());
-    };
-  }, []);
-
-  // Simulate scan: demo AI-image parse
-  useEffect(() => {
-    if (scanStatus === "scanning") {
+    let stopped = false;
+    async function startQRScan() {
+      setScanStatus("scanning");
       setScanResult(null);
-      const timer = setTimeout(() => {
-        // Simulate "AI" finding USSD or failing
-        const found = Math.random() > 0.2;
-        if (found) {
-          setScanResult(DEMO_FAKE_USSD);
-          setScanStatus("success");
-        } else {
-          setScanResult(null);
+      const codeReader = new BrowserQRCodeReader();
+      try {
+        const videoInputDevices = await BrowserQRCodeReader.listVideoInputDevices();
+        // Use the first available device
+        const selectedDeviceId = videoInputDevices?.[0]?.deviceId;
+        if (!selectedDeviceId) {
           setScanStatus("fail");
+          return;
         }
-      }, FAKE_SCAN_DELAY_MS);
-      return () => clearTimeout(timer);
-    }
-  }, [scanStatus]);
-
-  // Vibration feedback on scan complete (if supported)
-  useEffect(() => {
-    if (scanStatus === "success" || scanStatus === "fail") {
-      if ("vibrate" in navigator) {
-        navigator.vibrate(scanStatus === "success" ? 120 : [70, 60, 70]);
+        // Attach to <video>
+        scannerControls.current = await codeReader.decodeFromVideoDevice(
+          selectedDeviceId,
+          videoRef.current!,
+          (result, err) => {
+            if (stopped) return;
+            if (result) {
+              // Found QR!
+              setScanResult(result.getText());
+              setScanStatus("success");
+              if ("vibrate" in navigator) {
+                navigator.vibrate(120);
+              }
+              // Stop scanning (pause at first QR found)
+              scannerControls.current?.stop();
+            } else if (err) {
+              // Logging possible errors (not shown)
+            }
+          }
+        );
+      } catch (e) {
+        setScanStatus("fail");
       }
     }
-  }, [scanStatus]);
+    startQRScan();
+    return () => {
+      stopped = true;
+      scannerControls.current?.stop();
+    };
+  }, []); // Only run on mount
 
-  // Handle retry
+  // Allow retry after fail/success
   const handleRetry = () => {
     setScanStatus("scanning");
     setScanResult(null);
+    scannerControls.current?.stop();
+    // Effect will automatically re-trigger scan on remount (just force remount via key could work, or better:
+    // simple hack: set key on outer div using scanStatus, so that "scanning" state remounts QR logic)
+    // Instead, just reload page for now, or see useEffect for scanStatus if needed
+    window.location.reload();
   };
 
-  // Flashlight stub: invert state & shimmer anim
-  const handleToggleFlash = () => {
+  // Flashlight stub: invert state & shimmer anim (browser support for torch is very limited; mostly Android)
+  const handleToggleFlash = async () => {
     setFlashEnabled((f) => !f);
-    // TODO: Connect to CameraService.toggleFlash if supported
+    // TODO: Could implement torch via MediaStreamTrack if supported by device.
+    // Leave no-op for now; demo purpose.
   };
 
   // Tap to auto-launch USSD: copy + vibrate
@@ -96,13 +102,14 @@ const SmartQRScanner: React.FC<SmartQRScannerProps> = ({ onBack }) => {
     if (!scanResult) return;
     navigator.clipboard.writeText(scanResult);
     if ("vibrate" in navigator) navigator.vibrate([50, 40, 65]);
-    // Launch USSD (browser workaround: just copy to clipboard, could launch intent on mobile)
   };
 
-  // Begin scanning on mount
+  // Remount scan when retrying
   useEffect(() => {
-    setScanStatus("scanning");
-  }, []);
+    if (scanStatus === "scanning" && !scannerControls.current) {
+      // Already handled by first useEffect, so don't double mount.
+    }
+  }, [scanStatus]);
 
   return (
     <div className="absolute inset-0 flex flex-col w-full h-full items-center justify-start z-50">
@@ -133,7 +140,6 @@ const SmartQRScanner: React.FC<SmartQRScannerProps> = ({ onBack }) => {
             {scanStatus === "scanning" && (
               <div className="absolute inset-0 rounded-4xl animate-pulse bg-gradient-to-br from-blue-500/10 via-blue-700/10 to-indigo-500/10 shadow-[0_0_0_8px_rgba(57,106,252,0.12)] pointer-events-none" />
             )}
-            {/* Glass shimmer */}
             <div className="absolute inset-0 rounded-4xl bg-white/6 backdrop-blur-[4px] shadow-inner pointer-events-none" />
           </div>
         </div>
@@ -143,11 +149,11 @@ const SmartQRScanner: React.FC<SmartQRScannerProps> = ({ onBack }) => {
       {scanStatus === "scanning" && (
         <div className="absolute left-1/2 bottom-[18vh] -translate-x-1/2 flex flex-col items-center">
           <LoadingSpinner />
-          <span className="mt-2 text-base font-semibold text-white/90">Scanning with AI...</span>
+          <span className="mt-2 text-base font-semibold text-white/90">Scanning…</span>
         </div>
       )}
 
-      {/* Show decoded USSD button - animate in */}
+      {/* Show decoded QR result - animate in */}
       {scanStatus === "success" && scanResult && (
         <div className="absolute left-1/2 bottom-[15vh] -translate-x-1/2 w-[90vw] max-w-lg flex items-center justify-center transition-all animate-fade-in">
           <button
@@ -201,4 +207,3 @@ const SmartQRScanner: React.FC<SmartQRScannerProps> = ({ onBack }) => {
   );
 };
 export default SmartQRScanner;
-
