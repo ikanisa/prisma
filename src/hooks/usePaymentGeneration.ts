@@ -62,21 +62,27 @@ export const usePaymentGeneration = () => {
     }
 
     setIsGenerating(true);
+
+    // Debug: log inputs before API call
+    console.log('[QR DEBUG] generateQR called with:', { phone: phone.trim(), amount: numAmount });
+
     try {
       // Generate QR code
       const qrResponse = await cloudFunctions.generateQRCode(phone.trim(), numAmount);
       setQrResult(qrResponse);
+      console.log('[QR DEBUG] generateQRCode result:', qrResponse);
 
       // Generate payment link
       const linkResponse = await cloudFunctions.createPaymentLink(phone.trim(), numAmount);
       setPaymentLink(linkResponse.paymentLink);
+      console.log('[QR DEBUG] createPaymentLink result:', linkResponse);
 
       toast({
         title: "QR Code Generated!",
         description: "Ready to share your payment request",
       });
     } catch (error) {
-      console.error('Error generating QR:', error);
+      console.error('[QR DEBUG] Error generating QR:', error);
       toast({
         title: "Generation Failed",
         description: "Could not generate QR code. Please try again.",

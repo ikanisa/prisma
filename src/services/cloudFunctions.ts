@@ -40,6 +40,7 @@ interface CreatePaymentLinkResponse {
 class CloudFunctionsService {
   private async callFunction<T>(functionName: string, data: any): Promise<T> {
     try {
+      console.log(`[QR DEBUG] Call cloud function: ${functionName}`, data);
       const response = await fetch(`${FUNCTIONS_BASE_URL}/${functionName}`, {
         method: 'POST',
         headers: {
@@ -48,12 +49,23 @@ class CloudFunctionsService {
         body: JSON.stringify(data),
       });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      // Log raw response for diagnostics
+      const text = await response.text();
+      let result;
+      try {
+        result = JSON.parse(text);
+      } catch (parseErr) {
+        console.error(`[QR DEBUG] Failed to parse JSON from ${functionName}:`, text);
+        throw new Error('Malformed response from server');
       }
 
-      const result = await response.json();
-      
+      console.log(`[QR DEBUG] Result from ${functionName}:`, result);
+
+      if (!response.ok) {
+        console.error(`[QR DEBUG] HTTP error (${response.status}) from ${functionName}:`, result);
+        throw new Error(result?.error || `HTTP error! status: ${response.status}`);
+      }
+
       await logSessionEvent({
         function: functionName,
         status: 'success'
@@ -61,7 +73,7 @@ class CloudFunctionsService {
 
       return result;
     } catch (error) {
-      console.error(`Error calling ${functionName}:`, error);
+      console.error(`[QR DEBUG] Error in ${functionName}:`, error);
       
       await logSessionEvent({
         function: functionName,
@@ -75,6 +87,7 @@ class CloudFunctionsService {
 
   async generateQRCode(receiver: string, amount: number): Promise<GenerateQRCodeResponse> {
     const sessionId = await initializeSession();
+    console.log('[QR DEBUG] generateQRCode input:', { receiver, amount, sessionId });
     return this.callFunction<GenerateQRCodeResponse>('generateQRCode', {
       receiver,
       amount,
@@ -115,3 +128,4 @@ class CloudFunctionsService {
 }
 
 export const cloudFunctions = new CloudFunctionsService();
+
