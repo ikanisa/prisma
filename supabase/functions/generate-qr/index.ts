@@ -1,11 +1,36 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import QRCode from "https://esm.sh/qrcode@1.5.3"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
+// Simple QR code generation function for server environment
+async function generateQRCodeDataURL(text: string): Promise<string> {
+  try {
+    // Use a simple QR code generation API for server-side generation
+    const response = await fetch(`https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(text)}&format=png&margin=2&color=1f2937&bgcolor=ffffff&ecc=H`);
+    
+    if (!response.ok) {
+      throw new Error('QR code generation failed');
+    }
+
+    const qrImageBlob = await response.blob();
+    const arrayBuffer = await qrImageBlob.arrayBuffer();
+    const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+    return `data:image/png;base64,${base64}`;
+  } catch (error) {
+    console.error('QR generation error:', error);
+    // Fallback: create a simple data URL with text
+    const canvas = `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400">
+      <rect width="400" height="400" fill="white"/>
+      <text x="200" y="200" text-anchor="middle" font-family="monospace" font-size="12" fill="black">${text}</text>
+    </svg>`;
+    const base64 = btoa(canvas);
+    return `data:image/svg+xml;base64,${base64}`;
+  }
 }
 
 serve(async (req) => {
@@ -85,26 +110,20 @@ serve(async (req) => {
       )
     }
 
-    // Generate QR code
-    const qrCodeDataURL = await QRCode.toDataURL(ussdString, {
-      width: 400,
-      margin: 2,
-      color: {
-        dark: '#1f2937',
-        light: '#ffffff'
-      },
-      errorCorrectionLevel: 'H'
-    })
+    // Generate QR code using external service
+    const qrCodeDataURL = await generateQRCodeDataURL(ussdString)
 
     // Convert data URL to blob for storage
-    const base64Data = qrCodeDataURL.split(',')[1]
-    const qrCodeBlob = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0))
-
-    // Upload to Supabase Storage
-    const fileName = `${sessionId}/${Date.now()}.png`
     let publicUrl = qrCodeDataURL // Fallback to data URL
+    let fileName = ''
 
     try {
+      const base64Data = qrCodeDataURL.split(',')[1]
+      const qrCodeBlob = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0))
+
+      // Upload to Supabase Storage
+      fileName = `${sessionId}/${Date.now()}.png`
+      
       const { data: uploadData, error: uploadError } = await supabaseClient.storage
         .from('qr-codes')
         .upload(fileName, qrCodeBlob, {

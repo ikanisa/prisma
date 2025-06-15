@@ -9,6 +9,36 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      available_drivers: {
+        Row: {
+          driver_name: string
+          id: string
+          is_available: boolean | null
+          location: string
+          phone: string | null
+          updated_at: string | null
+          vehicle_type: string
+        }
+        Insert: {
+          driver_name: string
+          id?: string
+          is_available?: boolean | null
+          location: string
+          phone?: string | null
+          updated_at?: string | null
+          vehicle_type: string
+        }
+        Update: {
+          driver_name?: string
+          id?: string
+          is_available?: boolean | null
+          location?: string
+          phone?: string | null
+          updated_at?: string | null
+          vehicle_type?: string
+        }
+        Relationships: []
+      }
       events: {
         Row: {
           created_at: string | null
@@ -150,6 +180,81 @@ export type Database = {
           session_id?: string
           type?: Database["public"]["Enums"]["qr_type"]
           ussd_string?: string
+        }
+        Relationships: []
+      }
+      ride_pricing: {
+        Row: {
+          base_fare: number
+          id: string
+          per_km: number
+          per_minute: number
+          surge_multiplier: number | null
+          updated_at: string | null
+          vehicle_type: string
+        }
+        Insert: {
+          base_fare: number
+          id?: string
+          per_km: number
+          per_minute: number
+          surge_multiplier?: number | null
+          updated_at?: string | null
+          vehicle_type: string
+        }
+        Update: {
+          base_fare?: number
+          id?: string
+          per_km?: number
+          per_minute?: number
+          surge_multiplier?: number | null
+          updated_at?: string | null
+          vehicle_type?: string
+        }
+        Relationships: []
+      }
+      rides: {
+        Row: {
+          created_at: string | null
+          departure_time: string
+          driver_name: string | null
+          driver_phone: string | null
+          fare: number | null
+          from_location: string
+          id: string
+          passengers: number
+          session_id: string
+          status: string
+          to_location: string
+          vehicle_type: string
+        }
+        Insert: {
+          created_at?: string | null
+          departure_time: string
+          driver_name?: string | null
+          driver_phone?: string | null
+          fare?: number | null
+          from_location: string
+          id?: string
+          passengers?: number
+          session_id: string
+          status?: string
+          to_location: string
+          vehicle_type: string
+        }
+        Update: {
+          created_at?: string | null
+          departure_time?: string
+          driver_name?: string | null
+          driver_phone?: string | null
+          fare?: number | null
+          from_location?: string
+          id?: string
+          passengers?: number
+          session_id?: string
+          status?: string
+          to_location?: string
+          vehicle_type?: string
         }
         Relationships: []
       }

@@ -7,6 +7,13 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// Simple function to generate URL-safe token
+function generateToken(): string {
+  const array = new Uint8Array(32);
+  crypto.getRandomValues(array);
+  return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -44,13 +51,19 @@ serve(async (req) => {
       console.warn('Could not set session context:', err)
     }
 
-    // Create shared link
+    // Generate a simple token instead of using base64url
+    const linkToken = generateToken()
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // 24 hours from now
+
+    // Create shared link with custom token
     const { data: linkData, error: linkError } = await supabaseClient
       .from('shared_links')
       .insert({
         session_id: sessionId,
         phone_number: receiver,
-        amount: parseInt(amount)
+        amount: parseInt(amount),
+        link_token: linkToken,
+        expires_at: expiresAt
       })
       .select()
 
