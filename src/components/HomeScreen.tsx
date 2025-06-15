@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { QrCode, Link, TestTube, Clock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -92,7 +93,7 @@ const HomeScreen = () => {
         <OfflineBanner />
         {topSpacer}
         <div className="container mx-auto px-4 py-4 pt-0 h-screen flex flex-col justify-center items-center">
-          <div className="liquid-glass-panel backdrop-blur-2xl shadow-2xl px-4 py-8 md:px-8 md:py-10 max-w-lg w-full mx-auto space-y-8 transition-all duration-500">
+          <div className="liquid-glass-panel backdrop-blur-2xl shadow-2xl px-3 py-6 md:px-6 md:py-8 w-full mx-auto space-y-6 transition-all duration-500">
             <div className="flex flex-col items-center justify-center h-full space-y-6">
               <div className="text-center animate-fade-slide">
                 <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-4" data-testid="app-title">
