@@ -115,12 +115,28 @@ const PromoBanner: React.FC = () => {
   const activeAd = ads[activeIdx];
 
   // -------------------- Full Banner ----------------------------
-  return <div className={`fixed top-4 left-0 right-0 z-50 flex justify-center w-full pointer-events-auto animate-fade-slide`} style={{
-    transition: "opacity .3s"
-  }}>
-      <div className="relative min-h-[120px] w-full max-w-2xl rounded-2xl shadow-xl overflow-hidden glass-panel flex items-center" style={{
-      background: `linear-gradient(90deg, ${activeAd.gradient.join(",")})`
-    }}>
+  return (
+    <div
+      className={`fixed`}
+      style={{
+        top: "3.5rem", // Move down below the flag toggle for visibility!
+        left: 0,
+        right: 0,
+        zIndex: 50,
+        display: "flex",
+        justifyContent: "center",
+        width: "100%",
+        pointerEvents: "auto",
+        animation: "fade-slide .3s",
+        transition: "opacity .3s"
+      }}
+    >
+      <div
+        className="relative min-h-[140px] w-full max-w-2xl rounded-2xl shadow-xl overflow-hidden glass-panel flex items-center"
+        style={{
+          background: `linear-gradient(90deg, ${activeAd.gradient.join(",")})`
+        }}
+      >
         {/* Minimize Button */}
         <button className="absolute top-2 right-2 bg-white/40 hover:bg-white/70 rounded-full p-1 transition-all flex items-center z-10" onClick={handleMinimize} aria-label="Minimize promotion banner" style={{
         lineHeight: 0
@@ -152,7 +168,13 @@ const PromoBanner: React.FC = () => {
           <div className="text-white/90 text-sm mt-1 line-clamp-2">
             {activeAd.description}
           </div>
-          <Button variant="secondary" size="sm" className="mt-4 glow hover:scale-110" onClick={() => window.open(activeAd.ctaLink, "_blank")} aria-label={`Open promotion: ${activeAd.ctaLabel}`}>
+          <Button
+            variant="secondary"
+            size="sm"
+            className="mt-4 glow hover:scale-110"
+            onClick={() => window.open(activeAd.ctaLink, "_blank")}
+            aria-label={`Open promotion: ${activeAd.ctaLabel}`}
+          >
             {activeAd.ctaLabel}
           </Button>
         </div>
@@ -168,7 +190,8 @@ const PromoBanner: React.FC = () => {
                 ${i === activeIdx ? "bg-white/90 shadow-xl scale-110" : "bg-white/40"}`} aria-label={i === activeIdx ? "Current promotion indicator" : "Inactive promotion indicator"} role="presentation" />)}
         </div>
       </div>
-    </div>;
+    </div>
+  );
 };
 export default PromoBanner;
 
