@@ -28,9 +28,14 @@ if ('serviceWorker' in navigator) {
         }
       });
 
-      // Register background sync for offline scanner data
+      // Register background sync for offline scanner data with proper type checking
       if ('serviceWorker' in navigator && 'sync' in window.ServiceWorkerRegistration.prototype) {
-        registration.sync.register('qr-scan-sync').catch(console.error);
+        try {
+          // Use type assertion for sync registration since TypeScript doesn't include it by default
+          (registration as any).sync?.register('qr-scan-sync').catch(console.error);
+        } catch (error) {
+          console.log('[PWA] Background sync not supported:', error);
+        }
       }
     } catch (error) {
       console.error('[PWA] Service worker registration failed:', error);
