@@ -1,4 +1,3 @@
-
 @tailwind base;
 
 /* Core color variables and root variables */
@@ -53,7 +52,7 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground text-base;
+    @apply bg-background text-foreground;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -61,6 +60,19 @@
   html {
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
+  }
+  /* 
+    Set base font size for mobile & ensure readability 
+    - 19px for mobile (smaller screens),
+    - default to 1rem = 16px for md+ 
+  */
+  html {
+    font-size: 19px;
+  }
+  @media (min-width: 640px) { /* Tailwind sm = 640px */
+    html {
+      font-size: 16px;
+    }
   }
   *:focus {
     outline: none;

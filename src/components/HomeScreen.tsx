@@ -63,7 +63,7 @@ const HomeScreen = () => {
             <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-4">
               {t('home.welcomeTitle')}
             </h1>
-            <p className="text-xl md:text-2xl text-gray-700 dark:text-gray-300 font-semibold">
+            <p className="text-[1.25rem] md:text-2xl text-gray-700 dark:text-gray-300 font-semibold">
               {t('home.welcomeSubtitle')}
             </p>
           </div>
@@ -72,7 +72,7 @@ const HomeScreen = () => {
             <button 
               onClick={() => navigate('/pay')} 
               aria-label="Scan to Pay"
-              className="w-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 hover:from-blue-600 hover:via-purple-600 hover:to-pink-600 text-white font-semibold py-4 px-8 rounded-2xl min-h-[64px] text-button transform transition-all duration-200 hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl ripple flex items-center justify-center space-x-4"
+              className="w-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 hover:from-blue-600 hover:via-purple-600 hover:to-pink-600 text-white font-semibold py-4 px-8 rounded-2xl min-h-[64px] text-[1.07rem] md:text-button transform transition-all duration-200 hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl ripple flex items-center justify-center space-x-4"
             >
               <QrCode className="icon-large" aria-hidden="true" focusable="false" />
               <span>Kwishyura</span>
@@ -80,7 +80,7 @@ const HomeScreen = () => {
             <button 
               onClick={() => navigate('/get-paid')} 
               aria-label={t('home.receive') + " (Get Paid)"}
-              className="w-full bg-gradient-to-r from-green-400 via-teal-500 to-blue-500 hover:from-green-500 hover:via-teal-600 hover:to-blue-600 text-white font-semibold py-4 px-8 rounded-2xl min-h-[64px] text-button transform transition-all duration-200 hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl ripple flex items-center justify-center space-x-4"
+              className="w-full bg-gradient-to-r from-green-400 via-teal-500 to-blue-500 hover:from-green-500 hover:via-teal-600 hover:to-blue-600 text-white font-semibold py-4 px-8 rounded-2xl min-h-[64px] text-[1.07rem] md:text-button transform transition-all duration-200 hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl ripple flex items-center justify-center space-x-4"
             >
               <Link className="icon-large" aria-hidden="true" focusable="false" />
               <span>{t('home.receive')}</span>
@@ -125,3 +125,4 @@ const HomeScreen = () => {
   );
 };
 export default HomeScreen;
+
