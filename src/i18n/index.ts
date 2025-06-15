@@ -1,10 +1,9 @@
-
 import en from './en.json';
 import fr from './fr.json'; // now used
 import rw from './rw.json';
 // import pt from './pt.json'; // unused, and causes type errors due to structure mismatch
 
-type LangCode = 'en' | 'rw' | 'fr'; // now supports French
+type LangCode = "en" | "rw" | "fr"; // now supports French
 type TranslationDict = typeof en; // we assume all language files follow the English structure
 
 // Only include languages with complete structures
@@ -15,10 +14,10 @@ const translations: Record<LangCode, TranslationDict> = {
 };
 
 function getBrowserLang(): LangCode {
-  if (typeof navigator === 'undefined') return 'en';
-  const lang = (navigator.language || navigator.languages?.[0] || 'en').slice(0, 2).toLowerCase();
-  if (['rw', 'en', 'fr'].includes(lang)) return lang as LangCode;
-  return 'en';
+  if (typeof navigator === "undefined") return "en";
+  const lang = (navigator.language || navigator.languages?.[0] || "en").slice(0, 2).toLowerCase();
+  if (["rw", "en", "fr"].includes(lang)) return lang as LangCode;
+  return "en";
 }
 
 function getFirebaseLang(): LangCode | null {
@@ -27,9 +26,10 @@ function getFirebaseLang(): LangCode | null {
   return null;
 }
 
+// CHANGED: Key from 'locale' to 'language'
 export function getStoredLang(): LangCode | null {
-  const val = localStorage.getItem('locale');
-  if (['rw', 'en', 'fr'].includes(val ?? '')) return val as LangCode;
+  const val = localStorage.getItem("language");
+  if (["rw", "en", "fr"].includes(val ?? "")) return val as LangCode;
   return null;
 }
 
@@ -50,7 +50,7 @@ export function detectLang(): LangCode {
 export function t(
   key: string,
   vars?: Record<string, string | number>,
-  fallbackLang: LangCode = 'en'
+  fallbackLang: LangCode = "en"
 ): string {
   const lang = detectLang();
   let str = getFromPath(translations[lang], key);
@@ -63,17 +63,18 @@ export function t(
 function interpolate(template: string, vars?: Record<string, string | number>) {
   if (!vars) return template;
   return template.replace(/\{\{\s*(\w+)\s*\}\}/g, (_, key) =>
-    typeof vars[key] !== 'undefined' ? String(vars[key]) : `{{${key}}}`
+    typeof vars[key] !== "undefined" ? String(vars[key]) : `{{${key}}}`
   );
 }
 
 function getFromPath(obj: any, path: string, fallback?: string): string {
-  const val = path.split('.').reduce((a, b) => (a && a[b]) ? a[b] : undefined, obj);
-  return (val !== undefined) ? val : fallback || path;
+  const val = path.split(".").reduce((a, b) => (a && a[b]) ? a[b] : undefined, obj);
+  return val !== undefined ? val : fallback || path;
 }
 
+// CHANGED: store in 'language'
 export function setLocale(lang: LangCode) {
-  localStorage.setItem('locale', lang);
+  localStorage.setItem("language", lang);
   window.location.reload();
 }
 

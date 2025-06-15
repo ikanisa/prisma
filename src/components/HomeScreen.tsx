@@ -22,23 +22,23 @@ const LucideIconDynamic = ({
   // fallback: blank or error SVG 
   return <svg width={32} height={32} {...props}><rect width="100%" height="100%" fill="#25d366" /><text x="50%" y="55%" textAnchor="middle" fontSize="10" fill="#fff">WA</text></svg>;
 };
-const PROMO_BANNER_HEIGHT = 136; // px, matches min-h of banner
-const PROMO_MINI_HEIGHT = 40; // px, fake min banner when minimized
+const PROMO_BANNER_HEIGHT = 136;
+const PROMO_MINI_HEIGHT = 40;
 
 function getBannerMinimized() {
   if (typeof window === "undefined") return false;
   return window.localStorage.getItem("promo_banner_minimized") === "true";
 }
+
 const HomeScreen = () => {
   const navigate = useNavigate();
   const [bannerMinimized, setBannerMinimized] = useState<boolean>(getBannerMinimized());
-  // Listen for localStorage change, update if minimized elsewhere (reactivity hack)
   useEffect(() => {
     function handleStorage() {
       setBannerMinimized(getBannerMinimized());
     }
     window.addEventListener("storage", handleStorage);
-    const timer = setInterval(handleStorage, 400); // Fallback as localStorage event doesn't fire on same tab.
+    const timer = setInterval(handleStorage, 400);
     return () => {
       window.removeEventListener("storage", handleStorage);
       clearInterval(timer);
@@ -48,73 +48,83 @@ const HomeScreen = () => {
     if (navigator.share) {
       try {
         await navigator.share({
-          title: t('home.welcomeTitle'),
-          text: t('home.welcomeSubtitle'),
-          url: window.location.origin
+          title: t("home.welcomeTitle"),
+          text: t("home.welcomeSubtitle"),
+          url: window.location.origin,
         });
       } catch (error) {
-        console.log(t('generic.shareError'), error);
+        console.log(t("generic.shareError"), error);
       }
     } else {
       navigator.clipboard.writeText(window.location.origin);
       toast({
         title: t("generic.copied"),
-        description: t("generic.linkCopied")
+        description: t("generic.linkCopied"),
       });
     }
   };
   const openWhatsApp = () => {
-    window.open('https://wa.me/YOUR_CHANNEL_LINK', '_blank');
+    window.open("https://wa.me/YOUR_CHANNEL_LINK", "_blank");
   };
 
-  // Use different spacer depending on minimized state
-  const topSpacer = <div className="w-full" style={{
-    height: bannerMinimized ? `calc(${PROMO_MINI_HEIGHT}px + 1.2rem)` // 32px+margin
-    : `calc(${PROMO_BANNER_HEIGHT}px + 1rem)`,
-    // 136px+margin
-    minHeight: bannerMinimized ? "2.5rem" : '5.5rem'
-  }} aria-hidden="true" />;
+  const topSpacer = (
+    <div
+      className="w-full"
+      style={{
+        height: bannerMinimized
+          ? `calc(${PROMO_MINI_HEIGHT}px + 1.2rem)`
+          : `calc(${PROMO_BANNER_HEIGHT}px + 1rem)`,
+        minHeight: bannerMinimized ? "2.5rem" : "5.5rem",
+      }}
+      aria-hidden="true"
+    />
+  );
+
   return (
     <div className="relative min-h-screen w-full overflow-x-hidden flex items-stretch bg-transparent">
-      {/* NEW: Layered animated background */}
       <AnimatedGlassBackground />
-      {/* Foreground content */}
       <div className="relative flex-1 flex flex-col min-h-screen justify-center items-center">
-        {/* Language Toggle, banners */}
         <LanguageToggle />
-        <div className="animate-fade-in"><PromoBanner /></div>
+        <div className="animate-fade-in">
+          <PromoBanner />
+        </div>
         <OfflineBanner />
-
-        {/* Spacer as before */}
         {topSpacer}
-
-        {/* Floating glass panel with nav and all content */}
         <div className="container mx-auto px-4 py-4 pt-0 h-screen flex flex-col justify-center items-center">
           <div className="liquid-glass-panel backdrop-blur-2xl shadow-2xl px-4 py-8 md:px-8 md:py-10 max-w-lg w-full mx-auto space-y-8 transition-all duration-500">
-            {/* Hero & main actions */}
             <div className="flex flex-col items-center justify-center h-full space-y-6">
               <div className="text-center animate-fade-slide">
-                <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-4">
-                  Easy MOMO
+                <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-4" data-testid="app-title">
+                  {t("home.title")}
                 </h1>
                 <p className="md:text-2xl text-gray-700 dark:text-gray-300 font-medium text-xs">
-                  {t('home.welcomeSubtitle')}
+                  {t("home.welcomeSubtitle")}
                 </p>
               </div>
               <div className="w-full max-w-md space-y-4">
-                {/* Main Action Buttons */}
-                <button onClick={() => navigate('/pay')} aria-label="Scan to Pay" className="w-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 hover:from-blue-600 hover:via-purple-600 hover:to-pink-600 text-white font-semibold py-4 px-8 rounded-2xl min-h-[64px] text-[1.07rem] md:text-button transform transition-all duration-200 hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl ripple flex items-center justify-center space-x-4">
+                <button
+                  onClick={() => navigate("/pay")}
+                  aria-label={t("home.pay")}
+                  className="w-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 hover:from-blue-600 hover:via-purple-600 hover:to-pink-600 text-white font-semibold py-4 px-8 rounded-2xl min-h-[64px] text-[1.07rem] md:text-button transform transition-all duration-200 hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl ripple flex items-center justify-center space-x-4"
+                >
                   <QrCode className="icon-large" aria-hidden="true" focusable="false" />
-                  <span>Kwishyura</span>
+                  <span>{t("home.pay")}</span>
                 </button>
-                <button onClick={() => navigate('/get-paid')} aria-label={t('home.receive') + " (Get Paid)"} className="w-full bg-gradient-to-r from-green-400 via-teal-500 to-blue-500 hover:from-green-500 hover:via-teal-600 hover:to-blue-600 text-white font-semibold py-4 px-8 rounded-2xl min-h-[64px] text-[1.07rem] md:text-button transform transition-all duration-200 hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl ripple flex items-center justify-center space-x-4">
+                <button
+                  onClick={() => navigate("/get-paid")}
+                  aria-label={t("home.receive")}
+                  className="w-full bg-gradient-to-r from-green-400 via-teal-500 to-blue-500 hover:from-green-500 hover:via-teal-600 hover:to-blue-600 text-white font-semibold py-4 px-8 rounded-2xl min-h-[64px] text-[1.07rem] md:text-button transform transition-all duration-200 hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl ripple flex items-center justify-center space-x-4"
+                >
                   <Link className="icon-large" aria-hidden="true" focusable="false" />
-                  <span>{t('home.receive')}</span>
+                  <span>{t("home.receive")}</span>
                 </button>
               </div>
-              {/* Share Actions */}
               <div className="flex space-x-6">
-                <button onClick={handleShare} className="glass-card p-4 hover:scale-110 transition-transform duration-200 bg-gradient-to-r from-blue-400/20 to-purple-400/20 hover:from-blue-400/30 hover:to-purple-400/30" aria-label="Share the app">
+                <button
+                  onClick={handleShare}
+                  className="glass-card p-4 hover:scale-110 transition-transform duration-200 bg-gradient-to-r from-blue-400/20 to-purple-400/20 hover:from-blue-400/30 hover:to-purple-400/30"
+                  aria-label={t("home.shareApp")}
+                >
                   <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                     <g>
                       <circle cx="18" cy="5" r="3" />
@@ -125,7 +135,11 @@ const HomeScreen = () => {
                     </g>
                   </svg>
                 </button>
-                <button onClick={openWhatsApp} className="glass-card p-4 hover:scale-110 transition-transform duration-200 bg-gradient-to-r from-green-400/20 to-emerald-400/20 hover:from-green-400/30 hover:to-emerald-400/30" aria-label="Open WhatsApp to chat (new window)">
+                <button
+                  onClick={openWhatsApp}
+                  className="glass-card p-4 hover:scale-110 transition-transform duration-200 bg-gradient-to-r from-green-400/20 to-emerald-400/20 hover:from-green-400/30 hover:to-emerald-400/30"
+                  aria-label={t("home.joinWhatsapp")}
+                >
                   <svg className="w-8 h-8 text-green-600" viewBox="0 0 32 32" fill="currentColor" aria-hidden="true" focusable="false">
                     <g>
                       <circle cx="16" cy="16" r="16" fill="#25D366" />

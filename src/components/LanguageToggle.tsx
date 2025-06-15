@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { ChevronDown, Check } from "lucide-react";
 import { getLocale, setLocale } from "@/i18n";
@@ -49,6 +48,7 @@ const LanguageToggle: React.FC = () => {
         onClick={() => setOpen((v) => !v)}
         tabIndex={0}
         style={{ minWidth: 26, minHeight: 26, padding: 0 }}
+        title="Switch language"
       >
         {/* Actual flag SVG, very small */}
         <CountryFlag code={LANGUAGE_FLAGS[activeLang.code] || "en"} size={18} />
