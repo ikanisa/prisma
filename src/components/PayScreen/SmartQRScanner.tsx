@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 import QRScannerFrame from "./QRScannerFrame";
 import { useAmbientLightSensor } from "@/hooks/useAmbientLightSensor";
@@ -8,6 +7,7 @@ import ScannerStatusDisplay from "./ScannerStatusDisplay";
 import FlashlightSuggestion from "./FlashlightSuggestion";
 import { toast } from "@/hooks/use-toast";
 import { Flashlight, FlashlightOff, X } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 const SCAN_BOX_SIZE = "min(84vw, 80vh)";
 
@@ -28,6 +28,7 @@ const SmartQRScanner: React.FC<SmartQRScannerProps> = ({ onBack }) => {
   const [showTip, setShowTip] = useState(holdTips[0]);
   const [tipIdx, setTipIdx] = useState(0);
   const [shimmer, setShimmer] = useState(false);
+  const navigate = useNavigate();
 
   // Custom hooks
   const { scanStatus, setScanStatus, scanResult, setScanResult, videoRef, handleRetry } = useQRScanner();
@@ -190,8 +191,8 @@ const SmartQRScanner: React.FC<SmartQRScannerProps> = ({ onBack }) => {
       {/* Back button (top left) */}
       <button
         className="absolute top-4 left-4 z-50 glass-card p-2 rounded-2xl text-white shadow-xl bg-black/30 hover:scale-110 focus:outline-none focus-visible:ring-4 focus-visible:ring-blue-400 transition-all"
-        aria-label="Back to previous screen"
-        onClick={onBack}
+        aria-label="Back to home screen"
+        onClick={() => navigate("/")}
         tabIndex={0}
       >
         <X className="w-8 h-8" />
