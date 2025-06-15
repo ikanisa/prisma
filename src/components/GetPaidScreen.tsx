@@ -1,16 +1,16 @@
 
-import React, { useRef } from 'react';
-import { ArrowLeft } from 'lucide-react';
+import React, { useState } from 'react';
+import { ArrowLeft, History } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import OfflineBanner from './OfflineBanner';
 import PaymentForm from './GetPaidScreen/PaymentForm';
 import QRResult from './GetPaidScreen/QRResult';
+import RecentContacts from './RecentContacts';
+import PaymentConfirmation from './PaymentConfirmation';
 import { usePaymentGeneration } from '@/hooks/usePaymentGeneration';
-import { useQRActions } from '@/hooks/useQRActions';
 
 const GetPaidScreen = () => {
   const navigate = useNavigate();
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [showConfirmation, setShowConfirmation] = useState(false);
   
   const {
     phone,
@@ -28,31 +28,47 @@ const GetPaidScreen = () => {
     generateQR
   } = usePaymentGeneration();
 
-  const { copyToClipboard, downloadQR, shareViaWhatsApp, shareViaSMS } = useQRActions();
+  const handleSelectContact = (selectedPhone: string) => {
+    handlePhoneChange({ target: { value: selectedPhone } } as React.ChangeEvent<HTMLInputElement>);
+  };
 
-  const handleCopyUSSD = () => copyToClipboard(qrResult.ussdString, "USSD Code");
-  const handleDownloadQR = () => downloadQR(qrResult, phone, amount);
-  const handleShareWhatsApp = () => shareViaWhatsApp(amount, paymentLink);
-  const handleShareSMS = () => shareViaSMS(amount, paymentLink);
-  const handleCopyLink = () => copyToClipboard(paymentLink, "Payment Link");
+  const handleGenerateQR = async () => {
+    await generateQR();
+    // Show confirmation modal after successful generation
+    if (qrResult || paymentLink) {
+      setShowConfirmation(true);
+    }
+  };
+
+  const ussdString = qrResult?.ussdString || (phone && amount ? `*182*1*1*${phone}*${amount}#` : '');
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex flex-col">
-      <OfflineBanner />
-      
-      {/* Header */}
-      <div className="flex items-center justify-between p-4 bg-white/80 backdrop-blur-sm border-b border-blue-200/50">
-        <button
-          onClick={() => navigate('/')}
-          className="p-2 rounded-xl bg-blue-500/10 text-blue-600 hover:bg-blue-500/20 transition-colors"
-        >
-          <ArrowLeft className="w-6 h-6" />
-        </button>
-        <h1 className="text-xl font-bold text-gray-800">Get Paid</h1>
-        <div className="w-10" />
-      </div>
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 flex flex-col">
+      <div className="flex-1 flex flex-col justify-center container mx-auto px-4 py-8 max-w-md">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
+          <button
+            onClick={() => navigate(-1)}
+            className="glass-card p-3 hover:scale-110 transition-transform"
+          >
+            <ArrowLeft className="w-6 h-6" />
+          </button>
+          <h1 className="text-xl font-bold text-gray-800">Get Paid</h1>
+          <button
+            onClick={() => navigate('/history')}
+            className="glass-card p-3 hover:scale-110 transition-transform"
+            title="Payment History"
+          >
+            <History className="w-6 h-6" />
+          </button>
+        </div>
 
-      <div className="flex-1 p-4 space-y-6">
+        {/* Recent Contacts */}
+        <RecentContacts 
+          onSelectContact={handleSelectContact}
+          currentPhone={phone}
+        />
+
         {/* Payment Form */}
         <PaymentForm
           phone={phone}
@@ -65,22 +81,32 @@ const GetPaidScreen = () => {
           onPhoneFocus={handlePhoneFocus}
           onAmountChange={handleAmountChange}
           onAmountFocus={handleAmountFocus}
-          onGenerateQR={generateQR}
+          onGenerateQR={handleGenerateQR}
         />
 
         {/* QR Result */}
-        <QRResult
-          qrResult={qrResult}
-          paymentLink={paymentLink}
-          onCopyUSSD={handleCopyUSSD}
-          onDownloadQR={handleDownloadQR}
-          onShareWhatsApp={handleShareWhatsApp}
-          onShareSMS={handleShareSMS}
-          onCopyLink={handleCopyLink}
+        {(qrResult || paymentLink) && (
+          <QRResult
+            qrResult={qrResult}
+            amount={amount}
+            phone={phone}
+            paymentLink={paymentLink}
+          />
+        )}
+
+        {/* Payment Confirmation Modal */}
+        <PaymentConfirmation
+          isVisible={showConfirmation}
+          onClose={() => setShowConfirmation(false)}
+          paymentData={{
+            amount,
+            phone,
+            qrResult,
+            paymentLink,
+            ussdString
+          }}
         />
       </div>
-      
-      <canvas ref={canvasRef} className="hidden" />
     </div>
   );
 };

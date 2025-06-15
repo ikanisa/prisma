@@ -10,6 +10,7 @@ import PayScreen from "./components/PayScreen";
 import GetPaidScreen from "./components/GetPaidScreen";
 import QRPreviewScreen from "./components/QRPreviewScreen";
 import SharedPaymentPage from "./components/SharedPaymentPage";
+import PaymentHistory from "./components/PaymentHistory";
 import TestDashboard from "./components/TestDashboard";
 import NotFound from "./pages/NotFound";
 
@@ -35,6 +36,7 @@ const App = () => (
             <Route path="/get-paid" element={<GetPaidScreen />} />
             <Route path="/qr-preview" element={<QRPreviewScreen />} />
             <Route path="/shared/:linkToken" element={<SharedPaymentPage />} />
+            <Route path="/history" element={<PaymentHistory />} />
             <Route path="/test" element={<TestDashboard />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
