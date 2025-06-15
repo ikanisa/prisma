@@ -133,7 +133,6 @@ const PromoBanner: React.FC = () => {
           background: `linear-gradient(90deg, ${activeAd.gradient.join(",")})`,
         }}
       >
-
         {/* Left arrow */}
         <button
           className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/30 hover:bg-white/60 rounded-full p-2 shadow transition-all"
@@ -152,6 +151,7 @@ const PromoBanner: React.FC = () => {
               alt="Advertisement"
               className="w-20 h-20 rounded-xl object-cover bg-white/20 shadow-lg shimmer"
               style={{ flexShrink: 0 }}
+              loading="lazy"
             />
           ) : (
             <div className="w-20 h-20 rounded-xl bg-white/30 flex items-center justify-center shimmer font-bold text-4xl select-none text-indigo-700 shadow">

@@ -33,6 +33,7 @@ const LoadingSpinner: React.FC = () => {
               alt="Promo"
               className="w-20 h-20 rounded-lg object-cover bg-white/20 shadow-lg"
               style={{ flexShrink: 0 }}
+              loading="lazy"
             />
           )}
           <div className="flex-1 min-w-0">

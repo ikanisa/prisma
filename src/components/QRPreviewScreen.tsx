@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Download, Share2, Copy } from 'lucide-react';
@@ -165,6 +164,7 @@ const QRPreviewScreen = () => {
                   alt="Payment QR Code"
                   className="rounded-xl shadow-lg"
                   style={{ width: '288px', height: '288px', objectFit: 'contain' }}
+                  loading="lazy"
                 />
               </div>
               <h2 className="text-base font-bold text-gray-800 dark:text-white mt-1">
