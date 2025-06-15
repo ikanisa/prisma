@@ -1,4 +1,3 @@
-
 import { initializeApp } from 'firebase/app';
 import { getFirestore, collection, addDoc, getDocs, query, where, orderBy, limit, Timestamp } from 'firebase/firestore';
 import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
@@ -112,4 +111,9 @@ export const getRecentQRCodes = async () => {
   );
   const snapshot = await getDocs(q);
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+};
+
+export const fetchAds = async () => {
+  // Mock implementation for ads - can be replaced with actual Firestore query
+  return [];
 };
