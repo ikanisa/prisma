@@ -3,27 +3,46 @@ import React from 'react';
 import { Copy, Download, Send, Check } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Card, CardContent } from '../ui/card';
+import { useQRActions } from '@/hooks/useQRActions';
 
 interface QRResultProps {
   qrResult: any;
+  amount: string;
+  phone: string;
   paymentLink: string;
-  onCopyUSSD: () => void;
-  onDownloadQR: () => void;
-  onShareWhatsApp: () => void;
-  onShareSMS: () => void;
-  onCopyLink: () => void;
 }
 
 const QRResult: React.FC<QRResultProps> = ({
   qrResult,
-  paymentLink,
-  onCopyUSSD,
-  onDownloadQR,
-  onShareWhatsApp,
-  onShareSMS,
-  onCopyLink
+  amount,
+  phone,
+  paymentLink
 }) => {
+  const { copyToClipboard, downloadQR, shareViaWhatsApp, shareViaSMS } = useQRActions();
+
   if (!qrResult) return null;
+
+  const ussdString = qrResult?.ussdString || (phone && amount ? `*182*1*1*${phone}*${amount}#` : '');
+
+  const handleCopyUSSD = () => {
+    copyToClipboard(ussdString, 'USSD code');
+  };
+
+  const handleDownloadQR = () => {
+    downloadQR(qrResult, phone, amount);
+  };
+
+  const handleShareWhatsApp = () => {
+    shareViaWhatsApp(amount, paymentLink);
+  };
+
+  const handleShareSMS = () => {
+    shareViaSMS(amount, paymentLink);
+  };
+
+  const handleCopyLink = () => {
+    copyToClipboard(paymentLink, 'Payment link');
+  };
 
   return (
     <Card className="bg-white/90 backdrop-blur-sm border-blue-200/50">
@@ -45,7 +64,7 @@ const QRResult: React.FC<QRResultProps> = ({
         <div className="grid grid-cols-2 gap-3">
           <Button
             variant="outline"
-            onClick={onCopyUSSD}
+            onClick={handleCopyUSSD}
             className="flex items-center justify-center gap-2"
           >
             <Copy className="w-4 h-4" />
@@ -54,7 +73,7 @@ const QRResult: React.FC<QRResultProps> = ({
           
           <Button
             variant="outline"
-            onClick={onDownloadQR}
+            onClick={handleDownloadQR}
             className="flex items-center justify-center gap-2"
           >
             <Download className="w-4 h-4" />
@@ -72,7 +91,7 @@ const QRResult: React.FC<QRResultProps> = ({
             
             <div className="grid grid-cols-1 gap-3">
               <Button
-                onClick={onShareWhatsApp}
+                onClick={handleShareWhatsApp}
                 className="bg-green-500 hover:bg-green-600 text-white flex items-center justify-center gap-2"
               >
                 <Send className="w-4 h-4" />
@@ -80,7 +99,7 @@ const QRResult: React.FC<QRResultProps> = ({
               </Button>
               
               <Button
-                onClick={onShareSMS}
+                onClick={handleShareSMS}
                 variant="outline"
                 className="flex items-center justify-center gap-2"
               >
@@ -90,7 +109,7 @@ const QRResult: React.FC<QRResultProps> = ({
               
               <Button
                 variant="outline"
-                onClick={onCopyLink}
+                onClick={handleCopyLink}
                 className="flex items-center justify-center gap-2"
               >
                 <Copy className="w-4 h-4" />

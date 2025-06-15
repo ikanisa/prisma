@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Clock, CheckCircle, XCircle, Phone, QrCode, ExternalLink } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -11,14 +10,14 @@ interface PaymentRecord {
   amount: number;
   status: 'pending' | 'completed' | 'failed';
   created_at: string;
-  type: 'generate' | 'scan';
+  type: 'payment' | 'qr';
   ussd_string?: string;
 }
 
 const PaymentHistory = () => {
   const navigate = useNavigate();
   const [payments, setPayments] = useState<PaymentRecord[]>([]);
-  const [qrHistory, setQrHistory] = useState<any[]>([]);
+  const [qrHistory, setQrHistory] = useState<PaymentRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'payments' | 'qr'>('payments');
 
@@ -34,8 +33,26 @@ const PaymentHistory = () => {
         supabaseService.getRecentQRCodes()
       ]);
       
-      setPayments(paymentsData);
-      setQrHistory(qrData);
+      // Map payments data to include type field
+      const mappedPayments: PaymentRecord[] = paymentsData.map(payment => ({
+        ...payment,
+        type: 'payment' as const,
+        status: payment.status === 'sent' ? 'completed' : payment.status === 'confirmed' ? 'completed' : 'pending'
+      }));
+
+      // Map QR data to include type field and match PaymentRecord structure
+      const mappedQRHistory: PaymentRecord[] = qrData.map(qr => ({
+        id: qr.id,
+        phone_number: qr.phone_number,
+        amount: qr.amount,
+        status: 'completed' as const,
+        created_at: qr.created_at,
+        type: 'qr' as const,
+        ussd_string: qr.ussd_string
+      }));
+      
+      setPayments(mappedPayments);
+      setQrHistory(mappedQRHistory);
     } catch (error) {
       console.error('Failed to load history:', error);
       toast({
@@ -189,10 +206,8 @@ const PaymentHistory = () => {
                           {formatAmount(qr.amount)} RWF
                         </h3>
                         <p className="text-sm text-gray-600">{qr.phone_number}</p>
-                        <span className={`text-xs px-2 py-1 rounded ${
-                          qr.type === 'generate' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'
-                        }`}>
-                          {qr.type === 'generate' ? 'Generated' : 'Scanned'}
+                        <span className="text-xs px-2 py-1 rounded bg-green-100 text-green-800">
+                          Generated
                         </span>
                       </div>
                     </div>
@@ -202,7 +217,7 @@ const PaymentHistory = () => {
                   </div>
                   {qr.ussd_string && (
                     <button
-                      onClick={() => copyUSSD(qr.ussd_string)}
+                      onClick={() => copyUSSD(qr.ussd_string!)}
                       className="w-full bg-gray-100 text-gray-800 px-3 py-2 rounded-lg text-sm font-mono hover:bg-gray-200 transition-colors"
                     >
                       {qr.ussd_string}
