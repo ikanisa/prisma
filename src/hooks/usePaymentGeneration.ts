@@ -1,7 +1,12 @@
+
 import { useState, useEffect } from 'react';
-import { toast } from '@/hooks/use-toast';
 import { cloudFunctions } from '@/services/cloudFunctions';
 import { useSupabaseCache } from '@/hooks/useSupabaseCache';
+import { toastService } from '@/services/toastService';
+import { analyticsService } from '@/services/analyticsService';
+import { errorMonitoringService } from '@/services/errorMonitoringService';
+import { rateLimitingService } from '@/services/rateLimitingService';
+import { usePerformanceMonitoring } from '@/hooks/usePerformanceMonitoring';
 
 export const usePaymentGeneration = () => {
   const [phone, setPhone] = useState('');
@@ -14,12 +19,14 @@ export const usePaymentGeneration = () => {
   const [phoneInteracted, setPhoneInteracted] = useState(false);
 
   const { addPhone, getRecentPhones } = useSupabaseCache();
+  const { trackUserAction } = usePerformanceMonitoring('PaymentGeneration');
 
   // On mount: prefill phone field from cache
   useEffect(() => {
     const recents = getRecentPhones();
     if (recents?.[0]) {
       setPhone(recents[0]);
+      analyticsService.trackEvent('phone_prefilled', { source: 'cache' });
     }
   }, [getRecentPhones]);
 
@@ -28,6 +35,7 @@ export const usePaymentGeneration = () => {
     if (!phoneInteracted) {
       setPhoneInteracted(true);
       setShowPhoneLabel(false);
+      trackUserAction('phone_input_started');
     }
   };
 
@@ -35,6 +43,7 @@ export const usePaymentGeneration = () => {
     if (!phoneInteracted) {
       setPhoneInteracted(true);
       setShowPhoneLabel(false);
+      trackUserAction('phone_input_focused');
     }
   };
 
@@ -42,36 +51,42 @@ export const usePaymentGeneration = () => {
     setAmount(e.target.value);
     if (!amountInteracted) {
       setAmountInteracted(true);
+      trackUserAction('amount_input_started');
     }
   };
 
   const handleAmountFocus = () => {
     if (!amountInteracted) {
       setAmountInteracted(true);
+      trackUserAction('amount_input_focused');
     }
   };
 
   const generateQR = async () => {
+    // Input validation
     if (!phone.trim() || !amount.trim()) {
-      toast({
-        title: "Missing Information",
-        description: "Please enter both phone number and amount",
-        variant: "destructive"
-      });
+      toastService.error("Missing Information", "Please enter both phone number and amount");
+      errorMonitoringService.logValidationError('qr_generation', { phone: !!phone.trim(), amount: !!amount.trim() });
       return;
     }
 
     const numAmount = parseFloat(amount);
     if (isNaN(numAmount) || numAmount <= 0) {
-      toast({
-        title: "Invalid Amount",
-        description: "Please enter a valid amount",
-        variant: "destructive"
-      });
+      toastService.error("Invalid Amount", "Please enter a valid amount");
+      errorMonitoringService.logValidationError('amount', { value: amount });
+      return;
+    }
+
+    // Rate limiting check
+    if (!rateLimitingService.isAllowed('qr_generation')) {
+      const resetTime = rateLimitingService.getResetTime('qr_generation');
+      const waitMinutes = Math.ceil((resetTime - Date.now()) / 60000);
+      toastService.error("Rate Limit Exceeded", `Please wait ${waitMinutes} minute(s) before generating another QR code`);
       return;
     }
 
     setIsGenerating(true);
+    trackUserAction('qr_generation_started', { amount: numAmount });
 
     console.log('[QR DEBUG] generateQR called with:', { phone: phone.trim(), amount: numAmount });
 
@@ -89,21 +104,28 @@ export const usePaymentGeneration = () => {
       // Save phone number to cache
       addPhone(phone.trim());
 
-      toast({
-        title: "QR Code Generated!",
-        description: "Ready to share your payment request",
-      });
+      // Track successful generation
+      analyticsService.trackQRGeneration(numAmount, 'mobile_money');
+      trackUserAction('qr_generation_completed', { amount: numAmount });
+
+      toastService.success("QR Code Generated!", "Ready to share your payment request");
     } catch (error) {
       console.error('[QR DEBUG] Error generating QR:', error);
+      
       let errMsg: string = "Could not generate QR code. Please try again.";
       if (typeof error === "object" && error !== null && "message" in error) {
         errMsg = (error as any).message || errMsg;
       }
-      toast({
-        title: "Generation Failed",
-        description: errMsg,
-        variant: "destructive"
+      
+      // Enhanced error monitoring
+      errorMonitoringService.logError(error as Error, 'qr_generation', {
+        phone: phone.trim(),
+        amount: numAmount
       });
+      
+      trackUserAction('qr_generation_failed', { amount: numAmount, error: errMsg });
+      
+      toastService.error("Generation Failed", errMsg);
     } finally {
       setIsGenerating(false);
     }
