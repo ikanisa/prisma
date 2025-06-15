@@ -38,7 +38,7 @@ const QRScannerFrame: React.FC = () => {
         {/* Upgraded instruction text */}
         <div className="absolute -bottom-16 sm:-bottom-20 left-1/2 transform -translate-x-1/2 w-full flex flex-col gap-1 items-center text-center select-none">
           <div className="glass-panel px-6 py-3 rounded-xl shadow-lg shadow-blue-400/10 bg-gradient-to-r from-blue-400/10 to-indigo-400/10 backdrop-blur-md">
-            <p className="text-white font-semibold text-lg sm:text-xl drop-shadow">Point camera at QR code</p>
+            {/* Removed the text "Point camera at QR code" */}
             <p className="text-blue-100 text-xs sm:text-base mt-2">Position the QR code within the frame</p>
           </div>
         </div>
