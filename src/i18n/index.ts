@@ -1,13 +1,19 @@
 
 import en from './en.json';
-import fr from './fr.json'; // unused, but left for future
+// import fr from './fr.json'; // unused, and causes type errors due to structure mismatch
 import rw from './rw.json';
-import pt from './pt.json'; // unused, but left for future
+// import pt from './pt.json'; // unused, and causes type errors due to structure mismatch
 
 type LangCode = 'en' | 'fr' | 'rw' | 'pt';
 type TranslationDict = typeof en;
 
-const translations: Record<LangCode, TranslationDict> = { en, fr, rw, pt };
+// Only include languages with complete structures
+const translations: Record<LangCode, TranslationDict> = {
+  en,
+  // fr, // DO NOT include fr until structure is complete
+  rw,
+  // pt, // DO NOT include pt until structure is complete
+};
 
 function getBrowserLang(): LangCode {
   if (typeof navigator === 'undefined') return 'en';
@@ -75,3 +81,4 @@ export function setLocale(lang: LangCode) {
 export function getLocale(): LangCode {
   return detectLang();
 }
+
