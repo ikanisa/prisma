@@ -9,6 +9,7 @@ import HomeScreen from "./components/HomeScreen";
 import PayScreen from "./components/PayScreen";
 import GetPaidScreen from "./components/GetPaidScreen";
 import QRPreviewScreen from "./components/QRPreviewScreen";
+import SharedPaymentPage from "./components/SharedPaymentPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -32,6 +33,7 @@ const App = () => (
             <Route path="/pay" element={<PayScreen />} />
             <Route path="/get-paid" element={<GetPaidScreen />} />
             <Route path="/qr-preview" element={<QRPreviewScreen />} />
+            <Route path="/shared/:linkToken" element={<SharedPaymentPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

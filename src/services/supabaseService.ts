@@ -11,15 +11,6 @@ export const getSessionId = (): string => {
   return sessionId;
 };
 
-// Set session context for RLS
-const setSessionContext = async (sessionId: string) => {
-  await supabase.rpc('set_config', {
-    setting_name: 'app.session_id',
-    setting_value: sessionId,
-    is_local: false
-  });
-};
-
 export const supabaseService = {
   async generateQRCode(receiver: string, amount: number) {
     const sessionId = getSessionId();
@@ -56,7 +47,6 @@ export const supabaseService = {
 
   async logShareEvent(method: string) {
     const sessionId = getSessionId();
-    await setSessionContext(sessionId);
     
     const { error } = await supabase
       .from('events')
@@ -71,7 +61,6 @@ export const supabaseService = {
 
   async getRecentQRCodes() {
     const sessionId = getSessionId();
-    await setSessionContext(sessionId);
     
     const { data, error } = await supabase
       .from('qr_history')
@@ -86,7 +75,6 @@ export const supabaseService = {
 
   async getRecentPayments() {
     const sessionId = getSessionId();
-    await setSessionContext(sessionId);
     
     const { data, error } = await supabase
       .from('payments')
