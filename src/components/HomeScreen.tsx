@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { QrCode, Link } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
