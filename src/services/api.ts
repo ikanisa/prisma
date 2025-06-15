@@ -24,7 +24,7 @@ type FetchAdsResult = Ad[];
 const generateUSSDString = (receiver: string, amount: number): string => {
   const phoneRegex = /^(07[2-9]\d{7})$/;
   const codeRegex = /^\d{4,6}$/;
-  
+
   if (phoneRegex.test(receiver)) {
     return `*182*1*1*${receiver}*${amount}#`;
   } else if (codeRegex.test(receiver)) {
@@ -35,19 +35,19 @@ const generateUSSDString = (receiver: string, amount: number): string => {
 
 async function generatePaymentLink(params: GeneratePaymentLinkParams): Promise<GeneratePaymentLinkResult> {
   try {
-    // Use Supabase Edge Functions
+    // Supabase Flow: Always call backend
     const result = await cloudFunctions.generateQRCode(params.phone, params.amount);
     const shareLink = await cloudFunctions.createPaymentLink(params.phone, params.amount);
-    
+
     return {
       ussdString: result.ussdString,
-      qrCodeUrl: result.qrCodeUrl,
-      shareLink: shareLink.paymentLink
+      qrCodeUrl: result.qrCodeUrl || result.qrCodeImage || '',
+      shareLink: shareLink?.paymentLink || '',
     };
   } catch (error) {
     console.error('generatePaymentLink error:', error);
-    
-    // Fallback logic for development
+
+    // Fallback
     const { phone, amount } = params;
     const ussdString = generateUSSDString(phone, amount);
     const qrCodeUrl = await QRCode.toDataURL(ussdString, {
@@ -57,20 +57,19 @@ async function generatePaymentLink(params: GeneratePaymentLinkParams): Promise<G
       errorCorrectionLevel: 'H'
     });
     const shareLink = `${window.location.origin}/shared/${Date.now()}`;
-    
-    console.log("[FALLBACK] generatePaymentLink", { phone, amount, ussdString, qrCodeUrl, shareLink });
+
     return { ussdString, qrCodeUrl, shareLink };
   }
 }
 
 async function scanQRCode(params: ScanQRCodeParams): Promise<ScanQRCodeResult> {
   try {
-    // Use Supabase Edge Functions
     const result = await cloudFunctions.scanQRCodeImage(params.imageBase64);
     return { decodedUSSD: result.ussdString };
   } catch (error) {
     console.error('scanQRCode error:', error);
-    // Fallback for development
+
+    // Fallback: static/dummy result
     const decodedUSSD = "*182*1*1*0788123456*5000#";
     return { decodedUSSD };
   }
@@ -87,6 +86,7 @@ async function logScanEvent(params: LogScanEventParams): Promise<LogScanEventRes
 }
 
 async function fetchAds(): Promise<FetchAdsResult> {
+  // Placeholder/dummy ad for now, as there is no live Supabase ads table
   const dummyAds = [
     {
       headline: "🔥 Get 10% Cashback!",
@@ -106,3 +106,4 @@ export const api = {
   logScanEvent,
   fetchAds,
 };
+

@@ -12,7 +12,7 @@ export const analyticsService = {
   async trackEvent(eventName: string, properties: Record<string, any> = {}) {
     try {
       const sessionId = getSessionId();
-      
+
       const event: AnalyticsEvent = {
         event_name: eventName,
         properties: {
@@ -25,9 +25,10 @@ export const analyticsService = {
         }
       };
 
-      // Log to console for development
+      // Production: could call a Supabase event logging edge function here if desired
+      // For now, just log to the console for clarity
       console.log('[Analytics]', eventName, properties);
-      
+
       return true;
     } catch (error) {
       console.error('Analytics tracking failed:', error);
@@ -35,7 +36,6 @@ export const analyticsService = {
     }
   },
 
-  // Specific tracking methods
   trackPageView(page: string) {
     return this.trackEvent('page_view', { page });
   },

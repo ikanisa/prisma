@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { cloudFunctions } from '@/services/cloudFunctions';
 import { useSupabaseCache } from '@/hooks/useSupabaseCache';
@@ -91,40 +90,38 @@ export const usePaymentGeneration = () => {
     console.log('[QR DEBUG] generateQR called with:', { phone: phone.trim(), amount: numAmount });
 
     try {
-      // Generate QR code via Supabase
+      // Generate QR code via Edge function backed by Supabase
       const qrResponse = await cloudFunctions.generateQRCode(phone.trim(), numAmount);
       setQrResult(qrResponse);
       console.log('[QR DEBUG] generateQRCode result:', qrResponse);
 
-      // Generate payment link via Supabase
+      // Generate payment link
       const linkResponse = await cloudFunctions.createPaymentLink(phone.trim(), numAmount);
       setPaymentLink(linkResponse.paymentLink);
       console.log('[QR DEBUG] createPaymentLink result:', linkResponse);
 
-      // Save phone number to cache
+      // Save recent phone to cache
       addPhone(phone.trim());
 
-      // Track successful generation
       analyticsService.trackQRGeneration(numAmount, 'mobile_money');
       trackUserAction('qr_generation_completed', { amount: numAmount });
 
       toastService.success("QR Code Generated!", "Ready to share your payment request");
     } catch (error) {
       console.error('[QR DEBUG] Error generating QR:', error);
-      
+
       let errMsg: string = "Could not generate QR code. Please try again.";
       if (typeof error === "object" && error !== null && "message" in error) {
         errMsg = (error as any).message || errMsg;
       }
-      
-      // Enhanced error monitoring
+
       errorMonitoringService.logError(error as Error, 'qr_generation', {
         phone: phone.trim(),
         amount: numAmount
       });
-      
+
       trackUserAction('qr_generation_failed', { amount: numAmount, error: errMsg });
-      
+
       toastService.error("Generation Failed", errMsg);
     } finally {
       setIsGenerating(false);

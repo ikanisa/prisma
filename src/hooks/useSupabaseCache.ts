@@ -14,19 +14,19 @@ export const useSupabaseCache = () => {
   const loadCachedData = async () => {
     try {
       setIsLoading(true);
-      
-      // Load recent payments to get phone numbers
+
+      // Always try to load from Supabase
       const payments = await supabaseService.getRecentPayments();
       const phones = payments.map(p => p.phone_number).filter((phone, index, arr) => arr.indexOf(phone) === index);
       setRecentPhones(phones.slice(0, 5));
 
-      // Load recent QR codes
+      // Recent QR codes from backend
       const qrs = await supabaseService.getRecentQRCodes();
       setRecentQRs(qrs);
-      
+
     } catch (error) {
       console.error('Failed to load cached data:', error);
-      // Fallback to localStorage cache
+      // fallback: load from localStorage
       const localPhones = JSON.parse(localStorage.getItem('recent_phones') || '[]');
       setRecentPhones(localPhones);
     } finally {

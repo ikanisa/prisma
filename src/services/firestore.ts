@@ -1,6 +1,7 @@
+
+// This file's firebase API is deprecated; delegate all to SupabaseService for production
 import { supabaseService, getSessionId as getSupabaseSessionId } from './supabaseService';
 
-// Keep the Firebase interface but redirect to Supabase
 export const initializeSession = async (): Promise<string> => {
   return getSupabaseSessionId();
 };
@@ -17,7 +18,8 @@ export const savePaymentRequest = async (data: {
   qrCodeUrl?: string;
   paymentLink?: string;
 }) => {
-  // This is now handled by the Edge Functions
+  // Production: backend handles all write logic
+  // Could call a Supabase edge function for advanced logging if needed
   console.log('Payment request saved via Supabase Edge Functions');
   return { id: 'handled-by-supabase' };
 };
@@ -29,7 +31,7 @@ export const saveQRScanResult = async (data: {
   result: string;
   imageSource?: string;
 }) => {
-  // This is now handled by the Edge Functions
+  // All scan logs handled by edge functions or direct Supabase logging
   console.log('QR scan result saved via Supabase Edge Functions');
   return { id: 'handled-by-supabase' };
 };
@@ -39,7 +41,7 @@ export const saveSharedLink = async (data: {
   amount: number;
   paymentLink: string;
 }) => {
-  // This is now handled by the Edge Functions
+  // All logic handled via Supabase edge function
   console.log('Shared link saved via Supabase Edge Functions');
   return { id: 'handled-by-supabase' };
 };
@@ -57,6 +59,6 @@ export const getRecentQRCodes = async () => {
 };
 
 export const fetchAds = async () => {
-  // Mock implementation - can be enhanced later
+  // Use the same dummy implementation as in api.ts for now
   return [];
 };
