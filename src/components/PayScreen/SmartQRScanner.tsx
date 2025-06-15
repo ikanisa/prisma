@@ -67,7 +67,7 @@ const SmartQRScanner: React.FC<SmartQRScannerProps> = ({ onBack }) => {
       >
         <div className="relative w-full h-full">
           <div className="absolute inset-0 z-10">
-            <QRScannerFrame />
+            <QRScannerFrame scanStatus={scanStatus} scanResult={scanResult} />
             {/* Animated pulse - scanning */}
             {(scanStatus === "scanning" || scanStatus === "processing") && (
               <div className="absolute inset-0 rounded-4xl animate-pulse bg-gradient-to-br from-blue-500/10 via-blue-700/10 to-indigo-500/10 shadow-[0_0_0_8px_rgba(57,106,252,0.12)] pointer-events-none" />

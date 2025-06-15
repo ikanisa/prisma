@@ -1,7 +1,14 @@
 
 import React from 'react';
 
-const QRScannerFrame: React.FC = () => {
+type ScanStatus = "idle" | "scanning" | "success" | "fail" | "processing";
+
+interface QRScannerFrameProps {
+  scanStatus?: ScanStatus;
+  scanResult?: string | null;
+}
+
+const QRScannerFrame: React.FC<QRScannerFrameProps> = ({ scanStatus, scanResult }) => {
   return (
     <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none z-10">
       <div className="relative">
@@ -35,11 +42,14 @@ const QRScannerFrame: React.FC = () => {
             <rect width="100" height="100" fill="url(#spotlight)" />
           </svg>
         </div>
-        {/* Upgraded instruction text */}
+        {/* Upgraded instruction text / USSD code display */}
         <div className="absolute -bottom-16 sm:-bottom-20 left-1/2 transform -translate-x-1/2 w-full flex flex-col gap-1 items-center text-center select-none">
           <div className="glass-panel px-6 py-3 rounded-xl shadow-lg shadow-blue-400/10 bg-gradient-to-r from-blue-400/10 to-indigo-400/10 backdrop-blur-md">
-            {/* Removed the text "Point camera at QR code" */}
-            <p className="text-blue-100 text-xs sm:text-base mt-2">Position the QR code within the frame</p>
+            {scanStatus === "success" && scanResult ? (
+              <p className="text-blue-100 font-bold text-base sm:text-xl break-all tracking-wider select-text">{scanResult}</p>
+            ) : (
+              <p className="text-blue-100 text-xs sm:text-base mt-2">Position the QR code within the frame</p>
+            )}
           </div>
         </div>
       </div>
