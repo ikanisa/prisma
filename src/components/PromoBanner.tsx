@@ -3,6 +3,8 @@ import { fetchAds } from "@/services/firestore";
 import { ArrowLeft, ArrowRight, Minus, ChevronDown, ChevronUp } from "lucide-react";
 import { Carousel, CarouselContent, CarouselItem } from "./ui/carousel";
 import { Button } from "./ui/button";
+import PromoBannerMinimized from "./PromoBannerMinimized";
+import PromoBannerLoading from "./PromoBannerLoading";
 
 type Ad = {
   id: string;
