@@ -1,11 +1,22 @@
+
 import React from 'react';
-import { QrCode, Link, Whatsapp } from 'lucide-react';
+import { QrCode, Link } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from '@/hooks/use-toast';
 import PromoBanner from './PromoBanner';
 import OfflineBanner from './OfflineBanner';
 import { t } from '@/i18n';
 import LanguageToggle from './LanguageToggle';
+
+// Dynamic Icon Loader for Lucide icons by name
+const LucideIconDynamic = ({ name, ...props }: { name: string } & React.SVGProps<SVGSVGElement>) => {
+  // This works for lucide-react v0.224.0+ and will fallback if not available
+  const icons = require('lucide-react').icons || {};
+  const LucideIcon = icons?.[name.charAt(0).toUpperCase() + name.slice(1)] || icons?.[name];
+  if (LucideIcon) return <LucideIcon {...props} />;
+  // fallback: blank or error SVG 
+  return <svg width={32} height={32} {...props}><rect width="100%" height="100%" fill="#25d366"/><text x="50%" y="55%" textAnchor="middle" fontSize="10" fill="#fff">WA</text></svg>;
+};
 
 const HomeScreen = () => {
   const navigate = useNavigate();
@@ -88,8 +99,8 @@ const HomeScreen = () => {
               </svg>
             </button>
             <button onClick={openWhatsApp} className="glass-card p-4 hover:scale-110 transition-transform duration-200 bg-gradient-to-r from-green-400/20 to-emerald-400/20 hover:from-green-400/30 hover:to-emerald-400/30">
-              {/* WhatsApp icon from lucide-react */}
-              <Whatsapp className="w-8 h-8 text-green-600" />
+              {/* WhatsApp icon using dynamic loader */}
+              <LucideIconDynamic name="Whatsapp" className="w-8 h-8 text-green-600" />
             </button>
           </div>
         </div>
@@ -98,3 +109,4 @@ const HomeScreen = () => {
   );
 };
 export default HomeScreen;
+
