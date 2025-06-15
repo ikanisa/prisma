@@ -142,7 +142,8 @@ const SmartQRScanner: React.FC<SmartQRScannerProps> = ({ onBack }) => {
       {/* SCANNING shimmer/loader */}
       {scanStatus === "scanning" && (
         <div className="absolute left-1/2 bottom-[18vh] -translate-x-1/2 flex flex-col items-center">
-          <LoadingSpinner color="primary" text="Scanning with AI..." />
+          <LoadingSpinner />
+          <span className="mt-2 text-base font-semibold text-white/90">Scanning with AI...</span>
         </div>
       )}
 
@@ -200,3 +201,4 @@ const SmartQRScanner: React.FC<SmartQRScannerProps> = ({ onBack }) => {
   );
 };
 export default SmartQRScanner;
+
