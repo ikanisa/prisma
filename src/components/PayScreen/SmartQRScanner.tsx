@@ -180,7 +180,7 @@ const SmartQRScanner: React.FC<SmartQRScannerProps> = ({ onBack }) => {
         isProcessingWithAI={isProcessingWithAI}
         onRetry={handleRetry}
         onProcessWithAI={handleProcessWithAI}
-        onUSSDPress={handleUSSDLaunch}
+        onUSSDLaunch={handleUSSDLaunch}
       />
       
       {/* Back button (top left) */}
