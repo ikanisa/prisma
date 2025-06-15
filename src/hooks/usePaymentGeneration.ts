@@ -1,9 +1,12 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { toast } from '@/hooks/use-toast';
 import { cloudFunctions } from '@/services/cloudFunctions';
+// Import the offline cache helpers
+import { addPhone, getRecentPhones } from '@/utils/offlineCache';
 
 export const usePaymentGeneration = () => {
+  // Prefill phone using offline cache (useEffect below)
   const [phone, setPhone] = useState('');
   const [amount, setAmount] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -12,6 +15,14 @@ export const usePaymentGeneration = () => {
   const [amountInteracted, setAmountInteracted] = useState(false);
   const [showPhoneLabel, setShowPhoneLabel] = useState(true);
   const [phoneInteracted, setPhoneInteracted] = useState(false);
+
+  // On mount: prefill phone field from cache
+  useEffect(() => {
+    const recents = getRecentPhones();
+    if (recents?.[0]) {
+      setPhone(recents[0]);
+    }
+  }, []);
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setPhone(e.target.value);
@@ -77,6 +88,9 @@ export const usePaymentGeneration = () => {
       setPaymentLink(linkResponse.paymentLink);
       console.log('[QR DEBUG] createPaymentLink result:', linkResponse);
 
+      // Save phone number to offline cache
+      addPhone(phone.trim());
+
       toast({
         title: "QR Code Generated!",
         description: "Ready to share your payment request",
@@ -109,3 +123,4 @@ export const usePaymentGeneration = () => {
     generateQR
   };
 };
+
