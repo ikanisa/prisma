@@ -120,7 +120,9 @@ export type Database = {
           created_at: string
           id: string
           momo_number: string
+          qr_code_url: string | null
           session_id: string
+          status: string | null
           ussd_code: string
         }
         Insert: {
@@ -128,7 +130,9 @@ export type Database = {
           created_at?: string
           id?: string
           momo_number: string
+          qr_code_url?: string | null
           session_id: string
+          status?: string | null
           ussd_code: string
         }
         Update: {
@@ -136,7 +140,9 @@ export type Database = {
           created_at?: string
           id?: string
           momo_number?: string
+          qr_code_url?: string | null
           session_id?: string
+          status?: string | null
           ussd_code?: string
         }
         Relationships: []
@@ -315,6 +321,44 @@ export type Database = {
         }
         Relationships: []
       }
+      transactions: {
+        Row: {
+          id: string
+          launched_ussd: boolean | null
+          payer_number: string | null
+          payment_id: string | null
+          payment_status: string | null
+          scanned_at: string | null
+          session_id: string
+        }
+        Insert: {
+          id?: string
+          launched_ussd?: boolean | null
+          payer_number?: string | null
+          payment_id?: string | null
+          payment_status?: string | null
+          scanned_at?: string | null
+          session_id: string
+        }
+        Update: {
+          id?: string
+          launched_ussd?: boolean | null
+          payer_number?: string | null
+          payment_id?: string | null
+          payment_status?: string | null
+          scanned_at?: string | null
+          session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transactions_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "payment_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       trips: {
         Row: {
           client_name: string
@@ -339,6 +383,30 @@ export type Database = {
           fare?: number
           id?: string
           session_id?: string
+        }
+        Relationships: []
+      }
+      users: {
+        Row: {
+          created_at: string | null
+          id: string
+          last_active: string | null
+          phone: string | null
+          role: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          last_active?: string | null
+          phone?: string | null
+          role?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          last_active?: string | null
+          phone?: string | null
+          role?: string | null
         }
         Relationships: []
       }

@@ -1,19 +1,24 @@
 
 import React, { useState } from 'react';
-import { ArrowLeft, History } from 'lucide-react';
+import { ArrowLeft, History, Share2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import PaymentForm from './GetPaidScreen/PaymentForm';
 import QRResult from './GetPaidScreen/QRResult';
 import RecentContacts from './RecentContacts';
-import PaymentConfirmation from './PaymentConfirmation';
+import PaymentConfirmationModal from './PaymentConfirmationModal';
+import MobileShareSheet from './MobileShareSheet';
+import PWAInstallBanner from './PWAInstallBanner';
 import PaymentRequestHistory from './PaymentRequestHistory';
 import { usePaymentGeneration } from '@/hooks/usePaymentGeneration';
 import { usePaymentRequests } from '@/hooks/usePaymentRequests';
+import { useQRActions } from '@/hooks/useQRActions';
 
 const GetPaidScreen = () => {
   const navigate = useNavigate();
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [showShareSheet, setShowShareSheet] = useState(false);
+  const [currentTransactionId, setCurrentTransactionId] = useState<string>();
   
   const {
     phone,
@@ -32,41 +37,74 @@ const GetPaidScreen = () => {
   } = usePaymentGeneration();
 
   const { createPaymentRequest } = usePaymentRequests();
+  const { copyToClipboard, downloadQR, shareViaWhatsApp, shareViaSMS } = useQRActions();
 
   const handleSelectContact = (selectedPhone: string) => {
     handlePhoneChange({ target: { value: selectedPhone } } as React.ChangeEvent<HTMLInputElement>);
   };
 
   const handleGenerateQR = async () => {
-    // Create payment request in database
-    await createPaymentRequest(phone, parseFloat(amount));
-    
-    // Generate QR code
-    await generateQR();
-    
-    // Show confirmation modal after successful generation
-    if (qrResult || paymentLink) {
-      setShowConfirmation(true);
+    try {
+      // Create payment request in database
+      const paymentRequest = await createPaymentRequest(phone, parseFloat(amount));
+      if (paymentRequest) {
+        setCurrentTransactionId(paymentRequest.id);
+      }
+      
+      // Generate QR code
+      await generateQR();
+      
+      // Show confirmation modal after successful generation
+      setTimeout(() => {
+        setShowConfirmation(true);
+      }, 500);
+    } catch (error) {
+      console.error('Failed to generate QR:', error);
     }
+  };
+
+  const handleShare = (method: string) => {
+    setShowShareSheet(false);
+    
+    switch (method) {
+      case 'whatsapp':
+        shareViaWhatsApp(amount, paymentLink);
+        break;
+      case 'sms':
+        shareViaSMS(amount, paymentLink);
+        break;
+      default:
+        break;
+    }
+  };
+
+  const handleCopyLink = () => {
+    setShowShareSheet(false);
+    copyToClipboard(paymentLink, 'Payment link');
+  };
+
+  const handleDownloadQR = () => {
+    setShowShareSheet(false);
+    downloadQR(qrResult, phone, amount);
   };
 
   const ussdString = qrResult?.ussdString || (phone && amount ? `*182*1*1*${phone}*${amount}#` : '');
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 flex flex-col">
-      <div className="flex-1 flex flex-col justify-center container mx-auto px-4 py-8 max-w-md">
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 flex flex-col relative">
+      <div className="flex-1 flex flex-col justify-start container mx-auto px-4 py-4 max-w-md">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-6 mt-2">
           <button
             onClick={() => navigate(-1)}
-            className="glass-card p-3 hover:scale-110 transition-transform"
+            className="glass-card p-3 hover:scale-110 transition-transform rounded-2xl"
           >
             <ArrowLeft className="w-6 h-6" />
           </button>
           <h1 className="text-xl font-bold text-gray-800">Get Paid</h1>
           <button
             onClick={() => setShowHistory(!showHistory)}
-            className="glass-card p-3 hover:scale-110 transition-transform"
+            className="glass-card p-3 hover:scale-110 transition-transform rounded-2xl"
             title="Payment History"
           >
             <History className="w-6 h-6" />
@@ -77,7 +115,7 @@ const GetPaidScreen = () => {
         {showHistory ? (
           <PaymentRequestHistory />
         ) : (
-          <>
+          <div className="space-y-6">
             {/* Recent Contacts */}
             <RecentContacts 
               onSelectContact={handleSelectContact}
@@ -99,31 +137,57 @@ const GetPaidScreen = () => {
               onGenerateQR={handleGenerateQR}
             />
 
-            {/* QR Result */}
+            {/* QR Result with Share Button */}
             {(qrResult || paymentLink) && (
-              <QRResult
-                qrResult={qrResult}
-                amount={amount}
-                phone={phone}
-                paymentLink={paymentLink}
-              />
+              <div className="space-y-4">
+                <QRResult
+                  qrResult={qrResult}
+                  amount={amount}
+                  phone={phone}
+                  paymentLink={paymentLink}
+                />
+                
+                {/* Mobile Share Button */}
+                <button
+                  onClick={() => setShowShareSheet(true)}
+                  className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white rounded-2xl py-4 px-6 font-semibold flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transition-all"
+                >
+                  <Share2 className="w-5 h-5" />
+                  Share Payment Request
+                </button>
+              </div>
             )}
-          </>
+          </div>
         )}
-
-        {/* Payment Confirmation Modal */}
-        <PaymentConfirmation
-          isVisible={showConfirmation}
-          onClose={() => setShowConfirmation(false)}
-          paymentData={{
-            amount,
-            phone,
-            qrResult,
-            paymentLink,
-            ussdString
-          }}
-        />
       </div>
+
+      {/* Mobile Share Sheet */}
+      <MobileShareSheet
+        isVisible={showShareSheet}
+        onClose={() => setShowShareSheet(false)}
+        paymentData={{
+          amount,
+          phone,
+          paymentLink,
+          ussdString
+        }}
+        onShare={handleShare}
+        onCopy={handleCopyLink}
+        onDownload={handleDownloadQR}
+      />
+
+      {/* Payment Confirmation Modal */}
+      <PaymentConfirmationModal
+        isVisible={showConfirmation}
+        onClose={() => setShowConfirmation(false)}
+        transactionId={currentTransactionId}
+        amount={amount}
+        phone={phone}
+        ussdString={ussdString}
+      />
+
+      {/* PWA Install Banner */}
+      <PWAInstallBanner />
     </div>
   );
 };

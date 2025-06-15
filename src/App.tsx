@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -74,5 +73,30 @@ const App = () => {
     </ErrorBoundary>
   );
 };
+
+// Add service worker registration after the existing App component
+if ('serviceWorker' in navigator && import.meta.env.PROD) {
+  window.addEventListener('load', async () => {
+    try {
+      const registration = await navigator.serviceWorker.register('/sw.js');
+      console.log('[PWA] Service worker registered:', registration);
+      
+      // Listen for updates
+      registration.addEventListener('updatefound', () => {
+        const newWorker = registration.installing;
+        if (newWorker) {
+          newWorker.addEventListener('statechange', () => {
+            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+              console.log('[PWA] New content available, reload to update');
+              // Could show update notification here
+            }
+          });
+        }
+      });
+    } catch (error) {
+      console.error('[PWA] Service worker registration failed:', error);
+    }
+  });
+}
 
 export default App;
