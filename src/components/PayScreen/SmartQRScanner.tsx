@@ -3,6 +3,7 @@ import React, { useEffect, useState } from "react";
 import { useAmbientLightSensor } from "@/hooks/useAmbientLightSensor";
 import { useQRScanner } from "@/hooks/useQRScanner";
 import { useAIProcessing } from "@/hooks/useAIProcessing";
+import { useCameraOptimization } from "@/hooks/useCameraOptimization";
 import ScannerStatusDisplay from "./ScannerStatusDisplay";
 import FlashlightButton from "./FlashlightButton";
 import ScannerOverlay from "./ScannerOverlay";
@@ -21,12 +22,20 @@ const SmartQRScanner: React.FC<SmartQRScannerProps> = ({ onBack }) => {
   const { scanStatus, setScanStatus, scanResult, setScanResult, videoRef, handleRetry, handleUSSDLaunch } = useQRScanner();
   const { isProcessingWithAI, canvasRef, processWithAI } = useAIProcessing();
   const light = useAmbientLightSensor();
+  const { cleanup } = useCameraOptimization();
 
   // Show flash suggestion if low light
   useEffect(() => {
     setShowFlashSuggestion(typeof light === "number" && light < 16);
     setShowFlashButton(typeof light === "number" && light < 60);
   }, [light]);
+
+  // Cleanup camera resources on unmount
+  useEffect(() => {
+    return () => {
+      cleanup();
+    };
+  }, [cleanup]);
 
   const handleProcessWithAI = () => {
     processWithAI(videoRef, setScanResult, setScanStatus);
