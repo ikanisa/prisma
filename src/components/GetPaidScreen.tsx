@@ -6,11 +6,14 @@ import PaymentForm from './GetPaidScreen/PaymentForm';
 import QRResult from './GetPaidScreen/QRResult';
 import RecentContacts from './RecentContacts';
 import PaymentConfirmation from './PaymentConfirmation';
+import PaymentRequestHistory from './PaymentRequestHistory';
 import { usePaymentGeneration } from '@/hooks/usePaymentGeneration';
+import { usePaymentRequests } from '@/hooks/usePaymentRequests';
 
 const GetPaidScreen = () => {
   const navigate = useNavigate();
   const [showConfirmation, setShowConfirmation] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
   
   const {
     phone,
@@ -28,12 +31,19 @@ const GetPaidScreen = () => {
     generateQR
   } = usePaymentGeneration();
 
+  const { createPaymentRequest } = usePaymentRequests();
+
   const handleSelectContact = (selectedPhone: string) => {
     handlePhoneChange({ target: { value: selectedPhone } } as React.ChangeEvent<HTMLInputElement>);
   };
 
   const handleGenerateQR = async () => {
+    // Create payment request in database
+    await createPaymentRequest(phone, parseFloat(amount));
+    
+    // Generate QR code
     await generateQR();
+    
     // Show confirmation modal after successful generation
     if (qrResult || paymentLink) {
       setShowConfirmation(true);
@@ -55,7 +65,7 @@ const GetPaidScreen = () => {
           </button>
           <h1 className="text-xl font-bold text-gray-800">Get Paid</h1>
           <button
-            onClick={() => navigate('/history')}
+            onClick={() => setShowHistory(!showHistory)}
             className="glass-card p-3 hover:scale-110 transition-transform"
             title="Payment History"
           >
@@ -63,35 +73,42 @@ const GetPaidScreen = () => {
           </button>
         </div>
 
-        {/* Recent Contacts */}
-        <RecentContacts 
-          onSelectContact={handleSelectContact}
-          currentPhone={phone}
-        />
+        {/* Conditional Content */}
+        {showHistory ? (
+          <PaymentRequestHistory />
+        ) : (
+          <>
+            {/* Recent Contacts */}
+            <RecentContacts 
+              onSelectContact={handleSelectContact}
+              currentPhone={phone}
+            />
 
-        {/* Payment Form */}
-        <PaymentForm
-          phone={phone}
-          amount={amount}
-          isGenerating={isGenerating}
-          amountInteracted={amountInteracted}
-          showPhoneLabel={showPhoneLabel}
-          phoneInteracted={phoneInteracted}
-          onPhoneChange={handlePhoneChange}
-          onPhoneFocus={handlePhoneFocus}
-          onAmountChange={handleAmountChange}
-          onAmountFocus={handleAmountFocus}
-          onGenerateQR={handleGenerateQR}
-        />
+            {/* Payment Form */}
+            <PaymentForm
+              phone={phone}
+              amount={amount}
+              isGenerating={isGenerating}
+              amountInteracted={amountInteracted}
+              showPhoneLabel={showPhoneLabel}
+              phoneInteracted={phoneInteracted}
+              onPhoneChange={handlePhoneChange}
+              onPhoneFocus={handlePhoneFocus}
+              onAmountChange={handleAmountChange}
+              onAmountFocus={handleAmountFocus}
+              onGenerateQR={handleGenerateQR}
+            />
 
-        {/* QR Result */}
-        {(qrResult || paymentLink) && (
-          <QRResult
-            qrResult={qrResult}
-            amount={amount}
-            phone={phone}
-            paymentLink={paymentLink}
-          />
+            {/* QR Result */}
+            {(qrResult || paymentLink) && (
+              <QRResult
+                qrResult={qrResult}
+                amount={amount}
+                phone={phone}
+                paymentLink={paymentLink}
+              />
+            )}
+          </>
         )}
 
         {/* Payment Confirmation Modal */}

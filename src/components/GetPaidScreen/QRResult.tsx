@@ -4,6 +4,7 @@ import { Copy, Download, Send, Check } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Card, CardContent } from '../ui/card';
 import { useQRActions } from '@/hooks/useQRActions';
+import USSDDialButton from '../USSDDialButton';
 
 interface QRResultProps {
   qrResult: any;
@@ -24,10 +25,6 @@ const QRResult: React.FC<QRResultProps> = ({
 
   const ussdString = qrResult?.ussdString || (phone && amount ? `*182*1*1*${phone}*${amount}#` : '');
 
-  const handleCopyUSSD = () => {
-    copyToClipboard(ussdString, 'USSD code');
-  };
-
   const handleDownloadQR = () => {
     downloadQR(qrResult, phone, amount);
   };
@@ -46,7 +43,7 @@ const QRResult: React.FC<QRResultProps> = ({
 
   return (
     <Card className="bg-white/90 backdrop-blur-sm border-blue-200/50">
-      <CardContent className="p-6 space-y-4">
+      <CardContent className="p-6 space-y-6">
         <div className="text-center">
           <h3 className="text-lg font-semibold text-gray-800 mb-4">
             Payment QR Code
@@ -60,24 +57,36 @@ const QRResult: React.FC<QRResultProps> = ({
           </div>
         </div>
 
+        {/* USSD Dial Section */}
+        <div className="space-y-3">
+          <h4 className="text-md font-semibold text-gray-800 text-center">
+            USSD Payment Code
+          </h4>
+          <USSDDialButton 
+            ussdCode={ussdString}
+            size="md"
+            showCopy={true}
+          />
+        </div>
+
         {/* Action Buttons */}
         <div className="grid grid-cols-2 gap-3">
-          <Button
-            variant="outline"
-            onClick={handleCopyUSSD}
-            className="flex items-center justify-center gap-2"
-          >
-            <Copy className="w-4 h-4" />
-            Copy USSD
-          </Button>
-          
           <Button
             variant="outline"
             onClick={handleDownloadQR}
             className="flex items-center justify-center gap-2"
           >
             <Download className="w-4 h-4" />
-            Download
+            Download QR
+          </Button>
+          
+          <Button
+            variant="outline"
+            onClick={handleCopyLink}
+            className="flex items-center justify-center gap-2"
+          >
+            <Copy className="w-4 h-4" />
+            Copy Link
           </Button>
         </div>
 
@@ -105,15 +114,6 @@ const QRResult: React.FC<QRResultProps> = ({
               >
                 <Send className="w-4 h-4" />
                 Share via SMS
-              </Button>
-              
-              <Button
-                variant="outline"
-                onClick={handleCopyLink}
-                className="flex items-center justify-center gap-2"
-              >
-                <Copy className="w-4 h-4" />
-                Copy Link
               </Button>
             </div>
           </div>

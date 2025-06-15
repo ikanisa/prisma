@@ -1,13 +1,18 @@
 
 import React from 'react';
+import { formatUSSDForTel } from '@/utils/ussdHelper';
+
 interface USSDButtonProps {
   scannedData: string;
   onLaunchUSSD: () => void;
 }
+
 const USSDButton: React.FC<USSDButtonProps> = ({
   scannedData,
   onLaunchUSSD
 }) => {
+  const telUri = formatUSSDForTel(scannedData);
+
   return (
     <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-6 bg-gradient-to-t from-black/90 to-transparent safe-area-bottom z-30">
       <div
@@ -40,22 +45,42 @@ const USSDButton: React.FC<USSDButtonProps> = ({
         </div>
         <div className="relative z-10 p-4 sm:p-6">
           <p className="text-white text-xs sm:text-sm mb-3 sm:mb-4 drop-shadow">Scanned Payment Code:</p>
-          <button
-            onClick={onLaunchUSSD}
-            className="w-full bg-electric-ocean text-white py-3 sm:py-4 px-4 sm:px-6 rounded-2xl sm:text-xl font-bold break-all text-base shadow-lg backdrop-blur-[2px] transition-all hover:scale-105 active:scale-100"
-            style={{
-              background: 'linear-gradient(90deg, #396afc 40%, #2948ff 100%)',
-              boxShadow: '0 2px 12px 1px rgba(57,106,252,0.12)'
-            }}
-          >
-            {scannedData}
-          </button>
+          
+          {/* USSD Display */}
+          <div className="bg-gray-900 rounded-xl p-3 mb-4">
+            <p className="text-white font-mono text-sm sm:text-base font-bold tracking-wider break-all">
+              {scannedData}
+            </p>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="space-y-2">
+            <a
+              href={telUri}
+              className="w-full bg-electric-ocean text-white py-3 sm:py-4 px-4 sm:px-6 rounded-2xl sm:text-xl font-bold shadow-lg backdrop-blur-[2px] transition-all hover:scale-105 active:scale-100 flex items-center justify-center gap-2"
+              style={{
+                background: 'linear-gradient(90deg, #396afc 40%, #2948ff 100%)',
+                boxShadow: '0 2px 12px 1px rgba(57,106,252,0.12)'
+              }}
+            >
+              📞 Dial Now
+            </a>
+            
+            <button
+              onClick={onLaunchUSSD}
+              className="w-full bg-gray-700 text-white py-2 px-4 rounded-xl text-sm font-medium transition-all hover:bg-gray-600"
+            >
+              Copy Code
+            </button>
+          </div>
+          
           <p className="text-gray-200 text-xs sm:text-sm mt-2 sm:mt-3 drop-shadow">
-            Tap to copy and dial this code
+            Tap "Dial Now" to open dialer or "Copy Code" to copy
           </p>
         </div>
       </div>
     </div>
   );
 };
+
 export default USSDButton;

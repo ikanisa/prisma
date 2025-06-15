@@ -114,6 +114,33 @@ export type Database = {
         }
         Relationships: []
       }
+      payment_requests: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          momo_number: string
+          session_id: string
+          ussd_code: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          momo_number: string
+          session_id: string
+          ussd_code: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          momo_number?: string
+          session_id?: string
+          ussd_code?: string
+        }
+        Relationships: []
+      }
       payments: {
         Row: {
           amount: number
