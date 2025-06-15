@@ -1,27 +1,27 @@
 
 import React, { useState } from "react";
 import { ChevronDown, Check } from "lucide-react";
-import { useTranslation } from "react-i18next";
+import { getLocale, setLocale } from "@/i18n";
 import { cn } from "@/lib/utils";
 
-// (Assuming the "i18n/index.ts" exports supportedLanguages or define here)
+// Supported languages (matching your app)
 const SUPPORTED_LANGUAGES = [
   { code: "en", label: "English" },
   { code: "rw", label: "Kinyarwanda" },
   { code: "fr", label: "Français" },
-  { code: "pt", label: "Português" },
+  // Note: "pt" structure is incomplete - should be omitted if not fully supported.
 ];
 
 const LanguageToggle: React.FC = () => {
-  const { i18n } = useTranslation();
-  const currentLang = i18n.language || "en";
   const [open, setOpen] = useState(false);
 
-  const activeLang = SUPPORTED_LANGUAGES.find(l => l.code === currentLang) || SUPPORTED_LANGUAGES[0];
-  const otherLangs = SUPPORTED_LANGUAGES.filter(l => l.code !== activeLang.code);
+  const currentLang = getLocale();
+  const activeLang =
+    SUPPORTED_LANGUAGES.find((l) => l.code === currentLang) || SUPPORTED_LANGUAGES[0];
+  const otherLangs = SUPPORTED_LANGUAGES.filter((l) => l.code !== activeLang.code);
 
   const handleSelect = (code: string) => {
-    i18n.changeLanguage(code);
+    setLocale(code as any);
     setOpen(false);
   };
 
@@ -29,7 +29,7 @@ const LanguageToggle: React.FC = () => {
     <div
       className="fixed z-[220] top-3 right-3 flex gap-2 items-center bg-white/60 dark:bg-gray-800/80 rounded-xl p-1 px-2 shadow-lg transition-all backdrop-blur-lg"
       tabIndex={0}
-      onBlur={() => setTimeout(() => setOpen(false), 120)} // close after focus leaves
+      onBlur={() => setTimeout(() => setOpen(false), 120)}
     >
       <button
         className={cn(
@@ -46,7 +46,7 @@ const LanguageToggle: React.FC = () => {
       </button>
       {open && (
         <div className="absolute right-0 mt-2 min-w-[160px] rounded-xl shadow-lg bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 z-50 overflow-hidden animate-fade-in">
-          {otherLangs.map(lang => (
+          {otherLangs.map((lang) => (
             <button
               key={lang.code}
               onClick={() => handleSelect(lang.code)}
@@ -57,7 +57,9 @@ const LanguageToggle: React.FC = () => {
               aria-selected={lang.code === currentLang}
             >
               <span>{lang.label}</span>
-              {lang.code === currentLang && <Check className="w-4 h-4 text-indigo-500 ml-auto" />}
+              {lang.code === currentLang && (
+                <Check className="w-4 h-4 text-indigo-500 ml-auto" />
+              )}
             </button>
           ))}
         </div>
