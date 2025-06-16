@@ -25,7 +25,7 @@ export const transactionService = {
         payment_status: 'scanned',
         session_id: sessionId
       })
-      .select('*')
+      .select('id, scanned_code, scanned_at, launched_ussd, payment_status, payer_number, session_id')
       .single();
 
     if (error) {
@@ -65,7 +65,7 @@ export const transactionService = {
     
     const { data, error } = await supabase
       .from('transactions')
-      .select('*')
+      .select('id, scanned_code, scanned_at, launched_ussd, payment_status, payer_number, session_id')
       .eq('session_id', sessionId)
       .order('scanned_at', { ascending: false })
       .limit(50);

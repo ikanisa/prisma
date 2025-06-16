@@ -329,6 +329,7 @@ export type Database = {
           payment_id: string | null
           payment_status: string | null
           scanned_at: string | null
+          scanned_code: string
           session_id: string
         }
         Insert: {
@@ -338,6 +339,7 @@ export type Database = {
           payment_id?: string | null
           payment_status?: string | null
           scanned_at?: string | null
+          scanned_code?: string
           session_id: string
         }
         Update: {
@@ -347,6 +349,7 @@ export type Database = {
           payment_id?: string | null
           payment_status?: string | null
           scanned_at?: string | null
+          scanned_code?: string
           session_id?: string
         }
         Relationships: [
