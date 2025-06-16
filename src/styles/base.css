@@ -86,25 +86,46 @@
   /* Enhanced input caret visibility for mobile */
   input, textarea {
     caret-color: currentColor !important;
+    color: inherit !important;
     -webkit-user-select: text !important;
     user-select: text !important;
     pointer-events: auto !important;
+    -webkit-tap-highlight-color: transparent !important;
+    -webkit-appearance: none !important;
   }
   
   input:focus, textarea:focus {
     caret-color: currentColor !important;
+    outline: none !important;
   }
   
   /* Specific mobile input styling */
   .mobile-input {
     caret-color: currentColor !important;
+    color: inherit !important;
     -webkit-user-select: text !important;
     user-select: text !important;
     pointer-events: auto !important;
+    -webkit-tap-highlight-color: transparent !important;
+    -webkit-appearance: none !important;
+    -moz-appearance: textfield !important;
+    font-size: 16px !important; /* Prevents zoom on iOS */
   }
   
   .mobile-input:focus {
     caret-color: currentColor !important;
+    outline: none !important;
+  }
+  
+  /* Remove number input spinners */
+  input[type="number"]::-webkit-outer-spin-button,
+  input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  
+  input[type="number"] {
+    -moz-appearance: textfield;
   }
   
   /* Reduced motion support */

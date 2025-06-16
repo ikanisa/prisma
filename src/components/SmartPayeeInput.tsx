@@ -73,6 +73,14 @@ export function SmartPayeeInput({
         onChange={handleInput}
         placeholder="07XXXXXXXX or 12345"
         className={`w-full mobile-input text-center text-xl py-3 font-bold rounded-lg shadow ${type === "invalid" ? "border-red-500 focus:ring-red-500/20" : ""}`}
+        style={{
+          caretColor: type === "invalid" ? '#ef4444' : '#16a34a',
+          color: 'inherit',
+          WebkitUserSelect: 'text',
+          userSelect: 'text',
+          pointerEvents: 'auto',
+          WebkitTapHighlightColor: 'transparent'
+        }}
         aria-invalid={type === "invalid"}
       />
       <div className={`text-sm ${type === "invalid" ? "text-red-500" : "text-green-700"}`}>
