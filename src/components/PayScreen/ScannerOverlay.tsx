@@ -1,9 +1,12 @@
+
 import React, { useEffect, useState, useMemo } from "react";
 import QRScannerFrame from "./QRScannerFrame";
 import ScannerTips from "./ScannerTips";
 import OptimizedScannerRenderer from "./OptimizedScannerRenderer";
 import { useAmbientLightSensor } from "@/hooks/useAmbientLightSensor";
+
 type ScanStatus = "idle" | "scanning" | "success" | "fail" | "processing";
+
 interface ScannerOverlayProps {
   scanStatus: ScanStatus;
   scanResult: string | null;
@@ -17,7 +20,9 @@ interface ScannerOverlayProps {
     enableShadows: boolean;
   };
 }
+
 const SCAN_BOX_SIZE = "min(84vw, 80vh)";
+
 const ScannerOverlay: React.FC<ScannerOverlayProps> = ({
   scanStatus,
   scanResult,
@@ -50,16 +55,39 @@ const ScannerOverlay: React.FC<ScannerOverlayProps> = ({
       }
     }
   }, [scanStatus, scanDuration, performanceConfig?.enableAnimations]);
-  return <OptimizedScannerRenderer scanStatus={scanStatus} frameQuality={frameQuality} lightLevel={lightLevel} scanDuration={scanDuration}>
+
+  return (
+    <OptimizedScannerRenderer 
+      scanStatus={scanStatus} 
+      frameQuality={frameQuality} 
+      lightLevel={lightLevel} 
+      scanDuration={scanDuration}
+    >
       {/* Enhanced scan overlay with performance-aware positioning */}
       <div className="absolute inset-0 flex items-center justify-center">
-        
+        {/* QR Scanner Frame - This was missing! */}
+        <QRScannerFrame
+          scanStatus={scanStatus}
+          scanResult={scanResult}
+          shimmer={shimmer}
+          lightLevel={lightLevel}
+          scanAttempts={scanAttempts}
+          scanDuration={scanDuration}
+          performanceConfig={performanceConfig}
+        />
       </div>
       
       {/* Scanner tips positioned at bottom */}
       <div className="absolute bottom-24 left-0 right-0 px-4">
-        <ScannerTips scanStatus={scanStatus} scanAttempts={scanAttempts} scanDuration={scanDuration} lightLevel={lightLevel} />
+        <ScannerTips 
+          scanStatus={scanStatus} 
+          scanAttempts={scanAttempts} 
+          scanDuration={scanDuration} 
+          lightLevel={lightLevel} 
+        />
       </div>
-    </OptimizedScannerRenderer>;
+    </OptimizedScannerRenderer>
+  );
 };
+
 export default ScannerOverlay;
