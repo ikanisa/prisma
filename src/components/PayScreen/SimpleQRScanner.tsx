@@ -6,6 +6,7 @@ import SimpleQRScannerHeader from './SimpleQRScannerHeader';
 import SimpleQRScannerCamera from './SimpleQRScannerCamera';
 import SimpleQRScannerResult from './SimpleQRScannerResult';
 import SimpleQRScannerInstructions from './SimpleQRScannerInstructions';
+import QRScannerIntegrationWrapper from './QRScannerIntegrationWrapper';
 import AIManualQRInput from './AIManualQRInput';
 
 interface SimpleQRScannerProps {
@@ -52,7 +53,7 @@ const SimpleQRScanner: React.FC<SimpleQRScannerProps> = ({ onBack }) => {
     }
   };
 
-  return (
+  const scannerContent = (
     <div className="fixed inset-0 bg-black z-50 flex flex-col">
       {/* Header */}
       <SimpleQRScannerHeader
@@ -97,6 +98,20 @@ const SimpleQRScanner: React.FC<SimpleQRScannerProps> = ({ onBack }) => {
       )}
     </div>
   );
+
+  // Wrap with integration testing in development mode
+  if (process.env.NODE_ENV === 'development') {
+    return (
+      <QRScannerIntegrationWrapper
+        enableIntegrationTests={false} // Set to true for testing
+        enablePerformanceOptimization={true}
+      >
+        {scannerContent}
+      </QRScannerIntegrationWrapper>
+    );
+  }
+
+  return scannerContent;
 };
 
 export default SimpleQRScanner;
