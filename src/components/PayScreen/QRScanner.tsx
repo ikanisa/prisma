@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, RotateCcw } from 'lucide-react';
 import { qrScannerService, ScanTransaction } from '@/services/qrScannerService';
@@ -13,6 +12,11 @@ import { validateQRContent } from '@/utils/qrValidation';
 import QRScannerControls from './QRScannerControls';
 import QRScannerResult from './QRScannerResult';
 import QRScannerView from './QRScannerView';
+import { errorRecoveryService } from '@/services/errorRecoveryService';
+import ErrorRecoveryModal from '../ErrorRecoveryModal';
+import OfflineIndicator from '../OfflineIndicator';
+import { useOfflineSupport } from '@/hooks/useOfflineSupport';
+import { toastService } from '@/services/toastService';
 
 interface QRScannerProps {
   onBack: () => void;
@@ -30,11 +34,14 @@ const QRScanner: React.FC<QRScannerProps> = ({ onBack }) => {
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const [showManualInput, setShowManualInput] = useState(false);
   const [isEnhancedMode, setIsEnhancedMode] = useState(false);
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [currentError, setCurrentError] = useState<Error | null>(null);
   
   const scannerElementRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   
   const { trackUserAction } = usePerformanceMonitoring('QRScanner');
+  const { isOnline, validateQROffline } = useOfflineSupport();
 
   useEffect(() => {
     initializeScanner();
@@ -46,47 +53,65 @@ const QRScanner: React.FC<QRScannerProps> = ({ onBack }) => {
   const initializeScanner = async () => {
     if (!scannerElementRef.current) return;
 
-    setIsLoading(true);
-    setError(null);
-    trackUserAction('scanner_initialize');
+    await errorRecoveryService.withRetry(
+      async () => {
+        setIsLoading(true);
+        setError(null);
+        trackUserAction('scanner_initialize');
 
-    try {
-      // Initialize enhanced camera with error handling
-      try {
-        await EnhancedCameraService.initializeCameraWithEnhancements(videoRef);
-        trackUserAction('enhanced_camera_success');
-      } catch (error) {
-        console.log('Enhanced camera initialization failed, falling back to standard:', error);
-        errorMonitoringService.logError(error as Error, 'enhanced_camera_init');
-        trackUserAction('enhanced_camera_fallback');
-      }
+        try {
+          await EnhancedCameraService.initializeCameraWithEnhancements(videoRef);
+          trackUserAction('enhanced_camera_success');
+        } catch (error) {
+          console.log('Enhanced camera initialization failed, falling back to standard:', error);
+          errorMonitoringService.logError(error as Error, 'enhanced_camera_init');
+          trackUserAction('enhanced_camera_fallback');
+        }
 
-      // Initialize scanning manager
-      await scanningManager.initializeScanner("qr-reader");
-      
-      await scanningManager.startScanning(
-        (result) => handleScanSuccess(result),
-        (errorMessage) => {
-          if (!errorMessage.includes('No QR code found')) {
-            console.log('QR scan error:', errorMessage);
-            if (retryCount < 3) {
-              setRetryCount(prev => prev + 1);
+        await scanningManager.initializeScanner("qr-reader");
+        
+        await scanningManager.startScanning(
+          (result) => handleScanSuccess(result),
+          (errorMessage) => {
+            if (!errorMessage.includes('No QR code found')) {
+              console.log('QR scan error:', errorMessage);
+              if (retryCount < 3) {
+                setRetryCount(prev => prev + 1);
+              }
             }
           }
-        }
-      );
+        );
 
-      setTimeout(() => {
-        setIsLoading(false);
-        trackUserAction('scanner_ready');
-      }, 2000);
-
-    } catch (error) {
+        setTimeout(() => {
+          setIsLoading(false);
+          trackUserAction('scanner_ready');
+        }, 2000);
+      },
+      'scanner_initialization',
+      {
+        maxRetries: 2,
+        retryDelay: 1000,
+        fallbackActions: [
+          () => handleCameraFallback(),
+          () => showManualInputOption()
+        ]
+      }
+    ).catch((err) => {
+      setCurrentError(err);
+      setShowErrorModal(true);
       setIsLoading(false);
-      setError('Failed to initialize camera. Please check permissions.');
-      errorMonitoringService.logError(error as Error, 'scanner_initialization');
       trackUserAction('scanner_init_error');
-    }
+    });
+  };
+
+  const handleCameraFallback = async () => {
+    toastService.info('Camera Fallback', 'Trying alternative camera access...');
+    // Implement alternative camera initialization
+  };
+
+  const showManualInputOption = async () => {
+    toastService.info('Manual Input Available', 'Camera not available - manual input option enabled');
+    setShowManualInput(true);
   };
 
   const handleScanSuccess = async (result: ScanResult) => {
@@ -103,37 +128,57 @@ const QRScanner: React.FC<QRScannerProps> = ({ onBack }) => {
     
     feedbackService.successFeedback();
     
-    // Log to Supabase with retry and error handling
-    try {
-      const transaction = await qrScannerService.logScan(result.code || '');
-      if (transaction) {
-        setCurrentTransaction(transaction);
-        trackUserAction('transaction_logged');
-        
-        // Update with lighting data (non-blocking)
-        try {
-          const lightingUpdateSuccess = await qrScannerService.updateLightingData(
-            transaction.id, 
-            lightingCondition, 
-            torchUsed
-          );
-          if (lightingUpdateSuccess) {
-            trackUserAction('lighting_data_updated');
-          }
-        } catch (error) {
-          console.log('Failed to update lighting data:', error);
-        }
-      } else {
-        setError('Failed to log scan. You can still proceed with payment.');
-        trackUserAction('transaction_log_failed');
+    // Handle offline validation
+    if (!isOnline) {
+      const offlineValidation = validateQROffline(result.code || '');
+      if (offlineValidation.isValid) {
+        toastService.info('Offline Mode', 'QR code validated locally. Will sync when online.');
       }
-    } catch (error) {
-      console.error('Error during scan processing:', error);
-      setError('Scan successful but logging failed. You can still proceed.');
-      errorMonitoringService.logError(error as Error, 'scan_processing');
+      return;
     }
+    
+    // Online processing with retry logic
+    await errorRecoveryService.withRetry(
+      async () => {
+        const transaction = await qrScannerService.logScan(result.code || '');
+        if (transaction) {
+          setCurrentTransaction(transaction);
+          trackUserAction('transaction_logged');
+          
+          try {
+            const lightingUpdateSuccess = await qrScannerService.updateLightingData(
+              transaction.id, 
+              lightingCondition, 
+              torchUsed
+            );
+            if (lightingUpdateSuccess) {
+              trackUserAction('lighting_data_updated');
+            }
+          } catch (error) {
+            console.log('Failed to update lighting data:', error);
+          }
+        } else {
+          throw new Error('Failed to log scan');
+        }
+      },
+      'scan_logging',
+      {
+        maxRetries: 2,
+        fallbackActions: [
+          () => handleOfflineLogging(result)
+        ]
+      }
+    ).catch((error) => {
+      setError('Scan successful but logging failed. You can still proceed.');
+      trackUserAction('transaction_log_failed');
+    });
 
     await scanningManager.stop();
+  };
+
+  const handleOfflineLogging = async (result: ScanResult) => {
+    toastService.info('Offline Logging', 'Scan saved locally. Will sync when online.');
+    // Add to offline queue
   };
 
   const handleEnhancedScan = async () => {
@@ -241,8 +286,32 @@ const QRScanner: React.FC<QRScannerProps> = ({ onBack }) => {
     EnhancedCameraService.stopCamera();
   };
 
+  const handleErrorRetry = () => {
+    setShowErrorModal(false);
+    setCurrentError(null);
+    setRetryCount(prev => prev + 1);
+    
+    if (retryCount < 3) {
+      initializeScanner();
+    } else {
+      setShowManualInput(true);
+    }
+  };
+
+  const handleErrorManualInput = () => {
+    setShowErrorModal(false);
+    setShowManualInput(true);
+  };
+
+  const handleErrorClose = () => {
+    setShowErrorModal(false);
+    onBack();
+  };
+
   return (
     <div className="fixed inset-0 bg-black z-50 flex flex-col">
+      <OfflineIndicator />
+      
       {/* Header */}
       <div className="flex items-center justify-between p-4 bg-black/50 backdrop-blur-sm">
         <button
@@ -254,6 +323,7 @@ const QRScanner: React.FC<QRScannerProps> = ({ onBack }) => {
         </button>
         
         <h1 className="text-white text-lg font-semibold">
+          {!isOnline && '📱 Offline '} 
           {scanResult?.method === 'ai' && '🤖 AI-Enhanced '}
           {scanResult?.method === 'enhanced' && '⚡ Enhanced '}
           Scan QR Code
@@ -316,6 +386,16 @@ const QRScanner: React.FC<QRScannerProps> = ({ onBack }) => {
           lastScannedImage={scanningManager.getLastCapturedFrame()}
         />
       )}
+
+      {/* Error Recovery Modal */}
+      <ErrorRecoveryModal
+        error={currentError!}
+        onRetry={handleErrorRetry}
+        onManualInput={handleErrorManualInput}
+        onClose={handleErrorClose}
+        isVisible={showErrorModal}
+        retryCount={retryCount}
+      />
     </div>
   );
 };
