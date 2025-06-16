@@ -26,9 +26,18 @@ const QRCodeModal: React.FC<QRCodeModalProps> = ({
 }) => {
   const { copyToClipboard, downloadQR, shareViaWhatsApp, shareViaSMS } = useQRActions();
 
-  if (!qrResult) return null;
+  // Generate the USSD string directly if we have phone and amount
+  const ussdString = qrResult?.ussdString || (phone && amount ? `*182*1*1*${phone}*${amount}#` : '');
 
-  const ussdString = `*182*1*1*${phone}*${amount}#`;
+  console.log('[QR Modal Debug]', { 
+    isOpen, 
+    qrResult, 
+    ussdString, 
+    phone, 
+    amount,
+    hasQRResult: !!qrResult,
+    qrResultKeys: qrResult ? Object.keys(qrResult) : []
+  });
 
   const handleDownloadQR = () => {
     downloadQR(qrResult, phone, amount);
@@ -45,6 +54,11 @@ const QRCodeModal: React.FC<QRCodeModalProps> = ({
   const handleCopyLink = () => {
     copyToClipboard(paymentLink, 'Payment link');
   };
+
+  // Don't render if we don't have the minimum required data
+  if (!isOpen || (!ussdString && !qrResult)) {
+    return null;
+  }
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>

@@ -53,12 +53,13 @@ const GetPaidScreen = () => {
       }
       
       // Generate QR code
-      await generateQR();
+      const qrData = await generateQR();
       
       // Show QR modal immediately after successful generation
-      setTimeout(() => {
+      if (qrData) {
+        console.log('[GetPaidScreen] QR generated successfully, showing modal', qrData);
         setShowQRModal(true);
-      }, 500);
+      }
     } catch (error) {
       console.error('Failed to generate QR:', error);
     }

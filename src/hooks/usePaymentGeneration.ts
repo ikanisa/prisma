@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { cloudFunctions } from '@/services/cloudFunctions';
 import { useSupabaseCache } from '@/hooks/useSupabaseCache';
@@ -92,8 +93,18 @@ export const usePaymentGeneration = () => {
     try {
       // Generate QR code via Edge function backed by Supabase
       const qrResponse = await cloudFunctions.generateQRCode(phone.trim(), numAmount);
-      setQrResult(qrResponse);
       console.log('[QR DEBUG] generateQRCode result:', qrResponse);
+      
+      // Create a proper QR result object
+      const qrResultData = {
+        ...qrResponse,
+        ussdString: qrResponse.ussdString || `*182*1*1*${phone.trim()}*${numAmount}#`,
+        qrCodeImage: qrResponse.qrCodeImage,
+        phone: phone.trim(),
+        amount: numAmount
+      };
+      
+      setQrResult(qrResultData);
 
       // Generate payment link
       const linkResponse = await cloudFunctions.createPaymentLink(phone.trim(), numAmount);
@@ -107,6 +118,8 @@ export const usePaymentGeneration = () => {
       trackUserAction('qr_generation_completed', { amount: numAmount });
 
       toastService.success("QR Code Generated!", "Ready to share your payment request");
+      
+      return qrResultData; // Return the result for immediate use
     } catch (error) {
       console.error('[QR DEBUG] Error generating QR:', error);
 
@@ -123,6 +136,7 @@ export const usePaymentGeneration = () => {
       trackUserAction('qr_generation_failed', { amount: numAmount, error: errMsg });
 
       toastService.error("Generation Failed", errMsg);
+      throw error;
     } finally {
       setIsGenerating(false);
     }
