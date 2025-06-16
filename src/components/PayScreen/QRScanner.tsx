@@ -1,9 +1,10 @@
-
 import React, { useEffect, useRef, useState } from 'react';
 import { Html5QrcodeScanner } from 'html5-qrcode';
 import { ArrowLeft, RotateCcw } from 'lucide-react';
 import { qrScannerService, ScanTransaction } from '@/services/qrScannerService';
 import { feedbackService } from '@/services/feedbackService';
+import EnhancedFlashlightButton from './EnhancedFlashlightButton';
+import { EnhancedCameraService } from '@/services/EnhancedCameraService';
 
 interface QRScannerProps {
   onBack: () => void;
@@ -15,9 +16,12 @@ const QRScanner: React.FC<QRScannerProps> = ({ onBack }) => {
   const [currentTransaction, setCurrentTransaction] = useState<ScanTransaction | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [lightingCondition, setLightingCondition] = useState<string>('normal');
+  const [torchUsed, setTorchUsed] = useState(false);
   
   const scannerRef = useRef<Html5QrcodeScanner | null>(null);
   const scannerElementRef = useRef<HTMLDivElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
     initializeScanner();
@@ -26,11 +30,18 @@ const QRScanner: React.FC<QRScannerProps> = ({ onBack }) => {
     };
   }, []);
 
-  const initializeScanner = () => {
+  const initializeScanner = async () => {
     if (!scannerElementRef.current) return;
 
     setIsLoading(true);
     setError(null);
+
+    try {
+      // Initialize enhanced camera
+      await EnhancedCameraService.initializeCameraWithEnhancements(videoRef);
+    } catch (error) {
+      console.log('Enhanced camera initialization failed, falling back to standard:', error);
+    }
 
     const config = {
       fps: 10,
@@ -38,6 +49,13 @@ const QRScanner: React.FC<QRScannerProps> = ({ onBack }) => {
       aspectRatio: 1.0,
       experimentalFeatures: {
         useBarCodeDetectorIfSupported: true
+      },
+      videoConstraints: {
+        facingMode: 'environment',
+        advanced: [
+          { focusMode: 'continuous' },
+          { exposureMode: 'continuous' }
+        ]
       }
     };
 
@@ -46,14 +64,12 @@ const QRScanner: React.FC<QRScannerProps> = ({ onBack }) => {
     scannerRef.current.render(
       (decodedText) => handleScanSuccess(decodedText),
       (errorMessage) => {
-        // Ignore frequent scan errors, only log actual issues
         if (!errorMessage.includes('No QR code found')) {
           console.log('QR scan error:', errorMessage);
         }
       }
     );
 
-    // Hide loading after a short delay to allow camera to initialize
     setTimeout(() => setIsLoading(false), 2000);
   };
 
@@ -63,16 +79,21 @@ const QRScanner: React.FC<QRScannerProps> = ({ onBack }) => {
     setScannedCode(decodedText);
     setIsScanning(false);
     
-    // Provide immediate feedback
     feedbackService.successFeedback();
     
-    // Log to Supabase
+    // Log to Supabase with lighting conditions
     const transaction = await qrScannerService.logScan(decodedText);
     if (transaction) {
       setCurrentTransaction(transaction);
+      
+      // Update with lighting data
+      try {
+        await qrScannerService.updateLightingData(transaction.id, lightingCondition, torchUsed);
+      } catch (error) {
+        console.log('Failed to update lighting data:', error);
+      }
     }
 
-    // Stop the scanner
     if (scannerRef.current) {
       scannerRef.current.clear();
     }
@@ -83,11 +104,7 @@ const QRScanner: React.FC<QRScannerProps> = ({ onBack }) => {
 
     try {
       const telURI = qrScannerService.createTelURI(scannedCode);
-      
-      // Mark as launched in database
       await qrScannerService.markUSSDLaunched(currentTransaction.id);
-      
-      // Launch the dialer
       window.location.href = telURI;
     } catch (error) {
       console.error('Failed to launch MoMo:', error);
@@ -100,7 +117,16 @@ const QRScanner: React.FC<QRScannerProps> = ({ onBack }) => {
     setCurrentTransaction(null);
     setError(null);
     setIsScanning(true);
+    setTorchUsed(false);
     initializeScanner();
+  };
+
+  const handleTorchToggle = (enabled: boolean) => {
+    setTorchUsed(enabled);
+  };
+
+  const handleLightingChange = (condition: string) => {
+    setLightingCondition(condition);
   };
 
   const cleanup = () => {
@@ -110,6 +136,20 @@ const QRScanner: React.FC<QRScannerProps> = ({ onBack }) => {
       } catch (error) {
         console.log('Error clearing scanner:', error);
       }
+    }
+    EnhancedCameraService.stopCamera();
+  };
+
+  const getLightingTips = () => {
+    switch (lightingCondition) {
+      case 'bright':
+        return ['Move to shade if glare appears', 'Clean camera lens', 'Hold phone steady'];
+      case 'dark':
+        return ['Enable flashlight above', 'Move to better lighting', 'Hold phone steady'];
+      case 'dim':
+        return ['Try using flashlight', 'Find better lighting', 'Clean camera lens'];
+      default:
+        return ['Clean your camera lens', 'Hold phone steady', 'Ensure good lighting'];
     }
   };
 
@@ -139,18 +179,38 @@ const QRScanner: React.FC<QRScannerProps> = ({ onBack }) => {
         {isScanning && <div className="w-10 h-10" />}
       </div>
 
+      {/* Enhanced Flashlight Button */}
+      {isScanning && (
+        <EnhancedFlashlightButton
+          videoRef={videoRef}
+          onTorchToggle={handleTorchToggle}
+          onLightingChange={handleLightingChange}
+        />
+      )}
+
       {/* Main Content */}
       <div className="flex-1 flex flex-col items-center justify-center p-4">
         {isScanning ? (
           <div className="w-full max-w-sm mx-auto">
-            {/* Scanner Container */}
+            {/* Scanner Container with enhanced lighting-based styling */}
             <div className="relative">
               <div 
                 id="qr-reader" 
                 ref={scannerElementRef}
-                className="w-full rounded-2xl overflow-hidden shadow-2xl"
-                style={{ filter: 'drop-shadow(0 0 20px rgba(59, 130, 246, 0.5))' }}
+                className={`w-full rounded-2xl overflow-hidden shadow-2xl ${
+                  lightingCondition === 'dark' ? 'ring-2 ring-yellow-400/50' :
+                  lightingCondition === 'bright' ? 'ring-2 ring-blue-400/50' :
+                  'ring-2 ring-blue-500/50'
+                }`}
+                style={{ 
+                  filter: `drop-shadow(0 0 20px ${
+                    lightingCondition === 'dark' ? 'rgba(250, 204, 21, 0.5)' : 
+                    'rgba(59, 130, 246, 0.5)'
+                  })` 
+                }}
               />
+              
+              <video ref={videoRef} style={{ display: 'none' }} />
               
               {isLoading && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/80 rounded-2xl">
@@ -162,26 +222,30 @@ const QRScanner: React.FC<QRScannerProps> = ({ onBack }) => {
               )}
             </div>
 
-            {/* Instructions */}
+            {/* Enhanced Instructions with lighting context */}
             <div className="mt-6 text-center">
               <p className="text-white text-lg mb-2">Scan a QR Code to Launch MoMo Payment</p>
-              <p className="text-gray-300 text-sm">Position the QR code within the frame</p>
+              <p className="text-gray-300 text-sm">
+                {lightingCondition === 'dark' && 'Low light detected - '}
+                {lightingCondition === 'bright' && 'Bright light detected - '}
+                Position the QR code within the frame
+              </p>
             </div>
 
-            {/* Tips */}
+            {/* Adaptive Tips based on lighting */}
             <div className="mt-8 bg-white/10 rounded-lg p-4 backdrop-blur-sm">
-              <p className="text-white text-sm font-medium mb-2">Scanning Tips:</p>
+              <p className="text-white text-sm font-medium mb-2">
+                Scanning Tips {lightingCondition !== 'normal' && `(${lightingCondition} lighting)`}:
+              </p>
               <ul className="text-gray-300 text-xs space-y-1">
-                <li>• Move to shade if too bright</li>
-                <li>• Clean your camera lens</li>
-                <li>• Hold phone steady</li>
-                <li>• Ensure good lighting</li>
+                {getLightingTips().map((tip, index) => (
+                  <li key={index}>• {tip}</li>
+                ))}
               </ul>
             </div>
           </div>
         ) : (
           <div className="w-full max-w-sm mx-auto text-center">
-            {/* Success State */}
             <div className="bg-green-500/20 rounded-2xl p-6 mb-6 border border-green-500/30">
               <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-4">
                 <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -192,7 +256,6 @@ const QRScanner: React.FC<QRScannerProps> = ({ onBack }) => {
               <p className="text-green-300 text-sm">Ready to launch MoMo payment</p>
             </div>
 
-            {/* Scanned Code Display */}
             <div className="bg-white/10 rounded-lg p-4 mb-6 backdrop-blur-sm">
               <p className="text-gray-300 text-sm mb-2">Scanned Code:</p>
               <p className="text-white font-mono text-sm break-all bg-black/30 p-2 rounded">
@@ -200,7 +263,6 @@ const QRScanner: React.FC<QRScannerProps> = ({ onBack }) => {
               </p>
             </div>
 
-            {/* Launch Button */}
             <button
               onClick={handleLaunchMoMo}
               className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-6 rounded-xl transition-colors text-lg shadow-lg"

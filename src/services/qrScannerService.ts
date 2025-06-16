@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
 export interface ScanTransaction {
@@ -52,6 +51,28 @@ class QRScannerService {
     }
   }
 
+  async updateLightingData(transactionId: string, lightingCondition: string, torchUsed: boolean): Promise<boolean> {
+    try {
+      const { error } = await supabase
+        .from('transactions')
+        .update({
+          lighting_conditions: lightingCondition,
+          torch_used: torchUsed
+        })
+        .eq('id', transactionId);
+
+      if (error) {
+        console.error('Failed to update lighting data:', error);
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Error updating lighting data:', error);
+      return false;
+    }
+  }
+
   async markUSSDLaunched(transactionId: string): Promise<boolean> {
     try {
       const { error } = await supabase
@@ -75,7 +96,6 @@ class QRScannerService {
   }
 
   extractPayerNumber(ussdCode: string): string | null {
-    // Extract payer number from USSD code like *182*1*1*0788123456*2500#
     const phoneMatch = ussdCode.match(/\*182\*1\*1\*(\d+)\*/);
     return phoneMatch ? phoneMatch[1] : null;
   }
