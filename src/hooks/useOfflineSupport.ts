@@ -29,10 +29,13 @@ export const useOfflineSupport = () => {
         try {
           // Process each queued action based on type
           switch (action.type) {
-            case 'qr_scan':
+            case 'qr':
               console.log('Processing offline QR scan:', action.data);
               break;
-            case 'analytics':
+            case 'scan':
+              console.log('Processing offline scan:', action.data);
+              break;
+            case 'log':
               console.log('Processing offline analytics:', action.data);
               break;
           }
@@ -57,7 +60,7 @@ export const useOfflineSupport = () => {
     if (!isOnline && validation.isValid) {
       // Queue for later processing
       addToOfflineQueue({
-        type: 'qr_scan',
+        type: 'qr',
         data: {
           qrCode,
           validation,
