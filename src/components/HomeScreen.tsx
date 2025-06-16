@@ -81,7 +81,7 @@ const HomeScreen = () => {
         <div className="flex-1 flex flex-col justify-center items-center px-2 py-2 overflow-y-auto">
           <div className="liquid-glass-panel backdrop-blur-2xl shadow-2xl px-3 py-4 w-full max-w-sm mx-auto space-y-4 transition-all duration-500">
             <div className="flex flex-col items-center justify-center space-y-4">
-              <div className="text-center animate-fade-slide">
+              <div className="text-center animate-fade-slide pt-2">
                 <h1 data-testid="app-title" className="md:text-5xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-2 text-5xl">
                   {t("home.title")}
                 </h1>
