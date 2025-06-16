@@ -13,6 +13,7 @@ interface LightingCondition {
 
 export class EnhancedCameraService {
   private static torchEnabled = false;
+  private static initialized = false;
 
   static async checkTorchSupport(videoRef: React.RefObject<HTMLVideoElement>): Promise<boolean> {
     try {
@@ -125,18 +126,27 @@ export class EnhancedCameraService {
   }
 
   static async initializeCameraWithEnhancements(videoRef: React.RefObject<HTMLVideoElement>): Promise<MediaStream | null> {
+    // Don't initialize if already done
+    if (this.initialized) {
+      console.log('EnhancedCameraService: Already initialized, skipping');
+      return CameraService.getCurrentStream();
+    }
+
     try {
       console.log('EnhancedCameraService: Initializing enhanced camera...');
       
-      const success = await CameraService.startCamera(videoRef);
-      if (!success) {
-        throw new Error('Failed to start camera');
-      }
+      // Wait a bit for the main scanner to initialize first
+      await new Promise(resolve => setTimeout(resolve, 1000));
       
       const stream = CameraService.getCurrentStream();
-      console.log('EnhancedCameraService: Enhanced camera initialized successfully');
+      if (stream && videoRef.current) {
+        console.log('EnhancedCameraService: Using existing camera stream');
+        this.initialized = true;
+        return stream;
+      }
       
-      return stream;
+      console.log('EnhancedCameraService: Enhanced camera initialization skipped - using main scanner stream');
+      return null;
     } catch (error) {
       console.error('EnhancedCameraService: Enhanced camera initialization failed:', error);
       throw error;
@@ -145,8 +155,8 @@ export class EnhancedCameraService {
 
   static stopCamera() {
     console.log('EnhancedCameraService: Stopping camera');
-    CameraService.stopCamera();
     this.torchEnabled = false;
+    this.initialized = false;
   }
 
   static async waitForVideoReady(videoRef: React.RefObject<HTMLVideoElement>, timeout = 5000): Promise<boolean> {
@@ -165,9 +175,12 @@ export class EnhancedCameraService {
       }
 
       let timeoutId: ReturnType<typeof setTimeout>;
+      let resolved = false;
       
       const onReady = () => {
+        if (resolved) return;
         if (video.readyState >= 2 && video.videoWidth > 0 && video.videoHeight > 0) {
+          resolved = true;
           clearTimeout(timeoutId);
           video.removeEventListener('loadedmetadata', onReady);
           video.removeEventListener('canplay', onReady);
@@ -175,10 +188,12 @@ export class EnhancedCameraService {
         }
       };
 
-      video.addEventListener('loadedmetadata', onReady);
-      video.addEventListener('canplay', onReady);
+      video.addEventListener('loadedmetadata', onReady, { once: true });
+      video.addEventListener('canplay', onReady, { once: true });
       
       timeoutId = setTimeout(() => {
+        if (resolved) return;
+        resolved = true;
         video.removeEventListener('loadedmetadata', onReady);
         video.removeEventListener('canplay', onReady);
         resolve(false);

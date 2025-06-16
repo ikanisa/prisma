@@ -1,4 +1,3 @@
-
 import { Html5QrcodeScanner } from 'html5-qrcode';
 import { performanceMonitoringService } from './performanceMonitoringService';
 import { scannerOptimizer } from './scannerOptimizer';
@@ -16,6 +15,7 @@ class ScanningManager {
   private videoElement: HTMLVideoElement | null = null;
   private initializationAttempts = 0;
   private maxInitializationAttempts = 3;
+  private isInitializing = false;
   
   private frameCaptureManager: FrameCaptureManager;
   private scanProcessor: ScanProcessor;
@@ -29,8 +29,14 @@ class ScanningManager {
   }
 
   async initializeScanner(elementId: string): Promise<void> {
+    if (this.isInitializing) {
+      console.log('Scanner initialization already in progress');
+      return;
+    }
+
     const initStartTime = performance.now();
     this.initializationAttempts++;
+    this.isInitializing = true;
     
     try {
       console.log(`Initializing QR scanner (attempt ${this.initializationAttempts}/${this.maxInitializationAttempts}) with element ID:`, elementId);
@@ -54,14 +60,14 @@ class ScanningManager {
       }
 
       const config = {
-        fps: this.config.enableOptimization ? 8 : 10,
+        fps: this.config.enableOptimization ? 6 : 8,
         qrbox: { width: 280, height: 280 },
         aspectRatio: 1.0,
         experimentalFeatures: {
           useBarCodeDetectorIfSupported: true
         },
         videoConstraints: {
-          facingMode: "environment" // Use back camera by default
+          facingMode: "environment"
         }
       };
 
@@ -74,18 +80,20 @@ class ScanningManager {
       performanceMonitoringService.trackMetric('scanner_init_time', initTime);
       
       console.log('Scanner initialized successfully in', initTime, 'ms');
+      this.isInitializing = false;
       
     } catch (error) {
       const initTime = performance.now() - initStartTime;
       console.error('Scanner initialization failed:', error);
       performanceMonitoringService.trackMetric('scanner_init_error_time', initTime);
+      this.isInitializing = false;
       
       // Retry logic
       if (this.initializationAttempts < this.maxInitializationAttempts) {
-        console.log(`Retrying scanner initialization in 1 second... (${this.initializationAttempts}/${this.maxInitializationAttempts})`);
+        console.log(`Retrying scanner initialization in 2 seconds... (${this.initializationAttempts}/${this.maxInitializationAttempts})`);
         setTimeout(() => {
           this.initializeScanner(elementId);
-        }, 1000);
+        }, 2000);
         return;
       }
       
@@ -129,7 +137,7 @@ class ScanningManager {
 
   private setupVideoElementDetection(): void {
     let attempts = 0;
-    const maxAttempts = 10;
+    const maxAttempts = 8;
     
     const findVideo = () => {
       attempts++;
@@ -155,7 +163,7 @@ class ScanningManager {
         }
         
         if (attempts < maxAttempts) {
-          setTimeout(findVideo, 500);
+          setTimeout(findVideo, 1000);
         } else {
           console.warn('Video element not found after maximum attempts');
         }
@@ -164,8 +172,8 @@ class ScanningManager {
       }
     };
     
-    // Start searching immediately and then periodically
-    findVideo();
+    // Start searching after a delay to allow scanner to initialize
+    setTimeout(findVideo, 1000);
   }
 
   private setupVideoEventListeners(): void {
@@ -173,20 +181,21 @@ class ScanningManager {
     
     console.log('Setting up video event listeners');
     
+    // Use { once: true } to prevent multiple event listeners
     this.videoElement.addEventListener('loadedmetadata', () => {
       console.log('Video metadata loaded:', {
         width: this.videoElement?.videoWidth,
         height: this.videoElement?.videoHeight
       });
-    });
+    }, { once: true });
     
     this.videoElement.addEventListener('canplay', () => {
       console.log('Video can play - ready for frame capture');
-    });
+    }, { once: true });
     
     this.videoElement.addEventListener('play', () => {
       console.log('Video started playing');
-    });
+    }, { once: true });
   }
 
   captureCurrentFrame(videoElement?: HTMLVideoElement): HTMLCanvasElement | null {
@@ -237,6 +246,7 @@ class ScanningManager {
         this.isScanning = false;
         this.videoElement = null;
         this.initializationAttempts = 0;
+        this.isInitializing = false;
         
         const stopTime = performance.now() - stopStartTime;
         performanceMonitoringService.trackMetric('scanner_stop_time', stopTime);
@@ -262,7 +272,8 @@ class ScanningManager {
         isActive: this.isActive(),
         config: this.config,
         hasVideoElement: !!this.videoElement,
-        initializationAttempts: this.initializationAttempts
+        initializationAttempts: this.initializationAttempts,
+        isInitializing: this.isInitializing
       },
       optimizer: scannerOptimizer.getOptimizationStats(),
       performance: performanceMonitoringService.getScanningStats()

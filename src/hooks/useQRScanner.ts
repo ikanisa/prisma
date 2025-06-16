@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from 'react';
 import { scanningManager, ScanResult } from '@/services/scanningManager';
 import { qrScannerService, ScanTransaction } from '@/services/qrScannerService';
@@ -26,6 +25,7 @@ export const useQRScanner = () => {
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [currentError, setCurrentError] = useState<Error | null>(null);
   const [scannerReady, setScannerReady] = useState(false);
+  const [initializationInProgress, setInitializationInProgress] = useState(false);
   
   const scannerElementRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -34,12 +34,21 @@ export const useQRScanner = () => {
   const { isOnline, validateQROffline } = useOfflineSupport();
 
   const initializeScanner = async () => {
+    if (initializationInProgress) {
+      console.log('useQRScanner: Initialization already in progress, skipping');
+      return;
+    }
+
     console.log('useQRScanner: Initializing scanner...');
+    setInitializationInProgress(true);
     
     // Wait for scanner element to be ready
     if (!scannerElementRef.current) {
       console.warn('Scanner element not ready, waiting...');
-      setTimeout(() => initializeScanner(), 100);
+      setTimeout(() => {
+        setInitializationInProgress(false);
+        initializeScanner();
+      }, 500);
       return;
     }
 
@@ -70,29 +79,32 @@ export const useQRScanner = () => {
           }
         );
 
-        // Initialize enhanced camera features
-        try {
-          console.log('Attempting enhanced camera initialization...');
-          await EnhancedCameraService.initializeCameraWithEnhancements(videoRef);
-          console.log('Enhanced camera initialized successfully');
-          trackUserAction('enhanced_camera_success');
-          
-          // Detect lighting conditions
-          const lighting = await EnhancedCameraService.detectLightingCondition();
-          setLightingCondition(lighting.level);
-          console.log('Lighting condition detected:', lighting.level);
-        } catch (error) {
-          console.log('Enhanced camera initialization failed:', error);
-          errorMonitoringService.logError(error as Error, 'enhanced_camera_init');
-          trackUserAction('enhanced_camera_fallback');
-        }
+        // Wait for main scanner to be ready before initializing enhanced features
+        setTimeout(async () => {
+          try {
+            console.log('Attempting enhanced camera initialization...');
+            await EnhancedCameraService.initializeCameraWithEnhancements(videoRef);
+            console.log('Enhanced camera initialized successfully');
+            trackUserAction('enhanced_camera_success');
+            
+            // Detect lighting conditions
+            const lighting = await EnhancedCameraService.detectLightingCondition();
+            setLightingCondition(lighting.level);
+            console.log('Lighting condition detected:', lighting.level);
+          } catch (error) {
+            console.log('Enhanced camera initialization failed:', error);
+            errorMonitoringService.logError(error as Error, 'enhanced_camera_init');
+            trackUserAction('enhanced_camera_fallback');
+          }
+        }, 2000);
 
         setTimeout(() => {
           console.log('Scanner loading timeout completed');
           setIsLoading(false);
           setScannerReady(true);
+          setInitializationInProgress(false);
           trackUserAction('scanner_ready');
-        }, 2000);
+        }, 3000);
       },
       'scanner_initialization',
       {
@@ -108,6 +120,7 @@ export const useQRScanner = () => {
       setCurrentError(err);
       setShowErrorModal(true);
       setIsLoading(false);
+      setInitializationInProgress(false);
       trackUserAction('scanner_init_error');
     });
   };
@@ -284,6 +297,7 @@ export const useQRScanner = () => {
     setRetryCount(0);
     setIsEnhancedMode(false);
     setScannerReady(false);
+    setInitializationInProgress(false);
     initializeScanner();
   };
 
@@ -299,8 +313,8 @@ export const useQRScanner = () => {
 
   const handleScannerReady = () => {
     console.log('Scanner element is ready, initializing...');
-    setScannerReady(true);
-    if (!isLoading) {
+    if (!scannerReady && !initializationInProgress) {
+      setScannerReady(true);
       initializeScanner();
     }
   };
@@ -309,14 +323,15 @@ export const useQRScanner = () => {
     trackUserAction('scanner_cleanup');
     scanningManager.stop();
     EnhancedCameraService.stopCamera();
+    setInitializationInProgress(false);
   };
 
-  // Initialize when scanner element is ready
+  // Initialize when component mounts and scanner element is ready
   useEffect(() => {
-    if (scannerReady && scannerElementRef.current) {
-      initializeScanner();
+    if (scannerElementRef.current && !scannerReady && !initializationInProgress) {
+      handleScannerReady();
     }
-  }, [scannerReady]);
+  }, [scannerReady, initializationInProgress]);
 
   return {
     // State
