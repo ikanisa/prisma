@@ -113,9 +113,8 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
                   ? 'ring-2 ring-blue-400 border-blue-500 shadow-lg focus:ring-2'
                   : 'border-gray-300'
               }`}
-              inputMode="numeric"
-              pattern="\d*"
-              autoComplete="off"
+              type="tel"
+              autoComplete="tel"
               aria-label="Mobile money phone number"
             />
             {focusedField === 'phone' && (
