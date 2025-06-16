@@ -1,6 +1,6 @@
 
 import { scanningManager, ScanResult } from '@/services/scanningManager';
-import { qrScannerService } from '@/services/qrScannerService';
+import { qrScannerService } from '@/services/QRScannerService';
 import { feedbackService } from '@/services/feedbackService';
 import { errorRecoveryService } from '@/services/errorRecoveryService';
 import { errorMonitoringService } from '@/services/errorMonitoringService';

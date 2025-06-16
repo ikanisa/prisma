@@ -58,9 +58,10 @@ export class QRScannerService {
       }
 
       // Correct QrScanner constructor - takes video element and callback function
+      // The callback receives the result string directly
       this.scanner = new QrScanner(
         videoElement,
-        (result) => this.handleScanResult(result.data)
+        (result) => this.handleScanResult(result)
       );
 
       // Set scanner options using the setters
