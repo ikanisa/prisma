@@ -63,7 +63,7 @@ const UniversalQRScannerResult: React.FC<UniversalQRScannerResultProps> = ({
             onClick={onLaunchUssd}
             className="w-full bg-green-600 hover:bg-green-700 text-white text-lg py-4 h-14"
           >
-            Launch Payment Dialer
+            Pay
           </Button>
         ) : (
           <Button
