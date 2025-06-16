@@ -26,27 +26,22 @@ const GetPaidScreen = () => {
     qrResult,
     paymentLink,
     amountInteracted,
-    showPhoneLabel,
     phoneInteracted,
     handlePhoneChange,
     handlePhoneFocus,
     handleAmountChange,
     handleAmountFocus,
-    generateQR
+    generateQR,
+    validatePhone,
+    validateAmount
   } = usePaymentGeneration();
 
   const { copyToClipboard, downloadQR, shareViaWhatsApp, shareViaSMS } = useQRActions();
 
-  const handleSelectContact = (selectedPhone: string) => {
-    handlePhoneChange({ target: { value: selectedPhone } } as React.ChangeEvent<HTMLInputElement>);
-  };
-
   const handleGenerateQR = async () => {
     try {
-      // Generate QR code directly without redundant payment request creation
       const qrData = await generateQR();
       
-      // Show QR modal immediately after successful generation
       if (qrData) {
         console.log('[GetPaidScreen] QR generated successfully, showing modal', qrData);
         setShowQRModal(true);
@@ -84,7 +79,7 @@ const GetPaidScreen = () => {
   const ussdString = qrResult?.ussdString || (phone && amount ? `*182*1*1*${phone}*${amount}#` : '');
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 flex flex-col relative">
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex flex-col relative">
       <div className="flex-1 flex flex-col justify-start container mx-auto px-4 py-4 max-w-md">
         {/* Header */}
         <div className="flex items-center justify-between mb-6 mt-2">
@@ -94,7 +89,7 @@ const GetPaidScreen = () => {
           >
             <ArrowLeft className="w-6 h-6" />
           </button>
-          <h1 className="text-xl font-bold text-gray-800">Get Paid</h1>
+          <h1 className="text-xl font-bold text-gray-800 dark:text-gray-200">Get Paid</h1>
           <button
             onClick={() => setShowHistory(!showHistory)}
             className="glass-card p-3 hover:scale-110 transition-transform rounded-2xl"
@@ -115,20 +110,21 @@ const GetPaidScreen = () => {
               amount={amount}
               isGenerating={isGenerating}
               amountInteracted={amountInteracted}
-              showPhoneLabel={showPhoneLabel}
               phoneInteracted={phoneInteracted}
               onPhoneChange={handlePhoneChange}
               onPhoneFocus={handlePhoneFocus}
               onAmountChange={handleAmountChange}
               onAmountFocus={handleAmountFocus}
               onGenerateQR={handleGenerateQR}
+              validatePhone={validatePhone}
+              validateAmount={validateAmount}
             />
 
             {/* Share Button - only show if QR has been generated */}
             {(qrResult || paymentLink) && (
               <button
                 onClick={() => setShowShareSheet(true)}
-                className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white rounded-2xl py-4 px-6 font-semibold flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transition-all"
+                className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white rounded-2xl py-4 px-6 font-semibold flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transition-all hover:scale-[1.02] active:scale-[0.98] mobile-button"
               >
                 <Share2 className="w-5 h-5" />
                 Share Payment Request

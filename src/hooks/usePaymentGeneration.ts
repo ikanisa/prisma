@@ -15,26 +15,19 @@ export const usePaymentGeneration = () => {
   const [qrResult, setQrResult] = useState<any>(null);
   const [paymentLink, setPaymentLink] = useState('');
   const [amountInteracted, setAmountInteracted] = useState(false);
-  const [showPhoneLabel, setShowPhoneLabel] = useState(true);
   const [phoneInteracted, setPhoneInteracted] = useState(false);
 
-  const { addPhone, getRecentPhones } = useSupabaseCache();
+  const { addPhone } = useSupabaseCache();
   const { trackUserAction } = usePerformanceMonitoring('PaymentGeneration');
 
-  // On mount: prefill phone field from cache
-  useEffect(() => {
-    const recents = getRecentPhones();
-    if (recents?.[0]) {
-      setPhone(recents[0]);
-      analyticsService.trackEvent('phone_prefilled', { source: 'cache' });
-    }
-  }, [getRecentPhones]);
+  // Remove auto-fill behavior - let user choose to reuse contacts
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setPhone(e.target.value);
+    // Only allow numeric input, max 12 characters
+    const numericValue = e.target.value.replace(/\D/g, '').slice(0, 12);
+    setPhone(numericValue);
     if (!phoneInteracted) {
       setPhoneInteracted(true);
-      setShowPhoneLabel(false);
       trackUserAction('phone_input_started');
     }
   };
@@ -42,13 +35,27 @@ export const usePaymentGeneration = () => {
   const handlePhoneFocus = () => {
     if (!phoneInteracted) {
       setPhoneInteracted(true);
-      setShowPhoneLabel(false);
       trackUserAction('phone_input_focused');
     }
   };
 
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setAmount(e.target.value);
+    // Only allow numeric input with optional decimal point
+    const value = e.target.value.replace(/[^\d.]/g, '');
+    
+    // Prevent multiple decimal points
+    const parts = value.split('.');
+    let cleanValue = parts[0];
+    if (parts.length > 1) {
+      cleanValue += '.' + parts[1];
+    }
+    
+    // Prevent values starting with decimal point
+    if (cleanValue.startsWith('.')) {
+      cleanValue = '0' + cleanValue;
+    }
+    
+    setAmount(cleanValue);
     if (!amountInteracted) {
       setAmountInteracted(true);
       trackUserAction('amount_input_started');
@@ -62,20 +69,32 @@ export const usePaymentGeneration = () => {
     }
   };
 
+  const validatePhone = (phoneNumber: string): boolean => {
+    // Rwanda phone validation: 07XXXXXXXX or 078/079 specifically
+    const cleanPhone = phoneNumber.replace(/\D/g, '');
+    return cleanPhone.length >= 4 && cleanPhone.length <= 12;
+  };
+
+  const validateAmount = (amountValue: string): boolean => {
+    const numAmount = parseFloat(amountValue);
+    return !isNaN(numAmount) && numAmount > 0 && numAmount <= 10000000; // Max 10M RWF
+  };
+
   const generateQR = async () => {
-    // Simplified input validation
-    if (!phone.trim() || !amount.trim()) {
-      toastService.error("Missing Information", "Please enter both phone number and amount");
+    // Enhanced validation
+    if (!validatePhone(phone)) {
+      toastService.error("Invalid Phone", "Please enter a valid MoMo number or Pay code");
+      return;
+    }
+
+    if (!validateAmount(amount)) {
+      toastService.error("Invalid Amount", "Please enter a valid amount in RWF");
       return;
     }
 
     const numAmount = parseFloat(amount);
-    if (isNaN(numAmount) || numAmount <= 0) {
-      toastService.error("Invalid Amount", "Please enter a valid amount");
-      return;
-    }
 
-    // Simple rate limiting check
+    // Rate limiting check
     if (!rateLimitingService.isAllowed('qr_generation')) {
       const resetTime = rateLimitingService.getResetTime('qr_generation');
       const waitMinutes = Math.ceil((resetTime - Date.now()) / 60000);
@@ -89,7 +108,7 @@ export const usePaymentGeneration = () => {
     console.log('[QR DEBUG] generateQR called with:', { phone: phone.trim(), amount: numAmount });
 
     try {
-      // Generate QR code and payment link in parallel for speed
+      // Generate QR code and payment link in parallel
       const [qrResponse, linkResponse] = await Promise.all([
         cloudFunctions.generateQRCode(phone.trim(), numAmount),
         cloudFunctions.createPaymentLink(phone.trim(), numAmount)
@@ -98,7 +117,6 @@ export const usePaymentGeneration = () => {
       console.log('[QR DEBUG] generateQRCode result:', qrResponse);
       console.log('[QR DEBUG] createPaymentLink result:', linkResponse);
       
-      // Create a proper QR result object
       const qrResultData = {
         ...qrResponse,
         ussdString: qrResponse.ussdString || `*182*1*1*${phone.trim()}*${numAmount}#`,
@@ -110,7 +128,7 @@ export const usePaymentGeneration = () => {
       setQrResult(qrResultData);
       setPaymentLink(linkResponse.paymentLink);
 
-      // Save recent phone to cache
+      // Save recent phone to cache only after successful generation
       addPhone(phone.trim());
 
       analyticsService.trackQRGeneration(numAmount, 'mobile_money');
@@ -148,12 +166,13 @@ export const usePaymentGeneration = () => {
     qrResult,
     paymentLink,
     amountInteracted,
-    showPhoneLabel,
     phoneInteracted,
     handlePhoneChange,
     handlePhoneFocus,
     handleAmountChange,
     handleAmountFocus,
-    generateQR
+    generateQR,
+    validatePhone,
+    validateAmount
   };
 };
