@@ -1,3 +1,4 @@
+
 @tailwind base;
 
 /* Core color variables and root variables */
@@ -81,6 +82,31 @@
     outline: 2px solid hsl(var(--ring));
     outline-offset: 2px;
   }
+  
+  /* Enhanced input caret visibility for mobile */
+  input, textarea {
+    caret-color: currentColor !important;
+    -webkit-user-select: text !important;
+    user-select: text !important;
+    pointer-events: auto !important;
+  }
+  
+  input:focus, textarea:focus {
+    caret-color: currentColor !important;
+  }
+  
+  /* Specific mobile input styling */
+  .mobile-input {
+    caret-color: currentColor !important;
+    -webkit-user-select: text !important;
+    user-select: text !important;
+    pointer-events: auto !important;
+  }
+  
+  .mobile-input:focus {
+    caret-color: currentColor !important;
+  }
+  
   /* Reduced motion support */
   @media (prefers-reduced-motion: reduce) {
     * {
