@@ -4,10 +4,10 @@ import { useQRScanner } from '@/hooks/useQRScanner';
 import EnhancedFlashlightButton from './EnhancedFlashlightButton';
 import AIManualQRInput from './AIManualQRInput';
 import QRScannerControls from './QRScannerControls';
-import QRScannerResult from './QRScannerResult';
 import QRScannerView from './QRScannerView';
 import QRScannerHeader from './QRScannerHeader';
 import QRScannerErrorHandler from './QRScannerErrorHandler';
+import QRScannerMultiResult from './QRScannerMultiResult';
 import OfflineIndicator from '../OfflineIndicator';
 import { scanningManager } from '@/services/scanningManager';
 
@@ -19,26 +19,16 @@ const QRScanner: React.FC<QRScannerProps> = ({ onBack }) => {
   const scanner = useQRScanner();
 
   useEffect(() => {
-    console.log('QRScanner component mounted');
+    console.log('QRScanner component mounted - continuous mode enabled');
+    // Load previous scan history
+    scanner.loadScanHistory();
+    
     // Cleanup on unmount
     return () => {
       console.log('QRScanner component unmounting, cleaning up...');
       scanner.cleanup();
     };
   }, []);
-
-  // Debug logging for scanner state
-  useEffect(() => {
-    console.log('QR Scanner State:', {
-      isScanning: scanner.isScanning,
-      isLoading: scanner.isLoading,
-      scannedCode: scanner.scannedCode,
-      error: scanner.error,
-      showManualInput: scanner.showManualInput,
-      isOnline: scanner.isOnline,
-      scannerReady: scanner.scannerReady
-    });
-  }, [scanner.isScanning, scanner.isLoading, scanner.scannedCode, scanner.error, scanner.scannerReady]);
 
   const handleErrorRetry = () => {
     console.log('Error retry requested, attempt:', scanner.retryCount + 1);
@@ -75,7 +65,12 @@ const QRScanner: React.FC<QRScannerProps> = ({ onBack }) => {
         onRescan={scanner.handleRescan}
         isScanning={scanner.isScanning}
         isOnline={scanner.isOnline}
-        scanResult={scanner.scanResult}
+        scanResult={scanner.getLatestScan()?.result || null}
+        scannedCount={scanner.scannedCodes.length}
+        continuousMode={scanner.continuousMode}
+        onToggleContinuous={scanner.toggleContinuousMode}
+        onStopScanning={scanner.stopScanning}
+        onClearHistory={scanner.clearScanHistory}
       />
 
       <QRScannerControls
@@ -86,6 +81,8 @@ const QRScanner: React.FC<QRScannerProps> = ({ onBack }) => {
           console.log('Manual input requested from controls');
           scanner.setShowManualInput(true);
         }}
+        continuousMode={scanner.continuousMode}
+        onToggleContinuous={scanner.toggleContinuousMode}
       />
 
       {scanner.isScanning && (
@@ -96,22 +93,28 @@ const QRScanner: React.FC<QRScannerProps> = ({ onBack }) => {
         />
       )}
 
-      <div className="flex-1 flex flex-col items-center justify-center p-4">
-        {scanner.isScanning ? (
-          <QRScannerView
-            isLoading={scanner.isLoading}
-            lightingCondition={scanner.lightingCondition}
-            retryCount={scanner.retryCount}
-            scannerElementRef={scanner.scannerElementRef}
-            videoRef={scanner.videoRef}
-            onScannerReady={scanner.handleScannerReady}
-          />
-        ) : (
-          <QRScannerResult
-            scannedCode={scanner.scannedCode!}
-            scanResult={scanner.scanResult}
-            error={scanner.error}
+      <div className="flex-1 flex flex-col">
+        {/* Scanner View */}
+        {scanner.isScanning && (
+          <div className="flex-1">
+            <QRScannerView
+              isLoading={scanner.isLoading}
+              lightingCondition={scanner.lightingCondition}
+              retryCount={scanner.retryCount}
+              scannerElementRef={scanner.scannerElementRef}
+              videoRef={scanner.videoRef}
+              onScannerReady={scanner.handleScannerReady}
+            />
+          </div>
+        )}
+
+        {/* Multi-Scan Results */}
+        {scanner.scannedCodes.length > 0 && (
+          <QRScannerMultiResult
+            scannedCodes={scanner.scannedCodes}
             onLaunchMoMo={scanner.handleLaunchMoMo}
+            isScanning={scanner.isScanning}
+            error={scanner.error}
           />
         )}
       </div>
@@ -143,10 +146,10 @@ const QRScanner: React.FC<QRScannerProps> = ({ onBack }) => {
       {process.env.NODE_ENV === 'development' && (
         <div className="absolute bottom-4 left-4 bg-black/80 text-white text-xs p-2 rounded max-w-xs">
           <div>Scanner: {scanner.isScanning ? 'Active' : 'Inactive'}</div>
-          <div>Loading: {scanner.isLoading ? 'Yes' : 'No'}</div>
+          <div>Continuous: {scanner.continuousMode ? 'On' : 'Off'}</div>
+          <div>Scans: {scanner.scannedCodes.length}</div>
           <div>Ready: {scanner.scannerReady ? 'Yes' : 'No'}</div>
           <div>Online: {scanner.isOnline ? 'Yes' : 'No'}</div>
-          <div>Retries: {scanner.retryCount}</div>
           {scanner.error && <div className="text-red-400">Error: {scanner.error}</div>}
         </div>
       )}

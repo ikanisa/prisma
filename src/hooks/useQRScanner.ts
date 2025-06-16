@@ -38,14 +38,13 @@ export const useQRScanner = () => {
   return {
     // State
     isScanning: state.isScanning,
-    scannedCode: state.scannedCode,
+    scannedCodes: state.scannedCodes,
     currentTransaction: state.currentTransaction,
     error: state.error,
     isLoading: state.isLoading,
     lightingCondition: state.lightingCondition,
     torchUsed: state.torchUsed,
     retryCount: state.retryCount,
-    scanResult: state.scanResult,
     showManualInput: state.showManualInput,
     isEnhancedMode: state.isEnhancedMode,
     showErrorModal: state.showErrorModal,
@@ -54,6 +53,7 @@ export const useQRScanner = () => {
     videoRef: state.videoRef,
     isOnline: actions.isOnline,
     scannerReady: state.scannerReady,
+    continuousMode: state.continuousMode,
     
     // Actions
     initializeScanner: init.initializeScanner,
@@ -62,6 +62,8 @@ export const useQRScanner = () => {
     handleManualInput: actions.handleManualInput,
     handleLaunchMoMo: actions.handleLaunchMoMo,
     handleRescan: actions.handleRescan,
+    stopScanning: actions.stopScanning,
+    toggleContinuousMode: actions.toggleContinuousMode,
     handleTorchToggle: enhanced.handleTorchToggle,
     handleLightingChange: enhanced.handleLightingChange,
     handleScannerReady: init.handleScannerReady,
@@ -69,6 +71,9 @@ export const useQRScanner = () => {
     setShowManualInput: state.setShowManualInput,
     setShowErrorModal: state.setShowErrorModal,
     setCurrentError: state.setCurrentError,
-    setRetryCount: state.setRetryCount
+    setRetryCount: state.setRetryCount,
+    loadScanHistory: state.loadScanHistory,
+    clearScanHistory: state.clearScanHistory,
+    getLatestScan: state.getLatestScan
   };
 };

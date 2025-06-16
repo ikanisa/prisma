@@ -1,13 +1,19 @@
 
 import React from 'react';
-import { ArrowLeft, RotateCcw } from 'lucide-react';
+import { ArrowLeft, RotateCcw, Square, Play, Trash2 } from 'lucide-react';
+import { ScanResult } from '@/services/scanningManager';
 
 interface QRScannerHeaderProps {
   onBack: () => void;
   onRescan: () => void;
   isScanning: boolean;
   isOnline: boolean;
-  scanResult: any;
+  scanResult: ScanResult | null;
+  scannedCount?: number;
+  continuousMode?: boolean;
+  onToggleContinuous?: () => void;
+  onStopScanning?: () => void;
+  onClearHistory?: () => void;
 }
 
 const QRScannerHeader: React.FC<QRScannerHeaderProps> = ({
@@ -15,35 +21,77 @@ const QRScannerHeader: React.FC<QRScannerHeaderProps> = ({
   onRescan,
   isScanning,
   isOnline,
-  scanResult
+  scanResult,
+  scannedCount = 0,
+  continuousMode = true,
+  onToggleContinuous,
+  onStopScanning,
+  onClearHistory
 }) => {
   return (
-    <div className="flex items-center justify-between p-4 bg-black/50 backdrop-blur-sm">
-      <button
-        onClick={onBack}
-        className="p-2 rounded-lg bg-white/10 text-white hover:bg-white/20 transition-colors"
-        aria-label="Go back"
-      >
-        <ArrowLeft className="w-6 h-6" />
-      </button>
-      
-      <h1 className="text-white text-lg font-semibold">
-        {!isOnline && '📱 Offline '} 
-        {scanResult?.method === 'ai' && '🤖 AI-Enhanced '}
-        {scanResult?.method === 'enhanced' && '⚡ Enhanced '}
-        Scan QR Code
-      </h1>
-      
-      {!isScanning && (
+    <div className="absolute top-0 left-0 right-0 z-60 bg-gradient-to-b from-black/90 to-transparent p-4 safe-area-top">
+      <div className="flex items-center justify-between">
         <button
-          onClick={onRescan}
-          className="p-2 rounded-lg bg-white/10 text-white hover:bg-white/20 transition-colors"
-          aria-label="Rescan"
+          onClick={onBack}
+          className="flex items-center space-x-2 text-white hover:bg-white/20 rounded-lg px-3 py-2 transition-colors"
         >
-          <RotateCcw className="w-6 h-6" />
+          <ArrowLeft className="w-5 h-5" />
+          <span className="font-medium">Back</span>
         </button>
-      )}
-      {isScanning && <div className="w-10 h-10" />}
+
+        <div className="text-center">
+          <h2 className="text-white font-semibold">Universal QR Scanner</h2>
+          <div className="flex items-center justify-center space-x-2 text-sm">
+            {!isOnline && (
+              <span className="text-red-300">Offline</span>
+            )}
+            {scannedCount > 0 && (
+              <span className="text-green-300">{scannedCount} scanned</span>
+            )}
+            <span className={`${isScanning ? 'text-green-300' : 'text-gray-300'}`}>
+              {isScanning ? (continuousMode ? 'Continuous' : 'Active') : 'Stopped'}
+            </span>
+          </div>
+        </div>
+
+        <div className="flex items-center space-x-2">
+          {scannedCount > 0 && onClearHistory && (
+            <button
+              onClick={onClearHistory}
+              className="text-white hover:bg-white/20 rounded-lg p-2 transition-colors"
+              title="Clear scan history"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          )}
+          
+          {isScanning ? (
+            <button
+              onClick={onStopScanning}
+              className="text-white hover:bg-white/20 rounded-lg p-2 transition-colors"
+              title="Stop scanning"
+            >
+              <Square className="w-4 h-4" />
+            </button>
+          ) : (
+            <button
+              onClick={onRescan}
+              className="text-white hover:bg-white/20 rounded-lg p-2 transition-colors"
+              title="Resume scanning"
+            >
+              <Play className="w-4 h-4" />
+            </button>
+          )}
+          
+          <button
+            onClick={onRescan}
+            className="text-white hover:bg-white/20 rounded-lg p-2 transition-colors"
+            title="Restart scanner"
+          >
+            <RotateCcw className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
     </div>
   );
 };

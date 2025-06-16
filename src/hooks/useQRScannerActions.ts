@@ -1,4 +1,3 @@
-
 import { scanningManager, ScanResult } from '@/services/scanningManager';
 import { qrScannerServiceNew } from '@/services/QRScannerService';
 import { feedbackService } from '@/services/feedbackService';
@@ -25,12 +24,9 @@ export const useQRScannerActions = ({ state, lightingCondition, torchUsed, retry
     trackUserAction('qr_scan_success', { 
       method: result.method,
       confidence: result.confidence,
-      processingTime: result.processingTime
+      processingTime: result.processingTime,
+      continuousMode: state.continuousMode
     });
-    
-    state.setScanResult(result);
-    state.setScannedCode(result.code || '');
-    state.setIsScanning(false);
     
     feedbackService.successFeedback();
     
@@ -39,49 +35,43 @@ export const useQRScannerActions = ({ state, lightingCondition, torchUsed, retry
       if (offlineValidation.isValid) {
         toastService.info('Offline Mode', 'QR code validated locally. Will sync when online.');
       }
-      return;
     }
     
-    await errorRecoveryService.withRetry(
-      async () => {
-        const transaction = await qrScannerServiceNew.logScan(result.code || '');
+    // Log the scan without stopping the scanner
+    let transaction = null;
+    if (isOnline) {
+      try {
+        transaction = await qrScannerServiceNew.logScan(result.code || '');
         if (transaction) {
           state.setCurrentTransaction(transaction);
           trackUserAction('transaction_logged');
           
-          try {
-            const lightingUpdateSuccess = await qrScannerServiceNew.updateLightingData(
-              transaction.id, 
-              lightingCondition, 
-              torchUsed
-            );
-            if (lightingUpdateSuccess) {
-              trackUserAction('lighting_data_updated');
-            }
-          } catch (error) {
+          // Update lighting data in background
+          qrScannerServiceNew.updateLightingData(
+            transaction.id, 
+            lightingCondition, 
+            torchUsed
+          ).catch(error => {
             console.log('Failed to update lighting data:', error);
-          }
-        } else {
-          throw new Error('Failed to log scan');
+          });
         }
-      },
-      'scan_logging',
-      {
-        maxRetries: 2,
-        fallbackActions: [
-          () => handleOfflineLogging(result)
-        ]
+      } catch (error) {
+        console.log('Failed to log scan:', error);
+        trackUserAction('transaction_log_failed');
       }
-    ).catch((error) => {
-      state.setError('Scan successful but logging failed. You can still proceed.');
-      trackUserAction('transaction_log_failed');
-    });
+    }
 
-    await scanningManager.stop();
-  };
-
-  const handleOfflineLogging = async (result: ScanResult) => {
-    toastService.info('Offline Logging', 'Scan saved locally. Will sync when online.');
+    // Add to scan history without stopping scanner
+    state.addScannedCode(result.code || '', result, transaction);
+    
+    // Show brief success feedback but keep scanning
+    toastService.success('QR Scanned!', 'Code captured successfully. Continue scanning or launch payment.');
+    
+    // Don't stop scanning in continuous mode
+    if (!state.continuousMode) {
+      state.setIsScanning(false);
+      await scanningManager.stop();
+    }
   };
 
   const handleManualInput = (code: string) => {
@@ -97,19 +87,26 @@ export const useQRScannerActions = ({ state, lightingCondition, torchUsed, retry
     
     handleScanSuccess(result);
     trackUserAction('manual_input_success');
+    state.setShowManualInput(false);
   };
 
-  const handleLaunchMoMo = async () => {
-    if (!state.scannedCode || !state.currentTransaction) return;
+  const handleLaunchMoMo = async (scanData?: any) => {
+    const targetScan = scanData || state.getLatestScan();
+    if (!targetScan?.code) return;
 
-    trackUserAction('momo_launch_attempt');
+    trackUserAction('momo_launch_attempt', { 
+      code: targetScan.code,
+      hasTransaction: !!targetScan.transaction 
+    });
 
     try {
-      const telURI = qrScannerServiceNew.createTelURI(state.scannedCode);
+      const telURI = qrScannerServiceNew.createTelURI(targetScan.code);
       
-      const launchSuccess = await qrScannerServiceNew.markUSSDLaunched(state.currentTransaction.id);
-      if (launchSuccess) {
-        trackUserAction('ussd_marked_launched');
+      if (targetScan.transaction) {
+        const launchSuccess = await qrScannerServiceNew.markUSSDLaunched(targetScan.transaction.id);
+        if (launchSuccess) {
+          trackUserAction('ussd_marked_launched');
+        }
       }
       
       window.location.href = telURI;
@@ -124,7 +121,39 @@ export const useQRScannerActions = ({ state, lightingCondition, torchUsed, retry
 
   const handleRescan = () => {
     trackUserAction('rescan_requested');
-    state.resetState();
+    state.setError(null);
+    if (!state.isScanning) {
+      state.setIsScanning(true);
+      // Restart scanner if stopped
+      scanningManager.initializeScanner("qr-reader").then(() => {
+        scanningManager.startScanning(
+          handleScanSuccess,
+          (error) => {
+            if (!error.includes('No QR code found')) {
+              console.error('Scan error:', error);
+            }
+          }
+        );
+      });
+    }
+  };
+
+  const stopScanning = async () => {
+    trackUserAction('stop_scanning_requested');
+    state.setIsScanning(false);
+    await scanningManager.stop();
+  };
+
+  const toggleContinuousMode = () => {
+    const newMode = !state.continuousMode;
+    state.setContinuousMode(newMode);
+    trackUserAction('continuous_mode_toggled', { enabled: newMode });
+    
+    if (newMode) {
+      toastService.info('Continuous Mode', 'Scanner will stay active for multiple scans');
+    } else {
+      toastService.info('Single Scan Mode', 'Scanner will stop after each scan');
+    }
   };
 
   return {
@@ -132,6 +161,8 @@ export const useQRScannerActions = ({ state, lightingCondition, torchUsed, retry
     handleManualInput,
     handleLaunchMoMo,
     handleRescan,
+    stopScanning,
+    toggleContinuousMode,
     isOnline
   };
 };

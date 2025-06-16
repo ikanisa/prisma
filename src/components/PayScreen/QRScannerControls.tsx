@@ -1,49 +1,70 @@
 
 import React from 'react';
-import { Zap, Edit3 } from 'lucide-react';
+import { Zap, Edit3, RotateCcw, Square } from 'lucide-react';
 
 interface QRScannerControlsProps {
   isScanning: boolean;
   isEnhancedMode: boolean;
   onEnhancedScan: () => void;
   onShowManualInput: () => void;
+  continuousMode?: boolean;
+  onToggleContinuous?: () => void;
 }
 
 const QRScannerControls: React.FC<QRScannerControlsProps> = ({
   isScanning,
   isEnhancedMode,
   onEnhancedScan,
-  onShowManualInput
+  onShowManualInput,
+  continuousMode = true,
+  onToggleContinuous
 }) => {
-  if (!isScanning) return null;
-
   return (
-    <div className="flex justify-center gap-2 px-4 pb-2">
-      <button
-        onClick={onEnhancedScan}
-        disabled={isEnhancedMode}
-        className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-800 text-white px-4 py-2 rounded-lg text-sm transition-colors"
-      >
-        {isEnhancedMode ? (
-          <>
-            <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
-            Processing...
-          </>
-        ) : (
-          <>
-            <Zap className="w-4 h-4" />
-            AI Enhance
-          </>
+    <div className="absolute bottom-20 left-0 right-0 z-50 p-4">
+      <div className="flex justify-center space-x-4">
+        <button
+          onClick={onShowManualInput}
+          className="bg-white/20 backdrop-blur-sm text-white rounded-full p-3 hover:bg-white/30 transition-colors"
+          title="Manual input"
+        >
+          <Edit3 className="w-5 h-5" />
+        </button>
+
+        {isScanning && (
+          <button
+            onClick={onEnhancedScan}
+            disabled={isEnhancedMode}
+            className={`backdrop-blur-sm text-white rounded-full p-3 transition-colors ${
+              isEnhancedMode 
+                ? 'bg-orange-500/50 cursor-not-allowed' 
+                : 'bg-orange-500/80 hover:bg-orange-500'
+            }`}
+            title="AI Enhanced scan"
+          >
+            <Zap className="w-5 h-5" />
+          </button>
         )}
-      </button>
-      
-      <button
-        onClick={onShowManualInput}
-        className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm transition-colors"
-      >
-        <Edit3 className="w-4 h-4" />
-        Manual Input
-      </button>
+
+        {onToggleContinuous && (
+          <button
+            onClick={onToggleContinuous}
+            className={`backdrop-blur-sm text-white rounded-full p-3 transition-colors ${
+              continuousMode 
+                ? 'bg-green-500/80 hover:bg-green-500' 
+                : 'bg-gray-500/80 hover:bg-gray-500'
+            }`}
+            title={continuousMode ? 'Continuous mode: ON' : 'Single scan mode'}
+          >
+            {continuousMode ? <RotateCcw className="w-5 h-5" /> : <Square className="w-5 h-5" />}
+          </button>
+        )}
+      </div>
+
+      <div className="text-center mt-3">
+        <p className="text-white/80 text-sm">
+          {continuousMode ? 'Continuous scanning enabled' : 'Single scan mode'}
+        </p>
+      </div>
     </div>
   );
 };
