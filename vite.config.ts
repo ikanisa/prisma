@@ -29,9 +29,9 @@ export default defineConfig(({ mode }) => ({
     },
     // Generate source maps for better debugging
     sourcemap: mode === 'development',
-    // Optimize for PWA
+    // Optimize for PWA - use esbuild instead of terser to avoid dependency issues
     target: 'esnext',
-    minify: 'terser',
+    minify: mode === 'production' ? 'esbuild' : false,
   },
   // Configure base for deployment
   base: '/',
