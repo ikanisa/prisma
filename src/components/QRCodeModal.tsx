@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Download, Share2, Copy, MessageCircle } from 'lucide-react';
+import { X, Download, Share2, Copy, MessageCircle, Link } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { Button } from './ui/button';
 import USSDDialButton from './USSDDialButton';
@@ -87,7 +87,7 @@ const QRCodeModal: React.FC<QRCodeModalProps> = ({
             
             {/* Display the exact USSD string below QR */}
             <div className="mt-4 bg-gray-900 rounded-xl p-4">
-              <p className="text-white font-mono break-all text-base font-medium tracking-wide">
+              <p className="text-white font-mono break-all text-lg font-medium tracking-wide">
                 {ussdString}
               </p>
             </div>
@@ -104,7 +104,7 @@ const QRCodeModal: React.FC<QRCodeModalProps> = ({
             </Button>
 
             <Button variant="outline" size="sm" onClick={handleCopyLink} className="flex items-center justify-center">
-              <Copy className="w-4 h-4" />
+              <Link className="w-4 h-4" />
             </Button>
 
             <Button variant="outline" size="sm" onClick={handleShareWhatsApp} className="flex items-center justify-center">
