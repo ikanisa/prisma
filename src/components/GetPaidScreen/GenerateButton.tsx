@@ -111,17 +111,7 @@ const GenerateButton: React.FC<GenerateButtonProps> = ({
 
       {/* Validation Status Indicator with liquid glass effect */}
       <div className="text-center">
-        <div className={`
-          inline-block px-4 py-2 rounded-xl transition-all duration-300
-          ${isDisabled ? 'glass-panel bg-red-50/50 dark:bg-red-900/20' : 'liquid-glass-panel bg-green-50/50 dark:bg-green-900/20'}
-        `}>
-          <span className={`
-            text-sm font-medium transition-colors duration-200
-            ${isDisabled ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}
-          `}>
-            {getValidationMessage()}
-          </span>
-        </div>
+        
       </div>
     </div>;
 };
