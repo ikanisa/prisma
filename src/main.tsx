@@ -5,12 +5,15 @@ import './index.css'
 
 createRoot(document.getElementById("root")!).render(<App />);
 
-// Enhanced service worker registration with scanner optimizations
+// Enhanced service worker registration for production deployment
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async () => {
     try {
-      const registration = await navigator.serviceWorker.register('/sw.js');
-      console.log('[PWA] Service worker registered with scanner optimizations:', registration);
+      const registration = await navigator.serviceWorker.register('/service-worker.js', {
+        scope: '/'
+      });
+      
+      console.log('[PWA] Service worker registered successfully:', registration);
       
       // Listen for updates
       registration.addEventListener('updatefound', () => {
@@ -19,34 +22,43 @@ if ('serviceWorker' in navigator) {
           newWorker.addEventListener('statechange', () => {
             if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
               console.log('[PWA] New content available, reload to update');
-              // Show update notification for scanner improvements
-              if (window.location.pathname === '/pay') {
-                console.log('[PWA] Scanner page update available');
+              // Show update notification
+              if ('Notification' in window && Notification.permission === 'granted') {
+                new Notification('App Updated', {
+                  body: 'A new version is available. Refresh to update.',
+                  icon: '/icons/icon-192.png'
+                });
               }
             }
           });
         }
       });
 
-      // Register background sync for offline scanner data with proper type checking
+      // Register background sync for offline functionality
       if ('serviceWorker' in navigator && 'sync' in window.ServiceWorkerRegistration.prototype) {
         try {
-          // Use type assertion for sync registration since TypeScript doesn't include it by default
-          (registration as any).sync?.register('qr-scan-sync').catch(console.error);
+          await (registration as any).sync?.register('qr-scan-sync');
+          console.log('[PWA] Background sync registered');
         } catch (error) {
           console.log('[PWA] Background sync not supported:', error);
         }
       }
+
+      // Listen for messages from service worker
+      navigator.serviceWorker.addEventListener('message', (event) => {
+        if (event.data && event.data.type === 'SYNC_OFFLINE_DATA') {
+          // Trigger offline data sync in your app
+          console.log('[PWA] Received sync request from service worker');
+        }
+      });
+
     } catch (error) {
       console.error('[PWA] Service worker registration failed:', error);
     }
   });
 }
 
-// DEV: Simulate offline mode toggle
-if (typeof window !== 'undefined') {
-  (window as any).simulateOffline = (enable: boolean) => {
-    localStorage.setItem("mmpwa_simulateOffline", !!enable ? "true" : "false");
-    window.location.reload();
-  }
+// Request notification permission for update notifications
+if ('Notification' in window && Notification.permission === 'default') {
+  Notification.requestPermission();
 }
