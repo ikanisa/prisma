@@ -1,10 +1,10 @@
-
 import React, { useEffect, useState } from 'react';
 import { QrCode, Link, Clock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from '@/hooks/use-toast';
 import PromoBanner from './PromoBanner';
 import OfflineBanner from './OfflineBanner';
+import MobileShareSheet from './MobileShareSheet';
 import { t } from '@/i18n';
 import LanguageToggle from './LanguageToggle';
 
@@ -34,6 +34,7 @@ function getBannerMinimized() {
 const HomeScreen = () => {
   const navigate = useNavigate();
   const [bannerMinimized, setBannerMinimized] = useState<boolean>(getBannerMinimized());
+  const [showShareSheet, setShowShareSheet] = useState(false);
   
   useEffect(() => {
     function handleStorage() {
@@ -48,6 +49,13 @@ const HomeScreen = () => {
   }, []);
 
   const handleShare = async () => {
+    // On mobile, show the share sheet for better UX
+    if (window.innerWidth <= 768) {
+      setShowShareSheet(true);
+      return;
+    }
+
+    // Desktop fallback - use native share or clipboard
     if (navigator.share) {
       try {
         await navigator.share({
@@ -65,6 +73,32 @@ const HomeScreen = () => {
         description: t("generic.linkCopied")
       });
     }
+  };
+
+  const handleMobileShare = (method: string) => {
+    const appUrl = window.location.origin;
+    const shareText = `Check out ${t("home.welcomeTitle")} - ${t("home.welcomeSubtitle")}`;
+    
+    switch (method) {
+      case 'whatsapp':
+        const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(`${shareText}\n\n${appUrl}`)}`;
+        window.open(whatsappUrl, '_blank');
+        break;
+      case 'sms':
+        const smsUrl = `sms:?body=${encodeURIComponent(`${shareText}\n\n${appUrl}`)}`;
+        window.open(smsUrl, '_blank');
+        break;
+    }
+    setShowShareSheet(false);
+  };
+
+  const handleCopyUrl = () => {
+    navigator.clipboard.writeText(window.location.origin);
+    toast({
+      title: t("generic.copied"),
+      description: t("generic.linkCopied")
+    });
+    setShowShareSheet(false);
   };
 
   const openWhatsApp = () => {
@@ -161,6 +195,21 @@ const HomeScreen = () => {
           </div>
         </div>
       </div>
+
+      {/* Mobile Share Sheet */}
+      <MobileShareSheet
+        isVisible={showShareSheet}
+        onClose={() => setShowShareSheet(false)}
+        paymentData={{
+          amount: '',
+          phone: '',
+          paymentLink: window.location.origin,
+          ussdString: ''
+        }}
+        onShare={handleMobileShare}
+        onCopy={handleCopyUrl}
+        onDownload={() => {}} // Not applicable for app sharing
+      />
     </div>
   );
 };
