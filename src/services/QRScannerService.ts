@@ -1,8 +1,8 @@
 
 import QrScanner from 'qr-scanner';
-import { qrScannerService } from './qrScannerService';
 import { validateQRContent } from '@/utils/qrValidation';
 import { toastService } from './toastService';
+import { feedbackService } from './feedbackService';
 
 export interface ScanResult {
   success: boolean;
@@ -42,13 +42,11 @@ export class QRScannerService {
     try {
       this.videoElement = videoElement;
       
-      // Check camera permission
       const hasCamera = await this.checkCameraSupport();
       if (!hasCamera) {
         throw new Error('No camera available');
       }
 
-      // Create scanner with optimized settings for mobile
       this.scanner = new QrScanner(
         videoElement,
         (result) => this.handleScanResult(result.data),
@@ -56,12 +54,11 @@ export class QRScannerService {
           returnDetailedScanResult: false,
           highlightScanRegion: true,
           highlightCodeOutline: true,
-          preferredCamera: 'environment', // Rear camera for mobile
-          maxScansPerSecond: 5, // Optimize for mobile performance
+          preferredCamera: 'environment',
+          maxScansPerSecond: 5,
         }
       );
 
-      // Set up error handling
       this.scanner.setGrayscaleWeights(0.299, 0.587, 0.114, true);
       
       console.log('QRScannerService: Scanner initialized successfully');
@@ -102,7 +99,6 @@ export class QRScannerService {
 
     console.log('QRScannerService: QR code scanned:', qrData);
 
-    // Validate and process QR content
     const validation = validateQRContent(qrData);
     const ussdCode = this.extractUSSDCode(qrData);
 
@@ -115,61 +111,14 @@ export class QRScannerService {
     };
 
     // Provide immediate feedback
-    this.provideFeedback();
+    feedbackService.successFeedback();
 
-    // Log to Supabase
-    this.logScanToSupabase(result);
-
-    // Notify callback
     this.onScanCallback(result);
   }
 
   private extractUSSDCode(qrData: string): string | undefined {
-    // Extract USSD code for Rwanda MoMo format
     const ussdMatch = qrData.match(/\*182\*[0-9\*#]+/);
     return ussdMatch ? ussdMatch[0] : qrData;
-  }
-
-  private async logScanToSupabase(result: ScanResult): Promise<void> {
-    try {
-      await qrScannerService.logScan(result.code);
-      console.log('QRScannerService: Scan logged to Supabase');
-    } catch (error) {
-      console.error('QRScannerService: Failed to log scan:', error);
-    }
-  }
-
-  private provideFeedback(): void {
-    // Vibration feedback
-    if ('vibrate' in navigator) {
-      navigator.vibrate([100, 50, 100]);
-    }
-
-    // Audio feedback
-    this.playBeep();
-  }
-
-  private playBeep(): void {
-    try {
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const oscillator = audioContext.createOscillator();
-      const gainNode = audioContext.createGain();
-
-      oscillator.connect(gainNode);
-      gainNode.connect(audioContext.destination);
-
-      oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
-      oscillator.type = 'sine';
-
-      gainNode.gain.setValueAtTime(0, audioContext.currentTime);
-      gainNode.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 0.01);
-      gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.3);
-
-      oscillator.start(audioContext.currentTime);
-      oscillator.stop(audioContext.currentTime + 0.3);
-    } catch (error) {
-      console.log('QRScannerService: Audio feedback failed:', error);
-    }
   }
 
   private handleInitializationError(error: any): void {

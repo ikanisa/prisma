@@ -3,6 +3,7 @@ import React, { useEffect } from 'react';
 import { ArrowLeft, Flashlight, FlashlightOff, RotateCcw, Edit3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useSimpleQRScanner } from '@/hooks/useSimpleQRScanner';
+import { useAudioFeedback } from '@/hooks/useAudioFeedback';
 import AIManualQRInput from './AIManualQRInput';
 
 interface SimpleQRScannerProps {
@@ -11,16 +12,15 @@ interface SimpleQRScannerProps {
 
 const SimpleQRScanner: React.FC<SimpleQRScannerProps> = ({ onBack }) => {
   const scanner = useSimpleQRScanner();
+  const { playSuccessBeep } = useAudioFeedback();
 
   useEffect(() => {
     console.log('SimpleQRScanner: Component mounted');
     
-    // Initialize scanner when component mounts
     const initScanner = async () => {
       if (scanner.videoRef.current) {
         await scanner.initialize();
       } else {
-        // Retry after a short delay if video ref isn't ready
         setTimeout(() => {
           if (scanner.videoRef.current) {
             scanner.initialize();
@@ -31,12 +31,18 @@ const SimpleQRScanner: React.FC<SimpleQRScannerProps> = ({ onBack }) => {
 
     initScanner();
 
-    // Cleanup on unmount
     return () => {
       console.log('SimpleQRScanner: Component unmounting');
       scanner.cleanup();
     };
   }, []);
+
+  // Play audio feedback when scan result is received
+  useEffect(() => {
+    if (scanner.scannedResult) {
+      playSuccessBeep();
+    }
+  }, [scanner.scannedResult, playSuccessBeep]);
 
   const handleLaunchMoMo = () => {
     if (scanner.scannedResult?.ussdCode) {
@@ -110,7 +116,7 @@ const SimpleQRScanner: React.FC<SimpleQRScannerProps> = ({ onBack }) => {
                 <div className="absolute inset-0 flex items-center justify-center bg-black/80 rounded-2xl">
                   <div className="text-center text-white">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-2"></div>
-                    <p>Starting camera...</p>
+                    <p>Requesting camera access...</p>
                   </div>
                 </div>
               )}
@@ -135,6 +141,15 @@ const SimpleQRScanner: React.FC<SimpleQRScannerProps> = ({ onBack }) => {
                         Enter Code Manually
                       </Button>
                     </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Scanning Guide Overlay */}
+              {!scanner.isLoading && !scanner.hasError && (
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <div className="w-48 h-48 border-2 border-white/50 rounded-lg animate-pulse">
+                    <div className="w-full h-full border-4 border-transparent border-t-blue-500 border-l-blue-500 rounded-lg"></div>
                   </div>
                 </div>
               )}
