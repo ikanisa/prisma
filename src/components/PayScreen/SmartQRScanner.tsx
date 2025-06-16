@@ -2,11 +2,10 @@
 import React, { useState, useCallback } from "react";
 import { useSmartQRScanner } from "@/hooks/useSmartQRScanner";
 import { useAudioFeedback } from "@/hooks/useAudioFeedback";
-import ScannerStatusDisplay from "./ScannerStatusDisplay";
-import FlashlightButton from "./FlashlightButton";
 import ScannerOverlay from "./ScannerOverlay";
-import ScannerBackButton from "./ScannerBackButton";
-import ManualQRInput from "./ManualQRInput";
+import ScannerCamera from "./ScannerCamera";
+import ScannerControls from "./ScannerControls";
+import ScannerStatusManager from "./ScannerStatusManager";
 
 interface SmartQRScannerProps {
   onBack: () => void;
@@ -72,16 +71,11 @@ const SmartQRScanner: React.FC<SmartQRScannerProps> = ({ onBack }) => {
     playSuccessBeep();
   }, [setScanStatus, playSuccessBeep]);
 
-  const shouldShowManualInput = scanAttempts >= 4 && scanDuration > 10000;
-
   return (
     <div className="absolute inset-0 flex flex-col w-full h-full items-center justify-start z-50">
       
-      {/* HTML5 QR Code Scanner Container */}
-      <div 
-        id="reader" 
-        className="absolute inset-0 w-full h-full object-cover bg-black" 
-      />
+      {/* Camera container */}
+      <ScannerCamera isActive={scanStatus === 'scanning'} />
       
       {/* Scanner overlay */}
       <ScannerOverlay 
@@ -92,34 +86,26 @@ const SmartQRScanner: React.FC<SmartQRScannerProps> = ({ onBack }) => {
         lightLevel={lightLevel} 
       />
       
-      {/* Flashlight button */}
-      {showFlash && (
-        <FlashlightButton 
-          showFlashButton={showFlash} 
-          flashEnabled={flashEnabled} 
-          videoRef={React.useRef(null)} 
-          onFlashToggle={handleFlashToggle} 
-        />
-      )}
-      
-      {/* Status display */}
-      <ScannerStatusDisplay 
-        scanStatus={scanStatus} 
-        scanResult={scanResult} 
-        isProcessingWithAI={false} 
-        onRetry={retryScanning} 
-        onUSSDLaunch={handleUSSDLaunch} 
-        onShowManualInput={shouldShowManualInput ? () => setShowManualInput(true) : undefined} 
+      {/* Controls */}
+      <ScannerControls
+        showFlash={showFlash}
+        flashEnabled={flashEnabled}
+        onFlashToggle={handleFlashToggle}
+        onBack={onBack}
       />
       
-      {/* Back button */}
-      <ScannerBackButton onBack={onBack} />
-      
-      {/* Manual QR input fallback */}
-      <ManualQRInput 
-        isVisible={showManualInput} 
-        onQRSubmit={handleManualQRSubmit} 
-        onCancel={() => setShowManualInput(false)} 
+      {/* Status management */}
+      <ScannerStatusManager
+        scanStatus={scanStatus}
+        scanResult={scanResult}
+        scanAttempts={scanAttempts}
+        scanDuration={scanDuration}
+        showManualInput={showManualInput}
+        onRetry={retryScanning}
+        onUSSDLaunch={handleUSSDLaunch}
+        onShowManualInput={() => setShowManualInput(true)}
+        onManualQRSubmit={handleManualQRSubmit}
+        onCancelManualInput={() => setShowManualInput(false)}
       />
     </div>
   );
