@@ -9,6 +9,7 @@ import { rateLimitingService } from '@/services/rateLimitingService';
 import { usePerformanceMonitoring } from '@/hooks/usePerformanceMonitoring';
 
 export const usePaymentGeneration = () => {
+  // Start with empty values - no auto-fill by default
   const [phone, setPhone] = useState('');
   const [amount, setAmount] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -20,10 +21,8 @@ export const usePaymentGeneration = () => {
   const { addPhone } = useSupabaseCache();
   const { trackUserAction } = usePerformanceMonitoring('PaymentGeneration');
 
-  // Remove auto-fill behavior - let user choose to reuse contacts
-
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Only allow numeric input, max 12 characters
+    // Only allow numeric input, max 12 characters for Rwanda MoMo
     const numericValue = e.target.value.replace(/\D/g, '').slice(0, 12);
     setPhone(numericValue);
     if (!phoneInteracted) {
