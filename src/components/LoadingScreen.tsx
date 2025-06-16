@@ -77,12 +77,12 @@ const LoadingScreen: React.FC<LoadingScreenProps> = ({
 
           {/* App Name */}
           <h1 className="loader-text text-2xl mb-2">
-            MoMo Pay
+            EasyMOMO
           </h1>
           
           {/* Tagline */}
           <p className="loader-subtitle text-sm mb-6 font-medium">
-            Mobile Money Scanner
+            Pay . Get Paid . Instant . Secure
           </p>
 
           {/* Progress Bar */}
