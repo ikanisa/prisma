@@ -92,9 +92,7 @@ const QRCodeModal: React.FC<QRCodeModalProps> = ({
             </div>
 
             {/* Mobile compatibility note */}
-            <div className="mt-2 text-xs text-gray-600 bg-blue-50 p-2 rounded-lg">
-              📱 This QR code will open your phone dialer when scanned
-            </div>
+            
           </div>
 
           {/* USSD Dial Section */}
