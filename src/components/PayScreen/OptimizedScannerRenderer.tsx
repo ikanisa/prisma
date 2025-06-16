@@ -65,24 +65,7 @@ const OptimizedScannerRenderer: React.FC<OptimizedScannerRendererProps> = memo((
     }
     return frameQuality === 'poor' ? 'backdrop-blur-sm' : 'backdrop-blur-md';
   }, [optimalConfig.enableBlur, frameQuality]);
-  return <div className="relative w-full h-full">
-      {/* Optimized dimmed overlay */}
-      <div className="absolute inset-0 bg-black pointer-events-none" style={overlayStyles} />
-      
-      {/* Performance-optimized content container */}
-      
-      
-      {/* Performance metrics (development only) */}
-      {process.env.NODE_ENV === 'development' && <div className="absolute bottom-4 left-4 bg-black/80 text-white p-2 rounded text-xs space-y-1">
-          <div>FPS: {metrics.frameRate}</div>
-          <div>Device: {metrics.deviceType}</div>
-          <div>Memory: {metrics.memoryUsage.toFixed(1)}%</div>
-          {metrics.batteryLevel && <div>Battery: {(metrics.batteryLevel * 100).toFixed(0)}%</div>}
-          <div className={scanDuration > 7000 ? 'text-red-300' : 'text-green-300'}>
-            Performance: {optimalConfig.enableAnimations ? 'Full' : 'Reduced'}
-          </div>
-        </div>}
-    </div>;
+  return;
 });
 OptimizedScannerRenderer.displayName = 'OptimizedScannerRenderer';
 export default OptimizedScannerRenderer;
