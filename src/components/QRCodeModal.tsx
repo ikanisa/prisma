@@ -86,7 +86,7 @@ const QRCodeModal: React.FC<QRCodeModalProps> = ({
             
             {/* Display the exact USSD string below QR */}
             <div className="mt-4 bg-gray-900 rounded-xl p-4">
-              <p className="text-white font-mono tracking-wider break-all text-xs font-light">
+              <p className="text-white font-mono tracking-wider break-all text-xs font-thin">
                 {ussdString}
               </p>
             </div>
