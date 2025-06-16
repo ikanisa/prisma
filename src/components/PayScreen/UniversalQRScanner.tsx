@@ -85,6 +85,7 @@ const UniversalQRScanner: React.FC<UniversalQRScannerProps> = ({ onBack }) => {
               ussdValidation={scanner.ussdValidation}
               onLaunchUssd={handleLaunchUssd}
               onRescan={scanner.rescan}
+              onClose={onBack}
             />
           )
         )}

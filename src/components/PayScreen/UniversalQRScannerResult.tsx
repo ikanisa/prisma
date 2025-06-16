@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScanResult } from '@/services/qr-scanner/types';
 import { AIValidationResult } from '@/services/aiUssdValidationService';
@@ -10,18 +11,33 @@ interface UniversalQRScannerResultProps {
   ussdValidation: AIValidationResult;
   onLaunchUssd: () => void;
   onRescan: () => void;
+  onClose?: () => void;
 }
 
 const UniversalQRScannerResult: React.FC<UniversalQRScannerResultProps> = ({
   scannedResult,
   ussdValidation,
   onLaunchUssd,
-  onRescan
+  onRescan,
+  onClose
 }) => {
   const displayInfo = getUssdDisplayInfo(ussdValidation);
 
   return (
-    <div className="w-full max-w-sm mx-auto text-center">
+    <div className="w-full max-w-sm mx-auto text-center relative">
+      {/* Close button */}
+      {onClose && (
+        <Button
+          onClick={onClose}
+          variant="ghost"
+          size="sm"
+          className="absolute -top-2 -right-2 text-white hover:bg-white/20 rounded-full p-2 z-10"
+          aria-label="Close and go back"
+        >
+          <X className="w-5 h-5" />
+        </Button>
+      )}
+
       <div className={`${ussdValidation.isValid ? 'bg-green-500/20' : 'bg-yellow-500/20'} rounded-2xl p-6 mb-6`}>
         <div className="text-6xl mb-4">
           {ussdValidation.isValid ? '✓' : '⚠️'}
