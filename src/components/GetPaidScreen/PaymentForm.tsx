@@ -34,6 +34,15 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
   validatePhone,
   validateAmount
 }) => {
+  // Wrapper function to convert string to event for AmountInput
+  const handleAmountChange = (value: string) => {
+    // Create a synthetic event that matches what usePaymentGeneration expects
+    const syntheticEvent = {
+      target: { value }
+    } as React.ChangeEvent<HTMLInputElement>;
+    onAmountChange(syntheticEvent);
+  };
+
   return (
     <div className="w-full max-w-md mx-auto animate-fade-in">
       <Card className="bg-white/95 backdrop-blur-sm border-0 shadow-2xl rounded-3xl dark:bg-gray-900/95 overflow-hidden">
@@ -47,7 +56,7 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
 
           <AmountInput
             value={amount}
-            onChange={onAmountChange}
+            onChange={handleAmountChange}
             onFocus={onAmountFocus}
             interacted={amountInteracted}
           />
