@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { X, Download, Share2, Copy, MessageCircle } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
@@ -113,7 +112,7 @@ const QRCodeModal: React.FC<QRCodeModalProps> = ({
           </div>
 
           {/* Action Buttons */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <Button 
               variant="outline" 
               onClick={handleDownloadQR} 
@@ -126,6 +125,14 @@ const QRCodeModal: React.FC<QRCodeModalProps> = ({
             <Button 
               variant="outline" 
               onClick={handleCopyUSSD} 
+              className="flex items-center justify-center gap-2"
+            >
+              <Copy className="w-4 h-4" />
+            </Button>
+
+            <Button 
+              onClick={handleCopyLink} 
+              variant="outline" 
               className="flex items-center justify-center gap-2"
             >
               <Copy className="w-4 h-4" />
