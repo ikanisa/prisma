@@ -10,7 +10,7 @@ const PayScreen = () => {
   return (
     <div className="fixed inset-0 w-full h-full z-50 bg-black overflow-hidden">
       <OfflineBanner />
-      <UniversalQRScanner onBack={() => navigate(-1)} />
+      <UniversalQRScanner onBack={() => navigate('/')} />
     </div>
   );
 };

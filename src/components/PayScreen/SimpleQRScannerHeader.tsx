@@ -26,6 +26,7 @@ const SimpleQRScannerHeader: React.FC<SimpleQRScannerHeaderProps> = ({
           variant="ghost"
           size="sm"
           className="text-white hover:bg-white/20 rounded-full p-2"
+          aria-label="Go to home screen"
         >
           <ArrowLeft className="w-6 h-6" />
         </Button>
