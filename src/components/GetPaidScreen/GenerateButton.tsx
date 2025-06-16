@@ -17,7 +17,10 @@ const GenerateButton: React.FC<GenerateButtonProps> = ({
   phone,
   amount
 }) => {
-  const isDisabled = isGenerating || !phone.trim() || !amount.trim();
+  // Validate inputs
+  const phoneValid = phone.trim().length >= 4; // Minimum reasonable length
+  const amountValid = amount.trim() !== '' && parseFloat(amount) > 0;
+  const isDisabled = isGenerating || !phoneValid || !amountValid;
 
   return (
     <Button 
@@ -26,15 +29,16 @@ const GenerateButton: React.FC<GenerateButtonProps> = ({
       className={`
         w-full h-14 text-lg font-semibold rounded-xl
         transition-all duration-200 ease-in-out
+        mobile-button touch-action-manipulation
         ${isDisabled
           ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-          : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl active:scale-95'
+          : 'bg-gradient-to-r from-blue-600 to-yellow-500 hover:from-blue-700 hover:to-yellow-600 text-white shadow-lg hover:shadow-xl active:scale-95'
         }
       `}
       type="button"
     >
       {isGenerating ? (
-        <div className="flex items-center justify-center gap-3">
+        <div className="flex items-center justify-center gap-3 animate-fade-in">
           <LoadingSpinner />
           <span>Generating QR Code...</span>
         </div>

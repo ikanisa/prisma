@@ -47,7 +47,7 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
   };
 
   return (
-    <div className="w-full max-w-md mx-auto">
+    <div className="w-full max-w-md mx-auto animate-fade-in">
       <Card className="bg-white/95 backdrop-blur-sm border-0 shadow-xl">
         <CardContent className="p-4 sm:p-6 space-y-6">
           <PhoneInput

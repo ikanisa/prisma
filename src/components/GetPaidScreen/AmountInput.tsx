@@ -1,6 +1,6 @@
 
 import React, { useRef, useCallback, useState } from 'react';
-import { DollarSign, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { formatCurrencyWithSpaces, unformatCurrencyWithSpaces } from '../../utils/formatCurrency';
@@ -22,8 +22,21 @@ const AmountInput: React.FC<AmountInputProps> = ({
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const unformattedValue = unformatCurrencyWithSpaces(e.target.value);
-    onChange(unformattedValue);
+    // Remove any non-numeric characters except decimal point
+    const numericValue = e.target.value.replace(/[^\d.]/g, '');
+    
+    // Prevent multiple decimal points
+    const parts = numericValue.split('.');
+    let cleanValue = parts[0];
+    if (parts.length > 1) {
+      cleanValue += '.' + parts[1];
+    }
+    
+    // Prevent negative values and ensure reasonable limits
+    const numValue = parseFloat(cleanValue);
+    if (cleanValue === '' || (!isNaN(numValue) && numValue >= 0)) {
+      onChange(cleanValue);
+    }
   }, [onChange]);
 
   const handleFocus = useCallback(() => {
@@ -45,7 +58,7 @@ const AmountInput: React.FC<AmountInputProps> = ({
     }, 10);
   }, [onChange]);
 
-  const displayAmount = formatCurrencyWithSpaces(value);
+  const displayAmount = value ? formatCurrencyWithSpaces(value) : '';
 
   return (
     <div className="space-y-3">
@@ -55,11 +68,10 @@ const AmountInput: React.FC<AmountInputProps> = ({
           interacted ? 'opacity-0' : 'opacity-100'
         }`}
       >
-        Amount
+        Amount (RWF)
       </Label>
       
       <div className="relative">
-        <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none z-10" />
         <Input
           ref={inputRef}
           id="amount"
@@ -67,25 +79,28 @@ const AmountInput: React.FC<AmountInputProps> = ({
           onChange={handleInputChange}
           onFocus={handleFocus}
           onBlur={handleBlur}
-          placeholder="0"
+          placeholder="Enter Amount"
           className={`
-            pl-10 pr-12 h-14 text-lg font-medium text-right
+            h-14 text-lg font-medium text-right pr-12
             transition-all duration-200 ease-in-out
             border-2 rounded-xl
             ${isFocused 
               ? 'border-green-500 ring-4 ring-green-100 shadow-lg' 
               : 'border-gray-200 hover:border-gray-300'
             }
-            focus:outline-none
+            focus:outline-none mobile-input
           `}
-          type="text"
-          inputMode="numeric"
-          pattern="[0-9,]*"
+          style={{ fontSize: '16px' }}
+          type="number"
+          inputMode="decimal"
+          pattern="[0-9]*"
           autoComplete="off"
           autoCapitalize="none"
           autoCorrect="off"
           spellCheck="false"
           maxLength={15}
+          min="0"
+          step="any"
           readOnly={false}
           disabled={false}
         />
@@ -95,7 +110,7 @@ const AmountInput: React.FC<AmountInputProps> = ({
             type="button"
             onClick={clearAmount}
             onMouseDown={(e) => e.preventDefault()}
-            className="absolute right-3 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-gray-400 hover:bg-gray-500 active:bg-gray-600 flex items-center justify-center transition-colors z-20"
+            className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-gray-400 hover:bg-gray-500 active:bg-gray-600 flex items-center justify-center transition-colors z-20 mobile-button"
             aria-label="Clear amount"
           >
             <X className="w-4 h-4 text-white" />
@@ -103,9 +118,9 @@ const AmountInput: React.FC<AmountInputProps> = ({
         )}
       </div>
       
-      {/* FRW Currency Label */}
+      {/* RWF Currency Label */}
       <div className="text-sm text-gray-600 font-medium">
-        Currency: FRW (Rwandan Franc)
+        Currency: RWF (Rwandan Franc)
       </div>
     </div>
   );

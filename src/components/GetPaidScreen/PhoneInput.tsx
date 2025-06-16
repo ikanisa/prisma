@@ -1,6 +1,6 @@
 
 import React, { useRef, useCallback, useState } from 'react';
-import { Phone, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import RecentContactsDropdown from '../RecentContactsDropdown';
@@ -27,7 +27,9 @@ const PhoneInput: React.FC<PhoneInputProps> = ({
   const { contacts } = useRecentContacts();
 
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    onChange(e.target.value);
+    // Only allow numeric input, max 12 characters
+    const numericValue = e.target.value.replace(/\D/g, '').slice(0, 12);
+    onChange(numericValue);
   }, [onChange]);
 
   const handleFocus = useCallback(() => {
@@ -71,12 +73,11 @@ const PhoneInput: React.FC<PhoneInputProps> = ({
           showLabel ? 'opacity-100' : 'opacity-0'
         }`}
       >
-        MOMO Number/Code
+        MoMo Number/Pay Code
       </Label>
       
       <div className="relative">
         <div className="relative">
-          <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none z-10" />
           <Input
             ref={inputRef}
             id="phone"
@@ -84,24 +85,26 @@ const PhoneInput: React.FC<PhoneInputProps> = ({
             onChange={handleInputChange}
             onFocus={handleFocus}
             onBlur={handleBlur}
-            placeholder="Enter MOMO Number/Code"
+            placeholder="Enter MoMo Number or Pay Code"
             className={`
-              pl-10 pr-12 h-14 text-lg font-medium
+              h-14 text-lg font-medium pr-12
               transition-all duration-200 ease-in-out
               border-2 rounded-xl
               ${isFocused 
                 ? 'border-blue-500 ring-4 ring-blue-100 shadow-lg' 
                 : 'border-gray-200 hover:border-gray-300'
               }
-              focus:outline-none
+              focus:outline-none mobile-input
             `}
+            style={{ fontSize: '16px' }}
             type="tel"
             inputMode="numeric"
-            autoComplete="tel"
+            pattern="[0-9]*"
+            autoComplete="off"
             autoCapitalize="none"
             autoCorrect="off"
             spellCheck="false"
-            maxLength={15}
+            maxLength={12}
             readOnly={false}
             disabled={false}
           />
@@ -111,7 +114,7 @@ const PhoneInput: React.FC<PhoneInputProps> = ({
               type="button"
               onClick={clearPhone}
               onMouseDown={(e) => e.preventDefault()}
-              className="absolute right-3 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-gray-400 hover:bg-gray-500 active:bg-gray-600 flex items-center justify-center transition-colors z-20"
+              className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-gray-400 hover:bg-gray-500 active:bg-gray-600 flex items-center justify-center transition-colors z-20 mobile-button"
               aria-label="Clear phone number"
             >
               <X className="w-4 h-4 text-white" />
