@@ -25,6 +25,7 @@ export const useQRScanner = () => {
   const [isEnhancedMode, setIsEnhancedMode] = useState(false);
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [currentError, setCurrentError] = useState<Error | null>(null);
+  const [scannerReady, setScannerReady] = useState(false);
   
   const scannerElementRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -33,12 +34,14 @@ export const useQRScanner = () => {
   const { isOnline, validateQROffline } = useOfflineSupport();
 
   const initializeScanner = async () => {
+    console.log('useQRScanner: Initializing scanner...');
+    
+    // Wait for scanner element to be ready
     if (!scannerElementRef.current) {
-      console.error('Scanner element ref not available');
+      console.warn('Scanner element not ready, waiting...');
+      setTimeout(() => initializeScanner(), 100);
       return;
     }
-
-    console.log('Starting scanner initialization...');
 
     await errorRecoveryService.withRetry(
       async () => {
@@ -46,18 +49,7 @@ export const useQRScanner = () => {
         setError(null);
         trackUserAction('scanner_initialize');
 
-        try {
-          console.log('Attempting enhanced camera initialization...');
-          await EnhancedCameraService.initializeCameraWithEnhancements(videoRef);
-          console.log('Enhanced camera initialized successfully');
-          trackUserAction('enhanced_camera_success');
-        } catch (error) {
-          console.log('Enhanced camera initialization failed, falling back to standard:', error);
-          errorMonitoringService.logError(error as Error, 'enhanced_camera_init');
-          trackUserAction('enhanced_camera_fallback');
-        }
-
-        console.log('Initializing scanning manager...');
+        console.log('Initializing scanning manager with element ID: qr-reader');
         await scanningManager.initializeScanner("qr-reader");
         
         console.log('Starting scanning process...');
@@ -78,9 +70,27 @@ export const useQRScanner = () => {
           }
         );
 
+        // Initialize enhanced camera features
+        try {
+          console.log('Attempting enhanced camera initialization...');
+          await EnhancedCameraService.initializeCameraWithEnhancements(videoRef);
+          console.log('Enhanced camera initialized successfully');
+          trackUserAction('enhanced_camera_success');
+          
+          // Detect lighting conditions
+          const lighting = await EnhancedCameraService.detectLightingCondition();
+          setLightingCondition(lighting.level);
+          console.log('Lighting condition detected:', lighting.level);
+        } catch (error) {
+          console.log('Enhanced camera initialization failed:', error);
+          errorMonitoringService.logError(error as Error, 'enhanced_camera_init');
+          trackUserAction('enhanced_camera_fallback');
+        }
+
         setTimeout(() => {
           console.log('Scanner loading timeout completed');
           setIsLoading(false);
+          setScannerReady(true);
           trackUserAction('scanner_ready');
         }, 2000);
       },
@@ -273,6 +283,7 @@ export const useQRScanner = () => {
     setTorchUsed(false);
     setRetryCount(0);
     setIsEnhancedMode(false);
+    setScannerReady(false);
     initializeScanner();
   };
 
@@ -286,11 +297,26 @@ export const useQRScanner = () => {
     trackUserAction('lighting_change', { condition });
   };
 
+  const handleScannerReady = () => {
+    console.log('Scanner element is ready, initializing...');
+    setScannerReady(true);
+    if (!isLoading) {
+      initializeScanner();
+    }
+  };
+
   const cleanup = () => {
     trackUserAction('scanner_cleanup');
     scanningManager.stop();
     EnhancedCameraService.stopCamera();
   };
+
+  // Initialize when scanner element is ready
+  useEffect(() => {
+    if (scannerReady && scannerElementRef.current) {
+      initializeScanner();
+    }
+  }, [scannerReady]);
 
   return {
     // State
@@ -310,6 +336,7 @@ export const useQRScanner = () => {
     scannerElementRef,
     videoRef,
     isOnline,
+    scannerReady,
     
     // Actions
     initializeScanner,
@@ -320,6 +347,7 @@ export const useQRScanner = () => {
     handleRescan,
     handleTorchToggle,
     handleLightingChange,
+    handleScannerReady,
     cleanup,
     setShowManualInput,
     setShowErrorModal,

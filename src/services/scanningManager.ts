@@ -14,6 +14,8 @@ class ScanningManager {
   private isScanning = false;
   private scanStartTime = 0;
   private videoElement: HTMLVideoElement | null = null;
+  private initializationAttempts = 0;
+  private maxInitializationAttempts = 3;
   
   private frameCaptureManager: FrameCaptureManager;
   private scanProcessor: ScanProcessor;
@@ -28,14 +30,24 @@ class ScanningManager {
 
   async initializeScanner(elementId: string): Promise<void> {
     const initStartTime = performance.now();
+    this.initializationAttempts++;
     
     try {
-      console.log('Initializing QR scanner with element ID:', elementId);
+      console.log(`Initializing QR scanner (attempt ${this.initializationAttempts}/${this.maxInitializationAttempts}) with element ID:`, elementId);
+      
+      // Verify element exists
+      const element = document.getElementById(elementId);
+      if (!element) {
+        throw new Error(`Scanner element with ID '${elementId}' not found`);
+      }
+
+      console.log('Scanner element found:', element);
       
       // Clear any existing scanner
       if (this.scanner) {
         try {
           await this.scanner.clear();
+          console.log('Previous scanner cleared');
         } catch (error) {
           console.warn('Error clearing existing scanner:', error);
         }
@@ -67,6 +79,16 @@ class ScanningManager {
       const initTime = performance.now() - initStartTime;
       console.error('Scanner initialization failed:', error);
       performanceMonitoringService.trackMetric('scanner_init_error_time', initTime);
+      
+      // Retry logic
+      if (this.initializationAttempts < this.maxInitializationAttempts) {
+        console.log(`Retrying scanner initialization in 1 second... (${this.initializationAttempts}/${this.maxInitializationAttempts})`);
+        setTimeout(() => {
+          this.initializeScanner(elementId);
+        }, 1000);
+        return;
+      }
+      
       throw error;
     }
   }
@@ -101,41 +123,70 @@ class ScanningManager {
       }
     );
 
-    // Try to get the video element after a short delay
-    setTimeout(() => {
-      this.findVideoElement();
-    }, 1000);
+    // Try to get the video element after scanner starts
+    this.setupVideoElementDetection();
   }
 
-  private findVideoElement(): void {
-    try {
-      // Try to find the video element created by html5-qrcode
-      const videoElements = document.querySelectorAll('video');
-      if (videoElements.length > 0) {
-        this.videoElement = videoElements[0] as HTMLVideoElement;
-        console.log('Video element found:', {
-          width: this.videoElement.videoWidth,
-          height: this.videoElement.videoHeight,
-          readyState: this.videoElement.readyState
-        });
+  private setupVideoElementDetection(): void {
+    let attempts = 0;
+    const maxAttempts = 10;
+    
+    const findVideo = () => {
+      attempts++;
+      console.log(`Attempting to find video element (${attempts}/${maxAttempts})...`);
+      
+      try {
+        // Try multiple selectors to find the video element
+        const videoElements = document.querySelectorAll('video');
+        const qrReaderVideos = document.querySelectorAll('#qr-reader video');
         
-        // Wait for video to be ready
-        this.videoElement.addEventListener('loadedmetadata', () => {
-          console.log('Video metadata loaded:', {
-            width: this.videoElement?.videoWidth,
-            height: this.videoElement?.videoHeight
-          });
-        });
+        console.log(`Found ${videoElements.length} video elements, ${qrReaderVideos.length} in QR reader`);
         
-        this.videoElement.addEventListener('canplay', () => {
-          console.log('Video can play - ready for frame capture');
-        });
-      } else {
-        console.warn('No video elements found');
+        if (qrReaderVideos.length > 0) {
+          this.videoElement = qrReaderVideos[0] as HTMLVideoElement;
+          console.log('QR reader video element found and assigned');
+          this.setupVideoEventListeners();
+          return;
+        } else if (videoElements.length > 0) {
+          this.videoElement = videoElements[0] as HTMLVideoElement;
+          console.log('General video element found and assigned');
+          this.setupVideoEventListeners();
+          return;
+        }
+        
+        if (attempts < maxAttempts) {
+          setTimeout(findVideo, 500);
+        } else {
+          console.warn('Video element not found after maximum attempts');
+        }
+      } catch (error) {
+        console.error('Error finding video element:', error);
       }
-    } catch (error) {
-      console.error('Error finding video element:', error);
-    }
+    };
+    
+    // Start searching immediately and then periodically
+    findVideo();
+  }
+
+  private setupVideoEventListeners(): void {
+    if (!this.videoElement) return;
+    
+    console.log('Setting up video event listeners');
+    
+    this.videoElement.addEventListener('loadedmetadata', () => {
+      console.log('Video metadata loaded:', {
+        width: this.videoElement?.videoWidth,
+        height: this.videoElement?.videoHeight
+      });
+    });
+    
+    this.videoElement.addEventListener('canplay', () => {
+      console.log('Video can play - ready for frame capture');
+    });
+    
+    this.videoElement.addEventListener('play', () => {
+      console.log('Video started playing');
+    });
   }
 
   captureCurrentFrame(videoElement?: HTMLVideoElement): HTMLCanvasElement | null {
@@ -145,6 +196,12 @@ class ScanningManager {
       console.warn('No video element available for frame capture');
       return null;
     }
+    
+    console.log('Capturing frame from video element:', {
+      videoWidth: targetVideo.videoWidth,
+      videoHeight: targetVideo.videoHeight,
+      readyState: targetVideo.readyState
+    });
     
     const frame = this.frameCaptureManager.captureCurrentFrame(targetVideo);
     this.scanProcessor.setLastCapturedFrame(frame);
@@ -179,6 +236,7 @@ class ScanningManager {
         this.scanner = null;
         this.isScanning = false;
         this.videoElement = null;
+        this.initializationAttempts = 0;
         
         const stopTime = performance.now() - stopStartTime;
         performanceMonitoringService.trackMetric('scanner_stop_time', stopTime);
@@ -203,7 +261,8 @@ class ScanningManager {
       scanningManager: {
         isActive: this.isActive(),
         config: this.config,
-        hasVideoElement: !!this.videoElement
+        hasVideoElement: !!this.videoElement,
+        initializationAttempts: this.initializationAttempts
       },
       optimizer: scannerOptimizer.getOptimizationStats(),
       performance: performanceMonitoringService.getScanningStats()

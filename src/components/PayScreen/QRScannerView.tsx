@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 
 interface QRScannerViewProps {
   isLoading: boolean;
@@ -7,6 +7,7 @@ interface QRScannerViewProps {
   retryCount: number;
   scannerElementRef: React.RefObject<HTMLDivElement>;
   videoRef: React.RefObject<HTMLVideoElement>;
+  onScannerReady?: () => void;
 }
 
 const QRScannerView: React.FC<QRScannerViewProps> = ({
@@ -14,8 +15,16 @@ const QRScannerView: React.FC<QRScannerViewProps> = ({
   lightingCondition,
   retryCount,
   scannerElementRef,
-  videoRef
+  videoRef,
+  onScannerReady
 }) => {
+  useEffect(() => {
+    // Notify parent when scanner element is ready
+    if (scannerElementRef.current && onScannerReady) {
+      onScannerReady();
+    }
+  }, [scannerElementRef.current, onScannerReady]);
+
   const getLightingTips = () => {
     switch (lightingCondition) {
       case 'bright':
@@ -42,6 +51,7 @@ const QRScannerView: React.FC<QRScannerViewProps> = ({
             'ring-2 ring-blue-500/50'
           }`}
           style={{ 
+            minHeight: '300px',
             filter: `drop-shadow(0 0 20px ${
               lightingCondition === 'dark' ? 'rgba(250, 204, 21, 0.5)' : 
               'rgba(59, 130, 246, 0.5)'

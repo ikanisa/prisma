@@ -19,8 +19,8 @@ const QRScanner: React.FC<QRScannerProps> = ({ onBack }) => {
   const scanner = useQRScanner();
 
   useEffect(() => {
-    console.log('QRScanner component mounted, initializing scanner...');
-    scanner.initializeScanner();
+    console.log('QRScanner component mounted');
+    // Cleanup on unmount
     return () => {
       console.log('QRScanner component unmounting, cleaning up...');
       scanner.cleanup();
@@ -35,9 +35,10 @@ const QRScanner: React.FC<QRScannerProps> = ({ onBack }) => {
       scannedCode: scanner.scannedCode,
       error: scanner.error,
       showManualInput: scanner.showManualInput,
-      isOnline: scanner.isOnline
+      isOnline: scanner.isOnline,
+      scannerReady: scanner.scannerReady
     });
-  }, [scanner.isScanning, scanner.isLoading, scanner.scannedCode, scanner.error]);
+  }, [scanner.isScanning, scanner.isLoading, scanner.scannedCode, scanner.error, scanner.scannerReady]);
 
   const handleErrorRetry = () => {
     console.log('Error retry requested, attempt:', scanner.retryCount + 1);
@@ -103,6 +104,7 @@ const QRScanner: React.FC<QRScannerProps> = ({ onBack }) => {
             retryCount={scanner.retryCount}
             scannerElementRef={scanner.scannerElementRef}
             videoRef={scanner.videoRef}
+            onScannerReady={scanner.handleScannerReady}
           />
         ) : (
           <QRScannerResult
@@ -142,6 +144,7 @@ const QRScanner: React.FC<QRScannerProps> = ({ onBack }) => {
         <div className="absolute bottom-4 left-4 bg-black/80 text-white text-xs p-2 rounded max-w-xs">
           <div>Scanner: {scanner.isScanning ? 'Active' : 'Inactive'}</div>
           <div>Loading: {scanner.isLoading ? 'Yes' : 'No'}</div>
+          <div>Ready: {scanner.scannerReady ? 'Yes' : 'No'}</div>
           <div>Online: {scanner.isOnline ? 'Yes' : 'No'}</div>
           <div>Retries: {scanner.retryCount}</div>
           {scanner.error && <div className="text-red-400">Error: {scanner.error}</div>}
