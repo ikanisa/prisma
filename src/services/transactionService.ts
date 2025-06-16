@@ -4,23 +4,22 @@ import { getSessionId } from './supabaseService';
 
 export interface Transaction {
   id: string;
-  payment_id?: string;
-  payer_number?: string;
+  scanned_code: string;
   scanned_at: string;
   launched_ussd: boolean;
   payment_status: string;
+  payer_number?: string;
   session_id: string;
-  ussd_code?: string;
 }
 
 export const transactionService = {
-  async logQRScan(ussdCode: string, payerNumber?: string): Promise<Transaction> {
+  async logQRScan(scannedCode: string, payerNumber?: string): Promise<Transaction> {
     const sessionId = getSessionId();
     
     const { data, error } = await supabase
       .from('transactions')
       .insert({
-        ussd_code: ussdCode,
+        scanned_code: scannedCode,
         payer_number: payerNumber,
         launched_ussd: false,
         payment_status: 'scanned',
