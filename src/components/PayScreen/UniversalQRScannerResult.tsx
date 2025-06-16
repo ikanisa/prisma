@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Copy, RefreshCw, X, ExternalLink } from 'lucide-react';
 import { ScanResult } from '@/services/QRScannerService';
@@ -71,7 +72,6 @@ const UniversalQRScannerResult: React.FC<UniversalQRScannerResultProps> = ({
         <p className="text-blue-300 font-mono text-lg text-center break-all font-bold">
           {scannedResult.ussdCode || scannedResult.code}
         </p>
-        {ussdValidation.confidence}
       </div>
 
       {/* Action Buttons */}
