@@ -19,7 +19,7 @@ const SmartQRScanner: React.FC<SmartQRScannerProps> = ({ onBack }) => {
   const [flashEnabled, setFlashEnabled] = useState(false);
 
   // Custom hooks
-  const { scanStatus, setScanStatus, scanResult, setScanResult, videoRef, handleRetry, handleUSSDLaunch } = useQRScanner();
+  const { scanStatus, setScanStatus, scanResult, setScanResult, videoRef, handleRetry, handleUSSDLaunch, cameraDevices } = useQRScanner();
   const { isProcessingWithAI, canvasRef, processWithAI } = useAIProcessing();
   const light = useAmbientLightSensor();
   const { cleanup } = useCameraOptimization();
@@ -52,13 +52,17 @@ const SmartQRScanner: React.FC<SmartQRScannerProps> = ({ onBack }) => {
       aria-label="Rwanda MoMo QR scanner, align QR code within the frame"
       tabIndex={-1}
     >
-      {/* Camera background */}
+      {/* HTML5 QR Code Scanner Container - This is where html5-qrcode will mount */}
+      <div 
+        id="reader" 
+        className="absolute inset-0 w-full h-full object-cover bg-black"
+        aria-label="QR Code Scanner"
+      />
+      
+      {/* Hidden video element for compatibility */}
       <video
         ref={videoRef}
-        autoPlay
-        playsInline
-        muted
-        className="absolute inset-0 w-full h-full object-cover bg-black"
+        className="hidden"
         aria-label="Camera stream"
       />
       <canvas ref={canvasRef} className="hidden" />
@@ -89,7 +93,14 @@ const SmartQRScanner: React.FC<SmartQRScannerProps> = ({ onBack }) => {
       />
       
       {/* Back button (top left) */}
-      <ScannerBackButton />
+      <ScannerBackButton onBack={onBack} />
+      
+      {/* Camera devices debug info (only in development) */}
+      {process.env.NODE_ENV === 'development' && cameraDevices.length > 0 && (
+        <div className="absolute top-20 left-4 bg-black/80 text-white p-2 rounded text-xs">
+          Cameras: {cameraDevices.length}
+        </div>
+      )}
     </div>
   );
 };

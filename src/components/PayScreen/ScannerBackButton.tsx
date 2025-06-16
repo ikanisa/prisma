@@ -1,21 +1,32 @@
 
-import React from "react";
-import { X } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import React from 'react';
+import { ArrowLeft } from 'lucide-react';
+import { Button } from '../ui/button';
 
-const ScannerBackButton: React.FC = () => {
-  const navigate = useNavigate();
+interface ScannerBackButtonProps {
+  onBack?: () => void;
+}
+
+const ScannerBackButton: React.FC<ScannerBackButtonProps> = ({ onBack }) => {
+  const handleBack = () => {
+    if (onBack) {
+      onBack();
+    } else {
+      // Fallback to browser back
+      window.history.back();
+    }
+  };
 
   return (
-    <button
-      className="absolute top-4 left-4 z-50 glass-card p-2 rounded-2xl text-white shadow-xl bg-black/30 hover:scale-110 focus:outline-none focus-visible:ring-4 focus-visible:ring-blue-400 transition-all"
-      aria-label="Back to home screen"
-      onClick={() => navigate("/")}
-      tabIndex={0}
+    <Button
+      onClick={handleBack}
+      variant="ghost"
+      size="sm"
+      className="absolute top-4 left-4 z-50 text-white hover:bg-white/20 rounded-full p-3"
+      aria-label="Go back"
     >
-      <X className="w-8 h-8" />
-      <span className="sr-only">Back</span>
-    </button>
+      <ArrowLeft className="w-6 h-6" />
+    </Button>
   );
 };
 
