@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -45,32 +46,50 @@ const App = () => {
     // Listen for route changes
     window.addEventListener('popstate', trackPageView);
     
+    // Remove splash screen once app is loaded
+    const handleAppLoad = () => {
+      const splash = document.getElementById('splash-screen');
+      if (splash) {
+        splash.style.opacity = '0';
+        splash.style.transition = 'opacity 0.5s ease';
+        setTimeout(() => splash.remove(), 500);
+      }
+    };
+
+    // Remove splash after a short delay to ensure smooth transition
+    setTimeout(handleAppLoad, 1000);
+    
     return () => {
       window.removeEventListener('popstate', trackPageView);
     };
   }, []);
 
   return (
-    <ErrorBoundary>
-      <QueryClientProvider client={queryClient}>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <Routes>
-              <Route path="/" element={<HomeScreen />} />
-              <Route path="/pay" element={<PayScreen />} />
-              <Route path="/get-paid" element={<GetPaidScreen />} />
-              <Route path="/qr-preview" element={<QRPreviewScreen />} />
-              <Route path="/shared/:linkToken" element={<SharedPaymentPage />} />
-              <Route path="/history" element={<PaymentHistory />} />
-              <Route path="/test" element={<TestDashboard />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </BrowserRouter>
-        </TooltipProvider>
-      </QueryClientProvider>
-    </ErrorBoundary>
+    <div className="liquid-theme">
+      <div className="liquid-bg" />
+      <div className="liquid-content">
+        <ErrorBoundary>
+          <QueryClientProvider client={queryClient}>
+            <TooltipProvider>
+              <Toaster />
+              <Sonner />
+              <BrowserRouter>
+                <Routes>
+                  <Route path="/" element={<HomeScreen />} />
+                  <Route path="/pay" element={<PayScreen />} />
+                  <Route path="/get-paid" element={<GetPaidScreen />} />
+                  <Route path="/qr-preview" element={<QRPreviewScreen />} />
+                  <Route path="/shared/:linkToken" element={<SharedPaymentPage />} />
+                  <Route path="/history" element={<PaymentHistory />} />
+                  <Route path="/test" element={<TestDashboard />} />
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </BrowserRouter>
+            </TooltipProvider>
+          </QueryClientProvider>
+        </ErrorBoundary>
+      </div>
+    </div>
   );
 };
 

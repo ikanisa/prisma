@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { QrCode, Link, TestTube, Clock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -6,7 +7,6 @@ import PromoBanner from './PromoBanner';
 import OfflineBanner from './OfflineBanner';
 import { t } from '@/i18n';
 import LanguageToggle from './LanguageToggle';
-import AnimatedGlassBackground from "./AnimatedGlassBackground";
 
 // Dynamic Icon Loader for Lucide icons by name
 const LucideIconDynamic = ({
@@ -22,15 +22,19 @@ const LucideIconDynamic = ({
   // fallback: blank or error SVG 
   return <svg width={32} height={32} {...props}><rect width="100%" height="100%" fill="#25d366" /><text x="50%" y="55%" textAnchor="middle" fontSize="10" fill="#fff">WA</text></svg>;
 };
+
 const PROMO_BANNER_HEIGHT = 136;
 const PROMO_MINI_HEIGHT = 40;
+
 function getBannerMinimized() {
   if (typeof window === "undefined") return false;
   return window.localStorage.getItem("promo_banner_minimized") === "true";
 }
+
 const HomeScreen = () => {
   const navigate = useNavigate();
   const [bannerMinimized, setBannerMinimized] = useState<boolean>(getBannerMinimized());
+  
   useEffect(() => {
     function handleStorage() {
       setBannerMinimized(getBannerMinimized());
@@ -42,6 +46,7 @@ const HomeScreen = () => {
       clearInterval(timer);
     };
   }, []);
+
   const handleShare = async () => {
     if (navigator.share) {
       try {
@@ -61,16 +66,18 @@ const HomeScreen = () => {
       });
     }
   };
+
   const openWhatsApp = () => {
-    // Updated to open the correct WhatsApp Channel
     window.open("https://whatsapp.com/channel/0029VawjRH4EVccC71nJqv2H", "_blank");
   };
+
   const topSpacer = <div className="w-full" style={{
     height: bannerMinimized ? `calc(${PROMO_MINI_HEIGHT}px + 0.5rem)` : `calc(${PROMO_BANNER_HEIGHT}px + 0.5rem)`,
     minHeight: bannerMinimized ? "2rem" : "4rem"
   }} aria-hidden="true" />;
-  return <div className="relative min-h-screen w-full overflow-hidden flex items-stretch bg-transparent">
-      <AnimatedGlassBackground />
+
+  return (
+    <div className="relative min-h-screen w-full overflow-hidden flex items-stretch">
       <div className="relative flex-1 flex flex-col min-h-screen">
         <LanguageToggle />
         <div className="animate-fade-in">
@@ -78,6 +85,7 @@ const HomeScreen = () => {
         </div>
         <OfflineBanner />
         {topSpacer}
+        
         <div className="flex-1 flex flex-col justify-center items-center px-2 py-2 overflow-y-auto">
           <div className="liquid-glass-panel backdrop-blur-2xl shadow-2xl px-3 py-4 w-full max-w-sm mx-auto space-y-4 transition-all duration-500">
             <div className="flex flex-col items-center justify-center space-y-4">
@@ -89,18 +97,33 @@ const HomeScreen = () => {
                   {t("home.welcomeSubtitle")}
                 </p>
               </div>
+              
               <div className="w-full space-y-3">
-                <button onClick={() => navigate("/pay")} aria-label={t("home.pay")} className="w-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 hover:from-blue-600 hover:via-purple-600 hover:to-pink-600 text-white font-semibold py-3 px-6 rounded-2xl min-h-[56px] text-base md:text-button transform transition-all duration-200 hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl ripple flex items-center justify-center space-x-3">
+                <button 
+                  onClick={() => navigate("/pay")} 
+                  aria-label={t("home.pay")} 
+                  className="w-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 hover:from-blue-600 hover:via-purple-600 hover:to-pink-600 text-white font-semibold py-3 px-6 rounded-2xl min-h-[56px] text-base md:text-button transform transition-all duration-200 hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl ripple flex items-center justify-center space-x-3"
+                >
                   <QrCode className="w-6 h-6" aria-hidden="true" focusable="false" />
                   <span>{t("home.pay")}</span>
                 </button>
-                <button onClick={() => navigate("/get-paid")} aria-label={t("home.receive")} className="w-full bg-gradient-to-r from-green-400 via-teal-500 to-blue-500 hover:from-green-500 hover:via-teal-600 hover:to-blue-600 text-white font-semibold py-3 px-6 rounded-2xl min-h-[56px] text-base md:text-button transform transition-all duration-200 hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl ripple flex items-center justify-center space-x-3">
+                
+                <button 
+                  onClick={() => navigate("/get-paid")} 
+                  aria-label={t("home.receive")} 
+                  className="w-full bg-gradient-to-r from-green-400 via-teal-500 to-blue-500 hover:from-green-500 hover:via-teal-600 hover:to-blue-600 text-white font-semibold py-3 px-6 rounded-2xl min-h-[56px] text-base md:text-button transform transition-all duration-200 hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl ripple flex items-center justify-center space-x-3"
+                >
                   <Link className="w-6 h-6" aria-hidden="true" focusable="false" />
                   <span>{t("home.receive")}</span>
                 </button>
               </div>
+              
               <div className="flex space-x-4">
-                <button onClick={handleShare} className="glass-card p-3 hover:scale-110 transition-transform duration-200 bg-gradient-to-r from-blue-400/20 to-purple-400/20 hover:from-blue-400/30 hover:to-purple-400/30" aria-label={t("home.shareApp")}>
+                <button 
+                  onClick={handleShare} 
+                  className="logo-glass p-3 hover:scale-110 transition-transform duration-200" 
+                  aria-label={t("home.shareApp")}
+                >
                   <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                     <g>
                       <circle cx="18" cy="5" r="3" />
@@ -111,7 +134,12 @@ const HomeScreen = () => {
                     </g>
                   </svg>
                 </button>
-                <button onClick={openWhatsApp} className="glass-card p-3 hover:scale-110 transition-transform duration-200 bg-gradient-to-r from-green-400/20 to-emerald-400/20 hover:from-green-400/30 hover:to-emerald-400/30" aria-label={t("home.joinWhatsapp")}>
+                
+                <button 
+                  onClick={openWhatsApp} 
+                  className="logo-glass p-3 hover:scale-110 transition-transform duration-200" 
+                  aria-label={t("home.joinWhatsapp")}
+                >
                   <svg className="w-6 h-6 text-green-600" viewBox="0 0 32 32" fill="currentColor" aria-hidden="true" focusable="false">
                     <g>
                       <circle cx="16" cy="16" r="16" fill="#25D366" />
@@ -119,10 +147,22 @@ const HomeScreen = () => {
                     </g>
                   </svg>
                 </button>
-                <button onClick={() => navigate("/history")} className="glass-card p-3 hover:scale-110 transition-transform duration-200 bg-gradient-to-r from-purple-400/20 to-pink-400/20 hover:from-purple-400/30 hover:to-pink-400/30" aria-label="Payment History" title="View payment history">
+                
+                <button 
+                  onClick={() => navigate("/history")} 
+                  className="logo-glass p-3 hover:scale-110 transition-transform duration-200" 
+                  aria-label="Payment History" 
+                  title="View payment history"
+                >
                   <Clock className="w-6 h-6 text-purple-600" />
                 </button>
-                <button onClick={() => navigate("/test")} className="glass-card p-3 hover:scale-110 transition-transform duration-200 bg-gradient-to-r from-orange-400/20 to-red-400/20 hover:from-orange-400/30 hover:to-red-400/30" aria-label="Test Dashboard" title="Test all backend functionality">
+                
+                <button 
+                  onClick={() => navigate("/test")} 
+                  className="logo-glass p-3 hover:scale-110 transition-transform duration-200" 
+                  aria-label="Test Dashboard" 
+                  title="Test all backend functionality"
+                >
                   <TestTube className="w-6 h-6 text-orange-600" />
                 </button>
               </div>
@@ -130,6 +170,8 @@ const HomeScreen = () => {
           </div>
         </div>
       </div>
-    </div>;
+    </div>
+  );
 };
+
 export default HomeScreen;

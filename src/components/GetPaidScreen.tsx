@@ -79,22 +79,22 @@ const GetPaidScreen = () => {
   const ussdString = qrResult?.ussdString || (phone && amount ? `*182*1*1*${phone}*${amount}#` : '');
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex flex-col relative safe-area-top safe-area-bottom">
+    <div className="relative min-h-screen w-full flex flex-col safe-area-top safe-area-bottom">
       {/* Mobile-optimized container */}
       <div className="flex-1 flex flex-col justify-start container mx-auto px-2 sm:px-4 py-4 sm:py-6 max-w-md">
         {/* Enhanced Header with better spacing and responsiveness */}
         <div className="flex items-center justify-between mb-6 sm:mb-8 mt-1 sm:mt-2 animate-fade-in">
           <button
             onClick={() => navigate('/')}
-            className="glass-card p-2 sm:p-3 md:p-4 hover:scale-110 active:scale-95 transition-all duration-200 rounded-xl sm:rounded-2xl mobile-button tap-highlight-transparent min-h-[44px] min-w-[44px] flex items-center justify-center"
+            className="logo-glass p-2 sm:p-3 md:p-4 hover:scale-110 active:scale-95 transition-all duration-200 rounded-xl sm:rounded-2xl mobile-button tap-highlight-transparent min-h-[44px] min-w-[44px] flex items-center justify-center"
             aria-label="Go to home screen"
           >
             <ArrowLeft className="w-5 h-5 sm:w-6 sm:h-6" />
           </button>
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-800 dark:text-gray-200 animate-fade-in px-2 text-center flex-1">Get Paid</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-white dark:text-gray-200 animate-fade-in px-2 text-center flex-1 loader-text">Get Paid</h1>
           <button
             onClick={() => setShowHistory(!showHistory)}
-            className="glass-card p-2 sm:p-3 md:p-4 hover:scale-110 active:scale-95 transition-all duration-200 rounded-xl sm:rounded-2xl mobile-button tap-highlight-transparent min-h-[44px] min-w-[44px] flex items-center justify-center"
+            className="logo-glass p-2 sm:p-3 md:p-4 hover:scale-110 active:scale-95 transition-all duration-200 rounded-xl sm:rounded-2xl mobile-button tap-highlight-transparent min-h-[44px] min-w-[44px] flex items-center justify-center"
             title="Payment History"
             aria-label="View payment history"
           >
