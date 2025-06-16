@@ -1,9 +1,7 @@
-
 import React from 'react';
 import { QrCode } from 'lucide-react';
 import { Button } from '../ui/button';
 import LoadingSpinner from '../LoadingSpinner';
-
 interface GenerateButtonProps {
   onGenerate: () => void;
   isGenerating: boolean;
@@ -12,7 +10,6 @@ interface GenerateButtonProps {
   validatePhone?: (phone: string) => boolean;
   validateAmount?: (amount: string) => boolean;
 }
-
 const GenerateButton: React.FC<GenerateButtonProps> = ({
   onGenerate,
   isGenerating,
@@ -23,12 +20,8 @@ const GenerateButton: React.FC<GenerateButtonProps> = ({
 }) => {
   // Enhanced validation with proper Rwanda MoMo rules and 5M RWF limit
   const phoneValid = validatePhone ? validatePhone(phone) : phone.trim().length >= 4;
-  const amountValid = validateAmount ? validateAmount(amount) : (
-    amount.trim() !== '' && 
-    parseFloat(amount.replace(/\s/g, '')) > 0 && 
-    parseFloat(amount.replace(/\s/g, '')) <= 5000000 // Updated to 5M RWF
-  );
-  
+  const amountValid = validateAmount ? validateAmount(amount) : amount.trim() !== '' && parseFloat(amount.replace(/\s/g, '')) > 0 && parseFloat(amount.replace(/\s/g, '')) <= 5000000 // Updated to 5M RWF
+  ;
   const isDisabled = isGenerating || !phoneValid || !amountValid;
 
   // Add haptic feedback for mobile
@@ -57,20 +50,13 @@ const GenerateButton: React.FC<GenerateButtonProps> = ({
     }
     return "Ready to generate QR code";
   };
-
-  return (
-    <div className="space-y-3">
-      <Button 
-        onClick={handleClick}
-        disabled={isDisabled}
-        className={`
+  return <div className="space-y-3">
+      <Button onClick={handleClick} disabled={isDisabled} className={`
           w-full h-16 text-lg font-bold rounded-2xl
           transition-all duration-300 ease-in-out
           mobile-button touch-action-manipulation
           transform-gpu border-0
-          ${isDisabled
-            ? 'bg-gray-300 text-gray-500 cursor-not-allowed dark:bg-gray-700 dark:text-gray-400 shadow-none'
-            : `
+          ${isDisabled ? 'bg-gray-300 text-gray-500 cursor-not-allowed dark:bg-gray-700 dark:text-gray-400 shadow-none' : `
               bg-gradient-to-r from-blue-600 to-yellow-500 
               hover:from-blue-700 hover:to-yellow-600 
               active:from-blue-800 active:to-yellow-700
@@ -79,39 +65,29 @@ const GenerateButton: React.FC<GenerateButtonProps> = ({
               dark:from-blue-500 dark:to-yellow-400
               dark:hover:from-blue-600 dark:hover:to-yellow-500
               ring-4 ring-blue-500/20 hover:ring-blue-500/30
-            `
-          }
-        `}
-        type="button"
-        style={{ minHeight: '64px' }} // Ensure large touch target
-      >
-        {isGenerating ? (
-          <div className="flex items-center justify-center gap-3 animate-fade-in">
+            `}
+        `} type="button" style={{
+      minHeight: '64px'
+    }} // Ensure large touch target
+    >
+        {isGenerating ? <div className="flex items-center justify-center gap-3 animate-fade-in">
             <LoadingSpinner />
             <span className="animate-pulse">Generating QR Code...</span>
-          </div>
-        ) : (
-          <div className="flex items-center justify-center gap-3">
+          </div> : <div className="flex items-center justify-center gap-3">
             <QrCode className="w-7 h-7" />
-            <span>Generate Payment QR</span>
-          </div>
-        )}
+            <span className="text-sm">Generate Payment QR</span>
+          </div>}
       </Button>
 
       {/* Validation Status Indicator */}
       <div className="text-center">
         <span className={`
           text-sm font-medium transition-colors duration-200
-          ${isDisabled 
-            ? 'text-gray-500 dark:text-gray-400' 
-            : 'text-green-600 dark:text-green-400'
-          }
+          ${isDisabled ? 'text-gray-500 dark:text-gray-400' : 'text-green-600 dark:text-green-400'}
         `}>
           {getValidationMessage()}
         </span>
       </div>
-    </div>
-  );
+    </div>;
 };
-
 export default GenerateButton;
