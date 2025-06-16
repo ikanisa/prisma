@@ -54,7 +54,7 @@ const PhoneInput: React.FC<PhoneInputProps> = ({
             ${isFocused ? 'border-blue-500 ring-4 ring-blue-100 shadow-lg scale-[1.02] dark:ring-blue-900' : 'border-gray-300 hover:border-gray-400 dark:border-gray-600 dark:hover:border-gray-500'}
             focus:outline-none
             bg-white dark:bg-gray-800
-            text-gray-900 dark:text-gray-100
+            text-gray-900 dark:text-white
             placeholder:text-gray-500 dark:placeholder:text-gray-400
           `}
           style={{
