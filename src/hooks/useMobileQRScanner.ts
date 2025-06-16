@@ -5,7 +5,7 @@ import { useMobileCameraControls } from './mobile-scanner/useMobileCameraControl
 import { useMobileScanHandling } from './mobile-scanner/useMobileScanHandling';
 import { useMobileOrientationHandler } from './mobile-scanner/useMobileOrientationHandler';
 
-export { MobileQRScannerState } from './mobile-scanner/types';
+export type { MobileQRScannerState } from './mobile-scanner/types';
 
 export const useMobileQRScanner = () => {
   const { trackUserAction } = usePerformanceMonitoring('MobileQRScanner');
