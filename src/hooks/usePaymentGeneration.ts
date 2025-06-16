@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { cloudFunctions } from '@/services/cloudFunctions';
 import { useSupabaseCache } from '@/hooks/useSupabaseCache';
@@ -8,7 +9,7 @@ import { rateLimitingService } from '@/services/rateLimitingService';
 import { usePerformanceMonitoring } from '@/hooks/usePerformanceMonitoring';
 
 export const usePaymentGeneration = () => {
-  // Start with empty values - no auto-fill by default
+  // Start with empty values initially
   const [phone, setPhone] = useState('');
   const [amount, setAmount] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -17,13 +18,18 @@ export const usePaymentGeneration = () => {
   const [amountInteracted, setAmountInteracted] = useState(false);
   const [phoneInteracted, setPhoneInteracted] = useState(false);
 
-  const { addPhone } = useSupabaseCache();
+  const { addPhone, recentPhones } = useSupabaseCache();
   const { trackUserAction } = usePerformanceMonitoring('PaymentGeneration');
 
-  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Only allow numeric input, max 12 characters for Rwanda MoMo
-    const numericValue = e.target.value.replace(/\D/g, '').slice(0, 12);
-    setPhone(numericValue);
+  // Auto-fill phone from memory when component mounts
+  useEffect(() => {
+    if (recentPhones.length > 0 && !phoneInteracted && !phone) {
+      setPhone(recentPhones[0]); // Use most recent phone number
+    }
+  }, [recentPhones, phoneInteracted, phone]);
+
+  const handlePhoneChange = (value: string) => {
+    setPhone(value);
     if (!phoneInteracted) {
       setPhoneInteracted(true);
       trackUserAction('phone_input_started');

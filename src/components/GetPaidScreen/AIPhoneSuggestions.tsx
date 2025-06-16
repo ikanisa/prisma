@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Phone, Zap } from 'lucide-react';
+import { Phone } from 'lucide-react';
 
 interface AIPhoneSuggestionsProps {
   suggestions: string[];
@@ -37,18 +37,6 @@ const AIPhoneSuggestions: React.FC<AIPhoneSuggestionsProps> = ({
   return (
     <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl shadow-lg max-h-48 overflow-y-auto animate-fade-in">
       <div className="p-2">
-        <div className="flex items-center gap-2 px-3 py-2 text-xs text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-gray-700">
-          <Zap className="w-3 h-3 text-blue-500" />
-          <span>AI Suggestions</span>
-        </div>
-        
-        {isLoading && (
-          <div className="flex items-center gap-3 p-3 text-gray-500 dark:text-gray-400">
-            <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-            <span className="text-sm">Getting smart suggestions...</span>
-          </div>
-        )}
-        
         {suggestions.map((phone, index) => (
           <button
             key={`${phone}-${index}`}

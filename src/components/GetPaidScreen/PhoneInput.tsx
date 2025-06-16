@@ -188,12 +188,12 @@ const PhoneInput: React.FC<PhoneInputProps> = ({
           </button>
         )}
 
-        {/* AI Suggestions Dropdown */}
+        {/* Hidden AI Suggestions Dropdown - only functional, no visible text */}
         <AIPhoneSuggestions
           suggestions={suggestions}
           onSelect={handleSuggestionSelect}
           isVisible={showSuggestions}
-          isLoading={isLoading}
+          isLoading={false}
         />
       </div>
       
