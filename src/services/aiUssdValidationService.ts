@@ -6,6 +6,7 @@ export interface AIValidationResult extends UssdValidationResult {
   aiSuggestion?: string;
   alternativeFormats?: string[];
   networkContext?: NetworkInfo;
+  confidence?: number; // Add confidence property to the interface
 }
 
 export const aiUssdValidationService = {

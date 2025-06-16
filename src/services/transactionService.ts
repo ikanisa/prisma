@@ -113,7 +113,16 @@ export const transactionService = {
       throw new Error(`Failed to fetch analytics: ${error.message}`);
     }
 
-    return data || [];
+    // Map the database response to match our interface
+    return (data || []).map(item => ({
+      country: item.country,
+      provider: item.provider,
+      ussd_pattern_type: item.pattern_type, // Map pattern_type to ussd_pattern_type
+      total_scans: item.total_scans,
+      successful_launches: item.successful_launches,
+      success_rate_percent: item.success_rate, // Map success_rate to success_rate_percent
+      avg_confidence: 0.8 // Default confidence since DB function doesn't return this
+    }));
   },
 
   async getTransactionAnalyticsView(): Promise<TransactionAnalytics[]> {
