@@ -3,7 +3,6 @@ import React from 'react';
 import { X, Download, Share2, Copy } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { Button } from './ui/button';
-import SmartQRCode from './SmartQRCode';
 import USSDDialButton from './USSDDialButton';
 import { useQRActions } from '@/hooks/useQRActions';
 
@@ -36,7 +35,8 @@ const QRCodeModal: React.FC<QRCodeModalProps> = ({
     phone, 
     amount,
     hasQRResult: !!qrResult,
-    qrResultKeys: qrResult ? Object.keys(qrResult) : []
+    qrResultKeys: qrResult ? Object.keys(qrResult) : [],
+    qrCodeImage: qrResult?.qrCodeImage ? 'Present' : 'Missing'
   });
 
   const handleDownloadQR = () => {
@@ -73,13 +73,21 @@ const QRCodeModal: React.FC<QRCodeModalProps> = ({
           {/* QR Code Display */}
           <div className="text-center">
             <div className="bg-white p-4 rounded-xl shadow-sm inline-block">
-              <SmartQRCode 
-                value={ussdString}
-                alt="Payment QR Code"
-                size={250}
-                gradient="electric-ocean"
-                className="mx-auto"
-              />
+              {qrResult?.qrCodeImage ? (
+                <img
+                  src={qrResult.qrCodeImage}
+                  alt="Payment QR Code"
+                  className="w-64 h-64 mx-auto rounded-lg"
+                  style={{ maxWidth: '250px', maxHeight: '250px' }}
+                />
+              ) : (
+                <div className="w-64 h-64 mx-auto bg-gray-100 rounded-lg flex items-center justify-center">
+                  <div className="text-center">
+                    <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                    <p className="text-gray-500 text-sm">Generating QR Code...</p>
+                  </div>
+                </div>
+              )}
             </div>
             
             {/* Display the exact USSD string below QR */}
@@ -108,6 +116,7 @@ const QRCodeModal: React.FC<QRCodeModalProps> = ({
               variant="outline"
               onClick={handleDownloadQR}
               className="flex items-center justify-center gap-2"
+              disabled={!qrResult?.qrCodeImage}
             >
               <Download className="w-4 h-4" />
               Download
