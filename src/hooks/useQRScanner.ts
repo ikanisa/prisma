@@ -1,4 +1,3 @@
-
 import { useEffect, useRef, useState } from "react";
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode";
 import { transactionService } from "@/services/transactionService";
@@ -33,15 +32,16 @@ export const useQRScanner = () => {
     }
   };
 
-  // Track scan duration for intelligent guidance
+  // Performance-optimized duration tracking
   const startDurationTracking = () => {
     const startTime = Date.now();
     setScanStartTime(startTime);
     setScanDuration(0);
     
+    // Use lower frequency timer for better performance
     durationTimerRef.current = setInterval(() => {
       setScanDuration(Date.now() - startTime);
-    }, 1000);
+    }, 1000); // Update every second instead of more frequently
   };
 
   const stopDurationTracking = () => {
@@ -51,7 +51,36 @@ export const useQRScanner = () => {
     }
   };
 
-  // Start QR scanner with enhanced tracking and failure detection
+  // Performance-aware scanner configuration
+  const getPerformanceOptimizedConfig = () => {
+    // Detect device performance
+    const memory = (navigator as any).deviceMemory || 4;
+    const cores = navigator.hardwareConcurrency || 4;
+    
+    let fps = 10;
+    let qrBoxSize = 280;
+    
+    // Adjust for low-performance devices
+    if (memory < 3 || cores < 4) {
+      fps = 6;
+      qrBoxSize = 240;
+    } else if (memory >= 8 && cores >= 8) {
+      fps = 15;
+      qrBoxSize = 320;
+    }
+    
+    return {
+      fps,
+      qrbox: { width: qrBoxSize, height: qrBoxSize },
+      aspectRatio: 1.0,
+      disableFlip: false,
+      // Disable some features for better performance on low-end devices
+      showTorchButtonIfSupported: memory >= 4,
+      showZoomSliderIfSupported: memory >= 6
+    };
+  };
+
+  // Start QR scanner with performance optimizations
   const startScanner = async () => {
     if (html5QrCodeRef.current) {
       try {
@@ -83,20 +112,19 @@ export const useQRScanner = () => {
         return;
       }
 
-      // Create new Html5Qrcode instance with correct configuration
+      // Create new Html5Qrcode instance with performance-optimized configuration
       const html5QrCode = new Html5Qrcode("reader", {
         formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
-        verbose: false
+        verbose: false,
+        // Disable experimental features for better compatibility
+        experimentalFeatures: {
+          useBarCodeDetectorIfSupported: false
+        }
       });
       html5QrCodeRef.current = html5QrCode;
 
-      // Enhanced scanning configuration for outdoor conditions and failure detection
-      const config = {
-        fps: 10,
-        qrbox: { width: 280, height: 280 },
-        aspectRatio: 1.0,
-        disableFlip: false
-      };
+      // Performance-optimized scanning configuration
+      const config = getPerformanceOptimizedConfig();
 
       // Smart camera selection with fallback logic
       let selectedDeviceId = null;
@@ -112,7 +140,7 @@ export const useQRScanner = () => {
         selectedDeviceId = devices[0].id;
       }
 
-      console.log(`[Scanner] Starting with camera: ${selectedDeviceId}, attempt: ${scanAttempts + 1}`);
+      console.log(`[Scanner] Starting with camera: ${selectedDeviceId}, attempt: ${scanAttempts + 1}, config:`, config);
 
       // Start scanning with enhanced error handling
       await html5QrCode.start(
@@ -124,8 +152,15 @@ export const useQRScanner = () => {
           await handleScanSuccess(decodedText);
         },
         (errorMessage) => {
-          // Silent error handling during scanning
-          console.log("Scan error (normal):", errorMessage);
+          // Silent error handling during scanning - reduce console spam for performance
+          if (errorMessage.includes("NotFoundException")) {
+            // Only log every 10th "not found" error to reduce console spam
+            if (Math.random() < 0.1) {
+              console.log("Scan error (periodic):", errorMessage);
+            }
+          } else {
+            console.log("Scan error (normal):", errorMessage);
+          }
         }
       );
 
