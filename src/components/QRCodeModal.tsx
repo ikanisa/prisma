@@ -96,12 +96,7 @@ const QRCodeModal: React.FC<QRCodeModalProps> = ({
           </div>
 
           {/* USSD Dial Section */}
-          <div className="space-y-3">
-            <h4 className="text-md font-semibold text-gray-800 text-center">
-              Mobile Money Payment Code
-            </h4>
-            <USSDDialButton ussdCode={ussdString} size="md" showCopy={true} />
-          </div>
+          
 
           {/* Action Buttons */}
           <div className="grid grid-cols-2 gap-3">
