@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { X, Download, Share2, Copy, MessageCircle } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
@@ -86,7 +87,7 @@ const QRCodeModal: React.FC<QRCodeModalProps> = ({
             
             {/* Display the exact USSD string below QR */}
             <div className="mt-4 bg-gray-900 rounded-xl p-4">
-              <p className="text-white font-mono tracking-wide break-all text-[10px] font-medium">
+              <p className="text-white font-mono tracking-wide break-all text-sm font-medium">
                 {ussdString}
               </p>
             </div>
