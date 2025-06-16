@@ -63,7 +63,7 @@ export class EnhancedCameraService {
         const sensor = new (window as any).AmbientLightSensor();
         
         return new Promise((resolve) => {
-          const timeout = setTimeout(() => {
+          const timeout = window.setTimeout(() => {
             try {
               sensor.stop();
             } catch (e) {
@@ -75,7 +75,7 @@ export class EnhancedCameraService {
           sensor.addEventListener('reading', () => {
             try {
               const lux = sensor.illuminance;
-              clearTimeout(timeout);
+              window.clearTimeout(timeout);
               sensor.stop();
               
               if (lux > 1000) {
@@ -88,20 +88,20 @@ export class EnhancedCameraService {
                 resolve({ level: 'dark', shouldSuggestTorch: true });
               }
             } catch (error) {
-              clearTimeout(timeout);
+              window.clearTimeout(timeout);
               resolve(this.getFallbackLightingCondition());
             }
           });
           
           sensor.addEventListener('error', () => {
-            clearTimeout(timeout);
+            window.clearTimeout(timeout);
             resolve(this.getFallbackLightingCondition());
           });
           
           try {
             sensor.start();
           } catch (error) {
-            clearTimeout(timeout);
+            window.clearTimeout(timeout);
             resolve(this.getFallbackLightingCondition());
           }
         });
@@ -164,7 +164,7 @@ export class EnhancedCameraService {
         return;
       }
 
-      let timeoutId: number;
+      let timeoutId: ReturnType<typeof setTimeout>;
       
       const onReady = () => {
         if (video.readyState >= 2 && video.videoWidth > 0 && video.videoHeight > 0) {
