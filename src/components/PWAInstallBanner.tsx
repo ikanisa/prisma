@@ -1,67 +1,105 @@
 
-import React, { useState } from 'react';
-import { Download, X, Smartphone } from 'lucide-react';
-import { Button } from './ui/button';
-import { Card, CardContent } from './ui/card';
-import { usePWAInstall } from '@/hooks/usePWAInstall';
+import React, { useState, useEffect } from 'react';
+import { X, Download, Smartphone } from 'lucide-react';
 
-const PWAInstallBanner: React.FC = () => {
-  const [isDismissed, setIsDismissed] = useState(false);
-  const { isInstallable, isInstalled, promptInstall } = usePWAInstall();
+interface BeforeInstallPromptEvent extends Event {
+  prompt(): Promise<void>;
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
+}
 
-  // Don't show if already installed, not installable, or dismissed
-  if (isInstalled || !isInstallable || isDismissed) {
-    return null;
-  }
+const PWAInstallBanner = () => {
+  const [showBanner, setShowBanner] = useState(false);
+  const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const [isIOS, setIsIOS] = useState(false);
+
+  useEffect(() => {
+    // Check if it's iOS
+    const isIOSDevice = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    setIsIOS(isIOSDevice);
+
+    // Check if already installed
+    const isInstalled = window.matchMedia('(display-mode: standalone)').matches;
+    const hasBeenDismissed = localStorage.getItem('pwa-install-dismissed');
+
+    if (!isInstalled && !hasBeenDismissed) {
+      if (isIOSDevice) {
+        // Show iOS instructions after a delay
+        setTimeout(() => setShowBanner(true), 3000);
+      } else {
+        // Listen for beforeinstallprompt event
+        const handleInstallPrompt = (e: Event) => {
+          e.preventDefault();
+          setInstallPrompt(e as BeforeInstallPromptEvent);
+          setShowBanner(true);
+        };
+
+        window.addEventListener('beforeinstallprompt', handleInstallPrompt);
+        
+        return () => {
+          window.removeEventListener('beforeinstallprompt', handleInstallPrompt);
+        };
+      }
+    }
+  }, []);
 
   const handleInstall = async () => {
-    const success = await promptInstall();
-    if (!success) {
-      setIsDismissed(true);
+    if (installPrompt) {
+      await installPrompt.prompt();
+      const { outcome } = await installPrompt.userChoice;
+      
+      if (outcome === 'accepted') {
+        setShowBanner(false);
+        localStorage.setItem('pwa-install-accepted', 'true');
+      }
+      
+      setInstallPrompt(null);
     }
   };
 
   const handleDismiss = () => {
-    setIsDismissed(true);
+    setShowBanner(false);
+    localStorage.setItem('pwa-install-dismissed', 'true');
   };
 
+  if (!showBanner) return null;
+
   return (
-    <Card className="fixed bottom-4 left-4 right-4 z-40 bg-gradient-to-r from-blue-500 to-purple-600 text-white border-0 shadow-2xl animate-slide-up">
-      <CardContent className="p-4">
-        <div className="flex items-center gap-4">
-          <div className="bg-white/20 rounded-full p-2 flex-shrink-0">
-            <Smartphone className="w-6 h-6" />
+    <div className="fixed bottom-0 left-0 right-0 z-50 p-4 safe-area-bottom">
+      <div className="max-w-md mx-auto bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl p-4 shadow-2xl text-white animate-slide-up">
+        <div className="flex items-start justify-between mb-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+              <Smartphone className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="font-bold text-sm">Install MoMo Pay</h3>
+              <p className="text-xs text-blue-100">Quick access from your home screen</p>
+            </div>
           </div>
-          
-          <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-sm">Install WavePay</h3>
-            <p className="text-xs text-blue-100 leading-tight">
-              Get faster access and work offline
-            </p>
-          </div>
-          
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <Button
-              onClick={handleInstall}
-              size="sm"
-              className="bg-white text-blue-600 hover:bg-blue-50 rounded-full px-4 py-2 text-xs font-semibold"
-            >
-              <Download className="w-3 h-3 mr-1" />
-              Install
-            </Button>
-            
-            <Button
-              onClick={handleDismiss}
-              variant="ghost"
-              size="sm"
-              className="text-white hover:bg-white/20 rounded-full p-2"
-            >
-              <X className="w-4 h-4" />
-            </Button>
-          </div>
+          <button
+            onClick={handleDismiss}
+            className="p-1 hover:bg-white/20 rounded-full transition-colors"
+            aria-label="Dismiss install banner"
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
-      </CardContent>
-    </Card>
+
+        {isIOS ? (
+          <div className="text-xs text-blue-100 mb-3">
+            Tap <span className="font-mono bg-white/20 px-1 rounded">⎙</span> in Safari, then "Add to Home Screen"
+          </div>
+        ) : (
+          <button
+            onClick={handleInstall}
+            className="w-full bg-white/20 hover:bg-white/30 rounded-xl py-3 px-4 flex items-center justify-center gap-2 transition-colors font-semibold text-sm"
+          >
+            <Download className="w-4 h-4" />
+            Install App
+          </button>
+        )}
+      </div>
+    </div>
   );
 };
 

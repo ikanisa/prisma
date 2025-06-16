@@ -1,17 +1,17 @@
 
 import React from 'react';
-import { X } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { ScanResult } from '@/services/qr-scanner/types';
+import { Copy, RefreshCw, X, ExternalLink } from 'lucide-react';
+import { ScanResult } from '@/services/QRScannerService';
 import { AIValidationResult } from '@/services/aiUssdValidationService';
-import { getUssdDisplayInfo } from '@/utils/universalUssdHelper';
+import { encodeUssdForTel } from '@/utils/ussdValidation';
+import { toast } from '@/hooks/use-toast';
 
 interface UniversalQRScannerResultProps {
   scannedResult: ScanResult;
   ussdValidation: AIValidationResult;
   onLaunchUssd: () => void;
   onRescan: () => void;
-  onClose?: () => void;
+  onClose: () => void;
 }
 
 const UniversalQRScannerResult: React.FC<UniversalQRScannerResultProps> = ({
@@ -21,59 +21,122 @@ const UniversalQRScannerResult: React.FC<UniversalQRScannerResultProps> = ({
   onRescan,
   onClose
 }) => {
-  const displayInfo = getUssdDisplayInfo(ussdValidation);
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast({
+        title: "Copied!",
+        description: "USSD code copied to clipboard",
+      });
+    } catch (error) {
+      console.error('Failed to copy:', error);
+    }
+  };
+
+  const getProviderInfo = () => {
+    if (ussdValidation.country && ussdValidation.provider) {
+      return `${ussdValidation.provider} ${ussdValidation.country}`;
+    }
+    return 'Mobile Money Payment';
+  };
+
+  const getStatusColor = () => {
+    if (!ussdValidation.isValid) return 'text-red-400';
+    if (ussdValidation.confidence && ussdValidation.confidence > 0.8) return 'text-green-400';
+    return 'text-yellow-400';
+  };
 
   return (
-    <div className="w-full max-w-sm mx-auto text-center relative">
-      {/* Close button */}
-      {onClose && (
-        <Button
+    <div className="w-full max-w-md mx-auto p-4">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <button
           onClick={onClose}
-          variant="ghost"
-          size="sm"
-          className="absolute -top-2 -right-2 text-white hover:bg-white/20 rounded-full p-2 z-10"
-          aria-label="Close and go back"
+          className="p-3 hover:bg-white/10 rounded-xl transition-colors text-white"
         >
-          <X className="w-5 h-5" />
-        </Button>
-      )}
-
-      <div className={`${ussdValidation.isValid ? 'bg-green-500/20' : 'bg-yellow-500/20'} rounded-2xl p-6 mb-6`}>
-        <div className="text-6xl mb-4">
-          {ussdValidation.isValid ? '✓' : '⚠️'}
-        </div>
-        <h3 className={`text-xl font-semibold mb-2 ${displayInfo.color}`}>
-          {displayInfo.title}
-        </h3>
-        <p className="text-gray-300 text-sm">{displayInfo.subtitle}</p>
+          <X className="w-6 h-6" />
+        </button>
+        <h2 className="text-xl font-bold text-white">Scan Result</h2>
+        <button
+          onClick={onRescan}
+          className="p-3 hover:bg-white/10 rounded-xl transition-colors text-white"
+        >
+          <RefreshCw className="w-6 h-6" />
+        </button>
       </div>
 
-      {/* USSD Code Display */}
+      {/* Success Card */}
+      <div className="bg-green-600/20 border border-green-500/30 rounded-2xl p-6 mb-6 text-center">
+        <div className="w-16 h-16 bg-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
+          <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+          </svg>
+        </div>
+        <h3 className={`text-2xl font-bold mb-2 ${getStatusColor()}`}>
+          {ussdValidation.isValid ? 'USSD Code Detected' : 'Code Scanned'}
+        </h3>
+        <p className="text-green-300 text-sm">{getProviderInfo()}</p>
+      </div>
+
+      {/* Scanned Code Display */}
       <div className="bg-white/10 rounded-lg p-4 mb-6 backdrop-blur-sm">
-        <p className="text-white text-sm mb-2">Scanned Code:</p>
-        <p className="text-blue-300 font-mono text-lg break-all">
-          {ussdValidation.sanitized}
+        <p className="text-gray-300 text-sm mb-2 text-center">Scanned Code:</p>
+        <p className="text-blue-300 font-mono text-lg text-center break-all font-bold">
+          {scannedResult.ussdCode || scannedResult.code}
         </p>
+        {ussdValidation.confidence && (
+          <p className="text-gray-400 text-xs text-center mt-2">
+            Confidence: {Math.round(ussdValidation.confidence * 100)}%
+          </p>
+        )}
       </div>
 
       {/* Action Buttons */}
-      <div className="space-y-4">
-        {ussdValidation.isValid ? (
-          <Button
-            onClick={onLaunchUssd}
-            className="w-full bg-green-600 hover:bg-green-700 text-white text-lg py-4 h-14"
-          >
-            Pay
-          </Button>
-        ) : (
-          <Button
-            onClick={() => window.location.href = `tel:${encodeURIComponent(ussdValidation.sanitized)}`}
-            className="w-full bg-yellow-600 hover:bg-yellow-700 text-white text-lg py-4 h-14"
-          >
-            Try Launch Anyway
-          </Button>
-        )}
+      <div className="space-y-3">
+        {/* Launch Button */}
+        <button
+          onClick={onLaunchUssd}
+          disabled={!ussdValidation.isValid}
+          className={`
+            w-full font-bold py-4 px-6 rounded-xl transition-all duration-200 text-xl shadow-lg 
+            flex items-center justify-center space-x-2
+            ${ussdValidation.isValid
+              ? 'bg-green-600 hover:bg-green-700 active:bg-green-800 text-white hover:shadow-xl transform hover:scale-[1.02] active:scale-[0.98]'
+              : 'bg-gray-600 text-gray-300 cursor-not-allowed'
+            }
+          `}
+          style={{ minHeight: '64px' }}
+        >
+          <ExternalLink className="w-6 h-6" />
+          <span>{ussdValidation.isValid ? 'Launch Payment' : 'Invalid Code'}</span>
+        </button>
+
+        {/* Copy Button */}
+        <button
+          onClick={() => copyToClipboard(scannedResult.ussdCode || scannedResult.code)}
+          className="w-full bg-gray-700 hover:bg-gray-600 text-white px-4 py-3 rounded-xl text-base font-semibold transition-colors duration-200 flex items-center justify-center space-x-2"
+        >
+          <Copy className="w-5 h-5" />
+          <span>Copy Code</span>
+        </button>
+
+        {/* Rescan Button */}
+        <button
+          onClick={onRescan}
+          className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-xl text-base font-semibold transition-colors duration-200 flex items-center justify-center space-x-2"
+        >
+          <RefreshCw className="w-5 h-5" />
+          <span>Scan Another</span>
+        </button>
       </div>
+
+      {/* AI Suggestions */}
+      {ussdValidation.aiSuggestion && (
+        <div className="mt-4 p-3 bg-yellow-600/20 border border-yellow-500/30 rounded-lg">
+          <p className="text-yellow-300 text-sm font-semibold mb-1">AI Suggestion:</p>
+          <p className="text-yellow-100 text-xs">{ussdValidation.aiSuggestion}</p>
+        </div>
+      )}
     </div>
   );
 };
