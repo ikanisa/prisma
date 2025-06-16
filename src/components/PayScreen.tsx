@@ -1,8 +1,7 @@
 
-import React, { useRef, useEffect } from 'react';
-import { ArrowLeft } from 'lucide-react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import QRScanner from "./PayScreen/QRScanner";
+import SimpleQRScanner from "./PayScreen/SimpleQRScanner";
 import OfflineBanner from "./OfflineBanner";
 
 const PayScreen = () => {
@@ -11,7 +10,7 @@ const PayScreen = () => {
   return (
     <div className="fixed inset-0 w-full h-full z-50 bg-black overflow-hidden">
       <OfflineBanner />
-      <QRScanner onBack={() => navigate(-1)} />
+      <SimpleQRScanner onBack={() => navigate(-1)} />
     </div>
   );
 };
