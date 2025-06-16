@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef, useState } from 'react';
 import { Html5QrcodeScanner } from 'html5-qrcode';
 import { ArrowLeft, RotateCcw } from 'lucide-react';
@@ -49,13 +50,6 @@ const QRScanner: React.FC<QRScannerProps> = ({ onBack }) => {
       aspectRatio: 1.0,
       experimentalFeatures: {
         useBarCodeDetectorIfSupported: true
-      },
-      videoConstraints: {
-        facingMode: 'environment',
-        advanced: [
-          { focusMode: 'continuous' },
-          { exposureMode: 'continuous' }
-        ]
       }
     };
 

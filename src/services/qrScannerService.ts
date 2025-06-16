@@ -1,4 +1,6 @@
+
 import { supabase } from '@/integrations/supabase/client';
+import type { Tables, TablesUpdate } from '@/integrations/supabase/types';
 
 export interface ScanTransaction {
   id: string;
@@ -53,12 +55,14 @@ class QRScannerService {
 
   async updateLightingData(transactionId: string, lightingCondition: string, torchUsed: boolean): Promise<boolean> {
     try {
+      const updateData: TablesUpdate<'transactions'> = {
+        lighting_conditions: lightingCondition,
+        torch_used: torchUsed
+      };
+
       const { error } = await supabase
         .from('transactions')
-        .update({
-          lighting_conditions: lightingCondition,
-          torch_used: torchUsed
-        })
+        .update(updateData)
         .eq('id', transactionId);
 
       if (error) {

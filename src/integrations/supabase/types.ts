@@ -325,32 +325,38 @@ export type Database = {
         Row: {
           id: string
           launched_ussd: boolean | null
+          lighting_conditions: string | null
           payer_number: string | null
           payment_id: string | null
           payment_status: string | null
           scanned_at: string | null
           scanned_code: string
           session_id: string
+          torch_used: boolean | null
         }
         Insert: {
           id?: string
           launched_ussd?: boolean | null
+          lighting_conditions?: string | null
           payer_number?: string | null
           payment_id?: string | null
           payment_status?: string | null
           scanned_at?: string | null
           scanned_code?: string
           session_id: string
+          torch_used?: boolean | null
         }
         Update: {
           id?: string
           launched_ussd?: boolean | null
+          lighting_conditions?: string | null
           payer_number?: string | null
           payment_id?: string | null
           payment_status?: string | null
           scanned_at?: string | null
           scanned_code?: string
           session_id?: string
+          torch_used?: boolean | null
         }
         Relationships: [
           {
