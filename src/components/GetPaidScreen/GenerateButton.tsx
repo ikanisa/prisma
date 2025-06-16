@@ -26,7 +26,7 @@ const GenerateButton: React.FC<GenerateButtonProps> = ({
   const amountValid = validateAmount ? validateAmount(amount) : (
     amount.trim() !== '' && 
     parseFloat(amount.replace(/\s/g, '')) > 0 && 
-    parseFloat(amount.replace(/\s/g, '')) <= 10000000
+    parseFloat(amount.replace(/\s/g, '')) <= 5000000
   );
   
   const isDisabled = isGenerating || !phoneValid || !amountValid;
@@ -41,43 +41,76 @@ const GenerateButton: React.FC<GenerateButtonProps> = ({
     }
   };
 
+  // Get validation status message
+  const getValidationMessage = () => {
+    if (!phone.trim() && !amount.trim()) {
+      return "Enter phone number and amount";
+    }
+    if (!phoneValid && !amountValid) {
+      return "Invalid phone number and amount";
+    }
+    if (!phoneValid) {
+      return "Enter valid phone number or pay code";
+    }
+    if (!amountValid) {
+      return "Enter valid amount (max 5M RWF)";
+    }
+    return "Ready to generate QR code";
+  };
+
   return (
-    <Button 
-      onClick={handleClick}
-      disabled={isDisabled}
-      className={`
-        w-full h-14 text-lg font-semibold rounded-xl
-        transition-all duration-300 ease-in-out
-        mobile-button touch-action-manipulation
-        transform-gpu
-        ${isDisabled
-          ? 'bg-gray-300 text-gray-500 cursor-not-allowed dark:bg-gray-700 dark:text-gray-400'
-          : `
-            bg-gradient-to-r from-blue-600 to-yellow-500 
-            hover:from-blue-700 hover:to-yellow-600 
-            active:from-blue-800 active:to-yellow-700
-            text-white shadow-lg hover:shadow-xl 
-            hover:scale-[1.02] active:scale-[0.98]
-            dark:from-blue-500 dark:to-yellow-400
-            dark:hover:from-blue-600 dark:hover:to-yellow-500
-          `
-        }
-      `}
-      type="button"
-      style={{ minHeight: '56px' }} // Ensure 48px+ touch target
-    >
-      {isGenerating ? (
-        <div className="flex items-center justify-center gap-3 animate-fade-in">
-          <LoadingSpinner />
-          <span className="animate-pulse">Generating QR Code...</span>
-        </div>
-      ) : (
-        <div className="flex items-center justify-center gap-3">
-          <QrCode className="w-6 h-6" />
-          <span>Generate Payment QR</span>
-        </div>
-      )}
-    </Button>
+    <div className="space-y-3">
+      <Button 
+        onClick={handleClick}
+        disabled={isDisabled}
+        className={`
+          w-full h-16 text-lg font-bold rounded-2xl
+          transition-all duration-300 ease-in-out
+          mobile-button touch-action-manipulation
+          transform-gpu border-0
+          ${isDisabled
+            ? 'bg-gray-300 text-gray-500 cursor-not-allowed dark:bg-gray-700 dark:text-gray-400 shadow-none'
+            : `
+              bg-gradient-to-r from-blue-600 to-yellow-500 
+              hover:from-blue-700 hover:to-yellow-600 
+              active:from-blue-800 active:to-yellow-700
+              text-white shadow-xl hover:shadow-2xl 
+              hover:scale-[1.02] active:scale-[0.98]
+              dark:from-blue-500 dark:to-yellow-400
+              dark:hover:from-blue-600 dark:hover:to-yellow-500
+              ring-4 ring-blue-500/20 hover:ring-blue-500/30
+            `
+          }
+        `}
+        type="button"
+        style={{ minHeight: '64px' }} // Ensure large touch target
+      >
+        {isGenerating ? (
+          <div className="flex items-center justify-center gap-3 animate-fade-in">
+            <LoadingSpinner />
+            <span className="animate-pulse">Generating QR Code...</span>
+          </div>
+        ) : (
+          <div className="flex items-center justify-center gap-3">
+            <QrCode className="w-7 h-7" />
+            <span>Generate Payment QR</span>
+          </div>
+        )}
+      </Button>
+
+      {/* Validation Status Indicator */}
+      <div className="text-center">
+        <span className={`
+          text-sm font-medium transition-colors duration-200
+          ${isDisabled 
+            ? 'text-gray-500 dark:text-gray-400' 
+            : 'text-green-600 dark:text-green-400'
+          }
+        `}>
+          {getValidationMessage()}
+        </span>
+      </div>
+    </div>
   );
 };
 
