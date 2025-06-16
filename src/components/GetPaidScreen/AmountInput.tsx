@@ -47,9 +47,9 @@ const AmountInput: React.FC<AmountInputProps> = ({
       numericValue = numericValue.substring(1);
     }
     
-    // Prevent negative values and ensure reasonable limits (max 10M RWF)
+    // Allow up to 5,000,000 RWF (remove 3-digit restriction)
     const numValue = parseFloat(numericValue);
-    if (numericValue === '' || (!isNaN(numValue) && numValue >= 0 && numValue <= 10000000)) {
+    if (numericValue === '' || (!isNaN(numValue) && numValue >= 0 && numValue <= 5000000)) {
       onChange(numericValue);
       
       if (numericValue.length > 0) {
@@ -139,6 +139,7 @@ const AmountInput: React.FC<AmountInputProps> = ({
           autoCorrect="off"
           spellCheck="false"
           min="0"
+          max="5000000"
           step="any"
           readOnly={false}
           disabled={false}
