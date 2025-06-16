@@ -31,8 +31,8 @@ const SimpleQRScannerHeader: React.FC<SimpleQRScannerHeaderProps> = ({
         </Button>
         
         <div className="text-center">
-          <h2 className="text-white font-semibold">Scan QR Code</h2>
-          <p className="text-white/80 text-sm">Point camera at Mobile Money QR</p>
+          <h2 className="text-white font-semibold">Universal QR Scanner</h2>
+          <p className="text-white/80 text-sm">Scan any mobile money QR code</p>
         </div>
         
         <div className="flex items-center space-x-2">
