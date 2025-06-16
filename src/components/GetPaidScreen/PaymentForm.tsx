@@ -106,7 +106,7 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
               onChange={onPhoneChange}
               onFocus={handlePhoneFocus}
               onBlur={handlePhoneBlur}
-              placeholder="Enter mobile money number"
+              placeholder="Enter MOMO Number/Code"
               className={`text-lg transition-all duration-200 ${
                 focusedField === 'phone'
                   ? 'ring-2 ring-blue-400 border-blue-500 shadow-lg focus:ring-2'
