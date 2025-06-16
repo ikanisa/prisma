@@ -1,4 +1,3 @@
-
 import React, { useRef, useCallback, useState } from 'react';
 import { X } from 'lucide-react';
 import { Input } from '../ui/input';
@@ -122,9 +121,7 @@ const AmountInput: React.FC<AmountInputProps> = ({
       {/* RWF Currency Helper */}
       <div className="flex items-center justify-between text-sm">
         
-        {value && <span className="text-green-600 dark:text-green-400 font-semibold">
-            {displayValue} RWF
-          </span>}
+        {value}
       </div>
       
       {/* Validation hints */}
