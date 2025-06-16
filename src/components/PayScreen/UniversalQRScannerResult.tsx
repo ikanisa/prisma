@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Copy, RefreshCw, X, ExternalLink } from 'lucide-react';
 import { ScanResult } from '@/services/QRScannerService';
@@ -41,9 +40,9 @@ const UniversalQRScannerResult: React.FC<UniversalQRScannerResultProps> = ({
     if (ussdValidation.confidence && ussdValidation.confidence > 0.8) return 'text-green-400';
     return 'text-yellow-400';
   };
-  return <div className="w-full max-w-md mx-auto p-4">
+  return <div className="w-full max-w-md mx-auto p-4 mt-8">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-4">
         <button onClick={onClose} className="p-3 hover:bg-white/10 rounded-xl transition-colors text-white">
           <X className="w-6 h-6" />
         </button>
@@ -54,22 +53,22 @@ const UniversalQRScannerResult: React.FC<UniversalQRScannerResultProps> = ({
       </div>
 
       {/* Success Card */}
-      <div className="bg-green-600/20 border border-green-500/30 rounded-2xl p-6 mb-6 text-center">
-        <div className="w-16 h-16 bg-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
-          <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div className="bg-green-600/20 border border-green-500/30 rounded-2xl p-4 mb-4 text-center">
+        <div className="w-12 h-12 bg-green-600 rounded-full flex items-center justify-center mx-auto mb-3">
+          <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
           </svg>
         </div>
-        <h3 className={`text-2xl font-bold mb-2 ${getStatusColor()}`}>
+        <h3 className={`text-xl font-bold mb-2 ${getStatusColor()}`}>
           {ussdValidation.isValid ? 'USSD Code Detected' : 'Code Scanned'}
         </h3>
         <p className="text-green-300 text-sm">{getProviderInfo()}</p>
       </div>
 
       {/* Scanned Code Display */}
-      <div className="bg-white/10 rounded-lg p-4 mb-6 backdrop-blur-sm">
+      <div className="bg-white/10 rounded-lg p-3 mb-4 backdrop-blur-sm">
         <p className="text-gray-300 text-sm mb-2 text-center">Scanned Code:</p>
-        <p className="text-blue-300 font-mono text-lg text-center break-all font-bold">
+        <p className="text-blue-300 font-mono text-base text-center break-all font-bold">
           {scannedResult.ussdCode || scannedResult.code}
         </p>
       </div>
