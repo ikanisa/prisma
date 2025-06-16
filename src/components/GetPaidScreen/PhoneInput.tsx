@@ -1,10 +1,10 @@
 
-import React, { useRef, useCallback, useState, useEffect } from 'react';
+import React from 'react';
 import { X } from 'lucide-react';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import AIPhoneSuggestions from './AIPhoneSuggestions';
-import { useAIPhoneSuggestions } from '@/hooks/useAIPhoneSuggestions';
+import { usePhoneInputHandlers } from '@/hooks/usePhoneInputHandlers';
 
 interface PhoneInputProps {
   value: string;
@@ -19,104 +19,17 @@ const PhoneInput: React.FC<PhoneInputProps> = ({
   onFocus,
   interacted
 }) => {
-  const [isFocused, setIsFocused] = useState(false);
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const { suggestions, isLoading, getSuggestions, clearSuggestions } = useAIPhoneSuggestions();
-
-  // Get session ID from localStorage or generate one
-  const getSessionId = useCallback(() => {
-    let sessionId = localStorage.getItem('session_id');
-    if (!sessionId) {
-      sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      localStorage.setItem('session_id', sessionId);
-    }
-    return sessionId;
-  }, []);
-
-  // Add haptic feedback for mobile
-  const triggerHapticFeedback = useCallback(() => {
-    if ('vibrate' in navigator) {
-      navigator.vibrate(10);
-    }
-  }, []);
-
-  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    // Only allow numeric input, max 12 characters for Rwanda MoMo
-    const numericValue = e.target.value.replace(/\D/g, '').slice(0, 12);
-    onChange(numericValue);
-    
-    if (numericValue.length > 0) {
-      triggerHapticFeedback();
-      
-      // Get AI suggestions after a short delay
-      if (numericValue.length >= 2) {
-        const sessionId = getSessionId();
-        getSuggestions(numericValue, sessionId);
-        setShowSuggestions(true);
-      } else {
-        clearSuggestions();
-        setShowSuggestions(false);
-      }
-    } else {
-      clearSuggestions();
-      setShowSuggestions(false);
-    }
-  }, [onChange, triggerHapticFeedback, getSuggestions, clearSuggestions, getSessionId]);
-
-  const handleFocus = useCallback(() => {
-    setIsFocused(true);
-    onFocus();
-    triggerHapticFeedback();
-    
-    // Show suggestions if there's input
-    if (value.length >= 2) {
-      setShowSuggestions(true);
-    }
-  }, [onFocus, triggerHapticFeedback, value]);
-
-  const handleBlur = useCallback(() => {
-    setIsFocused(false);
-    // Delay hiding suggestions to allow selection
-    setTimeout(() => {
-      setShowSuggestions(false);
-    }, 200);
-  }, []);
-
-  const handleSuggestionSelect = useCallback((selectedPhone: string) => {
-    onChange(selectedPhone);
-    setShowSuggestions(false);
-    triggerHapticFeedback();
-    
-    // Focus back to input
-    setTimeout(() => {
-      inputRef.current?.focus();
-    }, 10);
-  }, [onChange, triggerHapticFeedback]);
-
-  const clearPhone = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    onChange('');
-    clearSuggestions();
-    setShowSuggestions(false);
-    triggerHapticFeedback();
-    setTimeout(() => {
-      inputRef.current?.focus();
-    }, 10);
-  }, [onChange, triggerHapticFeedback, clearSuggestions]);
-
-  // Hide suggestions when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (inputRef.current && !inputRef.current.contains(event.target as Node)) {
-        setShowSuggestions(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  const {
+    inputRef,
+    isFocused,
+    showSuggestions,
+    suggestions,
+    handleInputChange,
+    handleFocus,
+    handleBlur,
+    handleSuggestionSelect,
+    clearPhone
+  } = usePhoneInputHandlers({ value, onChange, onFocus });
 
   return (
     <div className="space-y-3 animate-fade-in relative">
@@ -188,7 +101,6 @@ const PhoneInput: React.FC<PhoneInputProps> = ({
           </button>
         )}
 
-        {/* Hidden AI Suggestions Dropdown - only functional, no visible text */}
         <AIPhoneSuggestions
           suggestions={suggestions}
           onSelect={handleSuggestionSelect}

@@ -11,7 +11,7 @@ interface PaymentFormProps {
   isGenerating: boolean;
   amountInteracted: boolean;
   phoneInteracted: boolean;
-  onPhoneChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onPhoneChange: (value: string) => void;
   onPhoneFocus: () => void;
   onAmountChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onAmountFocus: () => void;
@@ -34,34 +34,20 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
   validatePhone,
   validateAmount
 }) => {
-  const handlePhoneChange = (value: string) => {
-    const syntheticEvent = {
-      target: { value }
-    } as React.ChangeEvent<HTMLInputElement>;
-    onPhoneChange(syntheticEvent);
-  };
-
-  const handleAmountChange = (value: string) => {
-    const syntheticEvent = {
-      target: { value }
-    } as React.ChangeEvent<HTMLInputElement>;
-    onAmountChange(syntheticEvent);
-  };
-
   return (
     <div className="w-full max-w-md mx-auto animate-fade-in">
       <Card className="bg-white/95 backdrop-blur-sm border-0 shadow-2xl rounded-3xl dark:bg-gray-900/95 overflow-hidden">
         <CardContent className="p-8 space-y-8">
           <PhoneInput
             value={phone}
-            onChange={handlePhoneChange}
+            onChange={onPhoneChange}
             onFocus={onPhoneFocus}
             interacted={phoneInteracted}
           />
 
           <AmountInput
             value={amount}
-            onChange={handleAmountChange}
+            onChange={onAmountChange}
             onFocus={onAmountFocus}
             interacted={amountInteracted}
           />

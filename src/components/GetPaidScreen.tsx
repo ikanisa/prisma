@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { ArrowLeft, History, Share2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -80,9 +79,7 @@ const GetPaidScreen = () => {
 
   return (
     <div className="relative min-h-screen w-full flex flex-col safe-area-top safe-area-bottom">
-      {/* Mobile-optimized container */}
       <div className="flex-1 flex flex-col justify-start container mx-auto px-2 sm:px-4 py-4 sm:py-6 max-w-md">
-        {/* Enhanced Header with better spacing and responsiveness */}
         <div className="flex items-center justify-between mb-6 sm:mb-8 mt-1 sm:mt-2 animate-fade-in">
           <button
             onClick={() => navigate('/')}
@@ -102,7 +99,6 @@ const GetPaidScreen = () => {
           </button>
         </div>
 
-        {/* Conditional Content with smooth transitions */}
         <div className="flex-1 animate-fade-in">
           {showHistory ? (
             <div className="animate-slide-down">
@@ -110,7 +106,6 @@ const GetPaidScreen = () => {
             </div>
           ) : (
             <div className="space-y-6 sm:space-y-8 animate-slide-up">
-              {/* Payment Form with enhanced mobile styling */}
               <PaymentForm
                 phone={phone}
                 amount={amount}
@@ -126,7 +121,6 @@ const GetPaidScreen = () => {
                 validateAmount={validateAmount}
               />
 
-              {/* Enhanced Share Button - only show if QR has been generated */}
               {(qrResult || paymentLink) && (
                 <div className="animate-bounce-in px-2 sm:px-0">
                   <button
@@ -140,14 +134,12 @@ const GetPaidScreen = () => {
                 </div>
               )}
 
-              {/* Mobile spacing optimization */}
               <div className="pb-6 sm:pb-8"></div>
             </div>
           )}
         </div>
       </div>
 
-      {/* QR Code Modal */}
       <QRCodeModal
         isOpen={showQRModal}
         onClose={() => setShowQRModal(false)}
@@ -157,7 +149,6 @@ const GetPaidScreen = () => {
         paymentLink={paymentLink}
       />
 
-      {/* Mobile Share Sheet */}
       <MobileShareSheet
         isVisible={showShareSheet}
         onClose={() => setShowShareSheet(false)}
@@ -172,7 +163,6 @@ const GetPaidScreen = () => {
         onDownload={handleDownloadQR}
       />
 
-      {/* Payment Confirmation Modal */}
       <PaymentConfirmationModal
         isVisible={showConfirmation}
         onClose={() => setShowConfirmation(false)}
@@ -182,7 +172,6 @@ const GetPaidScreen = () => {
         ussdString={ussdString}
       />
 
-      {/* PWA Install Banner */}
       <PWAInstallBanner />
     </div>
   );
