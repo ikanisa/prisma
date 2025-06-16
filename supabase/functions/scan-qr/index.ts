@@ -20,7 +20,25 @@ const USSD_PATTERNS = [
   { name: 'nigeria_gtbank', country: 'Nigeria', provider: 'GTBank', pattern: /^\*737\*\d+#$/ }
 ];
 
-function validateUssdPattern(ussd: string) {
+/** Remove any tel: prefix and URI-decode the payload */
+function stripTelPrefix(str: string): string {
+  const cleaned = str.toLowerCase().startsWith('tel:')
+    ? str.slice(4)
+    : str;
+  return decodeURIComponent(cleaned);
+}
+
+/** Final normalisation pipeline */
+function normaliseUssd(input: string): string {
+  let ussd = stripTelPrefix(input).trim().replace(/\s+/g, '');
+  if (!ussd.endsWith('#')) ussd += '#';
+  return ussd;
+}
+
+function validateUssdPattern(rawUssd: string) {
+  // Normalize the input first
+  const ussd = normaliseUssd(rawUssd);
+  
   for (const pattern of USSD_PATTERNS) {
     if (pattern.pattern.test(ussd)) {
       return {
@@ -28,7 +46,8 @@ function validateUssdPattern(ussd: string) {
         country: pattern.country,
         provider: pattern.provider,
         patternType: pattern.name,
-        confidence: 0.95
+        confidence: 0.95,
+        sanitized: ussd
       };
     }
   }
@@ -40,7 +59,8 @@ function validateUssdPattern(ussd: string) {
       country: 'Unknown',
       provider: 'Unknown',
       patternType: 'generic',
-      confidence: 0.6
+      confidence: 0.6,
+      sanitized: ussd
     };
   }
   
@@ -49,7 +69,8 @@ function validateUssdPattern(ussd: string) {
     country: null,
     provider: null,
     patternType: null,
-    confidence: 0.1
+    confidence: 0.1,
+    sanitized: ussd
   };
 }
 
@@ -98,19 +119,21 @@ serve(async (req) => {
     // Enhanced QR processing with better pattern matching
     console.log('Processing QR image with enhanced validation:', { enhanceImage, aiProcessing })
     
-    // Simulate enhanced QR processing with realistic patterns
+    // Simulate enhanced QR processing with realistic patterns (including tel: prefixes)
     const simulatedQRPatterns = [
-      "*182*1*1*0788123456*1000#", // Rwanda MTN phone
-      "*182*8*1*5678*500#",        // Rwanda MTN code
-      "*165*0788123456*2500#",     // Uganda MTN
-      "*234*0722123456*1500#",     // Kenya M-Pesa
-      "*144*0788123456*3000#",     // Airtel Money
+      "tel:*182*1*1*0788123456*1000%23", // tel: encoded version
+      "*182*1*1*0788123456*1000#", // Raw version
+      "tel:*182*8*1*5678*500%23",        
+      "*182*8*1*5678*500#",        
+      "*165*0788123456*2500#",     
+      "*234*0722123456*1500#",     
+      "*144*0788123456*3000#",     
     ]
     
     const randomPattern = simulatedQRPatterns[Math.floor(Math.random() * simulatedQRPatterns.length)]
     console.log('Generated pattern:', randomPattern)
     
-    // Validate the pattern
+    // Validate the pattern using new normalization
     const validation = validateUssdPattern(randomPattern)
     console.log('Pattern validation:', validation)
     
@@ -130,11 +153,14 @@ serve(async (req) => {
       )
     }
 
-    // Extract receiver and amount from pattern
-    const ussdMatch = randomPattern.match(/\*182\*[18]\*1\*(\d+)\*(\d+)#/) ||
-                     randomPattern.match(/\*165\*(\d+)\*(\d+)#/) ||
-                     randomPattern.match(/\*234\*(\d+)\*(\d+)#/) ||
-                     randomPattern.match(/\*144\*(\d+)\*(\d+)#/)
+    // Use the sanitized (normalized) version for parsing
+    const sanitizedUssd = validation.sanitized
+    
+    // Extract receiver and amount from normalized pattern
+    const ussdMatch = sanitizedUssd.match(/\*182\*[18]\*1\*(\d+)\*(\d+)#/) ||
+                     sanitizedUssd.match(/\*165\*(\d+)\*(\d+)#/) ||
+                     sanitizedUssd.match(/\*234\*(\d+)\*(\d+)#/) ||
+                     sanitizedUssd.match(/\*144\*(\d+)\*(\d+)#/)
     
     if (!ussdMatch) {
       console.log('Could not extract receiver/amount from pattern')
@@ -164,7 +190,7 @@ serve(async (req) => {
           phone_number: receiver,
           amount: parseInt(amount),
           type: 'ai_scan',
-          ussd_string: randomPattern
+          ussd_string: sanitizedUssd // Use normalized version
         })
 
       if (historyError) {
@@ -189,7 +215,9 @@ serve(async (req) => {
             patternType: validation.patternType,
             confidence: validation.confidence,
             enhanceImage,
-            aiProcessing
+            aiProcessing,
+            originalPattern: randomPattern, // Keep track of original
+            sanitizedPattern: sanitizedUssd // And normalized version
           }
         })
       console.log('Enhanced analytics logged')
@@ -200,8 +228,8 @@ serve(async (req) => {
     const processingTime = Math.floor(Math.random() * 1000) + 500
     const response = {
       success: true,
-      ussdString: randomPattern,
-      ussdCode: randomPattern,
+      ussdString: sanitizedUssd, // Return normalized version
+      ussdCode: sanitizedUssd,
       parsedReceiver: receiver,
       parsedAmount: parseInt(amount),
       confidence: validation.confidence,

@@ -1,19 +1,22 @@
 
-import { validateUniversalUssd, UssdValidationResult } from '@/utils/universalUssdHelper';
+import { validateUniversalUssd, UssdValidationResult, normaliseUssd } from '@/utils/universalUssdHelper';
 import { networkDetectionService, NetworkInfo } from './networkDetectionService';
 
 export interface AIValidationResult extends UssdValidationResult {
   aiSuggestion?: string;
   alternativeFormats?: string[];
   networkContext?: NetworkInfo;
-  confidence?: number; // Add confidence property to the interface
+  confidence?: number;
 }
 
 export const aiUssdValidationService = {
   // Enhanced validation with AI-powered suggestions
   async validateWithAI(rawUssd: string): Promise<AIValidationResult> {
-    // Start with standard validation
-    const standardValidation = validateUniversalUssd(rawUssd);
+    // First normalize the input to handle tel: prefixes and URI encoding
+    const normalizedUssd = normaliseUssd(rawUssd);
+    
+    // Start with standard validation using normalized input
+    const standardValidation = validateUniversalUssd(normalizedUssd);
     
     // Get network context
     const networkInfo = await networkDetectionService.detectNetworkProvider();
@@ -33,7 +36,7 @@ export const aiUssdValidationService = {
     }
 
     // For invalid codes, try AI-powered suggestions
-    const suggestions = this.generateAISuggestions(rawUssd, networkInfo);
+    const suggestions = this.generateAISuggestions(normalizedUssd, networkInfo);
     
     return {
       ...standardValidation,
@@ -103,7 +106,7 @@ export const aiUssdValidationService = {
 
     return {
       isValid: true,
-      sanitized: correctedCode,
+      sanitized: normaliseUssd(correctedCode),
       type: 'manual_override',
       confidence: 0.9 // High confidence for manual input
     };

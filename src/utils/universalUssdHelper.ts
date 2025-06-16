@@ -100,6 +100,21 @@ export const USSD_PATTERNS: UssdPattern[] = [
   }
 ];
 
+/** Remove any tel: prefix and URI-decode the payload */
+export function stripTelPrefix(str: string): string {
+  const cleaned = str.toLowerCase().startsWith('tel:')
+    ? str.slice(4)
+    : str;
+  return decodeURIComponent(cleaned);
+}
+
+/** Final normalisation pipeline */
+export function normaliseUssd(input: string): string {
+  let ussd = stripTelPrefix(input).trim().replace(/\s+/g, '');
+  if (!ussd.endsWith('#')) ussd += '#';
+  return ussd;
+}
+
 export function sanitizeUssd(raw: string): string {
   if (!raw) return '';
   return raw.trim().replace(/\s+/g, '');
@@ -114,7 +129,8 @@ export function encodeUssdForTel(ussd: string): string {
 }
 
 export function validateUniversalUssd(rawUssd: string): UssdValidationResult {
-  const sanitized = ensureTrailingHash(sanitizeUssd(rawUssd));
+  // First normalize the input (strip tel: prefix, decode URI, ensure trailing #)
+  const sanitized = normaliseUssd(rawUssd);
   
   // Basic format check
   if (!sanitized.startsWith('*') || !sanitized.includes('#')) {
@@ -156,9 +172,12 @@ export function validateUniversalUssd(rawUssd: string): UssdValidationResult {
 }
 
 export function extractUssdFromQR(qrData: string): string | null {
-  // Try to find USSD pattern in QR data
-  const ussdMatch = qrData.match(/\*\d{2,4}\*[^*]*#/);
-  return ussdMatch ? ussdMatch[0] : qrData;
+  // First normalize to handle tel: prefixes
+  const normalized = normaliseUssd(qrData);
+  
+  // Try to find USSD pattern in normalized data
+  const ussdMatch = normalized.match(/\*\d{2,4}\*[^*]*#/);
+  return ussdMatch ? ussdMatch[0] : normalized;
 }
 
 export function getUssdDisplayInfo(validation: UssdValidationResult): {
