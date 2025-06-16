@@ -93,7 +93,7 @@ const HomeScreen = () => {
                 <h1 data-testid="app-title" className="md:text-5xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-4 text-5xl leading-tight">
                   {t("home.title")}
                 </h1>
-                <p className="text-sm md:text-2xl text-gray-700 dark:text-gray-300 font-medium">
+                <p className="text-sm md:text-2xl text-white font-medium">
                   {t("home.welcomeSubtitle")}
                 </p>
               </div>
