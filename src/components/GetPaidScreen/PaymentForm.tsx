@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { QrCode } from 'lucide-react';
 import { Button } from '../ui/button';
@@ -98,7 +97,7 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
       <CardContent className="p-6 space-y-4">
         <div className="space-y-2">
           <Label htmlFor="phone" className={`transition-opacity ${showPhoneLabel ? 'opacity-100' : 'opacity-0'}`}>
-            Mobile Money Number
+            MOMO Number/Code
           </Label>
           <div className="relative">
             <Input
