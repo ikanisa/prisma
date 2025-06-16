@@ -55,9 +55,10 @@ export const useQRScanner = () => {
         return;
       }
 
-      // Create new Html5Qrcode instance
+      // Create new Html5Qrcode instance with correct configuration
       const html5QrCode = new Html5Qrcode("reader", {
-        formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE]
+        formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
+        verbose: false
       });
       html5QrCodeRef.current = html5QrCode;
 
@@ -66,15 +67,7 @@ export const useQRScanner = () => {
         fps: 10,
         qrbox: { width: 280, height: 280 },
         aspectRatio: 1.0,
-        disableFlip: false,
-        videoConstraints: {
-          facingMode: "environment",
-          advanced: [
-            { focusMode: "continuous" },
-            { exposureMode: "continuous" },
-            { whiteBalanceMode: "continuous" }
-          ]
-        }
+        disableFlip: false
       };
 
       // Try to find rear camera first

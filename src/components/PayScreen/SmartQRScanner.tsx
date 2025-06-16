@@ -24,10 +24,16 @@ const SmartQRScanner: React.FC<SmartQRScannerProps> = ({ onBack }) => {
   const light = useAmbientLightSensor();
   const { cleanup } = useCameraOptimization();
 
-  // Show flash suggestion if low light
+  // Enhanced flash suggestion logic based on light conditions
   useEffect(() => {
-    setShowFlashSuggestion(typeof light === "number" && light < 16);
-    setShowFlashButton(typeof light === "number" && light < 60);
+    if (typeof light === "number") {
+      // Show flash suggestion for very low light (< 20 lux)
+      setShowFlashSuggestion(light < 20);
+      // Show flash button for moderately low light (< 80 lux)
+      setShowFlashButton(light < 80);
+      
+      console.log(`[Light Adaptation] Light level: ${light} lux, Flash suggestion: ${light < 20}, Flash button: ${light < 80}`);
+    }
   }, [light]);
 
   // Cleanup camera resources on unmount
@@ -52,7 +58,7 @@ const SmartQRScanner: React.FC<SmartQRScannerProps> = ({ onBack }) => {
       aria-label="Rwanda MoMo QR scanner, align QR code within the frame"
       tabIndex={-1}
     >
-      {/* HTML5 QR Code Scanner Container - This is where html5-qrcode will mount */}
+      {/* HTML5 QR Code Scanner Container */}
       <div 
         id="reader" 
         className="absolute inset-0 w-full h-full object-cover bg-black"
@@ -67,14 +73,14 @@ const SmartQRScanner: React.FC<SmartQRScannerProps> = ({ onBack }) => {
       />
       <canvas ref={canvasRef} className="hidden" />
       
-      {/* Scanner overlay with scanning frame and tips */}
+      {/* Enhanced scanner overlay with environmental adaptation */}
       <ScannerOverlay
         scanStatus={scanStatus}
         scanResult={scanResult}
         canvasRef={canvasRef}
       />
       
-      {/* Flashlight toggle (top right) */}
+      {/* Enhanced flashlight toggle with environmental triggers */}
       <FlashlightButton
         showFlashButton={showFlashButton}
         flashEnabled={flashEnabled}
@@ -92,13 +98,15 @@ const SmartQRScanner: React.FC<SmartQRScannerProps> = ({ onBack }) => {
         onUSSDLaunch={handleUSSDLaunch}
       />
       
-      {/* Back button (top left) */}
+      {/* Back button */}
       <ScannerBackButton onBack={onBack} />
       
-      {/* Camera devices debug info (only in development) */}
-      {process.env.NODE_ENV === 'development' && cameraDevices.length > 0 && (
-        <div className="absolute top-20 left-4 bg-black/80 text-white p-2 rounded text-xs">
-          Cameras: {cameraDevices.length}
+      {/* Environmental debug info (development only) */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="absolute top-20 left-4 bg-black/80 text-white p-2 rounded text-xs space-y-1">
+          <div>Light: {light ? `${light} lux` : 'N/A'}</div>
+          <div>Cameras: {cameraDevices.length}</div>
+          <div>Flash: {flashEnabled ? 'ON' : 'OFF'}</div>
         </div>
       )}
     </div>
