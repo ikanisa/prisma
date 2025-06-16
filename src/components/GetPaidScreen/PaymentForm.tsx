@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useCallback } from 'react';
-import { QrCode, Phone, DollarSign } from 'lucide-react';
+import { QrCode, Phone, DollarSign, X } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
@@ -99,20 +99,36 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
     }, 100);
   }, [onPhoneChange]);
 
-  const clearPhone = useCallback(() => {
+  const clearPhone = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
     const syntheticEvent = {
       target: { value: '' }
     } as React.ChangeEvent<HTMLInputElement>;
+    
     onPhoneChange(syntheticEvent);
-    phoneInputRef.current?.focus();
+    
+    // Focus back to input after clearing
+    setTimeout(() => {
+      phoneInputRef.current?.focus();
+    }, 10);
   }, [onPhoneChange]);
 
-  const clearAmount = useCallback(() => {
+  const clearAmount = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
     const syntheticEvent = {
       target: { value: '' }
     } as React.ChangeEvent<HTMLInputElement>;
+    
     onAmountChange(syntheticEvent);
-    amountInputRef.current?.focus();
+    
+    // Focus back to input after clearing
+    setTimeout(() => {
+      amountInputRef.current?.focus();
+    }, 10);
   }, [onAmountChange]);
 
   const displayAmount = formatCurrencyWithSpaces(amount);
@@ -136,7 +152,7 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
             
             <div className="relative">
               <div className="relative">
-                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
                 <Input
                   ref={phoneInputRef}
                   id="phone"
@@ -149,12 +165,19 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
                     pl-10 pr-12 h-14 text-lg font-medium
                     transition-all duration-200 ease-in-out
                     border-2 rounded-xl
+                    cursor-text
                     ${isPhoneFocused 
                       ? 'border-blue-500 ring-4 ring-blue-100 shadow-lg' 
                       : 'border-gray-200 hover:border-gray-300'
                     }
-                    mobile-input
+                    focus:outline-none
+                    touch-manipulation
                   `}
+                  style={{
+                    fontSize: '16px', // Prevents zoom on iOS
+                    WebkitAppearance: 'none',
+                    appearance: 'none'
+                  }}
                   type="tel"
                   inputMode="numeric"
                   autoComplete="tel"
@@ -169,10 +192,11 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
                   <button
                     type="button"
                     onClick={clearPhone}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-gray-300 hover:bg-gray-400 flex items-center justify-center transition-colors"
+                    onMouseDown={(e) => e.preventDefault()}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-gray-400 hover:bg-gray-500 active:bg-gray-600 flex items-center justify-center transition-colors cursor-pointer touch-manipulation z-10"
                     aria-label="Clear phone number"
                   >
-                    <span className="text-white text-sm font-bold">×</span>
+                    <X className="w-4 h-4 text-white" />
                   </button>
                 )}
               </div>
@@ -198,7 +222,7 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
             </Label>
             
             <div className="relative">
-              <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
               <Input
                 ref={amountInputRef}
                 id="amount"
@@ -211,12 +235,19 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
                   pl-10 pr-12 h-14 text-lg font-medium text-right
                   transition-all duration-200 ease-in-out
                   border-2 rounded-xl
+                  cursor-text
                   ${isAmountFocused 
                     ? 'border-green-500 ring-4 ring-green-100 shadow-lg' 
                     : 'border-gray-200 hover:border-gray-300'
                   }
-                  mobile-input
+                  focus:outline-none
+                  touch-manipulation
                 `}
+                style={{
+                  fontSize: '16px', // Prevents zoom on iOS
+                  WebkitAppearance: 'none',
+                  appearance: 'none'
+                }}
                 type="text"
                 inputMode="numeric"
                 pattern="[0-9,]*"
@@ -232,10 +263,11 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
                 <button
                   type="button"
                   onClick={clearAmount}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-gray-300 hover:bg-gray-400 flex items-center justify-center transition-colors"
+                  onMouseDown={(e) => e.preventDefault()}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-gray-400 hover:bg-gray-500 active:bg-gray-600 flex items-center justify-center transition-colors cursor-pointer touch-manipulation z-10"
                   aria-label="Clear amount"
                 >
-                  <span className="text-white text-sm font-bold">×</span>
+                  <X className="w-4 h-4 text-white" />
                 </button>
               )}
             </div>
@@ -248,13 +280,14 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
             className={`
               w-full h-14 text-lg font-semibold rounded-xl
               transition-all duration-200 ease-in-out
+              cursor-pointer touch-manipulation
               ${isGenerating || !phone.trim() || !amount.trim()
                 ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl'
+                : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl active:scale-95'
               }
-              mobile-button touch-action-manipulation
             `}
             type="button"
+            style={{ WebkitTapHighlightColor: 'transparent' }}
           >
             {isGenerating ? (
               <div className="flex items-center justify-center gap-3">
