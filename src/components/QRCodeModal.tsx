@@ -27,11 +27,13 @@ const QRCodeModal: React.FC<QRCodeModalProps> = ({
 
   // Generate the USSD string directly if we have phone and amount
   const ussdString = qrResult?.ussdString || (phone && amount ? `*182*1*1*${phone}*${amount}#` : '');
+  const telUri = qrResult?.telUri || `tel:${encodeURIComponent(ussdString)}`;
 
   console.log('[QR Modal Debug]', { 
     isOpen, 
     qrResult, 
     ussdString, 
+    telUri,
     phone, 
     amount,
     hasQRResult: !!qrResult,
@@ -53,6 +55,10 @@ const QRCodeModal: React.FC<QRCodeModalProps> = ({
 
   const handleCopyLink = () => {
     copyToClipboard(paymentLink, 'Payment link');
+  };
+
+  const handleCopyUSSD = () => {
+    copyToClipboard(ussdString, 'USSD code');
   };
 
   // Don't render if we don't have the minimum required data
@@ -96,6 +102,11 @@ const QRCodeModal: React.FC<QRCodeModalProps> = ({
                 {ussdString}
               </p>
             </div>
+
+            {/* Mobile compatibility note */}
+            <div className="mt-2 text-xs text-gray-600 bg-blue-50 p-2 rounded-lg">
+              📱 This QR code will open your phone dialer when scanned
+            </div>
           </div>
 
           {/* USSD Dial Section */}
@@ -124,11 +135,11 @@ const QRCodeModal: React.FC<QRCodeModalProps> = ({
             
             <Button
               variant="outline"
-              onClick={handleCopyLink}
+              onClick={handleCopyUSSD}
               className="flex items-center justify-center gap-2"
             >
               <Copy className="w-4 h-4" />
-              Copy Link
+              Copy Code
             </Button>
           </div>
 
@@ -151,6 +162,15 @@ const QRCodeModal: React.FC<QRCodeModalProps> = ({
                 >
                   <Share2 className="w-4 h-4" />
                   Share via SMS
+                </Button>
+
+                <Button
+                  onClick={handleCopyLink}
+                  variant="outline"
+                  className="flex items-center justify-center gap-2"
+                >
+                  <Copy className="w-4 h-4" />
+                  Copy Payment Link
                 </Button>
               </div>
             </div>

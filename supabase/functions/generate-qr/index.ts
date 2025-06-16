@@ -91,6 +91,10 @@ serve(async (req) => {
 
     const ussdString = ussdData
 
+    // Create tel: URI for mobile compatibility
+    const telUri = `tel:${encodeURIComponent(ussdString)}`
+    console.log('Generated tel URI:', telUri)
+
     // Detect payment method
     const { data: methodData, error: methodError } = await supabaseClient
       .rpc('detect_payment_method', { input_value: receiver })
@@ -110,8 +114,8 @@ serve(async (req) => {
       )
     }
 
-    // Generate QR code using external service
-    const qrCodeDataURL = await generateQRCodeDataURL(ussdString)
+    // Generate QR code using tel: URI for better mobile compatibility
+    const qrCodeDataURL = await generateQRCodeDataURL(telUri)
 
     // Convert data URL to blob for storage
     let publicUrl = qrCodeDataURL // Fallback to data URL
@@ -200,6 +204,7 @@ serve(async (req) => {
         qrCodeImage: qrCodeDataURL,
         qrCodeUrl: publicUrl,
         ussdString,
+        telUri,
         paymentId: paymentData?.[0]?.id
       }),
       {
