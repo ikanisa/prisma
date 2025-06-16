@@ -1,13 +1,14 @@
 
 import React from 'react';
-import { RotateCcw, Globe, Phone, Info } from 'lucide-react';
+import { RotateCcw, Globe, Phone, Info, Lightbulb, Wifi } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScanResult } from '@/services/qr-scanner/types';
-import { UssdValidationResult, getUssdDisplayInfo } from '@/utils/universalUssdHelper';
+import { AIValidationResult } from '@/services/aiUssdValidationService';
+import { getUssdDisplayInfo } from '@/utils/universalUssdHelper';
 
 interface UniversalQRScannerResultProps {
   scannedResult: ScanResult;
-  ussdValidation: UssdValidationResult;
+  ussdValidation: AIValidationResult;
   onLaunchUssd: () => void;
   onRescan: () => void;
 }
@@ -39,6 +40,61 @@ const UniversalQRScannerResult: React.FC<UniversalQRScannerResultProps> = ({
           {ussdValidation.sanitized}
         </p>
       </div>
+
+      {/* Network Context */}
+      {ussdValidation.networkContext && ussdValidation.networkContext.country && (
+        <div className="bg-blue-500/10 rounded-lg p-3 mb-4 backdrop-blur-sm">
+          <div className="flex items-center justify-center space-x-2 text-sm text-blue-300 mb-2">
+            <Wifi className="w-4 h-4" />
+            <span>Network Detected</span>
+          </div>
+          <div className="flex items-center justify-center space-x-4 text-xs text-gray-300">
+            <span>{ussdValidation.networkContext.country}</span>
+            {ussdValidation.networkContext.provider && (
+              <span>• {ussdValidation.networkContext.provider}</span>
+            )}
+            <span>• {Math.round(ussdValidation.networkContext.confidence * 100)}% confidence</span>
+          </div>
+        </div>
+      )}
+
+      {/* AI Suggestions for Invalid Codes */}
+      {!ussdValidation.isValid && ussdValidation.aiSuggestion && (
+        <div className="bg-orange-500/10 rounded-lg p-3 mb-4 backdrop-blur-sm">
+          <div className="flex items-center justify-center space-x-2 text-sm text-orange-300 mb-2">
+            <Lightbulb className="w-4 h-4" />
+            <span>AI Suggestion</span>
+          </div>
+          <p className="text-orange-200 font-mono text-sm mb-2">
+            {ussdValidation.aiSuggestion}
+          </p>
+          <Button
+            onClick={() => window.location.href = `tel:${encodeURIComponent(ussdValidation.aiSuggestion!)}`}
+            variant="outline"
+            size="sm"
+            className="border-orange-400/40 text-orange-100 hover:bg-orange-500/20"
+          >
+            Try Suggested Format
+          </Button>
+        </div>
+      )}
+
+      {/* Alternative Formats */}
+      {ussdValidation.alternativeFormats && ussdValidation.alternativeFormats.length > 0 && (
+        <div className="bg-purple-500/10 rounded-lg p-3 mb-4 backdrop-blur-sm">
+          <div className="flex items-center justify-center space-x-2 text-sm text-purple-300 mb-2">
+            <Info className="w-4 h-4" />
+            <span>Alternative Formats</span>
+          </div>
+          <div className="space-y-1">
+            {ussdValidation.alternativeFormats.slice(0, 2).map((format, index) => (
+              <p key={index} className="text-purple-200 font-mono text-xs">
+                {format}
+              </p>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Provider Information */}
       {ussdValidation.isValid && ussdValidation.country !== 'Unknown' && (

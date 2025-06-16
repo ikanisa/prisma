@@ -323,40 +323,52 @@ export type Database = {
       }
       transactions: {
         Row: {
+          confidence_score: number | null
+          country: string | null
           id: string
           launched_ussd: boolean | null
           lighting_conditions: string | null
           payer_number: string | null
           payment_id: string | null
           payment_status: string | null
+          provider: string | null
           scanned_at: string | null
           scanned_code: string
           session_id: string
           torch_used: boolean | null
+          ussd_pattern_type: string | null
         }
         Insert: {
+          confidence_score?: number | null
+          country?: string | null
           id?: string
           launched_ussd?: boolean | null
           lighting_conditions?: string | null
           payer_number?: string | null
           payment_id?: string | null
           payment_status?: string | null
+          provider?: string | null
           scanned_at?: string | null
           scanned_code?: string
           session_id: string
           torch_used?: boolean | null
+          ussd_pattern_type?: string | null
         }
         Update: {
+          confidence_score?: number | null
+          country?: string | null
           id?: string
           launched_ussd?: boolean | null
           lighting_conditions?: string | null
           payer_number?: string | null
           payment_id?: string | null
           payment_status?: string | null
+          provider?: string | null
           scanned_at?: string | null
           scanned_code?: string
           session_id?: string
           torch_used?: boolean | null
+          ussd_pattern_type?: string | null
         }
         Relationships: [
           {
@@ -421,7 +433,18 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      transaction_analytics: {
+        Row: {
+          avg_confidence: number | null
+          country: string | null
+          provider: string | null
+          success_rate_percent: number | null
+          successful_launches: number | null
+          total_scans: number | null
+          ussd_pattern_type: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       detect_payment_method: {
@@ -431,6 +454,17 @@ export type Database = {
       generate_ussd_string: {
         Args: { input_value: string; amount: number }
         Returns: string
+      }
+      get_ussd_success_stats: {
+        Args: { p_country?: string; p_provider?: string }
+        Returns: {
+          country: string
+          provider: string
+          pattern_type: string
+          total_scans: number
+          successful_launches: number
+          success_rate: number
+        }[]
       }
       record_payment: {
         Args: { qr_content: string }

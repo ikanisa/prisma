@@ -2,6 +2,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { qrScannerServiceNew, ScanResult } from '@/services/QRScannerService';
 import { validateUniversalUssd, extractUssdFromQR, UssdValidationResult } from '@/utils/universalUssdHelper';
+import { aiUssdValidationService, AIValidationResult } from '@/services/aiUssdValidationService';
+import { transactionService, Transaction } from '@/services/transactionService';
 
 export interface UniversalQRScannerState {
   isScanning: boolean;
@@ -9,10 +11,11 @@ export interface UniversalQRScannerState {
   hasError: boolean;
   errorMessage: string;
   scannedResult: ScanResult | null;
-  ussdValidation: UssdValidationResult | null;
+  ussdValidation: AIValidationResult | null;
   hasTorch: boolean;
   isTorchOn: boolean;
   showManualInput: boolean;
+  currentTransaction: Transaction | null;
 }
 
 export const useUniversalQRScanner = () => {
@@ -26,7 +29,8 @@ export const useUniversalQRScanner = () => {
     ussdValidation: null,
     hasTorch: false,
     isTorchOn: false,
-    showManualInput: false
+    showManualInput: false,
+    currentTransaction: null
   });
 
   const updateState = (updates: Partial<UniversalQRScannerState>) => {
@@ -68,12 +72,12 @@ export const useUniversalQRScanner = () => {
   const startScanning = async () => {
     console.log('useUniversalQRScanner: Starting scan...');
     
-    const success = await qrScannerServiceNew.start((result: ScanResult) => {
+    const success = await qrScannerServiceNew.start(async (result: ScanResult) => {
       console.log('useUniversalQRScanner: Scan result received:', result);
       
-      // Extract and validate USSD
+      // Extract and validate USSD with AI enhancement
       const extractedUssd = extractUssdFromQR(result.code);
-      const validation = validateUniversalUssd(extractedUssd || result.code);
+      const validation = await aiUssdValidationService.validateWithAI(extractedUssd || result.code);
       
       // Enhanced result with validation
       const enhancedResult: ScanResult = {
@@ -82,11 +86,26 @@ export const useUniversalQRScanner = () => {
         confidence: validation.isValid ? result.confidence : 0.3
       };
       
-      updateState({ 
-        scannedResult: enhancedResult,
-        ussdValidation: validation,
-        isScanning: false 
-      });
+      // Log transaction with enhanced data
+      try {
+        const transaction = await transactionService.logQRScan(
+          result.code,
+          validation
+        );
+        updateState({ 
+          scannedResult: enhancedResult,
+          ussdValidation: validation,
+          isScanning: false,
+          currentTransaction: transaction
+        });
+      } catch (error) {
+        console.error('Failed to log transaction:', error);
+        updateState({ 
+          scannedResult: enhancedResult,
+          ussdValidation: validation,
+          isScanning: false 
+        });
+      }
     });
 
     if (success) {
@@ -100,9 +119,9 @@ export const useUniversalQRScanner = () => {
     }
   };
 
-  const handleManualInput = (code: string) => {
+  const handleManualInput = async (code: string) => {
     const extractedUssd = extractUssdFromQR(code);
-    const validation = validateUniversalUssd(extractedUssd || code);
+    const validation = await aiUssdValidationService.validateWithAI(extractedUssd || code);
     
     if (validation.isValid || code.length > 5) {
       const result: ScanResult = {
@@ -113,12 +132,25 @@ export const useUniversalQRScanner = () => {
         timestamp: Date.now()
       };
       
-      updateState({ 
-        scannedResult: result,
-        ussdValidation: validation,
-        isScanning: false,
-        showManualInput: false 
-      });
+      // Log transaction for manual input
+      try {
+        const transaction = await transactionService.logQRScan(code, validation);
+        updateState({ 
+          scannedResult: result,
+          ussdValidation: validation,
+          isScanning: false,
+          showManualInput: false,
+          currentTransaction: transaction
+        });
+      } catch (error) {
+        console.error('Failed to log manual transaction:', error);
+        updateState({ 
+          scannedResult: result,
+          ussdValidation: validation,
+          isScanning: false,
+          showManualInput: false 
+        });
+      }
     }
   };
 
@@ -134,7 +166,8 @@ export const useUniversalQRScanner = () => {
       scannedResult: null,
       ussdValidation: null,
       hasError: false, 
-      showManualInput: false 
+      showManualInput: false,
+      currentTransaction: null
     });
     startScanning();
   };
@@ -148,9 +181,9 @@ export const useUniversalQRScanner = () => {
     try {
       const telURI = `tel:${encodeURIComponent(ussdCode)}`;
       
-      // Log the scan with country/provider info
-      if (state.scannedResult && state.ussdValidation) {
-        await qrScannerServiceNew.logScan(state.scannedResult.code);
+      // Log USSD launch
+      if (state.currentTransaction) {
+        await transactionService.logUSSDLaunch(state.currentTransaction.id);
       }
       
       window.location.href = telURI;
