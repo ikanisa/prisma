@@ -21,12 +21,12 @@ const GenerateButton: React.FC<GenerateButtonProps> = ({
   validatePhone,
   validateAmount
 }) => {
-  // Enhanced validation with proper Rwanda MoMo rules
+  // Enhanced validation with proper Rwanda MoMo rules and 5M RWF limit
   const phoneValid = validatePhone ? validatePhone(phone) : phone.trim().length >= 4;
   const amountValid = validateAmount ? validateAmount(amount) : (
     amount.trim() !== '' && 
     parseFloat(amount.replace(/\s/g, '')) > 0 && 
-    parseFloat(amount.replace(/\s/g, '')) <= 5000000
+    parseFloat(amount.replace(/\s/g, '')) <= 5000000 // Updated to 5M RWF
   );
   
   const isDisabled = isGenerating || !phoneValid || !amountValid;
@@ -53,7 +53,7 @@ const GenerateButton: React.FC<GenerateButtonProps> = ({
       return "Enter valid phone number or pay code";
     }
     if (!amountValid) {
-      return "Enter valid amount (max 5M RWF)";
+      return "Enter valid amount (max 5,000,000 RWF)"; // Updated message
     }
     return "Ready to generate QR code";
   };
