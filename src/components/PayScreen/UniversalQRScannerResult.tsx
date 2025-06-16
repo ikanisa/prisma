@@ -1,6 +1,5 @@
 
 import React from 'react';
-import { RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScanResult } from '@/services/qr-scanner/types';
 import { AIValidationResult } from '@/services/aiUssdValidationService';
@@ -58,15 +57,6 @@ const UniversalQRScannerResult: React.FC<UniversalQRScannerResultProps> = ({
             Try Launch Anyway
           </Button>
         )}
-        
-        <Button
-          onClick={onRescan}
-          variant="outline"
-          className="w-full border-blue-400/40 text-blue-100 hover:bg-blue-500/20 py-3"
-        >
-          <RotateCcw className="w-4 h-4 mr-2" />
-          Scan Another Code
-        </Button>
       </div>
     </div>
   );
