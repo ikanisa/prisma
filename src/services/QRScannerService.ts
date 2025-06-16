@@ -12,6 +12,16 @@ export interface ScanResult {
   timestamp: number;
 }
 
+export interface ScanTransaction {
+  id: string;
+  scanned_code: string;
+  scanned_at: string;
+  launched_ussd: boolean;
+  payment_status: string;
+  payer_number?: string;
+  session_id: string;
+}
+
 export class QRScannerService {
   private scanner: QrScanner | null = null;
   private videoElement: HTMLVideoElement | null = null;
@@ -47,18 +57,13 @@ export class QRScannerService {
         throw new Error('No camera available');
       }
 
+      // Correct QrScanner constructor - takes video element and callback function
       this.scanner = new QrScanner(
         videoElement,
-        (result) => this.handleScanResult(result.data),
-        {
-          returnDetailedScanResult: false,
-          highlightScanRegion: true,
-          highlightCodeOutline: true,
-          preferredCamera: 'environment',
-          maxScansPerSecond: 5,
-        }
+        (result) => this.handleScanResult(result.data)
       );
 
+      // Set scanner options using the setters
       this.scanner.setGrayscaleWeights(0.299, 0.587, 0.114, true);
       
       console.log('QRScannerService: Scanner initialized successfully');

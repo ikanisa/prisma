@@ -1,6 +1,6 @@
 
 import { useState, useRef } from 'react';
-import { ScanTransaction } from '@/services/qrScannerService';
+import { ScanTransaction } from '@/services/QRScannerService';
 import { ScanResult } from '@/services/scanningManager';
 
 export const useQRScannerState = () => {
