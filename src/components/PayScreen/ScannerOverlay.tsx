@@ -74,10 +74,12 @@ const ScannerOverlay: React.FC<ScannerOverlayProps> = ({
         >
           <QRScannerFrame
             scanStatus={scanStatus}
-            frameQuality={frameQuality}
-            lightLevel={lightLevel}
-            scanDuration={scanDuration}
+            scanResult={scanResult}
             shimmer={shimmer}
+            lightLevel={lightLevel}
+            scanAttempts={scanAttempts}
+            scanDuration={scanDuration}
+            performanceConfig={performanceConfig}
           />
         </div>
       </div>

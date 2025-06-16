@@ -1,5 +1,7 @@
+
 import React, { useMemo, useCallback, memo } from 'react';
 import { usePerformanceOptimization } from '@/hooks/usePerformanceOptimization';
+
 interface OptimizedScannerRendererProps {
   scanStatus: 'idle' | 'scanning' | 'success' | 'fail' | 'processing';
   frameQuality: 'poor' | 'fair' | 'challenging' | 'good';
@@ -7,6 +9,7 @@ interface OptimizedScannerRendererProps {
   scanDuration: number;
   children: React.ReactNode;
 }
+
 const OptimizedScannerRenderer: React.FC<OptimizedScannerRendererProps> = memo(({
   scanStatus,
   frameQuality,
@@ -25,7 +28,8 @@ const OptimizedScannerRenderer: React.FC<OptimizedScannerRendererProps> = memo((
     const baseOpacity = lightLevel && lightLevel > 600 ? 0.85 : 0.75;
     let adjustedOpacity = baseOpacity;
     if (scanDuration > 5000) adjustedOpacity += 0.1;
-    if (lightLevel && lightLevel > 800) adjustedOpacity += 0.1;else if (lightLevel && lightLevel < 20) adjustedOpacity -= 0.1;
+    if (lightLevel && lightLevel > 800) adjustedOpacity += 0.1;
+    else if (lightLevel && lightLevel < 20) adjustedOpacity -= 0.1;
     return {
       opacity: Math.min(Math.max(adjustedOpacity, 0.6), 0.95),
       transition: shouldReduceAnimations ? 'none' : 'opacity 0.5s ease-out'
@@ -65,7 +69,16 @@ const OptimizedScannerRenderer: React.FC<OptimizedScannerRendererProps> = memo((
     }
     return frameQuality === 'poor' ? 'backdrop-blur-sm' : 'backdrop-blur-md';
   }, [optimalConfig.enableBlur, frameQuality]);
-  return;
+
+  return (
+    <div 
+      className={`absolute inset-0 ${backgroundGradient} ${blurEffects} ${animationClasses}`}
+      style={overlayStyles}
+    >
+      {children}
+    </div>
+  );
 });
+
 OptimizedScannerRenderer.displayName = 'OptimizedScannerRenderer';
 export default OptimizedScannerRenderer;
