@@ -18,23 +18,37 @@ const SmartQRScanner: React.FC<SmartQRScannerProps> = ({ onBack }) => {
   const [showFlashButton, setShowFlashButton] = useState(false);
   const [flashEnabled, setFlashEnabled] = useState(false);
 
-  // Custom hooks
-  const { scanStatus, setScanStatus, scanResult, setScanResult, videoRef, handleRetry, handleUSSDLaunch, cameraDevices } = useQRScanner();
+  // Custom hooks with enhanced tracking
+  const { 
+    scanStatus, 
+    setScanStatus, 
+    scanResult, 
+    setScanResult, 
+    scanAttempts, 
+    scanDuration, 
+    videoRef, 
+    handleRetry, 
+    handleUSSDLaunch, 
+    cameraDevices 
+  } = useQRScanner();
+  
   const { isProcessingWithAI, canvasRef, processWithAI } = useAIProcessing();
   const light = useAmbientLightSensor();
   const { cleanup } = useCameraOptimization();
 
-  // Enhanced flash suggestion logic based on light conditions
+  // Enhanced flash suggestion logic based on light conditions and scan persistence
   useEffect(() => {
     if (typeof light === "number") {
-      // Show flash suggestion for very low light (< 20 lux)
-      setShowFlashSuggestion(light < 20);
-      // Show flash button for moderately low light (< 80 lux)
-      setShowFlashButton(light < 80);
+      // Show flash suggestion for very low light (< 20 lux) or after persistent failures
+      const persistentFailure = scanAttempts >= 2 && scanDuration > 5000;
+      setShowFlashSuggestion(light < 20 || (light < 80 && persistentFailure));
       
-      console.log(`[Light Adaptation] Light level: ${light} lux, Flash suggestion: ${light < 20}, Flash button: ${light < 80}`);
+      // Show flash button for moderately low light (< 80 lux) or any failure in dim conditions
+      setShowFlashButton(light < 80 || (light < 150 && scanAttempts >= 1));
+      
+      console.log(`[Light Adaptation] Light: ${light} lux, Attempts: ${scanAttempts}, Duration: ${scanDuration}ms, Flash suggestion: ${light < 20 || persistentFailure}, Flash button: ${light < 80 || (light < 150 && scanAttempts >= 1)}`);
     }
-  }, [light]);
+  }, [light, scanAttempts, scanDuration]);
 
   // Cleanup camera resources on unmount
   useEffect(() => {
@@ -55,7 +69,7 @@ const SmartQRScanner: React.FC<SmartQRScannerProps> = ({ onBack }) => {
     <div
       className="absolute inset-0 flex flex-col w-full h-full items-center justify-start z-50"
       role="region"
-      aria-label="Rwanda MoMo QR scanner, align QR code within the frame"
+      aria-label="Rwanda MoMo QR scanner with intelligent guidance, align QR code within the frame"
       tabIndex={-1}
     >
       {/* HTML5 QR Code Scanner Container */}
@@ -73,14 +87,16 @@ const SmartQRScanner: React.FC<SmartQRScannerProps> = ({ onBack }) => {
       />
       <canvas ref={canvasRef} className="hidden" />
       
-      {/* Enhanced scanner overlay with environmental adaptation */}
+      {/* Enhanced scanner overlay with environmental adaptation and tracking data */}
       <ScannerOverlay
         scanStatus={scanStatus}
         scanResult={scanResult}
         canvasRef={canvasRef}
+        scanAttempts={scanAttempts}
+        scanDuration={scanDuration}
       />
       
-      {/* Enhanced flashlight toggle with environmental triggers */}
+      {/* Enhanced flashlight toggle with intelligent triggers */}
       <FlashlightButton
         showFlashButton={showFlashButton}
         flashEnabled={flashEnabled}
@@ -101,12 +117,17 @@ const SmartQRScanner: React.FC<SmartQRScannerProps> = ({ onBack }) => {
       {/* Back button */}
       <ScannerBackButton onBack={onBack} />
       
-      {/* Environmental debug info (development only) */}
+      {/* Enhanced environmental debug info (development only) */}
       {process.env.NODE_ENV === 'development' && (
         <div className="absolute top-20 left-4 bg-black/80 text-white p-2 rounded text-xs space-y-1">
           <div>Light: {light ? `${light} lux` : 'N/A'}</div>
           <div>Cameras: {cameraDevices.length}</div>
           <div>Flash: {flashEnabled ? 'ON' : 'OFF'}</div>
+          <div>Attempts: {scanAttempts}</div>
+          <div>Duration: {Math.round(scanDuration/1000)}s</div>
+          <div className={scanDuration > 7000 ? 'text-red-300' : ''}>
+            {scanDuration > 7000 ? '⚠️ Guidance mode' : '🔍 Active scan'}
+          </div>
         </div>
       )}
     </div>
