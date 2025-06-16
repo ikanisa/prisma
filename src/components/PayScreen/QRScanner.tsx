@@ -1,12 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Html5QrcodeScanner } from 'html5-qrcode';
-import { ArrowLeft, RotateCcw } from 'lucide-react';
+import { ArrowLeft, RotateCcw, Edit3, Zap } from 'lucide-react';
 import { qrScannerService, ScanTransaction } from '@/services/qrScannerService';
 import { feedbackService } from '@/services/feedbackService';
 import EnhancedFlashlightButton from './EnhancedFlashlightButton';
 import { EnhancedCameraService } from '@/services/EnhancedCameraService';
 import { usePerformanceMonitoring } from '@/hooks/usePerformanceMonitoring';
 import { errorMonitoringService } from '@/services/errorMonitoringService';
+import { scanningManager, ScanResult } from '@/services/scanningManager';
+import AIManualQRInput from './AIManualQRInput';
+import { validateQRContent } from '@/utils/qrValidation';
 
 interface QRScannerProps {
   onBack: () => void;
@@ -21,8 +23,10 @@ const QRScanner: React.FC<QRScannerProps> = ({ onBack }) => {
   const [lightingCondition, setLightingCondition] = useState<string>('normal');
   const [torchUsed, setTorchUsed] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
+  const [scanResult, setScanResult] = useState<ScanResult | null>(null);
+  const [showManualInput, setShowManualInput] = useState(false);
+  const [isEnhancedMode, setIsEnhancedMode] = useState(false);
   
-  const scannerRef = useRef<Html5QrcodeScanner | null>(null);
   const scannerElementRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   
@@ -53,19 +57,11 @@ const QRScanner: React.FC<QRScannerProps> = ({ onBack }) => {
         trackUserAction('enhanced_camera_fallback');
       }
 
-      const config = {
-        fps: 10,
-        qrbox: { width: 280, height: 280 },
-        aspectRatio: 1.0,
-        experimentalFeatures: {
-          useBarCodeDetectorIfSupported: true
-        }
-      };
-
-      scannerRef.current = new Html5QrcodeScanner("qr-reader", config, false);
+      // Initialize scanning manager
+      await scanningManager.initializeScanner("qr-reader");
       
-      scannerRef.current.render(
-        (decodedText) => handleScanSuccess(decodedText),
+      await scanningManager.startScanning(
+        (result) => handleScanSuccess(result),
         (errorMessage) => {
           if (!errorMessage.includes('No QR code found')) {
             console.log('QR scan error:', errorMessage);
@@ -89,18 +85,23 @@ const QRScanner: React.FC<QRScannerProps> = ({ onBack }) => {
     }
   };
 
-  const handleScanSuccess = async (decodedText: string) => {
-    console.log('QR Code scanned:', decodedText);
-    trackUserAction('qr_scan_success', { codeLength: decodedText.length });
+  const handleScanSuccess = async (result: ScanResult) => {
+    console.log('QR Code processed:', result);
+    trackUserAction('qr_scan_success', { 
+      method: result.method,
+      confidence: result.confidence,
+      processingTime: result.processingTime
+    });
     
-    setScannedCode(decodedText);
+    setScanResult(result);
+    setScannedCode(result.code || '');
     setIsScanning(false);
     
     feedbackService.successFeedback();
     
     // Log to Supabase with retry and error handling
     try {
-      const transaction = await qrScannerService.logScan(decodedText);
+      const transaction = await qrScannerService.logScan(result.code || '');
       if (transaction) {
         setCurrentTransaction(transaction);
         trackUserAction('transaction_logged');
@@ -116,7 +117,6 @@ const QRScanner: React.FC<QRScannerProps> = ({ onBack }) => {
             trackUserAction('lighting_data_updated');
           }
         } catch (error) {
-          // Don't block the main flow for lighting data failures
           console.log('Failed to update lighting data:', error);
         }
       } else {
@@ -129,13 +129,60 @@ const QRScanner: React.FC<QRScannerProps> = ({ onBack }) => {
       errorMonitoringService.logError(error as Error, 'scan_processing');
     }
 
-    if (scannerRef.current) {
-      try {
-        scannerRef.current.clear();
-      } catch (error) {
-        console.log('Error clearing scanner:', error);
+    await scanningManager.stop();
+  };
+
+  const handleEnhancedScan = async () => {
+    if (!videoRef.current) return;
+    
+    setIsEnhancedMode(true);
+    trackUserAction('enhanced_scan_attempt');
+    
+    try {
+      const canvas = scanningManager.captureCurrentFrame(videoRef.current);
+      if (canvas) {
+        const result = await scanningManager.enhancedScan(canvas);
+        
+        if (result.success && result.ussdCode) {
+          const validation = validateQRContent(result.ussdCode);
+          const scanResult: ScanResult = {
+            success: true,
+            code: result.ussdCode,
+            method: 'enhanced',
+            confidence: result.confidence || 0.8,
+            processingTime: result.processingTime,
+            validation
+          };
+          
+          await handleScanSuccess(scanResult);
+          trackUserAction('enhanced_scan_success');
+        } else {
+          setError('Enhanced scanning could not detect a valid QR code.');
+          trackUserAction('enhanced_scan_failed');
+        }
       }
+    } catch (error) {
+      setError('Enhanced scanning failed. Try manual input.');
+      errorMonitoringService.logError(error as Error, 'enhanced_scan');
+      trackUserAction('enhanced_scan_error');
+    } finally {
+      setIsEnhancedMode(false);
     }
+  };
+
+  const handleManualInput = (code: string) => {
+    const validation = validateQRContent(code);
+    const result: ScanResult = {
+      success: true,
+      code,
+      method: 'manual',
+      confidence: validation.confidence,
+      processingTime: 0,
+      validation
+    };
+    
+    handleScanSuccess(result);
+    trackUserAction('manual_input_success');
   };
 
   const handleLaunchMoMo = async () => {
@@ -146,7 +193,6 @@ const QRScanner: React.FC<QRScannerProps> = ({ onBack }) => {
     try {
       const telURI = qrScannerService.createTelURI(scannedCode);
       
-      // Mark USSD launched with retry
       const launchSuccess = await qrScannerService.markUSSDLaunched(currentTransaction.id);
       if (launchSuccess) {
         trackUserAction('ussd_marked_launched');
@@ -166,10 +212,12 @@ const QRScanner: React.FC<QRScannerProps> = ({ onBack }) => {
     trackUserAction('rescan_requested');
     setScannedCode(null);
     setCurrentTransaction(null);
+    setScanResult(null);
     setError(null);
     setIsScanning(true);
     setTorchUsed(false);
     setRetryCount(0);
+    setIsEnhancedMode(false);
     initializeScanner();
   };
 
@@ -185,13 +233,7 @@ const QRScanner: React.FC<QRScannerProps> = ({ onBack }) => {
 
   const cleanup = () => {
     trackUserAction('scanner_cleanup');
-    if (scannerRef.current) {
-      try {
-        scannerRef.current.clear();
-      } catch (error) {
-        console.log('Error clearing scanner:', error);
-      }
-    }
+    scanningManager.stop();
     EnhancedCameraService.stopCamera();
   };
 
@@ -220,7 +262,11 @@ const QRScanner: React.FC<QRScannerProps> = ({ onBack }) => {
           <ArrowLeft className="w-6 h-6" />
         </button>
         
-        <h1 className="text-white text-lg font-semibold">Scan QR Code</h1>
+        <h1 className="text-white text-lg font-semibold">
+          {scanResult?.method === 'ai' && '🤖 AI-Enhanced '}
+          {scanResult?.method === 'enhanced' && '⚡ Enhanced '}
+          Scan QR Code
+        </h1>
         
         {!isScanning && (
           <button
@@ -233,6 +279,37 @@ const QRScanner: React.FC<QRScannerProps> = ({ onBack }) => {
         )}
         {isScanning && <div className="w-10 h-10" />}
       </div>
+
+      {/* Enhanced Controls */}
+      {isScanning && (
+        <div className="flex justify-center gap-2 px-4 pb-2">
+          <button
+            onClick={handleEnhancedScan}
+            disabled={isEnhancedMode}
+            className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-800 text-white px-4 py-2 rounded-lg text-sm transition-colors"
+          >
+            {isEnhancedMode ? (
+              <>
+                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
+                Processing...
+              </>
+            ) : (
+              <>
+                <Zap className="w-4 h-4" />
+                AI Enhance
+              </>
+            )}
+          </button>
+          
+          <button
+            onClick={() => setShowManualInput(true)}
+            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm transition-colors"
+          >
+            <Edit3 className="w-4 h-4" />
+            Manual Input
+          </button>
+        </div>
+      )}
 
       {/* Enhanced Flashlight Button */}
       {isScanning && (
@@ -247,7 +324,7 @@ const QRScanner: React.FC<QRScannerProps> = ({ onBack }) => {
       <div className="flex-1 flex flex-col items-center justify-center p-4">
         {isScanning ? (
           <div className="w-full max-w-sm mx-auto">
-            {/* Scanner Container with enhanced lighting-based styling */}
+            {/* Scanner Container with enhanced styling */}
             <div className="relative">
               <div 
                 id="qr-reader" 
@@ -277,7 +354,7 @@ const QRScanner: React.FC<QRScannerProps> = ({ onBack }) => {
               )}
             </div>
 
-            {/* Enhanced Instructions with lighting context */}
+            {/* Enhanced Instructions */}
             <div className="mt-6 text-center">
               <p className="text-white text-lg mb-2">Scan a QR Code to Launch MoMo Payment</p>
               <p className="text-gray-300 text-sm">
@@ -292,7 +369,7 @@ const QRScanner: React.FC<QRScannerProps> = ({ onBack }) => {
               )}
             </div>
 
-            {/* Adaptive Tips based on lighting */}
+            {/* Adaptive Tips */}
             <div className="mt-8 bg-white/10 rounded-lg p-4 backdrop-blur-sm">
               <p className="text-white text-sm font-medium mb-2">
                 Scanning Tips {lightingCondition !== 'normal' && `(${lightingCondition} lighting)`}:
@@ -312,8 +389,18 @@ const QRScanner: React.FC<QRScannerProps> = ({ onBack }) => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
               </div>
-              <h2 className="text-white text-xl font-bold mb-2">QR Code Scanned!</h2>
+              <h2 className="text-white text-xl font-bold mb-2">
+                {scanResult?.method === 'ai' && '🤖 AI-Enhanced '}
+                {scanResult?.method === 'enhanced' && '⚡ Enhanced '}
+                QR Code Scanned!
+              </h2>
               <p className="text-green-300 text-sm">Ready to launch MoMo payment</p>
+              {scanResult && (
+                <div className="mt-2 text-xs text-gray-400">
+                  Method: {scanResult.method} | Confidence: {Math.round(scanResult.confidence * 100)}%
+                  {scanResult.processingTime > 0 && ` | ${scanResult.processingTime}ms`}
+                </div>
+              )}
             </div>
 
             <div className="bg-white/10 rounded-lg p-4 mb-6 backdrop-blur-sm">
@@ -339,6 +426,15 @@ const QRScanner: React.FC<QRScannerProps> = ({ onBack }) => {
           </div>
         )}
       </div>
+
+      {/* Manual Input Modal */}
+      {showManualInput && (
+        <AIManualQRInput
+          onClose={() => setShowManualInput(false)}
+          onCodeSubmit={handleManualInput}
+          lastScannedImage={scanningManager.getLastCapturedFrame()}
+        />
+      )}
     </div>
   );
 };
