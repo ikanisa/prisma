@@ -18,9 +18,10 @@ const PromoBannerMinimized: React.FC<PromoBannerMinimizedProps> = ({ onRestore }
       if (e.key === "Enter" || e.key === " ") onRestore();
     }}
   >
-    <div className="min-h-[32px] max-w-2xl w-full rounded-2xl shadow-xl overflow-hidden glass-panel flex items-center justify-between px-4">
+    <div className="min-h-[32px] max-w-2xl w-full rounded-2xl shadow-xl overflow-hidden glass-panel flex items-center justify-between px-4"
+         style={{ backdropFilter: "blur(16px)", background: "linear-gradient(90deg, #396afc, #2948ff, #AD00FF)" }}>
       <span className="truncate text-white/80 text-sm py-1">
-        🎉 Promo hidden – tap to show for more deals!
+        🚀 No login needed – tap to see all features!
       </span>
       <button
         className="ml-2 bg-white/40 hover:bg-white/70 rounded-full p-1 transition-all flex items-center"
