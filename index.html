@@ -68,57 +68,196 @@
         height: 100vh;
         z-index: 9999;
         overflow: hidden;
-        background: linear-gradient(135deg, #00C9A7, #6A00F4, #FF6F91);
+        background: linear-gradient(135deg, #00C9A7 0%, #6A00F4 50%, #FF6F91 100%);
         background-size: 300% 300%;
-        animation: gradientShift 6s ease infinite;
+        animation: gradientShift 8s ease-in-out infinite;
         display: flex;
         align-items: center;
         justify-content: center;
       }
 
+      /* Multiple floating liquid blobs for depth */
       .liquid-bg {
         position: absolute;
-        width: 150%;
-        height: 150%;
-        top: -25%;
-        left: -25%;
-        background: radial-gradient(circle at 50% 50%, rgba(255,255,255,0.1), transparent 70%);
-        filter: blur(80px);
-        animation: blobFloat 12s ease-in-out infinite;
+        width: 120%;
+        height: 120%;
+        top: -10%;
+        left: -10%;
+        background: radial-gradient(circle at 30% 40%, rgba(255,255,255,0.15), transparent 60%),
+                    radial-gradient(circle at 70% 60%, rgba(255,255,255,0.1), transparent 50%),
+                    radial-gradient(circle at 50% 80%, rgba(255,255,255,0.12), transparent 70%);
+        filter: blur(60px);
+        animation: liquidFloat 15s ease-in-out infinite;
       }
 
-      /* Enhanced glassy logo */
+      .liquid-bg::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: radial-gradient(circle at 80% 20%, rgba(106, 0, 244, 0.3), transparent 40%),
+                    radial-gradient(circle at 20% 80%, rgba(255, 111, 145, 0.2), transparent 50%);
+        animation: liquidFloat2 12s ease-in-out infinite reverse;
+      }
+
+      /* Enhanced glassy logo with mobile optimization */
       .logo-glass {
-        background: rgba(255, 255, 255, 0.1);
-        backdrop-filter: blur(24px);
-        padding: 28px 42px;
-        border-radius: 24px;
-        box-shadow: 0 6px 36px rgba(0, 0, 0, 0.15);
+        background: rgba(255, 255, 255, 0.15);
+        backdrop-filter: blur(30px);
+        -webkit-backdrop-filter: blur(30px);
+        padding: 2rem 3rem;
+        border-radius: 2rem;
+        border: 2px solid rgba(255, 255, 255, 0.25);
+        box-shadow: 
+          0 8px 40px rgba(0, 0, 0, 0.2),
+          inset 0 1px 0 rgba(255, 255, 255, 0.4);
         text-align: center;
+        position: relative;
+        z-index: 10;
+        max-width: 90vw;
+        animation: glassFloat 6s ease-in-out infinite;
+      }
+
+      .logo-glass::before {
+        content: '';
+        position: absolute;
+        top: -2px;
+        left: -2px;
+        right: -2px;
+        bottom: -2px;
+        background: linear-gradient(45deg, rgba(0, 201, 167, 0.5), rgba(106, 0, 244, 0.5), rgba(255, 111, 145, 0.5));
+        border-radius: 2rem;
+        z-index: -1;
+        animation: borderGlow 4s ease-in-out infinite;
       }
 
       .loader-text {
-        font-size: 1.5rem;
-        font-weight: 600;
-        color: #F6F8FA;
-        animation: pulseText 2.5s ease-in-out infinite;
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: #FFFFFF;
+        text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        margin-bottom: 0.5rem;
+        animation: textPulse 3s ease-in-out infinite;
       }
 
-      /* Enhanced animations */
+      .loader-subtitle {
+        font-size: 1rem;
+        font-weight: 500;
+        color: rgba(255, 255, 255, 0.9);
+        text-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+        animation: subtitleFade 2s ease-in-out infinite alternate;
+      }
+
+      /* Enhanced mobile-first animations */
       @keyframes gradientShift {
         0% { background-position: 0% 50%; }
         50% { background-position: 100% 50%; }
         100% { background-position: 0% 50%; }
       }
 
-      @keyframes blobFloat {
-        0%, 100% { transform: scale(1) translate(0, 0); }
-        50% { transform: scale(1.3) translate(8%, 4%); }
+      @keyframes liquidFloat {
+        0%, 100% { 
+          transform: scale(1) translate(0, 0) rotate(0deg);
+          opacity: 0.7;
+        }
+        33% { 
+          transform: scale(1.1) translate(-10px, -15px) rotate(120deg);
+          opacity: 0.9;
+        }
+        66% { 
+          transform: scale(0.9) translate(15px, 10px) rotate(240deg);
+          opacity: 0.8;
+        }
       }
 
-      @keyframes pulseText {
-        0%, 100% { opacity: 0.8; }
-        50% { opacity: 1; }
+      @keyframes liquidFloat2 {
+        0%, 100% { 
+          transform: scale(1) translate(0, 0);
+          opacity: 0.6;
+        }
+        50% { 
+          transform: scale(1.2) translate(20px, -10px);
+          opacity: 0.8;
+        }
+      }
+
+      @keyframes glassFloat {
+        0%, 100% { 
+          transform: translateY(0px) scale(1);
+        }
+        50% { 
+          transform: translateY(-8px) scale(1.02);
+        }
+      }
+
+      @keyframes borderGlow {
+        0%, 100% { 
+          opacity: 0.6;
+          filter: blur(4px);
+        }
+        50% { 
+          opacity: 1;
+          filter: blur(2px);
+        }
+      }
+
+      @keyframes textPulse {
+        0%, 100% { 
+          opacity: 0.9;
+          transform: scale(1);
+        }
+        50% { 
+          opacity: 1;
+          transform: scale(1.05);
+        }
+      }
+
+      @keyframes subtitleFade {
+        0% { opacity: 0.7; }
+        100% { opacity: 1; }
+      }
+
+      /* Mobile optimizations */
+      @media (max-width: 768px) {
+        .logo-glass {
+          padding: 1.5rem 2rem;
+          margin: 0 1rem;
+        }
+        
+        .loader-text {
+          font-size: 1.5rem;
+        }
+        
+        .loader-subtitle {
+          font-size: 0.9rem;
+        }
+        
+        .liquid-bg {
+          filter: blur(40px);
+        }
+      }
+
+      /* Reduced motion support */
+      @media (prefers-reduced-motion: reduce) {
+        #splash-screen,
+        .liquid-bg,
+        .liquid-bg::before,
+        .logo-glass,
+        .logo-glass::before,
+        .loader-text,
+        .loader-subtitle {
+          animation: none;
+        }
+      }
+
+      /* High contrast mode */
+      @media (prefers-contrast: high) {
+        .logo-glass {
+          background: rgba(255, 255, 255, 0.3);
+          border: 3px solid #ffffff;
+        }
       }
     </style>
   </head>
@@ -128,7 +267,8 @@
       <div class="liquid-bg"></div>
       <div class="splash-content">
         <div class="logo-glass">
-          <span class="loader-text">Launching easyMOMO...</span>
+          <div class="loader-text">MoMo Pay</div>
+          <div class="loader-subtitle">Mobile Money Scanner</div>
         </div>
       </div>
     </div>
@@ -136,17 +276,43 @@
     <div id="root"></div>
     
     <script>
-      // Hide splash screen once the app loads
+      // Enhanced splash screen management
+      let splashRemoved = false;
+      
+      function removeSplash() {
+        if (splashRemoved) return;
+        splashRemoved = true;
+        
+        const splash = document.getElementById('splash-screen');
+        if (splash) {
+          splash.style.opacity = '0';
+          splash.style.transform = 'scale(1.1)';
+          splash.style.transition = 'opacity 0.6s ease-out, transform 0.6s ease-out';
+          setTimeout(() => {
+            splash.remove();
+          }, 600);
+        }
+      }
+
+      // Wait for app to load and assets to be ready
       window.addEventListener('load', () => {
+        // Minimum splash duration for branding
         setTimeout(() => {
-          const splash = document.getElementById('splash-screen');
-          if (splash) {
-            splash.style.opacity = '0';
-            splash.style.transition = 'opacity 0.5s ease';
-            setTimeout(() => splash.remove(), 500);
-          }
-        }, 1000);
+          // Check if React app has mounted
+          const checkReactMount = () => {
+            const root = document.getElementById('root');
+            if (root && root.children.length > 0) {
+              removeSplash();
+            } else {
+              setTimeout(checkReactMount, 100);
+            }
+          };
+          checkReactMount();
+        }, 1500);
       });
+
+      // Fallback: always remove after 5 seconds
+      setTimeout(removeSplash, 5000);
     </script>
     
     <script type="module" src="/src/main.tsx"></script>

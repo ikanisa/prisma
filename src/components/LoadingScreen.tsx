@@ -28,7 +28,7 @@ const LoadingScreen: React.FC<LoadingScreenProps> = ({
       setIsVisible(false);
       setTimeout(() => {
         onComplete?.();
-      }, 500);
+      }, 600);
     }, duration);
 
     return () => {
@@ -39,26 +39,56 @@ const LoadingScreen: React.FC<LoadingScreenProps> = ({
 
   if (!isVisible) {
     return (
-      <div className="fixed inset-0 z-50 bg-black opacity-0 transition-opacity duration-500 pointer-events-none" />
+      <div className="fixed inset-0 z-50 bg-black opacity-0 transition-opacity duration-600 pointer-events-none" />
     );
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-gradient-to-br from-gray-900 via-purple-900 to-blue-900 text-white">
-      {/* Animated Background */}
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-purple-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse"></div>
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-blue-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse animation-delay-2000"></div>
-        <div className="absolute top-40 left-1/2 transform -translate-x-1/2 w-80 h-80 bg-teal-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse animation-delay-4000"></div>
-      </div>
+    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center overflow-hidden">
+      {/* Liquid glass background matching main splash */}
+      <div 
+        className="absolute inset-0 w-full h-full"
+        style={{
+          background: 'linear-gradient(135deg, #00C9A7 0%, #6A00F4 50%, #FF6F91 100%)',
+          backgroundSize: '300% 300%',
+          animation: 'gradientShift 8s ease-in-out infinite'
+        }}
+      />
+      
+      {/* Animated liquid blobs */}
+      <div 
+        className="absolute w-full h-full opacity-70"
+        style={{
+          background: `
+            radial-gradient(circle at 30% 40%, rgba(255,255,255,0.15), transparent 60%),
+            radial-gradient(circle at 70% 60%, rgba(255,255,255,0.1), transparent 50%),
+            radial-gradient(circle at 50% 80%, rgba(255,255,255,0.12), transparent 70%)
+          `,
+          filter: 'blur(60px)',
+          animation: 'liquidFloat 15s ease-in-out infinite'
+        }}
+      />
 
       {/* Main Content */}
-      <div className="relative z-10 text-center px-8">
-        {/* Logo/Icon */}
-        <div className="mb-8 relative">
-          <div className="w-24 h-24 mx-auto bg-gradient-to-br from-blue-400 to-purple-600 rounded-3xl flex items-center justify-center shadow-2xl">
+      <div className="relative z-10 text-center px-6 max-w-sm mx-auto">
+        {/* Glass panel with logo */}
+        <div 
+          className="mb-8 p-8 rounded-2xl border-2 border-white/25 shadow-2xl"
+          style={{
+            background: 'rgba(255, 255, 255, 0.15)',
+            backdropFilter: 'blur(30px)',
+            WebkitBackdropFilter: 'blur(30px)',
+            boxShadow: `
+              0 8px 40px rgba(0, 0, 0, 0.2),
+              inset 0 1px 0 rgba(255, 255, 255, 0.4)
+            `,
+            animation: 'glassFloat 6s ease-in-out infinite'
+          }}
+        >
+          {/* App icon */}
+          <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-white/20 to-white/10 rounded-2xl flex items-center justify-center shadow-lg backdrop-blur-sm">
             <svg 
-              className="w-12 h-12 text-white" 
+              className="w-8 h-8 text-white" 
               fill="none" 
               stroke="currentColor" 
               viewBox="0 0 24 24"
@@ -66,65 +96,111 @@ const LoadingScreen: React.FC<LoadingScreenProps> = ({
               <path 
                 strokeLinecap="round" 
                 strokeLinejoin="round" 
-                strokeWidth={2} 
+                strokeWidth={2.5} 
                 d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" 
+              />
+              <path 
+                strokeLinecap="round" 
+                strokeLinejoin="round" 
+                strokeWidth={2} 
+                d="M9 9h6v6H9z" 
               />
             </svg>
           </div>
+
+          {/* App Name */}
+          <h1 
+            className="text-2xl font-bold mb-2 text-white"
+            style={{
+              textShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
+              animation: 'textPulse 3s ease-in-out infinite'
+            }}
+          >
+            MoMo Pay
+          </h1>
           
-          {/* Pulse rings */}
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="w-24 h-24 border-2 border-blue-400 rounded-3xl animate-ping opacity-20"></div>
-          </div>
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="w-32 h-32 border-2 border-purple-400 rounded-3xl animate-ping opacity-10 animation-delay-1000"></div>
-          </div>
-        </div>
+          {/* Tagline */}
+          <p 
+            className="text-sm text-white/90 mb-6 font-medium"
+            style={{
+              textShadow: '0 1px 4px rgba(0, 0, 0, 0.2)',
+              animation: 'subtitleFade 2s ease-in-out infinite alternate'
+            }}
+          >
+            Mobile Money Scanner
+          </p>
 
-        {/* App Name */}
-        <h1 className="text-4xl font-bold mb-4 bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-          MoMo Pay
-        </h1>
-        
-        {/* Tagline */}
-        <p className="text-xl text-gray-300 mb-8 font-light">
-          Universal Mobile Money Scanner
-        </p>
-
-        {/* Progress Bar */}
-        <div className="w-64 mx-auto mb-6">
-          <div className="w-full bg-gray-700 rounded-full h-2 overflow-hidden">
+          {/* Progress Bar */}
+          <div className="w-full bg-white/20 rounded-full h-2 overflow-hidden mb-3 backdrop-blur-sm">
             <div 
-              className="h-full bg-gradient-to-r from-blue-500 to-purple-500 rounded-full transition-all duration-300 ease-out"
+              className="h-full bg-gradient-to-r from-white/80 to-white/60 rounded-full transition-all duration-300 ease-out shadow-sm"
               style={{ width: `${progress}%` }}
             />
           </div>
+
+          {/* Loading Text */}
+          <p className="text-xs text-white/80 font-medium">
+            {progress < 30 ? 'Initializing...' :
+             progress < 60 ? 'Loading scanner...' :
+             progress < 90 ? 'Setting up camera...' :
+             'Ready!'}
+          </p>
         </div>
-
-        {/* Loading Text */}
-        <p className="text-sm text-gray-400 animate-pulse">
-          {progress < 30 ? 'Initializing...' :
-           progress < 60 ? 'Loading components...' :
-           progress < 90 ? 'Setting up scanner...' :
-           'Ready!'}
-        </p>
       </div>
 
-      {/* Floating particles */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        {[...Array(20)].map((_, i) => (
-          <div
-            key={i}
-            className="absolute w-2 h-2 bg-white rounded-full opacity-10 animate-float"
-            style={{
-              left: `${Math.random() * 100}%`,
-              top: `${Math.random() * 100}%`,
-              animationDelay: `${Math.random() * 5}s`,
-              animationDuration: `${3 + Math.random() * 4}s`
-            }}
-          />
-        ))}
-      </div>
+      <style jsx>{`
+        @keyframes gradientShift {
+          0% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
+        }
+
+        @keyframes liquidFloat {
+          0%, 100% { 
+            transform: scale(1) translate(0, 0) rotate(0deg);
+            opacity: 0.7;
+          }
+          33% { 
+            transform: scale(1.1) translate(-10px, -15px) rotate(120deg);
+            opacity: 0.9;
+          }
+          66% { 
+            transform: scale(0.9) translate(15px, 10px) rotate(240deg);
+            opacity: 0.8;
+          }
+        }
+
+        @keyframes glassFloat {
+          0%, 100% { 
+            transform: translateY(0px) scale(1);
+          }
+          50% { 
+            transform: translateY(-8px) scale(1.02);
+          }
+        }
+
+        @keyframes textPulse {
+          0%, 100% { 
+            opacity: 0.9;
+            transform: scale(1);
+          }
+          50% { 
+            opacity: 1;
+            transform: scale(1.05);
+          }
+        }
+
+        @keyframes subtitleFade {
+          0% { opacity: 0.7; }
+          100% { opacity: 1; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          * {
+            animation: none !important;
+          }
+        }
+      `}</style>
     </div>
   );
 };
