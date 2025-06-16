@@ -33,7 +33,12 @@ export const useQRScanner = () => {
   const { isOnline, validateQROffline } = useOfflineSupport();
 
   const initializeScanner = async () => {
-    if (!scannerElementRef.current) return;
+    if (!scannerElementRef.current) {
+      console.error('Scanner element ref not available');
+      return;
+    }
+
+    console.log('Starting scanner initialization...');
 
     await errorRecoveryService.withRetry(
       async () => {
@@ -42,7 +47,9 @@ export const useQRScanner = () => {
         trackUserAction('scanner_initialize');
 
         try {
+          console.log('Attempting enhanced camera initialization...');
           await EnhancedCameraService.initializeCameraWithEnhancements(videoRef);
+          console.log('Enhanced camera initialized successfully');
           trackUserAction('enhanced_camera_success');
         } catch (error) {
           console.log('Enhanced camera initialization failed, falling back to standard:', error);
@@ -50,13 +57,20 @@ export const useQRScanner = () => {
           trackUserAction('enhanced_camera_fallback');
         }
 
+        console.log('Initializing scanning manager...');
         await scanningManager.initializeScanner("qr-reader");
         
+        console.log('Starting scanning process...');
         await scanningManager.startScanning(
-          (result) => handleScanSuccess(result),
+          (result) => {
+            console.log('Scan success callback triggered:', result);
+            handleScanSuccess(result);
+          },
           (errorMessage) => {
-            if (!errorMessage.includes('No QR code found')) {
-              console.log('QR scan error:', errorMessage);
+            console.log('Scan error callback triggered:', errorMessage);
+            if (!errorMessage.includes('No QR code found') && 
+                !errorMessage.includes('NotFoundException')) {
+              console.error('Significant QR scan error:', errorMessage);
               if (retryCount < 3) {
                 setRetryCount(prev => prev + 1);
               }
@@ -65,6 +79,7 @@ export const useQRScanner = () => {
         );
 
         setTimeout(() => {
+          console.log('Scanner loading timeout completed');
           setIsLoading(false);
           trackUserAction('scanner_ready');
         }, 2000);
@@ -79,6 +94,7 @@ export const useQRScanner = () => {
         ]
       }
     ).catch((err) => {
+      console.error('Scanner initialization failed after retries:', err);
       setCurrentError(err);
       setShowErrorModal(true);
       setIsLoading(false);
@@ -160,17 +176,24 @@ export const useQRScanner = () => {
   };
 
   const handleEnhancedScan = async () => {
-    if (!videoRef.current) return;
+    if (!videoRef.current) {
+      console.warn('No video element available for enhanced scan');
+      setError('Video not available for enhanced scanning');
+      return;
+    }
     
     setIsEnhancedMode(true);
     trackUserAction('enhanced_scan_attempt');
     
     try {
+      console.log('Capturing frame for enhanced scan...');
       const canvas = scanningManager.captureCurrentFrame(videoRef.current);
       if (canvas) {
+        console.log('Frame captured, processing with AI...');
         const result = await scanningManager.enhancedScan(canvas);
         
         if (result.success && result.ussdCode) {
+          console.log('Enhanced scan successful:', result);
           const validation = validateQRContent(result.ussdCode);
           const scanResult: ScanResult = {
             success: true,
@@ -184,11 +207,16 @@ export const useQRScanner = () => {
           await handleScanSuccess(scanResult);
           trackUserAction('enhanced_scan_success');
         } else {
+          console.log('Enhanced scan failed to detect QR code:', result);
           setError('Enhanced scanning could not detect a valid QR code.');
           trackUserAction('enhanced_scan_failed');
         }
+      } else {
+        console.error('Failed to capture frame for enhanced scan');
+        setError('Could not capture camera frame for enhanced scanning.');
       }
     } catch (error) {
+      console.error('Enhanced scanning error:', error);
       setError('Enhanced scanning failed. Try manual input.');
       errorMonitoringService.logError(error as Error, 'enhanced_scan');
       trackUserAction('enhanced_scan_error');

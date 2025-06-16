@@ -19,13 +19,28 @@ const QRScanner: React.FC<QRScannerProps> = ({ onBack }) => {
   const scanner = useQRScanner();
 
   useEffect(() => {
+    console.log('QRScanner component mounted, initializing scanner...');
     scanner.initializeScanner();
     return () => {
+      console.log('QRScanner component unmounting, cleaning up...');
       scanner.cleanup();
     };
   }, []);
 
+  // Debug logging for scanner state
+  useEffect(() => {
+    console.log('QR Scanner State:', {
+      isScanning: scanner.isScanning,
+      isLoading: scanner.isLoading,
+      scannedCode: scanner.scannedCode,
+      error: scanner.error,
+      showManualInput: scanner.showManualInput,
+      isOnline: scanner.isOnline
+    });
+  }, [scanner.isScanning, scanner.isLoading, scanner.scannedCode, scanner.error]);
+
   const handleErrorRetry = () => {
+    console.log('Error retry requested, attempt:', scanner.retryCount + 1);
     scanner.setShowErrorModal(false);
     scanner.setCurrentError(null);
     scanner.setRetryCount(scanner.retryCount + 1);
@@ -33,16 +48,19 @@ const QRScanner: React.FC<QRScannerProps> = ({ onBack }) => {
     if (scanner.retryCount < 3) {
       scanner.initializeScanner();
     } else {
+      console.log('Max retries reached, showing manual input');
       scanner.setShowManualInput(true);
     }
   };
 
   const handleErrorManualInput = () => {
+    console.log('Manual input requested from error handler');
     scanner.setShowErrorModal(false);
     scanner.setShowManualInput(true);
   };
 
   const handleErrorClose = () => {
+    console.log('Error modal closed, going back');
     scanner.setShowErrorModal(false);
     onBack();
   };
@@ -63,7 +81,10 @@ const QRScanner: React.FC<QRScannerProps> = ({ onBack }) => {
         isScanning={scanner.isScanning}
         isEnhancedMode={scanner.isEnhancedMode}
         onEnhancedScan={scanner.handleEnhancedScan}
-        onShowManualInput={() => scanner.setShowManualInput(true)}
+        onShowManualInput={() => {
+          console.log('Manual input requested from controls');
+          scanner.setShowManualInput(true);
+        }}
       />
 
       {scanner.isScanning && (
@@ -95,8 +116,14 @@ const QRScanner: React.FC<QRScannerProps> = ({ onBack }) => {
 
       {scanner.showManualInput && (
         <AIManualQRInput
-          onClose={() => scanner.setShowManualInput(false)}
-          onCodeSubmit={scanner.handleManualInput}
+          onClose={() => {
+            console.log('Manual input closed');
+            scanner.setShowManualInput(false);
+          }}
+          onCodeSubmit={(code) => {
+            console.log('Manual code submitted:', code);
+            scanner.handleManualInput(code);
+          }}
           lastScannedImage={scanningManager.getLastCapturedFrame()}
         />
       )}
@@ -109,6 +136,17 @@ const QRScanner: React.FC<QRScannerProps> = ({ onBack }) => {
         onManualInput={handleErrorManualInput}
         onClose={handleErrorClose}
       />
+      
+      {/* Debug info in development */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="absolute bottom-4 left-4 bg-black/80 text-white text-xs p-2 rounded max-w-xs">
+          <div>Scanner: {scanner.isScanning ? 'Active' : 'Inactive'}</div>
+          <div>Loading: {scanner.isLoading ? 'Yes' : 'No'}</div>
+          <div>Online: {scanner.isOnline ? 'Yes' : 'No'}</div>
+          <div>Retries: {scanner.retryCount}</div>
+          {scanner.error && <div className="text-red-400">Error: {scanner.error}</div>}
+        </div>
+      )}
     </div>
   );
 };
