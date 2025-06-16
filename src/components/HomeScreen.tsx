@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
-import { QrCode, Link, TestTube, Clock } from 'lucide-react';
+import { QrCode, Link, Clock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from '@/hooks/use-toast';
 import PromoBanner from './PromoBanner';
@@ -155,15 +155,6 @@ const HomeScreen = () => {
                   title="View payment history"
                 >
                   <Clock className="w-6 h-6 text-purple-600" />
-                </button>
-                
-                <button 
-                  onClick={() => navigate("/test")} 
-                  className="logo-glass p-3 hover:scale-110 transition-transform duration-200" 
-                  aria-label="Test Dashboard" 
-                  title="Test all backend functionality"
-                >
-                  <TestTube className="w-6 h-6 text-orange-600" />
                 </button>
               </div>
             </div>
