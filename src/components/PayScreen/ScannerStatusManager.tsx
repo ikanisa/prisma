@@ -3,8 +3,10 @@ import React from 'react';
 import ScannerStatusDisplay from './ScannerStatusDisplay';
 import ManualQRInput from './ManualQRInput';
 
+type ScanStatus = "idle" | "scanning" | "success" | "fail" | "processing";
+
 interface ScannerStatusManagerProps {
-  scanStatus: string;
+  scanStatus: ScanStatus;
   scanResult: string | null;
   scanAttempts: number;
   scanDuration: number;

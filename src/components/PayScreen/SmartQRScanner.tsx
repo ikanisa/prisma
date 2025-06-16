@@ -7,6 +7,8 @@ import ScannerCamera from "./ScannerCamera";
 import ScannerControls from "./ScannerControls";
 import ScannerStatusManager from "./ScannerStatusManager";
 
+type ScanStatus = "idle" | "scanning" | "success" | "fail" | "processing";
+
 interface SmartQRScannerProps {
   onBack: () => void;
 }
@@ -96,7 +98,7 @@ const SmartQRScanner: React.FC<SmartQRScannerProps> = ({ onBack }) => {
       
       {/* Status management */}
       <ScannerStatusManager
-        scanStatus={scanStatus}
+        scanStatus={scanStatus as ScanStatus}
         scanResult={scanResult}
         scanAttempts={scanAttempts}
         scanDuration={scanDuration}
