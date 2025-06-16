@@ -50,21 +50,21 @@ const AmountInput: React.FC<AmountInputProps> = ({
             ${value ? 'border-green-500 ring-4 ring-green-100 shadow-lg scale-[1.02] dark:ring-green-900' : 'border-gray-300 hover:border-gray-400 dark:border-gray-600 dark:hover:border-gray-500'}
             focus:outline-none focus:border-green-500 focus:ring-4 focus:ring-green-100 focus:shadow-lg focus:scale-[1.02]
             bg-white dark:bg-gray-800
-            text-gray-900 dark:text-white
+            !text-black dark:!text-white
             placeholder:text-gray-500 dark:placeholder:text-gray-400
           `}
           style={{
             fontSize: '24px',
             fontWeight: '800',
             caretColor: '#16a34a',
-            color: 'inherit',
+            color: '#000000',
             WebkitUserSelect: 'text',
             userSelect: 'text',
             pointerEvents: 'auto',
             WebkitAppearance: 'none',
             MozAppearance: 'textfield',
             WebkitTapHighlightColor: 'transparent',
-            WebkitTextFillColor: 'inherit'
+            WebkitTextFillColor: '#000000'
           }}
           type="tel"
           inputMode="numeric"

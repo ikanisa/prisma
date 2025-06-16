@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { X } from 'lucide-react';
 import { Input } from '../ui/input';
@@ -54,21 +53,21 @@ const PhoneInput: React.FC<PhoneInputProps> = ({
             ${isFocused ? 'border-blue-500 ring-4 ring-blue-100 shadow-lg scale-[1.02] dark:ring-blue-900' : 'border-gray-300 hover:border-gray-400 dark:border-gray-600 dark:hover:border-gray-500'}
             focus:outline-none
             bg-white dark:bg-gray-800
-            text-gray-900 dark:text-white
+            !text-black dark:!text-white
             placeholder:text-gray-500 dark:placeholder:text-gray-400
           `}
           style={{
             fontSize: '24px',
             fontWeight: '800',
             caretColor: '#2563eb',
-            color: 'inherit',
+            color: '#000000',
             WebkitUserSelect: 'text',
             userSelect: 'text',
             pointerEvents: 'auto',
             WebkitAppearance: 'none',
             MozAppearance: 'textfield',
             WebkitTapHighlightColor: 'transparent',
-            WebkitTextFillColor: 'inherit'
+            WebkitTextFillColor: '#000000'
           }}
           type="tel"
           inputMode="numeric"
