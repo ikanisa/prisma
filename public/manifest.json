@@ -1,8 +1,8 @@
 
 {
-  "name": "MoMo Pay",
-  "short_name": "MoMo",
-  "description": "Send & Receive Money. Instantly. Privately. A modern mobile money PWA for Africa.",
+  "name": "EasyMOMO",
+  "short_name": "EasyMOMO",
+  "description": "Pay . Get Paid . Instant . Secure. A way to pay your way.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
