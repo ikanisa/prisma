@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { X, Download, Share2, Copy, MessageCircle } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
@@ -86,21 +87,25 @@ const QRCodeModal: React.FC<QRCodeModalProps> = ({
             
             {/* Display the exact USSD string below QR */}
             <div className="mt-4 bg-gray-900 rounded-xl p-4">
-              <p className="text-white font-mono tracking-wide break-all text-sm font-medium">
+              <p className="text-white font-mono break-all text-base font-medium tracking-wide">
                 {ussdString}
               </p>
             </div>
           </div>
 
-          {/* Action Buttons */}
+          {/* Action Buttons - All three on one line */}
           <div className="grid grid-cols-3 gap-3">
             <Button variant="outline" onClick={handleDownloadQR} className="flex items-center justify-center gap-2" disabled={!qrResult?.qrCodeImage}>
               <Download className="w-4 h-4" />
             </Button>
             
-            
+            <Button variant="outline" onClick={handleCopyUSSD} className="flex items-center justify-center gap-2">
+              <Copy className="w-4 h-4" />
+            </Button>
 
-            
+            <Button variant="outline" onClick={handleCopyLink} className="flex items-center justify-center gap-2">
+              <Copy className="w-4 h-4" />
+            </Button>
           </div>
 
           {/* Share Options - All in one row */}
@@ -112,9 +117,7 @@ const QRCodeModal: React.FC<QRCodeModalProps> = ({
                 
                 
 
-                <Button onClick={handleCopyLink} variant="outline" className="flex items-center justify-center gap-2">
-                  <Copy className="w-4 h-4" />
-                </Button>
+                
               </div>
             </div>}
         </div>
