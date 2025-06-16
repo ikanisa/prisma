@@ -1,3 +1,4 @@
+
 import React, { useRef, useCallback, useState } from 'react';
 import { X } from 'lucide-react';
 import { Input } from '../ui/input';
@@ -46,7 +47,7 @@ const AmountInput: React.FC<AmountInputProps> = ({
       numericValue = numericValue.substring(1);
     }
     
-    // Allow up to 5,000,000 RWF (remove 3-digit restriction)
+    // Allow up to 5,000,000 RWF - no restriction on digits, just the final amount
     const numValue = parseFloat(numericValue);
     if (numericValue === '' || (!isNaN(numValue) && numValue >= 0 && numValue <= 5000000)) {
       onChange(numericValue);
@@ -130,7 +131,7 @@ const AmountInput: React.FC<AmountInputProps> = ({
             fontSize: '18px', // Prevent zoom on iOS
             WebkitAppearance: 'none'
           }}
-          type="number"
+          type="text"
           inputMode="decimal"
           pattern="[0-9]*"
           autoComplete="off"
@@ -139,7 +140,6 @@ const AmountInput: React.FC<AmountInputProps> = ({
           spellCheck="false"
           min="0"
           max="5000000"
-          step="any"
           readOnly={false}
           disabled={false}
         />
