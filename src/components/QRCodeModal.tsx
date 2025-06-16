@@ -1,10 +1,10 @@
-
 import React from 'react';
 import { X, Download, Share2, Copy, MessageCircle } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { Button } from './ui/button';
 import USSDDialButton from './USSDDialButton';
 import { useQRActions } from '@/hooks/useQRActions';
+
 interface QRCodeModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -93,27 +93,29 @@ const QRCodeModal: React.FC<QRCodeModalProps> = ({
             </div>
           </div>
 
-          {/* Action Buttons - All three on one line */}
-          <div className="grid grid-cols-3 gap-3">
-            <Button variant="outline" onClick={handleDownloadQR} className="flex items-center justify-center gap-2" disabled={!qrResult?.qrCodeImage}>
+          {/* Action Buttons - All four on one line */}
+          <div className="grid grid-cols-4 gap-2">
+            <Button variant="outline" size="sm" onClick={handleDownloadQR} className="flex items-center justify-center" disabled={!qrResult?.qrCodeImage}>
               <Download className="w-4 h-4" />
             </Button>
             
-            <Button variant="outline" onClick={handleCopyUSSD} className="flex items-center justify-center gap-2">
+            <Button variant="outline" size="sm" onClick={handleCopyUSSD} className="flex items-center justify-center">
               <Copy className="w-4 h-4" />
             </Button>
 
-            <Button variant="outline" onClick={handleCopyLink} className="flex items-center justify-center gap-2">
+            <Button variant="outline" size="sm" onClick={handleCopyLink} className="flex items-center justify-center">
               <Copy className="w-4 h-4" />
+            </Button>
+
+            <Button variant="outline" size="sm" onClick={handleShareWhatsApp} className="flex items-center justify-center">
+              <MessageCircle className="w-4 h-4" />
             </Button>
           </div>
 
-          {/* Share Options - All in one row */}
+          {/* Share Options - Remove since WhatsApp is now in the main button row */}
           {paymentLink && <div className="space-y-3">
               <div className="grid grid-cols-3 gap-3">
-                <Button onClick={handleShareWhatsApp} className="bg-green-500 hover:bg-green-600 text-white flex items-center justify-center gap-2">
-                  <MessageCircle className="w-4 h-4" />
-                </Button>
+                
                 
                 
 
