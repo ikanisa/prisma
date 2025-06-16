@@ -5,7 +5,7 @@ import { Button } from './ui/button';
 import { transactionService } from '@/services/transactionService';
 import { extractUSSDFromQR, validateUSSDFormat } from '@/utils/ussdHelper';
 import { toast } from '@/hooks/use-toast';
-import SmartQRScanner from './PayScreen/SmartQRScanner';
+import QRScanner from './PayScreen/QRScanner';
 
 interface EnhancedQRScannerProps {
   onScanResult: (ussdCode: string, transactionId?: string) => void;
@@ -16,7 +16,6 @@ const EnhancedQRScanner: React.FC<EnhancedQRScannerProps> = ({
   onScanResult,
   onClose
 }) => {
-  const [isScanning, setIsScanning] = useState(true);
   const [lastScanTime, setLastScanTime] = useState<number>(0);
 
   const handleScanSuccess = async (qrData: string) => {
@@ -41,9 +40,6 @@ const EnhancedQRScanner: React.FC<EnhancedQRScannerProps> = ({
       const ussdParts = ussdCode.match(/\*182\*1\*1\*(\d+)\*(\d+)#/);
       if (ussdParts) {
         const [, phone, amount] = ussdParts;
-        
-        // Find the corresponding payment request
-        // In a real app, you might need to match this more precisely
         
         toast({
           title: "QR Code Scanned!",
@@ -83,34 +79,7 @@ const EnhancedQRScanner: React.FC<EnhancedQRScannerProps> = ({
       </div>
 
       {/* QR Scanner */}
-      {isScanning && (
-        <SmartQRScanner 
-          onBack={onClose}
-        />
-      )}
-
-      {/* Instructions */}
-      <div className="absolute bottom-0 left-0 right-0 z-60 bg-gradient-to-t from-black/90 to-transparent p-6 safe-area-bottom">
-        <div className="text-center space-y-4">
-          <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4">
-            <h3 className="text-white font-semibold mb-2">How to scan:</h3>
-            <div className="text-white/90 text-sm space-y-1">
-              <p>1. Point camera at the QR code</p>
-              <p>2. Hold steady until detected</p>
-              <p>3. Tap to dial Mobile Money code</p>
-            </div>
-          </div>
-          
-          <Button
-            onClick={() => setIsScanning(!isScanning)}
-            variant="outline"
-            className="bg-white/20 border-white/30 text-white hover:bg-white/30"
-          >
-            <RefreshCw className="w-4 h-4 mr-2" />
-            {isScanning ? 'Stop Camera' : 'Start Camera'}
-          </Button>
-        </div>
-      </div>
+      <QRScanner onBack={onClose} />
     </div>
   );
 };

@@ -37,7 +37,7 @@ class QRScannerService {
           payment_status: 'scanned',
           launched_ussd: false
         })
-        .select()
+        .select('*')
         .single();
 
       if (error) {

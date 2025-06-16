@@ -25,7 +25,7 @@ export const transactionService = {
         payment_status: 'scanned',
         session_id: sessionId
       })
-      .select()
+      .select('*')
       .single();
 
     if (error) {
