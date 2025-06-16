@@ -1,3 +1,4 @@
+
 @tailwind components;
 
 @layer components {
@@ -76,5 +77,10 @@
     0%   { background-position: 38% 50%; filter: blur(16px) brightness(1.05);}
     66%  { background-position: 62% 42%; filter: blur(24px) brightness(1.11);}
     100% { background-position: 20% 84%; filter: blur(20px) brightness(0.99);}
+  }
+
+  @keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
   }
 }
