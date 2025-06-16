@@ -131,9 +131,8 @@ export class MobileCameraOptimizer {
       frameRate: this.currentSettings.frameRate
     };
 
-    if (this.currentSettings.autoFocus) {
-      videoConstraints.focusMode = 'auto';
-    }
+    // Note: focusMode is not supported in standard MediaTrackConstraints
+    // Auto focus is typically handled automatically by the camera
 
     return {
       video: videoConstraints,
