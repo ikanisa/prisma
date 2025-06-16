@@ -119,10 +119,7 @@ const AmountInput: React.FC<AmountInputProps> = ({
       </div>
       
       {/* RWF Currency Helper */}
-      <div className="flex items-center justify-between text-sm">
-        
-        {value}
-      </div>
+      
       
       {/* Validation hints */}
       {value && parseFloat(value.replace(/\s/g, '')) > 0 && <div className="text-xs text-gray-500 dark:text-gray-400">
