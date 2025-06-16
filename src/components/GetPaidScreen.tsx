@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { ArrowLeft, History, Share2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import PaymentForm from './GetPaidScreen/PaymentForm';
-import QRResult from './GetPaidScreen/QRResult';
+import QRCodeModal from './QRCodeModal';
 import RecentContacts from './RecentContacts';
 import PaymentConfirmationModal from './PaymentConfirmationModal';
 import MobileShareSheet from './MobileShareSheet';
@@ -18,6 +18,7 @@ const GetPaidScreen = () => {
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [showShareSheet, setShowShareSheet] = useState(false);
+  const [showQRModal, setShowQRModal] = useState(false);
   const [currentTransactionId, setCurrentTransactionId] = useState<string>();
   
   const {
@@ -54,9 +55,9 @@ const GetPaidScreen = () => {
       // Generate QR code
       await generateQR();
       
-      // Show confirmation modal after successful generation
+      // Show QR modal immediately after successful generation
       setTimeout(() => {
-        setShowConfirmation(true);
+        setShowQRModal(true);
       }, 500);
     } catch (error) {
       console.error('Failed to generate QR:', error);
@@ -116,12 +117,6 @@ const GetPaidScreen = () => {
           <PaymentRequestHistory />
         ) : (
           <div className="space-y-6">
-            {/* Recent Contacts */}
-            <RecentContacts 
-              onSelectContact={handleSelectContact}
-              currentPhone={phone}
-            />
-
             {/* Payment Form */}
             <PaymentForm
               phone={phone}
@@ -137,29 +132,29 @@ const GetPaidScreen = () => {
               onGenerateQR={handleGenerateQR}
             />
 
-            {/* QR Result with Share Button */}
+            {/* Share Button - only show if QR has been generated */}
             {(qrResult || paymentLink) && (
-              <div className="space-y-4">
-                <QRResult
-                  qrResult={qrResult}
-                  amount={amount}
-                  phone={phone}
-                  paymentLink={paymentLink}
-                />
-                
-                {/* Mobile Share Button */}
-                <button
-                  onClick={() => setShowShareSheet(true)}
-                  className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white rounded-2xl py-4 px-6 font-semibold flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transition-all"
-                >
-                  <Share2 className="w-5 h-5" />
-                  Share Payment Request
-                </button>
-              </div>
+              <button
+                onClick={() => setShowShareSheet(true)}
+                className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white rounded-2xl py-4 px-6 font-semibold flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transition-all"
+              >
+                <Share2 className="w-5 h-5" />
+                Share Payment Request
+              </button>
             )}
           </div>
         )}
       </div>
+
+      {/* QR Code Modal */}
+      <QRCodeModal
+        isOpen={showQRModal}
+        onClose={() => setShowQRModal(false)}
+        qrResult={qrResult}
+        amount={amount}
+        phone={phone}
+        paymentLink={paymentLink}
+      />
 
       {/* Mobile Share Sheet */}
       <MobileShareSheet

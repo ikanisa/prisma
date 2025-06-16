@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { QrCode } from 'lucide-react';
 import { Button } from '../ui/button';
@@ -5,6 +6,8 @@ import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Card, CardContent } from '../ui/card';
 import LoadingSpinner from '../LoadingSpinner';
+import RecentContactsDropdown from '../RecentContactsDropdown';
+import { useRecentContacts } from '../RecentContacts';
 import { formatCurrencyWithSpaces, unformatCurrencyWithSpaces } from '../../utils/formatCurrency';
 
 interface PaymentFormProps {
@@ -36,6 +39,10 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
 }) => {
   // State to track which field is focused for typing indicator
   const [focusedField, setFocusedField] = useState<null | 'phone' | 'amount'>(null);
+  const [showRecentContacts, setShowRecentContacts] = useState(false);
+  
+  // Get recent contacts data
+  const { contacts } = useRecentContacts();
 
   // Intercept input to format as currency
   const handleAmountInput = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -49,6 +56,39 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
       }
     } as React.ChangeEvent<HTMLInputElement>;
     onAmountChange(syntheticEvent);
+  };
+
+  const handlePhoneFocus = () => {
+    setFocusedField('phone');
+    setShowRecentContacts(true);
+    onPhoneFocus();
+  };
+
+  const handlePhoneBlur = () => {
+    // Delay hiding to allow click on dropdown
+    setTimeout(() => {
+      setFocusedField(null);
+      setShowRecentContacts(false);
+    }, 200);
+  };
+
+  const handleAmountFocus = () => {
+    setFocusedField('amount');
+    setShowRecentContacts(false);
+    onAmountFocus();
+  };
+
+  const handleAmountBlur = () => {
+    setFocusedField(null);
+  };
+
+  const handleSelectContact = (selectedPhone: string) => {
+    const syntheticEvent = {
+      target: { value: selectedPhone }
+    } as React.ChangeEvent<HTMLInputElement>;
+    onPhoneChange(syntheticEvent);
+    setShowRecentContacts(false);
+    setFocusedField(null);
   };
 
   const displayAmount = formatCurrencyWithSpaces(amount);
@@ -65,15 +105,12 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
               id="phone"
               value={phone}
               onChange={onPhoneChange}
-              onFocus={e => {
-                setFocusedField('phone');
-                onPhoneFocus();
-              }}
-              onBlur={() => setFocusedField(null)}
+              onFocus={handlePhoneFocus}
+              onBlur={handlePhoneBlur}
               placeholder="Enter mobile money number"
-              className={`text-lg transition-shadow ${
+              className={`text-lg transition-all duration-200 ${
                 focusedField === 'phone'
-                  ? 'ring-2 ring-blue-400 border-blue-500 shadow focus:ring-2'
+                  ? 'ring-2 ring-blue-400 border-blue-500 shadow-lg focus:ring-2'
                   : 'border-gray-300'
               }`}
               inputMode="numeric"
@@ -82,10 +119,20 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
               aria-label="Mobile money phone number"
             />
             {focusedField === 'phone' && (
-              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-blue-500 text-xs font-bold animate-pulse">
-                Typing...
-              </span>
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                <div className="w-1 h-5 bg-blue-500 animate-pulse"></div>
+                <span className="text-blue-500 text-xs font-bold">
+                  Typing...
+                </span>
+              </div>
             )}
+            
+            {/* Recent Contacts Dropdown */}
+            <RecentContactsDropdown
+              contacts={contacts}
+              onSelectContact={handleSelectContact}
+              isVisible={showRecentContacts}
+            />
           </div>
         </div>
 
@@ -98,16 +145,13 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
               id="amount"
               value={displayAmount}
               onChange={handleAmountInput}
-              onFocus={e => {
-                setFocusedField('amount');
-                onAmountFocus();
-              }}
-              onBlur={() => setFocusedField(null)}
+              onFocus={handleAmountFocus}
+              onBlur={handleAmountBlur}
               placeholder="Enter amount"
               type="text"
-              className={`text-lg transition-shadow ${
+              className={`text-lg transition-all duration-200 ${
                 focusedField === 'amount'
-                  ? 'ring-2 ring-blue-400 border-blue-500 shadow focus:ring-2'
+                  ? 'ring-2 ring-blue-400 border-blue-500 shadow-lg focus:ring-2'
                   : 'border-gray-300'
               }`}
               inputMode="numeric"
@@ -117,9 +161,12 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
               aria-label="Amount (RWF)"
             />
             {focusedField === 'amount' && (
-              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-blue-500 text-xs font-bold animate-pulse">
-                Typing...
-              </span>
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                <div className="w-1 h-5 bg-blue-500 animate-pulse"></div>
+                <span className="text-blue-500 text-xs font-bold">
+                  Typing...
+                </span>
+              </div>
             )}
           </div>
         </div>
