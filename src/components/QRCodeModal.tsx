@@ -4,7 +4,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { Button } from './ui/button';
 import USSDDialButton from './USSDDialButton';
 import { useQRActions } from '@/hooks/useQRActions';
-
 interface QRCodeModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -87,7 +86,7 @@ const QRCodeModal: React.FC<QRCodeModalProps> = ({
             
             {/* Display the exact USSD string below QR */}
             <div className="mt-4 bg-gray-900 rounded-xl p-4">
-              <p className="text-white font-mono break-all text-lg font-medium tracking-wide">
+              <p className="text-white font-mono break-all tracking-wide text-xs font-normal">
                 {ussdString}
               </p>
             </div>
