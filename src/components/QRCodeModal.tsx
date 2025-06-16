@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { X, Download, Share2, Copy } from 'lucide-react';
+import { X, Download, Share2, Copy, MessageCircle } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { Button } from './ui/button';
 import USSDDialButton from './USSDDialButton';
@@ -132,15 +132,15 @@ const QRCodeModal: React.FC<QRCodeModalProps> = ({
             </Button>
           </div>
 
-          {/* Share Options */}
+          {/* Share Options - All in one row */}
           {paymentLink && (
             <div className="space-y-3">
-              <div className="grid grid-cols-1 gap-3">
+              <div className="grid grid-cols-3 gap-3">
                 <Button 
                   onClick={handleShareWhatsApp} 
                   className="bg-green-500 hover:bg-green-600 text-white flex items-center justify-center gap-2"
                 >
-                  <Share2 className="w-4 h-4" />
+                  <MessageCircle className="w-4 h-4" />
                 </Button>
                 
                 <Button 
