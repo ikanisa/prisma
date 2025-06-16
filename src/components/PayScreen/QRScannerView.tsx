@@ -1,5 +1,5 @@
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 
 interface QRScannerViewProps {
   isLoading: boolean;
@@ -18,12 +18,28 @@ const QRScannerView: React.FC<QRScannerViewProps> = ({
   videoRef,
   onScannerReady
 }) => {
+  const mountedRef = useRef(false);
+
   useEffect(() => {
+    mountedRef.current = true;
+    
     // Notify parent when scanner element is ready
-    if (scannerElementRef.current && onScannerReady) {
-      onScannerReady();
-    }
-  }, [scannerElementRef.current, onScannerReady]);
+    const checkReady = () => {
+      if (mountedRef.current && scannerElementRef.current && onScannerReady) {
+        console.log('QRScannerView: Scanner element ready, notifying parent');
+        onScannerReady();
+      }
+    };
+
+    // Check immediately and after a short delay
+    checkReady();
+    const timeoutId = setTimeout(checkReady, 100);
+
+    return () => {
+      mountedRef.current = false;
+      clearTimeout(timeoutId);
+    };
+  }, [scannerElementRef, onScannerReady]);
 
   const getLightingTips = () => {
     switch (lightingCondition) {
@@ -38,6 +54,21 @@ const QRScannerView: React.FC<QRScannerViewProps> = ({
     }
   };
 
+  const getRingColor = () => {
+    switch (lightingCondition) {
+      case 'dark': return 'ring-yellow-400/50';
+      case 'bright': return 'ring-blue-400/50';
+      default: return 'ring-blue-500/50';
+    }
+  };
+
+  const getDropShadowColor = () => {
+    switch (lightingCondition) {
+      case 'dark': return 'rgba(250, 204, 21, 0.5)';
+      default: return 'rgba(59, 130, 246, 0.5)';
+    }
+  };
+
   return (
     <div className="w-full max-w-sm mx-auto">
       {/* Scanner Container with enhanced styling */}
@@ -45,27 +76,39 @@ const QRScannerView: React.FC<QRScannerViewProps> = ({
         <div 
           id="qr-reader" 
           ref={scannerElementRef}
-          className={`w-full rounded-2xl overflow-hidden shadow-2xl ${
-            lightingCondition === 'dark' ? 'ring-2 ring-yellow-400/50' :
-            lightingCondition === 'bright' ? 'ring-2 ring-blue-400/50' :
-            'ring-2 ring-blue-500/50'
-          }`}
+          className={`w-full rounded-2xl overflow-hidden shadow-2xl ${getRingColor()}`}
           style={{ 
             minHeight: '300px',
-            filter: `drop-shadow(0 0 20px ${
-              lightingCondition === 'dark' ? 'rgba(250, 204, 21, 0.5)' : 
-              'rgba(59, 130, 246, 0.5)'
-            })` 
+            filter: `drop-shadow(0 0 20px ${getDropShadowColor()})` 
           }}
         />
         
-        <video ref={videoRef} style={{ display: 'none' }} />
+        {/* Hidden video element for enhanced camera service */}
+        <video 
+          ref={videoRef} 
+          style={{ display: 'none' }}
+          playsInline
+          muted
+          autoPlay
+        />
         
         {isLoading && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/80 rounded-2xl">
             <div className="text-center text-white">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-2"></div>
               <p>Starting camera...</p>
+              {retryCount > 0 && (
+                <p className="text-sm text-gray-300 mt-1">Attempt {retryCount + 1}</p>
+              )}
+            </div>
+          </div>
+        )}
+        
+        {/* Scanning overlay when not loading */}
+        {!isLoading && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div className="w-48 h-48 border-2 border-white/50 rounded-lg">
+              <div className="w-full h-full border-4 border-transparent border-t-blue-500 border-l-blue-500 rounded-lg animate-pulse"></div>
             </div>
           </div>
         )}

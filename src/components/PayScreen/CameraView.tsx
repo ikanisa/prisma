@@ -1,21 +1,65 @@
 
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
+import { CameraService } from '@/services/CameraService';
 
 interface CameraViewProps {
   isScanning: boolean;
   scanResult: string | null;
   onRetry: () => void;
+  videoRef?: React.RefObject<HTMLVideoElement>;
 }
 
 const CameraView: React.FC<CameraViewProps> = ({
   isScanning,
   scanResult,
-  onRetry
+  onRetry,
+  videoRef
 }) => {
+  const localVideoRef = useRef<HTMLVideoElement>(null);
+  const activeVideoRef = videoRef || localVideoRef;
+
+  useEffect(() => {
+    let mounted = true;
+
+    const initCamera = async () => {
+      if (isScanning && activeVideoRef.current) {
+        try {
+          console.log('CameraView: Initializing camera...');
+          const success = await CameraService.startCamera(activeVideoRef);
+          if (!success && mounted) {
+            console.error('CameraView: Failed to start camera');
+          }
+        } catch (error) {
+          console.error('CameraView: Camera initialization error:', error);
+        }
+      }
+    };
+
+    initCamera();
+
+    return () => {
+      mounted = false;
+      if (!isScanning) {
+        CameraService.stopCamera(activeVideoRef);
+      }
+    };
+  }, [isScanning, activeVideoRef]);
+
   return (
     <div className="relative w-full h-full">
-      <div className="flex items-center justify-center h-full bg-black/20 rounded-2xl">
+      {/* Video Element */}
+      <video
+        ref={activeVideoRef}
+        className="w-full h-full object-cover rounded-2xl"
+        playsInline
+        muted
+        autoPlay
+        style={{ display: isScanning ? 'block' : 'none' }}
+      />
+      
+      {/* Status Overlay */}
+      <div className="absolute inset-0 flex items-center justify-center bg-black/20 rounded-2xl">
         <div className="text-center text-white p-8">
           {isScanning ? (
             <>
