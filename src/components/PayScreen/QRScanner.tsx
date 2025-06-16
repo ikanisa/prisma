@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef, useState } from 'react';
 import { Html5QrcodeScanner } from 'html5-qrcode';
 import { ArrowLeft, RotateCcw } from 'lucide-react';
@@ -6,6 +5,8 @@ import { qrScannerService, ScanTransaction } from '@/services/qrScannerService';
 import { feedbackService } from '@/services/feedbackService';
 import EnhancedFlashlightButton from './EnhancedFlashlightButton';
 import { EnhancedCameraService } from '@/services/EnhancedCameraService';
+import { usePerformanceMonitoring } from '@/hooks/usePerformanceMonitoring';
+import { errorMonitoringService } from '@/services/errorMonitoringService';
 
 interface QRScannerProps {
   onBack: () => void;
@@ -19,10 +20,13 @@ const QRScanner: React.FC<QRScannerProps> = ({ onBack }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [lightingCondition, setLightingCondition] = useState<string>('normal');
   const [torchUsed, setTorchUsed] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
   
   const scannerRef = useRef<Html5QrcodeScanner | null>(null);
   const scannerElementRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  
+  const { trackUserAction } = usePerformanceMonitoring('QRScanner');
 
   useEffect(() => {
     initializeScanner();
@@ -36,94 +40,151 @@ const QRScanner: React.FC<QRScannerProps> = ({ onBack }) => {
 
     setIsLoading(true);
     setError(null);
+    trackUserAction('scanner_initialize');
 
     try {
-      // Initialize enhanced camera
-      await EnhancedCameraService.initializeCameraWithEnhancements(videoRef);
-    } catch (error) {
-      console.log('Enhanced camera initialization failed, falling back to standard:', error);
-    }
-
-    const config = {
-      fps: 10,
-      qrbox: { width: 280, height: 280 },
-      aspectRatio: 1.0,
-      experimentalFeatures: {
-        useBarCodeDetectorIfSupported: true
+      // Initialize enhanced camera with error handling
+      try {
+        await EnhancedCameraService.initializeCameraWithEnhancements(videoRef);
+        trackUserAction('enhanced_camera_success');
+      } catch (error) {
+        console.log('Enhanced camera initialization failed, falling back to standard:', error);
+        errorMonitoringService.logError(error as Error, 'enhanced_camera_init');
+        trackUserAction('enhanced_camera_fallback');
       }
-    };
 
-    scannerRef.current = new Html5QrcodeScanner("qr-reader", config, false);
-    
-    scannerRef.current.render(
-      (decodedText) => handleScanSuccess(decodedText),
-      (errorMessage) => {
-        if (!errorMessage.includes('No QR code found')) {
-          console.log('QR scan error:', errorMessage);
+      const config = {
+        fps: 10,
+        qrbox: { width: 280, height: 280 },
+        aspectRatio: 1.0,
+        experimentalFeatures: {
+          useBarCodeDetectorIfSupported: true
         }
-      }
-    );
+      };
 
-    setTimeout(() => setIsLoading(false), 2000);
+      scannerRef.current = new Html5QrcodeScanner("qr-reader", config, false);
+      
+      scannerRef.current.render(
+        (decodedText) => handleScanSuccess(decodedText),
+        (errorMessage) => {
+          if (!errorMessage.includes('No QR code found')) {
+            console.log('QR scan error:', errorMessage);
+            if (retryCount < 3) {
+              setRetryCount(prev => prev + 1);
+            }
+          }
+        }
+      );
+
+      setTimeout(() => {
+        setIsLoading(false);
+        trackUserAction('scanner_ready');
+      }, 2000);
+
+    } catch (error) {
+      setIsLoading(false);
+      setError('Failed to initialize camera. Please check permissions.');
+      errorMonitoringService.logError(error as Error, 'scanner_initialization');
+      trackUserAction('scanner_init_error');
+    }
   };
 
   const handleScanSuccess = async (decodedText: string) => {
     console.log('QR Code scanned:', decodedText);
+    trackUserAction('qr_scan_success', { codeLength: decodedText.length });
     
     setScannedCode(decodedText);
     setIsScanning(false);
     
     feedbackService.successFeedback();
     
-    // Log to Supabase with lighting conditions
-    const transaction = await qrScannerService.logScan(decodedText);
-    if (transaction) {
-      setCurrentTransaction(transaction);
-      
-      // Update with lighting data
-      try {
-        await qrScannerService.updateLightingData(transaction.id, lightingCondition, torchUsed);
-      } catch (error) {
-        console.log('Failed to update lighting data:', error);
+    // Log to Supabase with retry and error handling
+    try {
+      const transaction = await qrScannerService.logScan(decodedText);
+      if (transaction) {
+        setCurrentTransaction(transaction);
+        trackUserAction('transaction_logged');
+        
+        // Update with lighting data (non-blocking)
+        try {
+          const lightingUpdateSuccess = await qrScannerService.updateLightingData(
+            transaction.id, 
+            lightingCondition, 
+            torchUsed
+          );
+          if (lightingUpdateSuccess) {
+            trackUserAction('lighting_data_updated');
+          }
+        } catch (error) {
+          // Don't block the main flow for lighting data failures
+          console.log('Failed to update lighting data:', error);
+        }
+      } else {
+        setError('Failed to log scan. You can still proceed with payment.');
+        trackUserAction('transaction_log_failed');
       }
+    } catch (error) {
+      console.error('Error during scan processing:', error);
+      setError('Scan successful but logging failed. You can still proceed.');
+      errorMonitoringService.logError(error as Error, 'scan_processing');
     }
 
     if (scannerRef.current) {
-      scannerRef.current.clear();
+      try {
+        scannerRef.current.clear();
+      } catch (error) {
+        console.log('Error clearing scanner:', error);
+      }
     }
   };
 
   const handleLaunchMoMo = async () => {
     if (!scannedCode || !currentTransaction) return;
 
+    trackUserAction('momo_launch_attempt');
+
     try {
       const telURI = qrScannerService.createTelURI(scannedCode);
-      await qrScannerService.markUSSDLaunched(currentTransaction.id);
+      
+      // Mark USSD launched with retry
+      const launchSuccess = await qrScannerService.markUSSDLaunched(currentTransaction.id);
+      if (launchSuccess) {
+        trackUserAction('ussd_marked_launched');
+      }
+      
       window.location.href = telURI;
+      trackUserAction('momo_launch_success');
     } catch (error) {
       console.error('Failed to launch MoMo:', error);
-      setError('Failed to launch MoMo dialer');
+      setError('Failed to launch MoMo dialer. Please try again.');
+      errorMonitoringService.logError(error as Error, 'momo_launch');
+      trackUserAction('momo_launch_error');
     }
   };
 
   const handleRescan = () => {
+    trackUserAction('rescan_requested');
     setScannedCode(null);
     setCurrentTransaction(null);
     setError(null);
     setIsScanning(true);
     setTorchUsed(false);
+    setRetryCount(0);
     initializeScanner();
   };
 
   const handleTorchToggle = (enabled: boolean) => {
     setTorchUsed(enabled);
+    trackUserAction('torch_toggle', { enabled });
   };
 
   const handleLightingChange = (condition: string) => {
     setLightingCondition(condition);
+    trackUserAction('lighting_change', { condition });
   };
 
   const cleanup = () => {
+    trackUserAction('scanner_cleanup');
     if (scannerRef.current) {
       try {
         scannerRef.current.clear();
@@ -224,6 +285,11 @@ const QRScanner: React.FC<QRScannerProps> = ({ onBack }) => {
                 {lightingCondition === 'bright' && 'Bright light detected - '}
                 Position the QR code within the frame
               </p>
+              {retryCount > 0 && (
+                <p className="text-yellow-300 text-xs mt-1">
+                  Scanning attempt {retryCount + 1}/4
+                </p>
+              )}
             </div>
 
             {/* Adaptive Tips based on lighting */}

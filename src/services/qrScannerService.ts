@@ -1,6 +1,8 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import type { Tables, TablesUpdate } from '@/integrations/supabase/types';
+import { withRetry, isRetryableError } from '@/utils/retryMechanism';
+import { errorMonitoringService } from './errorMonitoringService';
 
 export interface ScanTransaction {
   id: string;
@@ -30,82 +32,111 @@ class QRScannerService {
 
   async logScan(scannedCode: string): Promise<ScanTransaction | null> {
     try {
-      const { data, error } = await supabase
-        .from('transactions')
-        .insert({
-          scanned_code: scannedCode,
-          session_id: this.sessionId,
-          payment_status: 'scanned',
-          launched_ussd: false
-        })
-        .select('id, scanned_code, scanned_at, launched_ussd, payment_status, payer_number, session_id')
-        .single();
+      return await withRetry(async () => {
+        const { data, error } = await supabase
+          .from('transactions')
+          .insert({
+            scanned_code: scannedCode,
+            session_id: this.sessionId,
+            payment_status: 'scanned',
+            launched_ussd: false
+          })
+          .select('id, scanned_code, scanned_at, launched_ussd, payment_status, payer_number, session_id')
+          .single();
 
-      if (error) {
-        console.error('Failed to log scan:', error);
-        return null;
-      }
+        if (error) {
+          errorMonitoringService.logSupabaseError('logScan', error);
+          throw error;
+        }
 
-      return data;
+        return data;
+      }, { maxAttempts: 3, delay: 1000 });
     } catch (error) {
-      console.error('Error logging scan:', error);
+      errorMonitoringService.logError(error as Error, 'qr_scan_logging', {
+        scannedCode: scannedCode.substring(0, 50), // Log partial code for privacy
+        sessionId: this.sessionId
+      });
       return null;
     }
   }
 
   async updateLightingData(transactionId: string, lightingCondition: string, torchUsed: boolean): Promise<boolean> {
     try {
-      const updateData: TablesUpdate<'transactions'> = {
-        lighting_conditions: lightingCondition,
-        torch_used: torchUsed
-      };
+      return await withRetry(async () => {
+        const updateData: TablesUpdate<'transactions'> = {
+          lighting_conditions: lightingCondition,
+          torch_used: torchUsed
+        };
 
-      const { error } = await supabase
-        .from('transactions')
-        .update(updateData)
-        .eq('id', transactionId);
+        const { error } = await supabase
+          .from('transactions')
+          .update(updateData)
+          .eq('id', transactionId);
 
-      if (error) {
-        console.error('Failed to update lighting data:', error);
-        return false;
-      }
+        if (error) {
+          errorMonitoringService.logSupabaseError('updateLightingData', error);
+          throw error;
+        }
 
-      return true;
+        return true;
+      }, { maxAttempts: 2, delay: 500 });
     } catch (error) {
-      console.error('Error updating lighting data:', error);
+      errorMonitoringService.logError(error as Error, 'lighting_data_update', {
+        transactionId,
+        lightingCondition,
+        torchUsed
+      });
       return false;
     }
   }
 
   async markUSSDLaunched(transactionId: string): Promise<boolean> {
     try {
-      const { error } = await supabase
-        .from('transactions')
-        .update({
-          launched_ussd: true,
-          payment_status: 'launched'
-        })
-        .eq('id', transactionId);
+      return await withRetry(async () => {
+        const { error } = await supabase
+          .from('transactions')
+          .update({
+            launched_ussd: true,
+            payment_status: 'launched'
+          })
+          .eq('id', transactionId);
 
-      if (error) {
-        console.error('Failed to mark USSD launched:', error);
-        return false;
-      }
+        if (error) {
+          errorMonitoringService.logSupabaseError('markUSSDLaunched', error);
+          throw error;
+        }
 
-      return true;
+        return true;
+      }, { maxAttempts: 3, delay: 1000 });
     } catch (error) {
-      console.error('Error marking USSD launched:', error);
+      errorMonitoringService.logError(error as Error, 'ussd_launch_tracking', {
+        transactionId
+      });
       return false;
     }
   }
 
   extractPayerNumber(ussdCode: string): string | null {
-    const phoneMatch = ussdCode.match(/\*182\*1\*1\*(\d+)\*/);
-    return phoneMatch ? phoneMatch[1] : null;
+    try {
+      const phoneMatch = ussdCode.match(/\*182\*1\*1\*(\d+)\*/);
+      return phoneMatch ? phoneMatch[1] : null;
+    } catch (error) {
+      errorMonitoringService.logError(error as Error, 'payer_number_extraction', {
+        ussdCodeLength: ussdCode.length
+      });
+      return null;
+    }
   }
 
   createTelURI(ussdCode: string): string {
-    return `tel:${encodeURIComponent(ussdCode)}`;
+    try {
+      return `tel:${encodeURIComponent(ussdCode)}`;
+    } catch (error) {
+      errorMonitoringService.logError(error as Error, 'tel_uri_creation', {
+        ussdCodeLength: ussdCode.length
+      });
+      return `tel:${ussdCode}`; // Fallback without encoding
+    }
   }
 }
 
