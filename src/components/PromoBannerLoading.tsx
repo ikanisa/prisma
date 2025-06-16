@@ -1,7 +1,6 @@
 
 import React from "react";
 import { Minus } from "lucide-react";
-import { Button } from "./ui/button";
 
 const DUMMY_GRADIENT = ["#396afc", "#2948ff", "#AD00FF"];
 const DUMMY_AD = {
@@ -49,14 +48,6 @@ const PromoBannerLoading: React.FC<PromoBannerLoadingProps> = ({ onMinimize }) =
           <div className="text-white/90 text-sm mt-1 line-clamp-2">
             {DUMMY_AD.description}
           </div>
-          <Button
-            variant="secondary"
-            size="sm"
-            className="mt-4 glow pointer-events-none opacity-80"
-            disabled
-          >
-            {DUMMY_AD.ctaLabel}
-          </Button>
         </div>
       </div>
     </div>

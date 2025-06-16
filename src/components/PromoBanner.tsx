@@ -2,7 +2,6 @@
 import React, { useEffect, useState, useRef } from "react";
 import { fetchAds } from "@/services/firestore";
 import { ArrowLeft, ArrowRight, Minus } from "lucide-react";
-import { Button } from "./ui/button";
 import PromoBannerMinimized from "./PromoBannerMinimized";
 import PromoBannerLoading from "./PromoBannerLoading";
 
@@ -117,24 +116,6 @@ const PromoBanner: React.FC = () => {
   const handleMinimize = () => setMinimized(true);
   const handleRestore = () => setMinimized(false);
 
-  const handleCtaClick = (ctaLink: string) => {
-    if (ctaLink === "/pay") {
-      window.location.href = "/pay";
-    } else if (ctaLink === "#share") {
-      if (navigator.share) {
-        navigator.share({
-          title: "easyMOMO - Mobile Money Made Easy",
-          text: "Fast, secure mobile money payments with no extra fees!",
-          url: window.location.origin
-        });
-      } else {
-        navigator.clipboard.writeText(window.location.origin);
-      }
-    } else if (ctaLink !== "#") {
-      window.open(ctaLink, "_blank");
-    }
-  };
-
   // -------------------- Minimized Banner ----------------------------
   if (minimized) {
     return <PromoBannerMinimized onRestore={handleRestore} />;
@@ -200,15 +181,6 @@ const PromoBanner: React.FC = () => {
           <div className="text-white/90 text-sm mt-1 line-clamp-2">
             {activeAd.description}
           </div>
-          <Button
-            variant="secondary"
-            size="sm"
-            className="mt-4 glow hover:scale-110 transition-transform"
-            onClick={() => handleCtaClick(activeAd.ctaLink)}
-            aria-label={`Open promotion: ${activeAd.ctaLabel}`}
-          >
-            {activeAd.ctaLabel}
-          </Button>
         </div>
 
         {/* Right arrow */}
