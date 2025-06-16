@@ -13,12 +13,14 @@ const Input = React.forwardRef<HTMLInputElement, React.ComponentProps<"input">>(
           className
         )}
         style={{
-          caretColor: 'currentColor',
-          color: 'inherit',
-          WebkitUserSelect: 'text',
-          userSelect: 'text',
-          pointerEvents: 'auto',
-          WebkitTapHighlightColor: 'transparent',
+          caretColor: 'currentColor !important',
+          color: 'inherit !important',
+          WebkitUserSelect: 'text !important',
+          userSelect: 'text !important',
+          pointerEvents: 'auto !important',
+          WebkitTapHighlightColor: 'transparent !important',
+          WebkitAppearance: 'none !important',
+          WebkitTextFillColor: 'inherit !important',
           ...props.style
         }}
         ref={ref}

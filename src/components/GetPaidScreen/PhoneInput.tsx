@@ -60,13 +60,15 @@ const PhoneInput: React.FC<PhoneInputProps> = ({
           style={{
             fontSize: '24px',
             fontWeight: '800',
-            caretColor: '#2563eb',
-            color: 'inherit',
-            WebkitUserSelect: 'text',
-            userSelect: 'text',
-            pointerEvents: 'auto',
-            WebkitAppearance: 'none',
-            MozAppearance: 'textfield'
+            caretColor: '#2563eb !important',
+            color: 'inherit !important',
+            WebkitUserSelect: 'text !important',
+            userSelect: 'text !important',
+            pointerEvents: 'auto !important',
+            WebkitAppearance: 'none !important',
+            MozAppearance: 'textfield !important',
+            WebkitTapHighlightColor: 'transparent !important',
+            WebkitTextFillColor: 'inherit !important'
           }}
           type="tel"
           inputMode="numeric"
