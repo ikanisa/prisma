@@ -49,7 +49,7 @@ const PhoneInput: React.FC<PhoneInputProps> = ({
     }, 10);
   }, [onChange, triggerHapticFeedback]);
   return <div className="space-y-3 animate-fade-in">
-      <Label htmlFor="phone" className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate block">
+      <Label htmlFor="phone" className="text-base font-medium text-gray-800 dark:text-gray-200 truncate block">
         Phone Number or Pay Code
       </Label>
       
