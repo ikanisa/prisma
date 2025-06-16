@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { QrCode } from 'lucide-react';
 import { Button } from '../ui/button';
@@ -57,14 +58,12 @@ const GenerateButton: React.FC<GenerateButtonProps> = ({
           mobile-button touch-action-manipulation
           transform-gpu border-0
           ${isDisabled ? 'bg-gray-300 text-gray-500 cursor-not-allowed dark:bg-gray-700 dark:text-gray-400 shadow-none' : `
-              bg-gradient-to-r from-blue-600 to-yellow-500 
-              hover:from-blue-700 hover:to-yellow-600 
-              active:from-blue-800 active:to-yellow-700
+              bg-gradient-to-r from-[#00A5E1] via-[#FAD300] to-[#1A603A] 
+              hover:from-[#0090C7] hover:via-[#E6BF00] hover:to-[#145030] 
+              active:from-[#007BB0] active:via-[#D4AA00] active:to-[#0F4025]
               text-white shadow-xl hover:shadow-2xl 
               hover:scale-[1.02] active:scale-[0.98]
-              dark:from-blue-500 dark:to-yellow-400
-              dark:hover:from-blue-600 dark:hover:to-yellow-500
-              ring-4 ring-blue-500/20 hover:ring-blue-500/30
+              ring-4 ring-[#00A5E1]/20 hover:ring-[#00A5E1]/30
             `}
         `} type="button" style={{
       minHeight: '64px'
