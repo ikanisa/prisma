@@ -60,37 +60,54 @@ const GenerateButton: React.FC<GenerateButtonProps> = ({
   return (
     <div className="space-y-3 animate-fade-in">
       <div className="relative group">
-        {/* Liquid glass background with animated gradient */}
+        {/* Animated liquid glass background with dynamic gradients */}
         <div className={`
-          absolute inset-0 rounded-2xl transition-all duration-500 ease-out
+          absolute inset-0 rounded-2xl transition-all duration-500 ease-out overflow-hidden
           ${isDisabled ? 
             'bg-gray-300 dark:bg-gray-700' : 
-            'liquid-glass-panel bg-gradient-to-r from-[#00A5E1]/80 via-[#FAD300]/80 to-[#1A603A]/80 group-hover:from-[#0090C7]/90 group-hover:via-[#E6BF00]/90 group-hover:to-[#145030]/90'
+            'liquid-glass-panel'
           }
-        `} />
-        
-        {/* Animated liquid flow overlay */}
-        {!isDisabled && (
-          <div className="absolute inset-0 rounded-2xl overflow-hidden">
-            <div className={`
-              absolute inset-0 opacity-30 transition-opacity duration-700
-              bg-gradient-to-r from-transparent via-white/20 to-transparent
-              animate-[shimmer_3s_ease-in-out_infinite]
-              ${isGenerating ? 'opacity-60' : 'group-hover:opacity-50'}
-            `} 
-            style={{
-              background: 'linear-gradient(45deg, transparent 30%, rgba(255,255,255,0.3) 50%, transparent 70%)',
-              transform: 'translateX(-100%)',
-              animation: isGenerating ? 'shimmer 1.5s ease-in-out infinite' : 'none'
-            }} />
-          </div>
-        )}
+        `}>
+          {!isDisabled && (
+            <>
+              {/* Primary animated gradient layer */}
+              <div className="absolute inset-0 opacity-80 animate-[gradientFlow_8s_ease-in-out_infinite]"
+                style={{
+                  background: 'linear-gradient(45deg, #00A5E1, #FAD300, #1A603A, #FF6B35, #9B59B6, #00A5E1)',
+                  backgroundSize: '300% 300%'
+                }} />
+              
+              {/* Secondary flowing gradient overlay */}
+              <div className="absolute inset-0 opacity-60 animate-[gradientFlow_12s_ease-in-out_infinite_reverse]"
+                style={{
+                  background: 'linear-gradient(135deg, #E74C3C, #3498DB, #2ECC71, #F39C12, #9B59B6, #E74C3C)',
+                  backgroundSize: '400% 400%'
+                }} />
+              
+              {/* Shimmer effect overlay */}
+              <div className={`
+                absolute inset-0 opacity-40 transition-opacity duration-700
+                ${isGenerating ? 'animate-[shimmer_1s_linear_infinite]' : 'animate-[shimmer_4s_ease-in-out_infinite]'}
+              `}
+              style={{
+                background: 'linear-gradient(45deg, transparent 30%, rgba(255,255,255,0.6) 50%, transparent 70%)',
+                backgroundSize: '200% 200%'
+              }} />
+              
+              {/* Pulsing glow effect */}
+              <div className="absolute inset-0 animate-[pulse_3s_ease-in-out_infinite] opacity-30"
+                style={{
+                  background: 'radial-gradient(circle at center, rgba(255,255,255,0.4) 0%, transparent 70%)'
+                }} />
+            </>
+          )}
+        </div>
         
         <Button
           onClick={handleClick}
           disabled={isDisabled}
           className={`
-            relative w-full h-16 text-lg font-bold rounded-2xl
+            relative w-full h-16 text-lg font-bold rounded-2xl z-10
             transition-all duration-500 ease-out
             mobile-button touch-action-manipulation
             transform-gpu border-0 backdrop-blur-lg
@@ -99,7 +116,7 @@ const GenerateButton: React.FC<GenerateButtonProps> = ({
               `bg-transparent text-white shadow-2xl 
                hover:shadow-[0_20px_40px_rgba(0,165,225,0.4)]
                hover:scale-[1.02] active:scale-[0.98]
-               ring-2 ring-white/20 hover:ring-white/40
+               ring-2 ring-white/30 hover:ring-white/50
                group-hover:backdrop-blur-xl`
             }
           `}
@@ -109,12 +126,12 @@ const GenerateButton: React.FC<GenerateButtonProps> = ({
           {isGenerating ? (
             <div className="flex items-center justify-center gap-3 animate-fade-in">
               <LoadingSpinner />
-              <span className="animate-pulse">Generating QR Code...</span>
+              <span className="animate-pulse font-bold text-white drop-shadow-lg">Generating QR Code...</span>
             </div>
           ) : (
             <div className="flex items-center justify-center gap-3 relative z-10">
-              <QrCode className="w-7 h-7 drop-shadow-lg" />
-              <span className="text-lg drop-shadow-lg">Generate Payment QR</span>
+              <QrCode className="w-7 h-7 drop-shadow-lg text-white" />
+              <span className="text-lg font-bold text-white drop-shadow-lg">Generate Payment QR</span>
             </div>
           )}
         </Button>
