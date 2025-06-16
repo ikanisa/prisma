@@ -14,6 +14,8 @@ import SharedPaymentPage from "./components/SharedPaymentPage";
 import PaymentHistory from "./components/PaymentHistory";
 import TestDashboard from "./components/TestDashboard";
 import NotFound from "./pages/NotFound";
+import Login from "./pages/Login";
+import Verified from "./pages/Verified";
 import { analyticsService } from "./services/analyticsService";
 import "./services/errorMonitoringService"; // Initialize error monitoring
 
@@ -82,6 +84,8 @@ const App = () => {
                   <Route path="/shared/:linkToken" element={<SharedPaymentPage />} />
                   <Route path="/history" element={<PaymentHistory />} />
                   <Route path="/test" element={<TestDashboard />} />
+                  <Route path="/login" element={<Login />} />
+                  <Route path="/verified" element={<Verified />} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </BrowserRouter>
