@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { QrCode, Link, Clock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -155,7 +156,7 @@ const HomeScreen = () => {
               <div className="flex space-x-4">
                 <button 
                   onClick={handleShare} 
-                  className="logo-glass p-3 hover:scale-110 transition-transform duration-200" 
+                  className="logo-glass p-3 hover:scale-110 transition-transform duration-700" 
                   aria-label={t("home.shareApp")}
                 >
                   <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -171,7 +172,7 @@ const HomeScreen = () => {
                 
                 <button 
                   onClick={openWhatsApp} 
-                  className="logo-glass p-3 hover:scale-110 transition-transform duration-200" 
+                  className="logo-glass p-3 hover:scale-110 transition-transform duration-700" 
                   aria-label={t("home.joinWhatsapp")}
                 >
                   <svg className="w-6 h-6 text-green-600" viewBox="0 0 32 32" fill="currentColor" aria-hidden="true" focusable="false">
@@ -184,7 +185,7 @@ const HomeScreen = () => {
                 
                 <button 
                   onClick={() => navigate("/history")} 
-                  className="logo-glass p-3 hover:scale-110 transition-transform duration-200" 
+                  className="logo-glass p-3 hover:scale-110 transition-transform duration-700" 
                   aria-label="Payment History" 
                   title="View payment history"
                 >
