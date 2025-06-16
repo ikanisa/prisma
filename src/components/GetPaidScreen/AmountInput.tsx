@@ -1,3 +1,4 @@
+
 import React, { useRef, useCallback, useState } from 'react';
 import { X } from 'lucide-react';
 import { Input } from '../ui/input';
@@ -88,7 +89,7 @@ const AmountInput: React.FC<AmountInputProps> = ({
       
       <div className="relative">
         <Input ref={inputRef} id="amount" value={displayValue} onChange={handleInputChange} onFocus={handleFocus} onBlur={handleBlur} placeholder="Enter Amount" className={`
-            h-14 text-lg font-medium text-right pr-12 pl-4
+            h-16 text-2xl font-bold text-right pr-12 pl-4
             transition-all duration-300 ease-in-out
             border-2 rounded-xl
             mobile-input touch-action-manipulation
@@ -98,7 +99,8 @@ const AmountInput: React.FC<AmountInputProps> = ({
             text-gray-900 dark:text-gray-100
             placeholder:text-gray-500 dark:placeholder:text-gray-400
           `} style={{
-        fontSize: '18px',
+        fontSize: '24px',
+        fontWeight: '800',
         // Prevent zoom on iOS
         WebkitAppearance: 'none'
       }} type="text" inputMode="decimal" pattern="[0-9]*" autoComplete="off" autoCapitalize="none" autoCorrect="off" spellCheck="false" min="0" max="5000000" readOnly={false} disabled={false} />

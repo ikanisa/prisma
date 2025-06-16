@@ -1,3 +1,4 @@
+
 import React, { useRef, useCallback, useState } from 'react';
 import { X } from 'lucide-react';
 import { Input } from '../ui/input';
@@ -55,7 +56,7 @@ const PhoneInput: React.FC<PhoneInputProps> = ({
       
       <div className="relative">
         <Input ref={inputRef} id="phone" value={value} onChange={handleInputChange} onFocus={handleFocus} onBlur={handleBlur} placeholder="Enter MoMo Number or Pay Code" className={`
-            h-14 text-lg font-medium pl-4 pr-12
+            h-16 text-2xl font-bold pl-4 pr-12
             transition-all duration-300 ease-in-out
             border-2 rounded-xl
             mobile-input touch-action-manipulation
@@ -65,7 +66,8 @@ const PhoneInput: React.FC<PhoneInputProps> = ({
             text-gray-900 dark:text-gray-100
             placeholder:text-gray-500 dark:placeholder:text-gray-400
           `} style={{
-        fontSize: '18px',
+        fontSize: '24px',
+        fontWeight: '800',
         // Prevent zoom on iOS
         WebkitAppearance: 'none'
       }} type="tel" inputMode="numeric" pattern="[0-9]*" autoComplete="tel" autoCapitalize="none" autoCorrect="off" spellCheck="false" maxLength={12} readOnly={false} disabled={false} />
