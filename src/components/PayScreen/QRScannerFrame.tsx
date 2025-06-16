@@ -1,4 +1,9 @@
+
 import React, { useMemo } from 'react';
+import ScannerCorners from './ScannerCorners';
+import ScanningLine from './ScanningLine';
+import QualityIndicators from './QualityIndicators';
+import ScannerInstructions from './ScannerInstructions';
 
 type ScanStatus = "idle" | "scanning" | "success" | "fail" | "processing";
 
@@ -43,16 +48,9 @@ const QRScannerFrame: React.FC<QRScannerFrameProps> = ({
   const frameStyles = useMemo(() => {
     const baseStyles = "relative w-72 h-72 xs:w-80 xs:h-80 sm:w-96 sm:h-96 md:w-[28rem] md:h-[28rem] lg:w-[32rem] lg:h-[32rem] rounded-4xl border-4 ring-4 qr-glow overflow-hidden";
     
-    // Add backdrop-blur only if performance allows
     const blurClass = performanceConfig?.enableBlur ? "backdrop-blur-4xl" : "";
-    
-    // Add shadows only if performance allows
     const shadowClass = performanceConfig?.enableShadows ? "shadow-2xl" : "shadow-lg";
-    
-    // Add animations only if performance allows
     const animationClass = performanceConfig?.enableAnimations && shimmer ? "animate-pulse" : "";
-    
-    // Add transition only if animations are enabled
     const transitionClass = performanceConfig?.enableAnimations ? "transition-all duration-500" : "";
     
     if (frameQuality === "poor") {
@@ -78,42 +76,6 @@ const QRScannerFrame: React.FC<QRScannerFrameProps> = ({
     return needsAntiGlare ? 'border-yellow-400/90' : 'border-blue-400/90';
   }, [frameQuality, needsAntiGlare]);
 
-  // Performance-optimized scanning line animation
-  const scanlineAnimation = useMemo(() => {
-    if (!performanceConfig?.enableAnimations || scanStatus !== 'scanning') {
-      return null;
-    }
-    
-    const animationDuration = performanceConfig.fps < 8 ? '2.5s' : performanceConfig.fps < 12 ? '2s' : '1.5s';
-    
-    return (
-      <>
-        <div className={`absolute left-0 right-0 h-1.5 rounded shadow-lg transition-all duration-300 ${
-          frameQuality === "poor" 
-            ? 'bg-gradient-to-r from-transparent via-red-400 to-transparent'
-            : frameQuality === "fair"
-              ? 'bg-gradient-to-r from-transparent via-yellow-400 to-transparent'
-              : 'bg-gradient-to-r from-transparent via-blue-400 to-transparent'
-        }`} style={{ 
-          top: 0, 
-          animationName: 'scanline',
-          animationDuration,
-          animationIterationCount: 'infinite',
-          animationTimingFunction: 'ease-in-out'
-        }} />
-        
-        {/* Enhanced pulsing edge highlights for quality feedback */}
-        <div className={`absolute inset-0 border-2 rounded-2xl transition-all duration-300 ${
-          frameQuality === "poor" 
-            ? 'border-red-300/60 animate-pulse'
-            : frameQuality === "fair"
-              ? 'border-yellow-300/60 animate-pulse'
-              : 'border-blue-300/50 animate-pulse'
-        }`} />
-      </>
-    );
-  }, [performanceConfig, scanStatus, frameQuality]);
-
   return (
     <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none z-10" aria-hidden="false">
       <div className="relative">
@@ -130,34 +92,25 @@ const QRScannerFrame: React.FC<QRScannerFrameProps> = ({
           }`} />
         )}
         
-        {/* Quality-based enhancement overlay (only if animations enabled) */}
+        {/* Quality-based enhancement overlay */}
         {frameQuality === "poor" && performanceConfig?.enableAnimations && (
           <div className="absolute inset-0 bg-gradient-to-br from-red-500/10 via-transparent to-orange-500/10 rounded-4xl pointer-events-none z-5 animate-pulse" />
         )}
 
-        {/* Main scanner frame with performance optimizations */}
+        {/* Main scanner frame */}
         <div className={frameStyles}>
           
-          {/* Performance-optimized scanning line */}
+          {/* Scanning line animation */}
           <div className="absolute top-6 left-6 right-6 h-[calc(100%-3rem)] z-10 pointer-events-none">
             <div className="relative w-full h-full">
-              {scanlineAnimation}
+              {scanStatus === 'scanning' && (
+                <ScanningLine frameQuality={frameQuality} performanceConfig={performanceConfig} />
+              )}
             </div>
           </div>
 
-          {/* Performance-optimized corner indicators */}
-          <div className={`absolute -top-3 -left-3 w-14 h-14 border-l-8 border-t-8 ${cornerColor} rounded-tl-[2.4rem] ${
-            performanceConfig?.enableShadows ? 'shadow-[0_0_8px_2px_rgba(57,106,252,0.4)]' : ''
-          } ${performanceConfig?.enableAnimations ? 'transition-all duration-300' : ''}`} />
-          <div className={`absolute -top-3 -right-3 w-14 h-14 border-r-8 border-t-8 ${cornerColor} rounded-tr-[2.4rem] ${
-            performanceConfig?.enableShadows ? 'shadow-[0_0_8px_2px_rgba(57,106,252,0.4)]' : ''
-          } ${performanceConfig?.enableAnimations ? 'transition-all duration-300' : ''}`} />
-          <div className={`absolute -bottom-3 -left-3 w-14 h-14 border-l-8 border-b-8 ${cornerColor} rounded-bl-[2.4rem] ${
-            performanceConfig?.enableShadows ? 'shadow-[0_0_8px_2px_rgba(57,106,252,0.4)]' : ''
-          } ${performanceConfig?.enableAnimations ? 'transition-all duration-300' : ''}`} />
-          <div className={`absolute -bottom-3 -right-3 w-14 h-14 border-r-8 border-b-8 ${cornerColor} rounded-br-[2.4rem] ${
-            performanceConfig?.enableShadows ? 'shadow-[0_0_8px_2px_rgba(57,106,252,0.4)]' : ''
-          } ${performanceConfig?.enableAnimations ? 'transition-all duration-300' : ''}`} />
+          {/* Corner indicators */}
+          <ScannerCorners cornerColor={cornerColor} performanceConfig={performanceConfig} />
           
           {/* Performance-optimized dimming overlay */}
           <div className={`absolute inset-2 rounded-3xl pointer-events-none ${
@@ -168,22 +121,13 @@ const QRScannerFrame: React.FC<QRScannerFrameProps> = ({
               : 'bg-gradient-to-br from-transparent via-black/5 to-transparent'
           }`} />
           
-          {/* Real-time quality indicator with performance info */}
-          {(frameQuality !== "good" || scanAttempts > 1) && (
-            <div className="absolute top-2 left-2 px-2 py-1 bg-black/70 rounded text-xs text-white flex items-center space-x-1 backdrop-blur-sm">
-              <div className={`w-2 h-2 rounded-full ${
-                frameQuality === "poor" ? 'bg-red-400' :
-                frameQuality === "fair" ? 'bg-yellow-400' :
-                frameQuality === "challenging" ? 'bg-purple-400' :
-                'bg-green-400'
-              } ${performanceConfig?.enableAnimations ? 'animate-pulse' : ''}`} />
-              <span className="capitalize">{frameQuality}</span>
-              {scanAttempts > 1 && <span>• {scanAttempts}</span>}
-              {performanceConfig && (
-                <span className="text-gray-400">• {performanceConfig.fps}fps</span>
-              )}
-            </div>
-          )}
+          {/* Quality and performance indicators */}
+          <QualityIndicators 
+            frameQuality={frameQuality}
+            scanAttempts={scanAttempts}
+            lightLevel={lightLevel}
+            performanceConfig={performanceConfig}
+          />
         </div>
         
         {/* Performance-optimized adaptive spotlight */}
@@ -210,53 +154,15 @@ const QRScannerFrame: React.FC<QRScannerFrameProps> = ({
           </svg>
         </div>
         
-        {/* Performance-optimized environmental and quality status indicators */}
-        {(lightLevel || frameQuality !== "good") && (
-          <div className="absolute top-2 right-2 px-2 py-1 bg-black/50 rounded text-xs text-white flex items-center space-x-1 backdrop-blur-sm">
-            {lightLevel && (
-              <span>{lightLevel > 600 ? '☀️' : lightLevel < 50 ? '🌙' : '🌤️'}</span>
-            )}
-            {frameQuality !== "good" && (
-              <span className={
-                frameQuality === "poor" ? 'text-red-300' :
-                frameQuality === "fair" ? 'text-yellow-300' :
-                'text-purple-300'
-              }>●</span>
-            )}
-          </div>
-        )}
-
-        {/* Performance-optimized instruction text */}
-        <div className="absolute -bottom-16 sm:-bottom-20 left-1/2 transform -translate-x-1/2 w-full flex flex-col gap-1 items-center text-center select-none" aria-live="polite" aria-atomic="true">
-          <div className={`glass-panel px-6 py-3 rounded-xl ${
-            performanceConfig?.enableShadows ? 'shadow-lg' : 'shadow-md'
-          } ${performanceConfig?.enableBlur ? 'backdrop-blur-md' : 'backdrop-blur-sm'} border-white/40 dark:border-white/20 ${
-            performanceConfig?.enableAnimations ? 'transition-all duration-300' : ''
-          } ${
-            frameQuality === "poor" 
-              ? 'bg-gradient-to-r from-red-500/30 to-orange-500/20 shadow-red-400/20'
-              : frameQuality === "fair"
-                ? 'bg-gradient-to-r from-yellow-500/25 to-orange-500/15 shadow-yellow-400/15'
-                : 'bg-gradient-to-r from-blue-500/20 to-indigo-500/10 shadow-blue-400/10'
-          }`}>
-            {scanStatus === "success" && scanResult ? (
-              <p className="text-blue-100 font-bold text-base sm:text-xl break-all tracking-wider select-text" tabIndex={0} aria-label={"QR scan result: " + scanResult}>
-                {scanResult}
-              </p>
-            ) : (
-              <>
-                <p className="text-blue-100 text-xs sm:text-base mt-2" aria-label="Position the QR code within the frame">
-                  {frameQuality === "poor" ? "Having trouble? Try different lighting or AI processing" :
-                   frameQuality === "fair" ? "Keep trying — adjust position or lighting" :
-                   needsAntiGlare ? "Move to shade if possible" : 
-                   needsContrast ? "Use flashlight for better visibility" : 
-                   "Position the QR code within the frame"}
-                </p>
-                <span className="sr-only">Ready to scan QR Code</span>
-              </>
-            )}
-          </div>
-        </div>
+        {/* Scanner instructions */}
+        <ScannerInstructions 
+          scanStatus={scanStatus}
+          scanResult={scanResult}
+          frameQuality={frameQuality}
+          needsAntiGlare={needsAntiGlare}
+          needsContrast={needsContrast}
+          performanceConfig={performanceConfig}
+        />
       </div>
       
       {/* Performance-optimized styles */}
