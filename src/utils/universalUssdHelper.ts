@@ -108,10 +108,24 @@ export function stripTelPrefix(str: string): string {
   return decodeURIComponent(cleaned);
 }
 
-/** Final normalisation pipeline */
+/** Final normalisation pipeline - preserve complete USSD codes */
 export function normaliseUssd(input: string): string {
-  let ussd = stripTelPrefix(input).trim().replace(/\s+/g, '');
-  if (!ussd.endsWith('#')) ussd += '#';
+  console.log('normaliseUssd input:', input);
+  
+  // First strip tel: prefix and decode
+  let ussd = stripTelPrefix(input).trim();
+  console.log('After stripTelPrefix:', ussd);
+  
+  // Remove any whitespace but preserve the structure
+  ussd = ussd.replace(/\s+/g, '');
+  console.log('After whitespace removal:', ussd);
+  
+  // Ensure it ends with # if it doesn't already
+  if (!ussd.endsWith('#')) {
+    ussd += '#';
+  }
+  
+  console.log('Final normalized USSD:', ussd);
   return ussd;
 }
 
@@ -129,11 +143,15 @@ export function encodeUssdForTel(ussd: string): string {
 }
 
 export function validateUniversalUssd(rawUssd: string): UssdValidationResult {
+  console.log('validateUniversalUssd input:', rawUssd);
+  
   // First normalize the input (strip tel: prefix, decode URI, ensure trailing #)
   const sanitized = normaliseUssd(rawUssd);
+  console.log('validateUniversalUssd sanitized:', sanitized);
   
   // Basic format check
   if (!sanitized.startsWith('*') || !sanitized.includes('#')) {
+    console.log('Failed basic format check');
     return {
       isValid: false,
       sanitized,
@@ -143,6 +161,7 @@ export function validateUniversalUssd(rawUssd: string): UssdValidationResult {
   // Find matching pattern
   for (const pattern of USSD_PATTERNS) {
     if (pattern.pattern.test(sanitized)) {
+      console.log('Matched pattern:', pattern.name);
       return {
         isValid: true,
         pattern,
@@ -156,6 +175,7 @@ export function validateUniversalUssd(rawUssd: string): UssdValidationResult {
 
   // If no specific pattern matches but it looks like USSD, accept it
   if (sanitized.length > 5 && sanitized.includes('*')) {
+    console.log('Accepted as generic USSD');
     return {
       isValid: true,
       sanitized,
@@ -165,6 +185,7 @@ export function validateUniversalUssd(rawUssd: string): UssdValidationResult {
     };
   }
 
+  console.log('Failed validation');
   return {
     isValid: false,
     sanitized,
@@ -172,12 +193,24 @@ export function validateUniversalUssd(rawUssd: string): UssdValidationResult {
 }
 
 export function extractUssdFromQR(qrData: string): string | null {
+  console.log('extractUssdFromQR input:', qrData);
+  
   // First normalize to handle tel: prefixes
   const normalized = normaliseUssd(qrData);
+  console.log('extractUssdFromQR normalized:', normalized);
   
-  // Try to find USSD pattern in normalized data
+  // If the normalized data already looks like a complete USSD, return it
+  if (normalized.startsWith('*') && normalized.includes('#')) {
+    console.log('Returning complete USSD:', normalized);
+    return normalized;
+  }
+  
+  // Try to find USSD pattern in normalized data as fallback
   const ussdMatch = normalized.match(/\*\d{2,4}\*[^*]*#/);
-  return ussdMatch ? ussdMatch[0] : normalized;
+  const result = ussdMatch ? ussdMatch[0] : normalized;
+  console.log('extractUssdFromQR result:', result);
+  
+  return result;
 }
 
 export function getUssdDisplayInfo(validation: UssdValidationResult): {

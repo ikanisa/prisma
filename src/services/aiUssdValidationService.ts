@@ -12,11 +12,15 @@ export interface AIValidationResult extends UssdValidationResult {
 export const aiUssdValidationService = {
   // Enhanced validation with AI-powered suggestions
   async validateWithAI(rawUssd: string): Promise<AIValidationResult> {
+    console.log('aiUssdValidationService.validateWithAI input:', rawUssd);
+    
     // First normalize the input to handle tel: prefixes and URI encoding
     const normalizedUssd = normaliseUssd(rawUssd);
+    console.log('aiUssdValidationService normalized:', normalizedUssd);
     
     // Start with standard validation using normalized input
     const standardValidation = validateUniversalUssd(normalizedUssd);
+    console.log('aiUssdValidationService standard validation:', standardValidation);
     
     // Get network context
     const networkInfo = await networkDetectionService.detectNetworkProvider();
@@ -28,22 +32,26 @@ export const aiUssdValidationService = {
         networkInfo
       );
       
-      return {
+      const result = {
         ...standardValidation,
         networkContext: networkInfo,
         confidence: networkValidation.confidence
       };
+      console.log('aiUssdValidationService final result:', result);
+      return result;
     }
 
     // For invalid codes, try AI-powered suggestions
     const suggestions = this.generateAISuggestions(normalizedUssd, networkInfo);
     
-    return {
+    const result = {
       ...standardValidation,
       aiSuggestion: suggestions.primary,
       alternativeFormats: suggestions.alternatives,
       networkContext: networkInfo
     };
+    console.log('aiUssdValidationService final result with suggestions:', result);
+    return result;
   },
 
   // Generate AI-powered suggestions for invalid USSD codes
@@ -51,10 +59,12 @@ export const aiUssdValidationService = {
     primary?: string;
     alternatives: string[];
   } {
+    console.log('generateAISuggestions input:', ussd);
     const suggestions: string[] = [];
     
     // Extract potential phone numbers or codes
     const numbers = ussd.match(/\d+/g) || [];
+    console.log('Extracted numbers:', numbers);
     
     if (numbers.length >= 2) {
       const [first, second] = numbers;
@@ -85,10 +95,12 @@ export const aiUssdValidationService = {
       suggestions.push(`*126*${first}*${second}#`);
     }
 
-    return {
+    const result = {
       primary: suggestions[0],
       alternatives: suggestions.slice(1, 4) // Limit to 3 alternatives
     };
+    console.log('generateAISuggestions result:', result);
+    return result;
   },
 
   // Manual override functionality
