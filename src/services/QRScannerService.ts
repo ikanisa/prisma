@@ -213,6 +213,87 @@ export class QRScannerService {
   hasPermissions(): boolean {
     return this.hasPermission;
   }
+
+  // Phase 2: Enhanced Mobile Optimization methods
+  createTelURI(ussdCode: string): string {
+    // Clean and format USSD code for tel: URI
+    const cleanCode = ussdCode.replace(/[^\d*#]/g, '');
+    return `tel:${encodeURIComponent(cleanCode)}`;
+  }
+
+  async logScan(code: string): Promise<ScanTransaction | null> {
+    try {
+      // Mock implementation - in real app this would call an API
+      const transaction: ScanTransaction = {
+        id: `scan_${Date.now()}`,
+        scanned_code: code,
+        scanned_at: new Date().toISOString(),
+        launched_ussd: false,
+        payment_status: 'pending',
+        session_id: `session_${Date.now()}`
+      };
+      
+      console.log('QRScannerService: Logged scan transaction:', transaction);
+      return transaction;
+    } catch (error) {
+      console.error('QRScannerService: Failed to log scan:', error);
+      return null;
+    }
+  }
+
+  async markUSSDLaunched(transactionId: string): Promise<boolean> {
+    try {
+      // Mock implementation - in real app this would update the transaction
+      console.log('QRScannerService: Marked USSD launched for transaction:', transactionId);
+      return true;
+    } catch (error) {
+      console.error('QRScannerService: Failed to mark USSD launched:', error);
+      return false;
+    }
+  }
+
+  async updateLightingData(transactionId: string, lightingCondition: string, torchUsed: boolean): Promise<boolean> {
+    try {
+      // Mock implementation - in real app this would update lighting analytics
+      console.log('QRScannerService: Updated lighting data:', {
+        transactionId,
+        lightingCondition,
+        torchUsed
+      });
+      return true;
+    } catch (error) {
+      console.error('QRScannerService: Failed to update lighting data:', error);
+      return false;
+    }
+  }
+
+  // Enhanced mobile camera features
+  async optimizeForMobile(): Promise<void> {
+    if (!this.scanner) return;
+
+    try {
+      // Set mobile-optimized preferences
+      this.scanner.setGrayscaleWeights(0.299, 0.587, 0.114, true);
+      
+      // Additional mobile optimizations can be added here
+      console.log('QRScannerService: Mobile optimizations applied');
+    } catch (error) {
+      console.error('QRScannerService: Mobile optimization failed:', error);
+    }
+  }
+
+  async detectLightingCondition(): Promise<string> {
+    // Simple lighting detection based on camera availability
+    // In a real implementation, this could analyze video frames
+    try {
+      if (this.scanner && await this.scanner.hasFlash()) {
+        return 'normal'; // Device has flash, assume normal lighting
+      }
+      return 'unknown';
+    } catch {
+      return 'unknown';
+    }
+  }
 }
 
 export const qrScannerServiceNew = new QRScannerService();

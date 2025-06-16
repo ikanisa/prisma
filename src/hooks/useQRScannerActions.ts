@@ -1,6 +1,6 @@
 
 import { scanningManager, ScanResult } from '@/services/scanningManager';
-import { qrScannerService } from '@/services/QRScannerService';
+import { qrScannerServiceNew } from '@/services/QRScannerService';
 import { feedbackService } from '@/services/feedbackService';
 import { errorRecoveryService } from '@/services/errorRecoveryService';
 import { errorMonitoringService } from '@/services/errorMonitoringService';
@@ -44,13 +44,13 @@ export const useQRScannerActions = ({ state, lightingCondition, torchUsed, retry
     
     await errorRecoveryService.withRetry(
       async () => {
-        const transaction = await qrScannerService.logScan(result.code || '');
+        const transaction = await qrScannerServiceNew.logScan(result.code || '');
         if (transaction) {
           state.setCurrentTransaction(transaction);
           trackUserAction('transaction_logged');
           
           try {
-            const lightingUpdateSuccess = await qrScannerService.updateLightingData(
+            const lightingUpdateSuccess = await qrScannerServiceNew.updateLightingData(
               transaction.id, 
               lightingCondition, 
               torchUsed
@@ -105,9 +105,9 @@ export const useQRScannerActions = ({ state, lightingCondition, torchUsed, retry
     trackUserAction('momo_launch_attempt');
 
     try {
-      const telURI = qrScannerService.createTelURI(state.scannedCode);
+      const telURI = qrScannerServiceNew.createTelURI(state.scannedCode);
       
-      const launchSuccess = await qrScannerService.markUSSDLaunched(state.currentTransaction.id);
+      const launchSuccess = await qrScannerServiceNew.markUSSDLaunched(state.currentTransaction.id);
       if (launchSuccess) {
         trackUserAction('ussd_marked_launched');
       }
