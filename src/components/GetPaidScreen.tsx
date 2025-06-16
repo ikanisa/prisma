@@ -10,7 +10,6 @@ import MobileShareSheet from './MobileShareSheet';
 import PWAInstallBanner from './PWAInstallBanner';
 import PaymentRequestHistory from './PaymentRequestHistory';
 import { usePaymentGeneration } from '@/hooks/usePaymentGeneration';
-import { usePaymentRequests } from '@/hooks/usePaymentRequests';
 import { useQRActions } from '@/hooks/useQRActions';
 
 const GetPaidScreen = () => {
@@ -19,7 +18,6 @@ const GetPaidScreen = () => {
   const [showHistory, setShowHistory] = useState(false);
   const [showShareSheet, setShowShareSheet] = useState(false);
   const [showQRModal, setShowQRModal] = useState(false);
-  const [currentTransactionId, setCurrentTransactionId] = useState<string>();
   
   const {
     phone,
@@ -37,7 +35,6 @@ const GetPaidScreen = () => {
     generateQR
   } = usePaymentGeneration();
 
-  const { createPaymentRequest } = usePaymentRequests();
   const { copyToClipboard, downloadQR, shareViaWhatsApp, shareViaSMS } = useQRActions();
 
   const handleSelectContact = (selectedPhone: string) => {
@@ -46,13 +43,7 @@ const GetPaidScreen = () => {
 
   const handleGenerateQR = async () => {
     try {
-      // Create payment request in database
-      const paymentRequest = await createPaymentRequest(phone, parseFloat(amount));
-      if (paymentRequest) {
-        setCurrentTransactionId(paymentRequest.id);
-      }
-      
-      // Generate QR code
+      // Generate QR code directly without redundant payment request creation
       const qrData = await generateQR();
       
       // Show QR modal immediately after successful generation
@@ -176,7 +167,7 @@ const GetPaidScreen = () => {
       <PaymentConfirmationModal
         isVisible={showConfirmation}
         onClose={() => setShowConfirmation(false)}
-        transactionId={currentTransactionId}
+        transactionId={undefined}
         amount={amount}
         phone={phone}
         ussdString={ussdString}

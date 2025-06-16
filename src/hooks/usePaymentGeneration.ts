@@ -63,21 +63,19 @@ export const usePaymentGeneration = () => {
   };
 
   const generateQR = async () => {
-    // Input validation
+    // Simplified input validation
     if (!phone.trim() || !amount.trim()) {
       toastService.error("Missing Information", "Please enter both phone number and amount");
-      errorMonitoringService.logValidationError('qr_generation', { phone: !!phone.trim(), amount: !!amount.trim() });
       return;
     }
 
     const numAmount = parseFloat(amount);
     if (isNaN(numAmount) || numAmount <= 0) {
       toastService.error("Invalid Amount", "Please enter a valid amount");
-      errorMonitoringService.logValidationError('amount', { value: amount });
       return;
     }
 
-    // Rate limiting check
+    // Simple rate limiting check
     if (!rateLimitingService.isAllowed('qr_generation')) {
       const resetTime = rateLimitingService.getResetTime('qr_generation');
       const waitMinutes = Math.ceil((resetTime - Date.now()) / 60000);
@@ -91,9 +89,14 @@ export const usePaymentGeneration = () => {
     console.log('[QR DEBUG] generateQR called with:', { phone: phone.trim(), amount: numAmount });
 
     try {
-      // Generate QR code via Edge function backed by Supabase
-      const qrResponse = await cloudFunctions.generateQRCode(phone.trim(), numAmount);
+      // Generate QR code and payment link in parallel for speed
+      const [qrResponse, linkResponse] = await Promise.all([
+        cloudFunctions.generateQRCode(phone.trim(), numAmount),
+        cloudFunctions.createPaymentLink(phone.trim(), numAmount)
+      ]);
+      
       console.log('[QR DEBUG] generateQRCode result:', qrResponse);
+      console.log('[QR DEBUG] createPaymentLink result:', linkResponse);
       
       // Create a proper QR result object
       const qrResultData = {
@@ -105,11 +108,7 @@ export const usePaymentGeneration = () => {
       };
       
       setQrResult(qrResultData);
-
-      // Generate payment link
-      const linkResponse = await cloudFunctions.createPaymentLink(phone.trim(), numAmount);
       setPaymentLink(linkResponse.paymentLink);
-      console.log('[QR DEBUG] createPaymentLink result:', linkResponse);
 
       // Save recent phone to cache
       addPhone(phone.trim());
@@ -119,7 +118,7 @@ export const usePaymentGeneration = () => {
 
       toastService.success("QR Code Generated!", "Ready to share your payment request");
       
-      return qrResultData; // Return the result for immediate use
+      return qrResultData;
     } catch (error) {
       console.error('[QR DEBUG] Error generating QR:', error);
 
