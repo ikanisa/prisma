@@ -1,9 +1,8 @@
-
 export const APP_CONFIG = {
   // App metadata
-  name: 'Lifuti Mobile Money',
+  name: 'easyMO',
   version: '1.0.0',
-  description: 'Simplify Mobile Money payments in Rwanda',
+  description: 'Seamless QR and USSD money transfers. Trusted, fast, and beautifully simple.',
   
   // Payment limits
   payment: {

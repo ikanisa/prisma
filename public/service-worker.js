@@ -1,5 +1,4 @@
-
-const CACHE_VERSION = 'easymomo-v1.0.0';
+const CACHE_VERSION = 'easymo-v1.0.0';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const DYNAMIC_CACHE = `${CACHE_VERSION}-dynamic`;
 
@@ -8,9 +7,7 @@ const STATIC_ASSETS = [
   '/',
   '/index.html',
   '/manifest.json',
-  '/favicon.ico',
-  '/icons/icon-192.png',
-  '/icons/icon-512.png',
+  '/lovable-uploads/92a3f893-ac5e-4bca-aaa4-347aefb2653a.png',
   // Add your built CSS and JS files here after build
   // These will be generated during the build process
 ];
@@ -47,7 +44,7 @@ self.addEventListener('activate', (event) => {
       return Promise.all(
         cacheNames
           .filter((cacheName) => {
-            return cacheName.startsWith('easymomo-') && cacheName !== STATIC_CACHE && cacheName !== DYNAMIC_CACHE;
+            return cacheName.startsWith('easymo-') && cacheName !== STATIC_CACHE && cacheName !== DYNAMIC_CACHE;
           })
           .map((cacheName) => {
             console.log('[SW] Deleting old cache:', cacheName);

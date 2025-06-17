@@ -78,7 +78,7 @@ const HomeScreen = () => {
 
   const handleMobileShare = (method: string) => {
     const appUrl = window.location.origin;
-    const shareText = `Check out EasyMOMO - the easiest way to send and receive mobile money payments in Rwanda! 🇷🇼💰`;
+    const shareText = `Check out easyMO - the easiest way to send and receive mobile money payments in Rwanda! 🇷🇼💰`;
     
     switch (method) {
       case 'whatsapp':
@@ -126,7 +126,7 @@ const HomeScreen = () => {
             <div className="flex flex-col items-center justify-center space-y-4">
               <div className="text-center animate-fade-slide pt-2 pb-2">
                 <h1 data-testid="app-title" className="md:text-5xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-4 text-5xl leading-tight">
-                  EasyMOMO
+                  easyMO
                 </h1>
                 <p className="text-sm md:text-2xl text-white font-medium">
                   {t("home.welcomeSubtitle")}

@@ -72,7 +72,7 @@ const PWAInstallBanner = () => {
               <Smartphone className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-bold text-sm">Install MoMo Pay</h3>
+              <h3 className="font-bold text-sm">Install easyMO</h3>
               <p className="text-xs text-blue-100">Quick access from your home screen</p>
             </div>
           </div>

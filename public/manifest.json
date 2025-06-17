@@ -1,8 +1,8 @@
 
 {
-  "name": "EasyMOMO",
-  "short_name": "EasyMOMO",
-  "description": "Pay . Get Paid . Instant . Secure. A way to pay your way.",
+  "name": "easyMO",
+  "short_name": "easyMO",
+  "description": "Seamless QR and USSD money transfers. Trusted, fast, and beautifully simple.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
@@ -11,21 +11,21 @@
   "orientation": "portrait-primary",
   "icons": [
     {
-      "src": "/icons/icon-192.png",
+      "src": "/lovable-uploads/92a3f893-ac5e-4bca-aaa4-347aefb2653a.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/icons/icon-512.png",
+      "src": "/lovable-uploads/92a3f893-ac5e-4bca-aaa4-347aefb2653a.png",
       "sizes": "512x512", 
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/favicon.ico",
+      "src": "/lovable-uploads/92a3f893-ac5e-4bca-aaa4-347aefb2653a.png",
       "sizes": "64x64 32x32 24x24 16x16",
-      "type": "image/x-icon"
+      "type": "image/png"
     }
   ],
   "categories": ["finance", "utilities"],
@@ -38,19 +38,19 @@
       "short_name": "Generate",
       "description": "Create a new payment QR code",
       "url": "/get-paid",
-      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+      "icons": [{ "src": "/lovable-uploads/92a3f893-ac5e-4bca-aaa4-347aefb2653a.png", "sizes": "192x192" }]
     },
     {
       "name": "Scan QR",
       "short_name": "Scan", 
       "description": "Scan a Mobile Money QR code",
       "url": "/pay",
-      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+      "icons": [{ "src": "/lovable-uploads/92a3f893-ac5e-4bca-aaa4-347aefb2653a.png", "sizes": "192x192" }]
     }
   ],
   "screenshots": [
     {
-      "src": "/icons/icon-512.png",
+      "src": "/lovable-uploads/92a3f893-ac5e-4bca-aaa4-347aefb2653a.png",
       "type": "image/png",
       "sizes": "540x720",
       "form_factor": "narrow"

@@ -20,7 +20,7 @@ const SimpleQRScannerResult: React.FC<SimpleQRScannerResultProps> = ({
       <div className="bg-green-500/20 rounded-2xl p-6 mb-6">
         <div className="text-6xl mb-4">✓</div>
         <h3 className="text-white text-xl font-semibold mb-2">QR Code Scanned!</h3>
-        <p className="text-gray-300 text-sm">Tap the button below to launch EasyMOMO</p>
+        <p className="text-gray-300 text-sm">Tap the button below to launch easyMO</p>
       </div>
 
       <div className="bg-white/10 rounded-lg p-4 mb-6 backdrop-blur-sm">
@@ -35,7 +35,7 @@ const SimpleQRScannerResult: React.FC<SimpleQRScannerResultProps> = ({
           onClick={onLaunchMoMo}
           className="w-full bg-green-600 hover:bg-green-700 text-white text-lg py-3"
         >
-          Launch EasyMOMO Payment
+          Launch easyMO Payment
         </Button>
         
         <Button
