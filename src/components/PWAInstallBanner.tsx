@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { X, Download, Smartphone, Android } from 'lucide-react';
+import { X, Download, Smartphone } from 'lucide-react';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>;
@@ -104,7 +104,7 @@ const PWAInstallBanner = () => {
         <div className="flex items-start justify-between mb-3">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
-              {isAndroid ? <Android className="w-5 h-5" /> : <Smartphone className="w-5 h-5" />}
+              <Smartphone className="w-5 h-5" />
             </div>
             <div>
               <h3 className="font-bold text-sm">Install easyMO</h3>
