@@ -81,18 +81,18 @@ const GetPaidScreen = () => {
   return (
     <div className="relative min-h-screen w-full flex flex-col safe-area-top safe-area-bottom">
       <div className="flex-1 flex flex-col justify-start container mx-auto px-2 sm:px-4 py-4 sm:py-6 max-w-md">
-        <div className="flex items-center justify-between mb-6 sm:mb-8 mt-1 sm:mt-2 animate-fade-in" style={{ animationDuration: '3s' }}>
+        <div className="flex items-center justify-between mb-6 sm:mb-8 mt-1 sm:mt-2 animate-fade-in" style={{ animationDuration: '5s' }}>
           <button
             onClick={() => navigate('/')}
-            className="logo-glass p-2 sm:p-3 md:p-4 hover:scale-110 active:scale-95 transition-all duration-1000 rounded-xl sm:rounded-2xl mobile-button tap-highlight-transparent min-h-[44px] min-w-[44px] flex items-center justify-center"
+            className="logo-glass p-2 sm:p-3 md:p-4 hover:scale-110 active:scale-95 transition-all duration-3000 rounded-xl sm:rounded-2xl mobile-button tap-highlight-transparent min-h-[44px] min-w-[44px] flex items-center justify-center"
             aria-label="Go to home screen"
           >
             <ArrowLeft className="w-5 h-5 sm:w-6 sm:h-6" />
           </button>
-          <h1 className="text-xl sm:text-2xl font-bold text-white dark:text-gray-200 animate-fade-in px-2 text-center flex-1 loader-text" style={{ animationDuration: '3s', animationDelay: '0.5s' }}>Get Paid</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-white dark:text-gray-200 animate-fade-in px-2 text-center flex-1 loader-text" style={{ animationDuration: '5s', animationDelay: '1s' }}>Get Paid</h1>
           <button
             onClick={() => setShowHistory(!showHistory)}
-            className="logo-glass p-2 sm:p-3 md:p-4 hover:scale-110 active:scale-95 transition-all duration-1000 rounded-xl sm:rounded-2xl mobile-button tap-highlight-transparent min-h-[44px] min-w-[44px] flex items-center justify-center"
+            className="logo-glass p-2 sm:p-3 md:p-4 hover:scale-110 active:scale-95 transition-all duration-3000 rounded-xl sm:rounded-2xl mobile-button tap-highlight-transparent min-h-[44px] min-w-[44px] flex items-center justify-center"
             title="Payment History"
             aria-label="View payment history"
           >
