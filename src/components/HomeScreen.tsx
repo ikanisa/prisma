@@ -78,7 +78,7 @@ const HomeScreen = () => {
 
   const handleMobileShare = (method: string) => {
     const appUrl = window.location.origin;
-    const shareText = `Check out ${t("home.welcomeTitle")} - ${t("home.welcomeSubtitle")}`;
+    const shareText = `Check out EasyMOMO - the easiest way to send and receive mobile money payments in Rwanda! 🇷🇼💰`;
     
     switch (method) {
       case 'whatsapp':
@@ -97,7 +97,7 @@ const HomeScreen = () => {
     navigator.clipboard.writeText(window.location.origin);
     toast({
       title: t("generic.copied"),
-      description: t("generic.linkCopied")
+      description: "App link copied to clipboard"
     });
     setShowShareSheet(false);
   };
@@ -157,7 +157,7 @@ const HomeScreen = () => {
                 <button 
                   onClick={handleShare} 
                   className="logo-glass p-3 hover:scale-110 transition-transform duration-2000" 
-                  aria-label={t("home.shareApp")}
+                  aria-label="Share EasyMOMO App"
                 >
                   <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                     <g>
