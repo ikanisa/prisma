@@ -2,22 +2,43 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>easyMO – Pay. Get Paid.</title>
     <meta name="description" content="Seamless QR and USSD money transfers. Trusted, fast, and beautifully simple." />
     <meta name="author" content="easyMO" />
     <meta name="application-name" content="easyMO" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-title" content="easyMO" />
 
-    <!-- PWA Meta Tags -->
+    <!-- Enhanced PWA Meta Tags for Android -->
     <meta name="theme-color" content="#00C9A7" />
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#00C9A7" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#00C9A7" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="easyMO" />
+    <meta name="format-detection" content="telephone=no" />
+    <meta name="msapplication-TileColor" content="#00C9A7" />
+    <meta name="msapplication-tap-highlight" content="no" />
     
-    <!-- Favicon -->
+    <!-- Comprehensive Favicon and Icons for All Platforms -->
     <link rel="icon" type="image/png" sizes="32x32" href="/lovable-uploads/41d1f878-e9c7-4ab2-8d58-40d6b0d0ba2a.png" />
     <link rel="icon" type="image/png" sizes="16x16" href="/lovable-uploads/41d1f878-e9c7-4ab2-8d58-40d6b0d0ba2a.png" />
+    <link rel="icon" type="image/png" sizes="48x48" href="/lovable-uploads/41d1f878-e9c7-4ab2-8d58-40d6b0d0ba2a.png" />
+    <link rel="icon" type="image/png" sizes="72x72" href="/lovable-uploads/41d1f878-e9c7-4ab2-8d58-40d6b0d0ba2a.png" />
+    <link rel="icon" type="image/png" sizes="96x96" href="/lovable-uploads/41d1f878-e9c7-4ab2-8d58-40d6b0d0ba2a.png" />
+    <link rel="icon" type="image/png" sizes="144x144" href="/lovable-uploads/41d1f878-e9c7-4ab2-8d58-40d6b0d0ba2a.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/lovable-uploads/41d1f878-e9c7-4ab2-8d58-40d6b0d0ba2a.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="/lovable-uploads/41d1f878-e9c7-4ab2-8d58-40d6b0d0ba2a.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/lovable-uploads/41d1f878-e9c7-4ab2-8d58-40d6b0d0ba2a.png" />
+    <link rel="apple-touch-icon" sizes="152x152" href="/lovable-uploads/41d1f878-e9c7-4ab2-8d58-40d6b0d0ba2a.png" />
+    <link rel="apple-touch-icon" sizes="144x144" href="/lovable-uploads/41d1f878-e9c7-4ab2-8d58-40d6b0d0ba2a.png" />
+    <link rel="apple-touch-icon" sizes="120x120" href="/lovable-uploads/41d1f878-e9c7-4ab2-8d58-40d6b0d0ba2a.png" />
+    <link rel="apple-touch-icon" sizes="114x114" href="/lovable-uploads/41d1f878-e9c7-4ab2-8d58-40d6b0d0ba2a.png" />
+    <link rel="apple-touch-icon" sizes="76x76" href="/lovable-uploads/41d1f878-e9c7-4ab2-8d58-40d6b0d0ba2a.png" />
+    <link rel="apple-touch-icon" sizes="72x72" href="/lovable-uploads/41d1f878-e9c7-4ab2-8d58-40d6b0d0ba2a.png" />
+    <link rel="apple-touch-icon" sizes="60x60" href="/lovable-uploads/41d1f878-e9c7-4ab2-8d58-40d6b0d0ba2a.png" />
+    <link rel="apple-touch-icon" sizes="57x57" href="/lovable-uploads/41d1f878-e9c7-4ab2-8d58-40d6b0d0ba2a.png" />
     <link rel="icon" href="/lovable-uploads/41d1f878-e9c7-4ab2-8d58-40d6b0d0ba2a.png" type="image/png" />
     
     <!-- PWA Manifest -->
@@ -26,18 +47,30 @@
     <!-- Canonical URL -->
     <link rel="canonical" href="https://easy.ikanisa.com" />
     
-    <!-- Open Graph -->
+    <!-- Enhanced Open Graph for Android Sharing -->
     <meta property="og:title" content="easyMO – Pay. Get Paid." />
     <meta property="og:description" content="Seamless QR and USSD money transfers. Trusted, fast, and beautifully simple." />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://easy.ikanisa.com" />
     <meta property="og:image" content="https://easy.ikanisa.com/lovable-uploads/41d1f878-e9c7-4ab2-8d58-40d6b0d0ba2a.png" />
+    <meta property="og:image:alt" content="easyMO app icon" />
+    <meta property="og:image:width" content="512" />
+    <meta property="og:image:height" content="512" />
+    <meta property="og:site_name" content="easyMO" />
 
-    <!-- Twitter Card -->
+    <!-- Enhanced Twitter Card for Android -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="easyMO – Pay. Get Paid." />
     <meta name="twitter:description" content="Seamless QR and USSD money transfers. Trusted, fast, and beautifully simple." />
     <meta name="twitter:image" content="https://easy.ikanisa.com/lovable-uploads/41d1f878-e9c7-4ab2-8d58-40d6b0d0ba2a.png" />
+    <meta name="twitter:image:alt" content="easyMO app icon" />
+
+    <!-- Microsoft Windows Tiles -->
+    <meta name="msapplication-TileImage" content="/lovable-uploads/41d1f878-e9c7-4ab2-8d58-40d6b0d0ba2a.png" />
+    <meta name="msapplication-square70x70logo" content="/lovable-uploads/41d1f878-e9c7-4ab2-8d58-40d6b0d0ba2a.png" />
+    <meta name="msapplication-square150x150logo" content="/lovable-uploads/41d1f878-e9c7-4ab2-8d58-40d6b0d0ba2a.png" />
+    <meta name="msapplication-wide310x150logo" content="/lovable-uploads/41d1f878-e9c7-4ab2-8d58-40d6b0d0ba2a.png" />
+    <meta name="msapplication-square310x310logo" content="/lovable-uploads/41d1f878-e9c7-4ab2-8d58-40d6b0d0ba2a.png" />
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">

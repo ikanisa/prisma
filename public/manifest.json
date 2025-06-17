@@ -9,43 +9,89 @@
   "theme_color": "#00C9A7",
   "scope": "/",
   "orientation": "portrait-primary",
+  "lang": "en-US",
+  "dir": "ltr",
+  "prefer_related_applications": false,
+  "display_override": ["window-controls-overlay", "standalone"],
+  "categories": ["finance", "utilities", "productivity"],
   "icons": [
     {
       "src": "/lovable-uploads/41d1f878-e9c7-4ab2-8d58-40d6b0d0ba2a.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
       "src": "/lovable-uploads/41d1f878-e9c7-4ab2-8d58-40d6b0d0ba2a.png",
       "sizes": "512x512", 
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
       "src": "/lovable-uploads/41d1f878-e9c7-4ab2-8d58-40d6b0d0ba2a.png",
-      "sizes": "64x64 32x32 24x24 16x16",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/lovable-uploads/41d1f878-e9c7-4ab2-8d58-40d6b0d0ba2a.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/lovable-uploads/41d1f878-e9c7-4ab2-8d58-40d6b0d0ba2a.png",
+      "sizes": "72x72",
+      "type": "image/png"
+    },
+    {
+      "src": "/lovable-uploads/41d1f878-e9c7-4ab2-8d58-40d6b0d0ba2a.png",
+      "sizes": "96x96",
+      "type": "image/png"
+    },
+    {
+      "src": "/lovable-uploads/41d1f878-e9c7-4ab2-8d58-40d6b0d0ba2a.png",
+      "sizes": "128x128",
+      "type": "image/png"
+    },
+    {
+      "src": "/lovable-uploads/41d1f878-e9c7-4ab2-8d58-40d6b0d0ba2a.png",
+      "sizes": "144x144",
+      "type": "image/png"
+    },
+    {
+      "src": "/lovable-uploads/41d1f878-e9c7-4ab2-8d58-40d6b0d0ba2a.png",
+      "sizes": "152x152",
+      "type": "image/png"
+    },
+    {
+      "src": "/lovable-uploads/41d1f878-e9c7-4ab2-8d58-40d6b0d0ba2a.png",
+      "sizes": "384x384",
       "type": "image/png"
     }
   ],
-  "categories": ["finance", "utilities"],
-  "lang": "en-US",
-  "dir": "ltr",
-  "prefer_related_applications": false,
   "shortcuts": [
     {
       "name": "Generate QR",
       "short_name": "Generate",
       "description": "Create a new payment QR code",
       "url": "/get-paid",
-      "icons": [{ "src": "/lovable-uploads/41d1f878-e9c7-4ab2-8d58-40d6b0d0ba2a.png", "sizes": "192x192" }]
+      "icons": [{ 
+        "src": "/lovable-uploads/41d1f878-e9c7-4ab2-8d58-40d6b0d0ba2a.png", 
+        "sizes": "192x192",
+        "type": "image/png"
+      }]
     },
     {
       "name": "Scan QR",
       "short_name": "Scan", 
       "description": "Scan a Mobile Money QR code",
       "url": "/pay",
-      "icons": [{ "src": "/lovable-uploads/41d1f878-e9c7-4ab2-8d58-40d6b0d0ba2a.png", "sizes": "192x192" }]
+      "icons": [{ 
+        "src": "/lovable-uploads/41d1f878-e9c7-4ab2-8d58-40d6b0d0ba2a.png", 
+        "sizes": "192x192",
+        "type": "image/png"
+      }]
     }
   ],
   "screenshots": [
@@ -53,7 +99,21 @@
       "src": "/lovable-uploads/41d1f878-e9c7-4ab2-8d58-40d6b0d0ba2a.png",
       "type": "image/png",
       "sizes": "540x720",
-      "form_factor": "narrow"
+      "form_factor": "narrow",
+      "label": "easyMO home screen"
+    }
+  ],
+  "launch_handler": {
+    "client_mode": "navigate-existing"
+  },
+  "edge_side_panel": {
+    "preferred_width": 400
+  },
+  "handle_links": "preferred",
+  "protocol_handlers": [
+    {
+      "protocol": "web+easymo",
+      "url": "/?action=%s"
     }
   ]
 }
