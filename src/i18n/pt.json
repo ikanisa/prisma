@@ -1,13 +1,14 @@
+
 {
   "home": {
-    "welcomeTitle": "Easy MOMO",
+    "welcomeTitle": "EasyMOMO",
     "welcomeSubtitle": "Envie e Receba Dinheiro.\nInstantâneo. Seguro.",
     "scanPay": "Escanear e Pagar",
     "requestPayment": "Solicitar Pagamento",
     "shareApp": "Compartilhar este app",
     "joinWhatsapp": "Entrar no canal WhatsApp",
     "promoBanner": "🎉 Pagamentos instantâneos sem taxas!",
-    "title": "Easy MOMO"
+    "title": "EasyMOMO"
   },
   "generic": {
     "copied": "Copiado!",

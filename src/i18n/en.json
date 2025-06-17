@@ -1,7 +1,8 @@
+
 {
   "home": {
     "title": "EasyMOMO",
-    "welcomeTitle": "Easy MOMO",
+    "welcomeTitle": "EasyMOMO",
     "welcomeSubtitle": "Pay . Get Paid . Instant . Secure",
     "pay": "Scan & Pay",
     "receive": "Get Paid",
@@ -54,7 +55,7 @@
   "offline": {
     "message": "⚠️ No internet – some features may not be available",
     "banner": "You are offline. Most features may be unavailable.",
-    "showingRecentQR": "You’re offline – displaying most recent QR. Some actions may be limited."
+    "showingRecentQR": "You're offline – displaying most recent QR. Some actions may be limited."
   },
   "cta": {
     "whatsapp": "Join our WhatsApp Channel"

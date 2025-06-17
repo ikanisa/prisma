@@ -1,5 +1,5 @@
 
-const CACHE_VERSION = 'momo-pay-v1.0.0';
+const CACHE_VERSION = 'easymomo-v1.0.0';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const DYNAMIC_CACHE = `${CACHE_VERSION}-dynamic`;
 
@@ -47,7 +47,7 @@ self.addEventListener('activate', (event) => {
       return Promise.all(
         cacheNames
           .filter((cacheName) => {
-            return cacheName.startsWith('momo-pay-') && cacheName !== STATIC_CACHE && cacheName !== DYNAMIC_CACHE;
+            return cacheName.startsWith('easymomo-') && cacheName !== STATIC_CACHE && cacheName !== DYNAMIC_CACHE;
           })
           .map((cacheName) => {
             console.log('[SW] Deleting old cache:', cacheName);
