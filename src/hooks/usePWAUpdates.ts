@@ -103,17 +103,19 @@ export const usePWAUpdates = () => {
   const showUpdateNotification = () => {
     // Browser notification if permission granted
     if ('Notification' in window && Notification.permission === 'granted') {
-      new Notification('App Update Available', {
+      const notification = new Notification('App Update Available', {
         body: 'A new version of easyMO is ready. Tap to update.',
         icon: '/icons/icon-192.png',
         badge: '/icons/icon-192.png',
         tag: 'app-update',
-        requireInteraction: true,
-        actions: [
-          { action: 'update', title: 'Update Now' },
-          { action: 'dismiss', title: 'Later' }
-        ]
+        requireInteraction: true
       });
+
+      // Handle notification click
+      notification.onclick = () => {
+        applyUpdate();
+        notification.close();
+      };
     }
 
     // Toast notification as fallback
@@ -121,10 +123,14 @@ export const usePWAUpdates = () => {
       title: "🚀 Update Available",
       description: "A new version of easyMO is ready with improvements and bug fixes.",
       duration: 10000,
-      action: {
-        label: "Update Now",
-        onClick: () => applyUpdate()
-      }
+      action: (
+        <button 
+          onClick={() => applyUpdate()}
+          className="bg-primary text-primary-foreground px-3 py-1 rounded text-sm hover:bg-primary/90"
+        >
+          Update Now
+        </button>
+      )
     });
   };
 
