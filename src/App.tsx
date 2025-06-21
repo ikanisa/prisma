@@ -74,6 +74,7 @@ const App = () => {
         <ErrorBoundary>
           <QueryClientProvider client={queryClient}>
             <TooltipProvider>
+              <PWAUpdateBanner />
               <Toaster />
               <Sonner />
               <BrowserRouter>
