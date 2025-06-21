@@ -1,5 +1,5 @@
 
-const CACHE_VERSION = 'easymo-v1.0.1'; // Increment this for updates
+const CACHE_VERSION = 'easymo-v1.0.2'; // Incremented version for update detection
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const DYNAMIC_CACHE = `${CACHE_VERSION}-dynamic`;
 
