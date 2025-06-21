@@ -1,6 +1,5 @@
 
 import React, { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import AIPhoneSuggestions from './AIPhoneSuggestions';
@@ -47,7 +46,7 @@ const PhoneInput: React.FC<PhoneInputProps> = ({
           onBlur={handleBlur}
           placeholder="Enter Phone Number or Code…"
           className={`
-            h-16 text-2xl font-bold pl-4 pr-12
+            h-16 text-2xl font-bold pl-4 pr-4
             transition-all duration-300 ease-in-out
             border-2 rounded-xl
             mobile-input touch-action-manipulation
@@ -79,29 +78,6 @@ const PhoneInput: React.FC<PhoneInputProps> = ({
           readOnly={false}
           disabled={false}
         />
-
-        {/* Clear Button */}
-        {value && (
-          <button
-            type="button"
-            onClick={clearPhone}
-            onMouseDown={e => e.preventDefault()}
-            className={`
-              absolute right-3 top-1/2 -translate-y-1/2 
-              w-8 h-8 rounded-full 
-              bg-gray-400 hover:bg-gray-500 active:bg-gray-600
-              dark:bg-gray-600 dark:hover:bg-gray-500 dark:active:bg-gray-400
-              flex items-center justify-center 
-              transition-all duration-200 
-              mobile-button
-              hover:scale-110 active:scale-95
-              z-10
-            `}
-            aria-label="Clear phone number"
-          >
-            <X className="w-4 h-4 text-white" />
-          </button>
-        )}
 
         <AIPhoneSuggestions
           suggestions={suggestions}
