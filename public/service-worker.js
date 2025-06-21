@@ -1,5 +1,5 @@
 
-const CACHE_VERSION = 'easymo-v1.0.2'; // Incremented version for update detection
+const CACHE_VERSION = 'easymo-v1.0.3'; // Incremented version for update detection
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const DYNAMIC_CACHE = `${CACHE_VERSION}-dynamic`;
 
@@ -9,14 +9,6 @@ const STATIC_ASSETS = [
   '/index.html',
   '/manifest.json',
   '/lovable-uploads/92a3f893-ac5e-4bca-aaa4-347aefb2653a.png',
-];
-
-// Critical routes for offline fallback
-const CRITICAL_ROUTES = [
-  '/',
-  '/pay',
-  '/get-paid',
-  '/history'
 ];
 
 // Install event - precache critical assets
@@ -183,23 +175,4 @@ self.addEventListener('notificationclick', (event) => {
   );
 });
 
-// Background sync for offline actions
-self.addEventListener('sync', (event) => {
-  console.log('[SW] Background sync triggered:', event.tag);
-  
-  if (event.tag === 'qr-scan-sync') {
-    event.waitUntil(syncOfflineData());
-  }
-});
-
-async function syncOfflineData() {
-  try {
-    console.log('[SW] Syncing offline data...');
-    const clients = await self.clients.matchAll();
-    clients.forEach(client => {
-      client.postMessage({ type: 'SYNC_OFFLINE_DATA' });
-    });
-  } catch (error) {
-    console.error('[SW] Failed to sync offline data:', error);
-  }
-}
+console.log('[SW] Service worker loaded');

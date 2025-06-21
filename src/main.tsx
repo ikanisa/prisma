@@ -47,5 +47,4 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-// Enhanced service worker registration is now handled by usePWAUpdates hook
 console.log('[PWA] PWA update management initialized');
