@@ -32,7 +32,7 @@ const AmountInput: React.FC<AmountInputProps> = ({
   return (
     <div className="space-y-3 animate-fade-in">
       <Label htmlFor="amount" className="text-base font-medium text-gray-800 dark:text-gray-200 truncate block">
-        Amount (RWF)
+        Amount (RWF) <span className="text-gray-500 text-sm font-normal">- Optional</span>
       </Label>
       
       <div className="relative">
@@ -41,7 +41,7 @@ const AmountInput: React.FC<AmountInputProps> = ({
           value={value}
           onChange={handleInputChange}
           onFocus={onFocus}
-          placeholder="Enter amount…"
+          placeholder="Enter amount (optional)…"
           className={`
             h-16 text-2xl font-bold pl-4 pr-4
             transition-all duration-300 ease-in-out
@@ -77,8 +77,8 @@ const AmountInput: React.FC<AmountInputProps> = ({
         />
       </div>
       
-      {/* Validation hints */}
-      {value && parseFloat(value) < 100 && (
+      {/* Validation hints - only show if amount is entered */}
+      {value && parseFloat(value) > 0 && parseFloat(value) < 100 && (
         <div className="text-xs text-orange-500 dark:text-orange-400">
           Minimum amount is 100 RWF
         </div>
@@ -87,6 +87,12 @@ const AmountInput: React.FC<AmountInputProps> = ({
       {value && parseFloat(value) > 1000000 && (
         <div className="text-xs text-orange-500 dark:text-orange-400">
           Maximum amount is 1,000,000 RWF
+        </div>
+      )}
+
+      {!value && (
+        <div className="text-xs text-gray-500 dark:text-gray-400">
+          Leave empty to let payer enter amount
         </div>
       )}
     </div>

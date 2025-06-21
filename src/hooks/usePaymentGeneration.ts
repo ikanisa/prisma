@@ -51,16 +51,30 @@ export const usePaymentGeneration = () => {
   }, []);
 
   const validateAmountInput = useCallback((amountValue: string): boolean => {
+    // Amount is optional - if empty, it's valid
+    if (!amountValue.trim()) return true;
+    
     const numAmount = parseFloat(amountValue);
     return !isNaN(numAmount) && numAmount >= 100 && numAmount <= 1000000;
   }, []);
 
   const generateQR = useCallback(async (): Promise<QRResult | null> => {
-    if (!validatePhoneInput(phone) || !validateAmountInput(amount)) {
+    if (!validatePhoneInput(phone)) {
       playErrorSound();
       toast({
-        title: "Invalid Input",
-        description: "Please check your phone number and amount",
+        title: "Invalid Phone Number",
+        description: "Please enter a valid phone number or code",
+        variant: "destructive"
+      });
+      return null;
+    }
+
+    // Validate amount only if provided
+    if (amount && !validateAmountInput(amount)) {
+      playErrorSound();
+      toast({
+        title: "Invalid Amount",
+        description: "Please check your amount (min 100 RWF, max 1,000,000 RWF)",
         variant: "destructive"
       });
       return null;
@@ -69,8 +83,11 @@ export const usePaymentGeneration = () => {
     setIsGenerating(true);
     
     try {
+      // Use default amount of 100 if no amount provided for USSD generation
+      const ussdAmount = amount ? parseFloat(amount) : 100;
+      
       // Generate USSD string locally first
-      const ussdString = generateUSSDFromInputs(phone, amount);
+      const ussdString = generateUSSDFromInputs(phone, ussdAmount.toString());
       
       // Validate the generated USSD
       const validation = validateUSSDString(ussdString);
@@ -78,12 +95,16 @@ export const usePaymentGeneration = () => {
         throw new Error('Generated USSD string is invalid');
       }
 
-      console.log('[usePaymentGeneration] Generating QR with:', { phone, amount, ussdString });
+      console.log('[usePaymentGeneration] Generating QR with:', { 
+        phone, 
+        amount: amount || 'flexible', 
+        ussdString 
+      });
       
       // Call backend to generate QR and payment link
       const [qrData, linkData] = await Promise.all([
-        cloudFunctions.generateQRCode(phone, parseFloat(amount)),
-        cloudFunctions.createPaymentLink(phone, parseFloat(amount))
+        cloudFunctions.generateQRCode(phone, ussdAmount),
+        cloudFunctions.createPaymentLink(phone, ussdAmount)
       ]);
 
       const result: QRResult = {
@@ -110,9 +131,14 @@ export const usePaymentGeneration = () => {
       );
 
       playSuccessBeep();
+      
+      const successMessage = amount 
+        ? "Your payment QR code is ready to share"
+        : "Your flexible payment request is ready - payer can enter any amount";
+        
       toast({
         title: "QR Code Generated!",
-        description: "Your payment QR code is ready to share",
+        description: successMessage,
       });
 
       return result;

@@ -1,6 +1,6 @@
 
-import React from 'react';
-import { X } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Bookmark, BookmarkCheck } from 'lucide-react';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import AIPhoneSuggestions from './AIPhoneSuggestions';
@@ -13,12 +13,17 @@ interface PhoneInputProps {
   interacted: boolean;
 }
 
+const SAVED_PHONE_KEY = 'easymo_saved_phone';
+
 const PhoneInput: React.FC<PhoneInputProps> = ({
   value,
   onChange,
   onFocus,
   interacted
 }) => {
+  const [savedPhone, setSavedPhone] = useState<string>('');
+  const [isPhoneSaved, setIsPhoneSaved] = useState<boolean>(false);
+
   const {
     inputRef,
     isFocused,
@@ -30,6 +35,46 @@ const PhoneInput: React.FC<PhoneInputProps> = ({
     handleSuggestionSelect,
     clearPhone
   } = usePhoneInputHandlers({ value, onChange, onFocus });
+
+  // Load saved phone on component mount
+  useEffect(() => {
+    const saved = localStorage.getItem(SAVED_PHONE_KEY);
+    if (saved) {
+      setSavedPhone(saved);
+      setIsPhoneSaved(value === saved);
+      // Auto-populate if no current value
+      if (!value && saved) {
+        onChange(saved);
+      }
+    }
+  }, []);
+
+  // Update saved status when value changes
+  useEffect(() => {
+    setIsPhoneSaved(value === savedPhone && value.length > 0);
+  }, [value, savedPhone]);
+
+  const handleSavePhone = () => {
+    if (value && value.length >= 4) {
+      localStorage.setItem(SAVED_PHONE_KEY, value);
+      setSavedPhone(value);
+      setIsPhoneSaved(true);
+    }
+  };
+
+  const handleUnsavePhone = () => {
+    localStorage.removeItem(SAVED_PHONE_KEY);
+    setSavedPhone('');
+    setIsPhoneSaved(false);
+  };
+
+  const handleBookmarkClick = () => {
+    if (isPhoneSaved) {
+      handleUnsavePhone();
+    } else {
+      handleSavePhone();
+    }
+  };
 
   return (
     <div className="space-y-3 animate-fade-in relative">
@@ -47,7 +92,7 @@ const PhoneInput: React.FC<PhoneInputProps> = ({
           onBlur={handleBlur}
           placeholder="Enter Phone Number or Code…"
           className={`
-            h-16 text-2xl font-bold pl-4 pr-12
+            h-16 text-2xl font-bold pl-4 pr-20
             transition-all duration-300 ease-in-out
             border-2 rounded-xl
             mobile-input touch-action-manipulation
@@ -80,6 +125,38 @@ const PhoneInput: React.FC<PhoneInputProps> = ({
           disabled={false}
         />
         
+        {/* Bookmark/Save Icon */}
+        {value && value.length >= 4 && (
+          <button
+            type="button"
+            onClick={handleBookmarkClick}
+            onMouseDown={e => e.preventDefault()}
+            className={`
+              absolute right-12 top-1/2 -translate-y-1/2 
+              w-8 h-8 rounded-full 
+              ${isPhoneSaved 
+                ? 'bg-green-500 hover:bg-green-600 active:bg-green-700' 
+                : 'bg-blue-500 hover:bg-blue-600 active:bg-blue-700'
+              }
+              dark:bg-opacity-90
+              flex items-center justify-center 
+              transition-all duration-200 
+              mobile-button
+              hover:scale-110 active:scale-95
+              z-10
+            `}
+            aria-label={isPhoneSaved ? "Remove saved number" : "Save number for regular use"}
+            title={isPhoneSaved ? "Remove saved number" : "Save for regular use"}
+          >
+            {isPhoneSaved ? (
+              <BookmarkCheck className="w-4 h-4 text-white" />
+            ) : (
+              <Bookmark className="w-4 h-4 text-white" />
+            )}
+          </button>
+        )}
+
+        {/* Clear Button */}
         {value && (
           <button
             type="button"
@@ -110,9 +187,19 @@ const PhoneInput: React.FC<PhoneInputProps> = ({
         />
       </div>
       
-      {/* Rwanda MoMo Helper */}
+      {/* Status Messages */}
       <div className="flex items-center justify-between text-sm">
-        {value && value.length >= 4}
+        {savedPhone && value === savedPhone && (
+          <div className="text-green-600 dark:text-green-400 text-xs flex items-center gap-1">
+            <BookmarkCheck className="w-3 h-3" />
+            <span>Saved number</span>
+          </div>
+        )}
+        {value && value.length >= 4 && value !== savedPhone && (
+          <div className="text-blue-600 dark:text-blue-400 text-xs">
+            Click bookmark to save for regular use
+          </div>
+        )}
       </div>
       
       {/* Validation hints */}
