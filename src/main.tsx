@@ -5,65 +5,24 @@ import './index.css'
 
 createRoot(document.getElementById("root")!).render(<App />);
 
-// Temporarily disable service worker registration for iOS debugging
-// Enhanced service worker registration for production deployment
-const shouldRegisterSW = 'serviceWorker' in navigator && import.meta.env.PROD && !(/iPad|iPhone|iPod/.test(navigator.userAgent));
-
-if (shouldRegisterSW) {
-  window.addEventListener('load', async () => {
-    try {
-      const registration = await navigator.serviceWorker.register('/service-worker.js', {
-        scope: '/'
-      });
-      
-      console.log('[PWA] Service worker registered successfully:', registration);
-      
-      // Listen for updates
-      registration.addEventListener('updatefound', () => {
-        const newWorker = registration.installing;
-        if (newWorker) {
-          newWorker.addEventListener('statechange', () => {
-            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-              console.log('[PWA] New content available, reload to update');
-              // Show update notification
-              if ('Notification' in window && Notification.permission === 'granted') {
-                new Notification('App Updated', {
-                  body: 'A new version is available. Refresh to update.',
-                  icon: '/icons/icon-192.png'
-                });
-              }
-            }
-          });
-        }
-      });
-
-      // Register background sync for offline functionality
-      if ('serviceWorker' in navigator && 'sync' in window.ServiceWorkerRegistration.prototype) {
-        try {
-          await (registration as any).sync?.register('qr-scan-sync');
-          console.log('[PWA] Background sync registered');
-        } catch (error) {
-          console.log('[PWA] Background sync not supported:', error);
-        }
-      }
-
-      // Listen for messages from service worker
-      navigator.serviceWorker.addEventListener('message', (event) => {
-        if (event.data && event.data.type === 'SYNC_OFFLINE_DATA') {
-          // Trigger offline data sync in your app
-          console.log('[PWA] Received sync request from service worker');
-        }
-      });
-
-    } catch (error) {
-      console.error('[PWA] Service worker registration failed:', error);
-    }
-  });
-} else {
-  console.log('[PWA] Service worker disabled for iOS debugging');
-}
-
 // Request notification permission for update notifications
 if ('Notification' in window && Notification.permission === 'default') {
-  Notification.requestPermission();
+  Notification.requestPermission().then(permission => {
+    console.log('[PWA] Notification permission:', permission);
+  });
 }
+
+// Handle notification actions (for update notifications)
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('message', (event) => {
+    if (event.data && event.data.type === 'NOTIFICATION_ACTION') {
+      if (event.data.action === 'update') {
+        // Trigger update through the custom event
+        window.dispatchEvent(new CustomEvent('pwa-update-requested'));
+      }
+    }
+  });
+}
+
+// Enhanced service worker registration is now handled by usePWAUpdates hook
+console.log('[PWA] PWA update management initialized');

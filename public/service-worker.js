@@ -1,4 +1,5 @@
-const CACHE_VERSION = 'easymo-v1.0.0';
+
+const CACHE_VERSION = 'easymo-v1.0.1'; // Increment this for updates
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const DYNAMIC_CACHE = `${CACHE_VERSION}-dynamic`;
 
@@ -8,8 +9,6 @@ const STATIC_ASSETS = [
   '/index.html',
   '/manifest.json',
   '/lovable-uploads/92a3f893-ac5e-4bca-aaa4-347aefb2653a.png',
-  // Add your built CSS and JS files here after build
-  // These will be generated during the build process
 ];
 
 // Critical routes for offline fallback
@@ -22,7 +21,7 @@ const CRITICAL_ROUTES = [
 
 // Install event - precache critical assets
 self.addEventListener('install', (event) => {
-  console.log('[SW] Installing service worker...');
+  console.log('[SW] Installing service worker version:', CACHE_VERSION);
   event.waitUntil(
     caches.open(STATIC_CACHE)
       .then((cache) => {
@@ -33,27 +32,35 @@ self.addEventListener('install', (event) => {
         console.error('[SW] Failed to precache assets:', error);
       })
   );
+  
+  // Don't wait for old service worker to finish
   self.skipWaiting();
 });
 
-// Activate event - cleanup old caches
+// Activate event - cleanup old caches and take control
 self.addEventListener('activate', (event) => {
-  console.log('[SW] Activating service worker...');
+  console.log('[SW] Activating service worker version:', CACHE_VERSION);
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames
-          .filter((cacheName) => {
-            return cacheName.startsWith('easymo-') && cacheName !== STATIC_CACHE && cacheName !== DYNAMIC_CACHE;
-          })
-          .map((cacheName) => {
-            console.log('[SW] Deleting old cache:', cacheName);
-            return caches.delete(cacheName);
-          })
-      );
-    })
+    Promise.all([
+      // Clean up old caches
+      caches.keys().then((cacheNames) => {
+        return Promise.all(
+          cacheNames
+            .filter((cacheName) => {
+              return cacheName.startsWith('easymo-') && 
+                     cacheName !== STATIC_CACHE && 
+                     cacheName !== DYNAMIC_CACHE;
+            })
+            .map((cacheName) => {
+              console.log('[SW] Deleting old cache:', cacheName);
+              return caches.delete(cacheName);
+            })
+        );
+      }),
+      // Take control of all clients immediately
+      self.clients.claim()
+    ])
   );
-  self.clients.claim();
 });
 
 // Fetch event - serve from cache with network fallback
@@ -138,23 +145,56 @@ self.addEventListener('fetch', (event) => {
   );
 });
 
+// Handle messages from main thread
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    console.log('[SW] Received skip waiting message');
+    self.skipWaiting();
+  }
+});
+
+// Handle notification clicks
+self.addEventListener('notificationclick', (event) => {
+  console.log('[SW] Notification clicked:', event.action);
+  event.notification.close();
+
+  if (event.action === 'update') {
+    // Send message to main thread to trigger update
+    event.waitUntil(
+      self.clients.matchAll().then((clients) => {
+        clients.forEach((client) => {
+          client.postMessage({
+            type: 'NOTIFICATION_ACTION',
+            action: 'update'
+          });
+        });
+      })
+    );
+  }
+
+  // Focus the app
+  event.waitUntil(
+    self.clients.matchAll().then((clients) => {
+      if (clients.length > 0) {
+        return clients[0].focus();
+      }
+      return self.clients.openWindow('/');
+    })
+  );
+});
+
 // Background sync for offline actions
 self.addEventListener('sync', (event) => {
   console.log('[SW] Background sync triggered:', event.tag);
   
   if (event.tag === 'qr-scan-sync') {
-    event.waitUntil(
-      // Handle offline QR scan data sync when back online
-      syncOfflineData()
-    );
+    event.waitUntil(syncOfflineData());
   }
 });
 
 async function syncOfflineData() {
   try {
     console.log('[SW] Syncing offline data...');
-    // This would integrate with your offline queue system
-    // You can dispatch a message to the main thread to handle the sync
     const clients = await self.clients.matchAll();
     clients.forEach(client => {
       client.postMessage({ type: 'SYNC_OFFLINE_DATA' });
@@ -163,10 +203,3 @@ async function syncOfflineData() {
     console.error('[SW] Failed to sync offline data:', error);
   }
 }
-
-// Handle messages from main thread
-self.addEventListener('message', (event) => {
-  if (event.data && event.data.type === 'SKIP_WAITING') {
-    self.skipWaiting();
-  }
-});

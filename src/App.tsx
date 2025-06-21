@@ -16,6 +16,7 @@ import TestDashboard from "./components/TestDashboard";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
 import Verified from "./pages/Verified";
+import PWAUpdateBanner from "./components/PWAUpdateBanner";
 import { analyticsService } from "./services/analyticsService";
 import "./services/errorMonitoringService"; // Initialize error monitoring
 
