@@ -31,40 +31,44 @@ const queryClient = new QueryClient({
 
 const App = () => {
   useEffect(() => {
-    // Track app initialization
-    analyticsService.trackEvent('app_initialized', {
-      user_agent: navigator.userAgent,
-      screen_resolution: `${window.screen.width}x${window.screen.height}`,
-      viewport_size: `${window.innerWidth}x${window.innerHeight}`
-    });
+    try {
+      // Track app initialization
+      analyticsService.trackEvent('app_initialized', {
+        user_agent: navigator.userAgent,
+        screen_resolution: `${window.screen.width}x${window.screen.height}`,
+        viewport_size: `${window.innerWidth}x${window.innerHeight}`
+      });
 
-    // Track page views on route changes
-    const trackPageView = () => {
-      analyticsService.trackPageView(window.location.pathname);
-    };
+      // Track page views on route changes
+      const trackPageView = () => {
+        analyticsService.trackPageView(window.location.pathname);
+      };
 
-    // Initial page view
-    trackPageView();
+      // Initial page view
+      trackPageView();
 
-    // Listen for route changes
-    window.addEventListener('popstate', trackPageView);
-    
-    // Remove splash screen once app is loaded
-    const handleAppLoad = () => {
-      const splash = document.getElementById('splash-screen');
-      if (splash) {
-        splash.style.opacity = '0';
-        splash.style.transition = 'opacity 0.5s ease';
-        setTimeout(() => splash.remove(), 500);
-      }
-    };
+      // Listen for route changes
+      window.addEventListener('popstate', trackPageView);
+      
+      // Remove splash screen once app is loaded
+      const handleAppLoad = () => {
+        const splash = document.getElementById('splash-screen');
+        if (splash) {
+          splash.style.opacity = '0';
+          splash.style.transition = 'opacity 0.5s ease';
+          setTimeout(() => splash.remove(), 500);
+        }
+      };
 
-    // Remove splash after a short delay to ensure smooth transition
-    setTimeout(handleAppLoad, 1000);
-    
-    return () => {
-      window.removeEventListener('popstate', trackPageView);
-    };
+      // Remove splash after a short delay to ensure smooth transition
+      setTimeout(handleAppLoad, 1000);
+      
+      return () => {
+        window.removeEventListener('popstate', trackPageView);
+      };
+    } catch (error) {
+      console.error('App initialization error:', error);
+    }
   }, []);
 
   return (
@@ -103,7 +107,7 @@ const App = () => {
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
   window.addEventListener('load', async () => {
     try {
-      const registration = await navigator.serviceWorker.register('/sw.js');
+      const registration = await navigator.serviceWorker.register('/service-worker.js');
       console.log('[PWA] Service worker registered:', registration);
       
       // Listen for updates
