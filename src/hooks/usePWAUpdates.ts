@@ -121,16 +121,8 @@ export const usePWAUpdates = () => {
     // Toast notification as fallback
     toast({
       title: "🚀 Update Available",
-      description: "A new version of easyMO is ready with improvements and bug fixes.",
-      duration: 10000,
-      action: (
-        <button 
-          onClick={() => applyUpdate()}
-          className="bg-primary text-primary-foreground px-3 py-1 rounded text-sm hover:bg-primary/90"
-        >
-          Update Now
-        </button>
-      )
+      description: "A new version of easyMO is ready with improvements and bug fixes. Click to update now.",
+      duration: 10000
     });
   };
 
