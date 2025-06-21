@@ -5,8 +5,11 @@ import './index.css'
 
 createRoot(document.getElementById("root")!).render(<App />);
 
+// Temporarily disable service worker registration for iOS debugging
 // Enhanced service worker registration for production deployment
-if ('serviceWorker' in navigator) {
+const shouldRegisterSW = 'serviceWorker' in navigator && import.meta.env.PROD && !(/iPad|iPhone|iPod/.test(navigator.userAgent));
+
+if (shouldRegisterSW) {
   window.addEventListener('load', async () => {
     try {
       const registration = await navigator.serviceWorker.register('/service-worker.js', {
@@ -56,6 +59,8 @@ if ('serviceWorker' in navigator) {
       console.error('[PWA] Service worker registration failed:', error);
     }
   });
+} else {
+  console.log('[PWA] Service worker disabled for iOS debugging');
 }
 
 // Request notification permission for update notifications

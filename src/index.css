@@ -41,7 +41,7 @@ body {
   color: hsl(var(--foreground));
   margin: 0;
   padding: 0;
-  min-height: 100vh;
+  min-height: 100dvh; /* Use dvh instead of vh for iOS compatibility */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   font-feature-settings: 'cv03', 'cv04', 'cv11';
@@ -56,7 +56,7 @@ html {
 /* Liquid Glass Theme */
 .liquid-theme {
   position: relative;
-  min-height: 100vh;
+  min-height: 100dvh; /* Use dvh instead of vh for iOS compatibility */
   overflow-x: hidden;
 }
 
@@ -92,7 +92,7 @@ html {
 .liquid-content {
   position: relative;
   z-index: 1;
-  min-height: 100vh;
+  min-height: 100dvh; /* Use dvh instead of vh for iOS compatibility */
 }
 
 /* Mobile-First Responsive Design */

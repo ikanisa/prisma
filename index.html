@@ -15,6 +15,8 @@
     <meta name="theme-color" content="#00C9A7" />
     <meta name="theme-color" media="(prefers-color-scheme: light)" content="#00C9A7" />
     <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#00C9A7" />
+    
+    <!-- iOS Specific Meta Tags for WebKit Compatibility -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="easyMO" />
@@ -104,7 +106,7 @@
         top: 0; 
         left: 0;
         width: 100vw;
-        height: 100vh;
+        height: 100dvh; /* Use 100dvh for better iOS compatibility */
         z-index: 9999;
         overflow: hidden;
         background: linear-gradient(135deg, #00C9A7 0%, #6A00F4 50%, #FF6F91 100%);
@@ -299,6 +301,19 @@
         }
       }
     </style>
+    
+    <!-- iOS Error Logging Script -->
+    <script>
+      window.onerror = function(message, source, lineno, colno, error) {
+        console.error('[iOS Error]', message, source, lineno, colno, error);
+        // Optional: alert for debugging (remove in production)
+        // alert('iOS Render Error: ' + message);
+      };
+      
+      window.addEventListener('unhandledrejection', function(event) {
+        console.error('[iOS Promise Rejection]', event.reason);
+      });
+    </script>
   </head>
 
   <body>
