@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
+import { Save } from 'lucide-react';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import AIPhoneSuggestions from './AIPhoneSuggestions';
@@ -18,6 +19,8 @@ const PhoneInput: React.FC<PhoneInputProps> = ({
   onFocus,
   interacted
 }) => {
+  const [savedPhone, setSavedPhone] = useState<string>('');
+
   const {
     inputRef,
     isFocused,
@@ -29,6 +32,24 @@ const PhoneInput: React.FC<PhoneInputProps> = ({
     handleSuggestionSelect,
     clearPhone
   } = usePhoneInputHandlers({ value, onChange, onFocus });
+
+  // Load saved phone on component mount
+  useEffect(() => {
+    const saved = localStorage.getItem('mmpwa_savedPhone');
+    if (saved) {
+      setSavedPhone(saved);
+      onChange(saved);
+    }
+  }, [onChange]);
+
+  const handleSavePhone = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (value && value.length >= 4) {
+      localStorage.setItem('mmpwa_savedPhone', value);
+      setSavedPhone(value);
+    }
+  };
 
   return (
     <div className="space-y-3 animate-fade-in relative">
@@ -46,7 +67,7 @@ const PhoneInput: React.FC<PhoneInputProps> = ({
           onBlur={handleBlur}
           placeholder="Enter Phone Number or Code…"
           className={`
-            h-16 text-2xl font-bold pl-4 pr-4
+            h-16 text-2xl font-bold pl-4 pr-12
             transition-all duration-300 ease-in-out
             border-2 rounded-xl
             mobile-input touch-action-manipulation
@@ -79,6 +100,32 @@ const PhoneInput: React.FC<PhoneInputProps> = ({
           disabled={false}
         />
 
+        {/* Save Button */}
+        {value && value.length >= 4 && (
+          <button
+            type="button"
+            onClick={handleSavePhone}
+            onMouseDown={e => e.preventDefault()}
+            className={`
+              absolute right-3 top-1/2 -translate-y-1/2 
+              w-8 h-8 rounded-full 
+              ${savedPhone === value 
+                ? 'bg-green-500 hover:bg-green-600 active:bg-green-700' 
+                : 'bg-blue-500 hover:bg-blue-600 active:bg-blue-700'
+              }
+              flex items-center justify-center 
+              transition-all duration-200 
+              mobile-button
+              hover:scale-110 active:scale-95
+              z-10
+            `}
+            aria-label={savedPhone === value ? 'Phone number saved' : 'Save phone number'}
+            title={savedPhone === value ? 'Phone number saved' : 'Save phone number'}
+          >
+            <Save className="w-4 h-4 text-white" />
+          </button>
+        )}
+
         <AIPhoneSuggestions
           suggestions={suggestions}
           onSelect={handleSuggestionSelect}
@@ -91,6 +138,12 @@ const PhoneInput: React.FC<PhoneInputProps> = ({
       {value && value.length > 0 && value.length < 4 && (
         <div className="text-xs text-orange-500 dark:text-orange-400">
           Enter at least 4 digits
+        </div>
+      )}
+
+      {savedPhone && savedPhone === value && (
+        <div className="text-xs text-green-600 dark:text-green-400">
+          ✓ Phone number saved for future use
         </div>
       )}
     </div>
