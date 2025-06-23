@@ -1,4 +1,11 @@
+# SPA fallback
 /* /index.html 200
-/assets/* /assets/:splat 200
-/*.js /assets/js/:splat 200
-/*.css /assets/css/:splat 200 
+
+# Handle direct asset requests
+/assets/css/* /assets/css/:splat 200
+/assets/js/* /assets/js/:splat 200
+/assets/img/* /assets/img/:splat 200
+
+# Handle legacy asset paths
+/*.css /assets/css/:splat 200
+/*.js /assets/js/:splat 200 

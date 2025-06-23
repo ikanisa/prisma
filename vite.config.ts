@@ -40,8 +40,11 @@ export default defineConfig(({ mode }) => ({
     // Optimize for PWA - use esbuild instead of terser to avoid dependency issues
     target: "esnext",
     minify: mode === "production" ? "esbuild" : false,
+    assetsDir: "assets",
+    // Ensure assets are properly referenced
+    assetsInlineLimit: 0,
   },
-  // Configure base for deployment
-  base: "/",
+  // Configure base for deployment - use relative paths
+  base: "./",
   publicDir: "public",
 }));
