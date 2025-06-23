@@ -33,6 +33,8 @@ export default defineConfig(({ mode }) => ({
         },
         chunkFileNames: "assets/js/[name]-[hash].js",
         entryFileNames: "assets/js/[name]-[hash].js",
+        // Ensure proper MIME types
+        format: "es",
       },
     },
     // Generate source maps for better debugging
@@ -44,7 +46,7 @@ export default defineConfig(({ mode }) => ({
     // Ensure assets are properly referenced
     assetsInlineLimit: 0,
   },
-  // Configure base for deployment - use relative paths
-  base: "./",
+  // Configure base for deployment - use absolute paths
+  base: "/",
   publicDir: "public",
 }));
