@@ -1,0 +1,71 @@
+# OnboardingAgent YAML Configuration
+name: OnboardingAgent
+model: gpt-4o
+language: en
+tone: friendly
+
+global_rules:
+  - Avoid hallucinations.
+  - Never mark a task as done unless verified.
+  - Mobile‑first, WhatsApp‑first UX.
+  - Works in Rwanda (MoMo) & Malta (Revolut).
+  - Payment APIs are NOT implemented; only USSD links.
+
+system: |
+  You are the easyMO Onboarding Agent.
+  Goal: capture minimum info, personalise UX.
+  1. Detect returning user -> greet by name.
+  2. Assume WhatsApp == MoMo unless user says otherwise.
+  3. Offer business/driver registration only if asked.
+
+memory:
+  vector_store: pinecone_easymo
+  namespace_per_user: true
+  tables: [users, drivers, businesses, agent_conversations]
+
+tools:
+  - type: db.query
+    name: getUser
+    description: "SELECT * FROM users WHERE phone = :phone"
+  - type: db.mutate
+    name: insertUser
+    description: "INSERT INTO users..."
+  - type: db.mutate
+    name: insertDriver
+    description: "INSERT INTO drivers..."
+  - type: db.mutate
+    name: insertBusiness
+    description: "INSERT INTO businesses..."
+
+workflow:
+  - on_first_message:
+      steps:
+        1: db.query getUser { phone: "{{whatsapp_number}}" }
+        2: if found_user:
+             greet: "Welcome back, {{found_user.phone}}! 🎉"
+             set_memory: user = found_user
+             hint: "Send an amount to create a MoMo QR."
+           else:
+             ask: |
+               Hi! 👋  Is your WhatsApp number {{whatsapp_number}} also your Mobile Money number? (yes/no)
+
+  - on_user_reply:
+      if reply.lower() == "yes":
+        db.mutate insertUser { phone: "{{whatsapp_number}}", momo_code: "{{whatsapp_number}}" }
+        reply: "Great! Send any amount (e.g. 5000) to generate a MoMo link."
+      elif reply.lower() == "no":
+        ask: "Please type your MoMo number:"
+      elif is_phone_number(reply):
+        db.mutate insertUser { phone: "{{whatsapp_number}}", momo_code: "{{reply}}" }
+        reply: "Perfect! Now send an amount to get a payment QR/link."
+      elif "driver" in reply.lower():
+        ask: "Driver registration! What's your vehicle plate?"
+        → then db.mutate insertDriver …
+      elif "business" in reply.lower():
+        ask: "Business type? (bar / pharmacy / shop)"
+        → then db.mutate insertBusiness …
+      else:
+        reply: "Type yes/no, or say driver / business."
+
+fallback: |
+  Sorry, I didn't catch that 🤔. Type yes/no or /help.

@@ -1,0 +1,25 @@
+# BusinessAgent YAML Configuration
+name: BusinessAgent
+model: gpt-4o
+tone: salesy
+
+system: |
+  Enables ordering & MoMo payment for bars, pharmacies, shops.
+
+memory.tables: [businesses, products, orders, payments]
+
+tools:
+  - db.query: businessProducts
+  - db.mutate: insertOrder
+  - edge_function: generatePayment { url: "{{env.SUPABASE_URL}}/functions/v1/generate-payment" }
+
+triggers:
+  - regex: '(order|buy)'
+    steps:
+      1: determine business context from message
+      2: db.query businessProducts "select * from products where business_id = {{biz.id}}"
+      3: respond_cards: "{{rows}}"
+      4: on_card_click:
+           db.mutate insertOrder ...
+           edge_function generatePayment ...
+           respond: "Order placed – pay via link above."

@@ -1,0 +1,28 @@
+# PaymentAgent YAML Configuration
+name: PaymentAgent
+model: gpt-4o
+language: en
+tone: concise
+inherits: OnboardingAgent
+
+system: |
+  Generate MoMo QR + USSD links when user sends a number.
+
+tools:
+  - type: edge_function
+    name: generatePayment
+    url: "{{env.SUPABASE_URL}}/functions/v1/generate-payment"
+    input: { user_id: string, amount: number }
+
+triggers:
+  - message_regex: '^\d+(\.\d+)?$'
+    call: generatePayment
+    with:
+      user_id: "{{memory.user.id}}"
+      amount: "{{matched_text}}"
+    respond: |
+      ✅ Payment request {{matched_text}} RWF
+      USSD: {{result.ussd}}
+      Link: {{result.ussdLink}}
+      QR Image: {{result.qr_url}}
+      _(Send another amount or /menu.)_

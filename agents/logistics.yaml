@@ -1,0 +1,37 @@
+# LogisticsAgent YAML Configuration
+name: LogisticsAgent
+model: gpt-4o
+tone: practical
+
+system: |
+  Handles driver status & passenger ride requests.
+
+memory.tables: [drivers, trips, bookings]
+
+tools:
+  - db.update: updateDriver
+  - db.mutate: insertTrip
+  - db.query: nearestDrivers
+  - db.mutate: insertBooking
+  - edge_function: assignDriver { url: "{{env.SUPABASE_URL}}/functions/v1/assign-driver" }
+
+triggers:
+  - keyword: "driver on"
+    ask_location: true
+    sequence:
+      1: db.update updateDriver { is_online: true, location_gps: "{{location}}", user_id: "{{memory.user.id}}" }
+      2: respond: "🔵 Online & visible to passengers."
+
+  - keyword: "driver off"
+    sequence:
+      1: db.update updateDriver { is_online: false } where user_id={{memory.user.id}}
+      2: respond: "🔴 Offline. See you soon!"
+
+  - regex: '^ride$'
+    sequence:
+      1: ask: "Share your pickup location 📍"
+      2: db.query nearestDrivers "select * from drivers where is_online limit 3"
+      3: respond_list: "{{rows}} – reply '1' '2' '3' to book."
+      4: on_reply_number:
+           db.mutate insertBooking { trip_id: null, passenger_id: "{{memory.user.id}}", driver_id: "{{row.id}}" }
+           respond: "Driver booked! They'll contact you shortly."

@@ -1,0 +1,18 @@
+# MarketingAgent YAML Configuration
+name: MarketingAgent
+model: gpt-4o
+tone: persuasive
+run_mode: background
+schedule: "0 */6 * * *"
+
+system: |
+  Sends WhatsApp template promos every 6 h.
+  Respects opt‑out keywords STOP / NO.
+
+tools:
+  - edge_function: pushMarketing { url: "{{env.SUPABASE_URL}}/functions/v1/push-marketing" }
+
+workflow:
+  - cron_run:
+      edge_function pushMarketing { segment: "all", template: "promo_fresh_deals" }
+      log: "Batch sent."

@@ -1,0 +1,30 @@
+# ListingAgent YAML Configuration
+name: ListingAgent
+model: gpt-4o
+tone: helpful
+system: |
+  Farmers can list produce via one line:
+  e.g. "add maize 50kg 1200"
+
+memory:
+  vector_store: pinecone_easymo
+  tables: [products]
+
+tools:
+  - type: db.mutate
+    name: insertProduct
+    description: "INSERT INTO products..."
+
+triggers:
+  - message_regex: '^add\s'
+    parse: >
+      (?i)add\s+(?P<name>\w+)\s+(?P<qty>\d+)(?P<unit>\w+)\s+(?P<price>\d+)
+    steps:
+      1: db.mutate insertProduct {
+           farmer_id: "{{memory.user.id}}",
+           name: "{{name}}",
+           unit: "{{unit}}",
+           stock: "{{qty}}",
+           price: "{{price}}"
+         }
+      2: respond: "📝 {{name}} listed: {{qty}}{{unit}} at {{price}} RWF."

@@ -1,0 +1,22 @@
+# SupportAgent YAML Configuration
+name: SupportAgent
+model: gpt-4o
+tone: empathetic
+
+system: |
+  24‑7 support; escalates if negative sentiment (< -0.3).
+
+memory.tables: [agent_conversations, payments, orders, bookings, support_tickets]
+
+tools:
+  - db.mutate: openTicket
+  - http.post: adminReply { url: "{{env.SUPABASE_URL}}/functions/v1/admin-reply" }
+
+triggers:
+  - keyword: "help"
+  - sentiment_below: -0.3
+    sequence:
+      1: db.mutate openTicket { user_id: "{{memory.user.id}}", topic: "{{message}}" }
+      2: respond: "Sorry you're having trouble. Ticket #{{last_insert_id}} opened; a human will assist."
+      3: http.post adminReply { ticket_id: "{{last_insert_id}}", message: "👋 Support team: new ticket opened." }
+fallback: "Need assistance? Say help and describe the issue."
