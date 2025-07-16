@@ -117,10 +117,10 @@ export default function Documents() {
     setUploading(true);
     
     try {
-      // Upload file to storage
-      const fileName = `${Date.now()}-${file.name}`;
+      // Upload file to correct storage bucket path
+      const fileName = `docs/${Date.now()}-${file.name}`;
       const { error: uploadError } = await supabase.storage
-        .from('agent-docs')
+        .from('uploads')
         .upload(fileName, file);
 
       if (uploadError) throw uploadError;
@@ -131,7 +131,7 @@ export default function Documents() {
         .insert([{
           agent_id: formData.agent_id,
           title: formData.title || file.name,
-          storage_path: `agent-docs/${fileName}`
+          storage_path: `uploads/${fileName}`
         }]);
 
       if (insertError) throw insertError;
@@ -155,14 +155,15 @@ export default function Documents() {
     }
   };
 
-  const handleDelete = async (doc: Document) => {
+  const handleDelete = async (e: React.MouseEvent, doc: Document) => {
+    e.stopPropagation(); // Prevent triggering the card click
     if (!confirm("Are you sure you want to delete this document?")) return;
     
     try {
       // Delete from storage
-      const fileName = doc.storage_path.replace('agent-docs/', '');
+      const fileName = doc.storage_path.replace('uploads/', '');
       await supabase.storage
-        .from('agent-docs')
+        .from('uploads')
         .remove([fileName]);
 
       // Delete from database
@@ -186,9 +187,9 @@ export default function Documents() {
 
   const handlePreview = async (doc: Document) => {
     try {
-      const fileName = doc.storage_path.replace('agent-docs/', '');
+      const fileName = doc.storage_path.replace('uploads/', '');
       const { data, error } = await supabase.storage
-        .from('agent-docs')
+        .from('uploads')
         .createSignedUrl(fileName, 60);
 
       if (error) throw error;
@@ -278,7 +279,7 @@ export default function Documents() {
 
       <div className="grid gap-4">
         {documents.map((doc) => (
-          <Card key={doc.id}>
+          <Card key={doc.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => handlePreview(doc)}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <div className="flex items-center gap-2">
                 <FileText className="w-4 h-4" />
@@ -299,7 +300,8 @@ export default function Documents() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => handleDelete(doc)}
+                  onClick={(e) => handleDelete(e, doc)}
+                  title="Delete document"
                 >
                   <Trash2 className="w-4 h-4" />
                 </Button>

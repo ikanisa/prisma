@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, CreditCard, Truck, ShoppingCart } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { TestSuite } from "@/components/admin/TestSuite";
 
 interface KPIData {
   totalUsers: number;
@@ -175,6 +176,8 @@ export default function Dashboard() {
             </div>
           </CardContent>
         </Card>
+
+        <TestSuite />
       </div>
     </div>
   );

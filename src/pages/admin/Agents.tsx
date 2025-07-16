@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Edit, Trash2, Power, PowerOff } from "lucide-react";
+import { Plus, Edit, Trash2, Power, PowerOff, ChevronLeft, ChevronRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface Agent {
@@ -33,21 +33,36 @@ export default function Agents() {
     description: "",
     status: "active"
   });
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const itemsPerPage = 50;
   const { toast } = useToast();
 
   useEffect(() => {
     fetchAgents();
-  }, []);
+  }, [currentPage]);
 
   const fetchAgents = async () => {
     try {
-      const { data, error } = await supabase
-        .from("agents")
-        .select("*")
-        .order("created_at", { ascending: false });
+      const from = (currentPage - 1) * itemsPerPage;
+      const to = from + itemsPerPage - 1;
 
-      if (error) throw error;
-      setAgents(data || []);
+      const [dataResult, countResult] = await Promise.all([
+        supabase
+          .from("agents")
+          .select("*")
+          .order("created_at", { ascending: false })
+          .range(from, to),
+        supabase
+          .from("agents")
+          .select("*", { count: "exact", head: true })
+      ]);
+
+      if (dataResult.error) throw dataResult.error;
+      if (countResult.error) throw countResult.error;
+
+      setAgents(dataResult.data || []);
+      setTotalCount(countResult.count || 0);
     } catch (error) {
       console.error("Error fetching agents:", error);
       toast({
@@ -147,6 +162,7 @@ export default function Agents() {
       setEditingAgent(null);
       setFormData({ name: "", description: "", status: "active" });
     }
+    setCurrentPage(1);
     setDialogOpen(true);
   };
 
@@ -257,12 +273,44 @@ export default function Agents() {
         ))}
       </div>
 
-      {agents.length === 0 && (
+      {agents.length === 0 && !loading && (
         <Card>
           <CardContent className="p-6 text-center">
             <p className="text-muted-foreground">No agents found. Create your first AI agent to get started.</p>
           </CardContent>
         </Card>
+      )}
+
+      {/* Pagination */}
+      {totalCount > itemsPerPage && (
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">
+            Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, totalCount)} of {totalCount} agents
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(currentPage - 1)}
+              disabled={currentPage === 1}
+            >
+              <ChevronLeft className="w-4 h-4" />
+              Previous
+            </Button>
+            <span className="text-sm">
+              Page {currentPage} of {Math.ceil(totalCount / itemsPerPage)}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(currentPage + 1)}
+              disabled={currentPage >= Math.ceil(totalCount / itemsPerPage)}
+            >
+              Next
+              <ChevronRight className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
       )}
     </div>
   );

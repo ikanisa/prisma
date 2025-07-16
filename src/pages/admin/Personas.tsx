@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Edit, Trash2 } from "lucide-react";
+import { Plus, Edit, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface Agent {
@@ -45,15 +45,21 @@ export default function Personas() {
     personality: "",
     instructions: ""
   });
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const itemsPerPage = 50;
   const { toast } = useToast();
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [currentPage]);
 
   const fetchData = async () => {
     try {
-      const [personasResult, agentsResult] = await Promise.all([
+      const from = (currentPage - 1) * itemsPerPage;
+      const to = from + itemsPerPage - 1;
+
+      const [personasResult, agentsResult, countResult] = await Promise.all([
         supabase
           .from("agent_personas")
           .select(`
@@ -63,18 +69,24 @@ export default function Personas() {
               name
             )
           `)
-          .order("updated_at", { ascending: false }),
+          .order("updated_at", { ascending: false })
+          .range(from, to),
         supabase
           .from("agents")
           .select("id, name")
-          .order("name")
+          .order("name"),
+        supabase
+          .from("agent_personas")
+          .select("*", { count: "exact", head: true })
       ]);
 
       if (personasResult.error) throw personasResult.error;
       if (agentsResult.error) throw agentsResult.error;
+      if (countResult.error) throw countResult.error;
 
       setPersonas(personasResult.data || []);
       setAgents(agentsResult.data || []);
+      setTotalCount(countResult.count || 0);
     } catch (error) {
       console.error("Error fetching data:", error);
       toast({
@@ -108,6 +120,7 @@ export default function Personas() {
       setDialogOpen(false);
       setEditingPersona(null);
       setFormData({ agent_id: "", language: "en", tone: "", personality: "", instructions: "" });
+      setCurrentPage(1);
       fetchData();
     } catch (error) {
       console.error("Error saving persona:", error);
@@ -289,12 +302,44 @@ export default function Personas() {
         ))}
       </div>
 
-      {personas.length === 0 && (
+      {personas.length === 0 && !loading && (
         <Card>
           <CardContent className="p-6 text-center">
             <p className="text-muted-foreground">No personas found. Create personas to define agent behavior and personality.</p>
           </CardContent>
         </Card>
+      )}
+
+      {/* Pagination */}
+      {totalCount > itemsPerPage && (
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">
+            Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, totalCount)} of {totalCount} personas
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(currentPage - 1)}
+              disabled={currentPage === 1}
+            >
+              <ChevronLeft className="w-4 h-4" />
+              Previous
+            </Button>
+            <span className="text-sm">
+              Page {currentPage} of {Math.ceil(totalCount / itemsPerPage)}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(currentPage + 1)}
+              disabled={currentPage >= Math.ceil(totalCount / itemsPerPage)}
+            >
+              Next
+              <ChevronRight className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
       )}
     </div>
   );
