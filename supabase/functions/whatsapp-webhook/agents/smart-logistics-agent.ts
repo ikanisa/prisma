@@ -28,7 +28,7 @@ export class SmartLogisticsAgent {
       const msg = message.toLowerCase().trim();
 
       if (msg.includes('driver on') || msg.includes('go online') || msg.includes('start work')) {
-        return await this.handleGoOnline(driver, context);
+        return await this.handleDriverOnlineWithLocation(driver, context);
       }
 
       if (msg.includes('driver off') || msg.includes('go offline') || msg.includes('stop work')) {
@@ -56,6 +56,24 @@ Be helpful and guide them to the right command. Keep response under 200 characte
     } catch (error) {
       console.error('❌ Smart Logistics Agent error:', error);
       return "Driver system temporarily unavailable. Please try again! 🛵";
+    }
+  }
+
+  private async handleDriverOnlineWithLocation(driver: any, context: string[]): Promise<string> {
+    try {
+      if (driver.is_online) {
+        return "You're already online and ready for orders! 🟢";
+      }
+
+      // Request real GPS location from user
+      return "📍 *Share your current location* to go online!\n\n" +
+             "Tap the 📎 attachment button → Location → Send Current Location\n\n" +
+             "⚡ This helps passengers find you faster!\n\n" +
+             "Once you share location, you'll automatically go online! 🛵";
+
+    } catch (error) {
+      console.error('❌ Error handling driver online with location:', error);
+      return "❌ Failed to request location. Please try again.";
     }
   }
 

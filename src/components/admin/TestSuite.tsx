@@ -13,11 +13,71 @@ interface TestResult {
   duration?: number;
 }
 
+const E2E_TEST_SCENARIOS = [
+  {
+    id: 'e2e-shopper-purchase',
+    name: 'E2E: Shopper Purchase Flow',
+    description: 'Complete shopper onboarding → browse → payment',
+    phone: '+250790000001',
+    steps: [
+      { action: 'send', message: 'Hi', expected: 'Welcome to easyMO' },
+      { action: 'send', message: 'Shopper', expected: 'Great choice' },
+      { action: 'send', message: 'browse', expected: 'Available Products' },
+      { action: 'send', message: '5000', expected: 'USSD:' }
+    ]
+  },
+  {
+    id: 'e2e-farmer-listing',
+    name: 'E2E: Farmer Product Listing',
+    description: 'Complete farmer onboarding and product listing',
+    phone: '+250790000002',
+    steps: [
+      { action: 'send', message: 'Hi', expected: 'Welcome to easyMO' },
+      { action: 'send', message: 'Farmer', expected: 'Great! You can list' },
+      { action: 'send', message: 'add beans 30kg 1500', expected: 'beans' }
+    ]
+  },
+  {
+    id: 'ai-intent-routing',
+    name: 'AI Intent Recognition',
+    description: 'Test GPT-4o intent analysis and routing',
+    phone: '+250790000004',
+    steps: [
+      { action: 'send', message: 'I need help with my payment', expected: 'payment' },
+      { action: 'send', message: 'Can you show me available products?', expected: 'Products' },
+      { action: 'send', message: 'I want to go online as driver', expected: 'location' }
+    ]
+  },
+  {
+    id: 'vector-memory-test',
+    name: 'Vector Memory Context',
+    description: 'Test conversation context and memory',
+    phone: '+250790000005',
+    steps: [
+      { action: 'send', message: 'Hi, I am John', expected: 'Welcome' },
+      { action: 'send', message: 'I like tomatoes', expected: 'noted' }
+    ]
+  },
+  {
+    id: 'sentiment-routing',
+    name: 'Sentiment-Based Routing',
+    description: 'Test negative sentiment → support ticket',
+    phone: '+250790000006',
+    steps: [
+      { action: 'send', message: 'This is terrible! Nothing works!', expected: 'Sorry' },
+      { action: 'send', message: 'I am very frustrated', expected: 'human will help' }
+    ]
+  }
+];
+
 export function TestSuite() {
-  const [tests, setTests] = useState<TestResult[]>([
-    { name: "CRUD Agent", status: "pending" },
-    { name: "Upload Doc", status: "pending" }
-  ]);
+  const [tests, setTests] = useState<TestResult[]>(
+    E2E_TEST_SCENARIOS.map(scenario => ({
+      name: scenario.name,
+      status: "pending" as const,
+      message: scenario.description
+    }))
+  );
   const [running, setRunning] = useState(false);
   const { toast } = useToast();
 
@@ -27,85 +87,86 @@ export function TestSuite() {
     // Reset all tests to pending
     setTests(prev => prev.map(test => ({ ...test, status: "pending" as const })));
 
-    // Test 1: CRUD Agent
-    try {
-      setTests(prev => prev.map(test => 
-        test.name === "CRUD Agent" 
-          ? { ...test, status: "running" as const }
-          : test
-      ));
-
-      const startTime = Date.now();
+    // Run each E2E test scenario
+    for (let i = 0; i < E2E_TEST_SCENARIOS.length; i++) {
+      const scenario = E2E_TEST_SCENARIOS[i];
       
-      // Create test agent
-      const { data: agent, error: createError } = await supabase
-        .from("agents")
-        .insert([{ name: "TestBot", description: "Temp test agent" }])
-        .select()
-        .single();
+      try {
+        setTests(prev => prev.map(test => 
+          test.name === scenario.name 
+            ? { ...test, status: "running" as const, message: `Testing ${scenario.description}...` }
+            : test
+        ));
 
-      if (createError) throw createError;
+        const startTime = Date.now();
+        
+        // Simulate WhatsApp webhook test by calling the edge function
+        let testPassed = true;
+        let lastResponse = "";
 
-      // Verify agent exists
-      const { data: foundAgent, error: findError } = await supabase
-        .from("agents")
-        .select("*")
-        .eq("name", "TestBot")
-        .single();
+        for (const step of scenario.steps) {
+          if (step.action === 'send') {
+            try {
+              const response = await fetch(`https://ijblirphkrrsnxazohwt.supabase.co/functions/v1/whatsapp-webhook`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${process.env.REACT_APP_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlqYmxpcnBoa3Jyc254YXpvaHd0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI2NDAzMzAsImV4cCI6MjA2ODIxNjMzMH0.gH-rvhmX1RvQSlgwbjqq15bHBgKmlDRkAGyfzFyEeKs'}`
+                },
+                body: JSON.stringify({
+                  From: scenario.phone,
+                  Body: step.message,
+                  MessageSid: `test_${Date.now()}_${Math.random()}`
+                })
+              });
 
-      if (findError) throw findError;
+              if (response.ok) {
+                const responseText = await response.text();
+                lastResponse = responseText;
+                
+                // Check if response contains expected content
+                if (!responseText.toLowerCase().includes(step.expected.toLowerCase())) {
+                  testPassed = false;
+                  break;
+                }
+              } else {
+                testPassed = false;
+                lastResponse = `HTTP ${response.status}`;
+                break;
+              }
+            } catch (error) {
+              testPassed = false;
+              lastResponse = `Network error: ${error}`;
+              break;
+            }
+          }
+        }
 
-      // Clean up - delete test agent
-      await supabase
-        .from("agents")
-        .delete()
-        .eq("id", agent.id);
+        const duration = Date.now() - startTime;
+        
+        setTests(prev => prev.map(test => 
+          test.name === scenario.name 
+            ? { 
+                ...test, 
+                status: testPassed ? "passed" as const : "failed" as const,
+                message: testPassed 
+                  ? `✅ All steps completed successfully` 
+                  : `❌ Test failed: ${lastResponse}`,
+                duration 
+              }
+            : test
+        ));
 
-      const duration = Date.now() - startTime;
-      
-      setTests(prev => prev.map(test => 
-        test.name === "CRUD Agent" 
-          ? { ...test, status: "passed" as const, message: "Agent created and deleted successfully", duration }
-          : test
-      ));
-    } catch (error) {
-      setTests(prev => prev.map(test => 
-        test.name === "CRUD Agent" 
-          ? { ...test, status: "failed" as const, message: `Error: ${error}` }
-          : test
-      ));
-    }
+      } catch (error) {
+        setTests(prev => prev.map(test => 
+          test.name === scenario.name 
+            ? { ...test, status: "failed" as const, message: `❌ Test error: ${error}` }
+            : test
+        ));
+      }
 
-    // Test 2: Upload Doc (simulation)
-    try {
-      setTests(prev => prev.map(test => 
-        test.name === "Upload Doc" 
-          ? { ...test, status: "running" as const }
-          : test
-      ));
-
-      const startTime = Date.now();
-      
-      // Check if uploads bucket exists
-      const { data: buckets, error: bucketError } = await supabase.storage.listBuckets();
-      if (bucketError) throw bucketError;
-      
-      const uploadsBucket = buckets.find(bucket => bucket.id === "uploads");
-      if (!uploadsBucket) throw new Error("Uploads bucket not found");
-
-      const duration = Date.now() - startTime;
-      
-      setTests(prev => prev.map(test => 
-        test.name === "Upload Doc" 
-          ? { ...test, status: "passed" as const, message: "Storage bucket configured correctly", duration }
-          : test
-      ));
-    } catch (error) {
-      setTests(prev => prev.map(test => 
-        test.name === "Upload Doc" 
-          ? { ...test, status: "failed" as const, message: `Error: ${error}` }
-          : test
-      ));
+      // Small delay between tests
+      await new Promise(resolve => setTimeout(resolve, 1000));
     }
 
     setRunning(false);
@@ -114,8 +175,8 @@ export function TestSuite() {
     const totalTests = tests.length;
     
     toast({
-      title: "Tests Complete",
-      description: `${passedTests}/${totalTests} tests passed`,
+      title: "E2E Tests Complete",
+      description: `${passedTests}/${totalTests} scenarios passed`,
       variant: passedTests === totalTests ? "default" : "destructive"
     });
   };

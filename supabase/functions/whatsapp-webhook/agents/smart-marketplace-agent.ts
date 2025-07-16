@@ -14,13 +14,18 @@ export class SmartMarketplaceAgent {
       const intent = intentAnalysis?.intent;
       const entities = intentAnalysis?.entities || {};
 
+      // Handle card buy actions from UI clicks
+      if (intentAnalysis?.payload?.action === 'buy') {
+        return await this.handleCardBuyAction(intentAnalysis.payload.product_id, user);
+      }
+
       // Handle specific marketplace intents
       if (intent === 'list_product' || message.toLowerCase().startsWith('add ')) {
         return await this.handleProductListing(message, user, context);
       }
       
       if (intent === 'browse_products' || message.toLowerCase() === 'browse') {
-        return await this.handleBrowseProducts(context);
+        return await this.handleBrowseProductsWithCards(context);
       }
 
       if (intent === 'buy_product' || message.toLowerCase().includes('buy')) {
@@ -125,6 +130,55 @@ export class SmartMarketplaceAgent {
 
     // Truncate if too long for WhatsApp
     return response.length > 1600 ? response.substring(0, 1597) + '...' : response;
+  }
+
+  private async handleBrowseProductsWithCards(context: string[]): Promise<string> {
+    try {
+      const { data: products, error } = await this.supabase
+        .from('products')
+        .select('id, name, price, unit, stock')
+        .gt('stock', 0)
+        .order('created_at', { ascending: false })
+        .limit(6);
+
+      if (error || !products || products.length === 0) {
+        return "🛒 No products available right now. Check back later! 📦";
+      }
+
+      // Generate card UI format optimized for WhatsApp Business API
+      let response = "🛒 *Available Products:*\n\n";
+      products.forEach((product: any, index: number) => {
+        response += `📱 CARD ${index + 1}:\n`;
+        response += `🛍️ *${product.name}*\n`;
+        response += `💰 Price: ${product.price} RWF/${product.unit}\n`;
+        response += `📦 Stock: ${product.stock} ${product.unit}\n`;
+        response += `🛒 Tap to buy → buy:${product.id}\n\n`;
+      });
+
+      response += "💡 Need something specific? Try: *need tomatoes*";
+      
+      // Store products in vector memory for quick access
+      await this.vectorMemory.store(
+        `products_${Date.now()}`,
+        `Available products: ${products.map(p => `${p.name} (${p.price} RWF)`).join(', ')}`
+      );
+
+      return response;
+
+    } catch (error) {
+      console.error('❌ Error browsing products with cards:', error);
+      return "Sorry, I can't load products right now. Try again later! 🛒";
+    }
+  }
+
+  private async handleCardBuyAction(productId: string, user: any): Promise<string> {
+    try {
+      console.log('🎯 Handling card buy action for product:', productId);
+      return await this.processPurchase(productId, user);
+    } catch (error) {
+      console.error('❌ Error handling card buy action:', error);
+      return "Sorry, I couldn't process that purchase. Please try again! 🛒";
+    }
   }
 
   private async handleProductSearch(message: string, user: any, context: string[]): Promise<string> {
