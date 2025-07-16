@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Upload, Trash2, FileText, Eye } from "lucide-react";
+import { Plus, Upload, Trash2, FileText, Eye, Folder, FolderOpen, ChevronDown, ChevronRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface Agent {
@@ -42,6 +42,7 @@ export default function Documents() {
   });
   const [driveLink, setDriveLink] = useState('');
   const [syncLoading, setSyncLoading] = useState(false);
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -308,6 +309,134 @@ export default function Documents() {
     }
   };
 
+  // Group documents by folder structure
+  const organizeDocumentsByFolder = (docs: Document[]) => {
+    const driveDocuments = docs.filter(doc => doc.drive_file_id);
+    const folders: { [key: string]: Document[] } = {};
+    const rootFiles: Document[] = [];
+
+    driveDocuments.forEach(doc => {
+      // Check if the document is in a folder based on its title or a folder indicator
+      const folderMatch = doc.title.match(/^(.+?)\/(.+)$/);
+      if (folderMatch) {
+        const folderName = folderMatch[1];
+        if (!folders[folderName]) {
+          folders[folderName] = [];
+        }
+        folders[folderName].push({
+          ...doc,
+          title: folderMatch[2] // Show just the filename without folder path
+        });
+      } else {
+        rootFiles.push(doc);
+      }
+    });
+
+    return { folders, rootFiles };
+  };
+
+  const toggleFolder = (folderName: string) => {
+    const newExpandedFolders = new Set(expandedFolders);
+    if (newExpandedFolders.has(folderName)) {
+      newExpandedFolders.delete(folderName);
+    } else {
+      newExpandedFolders.add(folderName);
+    }
+    setExpandedFolders(newExpandedFolders);
+  };
+
+  const renderFolderStructure = () => {
+    const { folders, rootFiles } = organizeDocumentsByFolder(documents);
+    
+    return (
+      <div className="space-y-2">
+        {/* Render folders */}
+        {Object.entries(folders).map(([folderName, folderDocs]) => (
+          <div key={folderName} className="border rounded-lg">
+            <div 
+              className="flex items-center gap-2 p-3 cursor-pointer hover:bg-muted/50 transition-colors"
+              onClick={() => toggleFolder(folderName)}
+            >
+              {expandedFolders.has(folderName) ? (
+                <ChevronDown className="w-4 h-4" />
+              ) : (
+                <ChevronRight className="w-4 h-4" />
+              )}
+              {expandedFolders.has(folderName) ? (
+                <FolderOpen className="w-4 h-4 text-blue-500" />
+              ) : (
+                <Folder className="w-4 h-4 text-blue-500" />
+              )}
+              <span className="font-medium">{folderName}</span>
+              <Badge variant="outline" className="ml-auto">
+                {folderDocs.length} files
+              </Badge>
+            </div>
+            
+            {expandedFolders.has(folderName) && (
+              <div className="border-t bg-muted/20">
+                <table className="w-full">
+                  <tbody>
+                    {folderDocs.map((doc) => (
+                      <tr key={doc.id} className="border-t hover:bg-muted/50">
+                        <td className="px-6 py-3 pl-8">
+                          <div className="flex items-center gap-2">
+                            <FileText className="w-4 h-4" />
+                            {doc.title}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 font-mono text-sm">{doc.drive_file_id}</td>
+                        <td className="px-4 py-3 text-sm">{doc.drive_mime || 'N/A'}</td>
+                        <td className="px-4 py-3">
+                          <Badge variant={doc.embedding_ok ? "default" : "secondary"}>
+                            {doc.embedding_ok ? 'Embedded' : 'Pending'}
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-3 text-sm">
+                          {new Date(doc.created_at).toLocaleDateString()}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        ))}
+        
+        {/* Render root files (not in folders) */}
+        {rootFiles.length > 0 && (
+          <div className="border rounded-lg">
+            <table className="w-full">
+              <tbody>
+                {rootFiles.map((doc) => (
+                  <tr key={doc.id} className="border-t hover:bg-muted/50">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <FileText className="w-4 h-4" />
+                        {doc.title}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 font-mono text-sm">{doc.drive_file_id}</td>
+                    <td className="px-4 py-3 text-sm">{doc.drive_mime || 'N/A'}</td>
+                    <td className="px-4 py-3">
+                      <Badge variant={doc.embedding_ok ? "default" : "secondary"}>
+                        {doc.embedding_ok ? 'Embedded' : 'Pending'}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-3 text-sm">
+                      {new Date(doc.created_at).toLocaleDateString()}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   if (loading) {
     return <div className="p-6">Loading documents...</div>;
   }
@@ -485,41 +614,27 @@ export default function Documents() {
           </Card>
         </div>
 
-        {/* Drive Documents Table */}
+        {/* Drive Documents with Folder Structure */}
         <div className="mt-6">
           <h3 className="text-lg font-semibold mb-3">Google Drive Documents</h3>
           {documents.filter(doc => doc.drive_file_id).length > 0 ? (
             <Card>
-              <CardContent className="p-0">
-                <div className="overflow-x-auto">
-                  <table className="w-full">
+              <CardContent className="p-4">
+                <div className="mb-4">
+                  <table className="w-full text-sm">
                     <thead className="bg-muted">
                       <tr>
-                        <th className="px-4 py-3 text-left text-sm font-medium">Title</th>
-                        <th className="px-4 py-3 text-left text-sm font-medium">Drive File ID</th>
-                        <th className="px-4 py-3 text-left text-sm font-medium">MIME Type</th>
-                        <th className="px-4 py-3 text-left text-sm font-medium">Embedded</th>
-                        <th className="px-4 py-3 text-left text-sm font-medium">Created</th>
+                        <th className="px-4 py-2 text-left font-medium">Title</th>
+                        <th className="px-4 py-2 text-left font-medium">Drive File ID</th>
+                        <th className="px-4 py-2 text-left font-medium">MIME Type</th>
+                        <th className="px-4 py-2 text-left font-medium">Status</th>
+                        <th className="px-4 py-2 text-left font-medium">Created</th>
                       </tr>
                     </thead>
-                    <tbody>
-                      {documents.filter(doc => doc.drive_file_id).map((doc) => (
-                        <tr key={doc.id} className="border-t hover:bg-muted/50">
-                          <td className="px-4 py-3">{doc.title}</td>
-                          <td className="px-4 py-3 font-mono text-sm">{doc.drive_file_id}</td>
-                          <td className="px-4 py-3 text-sm">{doc.drive_mime || 'N/A'}</td>
-                          <td className="px-4 py-3">
-                            <Badge variant={doc.embedding_ok ? "default" : "secondary"}>
-                              {doc.embedding_ok ? 'Embedded' : 'Pending'}
-                            </Badge>
-                          </td>
-                          <td className="px-4 py-3 text-sm">
-                            {new Date(doc.created_at).toLocaleDateString()}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
                   </table>
+                </div>
+                <div className="space-y-2">
+                  {renderFolderStructure()}
                 </div>
               </CardContent>
             </Card>
