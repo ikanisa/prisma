@@ -13,13 +13,19 @@ const Index = () => {
         </div>
         <div className="space-y-3">
           <a 
-            href="/passenger/home" 
+            href="/admin" 
             className="inline-block w-full max-w-xs bg-gradient-primary text-primary-foreground px-6 py-3 rounded-lg font-medium shadow-medium hover:opacity-90 transition-opacity"
+          >
+            Admin Panel
+          </a>
+          <a 
+            href="/passenger/home" 
+            className="inline-block w-full max-w-xs bg-gradient-secondary text-secondary-foreground px-6 py-3 rounded-lg font-medium shadow-medium hover:opacity-90 transition-opacity"
           >
             Continue as Passenger
           </a>
           <p className="text-sm text-muted-foreground">
-            More user types coming soon: Farmers, Businesses, Drivers
+            WhatsApp AI agents coming soon: Farmers, Businesses, Drivers
           </p>
         </div>
       </div>
