@@ -1,7 +1,9 @@
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import Index from "./pages/Index";
+import PassengerHome from "./pages/passenger/Home";
 import NotFound from "./pages/NotFound";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import Dashboard from "./pages/admin/Dashboard";
@@ -18,8 +20,8 @@ const App = () => (
     <Sonner />
     <BrowserRouter>
       <Routes>
-        {/* Redirect root to admin */}
-        <Route path="/" element={<Navigate to="/admin" replace />} />
+        <Route path="/" element={<Index />} />
+        <Route path="/passenger/home" element={<PassengerHome />} />
         
         {/* Admin Routes */}
         <Route path="/admin" element={<AdminLayout />}>
