@@ -43,6 +43,8 @@ export default function Documents() {
   const [driveLink, setDriveLink] = useState('');
   const [syncLoading, setSyncLoading] = useState(false);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
+  const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
+  const [folderModalOpen, setFolderModalOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -345,6 +347,16 @@ export default function Documents() {
     setExpandedFolders(newExpandedFolders);
   };
 
+  const openFolderModal = (folderName: string) => {
+    setSelectedFolder(folderName);
+    setFolderModalOpen(true);
+  };
+
+  const getFolderDocuments = (folderName: string) => {
+    const { folders } = organizeDocumentsByFolder(documents);
+    return folders[folderName] || [];
+  };
+
   const renderFolderStructure = () => {
     const { folders, rootFiles } = organizeDocumentsByFolder(documents);
     
@@ -353,24 +365,37 @@ export default function Documents() {
         {/* Render folders */}
         {Object.entries(folders).map(([folderName, folderDocs]) => (
           <div key={folderName} className="border rounded-lg">
-            <div 
-              className="flex items-center gap-2 p-3 cursor-pointer hover:bg-muted/50 transition-colors"
-              onClick={() => toggleFolder(folderName)}
-            >
-              {expandedFolders.has(folderName) ? (
-                <ChevronDown className="w-4 h-4" />
-              ) : (
-                <ChevronRight className="w-4 h-4" />
-              )}
-              {expandedFolders.has(folderName) ? (
-                <FolderOpen className="w-4 h-4 text-blue-500" />
-              ) : (
-                <Folder className="w-4 h-4 text-blue-500" />
-              )}
-              <span className="font-medium">{folderName}</span>
-              <Badge variant="outline" className="ml-auto">
-                {folderDocs.length} files
-              </Badge>
+            <div className="flex items-center justify-between p-3 hover:bg-muted/50 transition-colors">
+              <div 
+                className="flex items-center gap-2 cursor-pointer flex-1"
+                onClick={() => toggleFolder(folderName)}
+              >
+                {expandedFolders.has(folderName) ? (
+                  <ChevronDown className="w-4 h-4" />
+                ) : (
+                  <ChevronRight className="w-4 h-4" />
+                )}
+                {expandedFolders.has(folderName) ? (
+                  <FolderOpen className="w-4 h-4 text-blue-500" />
+                ) : (
+                  <Folder className="w-4 h-4 text-blue-500" />
+                )}
+                <span className="font-medium">{folderName}</span>
+                <Badge variant="outline">
+                  {folderDocs.length} files
+                </Badge>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openFolderModal(folderName);
+                }}
+                className="ml-2"
+              >
+                View All
+              </Button>
             </div>
             
             {expandedFolders.has(folderName) && (
@@ -647,6 +672,70 @@ export default function Documents() {
           )}
         </div>
       </div>
+
+      {/* Folder Documents Modal */}
+      <Dialog open={folderModalOpen} onOpenChange={setFolderModalOpen}>
+        <DialogContent className="max-w-6xl max-h-[80vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Folder className="w-5 h-5 text-blue-500" />
+              Documents in "{selectedFolder}"
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-auto">
+            {selectedFolder && (
+              <div className="space-y-4">
+                <div className="text-sm text-muted-foreground">
+                  {getFolderDocuments(selectedFolder).length} documents in this folder
+                </div>
+                <div className="grid gap-3">
+                  {getFolderDocuments(selectedFolder).map((doc) => (
+                    <Card key={doc.id} className="hover:shadow-md transition-shadow">
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3 flex-1">
+                            <FileText className="w-5 h-5 text-blue-500" />
+                            <div>
+                              <h4 className="font-medium">{doc.title}</h4>
+                              <div className="text-sm text-muted-foreground">
+                                <span>Drive ID: </span>
+                                <span className="font-mono">{doc.drive_file_id}</span>
+                              </div>
+                              <div className="text-sm text-muted-foreground">
+                                <span>Type: {doc.drive_mime || 'N/A'}</span>
+                                <span className="mx-2">•</span>
+                                <span>Created: {new Date(doc.created_at).toLocaleDateString()}</span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge variant={doc.embedding_ok ? "default" : "secondary"}>
+                              {doc.embedding_ok ? 'Embedded' : 'Processing'}
+                            </Badge>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handlePreview(doc)}
+                              title="Preview document"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+                {getFolderDocuments(selectedFolder).length === 0 && (
+                  <div className="text-center py-8">
+                    <p className="text-muted-foreground">No documents found in this folder.</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
