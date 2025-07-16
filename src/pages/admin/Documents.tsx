@@ -194,6 +194,19 @@ export default function Documents() {
 
   const handlePreview = async (doc: Document) => {
     try {
+      // Check if this is a Google Drive document
+      if (doc.drive_file_id) {
+        // For Google Drive documents, open the Google Drive link
+        const driveUrl = `https://drive.google.com/file/d/${doc.drive_file_id}/view`;
+        window.open(driveUrl, '_blank');
+        return;
+      }
+
+      // For uploaded documents
+      if (!doc.storage_path) {
+        throw new Error("No storage path available for this document");
+      }
+
       const fileName = doc.storage_path.replace('uploads/', '');
       const { data, error } = await supabase.storage
         .from('uploads')
