@@ -20,6 +20,8 @@ interface Document {
   storage_path: string;
   embedding_ok: boolean;
   created_at: string;
+  drive_file_id?: string;
+  drive_mime?: string;
   agents?: Agent;
 }
 
@@ -38,6 +40,8 @@ export default function Documents() {
     agent_id: "",
     title: ""
   });
+  const [driveLink, setDriveLink] = useState('');
+  const [syncLoading, setSyncLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -205,6 +209,75 @@ export default function Documents() {
     }
   };
 
+  const extractFileId = (url: string) => {
+    const match = url.match(/\/file\/d\/([a-zA-Z0-9-_]+)/);
+    return match ? match[1] : url;
+  };
+
+  const handleAddFromDrive = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!driveLink.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a Google Drive link",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      const driveId = extractFileId(driveLink);
+      
+      const { error } = await supabase
+        .from('agent_learning')
+        .insert({
+          agent_id: null,
+          source_type: 'gdrive',
+          source_detail: driveId,
+          vectorize: true
+        });
+
+      if (error) throw error;
+
+      toast({ 
+        title: "Success", 
+        description: "Drive source saved – will embed at next sync" 
+      });
+      setDriveLink('');
+    } catch (error: any) {
+      console.error('Error adding Drive source:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to add Drive source",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleSyncNow = async () => {
+    setSyncLoading(true);
+    try {
+      const { error } = await supabase.functions.invoke('import-gdrive-docs');
+      
+      if (error) throw error;
+      
+      toast({ 
+        title: "Success", 
+        description: "Drive sync started successfully" 
+      });
+      fetchData(); // Refresh the documents list
+    } catch (error: any) {
+      console.error('Error starting sync:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to start sync",
+        variant: "destructive"
+      });
+    } finally {
+      setSyncLoading(false);
+    }
+  };
+
   if (loading) {
     return <div className="p-6">Loading documents...</div>;
   }
@@ -326,6 +399,99 @@ export default function Documents() {
           </CardContent>
         </Card>
       )}
+
+      {/* Google Drive Integration Section */}
+      <div className="mt-8 border-t pt-6">
+        <h2 className="text-2xl font-bold mb-4">Google Drive Integration</h2>
+        
+        <div className="grid md:grid-cols-2 gap-6">
+          {/* Add from Drive */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Add from Google Drive</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleAddFromDrive} className="space-y-3">
+                <Input
+                  type="text"
+                  value={driveLink}
+                  onChange={(e) => setDriveLink(e.target.value)}
+                  placeholder="Paste Drive file or folder URL..."
+                />
+                <Button type="submit" className="w-full">
+                  Add from Drive
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+
+          {/* Manual Sync */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Manual Sync</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Manually trigger a sync of all configured Google Drive sources.
+              </p>
+              <Button 
+                onClick={handleSyncNow} 
+                disabled={syncLoading}
+                className="w-full"
+              >
+                {syncLoading ? "Syncing..." : "Run Sync Now"}
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Drive Documents Table */}
+        <div className="mt-6">
+          <h3 className="text-lg font-semibold mb-3">Google Drive Documents</h3>
+          {documents.filter(doc => doc.drive_file_id).length > 0 ? (
+            <Card>
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-muted">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-sm font-medium">Title</th>
+                        <th className="px-4 py-3 text-left text-sm font-medium">Drive File ID</th>
+                        <th className="px-4 py-3 text-left text-sm font-medium">MIME Type</th>
+                        <th className="px-4 py-3 text-left text-sm font-medium">Embedded</th>
+                        <th className="px-4 py-3 text-left text-sm font-medium">Created</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {documents.filter(doc => doc.drive_file_id).map((doc) => (
+                        <tr key={doc.id} className="border-t hover:bg-muted/50">
+                          <td className="px-4 py-3">{doc.title}</td>
+                          <td className="px-4 py-3 font-mono text-sm">{doc.drive_file_id}</td>
+                          <td className="px-4 py-3 text-sm">{doc.drive_mime || 'N/A'}</td>
+                          <td className="px-4 py-3">
+                            <Badge variant={doc.embedding_ok ? "default" : "secondary"}>
+                              {doc.embedding_ok ? 'Embedded' : 'Pending'}
+                            </Badge>
+                          </td>
+                          <td className="px-4 py-3 text-sm">
+                            {new Date(doc.created_at).toLocaleDateString()}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardContent className="p-6 text-center">
+                <p className="text-muted-foreground">No Google Drive documents found. Add some Drive files to get started.</p>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

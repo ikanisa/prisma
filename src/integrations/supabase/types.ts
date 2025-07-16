@@ -50,6 +50,8 @@ export type Database = {
         Row: {
           agent_id: string | null
           created_at: string | null
+          drive_file_id: string | null
+          drive_mime: string | null
           embedding_ok: boolean | null
           id: string
           storage_path: string | null
@@ -58,6 +60,8 @@ export type Database = {
         Insert: {
           agent_id?: string | null
           created_at?: string | null
+          drive_file_id?: string | null
+          drive_mime?: string | null
           embedding_ok?: boolean | null
           id?: string
           storage_path?: string | null
@@ -66,6 +70,8 @@ export type Database = {
         Update: {
           agent_id?: string | null
           created_at?: string | null
+          drive_file_id?: string | null
+          drive_mime?: string | null
           embedding_ok?: boolean | null
           id?: string
           storage_path?: string | null
@@ -2838,6 +2844,7 @@ export type Database = {
         | "fulfilled"
         | "cancelled"
       payment_status: "pending" | "paid" | "failed"
+      source_type: "manual" | "upload" | "url" | "gdrive"
       trip_status: "scheduled" | "ongoing" | "completed" | "cancelled"
     }
     CompositeTypes: {
@@ -2985,6 +2992,7 @@ export const Constants = {
         "cancelled",
       ],
       payment_status: ["pending", "paid", "failed"],
+      source_type: ["manual", "upload", "url", "gdrive"],
       trip_status: ["scheduled", "ongoing", "completed", "cancelled"],
     },
   },
