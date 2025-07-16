@@ -70,9 +70,6 @@ export default function Documents() {
 
       if (documentsResult.error) throw documentsResult.error;
       if (agentsResult.error) throw agentsResult.error;
-
-      console.log("Fetched documents:", documentsResult.data);
-      console.log("Drive documents:", documentsResult.data?.filter(doc => doc.drive_file_id));
       
       setDocuments(documentsResult.data || []);
       setAgents(agentsResult.data || []);
