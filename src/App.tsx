@@ -11,6 +11,12 @@ import Users from "./pages/admin/Users";
 import Businesses from "./pages/admin/Businesses";
 import Drivers from "./pages/admin/Drivers";
 import EdgeLogs from "./pages/admin/EdgeLogs";
+import Agents from "./pages/admin/Agents";
+import Personas from "./pages/admin/Personas";
+import Tasks from "./pages/admin/Tasks";
+import Learning from "./pages/admin/Learning";
+import Documents from "./pages/admin/Documents";
+import AgentLogs from "./pages/admin/AgentLogs";
 
 const queryClient = new QueryClient();
 
@@ -33,6 +39,12 @@ const App = () => (
           <Route path="orders" element={<div className="p-6">Orders page coming soon...</div>} />
           <Route path="payments" element={<div className="p-6">Payments page coming soon...</div>} />
           <Route path="events" element={<div className="p-6">Events page coming soon...</div>} />
+          <Route path="agents" element={<Agents />} />
+          <Route path="personas" element={<Personas />} />
+          <Route path="tasks" element={<Tasks />} />
+          <Route path="learning" element={<Learning />} />
+          <Route path="documents" element={<Documents />} />
+          <Route path="agent-logs" element={<AgentLogs />} />
           <Route path="help" element={<div className="p-6">Support Tickets page coming soon...</div>} />
           <Route path="edge-logs" element={<EdgeLogs />} />
         </Route>

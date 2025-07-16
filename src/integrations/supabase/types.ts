@@ -46,6 +46,217 @@ export type Database = {
           },
         ]
       }
+      agent_documents: {
+        Row: {
+          agent_id: string | null
+          created_at: string | null
+          embedding_ok: boolean | null
+          id: string
+          storage_path: string | null
+          title: string | null
+        }
+        Insert: {
+          agent_id?: string | null
+          created_at?: string | null
+          embedding_ok?: boolean | null
+          id?: string
+          storage_path?: string | null
+          title?: string | null
+        }
+        Update: {
+          agent_id?: string | null
+          created_at?: string | null
+          embedding_ok?: boolean | null
+          id?: string
+          storage_path?: string | null
+          title?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_documents_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_learning: {
+        Row: {
+          agent_id: string | null
+          created_at: string | null
+          id: string
+          source_detail: string | null
+          source_type: string | null
+          vectorize: boolean | null
+        }
+        Insert: {
+          agent_id?: string | null
+          created_at?: string | null
+          id?: string
+          source_detail?: string | null
+          source_type?: string | null
+          vectorize?: boolean | null
+        }
+        Update: {
+          agent_id?: string | null
+          created_at?: string | null
+          id?: string
+          source_detail?: string | null
+          source_type?: string | null
+          vectorize?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_learning_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_logs: {
+        Row: {
+          agent_id: string | null
+          created_at: string | null
+          event: string | null
+          id: string
+          success: boolean | null
+          user_id: string | null
+        }
+        Insert: {
+          agent_id?: string | null
+          created_at?: string | null
+          event?: string | null
+          id?: string
+          success?: boolean | null
+          user_id?: string | null
+        }
+        Update: {
+          agent_id?: string | null
+          created_at?: string | null
+          event?: string | null
+          id?: string
+          success?: boolean | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_logs_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_personas: {
+        Row: {
+          agent_id: string | null
+          id: string
+          instructions: string | null
+          language: string | null
+          personality: string | null
+          tone: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          agent_id?: string | null
+          id?: string
+          instructions?: string | null
+          language?: string | null
+          personality?: string | null
+          tone?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          agent_id?: string | null
+          id?: string
+          instructions?: string | null
+          language?: string | null
+          personality?: string | null
+          tone?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_personas_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_tasks: {
+        Row: {
+          active: boolean | null
+          agent_id: string | null
+          created_at: string | null
+          id: string
+          name: string | null
+          tool_input_json: Json | null
+          tool_name: string | null
+          trigger_type: string | null
+          trigger_value: string | null
+        }
+        Insert: {
+          active?: boolean | null
+          agent_id?: string | null
+          created_at?: string | null
+          id?: string
+          name?: string | null
+          tool_input_json?: Json | null
+          tool_name?: string | null
+          trigger_type?: string | null
+          trigger_value?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          agent_id?: string | null
+          created_at?: string | null
+          id?: string
+          name?: string | null
+          tool_input_json?: Json | null
+          tool_name?: string | null
+          trigger_type?: string | null
+          trigger_value?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_tasks_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agents: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          name: string
+          status: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          status?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          status?: string | null
+        }
+        Relationships: []
+      }
       bookings: {
         Row: {
           created_at: string | null
@@ -1207,6 +1418,10 @@ export type Database = {
       gidx_out: {
         Args: { "": unknown }
         Returns: unknown
+      }
+      is_admin: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
       }
       json: {
         Args: { "": unknown }

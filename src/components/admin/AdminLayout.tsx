@@ -13,7 +13,13 @@ import {
   Activity,
   Menu,
   X,
-  Settings
+  Settings,
+  Bot,
+  Brain,
+  Cog,
+  BookOpen,
+  FileText,
+  ScrollText
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -27,6 +33,12 @@ const sidebarItems = [
   { name: "Orders", path: "/admin/orders", icon: ShoppingCart },
   { name: "Payments", path: "/admin/payments", icon: CreditCard },
   { name: "Events", path: "/admin/events", icon: Calendar },
+  { name: "AI Agents", path: "/admin/agents", icon: Bot },
+  { name: "Personas", path: "/admin/personas", icon: Brain },
+  { name: "Tasks/Tools", path: "/admin/tasks", icon: Cog },
+  { name: "Learning", path: "/admin/learning", icon: BookOpen },
+  { name: "Documents", path: "/admin/documents", icon: FileText },
+  { name: "Agent Logs", path: "/admin/agent-logs", icon: ScrollText },
   { name: "Help", path: "/admin/help", icon: HelpCircle },
   { name: "Edge Logs", path: "/admin/edge-logs", icon: Activity },
 ];
