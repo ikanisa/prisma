@@ -9,6 +9,10 @@ import Dashboard from "./pages/admin/Dashboard";
 import Users from "./pages/admin/Users";
 import Businesses from "./pages/admin/Businesses";
 import Drivers from "./pages/admin/Drivers";
+import Products from "./pages/admin/Products";
+import Orders from "./pages/admin/Orders";
+import Payments from "./pages/admin/Payments";
+import Events from "./pages/admin/Events";
 import EdgeLogs from "./pages/admin/EdgeLogs";
 import Agents from "./pages/admin/Agents";
 import Personas from "./pages/admin/Personas";
@@ -33,10 +37,10 @@ const App = () => (
           <Route path="users" element={<Users />} />
           <Route path="businesses" element={<Businesses />} />
           <Route path="drivers" element={<Drivers />} />
-          <Route path="products" element={<div className="p-6">Products page coming soon...</div>} />
-          <Route path="orders" element={<div className="p-6">Orders page coming soon...</div>} />
-          <Route path="payments" element={<div className="p-6">Payments page coming soon...</div>} />
-          <Route path="events" element={<div className="p-6">Events page coming soon...</div>} />
+          <Route path="products" element={<Products />} />
+          <Route path="orders" element={<Orders />} />
+          <Route path="payments" element={<Payments />} />
+          <Route path="events" element={<Events />} />
           <Route path="agents" element={<Agents />} />
           <Route path="personas" element={<Personas />} />
           <Route path="tasks" element={<Tasks />} />

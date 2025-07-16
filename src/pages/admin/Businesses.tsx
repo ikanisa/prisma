@@ -4,9 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, Plus, RefreshCw, CheckCircle, XCircle } from "lucide-react";
+import { Search, RefreshCw, CheckCircle, XCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { AddBusinessDialog } from "@/components/admin/AddBusinessDialog";
 
 interface Business {
   id: string;
@@ -109,10 +110,7 @@ export default function Businesses() {
             <RefreshCw className="h-4 w-4 mr-2" />
             Refresh
           </Button>
-          <Button size="sm">
-            <Plus className="h-4 w-4 mr-2" />
-            Add Business
-          </Button>
+          <AddBusinessDialog onBusinessAdded={loadBusinesses} />
         </div>
       </div>
 

@@ -4,9 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, Plus, RefreshCw } from "lucide-react";
+import { Search, RefreshCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { AddUserDialog } from "@/components/admin/AddUserDialog";
 
 interface User {
   id: string;
@@ -75,10 +76,7 @@ export default function Users() {
             <RefreshCw className="h-4 w-4 mr-2" />
             Refresh
           </Button>
-          <Button size="sm">
-            <Plus className="h-4 w-4 mr-2" />
-            Add User
-          </Button>
+          <AddUserDialog onUserAdded={loadUsers} />
         </div>
       </div>
 
