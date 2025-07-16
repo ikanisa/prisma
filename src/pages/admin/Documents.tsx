@@ -60,7 +60,7 @@ export default function Documents() {
           .order("created_at", { ascending: false }),
         supabase
           .from("agents")
-          .select("id, name")
+          .select("id, name, status")
           .order("name")
       ]);
 

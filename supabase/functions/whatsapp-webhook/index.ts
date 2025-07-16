@@ -66,8 +66,30 @@ serve(async (req) => {
     // Get conversation context from vector memory
     const context = await vectorMemory.getContext(currentUser?.id || whatsappNumber, message);
     
-    // Route to appropriate AI agent and get response
-    const response = await router.routeAndProcess(message, currentUser, whatsappNumber, context);
+    // Route to YAML-based AI agent system
+    const yamlAgentResponse = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/yaml-agent-processor`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`
+      },
+      body: JSON.stringify({
+        action: 'routeMessage',
+        message,
+        userId: currentUser?.id,
+        whatsappNumber
+      })
+    });
+
+    let response = "I'm having trouble processing your request. Please try again!";
+    if (yamlAgentResponse.ok) {
+      const yamlData = await yamlAgentResponse.json();
+      response = yamlData.response || response;
+    } else {
+      console.error('YAML agent error:', await yamlAgentResponse.text());
+      // Fallback to original router
+      response = await router.routeAndProcess(message, currentUser, whatsappNumber, context);
+    }
 
     // Store agent response
     await supabase.from('agent_conversations').insert({
