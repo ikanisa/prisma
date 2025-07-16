@@ -73,7 +73,7 @@ serve(async (req) => {
     const { data: learningSources, error: learningError } = await supabase
       .from('agent_learning')
       .select('*')
-      .eq('source_type', 'google_drive');
+      .eq('source_type', 'gdrive');
 
     if (learningError) {
       console.error('Error fetching learning sources:', learningError);
