@@ -56,7 +56,7 @@ export default function Documents() {
           .from("agent_documents")
           .select(`
             *,
-            agents!inner (
+            agents (
               id,
               name
             )
