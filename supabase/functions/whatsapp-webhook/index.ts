@@ -1,7 +1,9 @@
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
-import { AgentRouter } from './agents/router.ts';
-import { MessageProcessor } from './utils/message-processor.ts';
+import { VectorMemory } from './utils/vector-memory.ts';
+import { OpenAIService } from './utils/openai-service.ts';
+import { SmartAgentRouter } from './agents/smart-router.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -19,38 +21,68 @@ serve(async (req) => {
   }
 
   try {
+    console.log('📱 Received WhatsApp webhook request');
+    
     const { Body, From } = await req.json();
     const message = Body?.trim() || '';
     const whatsappNumber = From?.replace('whatsapp:', '') || '';
 
-    console.log(`Received message from ${whatsappNumber}: ${message}`);
+    console.log(`📞 Message from ${whatsappNumber}: "${message}"`);
 
-    // Store conversation in database
+    // Initialize AI services
+    const vectorMemory = new VectorMemory();
+    const openAI = new OpenAIService();
+    const router = new SmartAgentRouter(supabase, vectorMemory, openAI);
+
+    // Get or create user
+    const { data: user } = await supabase
+      .from('users')
+      .select('*')
+      .eq('phone', whatsappNumber)
+      .single();
+
+    let currentUser = user;
+    if (!user) {
+      const { data: newUser } = await supabase
+        .from('users')
+        .insert({
+          phone: whatsappNumber,
+          momo_code: whatsappNumber,
+          credits: 60
+        })
+        .select()
+        .single();
+      currentUser = newUser;
+    }
+
+    // Store incoming message
     await supabase.from('agent_conversations').insert({
-      user_id: null, // Will be updated after user lookup
+      user_id: currentUser?.id,
       message,
       role: 'user',
       ts: new Date().toISOString()
     });
 
-    // Process message and get response
-    const processor = new MessageProcessor(supabase);
-    const router = new AgentRouter(supabase);
+    // Get conversation context from vector memory
+    const context = await vectorMemory.getContext(currentUser?.id || whatsappNumber, message);
     
-    const user = await processor.getOrCreateUser(whatsappNumber);
-    const response = await router.routeMessage(message, user, whatsappNumber);
+    // Route to appropriate AI agent and get response
+    const response = await router.routeAndProcess(message, currentUser, whatsappNumber, context);
 
     // Store agent response
     await supabase.from('agent_conversations').insert({
-      user_id: user.id,
+      user_id: currentUser?.id,
       message: response,
       role: 'assistant',
       ts: new Date().toISOString()
     });
 
-    console.log(`Response to ${whatsappNumber}: ${response}`);
+    // Store in vector memory for future context
+    await vectorMemory.store(currentUser?.id || whatsappNumber, message, response);
 
-    // Return TwiML response for WhatsApp
+    console.log(`🤖 AI Response: "${response}"`);
+
+    // Return TwiML response
     const twimlResponse = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Message>${response}</Message>
@@ -64,11 +96,11 @@ serve(async (req) => {
     });
 
   } catch (error) {
-    console.error('WhatsApp webhook error:', error);
+    console.error('❌ WhatsApp webhook error:', error);
     
     const errorResponse = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Message>Sorry, I'm having trouble right now. Please try again later.</Message>
+  <Message>I'm having technical difficulties right now. Please try again in a moment! 🔧</Message>
 </Response>`;
 
     return new Response(errorResponse, {
