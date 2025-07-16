@@ -87,13 +87,11 @@ serve(async (req) => {
     // Process each Google Drive source
     for (const source of learningSources || []) {
       try {
-        // Extract file ID from Google Drive URL
-        const url = source.source_detail;
-        const fileIdMatch = url?.match(/\/d\/([a-zA-Z0-9-_]+)/);
-        const fileId = fileIdMatch ? fileIdMatch[1] : null;
+        // The source_detail now contains just the file/folder ID
+        const driveId = source.source_detail;
         
-        if (!fileId) {
-          console.warn('Could not extract file ID from URL:', url);
+        if (!driveId) {
+          console.warn('No drive ID found for source:', source);
           continue;
         }
 
@@ -101,22 +99,23 @@ serve(async (req) => {
         const { data: existingDoc } = await supabase
           .from('agent_documents')
           .select('id')
-          .eq('drive_file_id', fileId)
+          .eq('drive_file_id', driveId)
           .single();
 
         if (existingDoc) {
-          console.log(`Document ${fileId} already exists, skipping`);
+          console.log(`Document ${driveId} already exists, skipping`);
           continue;
         }
 
-        // Create document entry (we'll enhance with actual Google API calls later)
+        // For now, create a document entry for the folder/file
+        // In a full implementation, you'd call the Google Drive API here
         const document = {
           id: crypto.randomUUID(),
           agent_id: source.agent_id,
-          title: `Google Drive Document ${fileId}`,
+          title: `Google Drive Content (${driveId})`,
           storage_path: null,
-          drive_file_id: fileId,
-          drive_mime: 'application/vnd.google-apps.document',
+          drive_file_id: driveId,
+          drive_mime: driveId.length === 33 ? 'application/vnd.google-apps.folder' : 'application/vnd.google-apps.document',
           embedding_ok: false,
           created_at: new Date().toISOString()
         };
@@ -126,12 +125,12 @@ serve(async (req) => {
           .insert(document);
 
         if (insertError) {
-          console.error(`Error inserting document ${fileId}:`, insertError);
+          console.error(`Error inserting document ${driveId}:`, insertError);
           continue;
         }
 
         syncedCount++;
-        console.log(`Successfully synced document: ${fileId}`);
+        console.log(`Successfully synced document: ${driveId}`);
         
       } catch (error) {
         console.error('Error processing source:', source, error);

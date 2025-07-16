@@ -210,8 +210,10 @@ export default function Documents() {
   };
 
   const extractFileId = (url: string) => {
-    const match = url.match(/\/file\/d\/([a-zA-Z0-9-_]+)/);
-    return match ? match[1] : url;
+    // Handle both file and folder URLs
+    const fileMatch = url.match(/\/file\/d\/([a-zA-Z0-9-_]+)/);
+    const folderMatch = url.match(/\/folders\/([a-zA-Z0-9-_]+)/);
+    return fileMatch?.[1] || folderMatch?.[1] || url;
   };
 
   const handleAddFromDrive = async (e: React.FormEvent) => {
@@ -251,6 +253,34 @@ export default function Documents() {
         description: error.message || "Failed to add Drive source",
         variant: "destructive"
       });
+    }
+  };
+
+  const handleCleanupAndSync = async () => {
+    setSyncLoading(true);
+    try {
+      // First cleanup the data
+      await supabase.functions.invoke('cleanup-gdrive-data');
+      
+      // Then sync
+      const { error } = await supabase.functions.invoke('import-gdrive-docs');
+      
+      if (error) throw error;
+      
+      toast({ 
+        title: "Success", 
+        description: "Drive sync completed successfully" 
+      });
+      fetchData(); // Refresh the documents list
+    } catch (error: any) {
+      console.error('Error during sync:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to sync",
+        variant: "destructive"
+      });
+    } finally {
+      setSyncLoading(false);
     }
   };
 
@@ -434,13 +464,23 @@ export default function Documents() {
               <p className="text-sm text-muted-foreground">
                 Manually trigger a sync of all configured Google Drive sources.
               </p>
-              <Button 
-                onClick={handleSyncNow} 
-                disabled={syncLoading}
-                className="w-full"
-              >
-                {syncLoading ? "Syncing..." : "Run Sync Now"}
-              </Button>
+               <div className="grid gap-2">
+                 <Button 
+                   onClick={handleSyncNow} 
+                   disabled={syncLoading}
+                   className="w-full"
+                   variant="outline"
+                 >
+                   {syncLoading ? "Syncing..." : "Run Sync Now"}
+                 </Button>
+                 <Button 
+                   onClick={handleCleanupAndSync} 
+                   disabled={syncLoading}
+                   className="w-full"
+                 >
+                   {syncLoading ? "Processing..." : "Cleanup & Sync"}
+                 </Button>
+               </div>
             </CardContent>
           </Card>
         </div>
