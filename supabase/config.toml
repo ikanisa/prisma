@@ -1,1 +1,37 @@
 project_id = "ijblirphkrrsnxazohwt"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[auth]
+enabled = true
+port = 54320
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["https://localhost:3000"]
+jwt_expiry = 3600
+enable_signup = true
+enable_confirmations = false
+
+[db]
+port = 54322
+
+[functions.generate-payment]
+verify_jwt = false
+
+[functions.import-contacts]
+verify_jwt = false
+
+[functions.assign-driver]
+verify_jwt = false
+
+[functions.push-marketing]
+verify_jwt = false
+
+[storage]
+enabled = true
+port = 54323
+file_size_limit = "50MiB"

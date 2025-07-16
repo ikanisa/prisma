@@ -961,6 +961,13 @@ export type Database = {
         Args: { geom1: unknown; geom2: unknown }
         Returns: boolean
       }
+      find_nearby_drivers: {
+        Args: { pickup_point: unknown; max_km: number }
+        Returns: {
+          id: string
+          distance_km: number
+        }[]
+      }
       geography: {
         Args: { "": string } | { "": unknown }
         Returns: unknown
