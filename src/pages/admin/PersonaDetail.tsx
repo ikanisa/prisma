@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Bot, Save, User, FileText, Settings, BookOpen, Brain, Activity, MessageSquare } from "lucide-react";
+import { ArrowLeft, Bot, Save, User, FileText, Settings, BookOpen, Brain, Activity, MessageSquare, Upload, File, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface Persona {
@@ -68,7 +68,9 @@ export default function PersonaDetail() {
   const [logs, setLogs] = useState<Log[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -158,6 +160,90 @@ export default function PersonaDetail() {
     }
   };
 
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !persona?.agent_id) return;
+
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('agent_id', persona.agent_id);
+      formData.append('title', file.name);
+
+      const { data, error } = await supabase.functions.invoke('upload-persona-doc', {
+        body: formData
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Document uploaded successfully"
+      });
+
+      // Refresh documents list
+      if (persona.agent_id) {
+        const { data: docsData } = await supabase
+          .from("agent_documents")
+          .select("*")
+          .eq("agent_id", persona.agent_id);
+        
+        setDocuments(docsData || []);
+      }
+
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    } catch (error) {
+      console.error("Error uploading file:", error);
+      toast({
+        title: "Error",
+        description: "Failed to upload document",
+        variant: "destructive"
+      });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDeleteDocument = async (docId: string, storagePath: string) => {
+    try {
+      // Delete from storage
+      const { error: storageError } = await supabase.storage
+        .from('persona-docs')
+        .remove([storagePath]);
+
+      if (storageError) {
+        console.error("Storage delete error:", storageError);
+      }
+
+      // Delete from database
+      const { error: dbError } = await supabase
+        .from('agent_documents')
+        .delete()
+        .eq('id', docId);
+
+      if (dbError) throw dbError;
+
+      // Update local state
+      setDocuments(documents.filter(doc => doc.id !== docId));
+
+      toast({
+        title: "Success",
+        description: "Document deleted successfully"
+      });
+    } catch (error) {
+      console.error("Error deleting document:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete document",
+        variant: "destructive"
+      });
+    }
+  };
+
   if (loading) {
     return (
       <div className="p-6">
@@ -211,7 +297,7 @@ export default function PersonaDetail() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-7">
+        <TabsList className="grid w-full grid-cols-8">
           <TabsTrigger value="overview" className="flex items-center gap-2">
             <User className="w-4 h-4" />
             Overview
@@ -219,6 +305,10 @@ export default function PersonaDetail() {
           <TabsTrigger value="prompt" className="flex items-center gap-2">
             <FileText className="w-4 h-4" />
             System Prompt
+          </TabsTrigger>
+          <TabsTrigger value="markdown" className="flex items-center gap-2">
+            <FileText className="w-4 h-4" />
+            Markdown
           </TabsTrigger>
           <TabsTrigger value="tasks" className="flex items-center gap-2">
             <Settings className="w-4 h-4" />
@@ -372,10 +462,51 @@ export default function PersonaDetail() {
           </Card>
         </TabsContent>
 
+        <TabsContent value="markdown" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Persona Details (Markdown View)</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="prose max-w-none">
+                {persona.instructions ? (
+                  <pre className="whitespace-pre-wrap text-sm bg-muted p-4 rounded-lg">
+                    {typeof persona.instructions === 'string' 
+                      ? persona.instructions 
+                      : JSON.stringify(persona.instructions, null, 2)
+                    }
+                  </pre>
+                ) : (
+                  <p className="text-muted-foreground">No instructions available</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         <TabsContent value="documents" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Documents</CardTitle>
+              <CardTitle className="flex items-center justify-between">
+                Documents
+                <div className="flex gap-2">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                    accept=".pdf,.txt,.doc,.docx,.md"
+                  />
+                  <Button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                    size="sm"
+                  >
+                    <Upload className="w-4 h-4 mr-2" />
+                    {uploading ? "Uploading..." : "Upload Document"}
+                  </Button>
+                </div>
+              </CardTitle>
             </CardHeader>
             <CardContent>
               {documents.length === 0 ? (
@@ -384,15 +515,27 @@ export default function PersonaDetail() {
                 <div className="space-y-2">
                   {documents.map((doc) => (
                     <div key={doc.id} className="border rounded p-3 flex justify-between items-center">
-                      <div>
-                        <h4 className="font-medium">{doc.title}</h4>
-                        <p className="text-sm text-muted-foreground">
-                          {new Date(doc.created_at).toLocaleDateString()}
-                        </p>
+                      <div className="flex items-center gap-3">
+                        <File className="w-4 h-4 text-muted-foreground" />
+                        <div>
+                          <h4 className="font-medium">{doc.title}</h4>
+                          <p className="text-sm text-muted-foreground">
+                            {new Date(doc.created_at).toLocaleDateString()}
+                          </p>
+                        </div>
                       </div>
-                      <Badge variant={doc.embedding_ok ? 'default' : 'secondary'}>
-                        {doc.embedding_ok ? 'Vectorized' : 'Pending'}
-                      </Badge>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={doc.embedding_ok ? 'default' : 'secondary'}>
+                          {doc.embedding_ok ? 'Vectorized' : 'Pending'}
+                        </Badge>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeleteDocument(doc.id, doc.storage_path)}
+                        >
+                          <Trash2 className="w-4 h-4 text-destructive" />
+                        </Button>
+                      </div>
                     </div>
                   ))}
                 </div>
