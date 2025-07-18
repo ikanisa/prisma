@@ -87,6 +87,42 @@ export type Database = {
           },
         ]
       }
+      agent_execution_log: {
+        Row: {
+          error_details: string | null
+          execution_time_ms: number | null
+          function_name: string | null
+          id: string
+          input_data: Json | null
+          model_used: string | null
+          success_status: boolean | null
+          timestamp: string | null
+          user_id: string | null
+        }
+        Insert: {
+          error_details?: string | null
+          execution_time_ms?: number | null
+          function_name?: string | null
+          id?: string
+          input_data?: Json | null
+          model_used?: string | null
+          success_status?: boolean | null
+          timestamp?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          error_details?: string | null
+          execution_time_ms?: number | null
+          function_name?: string | null
+          id?: string
+          input_data?: Json | null
+          model_used?: string | null
+          success_status?: boolean | null
+          timestamp?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       agent_learning: {
         Row: {
           agent_id: string | null
@@ -342,6 +378,63 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      contact_timing_patterns: {
+        Row: {
+          created_at: string | null
+          day_of_week: number | null
+          engagement_score: number | null
+          id: string
+          response_rate: number | null
+          success_rate: number | null
+          time_of_day: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          day_of_week?: number | null
+          engagement_score?: number | null
+          id?: string
+          response_rate?: number | null
+          success_rate?: number | null
+          time_of_day?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          day_of_week?: number | null
+          engagement_score?: number | null
+          id?: string
+          response_rate?: number | null
+          success_rate?: number | null
+          time_of_day?: number | null
+        }
+        Relationships: []
+      }
+      conversation_learning_log: {
+        Row: {
+          confidence_level: number | null
+          id: string
+          improvement_note: string | null
+          learning_summary: string | null
+          timestamp: string | null
+          user_id: string | null
+        }
+        Insert: {
+          confidence_level?: number | null
+          id?: string
+          improvement_note?: string | null
+          learning_summary?: string | null
+          timestamp?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          confidence_level?: number | null
+          id?: string
+          improvement_note?: string | null
+          learning_summary?: string | null
+          timestamp?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
       }
       conversation_messages: {
         Row: {
@@ -669,6 +762,39 @@ export type Database = {
           },
         ]
       }
+      prediction_accuracy: {
+        Row: {
+          accuracy: boolean | null
+          actual_value: string | null
+          id: string
+          predicted_value: string | null
+          prediction_date: string | null
+          prediction_type: string | null
+          user_id: string | null
+          vendor_id: string | null
+        }
+        Insert: {
+          accuracy?: boolean | null
+          actual_value?: string | null
+          id?: string
+          predicted_value?: string | null
+          prediction_date?: string | null
+          prediction_type?: string | null
+          user_id?: string | null
+          vendor_id?: string | null
+        }
+        Update: {
+          accuracy?: boolean | null
+          actual_value?: string | null
+          id?: string
+          predicted_value?: string | null
+          prediction_date?: string | null
+          prediction_type?: string | null
+          user_id?: string | null
+          vendor_id?: string | null
+        }
+        Relationships: []
+      }
       products: {
         Row: {
           created_at: string | null
@@ -877,6 +1003,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      user_behavior_patterns: {
+        Row: {
+          behavioral_score: number | null
+          id: string
+          last_analyzed: string | null
+          pattern_confidence: number | null
+          pattern_data: Json | null
+          pattern_type: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          behavioral_score?: number | null
+          id?: string
+          last_analyzed?: string | null
+          pattern_confidence?: number | null
+          pattern_data?: Json | null
+          pattern_type?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          behavioral_score?: number | null
+          id?: string
+          last_analyzed?: string | null
+          pattern_confidence?: number | null
+          pattern_data?: Json | null
+          pattern_type?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
       }
       user_contacts: {
         Row: {
