@@ -730,6 +730,36 @@ export type Database = {
         }
         Relationships: []
       }
+      farmers: {
+        Row: {
+          created_at: string | null
+          id: string
+          listings_count: number | null
+          location: string | null
+          name: string
+          phone: string | null
+          status: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          listings_count?: number | null
+          location?: string | null
+          name: string
+          phone?: string | null
+          status?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          listings_count?: number | null
+          location?: string | null
+          name?: string
+          phone?: string | null
+          status?: string | null
+        }
+        Relationships: []
+      }
       google_places_businesses: {
         Row: {
           agent_verified: boolean | null
@@ -2041,6 +2071,18 @@ export type Database = {
       l2_normalize: {
         Args: { "": string } | { "": unknown } | { "": unknown }
         Returns: unknown
+      }
+      list_farmers: {
+        Args: { search_term: string }
+        Returns: {
+          created_at: string | null
+          id: string
+          listings_count: number | null
+          location: string | null
+          name: string
+          phone: string | null
+          status: string | null
+        }[]
       }
       longtransactionsenabled: {
         Args: Record<PropertyKey, never>

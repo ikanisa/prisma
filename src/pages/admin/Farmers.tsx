@@ -24,9 +24,11 @@ export default function Farmers() {
   const fetchFarmers = useCallback(async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.rpc('list_farmers', { 
-        search_term: search || null 
-      });
+      const { data, error } = await supabase
+        .from('farmers')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
       if (!error && data) {
         setFarmers(data);
       }

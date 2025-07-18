@@ -24,6 +24,7 @@ import Documents from "./pages/admin/Documents";
 import AgentLogs from "./pages/admin/AgentLogs";
 import ModelRegistry from "./pages/admin/ModelRegistry";
 import WhatsAppDashboard from "./pages/admin/WhatsAppDashboard";
+import Farmers from "./pages/admin/Farmers";
 
 const queryClient = new QueryClient();
 
@@ -42,6 +43,7 @@ const App = () => (
           <Route path="businesses" element={<Businesses />} />
           <Route path="businesses/:businessId" element={<BusinessDetail />} />
           <Route path="drivers" element={<Drivers />} />
+          <Route path="farmers" element={<Farmers />} />
           <Route path="products" element={<Products />} />
           <Route path="orders" element={<Orders />} />
           <Route path="payments" element={<Payments />} />
