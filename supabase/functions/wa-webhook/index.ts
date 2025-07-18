@@ -67,24 +67,27 @@ serve(async (req) => {
     processed: false
   });
 
-  // ── 5. Send to agent‑orchestrator ----------------------------------------
-  const { data, error } = await sb.functions.invoke('agent-orchestrator', {
+  // ── 5. Send to unified message handler ------------------------------------
+  const { error } = await sb.functions.invoke('unified-message-handler', {
     body: {
-      trigger_type: 'whatsapp_message',
-      data: {
-        sender: senderPhone,
-        content: msg.content,
-        message_id: msg.id,
-        channel: 'whatsapp',
-        contact_name: contactName,
-        media_id: msg.mediaId ?? null,
-        timestamp: new Date().toISOString()
+      platform: 'whatsapp',
+      payload: {
+        entry: [{
+          changes: [{
+            value: {
+              messages: [waMsg],
+              contacts: [{
+                profile: { name: contactName }
+              }]
+            }
+          }]
+        }]
       }
     }
   });
 
   if (error) {
-    console.error('❌ Orchestrator error', error);
+    console.error('❌ Unified handler error', error);
     await sendWaMessage(senderPhone,
       "Oops 🤖. Something went wrong, please try again in a moment.");
     return json({ success: false });

@@ -23,6 +23,7 @@ import Learning from "./pages/admin/Learning";
 import Documents from "./pages/admin/Documents";
 import AgentLogs from "./pages/admin/AgentLogs";
 import ModelRegistry from "./pages/admin/ModelRegistry";
+import WhatsAppDashboard from "./pages/admin/WhatsAppDashboard";
 
 const queryClient = new QueryClient();
 
@@ -53,6 +54,7 @@ const App = () => (
           <Route path="documents" element={<Documents />} />
           <Route path="agent-logs" element={<AgentLogs />} />
           <Route path="model-registry" element={<ModelRegistry />} />
+          <Route path="whatsapp" element={<WhatsAppDashboard />} />
           <Route path="help" element={<div className="p-6">Support Tickets page coming soon...</div>} />
           <Route path="edge-logs" element={<EdgeLogs />} />
         </Route>

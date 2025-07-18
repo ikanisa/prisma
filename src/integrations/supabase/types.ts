@@ -433,6 +433,48 @@ export type Database = {
         }
         Relationships: []
       }
+      contacts: {
+        Row: {
+          contact_type: string | null
+          conversion_status: string | null
+          created_at: string | null
+          first_contact_date: string | null
+          id: string
+          last_interaction: string | null
+          location: string | null
+          name: string | null
+          phone_number: string
+          preferred_channel: string | null
+          total_conversations: number | null
+        }
+        Insert: {
+          contact_type?: string | null
+          conversion_status?: string | null
+          created_at?: string | null
+          first_contact_date?: string | null
+          id?: string
+          last_interaction?: string | null
+          location?: string | null
+          name?: string | null
+          phone_number: string
+          preferred_channel?: string | null
+          total_conversations?: number | null
+        }
+        Update: {
+          contact_type?: string | null
+          conversion_status?: string | null
+          created_at?: string | null
+          first_contact_date?: string | null
+          id?: string
+          last_interaction?: string | null
+          location?: string | null
+          name?: string | null
+          phone_number?: string
+          preferred_channel?: string | null
+          total_conversations?: number | null
+        }
+        Relationships: []
+      }
       conversation_learning_log: {
         Row: {
           confidence_level: number | null
@@ -490,6 +532,45 @@ export type Database = {
           model_used?: string | null
           phone_number?: string | null
           sender?: string | null
+        }
+        Relationships: []
+      }
+      conversations: {
+        Row: {
+          channel: string
+          contact_id: string
+          conversation_duration_minutes: number | null
+          created_at: string | null
+          ended_at: string | null
+          id: string
+          message_count: number | null
+          model_used: string | null
+          started_at: string | null
+          status: string | null
+        }
+        Insert: {
+          channel: string
+          contact_id: string
+          conversation_duration_minutes?: number | null
+          created_at?: string | null
+          ended_at?: string | null
+          id?: string
+          message_count?: number | null
+          model_used?: string | null
+          started_at?: string | null
+          status?: string | null
+        }
+        Update: {
+          channel?: string
+          contact_id?: string
+          conversation_duration_minutes?: number | null
+          created_at?: string | null
+          ended_at?: string | null
+          id?: string
+          message_count?: number | null
+          model_used?: string | null
+          started_at?: string | null
+          status?: string | null
         }
         Relationships: []
       }
@@ -754,6 +835,45 @@ export type Database = {
           prompt_prefix?: string | null
           secondary_model?: string | null
           task_name?: string | null
+        }
+        Relationships: []
+      }
+      message_logs: {
+        Row: {
+          contact_name: string | null
+          created_at: string | null
+          id: string
+          message_content: string
+          message_id: string | null
+          metadata: Json | null
+          platform: string
+          processed: boolean | null
+          sender_id: string
+          timestamp: string
+        }
+        Insert: {
+          contact_name?: string | null
+          created_at?: string | null
+          id?: string
+          message_content: string
+          message_id?: string | null
+          metadata?: Json | null
+          platform: string
+          processed?: boolean | null
+          sender_id: string
+          timestamp: string
+        }
+        Update: {
+          contact_name?: string | null
+          created_at?: string | null
+          id?: string
+          message_content?: string
+          message_id?: string | null
+          metadata?: Json | null
+          platform?: string
+          processed?: boolean | null
+          sender_id?: string
+          timestamp?: string
         }
         Relationships: []
       }

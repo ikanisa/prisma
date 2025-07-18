@@ -19,7 +19,8 @@ import {
   Cog,
   BookOpen,
   FileText,
-  ScrollText
+  ScrollText,
+  MessageSquare
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -40,6 +41,7 @@ const sidebarItems = [
   { name: "Learning", path: "/admin/learning", icon: BookOpen },
   { name: "Documents", path: "/admin/documents", icon: FileText },
   { name: "Agent Logs", path: "/admin/agent-logs", icon: ScrollText },
+  { name: "WhatsApp Dashboard", path: "/admin/whatsapp", icon: MessageSquare },
   { name: "Help", path: "/admin/help", icon: HelpCircle },
   { name: "Edge Logs", path: "/admin/edge-logs", icon: Activity },
 ];
