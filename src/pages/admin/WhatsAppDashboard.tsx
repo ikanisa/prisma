@@ -5,8 +5,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, MessageSquare, Users, Activity } from 'lucide-react';
+import { RefreshCw, MessageSquare, Users, Activity, Eye, Settings } from 'lucide-react';
 import { toast } from 'sonner';
+import { ConversationView } from '@/components/ConversationView';
+import { MemoryView } from '@/components/MemoryView';
+import { Settings as SettingsComponent } from '@/components/Settings';
 
 interface Conversation {
   id: string;
@@ -43,6 +46,7 @@ export default function WhatsAppDashboard() {
   const [messageLogs, setMessageLogs] = useState<MessageLog[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
   const [stats, setStats] = useState({
     totalConversations: 0,
     activeConversations: 0,
@@ -213,6 +217,8 @@ export default function WhatsAppDashboard() {
             <TabsTrigger value="conversations">Conversations</TabsTrigger>
             <TabsTrigger value="messages">Messages</TabsTrigger>
             <TabsTrigger value="contacts">Contacts</TabsTrigger>
+            <TabsTrigger value="memory">Memory</TabsTrigger>
+            <TabsTrigger value="settings">Settings</TabsTrigger>
           </TabsList>
           <Button onClick={fetchData} variant="outline" size="sm">
             <RefreshCw className="h-4 w-4 mr-2" />
@@ -220,9 +226,9 @@ export default function WhatsAppDashboard() {
           </Button>
         </div>
         
-        <TabsContent value="conversations">
-          <ConversationsTab conversations={conversations} />
-        </TabsContent>
+          <TabsContent value="conversations">
+            <ConversationsTab conversations={conversations} onViewConversation={setSelectedConversation} />
+          </TabsContent>
         
         <TabsContent value="messages">
           <MessagesTab messageLogs={messageLogs} />
@@ -231,12 +237,35 @@ export default function WhatsAppDashboard() {
         <TabsContent value="contacts">
           <ContactsTab contacts={contacts} />
         </TabsContent>
+        
+        <TabsContent value="memory">
+          <MemoryView />
+        </TabsContent>
+        
+        <TabsContent value="settings">
+          <SettingsComponent />
+        </TabsContent>
       </Tabs>
+      
+      {/* Conversation Modal */}
+      {selectedConversation && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="w-full max-w-4xl mx-4">
+            <ConversationView 
+              phoneNumber={selectedConversation} 
+              onClose={() => setSelectedConversation(null)}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-function ConversationsTab({ conversations }: { conversations: Conversation[] }) {
+function ConversationsTab({ conversations, onViewConversation }: { 
+  conversations: Conversation[];
+  onViewConversation: (contactId: string) => void;
+}) {
   return (
     <Card>
       <CardHeader>
@@ -246,7 +275,11 @@ function ConversationsTab({ conversations }: { conversations: Conversation[] }) 
         <ScrollArea className="h-[500px]">
           <div className="space-y-4">
             {conversations.map((conversation) => (
-              <ConversationItem key={conversation.id} conversation={conversation} />
+              <ConversationItem 
+                key={conversation.id} 
+                conversation={conversation}
+                onView={onViewConversation}
+              />
             ))}
           </div>
         </ScrollArea>
@@ -255,10 +288,13 @@ function ConversationsTab({ conversations }: { conversations: Conversation[] }) 
   );
 }
 
-function ConversationItem({ conversation }: { conversation: Conversation }) {
+function ConversationItem({ conversation, onView }: { 
+  conversation: Conversation;
+  onView: (contactId: string) => void;
+}) {
   return (
     <div className="flex items-center justify-between border-b pb-4">
-      <div className="space-y-1">
+      <div className="space-y-1 flex-1">
         <p className="text-sm font-medium truncate max-w-[200px]">
           {conversation.contact_id}
         </p>
@@ -281,6 +317,13 @@ function ConversationItem({ conversation }: { conversation: Conversation }) {
         <span className="text-sm text-muted-foreground min-w-0">
           {conversation.message_count} msgs
         </span>
+        <Button 
+          variant="outline" 
+          size="sm"
+          onClick={() => onView(conversation.contact_id)}
+        >
+          View
+        </Button>
       </div>
     </div>
   );
