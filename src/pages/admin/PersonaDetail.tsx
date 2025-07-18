@@ -465,21 +465,25 @@ export default function PersonaDetail() {
         <TabsContent value="markdown" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Persona Details (Markdown View)</CardTitle>
+              <CardTitle className="flex items-center justify-between">
+                Persona Details (Markdown View)
+                <Button onClick={handleSave} disabled={saving} size="sm">
+                  <Save className="w-4 h-4 mr-2" />
+                  {saving ? "Saving..." : "Save Changes"}
+                </Button>
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="prose max-w-none">
-                {persona.instructions ? (
-                  <pre className="whitespace-pre-wrap text-sm bg-muted p-4 rounded-lg">
-                    {typeof persona.instructions === 'string' 
-                      ? persona.instructions 
-                      : JSON.stringify(persona.instructions, null, 2)
-                    }
-                  </pre>
-                ) : (
-                  <p className="text-muted-foreground">No instructions available</p>
-                )}
-              </div>
+              <Textarea
+                value={typeof persona.instructions === 'string' ? persona.instructions : JSON.stringify(persona.instructions, null, 2)}
+                onChange={(e) => setPersona({ ...persona, instructions: e.target.value })}
+                placeholder="Enter markdown instructions for the persona..."
+                rows={20}
+                className="font-mono text-sm"
+              />
+              <p className="text-xs text-muted-foreground mt-2">
+                Instructions can be in JSON format or plain text/markdown
+              </p>
             </CardContent>
           </Card>
         </TabsContent>
