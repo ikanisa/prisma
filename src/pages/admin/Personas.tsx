@@ -1,21 +1,13 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Bot, ArrowRight, Settings, User } from "lucide-react";
+import { Bot, Eye } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
-interface Agent {
-  id: string;
-  name: string;
-  description: string;
-  status: string;
-  created_at: string;
-}
-
-interface Persona {
+interface PersonaWithAgent {
   id: string;
   agent_id: string;
   language: string;
@@ -23,41 +15,40 @@ interface Persona {
   personality: string;
   instructions: string;
   updated_at: string;
+  agents: {
+    name: string;
+    status: string;
+  };
 }
 
 export default function Personas() {
-  const [agents, setAgents] = useState<Agent[]>([]);
-  const [personas, setPersonas] = useState<Persona[]>([]);
+  const [personas, setPersonas] = useState<PersonaWithAgent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
   const navigate = useNavigate();
   const { toast } = useToast();
 
   useEffect(() => {
-    fetchData();
+    fetchPersonas();
   }, []);
 
-  const fetchData = async () => {
+  const fetchPersonas = async () => {
     try {
-      const [agentsResult, personasResult] = await Promise.all([
-        supabase
-          .from("agents")
-          .select("id, name, description, status, created_at")
-          .order("name"),
-        supabase
-          .from("agent_personas")
-          .select("*")
-      ]);
+      const { data, error } = await supabase
+        .from("agent_personas")
+        .select(`
+          *,
+          agents!inner(name, status)
+        `)
+        .order("updated_at", { ascending: false });
 
-      if (agentsResult.error) throw agentsResult.error;
-      if (personasResult.error) throw personasResult.error;
-
-      setAgents(agentsResult.data || []);
-      setPersonas(personasResult.data || []);
+      if (error) throw error;
+      setPersonas(data || []);
     } catch (error) {
-      console.error("Error fetching data:", error);
+      console.error("Error fetching personas:", error);
       toast({
         title: "Error",
-        description: "Failed to fetch agents and personas",
+        description: "Failed to fetch personas",
         variant: "destructive"
       });
     } finally {
@@ -65,15 +56,14 @@ export default function Personas() {
     }
   };
 
-  const getPersonaForAgent = (agentId: string) => {
-    return personas.find(p => p.agent_id === agentId);
-  };
+  const filteredPersonas = personas.filter(persona =>
+    persona.agents?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    persona.tone?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    persona.personality?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
-  const handleAgentClick = (agentId: string, agentName: string) => {
-    // Navigate to individual persona page (we'll need to create this route)
-    navigate(`/admin/personas/${agentId}`, { 
-      state: { agentName } 
-    });
+  const handlePersonaClick = (personaId: string) => {
+    navigate(`/admin/personas/${personaId}`);
   };
 
   if (loading) {
@@ -81,95 +71,84 @@ export default function Personas() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="p-6">
+      <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-3xl font-bold">AI Agent Personas</h1>
-          <p className="text-muted-foreground mt-2">
-            Configure personality, tone, and behavior for each AI agent
-          </p>
+          <h1 className="text-2xl font-bold flex items-center">
+            <Bot className="w-6 h-6 mr-2" />
+            AI Personas
+          </h1>
+          <p className="text-muted-foreground">Configure personality, tone, and behavior for each AI agent</p>
         </div>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {agents.map((agent) => {
-          const persona = getPersonaForAgent(agent.id);
-          const hasPersona = !!persona;
-          
-          return (
+      <div className="mb-6">
+        <Input
+          placeholder="Search personas..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="max-w-md"
+        />
+      </div>
+
+      {loading ? (
+        <div className="text-center py-8">Loading personas...</div>
+      ) : filteredPersonas.length === 0 ? (
+        <div className="text-center py-8">
+          <p>No personas found.</p>
+        </div>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {filteredPersonas.map((persona) => (
             <Card 
-              key={agent.id} 
-              className="hover:shadow-lg transition-all duration-200 cursor-pointer hover-scale"
-              onClick={() => handleAgentClick(agent.id, agent.name)}
+              key={persona.id}
+              className="cursor-pointer hover:shadow-md transition-shadow"
+              onClick={() => handlePersonaClick(persona.id)}
             >
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <div className="flex items-center gap-2">
-                  <Bot className="w-5 h-5 text-primary" />
-                  <CardTitle className="text-lg font-semibold">{agent.name}</CardTitle>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Badge variant={hasPersona ? "default" : "secondary"}>
-                    {hasPersona ? "Configured" : "Needs Setup"}
-                  </Badge>
-                  <ArrowRight className="w-4 h-4 text-muted-foreground" />
-                </div>
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <span className="font-bold">{persona.agents?.name}</span>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={persona.agents?.status === 'active' ? 'default' : 'secondary'}>
+                      {persona.agents?.status}
+                    </Badge>
+                    <Eye className="w-4 h-4 text-muted-foreground" />
+                  </div>
+                </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <p className="text-sm text-muted-foreground">
-                  {agent.description || "AI agent for WhatsApp interactions"}
-                </p>
-                
-                {hasPersona ? (
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2 text-sm">
-                      <User className="w-4 h-4" />
-                      <span className="font-medium">Language:</span>
-                      <span>{persona.language?.toUpperCase() || 'EN'}</span>
+              <CardContent>
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="font-medium">Tone:</span>
+                    <span>{persona.tone}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="font-medium">Language:</span>
+                    <span className="uppercase">{persona.language}</span>
+                  </div>
+                  {persona.personality && (
+                    <div className="text-sm">
+                      <span className="font-medium">Personality:</span>
+                      <p className="text-muted-foreground mt-1 line-clamp-3">
+                        {persona.personality.length > 120 
+                          ? persona.personality.substring(0, 120) + "..." 
+                          : persona.personality
+                        }
+                      </p>
                     </div>
-                    
-                    {persona.tone && (
-                      <div className="text-sm">
-                        <span className="font-medium">Tone:</span> {persona.tone}
-                      </div>
-                    )}
-                    
-                    {persona.personality && (
-                      <div className="text-sm">
-                        <span className="font-medium">Personality:</span> {persona.personality}
-                      </div>
-                    )}
-                    
-                    <p className="text-xs text-muted-foreground">
-                      Last updated: {new Date(persona.updated_at).toLocaleDateString()}
-                    </p>
+                  )}
+                  <div className="text-xs text-muted-foreground pt-2">
+                    Updated: {new Date(persona.updated_at).toLocaleDateString('en-GB', {
+                      day: '2-digit',
+                      month: 'short',
+                      year: '2-digit'
+                    })}
                   </div>
-                ) : (
-                  <div className="text-center py-4">
-                    <Settings className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-                    <p className="text-sm text-muted-foreground">
-                      Click to configure persona settings
-                    </p>
-                  </div>
-                )}
-                
-                <div className="pt-2 border-t">
-                  <Badge variant="outline" className="text-xs">
-                    Status: {agent.status || 'Active'}
-                  </Badge>
                 </div>
               </CardContent>
             </Card>
-          );
-        })}
-      </div>
-
-      {agents.length === 0 && !loading && (
-        <Card>
-          <CardContent className="p-6 text-center">
-            <Bot className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-            <p className="text-muted-foreground">No AI agents found. The agents should be automatically created from the YAML configurations.</p>
-          </CardContent>
-        </Card>
+          ))}
+        </div>
       )}
     </div>
   );

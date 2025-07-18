@@ -6,16 +6,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Bot, Save, Trash2 } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ArrowLeft, Bot, Save, User, FileText, Settings, BookOpen, Brain, Activity, MessageSquare } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-
-interface Agent {
-  id: string;
-  name: string;
-  description: string;
-  status: string;
-  created_at: string;
-}
 
 interface Persona {
   id: string;
@@ -25,44 +18,99 @@ interface Persona {
   personality: string;
   instructions: string;
   updated_at: string;
+  agents?: {
+    name: string;
+    status: string;
+    created_at: string;
+  };
+}
+
+interface Task {
+  id: string;
+  name: string;
+  trigger_type: string;
+  trigger_value: string;
+  tool_name: string;
+  active: boolean;
+  created_at: string;
+}
+
+interface Document {
+  id: string;
+  title: string;
+  embedding_ok: boolean;
+  created_at: string;
+  storage_path: string;
+}
+
+interface Learning {
+  id: string;
+  source_type: string;
+  source_detail: string;
+  vectorize: boolean;
+  created_at: string;
+}
+
+interface Log {
+  id: string;
+  event: string;
+  success: boolean;
+  created_at: string;
 }
 
 export default function PersonaDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [persona, setPersona] = useState<Persona | null>(null);
-  const [agent, setAgent] = useState<Agent | null>(null);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [learning, setLearning] = useState<Learning[]>([]);
+  const [logs, setLogs] = useState<Log[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [activeTab, setActiveTab] = useState("overview");
   const { toast } = useToast();
 
   useEffect(() => {
     if (id) {
-      fetchPersona();
+      fetchPersonaData();
     }
   }, [id]);
 
-  const fetchPersona = async () => {
+  const fetchPersonaData = async () => {
     try {
+      // Fetch persona with agent details
       const { data: personaData, error: personaError } = await supabase
         .from("agent_personas")
-        .select("*")
+        .select(`
+          *,
+          agents!inner(name, status, created_at)
+        `)
         .eq("id", id)
-        .single();
+        .maybeSingle();
 
       if (personaError) throw personaError;
-
+      
+      if (!personaData) {
+        throw new Error("Persona not found");
+      }
+      
       setPersona(personaData);
 
-      // Fetch the associated agent
-      const { data: agentData, error: agentError } = await supabase
-        .from("agents")
-        .select("*")
-        .eq("id", personaData.agent_id)
-        .single();
+      if (personaData.agent_id) {
+        // Fetch related data
+        const [tasksRes, docsRes, learningRes, logsRes] = await Promise.all([
+          supabase.from("agent_tasks").select("*").eq("agent_id", personaData.agent_id).order("created_at", { ascending: false }),
+          supabase.from("agent_documents").select("*").eq("agent_id", personaData.agent_id),
+          supabase.from("agent_learning").select("*").eq("agent_id", personaData.agent_id),
+          supabase.from("agent_logs").select("*").eq("agent_id", personaData.agent_id).order("created_at", { ascending: false }).limit(200)
+        ]);
 
-      if (agentError) throw agentError;
-      setAgent(agentData);
+        setTasks(tasksRes.data || []);
+        setDocuments(docsRes.data || []);
+        setLearning(learningRes.data || []);
+        setLogs(logsRes.data || []);
+      }
     } catch (error) {
       console.error("Error fetching persona:", error);
       toast({
@@ -110,32 +158,6 @@ export default function PersonaDetail() {
     }
   };
 
-  const handleDelete = async () => {
-    if (!persona || !confirm("Are you sure you want to delete this persona?")) return;
-
-    try {
-      const { error } = await supabase
-        .from("agent_personas")
-        .delete()
-        .eq("id", persona.id);
-
-      if (error) throw error;
-
-      toast({
-        title: "Success",
-        description: "Persona deleted successfully"
-      });
-      navigate("/admin/personas");
-    } catch (error) {
-      console.error("Error deleting persona:", error);
-      toast({
-        title: "Error",
-        description: "Failed to delete persona",
-        variant: "destructive"
-      });
-    }
-  };
-
   if (loading) {
     return (
       <div className="p-6">
@@ -150,7 +172,7 @@ export default function PersonaDetail() {
     );
   }
 
-  if (!persona || !agent) {
+  if (!persona) {
     return (
       <div className="p-6">
         <div className="flex items-center mb-6">
@@ -165,7 +187,7 @@ export default function PersonaDetail() {
   }
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
+    <div className="p-6 max-w-6xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center">
           <Button variant="ghost" onClick={() => navigate("/admin/personas")} className="mr-4">
@@ -175,7 +197,7 @@ export default function PersonaDetail() {
           <div>
             <h1 className="text-2xl font-bold flex items-center">
               <Bot className="w-6 h-6 mr-2" />
-              {agent.name} Persona
+              {persona.agents?.name} Persona
             </h1>
             <p className="text-muted-foreground">Configure personality and behavior</p>
           </div>
@@ -185,119 +207,276 @@ export default function PersonaDetail() {
             <Save className="w-4 h-4 mr-2" />
             {saving ? "Saving..." : "Save Changes"}
           </Button>
-          <Button variant="destructive" onClick={handleDelete}>
-            <Trash2 className="w-4 h-4 mr-2" />
-            Delete
-          </Button>
         </div>
       </div>
 
-      <div className="grid gap-6">
-        {/* Agent Info */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Agent Information</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm font-medium">Agent Name</label>
-                <p className="text-sm text-muted-foreground">{agent.name}</p>
-              </div>
-              <div>
-                <label className="text-sm font-medium">Status</label>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+        <TabsList className="grid w-full grid-cols-7">
+          <TabsTrigger value="overview" className="flex items-center gap-2">
+            <User className="w-4 h-4" />
+            Overview
+          </TabsTrigger>
+          <TabsTrigger value="prompt" className="flex items-center gap-2">
+            <FileText className="w-4 h-4" />
+            System Prompt
+          </TabsTrigger>
+          <TabsTrigger value="tasks" className="flex items-center gap-2">
+            <Settings className="w-4 h-4" />
+            Tasks & Tools
+          </TabsTrigger>
+          <TabsTrigger value="documents" className="flex items-center gap-2">
+            <BookOpen className="w-4 h-4" />
+            Documents
+          </TabsTrigger>
+          <TabsTrigger value="learning" className="flex items-center gap-2">
+            <Brain className="w-4 h-4" />
+            Learning
+          </TabsTrigger>
+          <TabsTrigger value="logs" className="flex items-center gap-2">
+            <Activity className="w-4 h-4" />
+            Logs
+          </TabsTrigger>
+          <TabsTrigger value="test" className="flex items-center gap-2">
+            <MessageSquare className="w-4 h-4" />
+            Test Chat
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="overview" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Agent Information</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Badge variant={agent.status === 'active' ? 'default' : 'secondary'}>
-                    {agent.status}
-                  </Badge>
+                  <label className="text-sm font-medium">Agent Name</label>
+                  <p className="text-sm text-muted-foreground">{persona.agents?.name}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Status</label>
+                  <div>
+                    <Badge variant={persona.agents?.status === 'active' ? 'default' : 'secondary'}>
+                      {persona.agents?.status}
+                    </Badge>
+                  </div>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Last Updated</label>
+                  <p className="text-sm text-muted-foreground">
+                    {new Date(persona.updated_at).toLocaleDateString('en-GB', {
+                      day: '2-digit',
+                      month: 'long',
+                      year: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
+                  </p>
                 </div>
               </div>
-              <div className="col-span-2">
-                <label className="text-sm font-medium">Description</label>
-                <p className="text-sm text-muted-foreground">{agent.description}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
 
-        {/* Persona Configuration */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Persona Configuration</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Persona Configuration</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="language" className="text-sm font-medium">Language</label>
+                  <Input
+                    id="language"
+                    value={persona.language}
+                    onChange={(e) => setPersona({ ...persona, language: e.target.value })}
+                    placeholder="e.g., en, fr, rw"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="tone" className="text-sm font-medium">Tone</label>
+                  <Input
+                    id="tone"
+                    value={persona.tone}
+                    onChange={(e) => setPersona({ ...persona, tone: e.target.value })}
+                    placeholder="e.g., friendly, professional, casual"
+                  />
+                </div>
+              </div>
+
               <div>
-                <label htmlFor="language" className="text-sm font-medium">Language</label>
-                <Input
-                  id="language"
-                  value={persona.language}
-                  onChange={(e) => setPersona({ ...persona, language: e.target.value })}
-                  placeholder="e.g., en, fr, rw"
+                <label htmlFor="personality" className="text-sm font-medium">Personality</label>
+                <Textarea
+                  id="personality"
+                  value={persona.personality}
+                  onChange={(e) => setPersona({ ...persona, personality: e.target.value })}
+                  placeholder="Describe the agent's personality traits..."
+                  rows={3}
                 />
               </div>
-              <div>
-                <label htmlFor="tone" className="text-sm font-medium">Tone</label>
-                <Input
-                  id="tone"
-                  value={persona.tone}
-                  onChange={(e) => setPersona({ ...persona, tone: e.target.value })}
-                  placeholder="e.g., friendly, professional, casual"
-                />
-              </div>
-            </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-            <div>
-              <label htmlFor="personality" className="text-sm font-medium">Personality</label>
+        <TabsContent value="prompt" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>System Prompt</CardTitle>
+            </CardHeader>
+            <CardContent>
               <Textarea
-                id="personality"
-                value={persona.personality}
-                onChange={(e) => setPersona({ ...persona, personality: e.target.value })}
-                placeholder="Describe the agent's personality traits..."
-                rows={3}
-              />
-            </div>
-
-            <div>
-              <label htmlFor="instructions" className="text-sm font-medium">Instructions</label>
-              <Textarea
-                id="instructions"
                 value={typeof persona.instructions === 'string' ? persona.instructions : JSON.stringify(persona.instructions, null, 2)}
                 onChange={(e) => setPersona({ ...persona, instructions: e.target.value })}
-                placeholder="Detailed instructions for the agent's behavior..."
-                rows={10}
+                placeholder="System instructions for the agent..."
+                rows={20}
                 className="font-mono text-sm"
               />
-              <p className="text-xs text-muted-foreground mt-1">
+              <p className="text-xs text-muted-foreground mt-2">
                 Instructions can be in JSON format or plain text
               </p>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-        {/* Metadata */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Metadata</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <label className="font-medium">Created</label>
-                <p className="text-muted-foreground">
-                  {new Date(agent.created_at).toLocaleString()}
-                </p>
-              </div>
-              <div>
-                <label className="font-medium">Last Updated</label>
-                <p className="text-muted-foreground">
-                  {new Date(persona.updated_at).toLocaleString()}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+        <TabsContent value="tasks" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Tasks & Tools</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {tasks.length === 0 ? (
+                <p className="text-muted-foreground">No tasks configured</p>
+              ) : (
+                <div className="space-y-2">
+                  {tasks.map((task) => (
+                    <div key={task.id} className="border rounded p-3">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h4 className="font-medium">{task.name}</h4>
+                          <p className="text-sm text-muted-foreground">
+                            {task.trigger_type}: {task.trigger_value}
+                          </p>
+                          <p className="text-sm text-muted-foreground">Tool: {task.tool_name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {new Date(task.created_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <Badge variant={task.active ? 'default' : 'secondary'}>
+                          {task.active ? 'Active' : 'Inactive'}
+                        </Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="documents" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Documents</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {documents.length === 0 ? (
+                <p className="text-muted-foreground">No documents uploaded</p>
+              ) : (
+                <div className="space-y-2">
+                  {documents.map((doc) => (
+                    <div key={doc.id} className="border rounded p-3 flex justify-between items-center">
+                      <div>
+                        <h4 className="font-medium">{doc.title}</h4>
+                        <p className="text-sm text-muted-foreground">
+                          {new Date(doc.created_at).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <Badge variant={doc.embedding_ok ? 'default' : 'secondary'}>
+                        {doc.embedding_ok ? 'Vectorized' : 'Pending'}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="learning" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Learning Sources</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {learning.length === 0 ? (
+                <p className="text-muted-foreground">No learning sources configured</p>
+              ) : (
+                <div className="space-y-2">
+                  {learning.map((item) => (
+                    <div key={item.id} className="border rounded p-3">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h4 className="font-medium">{item.source_type}</h4>
+                          <p className="text-sm text-muted-foreground">{item.source_detail}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {new Date(item.created_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <Badge variant={item.vectorize ? 'default' : 'secondary'}>
+                          {item.vectorize ? 'Vectorize' : 'Skip'}
+                        </Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="logs" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Recent Logs</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {logs.length === 0 ? (
+                <p className="text-muted-foreground">No logs available</p>
+              ) : (
+                <div className="space-y-2 max-h-96 overflow-y-auto">
+                  {logs.map((log) => (
+                    <div key={log.id} className="border rounded p-3">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="text-sm">{log.event}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {new Date(log.created_at).toLocaleString()}
+                          </p>
+                        </div>
+                        <Badge variant={log.success ? 'default' : 'destructive'}>
+                          {log.success ? 'Success' : 'Failed'}
+                        </Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="test" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Test Chat</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground">
+                Test chat functionality will be implemented in a future update.
+              </p>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
