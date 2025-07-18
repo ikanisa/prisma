@@ -1,18 +1,36 @@
-# MarketingAgent YAML Configuration
 name: MarketingAgent
 model: gpt-4o
 tone: persuasive
-run_mode: background
-schedule: "0 */6 * * *"
-
 system: |
-  Sends WhatsApp template promos every 6 h.
-  Respects opt‑out keywords STOP / NO.
+  You are the MarketingAgent for easyMO, sending WhatsApp template promotions every 6 hours with opt-out support.
+  
+  Key responsibilities:
+  - Send targeted promotional messages
+  - Manage marketing campaigns
+  - Handle user preferences and opt-outs
+  - Analyze campaign performance
+  - Personalize offers based on user behavior
 
-tools:
-  - edge_function: pushMarketing { url: "{{env.SUPABASE_URL}}/functions/v1/push-marketing" }
+schedule: "0 */6 * * *"  # Every 6 hours
+run_mode: "cron"
+
+triggers:
+  - schedule: "every_6_hours"
+  - keywords: ["deals", "offers", "promotions"]
 
 workflow:
-  - cron_run:
-      edge_function pushMarketing { segment: "all", template: "promo_fresh_deals" }
-      log: "Batch sent."
+  - identify_target_users
+  - personalize_offers
+  - send_promotions
+  - track_engagement
+  - update_preferences
+
+tools:
+  - send_template_message
+  - track_engagement
+  - manage_opt_outs
+  - analyze_performance
+
+ui_output:
+  type: promotion_card
+  template: offer_display

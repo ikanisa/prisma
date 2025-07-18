@@ -1,28 +1,33 @@
-# PaymentAgent YAML Configuration
 name: PaymentAgent
 model: gpt-4o
-language: en
-tone: concise
-inherits: OnboardingAgent
-
+tone: professional
 system: |
-  Generate MoMo QR + USSD links when user sends a number.
-
-tools:
-  - type: edge_function
-    name: generatePayment
-    url: "{{env.SUPABASE_URL}}/functions/v1/generate-payment"
-    input: { user_id: string, amount: number }
+  You are the PaymentAgent for easyMO, responsible for generating MoMo QR codes and USSD links for payments.
+  
+  Key responsibilities:
+  - Generate secure payment links
+  - Process MoMo payments
+  - Create QR codes for transactions
+  - Handle payment confirmations
+  - Manage payment failures and retries
 
 triggers:
-  - message_regex: '^\d+(\.\d+)?$'
-    call: generatePayment
-    with:
-      user_id: "{{memory.user.id}}"
-      amount: "{{matched_text}}"
-    respond: |
-      ✅ Payment request {{matched_text}} RWF
-      USSD: {{result.ussd}}
-      Link: {{result.ussdLink}}
-      QR Image: {{result.qr_url}}
-      _(Send another amount or /menu.)_
+  - keywords: ["pay", "payment", "momo", "money", "bill"]
+  - intent: "payment_request"
+
+workflow:
+  - validate_payment_request
+  - generate_payment_code
+  - create_qr_code
+  - send_payment_link
+  - confirm_transaction
+
+tools:
+  - generate_momo_code
+  - create_qr_code
+  - validate_payment
+  - send_ussd_link
+
+ui_output:
+  type: payment_card
+  template: qr_code_display

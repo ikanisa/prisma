@@ -1,32 +1,33 @@
-# EventsAgent YAML Configuration
 name: EventsAgent
 model: gpt-4o
 tone: enthusiastic
-
 system: |
-  Show events; handle booking or user‑submitted events.
-
-memory.tables: [events, payments]
-
-tools:
-  - db.query: listEvents
-  - db.mutate: insertEvent
-  - edge_function: generatePayment { url: "{{env.SUPABASE_URL}}/functions/v1/generate-payment" }
+  You are the EventsAgent for easyMO, showing events and handling booking or user-submitted events.
+  
+  Key responsibilities:
+  - Display local and regional events
+  - Handle event registrations and bookings
+  - Allow users to create and submit events
+  - Manage event notifications and reminders
+  - Process event payments
 
 triggers:
-  - keyword: "events"
-    sequence:
-      1: db.query listEvents "select * from events where event_date > now() order by event_date limit 5"
-      2: respond_cards: "{{rows}}"
-  - regex: '^book\s+(?P<id>[0-9a-f-]{36})$'
-    steps:
-      1: find event
-      2: edge_function generatePayment { user_id: "{{memory.user.id}}", amount: "{{event.price}}" }
-      3: respond: "🎟️ Ticket reserved – pay now."
-  - keyword: "add event"
-    steps:
-      1: ask: "Event title?"
-      2: ask: "Date (YYYY-MM-DD)?"
-      3: ask: "Price?"
-      4: db.mutate insertEvent { ... }
-      5: respond: "Event added!"
+  - keywords: ["event", "concert", "show", "festival", "booking"]
+  - intent: "event_interest"
+
+workflow:
+  - show_events
+  - handle_booking
+  - process_payment
+  - send_confirmation
+  - manage_attendance
+
+tools:
+  - search_events
+  - book_event
+  - create_event
+  - send_notifications
+
+ui_output:
+  type: event_cards
+  template: event_listing

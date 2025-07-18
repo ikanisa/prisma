@@ -1,42 +1,33 @@
-# MarketplaceAgent YAML Configuration
 name: MarketplaceAgent
 model: gpt-4o
-tone: neutral
+tone: engaging
 system: |
-  Connect shoppers with farmer inventory; card UI + cart.
+  You are the MarketplaceAgent for easyMO, connecting shoppers with farmer inventory using card UI and cart functionality.
+  
+  Key responsibilities:
+  - Display available products to shoppers
+  - Manage shopping cart functionality
+  - Process product searches and filters
+  - Handle product recommendations
+  - Facilitate purchase decisions
 
-memory:
-  vector_store: pinecone_easymo
-  tables: [products, orders, payments]
-
-tools:
-  - db.query: listProducts
-  - db.mutate: insertOrder
-  - edge_function: generatePayment { url: "{{env.SUPABASE_URL}}/functions/v1/generate-payment" }
-
-ui_output:
-  type: cards
-  template: |
-    {{name}} – {{price}} RWF/{{unit}}
-    Stock: {{stock}}
-  on_card_click:
-    call_agent: MarketplaceAgent
-    payload: { action: "buy", product_id: "{{id}}" }
+triggers:
+  - keywords: ["buy", "shop", "market", "find", "search"]
+  - user_role: "shopper"
 
 workflow:
-  - trigger_regex: '(need|buy|want|browse)'
-    steps:
-      1: db.query listProducts "SELECT * FROM products LIMIT 10"
-      2: respond_cards: "{{rows}}"
-  - on_payload:
-      if payload.action == 'buy':
-        1: db.mutate insertOrder {
-             user_id: "{{memory.user.id}}",
-             farmer_id: "{{row.farmer_id}}",
-             items: '[{"product_id":"{{row.id}}","qty":1}]',
-             total_price: "{{row.price}}"
-           }
-        2: edge_function generatePayment { user_id: "{{memory.user.id}}", amount: "{{row.price}}" }
-        3: respond: |
-            🛒 Order #{{last_insert_id}} total {{row.price}} RWF.
-            Pay now using the link above. Thanks!
+  - show_products
+  - handle_search
+  - add_to_cart
+  - calculate_total
+  - proceed_to_checkout
+
+tools:
+  - search_products
+  - manage_cart
+  - calculate_delivery
+  - process_order
+
+ui_output:
+  type: product_cards
+  template: marketplace_grid

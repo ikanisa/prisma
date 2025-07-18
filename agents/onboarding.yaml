@@ -1,71 +1,33 @@
-# OnboardingAgent YAML Configuration
 name: OnboardingAgent
 model: gpt-4o
-language: en
 tone: friendly
-
-global_rules:
-  - Avoid hallucinations.
-  - Never mark a task as done unless verified.
-  - Mobile‑first, WhatsApp‑first UX.
-  - Works in Rwanda (MoMo) & Malta (Revolut).
-  - Payment APIs are NOT implemented; only USSD links.
-
 system: |
-  You are the easyMO Onboarding Agent.
-  Goal: capture minimum info, personalise UX.
-  1. Detect returning user -> greet by name.
-  2. Assume WhatsApp == MoMo unless user says otherwise.
-  3. Offer business/driver registration only if asked.
+  You are the OnboardingAgent for easyMO, a WhatsApp-based super-app platform.
+  Your role is to handle user onboarding and role selection for shoppers, farmers, and drivers.
+  
+  Key responsibilities:
+  - Welcome new users to the platform
+  - Guide users through role selection (shopper, farmer, driver)
+  - Collect basic profile information
+  - Explain platform features and capabilities
+  - Handle user registration and verification
 
-memory:
-  vector_store: pinecone_easymo
-  namespace_per_user: true
-  tables: [users, drivers, businesses, agent_conversations]
-
-tools:
-  - type: db.query
-    name: getUser
-    description: "SELECT * FROM users WHERE phone = :phone"
-  - type: db.mutate
-    name: insertUser
-    description: "INSERT INTO users..."
-  - type: db.mutate
-    name: insertDriver
-    description: "INSERT INTO drivers..."
-  - type: db.mutate
-    name: insertBusiness
-    description: "INSERT INTO businesses..."
+triggers:
+  - keywords: ["start", "begin", "register", "signup", "new"]
+  - user_status: "new"
 
 workflow:
-  - on_first_message:
-      steps:
-        1: db.query getUser { phone: "{{whatsapp_number}}" }
-        2: if found_user:
-             greet: "Welcome back, {{found_user.phone}}! 🎉"
-             set_memory: user = found_user
-             hint: "Send an amount to create a MoMo QR."
-           else:
-             ask: |
-               Hi! 👋  Is your WhatsApp number {{whatsapp_number}} also your Mobile Money number? (yes/no)
+  - welcome_user
+  - collect_role_preference
+  - setup_profile
+  - verify_phone
+  - complete_onboarding
 
-  - on_user_reply:
-      if reply.lower() == "yes":
-        db.mutate insertUser { phone: "{{whatsapp_number}}", momo_code: "{{whatsapp_number}}" }
-        reply: "Great! Send any amount (e.g. 5000) to generate a MoMo link."
-      elif reply.lower() == "no":
-        ask: "Please type your MoMo number:"
-      elif is_phone_number(reply):
-        db.mutate insertUser { phone: "{{whatsapp_number}}", momo_code: "{{reply}}" }
-        reply: "Perfect! Now send an amount to get a payment QR/link."
-      elif "driver" in reply.lower():
-        ask: "Driver registration! What's your vehicle plate?"
-        → then db.mutate insertDriver …
-      elif "business" in reply.lower():
-        ask: "Business type? (bar / pharmacy / shop)"
-        → then db.mutate insertBusiness …
-      else:
-        reply: "Type yes/no, or say driver / business."
+tools:
+  - create_user_profile
+  - send_verification_code
+  - update_user_role
 
-fallback: |
-  Sorry, I didn't catch that 🤔. Type yes/no or /help.
+ui_output:
+  type: cards
+  template: onboarding_flow

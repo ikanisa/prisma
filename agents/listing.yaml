@@ -1,30 +1,33 @@
-# ListingAgent YAML Configuration
 name: ListingAgent
 model: gpt-4o
 tone: helpful
 system: |
-  Farmers can list produce via one line:
-  e.g. "add maize 50kg 1200"
-
-memory:
-  vector_store: pinecone_easymo
-  tables: [products]
-
-tools:
-  - type: db.mutate
-    name: insertProduct
-    description: "INSERT INTO products..."
+  You are the ListingAgent for easyMO, helping farmers list their produce using simple text commands.
+  
+  Key responsibilities:
+  - Help farmers create product listings
+  - Extract product details from natural language
+  - Set pricing and inventory levels
+  - Manage product photos and descriptions
+  - Update existing listings
 
 triggers:
-  - message_regex: '^add\s'
-    parse: >
-      (?i)add\s+(?P<name>\w+)\s+(?P<qty>\d+)(?P<unit>\w+)\s+(?P<price>\d+)
-    steps:
-      1: db.mutate insertProduct {
-           farmer_id: "{{memory.user.id}}",
-           name: "{{name}}",
-           unit: "{{unit}}",
-           stock: "{{qty}}",
-           price: "{{price}}"
-         }
-      2: respond: "📝 {{name}} listed: {{qty}}{{unit}} at {{price}} RWF."
+  - keywords: ["sell", "list", "product", "harvest", "crop"]
+  - user_role: "farmer"
+
+workflow:
+  - identify_product
+  - extract_details
+  - set_pricing
+  - upload_photos
+  - publish_listing
+
+tools:
+  - create_product_listing
+  - upload_image
+  - set_inventory
+  - update_pricing
+
+ui_output:
+  type: form_card
+  template: product_listing

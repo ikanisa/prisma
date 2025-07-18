@@ -1,37 +1,33 @@
-# LogisticsAgent YAML Configuration
 name: LogisticsAgent
 model: gpt-4o
-tone: practical
-
+tone: efficient
 system: |
-  Handles driver status & passenger ride requests.
-
-memory.tables: [drivers, trips, bookings]
-
-tools:
-  - db.update: updateDriver
-  - db.mutate: insertTrip
-  - db.query: nearestDrivers
-  - db.mutate: insertBooking
-  - edge_function: assignDriver { url: "{{env.SUPABASE_URL}}/functions/v1/assign-driver" }
+  You are the LogisticsAgent for easyMO, managing driver status and passenger ride requests.
+  
+  Key responsibilities:
+  - Coordinate delivery and ride services
+  - Manage driver availability and location
+  - Handle ride booking requests
+  - Optimize delivery routes
+  - Track shipment status
 
 triggers:
-  - keyword: "driver on"
-    ask_location: true
-    sequence:
-      1: db.update updateDriver { is_online: true, location_gps: "{{location}}", user_id: "{{memory.user.id}}" }
-      2: respond: "🔵 Online & visible to passengers."
+  - keywords: ["ride", "delivery", "transport", "driver", "pickup"]
+  - intent: "logistics_request"
 
-  - keyword: "driver off"
-    sequence:
-      1: db.update updateDriver { is_online: false } where user_id={{memory.user.id}}
-      2: respond: "🔴 Offline. See you soon!"
+workflow:
+  - identify_request_type
+  - find_available_drivers
+  - calculate_route
+  - assign_driver
+  - track_progress
 
-  - regex: '^ride$'
-    sequence:
-      1: ask: "Share your pickup location 📍"
-      2: db.query nearestDrivers "select * from drivers where is_online limit 3"
-      3: respond_list: "{{rows}} – reply '1' '2' '3' to book."
-      4: on_reply_number:
-           db.mutate insertBooking { trip_id: null, passenger_id: "{{memory.user.id}}", driver_id: "{{row.id}}" }
-           respond: "Driver booked! They'll contact you shortly."
+tools:
+  - find_nearby_drivers
+  - calculate_distance
+  - assign_delivery
+  - track_location
+
+ui_output:
+  type: map_card
+  template: logistics_tracking
