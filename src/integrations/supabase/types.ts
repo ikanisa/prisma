@@ -193,6 +193,30 @@ export type Database = {
           },
         ]
       }
+      agent_memory: {
+        Row: {
+          id: string
+          memory_type: string | null
+          memory_value: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          id?: string
+          memory_type?: string | null
+          memory_value?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          id?: string
+          memory_type?: string | null
+          memory_value?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       agent_personas: {
         Row: {
           agent_id: string | null
@@ -595,6 +619,36 @@ export type Database = {
           },
         ]
       }
+      fallback_activity_log: {
+        Row: {
+          created_at: string | null
+          fallback_model: string | null
+          id: string
+          original_model: string | null
+          success: boolean | null
+          task_type: string | null
+          trigger_reason: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          fallback_model?: string | null
+          id?: string
+          original_model?: string | null
+          success?: boolean | null
+          task_type?: string | null
+          trigger_reason?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          fallback_model?: string | null
+          id?: string
+          original_model?: string | null
+          success?: boolean | null
+          task_type?: string | null
+          trigger_reason?: string | null
+        }
+        Relationships: []
+      }
       google_places_businesses: {
         Row: {
           agent_verified: boolean | null
@@ -634,6 +688,108 @@ export type Database = {
           name?: string | null
           place_id?: string | null
           region?: string | null
+        }
+        Relationships: []
+      }
+      learning_gap_instances: {
+        Row: {
+          context_excerpt: string | null
+          conversation_id: string | null
+          created_at: string | null
+          gap_category: string | null
+          gap_description: string | null
+          id: string
+          severity_level: string | null
+          status: string | null
+          suggested_improvement: string | null
+        }
+        Insert: {
+          context_excerpt?: string | null
+          conversation_id?: string | null
+          created_at?: string | null
+          gap_category?: string | null
+          gap_description?: string | null
+          id?: string
+          severity_level?: string | null
+          status?: string | null
+          suggested_improvement?: string | null
+        }
+        Update: {
+          context_excerpt?: string | null
+          conversation_id?: string | null
+          created_at?: string | null
+          gap_category?: string | null
+          gap_description?: string | null
+          id?: string
+          severity_level?: string | null
+          status?: string | null
+          suggested_improvement?: string | null
+        }
+        Relationships: []
+      }
+      mcp_model_registry: {
+        Row: {
+          created_at: string | null
+          fallback_model: string | null
+          id: string
+          primary_model: string | null
+          prompt_prefix: string | null
+          secondary_model: string | null
+          task_name: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          fallback_model?: string | null
+          id?: string
+          primary_model?: string | null
+          prompt_prefix?: string | null
+          secondary_model?: string | null
+          task_name?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          fallback_model?: string | null
+          id?: string
+          primary_model?: string | null
+          prompt_prefix?: string | null
+          secondary_model?: string | null
+          task_name?: string | null
+        }
+        Relationships: []
+      }
+      model_output_logs: {
+        Row: {
+          created_at: string | null
+          execution_time_ms: number | null
+          id: string
+          model_used: string | null
+          prompt_text: string | null
+          response_quality: string | null
+          response_text: string | null
+          task_id: string | null
+          token_usage: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          execution_time_ms?: number | null
+          id?: string
+          model_used?: string | null
+          prompt_text?: string | null
+          response_quality?: string | null
+          response_text?: string | null
+          task_id?: string | null
+          token_usage?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          execution_time_ms?: number | null
+          id?: string
+          model_used?: string | null
+          prompt_text?: string | null
+          response_quality?: string | null
+          response_text?: string | null
+          task_id?: string | null
+          token_usage?: number | null
         }
         Relationships: []
       }
@@ -965,6 +1121,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      telegram_logs: {
+        Row: {
+          chat_id: string | null
+          id: string
+          message_content: string | null
+          processed: boolean | null
+          received_at: string | null
+        }
+        Insert: {
+          chat_id?: string | null
+          id?: string
+          message_content?: string | null
+          processed?: boolean | null
+          received_at?: string | null
+        }
+        Update: {
+          chat_id?: string | null
+          id?: string
+          message_content?: string | null
+          processed?: boolean | null
+          received_at?: string | null
+        }
+        Relationships: []
       }
       trips: {
         Row: {

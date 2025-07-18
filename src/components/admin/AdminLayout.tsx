@@ -35,6 +35,7 @@ const sidebarItems = [
   { name: "Events", path: "/admin/events", icon: Calendar },
   { name: "AI Agents", path: "/admin/agents", icon: Bot },
   { name: "Personas", path: "/admin/personas", icon: Brain },
+  { name: "Model Registry", path: "/admin/model-registry", icon: Settings },
   { name: "Tasks/Tools", path: "/admin/tasks", icon: Cog },
   { name: "Learning", path: "/admin/learning", icon: BookOpen },
   { name: "Documents", path: "/admin/documents", icon: FileText },
