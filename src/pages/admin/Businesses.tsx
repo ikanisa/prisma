@@ -83,7 +83,7 @@ export default function Businesses() {
         .from('businesses')
         .select(`
           *,
-          owner:users(phone)
+          users!businesses_owner_user_id_fkey(phone)
         `, { count: 'exact' })
         .order('created_at', { ascending: false })
         .range((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage - 1);
@@ -102,7 +102,7 @@ export default function Businesses() {
 
       const businessesWithPhone = (data || []).map(business => ({
         ...business,
-        owner_phone: business.owner?.phone
+        owner_phone: business.users?.phone
       }));
 
       setBusinesses(businessesWithPhone);
