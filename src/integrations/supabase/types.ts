@@ -343,6 +343,39 @@ export type Database = {
           },
         ]
       }
+      conversation_messages: {
+        Row: {
+          channel: string | null
+          confidence_score: number | null
+          created_at: string | null
+          id: string
+          message_text: string | null
+          model_used: string | null
+          phone_number: string | null
+          sender: string | null
+        }
+        Insert: {
+          channel?: string | null
+          confidence_score?: number | null
+          created_at?: string | null
+          id?: string
+          message_text?: string | null
+          model_used?: string | null
+          phone_number?: string | null
+          sender?: string | null
+        }
+        Update: {
+          channel?: string | null
+          confidence_score?: number | null
+          created_at?: string | null
+          id?: string
+          message_text?: string | null
+          model_used?: string | null
+          phone_number?: string | null
+          sender?: string | null
+        }
+        Relationships: []
+      }
       driver_wallet: {
         Row: {
           balance: number | null
@@ -923,6 +956,45 @@ export type Database = {
           chunk?: string
           doc_id?: string
           embedding?: string | null
+        }
+        Relationships: []
+      }
+      whatsapp_logs: {
+        Row: {
+          contact_name: string | null
+          media_id: string | null
+          message_content: string | null
+          message_id: string
+          message_type: string | null
+          phone_number: string | null
+          processed: boolean | null
+          processed_at: string | null
+          received_at: string | null
+          timestamp: string | null
+        }
+        Insert: {
+          contact_name?: string | null
+          media_id?: string | null
+          message_content?: string | null
+          message_id: string
+          message_type?: string | null
+          phone_number?: string | null
+          processed?: boolean | null
+          processed_at?: string | null
+          received_at?: string | null
+          timestamp?: string | null
+        }
+        Update: {
+          contact_name?: string | null
+          media_id?: string | null
+          message_content?: string | null
+          message_id?: string
+          message_type?: string | null
+          phone_number?: string | null
+          processed?: boolean | null
+          processed_at?: string | null
+          received_at?: string | null
+          timestamp?: string | null
         }
         Relationships: []
       }
