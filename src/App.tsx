@@ -8,6 +8,7 @@ import { AdminLayout } from "@/components/admin/AdminLayout";
 import Dashboard from "./pages/admin/Dashboard";
 import Users from "./pages/admin/Users";
 import Businesses from "./pages/admin/Businesses";
+import BusinessDetail from "./pages/admin/BusinessDetail";
 import Drivers from "./pages/admin/Drivers";
 import Products from "./pages/admin/Products";
 import Orders from "./pages/admin/Orders";
@@ -37,6 +38,7 @@ const App = () => (
           <Route index element={<Dashboard />} />
           <Route path="users" element={<Users />} />
           <Route path="businesses" element={<Businesses />} />
+          <Route path="businesses/:businessId" element={<BusinessDetail />} />
           <Route path="drivers" element={<Drivers />} />
           <Route path="products" element={<Products />} />
           <Route path="orders" element={<Orders />} />
