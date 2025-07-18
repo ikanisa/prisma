@@ -20,7 +20,8 @@ import {
   BookOpen,
   FileText,
   ScrollText,
-  MessageSquare
+  MessageSquare,
+  Tractor
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -30,6 +31,7 @@ const sidebarItems = [
   { name: "Users", path: "/admin/users", icon: Users },
   { name: "Businesses", path: "/admin/businesses", icon: Store },
   { name: "Drivers", path: "/admin/drivers", icon: Truck },
+  { name: "Farmers", path: "/admin/farmers", icon: Tractor },
   { name: "Products", path: "/admin/products", icon: Package },
   { name: "Orders", path: "/admin/orders", icon: ShoppingCart },
   { name: "Payments", path: "/admin/payments", icon: CreditCard },
