@@ -44,6 +44,8 @@ const sidebarItems = [
   { name: "Documents", path: "/admin/documents", icon: FileText },
   { name: "Agent Logs", path: "/admin/agent-logs", icon: ScrollText },
   { name: "WhatsApp Dashboard", path: "/admin/whatsapp", icon: MessageSquare },
+  { name: "WhatsApp Contacts", path: "/admin/whatsapp-contacts", icon: Users },
+  { name: "Conversations", path: "/admin/conversations", icon: MessageSquare },
   { name: "Help", path: "/admin/help", icon: HelpCircle },
   { name: "Edge Logs", path: "/admin/edge-logs", icon: Activity },
 ];
