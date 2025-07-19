@@ -13,20 +13,32 @@ system: |
 
 triggers:
   - keywords: ["ride", "delivery", "transport", "driver", "pickup"]
+  - patterns: ["^driver\\s+on$", "^driver\\s+off$", "^accept$", "^picked\\s?up$", "^delivered$"]
   - intent: "logistics_request"
+
+driver_commands:
+  - "driver on": start_session
+  - "driver off": end_session  
+  - "accept": confirm_assignment
+  - "picked up": mark_pickup
+  - "delivered": complete_trip
 
 workflow:
   - identify_request_type
+  - validate_driver_status
   - find_available_drivers
   - calculate_route
   - assign_driver
   - track_progress
+  - process_payment
 
 tools:
   - find_nearby_drivers
   - calculate_distance
   - assign_delivery
   - track_location
+  - update_driver_status
+  - process_driver_payout
 
 ui_output:
   type: map_card
