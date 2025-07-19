@@ -1,89 +1,112 @@
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const supabase = createClient(
+  Deno.env.get('SUPABASE_URL') ?? '',
+  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+);
+
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    if (req.method !== 'POST') {
-      return new Response('Only POST method allowed', { 
-        status: 405,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
-
-    const { lat, lng, radius = 3000, keyword = '' } = await req.json();
+    const { contacts, source = 'manual' } = await req.json();
     
-    if (!lat || !lng) {
-      return new Response(JSON.stringify({ error: 'Missing lat or lng' }), { 
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+    if (!contacts || !Array.isArray(contacts)) {
+      throw new Error('Contacts array is required');
     }
 
-    const GOOGLE_KEY = Deno.env.get('GOOGLE_PLACES_KEY');
-    
-    if (!GOOGLE_KEY) {
-      return new Response(JSON.stringify({ error: 'Google Places API key not configured' }), { 
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+    console.log(`📋 Importing ${contacts.length} contacts from ${source}`);
+
+    let importedCount = 0;
+    let skippedCount = 0;
+    const errors: string[] = [];
+
+    for (const contactData of contacts) {
+      try {
+        const { phone_number, name, location, category, business_name } = contactData;
+        
+        if (!phone_number) {
+          errors.push(`Contact missing phone number: ${JSON.stringify(contactData)}`);
+          continue;
+        }
+
+        // Check if contact already exists
+        const { data: existingContact } = await supabase
+          .from('contacts')
+          .select('id')
+          .eq('phone_number', phone_number)
+          .single();
+
+        if (existingContact) {
+          skippedCount++;
+          continue;
+        }
+
+        // Create new contact
+        const { error: insertError } = await supabase
+          .from('contacts')
+          .insert({
+            phone_number,
+            name: name || null,
+            location: location || null,
+            contact_type: 'prospect',
+            preferred_channel: 'whatsapp',
+            conversion_status: 'prospect'
+          });
+
+        if (insertError) {
+          errors.push(`Failed to insert ${phone_number}: ${insertError.message}`);
+          continue;
+        }
+
+        // If business contact, also create user_contacts entry
+        if (business_name || category) {
+          await supabase
+            .from('user_contacts')
+            .insert({
+              phone: phone_number,
+              name: name || null,
+              business_name: business_name || null,
+              location: location || null,
+              category: category || null,
+              source: source
+            });
+        }
+
+        importedCount++;
+        
+      } catch (error) {
+        errors.push(`Error processing contact: ${error.message}`);
+      }
     }
 
-    const url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=${radius}&keyword=${keyword}&key=${GOOGLE_KEY}`;
+    console.log(`✅ Import complete: ${importedCount} imported, ${skippedCount} skipped`);
 
-    const response = await fetch(url);
-    const data = await response.json();
-    
-    if (data.status !== 'OK') {
-      return new Response(JSON.stringify({ error: data.status }), { 
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
-
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    );
-
-    const upserts = data.results.map((place: any) => ({
-      phone: null, // Google doesn't expose phone in free API
-      source: 'google_places',
-      name: place.name,
-      location: place.vicinity,
-      category: place.types?.[0] || null,
-      business_name: place.name
-    }));
-
-    const { error: insertError } = await supabase
-      .from('user_contacts')
-      .insert(upserts);
-
-    if (insertError) {
-      console.error('Insert error:', insertError);
-      return new Response(JSON.stringify({ error: insertError.message }), { 
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
-
-    return new Response(JSON.stringify({ inserted: upserts.length }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    return new Response(JSON.stringify({
+      success: true,
+      imported_count: importedCount,
+      skipped_count: skippedCount,
+      total_processed: contacts.length,
+      errors: errors.length > 0 ? errors : null
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
   } catch (error) {
-    console.error('Error in import-contacts:', error);
-    return new Response(JSON.stringify({ error: error.message }), {
+    console.error('❌ Contact import error:', error);
+    
+    return new Response(JSON.stringify({
+      success: false,
+      error: error.message
+    }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

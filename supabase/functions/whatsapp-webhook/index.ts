@@ -1,9 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
-import { VectorMemory } from './utils/vector-memory.ts';
-import { OpenAIService } from './utils/openai-service.ts';
-import { SmartAgentRouter } from './agents/smart-router.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -29,11 +26,6 @@ serve(async (req) => {
 
     console.log(`📞 Message from ${whatsappNumber}: "${message}"`);
 
-    // Initialize AI services
-    const vectorMemory = new VectorMemory();
-    const openAI = new OpenAIService();
-    const router = new SmartAgentRouter(supabase, vectorMemory, openAI);
-
     // Get or create user
     const { data: user } = await supabase
       .from('users')
@@ -56,51 +48,25 @@ serve(async (req) => {
     }
 
     // Store incoming message
-    await supabase.from('agent_conversations').insert({
-      user_id: currentUser?.id,
-      message,
-      role: 'user',
-      ts: new Date().toISOString()
+    await supabase.from('conversation_messages').insert({
+      phone_number: whatsappNumber,
+      channel: 'whatsapp',
+      sender: 'user',
+      message_text: message,
+      created_at: new Date().toISOString()
     });
 
-    // Get conversation context from vector memory
-    const context = await vectorMemory.getContext(currentUser?.id || whatsappNumber, message);
-    
-    // Route to YAML-based AI agent system
-    const yamlAgentResponse = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/yaml-agent-processor`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`
-      },
-      body: JSON.stringify({
-        action: 'routeMessage',
-        message,
-        userId: currentUser?.id,
-        whatsappNumber
-      })
-    });
-
-    let response = "I'm having trouble processing your request. Please try again!";
-    if (yamlAgentResponse.ok) {
-      const yamlData = await yamlAgentResponse.json();
-      response = yamlData.response || response;
-    } else {
-      console.error('YAML agent error:', await yamlAgentResponse.text());
-      // Fallback to original router
-      response = await router.routeAndProcess(message, currentUser, whatsappNumber, context);
-    }
+    // Simple AI routing logic
+    let response = await processMessage(message, currentUser, whatsappNumber);
 
     // Store agent response
-    await supabase.from('agent_conversations').insert({
-      user_id: currentUser?.id,
-      message: response,
-      role: 'assistant',
-      ts: new Date().toISOString()
+    await supabase.from('conversation_messages').insert({
+      phone_number: whatsappNumber,
+      channel: 'whatsapp',
+      sender: 'agent',
+      message_text: response,
+      created_at: new Date().toISOString()
     });
-
-    // Store in vector memory for future context
-    await vectorMemory.store(currentUser?.id || whatsappNumber, message, response);
 
     console.log(`🤖 AI Response: "${response}"`);
 
@@ -133,3 +99,148 @@ serve(async (req) => {
     });
   }
 });
+
+async function processMessage(message: string, user: any, phone: string): Promise<string> {
+  const msg = message.toLowerCase().trim();
+
+  // Onboarding for new users
+  if (!user.created_at || isNewUser(user)) {
+    return `Welcome to easyMO! 🌟
+    
+Your super-app for:
+💰 Payments & MoMo transfers
+🛒 Fresh produce from farmers
+🚗 Taxi & delivery services
+🎉 Local events & activities
+
+Reply:
+• A number (like "5000") for payments
+• "browse" to shop products
+• "events" for local events
+• "help" for assistance
+
+You have ${user.credits} credits to start!`;
+  }
+
+  // Payment requests - numeric amount
+  if (/^\d+$/.test(msg)) {
+    const amount = parseInt(msg);
+    
+    try {
+      const paymentResponse = await supabase.functions.invoke('generate-payment', {
+        body: { amount, phone, description: 'easyMO Payment' }
+      });
+      
+      const { data } = paymentResponse;
+      
+      if (data.success) {
+        return `💰 Payment request: ${amount} RWF
+        
+📱 Dial: ${data.ussd_code}
+🔗 Or tap: ${data.ussd_link}
+
+Reference: ${data.reference}
+Complete payment within 5 minutes.`;
+      } else {
+        return `❌ Payment failed: ${data.error}`;
+      }
+    } catch (error) {
+      return "❌ Payment service temporarily unavailable. Please try again.";
+    }
+  }
+
+  // Browse products
+  if (msg === 'browse' || msg.includes('shop') || msg.includes('buy')) {
+    const { data: products } = await supabase
+      .from('products')
+      .select('*')
+      .limit(5);
+
+    if (!products || products.length === 0) {
+      return "🛒 No products available right now. Check back soon!";
+    }
+
+    let productList = "🛒 Fresh Products Available:\n\n";
+    products.forEach((product, index) => {
+      productList += `${index + 1}. ${product.name}\n`;
+      productList += `   💰 ${product.price} RWF${product.unit ? ` per ${product.unit}` : ''}\n`;
+      productList += `   📦 Stock: ${product.stock_qty || 'Available'}\n\n`;
+    });
+    
+    productList += "Reply with product number to order!";
+    return productList;
+  }
+
+  // Events
+  if (msg === 'events' || msg.includes('event')) {
+    const { data: events } = await supabase
+      .from('events')
+      .select('*')
+      .limit(3);
+
+    if (!events || events.length === 0) {
+      return "🎉 No events scheduled right now. Check back soon!";
+    }
+
+    let eventList = "🎉 Upcoming Events:\n\n";
+    events.forEach((event, index) => {
+      eventList += `${index + 1}. ${event.title}\n`;
+      eventList += `   📍 ${event.location}\n`;
+      if (event.price) eventList += `   💰 ${event.price} RWF\n`;
+      if (event.event_date) {
+        const date = new Date(event.event_date);
+        eventList += `   📅 ${date.toLocaleDateString()}\n`;
+      }
+      eventList += '\n';
+    });
+    
+    return eventList;
+  }
+
+  // Help
+  if (msg === 'help' || msg.includes('help')) {
+    return `🆘 easyMO Help:
+
+💰 PAYMENTS: Send amount (e.g., "5000")
+🛒 SHOPPING: Send "browse" 
+🎉 EVENTS: Send "events"
+🚗 TAXI: Send "taxi from [location] to [location]"
+
+Examples:
+• "2000" → Pay 2000 RWF
+• "browse" → See products
+• "events" → See events
+
+Need human help? Reply "support"`;
+  }
+
+  // Support
+  if (msg === 'support' || msg.includes('support')) {
+    return `🎧 Support ticket created! 
+
+Our team will contact you within 2 hours.
+
+For urgent issues:
+📞 Call: +250 788 000 000
+📧 Email: help@easymo.rw
+
+Your ticket ID: #${Date.now().toString().slice(-6)}`;
+  }
+
+  // Default response
+  return `🤖 I didn't understand "${message}"
+
+Try:
+• A number for payments (e.g., "5000")
+• "browse" to shop
+• "events" for events  
+• "help" for more options
+
+What would you like to do?`;
+}
+
+function isNewUser(user: any): boolean {
+  if (!user.created_at) return true;
+  const timeSinceCreation = new Date().getTime() - new Date(user.created_at).getTime();
+  return timeSinceCreation < 60000; // Within 1 minute of creation
+}

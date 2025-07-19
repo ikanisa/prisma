@@ -1,97 +1,157 @@
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const supabase = createClient(
+  Deno.env.get('SUPABASE_URL') ?? '',
+  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+);
+
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const WHATSAPP_TOKEN = Deno.env.get('WHATSAPP_TOKEN');
-    const WHATSAPP_PHONE_ID = Deno.env.get('WHATSAPP_PHONE_ID');
+    console.log('📢 Starting marketing campaign');
 
-    if (!WHATSAPP_TOKEN || !WHATSAPP_PHONE_ID) {
-      return new Response(JSON.stringify({ 
-        error: 'WhatsApp credentials not configured',
-        sent: 0 
+    // Get active users who haven't received a message in the last 24 hours
+    const { data: contacts, error } = await supabase
+      .from('contacts')
+      .select('*')
+      .eq('contact_type', 'customer')
+      .or('last_interaction.is.null,last_interaction.lt.' + new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
+
+    if (error) {
+      throw new Error('Failed to fetch contacts');
+    }
+
+    if (!contacts || contacts.length === 0) {
+      return new Response(JSON.stringify({
+        success: true,
+        message: 'No eligible contacts for marketing',
+        sent_count: 0
       }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    );
+    console.log(`📱 Found ${contacts.length} contacts for marketing`);
 
-    // Get contacts for marketing (limit to small batch)
-    const { data: contacts, error: contactsError } = await supabase
-      .from('user_contacts')
-      .select('phone, name')
-      .not('phone', 'is', null)
-      .limit(50);
+    // Get latest products and events for personalized messages
+    const { data: products } = await supabase
+      .from('products')
+      .select('*')
+      .limit(3);
 
-    if (contactsError) {
-      console.error('Contacts error:', contactsError);
-      return new Response(JSON.stringify({ error: contactsError.message, sent: 0 }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
+    const { data: events } = await supabase
+      .from('events')
+      .select('*')
+      .limit(2);
 
     let sentCount = 0;
 
-    for (const contact of contacts || []) {
-      if (!contact.phone) continue;
-
+    // Send personalized marketing messages
+    for (const contact of contacts) {
       try {
-        const response = await fetch(`https://graph.facebook.com/v19.0/${WHATSAPP_PHONE_ID}/messages`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${WHATSAPP_TOKEN}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            messaging_product: 'whatsapp',
-            to: contact.phone,
-            type: 'text',
-            text: {
-              body: `Hi ${contact.name || 'there'}! 🌟 New deals available on easyMO - your AI-powered MoMo super app! Reply STOP to unsubscribe.`
-            }
-          })
+        const marketingMessage = generateMarketingMessage(contact, products, events);
+        
+        // Store the marketing message
+        await supabase.from('conversation_messages').insert({
+          phone_number: contact.phone_number,
+          channel: contact.preferred_channel || 'whatsapp',
+          sender: 'agent',
+          message_text: marketingMessage,
+          created_at: new Date().toISOString()
         });
 
-        if (response.ok) {
-          sentCount++;
-        } else {
-          console.error('WhatsApp API error for', contact.phone, await response.text());
-        }
+        // Update last interaction
+        await supabase
+          .from('contacts')
+          .update({ last_interaction: new Date().toISOString() })
+          .eq('id', contact.id);
 
-        // Add small delay to avoid rate limiting
+        sentCount++;
+        
+        // Add delay to avoid rate limits
         await new Promise(resolve => setTimeout(resolve, 100));
-
+        
       } catch (error) {
-        console.error('Error sending to', contact.phone, error);
+        console.error(`Failed to send to ${contact.phone_number}:`, error);
       }
     }
 
-    return new Response(JSON.stringify({ sent: sentCount }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    console.log(`✅ Sent ${sentCount} marketing messages`);
+
+    return new Response(JSON.stringify({
+      success: true,
+      message: 'Marketing campaign completed',
+      sent_count: sentCount,
+      total_contacts: contacts.length
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
   } catch (error) {
-    console.error('Error in push-marketing:', error);
-    return new Response(JSON.stringify({ error: error.message, sent: 0 }), {
+    console.error('❌ Marketing campaign error:', error);
+    
+    return new Response(JSON.stringify({
+      success: false,
+      error: error.message
+    }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 });
+
+function generateMarketingMessage(contact: any, products: any[], events: any[]): string {
+  const timeOfDay = new Date().getHours();
+  let greeting = '🌅 Good morning';
+  
+  if (timeOfDay >= 12 && timeOfDay < 17) {
+    greeting = '☀️ Good afternoon';
+  } else if (timeOfDay >= 17) {
+    greeting = '🌙 Good evening';
+  }
+
+  const name = contact.name || 'there';
+  let message = `${greeting} ${name}! 👋
+
+🔥 What's hot on easyMO today:
+
+`;
+
+  // Add products
+  if (products && products.length > 0) {
+    message += `🛒 FRESH ARRIVALS:\n`;
+    products.slice(0, 2).forEach(product => {
+      message += `• ${product.name} - ${product.price} RWF\n`;
+    });
+    message += '\n';
+  }
+
+  // Add events
+  if (events && events.length > 0) {
+    message += `🎉 UPCOMING EVENTS:\n`;
+    events.slice(0, 1).forEach(event => {
+      message += `• ${event.title} at ${event.location}\n`;
+    });
+    message += '\n';
+  }
+
+  message += `💰 Special offer: Get 10% off your next order!
+
+Reply:
+• "browse" to shop
+• "events" for full event list
+• "stop" to unsubscribe
+
+Happy shopping! 🛍️`;
+
+  return message;
+}
