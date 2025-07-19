@@ -48,6 +48,8 @@ import Vehicles from "./pages/admin/Vehicles";
 import LiveHandoffs from "./pages/admin/LiveHandoffs";
 import QualityDashboard from "./pages/admin/QualityDashboard";
 import SystemMetrics from "./pages/admin/SystemMetrics";
+import Settings from "./pages/admin/Settings";
+import MarketingCampaigns from "./pages/admin/MarketingCampaigns";
 
 const queryClient = new QueryClient();
 
@@ -96,6 +98,8 @@ const App = () => (
           <Route path="whatsapp-contacts" element={<WhatsAppContacts />} />
           <Route path="conversations" element={<Conversations />} />
           <Route path="help" element={<div className="p-6">Support Tickets page coming soon...</div>} />
+          <Route path="settings" element={<Settings />} />
+          <Route path="marketing-campaigns" element={<MarketingCampaigns />} />
           <Route path="edge-logs" element={<EdgeLogs />} />
           <Route path="hardware" element={<HardwareDashboard />} />
           <Route path="product-drafts" element={<ProductDrafts />} />

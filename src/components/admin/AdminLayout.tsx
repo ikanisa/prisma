@@ -68,7 +68,9 @@ const sidebarItems = [
   { name: "WhatsApp Contacts", path: "/admin/whatsapp-contacts", icon: Users },
   { name: "Unified Conversations", path: "/admin/unified-conversations", icon: MessageSquare },
   { name: "Conversations", path: "/admin/conversations", icon: MessageSquare },
+  { name: "Marketing Campaigns", path: "/admin/marketing-campaigns", icon: MessageSquare },
   { name: "Help", path: "/admin/help", icon: HelpCircle },
+  { name: "Settings", path: "/admin/settings", icon: Settings },
   { name: "Edge Logs", path: "/admin/edge-logs", icon: Activity },
 ];
 

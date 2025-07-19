@@ -103,6 +103,12 @@ export default function Dashboard() {
     whatsapp: 'healthy',
     payments: 'healthy'
   });
+  const [agentMetrics, setAgentMetrics] = useState({
+    activeAgents: 0,
+    qrRequestsToday: 0,
+    momoVolumeToday: 0,
+    avgResponseTime: 0
+  });
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
