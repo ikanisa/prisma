@@ -1,349 +1,380 @@
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0';
-import { corsHeaders, handleCorsPreFlight } from "../_shared/cors.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+// OpenAI client setup
+const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-const supabase = createClient(supabaseUrl, supabaseKey);
+const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
-const anthropicApiKey = Deno.env.get('ANTHROPIC_API_KEY');
-const googleApiKey = Deno.env.get('GOOGLE_API_KEY');
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-interface ModelConfig {
-  task_name: string;
-  primary_model: string;
-  secondary_model: string;
-  fallback_model: string;
-  prompt_prefix: string;
+interface ToolCall {
+  id: string;
+  function: {
+    name: string;
+    arguments: string;
+  };
 }
 
 serve(async (req) => {
-  const corsResponse = handleCorsPreFlight(req);
-  if (corsResponse) return corsResponse;
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
 
   try {
-    const { task, prompt, context, model_override } = await req.json();
-    
-    console.log(`MCP Orchestrator - Task: ${task}`);
+    const { thread_id, userMessage, phone_number, language = 'en' } = await req.json();
 
-    const startTime = Date.now();
-    const taskId = `task_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    console.log('MCP Orchestrator received:', { thread_id, userMessage, phone_number, language });
 
-    // Get model configuration for this task
-    const modelConfig = await getModelConfig(task);
-    
-    // Determine which model to use
-    const selectedModel = model_override || modelConfig.primary_model;
-    
-    // Execute the task with the selected model
-    const result = await executeTask(taskId, selectedModel, prompt, context, modelConfig);
-    
-    const executionTime = Date.now() - startTime;
+    // Get or create thread
+    let threadId = thread_id;
+    if (!threadId) {
+      // Create new thread
+      const threadResponse = await fetch('https://api.openai.com/v1/threads', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${openAIApiKey}`,
+          'Content-Type': 'application/json',
+          'OpenAI-Beta': 'assistants=v2'
+        },
+        body: JSON.stringify({})
+      });
+      
+      if (!threadResponse.ok) {
+        throw new Error(`Failed to create thread: ${await threadResponse.text()}`);
+      }
+      
+      const thread = await threadResponse.json();
+      threadId = thread.id;
 
-    // Log the execution
-    await logModelExecution(taskId, selectedModel, prompt, result, executionTime);
+      // Store thread mapping
+      await supabase.from('conversation_threads').insert({
+        phone_number,
+        thread_id: threadId
+      });
+    }
+
+    // Add user message to thread
+    const messageResponse = await fetch(`https://api.openai.com/v1/threads/${threadId}/messages`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openAIApiKey}`,
+        'Content-Type': 'application/json',
+        'OpenAI-Beta': 'assistants=v2'
+      },
+      body: JSON.stringify({
+        role: 'user',
+        content: userMessage
+      })
+    });
+
+    if (!messageResponse.ok) {
+      throw new Error(`Failed to add message: ${await messageResponse.text()}`);
+    }
+
+    // Get assistant configuration
+    const { data: assistantConfig } = await supabase
+      .from('assistant_configs')
+      .select('*')
+      .eq('status', 'active')
+      .single();
+
+    if (!assistantConfig) {
+      throw new Error('No active assistant configuration found');
+    }
+
+    // Get available tools
+    const { data: toolDefs } = await supabase
+      .from('tool_definitions')
+      .select('*')
+      .eq('status', 'active');
+
+    // Format tools for OpenAI
+    const tools = toolDefs?.map(tool => ({
+      type: 'function',
+      function: {
+        name: tool.name,
+        description: tool.description,
+        parameters: tool.parameters
+      }
+    })) || [];
+
+    // Create assistant run
+    const runResponse = await fetch(`https://api.openai.com/v1/threads/${threadId}/runs`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openAIApiKey}`,
+        'Content-Type': 'application/json',
+        'OpenAI-Beta': 'assistants=v2'
+      },
+      body: JSON.stringify({
+        assistant_id: assistantConfig.assistant_id || await getOrCreateAssistant(assistantConfig, tools),
+        instructions: `${assistantConfig.instructions}\n\nUser language: ${language}. Always respond in the user's language.`,
+        tools,
+        temperature: assistantConfig.temperature
+      })
+    });
+
+    if (!runResponse.ok) {
+      throw new Error(`Failed to create run: ${await runResponse.text()}`);
+    }
+
+    const run = await runResponse.json();
+    let runId = run.id;
+
+    // Poll for completion
+    let runStatus;
+    const maxPolls = 30;
+    let pollCount = 0;
+
+    while (pollCount < maxPolls) {
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      const statusResponse = await fetch(`https://api.openai.com/v1/threads/${threadId}/runs/${runId}`, {
+        headers: {
+          'Authorization': `Bearer ${openAIApiKey}`,
+          'OpenAI-Beta': 'assistants=v2'
+        }
+      });
+
+      runStatus = await statusResponse.json();
+      console.log('Run status:', runStatus.status);
+
+      if (runStatus.status === 'completed') {
+        break;
+      } else if (runStatus.status === 'requires_action') {
+        // Handle tool calls
+        const toolCalls = runStatus.required_action?.submit_tool_outputs?.tool_calls || [];
+        console.log('Tool calls required:', toolCalls.length);
+
+        const toolOutputs = [];
+        for (const toolCall of toolCalls) {
+          try {
+            const result = await executeTool(toolCall.function, supabase, phone_number);
+            toolOutputs.push({
+              tool_call_id: toolCall.id,
+              output: JSON.stringify(result)
+            });
+          } catch (error) {
+            console.error('Tool execution error:', error);
+            toolOutputs.push({
+              tool_call_id: toolCall.id,
+              output: JSON.stringify({ error: error.message })
+            });
+          }
+        }
+
+        // Submit tool outputs
+        const submitResponse = await fetch(`https://api.openai.com/v1/threads/${threadId}/runs/${runId}/submit_tool_outputs`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${openAIApiKey}`,
+            'Content-Type': 'application/json',
+            'OpenAI-Beta': 'assistants=v2'
+          },
+          body: JSON.stringify({ tool_outputs: toolOutputs })
+        });
+
+        if (!submitResponse.ok) {
+          throw new Error(`Failed to submit tool outputs: ${await submitResponse.text()}`);
+        }
+      } else if (runStatus.status === 'failed' || runStatus.status === 'cancelled') {
+        throw new Error(`Run failed: ${runStatus.last_error?.message || 'Unknown error'}`);
+      }
+
+      pollCount++;
+    }
+
+    if (runStatus?.status !== 'completed') {
+      throw new Error('Run timed out or failed to complete');
+    }
+
+    // Get the assistant's response
+    const messagesResponse = await fetch(`https://api.openai.com/v1/threads/${threadId}/messages?limit=1`, {
+      headers: {
+        'Authorization': `Bearer ${openAIApiKey}`,
+        'OpenAI-Beta': 'assistants=v2'
+      }
+    });
+
+    const messages = await messagesResponse.json();
+    const assistantMessage = messages.data[0];
+    const reply = assistantMessage?.content?.[0]?.text?.value || 'I apologize, but I was unable to process your request.';
+
+    // Log conversation
+    await supabase.from('conversation_messages').insert({
+      phone_number,
+      sender: 'user',
+      message_text: userMessage,
+      channel: 'whatsapp',
+      model_used: assistantConfig.model
+    });
+
+    await supabase.from('conversation_messages').insert({
+      phone_number,
+      sender: 'assistant',
+      message_text: reply,
+      channel: 'whatsapp',
+      model_used: assistantConfig.model
+    });
 
     return new Response(JSON.stringify({
-      success: true,
-      task_id: taskId,
-      model_used: selectedModel,
-      result: result,
-      execution_time_ms: executionTime,
-      timestamp: new Date().toISOString()
+      reply,
+      thread_id: threadId,
+      model_used: assistantConfig.model
     }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
 
   } catch (error) {
     console.error('MCP Orchestrator error:', error);
-    
-    // Try fallback if available
-    try {
-      const fallbackResult = await handleFallback(error, req);
-      if (fallbackResult) return fallbackResult;
-    } catch (fallbackError) {
-      console.error('Fallback also failed:', fallbackError);
-    }
-
-    return new Response(JSON.stringify({ 
-      success: false, 
+    return new Response(JSON.stringify({
       error: error.message,
-      fallback_attempted: true
+      reply: 'I apologize, but I encountered an error processing your request. Please try again.'
     }), {
       status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
   }
 });
 
-async function getModelConfig(taskName: string): Promise<ModelConfig> {
-  // Try to get config from database
-  const { data } = await supabase
-    .from('mcp_model_registry')
-    .select('*')
-    .eq('task_name', taskName)
-    .single();
-
-  if (data) {
-    return data as ModelConfig;
+async function getOrCreateAssistant(config: any, tools: any[]): Promise<string> {
+  if (config.assistant_id) {
+    return config.assistant_id;
   }
 
-  // Return default config if not found
-  return getDefaultModelConfig(taskName);
-}
-
-function getDefaultModelConfig(taskName: string): ModelConfig {
-  const defaultConfigs: Record<string, ModelConfig> = {
-    'sales_pitch': {
-      task_name: 'sales_pitch',
-      primary_model: 'gpt-4o-mini',
-      secondary_model: 'claude-3-5-haiku-20241022',
-      fallback_model: 'gemini-1.5-flash',
-      prompt_prefix: 'You are a helpful sales assistant for easyMO, a WhatsApp-based super app.'
-    },
-    'customer_support': {
-      task_name: 'customer_support',
-      primary_model: 'gpt-4o-mini',
-      secondary_model: 'claude-3-5-haiku-20241022',
-      fallback_model: 'gemini-1.5-flash',
-      prompt_prefix: 'You are a customer support agent for easyMO. Be helpful and empathetic.'
-    },
-    'content_generation': {
-      task_name: 'content_generation',
-      primary_model: 'gpt-4o',
-      secondary_model: 'claude-3-5-sonnet-20241022',
-      fallback_model: 'gpt-4o-mini',
-      prompt_prefix: 'Generate high-quality content that is engaging and informative.'
-    },
-    'data_analysis': {
-      task_name: 'data_analysis',
-      primary_model: 'gpt-4o',
-      secondary_model: 'claude-3-5-sonnet-20241022',
-      fallback_model: 'gpt-4o-mini',
-      prompt_prefix: 'Analyze the provided data and provide clear insights and recommendations.'
-    }
-  };
-
-  return defaultConfigs[taskName] || defaultConfigs['customer_support'];
-}
-
-async function executeTask(
-  taskId: string, 
-  model: string, 
-  prompt: string, 
-  context: any, 
-  config: ModelConfig
-): Promise<any> {
-  const fullPrompt = `${config.prompt_prefix}\n\nContext: ${JSON.stringify(context)}\n\nUser Request: ${prompt}`;
-
-  if (model.startsWith('gpt-')) {
-    return await executeOpenAI(model, fullPrompt);
-  } else if (model.startsWith('claude-')) {
-    return await executeAnthropic(model, fullPrompt);
-  } else if (model.startsWith('gemini-')) {
-    return await executeGoogle(model, fullPrompt);
-  } else {
-    throw new Error(`Unsupported model: ${model}`);
-  }
-}
-
-async function executeOpenAI(model: string, prompt: string): Promise<any> {
-  if (!openaiApiKey) {
-    throw new Error('OpenAI API key not configured');
-  }
-
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+  // Create new assistant
+  const response = await fetch('https://api.openai.com/v1/assistants', {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${openaiApiKey}`,
+      'Authorization': `Bearer ${openAIApiKey}`,
       'Content-Type': 'application/json',
+      'OpenAI-Beta': 'assistants=v2'
     },
     body: JSON.stringify({
-      model: model,
-      messages: [{ role: 'user', content: prompt }],
-      max_tokens: 1000,
-      temperature: 0.7
-    }),
+      name: config.name,
+      model: config.model,
+      instructions: config.instructions,
+      tools,
+      temperature: config.temperature
+    })
   });
 
   if (!response.ok) {
-    throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`);
+    throw new Error(`Failed to create assistant: ${await response.text()}`);
   }
 
-  const data = await response.json();
-  return {
-    content: data.choices[0].message.content,
-    token_usage: data.usage?.total_tokens || 0,
-    model: model
-  };
+  const assistant = await response.json();
+  
+  // Update config with assistant ID
+  await supabase
+    .from('assistant_configs')
+    .update({ assistant_id: assistant.id })
+    .eq('id', config.id);
+
+  return assistant.id;
 }
 
-async function executeAnthropic(model: string, prompt: string): Promise<any> {
-  if (!anthropicApiKey) {
-    throw new Error('Anthropic API key not configured');
-  }
+async function executeTool(fnCall: { name: string; arguments: string }, supabase: any, phoneNumber: string) {
+  const args = JSON.parse(fnCall.arguments || '{}');
+  console.log('Executing tool:', fnCall.name, 'with args:', args);
 
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'x-api-key': anthropicApiKey,
-      'Content-Type': 'application/json',
-      'anthropic-version': '2023-06-01'
-    },
-    body: JSON.stringify({
-      model: model,
-      max_tokens: 1000,
-      messages: [{ role: 'user', content: prompt }]
-    }),
-  });
+  switch (fnCall.name) {
+    case 'get_nearby_drivers':
+      const { lat, lng, radius_km = 2 } = args;
+      const { data: trips } = await supabase.rpc('fn_get_nearby_drivers', {
+        lat,
+        lng,
+        radius: radius_km
+      });
+      return { trips: trips || [] };
 
-  if (!response.ok) {
-    throw new Error(`Anthropic API error: ${response.status} ${response.statusText}`);
-  }
+    case 'create_booking':
+      const { driver_trip_id, passenger_phone, pickup, dropoff, fare_rwf } = args;
+      
+      // First get the driver trip to get passenger intent
+      const { data: driverTrip } = await supabase
+        .from('driver_trips')
+        .select('*')
+        .eq('id', driver_trip_id)
+        .single();
 
-  const data = await response.json();
-  return {
-    content: data.content[0].text,
-    token_usage: data.usage?.input_tokens + data.usage?.output_tokens || 0,
-    model: model
-  };
-}
-
-async function executeGoogle(model: string, prompt: string): Promise<any> {
-  if (!googleApiKey) {
-    throw new Error('Google API key not configured');
-  }
-
-  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${googleApiKey}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      contents: [{
-        parts: [{ text: prompt }]
-      }],
-      generationConfig: {
-        maxOutputTokens: 1000,
-        temperature: 0.7
+      if (!driverTrip) {
+        throw new Error('Driver trip not found');
       }
-    }),
-  });
 
-  if (!response.ok) {
-    throw new Error(`Google API error: ${response.status} ${response.statusText}`);
+      // Create or get passenger intent
+      const { data: passengerIntent } = await supabase
+        .from('passenger_intents')
+        .insert({
+          passenger_phone: passenger_phone || phoneNumber,
+          pickup_address: pickup,
+          dropoff_address: dropoff,
+          seats: 1
+        })
+        .select()
+        .single();
+
+      // Create booking
+      const { data: booking } = await supabase
+        .from('bookings')
+        .insert({
+          driver_trip_id,
+          passenger_intent_id: passengerIntent.id,
+          fare_rwf,
+          status: 'confirmed',
+          channel: 'whatsapp'
+        })
+        .select()
+        .single();
+
+      return { booking_id: booking.id, status: 'confirmed', fare_rwf };
+
+    case 'list_properties':
+      const { location, property_type, max_price, bedrooms } = args;
+      let query = supabase.from('properties').select('*');
+      
+      if (location) query = query.ilike('location', `%${location}%`);
+      if (property_type) query = query.eq('property_type', property_type);
+      if (max_price) query = query.lte('price', max_price);
+      if (bedrooms) query = query.eq('bedrooms', bedrooms);
+
+      const { data: properties } = await query.limit(10);
+      return { properties: properties || [] };
+
+    case 'search_listings':
+      const { category, location: listingLocation, max_price: listingMaxPrice, query: searchQuery } = args;
+      let listingQuery = supabase.from('products').select('*');
+      
+      if (category) listingQuery = listingQuery.eq('category', category);
+      if (listingLocation) listingQuery = listingQuery.ilike('location', `%${listingLocation}%`);
+      if (listingMaxPrice) listingQuery = listingQuery.lte('price', listingMaxPrice);
+      if (searchQuery) listingQuery = listingQuery.or(`name.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%`);
+
+      const { data: listings } = await listingQuery.limit(10);
+      return { listings: listings || [] };
+
+    case 'generate_payment_qr':
+      const { amount, merchant_code, description = 'Payment' } = args;
+      // Generate QR code using existing function
+      const qrResponse = await supabase.functions.invoke('generate-payment', {
+        body: { amount, merchant_code, description }
+      });
+      
+      return { 
+        qr_code: qrResponse.data?.qr_code,
+        payment_reference: qrResponse.data?.reference,
+        amount,
+        merchant_code
+      };
+
+    default:
+      throw new Error(`Tool not implemented: ${fnCall.name}`);
   }
-
-  const data = await response.json();
-  return {
-    content: data.candidates[0].content.parts[0].text,
-    token_usage: data.usageMetadata?.totalTokenCount || 0,
-    model: model
-  };
-}
-
-async function handleFallback(originalError: Error, originalRequest: Request): Promise<Response | null> {
-  try {
-    const { task, prompt, context } = await originalRequest.json();
-    
-    // Get model config and try secondary model
-    const modelConfig = await getModelConfig(task);
-    const fallbackModel = modelConfig.secondary_model;
-    
-    console.log(`Attempting fallback to model: ${fallbackModel}`);
-    
-    const taskId = `fallback_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    const startTime = Date.now();
-    
-    const result = await executeTask(taskId, fallbackModel, prompt, context, modelConfig);
-    const executionTime = Date.now() - startTime;
-    
-    // Log the fallback activity
-    await logFallbackActivity(
-      modelConfig.primary_model,
-      fallbackModel,
-      originalError.message,
-      task,
-      true
-    );
-    
-    // Log the execution
-    await logModelExecution(taskId, fallbackModel, prompt, result, executionTime);
-    
-    return new Response(JSON.stringify({
-      success: true,
-      task_id: taskId,
-      model_used: fallbackModel,
-      result: result,
-      execution_time_ms: executionTime,
-      fallback_used: true,
-      original_error: originalError.message,
-      timestamp: new Date().toISOString()
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-    
-  } catch (fallbackError) {
-    // Log failed fallback
-    await logFallbackActivity('unknown', 'unknown', originalError.message, 'unknown', false);
-    return null;
-  }
-}
-
-async function logModelExecution(
-  taskId: string,
-  model: string,
-  prompt: string,
-  result: any,
-  executionTime: number
-) {
-  try {
-    await supabase.from('model_output_logs').insert({
-      task_id: taskId,
-      model_used: model,
-      prompt_text: prompt.substring(0, 1000), // Truncate for storage
-      response_text: result.content?.substring(0, 2000), // Truncate for storage
-      token_usage: result.token_usage || 0,
-      execution_time_ms: executionTime,
-      response_quality: assessResponseQuality(result),
-      created_at: new Date().toISOString()
-    });
-  } catch (error) {
-    console.error('Failed to log model execution:', error);
-  }
-}
-
-async function logFallbackActivity(
-  originalModel: string,
-  fallbackModel: string,
-  triggerReason: string,
-  taskType: string,
-  success: boolean
-) {
-  try {
-    await supabase.from('fallback_activity_log').insert({
-      original_model: originalModel,
-      fallback_model: fallbackModel,
-      trigger_reason: triggerReason,
-      task_type: taskType,
-      success: success,
-      created_at: new Date().toISOString()
-    });
-  } catch (error) {
-    console.error('Failed to log fallback activity:', error);
-  }
-}
-
-function assessResponseQuality(result: any): string {
-  if (!result.content) return 'poor';
-  
-  const contentLength = result.content.length;
-  const tokenEfficiency = result.token_usage > 0 ? contentLength / result.token_usage : 0;
-  
-  if (contentLength > 500 && tokenEfficiency > 2) return 'excellent';
-  if (contentLength > 200 && tokenEfficiency > 1) return 'good';
-  if (contentLength > 50) return 'fair';
-  
-  return 'poor';
 }

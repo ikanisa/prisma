@@ -323,6 +323,45 @@ export type Database = {
         }
         Relationships: []
       }
+      assistant_configs: {
+        Row: {
+          assistant_id: string | null
+          created_at: string | null
+          id: string
+          instructions: string | null
+          model: string | null
+          name: string
+          status: string | null
+          temperature: number | null
+          tools: Json | null
+          updated_at: string | null
+        }
+        Insert: {
+          assistant_id?: string | null
+          created_at?: string | null
+          id?: string
+          instructions?: string | null
+          model?: string | null
+          name: string
+          status?: string | null
+          temperature?: number | null
+          tools?: Json | null
+          updated_at?: string | null
+        }
+        Update: {
+          assistant_id?: string | null
+          created_at?: string | null
+          id?: string
+          instructions?: string | null
+          model?: string | null
+          name?: string
+          status?: string | null
+          temperature?: number | null
+          tools?: Json | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       bar_feedback: {
         Row: {
           created_at: string | null
@@ -445,32 +484,58 @@ export type Database = {
       }
       bookings: {
         Row: {
+          channel: string | null
           created_at: string | null
+          driver_trip_id: string | null
+          fare_rwf: number | null
           id: string
           passenger_id: string | null
+          passenger_intent_id: string | null
           status: string | null
           trip_id: string | null
         }
         Insert: {
+          channel?: string | null
           created_at?: string | null
+          driver_trip_id?: string | null
+          fare_rwf?: number | null
           id?: string
           passenger_id?: string | null
+          passenger_intent_id?: string | null
           status?: string | null
           trip_id?: string | null
         }
         Update: {
+          channel?: string | null
           created_at?: string | null
+          driver_trip_id?: string | null
+          fare_rwf?: number | null
           id?: string
           passenger_id?: string | null
+          passenger_intent_id?: string | null
           status?: string | null
           trip_id?: string | null
         }
         Relationships: [
           {
+            foreignKeyName: "bookings_driver_trip_id_fkey"
+            columns: ["driver_trip_id"]
+            isOneToOne: false
+            referencedRelation: "driver_trips"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "bookings_passenger_id_fkey"
             columns: ["passenger_id"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bookings_passenger_intent_id_fkey"
+            columns: ["passenger_intent_id"]
+            isOneToOne: false
+            referencedRelation: "passenger_intents"
             referencedColumns: ["id"]
           },
           {
@@ -684,6 +749,51 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      centralized_documents: {
+        Row: {
+          agent_scope: string | null
+          content: string | null
+          created_at: string | null
+          document_type: string | null
+          file_purpose: string | null
+          file_url: string | null
+          id: string
+          openai_file_id: string | null
+          status: string | null
+          title: string
+          updated_at: string | null
+          uploaded_by: string | null
+        }
+        Insert: {
+          agent_scope?: string | null
+          content?: string | null
+          created_at?: string | null
+          document_type?: string | null
+          file_purpose?: string | null
+          file_url?: string | null
+          id?: string
+          openai_file_id?: string | null
+          status?: string | null
+          title: string
+          updated_at?: string | null
+          uploaded_by?: string | null
+        }
+        Update: {
+          agent_scope?: string | null
+          content?: string | null
+          created_at?: string | null
+          document_type?: string | null
+          file_purpose?: string | null
+          file_url?: string | null
+          id?: string
+          openai_file_id?: string | null
+          status?: string | null
+          title?: string
+          updated_at?: string | null
+          uploaded_by?: string | null
+        }
+        Relationships: []
       }
       contact_limits: {
         Row: {
@@ -918,6 +1028,33 @@ export type Database = {
         }
         Relationships: []
       }
+      conversation_threads: {
+        Row: {
+          created_at: string | null
+          id: string
+          last_message_at: string | null
+          phone_number: string
+          status: string | null
+          thread_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          last_message_at?: string | null
+          phone_number: string
+          status?: string | null
+          thread_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          last_message_at?: string | null
+          phone_number?: string
+          status?: string | null
+          thread_id?: string
+        }
+        Relationships: []
+      }
       conversations: {
         Row: {
           assigned_agent_id: string | null
@@ -1111,6 +1248,45 @@ export type Database = {
           },
         ]
       }
+      driver_trips: {
+        Row: {
+          created_at: string | null
+          departure_time: string | null
+          destination: unknown | null
+          driver_id: string | null
+          id: string
+          origin: unknown | null
+          price_rwf: number | null
+          seats: number | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          departure_time?: string | null
+          destination?: unknown | null
+          driver_id?: string | null
+          id?: string
+          origin?: unknown | null
+          price_rwf?: number | null
+          seats?: number | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          departure_time?: string | null
+          destination?: unknown | null
+          driver_id?: string | null
+          id?: string
+          origin?: unknown | null
+          price_rwf?: number | null
+          seats?: number | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       driver_wallet: {
         Row: {
           balance: number | null
@@ -1220,6 +1396,45 @@ export type Database = {
           created_at?: string | null
           function_name?: string
           id?: string
+        }
+        Relationships: []
+      }
+      evaluation_results: {
+        Row: {
+          actual_output: string | null
+          created_at: string | null
+          eval_name: string
+          execution_time_ms: number | null
+          expected_output: string | null
+          id: string
+          model_used: string | null
+          passed: boolean | null
+          score: number | null
+          test_prompt: string
+        }
+        Insert: {
+          actual_output?: string | null
+          created_at?: string | null
+          eval_name: string
+          execution_time_ms?: number | null
+          expected_output?: string | null
+          id?: string
+          model_used?: string | null
+          passed?: boolean | null
+          score?: number | null
+          test_prompt: string
+        }
+        Update: {
+          actual_output?: string | null
+          created_at?: string | null
+          eval_name?: string
+          execution_time_ms?: number | null
+          expected_output?: string | null
+          id?: string
+          model_used?: string | null
+          passed?: boolean | null
+          score?: number | null
+          test_prompt?: string
         }
         Relationships: []
       }
@@ -1416,6 +1631,42 @@ export type Database = {
           name?: string
           status?: string | null
           whatsapp?: string | null
+        }
+        Relationships: []
+      }
+      fine_tune_jobs: {
+        Row: {
+          completed_at: string | null
+          created_at: string | null
+          error_message: string | null
+          fine_tuned_model: string | null
+          id: string
+          model_name: string | null
+          openai_job_id: string | null
+          status: string | null
+          training_file_id: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string | null
+          error_message?: string | null
+          fine_tuned_model?: string | null
+          id?: string
+          model_name?: string | null
+          openai_job_id?: string | null
+          status?: string | null
+          training_file_id?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string | null
+          error_message?: string | null
+          fine_tuned_model?: string | null
+          id?: string
+          model_name?: string | null
+          openai_job_id?: string | null
+          status?: string | null
+          training_file_id?: string | null
         }
         Relationships: []
       }
@@ -2038,6 +2289,48 @@ export type Database = {
           sent_at?: string | null
           status?: string | null
           template_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      passenger_intents: {
+        Row: {
+          created_at: string | null
+          dropoff: unknown | null
+          dropoff_address: string | null
+          id: string
+          max_fare_rwf: number | null
+          passenger_phone: string
+          pickup: unknown | null
+          pickup_address: string | null
+          seats: number | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          dropoff?: unknown | null
+          dropoff_address?: string | null
+          id?: string
+          max_fare_rwf?: number | null
+          passenger_phone: string
+          pickup?: unknown | null
+          pickup_address?: string | null
+          seats?: number | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          dropoff?: unknown | null
+          dropoff_address?: string | null
+          id?: string
+          max_fare_rwf?: number | null
+          passenger_phone?: string
+          pickup?: unknown | null
+          pickup_address?: string | null
+          seats?: number | null
+          status?: string | null
           updated_at?: string | null
         }
         Relationships: []
@@ -3330,6 +3623,39 @@ export type Database = {
         }
         Relationships: []
       }
+      tool_definitions: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          implementation_function: string
+          name: string
+          parameters: Json
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          implementation_function: string
+          name: string
+          parameters: Json
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          implementation_function?: string
+          name?: string
+          parameters?: Json
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       trip_events: {
         Row: {
           event: string
@@ -3994,6 +4320,27 @@ export type Database = {
         Args: { pickup_point: unknown; max_km: number }
         Returns: {
           id: string
+          distance_km: number
+        }[]
+      }
+      fn_find_matching_trips: {
+        Args: { intent_id: string }
+        Returns: {
+          trip_id: string
+          compatibility_score: number
+        }[]
+      }
+      fn_get_nearby_drivers: {
+        Args: { lat: number; lng: number; radius?: number }
+        Returns: {
+          trip_id: string
+          driver_id: string
+          origin_lat: number
+          origin_lng: number
+          destination_lat: number
+          destination_lng: number
+          price_rwf: number
+          seats: number
           distance_km: number
         }[]
       }
