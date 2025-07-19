@@ -82,7 +82,7 @@ export default function Events() {
         query = query.or(`title.ilike.%${searchTerm}%,location.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%`);
       }
 
-      if (selectedCategory) {
+      if (selectedCategory && selectedCategory !== 'all') {
         query = query.eq('category', selectedCategory);
       }
 
@@ -339,7 +339,7 @@ export default function Events() {
                       </SelectTrigger>
                       <SelectContent>
                         {CATEGORIES.map(cat => (
-                          <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                          <SelectItem key={cat} value={cat.toLowerCase()}>{cat}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -491,9 +491,9 @@ export default function Events() {
                   <SelectValue placeholder="All Categories" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Categories</SelectItem>
+                  <SelectItem value="all">All Categories</SelectItem>
                   {CATEGORIES.map(cat => (
-                    <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                    <SelectItem key={cat} value={cat.toLowerCase()}>{cat}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -502,7 +502,7 @@ export default function Events() {
                   <SelectValue placeholder="All Status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Status</SelectItem>
+                  <SelectItem value="all">All Status</SelectItem>
                   <SelectItem value="upcoming">Upcoming</SelectItem>
                   <SelectItem value="past">Past</SelectItem>
                 </SelectContent>
@@ -789,7 +789,7 @@ export default function Events() {
                   </SelectTrigger>
                   <SelectContent>
                     {CATEGORIES.map(cat => (
-                      <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                      <SelectItem key={cat} value={cat.toLowerCase()}>{cat}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
