@@ -323,6 +323,126 @@ export type Database = {
         }
         Relationships: []
       }
+      bar_feedback: {
+        Row: {
+          created_at: string | null
+          feedback_text: string | null
+          id: string
+          patron_id: string | null
+          rating: number | null
+          tab_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          feedback_text?: string | null
+          id?: string
+          patron_id?: string | null
+          rating?: number | null
+          tab_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          feedback_text?: string | null
+          id?: string
+          patron_id?: string | null
+          rating?: number | null
+          tab_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bar_feedback_patron_id_fkey"
+            columns: ["patron_id"]
+            isOneToOne: false
+            referencedRelation: "bar_patrons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bar_feedback_tab_id_fkey"
+            columns: ["tab_id"]
+            isOneToOne: false
+            referencedRelation: "bar_tabs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bar_patrons: {
+        Row: {
+          first_seen: string | null
+          id: string
+          preferred_lang: string | null
+          user_id: string | null
+          whatsapp: string
+        }
+        Insert: {
+          first_seen?: string | null
+          id?: string
+          preferred_lang?: string | null
+          user_id?: string | null
+          whatsapp: string
+        }
+        Update: {
+          first_seen?: string | null
+          id?: string
+          preferred_lang?: string | null
+          user_id?: string | null
+          whatsapp?: string
+        }
+        Relationships: []
+      }
+      bar_tabs: {
+        Row: {
+          bar_id: string | null
+          closed_at: string | null
+          created_at: string | null
+          id: string
+          patron_id: string | null
+          status: string | null
+          subtotal: number | null
+          table_code: string
+          tip: number | null
+          total: number | null
+        }
+        Insert: {
+          bar_id?: string | null
+          closed_at?: string | null
+          created_at?: string | null
+          id?: string
+          patron_id?: string | null
+          status?: string | null
+          subtotal?: number | null
+          table_code: string
+          tip?: number | null
+          total?: number | null
+        }
+        Update: {
+          bar_id?: string | null
+          closed_at?: string | null
+          created_at?: string | null
+          id?: string
+          patron_id?: string | null
+          status?: string | null
+          subtotal?: number | null
+          table_code?: string
+          tip?: number | null
+          total?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bar_tabs_bar_id_fkey"
+            columns: ["bar_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bar_tabs_patron_id_fkey"
+            columns: ["patron_id"]
+            isOneToOne: false
+            referencedRelation: "bar_patrons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bookings: {
         Row: {
           created_at: string | null
@@ -1800,6 +1920,44 @@ export type Database = {
         }
         Relationships: []
       }
+      split_payments: {
+        Row: {
+          amount: number
+          id: string
+          momo_ref: string | null
+          paid_at: string | null
+          status: string | null
+          tab_id: string | null
+          whatsapp: string
+        }
+        Insert: {
+          amount: number
+          id?: string
+          momo_ref?: string | null
+          paid_at?: string | null
+          status?: string | null
+          tab_id?: string | null
+          whatsapp: string
+        }
+        Update: {
+          amount?: number
+          id?: string
+          momo_ref?: string | null
+          paid_at?: string | null
+          status?: string | null
+          tab_id?: string | null
+          whatsapp?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "split_payments_tab_id_fkey"
+            columns: ["tab_id"]
+            isOneToOne: false
+            referencedRelation: "bar_tabs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       stress_test_results: {
         Row: {
           config: Json
@@ -1890,6 +2048,51 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tab_items: {
+        Row: {
+          id: number
+          product_id: string | null
+          qty: number
+          served_at: string | null
+          status: string | null
+          tab_id: string | null
+          unit_price: number
+        }
+        Insert: {
+          id?: number
+          product_id?: string | null
+          qty: number
+          served_at?: string | null
+          status?: string | null
+          tab_id?: string | null
+          unit_price: number
+        }
+        Update: {
+          id?: number
+          product_id?: string | null
+          qty?: number
+          served_at?: string | null
+          status?: string | null
+          tab_id?: string | null
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tab_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tab_items_tab_id_fkey"
+            columns: ["tab_id"]
+            isOneToOne: false
+            referencedRelation: "bar_tabs"
             referencedColumns: ["id"]
           },
         ]
@@ -2856,6 +3059,10 @@ export type Database = {
       }
       is_admin: {
         Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
+      is_bar_staff: {
+        Args: { bar_id: string }
         Returns: boolean
       }
       ivfflat_bit_support: {
