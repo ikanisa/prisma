@@ -34,6 +34,7 @@ import RealtimeStressTesting from "./pages/admin/RealtimeStressTesting";
 import PharmacyOrders from "./pages/admin/PharmacyOrders";
 import PharmacyShoppers from "./pages/admin/PharmacyShoppers";
 import PharmacyProducts from "./pages/admin/PharmacyProducts";
+import PharmacyLoadTest from "./pages/admin/PharmacyLoadTest";
 
 const queryClient = new QueryClient();
 
@@ -58,6 +59,7 @@ const App = () => (
           <Route path="pharmacy/orders" element={<PharmacyOrders />} />
           <Route path="pharmacy/shoppers" element={<PharmacyShoppers />} />
           <Route path="pharmacy/products" element={<PharmacyProducts />} />
+          <Route path="pharmacy/load-test" element={<PharmacyLoadTest />} />
           <Route path="whatsapp-templates" element={<WhatsAppTemplates />} />
           <Route path="stress-testing" element={<RealtimeStressTesting />} />
           <Route path="products" element={<Products />} />
