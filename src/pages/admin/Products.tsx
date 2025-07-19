@@ -24,10 +24,12 @@ interface Product {
   id: string;
   name: string;
   price: number;
-  stock: number;
+  stock_qty: number;
   unit: string;
   image_url: string | null;
-  farmer_id: string;
+  business_id: string;
+  category: string;
+  description: string;
   created_at: string;
 }
 
@@ -96,16 +98,16 @@ export default function Products() {
       }
 
       if (selectedFarmer !== "all") {
-        query = query.eq('farmer_id', selectedFarmer);
+        query = query.eq('business_id', selectedFarmer);
       }
 
       if (selectedStatus !== "all") {
         if (selectedStatus === "in-stock") {
-          query = query.gt('stock', 0);
+          query = query.gt('stock_qty', 0);
         } else if (selectedStatus === "out-of-stock") {
-          query = query.eq('stock', 0);
+          query = query.eq('stock_qty', 0);
         } else if (selectedStatus === "low-stock") {
-          query = query.gt('stock', 0).lt('stock', 10);
+          query = query.gt('stock_qty', 0).lt('stock_qty', 10);
         }
       }
 
@@ -133,10 +135,10 @@ export default function Products() {
           query = query.order('price', { ascending: true });
           break;
         case "stock-high":
-          query = query.order('stock', { ascending: false });
+          query = query.order('stock_qty', { ascending: false });
           break;
         case "stock-low":
-          query = query.order('stock', { ascending: true });
+          query = query.order('stock_qty', { ascending: true });
           break;
         case "name":
           query = query.order('name', { ascending: true });
@@ -180,9 +182,9 @@ export default function Products() {
   const calculateAnalytics = () => {
     if (products.length === 0) return;
 
-    const totalValue = products.reduce((sum, p) => sum + (p.price * p.stock), 0);
+    const totalValue = products.reduce((sum, p) => sum + (p.price * p.stock_qty), 0);
     const avgPrice = products.reduce((sum, p) => sum + p.price, 0) / products.length;
-    const lowStockItems = products.filter(p => p.stock > 0 && p.stock < 10).length;
+    const lowStockItems = products.filter(p => p.stock_qty > 0 && p.stock_qty < 10).length;
 
     setAnalytics({
       totalValue,
@@ -215,9 +217,9 @@ export default function Products() {
       ...products.map(product => [
         `"${product.name}"`,
         product.price,
-        product.stock,
+        product.stock_qty,
         `"${product.unit}"`,
-        product.farmer_id,
+        product.business_id,
         product.created_at
       ].join(','))
     ].join('\n');
@@ -237,9 +239,9 @@ export default function Products() {
   };
 
   const totalPages = Math.ceil(totalCount / itemsPerPage);
-  const inStockCount = products.filter(p => p.stock > 0).length;
-  const outOfStockCount = products.filter(p => p.stock === 0).length;
-  const lowStockCount = products.filter(p => p.stock > 0 && p.stock < 10).length;
+  const inStockCount = products.filter(p => p.stock_qty > 0).length;
+  const outOfStockCount = products.filter(p => p.stock_qty === 0).length;
+  const lowStockCount = products.filter(p => p.stock_qty > 0 && p.stock_qty < 10).length;
 
   return (
     <div className="space-y-6">
@@ -499,8 +501,8 @@ export default function Products() {
                   </TableHeader>
                   <TableBody>
                     {products.map((product) => {
-                      const stockBadge = getStockBadge(product.stock);
-                      const farmer = farmers.find(f => f.id === product.farmer_id);
+                     const stockBadge = getStockBadge(product.stock_qty);
+                      const farmer = farmers.find(f => f.id === product.business_id);
                       
                       return (
                         <TableRow key={product.id} className="group">
@@ -541,9 +543,9 @@ export default function Products() {
                           </TableCell>
                           <TableCell>
                             <div className="flex items-center gap-2">
-                              <span className="font-medium">{product.stock}</span>
-                              <div className={`h-2 w-2 rounded-full ${stockBadge.color.replace('text-', 'bg-')}`} />
-                            </div>
+                               <span className="font-medium">{product.stock_qty}</span>
+                               <div className={`h-2 w-2 rounded-full ${stockBadge.color.replace('text-', 'bg-')}`} />
+                             </div>
                           </TableCell>
                           <TableCell>{product.unit}</TableCell>
                           <TableCell>
@@ -588,8 +590,8 @@ export default function Products() {
               ) : (
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 p-6">
                   {products.map((product) => {
-                    const stockBadge = getStockBadge(product.stock);
-                    const farmer = farmers.find(f => f.id === product.farmer_id);
+                    const stockBadge = getStockBadge(product.stock_qty);
+                     const farmer = farmers.find(f => f.id === product.business_id);
                     
                     return (
                       <Card key={product.id} className="group hover:shadow-lg transition-all duration-200">
@@ -619,9 +621,9 @@ export default function Products() {
                             </p>
                             <div className="flex items-center justify-between mb-3">
                               <span className="font-bold text-lg">{product.price.toLocaleString()} RWF</span>
-                              <span className="text-sm text-muted-foreground">
-                                {product.stock} {product.unit}
-                              </span>
+                               <span className="text-sm text-muted-foreground">
+                                 {product.stock_qty} {product.unit}
+                               </span>
                             </div>
                             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                               <Dialog>
@@ -720,9 +722,9 @@ export default function Products() {
 function ProductDetailsDialog({ product, farmer }: { product: Product | null; farmer?: Farmer }) {
   if (!product) return null;
 
-  const stockBadge = product.stock === 0 
+  const stockBadge = product.stock_qty === 0 
     ? { variant: "destructive" as const, text: "Out of Stock" }
-    : product.stock < 10 
+    : product.stock_qty < 10 
     ? { variant: "secondary" as const, text: "Low Stock" }
     : { variant: "default" as const, text: "In Stock" };
 
@@ -765,10 +767,10 @@ function ProductDetailsDialog({ product, farmer }: { product: Product | null; fa
               <span className="text-muted-foreground">Price:</span>
               <span className="font-bold text-lg">{product.price.toLocaleString()} RWF</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Stock:</span>
-              <span className="font-medium">{product.stock} {product.unit}</span>
-            </div>
+             <div className="flex justify-between">
+               <span className="text-muted-foreground">Stock:</span>
+               <span className="font-medium">{product.stock_qty} {product.unit}</span>
+             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Unit:</span>
               <span>{product.unit}</span>

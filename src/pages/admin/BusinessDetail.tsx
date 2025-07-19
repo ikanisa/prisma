@@ -19,7 +19,7 @@ interface Business {
   id: string;
   name: string;
   momo_code: string;
-  category: 'bar' | 'pharmacy' | 'shop';
+  category: 'bar' | 'pharmacy' | 'shop' | 'produce' | 'hardware';
   subscription_status: string;
   created_at: string;
   owner_user_id: string;
@@ -31,8 +31,12 @@ interface Product {
   id: string;
   name: string;
   price: number;
-  stock: number;
+  stock_qty: number;
   unit: string;
+  business_id: string;
+  category: string;
+  description: string;
+  image_url: string;
   created_at: string;
 }
 
@@ -100,7 +104,7 @@ export default function BusinessDetail() {
       const { data: productsData } = await supabase
         .from('products')
         .select('*')
-        .eq('farmer_id', businessData.owner_user_id)
+        .eq('business_id', businessId)
         .order('created_at', { ascending: false });
 
       setProducts(productsData || []);
@@ -377,7 +381,7 @@ export default function BusinessDetail() {
                       <TableRow key={product.id}>
                         <TableCell className="font-medium">{product.name}</TableCell>
                         <TableCell>{product.price} RWF</TableCell>
-                        <TableCell>{product.stock}</TableCell>
+                        <TableCell>{product.stock_qty}</TableCell>
                         <TableCell>{product.unit}</TableCell>
                         <TableCell>{new Date(product.created_at).toLocaleDateString()}</TableCell>
                       </TableRow>

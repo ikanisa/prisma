@@ -27,7 +27,7 @@ interface Business {
   id: string;
   name: string;
   momo_code: string;
-  category: 'bar' | 'pharmacy' | 'shop';
+  category: 'bar' | 'pharmacy' | 'shop' | 'produce' | 'hardware';
   subscription_status: string;
   created_at: string;
   owner_user_id: string;
