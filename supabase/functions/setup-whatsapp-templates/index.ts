@@ -13,186 +13,151 @@ serve(async (req) => {
   }
 
   try {
-    console.log('Setting up WhatsApp templates for hardware vendors...');
+    console.log('Setting up unified marketplace WhatsApp templates...');
 
-    // Initialize Supabase client
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Hardware vendor WhatsApp templates
-    const hardwareTemplates = [
+    // Cart Templates
+    const cartTemplates = [
       {
-        template_name: 'vendor_welcome_hardware',
-        category: 'hardware',
-        language: 'en',
-        template_content: `Welcome to easyMO Hardware Network! 🛠️
+        template_name: "cart_summary",
+        category: "TRANSACTIONAL", 
+        language: "en",
+        template_content: `🛒 Your Cart Summary
 
-Your hardware store {{shop_name}} is now connected.
+Hi {{1}}! Your cart has {{2}} items totaling {{3}} RWF.
 
-Quick commands:
-• Type "add 10 hammer 8500" to list products
-• Send price sheet photo for bulk import
-• Type "help" for full menu
+Items:
+{{4}}
 
-Start selling in minutes! 🚀`,
-        variables: ['shop_name'],
-        status: 'pending'
+Ready to checkout? Reply CHECKOUT to proceed.`,
+        variables: ["customer_name", "item_count", "total_amount", "item_list"],
+        status: "PENDING"
       },
       {
-        template_name: 'product_import_success',
-        category: 'hardware', 
-        language: 'en',
-        template_content: `✅ Import Complete!
+        template_name: "cart_summary_rw", 
+        category: "TRANSACTIONAL",
+        language: "rw",
+        template_content: `🛒 Inyandiko yawe
 
-{{product_count}} hardware items added:
-{{product_list}}
+Muraho {{1}}! Inyandiko yawe ifite {{2}} bintu {{3}} RWF.
 
-Your catalog is now live at:
-{{shop_url}}
+Ibintu:
+{{4}}
 
-Customers can browse and order immediately! 📦`,
-        variables: ['product_count', 'product_list', 'shop_url'],
-        status: 'pending'
-      },
-      {
-        template_name: 'new_buyer_match',
-        category: 'hardware',
-        language: 'en', 
-        template_content: `🛒 New Order!
-
-Customer: {{customer_name}}
-Items: {{items_list}}
-Total: {{total_amount}} RWF
-
-ACCEPT or DECLINE?
-
-⏰ Auto-decline in 10 minutes`,
-        variables: ['customer_name', 'items_list', 'total_amount'],
-        status: 'pending'
-      },
-      {
-        template_name: 'price_update_broadcast',
-        category: 'hardware',
-        language: 'en',
-        template_content: `💰 Price Update - {{product_name}}
-
-Old Price: {{old_price}} RWF
-New Price: {{new_price}} RWF
-You Save: {{savings}} RWF
-
-Order now: {{order_link}}
-Stock: {{stock_level}} {{unit}} available`,
-        variables: ['product_name', 'old_price', 'new_price', 'savings', 'order_link', 'stock_level', 'unit'],
-        status: 'pending'
-      },
-      {
-        template_name: 'weekly_sales_report',
-        category: 'hardware',
-        language: 'en',
-        template_content: `📊 Weekly Hardware Sales Report
-
-Period: {{week_dates}}
-Total Sales: {{total_sales}} RWF
-Orders: {{order_count}}
-Top Product: {{top_product}}
-
-Growth: {{growth_percent}}% vs last week
-Keep up the great work! 💪`,
-        variables: ['week_dates', 'total_sales', 'order_count', 'top_product', 'growth_percent'],
-        status: 'pending'
-      },
-      {
-        template_name: 'stock_low_alert',
-        category: 'hardware',
-        language: 'en',
-        template_content: `⚠️ Stock Alert
-
-{{product_name}} running low:
-Current Stock: {{current_stock}} {{unit}}
-Avg Daily Sales: {{daily_avg}}
-
-Restock suggested: {{restock_amount}} {{unit}}
-Reply RESTOCK to update inventory`,
-        variables: ['product_name', 'current_stock', 'unit', 'daily_avg', 'restock_amount'],
-        status: 'pending'
-      },
-      {
-        template_name: 'customer_quote_hardware',
-        category: 'hardware',
-        language: 'en',
-        template_content: `🧾 Hardware Quote #{{quote_id}}
-
-{{items_breakdown}}
-
-Subtotal: {{subtotal}} RWF
-VAT (18%): {{vat_amount}} RWF
-Total: {{total}} RWF
-
-Payment: {{momo_code}} or {{payment_link}}
-Valid until: {{expiry_time}}`,
-        variables: ['quote_id', 'items_breakdown', 'subtotal', 'vat_amount', 'total', 'momo_code', 'payment_link', 'expiry_time'],
-        status: 'pending'
-      },
-      {
-        template_name: 'bulk_buyer_invitation',
-        category: 'hardware',
-        language: 'en', 
-        template_content: `🏗️ Bulk Hardware Sale!
-
-Weekly contractor special:
-{{bulk_items}}
-
-Bulk Discount: {{discount_percent}}% OFF
-Min Order: {{min_quantity}} items
-Valid: {{sale_period}}
-
-Join auction: {{auction_link}}`,
-        variables: ['bulk_items', 'discount_percent', 'min_quantity', 'sale_period', 'auction_link'],
-        status: 'pending'
+Witeguye kwishyura? Andika CHECKOUT.`,
+        variables: ["customer_name", "item_count", "total_amount", "item_list"],
+        status: "PENDING"
       }
     ];
 
-    // Kinyarwanda versions for local market
-    const kinyarwandaTemplates = [
+    // Payment Templates  
+    const paymentTemplates = [
       {
-        template_name: 'vendor_welcome_hardware_rw',
-        category: 'hardware',
-        language: 'rw',
-        template_content: `Murakaza neza kuri easyMO Hardware Network! 🛠️
+        template_name: "payment_confirmation",
+        category: "TRANSACTIONAL",
+        language: "en", 
+        template_content: `✅ Payment Confirmed
 
-Iduka ryanyu {{shop_name}} rirakozwe.
+Payment received! {{1}} RWF for order #{{2}}.
 
-Amategeko yoroshye:
-• Kwandika "shyira 10 inyundo 8500"
-• Kohereza ifoto y'urutonde rw'ibiciro
-• Kwandika "ubufasha" kubona menu yose
+USSD: {{3}}
+MoMo TX: {{4}}
 
-Tangira gucuruza muri minutsi! 🚀`,
-        variables: ['shop_name'],
-        status: 'pending'
+Your order is being prepared.`,
+        variables: ["amount", "order_id", "ussd_code", "momo_tx"],
+        status: "PENDING"
       },
       {
-        template_name: 'new_buyer_match_rw',
-        category: 'hardware',
-        language: 'rw',
-        template_content: `🛒 Uguza gushya!
+        template_name: "payment_confirmation_rw",
+        category: "TRANSACTIONAL", 
+        language: "rw",
+        template_content: `✅ Kwishyura byemejwe
 
-Umuguzi: {{customer_name}}
-Ibintu: {{items_list}}  
-Igiciro cyose: {{total_amount}} RWF
+Kwishyura byakiriwe! {{1}} RWF kuri order #{{2}}.
 
-EMERA cyangwa ANGA?
+USSD: {{3}}
+MoMo TX: {{4}}
 
-⏰ Bizahagarikwa nyuma ya minutsi 10`,
-        variables: ['customer_name', 'items_list', 'total_amount'],
-        status: 'pending'
+Order yawe irateguriwa.`,
+        variables: ["amount", "order_id", "ussd_code", "momo_tx"],
+        status: "PENDING"
+      },
+      {
+        template_name: "payment_failed",
+        category: "TRANSACTIONAL",
+        language: "en",
+        template_content: `❌ Payment Issue
+
+Payment for order #{{1}} failed.
+
+Amount: {{2}} RWF
+Reason: {{3}}
+
+Try again? Reply RETRY`,
+        variables: ["order_id", "amount", "failure_reason"],
+        status: "PENDING"
       }
     ];
 
-    // Insert all templates
-    const allTemplates = [...hardwareTemplates, ...kinyarwandaTemplates];
+    // Rating Templates
+    const ratingTemplates = [
+      {
+        template_name: "rating_request",
+        category: "UTILITY",
+        language: "en",
+        template_content: `⭐ Rate Your Experience
+
+Hi {{1}}! How was your order #{{2}}?
+
+Rate us 1-5:
+1️⃣ Poor
+2️⃣ Fair
+3️⃣ Good
+4️⃣ Very Good
+5️⃣ Excellent
+
+Just reply with a number!`,
+        variables: ["customer_name", "order_id"],
+        status: "PENDING"
+      },
+      {
+        template_name: "rating_request_rw",
+        category: "UTILITY", 
+        language: "rw",
+        template_content: `⭐ Dushimangire
+
+Muraho {{1}}! Order #{{2}} yakunze bite?
+
+Dutange 1-5:
+1️⃣ Kibi
+2️⃣ Kibiri
+3️⃣ Byiza
+4️⃣ Byiza cyane
+5️⃣ Bitangaje
+
+Subiza ukoresheje numero!`,
+        variables: ["customer_name", "order_id"],
+        status: "PENDING"
+      },
+      {
+        template_name: "rating_thanks",
+        category: "UTILITY",
+        language: "en", 
+        template_content: `🙏 Thank You!
+
+Thanks {{1}} for rating us {{2}}/5! {{3}}
+
+Your feedback helps us improve.`,
+        variables: ["customer_name", "rating", "custom_message"],
+        status: "PENDING"
+      }
+    ];
+
+    const allTemplates = [...cartTemplates, ...paymentTemplates, ...ratingTemplates];
     
     const { data: templates, error: templateError } = await supabase
       .from('whatsapp_templates')
@@ -205,27 +170,28 @@ EMERA cyangwa ANGA?
 
     console.log(`Created ${templates?.length || 0} WhatsApp templates`);
 
-    // Approval checklist for WhatsApp Business API
     const approvalChecklist = {
       templates_submitted: templates?.length || 0,
       required_approvals: [
-        'vendor_welcome_hardware',
-        'new_buyer_match', 
-        'customer_quote_hardware',
-        'price_update_broadcast'
+        'cart_summary (EN/RW) - TRANSACTIONAL', 
+        'payment_confirmation (EN/RW) - TRANSACTIONAL',
+        'payment_failed (EN) - TRANSACTIONAL', 
+        'rating_request (EN/RW) - UTILITY',
+        'rating_thanks (EN) - UTILITY'
       ],
       approval_process: [
-        '1. Submit templates to WhatsApp Business API',
-        '2. Wait for review (24-48 hours)',
-        '3. Update template status in database',
-        '4. Enable automated messaging',
-        '5. Test with pilot vendors'
+        '1. Submit templates to Meta via WhatsApp Business Manager',
+        '2. Wait for review (24-48 hours for transactional, 2-7 days for utility)',
+        '3. Update template status to APPROVED in database',
+        '4. Enable automated messaging in production',
+        '5. Test with pilot users across all verticals'
       ],
       interactive_lists_required: [
-        'Product categories (Plumbing, Electrical, Tools, etc.)',
-        'Quick actions (Add Product, Update Price, View Orders)',
-        'Customer response options (Accept, Decline, Counter-offer)'
-      ]
+        'Cart items with quantity selectors',
+        'Payment method options (MTN/Airtel)',
+        'Rating feedback categories'
+      ],
+      estimated_approval_time: "24-48 hours for transactional, 2-7 days for utility templates"
     };
 
     return new Response(
@@ -234,14 +200,15 @@ EMERA cyangwa ANGA?
         whatsapp_setup: {
           templates_created: templates?.length || 0,
           languages: ['en', 'rw'],
-          categories: ['hardware'],
+          categories: ['TRANSACTIONAL', 'UTILITY'],
           approval_checklist: approvalChecklist
         },
         next_steps: [
-          'Submit templates to WhatsApp Business API for approval',
-          'Configure interactive lists in WhatsApp Business Manager',
-          'Test templates with pilot vendors',
-          'Monitor approval status and update database'
+          '✅ Submit all templates to Meta for approval',
+          '⏳ Monitor approval status (check WhatsApp Business Manager)',
+          '🔄 Update template status in database once approved', 
+          '🧪 Test templates in sandbox before production rollout',
+          '📊 Track template performance and delivery rates'
         ],
         timestamp: new Date().toISOString()
       }),
