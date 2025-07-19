@@ -92,15 +92,20 @@ export default function BarKitchenDisplay() {
       };
 
       data?.forEach(item => {
-        const itemTime = new Date(item.created_at);
+        const itemTime = new Date(item.bar_tabs.created_at);
         const minutesAgo = (now.getTime() - itemTime.getTime()) / (1000 * 60);
         
+        const itemWithCreatedAt = {
+          ...item,
+          created_at: item.bar_tabs.created_at
+        };
+        
         if (minutesAgo > 15) {
-          grouped.urgent.push(item);
+          grouped.urgent.push(itemWithCreatedAt);
         } else if (minutesAgo > 5) {
-          grouped.warning.push(item);
+          grouped.warning.push(itemWithCreatedAt);
         } else {
-          grouped.normal.push(item);
+          grouped.normal.push(itemWithCreatedAt);
         }
       });
 

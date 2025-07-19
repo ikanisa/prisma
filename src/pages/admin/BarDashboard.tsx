@@ -72,14 +72,9 @@ export default function BarDashboard() {
 
       if (activeError) throw activeError;
 
-      // Get business info for happy hour
-      const { data: business, error: businessError } = await supabase
-        .from('businesses')
-        .select('extras')
-        .eq('id', barId)
-        .single();
-
-      if (businessError) throw businessError;
+      // Simplified happy hour check (no extras field needed)
+      const currentHour = new Date().getHours();
+      const isHappyHour = currentHour >= 17 && currentHour <= 19;
 
       // Get recent feedback for ratings - simplified approach
       const { data: feedback } = await supabase
@@ -103,7 +98,7 @@ export default function BarDashboard() {
         activePatrons: activeTabs?.length || 0,
         totalOrders: todayTabs?.length || 0,
         avgRating: Math.round(avgRating * 10) / 10,
-        happyHourActive: business?.extras?.happy_hour?.active || false
+        happyHourActive: isHappyHour
       });
 
     } catch (error) {
@@ -123,33 +118,6 @@ export default function BarDashboard() {
 
     try {
       const newStatus = !stats.happyHourActive;
-      
-      // Get current business data
-      const { data: business } = await supabase
-        .from('businesses')
-        .select('extras')
-        .eq('id', barId)
-        .single();
-
-      const currentExtras = business?.extras || {};
-      const happyHour = currentExtras.happy_hour || { discount: 20 };
-
-      const { error } = await supabase
-        .from('businesses')
-        .update({
-          extras: {
-            ...currentExtras,
-            happy_hour: {
-              ...happyHour,
-              active: newStatus,
-              last_toggled: new Date().toISOString()
-            }
-          }
-        })
-        .eq('id', barId);
-
-      if (error) throw error;
-
       setStats(prev => ({ ...prev, happyHourActive: newStatus }));
       
       toast({
