@@ -1414,6 +1414,122 @@ export type Database = {
           },
         ]
       }
+      pharmacy_order_items: {
+        Row: {
+          created_at: string | null
+          id: number
+          order_id: string | null
+          product_id: string | null
+          qty: number | null
+          unit_price: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: number
+          order_id?: string | null
+          product_id?: string | null
+          qty?: number | null
+          unit_price?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: number
+          order_id?: string | null
+          product_id?: string | null
+          qty?: number | null
+          unit_price?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pharmacy_order_items_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "pharmacy_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pharmacy_order_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pharmacy_orders: {
+        Row: {
+          created_at: string | null
+          delivery_address: string | null
+          delivery_eta: string | null
+          delivery_fee: number | null
+          id: string
+          shopper_id: string | null
+          status: string | null
+          total_amount: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          delivery_address?: string | null
+          delivery_eta?: string | null
+          delivery_fee?: number | null
+          id?: string
+          shopper_id?: string | null
+          status?: string | null
+          total_amount?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          delivery_address?: string | null
+          delivery_eta?: string | null
+          delivery_fee?: number | null
+          id?: string
+          shopper_id?: string | null
+          status?: string | null
+          total_amount?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pharmacy_orders_shopper_id_fkey"
+            columns: ["shopper_id"]
+            isOneToOne: false
+            referencedRelation: "pharmacy_shoppers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pharmacy_shoppers: {
+        Row: {
+          created_at: string | null
+          full_name: string | null
+          id: string
+          preferred_lang: string | null
+          updated_at: string | null
+          user_id: string | null
+          whatsapp_number: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          full_name?: string | null
+          id?: string
+          preferred_lang?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+          whatsapp_number?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          full_name?: string | null
+          id?: string
+          preferred_lang?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+          whatsapp_number?: string | null
+        }
+        Relationships: []
+      }
       prediction_accuracy: {
         Row: {
           accuracy: boolean | null
@@ -1446,6 +1562,51 @@ export type Database = {
           vendor_id?: string | null
         }
         Relationships: []
+      }
+      prescription_images: {
+        Row: {
+          created_at: string | null
+          detected_items: Json | null
+          id: string
+          ocr_text: string | null
+          order_id: string | null
+          shopper_id: string | null
+          storage_path: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          detected_items?: Json | null
+          id?: string
+          ocr_text?: string | null
+          order_id?: string | null
+          shopper_id?: string | null
+          storage_path?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          detected_items?: Json | null
+          id?: string
+          ocr_text?: string | null
+          order_id?: string | null
+          shopper_id?: string | null
+          storage_path?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prescription_images_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "pharmacy_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prescription_images_shopper_id_fkey"
+            columns: ["shopper_id"]
+            isOneToOne: false
+            referencedRelation: "pharmacy_shoppers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       products: {
         Row: {
@@ -1576,6 +1737,41 @@ export type Database = {
             columns: ["passenger_id"]
             isOneToOne: false
             referencedRelation: "passengers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shopper_promos: {
+        Row: {
+          created_at: string | null
+          expires_at: string | null
+          id: string
+          promo_code: string | null
+          redeemed: boolean | null
+          shopper_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          promo_code?: string | null
+          redeemed?: boolean | null
+          shopper_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          promo_code?: string | null
+          redeemed?: boolean | null
+          shopper_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shopper_promos_shopper_id_fkey"
+            columns: ["shopper_id"]
+            isOneToOne: false
+            referencedRelation: "pharmacy_shoppers"
             referencedColumns: ["id"]
           },
         ]
@@ -1948,6 +2144,27 @@ export type Database = {
           name?: string | null
           phone?: string | null
           source?: string | null
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string | null
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
         }
         Relationships: []
       }
@@ -2613,6 +2830,13 @@ export type Database = {
       halfvec_typmod_in: {
         Args: { "": unknown[] }
         Returns: number
+      }
+      has_role: {
+        Args: {
+          _user_id: string
+          _role: Database["public"]["Enums"]["app_role"]
+        }
+        Returns: boolean
       }
       hnsw_bit_support: {
         Args: { "": unknown }
@@ -3997,6 +4221,7 @@ export type Database = {
       }
     }
     Enums: {
+      app_role: "admin" | "pharmacist" | "driver" | "user"
       business_type: "bar" | "pharmacy" | "shop" | "produce" | "hardware"
       driver_type: "moto" | "cab" | "truck"
       order_status:
@@ -4144,6 +4369,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      app_role: ["admin", "pharmacist", "driver", "user"],
       business_type: ["bar", "pharmacy", "shop", "produce", "hardware"],
       driver_type: ["moto", "cab", "truck"],
       order_status: [

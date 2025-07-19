@@ -19,52 +19,96 @@ serve(async (req) => {
   try {
     const { 
       trip_id, 
+      order_id,
       passenger_id, 
+      shopper_id,
       driver_id, 
-      stars, 
+      stars,
+      rating, 
       tip_amount = 0, 
-      feedback 
+      feedback,
+      comment,
+      rating_type = 'trip'
     } = await req.json();
     
-    if (!trip_id || !passenger_id || !driver_id || !stars) {
-      throw new Error('Trip ID, passenger ID, driver ID, and stars are required');
+    const finalRating = rating || stars;
+    
+    if (!driver_id || !finalRating || (finalRating < 1 || finalRating > 5)) {
+      throw new Error('Driver ID and rating (1-5) are required');
     }
 
-    if (stars < 1 || stars > 5) {
-      throw new Error('Rating must be between 1 and 5 stars');
+    if (rating_type === 'trip' && (!trip_id || !passenger_id)) {
+      throw new Error('Trip ID and passenger ID required for trip ratings');
     }
 
-    console.log(`⭐ Processing rating: ${stars} stars for driver ${driver_id} on trip ${trip_id}`);
-
-    // Check if rating already exists
-    const { data: existingRating } = await supabase
-      .from('trip_ratings')
-      .select('id')
-      .eq('trip_id', trip_id)
-      .eq('passenger_id', passenger_id)
-      .single();
-
-    if (existingRating) {
-      throw new Error('Rating already exists for this trip');
+    if (rating_type === 'delivery' && !shopper_id && !order_id) {
+      throw new Error('Shopper ID or Order ID required for delivery ratings');
     }
 
-    // Create the rating
-    const { data: rating, error: ratingError } = await supabase
-      .from('trip_ratings')
-      .insert({
-        trip_id,
-        passenger_id,
-        driver_id,
-        stars,
-        tip_amount,
-        feedback
-      })
-      .select()
-      .single();
+    console.log(`⭐ Processing ${rating_type} rating: ${finalRating} stars for driver ${driver_id}`);
 
-    if (ratingError) {
-      console.error('Rating creation error:', ratingError);
-      throw new Error('Failed to create rating');
+    let ratingRecord;
+    let userId = passenger_id || shopper_id;
+
+    if (rating_type === 'trip' && trip_id) {
+      // Check if rating already exists for trip
+      const { data: existingRating } = await supabase
+        .from('trip_ratings')
+        .select('id')
+        .eq('trip_id', trip_id)
+        .eq('passenger_id', passenger_id)
+        .single();
+
+      if (existingRating) {
+        throw new Error('Rating already exists for this trip');
+      }
+
+      // Create trip rating
+      const { data, error: ratingError } = await supabase
+        .from('trip_ratings')
+        .insert({
+          trip_id,
+          passenger_id,
+          driver_id,
+          stars: finalRating,
+          tip_amount,
+          feedback: feedback || comment
+        })
+        .select()
+        .single();
+
+      if (ratingError) {
+        console.error('Trip rating error:', ratingError);
+        throw new Error('Failed to create trip rating');
+      }
+      ratingRecord = data;
+
+    } else if (rating_type === 'delivery') {
+      // Handle pharmacy delivery rating
+      const pharmacy_trip_id = `pharmacy_${order_id || Date.now()}`;
+      
+      const { data, error: ratingError } = await supabase
+        .from('trip_ratings')
+        .insert({
+          trip_id: pharmacy_trip_id,
+          passenger_id: shopper_id,
+          driver_id,
+          stars: finalRating,
+          tip_amount,
+          feedback: comment || feedback || 'Pharmacy delivery rating'
+        })
+        .select()
+        .single();
+
+      if (ratingError) {
+        console.error('Delivery rating error:', ratingError);
+        throw new Error('Failed to create delivery rating');
+      }
+      ratingRecord = data;
+    }
+
+    if (!ratingRecord) {
+      throw new Error('Invalid rating type or failed to create rating');
     }
 
     // Process tip if provided
@@ -87,50 +131,54 @@ serve(async (req) => {
     }
 
     // Flag low ratings for review
-    if (stars <= 2) {
-      console.log(`🚨 Low rating detected: ${stars} stars - flagging for review`);
+    if (finalRating <= 2) {
+      console.log(`🚨 Low rating detected: ${finalRating} stars - flagging for review`);
       
       // Create support ticket for low rating
       await supabase
         .from('support_tickets')
         .insert({
-          user_id: passenger_id,
-          topic: `Low Rating: ${stars} stars`,
+          user_id: userId,
+          topic: `Low ${rating_type} Rating: ${finalRating} stars`,
           status: 'open',
-          priority: stars === 1 ? 'high' : 'medium'
+          priority: finalRating === 1 ? 'high' : 'medium'
         });
 
       // You might also want to notify admin or trigger other actions
     }
 
-    // Update passenger's rating statistics
-    const { data: passengerStats } = await supabase
-      .from('trip_ratings')
-      .select('stars')
-      .eq('passenger_id', passenger_id);
+    // Update user's rating statistics (passenger or shopper)
+    if (rating_type === 'trip' && passenger_id) {
+      const { data: passengerStats } = await supabase
+        .from('trip_ratings')
+        .select('stars')
+        .eq('passenger_id', passenger_id)
+        .like('trip_id', 'trip_%');
 
-    if (passengerStats) {
-      const avgRatingGiven = passengerStats.reduce((sum, r) => sum + r.stars, 0) / passengerStats.length;
-      
-      await supabase
-        .from('passengers')
-        .update({ 
-          avg_rating_given: Math.round(avgRatingGiven * 100) / 100,
-          total_rides: passengerStats.length
-        })
-        .eq('id', passenger_id);
+      if (passengerStats) {
+        const avgRatingGiven = passengerStats.reduce((sum, r) => sum + r.stars, 0) / passengerStats.length;
+        
+        await supabase
+          .from('passengers')
+          .update({ 
+            avg_rating_given: Math.round(avgRatingGiven * 100) / 100,
+            total_rides: passengerStats.length
+          })
+          .eq('id', passenger_id);
+      }
     }
 
-    console.log(`✅ Rating processed successfully: ${rating.id}`);
+    console.log(`✅ Rating processed successfully: ${ratingRecord.id}`);
 
     return new Response(JSON.stringify({
       success: true,
-      rating_id: rating.id,
-      stars,
+      rating_id: ratingRecord.id,
+      rating: finalRating,
+      rating_type,
       tip_amount,
       message: tip_amount > 0 
-        ? `Thank you for your ${stars}-star rating and ${tip_amount} RWF tip!`
-        : `Thank you for your ${stars}-star rating!`
+        ? `Thank you for your ${finalRating}-star rating and ${tip_amount} RWF tip!`
+        : `Thank you for your ${finalRating}-star rating!`
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

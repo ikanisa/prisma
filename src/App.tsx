@@ -31,6 +31,9 @@ import Passengers from "./pages/admin/Passengers";
 import Rides from "./pages/admin/Rides";
 import WhatsAppTemplates from "./pages/admin/WhatsAppTemplates";
 import RealtimeStressTesting from "./pages/admin/RealtimeStressTesting";
+import PharmacyOrders from "./pages/admin/PharmacyOrders";
+import PharmacyShoppers from "./pages/admin/PharmacyShoppers";
+import PharmacyProducts from "./pages/admin/PharmacyProducts";
 
 const queryClient = new QueryClient();
 
@@ -52,6 +55,9 @@ const App = () => (
           <Route path="farmers" element={<Farmers />} />
           <Route path="passengers" element={<Passengers />} />
           <Route path="rides" element={<Rides />} />
+          <Route path="pharmacy/orders" element={<PharmacyOrders />} />
+          <Route path="pharmacy/shoppers" element={<PharmacyShoppers />} />
+          <Route path="pharmacy/products" element={<PharmacyProducts />} />
           <Route path="whatsapp-templates" element={<WhatsAppTemplates />} />
           <Route path="stress-testing" element={<RealtimeStressTesting />} />
           <Route path="products" element={<Products />} />
