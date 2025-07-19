@@ -45,6 +45,9 @@ import UnifiedProducts from "./pages/admin/UnifiedProducts";
 import UnifiedConversations from "./pages/admin/UnifiedConversations";
 import Properties from "./pages/admin/Properties";
 import Vehicles from "./pages/admin/Vehicles";
+import LiveHandoffs from "./pages/admin/LiveHandoffs";
+import QualityDashboard from "./pages/admin/QualityDashboard";
+import SystemMetrics from "./pages/admin/SystemMetrics";
 
 const queryClient = new QueryClient();
 
@@ -66,6 +69,9 @@ const App = () => (
           <Route path="farmers" element={<Farmers />} />
           <Route path="properties" element={<Properties />} />
           <Route path="vehicles" element={<Vehicles />} />
+          <Route path="live-handoffs" element={<LiveHandoffs />} />
+          <Route path="quality-dashboard" element={<QualityDashboard />} />
+          <Route path="system-metrics" element={<SystemMetrics />} />
           <Route path="passengers" element={<Passengers />} />
           <Route path="rides" element={<Rides />} />
           <Route path="pharmacy/orders" element={<PharmacyOrders />} />

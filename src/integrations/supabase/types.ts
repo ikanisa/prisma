@@ -685,6 +685,54 @@ export type Database = {
           },
         ]
       }
+      contact_limits: {
+        Row: {
+          created_at: string | null
+          daily_count: number | null
+          id: string
+          is_opted_out: boolean | null
+          last_reset_daily: string | null
+          last_reset_monthly: string | null
+          last_reset_weekly: string | null
+          monthly_count: number | null
+          opt_out_at: string | null
+          opt_out_reason: string | null
+          phone_number: string
+          updated_at: string | null
+          weekly_count: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          daily_count?: number | null
+          id?: string
+          is_opted_out?: boolean | null
+          last_reset_daily?: string | null
+          last_reset_monthly?: string | null
+          last_reset_weekly?: string | null
+          monthly_count?: number | null
+          opt_out_at?: string | null
+          opt_out_reason?: string | null
+          phone_number: string
+          updated_at?: string | null
+          weekly_count?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          daily_count?: number | null
+          id?: string
+          is_opted_out?: boolean | null
+          last_reset_daily?: string | null
+          last_reset_monthly?: string | null
+          last_reset_weekly?: string | null
+          monthly_count?: number | null
+          opt_out_at?: string | null
+          opt_out_reason?: string | null
+          phone_number?: string
+          updated_at?: string | null
+          weekly_count?: number | null
+        }
+        Relationships: []
+      }
       contact_timing_patterns: {
         Row: {
           created_at: string | null
@@ -757,6 +805,59 @@ export type Database = {
         }
         Relationships: []
       }
+      conversation_evaluations: {
+        Row: {
+          clarity_score: number | null
+          conversation_id: string | null
+          created_at: string | null
+          evaluated_at: string | null
+          evaluation_notes: string | null
+          helpfulness_score: number | null
+          id: string
+          message_id: string | null
+          model_used: string | null
+          overall_score: number | null
+          phone_number: string | null
+          style_score: number | null
+        }
+        Insert: {
+          clarity_score?: number | null
+          conversation_id?: string | null
+          created_at?: string | null
+          evaluated_at?: string | null
+          evaluation_notes?: string | null
+          helpfulness_score?: number | null
+          id?: string
+          message_id?: string | null
+          model_used?: string | null
+          overall_score?: number | null
+          phone_number?: string | null
+          style_score?: number | null
+        }
+        Update: {
+          clarity_score?: number | null
+          conversation_id?: string | null
+          created_at?: string | null
+          evaluated_at?: string | null
+          evaluation_notes?: string | null
+          helpfulness_score?: number | null
+          id?: string
+          message_id?: string | null
+          model_used?: string | null
+          overall_score?: number | null
+          phone_number?: string | null
+          style_score?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversation_evaluations_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       conversation_learning_log: {
         Row: {
           confidence_level: number | null
@@ -819,38 +920,53 @@ export type Database = {
       }
       conversations: {
         Row: {
+          assigned_agent_id: string | null
           channel: string
           contact_id: string
           conversation_duration_minutes: number | null
           created_at: string | null
           ended_at: string | null
+          handoff_at: string | null
+          handoff_reason: string | null
+          handoff_requested: boolean | null
           id: string
           message_count: number | null
           model_used: string | null
+          resolved_at: string | null
           started_at: string | null
           status: string | null
         }
         Insert: {
+          assigned_agent_id?: string | null
           channel: string
           contact_id: string
           conversation_duration_minutes?: number | null
           created_at?: string | null
           ended_at?: string | null
+          handoff_at?: string | null
+          handoff_reason?: string | null
+          handoff_requested?: boolean | null
           id?: string
           message_count?: number | null
           model_used?: string | null
+          resolved_at?: string | null
           started_at?: string | null
           status?: string | null
         }
         Update: {
+          assigned_agent_id?: string | null
           channel?: string
           contact_id?: string
           conversation_duration_minutes?: number | null
           created_at?: string | null
           ended_at?: string | null
+          handoff_at?: string | null
+          handoff_reason?: string | null
+          handoff_requested?: boolean | null
           id?: string
           message_count?: number | null
           model_used?: string | null
+          resolved_at?: string | null
           started_at?: string | null
           status?: string | null
         }
@@ -1160,6 +1276,86 @@ export type Database = {
           },
         ]
       }
+      experiment_assignments: {
+        Row: {
+          assigned_at: string | null
+          experiment_id: string | null
+          id: string
+          phone_number: string
+          variant: string
+        }
+        Insert: {
+          assigned_at?: string | null
+          experiment_id?: string | null
+          id?: string
+          phone_number: string
+          variant: string
+        }
+        Update: {
+          assigned_at?: string | null
+          experiment_id?: string | null
+          id?: string
+          phone_number?: string
+          variant?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "experiment_assignments_experiment_id_fkey"
+            columns: ["experiment_id"]
+            isOneToOne: false
+            referencedRelation: "experiments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      experiments: {
+        Row: {
+          control_variant: Json | null
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          end_date: string | null
+          id: string
+          name: string
+          start_date: string | null
+          status: string | null
+          success_metric: string | null
+          test_variant: Json | null
+          traffic_split: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          control_variant?: Json | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          end_date?: string | null
+          id?: string
+          name: string
+          start_date?: string | null
+          status?: string | null
+          success_metric?: string | null
+          test_variant?: Json | null
+          traffic_split?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          control_variant?: Json | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          end_date?: string | null
+          id?: string
+          name?: string
+          start_date?: string | null
+          status?: string | null
+          success_metric?: string | null
+          test_variant?: Json | null
+          traffic_split?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       fallback_activity_log: {
         Row: {
           created_at: string | null
@@ -1262,6 +1458,36 @@ export type Database = {
           name?: string | null
           place_id?: string | null
           region?: string | null
+        }
+        Relationships: []
+      }
+      i18n_messages: {
+        Row: {
+          context: string | null
+          created_at: string | null
+          id: string
+          language_code: string
+          message_key: string
+          message_text: string
+          updated_at: string | null
+        }
+        Insert: {
+          context?: string | null
+          created_at?: string | null
+          id?: string
+          language_code?: string
+          message_key: string
+          message_text: string
+          updated_at?: string | null
+        }
+        Update: {
+          context?: string | null
+          created_at?: string | null
+          id?: string
+          language_code?: string
+          message_key?: string
+          message_text?: string
+          updated_at?: string | null
         }
         Relationships: []
       }
@@ -1761,6 +1987,60 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      outbound_queue: {
+        Row: {
+          channel: string | null
+          created_at: string | null
+          failed_reason: string | null
+          id: string
+          max_retries: number | null
+          message_text: string
+          metadata: Json | null
+          next_attempt_at: string | null
+          phone_number: string
+          priority: number | null
+          retry_count: number | null
+          sent_at: string | null
+          status: string | null
+          template_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          channel?: string | null
+          created_at?: string | null
+          failed_reason?: string | null
+          id?: string
+          max_retries?: number | null
+          message_text: string
+          metadata?: Json | null
+          next_attempt_at?: string | null
+          phone_number: string
+          priority?: number | null
+          retry_count?: number | null
+          sent_at?: string | null
+          status?: string | null
+          template_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          channel?: string | null
+          created_at?: string | null
+          failed_reason?: string | null
+          id?: string
+          max_retries?: number | null
+          message_text?: string
+          metadata?: Json | null
+          next_attempt_at?: string | null
+          phone_number?: string
+          priority?: number | null
+          retry_count?: number | null
+          sent_at?: string | null
+          status?: string | null
+          template_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       passenger_promos: {
         Row: {
@@ -2791,6 +3071,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      system_metrics: {
+        Row: {
+          id: string
+          metric_name: string
+          metric_type: string | null
+          metric_value: number | null
+          recorded_at: string | null
+          tags: Json | null
+        }
+        Insert: {
+          id?: string
+          metric_name: string
+          metric_type?: string | null
+          metric_value?: number | null
+          recorded_at?: string | null
+          tags?: Json | null
+        }
+        Update: {
+          id?: string
+          metric_name?: string
+          metric_type?: string | null
+          metric_value?: number | null
+          recorded_at?: string | null
+          tags?: Json | null
+        }
+        Relationships: []
       }
       tab_items: {
         Row: {

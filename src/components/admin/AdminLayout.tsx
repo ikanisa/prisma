@@ -27,7 +27,10 @@ import {
   ClipboardList,
   Rocket,
   Home,
-  Car
+  Car,
+  BarChart3,
+  Users2,
+  AlertTriangle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -40,6 +43,9 @@ const sidebarItems = [
   { name: "Farmers", path: "/admin/farmers", icon: Tractor },
   { name: "Properties", path: "/admin/properties", icon: Home },
   { name: "Vehicles", path: "/admin/vehicles", icon: Car },
+  { name: "Live Handoffs", path: "/admin/live-handoffs", icon: Users2 },
+  { name: "Quality Dashboard", path: "/admin/quality-dashboard", icon: BarChart3 },
+  { name: "System Metrics", path: "/admin/system-metrics", icon: Activity },
   { name: "Hardware Vendors", path: "/admin/hardware", icon: Hammer },
   { name: "Product Imports", path: "/admin/product-drafts", icon: Layers },
   { name: "Produce Drafts", path: "/admin/produce-drafts", icon: ClipboardList },
