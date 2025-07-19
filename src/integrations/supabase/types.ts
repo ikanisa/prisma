@@ -1049,30 +1049,33 @@ export type Database = {
       farmers: {
         Row: {
           created_at: string | null
+          crops: string[] | null
+          district: string | null
           id: string
           listings_count: number | null
-          location: string | null
           name: string
-          phone: string | null
           status: string | null
+          whatsapp: string | null
         }
         Insert: {
           created_at?: string | null
+          crops?: string[] | null
+          district?: string | null
           id?: string
           listings_count?: number | null
-          location?: string | null
           name: string
-          phone?: string | null
           status?: string | null
+          whatsapp?: string | null
         }
         Update: {
           created_at?: string | null
+          crops?: string[] | null
+          district?: string | null
           id?: string
           listings_count?: number | null
-          location?: string | null
           name?: string
-          phone?: string | null
           status?: string | null
+          whatsapp?: string | null
         }
         Relationships: []
       }
@@ -3322,12 +3325,13 @@ export type Database = {
         Args: { search_term: string }
         Returns: {
           created_at: string | null
+          crops: string[] | null
+          district: string | null
           id: string
           listings_count: number | null
-          location: string | null
           name: string
-          phone: string | null
           status: string | null
+          whatsapp: string | null
         }[]
       }
       longtransactionsenabled: {
