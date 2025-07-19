@@ -2837,6 +2837,168 @@ export type Database = {
           },
         ]
       }
+      tbl_listing_reviews: {
+        Row: {
+          created_at: string | null
+          decided_at: string | null
+          decision: string | null
+          id: number
+          listing_id: string
+          listing_type: string
+          notes: string | null
+          reviewer_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          decided_at?: string | null
+          decision?: string | null
+          id?: number
+          listing_id: string
+          listing_type: string
+          notes?: string | null
+          reviewer_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          decided_at?: string | null
+          decision?: string | null
+          id?: number
+          listing_id?: string
+          listing_type?: string
+          notes?: string | null
+          reviewer_id?: string | null
+        }
+        Relationships: []
+      }
+      tbl_properties: {
+        Row: {
+          action: Database["public"]["Enums"]["property_action"]
+          bathrooms: number | null
+          bedrooms: number | null
+          created_at: string | null
+          currency: string | null
+          description: string | null
+          district: string | null
+          furnished: boolean | null
+          id: string
+          imgs: string[] | null
+          owner_phone: string
+          price_month: number | null
+          price_total: number | null
+          sector: string | null
+          status: Database["public"]["Enums"]["property_status"] | null
+          title: string
+          updated_at: string | null
+          vector_id: string | null
+        }
+        Insert: {
+          action: Database["public"]["Enums"]["property_action"]
+          bathrooms?: number | null
+          bedrooms?: number | null
+          created_at?: string | null
+          currency?: string | null
+          description?: string | null
+          district?: string | null
+          furnished?: boolean | null
+          id?: string
+          imgs?: string[] | null
+          owner_phone: string
+          price_month?: number | null
+          price_total?: number | null
+          sector?: string | null
+          status?: Database["public"]["Enums"]["property_status"] | null
+          title: string
+          updated_at?: string | null
+          vector_id?: string | null
+        }
+        Update: {
+          action?: Database["public"]["Enums"]["property_action"]
+          bathrooms?: number | null
+          bedrooms?: number | null
+          created_at?: string | null
+          currency?: string | null
+          description?: string | null
+          district?: string | null
+          furnished?: boolean | null
+          id?: string
+          imgs?: string[] | null
+          owner_phone?: string
+          price_month?: number | null
+          price_total?: number | null
+          sector?: string | null
+          status?: Database["public"]["Enums"]["property_status"] | null
+          title?: string
+          updated_at?: string | null
+          vector_id?: string | null
+        }
+        Relationships: []
+      }
+      tbl_vehicles: {
+        Row: {
+          action: Database["public"]["Enums"]["vehicle_action"]
+          created_at: string | null
+          currency: string | null
+          daily_rate: number | null
+          description: string | null
+          fuel_type: string | null
+          id: string
+          imgs: string[] | null
+          make: string | null
+          mileage_km: number | null
+          model: string | null
+          owner_phone: string
+          sale_price: number | null
+          status: Database["public"]["Enums"]["vehicle_status"] | null
+          title: string
+          transmission: string | null
+          updated_at: string | null
+          vector_id: string | null
+          year: number | null
+        }
+        Insert: {
+          action: Database["public"]["Enums"]["vehicle_action"]
+          created_at?: string | null
+          currency?: string | null
+          daily_rate?: number | null
+          description?: string | null
+          fuel_type?: string | null
+          id?: string
+          imgs?: string[] | null
+          make?: string | null
+          mileage_km?: number | null
+          model?: string | null
+          owner_phone: string
+          sale_price?: number | null
+          status?: Database["public"]["Enums"]["vehicle_status"] | null
+          title: string
+          transmission?: string | null
+          updated_at?: string | null
+          vector_id?: string | null
+          year?: number | null
+        }
+        Update: {
+          action?: Database["public"]["Enums"]["vehicle_action"]
+          created_at?: string | null
+          currency?: string | null
+          daily_rate?: number | null
+          description?: string | null
+          fuel_type?: string | null
+          id?: string
+          imgs?: string[] | null
+          make?: string | null
+          mileage_km?: number | null
+          model?: string | null
+          owner_phone?: string
+          sale_price?: number | null
+          status?: Database["public"]["Enums"]["vehicle_status"] | null
+          title?: string
+          transmission?: string | null
+          updated_at?: string | null
+          vector_id?: string | null
+          year?: number | null
+        }
+        Relationships: []
+      }
       telegram_logs: {
         Row: {
           chat_id: string | null
@@ -5196,8 +5358,12 @@ export type Database = {
         | "fulfilled"
         | "cancelled"
       payment_status: "pending" | "paid" | "failed"
+      property_action: "rent" | "sale"
+      property_status: "draft" | "published" | "archived" | "pending"
       source_type: "manual" | "upload" | "url" | "gdrive"
       trip_status: "scheduled" | "ongoing" | "completed" | "cancelled"
+      vehicle_action: "rent" | "sale"
+      vehicle_status: "draft" | "published" | "archived" | "pending"
     }
     CompositeTypes: {
       geometry_dump: {
@@ -5347,8 +5513,12 @@ export const Constants = {
         "cancelled",
       ],
       payment_status: ["pending", "paid", "failed"],
+      property_action: ["rent", "sale"],
+      property_status: ["draft", "published", "archived", "pending"],
       source_type: ["manual", "upload", "url", "gdrive"],
       trip_status: ["scheduled", "ongoing", "completed", "cancelled"],
+      vehicle_action: ["rent", "sale"],
+      vehicle_status: ["draft", "published", "archived", "pending"],
     },
   },
 } as const
