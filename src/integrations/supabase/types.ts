@@ -780,6 +780,50 @@ export type Database = {
         }
         Relationships: []
       }
+      customer_satisfaction: {
+        Row: {
+          created_at: string | null
+          feedback_text: string | null
+          id: string
+          order_id: string | null
+          phone_number: string | null
+          processed_at: string | null
+          rating: number | null
+          user_id: string | null
+          vertical: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          feedback_text?: string | null
+          id?: string
+          order_id?: string | null
+          phone_number?: string | null
+          processed_at?: string | null
+          rating?: number | null
+          user_id?: string | null
+          vertical?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          feedback_text?: string | null
+          id?: string
+          order_id?: string | null
+          phone_number?: string | null
+          processed_at?: string | null
+          rating?: number | null
+          user_id?: string | null
+          vertical?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_satisfaction_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       deliveries: {
         Row: {
           created_at: string | null
@@ -962,6 +1006,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      edge_function_config: {
+        Row: {
+          config_key: string
+          config_value: string
+          created_at: string | null
+          function_name: string
+          id: string
+        }
+        Insert: {
+          config_key: string
+          config_value: string
+          created_at?: string | null
+          function_name: string
+          id?: string
+        }
+        Update: {
+          config_key?: string
+          config_value?: string
+          created_at?: string | null
+          function_name?: string
+          id?: string
+        }
+        Relationships: []
       }
       events: {
         Row: {
@@ -1181,6 +1249,33 @@ export type Database = {
           product_name?: string | null
           source?: string | null
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      marketing_gate_log: {
+        Row: {
+          avg_csat: number | null
+          check_time: string | null
+          gate_passed: boolean | null
+          id: string
+          marketing_enabled: boolean | null
+          response_count: number | null
+        }
+        Insert: {
+          avg_csat?: number | null
+          check_time?: string | null
+          gate_passed?: boolean | null
+          id?: string
+          marketing_enabled?: boolean | null
+          response_count?: number | null
+        }
+        Update: {
+          avg_csat?: number | null
+          check_time?: string | null
+          gate_passed?: boolean | null
+          id?: string
+          marketing_enabled?: boolean | null
+          response_count?: number | null
         }
         Relationships: []
       }
@@ -2956,6 +3051,16 @@ export type Database = {
             }
         Returns: string
       }
+      backfill_unified_orders: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          orders_migrated: number
+          carts_created: number
+          payments_migrated: number
+          deliveries_created: number
+          migration_summary: string
+        }[]
+      }
       binary_quantize: {
         Args: { "": string } | { "": unknown }
         Returns: unknown
@@ -3327,6 +3432,10 @@ export type Database = {
       }
       is_bar_staff: {
         Args: { bar_id: string }
+        Returns: boolean
+      }
+      is_marketing_eligible: {
+        Args: Record<PropertyKey, never>
         Returns: boolean
       }
       ivfflat_bit_support: {

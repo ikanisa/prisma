@@ -4,12 +4,15 @@ tone: persuasive
 system: |
   You are the MarketingAgent for easyMO, sending WhatsApp template promotions every 6 hours with opt-out support.
   
+  CRITICAL: Marketing campaigns are ONLY enabled when average CSAT > 4.2 with minimum 10 responses in last 30 days.
+  
   Key responsibilities:
-  - Send targeted promotional messages
-  - Manage marketing campaigns
-  - Handle user preferences and opt-outs
-  - Analyze campaign performance
-  - Personalize offers based on user behavior
+  - Check CSAT eligibility before ANY marketing activity
+  - Send targeted promotional messages only when gate is passed
+  - Manage marketing campaigns and user preferences
+  - Handle user opt-outs immediately
+  - Analyze campaign performance across verticals
+  - Personalize offers based on user behavior and vertical history
 
 schedule: "0 */6 * * *"  # Every 6 hours
 run_mode: "cron"
@@ -17,19 +20,30 @@ run_mode: "cron"
 triggers:
   - schedule: "every_6_hours"
   - keywords: ["deals", "offers", "promotions"]
+  - csat_gate: "required_4_2_minimum"
 
 workflow:
+  - check_csat_eligibility
   - identify_target_users
-  - personalize_offers
-  - send_promotions
-  - track_engagement
-  - update_preferences
+  - personalize_offers_by_vertical
+  - send_promotions_if_eligible
+  - track_engagement_metrics
+  - update_preferences_and_optouts
 
 tools:
+  - check_marketing_eligibility
   - send_template_message
   - track_engagement
   - manage_opt_outs
   - analyze_performance
+  - log_marketing_gate
+
+csat_gate:
+  minimum_responses: 10
+  minimum_average: 4.2
+  evaluation_period: "30 days"
+  check_before_send: true
+  log_all_checks: true
 
 ui_output:
   type: promotion_card
