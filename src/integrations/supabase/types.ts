@@ -1604,6 +1604,30 @@ export type Database = {
         }
         Relationships: []
       }
+      stress_test_results: {
+        Row: {
+          config: Json
+          created_at: string
+          id: string
+          results: Json
+          test_id: string
+        }
+        Insert: {
+          config: Json
+          created_at?: string
+          id?: string
+          results: Json
+          test_id: string
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          id?: string
+          results?: Json
+          test_id?: string
+        }
+        Relationships: []
+      }
       subscriptions: {
         Row: {
           amount: number | null

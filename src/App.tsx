@@ -27,6 +27,10 @@ import WhatsAppDashboard from "./pages/admin/WhatsAppDashboard";
 import WhatsAppContacts from "./pages/admin/WhatsAppContacts";
 import Conversations from "./pages/admin/Conversations";
 import Farmers from "./pages/admin/Farmers";
+import Passengers from "./pages/admin/Passengers";
+import Rides from "./pages/admin/Rides";
+import WhatsAppTemplates from "./pages/admin/WhatsAppTemplates";
+import RealtimeStressTesting from "./pages/admin/RealtimeStressTesting";
 
 const queryClient = new QueryClient();
 
@@ -46,6 +50,10 @@ const App = () => (
           <Route path="businesses/:businessId" element={<BusinessDetail />} />
           <Route path="drivers" element={<Drivers />} />
           <Route path="farmers" element={<Farmers />} />
+          <Route path="passengers" element={<Passengers />} />
+          <Route path="rides" element={<Rides />} />
+          <Route path="whatsapp-templates" element={<WhatsAppTemplates />} />
+          <Route path="stress-testing" element={<RealtimeStressTesting />} />
           <Route path="products" element={<Products />} />
           <Route path="orders" element={<Orders />} />
           <Route path="payments" element={<Payments />} />
