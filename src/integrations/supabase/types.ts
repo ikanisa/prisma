@@ -406,6 +406,86 @@ export type Database = {
           },
         ]
       }
+      cart_items: {
+        Row: {
+          cart_id: string | null
+          created_at: string | null
+          id: string
+          product_id: string | null
+          qty: number
+          unit_price: number
+        }
+        Insert: {
+          cart_id?: string | null
+          created_at?: string | null
+          id?: string
+          product_id?: string | null
+          qty: number
+          unit_price: number
+        }
+        Update: {
+          cart_id?: string | null
+          created_at?: string | null
+          id?: string
+          product_id?: string | null
+          qty?: number
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cart_items_cart_id_fkey"
+            columns: ["cart_id"]
+            isOneToOne: false
+            referencedRelation: "carts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cart_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      carts: {
+        Row: {
+          buyer_phone: string
+          created_at: string | null
+          id: string
+          status: string | null
+          total: number | null
+          updated_at: string | null
+          vendor_id: string | null
+        }
+        Insert: {
+          buyer_phone: string
+          created_at?: string | null
+          id?: string
+          status?: string | null
+          total?: number | null
+          updated_at?: string | null
+          vendor_id?: string | null
+        }
+        Update: {
+          buyer_phone?: string
+          created_at?: string | null
+          id?: string
+          status?: string | null
+          total?: number | null
+          updated_at?: string | null
+          vendor_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "carts_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contact_timing_patterns: {
         Row: {
           created_at: string | null
@@ -576,6 +656,57 @@ export type Database = {
           status?: string | null
         }
         Relationships: []
+      }
+      deliveries: {
+        Row: {
+          created_at: string | null
+          delivered_at: string | null
+          driver_id: string | null
+          id: string
+          mode: string | null
+          order_id: string | null
+          pickup_eta: string | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          delivered_at?: string | null
+          driver_id?: string | null
+          id?: string
+          mode?: string | null
+          order_id?: string | null
+          pickup_eta?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          delivered_at?: string | null
+          driver_id?: string | null
+          id?: string
+          mode?: string | null
+          order_id?: string | null
+          pickup_eta?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deliveries_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deliveries_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       driver_wallet: {
         Row: {
@@ -949,6 +1080,7 @@ export type Database = {
       orders: {
         Row: {
           business_id: string | null
+          cart_id: string | null
           created_at: string | null
           delivery: boolean | null
           delivery_fee: number | null
@@ -965,6 +1097,7 @@ export type Database = {
         }
         Insert: {
           business_id?: string | null
+          cart_id?: string | null
           created_at?: string | null
           delivery?: boolean | null
           delivery_fee?: number | null
@@ -981,6 +1114,7 @@ export type Database = {
         }
         Update: {
           business_id?: string | null
+          cart_id?: string | null
           created_at?: string | null
           delivery?: boolean | null
           delivery_fee?: number | null
@@ -1001,6 +1135,13 @@ export type Database = {
             columns: ["business_id"]
             isOneToOne: false
             referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_cart_id_fkey"
+            columns: ["cart_id"]
+            isOneToOne: false
+            referencedRelation: "carts"
             referencedColumns: ["id"]
           },
           {
@@ -1040,6 +1181,7 @@ export type Database = {
           id: string
           momo_code: string
           momo_tx: string | null
+          order_id: string | null
           paid_at: string | null
           qr_code_url: string | null
           status: Database["public"]["Enums"]["payment_status"] | null
@@ -1053,6 +1195,7 @@ export type Database = {
           id?: string
           momo_code: string
           momo_tx?: string | null
+          order_id?: string | null
           paid_at?: string | null
           qr_code_url?: string | null
           status?: Database["public"]["Enums"]["payment_status"] | null
@@ -1066,6 +1209,7 @@ export type Database = {
           id?: string
           momo_code?: string
           momo_tx?: string | null
+          order_id?: string | null
           paid_at?: string | null
           qr_code_url?: string | null
           status?: Database["public"]["Enums"]["payment_status"] | null
@@ -1074,6 +1218,13 @@ export type Database = {
           ussd_link?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "payments_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "payments_user_id_fkey"
             columns: ["user_id"]
