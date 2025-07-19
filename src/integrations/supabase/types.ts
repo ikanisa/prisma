@@ -3407,7 +3407,7 @@ export type Database = {
       }
     }
     Enums: {
-      business_type: "bar" | "pharmacy" | "shop"
+      business_type: "bar" | "pharmacy" | "shop" | "produce" | "hardware"
       driver_type: "moto" | "cab" | "truck"
       order_status:
         | "pending"
@@ -3554,7 +3554,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      business_type: ["bar", "pharmacy", "shop"],
+      business_type: ["bar", "pharmacy", "shop", "produce", "hardware"],
       driver_type: ["moto", "cab", "truck"],
       order_status: [
         "pending",
