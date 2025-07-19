@@ -23,12 +23,12 @@ serve(async (req) => {
       throw new Error('Amount and phone number are required');
     }
 
-    console.log(`💰 Generating payment for ${amount} RWF to ${phone}`);
+    console.log(`💰 Generating USSD payment request for ${amount} RWF to ${phone}`);
 
-    // Generate unique payment reference
+    // Generate unique payment reference for tracking only (no API processing)
     const paymentRef = `EMO${Date.now()}${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
     
-    // Create USSD code for MTN Mobile Money Rwanda
+    // Create USSD code for MTN Mobile Money Rwanda (P2P, no API)
     const ussdCode = `*182*1*1*${amount}*${phone}#`;
     const ussdLink = `tel:${encodeURIComponent(ussdCode)}`;
 
@@ -59,7 +59,7 @@ serve(async (req) => {
       ussd_code: ussdCode,
       ussd_link: ussdLink,
       reference: paymentRef,
-      instructions: `Dial ${ussdCode} to complete payment`
+      instructions: `Dial ${ussdCode} to complete P2P mobile money payment (outside system)`
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

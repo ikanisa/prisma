@@ -23,7 +23,7 @@ serve(async (req) => {
       throw new Error('Driver ID and amount are required');
     }
 
-    console.log(`💰 Processing payout for driver ${driver_id}: ${amount} RWF`);
+    console.log(`💰 Generating USSD payout for driver ${driver_id}: ${amount} RWF (P2P only)`);
 
     // Get driver details
     const { data: driver, error: driverError } = await supabase
@@ -41,7 +41,7 @@ serve(async (req) => {
       throw new Error('Insufficient wallet balance');
     }
 
-    // Generate payment via existing payment system
+    // Generate USSD code via existing system (no actual payment processing)
     const paymentResponse = await supabase.functions.invoke('generate-payment', {
       body: {
         amount,
@@ -93,7 +93,7 @@ serve(async (req) => {
       ussd_code: paymentData.ussd_code,
       ussd_link: paymentData.ussd_link,
       reference: paymentData.reference,
-      instructions: `Payout of ${amount} RWF initiated. Follow USSD prompts to complete.`
+      instructions: `USSD code generated for ${amount} RWF payout. Complete P2P transfer outside system.`
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
