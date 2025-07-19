@@ -2003,6 +2003,42 @@ export type Database = {
           },
         ]
       }
+      qa_test_scenarios: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          expected_result: string | null
+          id: string
+          pilot_location: string | null
+          priority: string | null
+          scenario_name: string
+          test_steps: string[] | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          expected_result?: string | null
+          id: string
+          pilot_location?: string | null
+          priority?: string | null
+          scenario_name: string
+          test_steps?: string[] | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          expected_result?: string | null
+          id?: string
+          pilot_location?: string | null
+          priority?: string | null
+          scenario_name?: string
+          test_steps?: string[] | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       referrals: {
         Row: {
           created_at: string | null

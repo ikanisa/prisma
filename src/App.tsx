@@ -39,6 +39,7 @@ import HardwareDashboard from "./pages/admin/HardwareDashboard";
 import ProductDrafts from "./pages/admin/ProductDrafts";
 import ProduceDrafts from "./pages/admin/ProduceDrafts";
 import ProduceListings from "./pages/admin/ProduceListings";
+import HardwareDeployment from "./pages/admin/HardwareDeployment";
 
 const queryClient = new QueryClient();
 
@@ -87,6 +88,7 @@ const App = () => (
           <Route path="product-drafts" element={<ProductDrafts />} />
           <Route path="produce-drafts" element={<ProduceDrafts />} />
           <Route path="produce-listings" element={<ProduceListings />} />
+          <Route path="hardware-deployment" element={<HardwareDeployment />} />
         </Route>
         
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

@@ -24,7 +24,8 @@ import {
   Tractor,
   Hammer,
   Layers,
-  ClipboardList
+  ClipboardList,
+  Rocket
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -40,6 +41,7 @@ const sidebarItems = [
   { name: "Produce Drafts", path: "/admin/produce-drafts", icon: ClipboardList },
   { name: "Produce Listings", path: "/admin/produce-listings", icon: Package },
   { name: "Products", path: "/admin/products", icon: Package },
+  { name: "Hardware Deployment", path: "/admin/hardware-deployment", icon: Rocket },
   { name: "Orders", path: "/admin/orders", icon: ShoppingCart },
   { name: "Payments", path: "/admin/payments", icon: CreditCard },
   { name: "Events", path: "/admin/events", icon: Calendar },
