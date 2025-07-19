@@ -152,9 +152,9 @@ export default function Tasks() {
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [searchQuery, setSearchQuery] = useState("");
-  const [filterAgent, setFilterAgent] = useState("");
-  const [filterTrigger, setFilterTrigger] = useState("");
-  const [filterStatus, setFilterStatus] = useState("");
+  const [filterAgent, setFilterAgent] = useState("all-agents");
+  const [filterTrigger, setFilterTrigger] = useState("all-triggers");
+  const [filterStatus, setFilterStatus] = useState("all-statuses");
   const [selectedTemplate, setSelectedTemplate] = useState("");
   const [formData, setFormData] = useState<TaskFormData>({
     agent_id: "",
@@ -380,9 +380,9 @@ export default function Tasks() {
       task.tool_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       task.agents?.name?.toLowerCase().includes(searchQuery.toLowerCase());
     
-    const matchesAgent = !filterAgent || task.agent_id === filterAgent;
-    const matchesTrigger = !filterTrigger || task.trigger_type === filterTrigger;
-    const matchesStatus = !filterStatus || 
+    const matchesAgent = !filterAgent || filterAgent === 'all-agents' || task.agent_id === filterAgent;
+    const matchesTrigger = !filterTrigger || filterTrigger === 'all-triggers' || task.trigger_type === filterTrigger;
+    const matchesStatus = !filterStatus || filterStatus === 'all-statuses' || 
       (filterStatus === 'active' && task.active) ||
       (filterStatus === 'inactive' && !task.active);
 
@@ -729,7 +729,7 @@ export default function Tasks() {
                   <SelectValue placeholder="All agents" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All agents</SelectItem>
+                  <SelectItem value="all-agents">All agents</SelectItem>
                   {agents.map((agent) => (
                     <SelectItem key={agent.id} value={agent.id}>
                       {agent.name}
@@ -746,7 +746,7 @@ export default function Tasks() {
                   <SelectValue placeholder="All triggers" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All triggers</SelectItem>
+                  <SelectItem value="all-triggers">All triggers</SelectItem>
                   {TRIGGER_TYPES.map((type) => (
                     <SelectItem key={type.value} value={type.value}>
                       {type.label}
@@ -763,7 +763,7 @@ export default function Tasks() {
                   <SelectValue placeholder="All statuses" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All statuses</SelectItem>
+                  <SelectItem value="all-statuses">All statuses</SelectItem>
                   <SelectItem value="active">Active</SelectItem>
                   <SelectItem value="inactive">Inactive</SelectItem>
                 </SelectContent>
@@ -775,9 +775,9 @@ export default function Tasks() {
                 variant="outline" 
                 onClick={() => {
                   setSearchQuery("");
-                  setFilterAgent("");
-                  setFilterTrigger("");
-                  setFilterStatus("");
+                  setFilterAgent("all-agents");
+                  setFilterTrigger("all-triggers");
+                  setFilterStatus("all-statuses");
                 }}
               >
                 Clear Filters
