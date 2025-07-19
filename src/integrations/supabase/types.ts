@@ -491,6 +491,7 @@ export type Database = {
           momo_code: string
           name: string
           owner_user_id: string | null
+          pos_system_config: Json | null
           status: string | null
           subscription_status: string | null
         }
@@ -502,6 +503,7 @@ export type Database = {
           momo_code: string
           name: string
           owner_user_id?: string | null
+          pos_system_config?: Json | null
           status?: string | null
           subscription_status?: string | null
         }
@@ -513,6 +515,7 @@ export type Database = {
           momo_code?: string
           name?: string
           owner_user_id?: string | null
+          pos_system_config?: Json | null
           status?: string | null
           subscription_status?: string | null
         }
@@ -1650,6 +1653,47 @@ export type Database = {
         }
         Relationships: []
       }
+      pos_sync_log: {
+        Row: {
+          bar_id: string | null
+          created_at: string | null
+          id: string
+          items_failed: number | null
+          items_processed: number | null
+          items_updated: number | null
+          sync_details: Json | null
+          sync_type: string
+        }
+        Insert: {
+          bar_id?: string | null
+          created_at?: string | null
+          id?: string
+          items_failed?: number | null
+          items_processed?: number | null
+          items_updated?: number | null
+          sync_details?: Json | null
+          sync_type: string
+        }
+        Update: {
+          bar_id?: string | null
+          created_at?: string | null
+          id?: string
+          items_failed?: number | null
+          items_processed?: number | null
+          items_updated?: number | null
+          sync_details?: Json | null
+          sync_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pos_sync_log_bar_id_fkey"
+            columns: ["bar_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       prediction_accuracy: {
         Row: {
           accuracy: boolean | null
@@ -1736,9 +1780,13 @@ export type Database = {
           description: string | null
           id: string
           image_url: string | null
+          last_pos_sync: string | null
+          min_stock_level: number | null
           name: string | null
           price: number | null
+          sku: string | null
           stock_qty: number | null
+          stock_quantity: number | null
           unit: string | null
         }
         Insert: {
@@ -1748,9 +1796,13 @@ export type Database = {
           description?: string | null
           id?: string
           image_url?: string | null
+          last_pos_sync?: string | null
+          min_stock_level?: number | null
           name?: string | null
           price?: number | null
+          sku?: string | null
           stock_qty?: number | null
+          stock_quantity?: number | null
           unit?: string | null
         }
         Update: {
@@ -1760,9 +1812,13 @@ export type Database = {
           description?: string | null
           id?: string
           image_url?: string | null
+          last_pos_sync?: string | null
+          min_stock_level?: number | null
           name?: string | null
           price?: number | null
+          sku?: string | null
           stock_qty?: number | null
+          stock_quantity?: number | null
           unit?: string | null
         }
         Relationships: [
