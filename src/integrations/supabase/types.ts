@@ -1233,6 +1233,86 @@ export type Database = {
           },
         ]
       }
+      passenger_promos: {
+        Row: {
+          created_at: string | null
+          discount_amount: number | null
+          discount_percent: number | null
+          expires_at: string | null
+          id: string
+          passenger_id: string | null
+          promo_code: string
+          redeemed: boolean | null
+          redeemed_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          discount_amount?: number | null
+          discount_percent?: number | null
+          expires_at?: string | null
+          id?: string
+          passenger_id?: string | null
+          promo_code: string
+          redeemed?: boolean | null
+          redeemed_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          discount_amount?: number | null
+          discount_percent?: number | null
+          expires_at?: string | null
+          id?: string
+          passenger_id?: string | null
+          promo_code?: string
+          redeemed?: boolean | null
+          redeemed_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "passenger_promos_passenger_id_fkey"
+            columns: ["passenger_id"]
+            isOneToOne: false
+            referencedRelation: "passengers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      passengers: {
+        Row: {
+          avg_rating_given: number | null
+          created_at: string | null
+          full_name: string | null
+          id: string
+          preferred_lang: string | null
+          total_rides: number | null
+          updated_at: string | null
+          user_id: string | null
+          whatsapp_number: string | null
+        }
+        Insert: {
+          avg_rating_given?: number | null
+          created_at?: string | null
+          full_name?: string | null
+          id?: string
+          preferred_lang?: string | null
+          total_rides?: number | null
+          updated_at?: string | null
+          user_id?: string | null
+          whatsapp_number?: string | null
+        }
+        Update: {
+          avg_rating_given?: number | null
+          created_at?: string | null
+          full_name?: string | null
+          id?: string
+          preferred_lang?: string | null
+          total_rides?: number | null
+          updated_at?: string | null
+          user_id?: string | null
+          whatsapp_number?: string | null
+        }
+        Relationships: []
+      }
       payments: {
         Row: {
           amount: number
@@ -1450,6 +1530,56 @@ export type Database = {
           },
         ]
       }
+      ride_requests: {
+        Row: {
+          created_at: string | null
+          destination: unknown | null
+          destination_address: string | null
+          expired_at: string | null
+          fare_estimate: number | null
+          id: string
+          matched_at: string | null
+          origin: unknown | null
+          origin_address: string | null
+          passenger_id: string | null
+          status: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          destination?: unknown | null
+          destination_address?: string | null
+          expired_at?: string | null
+          fare_estimate?: number | null
+          id?: string
+          matched_at?: string | null
+          origin?: unknown | null
+          origin_address?: string | null
+          passenger_id?: string | null
+          status?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          destination?: unknown | null
+          destination_address?: string | null
+          expired_at?: string | null
+          fare_estimate?: number | null
+          id?: string
+          matched_at?: string | null
+          origin?: unknown | null
+          origin_address?: string | null
+          passenger_id?: string | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ride_requests_passenger_id_fkey"
+            columns: ["passenger_id"]
+            isOneToOne: false
+            referencedRelation: "passengers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       spatial_ref_sys: {
         Row: {
           auth_name: string | null
@@ -1600,6 +1730,61 @@ export type Database = {
           },
         ]
       }
+      trip_ratings: {
+        Row: {
+          created_at: string | null
+          driver_id: string | null
+          feedback: string | null
+          id: string
+          passenger_id: string | null
+          stars: number | null
+          tip_amount: number | null
+          trip_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          driver_id?: string | null
+          feedback?: string | null
+          id?: string
+          passenger_id?: string | null
+          stars?: number | null
+          tip_amount?: number | null
+          trip_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          driver_id?: string | null
+          feedback?: string | null
+          id?: string
+          passenger_id?: string | null
+          stars?: number | null
+          tip_amount?: number | null
+          trip_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trip_ratings_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trip_ratings_passenger_id_fkey"
+            columns: ["passenger_id"]
+            isOneToOne: false
+            referencedRelation: "passengers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trip_ratings_trip_id_fkey"
+            columns: ["trip_id"]
+            isOneToOne: false
+            referencedRelation: "trips"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       trips: {
         Row: {
           completed_at: string | null
@@ -1608,10 +1793,14 @@ export type Database = {
           driver_id: string | null
           dropoff_coords: unknown | null
           dropoff_location: string | null
+          fare_amount: number | null
           id: string
+          passenger_id: string | null
+          passenger_paid: boolean | null
           pickup_coords: unknown | null
           pickup_location: string | null
           price: number | null
+          ride_request_id: string | null
           status: Database["public"]["Enums"]["trip_status"] | null
         }
         Insert: {
@@ -1621,10 +1810,14 @@ export type Database = {
           driver_id?: string | null
           dropoff_coords?: unknown | null
           dropoff_location?: string | null
+          fare_amount?: number | null
           id?: string
+          passenger_id?: string | null
+          passenger_paid?: boolean | null
           pickup_coords?: unknown | null
           pickup_location?: string | null
           price?: number | null
+          ride_request_id?: string | null
           status?: Database["public"]["Enums"]["trip_status"] | null
         }
         Update: {
@@ -1634,10 +1827,14 @@ export type Database = {
           driver_id?: string | null
           dropoff_coords?: unknown | null
           dropoff_location?: string | null
+          fare_amount?: number | null
           id?: string
+          passenger_id?: string | null
+          passenger_paid?: boolean | null
           pickup_coords?: unknown | null
           pickup_location?: string | null
           price?: number | null
+          ride_request_id?: string | null
           status?: Database["public"]["Enums"]["trip_status"] | null
         }
         Relationships: [
@@ -1646,6 +1843,20 @@ export type Database = {
             columns: ["driver_id"]
             isOneToOne: false
             referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trips_passenger_id_fkey"
+            columns: ["passenger_id"]
+            isOneToOne: false
+            referencedRelation: "passengers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trips_ride_request_id_fkey"
+            columns: ["ride_request_id"]
+            isOneToOne: false
+            referencedRelation: "ride_requests"
             referencedColumns: ["id"]
           },
         ]
