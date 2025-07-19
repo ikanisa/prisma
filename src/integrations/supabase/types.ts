@@ -4076,6 +4076,21 @@ export type Database = {
         }
         Relationships: []
       }
+      trips_and_intents: {
+        Row: {
+          created_at: string | null
+          from_text: string | null
+          id: string | null
+          price_rwf: number | null
+          seats: number | null
+          status: string | null
+          to_text: string | null
+          type: string | null
+          updated_at: string | null
+          user_phone: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       _postgis_deprecate: {
@@ -4322,6 +4337,10 @@ export type Database = {
           id: string
           distance_km: number
         }[]
+      }
+      fn_admin_force_match: {
+        Args: { p_trip_id: string }
+        Returns: undefined
       }
       fn_find_matching_trips: {
         Args: { intent_id: string }

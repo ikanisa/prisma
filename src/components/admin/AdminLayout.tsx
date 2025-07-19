@@ -47,6 +47,7 @@ const sidebarItems = [
   { name: "Quality Dashboard", path: "/admin/quality-dashboard", icon: BarChart3 },
   { name: "System Metrics", path: "/admin/system-metrics", icon: Activity },
   { name: "Experiments", path: "/admin/experiments", icon: AlertTriangle },
+  { name: "Trips & Intents", path: "/admin/trips", icon: Car },
   { name: "Hardware Vendors", path: "/admin/hardware", icon: Hammer },
   { name: "Product Imports", path: "/admin/product-drafts", icon: Layers },
   { name: "Produce Drafts", path: "/admin/produce-drafts", icon: ClipboardList },

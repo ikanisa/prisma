@@ -1,380 +1,257 @@
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// OpenAI client setup
-const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
-const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!, {
+  auth: { persistSession: false }
+});
 
-interface ToolCall {
-  id: string;
-  function: {
-    name: string;
-    arguments: string;
-  };
-}
+// Tool definitions for OpenAI
+const openAITools = [
+  {
+    type: "function",
+    function: {
+      name: "get_nearby_drivers",
+      description: "Find active driver trips within a radius (km) of a location",
+      parameters: {
+        type: "object",
+        properties: {
+          lat: { type: "number", description: "Latitude in decimal degrees" },
+          lng: { type: "number", description: "Longitude in decimal degrees" },
+          radius: { type: "number", description: "Search radius in kilometres", default: 2 }
+        },
+        required: ["lat", "lng"]
+      }
+    }
+  }
+];
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
+  if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { thread_id, userMessage, phone_number, language = 'en' } = await req.json();
+    const { sender, channel = "whatsapp", content, lat, lng, userMessage, phone_number, language } = await req.json();
+    
+    // Handle different input formats
+    const messageContent = content || userMessage;
+    const userPhone = sender || phone_number;
+    const userLat = lat;
+    const userLng = lng;
 
-    console.log('MCP Orchestrator received:', { thread_id, userMessage, phone_number, language });
+    if (!OPENAI_API_KEY) {
+      throw new Error("OpenAI API key not configured");
+    }
 
-    // Get or create thread
-    let threadId = thread_id;
-    if (!threadId) {
-      // Create new thread
-      const threadResponse = await fetch('https://api.openai.com/v1/threads', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${openAIApiKey}`,
-          'Content-Type': 'application/json',
-          'OpenAI-Beta': 'assistants=v2'
-        },
-        body: JSON.stringify({})
+    console.log(`Processing message from ${userPhone}: ${messageContent}`);
+
+    // Determine if this might be a trip-related request
+    const tripPatterns = [
+      /trip|ride|transport|travel|go to|need to get to/i,
+      /kigali|rubavu|huye|musanze|nyanza|karongi/i,
+      /driver|passenger|seat|price|rwf/i
+    ];
+
+    const isLikelyTripRequest = tripPatterns.some(pattern => pattern.test(messageContent));
+
+    // Try specialized trip handlers first
+    if (isLikelyTripRequest) {
+      console.log("Trying trip-specific handlers...");
+      
+      // Try driver trip creation
+      const driverResponse = await supabase.functions.invoke("driver-trip-create", {
+        body: { from: userPhone, text: messageContent, message_id: crypto.randomUUID() }
       });
       
-      if (!threadResponse.ok) {
-        throw new Error(`Failed to create thread: ${await threadResponse.text()}`);
+      if (driverResponse.data?.handled) {
+        console.log("Handled by driver-trip-create");
+        return new Response(
+          JSON.stringify({ success: true, handler: "driver-trip-create" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
       }
-      
-      const thread = await threadResponse.json();
-      threadId = thread.id;
 
-      // Store thread mapping
-      await supabase.from('conversation_threads').insert({
-        phone_number,
-        thread_id: threadId
+      // Try passenger intent creation
+      const passengerResponse = await supabase.functions.invoke("passenger-intent-create", {
+        body: { from: userPhone, text: messageContent, message_id: crypto.randomUUID() }
       });
-    }
-
-    // Add user message to thread
-    const messageResponse = await fetch(`https://api.openai.com/v1/threads/${threadId}/messages`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
-        'Content-Type': 'application/json',
-        'OpenAI-Beta': 'assistants=v2'
-      },
-      body: JSON.stringify({
-        role: 'user',
-        content: userMessage
-      })
-    });
-
-    if (!messageResponse.ok) {
-      throw new Error(`Failed to add message: ${await messageResponse.text()}`);
-    }
-
-    // Get assistant configuration
-    const { data: assistantConfig } = await supabase
-      .from('assistant_configs')
-      .select('*')
-      .eq('status', 'active')
-      .single();
-
-    if (!assistantConfig) {
-      throw new Error('No active assistant configuration found');
-    }
-
-    // Get available tools
-    const { data: toolDefs } = await supabase
-      .from('tool_definitions')
-      .select('*')
-      .eq('status', 'active');
-
-    // Format tools for OpenAI
-    const tools = toolDefs?.map(tool => ({
-      type: 'function',
-      function: {
-        name: tool.name,
-        description: tool.description,
-        parameters: tool.parameters
+      
+      if (passengerResponse.data?.handled) {
+        console.log("Handled by passenger-intent-create");
+        return new Response(
+          JSON.stringify({ success: true, handler: "passenger-intent-create" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
       }
-    })) || [];
+    }
 
-    // Create assistant run
-    const runResponse = await fetch(`https://api.openai.com/v1/threads/${threadId}/runs`, {
-      method: 'POST',
+    // Fall back to general AI conversation
+    console.log("Using general AI conversation...");
+
+    const systemPrompt = `You are easyMO's autonomous multi-service assistant on WhatsApp. 
+You help with:
+- Ride sharing (drivers and passengers) 
+- Mobile money payments
+- Marketplace listings
+- Event bookings
+- General business support
+
+Respond in a friendly, helpful manner. Keep responses concise (under 640 characters).
+Use Kinyarwanda when appropriate, English as fallback.
+If users mention trips, rides, or transport, explain how they can post "Trip: [from] → [to] [seats] [price]" for drivers
+or "Need ride [from] → [to] [seats] [budget]" for passengers.`;
+
+    const messages = [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: messageContent }
+    ];
+
+    // Check if location-based tools might be needed
+    let tools = undefined;
+    if (userLat && userLng && /nearby|close|around|find.*driver/i.test(messageContent)) {
+      tools = openAITools;
+    }
+
+    const completion = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
       headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
-        'Content-Type': 'application/json',
-        'OpenAI-Beta': 'assistants=v2'
+        "Authorization": `Bearer ${OPENAI_API_KEY}`,
+        "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        assistant_id: assistantConfig.assistant_id || await getOrCreateAssistant(assistantConfig, tools),
-        instructions: `${assistantConfig.instructions}\n\nUser language: ${language}. Always respond in the user's language.`,
+        model: "gpt-4o-mini",
+        messages,
         tools,
-        temperature: assistantConfig.temperature
+        tool_choice: tools ? "auto" : undefined,
+        temperature: 0.4,
+        max_tokens: 500
       })
     });
 
-    if (!runResponse.ok) {
-      throw new Error(`Failed to create run: ${await runResponse.text()}`);
+    if (!completion.ok) {
+      throw new Error(`OpenAI API error: ${completion.status}`);
     }
 
-    const run = await runResponse.json();
-    let runId = run.id;
+    const result = await completion.json();
+    let finalAnswer = "";
 
-    // Poll for completion
-    let runStatus;
-    const maxPolls = 30;
-    let pollCount = 0;
-
-    while (pollCount < maxPolls) {
-      await new Promise(resolve => setTimeout(resolve, 2000));
+    // Handle tool calls if any
+    const message = result.choices[0].message;
+    if (message.tool_calls && message.tool_calls.length > 0) {
+      const toolCall = message.tool_calls[0];
       
-      const statusResponse = await fetch(`https://api.openai.com/v1/threads/${threadId}/runs/${runId}`, {
-        headers: {
-          'Authorization': `Bearer ${openAIApiKey}`,
-          'OpenAI-Beta': 'assistants=v2'
-        }
-      });
+      if (toolCall.function.name === "get_nearby_drivers") {
+        const args = JSON.parse(toolCall.function.arguments);
+        
+        // Use provided coordinates or defaults
+        const searchLat = args.lat || userLat || -1.9579;
+        const searchLng = args.lng || userLng || 30.1127;
+        const radius = args.radius || 2;
 
-      runStatus = await statusResponse.json();
-      console.log('Run status:', runStatus.status);
+        console.log(`Searching for drivers near ${searchLat}, ${searchLng} within ${radius}km`);
 
-      if (runStatus.status === 'completed') {
-        break;
-      } else if (runStatus.status === 'requires_action') {
-        // Handle tool calls
-        const toolCalls = runStatus.required_action?.submit_tool_outputs?.tool_calls || [];
-        console.log('Tool calls required:', toolCalls.length);
-
-        const toolOutputs = [];
-        for (const toolCall of toolCalls) {
-          try {
-            const result = await executeTool(toolCall.function, supabase, phone_number);
-            toolOutputs.push({
-              tool_call_id: toolCall.id,
-              output: JSON.stringify(result)
-            });
-          } catch (error) {
-            console.error('Tool execution error:', error);
-            toolOutputs.push({
-              tool_call_id: toolCall.id,
-              output: JSON.stringify({ error: error.message })
-            });
-          }
-        }
-
-        // Submit tool outputs
-        const submitResponse = await fetch(`https://api.openai.com/v1/threads/${threadId}/runs/${runId}/submit_tool_outputs`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${openAIApiKey}`,
-            'Content-Type': 'application/json',
-            'OpenAI-Beta': 'assistants=v2'
-          },
-          body: JSON.stringify({ tool_outputs: toolOutputs })
+        const { data: drivers, error } = await supabase.rpc("fn_get_nearby_drivers", {
+          lat: searchLat,
+          lng: searchLng,
+          radius
         });
 
-        if (!submitResponse.ok) {
-          throw new Error(`Failed to submit tool outputs: ${await submitResponse.text()}`);
+        if (error) {
+          console.error("Error fetching nearby drivers:", error);
+          finalAnswer = "Sorry, I couldn't find nearby drivers right now. Please try again later.";
+        } else {
+          // Generate response with tool results
+          const toolMessages = [
+            ...messages,
+            message,
+            {
+              role: "tool",
+              tool_call_id: toolCall.id,
+              name: "get_nearby_drivers",
+              content: JSON.stringify(drivers || [])
+            }
+          ];
+
+          const toolCompletion = await fetch("https://api.openai.com/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${OPENAI_API_KEY}`,
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              model: "gpt-4o-mini",
+              messages: toolMessages,
+              temperature: 0.4,
+              max_tokens: 500
+            })
+          });
+
+          const toolResult = await toolCompletion.json();
+          finalAnswer = toolResult.choices[0].message.content;
         }
-      } else if (runStatus.status === 'failed' || runStatus.status === 'cancelled') {
-        throw new Error(`Run failed: ${runStatus.last_error?.message || 'Unknown error'}`);
       }
-
-      pollCount++;
+    } else {
+      finalAnswer = message.content;
     }
 
-    if (runStatus?.status !== 'completed') {
-      throw new Error('Run timed out or failed to complete');
+    // Send response via channel gateway
+    if (finalAnswer) {
+      await supabase.functions.invoke("channel-gateway", {
+        body: {
+          channel,
+          recipient: userPhone,
+          message: finalAnswer,
+          message_type: "text"
+        }
+      });
     }
 
-    // Get the assistant's response
-    const messagesResponse = await fetch(`https://api.openai.com/v1/threads/${threadId}/messages?limit=1`, {
-      headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
-        'OpenAI-Beta': 'assistants=v2'
+    return new Response(
+      JSON.stringify({ 
+        success: true, 
+        reply: finalAnswer,
+        handler: "mcp-orchestrator"
+      }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+
+  } catch (error: any) {
+    console.error("MCP orchestrator error:", error);
+    
+    // Try to send a fallback message
+    try {
+      const { sender, phone_number } = await req.json();
+      const userPhone = sender || phone_number;
+      
+      if (userPhone) {
+        await supabase.functions.invoke("channel-gateway", {
+          body: {
+            channel: "whatsapp",
+            recipient: userPhone,
+            message: "Hi! I'm experiencing some technical difficulties. Please try again in a moment.",
+            message_type: "text"
+          }
+        });
       }
-    });
+    } catch (fallbackError) {
+      console.error("Fallback message failed:", fallbackError);
+    }
 
-    const messages = await messagesResponse.json();
-    const assistantMessage = messages.data[0];
-    const reply = assistantMessage?.content?.[0]?.text?.value || 'I apologize, but I was unable to process your request.';
-
-    // Log conversation
-    await supabase.from('conversation_messages').insert({
-      phone_number,
-      sender: 'user',
-      message_text: userMessage,
-      channel: 'whatsapp',
-      model_used: assistantConfig.model
-    });
-
-    await supabase.from('conversation_messages').insert({
-      phone_number,
-      sender: 'assistant',
-      message_text: reply,
-      channel: 'whatsapp',
-      model_used: assistantConfig.model
-    });
-
-    return new Response(JSON.stringify({
-      reply,
-      thread_id: threadId,
-      model_used: assistantConfig.model
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
-
-  } catch (error) {
-    console.error('MCP Orchestrator error:', error);
-    return new Response(JSON.stringify({
-      error: error.message,
-      reply: 'I apologize, but I encountered an error processing your request. Please try again.'
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
+    return new Response(
+      JSON.stringify({ success: false, error: error.message }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
+      }
+    );
   }
 });
-
-async function getOrCreateAssistant(config: any, tools: any[]): Promise<string> {
-  if (config.assistant_id) {
-    return config.assistant_id;
-  }
-
-  // Create new assistant
-  const response = await fetch('https://api.openai.com/v1/assistants', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${openAIApiKey}`,
-      'Content-Type': 'application/json',
-      'OpenAI-Beta': 'assistants=v2'
-    },
-    body: JSON.stringify({
-      name: config.name,
-      model: config.model,
-      instructions: config.instructions,
-      tools,
-      temperature: config.temperature
-    })
-  });
-
-  if (!response.ok) {
-    throw new Error(`Failed to create assistant: ${await response.text()}`);
-  }
-
-  const assistant = await response.json();
-  
-  // Update config with assistant ID
-  await supabase
-    .from('assistant_configs')
-    .update({ assistant_id: assistant.id })
-    .eq('id', config.id);
-
-  return assistant.id;
-}
-
-async function executeTool(fnCall: { name: string; arguments: string }, supabase: any, phoneNumber: string) {
-  const args = JSON.parse(fnCall.arguments || '{}');
-  console.log('Executing tool:', fnCall.name, 'with args:', args);
-
-  switch (fnCall.name) {
-    case 'get_nearby_drivers':
-      const { lat, lng, radius_km = 2 } = args;
-      const { data: trips } = await supabase.rpc('fn_get_nearby_drivers', {
-        lat,
-        lng,
-        radius: radius_km
-      });
-      return { trips: trips || [] };
-
-    case 'create_booking':
-      const { driver_trip_id, passenger_phone, pickup, dropoff, fare_rwf } = args;
-      
-      // First get the driver trip to get passenger intent
-      const { data: driverTrip } = await supabase
-        .from('driver_trips')
-        .select('*')
-        .eq('id', driver_trip_id)
-        .single();
-
-      if (!driverTrip) {
-        throw new Error('Driver trip not found');
-      }
-
-      // Create or get passenger intent
-      const { data: passengerIntent } = await supabase
-        .from('passenger_intents')
-        .insert({
-          passenger_phone: passenger_phone || phoneNumber,
-          pickup_address: pickup,
-          dropoff_address: dropoff,
-          seats: 1
-        })
-        .select()
-        .single();
-
-      // Create booking
-      const { data: booking } = await supabase
-        .from('bookings')
-        .insert({
-          driver_trip_id,
-          passenger_intent_id: passengerIntent.id,
-          fare_rwf,
-          status: 'confirmed',
-          channel: 'whatsapp'
-        })
-        .select()
-        .single();
-
-      return { booking_id: booking.id, status: 'confirmed', fare_rwf };
-
-    case 'list_properties':
-      const { location, property_type, max_price, bedrooms } = args;
-      let query = supabase.from('properties').select('*');
-      
-      if (location) query = query.ilike('location', `%${location}%`);
-      if (property_type) query = query.eq('property_type', property_type);
-      if (max_price) query = query.lte('price', max_price);
-      if (bedrooms) query = query.eq('bedrooms', bedrooms);
-
-      const { data: properties } = await query.limit(10);
-      return { properties: properties || [] };
-
-    case 'search_listings':
-      const { category, location: listingLocation, max_price: listingMaxPrice, query: searchQuery } = args;
-      let listingQuery = supabase.from('products').select('*');
-      
-      if (category) listingQuery = listingQuery.eq('category', category);
-      if (listingLocation) listingQuery = listingQuery.ilike('location', `%${listingLocation}%`);
-      if (listingMaxPrice) listingQuery = listingQuery.lte('price', listingMaxPrice);
-      if (searchQuery) listingQuery = listingQuery.or(`name.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%`);
-
-      const { data: listings } = await listingQuery.limit(10);
-      return { listings: listings || [] };
-
-    case 'generate_payment_qr':
-      const { amount, merchant_code, description = 'Payment' } = args;
-      // Generate QR code using existing function
-      const qrResponse = await supabase.functions.invoke('generate-payment', {
-        body: { amount, merchant_code, description }
-      });
-      
-      return { 
-        qr_code: qrResponse.data?.qr_code,
-        payment_reference: qrResponse.data?.reference,
-        amount,
-        merchant_code
-      };
-
-    default:
-      throw new Error(`Tool not implemented: ${fnCall.name}`);
-  }
-}

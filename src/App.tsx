@@ -49,6 +49,7 @@ import LiveHandoffs from "./pages/admin/LiveHandoffs";
 import QualityDashboard from "./pages/admin/QualityDashboard";
 import SystemMetrics from "./pages/admin/SystemMetrics";
 import Experiments from "./pages/admin/Experiments";
+import Trips from "./pages/admin/Trips";
 import Settings from "./pages/admin/Settings";
 import MarketingCampaigns from "./pages/admin/MarketingCampaigns";
 
@@ -76,6 +77,7 @@ const App = () => (
           <Route path="quality-dashboard" element={<QualityDashboard />} />
           <Route path="system-metrics" element={<SystemMetrics />} />
           <Route path="experiments" element={<Experiments />} />
+          <Route path="trips" element={<Trips />} />
           <Route path="passengers" element={<Passengers />} />
           <Route path="rides" element={<Rides />} />
           <Route path="pharmacy/orders" element={<PharmacyOrders />} />
