@@ -19,7 +19,7 @@ import Agents from "./pages/admin/Agents";
 import Personas from "./pages/admin/Personas";
 import PersonaDetail from "./pages/admin/PersonaDetail";
 import Tasks from "./pages/admin/Tasks";
-import Learning from "./pages/admin/Learning";
+import LearningModules from "./pages/admin/LearningModules";
 import Documents from "./pages/admin/Documents";
 import AgentLogs from "./pages/admin/AgentLogs";
 import ModelRegistry from "./pages/admin/ModelRegistry";
@@ -78,7 +78,7 @@ const App = () => (
           <Route path="personas" element={<Personas />} />
           <Route path="personas/:id" element={<PersonaDetail />} />
           <Route path="tasks" element={<Tasks />} />
-          <Route path="learning" element={<Learning />} />
+          <Route path="learning" element={<LearningModules />} />
           <Route path="documents" element={<Documents />} />
           <Route path="agent-logs" element={<AgentLogs />} />
           <Route path="model-registry" element={<ModelRegistry />} />

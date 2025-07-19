@@ -1189,6 +1189,44 @@ export type Database = {
         }
         Relationships: []
       }
+      ingestion_pipeline: {
+        Row: {
+          completed_at: string | null
+          id: number
+          log: string | null
+          module_id: string | null
+          stage: string | null
+          started_at: string | null
+          status: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          id?: number
+          log?: string | null
+          module_id?: string | null
+          stage?: string | null
+          started_at?: string | null
+          status?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          id?: number
+          log?: string | null
+          module_id?: string | null
+          stage?: string | null
+          started_at?: string | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ingestion_pipeline_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "learning_modules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       learning_gap_instances: {
         Row: {
           context_excerpt: string | null
@@ -1222,6 +1260,60 @@ export type Database = {
           severity_level?: string | null
           status?: string | null
           suggested_improvement?: string | null
+        }
+        Relationships: []
+      }
+      learning_modules: {
+        Row: {
+          agent_scope: string | null
+          auto_tags: string[] | null
+          content: string | null
+          created_at: string | null
+          id: string
+          relevance_score: number | null
+          source_path: string | null
+          source_type: string | null
+          status: string | null
+          summary: string | null
+          title: string | null
+          updated_at: string | null
+          uploaded_by: string | null
+          vector_count: number | null
+          vector_ns: string | null
+        }
+        Insert: {
+          agent_scope?: string | null
+          auto_tags?: string[] | null
+          content?: string | null
+          created_at?: string | null
+          id?: string
+          relevance_score?: number | null
+          source_path?: string | null
+          source_type?: string | null
+          status?: string | null
+          summary?: string | null
+          title?: string | null
+          updated_at?: string | null
+          uploaded_by?: string | null
+          vector_count?: number | null
+          vector_ns?: string | null
+        }
+        Update: {
+          agent_scope?: string | null
+          auto_tags?: string[] | null
+          content?: string | null
+          created_at?: string | null
+          id?: string
+          relevance_score?: number | null
+          source_path?: string | null
+          source_type?: string | null
+          status?: string | null
+          summary?: string | null
+          title?: string | null
+          updated_at?: string | null
+          uploaded_by?: string | null
+          vector_count?: number | null
+          vector_ns?: string | null
         }
         Relationships: []
       }
@@ -1383,6 +1475,41 @@ export type Database = {
           token_usage?: number | null
         }
         Relationships: []
+      }
+      module_reviews: {
+        Row: {
+          decided_at: string | null
+          decision: string | null
+          id: number
+          module_id: string | null
+          notes: string | null
+          reviewer_id: string | null
+        }
+        Insert: {
+          decided_at?: string | null
+          decision?: string | null
+          id?: number
+          module_id?: string | null
+          notes?: string | null
+          reviewer_id?: string | null
+        }
+        Update: {
+          decided_at?: string | null
+          decision?: string | null
+          id?: number
+          module_id?: string | null
+          notes?: string | null
+          reviewer_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "module_reviews_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "learning_modules"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       orders: {
         Row: {
