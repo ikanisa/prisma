@@ -12,45 +12,56 @@ serve(async (req) => {
   }
 
   try {
-    const { driver_id, pickup_lng, pickup_lat, drop_lng, drop_lat, price_estimate, departs_at, seats } = await req.json()
+    const { booking_id, confirmed } = await req.json()
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // Create trip with PostGIS point
-    const { data: trip, error } = await supabase
-      .from('trips')
-      .insert({
-        driver_id,
-        pickup_point: `POINT(${pickup_lng} ${pickup_lat})`,
-        dropoff_point: drop_lng && drop_lat ? `POINT(${drop_lng} ${drop_lat})` : null,
-        price_estimate,
-        departs_at,
-        seats_available: seats || 1,
-        status: 'open'
+    const newState = confirmed ? 'confirmed' : 'rejected'
+    const confirmedAt = confirmed ? new Date().toISOString() : null
+
+    // Update booking state
+    const { data: booking, error } = await supabase
+      .from('ride_bookings')
+      .update({
+        state: newState,
+        confirmed_at: confirmedAt
       })
+      .eq('id', booking_id)
       .select('*')
       .single()
 
     if (error) {
-      throw new Error(`Failed to create trip: ${error.message}`)
+      throw new Error(`Failed to update booking: ${error.message}`)
     }
 
-    console.log(`Trip created: ${trip.id}`)
+    // If confirmed, update trip status
+    if (confirmed && booking.trip_id) {
+      await supabase
+        .from('trips')
+        .update({ status: 'booked' })
+        .eq('id', booking.trip_id)
+    }
+
+    const message = confirmed 
+      ? "🎉 Booking confirmed! Swap numbers if needed and hit delivered when done."
+      : "❌ Booking declined. We'll find you another driver."
+
+    console.log(`Booking ${booking_id} ${newState}`)
 
     return new Response(
       JSON.stringify({
         success: true,
-        trip,
-        message: `✅ Trip opened! Passengers within 3 km will see you. We'll notify you when someone books.`
+        booking,
+        message
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
 
   } catch (error) {
-    console.error('Error in create-ride:', error)
+    console.error('Error in confirm-booking:', error)
     return new Response(
       JSON.stringify({ error: error.message }),
       { 

@@ -529,6 +529,82 @@ export type Database = {
           },
         ]
       }
+      campaign_segments: {
+        Row: {
+          campaign_id: string | null
+          description: string | null
+          id: string
+          last_count: number | null
+          name: string | null
+          segment_sql: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          campaign_id?: string | null
+          description?: string | null
+          id?: string
+          last_count?: number | null
+          name?: string | null
+          segment_sql?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          campaign_id?: string | null
+          description?: string | null
+          id?: string
+          last_count?: number | null
+          name?: string | null
+          segment_sql?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_segments_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "marketing_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      campaign_subscribers: {
+        Row: {
+          campaign_id: string | null
+          id: string
+          lang: string | null
+          last_sent_at: string | null
+          send_count: number | null
+          status: string | null
+          wa_id: string | null
+        }
+        Insert: {
+          campaign_id?: string | null
+          id?: string
+          lang?: string | null
+          last_sent_at?: string | null
+          send_count?: number | null
+          status?: string | null
+          wa_id?: string | null
+        }
+        Update: {
+          campaign_id?: string | null
+          id?: string
+          lang?: string | null
+          last_sent_at?: string | null
+          send_count?: number | null
+          status?: string | null
+          wa_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_subscribers_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "marketing_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cart_items: {
         Row: {
           cart_id: string | null
@@ -1344,6 +1420,63 @@ export type Database = {
         }
         Relationships: []
       }
+      marketing_campaigns: {
+        Row: {
+          business_id: string | null
+          created_at: string | null
+          description: string | null
+          id: string
+          interval_min: number | null
+          max_sends: number | null
+          name: string
+          owner_id: string | null
+          start_at: string | null
+          status: string | null
+          template_text: string | null
+        }
+        Insert: {
+          business_id?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          interval_min?: number | null
+          max_sends?: number | null
+          name: string
+          owner_id?: string | null
+          start_at?: string | null
+          status?: string | null
+          template_text?: string | null
+        }
+        Update: {
+          business_id?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          interval_min?: number | null
+          max_sends?: number | null
+          name?: string
+          owner_id?: string | null
+          start_at?: string | null
+          status?: string | null
+          template_text?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketing_campaigns_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketing_campaigns_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       marketing_gate_log: {
         Row: {
           avg_csat: number | null
@@ -1510,6 +1643,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      opt_outs: {
+        Row: {
+          channel: string | null
+          created_at: string | null
+          reason: string | null
+          wa_id: string
+        }
+        Insert: {
+          channel?: string | null
+          created_at?: string | null
+          reason?: string | null
+          wa_id: string
+        }
+        Update: {
+          channel?: string | null
+          created_at?: string | null
+          reason?: string | null
+          wa_id?: string
+        }
+        Relationships: []
       }
       orders: {
         Row: {
@@ -2297,6 +2451,74 @@ export type Database = {
           },
         ]
       }
+      ride_bookings: {
+        Row: {
+          agreed_price: number | null
+          completed_at: string | null
+          confirmed_at: string | null
+          created_at: string | null
+          driver_id: string | null
+          id: string
+          passenger_id: string | null
+          request_id: string | null
+          state: Database["public"]["Enums"]["booking_state"] | null
+          trip_id: string | null
+        }
+        Insert: {
+          agreed_price?: number | null
+          completed_at?: string | null
+          confirmed_at?: string | null
+          created_at?: string | null
+          driver_id?: string | null
+          id?: string
+          passenger_id?: string | null
+          request_id?: string | null
+          state?: Database["public"]["Enums"]["booking_state"] | null
+          trip_id?: string | null
+        }
+        Update: {
+          agreed_price?: number | null
+          completed_at?: string | null
+          confirmed_at?: string | null
+          created_at?: string | null
+          driver_id?: string | null
+          id?: string
+          passenger_id?: string | null
+          request_id?: string | null
+          state?: Database["public"]["Enums"]["booking_state"] | null
+          trip_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ride_bookings_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ride_bookings_passenger_id_fkey"
+            columns: ["passenger_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ride_bookings_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "ride_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ride_bookings_trip_id_fkey"
+            columns: ["trip_id"]
+            isOneToOne: false
+            referencedRelation: "trips"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ride_requests: {
         Row: {
           created_at: string | null
@@ -2467,6 +2689,38 @@ export type Database = {
           test_id?: string
         }
         Relationships: []
+      }
+      subscriber_events: {
+        Row: {
+          created_at: string | null
+          event: Database["public"]["Enums"]["evt"] | null
+          id: number
+          meta: Json | null
+          subscriber_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          event?: Database["public"]["Enums"]["evt"] | null
+          id?: number
+          meta?: Json | null
+          subscriber_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          event?: Database["public"]["Enums"]["evt"] | null
+          id?: number
+          meta?: Json | null
+          subscriber_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscriber_events_subscriber_id_fkey"
+            columns: ["subscriber_id"]
+            isOneToOne: false
+            referencedRelation: "campaign_subscribers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       subscriptions: {
         Row: {
@@ -4930,8 +5184,10 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "pharmacist" | "driver" | "user"
+      booking_state: "pending" | "confirmed" | "rejected" | "cancelled" | "done"
       business_type: "bar" | "pharmacy" | "shop" | "produce" | "hardware"
       driver_type: "moto" | "cab" | "truck"
+      evt: "sent" | "delivered" | "read" | "clicked" | "opt_out"
       order_status:
         | "pending"
         | "paid"
@@ -5078,8 +5334,10 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "pharmacist", "driver", "user"],
+      booking_state: ["pending", "confirmed", "rejected", "cancelled", "done"],
       business_type: ["bar", "pharmacy", "shop", "produce", "hardware"],
       driver_type: ["moto", "cab", "truck"],
+      evt: ["sent", "delivered", "read", "clicked", "opt_out"],
       order_status: [
         "pending",
         "paid",
