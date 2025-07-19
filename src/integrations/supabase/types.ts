@@ -2014,6 +2014,45 @@ export type Database = {
         }
         Relationships: []
       }
+      whatsapp_templates: {
+        Row: {
+          approved_by: string | null
+          category: string
+          content: string
+          created_at: string
+          id: string
+          name: string
+          rejection_reason: string | null
+          status: string
+          updated_at: string
+          variables: string[] | null
+        }
+        Insert: {
+          approved_by?: string | null
+          category: string
+          content: string
+          created_at?: string
+          id?: string
+          name: string
+          rejection_reason?: string | null
+          status?: string
+          updated_at?: string
+          variables?: string[] | null
+        }
+        Update: {
+          approved_by?: string | null
+          category?: string
+          content?: string
+          created_at?: string
+          id?: string
+          name?: string
+          rejection_reason?: string | null
+          status?: string
+          updated_at?: string
+          variables?: string[] | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       geography_columns: {
