@@ -56,16 +56,10 @@ export default function HardwareDashboard() {
 
       if (vendorsError) throw vendorsError;
 
-      // Fetch products for hardware vendors
-      const vendorIds = vendorsData?.map(v => v.id) || [];
-      
-      const { data: productsData, error: productsError } = await supabase
-        .from('products')
-        .select('vendor_id')
-        .in('vendor_id', vendorIds)
-        .eq('status', 'active');
+      // Mock products data for now (until products table is fully set up)
+      const productsData: any[] = [];
 
-      if (productsError) throw productsError;
+      // productsError check removed for now
 
       // Count products per vendor
       const productCounts = productsData?.reduce((acc: any, product: any) => {

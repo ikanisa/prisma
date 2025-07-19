@@ -36,8 +36,8 @@ interface Product {
 interface Farmer {
   id: string;
   name: string;
-  phone: string;
-  location: string;
+  whatsapp: string;
+  district: string;
 }
 
 interface ProductAnalytics {
@@ -169,7 +169,7 @@ export default function Products() {
     try {
       const { data, error } = await supabase
         .from('farmers')
-        .select('id, name, phone, location')
+        .select('id, name, whatsapp, district')
         .order('name');
 
       if (error) throw error;
@@ -534,7 +534,7 @@ export default function Products() {
                               </Avatar>
                               <div>
                                 <div className="font-medium text-sm">{farmer?.name || 'Unknown'}</div>
-                                <div className="text-xs text-muted-foreground">{farmer?.location}</div>
+                                <div className="text-xs text-muted-foreground">{farmer?.district}</div>
                               </div>
                             </div>
                           </TableCell>
@@ -795,10 +795,10 @@ function ProductDetailsDialog({ product, farmer }: { product: Product | null; fa
                   </Avatar>
                   <span className="font-medium">{farmer.name}</span>
                 </div>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <MapPin className="h-4 w-4" />
-                  {farmer.location}
-                </div>
+                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                   <MapPin className="h-4 w-4" />
+                   {farmer.district}
+                 </div>
               </div>
             </div>
           )}

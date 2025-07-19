@@ -21,7 +21,10 @@ import {
   FileText,
   ScrollText,
   MessageSquare,
-  Tractor
+  Tractor,
+  Hammer,
+  Layers,
+  ClipboardList
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -32,6 +35,10 @@ const sidebarItems = [
   { name: "Businesses", path: "/admin/businesses", icon: Store },
   { name: "Drivers", path: "/admin/drivers", icon: Truck },
   { name: "Farmers", path: "/admin/farmers", icon: Tractor },
+  { name: "Hardware Vendors", path: "/admin/hardware", icon: Hammer },
+  { name: "Product Imports", path: "/admin/product-drafts", icon: Layers },
+  { name: "Produce Drafts", path: "/admin/produce-drafts", icon: ClipboardList },
+  { name: "Produce Listings", path: "/admin/produce-listings", icon: Package },
   { name: "Products", path: "/admin/products", icon: Package },
   { name: "Orders", path: "/admin/orders", icon: ShoppingCart },
   { name: "Payments", path: "/admin/payments", icon: CreditCard },

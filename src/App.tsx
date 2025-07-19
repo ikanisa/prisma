@@ -35,6 +35,10 @@ import PharmacyOrders from "./pages/admin/PharmacyOrders";
 import PharmacyShoppers from "./pages/admin/PharmacyShoppers";
 import PharmacyProducts from "./pages/admin/PharmacyProducts";
 import PharmacyLoadTest from "./pages/admin/PharmacyLoadTest";
+import HardwareDashboard from "./pages/admin/HardwareDashboard";
+import ProductDrafts from "./pages/admin/ProductDrafts";
+import ProduceDrafts from "./pages/admin/ProduceDrafts";
+import ProduceListings from "./pages/admin/ProduceListings";
 
 const queryClient = new QueryClient();
 
@@ -79,6 +83,10 @@ const App = () => (
           <Route path="conversations" element={<Conversations />} />
           <Route path="help" element={<div className="p-6">Support Tickets page coming soon...</div>} />
           <Route path="edge-logs" element={<EdgeLogs />} />
+          <Route path="hardware" element={<HardwareDashboard />} />
+          <Route path="product-drafts" element={<ProductDrafts />} />
+          <Route path="produce-drafts" element={<ProduceDrafts />} />
+          <Route path="produce-listings" element={<ProduceListings />} />
         </Route>
         
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
