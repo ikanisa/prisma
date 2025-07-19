@@ -75,6 +75,28 @@ export default function Passengers() {
   useEffect(() => {
     fetchPassengers();
     fetchStats();
+
+    // Realtime subscription for live updates
+    const channel = supabase
+      .channel('passenger-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'passengers'
+        },
+        () => {
+          // Refetch data when passengers table changes
+          fetchPassengers();
+          fetchStats();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const fetchPassengers = async () => {
