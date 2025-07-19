@@ -1,16 +1,13 @@
-// Quality Evaluator - GPT-4o powered conversation quality assessment
-import { serve } from "https://deno.land/std@0.195.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.50.1";
-
-const supabase = createClient(
-  Deno.env.get('SUPABASE_URL')!,
-  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-);
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -18,108 +15,132 @@ serve(async (req) => {
   }
 
   try {
-    const { message_text, conversation_id, phone_number, model_used } = await req.json();
+    const { message, response, phone_number, conversation_id } = await req.json();
 
-    console.log('🔍 Evaluating message quality...');
+    if (!openaiApiKey) {
+      throw new Error('OpenAI API key not configured');
+    }
 
-    // Use GPT-4o-mini for quality evaluation
-    const openAIResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
+    console.log('🔍 Starting quality evaluation...');
+
+    // Use GPT-4o to evaluate response quality
+    const evaluationPrompt = `
+You are a quality evaluator for customer service responses in a WhatsApp marketplace app.
+
+Original Message: "${message}"
+AI Response: "${response}"
+
+Please evaluate the response on the following criteria (score 0.0-1.0):
+
+1. HELPFULNESS: Does the response adequately address the user's request?
+2. CLARITY: Is the response clear, concise, and easy to understand?
+3. STYLE: Is the tone appropriate, friendly, and professional for WhatsApp?
+
+Return ONLY a JSON object with your evaluation:
+{
+  "overall_score": 0.85,
+  "helpfulness_score": 0.9,
+  "clarity_score": 0.8,
+  "style_score": 0.85,
+  "evaluation_notes": "Brief explanation of key strengths/weaknesses"
+}
+`;
+
+    const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${Deno.env.get('OPENAI_API_KEY')}`,
+        'Authorization': `Bearer ${openaiApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'gpt-4o',
         messages: [
-          {
-            role: 'system',
-            content: `You are a quality evaluator for customer service messages in Rwanda. Evaluate this WhatsApp message response on:
-
-1. STYLE (0-1): Natural, conversational, appropriate tone for WhatsApp in East Africa
-2. CLARITY (0-1): Clear, understandable, well-structured
-3. HELPFULNESS (0-1): Addresses user needs, provides value, moves conversation forward
-
-Respond ONLY with JSON:
-{
-  "style_score": 0.85,
-  "clarity_score": 0.90,
-  "helpfulness_score": 0.80,
-  "overall_score": 0.85,
-  "notes": "Brief explanation of scores"
-}`
-          },
-          {
-            role: 'user',
-            content: `Evaluate this customer service message: "${message_text}"`
-          }
+          { role: 'system', content: 'You are a quality evaluation expert. Return only valid JSON.' },
+          { role: 'user', content: evaluationPrompt }
         ],
         temperature: 0.1,
-        max_tokens: 200
+        max_tokens: 300
       }),
     });
 
-    if (!openAIResponse.ok) {
-      throw new Error(`OpenAI API error: ${openAIResponse.statusText}`);
+    if (!openaiResponse.ok) {
+      throw new Error(`OpenAI API error: ${await openaiResponse.text()}`);
     }
 
-    const aiResult = await openAIResponse.json();
-    const evaluation = JSON.parse(aiResult.choices[0].message.content);
+    const data = await openaiResponse.json();
+    const evaluationText = data.choices[0].message.content;
+
+    let evaluation;
+    try {
+      evaluation = JSON.parse(evaluationText);
+    } catch (parseError) {
+      console.error('Failed to parse evaluation JSON:', evaluationText);
+      // Fallback evaluation
+      evaluation = {
+        overall_score: 0.5,
+        helpfulness_score: 0.5,
+        clarity_score: 0.5,
+        style_score: 0.5,
+        evaluation_notes: 'Failed to parse AI evaluation'
+      };
+    }
 
     // Store evaluation in database
-    const { data, error } = await supabase
+    const { data: evaluationRecord, error: dbError } = await supabase
       .from('conversation_evaluations')
       .insert({
         conversation_id,
         phone_number,
-        style_score: evaluation.style_score,
-        clarity_score: evaluation.clarity_score,
-        helpfulness_score: evaluation.helpfulness_score,
         overall_score: evaluation.overall_score,
-        evaluation_notes: evaluation.notes,
-        model_used: model_used || 'unknown'
+        helpfulness_score: evaluation.helpfulness_score,
+        clarity_score: evaluation.clarity_score,
+        style_score: evaluation.style_score,
+        model_used: 'gpt-4o',
+        evaluation_notes: evaluation.evaluation_notes
       })
       .select()
       .single();
 
-    if (error) {
-      console.error('Error storing evaluation:', error);
-      throw error;
+    if (dbError) {
+      console.error('❌ Database error:', dbError);
+      throw dbError;
     }
 
     console.log(`✅ Quality evaluation complete. Overall score: ${evaluation.overall_score}`);
 
-    // If score is low, flag for review
-    if (evaluation.overall_score < 0.6) {
-      console.log('⚠️ Low quality score detected, flagging for review');
+    // If score is below threshold, trigger improvement
+    if (evaluation.overall_score < 0.7) {
+      console.log('⚠️ Low quality score detected, logging for improvement');
       
-      // Could trigger alert or add to review queue here
+      // Could trigger rewrite or fine-tuning data collection here
       await supabase
-        .from('system_metrics')
+        .from('conversation_learning_log')
         .insert({
-          metric_name: 'low_quality_response',
-          metric_value: evaluation.overall_score,
-          metric_type: 'gauge',
-          tags: {
-            conversation_id,
-            phone_number,
-            model_used
-          }
+          user_id: phone_number,
+          learning_summary: `Low quality response (${evaluation.overall_score}): ${evaluation.evaluation_notes}`,
+          confidence_level: evaluation.overall_score,
+          improvement_note: 'Consider response rewrite or additional training'
         });
     }
 
     return new Response(JSON.stringify({
       success: true,
-      evaluation: data
+      evaluation: evaluation,
+      evaluation_id: evaluationRecord.id
     }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
   } catch (error) {
-    console.error('❌ Quality evaluation error:', error);
+    console.error('❌ Quality evaluator error:', error);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 });
