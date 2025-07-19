@@ -1254,11 +1254,17 @@ export type Database = {
           departure_time: string | null
           destination: unknown | null
           driver_id: string | null
+          driver_phone: string | null
+          from_geom: unknown | null
+          from_text: string | null
           id: string
+          inserted_at: string | null
           origin: unknown | null
           price_rwf: number | null
           seats: number | null
           status: string | null
+          to_geom: unknown | null
+          to_text: string | null
           updated_at: string | null
         }
         Insert: {
@@ -1266,11 +1272,17 @@ export type Database = {
           departure_time?: string | null
           destination?: unknown | null
           driver_id?: string | null
+          driver_phone?: string | null
+          from_geom?: unknown | null
+          from_text?: string | null
           id?: string
+          inserted_at?: string | null
           origin?: unknown | null
           price_rwf?: number | null
           seats?: number | null
           status?: string | null
+          to_geom?: unknown | null
+          to_text?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -1278,11 +1290,17 @@ export type Database = {
           departure_time?: string | null
           destination?: unknown | null
           driver_id?: string | null
+          driver_phone?: string | null
+          from_geom?: unknown | null
+          from_text?: string | null
           id?: string
+          inserted_at?: string | null
           origin?: unknown | null
           price_rwf?: number | null
           seats?: number | null
           status?: string | null
+          to_geom?: unknown | null
+          to_text?: string | null
           updated_at?: string | null
         }
         Relationships: []
@@ -2298,39 +2316,60 @@ export type Database = {
           created_at: string | null
           dropoff: unknown | null
           dropoff_address: string | null
+          from_geom: unknown | null
+          from_text: string | null
           id: string
+          inserted_at: string | null
           max_fare_rwf: number | null
+          max_price_rwf: number | null
           passenger_phone: string
           pickup: unknown | null
           pickup_address: string | null
           seats: number | null
+          seats_needed: number | null
           status: string | null
+          to_geom: unknown | null
+          to_text: string | null
           updated_at: string | null
         }
         Insert: {
           created_at?: string | null
           dropoff?: unknown | null
           dropoff_address?: string | null
+          from_geom?: unknown | null
+          from_text?: string | null
           id?: string
+          inserted_at?: string | null
           max_fare_rwf?: number | null
+          max_price_rwf?: number | null
           passenger_phone: string
           pickup?: unknown | null
           pickup_address?: string | null
           seats?: number | null
+          seats_needed?: number | null
           status?: string | null
+          to_geom?: unknown | null
+          to_text?: string | null
           updated_at?: string | null
         }
         Update: {
           created_at?: string | null
           dropoff?: unknown | null
           dropoff_address?: string | null
+          from_geom?: unknown | null
+          from_text?: string | null
           id?: string
+          inserted_at?: string | null
           max_fare_rwf?: number | null
+          max_price_rwf?: number | null
           passenger_phone?: string
           pickup?: unknown | null
           pickup_address?: string | null
           seats?: number | null
+          seats_needed?: number | null
           status?: string | null
+          to_geom?: unknown | null
+          to_text?: string | null
           updated_at?: string | null
         }
         Relationships: []
@@ -4353,13 +4392,23 @@ export type Database = {
         Args: { lat: number; lng: number; radius?: number }
         Returns: {
           trip_id: string
-          driver_id: string
-          origin_lat: number
-          origin_lng: number
-          destination_lat: number
-          destination_lng: number
-          price_rwf: number
+          driver_phone: string
+          from_text: string
+          to_text: string
           seats: number
+          price_rwf: number
+          distance_km: number
+        }[]
+      }
+      fn_get_nearby_passengers: {
+        Args: { lat: number; lng: number; radius?: number }
+        Returns: {
+          intent_id: string
+          passenger_phone: string
+          from_text: string
+          to_text: string
+          seats_needed: number
+          max_price_rwf: number
           distance_km: number
         }[]
       }
