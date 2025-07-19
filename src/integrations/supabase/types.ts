@@ -708,21 +708,71 @@ export type Database = {
           },
         ]
       }
+      driver_sessions: {
+        Row: {
+          accuracy: number | null
+          battery_level: number | null
+          created_at: string | null
+          driver_id: string | null
+          ended_at: string | null
+          id: string
+          last_location: unknown | null
+          started_at: string | null
+          status: string | null
+        }
+        Insert: {
+          accuracy?: number | null
+          battery_level?: number | null
+          created_at?: string | null
+          driver_id?: string | null
+          ended_at?: string | null
+          id?: string
+          last_location?: unknown | null
+          started_at?: string | null
+          status?: string | null
+        }
+        Update: {
+          accuracy?: number | null
+          battery_level?: number | null
+          created_at?: string | null
+          driver_id?: string | null
+          ended_at?: string | null
+          id?: string
+          last_location?: unknown | null
+          started_at?: string | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_sessions_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       driver_wallet: {
         Row: {
           balance: number | null
+          created_at: string | null
           driver_id: string | null
           id: string
+          updated_at: string | null
         }
         Insert: {
           balance?: number | null
+          created_at?: string | null
           driver_id?: string | null
           id?: string
+          updated_at?: string | null
         }
         Update: {
           balance?: number | null
+          created_at?: string | null
           driver_id?: string | null
           id?: string
+          updated_at?: string | null
         }
         Relationships: [
           {
@@ -738,11 +788,14 @@ export type Database = {
         Row: {
           created_at: string | null
           driver_kind: Database["public"]["Enums"]["driver_type"] | null
+          full_name: string | null
           id: string
           is_online: boolean | null
           location_gps: unknown | null
           logbook_url: string | null
           momo_code: string
+          momo_number: string | null
+          plate_number: string | null
           subscription_status: string | null
           user_id: string | null
           vehicle_plate: string | null
@@ -750,11 +803,14 @@ export type Database = {
         Insert: {
           created_at?: string | null
           driver_kind?: Database["public"]["Enums"]["driver_type"] | null
+          full_name?: string | null
           id?: string
           is_online?: boolean | null
           location_gps?: unknown | null
           logbook_url?: string | null
           momo_code: string
+          momo_number?: string | null
+          plate_number?: string | null
           subscription_status?: string | null
           user_id?: string | null
           vehicle_plate?: string | null
@@ -762,11 +818,14 @@ export type Database = {
         Update: {
           created_at?: string | null
           driver_kind?: Database["public"]["Enums"]["driver_type"] | null
+          full_name?: string | null
           id?: string
           is_online?: boolean | null
           location_gps?: unknown | null
           logbook_url?: string | null
           momo_code?: string
+          momo_number?: string | null
+          plate_number?: string | null
           subscription_status?: string | null
           user_id?: string | null
           vehicle_plate?: string | null
@@ -1234,6 +1293,47 @@ export type Database = {
           },
         ]
       }
+      payouts: {
+        Row: {
+          amount: number
+          created_at: string | null
+          driver_id: string | null
+          id: string
+          momo_txn_id: string | null
+          paid_at: string | null
+          requested_at: string | null
+          status: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string | null
+          driver_id?: string | null
+          id?: string
+          momo_txn_id?: string | null
+          paid_at?: string | null
+          requested_at?: string | null
+          status?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          driver_id?: string | null
+          id?: string
+          momo_txn_id?: string | null
+          paid_at?: string | null
+          requested_at?: string | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payouts_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "drivers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       prediction_accuracy: {
         Row: {
           accuracy: boolean | null
@@ -1468,32 +1568,76 @@ export type Database = {
         }
         Relationships: []
       }
+      trip_events: {
+        Row: {
+          event: string
+          event_time: string | null
+          id: number
+          metadata: Json | null
+          trip_id: string | null
+        }
+        Insert: {
+          event: string
+          event_time?: string | null
+          id?: number
+          metadata?: Json | null
+          trip_id?: string | null
+        }
+        Update: {
+          event?: string
+          event_time?: string | null
+          id?: number
+          metadata?: Json | null
+          trip_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trip_events_trip_id_fkey"
+            columns: ["trip_id"]
+            isOneToOne: false
+            referencedRelation: "trips"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       trips: {
         Row: {
+          completed_at: string | null
           created_at: string | null
           departure_time: string | null
           driver_id: string | null
+          dropoff_coords: unknown | null
           dropoff_location: string | null
           id: string
+          pickup_coords: unknown | null
           pickup_location: string | null
+          price: number | null
           status: Database["public"]["Enums"]["trip_status"] | null
         }
         Insert: {
+          completed_at?: string | null
           created_at?: string | null
           departure_time?: string | null
           driver_id?: string | null
+          dropoff_coords?: unknown | null
           dropoff_location?: string | null
           id?: string
+          pickup_coords?: unknown | null
           pickup_location?: string | null
+          price?: number | null
           status?: Database["public"]["Enums"]["trip_status"] | null
         }
         Update: {
+          completed_at?: string | null
           created_at?: string | null
           departure_time?: string | null
           driver_id?: string | null
+          dropoff_coords?: unknown | null
           dropoff_location?: string | null
           id?: string
+          pickup_coords?: unknown | null
           pickup_location?: string | null
+          price?: number | null
           status?: Database["public"]["Enums"]["trip_status"] | null
         }
         Relationships: [

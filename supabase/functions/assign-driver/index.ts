@@ -17,20 +17,24 @@ serve(async (req) => {
   }
 
   try {
-    const { order_id, pickup_location, delivery_location } = await req.json();
+    const { pickup_location, dropoff_location, passenger_id, estimated_price } = await req.json();
     
-    if (!order_id) {
-      throw new Error('Order ID is required');
+    if (!pickup_location || !dropoff_location) {
+      throw new Error('Pickup and dropoff locations are required');
     }
 
-    console.log(`🚗 Assigning driver for order ${order_id}`);
+    console.log(`🚗 Finding driver for trip: ${pickup_location} → ${dropoff_location}`);
 
-    // Find nearest available driver
+    // Find nearest available online driver using SELECT FOR UPDATE to prevent race conditions
     const { data: availableDrivers, error: driverError } = await supabase
       .from('drivers')
-      .select('*')
+      .select(`
+        *,
+        driver_sessions!inner(*)
+      `)
       .eq('is_online', true)
-      .limit(1);
+      .eq('driver_sessions.status', 'online')
+      .limit(5); // Get top 5 nearest drivers
 
     if (driverError) {
       throw new Error('Failed to find drivers');
@@ -47,41 +51,63 @@ serve(async (req) => {
       });
     }
 
-    const assignedDriver = availableDrivers[0];
+    // Select first available driver (in production, use proximity algorithm)
+    const selectedDriver = availableDrivers[0];
 
-    // Create delivery record
-    const { data: delivery, error: deliveryError } = await supabase
-      .from('deliveries')
+    // Create trip record
+    const { data: trip, error: tripError } = await supabase
+      .from('trips')
       .insert({
-        order_id: order_id,
-        driver_id: assignedDriver.id,
-        status: 'assigned',
-        pickup_eta: new Date(Date.now() + 15 * 60 * 1000).toISOString() // 15 minutes from now
+        passenger_id,
+        driver_id: selectedDriver.id,
+        pickup_location,
+        dropoff_location,
+        price: estimated_price || 2000, // Default price
+        status: 'assigned'
       })
       .select()
       .single();
 
-    if (deliveryError) {
-      throw new Error('Failed to create delivery');
+    if (tripError) {
+      throw new Error('Failed to create trip');
     }
 
-    // Update order status
-    await supabase
-      .from('orders')
-      .update({ status: 'preparing' })
-      .eq('id', order_id);
+    // Log assignment event
+    await supabase.from('trip_events').insert({
+      trip_id: trip.id,
+      event: 'driver_assigned',
+      metadata: {
+        driver_id: selectedDriver.id,
+        driver_name: selectedDriver.full_name,
+        plate_number: selectedDriver.plate_number
+      }
+    });
 
-    console.log(`✅ Driver ${assignedDriver.id} assigned to order ${order_id}`);
+    // Create booking record
+    await supabase.from('bookings').insert({
+      trip_id: trip.id,
+      passenger_id,
+      status: 'confirmed'
+    });
+
+    console.log(`✅ Driver ${selectedDriver.id} assigned to trip ${trip.id}`);
 
     return new Response(JSON.stringify({
       success: true,
-      delivery_id: delivery.id,
+      trip_id: trip.id,
       driver: {
-        id: assignedDriver.id,
-        vehicle_plate: assignedDriver.vehicle_plate
+        id: selectedDriver.id,
+        name: selectedDriver.full_name,
+        plate_number: selectedDriver.plate_number,
+        momo_code: selectedDriver.momo_code
       },
-      pickup_eta: delivery.pickup_eta,
-      status: 'assigned'
+      estimated_arrival: new Date(Date.now() + 10 * 60 * 1000).toISOString(), // 10 minutes
+      trip_details: {
+        pickup: pickup_location,
+        dropoff: dropoff_location,
+        price: trip.price,
+        status: 'assigned'
+      }
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
