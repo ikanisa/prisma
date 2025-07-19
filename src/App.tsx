@@ -40,6 +40,9 @@ import ProductDrafts from "./pages/admin/ProductDrafts";
 import ProduceDrafts from "./pages/admin/ProduceDrafts";
 import ProduceListings from "./pages/admin/ProduceListings";
 import HardwareDeployment from "./pages/admin/HardwareDeployment";
+import UnifiedOrders from "./pages/admin/UnifiedOrders";
+import UnifiedProducts from "./pages/admin/UnifiedProducts";
+import UnifiedConversations from "./pages/admin/UnifiedConversations";
 
 const queryClient = new QueryClient();
 
@@ -89,6 +92,9 @@ const App = () => (
           <Route path="produce-drafts" element={<ProduceDrafts />} />
           <Route path="produce-listings" element={<ProduceListings />} />
           <Route path="hardware-deployment" element={<HardwareDeployment />} />
+          <Route path="unified-orders" element={<UnifiedOrders />} />
+          <Route path="unified-products" element={<UnifiedProducts />} />
+          <Route path="unified-conversations" element={<UnifiedConversations />} />
         </Route>
         
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
