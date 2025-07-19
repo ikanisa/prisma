@@ -25,7 +25,9 @@ import {
   Hammer,
   Layers,
   ClipboardList,
-  Rocket
+  Rocket,
+  Home,
+  Car
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -36,6 +38,8 @@ const sidebarItems = [
   { name: "Businesses", path: "/admin/businesses", icon: Store },
   { name: "Drivers", path: "/admin/drivers", icon: Truck },
   { name: "Farmers", path: "/admin/farmers", icon: Tractor },
+  { name: "Properties", path: "/admin/properties", icon: Home },
+  { name: "Vehicles", path: "/admin/vehicles", icon: Car },
   { name: "Hardware Vendors", path: "/admin/hardware", icon: Hammer },
   { name: "Product Imports", path: "/admin/product-drafts", icon: Layers },
   { name: "Produce Drafts", path: "/admin/produce-drafts", icon: ClipboardList },

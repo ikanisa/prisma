@@ -43,6 +43,8 @@ import HardwareDeployment from "./pages/admin/HardwareDeployment";
 import UnifiedOrders from "./pages/admin/UnifiedOrders";
 import UnifiedProducts from "./pages/admin/UnifiedProducts";
 import UnifiedConversations from "./pages/admin/UnifiedConversations";
+import Properties from "./pages/admin/Properties";
+import Vehicles from "./pages/admin/Vehicles";
 
 const queryClient = new QueryClient();
 
@@ -62,6 +64,8 @@ const App = () => (
           <Route path="businesses/:businessId" element={<BusinessDetail />} />
           <Route path="drivers" element={<Drivers />} />
           <Route path="farmers" element={<Farmers />} />
+          <Route path="properties" element={<Properties />} />
+          <Route path="vehicles" element={<Vehicles />} />
           <Route path="passengers" element={<Passengers />} />
           <Route path="rides" element={<Rides />} />
           <Route path="pharmacy/orders" element={<PharmacyOrders />} />
