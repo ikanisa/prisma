@@ -1154,6 +1154,33 @@ export type Database = {
         }
         Relationships: []
       }
+      market_prices: {
+        Row: {
+          district: string | null
+          id: string
+          price_per_kg: number | null
+          product_name: string | null
+          source: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          district?: string | null
+          id?: string
+          price_per_kg?: number | null
+          product_name?: string | null
+          source?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          district?: string | null
+          id?: string
+          price_per_kg?: number | null
+          product_name?: string | null
+          source?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       mcp_model_registry: {
         Row: {
           created_at: string | null
@@ -1768,6 +1795,148 @@ export type Database = {
             columns: ["shopper_id"]
             isOneToOne: false
             referencedRelation: "pharmacy_shoppers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      produce_drafts: {
+        Row: {
+          created_at: string | null
+          farmer_id: string | null
+          id: string
+          photo_url: string | null
+          price: number | null
+          product_name: string | null
+          quantity: number | null
+          status: string | null
+          unit: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          farmer_id?: string | null
+          id?: string
+          photo_url?: string | null
+          price?: number | null
+          product_name?: string | null
+          quantity?: number | null
+          status?: string | null
+          unit?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          farmer_id?: string | null
+          id?: string
+          photo_url?: string | null
+          price?: number | null
+          product_name?: string | null
+          quantity?: number | null
+          status?: string | null
+          unit?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "produce_drafts_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "farmers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      produce_listings: {
+        Row: {
+          created_at: string | null
+          expires_at: string | null
+          farmer_id: string | null
+          grade: string | null
+          id: string
+          matched_order_id: string | null
+          photo_url: string | null
+          price: number | null
+          product_name: string | null
+          quantity: number | null
+          status: string | null
+          unit: string | null
+          views: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          expires_at?: string | null
+          farmer_id?: string | null
+          grade?: string | null
+          id?: string
+          matched_order_id?: string | null
+          photo_url?: string | null
+          price?: number | null
+          product_name?: string | null
+          quantity?: number | null
+          status?: string | null
+          unit?: string | null
+          views?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          expires_at?: string | null
+          farmer_id?: string | null
+          grade?: string | null
+          id?: string
+          matched_order_id?: string | null
+          photo_url?: string | null
+          price?: number | null
+          product_name?: string | null
+          quantity?: number | null
+          status?: string | null
+          unit?: string | null
+          views?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "produce_listings_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "farmers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      produce_matches: {
+        Row: {
+          buyer_id: string | null
+          id: string
+          listing_id: string | null
+          matched_at: string | null
+          required_qty: number | null
+          status: string | null
+        }
+        Insert: {
+          buyer_id?: string | null
+          id?: string
+          listing_id?: string | null
+          matched_at?: string | null
+          required_qty?: number | null
+          status?: string | null
+        }
+        Update: {
+          buyer_id?: string | null
+          id?: string
+          listing_id?: string | null
+          matched_at?: string | null
+          required_qty?: number | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "produce_matches_buyer_id_fkey"
+            columns: ["buyer_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "produce_matches_listing_id_fkey"
+            columns: ["listing_id"]
+            isOneToOne: false
+            referencedRelation: "produce_listings"
             referencedColumns: ["id"]
           },
         ]
