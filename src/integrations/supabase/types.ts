@@ -371,6 +371,7 @@ export type Database = {
           momo_code: string
           name: string
           owner_user_id: string | null
+          status: string | null
           subscription_status: string | null
         }
         Insert: {
@@ -381,6 +382,7 @@ export type Database = {
           momo_code: string
           name: string
           owner_user_id?: string | null
+          status?: string | null
           subscription_status?: string | null
         }
         Update: {
@@ -391,6 +393,7 @@ export type Database = {
           momo_code?: string
           name?: string
           owner_user_id?: string | null
+          status?: string | null
           subscription_status?: string | null
         }
         Relationships: [
@@ -950,7 +953,9 @@ export type Database = {
           delivery: boolean | null
           delivery_fee: number | null
           driver_id: string | null
+          extras: Json | null
           farmer_id: string | null
+          fulfilment_mode: string | null
           id: string
           items: Json | null
           payment_id: string | null
@@ -964,7 +969,9 @@ export type Database = {
           delivery?: boolean | null
           delivery_fee?: number | null
           driver_id?: string | null
+          extras?: Json | null
           farmer_id?: string | null
+          fulfilment_mode?: string | null
           id?: string
           items?: Json | null
           payment_id?: string | null
@@ -978,7 +985,9 @@ export type Database = {
           delivery?: boolean | null
           delivery_fee?: number | null
           driver_id?: string | null
+          extras?: Json | null
           farmer_id?: string | null
+          fulfilment_mode?: string | null
           id?: string
           items?: Json | null
           payment_id?: string | null
@@ -1030,6 +1039,8 @@ export type Database = {
           created_at: string | null
           id: string
           momo_code: string
+          momo_tx: string | null
+          paid_at: string | null
           qr_code_url: string | null
           status: Database["public"]["Enums"]["payment_status"] | null
           user_id: string | null
@@ -1041,6 +1052,8 @@ export type Database = {
           created_at?: string | null
           id?: string
           momo_code: string
+          momo_tx?: string | null
+          paid_at?: string | null
           qr_code_url?: string | null
           status?: Database["public"]["Enums"]["payment_status"] | null
           user_id?: string | null
@@ -1052,6 +1065,8 @@ export type Database = {
           created_at?: string | null
           id?: string
           momo_code?: string
+          momo_tx?: string | null
+          paid_at?: string | null
           qr_code_url?: string | null
           status?: Database["public"]["Enums"]["payment_status"] | null
           user_id?: string | null
@@ -1103,39 +1118,45 @@ export type Database = {
       }
       products: {
         Row: {
+          business_id: string | null
+          category: string | null
           created_at: string | null
-          farmer_id: string | null
+          description: string | null
           id: string
           image_url: string | null
           name: string | null
           price: number | null
-          stock: number | null
+          stock_qty: number | null
           unit: string | null
         }
         Insert: {
+          business_id?: string | null
+          category?: string | null
           created_at?: string | null
-          farmer_id?: string | null
+          description?: string | null
           id?: string
           image_url?: string | null
           name?: string | null
           price?: number | null
-          stock?: number | null
+          stock_qty?: number | null
           unit?: string | null
         }
         Update: {
+          business_id?: string | null
+          category?: string | null
           created_at?: string | null
-          farmer_id?: string | null
+          description?: string | null
           id?: string
           image_url?: string | null
           name?: string | null
           price?: number | null
-          stock?: number | null
+          stock_qty?: number | null
           unit?: string | null
         }
         Relationships: [
           {
             foreignKeyName: "products_farmer_id_fkey"
-            columns: ["farmer_id"]
+            columns: ["business_id"]
             isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
