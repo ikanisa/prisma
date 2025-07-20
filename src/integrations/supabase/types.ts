@@ -1555,6 +1555,45 @@ export type Database = {
         }
         Relationships: []
       }
+      evaluation_test_cases: {
+        Row: {
+          created_at: string | null
+          expected_output: string | null
+          id: string
+          last_run_at: string | null
+          last_score: number | null
+          model_version: string | null
+          status: string | null
+          test_category: string
+          test_name: string
+          test_prompt: string
+        }
+        Insert: {
+          created_at?: string | null
+          expected_output?: string | null
+          id?: string
+          last_run_at?: string | null
+          last_score?: number | null
+          model_version?: string | null
+          status?: string | null
+          test_category: string
+          test_name: string
+          test_prompt: string
+        }
+        Update: {
+          created_at?: string | null
+          expected_output?: string | null
+          id?: string
+          last_run_at?: string | null
+          last_score?: number | null
+          model_version?: string | null
+          status?: string | null
+          test_category?: string
+          test_name?: string
+          test_prompt?: string
+        }
+        Relationships: []
+      }
       events: {
         Row: {
           category: string | null
@@ -2125,6 +2164,39 @@ export type Database = {
           prompt_prefix?: string | null
           secondary_model?: string | null
           task_name?: string | null
+        }
+        Relationships: []
+      }
+      memory_consolidation_log: {
+        Row: {
+          consolidated_at: string | null
+          conversation_id: string | null
+          id: string
+          key_insights: Json | null
+          pinecone_id: string | null
+          summary_text: string
+          user_id: string | null
+          vector_stored: boolean | null
+        }
+        Insert: {
+          consolidated_at?: string | null
+          conversation_id?: string | null
+          id?: string
+          key_insights?: Json | null
+          pinecone_id?: string | null
+          summary_text: string
+          user_id?: string | null
+          vector_stored?: boolean | null
+        }
+        Update: {
+          consolidated_at?: string | null
+          conversation_id?: string | null
+          id?: string
+          key_insights?: Json | null
+          pinecone_id?: string | null
+          summary_text?: string
+          user_id?: string | null
+          vector_stored?: boolean | null
         }
         Relationships: []
       }
@@ -3833,6 +3905,39 @@ export type Database = {
           parameters?: Json
           status?: string | null
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      training_data_export: {
+        Row: {
+          assistant_message: string
+          conversation_id: string | null
+          exported_at: string | null
+          fine_tune_job_id: string | null
+          id: string
+          quality_score: number | null
+          status: string | null
+          user_message: string
+        }
+        Insert: {
+          assistant_message: string
+          conversation_id?: string | null
+          exported_at?: string | null
+          fine_tune_job_id?: string | null
+          id?: string
+          quality_score?: number | null
+          status?: string | null
+          user_message: string
+        }
+        Update: {
+          assistant_message?: string
+          conversation_id?: string | null
+          exported_at?: string | null
+          fine_tune_job_id?: string | null
+          id?: string
+          quality_score?: number | null
+          status?: string | null
+          user_message?: string
         }
         Relationships: []
       }
