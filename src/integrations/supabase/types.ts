@@ -963,6 +963,60 @@ export type Database = {
         }
         Relationships: []
       }
+      conversation_analytics: {
+        Row: {
+          agent_messages: number | null
+          avg_response_time_ms: number | null
+          conversion_event: string | null
+          created_at: string | null
+          first_message_at: string | null
+          flow_completed: boolean | null
+          id: string
+          last_message_at: string | null
+          phone_number: string
+          satisfaction_rating: number | null
+          session_duration_minutes: number | null
+          session_id: string | null
+          total_messages: number | null
+          updated_at: string | null
+          user_messages: number | null
+        }
+        Insert: {
+          agent_messages?: number | null
+          avg_response_time_ms?: number | null
+          conversion_event?: string | null
+          created_at?: string | null
+          first_message_at?: string | null
+          flow_completed?: boolean | null
+          id?: string
+          last_message_at?: string | null
+          phone_number: string
+          satisfaction_rating?: number | null
+          session_duration_minutes?: number | null
+          session_id?: string | null
+          total_messages?: number | null
+          updated_at?: string | null
+          user_messages?: number | null
+        }
+        Update: {
+          agent_messages?: number | null
+          avg_response_time_ms?: number | null
+          conversion_event?: string | null
+          created_at?: string | null
+          first_message_at?: string | null
+          flow_completed?: boolean | null
+          id?: string
+          last_message_at?: string | null
+          phone_number?: string
+          satisfaction_rating?: number | null
+          session_duration_minutes?: number | null
+          session_id?: string | null
+          total_messages?: number | null
+          updated_at?: string | null
+          user_messages?: number | null
+        }
+        Relationships: []
+      }
       conversation_evaluations: {
         Row: {
           clarity_score: number | null
@@ -1015,6 +1069,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      conversation_flows: {
+        Row: {
+          completed_at: string | null
+          current_step: string
+          flow_data: Json | null
+          flow_name: string
+          id: string
+          phone_number: string
+          started_at: string | null
+          status: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          current_step: string
+          flow_data?: Json | null
+          flow_name: string
+          id?: string
+          phone_number: string
+          started_at?: string | null
+          status?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          current_step?: string
+          flow_data?: Json | null
+          flow_name?: string
+          id?: string
+          phone_number?: string
+          started_at?: string | null
+          status?: string | null
+        }
+        Relationships: []
       }
       conversation_learning_log: {
         Row: {
@@ -4266,6 +4353,39 @@ export type Database = {
           chunk?: string
           doc_id?: string
           embedding?: string | null
+        }
+        Relationships: []
+      }
+      whatsapp_delivery_metrics: {
+        Row: {
+          created_at: string | null
+          delivered: boolean
+          delivery_time_ms: number | null
+          error_details: string | null
+          id: string
+          message_type: string | null
+          phone_number: string
+          template_name: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          delivered?: boolean
+          delivery_time_ms?: number | null
+          error_details?: string | null
+          id?: string
+          message_type?: string | null
+          phone_number: string
+          template_name?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          delivered?: boolean
+          delivery_time_ms?: number | null
+          error_details?: string | null
+          id?: string
+          message_type?: string | null
+          phone_number?: string
+          template_name?: string | null
         }
         Relationships: []
       }
