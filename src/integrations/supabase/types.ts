@@ -4630,6 +4630,10 @@ export type Database = {
         Args: { "": unknown } | { "": unknown }
         Returns: string
       }
+      check_function_exists: {
+        Args: { function_name: string }
+        Returns: boolean
+      }
       check_rate_limit: {
         Args: {
           identifier: string
@@ -4967,6 +4971,21 @@ export type Database = {
       get_proj4_from_srid: {
         Args: { "": number }
         Returns: string
+      }
+      get_rls_status: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          table_name: string
+          rls_enabled: boolean
+        }[]
+      }
+      get_security_functions: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          function_name: string
+          security_type: string
+          has_search_path: boolean
+        }[]
       }
       gettransactionid: {
         Args: Record<PropertyKey, never>
