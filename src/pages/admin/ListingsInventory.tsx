@@ -51,7 +51,7 @@ interface UnifiedListing {
 }
 
 export default function ListingsInventory() {
-  const [listings, setListings] = useState<UnifiedListing[]>([]);
+  const [listings, setListings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedType, setSelectedType] = useState<string>("all");
@@ -92,7 +92,7 @@ export default function ListingsInventory() {
 
       // Filter by type if specified
       if (selectedType !== 'all') {
-        query = query.eq('listing_type', selectedType);
+        query = query.eq('listing_type', selectedType as any);
       }
 
       // Filter by status if specified  

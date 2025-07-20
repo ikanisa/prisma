@@ -6,8 +6,14 @@ import { Navigate } from "react-router-dom";
 import NotFound from "./pages/NotFound";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import Dashboard from "./pages/admin/Dashboard";
-import Users from "./pages/admin/Users";
+import UsersContacts from "./pages/admin/UsersContacts";
 import Businesses from "./pages/admin/Businesses";
+import ListingsInventory from "./pages/admin/ListingsInventory";
+import OrdersPayments from "./pages/admin/OrdersPayments";
+import TripsIntents from "./pages/admin/TripsIntents";
+import MessagingCampaigns from "./pages/admin/MessagingCampaigns";
+import AIAgentsModels from "./pages/admin/AIAgentsModels";
+import SystemOps from "./pages/admin/SystemOps";
 import BusinessDetail from "./pages/admin/BusinessDetail";
 import Drivers from "./pages/admin/Drivers";
 import Products from "./pages/admin/Products";
@@ -78,8 +84,14 @@ const App = () => (
         {/* Admin Routes */}
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<Dashboard />} />
-          <Route path="users" element={<Users />} />
+          <Route path="users-contacts" element={<UsersContacts />} />
           <Route path="businesses" element={<Businesses />} />
+          <Route path="listings-inventory" element={<ListingsInventory />} />
+          <Route path="orders-payments" element={<OrdersPayments />} />
+          <Route path="trips-intents" element={<TripsIntents />} />
+          <Route path="messaging-campaigns" element={<MessagingCampaigns />} />
+          <Route path="ai-agents-models" element={<AIAgentsModels />} />
+          <Route path="system-ops" element={<SystemOps />} />
           <Route path="businesses/:businessId" element={<BusinessDetail />} />
           <Route path="drivers" element={<Drivers />} />
           <Route path="farmers" element={<Farmers />} />
