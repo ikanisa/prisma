@@ -28,13 +28,16 @@ export function AddBusinessDialog({ onBusinessAdded }: AddBusinessDialogProps) {
     setLoading(true);
 
     try {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      
       const { error } = await supabase
         .from('businesses')
         .insert([{
           name: formData.name,
           category: formData.category as 'bar' | 'pharmacy' | 'shop',
           momo_code: formData.momo_code,
-          owner_user_id: formData.owner_user_id || null,
+          owner_user_id: formData.owner_user_id || user?.id || null,
           subscription_status: 'trial'
         }]);
 
