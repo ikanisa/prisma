@@ -1,10 +1,5 @@
 import { serve } from 'https://deno.land/std@0.203.0/http/server.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.53.1';
-
-const sb = createClient(
-  Deno.env.get('SUPABASE_URL')!,
-  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-);
+import { getSupabaseClient } from '../_shared/supabase.ts';
 
 const GOOGLE_KEY = Deno.env.get('GOOGLE_PLACES_KEY');
 
@@ -69,16 +64,17 @@ serve(async (req) => {
 
     console.log(`Processing ${inserts.length} places for category: ${category}`);
 
-    if (inserts.length > 0) {
-      const { error: insertError } = await sb
-        .from('canonical_locations')
-        .upsert(inserts, { onConflict: 'place_id' });
+  if (inserts.length > 0) {
+    const sb = getSupabaseClient();
+    const { error: insertError } = await sb
+      .from('canonical_locations')
+      .upsert(inserts, { onConflict: 'place_id' });
 
-      if (insertError) {
-        console.error('Database insert error:', insertError);
-        return err(`Database error: ${insertError.message}`, 500);
-      }
+    if (insertError) {
+      console.error('Database insert error:', insertError);
+      return err(`Database error: ${insertError.message}`, 500);
     }
+  }
 
     return ok({
       inserted: inserts.length,

@@ -1,10 +1,5 @@
 import { serve } from 'https://deno.land/std@0.203.0/http/server.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.53.1';
-
-const sb = createClient(
-  Deno.env.get('SUPABASE_URL')!,
-  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-);
+import { getSupabaseClient } from '../_shared/supabase.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -40,6 +35,7 @@ serve(async (req) => {
     console.log(`Processing ${inserts.length} property listings`);
 
     if (inserts.length > 0) {
+      const sb = getSupabaseClient();
       const { error: insertError } = await sb
         .from('property_listings')
         .upsert(inserts, { onConflict: 'external_id' });
