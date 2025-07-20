@@ -2,10 +2,12 @@ import { useState, useEffect } from "react";
 import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts";
-import { TrendingUp, TrendingDown, AlertTriangle, CheckCircle } from "lucide-react";
+import { TrendingUp, TrendingDown, AlertTriangle, CheckCircle, Activity, Shield, Zap, Target } from "lucide-react";
 
 interface QualityMetrics {
   average_score: number;
@@ -29,31 +31,95 @@ export default function QualityDashboard() {
   const [metrics, setMetrics] = useState<QualityMetrics | null>(null);
   const [evaluations, setEvaluations] = useState<Evaluation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [timeRange, setTimeRange] = useState<'1h' | '24h' | '7d'>('24h');
+  const [qualityGates, setQualityGates] = useState({
+    responseTime: { threshold: 1000, status: 'green' },
+    successRate: { threshold: 95, status: 'green' },
+    errorRate: { threshold: 5, status: 'green' }
+  });
   const { toast } = useToast();
 
   useEffect(() => {
     loadData();
-  }, []);
+    
+    if (autoRefresh) {
+      const interval = setInterval(loadData, 5000); // Refresh every 5 seconds
+      return () => clearInterval(interval);
+    }
+  }, [autoRefresh, timeRange]);
 
   async function loadData() {
     try {
-      // Load quality metrics
-      const { data: metricsData, error: metricsError } = await supabase.functions.invoke('system-metrics', {
-        body: { action: 'dashboard' }
+      // Load quality metrics with time range
+      const timeFilter = new Date();
+      switch (timeRange) {
+        case '1h':
+          timeFilter.setHours(timeFilter.getHours() - 1);
+          break;
+        case '24h':
+          timeFilter.setHours(timeFilter.getHours() - 24);
+          break;
+        case '7d':
+          timeFilter.setDate(timeFilter.getDate() - 7);
+          break;
+      }
+
+      // Load agent execution logs for real-time metrics
+      const { data: executionLogs, error: logsError } = await supabase
+        .from('agent_execution_log')
+        .select('*')
+        .gte('timestamp', timeFilter.toISOString())
+        .order('timestamp', { ascending: false });
+
+      if (logsError) throw logsError;
+
+      // Calculate real-time metrics
+      const totalExecutions = executionLogs?.length || 0;
+      const successfulExecutions = executionLogs?.filter(log => log.success_status).length || 0;
+      const avgResponseTime = totalExecutions > 0 
+        ? executionLogs.reduce((sum, log) => sum + (log.execution_time_ms || 0), 0) / totalExecutions 
+        : 0;
+      const errorRate = totalExecutions > 0 ? ((totalExecutions - successfulExecutions) / totalExecutions) * 100 : 0;
+
+      // Update quality gates
+      setQualityGates({
+        responseTime: { 
+          threshold: 1000, 
+          status: avgResponseTime < 1000 ? 'green' : avgResponseTime < 2000 ? 'yellow' : 'red' 
+        },
+        successRate: { 
+          threshold: 95, 
+          status: (successfulExecutions / totalExecutions * 100) >= 95 ? 'green' : 
+                   (successfulExecutions / totalExecutions * 100) >= 85 ? 'yellow' : 'red' 
+        },
+        errorRate: { 
+          threshold: 5, 
+          status: errorRate <= 5 ? 'green' : errorRate <= 10 ? 'yellow' : 'red' 
+        }
       });
 
-      if (metricsError) throw metricsError;
-      setMetrics(metricsData.quality);
-
-      // Load recent evaluations
+      // Load conversation evaluations
       const { data: evaluationsData, error: evaluationsError } = await supabase
         .from('conversation_evaluations')
         .select('*')
+        .gte('evaluated_at', timeFilter.toISOString())
         .order('evaluated_at', { ascending: false })
         .limit(50);
 
       if (evaluationsError) throw evaluationsError;
       setEvaluations(evaluationsData || []);
+
+      // Calculate enhanced metrics
+      const avgScore = evaluationsData?.length > 0 
+        ? evaluationsData.reduce((sum, evaluation) => sum + evaluation.overall_score, 0) / evaluationsData.length 
+        : 0;
+
+      setMetrics({
+        average_score: avgScore,
+        total_evaluations: totalExecutions,
+        low_quality_count: evaluationsData?.filter(evaluation => evaluation.overall_score < 0.6).length || 0
+      });
 
     } catch (error) {
       console.error('Error loading quality data:', error);
@@ -66,6 +132,15 @@ export default function QualityDashboard() {
       setLoading(false);
     }
   }
+
+  const getStatusIndicator = (status: string) => {
+    switch (status) {
+      case 'green': return <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse" />;
+      case 'yellow': return <div className="w-3 h-3 bg-yellow-500 rounded-full animate-pulse" />;
+      case 'red': return <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse" />;
+      default: return <div className="w-3 h-3 bg-gray-500 rounded-full" />;
+    }
+  };
 
   const scoreDistribution = evaluations.reduce((acc, evaluation) => {
     const range = Math.floor(evaluation.overall_score * 10) / 10;
@@ -100,8 +175,78 @@ export default function QualityDashboard() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold">Quality Dashboard</h1>
+        <div>
+          <h1 className="text-2xl font-bold">Quality Dashboard</h1>
+          <p className="text-muted-foreground">Real-time AI performance monitoring with automated quality gates</p>
+        </div>
+        <div className="flex items-center gap-4">
+          <Tabs value={timeRange} onValueChange={(value) => setTimeRange(value as any)}>
+            <TabsList>
+              <TabsTrigger value="1h">1H</TabsTrigger>
+              <TabsTrigger value="24h">24H</TabsTrigger>
+              <TabsTrigger value="7d">7D</TabsTrigger>
+            </TabsList>
+          </Tabs>
+          <Button
+            variant="outline"
+            onClick={() => setAutoRefresh(!autoRefresh)}
+            className="gap-2"
+          >
+            <Activity className="h-4 w-4" />
+            {autoRefresh ? 'Auto-refresh ON' : 'Auto-refresh OFF'}
+          </Button>
+        </div>
       </div>
+
+      {/* Quality Gates - Traffic Light Status */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Shield className="h-5 w-5" />
+            Automated Quality Gates
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="flex items-center justify-between p-4 border rounded-lg">
+              <div>
+                <p className="font-medium">Response Time Gate</p>
+                <p className="text-sm text-muted-foreground">&lt; {qualityGates.responseTime.threshold}ms</p>
+              </div>
+              <div className="flex items-center gap-2">
+                {getStatusIndicator(qualityGates.responseTime.status)}
+                <span className="text-sm font-medium">
+                  {qualityGates.responseTime.status.toUpperCase()}
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center justify-between p-4 border rounded-lg">
+              <div>
+                <p className="font-medium">Success Rate Gate</p>
+                <p className="text-sm text-muted-foreground">&gt; {qualityGates.successRate.threshold}%</p>
+              </div>
+              <div className="flex items-center gap-2">
+                {getStatusIndicator(qualityGates.successRate.status)}
+                <span className="text-sm font-medium">
+                  {qualityGates.successRate.status.toUpperCase()}
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center justify-between p-4 border rounded-lg">
+              <div>
+                <p className="font-medium">Error Rate Gate</p>
+                <p className="text-sm text-muted-foreground">&lt; {qualityGates.errorRate.threshold}%</p>
+              </div>
+              <div className="flex items-center gap-2">
+                {getStatusIndicator(qualityGates.errorRate.status)}
+                <span className="text-sm font-medium">
+                  {qualityGates.errorRate.status.toUpperCase()}
+                </span>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Key Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

@@ -63,8 +63,7 @@ const UnifiedConversationsPage = () => {
       let query = supabase
         .from('conversations')
         .select(`
-          *,
-          wa_contacts!inner(wa_id, display_name, business_name, tags)
+          *
         `)
         .order('started_at', { ascending: false });
 
@@ -84,7 +83,7 @@ const UnifiedConversationsPage = () => {
 
       const { data, error } = await query.limit(50);
       if (error) throw error;
-      return data as (Conversation & { wa_contacts: Contact })[];
+      return data as any[];
     },
     refetchInterval: 5000 // Refresh every 5 seconds for real-time feel
   });
@@ -98,11 +97,16 @@ const UnifiedConversationsPage = () => {
       const { data, error } = await supabase
         .from('conversation_messages')
         .select('*')
-        .eq('conversation_id', selectedConversation)
+        .eq('phone_number', selectedConversation) // Using phone_number as conversation identifier
         .order('created_at', { ascending: true });
       
       if (error) throw error;
-      return data as Message[];
+      return data?.map(msg => ({
+        ...msg,
+        conversation_id: selectedConversation,
+        text: msg.message_text || '',
+        sender: msg.sender as 'user' | 'agent'
+      })) as Message[];
     },
     enabled: !!selectedConversation,
     refetchInterval: 2000 // Refresh messages more frequently
@@ -225,7 +229,7 @@ const UnifiedConversationsPage = () => {
 
   const selectedConversationData = conversations?.find(c => c.id === selectedConversation);
 
-  const getStatusBadge = (conversation: Conversation & { wa_contacts: Contact }) => {
+  const getStatusBadge = (conversation: any) => {
     if (conversation.handoff_requested) {
       return <Badge variant="destructive" className="gap-1"><AlertCircle className="h-3 w-3" />Handoff</Badge>;
     }
@@ -278,35 +282,35 @@ const UnifiedConversationsPage = () => {
           </CardHeader>
           <CardContent className="flex-1 p-0">
             <ScrollArea className="h-full">
-              <div className="space-y-2 p-4">
-                {conversationsLoading ? (
-                  <div className="space-y-2">
-                    {[...Array(5)].map((_, i) => (
-                      <div key={i} className="h-16 bg-muted rounded-lg animate-pulse" />
-                    ))}
-                  </div>
-                ) : conversations?.map((conversation) => (
-                  <div
-                    key={conversation.id}
-                    className={`p-3 rounded-lg border cursor-pointer transition-colors ${
-                      selectedConversation === conversation.id ? 'bg-primary/10 border-primary' : 'hover:bg-muted'
-                    }`}
-                    onClick={() => setSelectedConversation(conversation.id)}
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-3">
-                        <Avatar className="h-8 w-8">
-                          <AvatarFallback>
-                            {conversation.wa_contacts.display_name?.[0] || conversation.contact_id.slice(-2)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-sm truncate">
-                            {conversation.wa_contacts.display_name || conversation.contact_id}
-                          </p>
-                          <p className="text-xs text-muted-foreground truncate">
-                            {conversation.wa_contacts.business_name}
-                          </p>
+                  <div className="space-y-2 p-4">
+                    {conversationsLoading ? (
+                      <div className="space-y-2">
+                        {[...Array(5)].map((_, i) => (
+                          <div key={i} className="h-16 bg-muted rounded-lg animate-pulse" />
+                        ))}
+                      </div>
+                    ) : conversations?.map((conversation) => (
+                      <div
+                        key={conversation.id}
+                        className={`p-3 rounded-lg border cursor-pointer transition-colors ${
+                          selectedConversation === conversation.id ? 'bg-primary/10 border-primary' : 'hover:bg-muted'
+                        }`}
+                        onClick={() => setSelectedConversation(conversation.id)}
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-center gap-3">
+                            <Avatar className="h-8 w-8">
+                              <AvatarFallback>
+                                {conversation.contact_id.slice(-2)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-sm truncate">
+                                {conversation.contact_id}
+                              </p>
+                              <p className="text-xs text-muted-foreground truncate">
+                                {conversation.channel} conversation
+                              </p>
                           <div className="flex items-center gap-2 mt-1">
                             <Badge variant="outline" className="text-xs">
                               {conversation.channel}
@@ -340,15 +344,15 @@ const UnifiedConversationsPage = () => {
                   <div className="flex items-center gap-3">
                     <Avatar>
                       <AvatarFallback>
-                        {selectedConversationData.wa_contacts.display_name?.[0] || selectedConversationData.contact_id.slice(-2)}
+                        {selectedConversationData.contact_id.slice(-2)}
                       </AvatarFallback>
                     </Avatar>
                     <div>
                       <h3 className="font-semibold">
-                        {selectedConversationData.wa_contacts.display_name || selectedConversationData.contact_id}
+                        {selectedConversationData.contact_id}
                       </h3>
                       <p className="text-sm text-muted-foreground">
-                        {selectedConversationData.wa_contacts.business_name} • {selectedConversationData.channel}
+                        {selectedConversationData.channel}
                       </p>
                     </div>
                   </div>
