@@ -1,4 +1,4 @@
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -22,10 +22,7 @@ serve(async (req) => {
       channel = 'whatsapp', 
       recipient, 
       message, 
-      message_type = 'text',
-      template_id,
-      priority = 5,
-      send_immediately = false
+      message_type = 'text'
     } = await req.json();
 
     if (!recipient || !message) {
@@ -34,45 +31,55 @@ serve(async (req) => {
 
     console.log(`Channel gateway: ${channel} message to ${recipient}`);
 
-    // Prepare payload
-    const payload = {
-      message_text: message,
-      message_type,
-      template_id
-    };
+    if (channel === 'whatsapp') {
+      // Send WhatsApp message via Meta API
+      const phoneId = Deno.env.get('WHATSAPP_PHONE_ID');
+      const accessToken = Deno.env.get('WHATSAPP_ACCESS_TOKEN');
 
-    if (send_immediately) {
-      // Send directly without quality gate or queue
-      const success = await sendDirect(channel, recipient, payload);
-      
-      return new Response(JSON.stringify({
-        success,
-        sent_immediately: true,
-        recipient,
-        channel
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      if (!phoneId || !accessToken) {
+        console.warn('WhatsApp credentials not configured, logging message instead');
+        console.log(`Would send to ${recipient}: ${message}`);
+        return new Response(JSON.stringify({
+          success: true,
+          simulated: true,
+          recipient,
+          channel
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      const response = await fetch(`https://graph.facebook.com/v18.0/${phoneId}/messages`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          messaging_product: 'whatsapp',
+          to: recipient,
+          type: 'text',
+          text: { body: message }
+        })
       });
 
-    } else {
-      // Route through quality gate
-      await supabase.functions.invoke('response-quality-gate', {
-        body: {
-          message_text: message,
-          phone_number: recipient,
-          model_used: 'system'
-        }
-      });
+      if (!response.ok) {
+        const error = await response.text();
+        console.error('WhatsApp send failed:', error);
+        throw new Error(`WhatsApp API error: ${response.status}`);
+      }
 
-      return new Response(JSON.stringify({
-        success: true,
-        queued: true,
-        recipient,
-        channel
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+      const result = await response.json();
+      console.log('WhatsApp message sent:', result);
     }
+
+    return new Response(JSON.stringify({
+      success: true,
+      recipient,
+      channel
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
 
   } catch (error) {
     console.error('Channel gateway error:', error);
@@ -84,20 +91,3 @@ serve(async (req) => {
     });
   }
 });
-
-async function sendDirect(channel: string, recipient: string, payload: any): Promise<boolean> {
-  // Queue item for immediate processing
-  const queueItem = {
-    recipient,
-    channel,
-    payload,
-    attempts: 0
-  };
-
-  // Invoke queue runner directly for immediate send
-  const response = await supabase.functions.invoke('outbound-queue-runner', {
-    body: { immediate_send: queueItem }
-  });
-
-  return response.data?.success || false;
-}

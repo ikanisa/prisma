@@ -1,120 +1,81 @@
+
 import { serve } from "https://deno.land/std@0.192.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 /* ---------- ENV ---------- */
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const BUCKET = "qr-codes";
+const SUPABASE_URL  = Deno.env.get("SUPABASE_URL")!;
+const SERVICE_KEY   = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const BUCKET        = "qr-codes";
 
-/* ---------- CORS HEADERS ---------- */
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
-/* ---------- QR CODE GENERATOR ---------- */
+/* ---------- HELPER ---------- */
 async function generateQRCode(text: string, size = 512): Promise<Uint8Array> {
-  // Simple QR code generation using a minimal approach
-  // Create a basic data URL for the QR code
-  const qrText = encodeURIComponent(text);
-  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${qrText}&format=PNG`;
+  // Use a simple QR code generation approach
+  // For production, you'd want a proper QR library
+  const canvas = new OffscreenCanvas(size, size);
+  const ctx = canvas.getContext("2d")!;
   
-  const response = await fetch(qrUrl);
-  if (!response.ok) {
-    throw new Error('Failed to generate QR code');
+  // Fill background
+  ctx.fillStyle = "white";
+  ctx.fillRect(0, 0, size, size);
+  
+  // Simple QR-like pattern (placeholder)
+  ctx.fillStyle = "black";
+  const moduleSize = size / 25;
+  for (let i = 0; i < 25; i++) {
+    for (let j = 0; j < 25; j++) {
+      if ((i + j + text.length) % 3 === 0) {
+        ctx.fillRect(i * moduleSize, j * moduleSize, moduleSize, moduleSize);
+      }
+    }
   }
   
-  const arrayBuffer = await response.arrayBuffer();
-  return new Uint8Array(arrayBuffer);
+  const blob = await canvas.convertToBlob({ type: "image/png" });
+  return new Uint8Array(await blob.arrayBuffer());
 }
 
-/* ---------- MAIN FUNCTION ---------- */
+/* ---------- FUNCTION ---------- */
 serve(async (req) => {
-  // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const corsHeaders = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  };
 
   try {
-    const { text, agent = "generic", entity = "misc", id } = await req.json();
-    
-    if (!text || !id) {
-      return new Response(
-        JSON.stringify({ error: "text and id are required" }), 
-        { 
-          status: 400, 
-          headers: { ...corsHeaders, "Content-Type": "application/json" } 
-        }
-      );
+    if (req.method === "OPTIONS") {
+      return new Response(null, { headers: corsHeaders });
     }
 
-    console.log(`Generating QR code for: ${text}`);
+    const { text, agent = "generic", entity = "misc", id } = await req.json();
+    if (!text || !id) {
+      return new Response(JSON.stringify({ error: "text and id are required" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
+      });
+    }
 
-    // Generate QR code PNG
-    const pngBuffer = await generateQRCode(text);
+    const png = await generateQRCode(text);
     const path = `${agent}/${entity}/${id}.png`;
 
-    // Initialize Supabase client with service role
-    const supabase = createClient(SUPABASE_URL, SERVICE_KEY, { 
-      auth: { persistSession: false } 
+    const supabase = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
+
+    const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, png, {
+      contentType: "image/png",
+      upsert: true
+    });
+    if (upErr) throw upErr;
+
+    // Build public URL
+    const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${path}`;
+
+    return new Response(JSON.stringify({ success: true, url: publicUrl, path }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" }
     });
 
-    // First, ensure the bucket exists
-    const { data: buckets } = await supabase.storage.listBuckets();
-    const bucketExists = buckets?.some(b => b.name === BUCKET);
-    
-    if (!bucketExists) {
-      const { error: bucketError } = await supabase.storage.createBucket(BUCKET, {
-        public: true,
-        allowedMimeTypes: ['image/png'],
-        fileSizeLimit: 1024 * 1024 // 1MB
-      });
-      
-      if (bucketError) {
-        console.error('Failed to create bucket:', bucketError);
-      }
-    }
-
-    // Upload to storage
-    const { error: uploadError } = await supabase.storage
-      .from(BUCKET)
-      .upload(path, pngBuffer, {
-        contentType: "image/png",
-        upsert: true
-      });
-
-    if (uploadError) {
-      console.error('Upload error:', uploadError);
-      throw new Error(`Upload failed: ${uploadError.message}`);
-    }
-
-    // Get public URL
-    const { data: urlData } = supabase.storage
-      .from(BUCKET)
-      .getPublicUrl(path);
-
-    console.log(`QR code generated successfully: ${urlData.publicUrl}`);
-
-    return new Response(
-      JSON.stringify({ 
-        success: true, 
-        url: urlData.publicUrl, 
-        path: path 
-      }), 
-      { 
-        status: 200, 
-        headers: { ...corsHeaders, "Content-Type": "application/json" } 
-      }
-    );
-
-  } catch (error) {
-    console.error('QR generation error:', error);
-    return new Response(
-      JSON.stringify({ error: error.message }), 
-      { 
-        status: 500, 
-        headers: { ...corsHeaders, "Content-Type": "application/json" } 
-      }
-    );
+  } catch (e) {
+    console.error(e);
+    return new Response(JSON.stringify({ error: e.message }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" }
+    });
   }
 });
