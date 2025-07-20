@@ -32,7 +32,8 @@ import {
   Users2,
   AlertTriangle,
   TestTube,
-  ShieldCheck
+  ShieldCheck,
+  Database
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -45,6 +46,7 @@ const sidebarItems = [
   { name: "Farmers", path: "/admin/farmers", icon: Tractor },
   { name: "Properties", path: "/admin/properties", icon: Home },
   { name: "Vehicles", path: "/admin/vehicles", icon: Car },
+  { name: "Data Sync", path: "/admin/data-sync", icon: Database },
   { name: "Live Handoffs", path: "/admin/live-handoffs", icon: Users2 },
   { name: "Quality Dashboard", path: "/admin/quality-dashboard", icon: BarChart3 },
   { name: "QA Testing", path: "/admin/qa-dashboard", icon: TestTube },

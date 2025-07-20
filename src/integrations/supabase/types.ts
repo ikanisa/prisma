@@ -804,6 +804,57 @@ export type Database = {
           },
         ]
       }
+      canonical_locations: {
+        Row: {
+          address: string | null
+          category: string | null
+          data_source: string | null
+          geom: unknown | null
+          google_rating: number | null
+          id: string
+          imported_at: string | null
+          lat: number | null
+          lng: number | null
+          name: string
+          phone: string | null
+          place_id: string | null
+          website: string | null
+          whatsapp: string | null
+        }
+        Insert: {
+          address?: string | null
+          category?: string | null
+          data_source?: string | null
+          geom?: unknown | null
+          google_rating?: number | null
+          id?: string
+          imported_at?: string | null
+          lat?: number | null
+          lng?: number | null
+          name: string
+          phone?: string | null
+          place_id?: string | null
+          website?: string | null
+          whatsapp?: string | null
+        }
+        Update: {
+          address?: string | null
+          category?: string | null
+          data_source?: string | null
+          geom?: unknown | null
+          google_rating?: number | null
+          id?: string
+          imported_at?: string | null
+          lat?: number | null
+          lng?: number | null
+          name?: string
+          phone?: string | null
+          place_id?: string | null
+          website?: string | null
+          whatsapp?: string | null
+        }
+        Relationships: []
+      }
       cart_items: {
         Row: {
           cart_id: string | null
@@ -3635,6 +3686,60 @@ export type Database = {
           },
         ]
       }
+      property_listings: {
+        Row: {
+          address: string | null
+          bathrooms: number | null
+          bedrooms: number | null
+          created_at: string | null
+          description: string | null
+          external_id: string | null
+          geom: unknown | null
+          id: string
+          lat: number | null
+          lng: number | null
+          photos: Json | null
+          price_usd: number | null
+          source: string | null
+          title: string | null
+          whatsapp: string | null
+        }
+        Insert: {
+          address?: string | null
+          bathrooms?: number | null
+          bedrooms?: number | null
+          created_at?: string | null
+          description?: string | null
+          external_id?: string | null
+          geom?: unknown | null
+          id?: string
+          lat?: number | null
+          lng?: number | null
+          photos?: Json | null
+          price_usd?: number | null
+          source?: string | null
+          title?: string | null
+          whatsapp?: string | null
+        }
+        Update: {
+          address?: string | null
+          bathrooms?: number | null
+          bedrooms?: number | null
+          created_at?: string | null
+          description?: string | null
+          external_id?: string | null
+          geom?: unknown | null
+          id?: string
+          lat?: number | null
+          lng?: number | null
+          photos?: Json | null
+          price_usd?: number | null
+          source?: string | null
+          title?: string | null
+          whatsapp?: string | null
+        }
+        Relationships: []
+      }
       qa_performance_benchmarks: {
         Row: {
           category: string | null
@@ -5276,6 +5381,60 @@ export type Database = {
           chunk?: string
           doc_id?: string
           embedding?: string | null
+        }
+        Relationships: []
+      }
+      vehicle_listings: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          external_id: string | null
+          geom: unknown | null
+          id: string
+          lat: number | null
+          lng: number | null
+          make: string | null
+          model: string | null
+          photos: Json | null
+          price_usd: number | null
+          source: string | null
+          usage: string | null
+          whatsapp: string | null
+          year: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          external_id?: string | null
+          geom?: unknown | null
+          id?: string
+          lat?: number | null
+          lng?: number | null
+          make?: string | null
+          model?: string | null
+          photos?: Json | null
+          price_usd?: number | null
+          source?: string | null
+          usage?: string | null
+          whatsapp?: string | null
+          year?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          external_id?: string | null
+          geom?: unknown | null
+          id?: string
+          lat?: number | null
+          lng?: number | null
+          make?: string | null
+          model?: string | null
+          photos?: Json | null
+          price_usd?: number | null
+          source?: string | null
+          usage?: string | null
+          whatsapp?: string | null
+          year?: number | null
         }
         Relationships: []
       }
