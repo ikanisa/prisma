@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -7,6 +8,7 @@ import { MessageSquare, Send, Users, TrendingUp } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 export default function MessagingCampaigns() {
+  const navigate = useNavigate();
   const [conversations, setConversations] = useState<any[]>([]);
   const [messages, setMessages] = useState<any[]>([]);
   const [campaigns, setCampaigns] = useState<any[]>([]);

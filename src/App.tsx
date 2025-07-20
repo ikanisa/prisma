@@ -16,6 +16,14 @@ import AIAgentsModels from "./pages/admin/AIAgentsModels";
 import SystemOps from "./pages/admin/SystemOps";
 import BusinessDetail from "./pages/admin/BusinessDetail";
 import AdminAuth from "./pages/AdminAuth";
+// Agent detail pages
+import AgentDetail from "./pages/admin/agents/AgentDetail";
+import PersonaDetail from "./pages/admin/PersonaDetail";
+import AgentLearning from "./pages/admin/agents/AgentLearning";
+import TaskDetail from "./pages/admin/agents/TaskDetail";
+// Conversation and campaign detail pages
+import ConversationDetail from "./pages/admin/conversations/ConversationDetail";
+import CampaignDetail from "./pages/admin/campaigns/CampaignDetail";
 
 const queryClient = new QueryClient();
 
@@ -40,6 +48,16 @@ const App = () => (
           <Route path="ai-agents-models" element={<AIAgentsModels />} />
           <Route path="system-ops" element={<SystemOps />} />
           <Route path="businesses/:businessId" element={<BusinessDetail />} />
+          
+          {/* Agent detail routes */}
+          <Route path="agents/:id" element={<AgentDetail />} />
+          <Route path="agents/:agentId/personas/:id" element={<PersonaDetail />} />
+          <Route path="agents/:id/learning" element={<AgentLearning />} />
+          <Route path="agents/:agentId/tasks/:taskId" element={<TaskDetail />} />
+          
+          {/* Conversation and campaign detail routes */}
+          <Route path="conversations/:id" element={<ConversationDetail />} />
+          <Route path="campaigns/:id" element={<CampaignDetail />} />
         </Route>
         
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
