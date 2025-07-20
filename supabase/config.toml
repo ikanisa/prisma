@@ -34,6 +34,18 @@ verify_jwt = false
 [functions.whatsapp-webhook]
 verify_jwt = false
 
+[functions.wa-webhook]
+verify_jwt = false
+
+[functions.unified-message-handler]
+verify_jwt = false
+
+[functions.channel-gateway]
+verify_jwt = false
+
+[functions.mcp-orchestrator]
+verify_jwt = false
+
 [storage]
 enabled = true
 port = 54323
