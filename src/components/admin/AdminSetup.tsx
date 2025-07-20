@@ -72,6 +72,55 @@ export function AdminSetup() {
     }
   };
 
+  const handleAdminLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setSetupLoading(true);
+
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      if (!data.user) {
+        throw new Error('No user data returned');
+      }
+
+      // Check if user has admin role
+      const { data: roleData, error: roleError } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', data.user.id)
+        .eq('role', 'admin')
+        .maybeSingle();
+
+      if (roleError) {
+        throw new Error('Failed to verify admin role');
+      }
+
+      if (!roleData) {
+        throw new Error('You do not have admin privileges');
+      }
+
+      toast({
+        title: "Success!",
+        description: "Signed in successfully. Redirecting to admin panel...",
+      });
+
+      // Redirect to admin panel
+      window.location.href = '/admin';
+    } catch (error: any) {
+      setError(error.message || 'Failed to sign in');
+    } finally {
+      setSetupLoading(false);
+    }
+  };
+
   const createFirstAdmin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -251,28 +300,81 @@ export function AdminSetup() {
     );
   }
 
-  // If admin exists but current user is not admin, show access denied
+  // If admin exists but current user is not admin, show login form
   if (adminExists && !currentUserIsAdmin) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
-            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-100 dark:bg-red-900">
-              <AlertCircle className="h-6 w-6 text-red-600 dark:text-red-400" />
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+              <Shield className="h-6 w-6 text-primary" />
             </div>
-            <CardTitle>Access Denied</CardTitle>
+            <CardTitle>Admin Login</CardTitle>
             <CardDescription>
-              Admin access is already configured. Only existing admins can access this system.
+              Sign in with your admin credentials to access the system.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Button 
-              onClick={() => window.location.href = '/'} 
-              variant="outline"
-              className="w-full"
-            >
-              Return to Home
-            </Button>
+            {error && (
+              <Alert variant="destructive" className="mb-4">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+
+            <form onSubmit={handleAdminLogin} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="admin@easymo.com"
+                  required
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                />
+              </div>
+
+              <Button 
+                type="submit" 
+                className="w-full" 
+                disabled={setupLoading || !email || !password}
+              >
+                {setupLoading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    Signing in...
+                  </>
+                ) : (
+                  <>
+                    <Shield className="h-4 w-4 mr-2" />
+                    Sign In as Admin
+                  </>
+                )}
+              </Button>
+            </form>
+
+            <div className="mt-4 text-center">
+              <Button 
+                onClick={() => window.location.href = '/'} 
+                variant="ghost"
+                size="sm"
+              >
+                Return to Home
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>
