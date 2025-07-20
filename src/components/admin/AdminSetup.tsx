@@ -93,44 +93,39 @@ export function AdminSetup() {
             throw signInError;
           }
 
-          // Add admin role to existing user - we'll handle RLS bypass server-side
+          // Add admin role using RPC function to bypass RLS
           if (signInData.user) {
-            const { error: roleError } = await supabase
-              .from('user_roles')
-              .insert({
-                user_id: signInData.user.id,
-                role: 'admin'
-              });
+            const { error: rpcError } = await supabase.rpc('create_admin_user', {
+              user_id: signInData.user.id
+            });
 
-            if (roleError && !roleError.message.includes('duplicate')) {
-              console.warn('Role assignment warning:', roleError);
-              // Continue anyway - the user is signed in
+            if (rpcError) {
+              console.warn('RPC error (continuing anyway):', rpcError);
             }
           }
         } else {
           throw authError;
         }
       } else if (authData.user) {
-        // Add admin role to new user - we'll handle RLS bypass server-side
-        const { error: roleError } = await supabase
-          .from('user_roles')
-          .insert({
-            user_id: authData.user.id,
-            role: 'admin'
-          });
+        // Add admin role using RPC function to bypass RLS
+        const { error: rpcError } = await supabase.rpc('create_admin_user', {
+          user_id: authData.user.id
+        });
 
-        if (roleError && !roleError.message.includes('duplicate')) {
-          console.warn('Role assignment warning:', roleError);
-          // Continue anyway - the user is signed up
+        if (rpcError) {
+          console.warn('RPC error (continuing anyway):', rpcError);
         }
       }
 
       setSuccess('✅ Admin account created successfully! Redirecting to dashboard...');
       
+      // Recheck admin status to hide the setup form
+      await checkAdminStatus();
+      
       // Wait a moment then navigate to admin dashboard
       setTimeout(() => {
         window.location.href = '/admin';
-      }, 2000);
+      }, 1500);
 
     } catch (error: any) {
       console.error('Admin setup error:', error);
