@@ -79,11 +79,11 @@ export default function Vehicles() {
         query = query.or(`title.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%,make.ilike.%${searchQuery}%,model.ilike.%${searchQuery}%`);
       }
 
-      if (statusFilter) {
+      if (statusFilter && statusFilter !== 'all') {
         query = query.eq('status', statusFilter as Vehicle['status']);
       }
 
-      if (actionFilter) {
+      if (actionFilter && actionFilter !== 'all') {
         query = query.eq('action', actionFilter as Vehicle['action']);
       }
 
@@ -327,7 +327,7 @@ export default function Vehicles() {
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Status</SelectItem>
+                <SelectItem value="all">All Status</SelectItem>
                 <SelectItem value="published">Published</SelectItem>
                 <SelectItem value="pending">Pending</SelectItem>
                 <SelectItem value="draft">Draft</SelectItem>
@@ -339,7 +339,7 @@ export default function Vehicles() {
                 <SelectValue placeholder="Type" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Types</SelectItem>
+                <SelectItem value="all">All Types</SelectItem>
                 <SelectItem value="rent">Rent</SelectItem>
                 <SelectItem value="sale">Sale</SelectItem>
               </SelectContent>
