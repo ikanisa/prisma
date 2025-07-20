@@ -28,6 +28,8 @@ import WhatsAppContacts from "./pages/admin/WhatsAppContacts";
 import WAContactsPage from "./pages/admin/whatsapp/WAContactsPage";
 import UnifiedConversationsPage from "./pages/admin/conversations/UnifiedConversationsPage";
 import CampaignsPage from "./pages/admin/marketing/CampaignsPage";
+import AgentManagement from "./pages/admin/ai-agents/AgentManagement";
+import ExperimentsPage from "./pages/admin/experiments/ExperimentsPage";
 import Conversations from "./pages/admin/Conversations";
 import Farmers from "./pages/admin/Farmers";
 import Passengers from "./pages/admin/Passengers";
@@ -86,7 +88,6 @@ const App = () => (
           <Route path="live-handoffs" element={<LiveHandoffs />} />
           <Route path="quality-dashboard" element={<QualityDashboard />} />
           <Route path="system-metrics" element={<SystemMetrics />} />
-          <Route path="experiments" element={<Experiments />} />
           <Route path="trips" element={<Trips />} />
           <Route path="passengers" element={<Passengers />} />
           <Route path="rides" element={<Rides />} />
@@ -113,6 +114,8 @@ const App = () => (
           <Route path="whatsapp/contacts" element={<WAContactsPage />} />
           <Route path="conversations/unified" element={<UnifiedConversationsPage />} />
           <Route path="marketing/campaigns" element={<CampaignsPage />} />
+          <Route path="ai-management" element={<AgentManagement />} />
+          <Route path="experiments-new" element={<ExperimentsPage />} />
           <Route path="conversations" element={<Conversations />} />
           <Route path="help" element={<div className="p-6">Support Tickets page coming soon...</div>} />
           <Route path="settings" element={<Settings />} />

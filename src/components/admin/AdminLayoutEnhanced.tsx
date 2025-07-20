@@ -36,6 +36,7 @@ import {
   BarChart3,
   Users2,
   AlertTriangle,
+  TestTube,
   LucideIcon
 } from "lucide-react";
 
@@ -91,6 +92,7 @@ const sidebarData: SidebarCategory[] = [
       { name: "WhatsApp Dashboard", path: "/admin/whatsapp", icon: MessageSquare, category: 'ai' },
       { name: "Unified Conversations", path: "/admin/unified-conversations", icon: MessageSquare, category: 'ai' },
       { name: "Marketing Campaigns", path: "/admin/marketing-campaigns", icon: MessageSquare, category: 'ai' },
+      { name: "AI Management", path: "/admin/ai-management", icon: Brain, category: 'ai' },
     ]
   },
   {
@@ -100,7 +102,7 @@ const sidebarData: SidebarCategory[] = [
       { name: "Live Handoffs", path: "/admin/live-handoffs", icon: Users2, category: 'monitoring' },
       { name: "Agent Logs", path: "/admin/agent-logs", icon: ScrollText, category: 'monitoring' },
       { name: "Edge Logs", path: "/admin/edge-logs", icon: Activity, category: 'monitoring' },
-      { name: "Experiments", path: "/admin/experiments", icon: AlertTriangle, category: 'monitoring' },
+      { name: "Experiments & Flags", path: "/admin/experiments-new", icon: TestTube, category: 'monitoring' },
     ]
   },
   {
