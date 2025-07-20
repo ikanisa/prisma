@@ -52,6 +52,8 @@ import Experiments from "./pages/admin/Experiments";
 import Trips from "./pages/admin/Trips";
 import Settings from "./pages/admin/Settings";
 import MarketingCampaigns from "./pages/admin/MarketingCampaigns";
+import AssistantTools from "./pages/admin/AssistantTools";
+import FineTune from "./pages/admin/FineTune";
 
 const queryClient = new QueryClient();
 
@@ -113,6 +115,8 @@ const App = () => (
           <Route path="unified-orders" element={<UnifiedOrders />} />
           <Route path="unified-products" element={<UnifiedProducts />} />
           <Route path="unified-conversations" element={<UnifiedConversations />} />
+          <Route path="assistant-tools" element={<AssistantTools />} />
+          <Route path="fine-tune" element={<FineTune />} />
         </Route>
         
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
