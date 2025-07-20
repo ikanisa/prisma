@@ -175,11 +175,19 @@ export default function AIAgentsModels() {
                         </div>
                       </div>
                       <div className="flex space-x-2">
-                        <Button variant="outline" size="sm">
-                          Configure
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => navigate(`/admin/agents/${agent.id}`)}
+                        >
+                          View Details
                         </Button>
-                        <Button variant="outline" size="sm">
-                          Test
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => navigate(`/admin/agents/${agent.id}/learning`)}
+                        >
+                          Learning
                         </Button>
                       </div>
                     </div>
@@ -213,8 +221,12 @@ export default function AIAgentsModels() {
                           Updated: {new Date(persona.updated_at).toLocaleDateString()}
                         </div>
                       </div>
-                      <Button variant="outline" size="sm">
-                        Edit
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => navigate(`/admin/agents/${persona.agent_id}/personas/${persona.id}`)}
+                      >
+                        Edit Persona
                       </Button>
                     </div>
                   </div>
@@ -292,7 +304,11 @@ export default function AIAgentsModels() {
                           Created: {new Date(task.created_at).toLocaleDateString()}
                         </div>
                       </div>
-                      <Button variant="outline" size="sm">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => navigate(`/admin/agents/${task.agent_id}/tasks/${task.id}`)}
+                      >
                         Edit Task
                       </Button>
                     </div>

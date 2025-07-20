@@ -172,7 +172,11 @@ export default function MessagingCampaigns() {
                           )}
                         </div>
                       </div>
-                      <Button variant="outline" size="sm">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => navigate(`/admin/conversations/${conversation.id}`)}
+                      >
                         View Chat
                       </Button>
                     </div>
@@ -220,7 +224,11 @@ export default function MessagingCampaigns() {
                           )}
                         </div>
                       </div>
-                      <Button variant="outline" size="sm">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => navigate(`/admin/campaigns/${campaign.id}`)}
+                      >
                         View Details
                       </Button>
                     </div>
