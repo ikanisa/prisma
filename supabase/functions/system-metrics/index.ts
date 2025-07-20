@@ -17,10 +17,24 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  const url = new URL(req.url);
-  const action = url.searchParams.get('action') || 'metrics';
-
   try {
+    let action = 'metrics';
+    
+    // Try to get action from JSON body first, then URL params
+    if (req.method === 'POST') {
+      try {
+        const body = await req.json();
+        action = body.action || 'metrics';
+      } catch {
+        // If JSON parsing fails, try URL params
+        const url = new URL(req.url);
+        action = url.searchParams.get('action') || 'metrics';
+      }
+    } else {
+      const url = new URL(req.url);
+      action = url.searchParams.get('action') || 'metrics';
+    }
+
     if (action === 'record') {
       return await recordMetric(req);
     } else if (action === 'metrics') {
@@ -149,13 +163,14 @@ async function getConversationMetrics() {
 }
 
 async function getQueueMetrics() {
+  // Use campaign_messages as proxy for queue since outbound_queue doesn't exist
   const { data } = await supabase
-    .from('outbound_queue')
+    .from('campaign_messages')
     .select('status');
 
   return {
-    queued: data?.filter(m => m.status === 'queued').length || 0,
-    processing: data?.filter(m => m.status === 'processing').length || 0,
+    queued: data?.filter(m => m.status === 'pending').length || 0,
+    processing: data?.filter(m => m.status === 'sending').length || 0,
     failed: data?.filter(m => m.status === 'failed').length || 0,
     total: data?.length || 0
   };
@@ -204,7 +219,7 @@ async function getContactMetrics() {
 
 async function getPropertyMetrics() {
   const { data } = await supabase
-    .from('properties')
+    .from('tbl_properties')
     .select('status');
 
   return {
@@ -216,7 +231,7 @@ async function getPropertyMetrics() {
 
 async function getVehicleMetrics() {
   const { data } = await supabase
-    .from('vehicles')
+    .from('tbl_vehicles')
     .select('status');
 
   return {
