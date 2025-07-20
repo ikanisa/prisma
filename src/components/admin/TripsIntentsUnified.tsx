@@ -18,7 +18,7 @@ type TripRow = {
   to_text: string;
   price_rwf: number | null;
   seats: number | null;
-  status: "open" | "matched" | "cancelled" | "completed" | "active";
+  status: string; // Database uses text type, not constrained enum
   created_at: string;
   updated_at: string;
 };
