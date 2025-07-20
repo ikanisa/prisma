@@ -79,7 +79,7 @@ async function aggregateDashboardMetrics() {
     systemHealth
   ] = await Promise.all([
     // Total users
-    supabase.from('profiles').select('id', { count: 'exact', head: true }),
+    supabase.from('users').select('id', { count: 'exact', head: true }),
     
     // Active users (last 24h)
     supabase.from('conversation_messages')
@@ -140,7 +140,7 @@ async function aggregateDashboardMetrics() {
     : 0;
 
   // Growth calculations
-  const userGrowth = await calculateGrowth('profiles', 'created_at', last7d, last30d);
+  const userGrowth = await calculateGrowth('users', 'created_at', last7d, last30d);
   const conversationGrowth = await calculateGrowth('conversations', 'created_at', last7d, last30d);
   const orderGrowth = await calculateGrowth('orders', 'created_at', last7d, last30d);
 

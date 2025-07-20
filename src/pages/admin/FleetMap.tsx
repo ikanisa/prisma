@@ -2,7 +2,6 @@ import { useEffect, useState, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
   MapPin, Navigation, RefreshCw, Zap, Users, Clock, Car,
   MessageCircle, Phone, AlertTriangle, CheckCircle, Radio
@@ -270,59 +269,161 @@ export default function FleetMap() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Map Area */}
+        {/* Enhanced Map Area */}
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Navigation className="h-5 w-5" />
-              Driver Locations
+              Real-time Driver Fleet Map
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div 
-              ref={mapRef}
-              className="h-[500px] bg-gray-100 rounded-lg flex items-center justify-center relative overflow-hidden"
-            >
-              {/* Simplified Map Visualization */}
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-50 to-green-50">
-                <div className="absolute top-4 left-4 bg-white p-2 rounded shadow">
-                  <p className="text-sm font-medium">Kigali - Rwanda</p>
-                  <p className="text-xs text-muted-foreground">Zoom: {zoomLevel}</p>
+            {/* Enhanced Map View with Real-time Updates */}
+            <div className="relative bg-gradient-to-br from-blue-50 to-green-50 rounded-lg min-h-[400px] border overflow-hidden">
+              {/* Map Controls */}
+              <div className="absolute top-4 left-4 z-10 space-y-2">
+                <div className="bg-white rounded-lg shadow-sm border p-2">
+                  <div className="text-xs font-medium text-muted-foreground mb-1">Zoom Level</div>
+                  <div className="flex gap-1">
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      onClick={() => setZoomLevel(Math.max(1, zoomLevel - 1))}
+                      disabled={zoomLevel <= 1}
+                    >
+                      -
+                    </Button>
+                    <span className="px-2 py-1 bg-muted rounded text-xs">{zoomLevel}x</span>
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      onClick={() => setZoomLevel(Math.min(10, zoomLevel + 1))}
+                      disabled={zoomLevel >= 10}
+                    >
+                      +
+                    </Button>
+                  </div>
                 </div>
                 
-                {/* Driver Markers */}
-                {drivers.map((driver, index) => (
-                  <div
-                    key={driver.id}
-                    className={`absolute w-4 h-4 rounded-full ${getDriverMarkerColor(driver)} border-2 border-white shadow-lg cursor-pointer transform -translate-x-1/2 -translate-y-1/2 hover:scale-125 transition-transform`}
-                    style={{
-                      left: `${20 + (index % 8) * 10}%`,
-                      top: `${20 + Math.floor(index / 8) * 15}%`
-                    }}
-                    onClick={() => setSelectedDriver(driver)}
-                    title={`${driver.driver.full_name} - ${driver.driver.plate_number}`}
+                <div className="bg-white rounded-lg shadow-sm border p-2">
+                  <div className="text-xs font-medium text-muted-foreground mb-1">Auto-Refresh</div>
+                  <Button
+                    size="sm"
+                    variant={autoRefresh ? "default" : "outline"}
+                    onClick={() => setAutoRefresh(!autoRefresh)}
+                    className="w-full"
                   >
-                    {driver.battery_level && driver.battery_level < 20 && (
-                      <AlertTriangle className="absolute -top-1 -right-1 h-3 w-3 text-red-500 bg-white rounded-full" />
-                    )}
-                  </div>
-                ))}
+                    {autoRefresh ? 'ON' : 'OFF'}
+                  </Button>
+                </div>
+              </div>
 
-                <div className="absolute bottom-4 left-4 bg-white p-3 rounded shadow">
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                      <span className="text-xs">Online</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-                      <span className="text-xs">Low Battery</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 bg-gray-500 rounded-full"></div>
-                      <span className="text-xs">Offline</span>
-                    </div>
+              {/* Map Legend */}
+              <div className="absolute top-4 right-4 z-10 bg-white rounded-lg shadow-sm border p-3">
+                <div className="text-xs font-medium text-muted-foreground mb-2">Driver Status</div>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                    <span className="text-xs">Online & Available</span>
                   </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                    <span className="text-xs">On Trip</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
+                    <span className="text-xs">Low Battery</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 bg-gray-500 rounded-full"></div>
+                    <span className="text-xs">Offline</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Map Grid */}
+              <div className="absolute inset-0 opacity-10">
+                <svg width="100%" height="100%">
+                  <defs>
+                    <pattern id="grid" width="50" height="50" patternUnits="userSpaceOnUse">
+                      <path d="M 50 0 L 0 0 0 50" fill="none" stroke="#cbd5e1" strokeWidth="1"/>
+                    </pattern>
+                  </defs>
+                  <rect width="100%" height="100%" fill="url(#grid)" />
+                </svg>
+              </div>
+
+              {/* Driver Markers */}
+              <div className="absolute inset-0">
+                {drivers.map((driver, index) => {
+                  const x = (20 + (index * 123) % 60) * zoomLevel / 2;
+                  const y = (30 + (index * 97) % 40) * zoomLevel / 2;
+                  const isSelected = selectedDriver?.id === driver.id;
+                  
+                  return (
+                    <div
+                      key={driver.id}
+                      className={`absolute transform -translate-x-1/2 -translate-y-1/2 cursor-pointer transition-all duration-200 ${
+                        isSelected ? 'scale-150 z-20' : 'z-10 hover:scale-125'
+                      }`}
+                      style={{
+                        left: `${x}%`,
+                        top: `${y}%`
+                      }}
+                      onClick={() => setSelectedDriver(driver)}
+                    >
+                      {/* Driver Marker */}
+                      <div className={`relative`}>
+                        <div className={`w-4 h-4 rounded-full border-2 border-white shadow-lg ${getDriverMarkerColor(driver)}`}>
+                          {driver.battery_level && driver.battery_level < 20 && (
+                            <div className="absolute -top-1 -right-1 w-2 h-2 bg-red-600 rounded-full animate-pulse"></div>
+                          )}
+                        </div>
+                        
+                        {/* Signal indicator for location accuracy */}
+                        <div className={`absolute -bottom-2 left-1/2 transform -translate-x-1/2 w-2 h-1 rounded-full ${
+                          (driver.accuracy || 0) < 10 ? 'bg-green-400' : 
+                          (driver.accuracy || 0) < 50 ? 'bg-yellow-400' : 'bg-red-400'
+                        }`}></div>
+                        
+                        {isSelected && (
+                          <div className="absolute top-6 left-1/2 transform -translate-x-1/2 bg-white rounded-lg shadow-lg border p-2 min-w-48">
+                            <div className="text-xs font-medium">{driver.driver.full_name}</div>
+                            <div className="text-xs text-muted-foreground mt-1">
+                              Status: {driver.status}<br/>
+                              Battery: {driver.battery_level || 'N/A'}%<br/>
+                              Accuracy: {driver.accuracy}m<br/>
+                              Last Update: {getLastUpdateText(driver.last_update)}
+                            </div>
+                            <Button 
+                              size="sm" 
+                              className="w-full mt-2" 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                pingDriver(driver.driver_id, driver.driver.full_name);
+                              }}
+                            >
+                              Ping Driver
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Center Indicator */}
+              <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-5">
+                <div className="w-2 h-2 bg-primary rounded-full opacity-30"></div>
+                <div className="absolute inset-0 w-6 h-6 border border-primary border-dashed rounded-full opacity-20 -translate-x-2 -translate-y-2"></div>
+              </div>
+
+              {/* Map Info Overlay */}
+              <div className="absolute bottom-4 left-4 bg-white rounded-lg shadow-sm border p-2">
+                <div className="text-xs text-muted-foreground">
+                  Center: {mapCenter.lat.toFixed(4)}, {mapCenter.lng.toFixed(4)}<br/>
+                  Active Drivers: {drivers.length}
                 </div>
               </div>
             </div>
