@@ -31,7 +31,8 @@ import {
   BarChart3,
   Users2,
   AlertTriangle,
-  TestTube
+  TestTube,
+  ShieldCheck
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -47,6 +48,7 @@ const sidebarItems = [
   { name: "Live Handoffs", path: "/admin/live-handoffs", icon: Users2 },
   { name: "Quality Dashboard", path: "/admin/quality-dashboard", icon: BarChart3 },
   { name: "QA Testing", path: "/admin/qa-dashboard", icon: TestTube },
+  { name: "Production Ready", path: "/admin/production-readiness", icon: ShieldCheck },
   { name: "System Metrics", path: "/admin/system-metrics", icon: Activity },
   { name: "Experiments", path: "/admin/experiments", icon: AlertTriangle },
   { name: "Trips & Intents", path: "/admin/trips", icon: Car },

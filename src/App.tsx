@@ -55,6 +55,7 @@ import MarketingCampaigns from "./pages/admin/MarketingCampaigns";
 import AssistantTools from "./pages/admin/AssistantTools";
 import FineTune from "./pages/admin/FineTune";
 import QADashboard from "./pages/admin/QADashboard";
+import ProductionReadiness from "./pages/admin/ProductionReadiness";
 
 const queryClient = new QueryClient();
 
@@ -119,6 +120,7 @@ const App = () => (
           <Route path="assistant-tools" element={<AssistantTools />} />
           <Route path="fine-tune" element={<FineTune />} />
           <Route path="qa-dashboard" element={<QADashboard />} />
+          <Route path="production-readiness" element={<ProductionReadiness />} />
         </Route>
         
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
