@@ -89,7 +89,11 @@ export default function SystemMetrics() {
   }
 
   if (!metrics) {
-    return <div>No metrics available</div>;
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-muted-foreground">No metrics available</div>
+      </div>
+    );
   }
 
   return (
