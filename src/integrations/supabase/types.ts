@@ -323,6 +323,39 @@ export type Database = {
         }
         Relationships: []
       }
+      alert_configurations: {
+        Row: {
+          alert_types: string[]
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          notification_channels: Json
+          severity_levels: string[]
+          throttle_minutes: number | null
+        }
+        Insert: {
+          alert_types: string[]
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          notification_channels: Json
+          severity_levels: string[]
+          throttle_minutes?: number | null
+        }
+        Update: {
+          alert_types?: string[]
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          notification_channels?: Json
+          severity_levels?: string[]
+          throttle_minutes?: number | null
+        }
+        Relationships: []
+      }
       assistant_configs: {
         Row: {
           assistant_id: string | null
@@ -638,6 +671,59 @@ export type Database = {
             columns: ["owner_user_id"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      campaign_messages: {
+        Row: {
+          attempt_count: number | null
+          campaign_id: string | null
+          delivered_at: string | null
+          error_details: string | null
+          id: string
+          message_content: string
+          metadata: Json | null
+          phone_number: string
+          responded_at: string | null
+          scheduled_for: string
+          sent_at: string | null
+          status: string | null
+        }
+        Insert: {
+          attempt_count?: number | null
+          campaign_id?: string | null
+          delivered_at?: string | null
+          error_details?: string | null
+          id?: string
+          message_content: string
+          metadata?: Json | null
+          phone_number: string
+          responded_at?: string | null
+          scheduled_for: string
+          sent_at?: string | null
+          status?: string | null
+        }
+        Update: {
+          attempt_count?: number | null
+          campaign_id?: string | null
+          delivered_at?: string | null
+          error_details?: string | null
+          id?: string
+          message_content?: string
+          metadata?: Json | null
+          phone_number?: string
+          responded_at?: string | null
+          scheduled_for?: string
+          sent_at?: string | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_messages_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "marketing_campaigns"
             referencedColumns: ["id"]
           },
         ]
@@ -1244,6 +1330,104 @@ export type Database = {
         }
         Relationships: []
       }
+      cron_executions: {
+        Row: {
+          completed_at: string | null
+          error_details: string | null
+          execution_time_ms: number | null
+          id: string
+          job_id: string | null
+          result_data: Json | null
+          retry_attempt: number | null
+          started_at: string | null
+          status: string
+        }
+        Insert: {
+          completed_at?: string | null
+          error_details?: string | null
+          execution_time_ms?: number | null
+          id?: string
+          job_id?: string | null
+          result_data?: Json | null
+          retry_attempt?: number | null
+          started_at?: string | null
+          status: string
+        }
+        Update: {
+          completed_at?: string | null
+          error_details?: string | null
+          execution_time_ms?: number | null
+          id?: string
+          job_id?: string | null
+          result_data?: Json | null
+          retry_attempt?: number | null
+          started_at?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cron_executions_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "cron_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cron_jobs: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          execution_count: number | null
+          failure_count: number | null
+          function_name: string
+          id: string
+          is_active: boolean | null
+          last_execution: string | null
+          max_retries: number | null
+          name: string
+          next_execution: string | null
+          parameters: Json | null
+          schedule_expression: string
+          timeout_seconds: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          execution_count?: number | null
+          failure_count?: number | null
+          function_name: string
+          id?: string
+          is_active?: boolean | null
+          last_execution?: string | null
+          max_retries?: number | null
+          name: string
+          next_execution?: string | null
+          parameters?: Json | null
+          schedule_expression: string
+          timeout_seconds?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          execution_count?: number | null
+          failure_count?: number | null
+          function_name?: string
+          id?: string
+          is_active?: boolean | null
+          last_execution?: string | null
+          max_retries?: number | null
+          name?: string
+          next_execution?: string | null
+          parameters?: Json | null
+          schedule_expression?: string
+          timeout_seconds?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       customer_satisfaction: {
         Row: {
           created_at: string | null
@@ -1335,6 +1519,121 @@ export type Database = {
             columns: ["order_id"]
             isOneToOne: false
             referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      drip_enrollments: {
+        Row: {
+          completed_at: string | null
+          current_step: number | null
+          enrolled_at: string | null
+          id: string
+          metadata: Json | null
+          next_message_at: string | null
+          phone_number: string
+          sequence_id: string | null
+          status: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          current_step?: number | null
+          enrolled_at?: string | null
+          id?: string
+          metadata?: Json | null
+          next_message_at?: string | null
+          phone_number: string
+          sequence_id?: string | null
+          status?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          current_step?: number | null
+          enrolled_at?: string | null
+          id?: string
+          metadata?: Json | null
+          next_message_at?: string | null
+          phone_number?: string
+          sequence_id?: string | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "drip_enrollments_sequence_id_fkey"
+            columns: ["sequence_id"]
+            isOneToOne: false
+            referencedRelation: "drip_sequences"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      drip_sequences: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          trigger_conditions: Json | null
+          trigger_event: string
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          trigger_conditions?: Json | null
+          trigger_event: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          trigger_conditions?: Json | null
+          trigger_event?: string
+        }
+        Relationships: []
+      }
+      drip_steps: {
+        Row: {
+          conditions: Json | null
+          delay_hours: number
+          id: string
+          is_active: boolean | null
+          message_template: string
+          sequence_id: string | null
+          step_order: number
+          template_variables: Json | null
+        }
+        Insert: {
+          conditions?: Json | null
+          delay_hours: number
+          id?: string
+          is_active?: boolean | null
+          message_template: string
+          sequence_id?: string | null
+          step_order: number
+          template_variables?: Json | null
+        }
+        Update: {
+          conditions?: Json | null
+          delay_hours?: number
+          id?: string
+          is_active?: boolean | null
+          message_template?: string
+          sequence_id?: string | null
+          step_order?: number
+          template_variables?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "drip_steps_sequence_id_fkey"
+            columns: ["sequence_id"]
+            isOneToOne: false
+            referencedRelation: "drip_sequences"
             referencedColumns: ["id"]
           },
         ]
@@ -3778,6 +4077,54 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      system_alerts: {
+        Row: {
+          alert_type: string
+          current_value: number | null
+          description: string | null
+          id: string
+          metadata: Json | null
+          metric_name: string | null
+          resolved_at: string | null
+          severity: string
+          source_function: string | null
+          status: string | null
+          threshold_value: number | null
+          title: string
+          triggered_at: string | null
+        }
+        Insert: {
+          alert_type: string
+          current_value?: number | null
+          description?: string | null
+          id?: string
+          metadata?: Json | null
+          metric_name?: string | null
+          resolved_at?: string | null
+          severity: string
+          source_function?: string | null
+          status?: string | null
+          threshold_value?: number | null
+          title: string
+          triggered_at?: string | null
+        }
+        Update: {
+          alert_type?: string
+          current_value?: number | null
+          description?: string | null
+          id?: string
+          metadata?: Json | null
+          metric_name?: string | null
+          resolved_at?: string | null
+          severity?: string
+          source_function?: string | null
+          status?: string | null
+          threshold_value?: number | null
+          title?: string
+          triggered_at?: string | null
+        }
+        Relationships: []
       }
       system_metrics: {
         Row: {
