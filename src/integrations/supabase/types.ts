@@ -3635,6 +3635,283 @@ export type Database = {
           },
         ]
       }
+      qa_performance_benchmarks: {
+        Row: {
+          category: string | null
+          created_at: string
+          expected_value: number
+          id: string
+          metric_name: string
+          test_name: string
+          tolerance_percent: number | null
+          unit: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          expected_value: number
+          id?: string
+          metric_name: string
+          test_name: string
+          tolerance_percent?: number | null
+          unit: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          expected_value?: number
+          id?: string
+          metric_name?: string
+          test_name?: string
+          tolerance_percent?: number | null
+          unit?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      qa_test_cases: {
+        Row: {
+          created_at: string
+          description: string | null
+          expected_result: Json | null
+          id: string
+          is_active: boolean | null
+          name: string
+          priority: string | null
+          retry_count: number | null
+          suite_id: string | null
+          tags: string[] | null
+          test_data: Json | null
+          test_steps: string[] | null
+          timeout_ms: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          expected_result?: Json | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          priority?: string | null
+          retry_count?: number | null
+          suite_id?: string | null
+          tags?: string[] | null
+          test_data?: Json | null
+          test_steps?: string[] | null
+          timeout_ms?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          expected_result?: Json | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          priority?: string | null
+          retry_count?: number | null
+          suite_id?: string | null
+          tags?: string[] | null
+          test_data?: Json | null
+          test_steps?: string[] | null
+          timeout_ms?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "qa_test_cases_suite_id_fkey"
+            columns: ["suite_id"]
+            isOneToOne: false
+            referencedRelation: "qa_test_suites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      qa_test_fixtures: {
+        Row: {
+          category: string | null
+          created_at: string
+          description: string | null
+          fixture_data: Json
+          id: string
+          is_active: boolean | null
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          fixture_data?: Json
+          id?: string
+          is_active?: boolean | null
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          fixture_data?: Json
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      qa_test_mocks: {
+        Row: {
+          created_at: string
+          description: string | null
+          endpoint_pattern: string | null
+          id: string
+          is_active: boolean | null
+          mock_config: Json
+          name: string
+          response_data: Json | null
+          response_delay_ms: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          endpoint_pattern?: string | null
+          id?: string
+          is_active?: boolean | null
+          mock_config?: Json
+          name: string
+          response_data?: Json | null
+          response_delay_ms?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          endpoint_pattern?: string | null
+          id?: string
+          is_active?: boolean | null
+          mock_config?: Json
+          name?: string
+          response_data?: Json | null
+          response_delay_ms?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      qa_test_reports: {
+        Row: {
+          created_at: string
+          details: Json | null
+          generated_at: string | null
+          generated_by: string | null
+          id: string
+          report_type: string | null
+          run_id: string | null
+          suite_id: string | null
+          summary: Json | null
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          details?: Json | null
+          generated_at?: string | null
+          generated_by?: string | null
+          id?: string
+          report_type?: string | null
+          run_id?: string | null
+          suite_id?: string | null
+          summary?: Json | null
+          title: string
+        }
+        Update: {
+          created_at?: string
+          details?: Json | null
+          generated_at?: string | null
+          generated_by?: string | null
+          id?: string
+          report_type?: string | null
+          run_id?: string | null
+          suite_id?: string | null
+          summary?: Json | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "qa_test_reports_suite_id_fkey"
+            columns: ["suite_id"]
+            isOneToOne: false
+            referencedRelation: "qa_test_suites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      qa_test_runs: {
+        Row: {
+          actual_result: Json | null
+          completed_at: string | null
+          created_at: string
+          environment: string | null
+          error_details: string | null
+          execution_time_ms: number | null
+          id: string
+          logs: string | null
+          started_at: string | null
+          status: string
+          suite_id: string | null
+          test_case_id: string | null
+          triggered_by: string | null
+        }
+        Insert: {
+          actual_result?: Json | null
+          completed_at?: string | null
+          created_at?: string
+          environment?: string | null
+          error_details?: string | null
+          execution_time_ms?: number | null
+          id?: string
+          logs?: string | null
+          started_at?: string | null
+          status?: string
+          suite_id?: string | null
+          test_case_id?: string | null
+          triggered_by?: string | null
+        }
+        Update: {
+          actual_result?: Json | null
+          completed_at?: string | null
+          created_at?: string
+          environment?: string | null
+          error_details?: string | null
+          execution_time_ms?: number | null
+          id?: string
+          logs?: string | null
+          started_at?: string | null
+          status?: string
+          suite_id?: string | null
+          test_case_id?: string | null
+          triggered_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "qa_test_runs_suite_id_fkey"
+            columns: ["suite_id"]
+            isOneToOne: false
+            referencedRelation: "qa_test_suites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "qa_test_runs_test_case_id_fkey"
+            columns: ["test_case_id"]
+            isOneToOne: false
+            referencedRelation: "qa_test_cases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       qa_test_scenarios: {
         Row: {
           created_at: string | null
@@ -3668,6 +3945,51 @@ export type Database = {
           scenario_name?: string
           test_steps?: string[] | null
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      qa_test_suites: {
+        Row: {
+          average_duration_ms: number | null
+          category: string
+          created_at: string
+          description: string | null
+          failed_tests: number | null
+          id: string
+          last_run_at: string | null
+          name: string
+          passed_tests: number | null
+          status: string
+          total_tests: number | null
+          updated_at: string
+        }
+        Insert: {
+          average_duration_ms?: number | null
+          category?: string
+          created_at?: string
+          description?: string | null
+          failed_tests?: number | null
+          id?: string
+          last_run_at?: string | null
+          name: string
+          passed_tests?: number | null
+          status?: string
+          total_tests?: number | null
+          updated_at?: string
+        }
+        Update: {
+          average_duration_ms?: number | null
+          category?: string
+          created_at?: string
+          description?: string | null
+          failed_tests?: number | null
+          id?: string
+          last_run_at?: string | null
+          name?: string
+          passed_tests?: number | null
+          status?: string
+          total_tests?: number | null
+          updated_at?: string
         }
         Relationships: []
       }
