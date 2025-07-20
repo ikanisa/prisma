@@ -2855,6 +2855,51 @@ export type Database = {
           },
         ]
       }
+      performance_benchmarks: {
+        Row: {
+          concurrent_requests: number | null
+          cpu_usage_percent: number | null
+          environment: string | null
+          error_details: string | null
+          execution_time_ms: number
+          function_name: string
+          id: string
+          memory_usage_mb: number | null
+          request_count: number | null
+          success_rate: number | null
+          test_timestamp: string | null
+          test_type: string
+        }
+        Insert: {
+          concurrent_requests?: number | null
+          cpu_usage_percent?: number | null
+          environment?: string | null
+          error_details?: string | null
+          execution_time_ms: number
+          function_name: string
+          id?: string
+          memory_usage_mb?: number | null
+          request_count?: number | null
+          success_rate?: number | null
+          test_timestamp?: string | null
+          test_type: string
+        }
+        Update: {
+          concurrent_requests?: number | null
+          cpu_usage_percent?: number | null
+          environment?: string | null
+          error_details?: string | null
+          execution_time_ms?: number
+          function_name?: string
+          id?: string
+          memory_usage_mb?: number | null
+          request_count?: number | null
+          success_rate?: number | null
+          test_timestamp?: string | null
+          test_type?: string
+        }
+        Relationships: []
+      }
       pharmacy_order_items: {
         Row: {
           created_at: string | null
@@ -3992,6 +4037,215 @@ export type Database = {
         }
         Relationships: []
       }
+      test_cases: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          expected_result: Json | null
+          id: string
+          name: string
+          retry_count: number | null
+          status: string | null
+          suite_id: string | null
+          test_data: Json | null
+          test_function: string
+          timeout_ms: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          expected_result?: Json | null
+          id?: string
+          name: string
+          retry_count?: number | null
+          status?: string | null
+          suite_id?: string | null
+          test_data?: Json | null
+          test_function: string
+          timeout_ms?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          expected_result?: Json | null
+          id?: string
+          name?: string
+          retry_count?: number | null
+          status?: string | null
+          suite_id?: string | null
+          test_data?: Json | null
+          test_function?: string
+          timeout_ms?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "test_cases_suite_id_fkey"
+            columns: ["suite_id"]
+            isOneToOne: false
+            referencedRelation: "test_suites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      test_fixtures: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          name: string
+          setup_sql: string | null
+          teardown_sql: string | null
+          test_data: Json | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          setup_sql?: string | null
+          teardown_sql?: string | null
+          test_data?: Json | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          setup_sql?: string | null
+          teardown_sql?: string | null
+          test_data?: Json | null
+        }
+        Relationships: []
+      }
+      test_mocks: {
+        Row: {
+          active: boolean | null
+          created_at: string | null
+          endpoint_pattern: string
+          id: string
+          method: string | null
+          mock_response: Json
+          response_delay_ms: number | null
+          service_name: string
+          status_code: number | null
+        }
+        Insert: {
+          active?: boolean | null
+          created_at?: string | null
+          endpoint_pattern: string
+          id?: string
+          method?: string | null
+          mock_response: Json
+          response_delay_ms?: number | null
+          service_name: string
+          status_code?: number | null
+        }
+        Update: {
+          active?: boolean | null
+          created_at?: string | null
+          endpoint_pattern?: string
+          id?: string
+          method?: string | null
+          mock_response?: Json
+          response_delay_ms?: number | null
+          service_name?: string
+          status_code?: number | null
+        }
+        Relationships: []
+      }
+      test_runs: {
+        Row: {
+          actual_result: Json | null
+          completed_at: string | null
+          created_at: string | null
+          error_details: string | null
+          execution_id: string
+          execution_time_ms: number | null
+          id: string
+          logs: string | null
+          started_at: string | null
+          status: string
+          suite_id: string | null
+          test_case_id: string | null
+        }
+        Insert: {
+          actual_result?: Json | null
+          completed_at?: string | null
+          created_at?: string | null
+          error_details?: string | null
+          execution_id: string
+          execution_time_ms?: number | null
+          id?: string
+          logs?: string | null
+          started_at?: string | null
+          status: string
+          suite_id?: string | null
+          test_case_id?: string | null
+        }
+        Update: {
+          actual_result?: Json | null
+          completed_at?: string | null
+          created_at?: string | null
+          error_details?: string | null
+          execution_id?: string
+          execution_time_ms?: number | null
+          id?: string
+          logs?: string | null
+          started_at?: string | null
+          status?: string
+          suite_id?: string | null
+          test_case_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "test_runs_suite_id_fkey"
+            columns: ["suite_id"]
+            isOneToOne: false
+            referencedRelation: "test_suites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "test_runs_test_case_id_fkey"
+            columns: ["test_case_id"]
+            isOneToOne: false
+            referencedRelation: "test_cases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      test_suites: {
+        Row: {
+          category: string | null
+          created_at: string | null
+          description: string | null
+          id: string
+          name: string
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          category?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       tool_definitions: {
         Row: {
           created_at: string | null
@@ -4762,6 +5016,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      clean_test_data: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
       create_admin_user: {
         Args: { user_id: string }
         Returns: undefined
@@ -4863,6 +5121,10 @@ export type Database = {
       gdpr_export_user_data: {
         Args: { target_user_id: string }
         Returns: Json
+      }
+      generate_test_phone: {
+        Args: Record<PropertyKey, never>
+        Returns: string
       }
       geography: {
         Args: { "": string } | { "": unknown }

@@ -1,10 +1,32 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+}
+
+interface PerformanceTestRequest {
+  test_type: 'cold_start' | 'warm_execution' | 'load_test'
+  target_function?: string
+  target_functions?: string[]
+  concurrent_requests?: number
+  duration_seconds?: number
+  request_count?: number
+  operation?: string
+}
+
+interface PerformanceResult {
+  function_name: string
+  test_type: string
+  execution_time_ms: number
+  memory_usage_mb?: number
+  cpu_usage_percent?: number
+  request_count: number
+  concurrent_requests: number
+  success_rate: number
+  error_details?: string
+}
 
 interface PerformanceMetrics {
   response_time_ms: number;
@@ -25,26 +47,82 @@ serve(async (req) => {
   );
 
   try {
-    const { operation, ...params } = await req.json();
+    const body = await req.json() as PerformanceTestRequest;
+    const { 
+      operation,
+      test_type, 
+      target_function, 
+      target_functions, 
+      concurrent_requests = 1, 
+      duration_seconds = 30, 
+      request_count = 1,
+      ...params 
+    } = body;
     
-    console.log(`📊 Performance Monitor: ${operation}`);
+    console.log(`📊 Performance Monitor: ${operation || test_type}`);
 
     let result;
-    switch (operation) {
-      case 'get_live_metrics':
-        result = await getLiveMetrics(supabase);
-        break;
-      case 'record_performance':
-        result = await recordPerformanceMetric(supabase, params);
-        break;
-      case 'analyze_trends':
-        result = await analyzePerformanceTrends(supabase, params);
-        break;
-      case 'get_alerts':
-        result = await getPerformanceAlerts(supabase);
-        break;
-      default:
-        throw new Error(`Unknown operation: ${operation}`);
+    
+    // Handle legacy operations
+    if (operation) {
+      switch (operation) {
+        case 'get_live_metrics':
+          result = await getLiveMetrics(supabase);
+          break;
+        case 'record_performance':
+          result = await recordPerformanceMetric(supabase, params);
+          break;
+        case 'analyze_trends':
+          result = await analyzePerformanceTrends(supabase, params);
+          break;
+        case 'get_alerts':
+          result = await getPerformanceAlerts(supabase);
+          break;
+        default:
+          throw new Error(`Unknown operation: ${operation}`);
+      }
+    } 
+    // Handle performance test requests
+    else if (test_type) {
+      console.log('Performance test started:', { test_type, target_function, target_functions });
+
+      let testResults: PerformanceResult[] = [];
+
+      if (test_type === 'cold_start') {
+        testResults = await runColdStartTest(supabase, target_functions || [target_function!]);
+      } else if (test_type === 'load_test') {
+        testResults = await runLoadTest(supabase, target_function!, concurrent_requests, duration_seconds);
+      } else if (test_type === 'warm_execution') {
+        testResults = await runWarmExecutionTest(supabase, target_function!, request_count);
+      }
+
+      // Store results in database
+      for (const testResult of testResults) {
+        await supabase
+          .from('performance_benchmarks')
+          .insert({
+            function_name: testResult.function_name,
+            test_type: testResult.test_type,
+            execution_time_ms: testResult.execution_time_ms,
+            memory_usage_mb: testResult.memory_usage_mb,
+            cpu_usage_percent: testResult.cpu_usage_percent,
+            request_count: testResult.request_count,
+            concurrent_requests: testResult.concurrent_requests,
+            success_rate: testResult.success_rate,
+            error_details: testResult.error_details,
+            environment: 'test'
+          });
+      }
+
+      result = {
+        test_type,
+        results_count: testResults.length,
+        avg_execution_time: testResults.reduce((sum, r) => sum + r.execution_time_ms, 0) / testResults.length,
+        avg_success_rate: testResults.reduce((sum, r) => sum + r.success_rate, 0) / testResults.length,
+        results: testResults
+      };
+    } else {
+      throw new Error('Must specify either operation or test_type');
     }
 
     return new Response(JSON.stringify({
@@ -404,6 +482,208 @@ function identifyPerformanceDegradation(hourlyData: any[]): any[] {
   }
   
   return alerts;
+}
+
+// Import test functions
+async function runColdStartTest(supabase: any, functions: string[]): Promise<PerformanceResult[]> {
+  const results: PerformanceResult[] = []
+
+  for (const functionName of functions) {
+    console.log(`Testing cold start for ${functionName}`)
+    
+    // Wait to ensure function is cold
+    await new Promise(resolve => setTimeout(resolve, 5000))
+    
+    const startTime = Date.now()
+    let success = false
+    let errorDetails = ''
+
+    try {
+      const { data, error } = await supabase.functions.invoke(functionName, {
+        body: { test: true, cold_start_test: true }
+      })
+
+      const endTime = Date.now()
+      const executionTime = endTime - startTime
+
+      if (error) {
+        errorDetails = error.message
+      } else {
+        success = true
+      }
+
+      results.push({
+        function_name: functionName,
+        test_type: 'cold_start',
+        execution_time_ms: executionTime,
+        request_count: 1,
+        concurrent_requests: 1,
+        success_rate: success ? 100 : 0,
+        error_details: errorDetails || undefined
+      })
+
+    } catch (error) {
+      const endTime = Date.now()
+      const executionTime = endTime - startTime
+
+      results.push({
+        function_name: functionName,
+        test_type: 'cold_start',
+        execution_time_ms: executionTime,
+        request_count: 1,
+        concurrent_requests: 1,
+        success_rate: 0,
+        error_details: error.message
+      })
+    }
+  }
+
+  return results
+}
+
+async function runLoadTest(
+  supabase: any, 
+  functionName: string, 
+  concurrentRequests: number, 
+  durationSeconds: number
+): Promise<PerformanceResult[]> {
+  console.log(`Running load test for ${functionName} with ${concurrentRequests} concurrent requests for ${durationSeconds}s`)
+
+  const endTime = Date.now() + (durationSeconds * 1000)
+  const results: Array<{ success: boolean, time: number, error?: string }> = []
+  const promises: Promise<void>[] = []
+
+  // Create concurrent request workers
+  for (let i = 0; i < concurrentRequests; i++) {
+    const workerPromise = async () => {
+      while (Date.now() < endTime) {
+        const requestStart = Date.now()
+        try {
+          const { error } = await supabase.functions.invoke(functionName, {
+            body: { 
+              test: true, 
+              load_test: true, 
+              worker_id: i,
+              timestamp: Date.now()
+            }
+          })
+
+          const requestTime = Date.now() - requestStart
+          results.push({
+            success: !error,
+            time: requestTime,
+            error: error?.message
+          })
+
+        } catch (error) {
+          const requestTime = Date.now() - requestStart
+          results.push({
+            success: false,
+            time: requestTime,
+            error: error.message
+          })
+        }
+
+        // Small delay between requests
+        await new Promise(resolve => setTimeout(resolve, 100))
+      }
+    }
+
+    promises.push(workerPromise())
+  }
+
+  // Wait for all workers to complete
+  await Promise.all(promises)
+
+  const successfulRequests = results.filter(r => r.success).length
+  const successRate = (successfulRequests / results.length) * 100
+  const avgExecutionTime = results.reduce((sum, r) => sum + r.time, 0) / results.length
+
+  const errorDetails = results
+    .filter(r => !r.success)
+    .map(r => r.error)
+    .slice(0, 5) // First 5 errors
+    .join('; ')
+
+  return [{
+    function_name: functionName,
+    test_type: 'load_test',
+    execution_time_ms: Math.round(avgExecutionTime),
+    request_count: results.length,
+    concurrent_requests: concurrentRequests,
+    success_rate: Math.round(successRate * 100) / 100,
+    error_details: errorDetails || undefined
+  }]
+}
+
+async function runWarmExecutionTest(
+  supabase: any, 
+  functionName: string, 
+  requestCount: number
+): Promise<PerformanceResult[]> {
+  console.log(`Running warm execution test for ${functionName} with ${requestCount} requests`)
+
+  // First request to warm up the function
+  await supabase.functions.invoke(functionName, {
+    body: { test: true, warmup: true }
+  })
+
+  // Wait a moment
+  await new Promise(resolve => setTimeout(resolve, 1000))
+
+  const results: Array<{ success: boolean, time: number, error?: string }> = []
+
+  // Run the actual test requests
+  for (let i = 0; i < requestCount; i++) {
+    const requestStart = Date.now()
+    try {
+      const { error } = await supabase.functions.invoke(functionName, {
+        body: { 
+          test: true, 
+          warm_test: true, 
+          request_number: i + 1
+        }
+      })
+
+      const requestTime = Date.now() - requestStart
+      results.push({
+        success: !error,
+        time: requestTime,
+        error: error?.message
+      })
+
+    } catch (error) {
+      const requestTime = Date.now() - requestStart
+      results.push({
+        success: false,
+        time: requestTime,
+        error: error.message
+      })
+    }
+
+    // Small delay between requests
+    await new Promise(resolve => setTimeout(resolve, 200))
+  }
+
+  const successfulRequests = results.filter(r => r.success).length
+  const successRate = (successfulRequests / results.length) * 100
+  const avgExecutionTime = results.reduce((sum, r) => sum + r.time, 0) / results.length
+
+  const errorDetails = results
+    .filter(r => !r.success)
+    .map(r => r.error)
+    .slice(0, 3) // First 3 errors
+    .join('; ')
+
+  return [{
+    function_name: functionName,
+    test_type: 'warm_execution',
+    execution_time_ms: Math.round(avgExecutionTime),
+    request_count: results.length,
+    concurrent_requests: 1,
+    success_rate: Math.round(successRate * 100) / 100,
+    error_details: errorDetails || undefined
+  }]
 }
 
 async function checkPerformanceThresholds(supabase: any, metrics: any): Promise<any[]> {
