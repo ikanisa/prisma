@@ -1,13 +1,17 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
+const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+const supabase = createClient(
+  Deno.env.get('SUPABASE_URL')!, 
+  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+);
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -15,159 +19,143 @@ serve(async (req) => {
   }
 
   try {
-    const { response, original_message, phone_number, conversation_id } = await req.json();
+    const { message_text, phone_number, conversation_id, model_used = 'gpt-4o' } = await req.json();
 
-    if (!openaiApiKey) {
-      throw new Error('OpenAI API key not configured');
+    if (!message_text) {
+      throw new Error('Message text is required');
     }
 
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
+    console.log('Quality gate processing message:', { phone_number, conversation_id });
 
-    console.log('🛡️ Quality gate: Evaluating response...');
+    // 1. Score the response quality
+    const qualityScore = await scoreResponse(message_text);
+    
+    let finalMessage = message_text;
+    let wasImproved = false;
 
-    // First, get a quick quality score
-    const quickEvalPrompt = `
-Rate this WhatsApp response quality from 0.0 to 1.0:
+    // 2. If quality is low, improve it
+    if (qualityScore < 0.7) {
+      console.log(`Low quality score ${qualityScore}, improving message...`);
+      const improvedMessage = await improveResponse(message_text);
+      if (improvedMessage) {
+        finalMessage = improvedMessage;
+        wasImproved = true;
+      }
+    }
 
-User: "${original_message}"
-Response: "${response}"
+    // 3. Log evaluation results
+    await supabase.from('conversation_evaluations').insert({
+      conversation_id,
+      phone_number,
+      message_text: finalMessage,
+      overall_score: qualityScore,
+      clarity_score: qualityScore,
+      helpfulness_score: qualityScore,
+      style_score: qualityScore,
+      model_used,
+      evaluation_notes: wasImproved ? 'Message improved by quality gate' : 'Passed quality gate',
+      evaluated_at: new Date().toISOString()
+    });
 
-Consider: helpfulness, clarity, appropriateness for WhatsApp.
-Return only a number between 0.0 and 1.0.
-`;
+    // 4. Queue for sending
+    await supabase.from('outbound_queue').insert({
+      recipient: phone_number,
+      channel: 'whatsapp',
+      payload: {
+        message_text: finalMessage,
+        message_type: 'text'
+      },
+      status: 'pending',
+      priority: wasImproved ? 6 : 5 // Higher priority for improved messages
+    });
 
-    const evalResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+    return new Response(JSON.stringify({
+      success: true,
+      quality_score: qualityScore,
+      was_improved: wasImproved,
+      final_message: finalMessage
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+
+  } catch (error) {
+    console.error('Quality gate error:', error);
+    return new Response(JSON.stringify({
+      error: error.message
+    }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+});
+
+async function scoreResponse(message: string): Promise<number> {
+  const prompt = `Rate this customer service response on a scale of 0.0 to 1.0 based on:
+- Clarity and coherence
+- Helpfulness and relevance  
+- Professional tone
+- Conciseness (ideal 1-2 sentences for WhatsApp)
+
+Response: "${message}"
+
+Reply with ONLY a decimal number between 0.0 and 1.0:`;
+
+  try {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${openaiApiKey}`,
+        'Authorization': `Bearer ${openAIApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         model: 'gpt-4o-mini',
-        messages: [
-          { role: 'user', content: quickEvalPrompt }
-        ],
+        messages: [{ role: 'user', content: prompt }],
         temperature: 0.1,
         max_tokens: 10
-      }),
+      })
     });
 
-    if (!evalResponse.ok) {
-      console.error('OpenAI eval API error:', await evalResponse.text());
-      // If evaluation fails, pass through original response
-      return new Response(JSON.stringify({
-        success: true,
-        final_response: response,
-        quality_score: null,
-        improved: false,
-        note: 'Quality evaluation failed, using original response'
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+    const result = await response.json();
+    const scoreText = result.choices[0].message.content.trim();
+    const score = parseFloat(scoreText);
+    
+    return isNaN(score) ? 0.5 : Math.max(0, Math.min(1, score));
+  } catch (error) {
+    console.error('Error scoring response:', error);
+    return 0.5; // Default middle score
+  }
+}
 
-    const evalData = await evalResponse.json();
-    const scoreText = evalData.choices[0].message.content.trim();
-    const qualityScore = parseFloat(scoreText) || 0.5;
+async function improveResponse(message: string): Promise<string | null> {
+  const prompt = `Improve this WhatsApp customer service response to be:
+- More clear and helpful
+- Concise (1-2 sentences max)
+- Friendly but professional
+- Include Kinyarwanda greeting if appropriate
 
-    console.log(`📊 Quality score: ${qualityScore}`);
+Original: "${message}"
 
-    // If quality is good enough, return original
-    if (qualityScore >= 0.7) {
-      console.log('✅ Quality acceptable, returning original response');
-      
-      return new Response(JSON.stringify({
-        success: true,
-        final_response: response,
-        quality_score: qualityScore,
-        improved: false
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+Improved response:`;
 
-    // Quality is low, attempt to improve
-    console.log('⚠️ Quality below threshold, attempting improvement...');
-
-    const improvePrompt = `
-The following WhatsApp response has quality issues. Please rewrite it to be:
-- More helpful and accurate
-- Clearer and more concise
-- Appropriate for WhatsApp (friendly, concise)
-- In the same language as the original
-
-Original User Message: "${original_message}"
-Low-Quality Response: "${response}"
-
-Provide ONLY the improved response, nothing else:
-`;
-
-    const improveResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+  try {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${openaiApiKey}`,
+        'Authorization': `Bearer ${openAIApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o',
-        messages: [
-          { role: 'system', content: 'You are an expert at improving WhatsApp customer service responses. Return only the improved response.' },
-          { role: 'user', content: improvePrompt }
-        ],
+        model: 'gpt-4o-mini',
+        messages: [{ role: 'user', content: prompt }],
         temperature: 0.3,
-        max_tokens: 200
-      }),
+        max_tokens: 150
+      })
     });
 
-    let finalResponse = response;
-    let improved = false;
-
-    if (improveResponse.ok) {
-      const improveData = await improveResponse.json();
-      const improvedText = improveData.choices[0].message.content.trim();
-      
-      if (improvedText && improvedText !== response) {
-        finalResponse = improvedText;
-        improved = true;
-        console.log('✨ Response improved successfully');
-      }
-    } else {
-      console.error('Failed to improve response:', await improveResponse.text());
-    }
-
-    // Log the quality gate activity
-    await supabase
-      .from('conversation_evaluations')
-      .insert({
-        conversation_id,
-        phone_number,
-        overall_score: qualityScore,
-        model_used: 'gpt-4o-mini',
-        evaluation_notes: improved ? 'Response improved by quality gate' : 'Low quality, improvement failed'
-      });
-
-    return new Response(JSON.stringify({
-      success: true,
-      final_response: finalResponse,
-      quality_score: qualityScore,
-      improved,
-      original_response: response
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-
+    const result = await response.json();
+    return result.choices[0].message.content.trim();
   } catch (error) {
-    console.error('❌ Quality gate error:', error);
-    return new Response(JSON.stringify({ 
-      error: error.message,
-      final_response: req.body?.response || '',
-      improved: false
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    console.error('Error improving response:', error);
+    return null;
   }
-});
+}
