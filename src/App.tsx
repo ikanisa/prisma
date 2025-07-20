@@ -57,6 +57,7 @@ import FineTune from "./pages/admin/FineTune";
 import QADashboard from "./pages/admin/QADashboard";
 import ProductionReadiness from "./pages/admin/ProductionReadiness";
 import DataSync from "./pages/admin/DataSync";
+import AdminAuth from "./pages/AdminAuth";
 
 const queryClient = new QueryClient();
 
@@ -67,6 +68,7 @@ const App = () => (
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Navigate to="/admin" replace />} />
+        <Route path="/admin/setup" element={<AdminAuth />} />
         
         {/* Admin Routes */}
         <Route path="/admin" element={<AdminLayout />}>

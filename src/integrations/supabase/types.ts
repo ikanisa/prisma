@@ -5774,6 +5774,10 @@ export type Database = {
             }
         Returns: string
       }
+      admin_exists: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
       backfill_unified_orders: {
         Args: Record<PropertyKey, never>
         Returns: {
@@ -5850,7 +5854,7 @@ export type Database = {
       }
       create_admin_user: {
         Args: { user_id: string }
-        Returns: undefined
+        Returns: Json
       }
       disablelongtransactions: {
         Args: Record<PropertyKey, never>

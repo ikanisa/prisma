@@ -5,10 +5,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { supabase } from '@/integrations/supabase/client';
-import { Shield, UserPlus, CheckCircle } from 'lucide-react';
+import { Shield, UserPlus, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 export function AdminSetup() {
-  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
+  const [adminExists, setAdminExists] = useState<boolean | null>(null);
+  const [currentUserIsAdmin, setCurrentUserIsAdmin] = useState<boolean>(false);
   const [loading, setLoading] = useState(true);
   const [setupLoading, setSetupLoading] = useState(false);
   const [email, setEmail] = useState('');
@@ -16,6 +18,7 @@ export function AdminSetup() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const { toast } = useToast();
 
   useEffect(() => {
     checkAdminStatus();
@@ -23,32 +26,47 @@ export function AdminSetup() {
 
   const checkAdminStatus = async () => {
     try {
+      console.log('Checking admin status...');
+      
+      // Check if any admin exists in the system
+      const { data: adminExistsResult, error: adminExistsError } = await supabase
+        .rpc('admin_exists');
+        
+      if (adminExistsError) {
+        console.error('Error checking if admin exists:', adminExistsError);
+        setAdminExists(false);
+      } else {
+        console.log('Admin exists:', adminExistsResult);
+        setAdminExists(adminExistsResult);
+      }
+      
+      // Check if current user is authenticated and is admin
       const { data: session } = await supabase.auth.getSession();
       
       if (session?.session?.user) {
-        // Check if current user is admin
-        const { data: roles } = await supabase
+        console.log('User is authenticated, checking admin role...');
+        const { data: roles, error: rolesError } = await supabase
           .from('user_roles')
           .select('role')
           .eq('user_id', session.session.user.id)
           .eq('role', 'admin')
-          .single();
+          .maybeSingle();
           
-        setIsAdmin(!!roles);
+        if (rolesError) {
+          console.error('Error checking user roles:', rolesError);
+          setCurrentUserIsAdmin(false);
+        } else {
+          console.log('User admin status:', !!roles);
+          setCurrentUserIsAdmin(!!roles);
+        }
       } else {
-        // Check if any admin exists
-        const { data: adminExists } = await supabase
-          .from('user_roles')
-          .select('id')
-          .eq('role', 'admin')
-          .limit(1)
-          .single();
-          
-        setIsAdmin(!!adminExists);
+        console.log('User not authenticated');
+        setCurrentUserIsAdmin(false);
       }
     } catch (error) {
       console.error('Error checking admin status:', error);
-      setIsAdmin(false);
+      setAdminExists(false);
+      setCurrentUserIsAdmin(false);
     } finally {
       setLoading(false);
     }
@@ -59,6 +77,7 @@ export function AdminSetup() {
     setError('');
     setSuccess('');
 
+    // Validation
     if (password !== confirmPassword) {
       setError('Passwords do not match');
       return;
@@ -69,10 +88,31 @@ export function AdminSetup() {
       return;
     }
 
+    if (!email || !password) {
+      setError('Email and password are required');
+      return;
+    }
+
     setSetupLoading(true);
 
     try {
-      // Sign up the admin user
+      console.log('Starting admin creation process...');
+      
+      // First check if admin already exists
+      const { data: adminCheck, error: adminCheckError } = await supabase.rpc('admin_exists');
+      
+      if (adminCheckError) {
+        console.error('Error checking admin status:', adminCheckError);
+        throw new Error('Failed to verify admin status');
+      }
+
+      if (adminCheck && !currentUserIsAdmin) {
+        throw new Error('Admin already exists and you are not authorized to create additional admins');
+      }
+
+      let userId: string;
+      
+      // Try to sign up the user first
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
@@ -82,7 +122,8 @@ export function AdminSetup() {
       });
 
       if (authError) {
-        if (authError.message.includes('already registered')) {
+        if (authError.message.includes('already registered') || authError.message.includes('already been registered')) {
+          console.log('User already exists, attempting sign in...');
           // User exists, try to sign them in
           const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
             email,
@@ -90,46 +131,79 @@ export function AdminSetup() {
           });
 
           if (signInError) {
-            throw signInError;
+            console.error('Sign in error:', signInError);
+            throw new Error(`Failed to sign in: ${signInError.message}`);
           }
 
-          // Add admin role using RPC function to bypass RLS
-          if (signInData.user) {
-            const { error: rpcError } = await supabase.rpc('create_admin_user', {
-              user_id: signInData.user.id
-            });
-
-            if (rpcError) {
-              console.warn('RPC error (continuing anyway):', rpcError);
-            }
+          if (!signInData.user) {
+            throw new Error('Sign in successful but no user data returned');
           }
+
+          userId = signInData.user.id;
+          console.log('User signed in successfully:', userId);
         } else {
-          throw authError;
+          console.error('Auth error:', authError);
+          throw new Error(`Authentication failed: ${authError.message}`);
         }
       } else if (authData.user) {
-        // Add admin role using RPC function to bypass RLS
-        const { error: rpcError } = await supabase.rpc('create_admin_user', {
-          user_id: authData.user.id
-        });
+        userId = authData.user.id;
+        console.log('User created successfully:', userId);
+      } else {
+        throw new Error('No user data returned from authentication');
+      }
 
-        if (rpcError) {
-          console.warn('RPC error (continuing anyway):', rpcError);
+      // Create admin role using RPC function
+      console.log('Creating admin role for user:', userId);
+      const { data: rpcResult, error: rpcError } = await supabase.rpc('create_admin_user', {
+        user_id: userId
+      });
+
+      if (rpcError) {
+        console.error('RPC error:', rpcError);
+        throw new Error(`Failed to assign admin role: ${rpcError.message}`);
+      }
+
+      console.log('RPC result:', rpcResult);
+
+      // Parse the JSON result if it's a string
+      let parsedResult: any = rpcResult;
+      if (typeof rpcResult === 'string') {
+        try {
+          parsedResult = JSON.parse(rpcResult);
+        } catch (e) {
+          console.warn('Could not parse RPC result as JSON:', rpcResult);
         }
+      }
+
+      if (parsedResult && typeof parsedResult === 'object' && !parsedResult.success) {
+        throw new Error(parsedResult.message || 'Failed to assign admin role');
       }
 
       setSuccess('✅ Admin account created successfully! Redirecting to dashboard...');
       
-      // Recheck admin status to hide the setup form
+      toast({
+        title: "Success!",
+        description: "Admin account created successfully. You will be redirected to the dashboard.",
+      });
+      
+      // Recheck admin status
       await checkAdminStatus();
       
       // Wait a moment then navigate to admin dashboard
       setTimeout(() => {
         window.location.href = '/admin';
-      }, 1500);
+      }, 2000);
 
     } catch (error: any) {
       console.error('Admin setup error:', error);
-      setError(error.message || 'Failed to create admin account');
+      const errorMessage = error.message || 'Failed to create admin account';
+      setError(errorMessage);
+      
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
     } finally {
       setSetupLoading(false);
     }
@@ -137,23 +211,31 @@ export function AdminSetup() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <Card className="w-full max-w-md">
+          <CardContent className="flex items-center justify-center py-8">
+            <div className="flex items-center space-x-2">
+              <Loader2 className="h-6 w-6 animate-spin" />
+              <span>Checking admin status...</span>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
-  if (isAdmin) {
+  // If admin exists and current user is admin, show admin panel access
+  if (adminExists && currentUserIsAdmin) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
-            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
-              <CheckCircle className="h-6 w-6 text-green-600" />
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-green-100 dark:bg-green-900">
+              <CheckCircle className="h-6 w-6 text-green-600 dark:text-green-400" />
             </div>
-            <CardTitle>Admin Setup Complete</CardTitle>
+            <CardTitle>Welcome Back, Admin</CardTitle>
             <CardDescription>
-              Admin access is already configured for this system.
+              You have admin access to the easyMO platform.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -162,6 +244,34 @@ export function AdminSetup() {
               className="w-full"
             >
               Go to Admin Panel
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // If admin exists but current user is not admin, show access denied
+  if (adminExists && !currentUserIsAdmin) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-100 dark:bg-red-900">
+              <AlertCircle className="h-6 w-6 text-red-600 dark:text-red-400" />
+            </div>
+            <CardTitle>Access Denied</CardTitle>
+            <CardDescription>
+              Admin access is already configured. Only existing admins can access this system.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button 
+              onClick={() => window.location.href = '/'} 
+              variant="outline"
+              className="w-full"
+            >
+              Return to Home
             </Button>
           </CardContent>
         </Card>
@@ -178,28 +288,34 @@ export function AdminSetup() {
           </div>
           <CardTitle>easyMO Admin Setup</CardTitle>
           <CardDescription>
-            Create the first admin account to secure your platform
+            {adminExists === false ? 
+              'Create the first admin account to secure your platform' :
+              'Setup your admin access'
+            }
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Alert className="mb-6">
             <Shield className="h-4 w-4" />
             <AlertDescription>
-              <strong>Security Notice:</strong> This is a one-time setup to create the first admin account. 
-              After completion, only existing admins can create new admin accounts.
+              <strong>Security Notice:</strong> {adminExists === false ? 
+                'This is a one-time setup to create the first admin account. After completion, only existing admins can create new admin accounts.' :
+                'You are creating an additional admin account.'
+              }
             </AlertDescription>
           </Alert>
 
           {error && (
             <Alert variant="destructive" className="mb-4">
+              <AlertCircle className="h-4 w-4" />
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
 
           {success && (
-            <Alert className="mb-4">
-              <CheckCircle className="h-4 w-4" />
-              <AlertDescription>{success}</AlertDescription>
+            <Alert className="mb-4 border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950">
+              <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+              <AlertDescription className="text-green-800 dark:text-green-200">{success}</AlertDescription>
             </Alert>
           )}
 
@@ -249,13 +365,13 @@ export function AdminSetup() {
             >
               {setupLoading ? (
                 <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
                   Creating Admin Account...
                 </>
               ) : (
                 <>
                   <UserPlus className="h-4 w-4 mr-2" />
-                  Create Admin Account
+                  {adminExists === false ? 'Create First Admin Account' : 'Create Admin Account'}
                 </>
               )}
             </Button>
