@@ -25,6 +25,7 @@ import AgentLogs from "./pages/admin/AgentLogs";
 import ModelRegistry from "./pages/admin/ModelRegistry";
 import WhatsAppDashboard from "./pages/admin/WhatsAppDashboard";
 import WhatsAppContacts from "./pages/admin/WhatsAppContacts";
+import WAContactsPage from "./pages/admin/whatsapp/WAContactsPage";
 import Conversations from "./pages/admin/Conversations";
 import Farmers from "./pages/admin/Farmers";
 import Passengers from "./pages/admin/Passengers";
@@ -107,6 +108,7 @@ const App = () => (
           <Route path="model-registry" element={<ModelRegistry />} />
           <Route path="whatsapp" element={<WhatsAppDashboard />} />
           <Route path="whatsapp-contacts" element={<WhatsAppContacts />} />
+          <Route path="whatsapp/contacts" element={<WAContactsPage />} />
           <Route path="conversations" element={<Conversations />} />
           <Route path="help" element={<div className="p-6">Support Tickets page coming soon...</div>} />
           <Route path="settings" element={<Settings />} />
