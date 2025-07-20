@@ -1,113 +1,114 @@
-// SECURITY: Input validation and prompt injection protection
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 
-export function sanitizeUserInput(input: string): string {
-  if (!input || typeof input !== 'string') {
-    return '';
-  }
+const supabase = createClient(
+  Deno.env.get('SUPABASE_URL')!,
+  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+);
 
-  // Remove potential system prompt injection attempts
-  const cleaned = input
-    .replace(/system:|assistant:|user:/gi, '')
-    .replace(/```[\s\S]*?```/g, '[code block]')
-    .replace(/<script[^>]*>.*?<\/script>/gi, '[script removed]')
-    .replace(/javascript:/gi, '')
-    .replace(/on\w+\s*=/gi, '')
-    .replace(/eval\s*\(/gi, '')
-    .trim();
-
-  // Limit length to prevent token exhaustion attacks
-  return cleaned.substring(0, 1000);
-}
-
-export function validatePhoneNumber(phone: string): boolean {
-  if (!phone || typeof phone !== 'string') {
-    return false;
-  }
-  
-  // Basic phone validation (adjust for your region)
-  const phoneRegex = /^\+?[1-9]\d{1,14}$/;
-  return phoneRegex.test(phone.replace(/\s/g, ''));
-}
-
-export function normalizePhoneNumber(phone: string): string {
-  if (!phone) return '';
-  
-  // Remove all non-digits except +
-  const cleaned = phone.replace(/[^\d+]/g, '');
-  
-  // Ensure it starts with country code
-  if (cleaned.startsWith('250')) {
-    return '+' + cleaned;
-  } else if (cleaned.startsWith('0') && cleaned.length === 10) {
-    return '+250' + cleaned.substring(1);
-  }
-  
-  return cleaned.startsWith('+') ? cleaned : '+' + cleaned;
-}
-
-export function validateMessagePayload(payload: any): { isValid: boolean; error?: string } {
-  if (!payload) {
-    return { isValid: false, error: 'Missing payload' };
-  }
-
-  if (typeof payload !== 'object') {
-    return { isValid: false, error: 'Payload must be an object' };
-  }
-
-  // Check for required fields based on message type
-  if (payload.platform === 'whatsapp') {
-    const message = payload.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
-    if (!message) {
-      return { isValid: false, error: 'Missing WhatsApp message data' };
-    }
+/**
+ * Validates WhatsApp webhook signature using HMAC-SHA256
+ */
+export async function validateWebhookSignature(
+  payload: string,
+  signature: string,
+  secret: string
+): Promise<boolean> {
+  try {
+    const encoder = new TextEncoder();
+    const key = await crypto.subtle.importKey(
+      'raw',
+      encoder.encode(secret),
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['sign']
+    );
     
-    if (!message.from || !message.type) {
-      return { isValid: false, error: 'Missing required message fields' };
-    }
-  }
-
-  return { isValid: true };
-}
-
-export class RateLimiter {
-  private requests: Map<string, number[]> = new Map();
-  
-  constructor(
-    private maxRequests: number = 15,
-    private windowMs: number = 60000 // 1 minute
-  ) {}
-
-  isRateLimited(identifier: string): boolean {
-    const now = Date.now();
-    const windowStart = now - this.windowMs;
+    const hmac = await crypto.subtle.sign('HMAC', key, encoder.encode(payload));
+    const expectedSignature = 'sha256=' + Array.from(new Uint8Array(hmac))
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('');
     
-    // Get existing requests for this identifier
-    const requests = this.requests.get(identifier) || [];
+    // Log validation attempt
+    await supabase.from('security_events').insert({
+      event_type: 'webhook_signature_validation',
+      details: {
+        signature_valid: expectedSignature === signature,
+        timestamp: new Date().toISOString()
+      }
+    });
     
-    // Remove old requests outside the window
-    const validRequests = requests.filter(time => time > windowStart);
-    
-    // Check if we've exceeded the limit
-    if (validRequests.length >= this.maxRequests) {
-      return true;
-    }
-    
-    // Add current request
-    validRequests.push(now);
-    this.requests.set(identifier, validRequests);
-    
+    return expectedSignature === signature;
+  } catch (error) {
+    console.error('Signature validation error:', error);
     return false;
   }
 }
 
-export function logSecurityEvent(event: {
-  type: 'webhook_signature_failure' | 'rate_limit_exceeded' | 'invalid_payload' | 'prompt_injection_attempt';
-  source: string;
-  details: any;
-}) {
-  const timestamp = new Date().toISOString();
-  console.warn(`🚨 SECURITY EVENT [${timestamp}]: ${event.type} from ${event.source}`, event.details);
+/**
+ * Rate limiting for webhook endpoints
+ */
+export async function checkRateLimit(
+  identifier: string,
+  maxRequests: number = 100,
+  windowMinutes: number = 60
+): Promise<boolean> {
+  try {
+    const windowStart = new Date(Date.now() - windowMinutes * 60 * 1000).toISOString();
+    
+    const { count } = await supabase
+      .from('security_events')
+      .select('*', { count: 'exact', head: true })
+      .eq('event_type', 'rate_limit_check')
+      .gte('created_at', windowStart)
+      .like('details->>identifier', identifier);
+    
+    // Log rate limit check
+    await supabase.from('security_events').insert({
+      event_type: 'rate_limit_check',
+      details: {
+        identifier,
+        current_count: count || 0,
+        max_requests: maxRequests,
+        window_minutes: windowMinutes
+      }
+    });
+    
+    return (count || 0) < maxRequests;
+  } catch (error) {
+    console.error('Rate limit check error:', error);
+    return true; // Allow on error to prevent blocking
+  }
+}
+
+/**
+ * Logs security events
+ */
+export async function logSecurityEvent(
+  eventType: string,
+  details: Record<string, any>,
+  userId?: string
+): Promise<void> {
+  try {
+    await supabase.from('security_events').insert({
+      event_type: eventType,
+      user_id: userId,
+      details
+    });
+  } catch (error) {
+    console.error('Failed to log security event:', error);
+  }
+}
+
+/**
+ * Sanitizes user input to prevent injection attacks
+ */
+export function sanitizeInput(input: string): string {
+  if (typeof input !== 'string') return '';
   
-  // In production, you'd want to send this to a security monitoring system
-  // Example: send to Sentry, DataDog, or custom logging endpoint
+  return input
+    .replace(/[<>]/g, '') // Remove HTML tags
+    .replace(/javascript:/gi, '') // Remove javascript: protocols
+    .replace(/on\w+=/gi, '') // Remove event handlers
+    .trim()
+    .slice(0, 1000); // Limit length
 }

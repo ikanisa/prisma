@@ -12,7 +12,7 @@ import { corsHeaders, validateRequiredEnvVars } from "../_shared/cors.ts";
 import { getWhatsAppClient } from "../_shared/whatsapp.ts";
 import { getSupabaseClient, db } from "../_shared/supabase.ts";
 import { AgentRouter } from "../_shared/agents.ts";
-import { sanitizeInput, normalizePhoneNumber } from "../_shared/security.ts";
+import { validateWebhookSignature, checkRateLimit, logSecurityEvent, sanitizeInput } from "../_shared/security.ts";
 
 // SECURITY: Validate required environment variables
 validateRequiredEnvVars(['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY']);
@@ -30,13 +30,31 @@ serve(async (req) => {
   try {
     console.log('📱 WhatsApp webhook received');
 
-    // SECURITY: Verify webhook signature
+    // SECURITY: Rate limiting
+    const clientIP = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown';
+    const isAllowed = await checkRateLimit(clientIP, 1000, 60); // 1000 requests per hour
+    if (!isAllowed) {
+      await logSecurityEvent('rate_limit_exceeded', { client_ip: clientIP });
+      return new Response('Rate limit exceeded', { status: 429 });
+    }
+
+    // SECURITY: Verify webhook signature with enhanced validation
     const rawBody = await req.text();
     const signature = req.headers.get('X-Hub-Signature-256') || '';
+    const webhookSecret = Deno.env.get('WHATSAPP_WEBHOOK_SECRET');
     
-    if (!whatsapp.verifyWebhookSignature(rawBody, signature)) {
-      console.warn('🚨 Invalid webhook signature');
-      return new Response('Unauthorized', { status: 401 });
+    if (webhookSecret) {
+      const isValidSignature = await validateWebhookSignature(rawBody, signature, webhookSecret);
+      if (!isValidSignature) {
+        await logSecurityEvent('invalid_webhook_signature', { 
+          client_ip: clientIP,
+          signature_provided: !!signature 
+        });
+        console.warn('🚨 Invalid webhook signature');
+        return new Response('Unauthorized', { status: 401 });
+      }
+    } else {
+      console.warn('⚠️ No webhook secret configured - signature verification disabled');
     }
 
     // Parse and validate webhook payload
@@ -76,13 +94,22 @@ serve(async (req) => {
 
 async function processMessage(message: any) {
   try {
-    const phone = normalizePhoneNumber(message.from);
-    const messageText = sanitizeInput(message.text?.body || '');
+    const phone = message.from?.replace(/[\s+]/g, '') || '';
+    const rawMessage = message.text?.body || '';
+    const messageText = sanitizeInput(rawMessage);
     
-    if (!messageText) {
-      console.log('Empty message received, skipping');
+    if (!messageText || !phone) {
+      console.log('Empty message or phone received, skipping');
       return;
     }
+
+    // Log message processing attempt
+    await logSecurityEvent('message_processing', {
+      phone,
+      message_length: messageText.length,
+      original_length: rawMessage.length,
+      sanitized: messageText !== rawMessage
+    });
 
     console.log(`📞 Processing message from ${phone}: "${messageText}"`);
 
@@ -138,7 +165,7 @@ async function processMessage(message: any) {
     // Send fallback message on error
     try {
       await whatsapp.sendTextMessage(
-        normalizePhoneNumber(message.from),
+        message.from?.replace(/[\s+]/g, '') || '',
         "🤖 Sorry, I'm having technical difficulties. Please try again in a moment or contact support: +250 788 000 000"
       );
     } catch (fallbackError) {

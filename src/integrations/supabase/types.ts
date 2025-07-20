@@ -4630,6 +4630,14 @@ export type Database = {
         Args: { "": unknown } | { "": unknown }
         Returns: string
       }
+      check_rate_limit: {
+        Args: {
+          identifier: string
+          max_requests?: number
+          window_minutes?: number
+        }
+        Returns: boolean
+      }
       create_admin_user: {
         Args: { user_id: string }
         Returns: undefined
@@ -4723,6 +4731,14 @@ export type Database = {
           max_price_rwf: number
           distance_km: number
         }[]
+      }
+      gdpr_delete_user_data: {
+        Args: { target_user_id: string }
+        Returns: Json
+      }
+      gdpr_export_user_data: {
+        Args: { target_user_id: string }
+        Returns: Json
       }
       geography: {
         Args: { "": string } | { "": unknown }
@@ -6356,6 +6372,10 @@ export type Database = {
       upsert_embedding: {
         Args: { doc_id: string; chunk: string; embedding: string }
         Returns: undefined
+      }
+      validate_webhook_signature: {
+        Args: { payload: string; signature: string; secret: string }
+        Returns: boolean
       }
       vector_avg: {
         Args: { "": number[] }
