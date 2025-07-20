@@ -95,17 +95,19 @@ serve(async (req) => {
     ]);
 
     const { data, error } = await supabase
-      .from("driver_trips")
+      .from("driver_trips_spatial")
       .insert([{
         driver_phone: from, // phone # acts as user id
         from_text: fromTxt.trim(),
         to_text: toTxt.trim(),
         seats,
         price_rwf: price,
-        from_geom: fromGeo
+        origin: fromGeo
           ? `SRID=4326;POINT(${fromGeo.lng} ${fromGeo.lat})`
-          : null,
-        to_geom: toGeo ? `SRID=4326;POINT(${toGeo.lng} ${toGeo.lat})` : null,
+          : 'SRID=4326;POINT(30.0619 -1.9441)', // Default to Kigali center
+        destination: toGeo 
+          ? `SRID=4326;POINT(${toGeo.lng} ${toGeo.lat})` 
+          : 'SRID=4326;POINT(30.1127 -1.9579)', // Default destination
       }])
       .select("id")
       .single();

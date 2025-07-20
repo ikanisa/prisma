@@ -547,6 +547,54 @@ export type Database = {
           },
         ]
       }
+      bookings_spatial: {
+        Row: {
+          channel: string | null
+          created_at: string | null
+          driver_trip_id: string | null
+          fare_rwf: number | null
+          id: string
+          passenger_intent_id: string | null
+          status: string
+          updated_at: string | null
+        }
+        Insert: {
+          channel?: string | null
+          created_at?: string | null
+          driver_trip_id?: string | null
+          fare_rwf?: number | null
+          id?: string
+          passenger_intent_id?: string | null
+          status?: string
+          updated_at?: string | null
+        }
+        Update: {
+          channel?: string | null
+          created_at?: string | null
+          driver_trip_id?: string | null
+          fare_rwf?: number | null
+          id?: string
+          passenger_intent_id?: string | null
+          status?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bookings_spatial_driver_trip_id_fkey"
+            columns: ["driver_trip_id"]
+            isOneToOne: false
+            referencedRelation: "driver_trips_spatial"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bookings_spatial_passenger_intent_id_fkey"
+            columns: ["passenger_intent_id"]
+            isOneToOne: false
+            referencedRelation: "passenger_intents_spatial"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       businesses: {
         Row: {
           category: Database["public"]["Enums"]["business_type"] | null
@@ -1301,6 +1349,57 @@ export type Database = {
           status?: string | null
           to_geom?: unknown | null
           to_text?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      driver_trips_spatial: {
+        Row: {
+          created_at: string | null
+          departure_time: string | null
+          destination: unknown
+          driver_id: string | null
+          driver_phone: string | null
+          from_text: string
+          id: string
+          metadata: Json | null
+          origin: unknown
+          price_rwf: number
+          seats: number
+          status: string
+          to_text: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          departure_time?: string | null
+          destination: unknown
+          driver_id?: string | null
+          driver_phone?: string | null
+          from_text: string
+          id?: string
+          metadata?: Json | null
+          origin: unknown
+          price_rwf: number
+          seats?: number
+          status?: string
+          to_text: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          departure_time?: string | null
+          destination?: unknown
+          driver_id?: string | null
+          driver_phone?: string | null
+          from_text?: string
+          id?: string
+          metadata?: Json | null
+          origin?: unknown
+          price_rwf?: number
+          seats?: number
+          status?: string
+          to_text?: string
           updated_at?: string | null
         }
         Relationships: []
@@ -2370,6 +2469,48 @@ export type Database = {
           status?: string | null
           to_geom?: unknown | null
           to_text?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      passenger_intents_spatial: {
+        Row: {
+          created_at: string | null
+          dropoff: unknown
+          from_text: string
+          id: string
+          max_price_rwf: number | null
+          passenger_phone: string
+          pickup: unknown
+          seats_needed: number
+          status: string
+          to_text: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          dropoff: unknown
+          from_text: string
+          id?: string
+          max_price_rwf?: number | null
+          passenger_phone: string
+          pickup: unknown
+          seats_needed?: number
+          status?: string
+          to_text: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          dropoff?: unknown
+          from_text?: string
+          id?: string
+          max_price_rwf?: number | null
+          passenger_phone?: string
+          pickup?: unknown
+          seats_needed?: number
+          status?: string
+          to_text?: string
           updated_at?: string | null
         }
         Relationships: []
@@ -4130,6 +4271,21 @@ export type Database = {
         }
         Relationships: []
       }
+      trips_and_intents_spatial: {
+        Row: {
+          created_at: string | null
+          from_text: string | null
+          id: string | null
+          price_rwf: number | null
+          seats: number | null
+          status: string | null
+          to_text: string | null
+          type: string | null
+          updated_at: string | null
+          user_phone: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       _postgis_deprecate: {
@@ -4398,6 +4554,23 @@ export type Database = {
           seats: number
           price_rwf: number
           distance_km: number
+        }[]
+      }
+      fn_get_nearby_drivers_spatial: {
+        Args: { lat: number; lng: number; radius?: number }
+        Returns: {
+          id: string
+          driver_id: string
+          driver_phone: string
+          price_rwf: number
+          seats: number
+          distance_km: number
+          origin_lat: number
+          origin_lng: number
+          destination_lat: number
+          destination_lng: number
+          from_text: string
+          to_text: string
         }[]
       }
       fn_get_nearby_passengers: {

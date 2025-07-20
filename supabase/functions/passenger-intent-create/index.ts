@@ -91,17 +91,19 @@ serve(async (req) => {
     ]);
 
     const { data, error } = await supabase
-      .from("passenger_intents")
+      .from("passenger_intents_spatial")
       .insert([{
         passenger_phone: from,
         from_text: fromTxt.trim(),
         to_text: toTxt.trim(),
         seats_needed,
         max_price_rwf: max_price,
-        from_geom: fromGeo
+        pickup: fromGeo
           ? `SRID=4326;POINT(${fromGeo.lng} ${fromGeo.lat})`
-          : null,
-        to_geom: toGeo ? `SRID=4326;POINT(${toGeo.lng} ${toGeo.lat})` : null,
+          : 'SRID=4326;POINT(30.0619 -1.9441)', // Default to Kigali center
+        dropoff: toGeo 
+          ? `SRID=4326;POINT(${toGeo.lng} ${toGeo.lat})` 
+          : 'SRID=4326;POINT(30.1127 -1.9579)', // Default destination
       }])
       .select("id")
       .single();
@@ -109,7 +111,7 @@ serve(async (req) => {
     if (error) throw error;
 
     /* ───── Fetch nearby drivers instantly (2 km) and craft reply ───── */
-    const { data: drivers } = await supabase.rpc("fn_get_nearby_drivers", {
+    const { data: drivers } = await supabase.rpc("fn_get_nearby_drivers_spatial", {
       lat: fromGeo?.lat || -1.95,
       lng: fromGeo?.lng || 30.06,
       radius: 2,

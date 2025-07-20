@@ -159,7 +159,7 @@ or "Need ride [from] → [to] [seats] [budget]" for passengers.`;
 
         console.log(`Searching for drivers near ${searchLat}, ${searchLng} within ${radius}km`);
 
-        const { data: drivers, error } = await supabase.rpc("fn_get_nearby_drivers", {
+        const { data: drivers, error } = await supabase.rpc("fn_get_nearby_drivers_spatial", {
           lat: searchLat,
           lng: searchLng,
           radius
