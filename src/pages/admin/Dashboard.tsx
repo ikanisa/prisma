@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { AdminSetup } from "@/components/admin/AdminSetup";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -81,6 +82,7 @@ interface SystemStatus {
 }
 
 export default function Dashboard() {
+  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [kpiData, setKpiData] = useState<KPIData>({
     totalUsers: 0,
     creditsToday: 0,
@@ -113,10 +115,40 @@ export default function Dashboard() {
   const { toast } = useToast();
 
   useEffect(() => {
-    loadDashboardData();
-    const interval = setInterval(loadDashboardData, 30000); // Refresh every 30 seconds
-    return () => clearInterval(interval);
+    checkAdminAccess();
   }, []);
+
+  useEffect(() => {
+    if (isAdmin === true) {
+      loadDashboardData();
+      const interval = setInterval(loadDashboardData, 30000); // Refresh every 30 seconds
+      return () => clearInterval(interval);
+    }
+  }, [isAdmin]);
+
+  const checkAdminAccess = async () => {
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      
+      if (!session?.session?.user) {
+        setIsAdmin(false);
+        return;
+      }
+
+      // Check if user has admin role
+      const { data: roles } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', session.session.user.id)
+        .eq('role', 'admin')
+        .single();
+        
+      setIsAdmin(!!roles);
+    } catch (error) {
+      console.error('Error checking admin access:', error);
+      setIsAdmin(false);
+    }
+  };
 
   const loadDashboardData = async () => {
     try {
@@ -318,7 +350,12 @@ export default function Dashboard() {
     }
   };
 
-  if (loading) {
+  // Show admin setup if user is not admin
+  if (isAdmin === false) {
+    return <AdminSetup />;
+  }
+
+  if (loading || isAdmin === null) {
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">

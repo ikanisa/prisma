@@ -2,9 +2,22 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+// SECURITY FIX: Environment validation and improved CORS
+function validateChannelGatewayEnv() {
+  const requiredKeys = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'];
+  const missing = requiredKeys.filter(key => !Deno.env.get(key));
+  if (missing.length > 0) {
+    throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
+  }
+}
+
+validateChannelGatewayEnv();
+
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': Deno.env.get('CORS_ORIGIN') || '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Max-Age': '86400'
 };
 
 const supabase = createClient(
@@ -37,16 +50,8 @@ serve(async (req) => {
       const accessToken = Deno.env.get('WHATSAPP_ACCESS_TOKEN');
 
       if (!phoneId || !accessToken) {
-        console.warn('WhatsApp credentials not configured, logging message instead');
-        console.log(`Would send to ${recipient}: ${message}`);
-        return new Response(JSON.stringify({
-          success: true,
-          simulated: true,
-          recipient,
-          channel
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
+        console.error('WhatsApp credentials not configured');
+        throw new Error('WhatsApp credentials not configured');
       }
 
       const response = await fetch(`https://graph.facebook.com/v18.0/${phoneId}/messages`, {

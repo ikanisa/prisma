@@ -1,6 +1,13 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { corsHeaders } from "../_shared/cors.ts";
+import { corsHeaders, validateRequiredEnvVars } from "../_shared/cors.ts";
+
+// CRITICAL SECURITY FIX: Validate environment variables at startup
+validateRequiredEnvVars([
+  'SUPABASE_URL',
+  'SUPABASE_SERVICE_ROLE_KEY',
+  'OPENAI_API_KEY'
+]);
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -184,6 +191,7 @@ async function generateAIResponse(supabase: any, content: string, context: any):
 async function fallbackOpenAIResponse(content: string, context: any): Promise<string> {
   const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
   if (!OPENAI_API_KEY) {
+    console.error('OpenAI API key not configured in fallback function');
     return "Hi! I'm Aline from easyMO. How can I help you with mobile money payments today?";
   }
 
