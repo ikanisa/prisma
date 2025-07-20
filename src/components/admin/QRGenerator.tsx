@@ -1,9 +1,12 @@
 import { useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { QrCode, Download, Printer } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useToast } from "@/hooks/use-toast";
+import { QrCode, Download, Printer, Copy, Loader2 } from "lucide-react";
 
 interface QRGeneratorProps {
   barId: string;
@@ -13,11 +16,35 @@ export default function QRGenerator({ barId }: QRGeneratorProps) {
   const [startTable, setStartTable] = useState(1);
   const [endTable, setEndTable] = useState(10);
   const [generating, setGenerating] = useState(false);
+  const [text, setText] = useState("");
+  const [agent, setAgent] = useState("bar");
+  const [entity, setEntity] = useState("table");
+  const [qrUrl, setQrUrl] = useState<string | null>(null);
+  const { toast } = useToast();
 
   const generateQRCode = (tableCode: string) => {
     const qrData = `${barId}|${tableCode}`;
     const encodedData = btoa(qrData);
     return `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodedData}`;
+  };
+
+  const generateQRViaEdge = async (text: string, agent: string, entity: string, id: string) => {
+    try {
+      const { data, error } = await supabase.functions.invoke("qr-render", {
+        body: { text, agent, entity, id }
+      });
+
+      if (error) throw error;
+      return data.url;
+    } catch (error: any) {
+      console.error('QR generation error:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to generate QR code",
+        variant: "destructive"
+      });
+      throw error;
+    }
   };
 
   const generateBatch = () => {
@@ -155,8 +182,133 @@ export default function QRGenerator({ barId }: QRGeneratorProps) {
           </div>
         </div>
 
+        <div className="border-t pt-4">
+          <h4 className="font-medium mb-2">Custom QR Generator</h4>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="agent">Agent</Label>
+                <Select value={agent} onValueChange={setAgent}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="bar">Bar</SelectItem>
+                    <SelectItem value="payment">Payment</SelectItem>
+                    <SelectItem value="transport">Transport</SelectItem>
+                    <SelectItem value="events">Events</SelectItem>
+                    <SelectItem value="generic">Generic</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="entity">Entity</Label>
+                <Select value={entity} onValueChange={setEntity}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="table">Table</SelectItem>
+                    <SelectItem value="momo">MoMo Payment</SelectItem>
+                    <SelectItem value="trip">Trip</SelectItem>
+                    <SelectItem value="event">Event</SelectItem>
+                    <SelectItem value="misc">Miscellaneous</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            
+            <div>
+              <Label htmlFor="customText">Text or URL</Label>
+              <Input
+                id="customText"
+                placeholder="Enter text, URL, or payment string..."
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+              />
+            </div>
+
+            <Button 
+              onClick={async () => {
+                if (!text.trim()) {
+                  toast({
+                    title: "Error",
+                    description: "Please enter text to generate QR code",
+                    variant: "destructive"
+                  });
+                  return;
+                }
+                setGenerating(true);
+                try {
+                  const url = await generateQRViaEdge(text, agent, entity, crypto.randomUUID());
+                  setQrUrl(url);
+                  toast({
+                    title: "Success",
+                    description: "QR code generated successfully!",
+                  });
+                } catch (error) {
+                  // Error handled in generateQRViaEdge
+                } finally {
+                  setGenerating(false);
+                }
+              }}
+              disabled={generating || !text.trim()}
+              className="w-full"
+            >
+              {generating ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                "Generate Custom QR Code"
+              )}
+            </Button>
+
+            {qrUrl && (
+              <div className="space-y-4 pt-4 border-t">
+                <div className="flex items-center justify-center">
+                  <img src={qrUrl} alt="Generated QR Code" className="w-48 h-48 border rounded-lg" />
+                </div>
+                <div className="flex gap-2">
+                  <Button 
+                    variant="outline" 
+                    onClick={async () => {
+                      await navigator.clipboard.writeText(qrUrl);
+                      toast({
+                        title: "Copied",
+                        description: "QR code URL copied to clipboard",
+                      });
+                    }} 
+                    className="flex-1"
+                  >
+                    <Copy className="mr-2 h-4 w-4" />
+                    Copy URL
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => {
+                      const link = document.createElement('a');
+                      link.href = qrUrl;
+                      link.download = `qr-code-${Date.now()}.png`;
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                    }} 
+                    className="flex-1"
+                  >
+                    <Download className="mr-2 h-4 w-4" />
+                    Download
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
         <div className="bg-muted p-3 rounded text-sm">
-          <p><strong>QR Format:</strong> {barId}|TABLE_CODE (base64 encoded)</p>
+          <p><strong>Legacy QR Format:</strong> {barId}|TABLE_CODE (base64 encoded)</p>
+          <p><strong>New QR Storage:</strong> Stored in Supabase qr-codes bucket with public URLs</p>
           <p><strong>Usage:</strong> Patrons scan → WhatsApp opens → Onboarding agent starts</p>
         </div>
       </CardContent>
