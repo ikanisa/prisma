@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts";
 import { TrendingUp, TrendingDown, AlertTriangle, CheckCircle, Activity, Shield, Zap, Target } from "lucide-react";
@@ -39,6 +40,7 @@ export default function QualityDashboard() {
     errorRate: { threshold: 5, status: 'green' }
   });
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   useEffect(() => {
     loadData();
@@ -351,50 +353,211 @@ export default function QualityDashboard() {
         </Card>
       </div>
 
-      {/* Recent Low Quality Messages */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Recent Low Quality Evaluations</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {evaluations
-              .filter(evaluation => evaluation.overall_score < 0.6)
-              .slice(0, 10)
-              .map((evaluation) => (
-                <div key={evaluation.id} className="border rounded-lg p-4">
-                  <div className="flex justify-between items-start mb-2">
-                    <div>
-                      <span className="font-medium">Contact: {evaluation.phone_number}</span>
-                      <span className="text-sm text-muted-foreground ml-4">
-                        {new Date(evaluation.evaluated_at).toLocaleString()}
-                      </span>
+      {/* Enhanced Quality Drill-down */}
+      <Tabs defaultValue="low-quality" className="space-y-4">
+        <div className="flex justify-between items-center">
+          <TabsList>
+            <TabsTrigger value="low-quality">Low Quality Issues</TabsTrigger>
+            <TabsTrigger value="trends">Performance Trends</TabsTrigger>
+            <TabsTrigger value="conversations">Conversation Details</TabsTrigger>
+          </TabsList>
+          <Button variant="outline" onClick={() => navigate('/admin/conversation-analysis')}>
+            <Target className="h-4 w-4 mr-2" />
+            Advanced Analysis
+          </Button>
+        </div>
+
+        <TabsContent value="low-quality">
+          <Card>
+            <CardHeader>
+              <CardTitle>Low Quality Evaluations - Action Required</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {evaluations
+                  .filter(evaluation => evaluation.overall_score < 0.6)
+                  .slice(0, 10)
+                  .map((evaluation) => (
+                    <div key={evaluation.id} className="border rounded-lg p-4 hover:bg-muted/50 transition-colors">
+                      <div className="flex justify-between items-start mb-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                          <div>
+                            <span className="font-medium">Contact: {evaluation.phone_number}</span>
+                            <span className="text-sm text-muted-foreground ml-4">
+                              {new Date(evaluation.evaluated_at).toLocaleString()}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="destructive">
+                            Score: {evaluation.overall_score.toFixed(2)}
+                          </Badge>
+                          <Button size="sm" variant="outline" onClick={() => {
+                            // Navigate to detailed conversation view
+                            navigate(`/admin/conversation/${evaluation.phone_number}?evaluation=${evaluation.id}`);
+                          }}>
+                            Investigate
+                          </Button>
+                        </div>
+                      </div>
+                      
+                      <div className="grid grid-cols-3 gap-4 mb-3">
+                        <div className="text-center p-2 border rounded">
+                          <div className="text-xs text-muted-foreground">Style</div>
+                          <div className={`font-medium ${evaluation.style_score < 0.6 ? 'text-red-600' : ''}`}>
+                            {evaluation.style_score.toFixed(2)}
+                          </div>
+                        </div>
+                        <div className="text-center p-2 border rounded">
+                          <div className="text-xs text-muted-foreground">Clarity</div>
+                          <div className={`font-medium ${evaluation.clarity_score < 0.6 ? 'text-red-600' : ''}`}>
+                            {evaluation.clarity_score.toFixed(2)}
+                          </div>
+                        </div>
+                        <div className="text-center p-2 border rounded">
+                          <div className="text-xs text-muted-foreground">Helpfulness</div>
+                          <div className={`font-medium ${evaluation.helpfulness_score < 0.6 ? 'text-red-600' : ''}`}>
+                            {evaluation.helpfulness_score.toFixed(2)}
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {evaluation.evaluation_notes && (
+                        <div className="bg-muted/30 p-3 rounded text-sm">
+                          <div className="font-medium text-xs text-muted-foreground mb-1">QUALITY ISSUES:</div>
+                          {evaluation.evaluation_notes}
+                        </div>
+                      )}
+                      
+                      <div className="flex justify-between items-center mt-3 text-xs text-muted-foreground">
+                        <span>Model: {evaluation.model_used}</span>
+                        <div className="flex items-center gap-2">
+                          <AlertTriangle className="h-3 w-3 text-orange-500" />
+                          <span>Requires Review</span>
+                        </div>
+                      </div>
                     </div>
-                    <Badge variant="destructive">
-                      Score: {evaluation.overall_score.toFixed(2)}
-                    </Badge>
-                  </div>
-                  
-                  <div className="grid grid-cols-3 gap-4 text-sm mb-2">
-                    <div>Style: {evaluation.style_score.toFixed(2)}</div>
-                    <div>Clarity: {evaluation.clarity_score.toFixed(2)}</div>
-                    <div>Helpfulness: {evaluation.helpfulness_score.toFixed(2)}</div>
-                  </div>
-                  
-                  {evaluation.evaluation_notes && (
-                    <p className="text-sm text-muted-foreground">
-                      {evaluation.evaluation_notes}
-                    </p>
-                  )}
-                  
-                  <div className="text-xs text-muted-foreground mt-2">
-                    Model: {evaluation.model_used}
+                  ))}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="trends">
+          <Card>
+            <CardHeader>
+              <CardTitle>Performance Trends & Patterns</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div>
+                  <h4 className="font-medium mb-4">Score Improvement Opportunities</h4>
+                  <div className="space-y-3">
+                    <div className="p-3 border rounded">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm">Style Consistency</span>
+                        <span className="text-sm font-medium text-orange-600">Needs Work</span>
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-1">
+                        Inconsistent tone across conversations
+                      </div>
+                    </div>
+                    <div className="p-3 border rounded">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm">Response Clarity</span>
+                        <span className="text-sm font-medium text-green-600">Good</span>
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-1">
+                        Clear and understandable responses
+                      </div>
+                    </div>
+                    <div className="p-3 border rounded">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm">Helpfulness</span>
+                        <span className="text-sm font-medium text-yellow-600">Moderate</span>
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-1">
+                        Sometimes lacks actionable guidance
+                      </div>
+                    </div>
                   </div>
                 </div>
-              ))}
-          </div>
-        </CardContent>
-      </Card>
+
+                <div>
+                  <h4 className="font-medium mb-4">Quality Gate History</h4>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between p-3 border rounded">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                        <span className="text-sm">Response Time</span>
+                      </div>
+                      <span className="text-xs text-muted-foreground">Passed (99.2%)</span>
+                    </div>
+                    <div className="flex items-center justify-between p-3 border rounded">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+                        <span className="text-sm">Success Rate</span>
+                      </div>
+                      <span className="text-xs text-muted-foreground">Warning (87.5%)</span>
+                    </div>
+                    <div className="flex items-center justify-between p-3 border rounded">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                        <span className="text-sm">Error Rate</span>
+                      </div>
+                      <span className="text-xs text-muted-foreground">Passed (2.1%)</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="conversations">
+          <Card>
+            <CardHeader>
+              <CardTitle>Recent Conversation Evaluations</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {evaluations.slice(0, 15).map((evaluation) => (
+                  <div key={evaluation.id} className="flex items-center justify-between p-3 border rounded hover:bg-muted/30 transition-colors">
+                    <div className="flex items-center gap-4">
+                      <div className={`w-3 h-3 rounded-full ${
+                        evaluation.overall_score >= 0.8 ? 'bg-green-500' :
+                        evaluation.overall_score >= 0.6 ? 'bg-yellow-500' : 'bg-red-500'
+                      }`}></div>
+                      <div>
+                        <div className="font-medium text-sm">{evaluation.phone_number}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {new Date(evaluation.evaluated_at).toLocaleString()}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <div className="text-right">
+                        <div className="text-sm font-medium">
+                          {(evaluation.overall_score * 100).toFixed(0)}%
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {evaluation.model_used}
+                        </div>
+                      </div>
+                      <Button size="sm" variant="ghost" onClick={() => {
+                        navigate(`/admin/conversation/${evaluation.phone_number}?evaluation=${evaluation.id}`);
+                      }}>
+                        View
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

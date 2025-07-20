@@ -401,10 +401,7 @@ export default function Vehicles() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => {
-                      setSelectedVehicle(vehicle);
-                      setShowViewDialog(true);
-                    }}
+                    onClick={() => navigate(`/admin/vehicle/${vehicle.id}`)}
                   >
                     <Eye className="h-4 w-4" />
                   </Button>
