@@ -1329,9 +1329,11 @@ export type Database = {
       }
       conversations: {
         Row: {
+          agent_id: string | null
           assigned_agent_id: string | null
           channel: string
           contact_id: string
+          contact_phone: string | null
           conversation_duration_minutes: number | null
           created_at: string | null
           ended_at: string | null
@@ -1340,15 +1342,19 @@ export type Database = {
           handoff_requested: boolean | null
           id: string
           message_count: number | null
+          metadata: Json | null
           model_used: string | null
           resolved_at: string | null
           started_at: string | null
           status: string | null
+          thread_id: string | null
         }
         Insert: {
+          agent_id?: string | null
           assigned_agent_id?: string | null
           channel: string
           contact_id: string
+          contact_phone?: string | null
           conversation_duration_minutes?: number | null
           created_at?: string | null
           ended_at?: string | null
@@ -1357,15 +1363,19 @@ export type Database = {
           handoff_requested?: boolean | null
           id?: string
           message_count?: number | null
+          metadata?: Json | null
           model_used?: string | null
           resolved_at?: string | null
           started_at?: string | null
           status?: string | null
+          thread_id?: string | null
         }
         Update: {
+          agent_id?: string | null
           assigned_agent_id?: string | null
           channel?: string
           contact_id?: string
+          contact_phone?: string | null
           conversation_duration_minutes?: number | null
           created_at?: string | null
           ended_at?: string | null
@@ -1374,10 +1384,12 @@ export type Database = {
           handoff_requested?: boolean | null
           id?: string
           message_count?: number | null
+          metadata?: Json | null
           model_used?: string | null
           resolved_at?: string | null
           started_at?: string | null
           status?: string | null
+          thread_id?: string | null
         }
         Relationships: []
       }
@@ -2774,6 +2786,66 @@ export type Database = {
           timestamp?: string
         }
         Relationships: []
+      }
+      messages: {
+        Row: {
+          content: string
+          conversation_id: string | null
+          created_at: string | null
+          id: string
+          message_type: string | null
+          metadata: Json | null
+          reply_to_id: string | null
+          sender_id: string | null
+          sender_type: string
+          status: string | null
+          thread_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          content: string
+          conversation_id?: string | null
+          created_at?: string | null
+          id?: string
+          message_type?: string | null
+          metadata?: Json | null
+          reply_to_id?: string | null
+          sender_id?: string | null
+          sender_type: string
+          status?: string | null
+          thread_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          content?: string
+          conversation_id?: string | null
+          created_at?: string | null
+          id?: string
+          message_type?: string | null
+          metadata?: Json | null
+          reply_to_id?: string | null
+          sender_id?: string | null
+          sender_type?: string
+          status?: string | null
+          thread_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_reply_to_id_fkey"
+            columns: ["reply_to_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       model_output_logs: {
         Row: {
@@ -5387,6 +5459,159 @@ export type Database = {
           },
         ]
       }
+      unified_listings: {
+        Row: {
+          category: string | null
+          created_at: string | null
+          deleted_at: string | null
+          description: string | null
+          featured: boolean | null
+          id: string
+          images: string[] | null
+          listing_type: Database["public"]["Enums"]["listing_type_enum"]
+          location_gps: unknown | null
+          metadata: Json | null
+          price: number | null
+          status: string | null
+          stock_quantity: number | null
+          subcategory: string | null
+          tags: string[] | null
+          title: string
+          unit_of_measure: string | null
+          updated_at: string | null
+          vendor_id: string | null
+          visibility: string | null
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string | null
+          deleted_at?: string | null
+          description?: string | null
+          featured?: boolean | null
+          id?: string
+          images?: string[] | null
+          listing_type: Database["public"]["Enums"]["listing_type_enum"]
+          location_gps?: unknown | null
+          metadata?: Json | null
+          price?: number | null
+          status?: string | null
+          stock_quantity?: number | null
+          subcategory?: string | null
+          tags?: string[] | null
+          title: string
+          unit_of_measure?: string | null
+          updated_at?: string | null
+          vendor_id?: string | null
+          visibility?: string | null
+        }
+        Update: {
+          category?: string | null
+          created_at?: string | null
+          deleted_at?: string | null
+          description?: string | null
+          featured?: boolean | null
+          id?: string
+          images?: string[] | null
+          listing_type?: Database["public"]["Enums"]["listing_type_enum"]
+          location_gps?: unknown | null
+          metadata?: Json | null
+          price?: number | null
+          status?: string | null
+          stock_quantity?: number | null
+          subcategory?: string | null
+          tags?: string[] | null
+          title?: string
+          unit_of_measure?: string | null
+          updated_at?: string | null
+          vendor_id?: string | null
+          visibility?: string | null
+        }
+        Relationships: []
+      }
+      unified_orders: {
+        Row: {
+          cancelled_at: string | null
+          completed_at: string | null
+          created_at: string | null
+          currency: string | null
+          customer_id: string | null
+          customer_phone: string
+          delivery_address: Json | null
+          delivery_fee: number | null
+          delivery_method: string | null
+          delivery_notes: string | null
+          domain_metadata: Json | null
+          id: string
+          items: Json
+          listing_ids: string[] | null
+          notes: string | null
+          order_type: string
+          payment_method: string | null
+          payment_reference: string | null
+          payment_status: string | null
+          status: string | null
+          subtotal: number
+          tax_amount: number | null
+          total_amount: number
+          updated_at: string | null
+          vendor_id: string | null
+        }
+        Insert: {
+          cancelled_at?: string | null
+          completed_at?: string | null
+          created_at?: string | null
+          currency?: string | null
+          customer_id?: string | null
+          customer_phone: string
+          delivery_address?: Json | null
+          delivery_fee?: number | null
+          delivery_method?: string | null
+          delivery_notes?: string | null
+          domain_metadata?: Json | null
+          id?: string
+          items?: Json
+          listing_ids?: string[] | null
+          notes?: string | null
+          order_type?: string
+          payment_method?: string | null
+          payment_reference?: string | null
+          payment_status?: string | null
+          status?: string | null
+          subtotal?: number
+          tax_amount?: number | null
+          total_amount?: number
+          updated_at?: string | null
+          vendor_id?: string | null
+        }
+        Update: {
+          cancelled_at?: string | null
+          completed_at?: string | null
+          created_at?: string | null
+          currency?: string | null
+          customer_id?: string | null
+          customer_phone?: string
+          delivery_address?: Json | null
+          delivery_fee?: number | null
+          delivery_method?: string | null
+          delivery_notes?: string | null
+          domain_metadata?: Json | null
+          id?: string
+          items?: Json
+          listing_ids?: string[] | null
+          notes?: string | null
+          order_type?: string
+          payment_method?: string | null
+          payment_reference?: string | null
+          payment_status?: string | null
+          status?: string | null
+          subtotal?: number
+          tax_amount?: number | null
+          total_amount?: number
+          updated_at?: string | null
+          vendor_id?: string | null
+        }
+        Relationships: []
+      }
       user_behavior_patterns: {
         Row: {
           behavioral_score: number | null
@@ -5758,6 +5983,189 @@ export type Database = {
           type: string | null
           updated_at: string | null
           user_phone: string | null
+        }
+        Relationships: []
+      }
+      vw_produce_listings: {
+        Row: {
+          available_quantity: number | null
+          created_at: string | null
+          description: string | null
+          farmer_id: string | null
+          harvest_date: string | null
+          id: string | null
+          is_organic: string | null
+          price: number | null
+          produce_name: string | null
+          status: string | null
+          unit_of_measure: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          available_quantity?: number | null
+          created_at?: string | null
+          description?: string | null
+          farmer_id?: string | null
+          harvest_date?: never
+          id?: string | null
+          is_organic?: never
+          price?: number | null
+          produce_name?: string | null
+          status?: string | null
+          unit_of_measure?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          available_quantity?: number | null
+          created_at?: string | null
+          description?: string | null
+          farmer_id?: string | null
+          harvest_date?: never
+          id?: string | null
+          is_organic?: never
+          price?: number | null
+          produce_name?: string | null
+          status?: string | null
+          unit_of_measure?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      vw_products: {
+        Row: {
+          business_id: string | null
+          category: string | null
+          created_at: string | null
+          description: string | null
+          id: string | null
+          name: string | null
+          price: number | null
+          status: string | null
+          stock_quantity: number | null
+          unit_of_measure: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          business_id?: string | null
+          category?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string | null
+          name?: string | null
+          price?: number | null
+          status?: string | null
+          stock_quantity?: number | null
+          unit_of_measure?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          business_id?: string | null
+          category?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string | null
+          name?: string | null
+          price?: number | null
+          status?: string | null
+          stock_quantity?: number | null
+          unit_of_measure?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      vw_properties: {
+        Row: {
+          area_sqm: string | null
+          bathrooms: string | null
+          bedrooms: string | null
+          created_at: string | null
+          description: string | null
+          id: string | null
+          location_gps: unknown | null
+          owner_id: string | null
+          price: number | null
+          property_name: string | null
+          property_type: string | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          area_sqm?: never
+          bathrooms?: never
+          bedrooms?: never
+          created_at?: string | null
+          description?: string | null
+          id?: string | null
+          location_gps?: unknown | null
+          owner_id?: string | null
+          price?: number | null
+          property_name?: string | null
+          property_type?: never
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          area_sqm?: never
+          bathrooms?: never
+          bedrooms?: never
+          created_at?: string | null
+          description?: string | null
+          id?: string | null
+          location_gps?: unknown | null
+          owner_id?: string | null
+          price?: number | null
+          property_name?: string | null
+          property_type?: never
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      vw_vehicles: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          fuel_type: string | null
+          id: string | null
+          make: string | null
+          mileage: string | null
+          model: string | null
+          owner_id: string | null
+          price: number | null
+          status: string | null
+          updated_at: string | null
+          vehicle_name: string | null
+          year: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          fuel_type?: never
+          id?: string | null
+          make?: never
+          mileage?: never
+          model?: never
+          owner_id?: string | null
+          price?: number | null
+          status?: string | null
+          updated_at?: string | null
+          vehicle_name?: string | null
+          year?: never
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          fuel_type?: never
+          id?: string | null
+          make?: never
+          mileage?: never
+          model?: never
+          owner_id?: string | null
+          price?: number | null
+          status?: string | null
+          updated_at?: string | null
+          vehicle_name?: string | null
+          year?: never
         }
         Relationships: []
       }
@@ -6640,6 +7048,10 @@ export type Database = {
       postgis_wagyu_version: {
         Args: Record<PropertyKey, never>
         Returns: string
+      }
+      soft_delete_listing: {
+        Args: { listing_id: string }
+        Returns: boolean
       }
       sparsevec_out: {
         Args: { "": unknown }
@@ -7779,6 +8191,12 @@ export type Database = {
       business_type: "bar" | "pharmacy" | "shop" | "produce" | "hardware"
       driver_type: "moto" | "cab" | "truck"
       evt: "sent" | "delivered" | "read" | "clicked" | "opt_out"
+      listing_type_enum:
+        | "product"
+        | "produce"
+        | "property"
+        | "vehicle"
+        | "hardware"
       order_status:
         | "pending"
         | "paid"
@@ -7933,6 +8351,13 @@ export const Constants = {
       business_type: ["bar", "pharmacy", "shop", "produce", "hardware"],
       driver_type: ["moto", "cab", "truck"],
       evt: ["sent", "delivered", "read", "clicked", "opt_out"],
+      listing_type_enum: [
+        "product",
+        "produce",
+        "property",
+        "vehicle",
+        "hardware",
+      ],
       order_status: [
         "pending",
         "paid",

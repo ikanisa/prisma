@@ -1,9 +1,163 @@
 /**
- * REFACTOR: Centralized TypeScript type definitions
- * Replaces scattered 'any' types with proper domain models
+ * REFACTOR: Enhanced TypeScript type definitions
+ * Consolidated domain models for all business contexts
  */
 
-// WhatsApp Message Types
+import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
+
+// ============================================================================
+// Core Response Types
+// ============================================================================
+
+export interface ApiResponse<T = any> {
+  success: boolean;
+  data?: T;
+  error?: string;
+  message?: string;
+  code?: string;
+}
+
+export interface PaginatedResponse<T> {
+  data: T[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    pages: number;
+  };
+}
+
+// ============================================================================
+// Unified Listings (Products, Produce, Properties, Vehicles)
+// ============================================================================
+
+export const ListingTypeSchema = z.enum(['product', 'produce', 'property', 'vehicle', 'hardware']);
+export type ListingType = z.infer<typeof ListingTypeSchema>;
+
+export const ListingStatusSchema = z.enum(['active', 'inactive', 'sold', 'archived']);
+export type ListingStatus = z.infer<typeof ListingStatusSchema>;
+
+export interface UnifiedListing {
+  id: string;
+  listing_type: ListingType;
+  title: string;
+  description?: string;
+  price?: number;
+  vendor_id?: string;
+  metadata: Record<string, any>;
+  location_gps?: { lat: number; lng: number };
+  images: string[];
+  tags: string[];
+  status: ListingStatus;
+  visibility: 'public' | 'private' | 'draft';
+  featured: boolean;
+  stock_quantity: number;
+  unit_of_measure?: string;
+  category?: string;
+  subcategory?: string;
+  created_at: string;
+  updated_at: string;
+  deleted_at?: string;
+}
+
+// ============================================================================
+// Unified Orders
+// ============================================================================
+
+export const OrderTypeSchema = z.enum(['marketplace', 'produce', 'pharmacy', 'hardware', 'services']);
+export type OrderType = z.infer<typeof OrderTypeSchema>;
+
+export const OrderStatusSchema = z.enum(['pending', 'confirmed', 'preparing', 'delivering', 'completed', 'cancelled', 'refunded']);
+export type OrderStatus = z.infer<typeof OrderStatusSchema>;
+
+export const PaymentStatusSchema = z.enum(['pending', 'paid', 'failed', 'refunded']);
+export type PaymentStatus = z.infer<typeof PaymentStatusSchema>;
+
+export interface OrderItem {
+  listing_id: string;
+  title: string;
+  quantity: number;
+  unit_price: number;
+  total_price: number;
+  metadata?: Record<string, any>;
+}
+
+export interface UnifiedOrder {
+  id: string;
+  order_type: OrderType;
+  customer_phone: string;
+  customer_id?: string;
+  vendor_id?: string;
+  items: OrderItem[];
+  listing_ids: string[];
+  subtotal: number;
+  tax_amount: number;
+  delivery_fee: number;
+  total_amount: number;
+  currency: string;
+  status: OrderStatus;
+  payment_status: PaymentStatus;
+  payment_method?: string;
+  payment_reference?: string;
+  delivery_method?: string;
+  delivery_address?: Record<string, any>;
+  delivery_notes?: string;
+  domain_metadata: Record<string, any>;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+  completed_at?: string;
+  cancelled_at?: string;
+}
+
+// ============================================================================
+// Conversations & Messages
+// ============================================================================
+
+export const ChannelTypeSchema = z.enum(['whatsapp', 'telegram', 'web', 'phone', 'email']);
+export type ChannelType = z.infer<typeof ChannelTypeSchema>;
+
+export const SenderTypeSchema = z.enum(['user', 'agent', 'system', 'bot']);
+export type SenderType = z.infer<typeof SenderTypeSchema>;
+
+export const MessageTypeSchema = z.enum(['text', 'image', 'document', 'location', 'interactive']);
+export type MessageType = z.infer<typeof MessageTypeSchema>;
+
+export const MessageStatusSchema = z.enum(['sent', 'delivered', 'read', 'failed']);
+export type MessageStatus = z.infer<typeof MessageStatusSchema>;
+
+export interface Conversation {
+  id: string;
+  contact_id: string;
+  contact_phone?: string;
+  channel: ChannelType;
+  thread_id?: string;
+  agent_id?: string;
+  status: 'active' | 'closed' | 'archived';
+  metadata: Record<string, any>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Message {
+  id: string;
+  conversation_id: string;
+  sender_type: SenderType;
+  sender_id: string;
+  content: string;
+  message_type: MessageType;
+  metadata: Record<string, any>;
+  thread_id?: string;
+  reply_to_id?: string;
+  status: MessageStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+// ============================================================================
+// WhatsApp Types (Legacy - keep for compatibility)
+// ============================================================================
+
 export interface WhatsAppMessage {
   from: string;
   id: string;
@@ -62,12 +216,22 @@ export interface WhatsAppWebhookPayload {
   }>;
 }
 
+// ============================================================================
 // User Domain Types
+// ============================================================================
+
+export const UserRoleSchema = z.enum(['admin', 'user', 'driver', 'farmer', 'business_owner', 'support']);
+export type UserRole = z.infer<typeof UserRoleSchema>;
+
 export interface User {
   id: string;
   phone: string;
   momo_code: string;
+  email?: string;
   credits: number;
+  referral_code?: string;
+  preferred_language: string;
+  metadata: Record<string, any>;
   created_at: string;
   updated_at?: string;
 }
@@ -75,10 +239,15 @@ export interface User {
 export interface UserCreate {
   phone: string;
   momo_code: string;
+  email?: string;
   credits?: number;
+  metadata?: Record<string, any>;
 }
 
+// ============================================================================
 // Driver Domain Types
+// ============================================================================
+
 export interface Driver {
   id: string;
   user_id: string;
@@ -106,7 +275,10 @@ export interface DriverTripCreate {
   status?: 'active' | 'completed' | 'cancelled';
 }
 
-// Product Domain Types
+// ============================================================================
+// Product Domain Types (Legacy - migrating to UnifiedListing)
+// ============================================================================
+
 export interface Product {
   id: string;
   name: string;
@@ -119,31 +291,26 @@ export interface Product {
   created_at: string;
 }
 
-// Conversation Domain Types
-export interface ConversationMessage {
-  user_id: string;
-  role: 'user' | 'assistant' | 'system';
-  message: string;
-  ts?: string;
-}
-
-// Agent Response Types
-export interface AgentResponse {
-  message: string;
-  action?: 'redirect' | 'collect_payment' | 'show_products' | 'create_trip';
-  data?: Record<string, any>;
-  requiresHuman?: boolean;
-}
-
+// ============================================================================
 // Payment Types
+// ============================================================================
+
+export const PaymentMethodSchema = z.enum(['momo', 'cash', 'card', 'bank_transfer']);
+export type PaymentMethod = z.infer<typeof PaymentMethodSchema>;
+
 export interface PaymentRequest {
   amount: number;
+  currency?: string;
   phone: string;
   description?: string;
   reference?: string;
+  method?: PaymentMethod;
 }
 
+// ============================================================================
 // Event Types
+// ============================================================================
+
 export interface Event {
   id: string;
   title: string;
@@ -156,24 +323,10 @@ export interface Event {
   created_at: string;
 }
 
-// API Response Types
-export interface ApiResponse<T = any> {
-  success: boolean;
-  data?: T;
-  error?: string;
-  code?: string;
-}
-
-export interface PaginatedResponse<T> extends ApiResponse<T[]> {
-  pagination?: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
-  };
-}
-
+// ============================================================================
 // Utility Types
+// ============================================================================
+
 export type SupportedLanguage = 'en' | 'rw' | 'fr';
 
 export interface CoordinatePoint {
@@ -181,7 +334,10 @@ export interface CoordinatePoint {
   longitude: number;
 }
 
+// ============================================================================
 // Error Types
+// ============================================================================
+
 export interface ValidationError {
   field: string;
   message: string;
@@ -192,4 +348,41 @@ export interface BusinessError extends Error {
   code: string;
   statusCode?: number;
   details?: Record<string, any>;
+}
+
+// ============================================================================
+// Utility Functions
+// ============================================================================
+
+export function createSuccessResponse<T>(data: T, message?: string): ApiResponse<T> {
+  return {
+    success: true,
+    data,
+    message
+  };
+}
+
+export function createErrorResponse(error: string, message?: string, code?: string): ApiResponse {
+  return {
+    success: false,
+    error,
+    message,
+    code
+  };
+}
+
+export function normalizePhoneNumber(phone: string): string {
+  // Remove all non-digit characters
+  const cleaned = phone.replace(/\D/g, '');
+  
+  // Handle Rwanda numbers
+  if (cleaned.startsWith('250')) {
+    return cleaned;
+  } else if (cleaned.startsWith('07') || cleaned.startsWith('08') || cleaned.startsWith('09')) {
+    return '250' + cleaned;
+  } else if (cleaned.length === 9) {
+    return '250' + cleaned;
+  }
+  
+  return cleaned;
 }
