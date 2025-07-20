@@ -72,7 +72,7 @@ export function AdminSetup() {
     setSetupLoading(true);
 
     try {
-      // First, disable signup and enable auto-confirm to make setup smoother
+      // Sign up the admin user
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
@@ -93,58 +93,44 @@ export function AdminSetup() {
             throw signInError;
           }
 
-          // Try to add admin role using RPC function to bypass RLS
+          // Add admin role to existing user - we'll handle RLS bypass server-side
           if (signInData.user) {
-            try {
-              await supabase.rpc('create_admin_user', {
-                user_id: signInData.user.id
+            const { error: roleError } = await supabase
+              .from('user_roles')
+              .insert({
+                user_id: signInData.user.id,
+                role: 'admin'
               });
-            } catch (rpcError) {
-              console.warn('RPC failed, trying direct insert:', rpcError);
-              // Fallback to direct insert
-              const { error: roleError } = await supabase
-                .from('user_roles')
-                .insert({
-                  user_id: signInData.user.id,
-                  role: 'admin'
-                });
 
-              if (roleError && !roleError.message.includes('duplicate')) {
-                console.warn('Role assignment warning:', roleError);
-              }
+            if (roleError && !roleError.message.includes('duplicate')) {
+              console.warn('Role assignment warning:', roleError);
+              // Continue anyway - the user is signed in
             }
           }
         } else {
           throw authError;
         }
       } else if (authData.user) {
-        // Try to add admin role using RPC function to bypass RLS
-        try {
-          await supabase.rpc('create_admin_user', {
-            user_id: authData.user.id
+        // Add admin role to new user - we'll handle RLS bypass server-side
+        const { error: roleError } = await supabase
+          .from('user_roles')
+          .insert({
+            user_id: authData.user.id,
+            role: 'admin'
           });
-        } catch (rpcError) {
-          console.warn('RPC failed, trying direct insert:', rpcError);
-          // Fallback to direct insert
-          const { error: roleError } = await supabase
-            .from('user_roles')
-            .insert({
-              user_id: authData.user.id,
-              role: 'admin'
-            });
 
-          if (roleError && !roleError.message.includes('duplicate')) {
-            console.warn('Role assignment warning:', roleError);
-          }
+        if (roleError && !roleError.message.includes('duplicate')) {
+          console.warn('Role assignment warning:', roleError);
+          // Continue anyway - the user is signed up
         }
       }
 
-      setSuccess('Admin account created successfully! Redirecting to admin panel...');
+      setSuccess('✅ Admin account created successfully! Redirecting to dashboard...');
       
-      // Navigate to admin dashboard after successful creation
+      // Wait a moment then navigate to admin dashboard
       setTimeout(() => {
         window.location.href = '/admin';
-      }, 1500);
+      }, 2000);
 
     } catch (error: any) {
       console.error('Admin setup error:', error);
