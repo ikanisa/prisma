@@ -1,100 +1,332 @@
-import { serve } from 'https://deno.land/std@0.203.0/http/server.ts';
-import { getSupabaseClient } from '../_shared/supabase.ts';
-
-const GOOGLE_KEY = Deno.env.get('GOOGLE_PLACES_KEY');
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const googlePlacesApiKey = Deno.env.get('GOOGLE_PLACES_API_KEY');
+
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+interface GooglePlacesResponse {
+  results: Array<{
+    place_id: string;
+    name: string;
+    formatted_address: string;
+    geometry: {
+      location: {
+        lat: number;
+        lng: number;
+      };
+    };
+    types: string[];
+    rating?: number;
+    formatted_phone_number?: string;
+    website?: string;
+    business_status?: string;
+  }>;
+  status: string;
+  next_page_token?: string;
+}
+
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    if (!GOOGLE_KEY) {
-      return err('Google Places API key not configured', 500);
+    const { action, payload } = await req.json();
+
+    // Log execution start
+    const executionStart = Date.now();
+    
+    if (!googlePlacesApiKey) {
+      throw new Error('Google Places API key not configured');
     }
 
-    const { category, pagetoken } = await req.json();
-
-    const typesMap: Record<string, string> = {
-      bar: 'bar',
-      pharmacy: 'pharmacy',
-      hardware: 'hardware_store',
-      farmer: 'grocery_or_supermarket'
-    };
-
-    if (!typesMap[category]) {
-      return err('unsupported category');
+    let result;
+    switch (action) {
+      case 'syncBusinesses':
+        result = await syncBusinesses(payload);
+        break;
+      case 'syncProperties':
+        result = await syncProperties(payload);
+        break;
+      case 'getSyncStatus':
+        result = await getSyncStatus();
+        break;
+      default:
+        throw new Error(`Unknown action: ${action}`);
     }
 
-    const url = new URL('https://maps.googleapis.com/maps/api/place/nearbysearch/json');
-    url.searchParams.set('key', GOOGLE_KEY);
-    url.searchParams.set('keyword', category);
-    url.searchParams.set('type', typesMap[category]);
-    url.searchParams.set('location', '-1.944426,30.061012'); // Kigali centre
-    url.searchParams.set('radius', '50000'); // 50 km
-    if (pagetoken) url.searchParams.set('pagetoken', pagetoken);
+    // Log execution
+    const executionTime = Date.now() - executionStart;
+    await supabase.from('agent_execution_log').insert({
+      function_name: 'google-places-sync',
+      input_data: { action, payload },
+      success_status: true,
+      execution_time_ms: executionTime,
+      model_used: 'google-places-api'
+    });
 
-    console.log('Fetching from Google Places API:', url.toString());
-
-    const res = await fetch(url.toString());
-    const data = await res.json();
-
-    if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
-      console.error('Google Places API error:', data);
-      return err(`Google Places API error: ${data.status}`, 500);
-    }
-
-    const inserts = (data.results ?? []).map((p: any) => ({
-      place_id: p.place_id,
-      name: p.name,
-      category,
-      phone: p.formatted_phone_number ?? null,
-      website: p.website ?? null,
-      address: p.vicinity,
-      lat: p.geometry?.location?.lat,
-      lng: p.geometry?.location?.lng,
-      google_rating: p.rating ?? null
-    }));
-
-    console.log(`Processing ${inserts.length} places for category: ${category}`);
-
-  if (inserts.length > 0) {
-    const sb = getSupabaseClient();
-    const { error: insertError } = await sb
-      .from('canonical_locations')
-      .upsert(inserts, { onConflict: 'place_id' });
-
-    if (insertError) {
-      console.error('Database insert error:', insertError);
-      return err(`Database error: ${insertError.message}`, 500);
-    }
-  }
-
-    return ok({
-      inserted: inserts.length,
-      next_page_token: data.next_page_token ?? null,
-      status: data.status
+    return new Response(JSON.stringify({
+      success: true,
+      data: result
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
 
   } catch (error) {
-    console.error('Error in google-places-sync:', error);
-    return err(`Server error: ${error.message}`, 500);
+    console.error('Google Places Sync Error:', error);
+    
+    // Log error
+    await supabase.from('agent_execution_log').insert({
+      function_name: 'google-places-sync',
+      success_status: false,
+      error_details: error.message,
+      execution_time_ms: Date.now() - Date.now()
+    });
+
+    return new Response(JSON.stringify({
+      success: false,
+      error: error.message
+    }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
   }
 });
 
-function ok(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-  });
+async function syncBusinesses(payload: { location?: string; radius?: number; type?: string }) {
+  const { location = 'Kigali, Rwanda', radius = 5000, type = 'restaurant' } = payload;
+  
+  // Start sync run
+  const { data: syncRun } = await supabase
+    .from('data_sync_runs')
+    .insert({
+      sync_type: 'google_places_businesses',
+      status: 'running',
+      metadata: { location, radius, type }
+    })
+    .select()
+    .single();
+
+  try {
+    // Search for places
+    const searchUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(type + ' in ' + location)}&radius=${radius}&key=${googlePlacesApiKey}`;
+    
+    const response = await fetch(searchUrl);
+    const data: GooglePlacesResponse = await response.json();
+
+    if (data.status !== 'OK') {
+      throw new Error(`Google Places API error: ${data.status}`);
+    }
+
+    let processed = 0;
+    let successful = 0;
+    let failed = 0;
+
+    for (const place of data.results) {
+      try {
+        // Get detailed place information
+        const detailsUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${place.place_id}&fields=name,formatted_address,formatted_phone_number,website,rating,business_status,geometry&key=${googlePlacesApiKey}`;
+        
+        const detailsResponse = await fetch(detailsUrl);
+        const detailsData = await detailsResponse.json();
+        
+        if (detailsData.status === 'OK') {
+          const placeDetails = detailsData.result;
+          
+          // Insert or update business
+          await supabase.from('businesses').upsert({
+            name: placeDetails.name,
+            category: type,
+            location_gps: `POINT(${placeDetails.geometry.location.lng} ${placeDetails.geometry.location.lat})`,
+            momo_code: generateMomoCode(placeDetails.name),
+            status: placeDetails.business_status === 'OPERATIONAL' ? 'active' : 'inactive',
+            pos_system_config: {
+              google_places_id: place.place_id,
+              rating: placeDetails.rating,
+              website: placeDetails.website,
+              phone: placeDetails.formatted_phone_number,
+              address: placeDetails.formatted_address
+            }
+          }, {
+            onConflict: 'name'
+          });
+          
+          successful++;
+        } else {
+          failed++;
+        }
+        
+        processed++;
+        
+        // Rate limiting - wait 100ms between requests
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+      } catch (error) {
+        console.error(`Failed to process place ${place.place_id}:`, error);
+        failed++;
+        processed++;
+      }
+    }
+
+    // Update sync run
+    await supabase
+      .from('data_sync_runs')
+      .update({
+        status: 'completed',
+        completed_at: new Date().toISOString(),
+        records_processed: processed,
+        records_successful: successful,
+        records_failed: failed,
+        api_quota_used: processed * 2 // 1 for search + 1 for details
+      })
+      .eq('id', syncRun.id);
+
+    return {
+      syncRunId: syncRun.id,
+      processed,
+      successful,
+      failed,
+      quotaUsed: processed * 2
+    };
+
+  } catch (error) {
+    // Update sync run with error
+    await supabase
+      .from('data_sync_runs')
+      .update({
+        status: 'failed',
+        completed_at: new Date().toISOString(),
+        error_details: error.message
+      })
+      .eq('id', syncRun.id);
+    
+    throw error;
+  }
 }
 
-function err(message: string, status = 400) {
-  return ok({ error: message }, status);
+async function syncProperties(payload: { location?: string; type?: string }) {
+  const { location = 'Kigali, Rwanda', type = 'real_estate_agency' } = payload;
+  
+  // Start sync run
+  const { data: syncRun } = await supabase
+    .from('data_sync_runs')
+    .insert({
+      sync_type: 'google_places_properties',
+      status: 'running',
+      metadata: { location, type }
+    })
+    .select()
+    .single();
+
+  try {
+    const searchUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(type + ' in ' + location)}&key=${googlePlacesApiKey}`;
+    
+    const response = await fetch(searchUrl);
+    const data: GooglePlacesResponse = await response.json();
+
+    if (data.status !== 'OK') {
+      throw new Error(`Google Places API error: ${data.status}`);
+    }
+
+    let processed = 0;
+    let successful = 0;
+
+    for (const place of data.results) {
+      try {
+        // Log property sync activity
+        await supabase.from('property_sync_log').insert({
+          source: 'google_places',
+          property_id: place.place_id,
+          action: 'sync',
+          status: 'success',
+          data_after: {
+            name: place.name,
+            address: place.formatted_address,
+            location: place.geometry.location,
+            rating: place.rating,
+            types: place.types
+          }
+        });
+        
+        successful++;
+      } catch (error) {
+        await supabase.from('property_sync_log').insert({
+          source: 'google_places',
+          property_id: place.place_id,
+          action: 'sync',
+          status: 'failed',
+          error_message: error.message
+        });
+      }
+      
+      processed++;
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+
+    await supabase
+      .from('data_sync_runs')
+      .update({
+        status: 'completed',
+        completed_at: new Date().toISOString(),
+        records_processed: processed,
+        records_successful: successful,
+        api_quota_used: processed
+      })
+      .eq('id', syncRun.id);
+
+    return {
+      syncRunId: syncRun.id,
+      processed,
+      successful
+    };
+
+  } catch (error) {
+    await supabase
+      .from('data_sync_runs')
+      .update({
+        status: 'failed',
+        completed_at: new Date().toISOString(),
+        error_details: error.message
+      })
+      .eq('id', syncRun.id);
+    
+    throw error;
+  }
+}
+
+async function getSyncStatus() {
+  const { data: recentRuns } = await supabase
+    .from('data_sync_runs')
+    .select('*')
+    .order('started_at', { ascending: false })
+    .limit(10);
+
+  const { data: quotaUsage } = await supabase
+    .from('data_sync_runs')
+    .select('api_quota_used')
+    .gte('started_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
+
+  const totalQuotaUsed = quotaUsage?.reduce((sum, run) => sum + (run.api_quota_used || 0), 0) || 0;
+
+  return {
+    recentRuns,
+    dailyQuotaUsed: totalQuotaUsed,
+    dailyQuotaLimit: 1000 // Google Places API daily limit
+  };
+}
+
+function generateMomoCode(businessName: string): string {
+  // Generate a simple MoMo code based on business name
+  const prefix = businessName.replace(/[^a-zA-Z]/g, '').slice(0, 3).toUpperCase();
+  const suffix = Math.floor(Math.random() * 9999).toString().padStart(4, '0');
+  return `${prefix}${suffix}`;
 }

@@ -75,31 +75,26 @@ export default function DataSyncPage() {
   // Google Places sync mutation
   const syncGooglePlaces = useMutation({
     mutationFn: async (category: LocationCategory) => {
-      let pageToken: string | null = null;
-      let totalInserted = 0;
-
-      do {
-        const { data, error } = await supabase.functions.invoke("google-places-sync", {
-          body: { category, pagetoken: pageToken }
-        });
-        
-        if (error) throw error;
-        
-        totalInserted += data.inserted;
-        pageToken = data.next_page_token;
-        
-        // Add small delay between requests to respect API limits
-        if (pageToken) {
-          await new Promise(resolve => setTimeout(resolve, 2000));
+      const { data, error } = await supabase.functions.invoke("google-places-sync", {
+        body: { 
+          action: 'syncBusinesses',
+          payload: {
+            location: 'Kigali, Rwanda',
+            type: category,
+            radius: 5000
+          }
         }
-      } while (pageToken);
-
-      return totalInserted;
+      });
+      
+      if (error) throw error;
+      if (!data.success) throw new Error(data.error);
+      
+      return data.data.successful;
     },
-    onSuccess: (totalInserted, category) => {
+    onSuccess: (successful, category) => {
       toast({
         title: "Sync Complete",
-        description: `Successfully synced ${totalInserted} ${category} locations from Google Places`
+        description: `Successfully synced ${successful} ${category} businesses from Google Places`
       });
       queryClient.invalidateQueries({ queryKey: ["canonical_locations", category] });
     },
@@ -112,15 +107,22 @@ export default function DataSyncPage() {
     }
   });
 
-  // Property scrape mutation
+  // Property scrape mutation  
   const scrapeProperties = useMutation({
     mutationFn: async () => {
-      const { data, error } = await supabase.functions.invoke("property-scrape-trigger", {
-        body: { source: "airbnb", location: "Kigali, Rwanda" }
+      const { data, error } = await supabase.functions.invoke("google-places-sync", {
+        body: { 
+          action: 'syncProperties',
+          payload: {
+            location: 'Kigali, Rwanda',
+            type: 'real_estate_agency'
+          }
+        }
       });
       
       if (error) throw error;
-      return data;
+      if (!data.success) throw new Error(data.error);
+      return data.data;
     },
     onSuccess: () => {
       toast({

@@ -1523,6 +1523,54 @@ export type Database = {
           },
         ]
       }
+      data_sync_runs: {
+        Row: {
+          api_quota_used: number | null
+          completed_at: string | null
+          created_by: string | null
+          deleted_at: string | null
+          error_details: string | null
+          id: string
+          metadata: Json | null
+          records_failed: number | null
+          records_processed: number | null
+          records_successful: number | null
+          started_at: string
+          status: string
+          sync_type: string
+        }
+        Insert: {
+          api_quota_used?: number | null
+          completed_at?: string | null
+          created_by?: string | null
+          deleted_at?: string | null
+          error_details?: string | null
+          id?: string
+          metadata?: Json | null
+          records_failed?: number | null
+          records_processed?: number | null
+          records_successful?: number | null
+          started_at?: string
+          status?: string
+          sync_type: string
+        }
+        Update: {
+          api_quota_used?: number | null
+          completed_at?: string | null
+          created_by?: string | null
+          deleted_at?: string | null
+          error_details?: string | null
+          id?: string
+          metadata?: Json | null
+          records_failed?: number | null
+          records_processed?: number | null
+          records_successful?: number | null
+          started_at?: string
+          status?: string
+          sync_type?: string
+        }
+        Relationships: []
+      }
       deliveries: {
         Row: {
           created_at: string | null
@@ -2302,6 +2350,57 @@ export type Database = {
           name?: string | null
           place_id?: string | null
           region?: string | null
+        }
+        Relationships: []
+      }
+      hardware_vendors: {
+        Row: {
+          api_endpoint: string | null
+          api_key: string | null
+          contact_email: string | null
+          contact_phone: string | null
+          created_at: string
+          deleted_at: string | null
+          id: string
+          last_sync_at: string | null
+          name: string
+          products_count: number | null
+          status: string | null
+          sync_enabled: boolean | null
+          updated_at: string
+          website: string | null
+        }
+        Insert: {
+          api_endpoint?: string | null
+          api_key?: string | null
+          contact_email?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          last_sync_at?: string | null
+          name: string
+          products_count?: number | null
+          status?: string | null
+          sync_enabled?: boolean | null
+          updated_at?: string
+          website?: string | null
+        }
+        Update: {
+          api_endpoint?: string | null
+          api_key?: string | null
+          contact_email?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          last_sync_at?: string | null
+          name?: string
+          products_count?: number | null
+          status?: string | null
+          sync_enabled?: boolean | null
+          updated_at?: string
+          website?: string | null
         }
         Relationships: []
       }
@@ -3737,6 +3836,45 @@ export type Database = {
           source?: string | null
           title?: string | null
           whatsapp?: string | null
+        }
+        Relationships: []
+      }
+      property_sync_log: {
+        Row: {
+          action: string
+          created_at: string
+          data_after: Json | null
+          data_before: Json | null
+          error_message: string | null
+          id: string
+          processed_at: string
+          property_id: string | null
+          source: string
+          status: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          data_after?: Json | null
+          data_before?: Json | null
+          error_message?: string | null
+          id?: string
+          processed_at?: string
+          property_id?: string | null
+          source: string
+          status: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          data_after?: Json | null
+          data_before?: Json | null
+          error_message?: string | null
+          id?: string
+          processed_at?: string
+          property_id?: string | null
+          source?: string
+          status?: string
         }
         Relationships: []
       }
