@@ -322,6 +322,13 @@ export function AdminSetup() {
               </Alert>
             )}
 
+            {success && (
+              <Alert className="mb-4 border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950">
+                <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+                <AlertDescription className="text-green-800 dark:text-green-200">{success}</AlertDescription>
+              </Alert>
+            )}
+
             <form onSubmit={handleAdminLogin} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
@@ -366,11 +373,37 @@ export function AdminSetup() {
               </Button>
             </form>
 
-            <div className="mt-4 text-center">
+            <div className="mt-4 space-y-2">
+              <Button 
+                onClick={async () => {
+                  setError('');
+                  setSetupLoading(true);
+                  try {
+                    const { error } = await supabase.auth.resend({
+                      type: 'signup',
+                      email: email
+                    });
+                    if (error) throw error;
+                    setSuccess('Confirmation email sent! Check your inbox.');
+                  } catch (error: any) {
+                    setError(error.message);
+                  } finally {
+                    setSetupLoading(false);
+                  }
+                }}
+                variant="outline"
+                size="sm"
+                className="w-full"
+                disabled={!email || setupLoading}
+              >
+                Resend Confirmation Email
+              </Button>
+              
               <Button 
                 onClick={() => window.location.href = '/'} 
                 variant="ghost"
                 size="sm"
+                className="w-full"
               >
                 Return to Home
               </Button>
