@@ -6,26 +6,31 @@ import { Button } from '@/components/ui/button';
 import { RefreshCw, MapPin, Car, Users } from 'lucide-react';
 import { toast } from 'sonner';
 
-interface Driver {
+interface DriverSession {
   id: string;
-  full_name: string;
-  is_online: boolean;
-  phone_number: string;
-  current_location?: any;
+  driver_id: string;
+  status: string;
+  last_location: any;
+  created_at: string;
 }
 
-interface Trip {
+interface DriverTrip {
   id: string;
   status: string;
-  pickup_location: any;
-  dropoff_location: any;
+  origin: any;
+  destination: any;
   driver_id: string;
+  driver_phone: string;
+  from_text: string;
+  to_text: string;
+  price_rwf: number;
+  seats: number;
   created_at: string;
 }
 
 export function RealTimeFleetMap() {
-  const [drivers, setDrivers] = useState<Driver[]>([]);
-  const [activeTrips, setActiveTrips] = useState<Trip[]>([]);
+  const [driverSessions, setDriverSessions] = useState<DriverSession[]>([]);
+  const [activeTrips, setActiveTrips] = useState<DriverTrip[]>([]);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     onlineDrivers: 0,
@@ -35,30 +40,30 @@ export function RealTimeFleetMap() {
 
   const fetchFleetData = async () => {
     try {
-      // Fetch online drivers
-      const { data: driversData, error: driversError } = await supabase
-        .from('drivers')
-        .select('id, full_name, is_online, phone_number, current_location')
-        .eq('is_online', true);
+      // Fetch online driver sessions
+      const { data: sessionsData, error: sessionsError } = await supabase
+        .from('driver_sessions')
+        .select('*')
+        .eq('status', 'online');
 
-      if (driversError) throw driversError;
+      if (sessionsError) throw sessionsError;
 
-      // Fetch active trips
+      // Fetch active driver trips
       const { data: tripsData, error: tripsError } = await supabase
-        .from('trips')
-        .select('id, status, pickup_location, dropoff_location, driver_id, created_at')
-        .in('status', ['pending', 'confirmed', 'in_progress']);
+        .from('driver_trips_spatial')
+        .select('*')
+        .in('status', ['open', 'assigned']);
 
       if (tripsError) throw tripsError;
 
-      setDrivers(driversData || []);
+      setDriverSessions(sessionsData || []);
       setActiveTrips(tripsData || []);
 
       // Calculate stats
-      const onlineCount = driversData?.length || 0;
-      const activeTripsCount = tripsData?.filter(t => t.status === 'in_progress').length || 0;
-      const availableCount = driversData?.filter(d => 
-        !tripsData?.some(t => t.driver_id === d.id && t.status === 'in_progress')
+      const onlineCount = sessionsData?.length || 0;
+      const activeTripsCount = tripsData?.filter(t => t.status === 'assigned').length || 0;
+      const availableCount = sessionsData?.filter(s => 
+        !tripsData?.some(t => t.driver_id === s.driver_id && t.status === 'assigned')
       ).length || 0;
 
       setStats({
@@ -144,7 +149,7 @@ export function RealTimeFleetMap() {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{drivers.length}</div>
+            <div className="text-2xl font-bold">{driverSessions.length}</div>
           </CardContent>
         </Card>
       </div>
@@ -160,17 +165,17 @@ export function RealTimeFleetMap() {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {drivers.map((driver) => {
+            {driverSessions.map((session) => {
               const activeTrip = activeTrips.find(t => 
-                t.driver_id === driver.id && t.status === 'in_progress'
+                t.driver_id === session.driver_id && t.status === 'assigned'
               );
               
               return (
-                <div key={driver.id} className="flex items-center justify-between border-b pb-4">
+                <div key={session.id} className="flex items-center justify-between border-b pb-4">
                   <div className="space-y-1">
-                    <p className="font-medium">{driver.full_name}</p>
+                    <p className="font-medium">Driver {session.driver_id.substring(0, 8)}</p>
                     <p className="text-sm text-muted-foreground">
-                      {driver.phone_number}
+                      Session: {session.status}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
@@ -178,14 +183,14 @@ export function RealTimeFleetMap() {
                       {activeTrip ? 'On Trip' : 'Available'}
                     </Badge>
                     <Badge variant="outline">
-                      Online
+                      {session.status}
                     </Badge>
                   </div>
                 </div>
               );
             })}
             
-            {drivers.length === 0 && (
+            {driverSessions.length === 0 && (
               <p className="text-center text-muted-foreground py-8">
                 No drivers online
               </p>
@@ -201,15 +206,15 @@ export function RealTimeFleetMap() {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {activeTrips.filter(t => t.status === 'in_progress').map((trip) => {
-              const driver = drivers.find(d => d.id === trip.driver_id);
+            {activeTrips.filter(t => t.status === 'assigned').map((trip) => {
+              const driverSession = driverSessions.find(d => d.driver_id === trip.driver_id);
               
               return (
                 <div key={trip.id} className="flex items-center justify-between border-b pb-4">
                   <div className="space-y-1">
                     <p className="font-medium">Trip {trip.id.substring(0, 8)}</p>
                     <p className="text-sm text-muted-foreground">
-                      Driver: {driver?.full_name || 'Unknown'}
+                      Driver: {trip.driver_phone || 'Unknown'}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">

@@ -23,6 +23,12 @@ serve(async (req) => {
       throw new Error('Amount and phone number are required');
     }
 
+    // Convert amount to number and validate it's positive
+    const paymentAmount = Number(amount);
+    if (isNaN(paymentAmount) || paymentAmount <= 0) {
+      throw new Error('Amount must be a positive number');
+    }
+
     console.log(`💰 Generating USSD payment request for ${amount} RWF to ${phone}`);
 
     // Generate unique payment reference for tracking only (no API processing)
@@ -36,7 +42,7 @@ serve(async (req) => {
     const { data: payment, error } = await supabase
       .from('payments')
       .insert({
-        amount: parseInt(amount),
+        amount: paymentAmount,
         momo_code: phone,
         ussd_code: ussdCode,
         ussd_link: ussdLink,
