@@ -1,15 +1,13 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
+import { corsHeaders, createErrorResponse, createSuccessResponse } from "../_shared/utils.ts";
+import { validateRequiredEnvVars, validateRequestBody, ValidationPatterns } from "../_shared/validation.ts";
+import { getSupabaseClient } from "../_shared/supabase.ts";
+import { logger } from "../_shared/logger.ts";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+// Validate environment variables
+validateRequiredEnvVars(['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY']);
 
-const supabase = createClient(
-  Deno.env.get('SUPABASE_URL') ?? '',
-  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-);
+const supabase = getSupabaseClient();
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -17,19 +15,29 @@ serve(async (req) => {
   }
 
   try {
-    const { amount, phone, description = 'easyMO Payment' } = await req.json();
+    const requestData = await req.json();
     
-    if (!amount || !phone) {
-      throw new Error('Amount and phone number are required');
+    // Validate request body
+    const validation = validateRequestBody(requestData, {
+      amount: { required: true, type: 'number' },
+      phone: { required: true, type: 'string', pattern: ValidationPatterns.phone },
+      description: { type: 'string', maxLength: 100 }
+    });
+
+    if (!validation.isValid) {
+      logger.warn('Invalid payment request', { errors: validation.errors, requestData });
+      return createErrorResponse('Validation failed', { errors: validation.errors });
     }
 
+    const { amount, phone, description = 'easyMO Payment' } = requestData;
+    
     // Convert amount to number and validate it's positive
     const paymentAmount = Number(amount);
     if (isNaN(paymentAmount) || paymentAmount <= 0) {
-      throw new Error('Amount must be a positive number');
+      return createErrorResponse('Amount must be a positive number');
     }
 
-    console.log(`💰 Generating USSD payment request for ${amount} RWF to ${phone}`);
+    logger.info('Generating USSD payment request', { amount: paymentAmount, phone });
 
     // Generate unique payment reference for tracking only (no API processing)
     const paymentRef = `EMO${Date.now()}${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
@@ -52,33 +60,23 @@ serve(async (req) => {
       .single();
 
     if (error) {
-      console.error('Payment creation error:', error);
-      throw new Error('Failed to create payment record');
+      logger.error('Payment creation error', error);
+      return createErrorResponse('Failed to create payment record');
     }
 
-    console.log('✅ Payment created:', payment.id);
+    logger.info('Payment created successfully', { paymentId: payment.id });
 
-    return new Response(JSON.stringify({
-      success: true,
+    return createSuccessResponse('Payment created successfully', {
       payment_id: payment.id,
-      amount: amount,
+      amount: paymentAmount,
       ussd_code: ussdCode,
       ussd_link: ussdLink,
       reference: paymentRef,
       instructions: `Dial ${ussdCode} to complete P2P mobile money payment (outside system)`
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
   } catch (error) {
-    console.error('❌ Payment generation error:', error);
-    
-    return new Response(JSON.stringify({
-      success: false,
-      error: error.message
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    logger.error('Payment generation error', error);
+    return createErrorResponse('Internal server error', null, 500);
   }
 });

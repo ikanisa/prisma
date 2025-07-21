@@ -1,11 +1,12 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { corsHeaders, createErrorResponse, createSuccessResponse } from "../_shared/utils.ts";
+import { validateRequiredEnvVars, validateRequestBody } from "../_shared/validation.ts";
+import { getSupabaseClient } from "../_shared/supabase.ts";
+import { logger } from "../_shared/logger.ts";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+// Validate environment variables
+validateRequiredEnvVars(['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY']);
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -13,12 +14,23 @@ serve(async (req) => {
   }
 
   try {
-    const { order_id, fulfilment_mode, delivery_address, extras } = await req.json();
+    const requestData = await req.json();
     
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
+    // Validate request body
+    const validation = validateRequestBody(requestData, {
+      order_id: { required: true, type: 'string' },
+      fulfilment_mode: { required: true, type: 'string' },
+      delivery_address: { type: 'string' },
+      extras: { type: 'object' }
+    });
+
+    if (!validation.isValid) {
+      logger.warn('Invalid driver assignment request', { errors: validation.errors, requestData });
+      return createErrorResponse('Validation failed', { errors: validation.errors });
+    }
+
+    const { order_id, fulfilment_mode, delivery_address, extras } = requestData;
+    const supabaseClient = getSupabaseClient();
 
     // Update order with fulfilment details
     const { data: order, error: orderError } = await supabaseClient
@@ -158,20 +170,10 @@ serve(async (req) => {
         model_used: 'logistics-api'
       });
 
-    return new Response(
-      JSON.stringify(response),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return createSuccessResponse('Driver assignment completed', response);
 
   } catch (error) {
-    console.error('Error in driver-assign:', error);
-    
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { 
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
-    );
+    logger.error('Error in driver-assign', error);
+    return createErrorResponse('Driver assignment failed', { error: error.message }, 500);
   }
 });
