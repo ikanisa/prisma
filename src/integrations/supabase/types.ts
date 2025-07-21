@@ -628,6 +628,44 @@ export type Database = {
           },
         ]
       }
+      bridge_conversations: {
+        Row: {
+          bridge_id: string | null
+          created_at: string | null
+          id: string
+          message: string
+          message_type: string | null
+          sender_phone: string
+          sender_role: string
+        }
+        Insert: {
+          bridge_id?: string | null
+          created_at?: string | null
+          id?: string
+          message: string
+          message_type?: string | null
+          sender_phone: string
+          sender_role: string
+        }
+        Update: {
+          bridge_id?: string | null
+          created_at?: string | null
+          id?: string
+          message?: string
+          message_type?: string | null
+          sender_phone?: string
+          sender_role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bridge_conversations_bridge_id_fkey"
+            columns: ["bridge_id"]
+            isOneToOne: false
+            referencedRelation: "conversation_bridges"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       businesses: {
         Row: {
           category: Database["public"]["Enums"]["business_type"] | null
@@ -1151,6 +1189,51 @@ export type Database = {
           total_messages?: number | null
           updated_at?: string | null
           user_messages?: number | null
+        }
+        Relationships: []
+      }
+      conversation_bridges: {
+        Row: {
+          buyer_phone: string
+          completed_at: string | null
+          completion_reason: string | null
+          created_at: string | null
+          id: string
+          initial_message: string | null
+          item_id: string
+          item_type: string
+          last_message_at: string | null
+          message_count: number | null
+          seller_phone: string
+          status: string | null
+        }
+        Insert: {
+          buyer_phone: string
+          completed_at?: string | null
+          completion_reason?: string | null
+          created_at?: string | null
+          id?: string
+          initial_message?: string | null
+          item_id: string
+          item_type: string
+          last_message_at?: string | null
+          message_count?: number | null
+          seller_phone: string
+          status?: string | null
+        }
+        Update: {
+          buyer_phone?: string
+          completed_at?: string | null
+          completion_reason?: string | null
+          created_at?: string | null
+          id?: string
+          initial_message?: string | null
+          item_id?: string
+          item_type?: string
+          last_message_at?: string | null
+          message_count?: number | null
+          seller_phone?: string
+          status?: string | null
         }
         Relationships: []
       }
