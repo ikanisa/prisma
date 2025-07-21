@@ -34,7 +34,7 @@ export function GooglePlacesSearch({ onSearchComplete, searchType }: GooglePlace
 
       const { data, error } = await supabase.functions.invoke('google-places-sync', {
         body: {
-          action: searchType === 'businesses' ? 'sync_businesses' : 'sync_properties',
+          action: searchType === 'businesses' ? 'syncBusinesses' : 'syncProperties',
           payload: {
             location,
             type: businessType,
