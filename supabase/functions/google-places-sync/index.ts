@@ -168,7 +168,7 @@ async function syncBusinesses(payload: { location?: string; radius?: number; typ
         console.log(`Found ${data.results.length} places on page ${page} (total so far: ${places.length + data.results.length})`);
 
         for (const place of data.results) {
-      try {
+          try {
         // Get detailed place information
         const detailsUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${place.place_id}&fields=name,formatted_address,formatted_phone_number,website,rating,business_status,geometry&key=${googlePlacesApiKey}`;
         
@@ -227,6 +227,7 @@ async function syncBusinesses(payload: { location?: string; radius?: number; typ
           console.error(`Failed to process place ${place.place_id}:`, error);
           failed++;
           processed++;
+          }
         }
       }
       
