@@ -117,14 +117,12 @@ serve(async (req) => {
 
       logger.info('Import complete', { importedCount, skippedCount, totalProcessed: contacts.length });
 
-    return new Response(JSON.stringify({
-      success: true,
-      imported_count: importedCount,
-      skipped_count: skippedCount,
-      total_processed: contacts.length,
-      errors: errors.length > 0 ? errors : null
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      return createSuccessResponse({
+        imported_count: importedCount,
+        skipped_count: skippedCount,
+        total_processed: contacts.length,
+        errors: errors.length > 0 ? errors : null
+      });
     });
 
   } catch (error) {
