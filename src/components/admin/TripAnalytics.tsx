@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -33,18 +32,19 @@ export function TripAnalytics() {
 
       const { data: trips, error: tripsError } = await supabase
         .from('trips')
-        .select(`
-          id,
-          status,
-          created_at,
-          completed_at,
-          price_estimate,
-          payments(amount, status)
-        `)
+        .select('id, status, created_at, completed_at')
         .gte('created_at', sevenDaysAgo.toISOString())
         .order('created_at', { ascending: true });
 
       if (tripsError) throw tripsError;
+
+      // Fetch payments separately
+      const { data: payments, error: paymentsError } = await supabase
+        .from('payments')
+        .select('amount, status, trip_id')
+        .gte('created_at', sevenDaysAgo.toISOString());
+
+      if (paymentsError) throw paymentsError;
 
       // Process daily trips data
       const dailyTripsMap = new Map();
@@ -59,13 +59,14 @@ export function TripAnalytics() {
         dailyTripsMap.set(date, (dailyTripsMap.get(date) || 0) + 1);
         
         // Calculate revenue
-        if (trip.status === 'completed' && trip.payments?.length > 0) {
-          const paidAmount = trip.payments
-            .filter(p => p.status === 'completed')
-            .reduce((sum, p) => sum + (p.amount || 0), 0);
+        if (trip.status === 'completed') {
+          const tripPayments = payments?.filter(p => p.trip_id === trip.id && p.status === 'completed') || [];
+          const paidAmount = tripPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
           
-          revenueMap.set(date, (revenueMap.get(date) || 0) + paidAmount);
-          totalRevenue += paidAmount;
+          if (paidAmount > 0) {
+            revenueMap.set(date, (revenueMap.get(date) || 0) + paidAmount);
+            totalRevenue += paidAmount;
+          }
           completedTrips++;
         }
       });

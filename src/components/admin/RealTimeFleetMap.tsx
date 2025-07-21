@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,9 +10,8 @@ interface Driver {
   id: string;
   full_name: string;
   is_online: boolean;
-  last_location: any;
-  plate_number: string;
-  current_trip_count: number;
+  phone_number: string;
+  current_location?: any;
 }
 
 interface Trip {
@@ -22,7 +20,6 @@ interface Trip {
   pickup_location: any;
   dropoff_location: any;
   driver_id: string;
-  passenger_count: number;
   created_at: string;
 }
 
@@ -41,14 +38,7 @@ export function RealTimeFleetMap() {
       // Fetch online drivers
       const { data: driversData, error: driversError } = await supabase
         .from('drivers')
-        .select(`
-          id,
-          full_name,
-          is_online,
-          last_location,
-          plate_number,
-          trips!inner(id)
-        `)
+        .select('id, full_name, is_online, phone_number, current_location')
         .eq('is_online', true);
 
       if (driversError) throw driversError;
@@ -56,16 +46,8 @@ export function RealTimeFleetMap() {
       // Fetch active trips
       const { data: tripsData, error: tripsError } = await supabase
         .from('trips')
-        .select(`
-          id,
-          status,
-          pickup_location,
-          dropoff_location,
-          driver_id,
-          created_at,
-          bookings(id)
-        `)
-        .in('status', ['open', 'assigned', 'in_progress']);
+        .select('id, status, pickup_location, dropoff_location, driver_id, created_at')
+        .in('status', ['pending', 'confirmed', 'in_progress']);
 
       if (tripsError) throw tripsError;
 
@@ -188,7 +170,7 @@ export function RealTimeFleetMap() {
                   <div className="space-y-1">
                     <p className="font-medium">{driver.full_name}</p>
                     <p className="text-sm text-muted-foreground">
-                      {driver.plate_number}
+                      {driver.phone_number}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
