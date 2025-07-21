@@ -74,47 +74,48 @@ serve(async (req) => {
             if (existingContact) {
               skippedCount++;
               return;
-        }
+            }
 
-        // Create new contact
-        const { error: insertError } = await supabase
-          .from('contacts')
-          .insert({
-            phone_number,
-            name: name || null,
-            location: location || null,
-            contact_type: 'prospect',
-            preferred_channel: 'whatsapp',
-            conversion_status: 'prospect'
-          });
+            // Create new contact
+            const { error: insertError } = await supabase
+              .from('contacts')
+              .insert({
+                phone_number: sanitizedPhone,
+                name: sanitizedName,
+                location: sanitizedLocation,
+                contact_type: 'prospect',
+                preferred_channel: 'whatsapp',
+                conversion_status: 'prospect'
+              });
 
-        if (insertError) {
-          errors.push(`Failed to insert ${phone_number}: ${insertError.message}`);
-          continue;
-        }
+            if (insertError) {
+              errors.push(`Failed to insert ${sanitizedPhone}: ${insertError.message}`);
+              return;
+            }
 
-        // If business contact, also create user_contacts entry
-        if (business_name || category) {
-          await supabase
-            .from('user_contacts')
-            .insert({
-              phone: phone_number,
-              name: name || null,
-              business_name: business_name || null,
-              location: location || null,
-              category: category || null,
-              source: source
-            });
-        }
+            // If business contact, also create user_contacts entry
+            if (business_name || category) {
+              await supabase
+                .from('user_contacts')
+                .insert({
+                  phone: sanitizedPhone,
+                  name: sanitizedName,
+                  business_name: business_name || null,
+                  location: sanitizedLocation,
+                  category: category || null,
+                  source: source
+                });
+            }
 
-        importedCount++;
-        
-      } catch (error) {
-        errors.push(`Error processing contact: ${error.message}`);
+            importedCount++;
+            
+          } catch (error) {
+            errors.push(`Error processing contact: ${error.message}`);
+          }
+        }));
       }
-    }
 
-    console.log(`✅ Import complete: ${importedCount} imported, ${skippedCount} skipped`);
+      logger.info('Import complete', { importedCount, skippedCount, totalProcessed: contacts.length });
 
     return new Response(JSON.stringify({
       success: true,
