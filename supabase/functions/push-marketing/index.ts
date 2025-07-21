@@ -1,15 +1,15 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
+import { corsHeaders, createErrorResponse, createSuccessResponse, withRetry, RateLimiter } from "../_shared/utils.ts";
+import { validateRequiredEnvVars, validateRequestBody } from "../_shared/validation.ts";
+import { getSupabaseClient, withSupabase } from "../_shared/supabase.ts";
+import { logger } from "../_shared/logger.ts";
+import { PerformanceMonitor } from "../_shared/performance.ts";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+// Validate environment variables
+validateRequiredEnvVars(['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY']);
 
-const supabase = createClient(
-  Deno.env.get('SUPABASE_URL') ?? '',
-  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-);
+// Rate limiter for marketing messages (max 100 per hour)
+const marketingRateLimiter = new RateLimiter(100, 60 * 60 * 1000);
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {

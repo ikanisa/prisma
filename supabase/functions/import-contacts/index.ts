@@ -1,53 +1,79 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
+import { corsHeaders, createErrorResponse, createSuccessResponse, withRetry } from "../_shared/utils.ts";
+import { validateRequiredEnvVars, validateRequestBody, sanitizeInput } from "../_shared/validation.ts";
+import { getSupabaseClient, withSupabase } from "../_shared/supabase.ts";
+import { logger } from "../_shared/logger.ts";
+import { PerformanceMonitor } from "../_shared/performance.ts";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
-const supabase = createClient(
-  Deno.env.get('SUPABASE_URL') ?? '',
-  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-);
+// Validate environment variables
+validateRequiredEnvVars(['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY']);
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const perf = new PerformanceMonitor('import-contacts');
+
   try {
-    const { contacts, source = 'manual' } = await req.json();
+    const requestData = await req.json();
     
-    if (!contacts || !Array.isArray(contacts)) {
-      throw new Error('Contacts array is required');
+    // Validate request body
+    const validation = validateRequestBody(requestData, {
+      contacts: { required: true, type: 'array' },
+      source: { type: 'string', enum: ['manual', 'csv', 'api', 'whatsapp'] }
+    });
+
+    if (!validation.isValid) {
+      logger.warn('Invalid import request', { errors: validation.errors, requestData });
+      return createErrorResponse('Validation failed', { errors: validation.errors });
     }
 
-    console.log(`📋 Importing ${contacts.length} contacts from ${source}`);
+    const { contacts, source = 'manual' } = requestData;
+    
+    if (!contacts || !Array.isArray(contacts) || contacts.length === 0) {
+      return createErrorResponse('Contacts array is required and cannot be empty');
+    }
 
-    let importedCount = 0;
-    let skippedCount = 0;
-    const errors: string[] = [];
+    logger.info('Starting contact import', { count: contacts.length, source });
 
-    for (const contactData of contacts) {
-      try {
-        const { phone_number, name, location, category, business_name } = contactData;
+    return withSupabase(async (supabase) => {
+      let importedCount = 0;
+      let skippedCount = 0;
+      const errors: string[] = [];
+
+      // Process contacts in batches for better performance
+      const batchSize = 50;
+      for (let i = 0; i < contacts.length; i += batchSize) {
+        const batch = contacts.slice(i, i + batchSize);
         
-        if (!phone_number) {
-          errors.push(`Contact missing phone number: ${JSON.stringify(contactData)}`);
-          continue;
-        }
+        await Promise.all(batch.map(async (contactData) => {
+          try {
+            const { phone_number, name, location, category, business_name } = contactData;
+            
+            if (!phone_number) {
+              errors.push(`Contact missing phone number: ${JSON.stringify(contactData)}`);
+              return;
+            }
 
-        // Check if contact already exists
-        const { data: existingContact } = await supabase
-          .from('contacts')
-          .select('id')
-          .eq('phone_number', phone_number)
-          .single();
+            // Sanitize inputs
+            const sanitizedPhone = sanitizeInput(phone_number);
+            const sanitizedName = name ? sanitizeInput(name) : null;
+            const sanitizedLocation = location ? sanitizeInput(location) : null;
 
-        if (existingContact) {
-          skippedCount++;
-          continue;
+            // Check if contact already exists with retry
+            const existingContact = await withRetry(async () => {
+              const { data } = await supabase
+                .from('contacts')
+                .select('id')
+                .eq('phone_number', sanitizedPhone)
+                .maybeSingle();
+              return data;
+            }, 3, 1000, 'check-existing-contact');
+
+            if (existingContact) {
+              skippedCount++;
+              return;
         }
 
         // Create new contact
