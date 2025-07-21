@@ -3275,6 +3275,48 @@ export type Database = {
         }
         Relationships: []
       }
+      payment_sessions: {
+        Row: {
+          amount: number | null
+          created_at: string
+          expires_at: string | null
+          id: string
+          metadata: Json | null
+          payment_id: string | null
+          phone_number: string
+          qr_data: string | null
+          session_type: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          amount?: number | null
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          metadata?: Json | null
+          payment_id?: string | null
+          phone_number: string
+          qr_data?: string | null
+          session_type?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number | null
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          metadata?: Json | null
+          payment_id?: string | null
+          phone_number?: string
+          qr_data?: string | null
+          session_type?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       payments: {
         Row: {
           amount: number
@@ -3284,7 +3326,9 @@ export type Database = {
           momo_tx: string | null
           order_id: string | null
           paid_at: string | null
+          payment_type: string | null
           qr_code_url: string | null
+          qr_data: string | null
           status: Database["public"]["Enums"]["payment_status"] | null
           user_id: string | null
           ussd_code: string
@@ -3298,7 +3342,9 @@ export type Database = {
           momo_tx?: string | null
           order_id?: string | null
           paid_at?: string | null
+          payment_type?: string | null
           qr_code_url?: string | null
+          qr_data?: string | null
           status?: Database["public"]["Enums"]["payment_status"] | null
           user_id?: string | null
           ussd_code: string
@@ -3312,7 +3358,9 @@ export type Database = {
           momo_tx?: string | null
           order_id?: string | null
           paid_at?: string | null
+          payment_type?: string | null
           qr_code_url?: string | null
+          qr_data?: string | null
           status?: Database["public"]["Enums"]["payment_status"] | null
           user_id?: string | null
           ussd_code?: string
@@ -6397,6 +6445,10 @@ export type Database = {
       clean_test_data: {
         Args: Record<PropertyKey, never>
         Returns: undefined
+      }
+      cleanup_expired_payment_sessions: {
+        Args: Record<PropertyKey, never>
+        Returns: number
       }
       create_admin_user: {
         Args: { user_id: string }
