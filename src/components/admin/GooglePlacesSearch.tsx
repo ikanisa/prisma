@@ -48,8 +48,8 @@ export function GooglePlacesSearch({ onSearchComplete, searchType }: GooglePlace
       if (data.success) {
         setResults(data.data.places || []);
         toast({
-          title: "Search Complete",
-          description: `Found ${data.data.places?.length || 0} places. ${data.data.successful} imported successfully to database.`
+          title: "Search Complete", 
+          description: `Found ${data.data.places?.length || 0} places across ${data.data.totalPages || 1} pages. ${data.data.successful} imported successfully to database.`
         });
         
         onSearchComplete(data.data);
@@ -200,8 +200,9 @@ export function GooglePlacesSearch({ onSearchComplete, searchType }: GooglePlace
 
               <div className="bg-blue-50 p-3 rounded-md">
                 <p className="text-sm text-blue-700">
-                  <strong>Note:</strong> This will search Google Places for {businessType} in {location} 
-                  within a {parseInt(radius) / 1000}km radius and import relevant data into your {searchType} database.
+                  <strong>Note:</strong> This will search Google Places for ALL {businessType} in {location} 
+                  within a {parseInt(radius) / 1000}km radius and import ALL results into your {searchType} database. 
+                  The system will automatically fetch all pages of results (up to 600+ places if available).
                 </p>
               </div>
             </CardContent>
@@ -288,9 +289,10 @@ export function GooglePlacesSearch({ onSearchComplete, searchType }: GooglePlace
               <div className="text-sm text-muted-foreground">
                 <p className="font-medium mb-2">Google Places API Usage:</p>
                 <ul className="space-y-1">
-                  <li>• Text Search: 1 request per search</li>
+                  <li>• Text Search: 1 request per page (up to 20 pages)</li>
                   <li>• Place Details: 1 request per result</li>
-                  <li>• Daily quota limit applies</li>
+                  <li>• Fetches ALL available results using pagination</li>
+                  <li>• Daily quota limit applies - may use 600+ API calls for complete import</li>
                   <li>• Results are automatically imported to your database</li>
                 </ul>
               </div>

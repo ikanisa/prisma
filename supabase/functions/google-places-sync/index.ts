@@ -137,26 +137,37 @@ async function syncBusinesses(payload: { location?: string; radius?: number; typ
     .single();
 
   try {
-    // Search for places
-    const searchUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(type + ' in ' + location)}&radius=${radius}&key=${googlePlacesApiKey}`;
-    
-    console.log('Calling Google Places API:', searchUrl.replace(googlePlacesApiKey, 'HIDDEN_KEY'));
-    const response = await fetch(searchUrl);
-    const data: GooglePlacesResponse = await response.json();
-
-    console.log('Google Places API response status:', data.status);
-    if (data.status !== 'OK') {
-      throw new Error(`Google Places API error: ${data.status}`);
-    }
-
-    console.log(`Found ${data.results.length} places from Google Places`);
-
     let processed = 0;
     let successful = 0;
     let failed = 0;
     const places = [];
+    let nextPageToken = '';
+    let page = 1;
 
-    for (const place of data.results) {
+    // Fetch all pages of results
+    do {
+      const baseUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(type + ' in ' + location)}&radius=${radius}&key=${googlePlacesApiKey}`;
+      const searchUrl = nextPageToken ? `${baseUrl}&pagetoken=${nextPageToken}` : baseUrl;
+      
+      console.log(`Calling Google Places API (page ${page}):`, searchUrl.replace(googlePlacesApiKey, 'HIDDEN_KEY'));
+      
+      // Wait 2 seconds before making next page request (Google requirement)
+      if (nextPageToken) {
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+      
+      const response = await fetch(searchUrl);
+      const data: GooglePlacesResponse = await response.json();
+
+      console.log(`Google Places API response status (page ${page}):`, data.status);
+      if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
+        throw new Error(`Google Places API error: ${data.status}`);
+      }
+
+      if (data.results && data.results.length > 0) {
+        console.log(`Found ${data.results.length} places on page ${page} (total so far: ${places.length + data.results.length})`);
+
+        for (const place of data.results) {
       try {
         // Get detailed place information
         const detailsUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${place.place_id}&fields=name,formatted_address,formatted_phone_number,website,rating,business_status,geometry&key=${googlePlacesApiKey}`;
@@ -207,17 +218,31 @@ async function syncBusinesses(payload: { location?: string; radius?: number; typ
           failed++;
         }
         
-        processed++;
-        
-        // Rate limiting - wait 100ms between requests
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-      } catch (error) {
-        console.error(`Failed to process place ${place.place_id}:`, error);
-        failed++;
-        processed++;
+          processed++;
+          
+          // Rate limiting - wait 100ms between requests
+          await new Promise(resolve => setTimeout(resolve, 100));
+          
+        } catch (error) {
+          console.error(`Failed to process place ${place.place_id}:`, error);
+          failed++;
+          processed++;
+        }
       }
-    }
+      
+      // Check for next page
+      nextPageToken = data.next_page_token || '';
+      page++;
+      
+      // Prevent infinite loops - max 20 pages (Google typically has max 3 pages with 20 results each = 60 results)
+      if (page > 20) {
+        console.log('Reached maximum page limit, stopping pagination');
+        break;
+      }
+      
+    } while (nextPageToken);
+
+    console.log(`Completed fetching all pages. Total places found: ${places.length}`);
 
     // Update sync run
     await supabase
@@ -228,7 +253,7 @@ async function syncBusinesses(payload: { location?: string; radius?: number; typ
         records_processed: processed,
         records_successful: successful,
         records_failed: failed,
-        api_quota_used: processed * 2 // 1 for search + 1 for details
+        api_quota_used: processed * 2 + (page - 1) // details requests + search requests
       })
       .eq('id', syncRun.id);
 
@@ -239,7 +264,8 @@ async function syncBusinesses(payload: { location?: string; radius?: number; typ
       processed,
       successful,
       failed,
-      quotaUsed: processed * 2,
+      quotaUsed: processed * 2 + (page - 1),
+      totalPages: page - 1,
       places // Return the actual places data
     };
 
