@@ -16,7 +16,7 @@ import {
   Search, RefreshCw, CheckCircle, XCircle, Plus, Grid3X3, List, 
   MoreHorizontal, MessageCircle, Eye, MapPin, Store, Building, Pill,
   Download, Filter, TrendingUp, Users, DollarSign, Activity, Phone,
-  Clock, Globe, Star, AlertTriangle, FileText, BarChart3, PieChart
+  Clock, Globe, Star, AlertTriangle, FileText, BarChart3, PieChart, Upload
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -24,7 +24,6 @@ import { AddBusinessDialog } from "@/components/admin/AddBusinessDialog";
 import { BulkImportDialog } from "@/components/admin/BulkImportDialog";
 import { GooglePlacesSearch } from "@/components/admin/GooglePlacesSearch";
 import { SmartFileUpload } from "@/components/admin/SmartFileUpload";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface Business {
   id: string;
