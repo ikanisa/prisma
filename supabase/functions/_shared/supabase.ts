@@ -4,35 +4,71 @@
  */
 
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.51.0";
+import { logger } from './logger.ts';
 
-// Singleton pattern for edge function efficiency
+// Connection pool for edge function efficiency
 let _supabaseClient: SupabaseClient | null = null;
+let _clientCreatedAt: number | null = null;
+const CLIENT_REFRESH_INTERVAL = 30 * 60 * 1000; // 30 minutes
 
-export function getSupabaseClient(): SupabaseClient {
-  if (_supabaseClient) {
-    return _supabaseClient;
-  }
-
+// Environment validation
+function validateEnvironment(): { url: string; key: string } {
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
   const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
   if (!supabaseUrl || !supabaseKey) {
+    logger.error('Missing required Supabase environment variables', null, {
+      hasUrl: !!supabaseUrl,
+      hasKey: !!supabaseKey
+    });
     throw new Error('Missing required Supabase environment variables: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY');
   }
 
-  _supabaseClient = createClient(supabaseUrl, supabaseKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    },
-    global: {
-      headers: {
-        'x-application-name': 'easymo-edge-functions',
-      }
-    }
-  });
+  return { url: supabaseUrl, key: supabaseKey };
+}
 
-  return _supabaseClient;
+// Production-ready Supabase client with connection pooling
+export function getSupabaseClient(): SupabaseClient {
+  const now = Date.now();
+  
+  // Refresh client periodically for better memory management
+  if (_supabaseClient && _clientCreatedAt && (now - _clientCreatedAt) > CLIENT_REFRESH_INTERVAL) {
+    logger.info('Refreshing Supabase client after 30 minutes');
+    _supabaseClient = null;
+    _clientCreatedAt = null;
+  }
+  
+  if (_supabaseClient) {
+    return _supabaseClient;
+  }
+
+  const { url, key } = validateEnvironment();
+  
+  try {
+    _supabaseClient = createClient(url, key, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      },
+      global: {
+        headers: {
+          'x-application-name': 'easymo-edge-functions',
+          'x-request-timestamp': new Date().toISOString(),
+        }
+      },
+      // Production optimizations
+      db: {
+        schema: 'public'
+      }
+    });
+    
+    _clientCreatedAt = now;
+    logger.info('Supabase client created successfully');
+    return _supabaseClient;
+  } catch (error) {
+    logger.error('Failed to create Supabase client', error);
+    throw error;
+  }
 }
 
 // Database connection helper with error handling
