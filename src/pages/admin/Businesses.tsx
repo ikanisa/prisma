@@ -22,6 +22,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { AddBusinessDialog } from "@/components/admin/AddBusinessDialog";
 import { BulkImportDialog } from "@/components/admin/BulkImportDialog";
+import { GooglePlacesSearch } from "@/components/admin/GooglePlacesSearch";
+import { SmartFileUpload } from "@/components/admin/SmartFileUpload";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface Business {
   id: string;
@@ -77,6 +80,7 @@ export default function Businesses() {
   });
   const [selectedBusiness, setSelectedBusiness] = useState<Business | null>(null);
   const [showFilters, setShowFilters] = useState(false);
+  const [showSmartUpload, setShowSmartUpload] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -330,9 +334,25 @@ export default function Businesses() {
                 <RefreshCw className="h-4 w-4 mr-2" />
                 Refresh All
               </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setShowSmartUpload(true)}>
+                <Upload className="h-4 w-4 mr-2" />
+                Smart Upload
+              </DropdownMenuItem>
               <BulkImportDialog onImportComplete={() => { loadBusinesses(); loadCategoryStats(); loadAnalytics(); }} />
             </DropdownMenuContent>
           </DropdownMenu>
+          <GooglePlacesSearch 
+            searchType="businesses" 
+            onSearchComplete={(results) => {
+              loadBusinesses(); 
+              loadCategoryStats(); 
+              loadAnalytics();
+              toast({
+                title: "Google Places Import Complete",
+                description: `${results.processed || 0} businesses imported`
+              });
+            }} 
+          />
           <AddBusinessDialog onBusinessAdded={() => { loadBusinesses(); loadCategoryStats(); loadAnalytics(); }} />
         </div>
       </div>
