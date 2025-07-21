@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -12,7 +13,11 @@ serve(async (req) => {
   }
 
   try {
-    const { passenger_id, pickup_lng, pickup_lat, drop_lng, drop_lat, desired_time, seats, max_budget } = await req.json()
+    const { passenger_id, pickup_lng, pickup_lat, max_budget, seats } = await req.json()
+
+    if (!passenger_id || !pickup_lng || !pickup_lat) {
+      throw new Error('Missing required fields: passenger_id, pickup_lng, pickup_lat')
+    }
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -24,52 +29,53 @@ serve(async (req) => {
       .from('ride_requests')
       .insert({
         passenger_id,
-        pickup_point: `POINT(${pickup_lng} ${pickup_lat})`,
-        dropoff_point: `POINT(${drop_lng} ${drop_lat})`,
-        desired_time,
-        max_budget,
-        seats_needed: seats || 1
+        pickup_location: `POINT(${pickup_lng} ${pickup_lat})`,
+        max_budget: max_budget || 5000,
+        seats_needed: seats || 1,
+        status: 'open'
       })
       .select('*')
       .single()
 
     if (requestError) {
-      throw new Error(`Failed to create request: ${requestError.message}`)
+      console.error('Request creation error:', requestError)
+      throw new Error(`Failed to create ride request: ${requestError.message}`)
     }
 
-    // Find nearby trips within 3km
+    // Find nearby trips within 5km
     const { data: nearbyTrips, error: tripsError } = await supabase
       .rpc('find_nearby_trips', {
-        pickup_lng,
-        pickup_lat,
-        max_distance_km: 3,
-        max_price: max_budget,
-        min_seats: seats || 1
+        request_lat: pickup_lat,
+        request_lng: pickup_lng,
+        radius_km: 5
       })
 
     if (tripsError) {
-      console.warn('Error finding trips:', tripsError.message)
+      console.warn('Nearby trips query warning:', tripsError)
     }
 
     const trips = nearbyTrips || []
-    let message = ''
-
-    if (trips.length === 0) {
-      message = "No trips found nearby. We'll notify drivers and get back to you!"
-    } else {
-      message = "Found these 🛒\n"
-      trips.slice(0, 3).forEach((trip: any, idx: number) => {
-        message += `${idx + 1}️⃣ ${trip.driver_name || 'Driver'} (${trip.pickup_area} → ${trip.dropoff_area} • ${trip.seats_available} seat${trip.seats_available > 1 ? 's' : ''} ${trip.price_estimate} RWF)\n`
+    
+    let responseMessage = `🚗 Ride request created! Looking for drivers near you...`
+    
+    if (trips.length > 0) {
+      responseMessage += `\n\nAvailable trips:`
+      trips.slice(0, 3).forEach((trip, index) => {
+        responseMessage += `\n${index + 1}. Driver ${trip.driver_name || trip.driver_id} - ${trip.price_estimate} RWF (${trip.distance_km?.toFixed(1)}km away)`
       })
-      message += "\nReply *book n* e.g. 'book 1'"
+      responseMessage += `\n\nReply with the number to book (e.g., "1")`
+    } else {
+      responseMessage += `\n\nNo drivers available nearby. We'll notify you when one appears! 🔔`
     }
+
+    console.log(`✅ Ride request created: ${request.id}`)
 
     return new Response(
       JSON.stringify({
         success: true,
         request,
-        nearby_trips: trips.slice(0, 3),
-        message
+        nearby_trips: trips,
+        message: responseMessage
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
@@ -77,7 +83,11 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error in create-request:', error)
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        success: false,
+        error: error.message,
+        message: "❌ Failed to create ride request. Please try again."
+      }),
       { 
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
