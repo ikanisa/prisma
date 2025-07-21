@@ -217,6 +217,97 @@ export type Database = {
         }
         Relationships: []
       }
+      agent_memory_enhanced: {
+        Row: {
+          agent_id: string | null
+          confidence_score: number | null
+          created_at: string
+          expires_at: string | null
+          id: string
+          importance_weight: number | null
+          memory_key: string
+          memory_type: string
+          memory_value: Json
+          updated_at: string
+          user_id: string
+          vector_embedding: string | null
+        }
+        Insert: {
+          agent_id?: string | null
+          confidence_score?: number | null
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          importance_weight?: number | null
+          memory_key: string
+          memory_type: string
+          memory_value: Json
+          updated_at?: string
+          user_id: string
+          vector_embedding?: string | null
+        }
+        Update: {
+          agent_id?: string | null
+          confidence_score?: number | null
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          importance_weight?: number | null
+          memory_key?: string
+          memory_type?: string
+          memory_value?: Json
+          updated_at?: string
+          user_id?: string
+          vector_embedding?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_memory_enhanced_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_performance_metrics: {
+        Row: {
+          agent_id: string | null
+          id: string
+          measurement_period: string
+          metadata: Json | null
+          metric_type: string
+          metric_value: number
+          timestamp: string
+        }
+        Insert: {
+          agent_id?: string | null
+          id?: string
+          measurement_period: string
+          metadata?: Json | null
+          metric_type: string
+          metric_value: number
+          timestamp?: string
+        }
+        Update: {
+          agent_id?: string | null
+          id?: string
+          measurement_period?: string
+          metadata?: Json | null
+          metric_type?: string
+          metric_value?: number
+          timestamp?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_performance_metrics_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agent_personas: {
         Row: {
           agent_id: string | null
@@ -320,6 +411,45 @@ export type Database = {
           id?: string
           name?: string
           status?: string | null
+        }
+        Relationships: []
+      }
+      ai_models: {
+        Row: {
+          configuration: Json
+          cost_per_token: number | null
+          created_at: string
+          created_by: string | null
+          id: string
+          model_type: string
+          name: string
+          performance_metrics: Json | null
+          status: string
+          version: string
+        }
+        Insert: {
+          configuration?: Json
+          cost_per_token?: number | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          model_type: string
+          name: string
+          performance_metrics?: Json | null
+          status?: string
+          version: string
+        }
+        Update: {
+          configuration?: Json
+          cost_per_token?: number | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          model_type?: string
+          name?: string
+          performance_metrics?: Json | null
+          status?: string
+          version?: string
         }
         Relationships: []
       }
@@ -1018,6 +1148,42 @@ export type Database = {
         }
         Relationships: []
       }
+      circuit_breakers: {
+        Row: {
+          failure_count: number | null
+          failure_threshold: number | null
+          id: string
+          last_failure_time: string | null
+          metadata: Json | null
+          recovery_timeout_seconds: number | null
+          service_name: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          failure_count?: number | null
+          failure_threshold?: number | null
+          id?: string
+          last_failure_time?: string | null
+          metadata?: Json | null
+          recovery_timeout_seconds?: number | null
+          service_name: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          failure_count?: number | null
+          failure_threshold?: number | null
+          id?: string
+          last_failure_time?: string | null
+          metadata?: Json | null
+          recovery_timeout_seconds?: number | null
+          service_name?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       contact_limits: {
         Row: {
           created_at: string | null
@@ -1135,6 +1301,42 @@ export type Database = {
           phone_number?: string
           preferred_channel?: string | null
           total_conversations?: number | null
+        }
+        Relationships: []
+      }
+      content_safety_rules: {
+        Row: {
+          action: string
+          created_at: string
+          id: string
+          is_active: boolean | null
+          rule_config: Json
+          rule_name: string
+          rule_type: string
+          severity: string
+          updated_at: string
+        }
+        Insert: {
+          action?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          rule_config: Json
+          rule_name: string
+          rule_type: string
+          severity?: string
+          updated_at?: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          rule_config?: Json
+          rule_name?: string
+          rule_type?: string
+          severity?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -1382,6 +1584,56 @@ export type Database = {
           sender?: string | null
         }
         Relationships: []
+      }
+      conversation_quality: {
+        Row: {
+          automated_checks: Json | null
+          confidence_score: number
+          conversation_id: string | null
+          created_at: string
+          human_feedback: Json | null
+          id: string
+          message_id: string | null
+          phone_number: string
+          quality_scores: Json
+          response_text: string
+          safety_flags: Json | null
+        }
+        Insert: {
+          automated_checks?: Json | null
+          confidence_score: number
+          conversation_id?: string | null
+          created_at?: string
+          human_feedback?: Json | null
+          id?: string
+          message_id?: string | null
+          phone_number: string
+          quality_scores: Json
+          response_text: string
+          safety_flags?: Json | null
+        }
+        Update: {
+          automated_checks?: Json | null
+          confidence_score?: number
+          conversation_id?: string | null
+          created_at?: string
+          human_feedback?: Json | null
+          id?: string
+          message_id?: string | null
+          phone_number?: string
+          quality_scores?: Json
+          response_text?: string
+          safety_flags?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversation_quality_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       conversation_threads: {
         Row: {
@@ -2567,6 +2819,57 @@ export type Database = {
           },
         ]
       }
+      knowledge_base: {
+        Row: {
+          confidence: number | null
+          content: string
+          content_type: string
+          created_at: string
+          id: string
+          source: string | null
+          tags: string[] | null
+          topic: string
+          updated_at: string
+          validated_at: string | null
+          validated_by: string | null
+          validation_status: string | null
+          vector_embedding: string | null
+          version: number
+        }
+        Insert: {
+          confidence?: number | null
+          content: string
+          content_type?: string
+          created_at?: string
+          id?: string
+          source?: string | null
+          tags?: string[] | null
+          topic: string
+          updated_at?: string
+          validated_at?: string | null
+          validated_by?: string | null
+          validation_status?: string | null
+          vector_embedding?: string | null
+          version?: number
+        }
+        Update: {
+          confidence?: number | null
+          content?: string
+          content_type?: string
+          created_at?: string
+          id?: string
+          source?: string | null
+          tags?: string[] | null
+          topic?: string
+          updated_at?: string
+          validated_at?: string | null
+          validated_by?: string | null
+          validation_status?: string | null
+          vector_embedding?: string | null
+          version?: number
+        }
+        Relationships: []
+      }
       learning_gap_instances: {
         Row: {
           context_excerpt: string | null
@@ -2926,6 +3229,107 @@ export type Database = {
             columns: ["reply_to_id"]
             isOneToOne: false
             referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      model_benchmarks: {
+        Row: {
+          benchmark_date: string
+          benchmark_type: string
+          id: string
+          metadata: Json | null
+          metric_name: string
+          metric_value: number
+          model_id: string | null
+          test_dataset: string | null
+        }
+        Insert: {
+          benchmark_date?: string
+          benchmark_type: string
+          id?: string
+          metadata?: Json | null
+          metric_name: string
+          metric_value: number
+          model_id?: string | null
+          test_dataset?: string | null
+        }
+        Update: {
+          benchmark_date?: string
+          benchmark_type?: string
+          id?: string
+          metadata?: Json | null
+          metric_name?: string
+          metric_value?: number
+          model_id?: string | null
+          test_dataset?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "model_benchmarks_model_id_fkey"
+            columns: ["model_id"]
+            isOneToOne: false
+            referencedRelation: "ai_models"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      model_experiments: {
+        Row: {
+          created_at: string
+          description: string | null
+          end_date: string | null
+          id: string
+          model_a_id: string | null
+          model_b_id: string | null
+          name: string
+          results: Json | null
+          start_date: string
+          status: string
+          success_metrics: Json | null
+          traffic_split: number | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          end_date?: string | null
+          id?: string
+          model_a_id?: string | null
+          model_b_id?: string | null
+          name: string
+          results?: Json | null
+          start_date?: string
+          status?: string
+          success_metrics?: Json | null
+          traffic_split?: number | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          end_date?: string | null
+          id?: string
+          model_a_id?: string | null
+          model_b_id?: string | null
+          name?: string
+          results?: Json | null
+          start_date?: string
+          status?: string
+          success_metrics?: Json | null
+          traffic_split?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "model_experiments_model_a_id_fkey"
+            columns: ["model_a_id"]
+            isOneToOne: false
+            referencedRelation: "ai_models"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "model_experiments_model_b_id_fkey"
+            columns: ["model_b_id"]
+            isOneToOne: false
+            referencedRelation: "ai_models"
             referencedColumns: ["id"]
           },
         ]
