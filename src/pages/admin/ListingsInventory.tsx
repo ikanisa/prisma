@@ -8,8 +8,9 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DataTable } from "@/components/ui/data-table";
 import { ColumnDef } from "@tanstack/react-table";
-import { Plus, Search, Filter, Download, Eye } from "lucide-react";
+import { Plus, Search, Filter, Download, Eye, MessageCircle, Phone } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { WhatsAppButton } from "@/components/ui/whatsapp-button";
 import {
   Select,
   SelectContent,
@@ -45,18 +46,51 @@ interface UnifiedListing {
   subcategory?: string;
   created_at: string;
   updated_at: string;
+  whatsapp?: string;
   businesses?: {
     name: string;
   };
 }
 
+interface VehicleListing {
+  id: string;
+  make: string;
+  model: string;
+  year: number;
+  price_usd: number;
+  usage: string;
+  whatsapp: string;
+  description: string;
+  photos: any;
+  lat: number;
+  lng: number;
+  created_at: string;
+}
+
+interface PropertyListing {
+  id: string;
+  title: string;
+  description: string;
+  price_usd: number;
+  bedrooms: number;
+  bathrooms: number;
+  address: string;
+  whatsapp: string;
+  photos: any;
+  lat: number;
+  lng: number;
+  created_at: string;
+}
+
 export default function ListingsInventory() {
   const [listings, setListings] = useState<any[]>([]);
+  const [vehicleListings, setVehicleListings] = useState<VehicleListing[]>([]);
+  const [propertyListings, setPropertyListings] = useState<PropertyListing[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedType, setSelectedType] = useState<string>("all");
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
-  const [selectedListing, setSelectedListing] = useState<UnifiedListing | null>(null);
+  const [selectedListing, setSelectedListing] = useState<any>(null);
   const [showDetails, setShowDetails] = useState(false);
   const [stats, setStats] = useState({
     total: 0,
@@ -72,22 +106,28 @@ export default function ListingsInventory() {
   const activeTab = new URLSearchParams(location.search).get('type') || 'all';
 
   useEffect(() => {
-    loadListings();
-    loadStats();
+    loadAllData();
   }, [selectedType, selectedStatus]);
+
+  useEffect(() => {
+    loadStats();
+  }, [listings, vehicleListings, propertyListings]);
+
+  const loadAllData = async () => {
+    setLoading(true);
+    await Promise.all([
+      loadListings(),
+      loadVehicleListings(),
+      loadPropertyListings()
+    ]);
+    setLoading(false);
+  };
 
   const loadListings = async () => {
     try {
-      setLoading(true);
-      
       let query = supabase
         .from('unified_listings')
-        .select(`
-          *,
-          businesses:vendor_id (
-            name
-          )
-        `)
+        .select(`*`)
         .order('created_at', { ascending: false });
 
       // Filter by type if specified
@@ -109,31 +149,52 @@ export default function ListingsInventory() {
 
       setListings(data || []);
     } catch (error) {
-      console.error('Error loading listings:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load listings",
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
+      console.error('Error loading unified listings:', error);
+    }
+  };
+
+  const loadVehicleListings = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('vehicle_listings')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setVehicleListings(data || []);
+    } catch (error) {
+      console.error('Error loading vehicle listings:', error);
+    }
+  };
+
+  const loadPropertyListings = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('property_listings')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setPropertyListings(data || []);
+    } catch (error) {
+      console.error('Error loading property listings:', error);
     }
   };
 
   const loadStats = async () => {
     try {
-      const { data, error } = await supabase
-        .from('unified_listings')
-        .select('status, price')
-        .is('deleted_at', null);
-
-      if (error) throw error;
-
+      // Calculate stats from all listing sources
+      const allListingsCount = listings.length + vehicleListings.length + propertyListings.length;
+      
+      const vehicleRevenue = vehicleListings.reduce((sum, v) => sum + (v.price_usd || 0), 0);
+      const propertyRevenue = propertyListings.reduce((sum, p) => sum + (p.price_usd || 0), 0);
+      const unifiedRevenue = listings.filter(l => l.status === 'sold').reduce((sum, l) => sum + (l.price || 0), 0);
+      
       const stats = {
-        total: data?.length || 0,
-        active: data?.filter(l => l.status === 'active').length || 0,
-        sold: data?.filter(l => l.status === 'sold').length || 0,
-        revenue: data?.filter(l => l.status === 'sold').reduce((sum, l) => sum + (l.price || 0), 0) || 0
+        total: allListingsCount,
+        active: listings.filter(l => l.status === 'active').length + vehicleListings.length + propertyListings.length,
+        sold: listings.filter(l => l.status === 'sold').length,
+        revenue: vehicleRevenue + propertyRevenue + unifiedRevenue
       };
 
       setStats(stats);
@@ -417,7 +478,7 @@ export default function ListingsInventory() {
       {/* Tabs by Category */}
       <Tabs value={activeTab} className="w-full">
         <TabsList className="grid w-full grid-cols-6">
-          <TabsTrigger value="all">All ({listings.length})</TabsTrigger>
+          <TabsTrigger value="all">All ({stats.total})</TabsTrigger>
           <TabsTrigger value="product">
             📦 Products ({listings.filter(l => l.listing_type === 'product').length})
           </TabsTrigger>
@@ -425,27 +486,267 @@ export default function ListingsInventory() {
             🥕 Produce ({listings.filter(l => l.listing_type === 'produce').length})
           </TabsTrigger>
           <TabsTrigger value="property">
-            🏠 Properties ({listings.filter(l => l.listing_type === 'property').length})
+            🏠 Properties ({propertyListings.length})
           </TabsTrigger>
           <TabsTrigger value="vehicle">
-            🚗 Vehicles ({listings.filter(l => l.listing_type === 'vehicle').length})
+            🚗 Vehicles ({vehicleListings.length})
           </TabsTrigger>
           <TabsTrigger value="hardware">
             🔧 Hardware ({listings.filter(l => l.listing_type === 'hardware').length})
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value={activeTab} className="mt-6">
+        <TabsContent value="all" className="mt-6">
+          <div className="space-y-6">
+            {/* Unified Listings */}
+            {listings.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Unified Listings</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <DataTable
+                    columns={columns}
+                    data={filteredListings}
+                    loading={loading}
+                  />
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Vehicle Listings with WhatsApp */}
+            {vehicleListings.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>🚗 Vehicle Listings</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {vehicleListings.map((vehicle) => (
+                      <Card key={vehicle.id} className="p-4">
+                        <div className="space-y-3">
+                          <div>
+                            <h3 className="font-semibold">{vehicle.make} {vehicle.model}</h3>
+                            <p className="text-sm text-muted-foreground">Year: {vehicle.year} | Usage: {vehicle.usage}</p>
+                          </div>
+                          <p className="text-lg font-bold">${vehicle.price_usd?.toLocaleString()}</p>
+                          {vehicle.description && (
+                            <p className="text-sm text-muted-foreground truncate">{vehicle.description}</p>
+                          )}
+                          <div className="flex gap-2">
+                            <WhatsAppButton
+                              phoneNumber={vehicle.whatsapp}
+                              message={`Hi! I'm interested in your ${vehicle.make} ${vehicle.model} (${vehicle.year}). Is it still available?`}
+                              variant="outline"
+                              size="sm"
+                            >
+                              Chat Seller
+                            </WhatsAppButton>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedListing({...vehicle, listing_type: 'vehicle'});
+                                setShowDetails(true);
+                              }}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Property Listings with WhatsApp */}
+            {propertyListings.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>🏠 Property Listings</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {propertyListings.map((property) => (
+                      <Card key={property.id} className="p-4">
+                        <div className="space-y-3">
+                          <div>
+                            <h3 className="font-semibold">{property.title}</h3>
+                            <p className="text-sm text-muted-foreground">{property.address}</p>
+                          </div>
+                          <p className="text-lg font-bold">${property.price_usd?.toLocaleString()}</p>
+                          <div className="text-sm text-muted-foreground">
+                            🛏️ {property.bedrooms} beds • 🚿 {property.bathrooms} baths
+                          </div>
+                          {property.description && (
+                            <p className="text-sm text-muted-foreground truncate">{property.description}</p>
+                          )}
+                          <div className="flex gap-2">
+                            <WhatsAppButton
+                              phoneNumber={property.whatsapp}
+                              message={`Hi! I'm interested in your property "${property.title}" in ${property.address}. Is it still available?`}
+                              variant="outline"
+                              size="sm"
+                            >
+                              Chat Owner
+                            </WhatsAppButton>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedListing({...property, listing_type: 'property'});
+                                setShowDetails(true);
+                              }}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="vehicle" className="mt-6">
           <Card>
             <CardHeader>
-              <CardTitle>
-                {activeTab === 'all' ? 'All Listings' : `${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Listings`}
-              </CardTitle>
+              <CardTitle>🚗 Vehicle Listings</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {vehicleListings.map((vehicle) => (
+                  <Card key={vehicle.id} className="p-4">
+                    <div className="space-y-3">
+                      <div>
+                        <h3 className="font-semibold">{vehicle.make} {vehicle.model}</h3>
+                        <p className="text-sm text-muted-foreground">Year: {vehicle.year} | Usage: {vehicle.usage}</p>
+                      </div>
+                      <p className="text-lg font-bold">${vehicle.price_usd?.toLocaleString()}</p>
+                      {vehicle.description && (
+                        <p className="text-sm text-muted-foreground truncate">{vehicle.description}</p>
+                      )}
+                      <div className="flex gap-2">
+                        <WhatsAppButton
+                          phoneNumber={vehicle.whatsapp}
+                          message={`Hi! I'm interested in your ${vehicle.make} ${vehicle.model} (${vehicle.year}). Is it still available?`}
+                          variant="outline"
+                          size="sm"
+                        >
+                          Chat Seller
+                        </WhatsAppButton>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedListing({...vehicle, listing_type: 'vehicle'});
+                            setShowDetails(true);
+                          }}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="property" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>🏠 Property Listings</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {propertyListings.map((property) => (
+                  <Card key={property.id} className="p-4">
+                    <div className="space-y-3">
+                      <div>
+                        <h3 className="font-semibold">{property.title}</h3>
+                        <p className="text-sm text-muted-foreground">{property.address}</p>
+                      </div>
+                      <p className="text-lg font-bold">${property.price_usd?.toLocaleString()}</p>
+                      <div className="text-sm text-muted-foreground">
+                        🛏️ {property.bedrooms} beds • 🚿 {property.bathrooms} baths
+                      </div>
+                      {property.description && (
+                        <p className="text-sm text-muted-foreground truncate">{property.description}</p>
+                      )}
+                      <div className="flex gap-2">
+                        <WhatsAppButton
+                          phoneNumber={property.whatsapp}
+                          message={`Hi! I'm interested in your property "${property.title}" in ${property.address}. Is it still available?`}
+                          variant="outline"
+                          size="sm"
+                        >
+                          Chat Owner
+                        </WhatsAppButton>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedListing({...property, listing_type: 'property'});
+                            setShowDetails(true);
+                          }}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="product" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>📦 Product Listings</CardTitle>
             </CardHeader>
             <CardContent>
               <DataTable
                 columns={columns}
-                data={filteredListings}
+                data={listings.filter(l => l.listing_type === 'product')}
+                loading={loading}
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="produce" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>🥕 Produce Listings</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <DataTable
+                columns={columns}
+                data={listings.filter(l => l.listing_type === 'produce')}
+                loading={loading}
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="hardware" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>🔧 Hardware Listings</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <DataTable
+                columns={columns}
+                data={listings.filter(l => l.listing_type === 'hardware')}
                 loading={loading}
               />
             </CardContent>
@@ -472,9 +773,58 @@ export default function ListingsInventory() {
                   <h3 className="font-semibold">Basic Information</h3>
                   <div className="mt-2 space-y-2">
                     <div><strong>Type:</strong> {selectedListing.listing_type}</div>
-                    <div><strong>Status:</strong> <Badge className={getStatusColor(selectedListing.status)}>{selectedListing.status}</Badge></div>
-                    <div><strong>Price:</strong> {formatPrice(selectedListing.price)}</div>
-                    <div><strong>Stock:</strong> {selectedListing.stock_quantity} {selectedListing.unit_of_measure}</div>
+                    
+                    {/* Vehicle specific fields */}
+                    {selectedListing.listing_type === 'vehicle' && (
+                      <>
+                        <div><strong>Make:</strong> {selectedListing.make}</div>
+                        <div><strong>Model:</strong> {selectedListing.model}</div>
+                        <div><strong>Year:</strong> {selectedListing.year}</div>
+                        <div><strong>Usage:</strong> {selectedListing.usage}</div>
+                        <div><strong>Price:</strong> ${selectedListing.price_usd?.toLocaleString()}</div>
+                        {selectedListing.whatsapp && (
+                          <div className="pt-2">
+                            <WhatsAppButton
+                              phoneNumber={selectedListing.whatsapp}
+                              message={`Hi! I'm interested in your ${selectedListing.make} ${selectedListing.model} (${selectedListing.year}). Is it still available?`}
+                              variant="outline"
+                            >
+                              Contact Seller
+                            </WhatsAppButton>
+                          </div>
+                        )}
+                      </>
+                    )}
+                    
+                    {/* Property specific fields */}
+                    {selectedListing.listing_type === 'property' && (
+                      <>
+                        <div><strong>Address:</strong> {selectedListing.address}</div>
+                        <div><strong>Price:</strong> ${selectedListing.price_usd?.toLocaleString()}</div>
+                        <div><strong>Bedrooms:</strong> {selectedListing.bedrooms}</div>
+                        <div><strong>Bathrooms:</strong> {selectedListing.bathrooms}</div>
+                        {selectedListing.whatsapp && (
+                          <div className="pt-2">
+                            <WhatsAppButton
+                              phoneNumber={selectedListing.whatsapp}
+                              message={`Hi! I'm interested in your property "${selectedListing.title}" in ${selectedListing.address}. Is it still available?`}
+                              variant="outline"
+                            >
+                              Contact Owner
+                            </WhatsAppButton>
+                          </div>
+                        )}
+                      </>
+                    )}
+                    
+                    {/* Unified listing fields */}
+                    {!['vehicle', 'property'].includes(selectedListing.listing_type) && (
+                      <>
+                        {selectedListing.status && <div><strong>Status:</strong> <Badge className={getStatusColor(selectedListing.status)}>{selectedListing.status}</Badge></div>}
+                        {selectedListing.price && <div><strong>Price:</strong> {formatPrice(selectedListing.price)}</div>}
+                        {selectedListing.stock_quantity && <div><strong>Stock:</strong> {selectedListing.stock_quantity} {selectedListing.unit_of_measure}</div>}
+                      </>
+                    )}
                   </div>
                 </div>
                 
@@ -485,7 +835,7 @@ export default function ListingsInventory() {
                   </div>
                 )}
                 
-                {selectedListing.tags.length > 0 && (
+                {selectedListing.tags && selectedListing.tags.length > 0 && (
                   <div>
                     <h3 className="font-semibold">Tags</h3>
                     <div className="mt-2 flex flex-wrap gap-2">
@@ -498,22 +848,30 @@ export default function ListingsInventory() {
               </div>
               
               <div className="space-y-4">
-                <div>
-                  <h3 className="font-semibold">Metadata</h3>
-                  <div className="mt-2 space-y-2 text-sm">
-                    {Object.entries(selectedListing.metadata || {}).map(([key, value]) => (
-                      <div key={key}>
-                        <strong>{key}:</strong> {String(value)}
-                      </div>
-                    ))}
+                {selectedListing.photos && (
+                  <div>
+                    <h3 className="font-semibold">Photos</h3>
+                    <div className="mt-2 text-sm text-muted-foreground">
+                      {Array.isArray(selectedListing.photos) ? selectedListing.photos.length : 0} photos available
+                    </div>
                   </div>
-                </div>
+                )}
+                
+                {selectedListing.lat && selectedListing.lng && (
+                  <div>
+                    <h3 className="font-semibold">Location</h3>
+                    <div className="mt-2 text-sm">
+                      <div><strong>Latitude:</strong> {selectedListing.lat}</div>
+                      <div><strong>Longitude:</strong> {selectedListing.lng}</div>
+                    </div>
+                  </div>
+                )}
                 
                 <div>
                   <h3 className="font-semibold">Timestamps</h3>
                   <div className="mt-2 space-y-2 text-sm">
                     <div><strong>Created:</strong> {new Date(selectedListing.created_at).toLocaleString()}</div>
-                    <div><strong>Updated:</strong> {new Date(selectedListing.updated_at).toLocaleString()}</div>
+                    {selectedListing.updated_at && <div><strong>Updated:</strong> {new Date(selectedListing.updated_at).toLocaleString()}</div>}
                   </div>
                 </div>
               </div>
