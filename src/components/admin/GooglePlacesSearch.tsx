@@ -49,7 +49,7 @@ export function GooglePlacesSearch({ onSearchComplete, searchType }: GooglePlace
         setResults(data.data.places || []);
         toast({
           title: "Search Complete",
-          description: `Found ${data.data.processed || 0} places from Google Places`
+          description: `Found ${data.data.places?.length || 0} places. ${data.data.successful} imported successfully to database.`
         });
         
         onSearchComplete(data.data);

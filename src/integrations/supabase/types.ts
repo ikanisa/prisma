@@ -8188,7 +8188,19 @@ export type Database = {
     Enums: {
       app_role: "admin" | "pharmacist" | "driver" | "user"
       booking_state: "pending" | "confirmed" | "rejected" | "cancelled" | "done"
-      business_type: "bar" | "pharmacy" | "shop" | "produce" | "hardware"
+      business_type:
+        | "bar"
+        | "pharmacy"
+        | "shop"
+        | "produce"
+        | "hardware"
+        | "restaurant"
+        | "hotel"
+        | "gas_station"
+        | "bank"
+        | "school"
+        | "hospital"
+        | "store"
       driver_type: "moto" | "cab" | "truck"
       evt: "sent" | "delivered" | "read" | "clicked" | "opt_out"
       listing_type_enum:
@@ -8348,7 +8360,20 @@ export const Constants = {
     Enums: {
       app_role: ["admin", "pharmacist", "driver", "user"],
       booking_state: ["pending", "confirmed", "rejected", "cancelled", "done"],
-      business_type: ["bar", "pharmacy", "shop", "produce", "hardware"],
+      business_type: [
+        "bar",
+        "pharmacy",
+        "shop",
+        "produce",
+        "hardware",
+        "restaurant",
+        "hotel",
+        "gas_station",
+        "bank",
+        "school",
+        "hospital",
+        "store",
+      ],
       driver_type: ["moto", "cab", "truck"],
       evt: ["sent", "delivered", "read", "clicked", "opt_out"],
       listing_type_enum: [

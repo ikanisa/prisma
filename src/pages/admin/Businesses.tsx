@@ -30,7 +30,7 @@ interface Business {
   id: string;
   name: string;
   momo_code: string;
-  category: 'bar' | 'pharmacy' | 'shop' | 'produce' | 'hardware';
+  category: 'bar' | 'pharmacy' | 'shop' | 'produce' | 'hardware' | 'restaurant' | 'hotel' | 'gas_station' | 'bank' | 'school' | 'hospital' | 'store';
   subscription_status: string;
   created_at: string;
   owner_user_id: string;

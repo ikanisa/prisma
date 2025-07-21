@@ -105,13 +105,33 @@ serve(async (req) => {
 async function syncBusinesses(payload: { location?: string; radius?: number; type?: string }) {
   const { location = 'Kigali, Rwanda', radius = 5000, type = 'restaurant' } = payload;
   
+  console.log(`Starting business sync for ${type} in ${location} with radius ${radius}m`);
+  
+  // Map Google Places types to our business_type enum
+  const typeMapping: { [key: string]: string } = {
+    'restaurant': 'restaurant',
+    'pharmacy': 'pharmacy', 
+    'store': 'store',
+    'hotel': 'hotel',
+    'gas_station': 'gas_station',
+    'bank': 'bank',
+    'school': 'school',
+    'hospital': 'hospital',
+    'bar': 'bar',
+    'shop': 'shop',
+    'produce': 'produce',
+    'hardware': 'hardware'
+  };
+  
+  const businessCategory = typeMapping[type] || 'store';
+  
   // Start sync run
   const { data: syncRun } = await supabase
     .from('data_sync_runs')
     .insert({
       sync_type: 'google_places_businesses',
       status: 'running',
-      metadata: { location, radius, type }
+      metadata: { location, radius, type, mapped_category: businessCategory }
     })
     .select()
     .single();
@@ -120,16 +140,21 @@ async function syncBusinesses(payload: { location?: string; radius?: number; typ
     // Search for places
     const searchUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(type + ' in ' + location)}&radius=${radius}&key=${googlePlacesApiKey}`;
     
+    console.log('Calling Google Places API:', searchUrl.replace(googlePlacesApiKey, 'HIDDEN_KEY'));
     const response = await fetch(searchUrl);
     const data: GooglePlacesResponse = await response.json();
 
+    console.log('Google Places API response status:', data.status);
     if (data.status !== 'OK') {
       throw new Error(`Google Places API error: ${data.status}`);
     }
 
+    console.log(`Found ${data.results.length} places from Google Places`);
+
     let processed = 0;
     let successful = 0;
     let failed = 0;
+    const places = [];
 
     for (const place of data.results) {
       try {
@@ -142,10 +167,10 @@ async function syncBusinesses(payload: { location?: string; radius?: number; typ
         if (detailsData.status === 'OK') {
           const placeDetails = detailsData.result;
           
-          // Insert or update business
-          await supabase.from('businesses').upsert({
+          // Prepare business data
+          const businessData = {
             name: placeDetails.name,
-            category: type,
+            category: businessCategory,
             location_gps: `POINT(${placeDetails.geometry.location.lng} ${placeDetails.geometry.location.lat})`,
             momo_code: generateMomoCode(placeDetails.name),
             status: placeDetails.business_status === 'OPERATIONAL' ? 'active' : 'inactive',
@@ -156,12 +181,29 @@ async function syncBusinesses(payload: { location?: string; radius?: number; typ
               phone: placeDetails.formatted_phone_number,
               address: placeDetails.formatted_address
             }
-          }, {
+          };
+          
+          console.log(`Inserting business: ${placeDetails.name}`);
+          
+          // Insert or update business
+          const { error: insertError } = await supabase.from('businesses').upsert(businessData, {
             onConflict: 'name'
           });
           
-          successful++;
+          if (insertError) {
+            console.error(`Failed to insert business ${placeDetails.name}:`, insertError);
+            failed++;
+          } else {
+            // Add to places array for return
+            places.push({
+              ...placeDetails,
+              types: place.types,
+              place_id: place.place_id
+            });
+            successful++;
+          }
         } else {
+          console.error(`Failed to get details for place ${place.place_id}:`, detailsData.status);
           failed++;
         }
         
@@ -190,15 +232,20 @@ async function syncBusinesses(payload: { location?: string; radius?: number; typ
       })
       .eq('id', syncRun.id);
 
+    console.log(`Sync completed: ${successful} successful, ${failed} failed out of ${processed} processed`);
+
     return {
       syncRunId: syncRun.id,
       processed,
       successful,
       failed,
-      quotaUsed: processed * 2
+      quotaUsed: processed * 2,
+      places // Return the actual places data
     };
 
   } catch (error) {
+    console.error('Business sync error:', error);
+    
     // Update sync run with error
     await supabase
       .from('data_sync_runs')
@@ -213,8 +260,10 @@ async function syncBusinesses(payload: { location?: string; radius?: number; typ
   }
 }
 
-async function syncProperties(payload: { location?: string; type?: string }) {
-  const { location = 'Kigali, Rwanda', type = 'real_estate_agency' } = payload;
+async function syncProperties(payload: { location?: string; type?: string; radius?: number }) {
+  const { location = 'Kigali, Rwanda', type = 'real_estate_agency', radius = 5000 } = payload;
+  
+  console.log(`Starting property sync for ${type} in ${location}`);
   
   // Start sync run
   const { data: syncRun } = await supabase
@@ -222,43 +271,83 @@ async function syncProperties(payload: { location?: string; type?: string }) {
     .insert({
       sync_type: 'google_places_properties',
       status: 'running',
-      metadata: { location, type }
+      metadata: { location, type, radius }
     })
     .select()
     .single();
 
   try {
-    const searchUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(type + ' in ' + location)}&key=${googlePlacesApiKey}`;
+    const searchUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(type + ' in ' + location)}&radius=${radius}&key=${googlePlacesApiKey}`;
     
+    console.log('Calling Google Places API for properties:', searchUrl.replace(googlePlacesApiKey, 'HIDDEN_KEY'));
     const response = await fetch(searchUrl);
     const data: GooglePlacesResponse = await response.json();
 
+    console.log('Google Places API response status:', data.status);
     if (data.status !== 'OK') {
       throw new Error(`Google Places API error: ${data.status}`);
     }
 
+    console.log(`Found ${data.results.length} properties from Google Places`);
+
     let processed = 0;
     let successful = 0;
+    let failed = 0;
+    const places = [];
 
     for (const place of data.results) {
       try {
-        // Log property sync activity
-        await supabase.from('property_sync_log').insert({
-          source: 'google_places',
-          property_id: place.place_id,
-          action: 'sync',
-          status: 'success',
-          data_after: {
-            name: place.name,
-            address: place.formatted_address,
-            location: place.geometry.location,
-            rating: place.rating,
-            types: place.types
-          }
-        });
+        // Get detailed place information
+        const detailsUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${place.place_id}&fields=name,formatted_address,formatted_phone_number,website,rating,business_status,geometry&key=${googlePlacesApiKey}`;
         
-        successful++;
+        const detailsResponse = await fetch(detailsUrl);
+        const detailsData = await detailsResponse.json();
+        
+        if (detailsData.status === 'OK') {
+          const placeDetails = detailsData.result;
+          
+          // Log property sync activity
+          const { error: logError } = await supabase.from('property_sync_log').insert({
+            source: 'google_places',
+            property_id: place.place_id,
+            action: 'sync',
+            status: 'success',
+            data_after: {
+              name: placeDetails.name,
+              address: placeDetails.formatted_address,
+              location: placeDetails.geometry.location,
+              rating: placeDetails.rating,
+              types: place.types,
+              phone: placeDetails.formatted_phone_number,
+              website: placeDetails.website
+            }
+          });
+          
+          if (logError) {
+            console.error(`Failed to log property ${placeDetails.name}:`, logError);
+            failed++;
+          } else {
+            // Add to places array for return  
+            places.push({
+              ...placeDetails,
+              types: place.types,
+              place_id: place.place_id
+            });
+            successful++;
+          }
+        } else {
+          console.error(`Failed to get details for property ${place.place_id}:`, detailsData.status);
+          await supabase.from('property_sync_log').insert({
+            source: 'google_places',
+            property_id: place.place_id,
+            action: 'sync',
+            status: 'failed',
+            error_message: `API error: ${detailsData.status}`
+          });
+          failed++;
+        }
       } catch (error) {
+        console.error(`Failed to process property ${place.place_id}:`, error);
         await supabase.from('property_sync_log').insert({
           source: 'google_places',
           property_id: place.place_id,
@@ -266,6 +355,7 @@ async function syncProperties(payload: { location?: string; type?: string }) {
           status: 'failed',
           error_message: error.message
         });
+        failed++;
       }
       
       processed++;
@@ -279,17 +369,25 @@ async function syncProperties(payload: { location?: string; type?: string }) {
         completed_at: new Date().toISOString(),
         records_processed: processed,
         records_successful: successful,
-        api_quota_used: processed
+        records_failed: failed,
+        api_quota_used: processed * 2
       })
       .eq('id', syncRun.id);
+
+    console.log(`Property sync completed: ${successful} successful, ${failed} failed out of ${processed} processed`);
 
     return {
       syncRunId: syncRun.id,
       processed,
-      successful
+      successful,
+      failed,
+      quotaUsed: processed * 2,
+      places // Return the actual places data
     };
 
   } catch (error) {
+    console.error('Property sync error:', error);
+    
     await supabase
       .from('data_sync_runs')
       .update({
