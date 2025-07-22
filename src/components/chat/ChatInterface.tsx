@@ -328,8 +328,7 @@ export function ChatInterface({
     try {
       // Update message with reaction - would need to add reactions column
       console.log('Adding reaction:', { messageId, emoji });
-
-      if (error) throw error;
+      // TODO: Implement reaction update when reactions column is added
     } catch (error) {
       console.error('Error adding reaction:', error);
     }
