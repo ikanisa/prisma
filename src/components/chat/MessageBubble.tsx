@@ -30,14 +30,14 @@ interface Message {
   phone_number: string;
   sender: string;
   message_text: string;
-  message_type?: 'text' | 'image' | 'file' | 'audio' | 'video';
+  message_type?: string;
   file_url?: string;
   file_name?: string;
   file_size?: number;
   model_used?: string;
   confidence_score?: number;
   created_at: string;
-  status?: 'sending' | 'sent' | 'delivered' | 'read';
+  status?: string;
   reply_to?: string;
   reactions?: Array<{
     emoji: string;

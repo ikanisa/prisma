@@ -1264,42 +1264,54 @@ export type Database = {
       }
       contacts: {
         Row: {
+          avatar_url: string | null
           contact_type: string | null
           conversion_status: string | null
           created_at: string | null
           first_contact_date: string | null
           id: string
+          is_online: boolean | null
+          is_typing: boolean | null
           last_interaction: string | null
           location: string | null
           name: string | null
           phone_number: string
           preferred_channel: string | null
+          status: string | null
           total_conversations: number | null
         }
         Insert: {
+          avatar_url?: string | null
           contact_type?: string | null
           conversion_status?: string | null
           created_at?: string | null
           first_contact_date?: string | null
           id?: string
+          is_online?: boolean | null
+          is_typing?: boolean | null
           last_interaction?: string | null
           location?: string | null
           name?: string | null
           phone_number: string
           preferred_channel?: string | null
+          status?: string | null
           total_conversations?: number | null
         }
         Update: {
+          avatar_url?: string | null
           contact_type?: string | null
           conversion_status?: string | null
           created_at?: string | null
           first_contact_date?: string | null
           id?: string
+          is_online?: boolean | null
+          is_typing?: boolean | null
           last_interaction?: string | null
           location?: string | null
           name?: string | null
           phone_number?: string
           preferred_channel?: string | null
+          status?: string | null
           total_conversations?: number | null
         }
         Relationships: []
@@ -1557,33 +1569,65 @@ export type Database = {
           channel: string | null
           confidence_score: number | null
           created_at: string | null
+          file_name: string | null
+          file_size: number | null
+          file_url: string | null
           id: string
           message_text: string | null
+          message_type: string | null
+          metadata: Json | null
           model_used: string | null
           phone_number: string | null
+          reactions: Json | null
+          reply_to: string | null
           sender: string | null
+          status: string | null
         }
         Insert: {
           channel?: string | null
           confidence_score?: number | null
           created_at?: string | null
+          file_name?: string | null
+          file_size?: number | null
+          file_url?: string | null
           id?: string
           message_text?: string | null
+          message_type?: string | null
+          metadata?: Json | null
           model_used?: string | null
           phone_number?: string | null
+          reactions?: Json | null
+          reply_to?: string | null
           sender?: string | null
+          status?: string | null
         }
         Update: {
           channel?: string | null
           confidence_score?: number | null
           created_at?: string | null
+          file_name?: string | null
+          file_size?: number | null
+          file_url?: string | null
           id?: string
           message_text?: string | null
+          message_type?: string | null
+          metadata?: Json | null
           model_used?: string | null
           phone_number?: string | null
+          reactions?: Json | null
+          reply_to?: string | null
           sender?: string | null
+          status?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "conversation_messages_reply_to_fkey"
+            columns: ["reply_to"]
+            isOneToOne: false
+            referencedRelation: "conversation_messages"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       conversation_quality: {
         Row: {
@@ -2622,6 +2666,45 @@ export type Database = {
         }
         Relationships: []
       }
+      file_uploads: {
+        Row: {
+          created_at: string | null
+          file_name: string
+          file_size: number
+          file_type: string
+          file_url: string
+          id: string
+          phone_number: string
+          storage_path: string
+          updated_at: string | null
+          upload_status: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          file_name: string
+          file_size: number
+          file_type: string
+          file_url: string
+          id?: string
+          phone_number: string
+          storage_path: string
+          updated_at?: string | null
+          upload_status?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          file_name?: string
+          file_size?: number
+          file_type?: string
+          file_url?: string
+          id?: string
+          phone_number?: string
+          storage_path?: string
+          updated_at?: string | null
+          upload_status?: string | null
+        }
+        Relationships: []
+      }
       fine_tune_jobs: {
         Row: {
           completed_at: string | null
@@ -3404,6 +3487,51 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      notifications: {
+        Row: {
+          created_at: string | null
+          expires_at: string | null
+          id: string
+          message: string
+          metadata: Json | null
+          phone_number: string | null
+          priority: string | null
+          read_at: string | null
+          status: string | null
+          title: string
+          type: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          message: string
+          metadata?: Json | null
+          phone_number?: string | null
+          priority?: string | null
+          read_at?: string | null
+          status?: string | null
+          title: string
+          type?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          message?: string
+          metadata?: Json | null
+          phone_number?: string | null
+          priority?: string | null
+          read_at?: string | null
+          status?: string | null
+          title?: string
+          type?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
       }
       opt_outs: {
         Row: {
@@ -6449,6 +6577,25 @@ export type Database = {
       }
     }
     Views: {
+      conversation_summary: {
+        Row: {
+          channel: string | null
+          contact_avatar: string | null
+          contact_name: string | null
+          conversation_duration_minutes: number | null
+          is_archived: boolean | null
+          is_muted: boolean | null
+          is_pinned: boolean | null
+          last_message: string | null
+          last_message_sender: string | null
+          last_message_time: string | null
+          message_count: number | null
+          phone_number: string | null
+          status: string | null
+          unread_count: number | null
+        }
+        Relationships: []
+      }
       geography_columns: {
         Row: {
           coord_dimension: number | null

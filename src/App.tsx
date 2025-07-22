@@ -25,14 +25,16 @@ import TaskDetail from "./pages/admin/agents/TaskDetail";
 import ConversationDetail from "./pages/admin/conversations/ConversationDetail";
 import CampaignDetail from "./pages/admin/campaigns/CampaignDetail";
 import ConversationsInterface from "./pages/admin/ConversationsInterface";
+import { ChatProvider } from "@/components/chat/ChatProvider";
 
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <Toaster />
-    <Sonner />
-    <BrowserRouter>
+    <ChatProvider>
+      <Toaster />
+      <Sonner />
+      <BrowserRouter>
       <Routes>
         <Route path="/" element={<Navigate to="/admin" replace />} />
         <Route path="/admin/setup" element={<AdminAuth />} />
@@ -65,7 +67,8 @@ const App = () => (
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
         <Route path="*" element={<NotFound />} />
       </Routes>
-    </BrowserRouter>
+      </BrowserRouter>
+    </ChatProvider>
   </QueryClientProvider>
 );
 

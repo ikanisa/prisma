@@ -34,14 +34,14 @@ interface Message {
   phone_number: string;
   sender: string;
   message_text: string;
-  message_type?: 'text' | 'image' | 'file' | 'audio' | 'video';
+  message_type?: string;
   file_url?: string;
   file_name?: string;
   file_size?: number;
   model_used?: string;
   confidence_score?: number;
   created_at: string;
-  status?: 'sending' | 'sent' | 'delivered' | 'read';
+  status?: string;
   reply_to?: string;
   reactions?: Array<{
     emoji: string;
@@ -111,7 +111,23 @@ export function ChatInterface({
           filter: `phone_number=eq.${contactPhone}`
         },
         (payload) => {
-          const newMessage = payload.new as Message;
+          const dbMessage = payload.new;
+          const newMessage: Message = {
+            id: dbMessage.id,
+            phone_number: dbMessage.phone_number,
+            sender: dbMessage.sender,
+            message_text: dbMessage.message_text,
+            message_type: dbMessage.message_type || 'text',
+            file_url: dbMessage.file_url,
+            file_name: dbMessage.file_name,
+            file_size: dbMessage.file_size,
+            model_used: dbMessage.model_used,
+            confidence_score: dbMessage.confidence_score,
+            created_at: dbMessage.created_at,
+            status: dbMessage.status || 'sent',
+            reply_to: dbMessage.reply_to,
+            reactions: Array.isArray(dbMessage.reactions) ? dbMessage.reactions as Array<{ emoji: string; user: string; timestamp: string; }> : []
+          };
           setMessages(prev => {
             const exists = prev.find(m => m.id === newMessage.id);
             if (exists) return prev;
@@ -128,7 +144,23 @@ export function ChatInterface({
           filter: `phone_number=eq.${contactPhone}`
         },
         (payload) => {
-          const updatedMessage = payload.new as Message;
+          const dbMessage = payload.new;
+          const updatedMessage: Message = {
+            id: dbMessage.id,
+            phone_number: dbMessage.phone_number,
+            sender: dbMessage.sender,
+            message_text: dbMessage.message_text,
+            message_type: dbMessage.message_type || 'text',
+            file_url: dbMessage.file_url,
+            file_name: dbMessage.file_name,
+            file_size: dbMessage.file_size,
+            model_used: dbMessage.model_used,
+            confidence_score: dbMessage.confidence_score,
+            created_at: dbMessage.created_at,
+            status: dbMessage.status || 'sent',
+            reply_to: dbMessage.reply_to,
+            reactions: Array.isArray(dbMessage.reactions) ? dbMessage.reactions as Array<{ emoji: string; user: string; timestamp: string; }> : []
+          };
           setMessages(prev => prev.map(m => 
             m.id === updatedMessage.id ? updatedMessage : m
           ));
@@ -166,7 +198,26 @@ export function ChatInterface({
         .order('created_at', { ascending: true });
 
       if (error) throw error;
-      setMessages(data || []);
+      
+      // Transform database results to match our Message interface
+      const transformedMessages: Message[] = (data || []).map(msg => ({
+        id: msg.id,
+        phone_number: msg.phone_number,
+        sender: msg.sender,
+        message_text: msg.message_text,
+        message_type: msg.message_type || 'text',
+        file_url: msg.file_url,
+        file_name: msg.file_name,
+        file_size: msg.file_size,
+        model_used: msg.model_used,
+        confidence_score: msg.confidence_score,
+        created_at: msg.created_at,
+        status: msg.status || 'sent',
+        reply_to: msg.reply_to,
+        reactions: Array.isArray(msg.reactions) ? msg.reactions as Array<{ emoji: string; user: string; timestamp: string; }> : []
+      }));
+      
+      setMessages(transformedMessages);
     } catch (error) {
       console.error('Error fetching messages:', error);
       toast({
@@ -233,9 +284,27 @@ export function ChatInterface({
       if (error) throw error;
 
       // Replace temp message with real one
-      setMessages(prev => prev.map(m => 
-        m.id === tempMessage.id ? { ...data, status: 'sent' } : m
-      ));
+      setMessages(prev => prev.map(m => {
+        if (m.id === tempMessage.id) {
+          return {
+            id: data.id,
+            phone_number: data.phone_number,
+            sender: data.sender,
+            message_text: data.message_text,
+            message_type: data.message_type || 'text',
+            file_url: data.file_url,
+            file_name: data.file_name,
+            file_size: data.file_size,
+            model_used: data.model_used,
+            confidence_score: data.confidence_score,
+            created_at: data.created_at,
+            status: 'sent',
+            reply_to: data.reply_to,
+            reactions: Array.isArray(data.reactions) ? data.reactions as Array<{ emoji: string; user: string; timestamp: string; }> : []
+          };
+        }
+        return m;
+      }));
 
       // Send to AI processor
       await supabase.functions.invoke('unified-message-handler', {

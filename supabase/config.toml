@@ -40,6 +40,24 @@ verify_jwt = false
 [functions.unified-message-handler]
 verify_jwt = false
 
+[functions.advanced-ai-processor]
+verify_jwt = false
+
+[functions.model-management]
+verify_jwt = false
+
+[functions.knowledge-manager]
+verify_jwt = false
+
+[functions.circuit-breaker-manager]
+verify_jwt = false
+
+[functions.file-upload-manager]
+verify_jwt = false
+
+[functions.notification-manager]
+verify_jwt = false
+
 [functions.channel-gateway]
 verify_jwt = false
 
