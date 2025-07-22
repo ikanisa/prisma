@@ -24,6 +24,7 @@ import TaskDetail from "./pages/admin/agents/TaskDetail";
 // Conversation and campaign detail pages
 import ConversationDetail from "./pages/admin/conversations/ConversationDetail";
 import CampaignDetail from "./pages/admin/campaigns/CampaignDetail";
+import ConversationsInterface from "./pages/admin/ConversationsInterface";
 
 const queryClient = new QueryClient();
 
@@ -45,6 +46,7 @@ const App = () => (
           <Route path="orders-payments" element={<OrdersPayments />} />
           <Route path="trips-intents" element={<TripsIntents />} />
           <Route path="messaging-campaigns" element={<MessagingCampaigns />} />
+          <Route path="conversations" element={<ConversationsInterface />} />
           <Route path="ai-agents-models" element={<AIAgentsModels />} />
           <Route path="system-ops" element={<SystemOps />} />
           <Route path="businesses/:businessId" element={<BusinessDetail />} />
