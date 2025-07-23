@@ -324,14 +324,16 @@ async function syncBusinesses(payload: { location?: string; radius?: number; typ
                 console.log(`Inserting comprehensive business data: ${placeDetails.name} (Rating: ${placeDetails.rating || 'N/A'}, Reviews: ${placeDetails.user_ratings_total || 0})`);
                 
                 // Insert or update business with comprehensive data
-                const { error: insertError } = await supabase.from('businesses').upsert(businessData, {
+                const { data: insertedBusiness, error: insertError } = await supabase.from('businesses').upsert(businessData, {
                   onConflict: 'name'
-                });
+                }).select();
                 
                 if (insertError) {
                   console.error(`Failed to insert business ${placeDetails.name}:`, insertError);
                   failed++;
                 } else {
+                  // Auto-sync business phone numbers to contacts table
+                  await syncBusinessToContacts(placeDetails, insertedBusiness[0]);
                   // Add to places array for return with all comprehensive data
                   places.push({
                     ...placeDetails,
@@ -580,4 +582,46 @@ function generateMomoCode(businessName: string): string {
   const prefix = businessName.replace(/[^a-zA-Z]/g, '').slice(0, 3).toUpperCase();
   const suffix = Math.floor(Math.random() * 9999).toString().padStart(4, '0');
   return `${prefix}${suffix}`;
+}
+
+// Function to sync business phone numbers to contacts table
+async function syncBusinessToContacts(placeDetails: any, business: any) {
+  try {
+    const phoneNumbers = [];
+    
+    // Extract phone number from place details
+    if (placeDetails.formatted_phone_number) {
+      phoneNumbers.push({
+        phone_number: placeDetails.formatted_phone_number,
+        name: placeDetails.name,
+        contact_type: 'business',
+        status: 'active'
+      });
+    }
+    
+    // Extract whatsapp number if different from phone
+    if (business.whatsapp_number && business.whatsapp_number !== placeDetails.formatted_phone_number) {
+      phoneNumbers.push({
+        phone_number: business.whatsapp_number,
+        name: placeDetails.name + ' (WhatsApp)',
+        contact_type: 'business',
+        status: 'active'
+      });
+    }
+    
+    // Insert phone numbers into contacts table
+    for (const contact of phoneNumbers) {
+      const { error } = await supabase.from('contacts').upsert(contact, {
+        onConflict: 'phone_number'
+      });
+      
+      if (error) {
+        console.error(`Failed to sync contact for ${contact.name}:`, error);
+      } else {
+        console.log(`Synced contact: ${contact.name} - ${contact.phone_number}`);
+      }
+    }
+  } catch (error) {
+    console.error('Error syncing business to contacts:', error);
+  }
 }
