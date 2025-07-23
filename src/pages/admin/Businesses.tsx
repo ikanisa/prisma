@@ -655,6 +655,75 @@ export default function Businesses() {
                 className="pl-10"
               />
             </div>
+            
+            <div className="flex items-center gap-2">
+              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                <SelectTrigger className="w-[140px]">
+                  <SelectValue placeholder="Category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Categories</SelectItem>
+                  <SelectItem value="bar">Bars</SelectItem>
+                  <SelectItem value="restaurant">Restaurants</SelectItem>
+                  <SelectItem value="pharmacy">Pharmacies</SelectItem>
+                  <SelectItem value="shop">Shops</SelectItem>
+                  <SelectItem value="hardware">Hardware</SelectItem>
+                  <SelectItem value="store">Stores</SelectItem>
+                  <SelectItem value="salon">Salons</SelectItem>
+                  <SelectItem value="cosmetics">Cosmetics</SelectItem>
+                  <SelectItem value="hotel">Hotels</SelectItem>
+                  <SelectItem value="gas_station">Gas Stations</SelectItem>
+                  <SelectItem value="bank">Banks</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-[120px]">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="trial">Trial</SelectItem>
+                  <SelectItem value="suspended">Suspended</SelectItem>
+                  <SelectItem value="cancelled">Cancelled</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select value={sortBy} onValueChange={setSortBy}>
+                <SelectTrigger className="w-[130px]">
+                  <SelectValue placeholder="Sort by" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="created_at">Date Created</SelectItem>
+                  <SelectItem value="name">Name</SelectItem>
+                  <SelectItem value="rating">Rating</SelectItem>
+                  <SelectItem value="monthly_revenue">Revenue</SelectItem>
+                  <SelectItem value="reviews_count">Reviews</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+              >
+                {sortOrder === 'asc' ? '↑' : '↓'}
+              </Button>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setCategoryFilter('all');
+                  setStatusFilter('all');
+                  setSortBy('created_at');
+                  setSortOrder('desc');
+                }}
+              >
+                <RefreshCw className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </CardHeader>
         
@@ -772,19 +841,87 @@ export default function Businesses() {
                 <div className="rounded-lg border border-border overflow-hidden">
                   <Table>
                     <TableHeader>
-                      <TableRow className="bg-muted/50">
-                        <TableHead className="font-semibold">Name</TableHead>
-                        <TableHead className="font-semibold">Category</TableHead>
-                        <TableHead className="font-semibold">Phone Number</TableHead>
-                        <TableHead className="font-semibold">MoMo Code</TableHead>
-                        <TableHead className="font-semibold">WhatsApp</TableHead>
-                        <TableHead className="font-semibold">Address (GPS)</TableHead>
-                        <TableHead className="font-semibold">Rating</TableHead>
-                        <TableHead className="font-semibold">Reviews Count</TableHead>
-                        <TableHead className="font-semibold">Revenue</TableHead>
-                        <TableHead className="font-semibold">Status</TableHead>
-                        <TableHead className="font-semibold">Actions</TableHead>
-                      </TableRow>
+                       <TableRow className="bg-muted/50">
+                         <TableHead 
+                           className="font-semibold cursor-pointer hover:text-primary transition-colors"
+                           onClick={() => {
+                             if (sortBy === 'name') {
+                               setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+                             } else {
+                               setSortBy('name');
+                               setSortOrder('asc');
+                             }
+                           }}
+                         >
+                           <div className="flex items-center space-x-1">
+                             <span>Name</span>
+                             {sortBy === 'name' && (
+                               <span className="text-xs">{sortOrder === 'asc' ? '↑' : '↓'}</span>
+                             )}
+                           </div>
+                         </TableHead>
+                         <TableHead className="font-semibold">Category</TableHead>
+                         <TableHead className="font-semibold">Phone Number</TableHead>
+                         <TableHead className="font-semibold">MoMo Code</TableHead>
+                         <TableHead className="font-semibold">WhatsApp</TableHead>
+                         <TableHead className="font-semibold">Address (GPS)</TableHead>
+                         <TableHead 
+                           className="font-semibold cursor-pointer hover:text-primary transition-colors"
+                           onClick={() => {
+                             if (sortBy === 'rating') {
+                               setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+                             } else {
+                               setSortBy('rating');
+                               setSortOrder('desc');
+                             }
+                           }}
+                         >
+                           <div className="flex items-center space-x-1">
+                             <span>Rating</span>
+                             {sortBy === 'rating' && (
+                               <span className="text-xs">{sortOrder === 'asc' ? '↑' : '↓'}</span>
+                             )}
+                           </div>
+                         </TableHead>
+                         <TableHead 
+                           className="font-semibold cursor-pointer hover:text-primary transition-colors"
+                           onClick={() => {
+                             if (sortBy === 'reviews_count') {
+                               setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+                             } else {
+                               setSortBy('reviews_count');
+                               setSortOrder('desc');
+                             }
+                           }}
+                         >
+                           <div className="flex items-center space-x-1">
+                             <span>Reviews Count</span>
+                             {sortBy === 'reviews_count' && (
+                               <span className="text-xs">{sortOrder === 'asc' ? '↑' : '↓'}</span>
+                             )}
+                           </div>
+                         </TableHead>
+                         <TableHead 
+                           className="font-semibold cursor-pointer hover:text-primary transition-colors"
+                           onClick={() => {
+                             if (sortBy === 'monthly_revenue') {
+                               setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+                             } else {
+                               setSortBy('monthly_revenue');
+                               setSortOrder('desc');
+                             }
+                           }}
+                         >
+                           <div className="flex items-center space-x-1">
+                             <span>Revenue</span>
+                             {sortBy === 'monthly_revenue' && (
+                               <span className="text-xs">{sortOrder === 'asc' ? '↑' : '↓'}</span>
+                             )}
+                           </div>
+                         </TableHead>
+                         <TableHead className="font-semibold">Status</TableHead>
+                         <TableHead className="font-semibold">Actions</TableHead>
+                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {businesses.map((business) => (
