@@ -103,27 +103,28 @@ serve(async (req) => {
 });
 
 async function syncBusinesses(payload: { location?: string; radius?: number; type?: string }) {
-  const { location = 'Kigali, Rwanda', radius = 5000, type = 'restaurant' } = payload;
+  const { location = 'Kigali, Rwanda', radius = 50000, type = 'pharmacy' } = payload;
   
-  console.log(`Starting business sync for ${type} in ${location} with radius ${radius}m`);
+  console.log(`Starting comprehensive business sync for ${type} in ${location} with radius ${radius}m`);
   
   // Map Google Places types to our business_type enum
   const typeMapping: { [key: string]: string } = {
-    'restaurant': 'restaurant',
+    'restaurant': 'bar',
     'pharmacy': 'pharmacy', 
-    'store': 'store',
-    'hotel': 'hotel',
-    'gas_station': 'gas_station',
-    'bank': 'bank',
-    'school': 'school',
-    'hospital': 'hospital',
+    'drugstore': 'pharmacy',
+    'store': 'shop',
+    'hotel': 'produce',
+    'gas_station': 'hardware',
+    'bank': 'shop',
+    'school': 'shop',
+    'hospital': 'pharmacy',
     'bar': 'bar',
     'shop': 'shop',
     'produce': 'produce',
     'hardware': 'hardware'
   };
   
-  const businessCategory = typeMapping[type] || 'store';
+  const businessCategory = typeMapping[type] || 'pharmacy';
   
   // Start sync run
   const { data: syncRun } = await supabase
@@ -144,104 +145,130 @@ async function syncBusinesses(payload: { location?: string; radius?: number; typ
     let nextPageToken = '';
     let page = 1;
 
-    // Fetch all pages of results
-    do {
-      const baseUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(type + ' in ' + location)}&radius=${radius}&key=${googlePlacesApiKey}`;
-      const searchUrl = nextPageToken ? `${baseUrl}&pagetoken=${nextPageToken}` : baseUrl;
-      
-      console.log(`Calling Google Places API (page ${page}):`, searchUrl.replace(googlePlacesApiKey, 'HIDDEN_KEY'));
-      
-      // Wait 2 seconds before making next page request (Google requirement)
-      if (nextPageToken) {
-        await new Promise(resolve => setTimeout(resolve, 2000));
-      }
-      
-      const response = await fetch(searchUrl);
-      const data: GooglePlacesResponse = await response.json();
+    // Enhanced search strategy for comprehensive results
+    const searchQueries = [
+      `${type} in ${location}`,
+      `pharmacy near ${location}`,
+      `drugstore near ${location}`,
+      `medical pharmacy ${location}`,
+      `clinic pharmacy ${location}`
+    ];
 
-      console.log(`Google Places API response status (page ${page}):`, data.status);
-      if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
-        throw new Error(`Google Places API error: ${data.status}`);
-      }
-
-      if (data.results && data.results.length > 0) {
-        console.log(`Found ${data.results.length} places on page ${page} (total so far: ${places.length + data.results.length})`);
-
-        for (const place of data.results) {
-          try {
-        // Get detailed place information
-        const detailsUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${place.place_id}&fields=name,formatted_address,formatted_phone_number,website,rating,business_status,geometry&key=${googlePlacesApiKey}`;
+    // Process multiple search queries to get comprehensive results
+    for (const searchQuery of searchQueries) {
+      let queryNextPageToken = '';
+      let queryPage = 1;
+      
+      do {
+        const baseUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(searchQuery)}&radius=${radius}&key=${googlePlacesApiKey}`;
+        const searchUrl = queryNextPageToken ? `${baseUrl}&pagetoken=${queryNextPageToken}` : baseUrl;
         
-        const detailsResponse = await fetch(detailsUrl);
-        const detailsData = await detailsResponse.json();
+        console.log(`Calling Google Places API for "${searchQuery}" (page ${queryPage}):`, searchUrl.replace(googlePlacesApiKey, 'HIDDEN_KEY'));
         
-        if (detailsData.status === 'OK') {
-          const placeDetails = detailsData.result;
-          
-          // Prepare business data
-          const businessData = {
-            name: placeDetails.name,
-            category: businessCategory,
-            location_gps: `POINT(${placeDetails.geometry.location.lng} ${placeDetails.geometry.location.lat})`,
-            momo_code: generateMomoCode(placeDetails.name),
-            status: placeDetails.business_status === 'OPERATIONAL' ? 'active' : 'inactive',
-            pos_system_config: {
-              google_places_id: place.place_id,
-              rating: placeDetails.rating,
-              website: placeDetails.website,
-              phone: placeDetails.formatted_phone_number,
-              address: placeDetails.formatted_address
+        // Wait 2 seconds before making next page request (Google requirement)
+        if (queryNextPageToken) {
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+        
+        const response = await fetch(searchUrl);
+        const data: GooglePlacesResponse = await response.json();
+
+        console.log(`Google Places API response status for "${searchQuery}" (page ${queryPage}):`, data.status);
+        if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
+          console.warn(`Google Places API warning for query "${searchQuery}": ${data.status}`);
+          break; // Continue with next query instead of failing
+        }
+
+        if (data.results && data.results.length > 0) {
+          console.log(`Found ${data.results.length} places for "${searchQuery}" on page ${queryPage}`);
+
+          for (const place of data.results) {
+            try {
+              // Skip if we already have this place
+              if (places.some(p => p.place_id === place.place_id)) {
+                continue;
+              }
+
+              // Get comprehensive place details including reviews and all available data
+              const detailsUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${place.place_id}&fields=name,formatted_address,formatted_phone_number,website,rating,business_status,geometry,reviews,opening_hours,price_level,user_ratings_total,types,photos&key=${googlePlacesApiKey}`;
+              
+              const detailsResponse = await fetch(detailsUrl);
+              const detailsData = await detailsResponse.json();
+              
+              if (detailsData.status === 'OK') {
+                const placeDetails = detailsData.result;
+                
+                // Prepare comprehensive business data
+                const businessData = {
+                  name: placeDetails.name,
+                  category: businessCategory,
+                  location_gps: `POINT(${placeDetails.geometry.location.lng} ${placeDetails.geometry.location.lat})`,
+                  momo_code: generateMomoCode(placeDetails.name),
+                  status: placeDetails.business_status === 'OPERATIONAL' ? 'active' : 'inactive',
+                  subscription_status: 'trial',
+                  pos_system_config: {
+                    google_places_id: place.place_id,
+                    rating: placeDetails.rating || 0,
+                    user_ratings_total: placeDetails.user_ratings_total || 0,
+                    website: placeDetails.website,
+                    phone: placeDetails.formatted_phone_number,
+                    address: placeDetails.formatted_address,
+                    opening_hours: placeDetails.opening_hours,
+                    price_level: placeDetails.price_level,
+                    reviews: placeDetails.reviews?.slice(0, 5) || [], // Store up to 5 most recent reviews
+                    photos: placeDetails.photos?.slice(0, 3) || [], // Store up to 3 photos
+                    types: place.types,
+                    last_updated: new Date().toISOString()
+                  }
+                };
+                
+                console.log(`Inserting comprehensive business data: ${placeDetails.name} (Rating: ${placeDetails.rating || 'N/A'}, Reviews: ${placeDetails.user_ratings_total || 0})`);
+                
+                // Insert or update business with comprehensive data
+                const { error: insertError } = await supabase.from('businesses').upsert(businessData, {
+                  onConflict: 'name'
+                });
+                
+                if (insertError) {
+                  console.error(`Failed to insert business ${placeDetails.name}:`, insertError);
+                  failed++;
+                } else {
+                  // Add to places array for return with all comprehensive data
+                  places.push({
+                    ...placeDetails,
+                    types: place.types,
+                    place_id: place.place_id,
+                    reviews: placeDetails.reviews || [],
+                    user_ratings_total: placeDetails.user_ratings_total || 0
+                  });
+                  successful++;
+                }
+              } else {
+                console.error(`Failed to get details for place ${place.place_id}:`, detailsData.status);
+                failed++;
+              }
+              
+              processed++;
+              
+              // Minimal rate limiting - wait 50ms between requests for speed
+              await new Promise(resolve => setTimeout(resolve, 50));
+              
+            } catch (error) {
+              console.error(`Failed to process place ${place.place_id}:`, error);
+              failed++;
+              processed++;
             }
-          };
-          
-          console.log(`Inserting business: ${placeDetails.name}`);
-          
-          // Insert or update business
-          const { error: insertError } = await supabase.from('businesses').upsert(businessData, {
-            onConflict: 'name'
-          });
-          
-          if (insertError) {
-            console.error(`Failed to insert business ${placeDetails.name}:`, insertError);
-            failed++;
-          } else {
-            // Add to places array for return
-            places.push({
-              ...placeDetails,
-              types: place.types,
-              place_id: place.place_id
-            });
-            successful++;
           }
-        } else {
-          console.error(`Failed to get details for place ${place.place_id}:`, detailsData.status);
-          failed++;
         }
         
-          processed++;
-          
-          // Rate limiting - wait 100ms between requests
-          await new Promise(resolve => setTimeout(resolve, 100));
-          
-        } catch (error) {
-          console.error(`Failed to process place ${place.place_id}:`, error);
-          failed++;
-          processed++;
-          }
-        }
-      }
-      
-      // Check for next page
-      nextPageToken = data.next_page_token || '';
-      page++;
-      
-      // Prevent infinite loops - max 20 pages (Google typically has max 3 pages with 20 results each = 60 results)
-      if (page > 20) {
-        console.log('Reached maximum page limit, stopping pagination');
-        break;
-      }
-      
-    } while (nextPageToken);
+        // Check for next page
+        queryNextPageToken = data.next_page_token || '';
+        queryPage++;
+        
+        // Process all available pages - no artificial limits
+        
+      } while (queryNextPageToken && queryPage <= 10); // Reasonable limit per query to prevent infinite loops
+    }
 
     console.log(`Completed fetching all pages. Total places found: ${places.length}`);
 

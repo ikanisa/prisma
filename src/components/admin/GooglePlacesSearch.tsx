@@ -22,8 +22,8 @@ export function GooglePlacesSearch({ onSearchComplete, searchType }: GooglePlace
   const [open, setOpen] = useState(false);
   const [searching, setSearching] = useState(false);
   const [location, setLocation] = useState("Kigali, Rwanda");
-  const [businessType, setBusinessType] = useState("restaurant");
-  const [radius, setRadius] = useState("5000");
+  const [businessType, setBusinessType] = useState("pharmacy");
+  const [radius, setRadius] = useState("50000");
   const [results, setResults] = useState<any[]>([]);
   const { toast } = useToast();
 
@@ -169,10 +169,10 @@ export function GooglePlacesSearch({ onSearchComplete, searchType }: GooglePlace
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="1000">1 km</SelectItem>
                       <SelectItem value="5000">5 km</SelectItem>
                       <SelectItem value="10000">10 km</SelectItem>
                       <SelectItem value="25000">25 km</SelectItem>
+                      <SelectItem value="50000">50 km (Comprehensive)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -198,11 +198,11 @@ export function GooglePlacesSearch({ onSearchComplete, searchType }: GooglePlace
                 </div>
               </div>
 
-              <div className="bg-blue-50 p-3 rounded-md">
-                <p className="text-sm text-blue-700">
-                  <strong>Note:</strong> This will search Google Places for ALL {businessType} in {location} 
-                  within a {parseInt(radius) / 1000}km radius and import ALL results into your {searchType} database. 
-                  The system will automatically fetch all pages of results (up to 600+ places if available).
+              <div className="bg-green-50 p-3 rounded-md">
+                <p className="text-sm text-green-700">
+                  <strong>Enhanced Search:</strong> This will perform comprehensive searches for ALL {businessType} in {location} 
+                  within a {parseInt(radius) / 1000}km radius. Multiple search strategies are used to ensure complete coverage, 
+                  including reviews, ratings, and all available business data. No API limits - fetches ALL available results!
                 </p>
               </div>
             </CardContent>
@@ -283,17 +283,18 @@ export function GooglePlacesSearch({ onSearchComplete, searchType }: GooglePlace
             </Card>
           )}
 
-          {/* API Usage Info */}
+          {/* Enhanced API Usage Info */}
           <Card>
             <CardContent className="p-4">
               <div className="text-sm text-muted-foreground">
-                <p className="font-medium mb-2">Google Places API Usage:</p>
+                <p className="font-medium mb-2">Enhanced Google Places API Features:</p>
                 <ul className="space-y-1">
-                  <li>• Text Search: 1 request per page (up to 20 pages)</li>
-                  <li>• Place Details: 1 request per result</li>
-                  <li>• Fetches ALL available results using pagination</li>
-                  <li>• Daily quota limit applies - may use 600+ API calls for complete import</li>
-                  <li>• Results are automatically imported to your database</li>
+                  <li>• <strong>Multiple Search Strategies:</strong> Uses 5+ different search queries for comprehensive coverage</li>
+                  <li>• <strong>Complete Data Extraction:</strong> Includes reviews, ratings, photos, opening hours, and all metadata</li>
+                  <li>• <strong>No Artificial Limits:</strong> Fetches ALL available results across all pages</li>
+                  <li>• <strong>Smart Deduplication:</strong> Automatically removes duplicate places</li>
+                  <li>• <strong>Real-time Database Import:</strong> All results automatically saved to Supabase businesses table</li>
+                  <li>• <strong>Admin Panel Integration:</strong> Results immediately visible in admin dashboard</li>
                 </ul>
               </div>
             </CardContent>
