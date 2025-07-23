@@ -815,30 +815,33 @@ export default function Businesses() {
                           
                            <TableCell>
                              <span className="font-mono text-sm">
-                               {business.phone_number || business.owner_phone || 'Not provided'}
+                               {business.phone_number || 'Not provided'}
                              </span>
                            </TableCell>
-                          
-                          <TableCell>
-                            <span className="font-mono text-sm">
-                              {business.momo_code && /^\d+$/.test(business.momo_code) ? business.momo_code : 'Not set'}
-                            </span>
-                          </TableCell>
-                          
-                          <TableCell>
-                            {business.owner_phone ? (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => openWhatsApp(business.owner_phone)}
-                                className="p-1 h-auto"
-                              >
-                                <MessageCircle className="h-4 w-4 text-green-600" />
-                              </Button>
-                            ) : (
-                              <span className="text-muted-foreground text-sm">N/A</span>
-                            )}
-                          </TableCell>
+                           
+                           <TableCell>
+                             <span className="font-mono text-sm">
+                               {business.momo_code && /^\d+$/.test(business.momo_code) ? business.momo_code : 'Not set'}
+                             </span>
+                           </TableCell>
+                           
+                           <TableCell>
+                             {business.whatsapp_number ? (
+                               <div className="flex items-center space-x-2">
+                                 <span className="font-mono text-sm">{business.whatsapp_number}</span>
+                                 <Button
+                                   variant="ghost"
+                                   size="sm"
+                                   onClick={() => openWhatsApp(business.whatsapp_number)}
+                                   className="p-1 h-auto"
+                                 >
+                                   <MessageCircle className="h-4 w-4 text-green-600" />
+                                 </Button>
+                               </div>
+                             ) : (
+                               <span className="text-muted-foreground text-sm">Not provided</span>
+                             )}
+                           </TableCell>
                           
                           <TableCell>
                             {business.location_gps ? (
