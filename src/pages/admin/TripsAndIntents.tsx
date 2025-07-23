@@ -68,14 +68,56 @@ export default function TripsAndIntents() {
   async function loadData() {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from("trips_and_intents_spatial")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(500);
-      
-      if (error) throw error;
-      setData(data as TripRow[]);
+      // Fetch from both tables and combine them
+      const [driverTripsRes, passengerIntentsRes] = await Promise.all([
+        supabase
+          .from("driver_trips_spatial")
+          .select("id, driver_phone, from_text, to_text, price_rwf, seats, status, created_at, updated_at")
+          .order("created_at", { ascending: false })
+          .limit(250),
+        supabase
+          .from("passenger_intents_spatial")
+          .select("id, passenger_phone, from_text, to_text, max_price_rwf, seats_needed, status, created_at, updated_at")
+          .order("created_at", { ascending: false })
+          .limit(250)
+      ]);
+
+      if (driverTripsRes.error) throw driverTripsRes.error;
+      if (passengerIntentsRes.error) throw passengerIntentsRes.error;
+
+      // Transform and combine the data
+      const driverTrips: TripRow[] = (driverTripsRes.data || []).map(trip => ({
+        id: trip.id,
+        type: "driver_trip" as const,
+        user_phone: trip.driver_phone,
+        from_text: trip.from_text,
+        to_text: trip.to_text,
+        price_rwf: trip.price_rwf,
+        seats: trip.seats,
+        status: trip.status as TripRow["status"],
+        created_at: trip.created_at,
+        updated_at: trip.updated_at
+      }));
+
+      const passengerIntents: TripRow[] = (passengerIntentsRes.data || []).map(intent => ({
+        id: intent.id,
+        type: "passenger_intent" as const,
+        user_phone: intent.passenger_phone,
+        from_text: intent.from_text,
+        to_text: intent.to_text,
+        price_rwf: intent.max_price_rwf,
+        seats: intent.seats_needed,
+        status: intent.status as TripRow["status"],
+        created_at: intent.created_at,
+        updated_at: intent.updated_at
+      }));
+
+      // Combine and sort by created_at
+      const combined = [...driverTrips, ...passengerIntents]
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        .slice(0, 500);
+
+      setData(combined);
     } catch (error: any) {
       console.error("Error loading data:", error);
       toast({
