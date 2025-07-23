@@ -8756,6 +8756,8 @@ export type Database = {
         | "school"
         | "hospital"
         | "store"
+        | "salon"
+        | "cosmetics"
       driver_type: "moto" | "cab" | "truck"
       evt: "sent" | "delivered" | "read" | "clicked" | "opt_out"
       listing_type_enum:
@@ -8928,6 +8930,8 @@ export const Constants = {
         "school",
         "hospital",
         "store",
+        "salon",
+        "cosmetics",
       ],
       driver_type: ["moto", "cab", "truck"],
       evt: ["sent", "delivered", "read", "clicked", "opt_out"],
