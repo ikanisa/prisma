@@ -107,17 +107,17 @@ async function syncBusinesses(payload: { location?: string; radius?: number; typ
   
   console.log(`Starting comprehensive business sync for ${type} in ${location} with radius ${radius}m`);
   
-  // Map Google Places types to our business_type enum
+  // Map Google Places types to our business_type enum - FIXED MAPPING
   const typeMapping: { [key: string]: string } = {
-    'restaurant': 'bar',
+    'restaurant': 'restaurant',
     'pharmacy': 'pharmacy', 
     'drugstore': 'pharmacy',
-    'store': 'shop',
-    'hotel': 'produce',
-    'gas_station': 'hardware',
-    'bank': 'shop',
-    'school': 'shop',
-    'hospital': 'pharmacy',
+    'store': 'store',
+    'hotel': 'hotel',
+    'gas_station': 'gas_station',
+    'bank': 'bank',
+    'school': 'school',
+    'hospital': 'hospital',
     'bar': 'bar',
     'shop': 'shop',
     'produce': 'produce',
@@ -145,7 +145,7 @@ async function syncBusinesses(payload: { location?: string; radius?: number; typ
     let nextPageToken = '';
     let page = 1;
 
-    // Comprehensive search strategy to get ALL pharmacies in Kigali
+    // Comprehensive search strategy for ALL business types
     const kigaliDistricts = [
       'Nyarugenge', 'Gasabo', 'Kicukiro'
     ];
@@ -158,35 +158,42 @@ async function syncBusinesses(payload: { location?: string; radius?: number; typ
       'Masaka', 'Niboye', 'Nyarugunga', 'Bugesera'
     ];
 
+    // Dynamic search terms based on business type
+    const typeSearchTerms: { [key: string]: string[] } = {
+      'pharmacy': ['pharmacy', 'drugstore', 'pharmacie', 'medical store'],
+      'restaurant': ['restaurant', 'eatery', 'dining', 'food'],
+      'hotel': ['hotel', 'lodge', 'accommodation', 'guest house'],
+      'store': ['store', 'shop', 'retail', 'market'],
+      'gas_station': ['gas station', 'petrol station', 'fuel station', 'filling station'],
+      'bank': ['bank', 'ATM', 'financial institution', 'banking'],
+      'school': ['school', 'college', 'university', 'education'],
+      'hospital': ['hospital', 'clinic', 'medical center', 'health center'],
+      'bar': ['bar', 'pub', 'tavern', 'nightclub'],
+      'shop': ['shop', 'store', 'boutique', 'retail'],
+      'produce': ['market', 'grocery', 'produce', 'fresh food'],
+      'hardware': ['hardware', 'tools', 'building supplies', 'construction']
+    };
+
+    const searchTerms = typeSearchTerms[type] || [type];
+    
     const searchQueries = [
-      // Generic searches
-      `pharmacy ${location}`,
-      `drugstore ${location}`, 
-      `medical pharmacy ${location}`,
-      `clinic pharmacy ${location}`,
-      `pharmacie ${location}`, // French term
-      `apotheke ${location}`, // Alternative term
+      // Generic searches for the business type
+      ...searchTerms.map(term => `${term} ${location}`),
       
       // District-based searches
-      ...kigaliDistricts.map(district => `pharmacy ${district} Kigali Rwanda`),
-      ...kigaliDistricts.map(district => `drugstore ${district} Kigali Rwanda`),
-      ...kigaliDistricts.map(district => `pharmacie ${district} Kigali Rwanda`),
+      ...kigaliDistricts.flatMap(district => 
+        searchTerms.map(term => `${term} ${district} Kigali Rwanda`)
+      ),
       
       // Sector-based searches for comprehensive coverage
-      ...kigaliSectors.map(sector => `pharmacy ${sector} Kigali Rwanda`),
-      ...kigaliSectors.map(sector => `drugstore ${sector} Kigali Rwanda`),
-      
-      // Medical facility searches (often have pharmacies)
-      'hospital pharmacy Kigali Rwanda',
-      'clinic pharmacy Kigali Rwanda',
-      'medical center pharmacy Kigali Rwanda',
-      'health center pharmacy Kigali Rwanda',
+      ...kigaliSectors.flatMap(sector => 
+        searchTerms.slice(0, 2).map(term => `${term} ${sector} Kigali Rwanda`)
+      ),
       
       // Commercial area searches
-      'pharmacy downtown Kigali Rwanda',
-      'pharmacy city center Kigali Rwanda',
-      'pharmacy CBD Kigali Rwanda',
-      'pharmacy shopping center Kigali Rwanda'
+      ...searchTerms.map(term => `${term} downtown Kigali Rwanda`),
+      ...searchTerms.map(term => `${term} city center Kigali Rwanda`),
+      ...searchTerms.map(term => `${term} CBD Kigali Rwanda`)
     ];
 
     // Process multiple search queries to get comprehensive results
