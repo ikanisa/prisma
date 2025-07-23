@@ -843,6 +843,45 @@ export type Database = {
           },
         ]
       }
+      businesses_backup: {
+        Row: {
+          category: Database["public"]["Enums"]["business_type"] | null
+          created_at: string | null
+          id: string | null
+          location_gps: unknown | null
+          momo_code: string | null
+          name: string | null
+          owner_user_id: string | null
+          pos_system_config: Json | null
+          status: string | null
+          subscription_status: string | null
+        }
+        Insert: {
+          category?: Database["public"]["Enums"]["business_type"] | null
+          created_at?: string | null
+          id?: string | null
+          location_gps?: unknown | null
+          momo_code?: string | null
+          name?: string | null
+          owner_user_id?: string | null
+          pos_system_config?: Json | null
+          status?: string | null
+          subscription_status?: string | null
+        }
+        Update: {
+          category?: Database["public"]["Enums"]["business_type"] | null
+          created_at?: string | null
+          id?: string | null
+          location_gps?: unknown | null
+          momo_code?: string | null
+          name?: string | null
+          owner_user_id?: string | null
+          pos_system_config?: Json | null
+          status?: string | null
+          subscription_status?: string | null
+        }
+        Relationships: []
+      }
       campaign_messages: {
         Row: {
           attempt_count: number | null

@@ -402,7 +402,7 @@ export default function Businesses() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Total Revenue</p>
-                <p className="text-2xl font-bold text-foreground">₦{analytics.totalRevenue.toLocaleString()}</p>
+                <p className="text-2xl font-bold text-foreground">{analytics.totalRevenue.toLocaleString()} RWF</p>
                 <p className="text-xs text-green-600 flex items-center mt-1">
                   <DollarSign className="h-3 w-3 mr-1" />
                   Monthly recurring
@@ -684,7 +684,7 @@ export default function Businesses() {
                           
                           <div className="flex items-center justify-between">
                             <span className="text-sm text-muted-foreground">Monthly Revenue</span>
-                            <span className="text-sm font-medium">₦{business.monthly_revenue?.toLocaleString()}</span>
+                            <span className="text-sm font-medium">{business.monthly_revenue?.toLocaleString()} RWF</span>
                           </div>
                           
                           <div className="flex items-center justify-between">
@@ -795,7 +795,7 @@ export default function Businesses() {
                             <div className="space-y-1">
                               <div className="flex items-center justify-between text-sm">
                                 <span className="text-muted-foreground">Revenue:</span>
-                                <span className="font-medium">₦{business.monthly_revenue?.toLocaleString()}</span>
+                                <span className="font-medium">{business.monthly_revenue?.toLocaleString()} RWF</span>
                               </div>
                               <div className="flex items-center justify-between text-sm">
                                 <span className="text-muted-foreground">Orders:</span>
@@ -1022,7 +1022,7 @@ export default function Businesses() {
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
                       <span>Monthly Revenue:</span>
-                      <span className="font-medium">₦{selectedBusiness.monthly_revenue?.toLocaleString()}</span>
+                      <span className="font-medium">{selectedBusiness.monthly_revenue?.toLocaleString()} RWF</span>
                     </div>
                     <div className="flex justify-between">
                       <span>Total Orders:</span>
