@@ -6915,6 +6915,16 @@ export type Database = {
         Args: { geom1: unknown; geom2: unknown }
         Returns: boolean
       }
+      final_security_assessment: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          issue_type: string
+          entity_name: string
+          current_status: string
+          explanation: string
+          action_required: string
+        }[]
+      }
       find_nearby_drivers: {
         Args: { pickup_point: unknown; max_km: number }
         Returns: {
@@ -7530,6 +7540,14 @@ export type Database = {
       postgis_wagyu_version: {
         Args: Record<PropertyKey, never>
         Returns: string
+      }
+      security_compliance_summary: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          compliance_area: string
+          status: string
+          details: string
+        }[]
       }
       security_notes: {
         Args: Record<PropertyKey, never>
