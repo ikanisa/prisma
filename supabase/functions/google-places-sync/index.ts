@@ -103,7 +103,7 @@ serve(async (req) => {
 });
 
 async function syncBusinesses(payload: { location?: string; radius?: number; type?: string }) {
-  const { location = 'Kigali, Rwanda', radius = 50000, type = 'pharmacy' } = payload;
+  const { location = 'Kigali, Rwanda', radius = 100000, type = 'pharmacy' } = payload; // Default to 100km
   
   console.log(`Starting comprehensive business sync for ${type} in ${location} with radius ${radius}m`);
   

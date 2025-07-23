@@ -26,7 +26,7 @@ export function GooglePlacesSearch({ onSearchComplete, searchType }: GooglePlace
   const [searchComplete, setSearchComplete] = useState(false);
   const [location, setLocation] = useState("Kigali, Rwanda");
   const [businessType, setBusinessType] = useState("pharmacy");
-  const [radius, setRadius] = useState("50000");
+  const [radius, setRadius] = useState("100000"); // Default to 100km for comprehensive coverage
   const [results, setResults] = useState<any[]>([]);
   const [searchProgress, setSearchProgress] = useState(0);
   const [searchStats, setSearchStats] = useState<any>(null);
@@ -267,7 +267,10 @@ export function GooglePlacesSearch({ onSearchComplete, searchType }: GooglePlace
                       <SelectItem value="5000">5 km</SelectItem>
                       <SelectItem value="10000">10 km</SelectItem>
                       <SelectItem value="25000">25 km</SelectItem>
-                      <SelectItem value="50000">50 km (Comprehensive)</SelectItem>
+                      <SelectItem value="50000">50 km</SelectItem>
+                      <SelectItem value="100000">100 km (Extended)</SelectItem>
+                      <SelectItem value="150000">150 km (Regional)</SelectItem>
+                      <SelectItem value="200000">200 km (Country-wide)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
