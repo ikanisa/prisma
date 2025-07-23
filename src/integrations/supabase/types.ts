@@ -798,40 +798,61 @@ export type Database = {
       }
       businesses: {
         Row: {
+          address: string | null
           category: Database["public"]["Enums"]["business_type"] | null
           created_at: string | null
+          google_place_id: string | null
           id: string
           location_gps: unknown | null
           momo_code: string
           name: string
           owner_user_id: string | null
+          phone_number: string | null
           pos_system_config: Json | null
+          rating: number | null
+          reviews_count: number | null
           status: string | null
           subscription_status: string | null
+          website: string | null
+          whatsapp_number: string | null
         }
         Insert: {
+          address?: string | null
           category?: Database["public"]["Enums"]["business_type"] | null
           created_at?: string | null
+          google_place_id?: string | null
           id?: string
           location_gps?: unknown | null
           momo_code: string
           name: string
           owner_user_id?: string | null
+          phone_number?: string | null
           pos_system_config?: Json | null
+          rating?: number | null
+          reviews_count?: number | null
           status?: string | null
           subscription_status?: string | null
+          website?: string | null
+          whatsapp_number?: string | null
         }
         Update: {
+          address?: string | null
           category?: Database["public"]["Enums"]["business_type"] | null
           created_at?: string | null
+          google_place_id?: string | null
           id?: string
           location_gps?: unknown | null
           momo_code?: string
           name?: string
           owner_user_id?: string | null
+          phone_number?: string | null
           pos_system_config?: Json | null
+          rating?: number | null
+          reviews_count?: number | null
           status?: string | null
           subscription_status?: string | null
+          website?: string | null
+          whatsapp_number?: string | null
         }
         Relationships: [
           {
