@@ -7531,6 +7531,22 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: string
       }
+      security_notes: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          note_type: string
+          description: string
+        }[]
+      }
+      security_status_report: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          category: string
+          item_name: string
+          status: string
+          recommendation: string
+        }[]
+      }
       soft_delete_listing: {
         Args: { listing_id: string }
         Returns: boolean
