@@ -145,13 +145,48 @@ async function syncBusinesses(payload: { location?: string; radius?: number; typ
     let nextPageToken = '';
     let page = 1;
 
-    // Enhanced search strategy for comprehensive results
+    // Comprehensive search strategy to get ALL pharmacies in Kigali
+    const kigaliDistricts = [
+      'Nyarugenge', 'Gasabo', 'Kicukiro'
+    ];
+    
+    const kigaliSectors = [
+      'Kimisagara', 'Mageragere', 'Nyamirambo', 'Rwezamenyo', 'Gitega',
+      'Kimirango', 'Kigara', 'Cyahafi', 'Kimihurura', 'Remera', 'Kinyinya', 
+      'Ndera', 'Nduba', 'Rusororo', 'Rutunga', 'Jali', 'Kacyiru', 'Kimironko',
+      'Gisozi', 'Jabana', 'Gatenga', 'Kagarama', 'Kanombe', 'Kicukiro',
+      'Masaka', 'Niboye', 'Nyarugunga', 'Bugesera'
+    ];
+
     const searchQueries = [
-      `${type} in ${location}`,
-      `pharmacy near ${location}`,
-      `drugstore near ${location}`,
+      // Generic searches
+      `pharmacy ${location}`,
+      `drugstore ${location}`, 
       `medical pharmacy ${location}`,
-      `clinic pharmacy ${location}`
+      `clinic pharmacy ${location}`,
+      `pharmacie ${location}`, // French term
+      `apotheke ${location}`, // Alternative term
+      
+      // District-based searches
+      ...kigaliDistricts.map(district => `pharmacy ${district} Kigali Rwanda`),
+      ...kigaliDistricts.map(district => `drugstore ${district} Kigali Rwanda`),
+      ...kigaliDistricts.map(district => `pharmacie ${district} Kigali Rwanda`),
+      
+      // Sector-based searches for comprehensive coverage
+      ...kigaliSectors.map(sector => `pharmacy ${sector} Kigali Rwanda`),
+      ...kigaliSectors.map(sector => `drugstore ${sector} Kigali Rwanda`),
+      
+      // Medical facility searches (often have pharmacies)
+      'hospital pharmacy Kigali Rwanda',
+      'clinic pharmacy Kigali Rwanda',
+      'medical center pharmacy Kigali Rwanda',
+      'health center pharmacy Kigali Rwanda',
+      
+      // Commercial area searches
+      'pharmacy downtown Kigali Rwanda',
+      'pharmacy city center Kigali Rwanda',
+      'pharmacy CBD Kigali Rwanda',
+      'pharmacy shopping center Kigali Rwanda'
     ];
 
     // Process multiple search queries to get comprehensive results
@@ -165,9 +200,9 @@ async function syncBusinesses(payload: { location?: string; radius?: number; typ
         
         console.log(`Calling Google Places API for "${searchQuery}" (page ${queryPage}):`, searchUrl.replace(googlePlacesApiKey, 'HIDDEN_KEY'));
         
-        // Wait 2 seconds before making next page request (Google requirement)
+        // Wait 3 seconds before making next page request (Google requirement - increased for stability)
         if (queryNextPageToken) {
-          await new Promise(resolve => setTimeout(resolve, 2000));
+          await new Promise(resolve => setTimeout(resolve, 3000));
         }
         
         const response = await fetch(searchUrl);
@@ -184,8 +219,9 @@ async function syncBusinesses(payload: { location?: string; radius?: number; typ
 
           for (const place of data.results) {
             try {
-              // Skip if we already have this place
-              if (places.some(p => p.place_id === place.place_id)) {
+              // Enhanced duplicate detection - check by place_id AND name
+              if (places.some(p => p.place_id === place.place_id || 
+                                   (p.name && place.name && p.name.toLowerCase().trim() === place.name.toLowerCase().trim()))) {
                 continue;
               }
 
@@ -251,8 +287,8 @@ async function syncBusinesses(payload: { location?: string; radius?: number; typ
               
               processed++;
               
-              // Minimal rate limiting - wait 50ms between requests for speed
-              await new Promise(resolve => setTimeout(resolve, 50));
+              // Minimal rate limiting - wait 100ms between requests to avoid hitting limits
+              await new Promise(resolve => setTimeout(resolve, 100));
               
             } catch (error) {
               console.error(`Failed to process place ${place.place_id}:`, error);
@@ -266,9 +302,9 @@ async function syncBusinesses(payload: { location?: string; radius?: number; typ
         queryNextPageToken = data.next_page_token || '';
         queryPage++;
         
-        // Process all available pages - no artificial limits
+        // Process ALL available pages to get complete results
         
-      } while (queryNextPageToken && queryPage <= 10); // Reasonable limit per query to prevent infinite loops
+      } while (queryNextPageToken && queryPage <= 3); // Google Places API typically has 3 pages max per query
     }
 
     console.log(`Completed fetching all pages. Total places found: ${places.length}`);
