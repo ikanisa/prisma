@@ -36,11 +36,20 @@ interface Business {
   owner_user_id: string;
   owner_phone?: string;
   location_gps?: any;
+  pos_system_config?: any;
+  status?: string;
   monthly_revenue?: number;
   order_count?: number;
   rating?: number;
   last_active?: string;
   verified?: boolean;
+  // NEW: Contact information columns from Google Places
+  phone_number?: string;
+  whatsapp_number?: string;
+  address?: string;
+  reviews_count?: number;
+  website?: string;
+  google_place_id?: string;
 }
 
 interface CategoryStats {
@@ -795,11 +804,11 @@ export default function Businesses() {
                             </Badge>
                           </TableCell>
                           
-                          <TableCell>
-                            <span className="font-mono text-sm">
-                              {business.owner_phone || 'Not provided'}
-                            </span>
-                          </TableCell>
+                           <TableCell>
+                             <span className="font-mono text-sm">
+                               {business.phone_number || business.owner_phone || 'Not provided'}
+                             </span>
+                           </TableCell>
                           
                           <TableCell>
                             <span className="font-mono text-sm">
