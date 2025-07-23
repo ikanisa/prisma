@@ -755,9 +755,15 @@ export default function Businesses() {
                   <Table>
                     <TableHeader>
                       <TableRow className="bg-muted/50">
-                        <TableHead className="font-semibold">Business</TableHead>
-                        <TableHead className="font-semibold">Performance</TableHead>
-                        <TableHead className="font-semibold">Contact</TableHead>
+                        <TableHead className="font-semibold">Name</TableHead>
+                        <TableHead className="font-semibold">Category</TableHead>
+                        <TableHead className="font-semibold">Phone Number</TableHead>
+                        <TableHead className="font-semibold">MoMo Code</TableHead>
+                        <TableHead className="font-semibold">WhatsApp</TableHead>
+                        <TableHead className="font-semibold">Address (GPS)</TableHead>
+                        <TableHead className="font-semibold">Rating</TableHead>
+                        <TableHead className="font-semibold">Reviews Count</TableHead>
+                        <TableHead className="font-semibold">Revenue</TableHead>
                         <TableHead className="font-semibold">Status</TableHead>
                         <TableHead className="font-semibold">Actions</TableHead>
                       </TableRow>
@@ -766,8 +772,8 @@ export default function Businesses() {
                       {businesses.map((business) => (
                         <TableRow key={business.id} className="hover:bg-muted/50 transition-colors">
                           <TableCell>
-                            <div className="flex items-center space-x-3">
-                              <div className={`h-10 w-10 rounded-lg flex items-center justify-center ${
+                            <div className="flex items-center space-x-2">
+                              <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${
                                 business.category === 'bar' ? 'bg-orange-100 dark:bg-orange-900/20' :
                                 business.category === 'pharmacy' ? 'bg-green-100 dark:bg-green-900/20' :
                                 'bg-blue-100 dark:bg-blue-900/20'
@@ -775,68 +781,88 @@ export default function Businesses() {
                                 {getCategoryIcon(business.category)}
                               </div>
                               <div>
-                                <div className="flex items-center space-x-2">
-                                  <p className="font-medium text-foreground">{business.name}</p>
-                                  {business.verified && (
-                                    <CheckCircle className="h-4 w-4 text-green-600" />
-                                  )}
-                                </div>
-                                <div className="flex items-center space-x-4 text-sm text-muted-foreground">
-                                  <span>{business.momo_code}</span>
-                                  <Badge variant="outline" className="text-xs">
-                                    {business.category}
-                                  </Badge>
-                                </div>
+                                <p className="font-medium text-foreground">{business.name}</p>
+                                {business.verified && (
+                                  <CheckCircle className="h-3 w-3 text-green-600" />
+                                )}
                               </div>
                             </div>
                           </TableCell>
                           
                           <TableCell>
-                            <div className="space-y-1">
-                              <div className="flex items-center justify-between text-sm">
-                                <span className="text-muted-foreground">Revenue:</span>
-                                <span className="font-medium">{business.monthly_revenue?.toLocaleString()} RWF</span>
-                              </div>
-                              <div className="flex items-center justify-between text-sm">
-                                <span className="text-muted-foreground">Orders:</span>
-                                <span className="font-medium">{business.order_count}</span>
-                              </div>
-                              <div className="flex items-center justify-between text-sm">
-                                <span className="text-muted-foreground">Rating:</span>
-                                <div className="flex items-center space-x-1">
-                                  <Star className={`h-3 w-3 ${getRatingColor(Number(business.rating))} fill-current`} />
-                                  <span className="font-medium">{business.rating}</span>
-                                </div>
-                              </div>
+                            <Badge variant="outline" className="capitalize">
+                              {business.category}
+                            </Badge>
+                          </TableCell>
+                          
+                          <TableCell>
+                            <span className="font-mono text-sm">
+                              {business.owner_phone || 'Not provided'}
+                            </span>
+                          </TableCell>
+                          
+                          <TableCell>
+                            <span className="font-mono text-sm">
+                              {business.momo_code && /^\d+$/.test(business.momo_code) ? business.momo_code : 'Not set'}
+                            </span>
+                          </TableCell>
+                          
+                          <TableCell>
+                            {business.owner_phone ? (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => openWhatsApp(business.owner_phone)}
+                                className="p-1 h-auto"
+                              >
+                                <MessageCircle className="h-4 w-4 text-green-600" />
+                              </Button>
+                            ) : (
+                              <span className="text-muted-foreground text-sm">N/A</span>
+                            )}
+                          </TableCell>
+                          
+                          <TableCell>
+                            {business.location_gps ? (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="p-1 h-auto"
+                                onClick={() => {
+                                  const coords = business.location_gps;
+                                  window.open(`https://maps.google.com/?q=${coords.lat},${coords.lng}`, '_blank');
+                                }}
+                              >
+                                <MapPin className="h-4 w-4 text-blue-600" />
+                              </Button>
+                            ) : (
+                              <span className="text-muted-foreground text-sm">No GPS</span>
+                            )}
+                          </TableCell>
+                          
+                          <TableCell>
+                            <div className="flex items-center space-x-1">
+                              <Star className={`h-4 w-4 ${getRatingColor(Number(business.rating))} fill-current`} />
+                              <span className="font-medium">{business.rating}</span>
                             </div>
                           </TableCell>
                           
                           <TableCell>
-                            <div className="space-y-1">
-                              {business.owner_phone ? (
-                                <div className="flex items-center space-x-2">
-                                  <Phone className="h-4 w-4 text-muted-foreground" />
-                                  <span className="text-sm font-mono">{business.owner_phone}</span>
-                                </div>
-                              ) : (
-                                <span className="text-sm text-muted-foreground">No phone</span>
-                              )}
-                              <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-                                <Clock className="h-3 w-3" />
-                                <span>Last active {getLastActiveText(business.last_active || business.created_at)}</span>
-                              </div>
-                            </div>
+                            <span className="text-sm">
+                              {business.order_count || 0}
+                            </span>
                           </TableCell>
                           
                           <TableCell>
-                            <div className="space-y-2">
-                              <Badge className={getStatusColor(business.subscription_status)}>
-                                {business.subscription_status}
-                              </Badge>
-                              <p className="text-xs text-muted-foreground">
-                                Since {new Date(business.created_at).toLocaleDateString()}
-                              </p>
-                            </div>
+                            <span className="font-medium">
+                              {business.monthly_revenue?.toLocaleString() || '0'} RWF
+                            </span>
+                          </TableCell>
+                          
+                          <TableCell>
+                            <Badge className={getStatusColor(business.subscription_status)}>
+                              {business.subscription_status}
+                            </Badge>
                           </TableCell>
                           
                           <TableCell>
