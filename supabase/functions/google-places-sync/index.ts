@@ -200,10 +200,11 @@ async function syncBusinesses(payload: { location?: string; radius?: number; typ
                 
                 // Prepare comprehensive business data
                 const businessData = {
-                  name: placeDetails.name,
-                  category: businessCategory,
-                  location_gps: `POINT(${placeDetails.geometry.location.lng} ${placeDetails.geometry.location.lat})`,
-                  momo_code: generateMomoCode(placeDetails.name),
+                  name: placeDetails.name || place.name,
+                  category: businessCategory as any, // Cast to business_type enum
+                  location_gps: placeDetails.geometry?.location ? 
+                    `POINT(${placeDetails.geometry.location.lng} ${placeDetails.geometry.location.lat})` : null,
+                  momo_code: generateMomoCode(placeDetails.name || place.name),
                   status: placeDetails.business_status === 'OPERATIONAL' ? 'active' : 'inactive',
                   subscription_status: 'trial',
                   pos_system_config: {
