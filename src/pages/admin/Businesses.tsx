@@ -139,9 +139,18 @@ export default function Businesses() {
 
       if (stats) {
         const counts = stats.reduce((acc, business) => {
-          if (business.category === 'bar') acc.bars++;
-          else if (business.category === 'pharmacy') acc.pharmacies++;
-          else if (business.category === 'shop') acc.shops++;
+          // Group bars and restaurants together
+          if (business.category === 'bar' || business.category === 'restaurant') {
+            acc.bars++;
+          }
+          // Count all pharmacy types
+          else if (business.category === 'pharmacy') {
+            acc.pharmacies++;
+          }
+          // Group shops, stores, and other retail categories
+          else if (['shop', 'store', 'hardware', 'cosmetics', 'salon'].includes(business.category)) {
+            acc.shops++;
+          }
           return acc;
         }, { bars: 0, pharmacies: 0, shops: 0 });
         
