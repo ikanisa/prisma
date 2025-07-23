@@ -107,7 +107,7 @@ async function syncBusinesses(payload: { location?: string; radius?: number; typ
   
   console.log(`Starting comprehensive business sync for ${type} in ${location} with radius ${radius}m`);
   
-  // Map Google Places types to our business_type enum - FIXED MAPPING
+  // Map Google Places types to our business_type enum with improved categorization
   const typeMapping: { [key: string]: string } = {
     'restaurant': 'restaurant',
     'pharmacy': 'pharmacy', 
@@ -119,9 +119,55 @@ async function syncBusinesses(payload: { location?: string; radius?: number; typ
     'school': 'school',
     'hospital': 'hospital',
     'bar': 'bar',
-    'shop': 'shop',
-    'produce': 'produce',
-    'hardware': 'hardware'
+    'shop': 'store', // Generic shops go to store category
+    'produce': 'store',
+    'hardware': 'hardware',
+    'salon': 'salon',
+    'cosmetics': 'cosmetics'
+  };
+
+  // Function to intelligently categorize businesses based on name and types
+  const categorizeBusiness = (name: string, types: string[], searchType: string): string => {
+    const lowerName = name.toLowerCase();
+    const typeStr = types.join(' ').toLowerCase();
+    
+    // Check for specific business types based on name and Google types
+    if (lowerName.includes('pharmac') || lowerName.includes('drugstore') || typeStr.includes('pharmacy')) {
+      return 'pharmacy';
+    }
+    if (lowerName.includes('hardware') || lowerName.includes('quincaillerie') || lowerName.includes('tool')) {
+      return 'hardware';
+    }
+    if (lowerName.includes('salon') || lowerName.includes('hair') || lowerName.includes('barber') || lowerName.includes('coiffure')) {
+      return 'salon';
+    }
+    if (lowerName.includes('cosmetic') || lowerName.includes('beauty') || lowerName.includes('makeup')) {
+      return 'cosmetics';
+    }
+    if (lowerName.includes('restaurant') || lowerName.includes('food') || typeStr.includes('restaurant') || typeStr.includes('meal_takeaway')) {
+      return 'restaurant';
+    }
+    if (lowerName.includes('bar') || lowerName.includes('pub') || lowerName.includes('club') || typeStr.includes('night_club') || typeStr.includes('bar')) {
+      return 'bar';
+    }
+    if (lowerName.includes('hotel') || lowerName.includes('lodge') || typeStr.includes('lodging')) {
+      return 'hotel';
+    }
+    if (lowerName.includes('gas') || lowerName.includes('petrol') || lowerName.includes('fuel') || typeStr.includes('gas_station')) {
+      return 'gas_station';
+    }
+    if (lowerName.includes('bank') || typeStr.includes('bank') || typeStr.includes('atm')) {
+      return 'bank';
+    }
+    if (lowerName.includes('school') || lowerName.includes('college') || lowerName.includes('university') || typeStr.includes('school')) {
+      return 'school';
+    }
+    if (lowerName.includes('hospital') || lowerName.includes('clinic') || lowerName.includes('medical') || typeStr.includes('hospital')) {
+      return 'hospital';
+    }
+    
+    // Default based on search type or fallback to store
+    return typeMapping[searchType] || 'store';
   };
   
   const businessCategory = typeMapping[type] || 'pharmacy';
@@ -158,7 +204,7 @@ async function syncBusinesses(payload: { location?: string; radius?: number; typ
       'Masaka', 'Niboye', 'Nyarugunga', 'Bugesera'
     ];
 
-    // Dynamic search terms based on business type
+    // Dynamic search terms based on business type - EXPANDED
     const typeSearchTerms: { [key: string]: string[] } = {
       'pharmacy': ['pharmacy', 'drugstore', 'pharmacie', 'medical store'],
       'restaurant': ['restaurant', 'eatery', 'dining', 'food'],
@@ -171,7 +217,9 @@ async function syncBusinesses(payload: { location?: string; radius?: number; typ
       'bar': ['bar', 'pub', 'tavern', 'nightclub'],
       'shop': ['shop', 'store', 'boutique', 'retail'],
       'produce': ['market', 'grocery', 'produce', 'fresh food'],
-      'hardware': ['hardware', 'tools', 'building supplies', 'construction']
+      'hardware': ['hardware', 'tools', 'building supplies', 'construction', 'quincaillerie'],
+      'salon': ['salon', 'hair salon', 'beauty salon', 'barber', 'coiffure'],
+      'cosmetics': ['cosmetics', 'beauty products', 'makeup', 'perfume']
     };
 
     const searchTerms = typeSearchTerms[type] || [type];
@@ -241,10 +289,17 @@ async function syncBusinesses(payload: { location?: string; radius?: number; typ
               if (detailsData.status === 'OK') {
                 const placeDetails = detailsData.result;
                 
+                // Use intelligent categorization instead of simple mapping
+                const smartCategory = categorizeBusiness(
+                  placeDetails.name || place.name,
+                  place.types,
+                  type
+                );
+                
                 // Prepare comprehensive business data
                 const businessData = {
                   name: placeDetails.name || place.name,
-                  category: businessCategory as any, // Cast to business_type enum
+                  category: smartCategory as any, // Cast to business_type enum
                   location_gps: placeDetails.geometry?.location ? 
                     `POINT(${placeDetails.geometry.location.lng} ${placeDetails.geometry.location.lat})` : null,
                   momo_code: generateMomoCode(placeDetails.name || place.name),
