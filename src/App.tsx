@@ -24,6 +24,7 @@ import TaskDetail from "./pages/admin/agents/TaskDetail";
 // Conversation and campaign detail pages
 import ConversationDetail from "./pages/admin/conversations/ConversationDetail";
 import CampaignDetail from "./pages/admin/campaigns/CampaignDetail";
+import CampaignCreate from "./pages/admin/campaigns/CampaignCreate";
 import ConversationsInterface from "./pages/admin/ConversationsInterface";
 import { ChatProvider } from "@/components/chat/ChatProvider";
 
@@ -61,6 +62,7 @@ const App = () => (
           
           {/* Conversation and campaign detail routes */}
           <Route path="conversations/:id" element={<ConversationDetail />} />
+          <Route path="campaigns/create" element={<CampaignCreate />} />
           <Route path="campaigns/:id" element={<CampaignDetail />} />
         </Route>
         

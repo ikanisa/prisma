@@ -62,7 +62,7 @@ export default function MessagingCampaigns() {
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">Messaging & Campaigns</h1>
-        <Button>
+        <Button onClick={() => navigate('/admin/campaigns/create')}>
           <Send className="mr-2 h-4 w-4" />
           New Campaign
         </Button>

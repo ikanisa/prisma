@@ -6,7 +6,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
-import { ArrowLeft, Users, Send, MessageSquare, TrendingUp } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { ArrowLeft, Users, Send, MessageSquare, TrendingUp, Play, Pause, Edit, Trash2, Settings, BarChart3, Eye } from "lucide-react";
 import { toast } from "sonner";
 
 interface Campaign {
@@ -183,12 +184,70 @@ export default function CampaignDetail() {
             <p className="text-muted-foreground">{campaign.description}</p>
           </div>
         </div>
-        <Badge variant={
-          campaign.status === 'active' ? 'default' : 
-          campaign.status === 'completed' ? 'secondary' : 'destructive'
-        }>
-          {campaign.status}
-        </Badge>
+        <div className="flex items-center gap-2">
+          <Badge variant={
+            campaign.status === 'active' ? 'default' : 
+            campaign.status === 'completed' ? 'secondary' : 'destructive'
+          }>
+            {campaign.status}
+          </Badge>
+          
+          {/* Campaign Control Actions */}
+          <div className="flex gap-2">
+            {campaign.status === 'active' && (
+              <Button variant="outline" size="sm">
+                <Pause className="h-4 w-4 mr-2" />
+                Pause
+              </Button>
+            )}
+            
+            {campaign.status === 'paused' && (
+              <Button variant="outline" size="sm">
+                <Play className="h-4 w-4 mr-2" />
+                Resume
+              </Button>
+            )}
+            
+            <Button variant="outline" size="sm">
+              <Edit className="h-4 w-4 mr-2" />
+              Edit
+            </Button>
+            
+            <Button variant="outline" size="sm">
+              <BarChart3 className="h-4 w-4 mr-2" />
+              Analytics
+            </Button>
+            
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete Campaign</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Are you sure you want to delete this campaign? This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction 
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    onClick={() => {
+                      toast.success("Campaign deleted successfully");
+                      navigate("/admin/messaging-campaigns");
+                    }}
+                  >
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+        </div>
       </div>
 
       {/* Key Metrics */}
