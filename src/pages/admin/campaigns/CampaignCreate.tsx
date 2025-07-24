@@ -192,9 +192,10 @@ export default function CampaignCreate() {
         {/* Main Form */}
         <div className="lg:col-span-2 space-y-6">
           <Tabs defaultValue="basic" className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="basic">Basic Info</TabsTrigger>
               <TabsTrigger value="template">Template</TabsTrigger>
+              <TabsTrigger value="whatsapp">WhatsApp</TabsTrigger>
               <TabsTrigger value="audience">Audience</TabsTrigger>
               <TabsTrigger value="schedule">Schedule</TabsTrigger>
             </TabsList>
@@ -339,6 +340,86 @@ export default function CampaignCreate() {
                         </div>
                       </div>
                     ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="whatsapp" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <MessageSquare className="h-5 w-5 text-green-600" />
+                      WhatsApp Business Templates
+                    </div>
+                    <Button size="sm" variant="outline">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Sync Templates
+                    </Button>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="text-sm text-gray-600 mb-4">
+                    These templates are synced from your WhatsApp Business account and require approval from WhatsApp before use.
+                  </div>
+                  
+                  <div className="grid gap-4">
+                    {templates.filter(t => t.category === 'pharmacy' || t.category === 'payment' || t.category === 'support').map((template) => (
+                      <div
+                        key={template.id}
+                        className={cn(
+                          "p-4 border rounded-lg transition-colors",
+                          "border-green-200 bg-green-50"
+                        )}
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2">
+                              <h4 className="font-medium">{template.name}</h4>
+                              <Badge variant="outline" className="bg-green-100 text-green-800 border-green-300">
+                                {template.category}
+                              </Badge>
+                              <Badge variant="default" className="bg-green-600">
+                                {template.status}
+                              </Badge>
+                            </div>
+                            <p className="text-sm text-gray-700 max-w-md">{template.content}</p>
+                            {template.variables.length > 0 && (
+                              <div className="flex gap-1 flex-wrap">
+                                <span className="text-xs text-gray-500 mr-2">Variables:</span>
+                                {template.variables.map((variable) => (
+                                  <Badge key={variable} variant="secondary" className="text-xs bg-green-100 text-green-800">
+                                    {variable}
+                                  </Badge>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex gap-2">
+                            <Button variant="outline" size="sm">
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button 
+                              variant="default" 
+                              size="sm"
+                              className="bg-green-600 hover:bg-green-700"
+                              onClick={() => setCampaignData(prev => ({ ...prev, template_id: template.id }))}
+                            >
+                              Use Template
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="mt-6 p-4 border border-dashed border-gray-300 rounded-lg text-center">
+                    <MessageSquare className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                    <p className="text-sm text-gray-600 mb-3">Need more templates? Create them in your WhatsApp Business Manager</p>
+                    <Button variant="outline" size="sm">
+                      Open WhatsApp Manager
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
