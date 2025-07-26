@@ -17,8 +17,10 @@ import SystemOps from "./pages/admin/SystemOps";
 import BusinessDetail from "./pages/admin/BusinessDetail";
 import AdminAuth from "./pages/AdminAuth";
 import EnvSetup from "./pages/admin/EnvSetup";
+import Agents from "./pages/admin/Agents";
+import AgentDetail from "./pages/admin/AgentDetail";
 // Agent detail pages
-import AgentDetail from "./pages/admin/agents/AgentDetail";
+import AgentDetailLegacy from "./pages/admin/agents/AgentDetail";
 import PersonaDetail from "./pages/admin/PersonaDetail";
 import AgentLearning from "./pages/admin/agents/AgentLearning";
 import TaskDetail from "./pages/admin/agents/TaskDetail";
@@ -54,10 +56,12 @@ const App = () => (
           <Route path="ai-agents-models" element={<AIAgentsModels />} />
           <Route path="system-ops" element={<SystemOps />} />
           <Route path="env-setup" element={<EnvSetup />} />
+          <Route path="agents" element={<Agents />} />
+          <Route path="agents/:id" element={<AgentDetail />} />
           <Route path="businesses/:businessId" element={<BusinessDetail />} />
           
           {/* Agent detail routes */}
-          <Route path="agents/:id" element={<AgentDetail />} />
+          <Route path="agents-legacy/:id" element={<AgentDetailLegacy />} />
           <Route path="agents/:agentId/personas/:id" element={<PersonaDetail />} />
           <Route path="agents/:id/learning" element={<AgentLearning />} />
           <Route path="agents/:agentId/tasks/:taskId" element={<TaskDetail />} />
