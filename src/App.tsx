@@ -16,6 +16,7 @@ import AIAgentsModels from "./pages/admin/AIAgentsModels";
 import SystemOps from "./pages/admin/SystemOps";
 import BusinessDetail from "./pages/admin/BusinessDetail";
 import AdminAuth from "./pages/AdminAuth";
+import EnvSetup from "./pages/admin/EnvSetup";
 // Agent detail pages
 import AgentDetail from "./pages/admin/agents/AgentDetail";
 import PersonaDetail from "./pages/admin/PersonaDetail";
@@ -52,6 +53,7 @@ const App = () => (
           <Route path="conversations" element={<ConversationsInterface />} />
           <Route path="ai-agents-models" element={<AIAgentsModels />} />
           <Route path="system-ops" element={<SystemOps />} />
+          <Route path="env-setup" element={<EnvSetup />} />
           <Route path="businesses/:businessId" element={<BusinessDetail />} />
           
           {/* Agent detail routes */}

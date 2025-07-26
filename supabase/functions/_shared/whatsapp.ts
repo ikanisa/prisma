@@ -28,9 +28,9 @@ class WhatsAppClient {
   private baseUrl: string = 'https://graph.facebook.com/v18.0';
 
   constructor() {
-    this.accessToken = Deno.env.get('WHATSAPP_ACCESS_TOKEN') || '';
-    this.phoneNumberId = Deno.env.get('WHATSAPP_PHONE_NUMBER_ID') || '';
-    this.appSecret = Deno.env.get('WHATSAPP_APP_SECRET') || '';
+    this.accessToken = Deno.env.get('META_WABA_TOKEN') || '';
+    this.phoneNumberId = Deno.env.get('META_WABA_PHONE_ID') || '';
+    this.appSecret = Deno.env.get('META_WABA_VERIFY_TOKEN') || '';
 
     if (!this.accessToken || !this.phoneNumberId) {
       throw new Error('Missing required WhatsApp environment variables');

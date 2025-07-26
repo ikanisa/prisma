@@ -12,9 +12,13 @@ import { corsHeaders, createErrorResponse, createSuccessResponse } from "../_sha
 import { validateRequiredEnvVars, sanitizeInput } from "../_shared/validation.ts";
 import { getSupabaseClient, db } from "../_shared/supabase.ts";
 import { logger } from "../_shared/logger.ts";
+import { getEnv, WhatsAppEnv, validateRequiredEnvVars as validateAllEnvVars } from "../_shared/env.ts";
 
-// SECURITY: Validate required environment variables
-validateRequiredEnvVars(['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY']);
+// SECURITY: Validate all required environment variables
+const envValidation = validateAllEnvVars();
+if (!envValidation.isValid) {
+  throw new Error(`Missing required environment variables: ${envValidation.missing.join(', ')}`);
+}
 
 const supabase = getSupabaseClient();
 
@@ -59,7 +63,7 @@ serve(async (req) => {
     }
     
     // Verify webhook signature if secret is available
-    const webhookSecret = Deno.env.get('WHATSAPP_WEBHOOK_SECRET');
+    const webhookSecret = getEnv('META_WABA_VERIFY_TOKEN');
     if (webhookSecret && signature) {
       const { data: isValidSignature } = await supabase.rpc('validate_webhook_signature', {
         payload: rawBody,
