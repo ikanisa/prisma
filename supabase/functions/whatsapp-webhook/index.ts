@@ -28,6 +28,25 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const url = new URL(req.url);
+
+  // Handle Meta webhook verification (GET request)
+  if (req.method === 'GET') {
+    const mode = url.searchParams.get("hub.mode");
+    const token = url.searchParams.get("hub.verify_token");
+    const challenge = url.searchParams.get("hub.challenge");
+    
+    const VERIFY_TOKEN = getEnv("META_WABA_VERIFY_TOKEN");
+    
+    if (mode === "subscribe" && token === VERIFY_TOKEN) {
+      logger.info('Webhook verification successful');
+      return new Response(challenge, { status: 200 });
+    }
+    
+    logger.warn('Webhook verification failed', { mode, tokenMatch: token === VERIFY_TOKEN });
+    return new Response("Forbidden", { status: 403 });
+  }
+
   try {
     logger.info('WhatsApp webhook received');
     

@@ -19,6 +19,7 @@ import AdminAuth from "./pages/AdminAuth";
 import EnvSetup from "./pages/admin/EnvSetup";
 import Agents from "./pages/admin/Agents";
 import AgentDetail from "./pages/admin/AgentDetail";
+import WebhookConfig from "./pages/admin/WebhookConfig";
 // Agent detail pages
 import AgentDetailLegacy from "./pages/admin/agents/AgentDetail";
 import PersonaDetail from "./pages/admin/PersonaDetail";
@@ -56,6 +57,7 @@ const App = () => (
           <Route path="ai-agents-models" element={<AIAgentsModels />} />
           <Route path="system-ops" element={<SystemOps />} />
           <Route path="env-setup" element={<EnvSetup />} />
+          <Route path="webhook-config" element={<WebhookConfig />} />
           <Route path="agents" element={<Agents />} />
           <Route path="agents/:id" element={<AgentDetail />} />
           <Route path="businesses/:businessId" element={<BusinessDetail />} />
