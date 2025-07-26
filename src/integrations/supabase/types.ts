@@ -5031,6 +5031,33 @@ export type Database = {
         }
         Relationships: []
       }
+      rate_limits: {
+        Row: {
+          created_at: string | null
+          endpoint: string
+          id: string
+          identifier: string
+          request_count: number | null
+          window_start: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          endpoint: string
+          id?: string
+          identifier: string
+          request_count?: number | null
+          window_start?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          endpoint?: string
+          id?: string
+          identifier?: string
+          request_count?: number | null
+          window_start?: string | null
+        }
+        Relationships: []
+      }
       referrals: {
         Row: {
           created_at: string | null
@@ -6925,11 +6952,18 @@ export type Database = {
         Returns: boolean
       }
       check_rate_limit: {
-        Args: {
-          identifier: string
-          max_requests?: number
-          window_minutes?: number
-        }
+        Args:
+          | {
+              _identifier: string
+              _endpoint: string
+              _max_requests?: number
+              _window_minutes?: number
+            }
+          | {
+              identifier: string
+              max_requests?: number
+              window_minutes?: number
+            }
         Returns: boolean
       }
       clean_test_data: {
@@ -6941,7 +6975,7 @@ export type Database = {
         Returns: number
       }
       create_admin_user: {
-        Args: { user_id: string }
+        Args: { user_email: string } | { user_id: string }
         Returns: Json
       }
       disablelongtransactions: {
@@ -7046,7 +7080,7 @@ export type Database = {
       }
       gdpr_delete_user_data: {
         Args: { target_user_id: string }
-        Returns: Json
+        Returns: undefined
       }
       gdpr_export_user_data: {
         Args: { target_user_id: string }

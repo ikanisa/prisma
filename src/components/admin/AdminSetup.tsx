@@ -7,6 +7,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { supabase } from '@/integrations/supabase/client';
 import { Shield, UserPlus, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useSecureEmail, useSecureText } from '@/hooks/useSecureInput';
 
 export function AdminSetup() {
   const [adminExists, setAdminExists] = useState<boolean | null>(null);

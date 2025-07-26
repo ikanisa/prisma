@@ -32,6 +32,19 @@ function useChart() {
   return context
 }
 
+// Security: Sanitize CSS values to prevent XSS
+function sanitizeCSSValue(value: string): string {
+  // Remove potentially dangerous CSS injection patterns
+  return value
+    .replace(/[<>'"]/g, '') // Remove HTML/JS injection chars
+    .replace(/javascript:/gi, '') // Remove javascript: URLs
+    .replace(/expression\s*\(/gi, '') // Remove CSS expressions
+    .replace(/url\s*\(/gi, '') // Remove url() functions
+    .replace(/import/gi, '') // Remove @import
+    .replace(/@/g, '') // Remove @ symbols
+    .trim();
+}
+
 const ChartContainer = React.forwardRef<
   HTMLDivElement,
   React.ComponentProps<"div"> & {
@@ -74,28 +87,34 @@ const ChartStyle = ({ id, config }: { id: string; config: ChartConfig }) => {
     return null
   }
 
-  return (
-    <style
-      dangerouslySetInnerHTML={{
-        __html: Object.entries(THEMES)
-          .map(
-            ([theme, prefix]) => `
-${prefix} [data-chart=${id}] {
-${colorConfig
-  .map(([key, itemConfig]) => {
-    const color =
-      itemConfig.theme?.[theme as keyof typeof itemConfig.theme] ||
-      itemConfig.color
-    return color ? `  --color-${key}: ${color};` : null
-  })
-  .join("\n")}
-}
-`
-          )
-          .join("\n"),
-      }}
-    />
-  )
+  // Security: Generate CSS safely without dangerouslySetInnerHTML
+  const cssRules = Object.entries(THEMES)
+    .map(([theme, prefix]) => {
+      const rules = colorConfig
+        .map(([key, itemConfig]) => {
+          const color =
+            itemConfig.theme?.[theme as keyof typeof itemConfig.theme] ||
+            itemConfig.color
+          return color ? `  --color-${sanitizeCSSValue(key)}: ${sanitizeCSSValue(color)};` : null
+        })
+        .filter(Boolean)
+        .join("\n")
+      
+      return rules ? `${prefix} [data-chart=${sanitizeCSSValue(id)}] {\n${rules}\n}` : null
+    })
+    .filter(Boolean)
+    .join("\n")
+
+  // Use a ref to safely inject CSS
+  const styleRef = React.useRef<HTMLStyleElement | null>(null)
+  
+  React.useEffect(() => {
+    if (styleRef.current) {
+      styleRef.current.textContent = cssRules
+    }
+  }, [cssRules])
+
+  return <style ref={styleRef} />
 }
 
 const ChartTooltip = RechartsPrimitive.Tooltip

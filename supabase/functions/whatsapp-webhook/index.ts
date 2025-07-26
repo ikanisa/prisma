@@ -26,8 +26,62 @@ serve(async (req) => {
 
   try {
     logger.info('WhatsApp webhook received');
+    
+    // Security: Verify webhook signature
+    const signature = req.headers.get('x-hub-signature-256');
+    const clientIP = req.headers.get('x-forwarded-for') || req.headers.get('cf-connecting-ip') || 'unknown';
+    
+    // Rate limiting check
+    const { data: rateLimitOk } = await supabase.rpc('check_rate_limit', {
+      _identifier: clientIP,
+      _endpoint: 'whatsapp-webhook',
+      _max_requests: 100,
+      _window_minutes: 60
+    });
+    
+    if (!rateLimitOk) {
+      logger.warn('Rate limit exceeded', { clientIP });
+      return new Response('Rate limit exceeded', { 
+        status: 429, 
+        headers: corsHeaders 
+      });
+    }
 
     const rawBody = await req.text();
+    
+    // Validate request size (max 1MB)
+    if (rawBody.length > 1024 * 1024) {
+      logger.warn('Request too large', { size: rawBody.length, clientIP });
+      return new Response('Request too large', { 
+        status: 413, 
+        headers: corsHeaders 
+      });
+    }
+    
+    // Verify webhook signature if secret is available
+    const webhookSecret = Deno.env.get('WHATSAPP_WEBHOOK_SECRET');
+    if (webhookSecret && signature) {
+      const { data: isValidSignature } = await supabase.rpc('validate_webhook_signature', {
+        payload: rawBody,
+        signature: signature,
+        secret: webhookSecret
+      });
+      
+      if (!isValidSignature) {
+        logger.warn('Invalid webhook signature', { clientIP });
+        // Log security event
+        await supabase.from('security_events').insert({
+          event_type: 'invalid_webhook_signature',
+          severity: 'medium',
+          ip_address: clientIP,
+          details: { endpoint: 'whatsapp-webhook' }
+        });
+        return new Response('Invalid signature', { 
+          status: 401, 
+          headers: corsHeaders 
+        });
+      }
+    }
     
     // Basic payload parsing and validation
     let payload;
