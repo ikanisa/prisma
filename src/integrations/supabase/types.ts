@@ -14,6 +14,48 @@ export type Database = {
   }
   public: {
     Tables: {
+      agent_configs: {
+        Row: {
+          active: boolean | null
+          assistant_id: string
+          code: string
+          created_at: string | null
+          description: string | null
+          id: string
+          name: string
+          system_prompt: string | null
+          temperature: number | null
+          tools_json: Json | null
+          updated_at: string | null
+        }
+        Insert: {
+          active?: boolean | null
+          assistant_id: string
+          code: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          system_prompt?: string | null
+          temperature?: number | null
+          tools_json?: Json | null
+          updated_at?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          assistant_id?: string
+          code?: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          system_prompt?: string | null
+          temperature?: number | null
+          tools_json?: Json | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       agent_conversations: {
         Row: {
           id: string
@@ -346,6 +388,48 @@ export type Database = {
           },
         ]
       }
+      agent_runs: {
+        Row: {
+          agent_code: string
+          conversation_id: string | null
+          created_at: string | null
+          error_message: string | null
+          id: string
+          openai_run_id: string | null
+          request_payload: Json | null
+          response_payload: Json | null
+          status: string | null
+          updated_at: string | null
+          wa_message_id: string | null
+        }
+        Insert: {
+          agent_code: string
+          conversation_id?: string | null
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          openai_run_id?: string | null
+          request_payload?: Json | null
+          response_payload?: Json | null
+          status?: string | null
+          updated_at?: string | null
+          wa_message_id?: string | null
+        }
+        Update: {
+          agent_code?: string
+          conversation_id?: string | null
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          openai_run_id?: string | null
+          request_payload?: Json | null
+          response_payload?: Json | null
+          status?: string | null
+          updated_at?: string | null
+          wa_message_id?: string | null
+        }
+        Relationships: []
+      }
       agent_tasks: {
         Row: {
           active: boolean | null
@@ -386,6 +470,44 @@ export type Database = {
             columns: ["agent_id"]
             isOneToOne: false
             referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_tool_calls: {
+        Row: {
+          created_at: string | null
+          execution_time_ms: number | null
+          id: string
+          run_id: string | null
+          tool_args: Json | null
+          tool_name: string
+          tool_result: Json | null
+        }
+        Insert: {
+          created_at?: string | null
+          execution_time_ms?: number | null
+          id?: string
+          run_id?: string | null
+          tool_args?: Json | null
+          tool_name: string
+          tool_result?: Json | null
+        }
+        Update: {
+          created_at?: string | null
+          execution_time_ms?: number | null
+          id?: string
+          run_id?: string | null
+          tool_args?: Json | null
+          tool_name?: string
+          tool_result?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_tool_calls_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "agent_runs"
             referencedColumns: ["id"]
           },
         ]
@@ -8751,6 +8873,10 @@ export type Database = {
       unlockrows: {
         Args: { "": string }
         Returns: number
+      }
+      update_agent_assistant_id: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
       }
       updategeometrysrid: {
         Args: {
