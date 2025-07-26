@@ -1,7 +1,11 @@
 // supabase/functions/whatsapp_webhook/index.ts
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const VERIFY_TOKEN = Deno.env.get("META_WABA_VERIFY_TOKEN")!;
+const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 serve(async (req) => {
   const url = new URL(req.url);
@@ -29,10 +33,28 @@ serve(async (req) => {
     const messages = changes?.value?.messages;
     if (messages && messages.length > 0) {
       for (const m of messages) {
-        const from = m.from;                  // user number
-        const type = m.type;                  // text, image, etc.
-        const text = m.text?.body || "";
-        // TODO: push into Supabase table or queue (we'll do in Step 2)
+        const from = m.from;
+        const to = changes.value?.metadata?.display_phone_number;
+        const waId = m.id;
+        const type = m.type;
+        const bodyText = m.text?.body || "";
+
+        await supabase.from("whatsapp_messages").insert({
+          wa_message_id: waId,
+          from_number: from,
+          to_number: to,
+          direction: 'in',
+          msg_type: type,
+          body: bodyText,
+          raw_json: m
+        });
+
+        // Upsert conversation
+        await supabase.from("whatsapp_conversations")
+          .upsert({
+            user_number: from,
+            last_message_at: new Date().toISOString()
+          }, { onConflict: 'user_number' });
       }
     }
 

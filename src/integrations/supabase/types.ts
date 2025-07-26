@@ -6673,6 +6673,30 @@ export type Database = {
         }
         Relationships: []
       }
+      whatsapp_conversations: {
+        Row: {
+          context_state: Json | null
+          id: string
+          last_agent_id: string | null
+          last_message_at: string | null
+          user_number: string
+        }
+        Insert: {
+          context_state?: Json | null
+          id?: string
+          last_agent_id?: string | null
+          last_message_at?: string | null
+          user_number: string
+        }
+        Update: {
+          context_state?: Json | null
+          id?: string
+          last_agent_id?: string | null
+          last_message_at?: string | null
+          user_number?: string
+        }
+        Relationships: []
+      }
       whatsapp_delivery_metrics: {
         Row: {
           created_at: string | null
@@ -6742,6 +6766,48 @@ export type Database = {
           processed_at?: string | null
           received_at?: string | null
           timestamp?: string | null
+        }
+        Relationships: []
+      }
+      whatsapp_messages: {
+        Row: {
+          agent_id: string | null
+          body: string | null
+          created_at: string | null
+          direction: string
+          from_number: string
+          id: string
+          msg_type: string | null
+          raw_json: Json | null
+          status: string | null
+          to_number: string
+          wa_message_id: string | null
+        }
+        Insert: {
+          agent_id?: string | null
+          body?: string | null
+          created_at?: string | null
+          direction: string
+          from_number: string
+          id?: string
+          msg_type?: string | null
+          raw_json?: Json | null
+          status?: string | null
+          to_number: string
+          wa_message_id?: string | null
+        }
+        Update: {
+          agent_id?: string | null
+          body?: string | null
+          created_at?: string | null
+          direction?: string
+          from_number?: string
+          id?: string
+          msg_type?: string | null
+          raw_json?: Json | null
+          status?: string | null
+          to_number?: string
+          wa_message_id?: string | null
         }
         Relationships: []
       }
