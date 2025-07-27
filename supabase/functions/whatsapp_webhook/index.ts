@@ -68,8 +68,14 @@ serve(async (req) => {
       const rawBody = await req.text();
       const signature = req.headers.get('x-hub-signature-256') || '';
       
-      // Verify webhook signature
-      if (!await securityManager.validateHmacSignature(rawBody, signature, WEBHOOK_SECRET)) {
+      // Verify webhook signature using database function
+      const { data: signatureValid } = await supabase.rpc('validate_webhook_signature', {
+        payload: rawBody,
+        signature: signature,
+        secret: WEBHOOK_SECRET
+      });
+      
+      if (!signatureValid) {
         await securityManager.logSecurityEvent({
           type: 'invalid_signature',
           severity: 'high',

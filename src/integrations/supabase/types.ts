@@ -5153,6 +5153,24 @@ export type Database = {
         }
         Relationships: []
       }
+      rate_limit_log: {
+        Row: {
+          created_at: string | null
+          id: string
+          request_identifier: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          request_identifier: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          request_identifier?: string
+        }
+        Relationships: []
+      }
       rate_limits: {
         Row: {
           created_at: string | null
@@ -7150,9 +7168,9 @@ export type Database = {
           | {
               identifier: string
               max_requests?: number
-              window_minutes?: number
+              window_seconds?: number
             }
-        Returns: boolean
+        Returns: Json
       }
       clean_test_data: {
         Args: Record<PropertyKey, never>
@@ -7161,6 +7179,10 @@ export type Database = {
       cleanup_expired_payment_sessions: {
         Args: Record<PropertyKey, never>
         Returns: number
+      }
+      cleanup_rate_limit_log: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
       }
       create_admin_user: {
         Args: { user_email: string } | { user_id: string }
@@ -7632,6 +7654,10 @@ export type Database = {
       longtransactionsenabled: {
         Args: Record<PropertyKey, never>
         Returns: boolean
+      }
+      moderate_content: {
+        Args: { content: string }
+        Returns: Json
       }
       path: {
         Args: { "": unknown }
