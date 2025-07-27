@@ -1,10 +1,8 @@
 import { serve } from 'https://deno.land/std@0.170.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js'
-
-const supabase = createClient(
-  Deno.env.get('SUPABASE_URL')!,
-  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-)
+import { getWhatsAppClient } from '../_shared/whatsapp.ts'
+import { WhatsAppEnv, OpenAIEnv, SupabaseEnv } from '../_shared/env.ts'
+import { logger } from '../_shared/logger.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -17,7 +15,13 @@ serve(async (req) => {
   }
 
   try {
-    console.log('🔄 Processing incoming messages...')
+    // Initialize Supabase client with environment validation
+    const supabase = createClient(
+      SupabaseEnv.getUrl(),
+      SupabaseEnv.getServiceRoleKey()
+    )
+
+    logger.info('🔄 Processing incoming messages...')
 
     // STEP 1: Get the first new message
     const { data: messages, error: fetchError } = await supabase
@@ -40,13 +44,14 @@ serve(async (req) => {
     }
 
     const latestMessage = messages[0]
-    console.log(`📨 Processing message from ${latestMessage.phone_number}: ${latestMessage.message}`)
+    logger.info('📨 Processing message', {
+      phone: latestMessage.phone_number,
+      messagePreview: latestMessage.message.substring(0, 50)
+    })
 
     // STEP 2: Get AI response using OpenAI Assistant
-    const openaiApiKey = Deno.env.get('OPENAI_API_KEY')
-    if (!openaiApiKey) {
-      throw new Error('OPENAI_API_KEY not configured')
-    }
+    const openaiApiKey = OpenAIEnv.getApiKey()
+    const assistantId = 'asst_anmQpZHZJxr1JjrlohSyPSx1' // Your assistant ID
 
     // Create a thread and add the user message
     const threadResponse = await fetch('https://api.openai.com/v1/threads', {
@@ -82,7 +87,7 @@ serve(async (req) => {
         'OpenAI-Beta': 'assistants=v2'
       },
       body: JSON.stringify({
-        assistant_id: 'asst_anmQpZHZJxr1JjrlohSyPSx1'
+        assistant_id: assistantId
       })
     })
 
@@ -145,38 +150,16 @@ serve(async (req) => {
     }
 
     const aiReply = assistantMessage.content[0].text.value
-    console.log(`🤖 AI Response: ${aiReply}`)
-
-    // STEP 3: Send reply via WhatsApp API
-    const whatsappToken = Deno.env.get('WHATSAPP_ACCESS_TOKEN')
-    const whatsappPhoneId = Deno.env.get('WHATSAPP_PHONE_ID')
-
-    if (!whatsappToken || !whatsappPhoneId) {
-      throw new Error('WhatsApp credentials not configured')
-    }
-
-    const whatsappResponse = await fetch(`https://graph.facebook.com/v19.0/${whatsappPhoneId}/messages`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${whatsappToken}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        messaging_product: 'whatsapp',
-        to: latestMessage.phone_number,
-        text: {
-          body: aiReply
-        }
-      })
+    logger.info('🤖 AI Response generated', { 
+      responseLength: aiReply.length,
+      preview: aiReply.substring(0, 100)
     })
 
-    if (!whatsappResponse.ok) {
-      const errorText = await whatsappResponse.text()
-      throw new Error(`WhatsApp API error: ${errorText}`)
-    }
-
-    const whatsappResult = await whatsappResponse.json()
-    console.log(`📤 Sent WhatsApp message: ${whatsappResult.messages[0].id}`)
+    // STEP 3: Send reply via WhatsApp API using shared client
+    const whatsappClient = getWhatsAppClient()
+    
+    await whatsappClient.sendTextMessage(latestMessage.phone_number, aiReply)
+    logger.info('📤 WhatsApp message sent successfully')
 
     // STEP 4: Mark message as processed
     const { error: updateError } = await supabase
@@ -191,7 +174,10 @@ serve(async (req) => {
       throw new Error(`Failed to update message status: ${updateError.message}`)
     }
 
-    console.log(`✅ Message processed successfully`)
+    logger.info('✅ Message processed successfully', {
+      phone: latestMessage.phone_number,
+      messageId: latestMessage.id
+    })
 
     return new Response(JSON.stringify({
       success: true,
@@ -199,17 +185,18 @@ serve(async (req) => {
       phone_number: latestMessage.phone_number,
       original_message: latestMessage.message,
       ai_reply: aiReply,
-      whatsapp_message_id: whatsappResult.messages[0].id
+      processed_at: new Date().toISOString()
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })
 
   } catch (error) {
-    console.error('❌ Error processing message:', error)
+    logger.error('❌ Error processing message:', error)
     
     return new Response(JSON.stringify({
       success: false,
-      error: error.message
+      error: error.message,
+      timestamp: new Date().toISOString()
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }

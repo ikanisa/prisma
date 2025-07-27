@@ -7,12 +7,9 @@ import { logger } from './logger.ts';
 
 // Required environment variables for easyMO WhatsApp + AI system
 export const REQUIRED_ENV_VARS = [
-  'META_WABA_PHONE_ID',
-  'META_WABA_BUSINESS_ID', 
-  'META_WABA_TOKEN',
-  'META_WABA_VERIFY_TOKEN',
+  'WHATSAPP_PHONE_ID', // Maps to user's WHATSAPP_PHONE_ID
+  'WHATSAPP_ACCESS_TOKEN', // Maps to user's WHATSAPP_ACCESS_TOKEN
   'OPENAI_API_KEY',
-  'OPENAI_ASSISTANT_ID',
   'SUPABASE_URL',
   'SUPABASE_SERVICE_ROLE_KEY'
 ] as const;
@@ -103,10 +100,8 @@ export function getEnvStatus(): Record<string, boolean> {
  * WhatsApp-specific environment getters
  */
 export const WhatsAppEnv = {
-  getPhoneId: () => getEnv('META_WABA_PHONE_ID'),
-  getBusinessId: () => getEnv('META_WABA_BUSINESS_ID'),
-  getToken: () => getEnv('META_WABA_TOKEN'),
-  getVerifyToken: () => getEnv('META_WABA_VERIFY_TOKEN'),
+  getPhoneId: () => getEnv('WHATSAPP_PHONE_ID'),
+  getToken: () => getEnv('WHATSAPP_ACCESS_TOKEN'),
 };
 
 /**
@@ -114,7 +109,6 @@ export const WhatsAppEnv = {
  */
 export const OpenAIEnv = {
   getApiKey: () => getEnv('OPENAI_API_KEY'),
-  getAssistantId: () => getEnv('OPENAI_ASSISTANT_ID'),
 };
 
 /**

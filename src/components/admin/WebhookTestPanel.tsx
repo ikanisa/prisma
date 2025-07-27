@@ -72,7 +72,7 @@ export function WebhookTestPanel() {
       const testMessage = {
         phone_number: '+250000000001',
         message: `Test message at ${new Date().toISOString()}`,
-        status: 'test'
+        status: 'new'
       };
 
       const { error } = await supabase
@@ -86,6 +86,28 @@ export function WebhookTestPanel() {
     } catch (error) {
       console.error('Error inserting test message:', error);
       toast.error('Failed to insert test message');
+    }
+  };
+
+  const testMessageProcessing = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('process-incoming-messages');
+      
+      if (error) throw error;
+      
+      if (data?.success) {
+        toast.success('Message processed successfully! AI replied via WhatsApp.');
+      } else {
+        toast.info('No new messages to process');
+      }
+      
+      await fetchMessages(); // Refresh to show updated status
+    } catch (error) {
+      console.error('Error processing messages:', error);
+      toast.error('Failed to process messages');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -136,13 +158,21 @@ export function WebhookTestPanel() {
             </div>
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <Button onClick={testWebhookEndpoint} variant="outline" size="sm">
               <RefreshCw className="h-4 w-4 mr-2" />
               Test Webhook
             </Button>
             <Button onClick={testMessageInsertion} variant="outline" size="sm">
               Insert Test Message
+            </Button>
+            <Button 
+              onClick={testMessageProcessing} 
+              variant="secondary" 
+              size="sm"
+              disabled={loading}
+            >
+              Process New Messages
             </Button>
           </div>
         </CardContent>
