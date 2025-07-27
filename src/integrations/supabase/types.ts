@@ -7083,6 +7083,17 @@ export type Database = {
         }
         Relationships: []
       }
+      security_monitoring_dashboard: {
+        Row: {
+          event_count: number | null
+          event_type: string | null
+          hour_bucket: string | null
+          severity: string | null
+          unique_ips: number | null
+          unique_users_affected: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       _postgis_deprecate: {
@@ -7305,6 +7316,15 @@ export type Database = {
         Args: { "": unknown } | { "": unknown }
         Returns: string
       }
+      check_enhanced_rate_limit: {
+        Args: {
+          p_identifier: string
+          p_action: string
+          p_max_requests?: number
+          p_window_minutes?: number
+        }
+        Returns: boolean
+      }
       check_function_exists: {
         Args: { function_name: string }
         Returns: boolean
@@ -7342,6 +7362,10 @@ export type Database = {
       }
       create_admin_user: {
         Args: { user_email: string } | { user_id: string }
+        Returns: Json
+      }
+      detect_suspicious_activity: {
+        Args: { p_user_id?: string; p_time_window_hours?: number }
         Returns: Json
       }
       disablelongtransactions: {
