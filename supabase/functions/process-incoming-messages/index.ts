@@ -159,7 +159,7 @@ serve(async (req) => {
       preview: aiReply.substring(0, 100)
     })
 
-    // STEP 3: Send reply via WhatsApp API
+    // STEP 3: Store and send reply via WhatsApp API
     const whatsappPhoneId = Deno.env.get('WHATSAPP_PHONE_ID')
     const whatsappToken = Deno.env.get('WHATSAPP_ACCESS_TOKEN')
     
@@ -167,23 +167,46 @@ serve(async (req) => {
       throw new Error('WHATSAPP_PHONE_ID and WHATSAPP_ACCESS_TOKEN environment variables are required')
     }
 
-    const whatsappResponse = await fetch(`https://graph.facebook.com/v18.0/${whatsappPhoneId}/messages`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${whatsappToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        messaging_product: 'whatsapp',
-        to: latestMessage.phone_number,
-        type: 'text',
-        text: { body: aiReply }
+    // Store outgoing message
+    const { data: outgoingData, error: outgoingError } = await supabase
+      .from('outgoing_messages')
+      .insert({
+        to_number: latestMessage.phone_number,
+        message_text: aiReply,
+        status: 'pending'
       })
+      .select()
+      .single()
+
+    if (outgoingError) {
+      throw new Error(`Failed to store outgoing message: ${outgoingError.message}`)
+    }
+
+    // Send via WhatsApp using the send function
+    const { data: sendData, error: sendError } = await supabase.functions.invoke('send-whatsapp-message', {
+      body: {
+        to_number: latestMessage.phone_number,
+        message_text: aiReply
+      }
     })
 
-    if (!whatsappResponse.ok) {
-      throw new Error(`Failed to send WhatsApp message: ${whatsappResponse.statusText}`)
+    if (sendError || !sendData?.success) {
+      console.error('❌ Failed to send WhatsApp message:', sendError || sendData)
+      
+      // Update outgoing message status to failed
+      await supabase
+        .from('outgoing_messages')
+        .update({ status: 'failed', updated_at: new Date().toISOString() })
+        .eq('id', outgoingData.id)
+        
+      throw new Error(`Failed to send WhatsApp message: ${sendError?.message || sendData?.error}`)
     }
+    
+    // Update outgoing message status to sent
+    await supabase
+      .from('outgoing_messages')
+      .update({ status: 'sent', updated_at: new Date().toISOString() })
+      .eq('id', outgoingData.id)
     
     console.log('📤 WhatsApp message sent successfully')
 
