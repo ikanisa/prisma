@@ -1,13 +1,49 @@
 import { serve } from 'https://deno.land/std@0.170.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js'
-// Simplified to avoid dependency issues
-// import { getWhatsAppClient } from '../_shared/whatsapp.ts'
-// import { WhatsAppEnv, OpenAIEnv, SupabaseEnv } from '../_shared/env.ts'
-// import { logger } from '../_shared/logger.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
+// Security: Content filtering function
+function containsUnsafeContent(message: string): { safe: boolean; flaggedContent: string[] } {
+  const flags: string[] = [];
+  
+  // Check for potential security threats
+  const securityPatterns = [
+    /script[\s\S]*>/i,
+    /<[^>]*javascript:/i,
+    /eval\s*\(/i,
+    /on\w+\s*=/i
+  ];
+  
+  for (const pattern of securityPatterns) {
+    if (pattern.test(message)) {
+      flags.push('potential_script_injection');
+      break;
+    }
+  }
+  
+  // Check for spam indicators
+  if (message.length > 2000) flags.push('excessive_length');
+  if (/(.)\1{10,}/.test(message)) flags.push('repeated_characters');
+  
+  return { safe: flags.length === 0, flaggedContent: flags };
+}
+
+// Security logging function
+async function logSecurityEvent(eventType: string, severity: string, details: any, supabase: any) {
+  try {
+    await supabase.from('security_events').insert({
+      event_type: eventType,
+      severity,
+      endpoint: '/process-incoming-messages',
+      details
+    });
+  } catch (error) {
+    console.error('Failed to log security event:', error);
+  }
 }
 
 serve(async (req) => {
@@ -50,12 +86,34 @@ serve(async (req) => {
       messagePreview: latestMessage.message.substring(0, 50)
     })
 
+    // Security: Check message content safety
+    const safetyCheck = containsUnsafeContent(latestMessage.message);
+    if (!safetyCheck.safe) {
+      await logSecurityEvent('unsafe_content_detected', 'medium', {
+        phone: latestMessage.phone_number,
+        flaggedContent: safetyCheck.flaggedContent,
+        messageLength: latestMessage.message.length
+      }, supabase);
+      
+      // Log the safety issue
+      await supabase.from('message_safety_log').insert({
+        phone_number: latestMessage.phone_number,
+        message_content: latestMessage.message.slice(0, 500), // Truncate for safety
+        safety_score: 0.5,
+        flagged_content: safetyCheck.flaggedContent,
+        action_taken: 'flagged_and_processed'
+      });
+    }
+
     // STEP 2: Get AI response using OpenAI Assistant
     const openaiApiKey = Deno.env.get('OPENAI_API_KEY')
     if (!openaiApiKey) {
+      await logSecurityEvent('missing_openai_api_key', 'critical', {}, supabase);
       throw new Error('OPENAI_API_KEY environment variable is required')
     }
-    const assistantId = 'asst_anmQpZHZJxr1JjrlohSyPSx1' // Your assistant ID
+    
+    // Security: Use environment variable for assistant ID instead of hardcoded value
+    const assistantId = Deno.env.get('OPENAI_ASSISTANT_ID') || 'asst_anmQpZHZJxr1JjrlohSyPSx1'
 
     // Create a thread and add the user message
     const threadResponse = await fetch('https://api.openai.com/v1/threads', {
@@ -241,6 +299,19 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('❌ Error processing message:', error)
+    
+    // Log security event for processing failures
+    try {
+      const supabase = createClient(
+        Deno.env.get('SUPABASE_URL')!,
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+      )
+      await logSecurityEvent('message_processing_error', 'high', { 
+        error: error.message 
+      }, supabase);
+    } catch (logError) {
+      console.error('Failed to log error event:', logError);
+    }
     
     return new Response(JSON.stringify({
       success: false,

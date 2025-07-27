@@ -3465,6 +3465,36 @@ export type Database = {
         }
         Relationships: []
       }
+      message_safety_log: {
+        Row: {
+          action_taken: string | null
+          created_at: string | null
+          flagged_content: string[] | null
+          id: string
+          message_content: string
+          phone_number: string
+          safety_score: number | null
+        }
+        Insert: {
+          action_taken?: string | null
+          created_at?: string | null
+          flagged_content?: string[] | null
+          id?: string
+          message_content: string
+          phone_number: string
+          safety_score?: number | null
+        }
+        Update: {
+          action_taken?: string | null
+          created_at?: string | null
+          flagged_content?: string[] | null
+          id?: string
+          message_content?: string
+          phone_number?: string
+          safety_score?: number | null
+        }
+        Relationships: []
+      }
       messages: {
         Row: {
           content: string

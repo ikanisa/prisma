@@ -20,7 +20,8 @@ export function WebhookTestPanel() {
   const [webhookStatus, setWebhookStatus] = useState<'checking' | 'ok' | 'error'>('checking');
 
   const webhookUrl = 'https://ijblirphkrrsnxazohwt.functions.supabase.co/whatsapp-webhook';
-  const verifyToken = 'bd0e7b6f4a2c9d83f1e57a0c6b3d48e9';
+  // Security Fix: Remove hardcoded verify token - now using environment variables
+  const verifyToken = 'Configure META_WABA_VERIFY_TOKEN in Edge Functions secrets';
 
   useEffect(() => {
     fetchMessages();
@@ -48,16 +49,12 @@ export function WebhookTestPanel() {
 
   const testWebhookEndpoint = async () => {
     try {
-      // Test GET request for webhook verification
-      const response = await fetch(`${webhookUrl}?hub.mode=subscribe&hub.verify_token=${verifyToken}&hub.challenge=test123`);
+      // Test webhook availability (without verify token since it's now in env vars)
+      const response = await fetch(`${webhookUrl}?hub.mode=subscribe&hub.verify_token=test&hub.challenge=test123`);
       
-      if (response.ok) {
-        const challenge = await response.text();
-        if (challenge === 'test123') {
-          setWebhookStatus('ok');
-        } else {
-          setWebhookStatus('error');
-        }
+      // If we get any response, the endpoint is reachable
+      if (response.status === 200 || response.status === 403) {
+        setWebhookStatus('ok');
       } else {
         setWebhookStatus('error');
       }
@@ -154,8 +151,11 @@ export function WebhookTestPanel() {
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium">Verify Token:</span>
-              <Badge variant="outline">{verifyToken}</Badge>
+              <Badge variant="secondary">Environment Variable</Badge>
             </div>
+            <p className="text-xs text-muted-foreground">
+              Set META_WABA_VERIFY_TOKEN in Edge Functions secrets
+            </p>
           </div>
 
           <div className="flex gap-2 flex-wrap">
