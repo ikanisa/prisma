@@ -30,6 +30,8 @@ import ConversationDetail from "./pages/admin/conversations/ConversationDetail";
 import CampaignDetail from "./pages/admin/campaigns/CampaignDetail";
 import CampaignCreate from "./pages/admin/campaigns/CampaignCreate";
 import ConversationsInterface from "./pages/admin/ConversationsInterface";
+import UnifiedListingsPage from "./pages/admin/UnifiedListingsPage";
+import UnifiedOrdersPage from "./pages/admin/UnifiedOrdersPage";
 import { ChatProvider } from "@/components/chat/ChatProvider";
 import { WhatsAppAgentTest } from "@/components/admin/WhatsAppAgentTest";
 
@@ -51,7 +53,9 @@ const App = () => (
           <Route path="users-contacts" element={<UsersContacts />} />
           <Route path="businesses" element={<Businesses />} />
           <Route path="listings-inventory" element={<ListingsInventory />} />
+          <Route path="unified-listings" element={<UnifiedListingsPage />} />
           <Route path="orders-payments" element={<OrdersPayments />} />
+          <Route path="unified-orders" element={<UnifiedOrdersPage />} />
           <Route path="trips-intents" element={<TripsIntents />} />
           <Route path="messaging-campaigns" element={<MessagingCampaigns />} />
           <Route path="conversations" element={<ConversationsInterface />} />
