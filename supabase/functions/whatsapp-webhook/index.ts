@@ -34,20 +34,46 @@ serve(async (req) => {
       const message = body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0]
       if (message) {
         const phone = message.from
-        const text = message.text?.body || '[Non-text message]'
+        
+        // Handle different message types as per your analysis
+        let messageText = '[Unknown message type]'
+        
+        if (message.text?.body) {
+          messageText = message.text.body
+        } else if (message.reaction) {
+          messageText = `[Reaction: ${message.reaction.emoji} to message]`
+        } else if (message.image) {
+          messageText = '[Image message]'
+          if (message.image.caption) {
+            messageText += `: ${message.image.caption}`
+          }
+        } else if (message.sticker) {
+          messageText = '[Sticker message]'
+        } else if (message.audio) {
+          messageText = '[Audio message]'
+        } else if (message.video) {
+          messageText = '[Video message]'
+          if (message.video.caption) {
+            messageText += `: ${message.video.caption}`
+          }
+        } else if (message.document) {
+          messageText = `[Document: ${message.document.filename || 'unnamed'}]`
+        } else if (message.location) {
+          messageText = `[Location: ${message.location.latitude}, ${message.location.longitude}]`
+        }
 
-        console.log('📞 Processing message:', { phone, text })
+        console.log('📞 Processing message:', { phone, messageText, type: message.type })
 
-        // Save to Supabase with error handling
+        // Save to Supabase with status 'received' for processing
         const { data, error } = await supabase.from('incoming_messages').insert({
           phone_number: phone,
-          message: text,
-          status: 'new'
+          message: messageText,
+          status: 'received'
         })
 
         if (error) {
           console.error('❌ Insert failed:', error.message)
-          return new Response('Database Error', { status: 500 })
+          // Don't return error to WhatsApp - we want to acknowledge receipt
         } else {
           console.log('✅ Message saved to incoming_messages:', data)
         }

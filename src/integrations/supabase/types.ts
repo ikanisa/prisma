@@ -3914,6 +3914,36 @@ export type Database = {
         }
         Relationships: []
       }
+      outgoing_messages: {
+        Row: {
+          created_at: string | null
+          id: string
+          message_text: string
+          status: string | null
+          timestamp: string | null
+          to_number: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          message_text: string
+          status?: string | null
+          timestamp?: string | null
+          to_number: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          message_text?: string
+          status?: string | null
+          timestamp?: string | null
+          to_number?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       passenger_intents: {
         Row: {
           created_at: string | null

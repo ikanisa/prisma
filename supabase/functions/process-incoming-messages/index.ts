@@ -28,7 +28,7 @@ serve(async (req) => {
     const { data: messages, error: fetchError } = await supabase
       .from('incoming_messages')
       .select('*')
-      .eq('status', 'new')
+      .eq('status', 'received')
       .order('created_at', { ascending: true })
       .limit(1)
 
