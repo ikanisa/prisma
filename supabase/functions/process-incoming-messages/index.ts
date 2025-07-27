@@ -86,6 +86,34 @@ serve(async (req) => {
       messagePreview: latestMessage.message.substring(0, 50)
     })
 
+    // Validate message before processing
+    if (typeof latestMessage.message !== 'string' || latestMessage.message.length > 2000) {
+      console.log('⚠️ Skipping invalid message:', {
+        phone: latestMessage.phone_number,
+        isString: typeof latestMessage.message === 'string',
+        length: latestMessage.message?.length
+      });
+
+      // Mark as processed but don't send to AI
+      await supabase
+        .from('incoming_messages')
+        .update({ 
+          status: 'processed',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', latestMessage.id);
+
+      return new Response(JSON.stringify({
+        success: true,
+        message: 'Invalid message skipped',
+        phone_number: latestMessage.phone_number,
+        reason: 'Message validation failed',
+        processed_at: new Date().toISOString()
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
     // Security: Check message content safety
     const safetyCheck = containsUnsafeContent(latestMessage.message);
     if (!safetyCheck.safe) {

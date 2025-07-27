@@ -6,8 +6,8 @@ const supabase = createClient(
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 )
 
-// Security Fix: Remove hardcoded verify token
-const VERIFY_TOKEN = Deno.env.get('META_WABA_VERIFY_TOKEN') || Deno.env.get('WHATSAPP_VERIFY_TOKEN')
+// Security Fix: Accept either WHATSAPP_VERIFY_TOKEN or META_WABA_VERIFY_TOKEN
+const VERIFY_TOKEN = Deno.env.get('WHATSAPP_VERIFY_TOKEN') || Deno.env.get('META_WABA_VERIFY_TOKEN')
 
 // CORS headers for security
 const corsHeaders = {
@@ -62,6 +62,53 @@ function extractMessageText(message: any): string {
   return `[${sanitizeInput(message.type) ?? "unknown"} message received]`;
 }
 
+// Input validation function
+function validateMessageInput(messageText: string): { valid: boolean; error?: string } {
+  if (typeof messageText !== 'string') {
+    return { valid: false, error: 'Message must be a string' };
+  }
+  if (messageText.length > 2000) {
+    return { valid: false, error: 'Message exceeds 2000 character limit' };
+  }
+  return { valid: true };
+}
+
+// Rate limiting function (10-second per-sender limit)
+async function checkRateLimit(phoneNumber: string): Promise<{ allowed: boolean; error?: string }> {
+  try {
+    const { data: lastMessage, error } = await supabase
+      .from('incoming_messages')
+      .select('created_at')
+      .eq('phone_number', phoneNumber)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    if (error && error.code !== 'PGRST116') { // PGRST116 = no rows found
+      console.error('Rate limit check error:', error);
+      return { allowed: true }; // Allow on error to avoid blocking
+    }
+
+    if (lastMessage) {
+      const lastMessageTime = new Date(lastMessage.created_at).getTime();
+      const now = Date.now();
+      const timeDiff = now - lastMessageTime;
+      
+      if (timeDiff < 10000) { // 10 seconds
+        return { 
+          allowed: false, 
+          error: `Rate limit exceeded. Please wait ${Math.ceil((10000 - timeDiff) / 1000)} seconds.` 
+        };
+      }
+    }
+
+    return { allowed: true };
+  } catch (error) {
+    console.error('Rate limit check failed:', error);
+    return { allowed: true }; // Allow on error to avoid blocking
+  }
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -106,6 +153,28 @@ serve(async (req) => {
         const messageText = extractMessageText(message)
 
         console.log('📞 Processing message:', { phone, messageText, type: message.type })
+
+        // Rate limiting check
+        const rateLimitCheck = await checkRateLimit(phone);
+        if (!rateLimitCheck.allowed) {
+          await logSecurityEvent('rate_limit_exceeded', 'medium', 
+            { phone, error: rateLimitCheck.error }, req);
+          return new Response(JSON.stringify({ error: rateLimitCheck.error }), { 
+            status: 429, 
+            headers: corsHeaders 
+          });
+        }
+
+        // Input validation
+        const validationResult = validateMessageInput(messageText);
+        if (!validationResult.valid) {
+          await logSecurityEvent('invalid_input_received', 'medium', 
+            { phone, error: validationResult.error, messageLength: messageText.length }, req);
+          return new Response(JSON.stringify({ error: validationResult.error }), { 
+            status: 400, 
+            headers: corsHeaders 
+          });
+        }
 
         // Log potential safety concerns for long messages
         if (messageText.length > 500) {

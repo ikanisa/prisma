@@ -18,10 +18,44 @@ serve(async (req: Request): Promise<Response> => {
   try {
     const { to_number, message_text } = await req.json();
     
+    // Enhanced input validation
     if (!to_number || !message_text) {
       return new Response(JSON.stringify({ 
         success: false, 
         error: 'Missing to_number or message_text' 
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
+
+    // Validate to_number format (basic phone number validation)
+    if (typeof to_number !== 'string' || !/^\+?[1-9]\d{1,14}$/.test(to_number.replace(/\s/g, ''))) {
+      return new Response(JSON.stringify({ 
+        success: false, 
+        error: 'Invalid phone number format' 
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
+
+    // Validate message_text
+    if (typeof message_text !== 'string') {
+      return new Response(JSON.stringify({ 
+        success: false, 
+        error: 'Message text must be a string' 
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
+
+    // Limit message length to 2000 characters
+    if (message_text.length > 2000) {
+      return new Response(JSON.stringify({ 
+        success: false, 
+        error: 'Message exceeds 2000 character limit' 
       }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
