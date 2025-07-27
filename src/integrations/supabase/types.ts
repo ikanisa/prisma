@@ -6872,20 +6872,10 @@ export type Database = {
     Views: {
       conversation_summary: {
         Row: {
-          channel: string | null
-          contact_avatar: string | null
-          contact_name: string | null
-          conversation_duration_minutes: number | null
-          is_archived: boolean | null
-          is_muted: boolean | null
-          is_pinned: boolean | null
-          last_message: string | null
-          last_message_sender: string | null
-          last_message_time: string | null
+          last_message_at: string | null
+          latest_message_time: string | null
           message_count: number | null
-          phone_number: string | null
-          status: string | null
-          unread_count: number | null
+          user_number: string | null
         }
         Relationships: []
       }
@@ -7181,6 +7171,10 @@ export type Database = {
         Returns: number
       }
       cleanup_rate_limit_log: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+      cleanup_security_events: {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
@@ -7650,6 +7644,10 @@ export type Database = {
           status: string | null
           whatsapp: string | null
         }[]
+      }
+      log_security_event: {
+        Args: { event_type: string; severity: string; details?: Json }
+        Returns: undefined
       }
       longtransactionsenabled: {
         Args: Record<PropertyKey, never>
