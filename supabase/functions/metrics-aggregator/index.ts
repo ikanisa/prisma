@@ -253,7 +253,7 @@ async function getQualityMetrics(since: Date) {
 
   return {
     avgQualityScore: evalData.length > 0 
-      ? evalData.reduce((sum, eval) => sum + (eval.overall_score || 0), 0) / evalData.length 
+      ? evalData.reduce((sum, evaluation) => sum + (evaluation.overall_score || 0), 0) / evalData.length 
       : 0,
     avgSatisfactionRating: convData.length > 0
       ? convData.reduce((sum, conv) => sum + (conv.satisfaction_rating || 0), 0) / convData.length
