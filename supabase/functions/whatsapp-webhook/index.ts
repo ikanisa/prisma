@@ -8,6 +8,26 @@ const supabase = createClient(
 
 const VERIFY_TOKEN = Deno.env.get('META_WABA_VERIFY_TOKEN') || 'bd0e7b6f4a2c9d83f1e57a0c6b3d48e9'
 
+function extractMessageText(message: any): string {
+  if (message.text?.body) {
+    return message.text.body;
+  }
+  if (message.type === "reaction" && message.reaction?.emoji) {
+    return `Reaction: ${message.reaction.emoji}`;
+  }
+  if (message.type === "image" && message.image?.caption) {
+    return message.image.caption;
+  }
+  if (message.type === "sticker") {
+    return "[Sticker received]";
+  }
+  if (Array.isArray(message.errors) && message.errors.length > 0) {
+    const err = message.errors[0];
+    return `[Unsupported message] ${err.title ?? "Unknown"}`;
+  }
+  return `[${message.type ?? "unknown"} message received]`;
+}
+
 serve(async (req) => {
   const { method, url } = req
   const { searchParams } = new URL(url)
@@ -34,33 +54,7 @@ serve(async (req) => {
       const message = body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0]
       if (message) {
         const phone = message.from
-        
-        // Handle different message types as per your analysis
-        let messageText = '[Unknown message type]'
-        
-        if (message.text?.body) {
-          messageText = message.text.body
-        } else if (message.reaction) {
-          messageText = `[Reaction: ${message.reaction.emoji} to message]`
-        } else if (message.image) {
-          messageText = '[Image message]'
-          if (message.image.caption) {
-            messageText += `: ${message.image.caption}`
-          }
-        } else if (message.sticker) {
-          messageText = '[Sticker message]'
-        } else if (message.audio) {
-          messageText = '[Audio message]'
-        } else if (message.video) {
-          messageText = '[Video message]'
-          if (message.video.caption) {
-            messageText += `: ${message.video.caption}`
-          }
-        } else if (message.document) {
-          messageText = `[Document: ${message.document.filename || 'unnamed'}]`
-        } else if (message.location) {
-          messageText = `[Location: ${message.location.latitude}, ${message.location.longitude}]`
-        }
+        const messageText = extractMessageText(message)
 
         console.log('📞 Processing message:', { phone, messageText, type: message.type })
 

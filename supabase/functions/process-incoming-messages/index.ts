@@ -160,11 +160,11 @@ serve(async (req) => {
     })
 
     // STEP 3: Store and send reply via WhatsApp API
-    const whatsappPhoneId = Deno.env.get('WHATSAPP_PHONE_ID')
-    const whatsappToken = Deno.env.get('WHATSAPP_ACCESS_TOKEN')
+    const whatsappPhoneId = Deno.env.get('META_WABA_PHONE_ID') || Deno.env.get('WHATSAPP_PHONE_ID')
+    const whatsappToken = Deno.env.get('META_WABA_TOKEN') || Deno.env.get('WHATSAPP_ACCESS_TOKEN')
     
     if (!whatsappPhoneId || !whatsappToken) {
-      throw new Error('WHATSAPP_PHONE_ID and WHATSAPP_ACCESS_TOKEN environment variables are required')
+      throw new Error('META_WABA_PHONE_ID and META_WABA_TOKEN environment variables are required')
     }
 
     // Store outgoing message
