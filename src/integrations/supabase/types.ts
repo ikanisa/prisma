@@ -7317,12 +7317,8 @@ export type Database = {
               _max_requests?: number
               _window_minutes?: number
             }
-          | {
-              identifier: string
-              max_requests?: number
-              window_seconds?: number
-            }
-        Returns: Json
+          | { identifier: string; max_requests: number; window_minutes: number }
+        Returns: boolean
       }
       clean_test_data: {
         Args: Record<PropertyKey, never>
@@ -7684,6 +7680,10 @@ export type Database = {
         Args: { "": string }
         Returns: unknown
       }
+      get_auth: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
       get_proj4_from_srid: {
         Args: { "": number }
         Returns: string
@@ -7820,7 +7820,7 @@ export type Database = {
         Returns: boolean
       }
       moderate_content: {
-        Args: { content: string }
+        Args: { content_text: string }
         Returns: Json
       }
       path: {
@@ -8011,6 +8011,10 @@ export type Database = {
       }
       postgis_wagyu_version: {
         Args: Record<PropertyKey, never>
+        Returns: string
+      }
+      sanitize_user_input: {
+        Args: { input_text: string }
         Returns: string
       }
       security_compliance_summary: {
@@ -9147,6 +9151,10 @@ export type Database = {
       upsert_embedding: {
         Args: { doc_id: string; chunk: string; embedding: string }
         Returns: undefined
+      }
+      validate_phone_number: {
+        Args: { phone: string }
+        Returns: boolean
       }
       validate_webhook_signature: {
         Args: { payload: string; signature: string; secret: string }
