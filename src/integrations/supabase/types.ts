@@ -5258,6 +5258,39 @@ export type Database = {
         }
         Relationships: []
       }
+      rate_limit_tracker: {
+        Row: {
+          blocked_until: string | null
+          created_at: string | null
+          endpoint: string
+          id: string
+          identifier: string
+          request_count: number | null
+          updated_at: string | null
+          window_start: string | null
+        }
+        Insert: {
+          blocked_until?: string | null
+          created_at?: string | null
+          endpoint: string
+          id?: string
+          identifier: string
+          request_count?: number | null
+          updated_at?: string | null
+          window_start?: string | null
+        }
+        Update: {
+          blocked_until?: string | null
+          created_at?: string | null
+          endpoint?: string
+          id?: string
+          identifier?: string
+          request_count?: number | null
+          updated_at?: string | null
+          window_start?: string | null
+        }
+        Relationships: []
+      }
       rate_limits: {
         Row: {
           created_at: string | null
@@ -5438,6 +5471,48 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      security_audit_log: {
+        Row: {
+          created_at: string | null
+          details: Json | null
+          endpoint: string | null
+          event_type: string
+          id: string
+          phone_number: string | null
+          severity: string
+          source_ip: string | null
+          timestamp: string | null
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          details?: Json | null
+          endpoint?: string | null
+          event_type: string
+          id?: string
+          phone_number?: string | null
+          severity?: string
+          source_ip?: string | null
+          timestamp?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          details?: Json | null
+          endpoint?: string | null
+          event_type?: string
+          id?: string
+          phone_number?: string | null
+          severity?: string
+          source_ip?: string | null
+          timestamp?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
       }
       security_events: {
         Row: {
@@ -7256,6 +7331,10 @@ export type Database = {
       cleanup_expired_payment_sessions: {
         Args: Record<PropertyKey, never>
         Returns: number
+      }
+      cleanup_old_logs: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
       }
       cleanup_rate_limit_log: {
         Args: Record<PropertyKey, never>
