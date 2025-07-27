@@ -1366,6 +1366,72 @@ export type Database = {
         }
         Relationships: []
       }
+      code_quality_metrics: {
+        Row: {
+          ai_model: string | null
+          file_path: string | null
+          id: string
+          measurement_date: string | null
+          metadata: Json | null
+          metric_name: string
+          metric_value: number
+        }
+        Insert: {
+          ai_model?: string | null
+          file_path?: string | null
+          id?: string
+          measurement_date?: string | null
+          metadata?: Json | null
+          metric_name: string
+          metric_value: number
+        }
+        Update: {
+          ai_model?: string | null
+          file_path?: string | null
+          id?: string
+          measurement_date?: string | null
+          metadata?: Json | null
+          metric_name?: string
+          metric_value?: number
+        }
+        Relationships: []
+      }
+      code_review_results: {
+        Row: {
+          ai_responses: Json
+          consolidated_issues: Json
+          created_at: string | null
+          id: string
+          overall_score: number
+          project_analysis: Json | null
+          review_date: string
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          ai_responses?: Json
+          consolidated_issues?: Json
+          created_at?: string | null
+          id?: string
+          overall_score?: number
+          project_analysis?: Json | null
+          review_date?: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          ai_responses?: Json
+          consolidated_issues?: Json
+          created_at?: string | null
+          id?: string
+          overall_score?: number
+          project_analysis?: Json | null
+          review_date?: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       contact_limits: {
         Row: {
           created_at: string | null
@@ -9153,6 +9219,10 @@ export type Database = {
       text: {
         Args: { "": unknown }
         Returns: string
+      }
+      trigger_automated_review: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
       }
       unlockrows: {
         Args: { "": string }

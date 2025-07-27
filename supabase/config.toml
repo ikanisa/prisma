@@ -64,6 +64,9 @@ verify_jwt = false
 [functions.mcp-orchestrator]
 verify_jwt = false
 
+[functions.multi-ai-code-reviewer]
+verify_jwt = false
+
 [functions.system-health-monitor]
 verify_jwt = false
 
