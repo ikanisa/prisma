@@ -7,29 +7,24 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { useUnifiedOrders, OrderType, OrderStatus, PaymentStatus, useUpdateOrderStatus } from '@/hooks/useUnifiedOrders';
+import { useUnifiedOrders, OrderStatus, useUpdateOrderStatus } from '@/hooks/useUnifiedOrders';
 import { format } from 'date-fns';
 import { toast } from '@/hooks/use-toast';
 
 export default function UnifiedOrdersPage() {
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedType, setSelectedType] = useState<OrderType | 'all'>('all');
   const [selectedStatus, setSelectedStatus] = useState<OrderStatus | 'all'>('all');
-  const [selectedPaymentStatus, setSelectedPaymentStatus] = useState<PaymentStatus | 'all'>('all');
 
   const { data: orders = [], isLoading, error } = useUnifiedOrders({
-    orderType: selectedType !== 'all' ? selectedType : undefined,
     status: selectedStatus !== 'all' ? selectedStatus : undefined,
-    paymentStatus: selectedPaymentStatus !== 'all' ? selectedPaymentStatus : undefined,
   });
 
   const updateOrderStatusMutation = useUpdateOrderStatus();
 
   const filteredOrders = orders.filter(order => {
     const matchesSearch = !searchTerm || 
-      order.customer_phone?.includes(searchTerm) ||
       order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.businesses?.name?.toLowerCase().includes(searchTerm.toLowerCase());
+      order.listing_id.toLowerCase().includes(searchTerm.toLowerCase());
     
     return matchesSearch;
   });
@@ -50,21 +45,7 @@ export default function UnifiedOrdersPage() {
     }
   };
 
-  const handlePaymentStatusUpdate = async (orderId: string, paymentStatus: PaymentStatus) => {
-    try {
-      await updateOrderStatusMutation.mutateAsync({ orderId, paymentStatus });
-      toast({
-        title: "Success",
-        description: "Payment status updated successfully",
-      });
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to update payment status",
-        variant: "destructive",
-      });
-    }
-  };
+  // Payment status updates removed as the unified schema only has order status
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -119,8 +100,8 @@ export default function UnifiedOrdersPage() {
     }
   };
 
-  const totalRevenue = filteredOrders.reduce((sum, order) => sum + order.total_amount, 0);
-  const paidOrders = filteredOrders.filter(order => order.payment_status === 'paid');
+  const totalRevenue = filteredOrders.reduce((sum, order) => sum + (order.price * order.quantity), 0);
+  const completedOrders = filteredOrders.filter(order => order.status === 'completed');
   const pendingOrders = filteredOrders.filter(order => order.status === 'pending');
 
   if (error) {
@@ -178,7 +159,7 @@ export default function UnifiedOrdersPage() {
               <Package className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-blue-600">{paidOrders.length}</div>
+              <div className="text-2xl font-bold text-blue-600">{completedOrders.length}</div>
             </CardContent>
           </Card>
           <Card>
@@ -213,19 +194,7 @@ export default function UnifiedOrdersPage() {
                   />
                 </div>
               </div>
-              <Select value={selectedType} onValueChange={(value) => setSelectedType(value as OrderType | 'all')}>
-                <SelectTrigger className="w-48">
-                  <SelectValue placeholder="Filter by type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Types</SelectItem>
-                  <SelectItem value="marketplace">Marketplace</SelectItem>
-                  <SelectItem value="produce">Produce</SelectItem>
-                  <SelectItem value="pharmacy">Pharmacy</SelectItem>
-                  <SelectItem value="hardware">Hardware</SelectItem>
-                  <SelectItem value="services">Services</SelectItem>
-                </SelectContent>
-              </Select>
+              {/* Type filter removed - unified schema doesn't have order_type */}
               <Select value={selectedStatus} onValueChange={(value) => setSelectedStatus(value as OrderStatus | 'all')}>
                 <SelectTrigger className="w-48">
                   <SelectValue placeholder="Filter by status" />
@@ -234,25 +203,13 @@ export default function UnifiedOrdersPage() {
                   <SelectItem value="all">All Status</SelectItem>
                   <SelectItem value="pending">Pending</SelectItem>
                   <SelectItem value="confirmed">Confirmed</SelectItem>
-                  <SelectItem value="preparing">Preparing</SelectItem>
-                  <SelectItem value="delivering">Delivering</SelectItem>
+                  {/* Removed preparing/delivering as they're not in our unified schema */}
                   <SelectItem value="completed">Completed</SelectItem>
                   <SelectItem value="cancelled">Cancelled</SelectItem>
-                  <SelectItem value="refunded">Refunded</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={selectedPaymentStatus} onValueChange={(value) => setSelectedPaymentStatus(value as PaymentStatus | 'all')}>
-                <SelectTrigger className="w-48">
-                  <SelectValue placeholder="Payment status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Payment Status</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="paid">Paid</SelectItem>
                   <SelectItem value="failed">Failed</SelectItem>
-                  <SelectItem value="refunded">Refunded</SelectItem>
                 </SelectContent>
               </Select>
+              {/* Payment status filter removed - unified schema doesn't have payment_status */}
             </div>
           </CardContent>
         </Card>
@@ -274,12 +231,12 @@ export default function UnifiedOrdersPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Order ID</TableHead>
-                    <TableHead>Customer</TableHead>
-                    <TableHead>Business</TableHead>
-                    <TableHead>Type</TableHead>
+                    <TableHead>Listing ID</TableHead>
+                    <TableHead>Quantity</TableHead>
+                    <TableHead>Unit Price</TableHead>
                     <TableHead>Amount</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>Payment</TableHead>
+                    {/* Payment column removed */}
                     <TableHead>Created</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
@@ -293,29 +250,19 @@ export default function UnifiedOrdersPage() {
                         </span>
                       </TableCell>
                       <TableCell>
-                        <div>
-                          <div className="font-medium">{order.customer_phone}</div>
-                          <div className="text-sm text-muted-foreground">
-                            {order.items.length} item{order.items.length !== 1 ? 's' : ''}
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <span className="font-medium">
-                          {order.businesses?.name || 'Unknown'}
+                        <span className="font-mono text-sm">
+                          {order.listing_id.slice(0, 8)}...
                         </span>
                       </TableCell>
                       <TableCell>
-                        <Badge className={getTypeColor(order.order_type)}>
-                          {order.order_type}
-                        </Badge>
+                        <span className="font-medium">{order.quantity}</span>
+                      </TableCell>
+                      <TableCell>
+                        <span className="font-medium">${order.price}</span>
                       </TableCell>
                       <TableCell>
                         <span className="font-medium">
-                          {new Intl.NumberFormat('en-RW', {
-                            style: 'currency',
-                            currency: order.currency
-                          }).format(order.total_amount)}
+                          ${(order.price * order.quantity).toFixed(2)}
                         </span>
                       </TableCell>
                       <TableCell>
@@ -331,32 +278,14 @@ export default function UnifiedOrdersPage() {
                           <SelectContent>
                             <SelectItem value="pending">Pending</SelectItem>
                             <SelectItem value="confirmed">Confirmed</SelectItem>
-                            <SelectItem value="preparing">Preparing</SelectItem>
-                            <SelectItem value="delivering">Delivering</SelectItem>
+                            {/* Removed invalid status options */}
                             <SelectItem value="completed">Completed</SelectItem>
                             <SelectItem value="cancelled">Cancelled</SelectItem>
-                            <SelectItem value="refunded">Refunded</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
-                      <TableCell>
-                        <Select 
-                          value={order.payment_status} 
-                          onValueChange={(value) => handlePaymentStatusUpdate(order.id, value as PaymentStatus)}
-                        >
-                          <SelectTrigger className="w-24">
-                            <Badge className={getPaymentStatusColor(order.payment_status)}>
-                              {order.payment_status}
-                            </Badge>
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="pending">Pending</SelectItem>
-                            <SelectItem value="paid">Paid</SelectItem>
                             <SelectItem value="failed">Failed</SelectItem>
-                            <SelectItem value="refunded">Refunded</SelectItem>
                           </SelectContent>
                         </Select>
                       </TableCell>
+                      {/* Payment status removed from unified schema */}
                       <TableCell>
                         {format(new Date(order.created_at), 'MMM d, yyyy HH:mm')}
                       </TableCell>

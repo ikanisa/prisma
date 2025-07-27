@@ -115,7 +115,7 @@ export default function UnifiedListingsPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-blue-600">
-                {listings.filter(l => l.featured).length}
+                {listings.filter(l => l.metadata?.featured).length}
               </div>
             </CardContent>
           </Card>
@@ -125,7 +125,7 @@ export default function UnifiedListingsPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-gray-600">
-                {listings.filter(l => l.status === 'sold').length}
+                {listings.filter(l => l.status === 'archived').length}
               </div>
             </CardContent>
           </Card>
@@ -219,8 +219,8 @@ export default function UnifiedListingsPage() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge className={getTypeColor(listing.listing_type || '')}>
-                          {listing.listing_type}
+                        <Badge className={getTypeColor(listing.type || '')}>
+                          {listing.type}
                         </Badge>
                       </TableCell>
                       <TableCell>
@@ -241,16 +241,16 @@ export default function UnifiedListingsPage() {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        {listing.stock_quantity !== null ? (
-                          <span className={listing.stock_quantity <= 5 ? 'text-red-600 font-medium' : ''}>
-                            {listing.stock_quantity}
+                        {listing.metadata?.stock_quantity !== null ? (
+                          <span className={listing.metadata?.stock_quantity <= 5 ? 'text-red-600 font-medium' : ''}>
+                            {listing.metadata?.stock_quantity}
                           </span>
                         ) : (
                           <span className="text-muted-foreground">∞</span>
                         )}
                       </TableCell>
                       <TableCell>
-                        {listing.featured && (
+                        {listing.metadata?.featured && (
                           <Badge variant="secondary">Featured</Badge>
                         )}
                       </TableCell>

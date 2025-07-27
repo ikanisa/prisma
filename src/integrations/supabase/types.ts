@@ -1679,15 +1679,7 @@ export type Database = {
           phone_number?: string | null
           style_score?: number | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "conversation_evaluations_conversation_id_fkey"
-            columns: ["conversation_id"]
-            isOneToOne: false
-            referencedRelation: "conversations"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       conversation_flows: {
         Row: {
@@ -1863,15 +1855,7 @@ export type Database = {
           response_text?: string
           safety_flags?: Json | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "conversation_quality_conversation_id_fkey"
-            columns: ["conversation_id"]
-            isOneToOne: false
-            referencedRelation: "conversations"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       conversation_threads: {
         Row: {
@@ -1902,69 +1886,38 @@ export type Database = {
       }
       conversations: {
         Row: {
-          agent_id: string | null
-          assigned_agent_id: string | null
-          channel: string
-          contact_id: string
-          contact_phone: string | null
-          conversation_duration_minutes: number | null
+          channel: Database["public"]["Enums"]["channel_type"]
+          context: Json | null
           created_at: string | null
-          ended_at: string | null
-          handoff_at: string | null
-          handoff_reason: string | null
-          handoff_requested: boolean | null
           id: string
-          message_count: number | null
-          metadata: Json | null
-          model_used: string | null
-          resolved_at: string | null
-          started_at: string | null
-          status: string | null
-          thread_id: string | null
+          updated_at: string | null
+          user_id: string | null
         }
         Insert: {
-          agent_id?: string | null
-          assigned_agent_id?: string | null
-          channel: string
-          contact_id: string
-          contact_phone?: string | null
-          conversation_duration_minutes?: number | null
+          channel?: Database["public"]["Enums"]["channel_type"]
+          context?: Json | null
           created_at?: string | null
-          ended_at?: string | null
-          handoff_at?: string | null
-          handoff_reason?: string | null
-          handoff_requested?: boolean | null
           id?: string
-          message_count?: number | null
-          metadata?: Json | null
-          model_used?: string | null
-          resolved_at?: string | null
-          started_at?: string | null
-          status?: string | null
-          thread_id?: string | null
+          updated_at?: string | null
+          user_id?: string | null
         }
         Update: {
-          agent_id?: string | null
-          assigned_agent_id?: string | null
-          channel?: string
-          contact_id?: string
-          contact_phone?: string | null
-          conversation_duration_minutes?: number | null
+          channel?: Database["public"]["Enums"]["channel_type"]
+          context?: Json | null
           created_at?: string | null
-          ended_at?: string | null
-          handoff_at?: string | null
-          handoff_reason?: string | null
-          handoff_requested?: boolean | null
           id?: string
-          message_count?: number | null
-          metadata?: Json | null
-          model_used?: string | null
-          resolved_at?: string | null
-          started_at?: string | null
-          status?: string | null
-          thread_id?: string | null
+          updated_at?: string | null
+          user_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "conversations_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       cron_executions: {
         Row: {
@@ -3509,46 +3462,40 @@ export type Database = {
       }
       messages: {
         Row: {
-          content: string
+          content: string | null
           conversation_id: string | null
           created_at: string | null
           id: string
-          message_type: string | null
-          metadata: Json | null
-          reply_to_id: string | null
+          processed_at: string | null
+          raw: Json | null
           sender_id: string | null
-          sender_type: string
-          status: string | null
-          thread_id: string | null
-          updated_at: string | null
+          sender_type: Database["public"]["Enums"]["sender_type"]
+          status: Database["public"]["Enums"]["message_status"]
+          type: Database["public"]["Enums"]["message_type"]
         }
         Insert: {
-          content: string
+          content?: string | null
           conversation_id?: string | null
           created_at?: string | null
           id?: string
-          message_type?: string | null
-          metadata?: Json | null
-          reply_to_id?: string | null
+          processed_at?: string | null
+          raw?: Json | null
           sender_id?: string | null
-          sender_type: string
-          status?: string | null
-          thread_id?: string | null
-          updated_at?: string | null
+          sender_type: Database["public"]["Enums"]["sender_type"]
+          status?: Database["public"]["Enums"]["message_status"]
+          type?: Database["public"]["Enums"]["message_type"]
         }
         Update: {
-          content?: string
+          content?: string | null
           conversation_id?: string | null
           created_at?: string | null
           id?: string
-          message_type?: string | null
-          metadata?: Json | null
-          reply_to_id?: string | null
+          processed_at?: string | null
+          raw?: Json | null
           sender_id?: string | null
-          sender_type?: string
-          status?: string | null
-          thread_id?: string | null
-          updated_at?: string | null
+          sender_type?: Database["public"]["Enums"]["sender_type"]
+          status?: Database["public"]["Enums"]["message_status"]
+          type?: Database["public"]["Enums"]["message_type"]
         }
         Relationships: [
           {
@@ -3559,10 +3506,10 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "messages_reply_to_id_fkey"
-            columns: ["reply_to_id"]
+            foreignKeyName: "messages_sender_id_fkey"
+            columns: ["sender_id"]
             isOneToOne: false
-            referencedRelation: "messages"
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]
@@ -3819,7 +3766,6 @@ export type Database = {
           id: string
           items: Json | null
           payment_id: string | null
-          status: Database["public"]["Enums"]["order_status"] | null
           total_price: number | null
           user_id: string | null
         }
@@ -3836,7 +3782,6 @@ export type Database = {
           id?: string
           items?: Json | null
           payment_id?: string | null
-          status?: Database["public"]["Enums"]["order_status"] | null
           total_price?: number | null
           user_id?: string | null
         }
@@ -3853,7 +3798,6 @@ export type Database = {
           id?: string
           items?: Json | null
           payment_id?: string | null
-          status?: Database["public"]["Enums"]["order_status"] | null
           total_price?: number | null
           user_id?: string | null
         }
@@ -6525,156 +6469,104 @@ export type Database = {
       }
       unified_listings: {
         Row: {
-          category: string | null
           created_at: string | null
-          deleted_at: string | null
           description: string | null
-          featured: boolean | null
           id: string
-          images: string[] | null
-          listing_type: Database["public"]["Enums"]["listing_type_enum"]
           location_gps: unknown | null
           metadata: Json | null
+          owner_id: string | null
           price: number | null
-          status: string | null
-          stock_quantity: number | null
-          subcategory: string | null
-          tags: string[] | null
+          status: Database["public"]["Enums"]["listing_status"]
           title: string
-          unit_of_measure: string | null
+          type: Database["public"]["Enums"]["listing_type"]
           updated_at: string | null
-          vendor_id: string | null
-          visibility: string | null
         }
         Insert: {
-          category?: string | null
           created_at?: string | null
-          deleted_at?: string | null
           description?: string | null
-          featured?: boolean | null
           id?: string
-          images?: string[] | null
-          listing_type: Database["public"]["Enums"]["listing_type_enum"]
           location_gps?: unknown | null
           metadata?: Json | null
+          owner_id?: string | null
           price?: number | null
-          status?: string | null
-          stock_quantity?: number | null
-          subcategory?: string | null
-          tags?: string[] | null
+          status?: Database["public"]["Enums"]["listing_status"]
           title: string
-          unit_of_measure?: string | null
+          type: Database["public"]["Enums"]["listing_type"]
           updated_at?: string | null
-          vendor_id?: string | null
-          visibility?: string | null
         }
         Update: {
-          category?: string | null
           created_at?: string | null
-          deleted_at?: string | null
           description?: string | null
-          featured?: boolean | null
           id?: string
-          images?: string[] | null
-          listing_type?: Database["public"]["Enums"]["listing_type_enum"]
           location_gps?: unknown | null
           metadata?: Json | null
+          owner_id?: string | null
           price?: number | null
-          status?: string | null
-          stock_quantity?: number | null
-          subcategory?: string | null
-          tags?: string[] | null
+          status?: Database["public"]["Enums"]["listing_status"]
           title?: string
-          unit_of_measure?: string | null
+          type?: Database["public"]["Enums"]["listing_type"]
           updated_at?: string | null
-          vendor_id?: string | null
-          visibility?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "unified_listings_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       unified_orders: {
         Row: {
-          cancelled_at: string | null
-          completed_at: string | null
           created_at: string | null
-          currency: string | null
-          customer_id: string | null
-          customer_phone: string
-          delivery_address: Json | null
-          delivery_fee: number | null
-          delivery_method: string | null
-          delivery_notes: string | null
-          domain_metadata: Json | null
           id: string
-          items: Json
-          listing_ids: string[] | null
-          notes: string | null
-          order_type: string
-          payment_method: string | null
-          payment_reference: string | null
-          payment_status: string | null
-          status: string | null
-          subtotal: number
-          tax_amount: number | null
-          total_amount: number
+          listing_id: string | null
+          metadata: Json | null
+          price: number
+          quantity: number
+          status: Database["public"]["Enums"]["order_status"]
           updated_at: string | null
-          vendor_id: string | null
+          user_id: string | null
         }
         Insert: {
-          cancelled_at?: string | null
-          completed_at?: string | null
           created_at?: string | null
-          currency?: string | null
-          customer_id?: string | null
-          customer_phone: string
-          delivery_address?: Json | null
-          delivery_fee?: number | null
-          delivery_method?: string | null
-          delivery_notes?: string | null
-          domain_metadata?: Json | null
           id?: string
-          items?: Json
-          listing_ids?: string[] | null
-          notes?: string | null
-          order_type?: string
-          payment_method?: string | null
-          payment_reference?: string | null
-          payment_status?: string | null
-          status?: string | null
-          subtotal?: number
-          tax_amount?: number | null
-          total_amount?: number
+          listing_id?: string | null
+          metadata?: Json | null
+          price: number
+          quantity?: number
+          status?: Database["public"]["Enums"]["order_status"]
           updated_at?: string | null
-          vendor_id?: string | null
+          user_id?: string | null
         }
         Update: {
-          cancelled_at?: string | null
-          completed_at?: string | null
           created_at?: string | null
-          currency?: string | null
-          customer_id?: string | null
-          customer_phone?: string
-          delivery_address?: Json | null
-          delivery_fee?: number | null
-          delivery_method?: string | null
-          delivery_notes?: string | null
-          domain_metadata?: Json | null
           id?: string
-          items?: Json
-          listing_ids?: string[] | null
-          notes?: string | null
-          order_type?: string
-          payment_method?: string | null
-          payment_reference?: string | null
-          payment_status?: string | null
-          status?: string | null
-          subtotal?: number
-          tax_amount?: number | null
-          total_amount?: number
+          listing_id?: string | null
+          metadata?: Json | null
+          price?: number
+          quantity?: number
+          status?: Database["public"]["Enums"]["order_status"]
           updated_at?: string | null
-          vendor_id?: string | null
+          user_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "unified_orders_listing_id_fkey"
+            columns: ["listing_id"]
+            isOneToOne: false
+            referencedRelation: "unified_listings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "unified_orders_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_behavior_patterns: {
         Row: {
@@ -9281,24 +9173,29 @@ export type Database = {
         | "store"
         | "salon"
         | "cosmetics"
+      channel_type: "whatsapp" | "telegram" | "web" | "mobile"
       driver_type: "moto" | "cab" | "truck"
       evt: "sent" | "delivered" | "read" | "clicked" | "opt_out"
+      listing_status: "draft" | "active" | "inactive" | "archived"
+      listing_type: "product" | "produce" | "property" | "vehicle" | "service"
       listing_type_enum:
         | "product"
         | "produce"
         | "property"
         | "vehicle"
         | "hardware"
+      message_status: "received" | "processed" | "failed"
+      message_type: "text" | "image" | "document" | "template" | "location"
       order_status:
         | "pending"
-        | "paid"
-        | "preparing"
-        | "delivering"
-        | "fulfilled"
+        | "confirmed"
+        | "completed"
         | "cancelled"
+        | "failed"
       payment_status: "pending" | "paid" | "failed"
       property_action: "rent" | "sale"
       property_status: "draft" | "published" | "archived" | "pending"
+      sender_type: "customer" | "business" | "driver" | "system" | "agent"
       source_type: "manual" | "upload" | "url" | "gdrive"
       trip_status: "scheduled" | "ongoing" | "completed" | "cancelled"
       vehicle_action: "rent" | "sale"
@@ -9456,8 +9353,11 @@ export const Constants = {
         "salon",
         "cosmetics",
       ],
+      channel_type: ["whatsapp", "telegram", "web", "mobile"],
       driver_type: ["moto", "cab", "truck"],
       evt: ["sent", "delivered", "read", "clicked", "opt_out"],
+      listing_status: ["draft", "active", "inactive", "archived"],
+      listing_type: ["product", "produce", "property", "vehicle", "service"],
       listing_type_enum: [
         "product",
         "produce",
@@ -9465,17 +9365,19 @@ export const Constants = {
         "vehicle",
         "hardware",
       ],
+      message_status: ["received", "processed", "failed"],
+      message_type: ["text", "image", "document", "template", "location"],
       order_status: [
         "pending",
-        "paid",
-        "preparing",
-        "delivering",
-        "fulfilled",
+        "confirmed",
+        "completed",
         "cancelled",
+        "failed",
       ],
       payment_status: ["pending", "paid", "failed"],
       property_action: ["rent", "sale"],
       property_status: ["draft", "published", "archived", "pending"],
+      sender_type: ["customer", "business", "driver", "system", "agent"],
       source_type: ["manual", "upload", "url", "gdrive"],
       trip_status: ["scheduled", "ongoing", "completed", "cancelled"],
       vehicle_action: ["rent", "sale"],
