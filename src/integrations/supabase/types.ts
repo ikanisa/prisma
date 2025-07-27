@@ -235,30 +235,6 @@ export type Database = {
           },
         ]
       }
-      agent_memory: {
-        Row: {
-          id: string
-          memory_type: string | null
-          memory_value: string | null
-          updated_at: string | null
-          user_id: string | null
-        }
-        Insert: {
-          id?: string
-          memory_type?: string | null
-          memory_value?: string | null
-          updated_at?: string | null
-          user_id?: string | null
-        }
-        Update: {
-          id?: string
-          memory_type?: string | null
-          memory_value?: string | null
-          updated_at?: string | null
-          user_id?: string | null
-        }
-        Relationships: []
-      }
       agent_memory_enhanced: {
         Row: {
           agent_id: string | null
@@ -985,45 +961,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      businesses_backup: {
-        Row: {
-          category: Database["public"]["Enums"]["business_type"] | null
-          created_at: string | null
-          id: string | null
-          location_gps: unknown | null
-          momo_code: string | null
-          name: string | null
-          owner_user_id: string | null
-          pos_system_config: Json | null
-          status: string | null
-          subscription_status: string | null
-        }
-        Insert: {
-          category?: Database["public"]["Enums"]["business_type"] | null
-          created_at?: string | null
-          id?: string | null
-          location_gps?: unknown | null
-          momo_code?: string | null
-          name?: string | null
-          owner_user_id?: string | null
-          pos_system_config?: Json | null
-          status?: string | null
-          subscription_status?: string | null
-        }
-        Update: {
-          category?: Database["public"]["Enums"]["business_type"] | null
-          created_at?: string | null
-          id?: string | null
-          location_gps?: unknown | null
-          momo_code?: string | null
-          name?: string | null
-          owner_user_id?: string | null
-          pos_system_config?: Json | null
-          status?: string | null
-          subscription_status?: string | null
-        }
-        Relationships: []
       }
       campaign_messages: {
         Row: {
@@ -1814,12 +1751,14 @@ export type Database = {
       }
       conversation_messages: {
         Row: {
+          avg_response_time_ms: number | null
           channel: string | null
           confidence_score: number | null
           created_at: string | null
           file_name: string | null
           file_size: number | null
           file_url: string | null
+          flow_completed: boolean | null
           id: string
           message_text: string | null
           message_type: string | null
@@ -1828,16 +1767,19 @@ export type Database = {
           phone_number: string | null
           reactions: Json | null
           reply_to: string | null
+          satisfaction_rating: number | null
           sender: string | null
           status: string | null
         }
         Insert: {
+          avg_response_time_ms?: number | null
           channel?: string | null
           confidence_score?: number | null
           created_at?: string | null
           file_name?: string | null
           file_size?: number | null
           file_url?: string | null
+          flow_completed?: boolean | null
           id?: string
           message_text?: string | null
           message_type?: string | null
@@ -1846,16 +1788,19 @@ export type Database = {
           phone_number?: string | null
           reactions?: Json | null
           reply_to?: string | null
+          satisfaction_rating?: number | null
           sender?: string | null
           status?: string | null
         }
         Update: {
+          avg_response_time_ms?: number | null
           channel?: string | null
           confidence_score?: number | null
           created_at?: string | null
           file_name?: string | null
           file_size?: number | null
           file_url?: string | null
+          flow_completed?: boolean | null
           id?: string
           message_text?: string | null
           message_type?: string | null
@@ -1864,6 +1809,7 @@ export type Database = {
           phone_number?: string | null
           reactions?: Json | null
           reply_to?: string | null
+          satisfaction_rating?: number | null
           sender?: string | null
           status?: string | null
         }
@@ -7415,6 +7361,10 @@ export type Database = {
         Returns: number
       }
       cleanup_old_logs: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+      cleanup_old_messages: {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }

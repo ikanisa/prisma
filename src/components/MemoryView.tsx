@@ -28,13 +28,23 @@ export function MemoryView() {
     setLoading(true);
     try {
       const { data, error } = await supabase
-        .from('agent_memory')
+        .from('agent_memory_enhanced')
         .select('*')
         .order('updated_at', { ascending: false })
         .limit(100);
 
       if (error) throw error;
-      setMemories(data || []);
+      
+      // Transform the enhanced memory data to match the expected Memory interface
+      const transformedData = data?.map(item => ({
+        id: item.id,
+        user_id: item.user_id,
+        memory_type: item.memory_type,
+        memory_value: typeof item.memory_value === 'string' ? item.memory_value : JSON.stringify(item.memory_value),
+        updated_at: item.updated_at
+      })) || [];
+      
+      setMemories(transformedData);
     } catch (error) {
       console.error('Error fetching memories:', error);
     } finally {
