@@ -1,8 +1,9 @@
 import { serve } from 'https://deno.land/std@0.170.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js'
-import { getWhatsAppClient } from '../_shared/whatsapp.ts'
-import { WhatsAppEnv, OpenAIEnv, SupabaseEnv } from '../_shared/env.ts'
-import { logger } from '../_shared/logger.ts'
+// Simplified to avoid dependency issues
+// import { getWhatsAppClient } from '../_shared/whatsapp.ts'
+// import { WhatsAppEnv, OpenAIEnv, SupabaseEnv } from '../_shared/env.ts'
+// import { logger } from '../_shared/logger.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -15,13 +16,13 @@ serve(async (req) => {
   }
 
   try {
-    // Initialize Supabase client with environment validation
+    // Initialize Supabase client 
     const supabase = createClient(
-      SupabaseEnv.getUrl(),
-      SupabaseEnv.getServiceRoleKey()
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     )
 
-    logger.info('🔄 Processing incoming messages...')
+    console.log('🔄 Processing incoming messages...')
 
     // STEP 1: Get the first new message
     const { data: messages, error: fetchError } = await supabase
@@ -44,13 +45,16 @@ serve(async (req) => {
     }
 
     const latestMessage = messages[0]
-    logger.info('📨 Processing message', {
+    console.log('📨 Processing message', {
       phone: latestMessage.phone_number,
       messagePreview: latestMessage.message.substring(0, 50)
     })
 
     // STEP 2: Get AI response using OpenAI Assistant
-    const openaiApiKey = OpenAIEnv.getApiKey()
+    const openaiApiKey = Deno.env.get('OPENAI_API_KEY')
+    if (!openaiApiKey) {
+      throw new Error('OPENAI_API_KEY environment variable is required')
+    }
     const assistantId = 'asst_anmQpZHZJxr1JjrlohSyPSx1' // Your assistant ID
 
     // Create a thread and add the user message
@@ -150,16 +154,38 @@ serve(async (req) => {
     }
 
     const aiReply = assistantMessage.content[0].text.value
-    logger.info('🤖 AI Response generated', { 
+    console.log('🤖 AI Response generated', { 
       responseLength: aiReply.length,
       preview: aiReply.substring(0, 100)
     })
 
-    // STEP 3: Send reply via WhatsApp API using shared client
-    const whatsappClient = getWhatsAppClient()
+    // STEP 3: Send reply via WhatsApp API
+    const whatsappPhoneId = Deno.env.get('WHATSAPP_PHONE_ID')
+    const whatsappToken = Deno.env.get('WHATSAPP_ACCESS_TOKEN')
     
-    await whatsappClient.sendTextMessage(latestMessage.phone_number, aiReply)
-    logger.info('📤 WhatsApp message sent successfully')
+    if (!whatsappPhoneId || !whatsappToken) {
+      throw new Error('WHATSAPP_PHONE_ID and WHATSAPP_ACCESS_TOKEN environment variables are required')
+    }
+
+    const whatsappResponse = await fetch(`https://graph.facebook.com/v18.0/${whatsappPhoneId}/messages`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${whatsappToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        messaging_product: 'whatsapp',
+        to: latestMessage.phone_number,
+        type: 'text',
+        text: { body: aiReply }
+      })
+    })
+
+    if (!whatsappResponse.ok) {
+      throw new Error(`Failed to send WhatsApp message: ${whatsappResponse.statusText}`)
+    }
+    
+    console.log('📤 WhatsApp message sent successfully')
 
     // STEP 4: Mark message as processed
     const { error: updateError } = await supabase
@@ -174,7 +200,7 @@ serve(async (req) => {
       throw new Error(`Failed to update message status: ${updateError.message}`)
     }
 
-    logger.info('✅ Message processed successfully', {
+    console.log('✅ Message processed successfully', {
       phone: latestMessage.phone_number,
       messageId: latestMessage.id
     })
@@ -191,7 +217,7 @@ serve(async (req) => {
     })
 
   } catch (error) {
-    logger.error('❌ Error processing message:', error)
+    console.error('❌ Error processing message:', error)
     
     return new Response(JSON.stringify({
       success: false,
