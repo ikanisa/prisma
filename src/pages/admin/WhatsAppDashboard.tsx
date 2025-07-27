@@ -11,6 +11,7 @@ import { ConversationView } from '@/components/ConversationView';
 import { MemoryView } from '@/components/MemoryView';
 import { Settings as SettingsComponent } from '@/components/Settings';
 import { WebhookTestPanel } from '@/components/admin/WebhookTestPanel';
+import { MessageProcessingTest } from '@/components/admin/MessageProcessingTest';
 
 interface Conversation {
   id: string;
@@ -229,7 +230,10 @@ export default function WhatsAppDashboard() {
         </div>
         
         <TabsContent value="webhook">
-          <WebhookTestPanel />
+          <div className="space-y-6">
+            <MessageProcessingTest />
+            <WebhookTestPanel />
+          </div>
         </TabsContent>
         
           <TabsContent value="conversations">
