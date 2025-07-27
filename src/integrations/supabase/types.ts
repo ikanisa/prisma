@@ -7095,6 +7095,30 @@ export type Database = {
         }
         Relationships: []
       }
+      secure_spatial_ref_sys: {
+        Row: {
+          auth_name: string | null
+          auth_srid: number | null
+          proj4text: string | null
+          srid: number | null
+          srtext: string | null
+        }
+        Insert: {
+          auth_name?: string | null
+          auth_srid?: number | null
+          proj4text?: string | null
+          srid?: number | null
+          srtext?: string | null
+        }
+        Update: {
+          auth_name?: string | null
+          auth_srid?: number | null
+          proj4text?: string | null
+          srid?: number | null
+          srtext?: string | null
+        }
+        Relationships: []
+      }
       security_monitoring_dashboard: {
         Row: {
           event_count: number | null
@@ -7741,6 +7765,16 @@ export type Database = {
           function_name: string
           security_type: string
           has_search_path: boolean
+        }[]
+      }
+      get_spatial_ref_sys: {
+        Args: { srid_param?: number }
+        Returns: {
+          srid: number
+          auth_name: string
+          auth_srid: number
+          srtext: string
+          proj4text: string
         }[]
       }
       gettransactionid: {
