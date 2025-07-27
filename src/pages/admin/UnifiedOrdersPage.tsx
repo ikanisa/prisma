@@ -377,7 +377,6 @@ export default function UnifiedOrdersPage() {
             )}
           </CardContent>
         </Card>
-      </div>
     </div>
   );
 }

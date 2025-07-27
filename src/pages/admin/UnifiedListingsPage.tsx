@@ -277,7 +277,6 @@ export default function UnifiedListingsPage() {
             )}
           </CardContent>
         </Card>
-      </div>
     </div>
   );
 }
