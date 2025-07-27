@@ -74,20 +74,20 @@ async function aggregateDashboardMetrics() {
       totalMessages,
       agentExecutions24h
     ] = await Promise.allSettled([
-      // Use WhatsApp conversations table for user count
-      supabase.from('whatsapp_conversations').select('id', { count: 'exact', head: true }),
+      // Use contacts table for user count
+      supabase.from('contacts').select('id', { count: 'exact', head: true }),
       
-      // Total conversations from WhatsApp
-      supabase.from('whatsapp_conversations').select('id', { count: 'exact', head: true }),
+      // Total conversations from conversation_messages
+      supabase.from('conversation_messages').select('id', { count: 'exact', head: true }),
       
-      // Total orders
-      supabase.from('orders').select('id', { count: 'exact', head: true }),
+      // Total orders from unified_orders
+      supabase.from('unified_orders').select('id', { count: 'exact', head: true }),
       
       // Total businesses
       supabase.from('businesses').select('id', { count: 'exact', head: true }),
       
       // Messages for activity metric
-      supabase.from('whatsapp_messages')
+      supabase.from('conversation_messages')
         .select('id', { count: 'exact', head: true })
         .gte('created_at', last24h.toISOString()),
       
@@ -139,7 +139,7 @@ async function aggregateDashboardMetrics() {
     let revenue24h = 0;
     
     try {
-      const revenueQuery = await supabase.from('orders')
+      const revenueQuery = await supabase.from('unified_orders')
         .select('total, created_at')
         .eq('status', 'completed')
         .not('total', 'is', null);
