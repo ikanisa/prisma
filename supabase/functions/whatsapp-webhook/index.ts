@@ -3,7 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js'
 
 const supabase = createClient(
   Deno.env.get('SUPABASE_URL')!,
-  Deno.env.get('SUPABASE_ANON_KEY')!
+  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 )
 
 const VERIFY_TOKEN = 'bd0e7b6f4a2c9d83f1e57a0c6b3d48e9'
@@ -27,22 +27,39 @@ serve(async (req) => {
 
   // ✅ STEP 2: Handle incoming messages
   if (method === 'POST') {
-    const body = await req.json()
+    try {
+      const body = await req.json()
+      console.log('📥 Webhook payload:', JSON.stringify(body, null, 2))
 
-    const message = body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0]
-    if (message) {
-      const phone = message.from
-      const text = message.text?.body || ''
+      const message = body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0]
+      if (message) {
+        const phone = message.from
+        const text = message.text?.body || '[Non-text message]'
 
-      // Save to Supabase
-      await supabase.from('incoming_messages').insert({
-        phone_number: phone,
-        message: text,
-        status: 'new'
-      })
+        console.log('📞 Processing message:', { phone, text })
+
+        // Save to Supabase with error handling
+        const { data, error } = await supabase.from('incoming_messages').insert({
+          phone_number: phone,
+          message: text,
+          status: 'new'
+        })
+
+        if (error) {
+          console.error('❌ Insert failed:', error.message)
+          return new Response('Database Error', { status: 500 })
+        } else {
+          console.log('✅ Message saved to incoming_messages:', data)
+        }
+      } else {
+        console.log('⚠️ No valid message found in payload')
+      }
+
+      return new Response('OK', { status: 200 })
+    } catch (err) {
+      console.error('❌ Webhook error:', err.message)
+      return new Response('Error', { status: 500 })
     }
-
-    return new Response('OK', { status: 200 })
   }
 
   return new Response('Method Not Allowed', { status: 405 })
