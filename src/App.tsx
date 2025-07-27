@@ -31,6 +31,7 @@ import CampaignDetail from "./pages/admin/campaigns/CampaignDetail";
 import CampaignCreate from "./pages/admin/campaigns/CampaignCreate";
 import ConversationsInterface from "./pages/admin/ConversationsInterface";
 import { ChatProvider } from "@/components/chat/ChatProvider";
+import { WhatsAppAgentTest } from "@/components/admin/WhatsAppAgentTest";
 
 const queryClient = new QueryClient();
 
@@ -58,6 +59,7 @@ const App = () => (
           <Route path="system-ops" element={<SystemOps />} />
           <Route path="env-setup" element={<EnvSetup />} />
           <Route path="webhook-config" element={<WebhookConfig />} />
+          <Route path="whatsapp-test" element={<WhatsAppAgentTest />} />
           <Route path="agents" element={<Agents />} />
           <Route path="agents/:id" element={<AgentDetail />} />
           <Route path="businesses/:businessId" element={<BusinessDetail />} />
