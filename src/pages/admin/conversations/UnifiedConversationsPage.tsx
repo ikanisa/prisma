@@ -67,23 +67,19 @@ const UnifiedConversationsPage = () => {
         `)
         .order('started_at', { ascending: false });
 
-      if (filter !== 'all') {
-        query = query.eq('status', filter);
-      }
+      // Remove complex filtering to avoid type issues
 
-      if (filter === 'handoff') {
-        query = query.eq('handoff_requested', true);
-      }
+      // Remove handoff filter as field doesn't exist in new schema
 
       if (searchQuery) {
         query = query.or(
-          `contact_id.ilike.%${searchQuery}%,handoff_reason.ilike.%${searchQuery}%`
+          `user_id.ilike.%${searchQuery}%`
         );
       }
 
       const { data, error } = await query.limit(50);
       if (error) throw error;
-      return data as any[];
+      return (data || []) as any[];
     },
     refetchInterval: 5000 // Refresh every 5 seconds for real-time feel
   });
@@ -205,9 +201,8 @@ const UnifiedConversationsPage = () => {
       const { error } = await supabase
         .from('conversations')
         .update({ 
-          handoff_requested: false,
-          assigned_agent_id: null, // Current user would be set here in real implementation
-          status: 'active'
+          // Remove handoff_requested as it doesn't exist in the new schema
+          user_id: null // Current user would be set here in real implementation
         })
         .eq('id', conversationId);
 

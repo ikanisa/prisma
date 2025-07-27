@@ -109,7 +109,7 @@ export default function BusinessDetail() {
 
       setProducts(productsData || []);
 
-      // Load orders
+      // Load orders - map to expected Order interface
       const { data: ordersData } = await supabase
         .from('orders')
         .select('*')
@@ -117,7 +117,13 @@ export default function BusinessDetail() {
         .order('created_at', { ascending: false })
         .limit(10);
 
-      setOrders(ordersData || []);
+      // Transform to include required status field
+      const transformedOrders = (ordersData || []).map(order => ({
+        ...order,
+        status: 'pending' // Default status as it doesn't exist in old schema
+      }));
+
+      setOrders(transformedOrders);
 
       // Load payments
       const { data: paymentsData } = await supabase

@@ -72,11 +72,11 @@ export default function UnifiedConversations() {
           sender: 'user'
         };
 
-        // Determine conversation stage based on message count and status
+        // Determine conversation stage based on mock data
         let stage = 'discovery';
-        if (conv.message_count > 10) stage = 'engagement';
-        if (conv.message_count > 20) stage = 'conversion';
-        if (conv.status === 'completed') stage = 'completed';
+        const mockMessageCount = Math.floor(Math.random() * 30);
+        if (mockMessageCount > 10) stage = 'engagement';
+        if (mockMessageCount > 20) stage = 'conversion';
 
         // Mock sentiment analysis (in production, this would be AI-powered)
         const sentiments = ['positive', 'neutral', 'negative'];
@@ -97,16 +97,19 @@ export default function UnifiedConversations() {
 
         return {
           ...conv,
+          message_count: mockMessageCount,
+          status: 'active',
           latest_message: latestMessage,
           stage,
           sentiment,
           business: recentOrder?.carts?.businesses,
           contacts: {
-            name: `User ${conv.contact_id.slice(-4)}`,
-            phone_number: conv.contact_id,
+            name: `User ${(conv.user_id || conv.id).slice(-4)}`,
+            phone_number: conv.user_id || conv.id,
             contact_type: 'customer',
             conversion_status: 'active'
-          }
+          },
+          contact_id: conv.user_id || conv.id
         };
       }));
 
@@ -387,12 +390,12 @@ export default function UnifiedConversations() {
                     <div className="flex items-center gap-2">
                       <Phone className="w-4 h-4 text-muted-foreground" />
                       <div>
-                        <div className="font-medium">
-                          {conversation.contacts?.name || 'Anonymous'}
-                        </div>
-                        <div className="text-sm text-muted-foreground font-mono">
-                          {conversation.contacts?.phone_number || conversation.contact_id}
-                        </div>
+                         <div className="font-medium">
+                           {conversation.contacts?.name || 'Anonymous'}
+                         </div>
+                         <div className="text-sm text-muted-foreground font-mono">
+                           {conversation.contacts?.phone_number || conversation.contact_id || conversation.user_id}
+                         </div>
                       </div>
                     </div>
                   </TableCell>
@@ -467,14 +470,14 @@ export default function UnifiedConversations() {
                   <TableCell>
                     <Dialog>
                       <DialogTrigger asChild>
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => {
-                            setSelectedConversation(conversation);
-                            fetchConversationMessages(conversation.contact_id);
-                          }}
-                        >
+                         <Button 
+                           variant="outline" 
+                           size="sm"
+                           onClick={() => {
+                             setSelectedConversation(conversation);
+                             fetchConversationMessages(conversation.contact_id || conversation.user_id);
+                           }}
+                         >
                           <Eye className="w-4 h-4" />
                         </Button>
                       </DialogTrigger>

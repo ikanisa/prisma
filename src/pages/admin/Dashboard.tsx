@@ -201,7 +201,7 @@ export default function Dashboard() {
 
       // Update KPI data with real-time values
       const activeDrivers = driversResult.data?.filter(driver => driver.is_online).length || 0;
-      const pendingOrders = ordersResult.data?.filter(order => order.status === 'pending').length || 0;
+      const pendingOrders = ordersResult.count || 0; // Use count instead of filtering since status doesn't exist
       
       setKpiData(prev => ({
         ...prev,

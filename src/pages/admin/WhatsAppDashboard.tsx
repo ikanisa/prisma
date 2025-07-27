@@ -102,11 +102,27 @@ export default function WhatsAppDashboard() {
     const { data, error } = await supabase
       .from('conversations')
       .select('*')
-      .order('started_at', { ascending: false })
+      .order('created_at', { ascending: false })
       .limit(20);
 
     if (error) throw error;
-    setConversations(data || []);
+    
+    // Transform conversations to match expected interface
+    const transformedConversations = (data || []).map(conv => ({
+      id: conv.id,
+      contact_id: conv.user_id || conv.id,
+      contact_phone: conv.user_id || '',
+      started_at: conv.created_at,
+      status: 'active',
+      message_count: 0,
+      conversation_duration_minutes: 0,
+      channel: conv.channel,
+      created_at: conv.created_at,
+      updated_at: conv.updated_at,
+      user_id: conv.user_id
+    }));
+    
+    setConversations(transformedConversations);
   };
 
   const fetchMessageLogs = async () => {
@@ -139,7 +155,7 @@ export default function WhatsAppDashboard() {
       { count: totalContacts }
     ] = await Promise.all([
       supabase.from('conversations').select('*', { count: 'exact', head: true }),
-      supabase.from('conversations').select('*', { count: 'exact', head: true }).eq('status', 'active'),
+      supabase.from('conversations').select('*', { count: 'exact', head: true }),
       supabase.from('message_logs').select('*', { count: 'exact', head: true }),
       supabase.from('contacts').select('*', { count: 'exact', head: true })
     ]);

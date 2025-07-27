@@ -96,21 +96,21 @@ export function ChatList({
       // Transform the data to match our interface
       const formattedConversations: Conversation[] = (conversationsData || []).map(conv => ({
         id: conv.id,
-        contact_id: conv.contact_id,
-        contact_phone: conv.contact_phone || '',
-        contact_name: conv.contact_id, // Would join with contacts table
+        contact_id: conv.user_id || conv.id, // Use user_id or fallback to id
+        contact_phone: conv.user_id || '', // Use user_id as phone fallback
+        contact_name: conv.user_id, // Would join with contacts table
         contact_avatar: '',
         channel: conv.channel,
-        status: conv.status,
-        message_count: conv.message_count || 0,
+        status: 'active', // Default status
+        message_count: 0, // Would calculate from messages
         last_message: 'Loading...', // Would fetch from last message
         last_message_time: conv.created_at,
         last_message_sender: 'user',
         unread_count: 0, // Would calculate from messages
         is_pinned: false, // Would come from user preferences
         is_muted: false, // Would come from user preferences
-        is_archived: conv.status === 'closed',
-        conversation_duration_minutes: conv.conversation_duration_minutes
+        is_archived: false, // Default to false
+        conversation_duration_minutes: 0 // Default value
       }));
 
       setConversations(formattedConversations);

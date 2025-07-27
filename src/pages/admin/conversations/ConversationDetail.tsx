@@ -71,13 +71,28 @@ export default function ConversationDetail() {
         .single();
 
       if (conversationError) throw conversationError;
-      setConversation(conversationData);
+        // Transform conversation to match expected interface
+        const transformedConversation = {
+          ...conversationData,
+          contact_id: conversationData.user_id || conversationData.id,
+          contact_phone: conversationData.user_id || '',
+          status: 'active',
+          started_at: conversationData.created_at,
+          ended_at: null,
+          message_count: 0,
+          conversation_duration_minutes: 0,
+          handoff_requested: false,
+          handoff_reason: null,
+          model_used: null,
+          metadata: null
+        };
+        setConversation(transformedConversation);
 
       // Fetch messages
       const { data: messagesData, error: messagesError } = await supabase
         .from("conversation_messages")
         .select("*")
-        .eq("phone_number", conversationData.contact_phone)
+        .eq("phone_number", conversationData.user_id || conversationData.id)
         .order("created_at", { ascending: true });
 
       if (messagesError) throw messagesError;
@@ -87,7 +102,7 @@ export default function ConversationDetail() {
       const { data: analyticsData, error: analyticsError } = await supabase
         .from("conversation_analytics")
         .select("*")
-        .eq("phone_number", conversationData.contact_phone)
+        .eq("phone_number", conversationData.user_id || conversationData.id)
         .single();
 
       if (analyticsError && analyticsError.code !== 'PGRST116') {

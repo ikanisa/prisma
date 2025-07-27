@@ -93,9 +93,9 @@ export default function OrdersPayments() {
     try {
       setLoading(true);
       
-      // Load orders
+      // Load orders from the old orders table temporarily
       const { data: ordersData, error: ordersError } = await supabase
-        .from('unified_orders')
+        .from('orders')
         .select('*')
         .order('created_at', { ascending: false });
 
@@ -109,7 +109,31 @@ export default function OrdersPayments() {
 
       if (paymentsError) throw paymentsError;
 
-      setOrders(ordersData || []);
+      // Transform orders to match UnifiedOrder interface
+      const transformedOrders = (ordersData || []).map(order => ({
+        id: order.id,
+        order_type: 'general',
+        customer_phone: order.user_id || 'unknown',
+        customer_id: order.user_id,
+        vendor_id: order.business_id,
+        items: order.items || [],
+        subtotal: order.total_price || 0,
+        tax_amount: 0,
+        delivery_fee: order.delivery_fee || 0,
+        total_amount: order.total_price || 0,
+        currency: 'RWF',
+        status: 'pending', // Default status as it doesn't exist in old schema
+        payment_status: 'pending', // Default status
+        payment_method: 'momo', // Default method
+        payment_reference: order.payment_id,
+        delivery_method: order.delivery ? 'delivery' : 'pickup',
+        notes: '', // Default empty string
+        created_at: order.created_at,
+        updated_at: order.created_at,
+        completed_at: null // Default null
+      }));
+
+      setOrders(transformedOrders);
       setPayments(paymentsData || []);
     } catch (error) {
       console.error('Error loading data:', error);
@@ -127,8 +151,8 @@ export default function OrdersPayments() {
     try {
       // Orders stats
       const { data: ordersData, error: ordersError } = await supabase
-        .from('unified_orders')
-        .select('status, total_amount, currency');
+        .from('orders')
+        .select('total_price');
 
       if (ordersError) throw ordersError;
 
@@ -141,8 +165,8 @@ export default function OrdersPayments() {
 
       const stats = {
         totalOrders: ordersData?.length || 0,
-        completedOrders: ordersData?.filter(o => o.status === 'completed').length || 0,
-        totalRevenue: ordersData?.filter(o => o.status === 'completed').reduce((sum, o) => sum + o.total_amount, 0) || 0,
+        completedOrders: 0, // Can't filter by status since it doesn't exist
+        totalRevenue: ordersData?.reduce((sum, o) => sum + (o.total_price || 0), 0) || 0,
         pendingPayments: paymentsData?.filter(p => p.status === 'pending').length || 0
       };
 

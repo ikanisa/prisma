@@ -34,15 +34,15 @@ export default function UsersContacts() {
     try {
       const [contactsResult, conversationsResult] = await Promise.all([
         supabase.from('contacts').select('*').limit(100),
-        supabase.from('conversations').select('contact_phone, created_at').limit(100)
+        supabase.from('conversations').select('user_id, created_at').limit(100)
       ]);
 
       setContacts(contactsResult.data || []);
       
-      // Create users from unique phone numbers
+      // Create users from unique phone numbers - only if no error
       const phoneNumbers = new Set([
         ...(contactsResult.data || []).map(c => c.phone_number),
-        ...(conversationsResult.data || []).map(c => c.contact_phone)
+        ...(!conversationsResult.error && conversationsResult.data ? conversationsResult.data.map(c => c.user_id) : [])
       ]);
       
       const uniqueUsers = Array.from(phoneNumbers).map(phone => ({
@@ -50,8 +50,8 @@ export default function UsersContacts() {
         phone_number: phone,
         name: (contactsResult.data || []).find(c => c.phone_number === phone)?.name || 'Unknown',
         contact_type: (contactsResult.data || []).find(c => c.phone_number === phone)?.contact_type || 'prospect',
-        last_interaction: (conversationsResult.data || [])
-          .filter(c => c.contact_phone === phone)
+        last_interaction: (!conversationsResult.error && conversationsResult.data ? conversationsResult.data : [])
+          .filter(c => c.user_id === phone)
           .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0]?.created_at
       }));
       

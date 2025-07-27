@@ -125,31 +125,82 @@ export default function ListingsInventory() {
 
   const loadListings = async () => {
     try {
-      let query = supabase
+      // First try unified_listings, fall back to products for compatibility
+      let unifiedData = [];
+      let productData = [];
+      
+      // Try to load from unified_listings
+      const { data: unified, error: unifiedError } = await supabase
         .from('unified_listings')
-        .select(`*`)
+        .select('*')
         .order('created_at', { ascending: false });
-
+      
+      if (!unifiedError && unified) {
+        unifiedData = unified;
+      }
+      
+      // Also load from products table for compatibility
+      const { data: products, error: productsError } = await supabase
+        .from('products')
+        .select(`
+          *,
+          businesses(name)
+        `)
+        .order('created_at', { ascending: false });
+      
+      if (!productsError && products) {
+        // Transform products to unified format
+        productData = products.map(product => ({
+          id: product.id,
+          listing_type: 'product',
+          title: product.name || '',
+          description: product.description || '',
+          price: product.price || 0,
+          vendor_id: product.business_id,
+          metadata: {
+            stock_qty: product.stock_qty,
+            unit: product.unit,
+            category: product.category,
+            image_url: product.image_url
+          },
+          location_gps: null,
+          images: product.image_url ? [product.image_url] : [],
+          tags: [],
+          status: 'active',
+          visibility: 'public',
+          featured: false,
+          stock_quantity: product.stock_qty || 0,
+          unit_of_measure: product.unit,
+          category: product.category,
+          subcategory: null,
+          created_at: product.created_at,
+          updated_at: product.created_at,
+          businesses: product.businesses
+        }));
+      }
+      
+      // Combine all data
+      const allData = [...unifiedData, ...productData];
+      
+      // Apply filters
+      let filteredData = allData;
+      
       // Filter by type if specified
       if (selectedType !== 'all') {
-        query = query.eq('listing_type', selectedType as any);
+        filteredData = filteredData.filter(item => {
+          if (selectedType === 'products') return item.listing_type === 'product';
+          return item.listing_type === selectedType;
+        });
       }
 
       // Filter by status if specified  
       if (selectedStatus !== 'all') {
-        query = query.eq('status', selectedStatus);
+        filteredData = filteredData.filter(item => item.status === selectedStatus);
       }
 
-      // Only show non-deleted listings
-      query = query.is('deleted_at', null);
-
-      const { data, error } = await query;
-
-      if (error) throw error;
-
-      setListings(data || []);
+      setListings(filteredData);
     } catch (error) {
-      console.error('Error loading unified listings:', error);
+      console.error('Error loading listings:', error);
     }
   };
 
