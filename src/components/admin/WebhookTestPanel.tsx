@@ -1,0 +1,223 @@
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { RefreshCw, ExternalLink, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+
+interface IncomingMessage {
+  id: string;
+  phone_number: string;
+  message: string;
+  status: string;
+  created_at: string;
+}
+
+export function WebhookTestPanel() {
+  const [messages, setMessages] = useState<IncomingMessage[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [webhookStatus, setWebhookStatus] = useState<'checking' | 'ok' | 'error'>('checking');
+
+  const webhookUrl = 'https://ijblirphkrrsnxazohwt.functions.supabase.co/whatsapp-webhook';
+  const verifyToken = 'bd0e7b6f4a2c9d83f1e57a0c6b3d48e9';
+
+  useEffect(() => {
+    fetchMessages();
+    testWebhookEndpoint();
+  }, []);
+
+  const fetchMessages = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('incoming_messages')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (error) throw error;
+      setMessages(data || []);
+    } catch (error) {
+      console.error('Error fetching messages:', error);
+      toast.error('Failed to fetch incoming messages');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const testWebhookEndpoint = async () => {
+    try {
+      // Test GET request for webhook verification
+      const response = await fetch(`${webhookUrl}?hub.mode=subscribe&hub.verify_token=${verifyToken}&hub.challenge=test123`);
+      
+      if (response.ok) {
+        const challenge = await response.text();
+        if (challenge === 'test123') {
+          setWebhookStatus('ok');
+        } else {
+          setWebhookStatus('error');
+        }
+      } else {
+        setWebhookStatus('error');
+      }
+    } catch (error) {
+      console.error('Webhook test failed:', error);
+      setWebhookStatus('error');
+    }
+  };
+
+  const testMessageInsertion = async () => {
+    try {
+      const testMessage = {
+        phone_number: '+250000000001',
+        message: `Test message at ${new Date().toISOString()}`,
+        status: 'test'
+      };
+
+      const { error } = await supabase
+        .from('incoming_messages')
+        .insert(testMessage);
+
+      if (error) throw error;
+      
+      toast.success('Test message inserted successfully');
+      fetchMessages();
+    } catch (error) {
+      console.error('Error inserting test message:', error);
+      toast.error('Failed to insert test message');
+    }
+  };
+
+  const getStatusIcon = () => {
+    switch (webhookStatus) {
+      case 'ok':
+        return <CheckCircle className="h-4 w-4 text-green-500" />;
+      case 'error':
+        return <XCircle className="h-4 w-4 text-red-500" />;
+      default:
+        return <AlertCircle className="h-4 w-4 text-yellow-500" />;
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Webhook Status */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            {getStatusIcon()}
+            WhatsApp Webhook Status
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">Webhook URL:</span>
+              <a 
+                href={webhookUrl} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-blue-500 hover:text-blue-700 flex items-center gap-1"
+              >
+                <ExternalLink className="h-3 w-3" />
+                View
+              </a>
+            </div>
+            <code className="text-xs bg-muted p-2 rounded block">
+              {webhookUrl}
+            </code>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">Verify Token:</span>
+              <Badge variant="outline">{verifyToken}</Badge>
+            </div>
+          </div>
+
+          <div className="flex gap-2">
+            <Button onClick={testWebhookEndpoint} variant="outline" size="sm">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Test Webhook
+            </Button>
+            <Button onClick={testMessageInsertion} variant="outline" size="sm">
+              Insert Test Message
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Incoming Messages */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between">
+            Incoming Messages
+            <Button onClick={fetchMessages} variant="outline" size="sm" disabled={loading}>
+              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {messages.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-muted-foreground">No messages received yet</p>
+              <p className="text-xs text-muted-foreground mt-2">
+                Send a WhatsApp message to test the webhook
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {messages.map((message) => (
+                <div key={message.id} className="border-b pb-3 last:border-b-0">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <Badge variant={message.status === 'new' ? 'default' : 'secondary'}>
+                        {message.status}
+                      </Badge>
+                      <span className="text-sm font-medium">{message.phone_number}</span>
+                    </div>
+                    <span className="text-xs text-muted-foreground">
+                      {new Date(message.created_at).toLocaleString()}
+                    </span>
+                  </div>
+                  <p className="text-sm text-muted-foreground">{message.message}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Configuration Summary */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Configuration Summary</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <h4 className="font-medium mb-2">✅ Completed Setup</h4>
+              <ul className="text-sm space-y-1 text-muted-foreground">
+                <li>• incoming_messages table created</li>
+                <li>• RLS policies configured</li>
+                <li>• WhatsApp webhook function deployed</li>
+                <li>• Verification token configured</li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="font-medium mb-2">📋 Next Steps</h4>
+              <ul className="text-sm space-y-1 text-muted-foreground">
+                <li>• Configure Meta App webhook URL</li>
+                <li>• Subscribe to message events</li>
+                <li>• Send test WhatsApp message</li>
+                <li>• Verify messages appear in table</li>
+              </ul>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

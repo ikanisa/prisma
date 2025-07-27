@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { ConversationView } from '@/components/ConversationView';
 import { MemoryView } from '@/components/MemoryView';
 import { Settings as SettingsComponent } from '@/components/Settings';
+import { WebhookTestPanel } from '@/components/admin/WebhookTestPanel';
 
 interface Conversation {
   id: string;
@@ -211,9 +212,10 @@ export default function WhatsAppDashboard() {
       </div>
 
       {/* Main Dashboard Tabs */}
-      <Tabs defaultValue="conversations" className="space-y-4">
+      <Tabs defaultValue="webhook" className="space-y-4">
         <div className="flex items-center justify-between">
           <TabsList>
+            <TabsTrigger value="webhook">Webhook Test</TabsTrigger>
             <TabsTrigger value="conversations">Conversations</TabsTrigger>
             <TabsTrigger value="messages">Messages</TabsTrigger>
             <TabsTrigger value="contacts">Contacts</TabsTrigger>
@@ -225,6 +227,10 @@ export default function WhatsAppDashboard() {
             Refresh
           </Button>
         </div>
+        
+        <TabsContent value="webhook">
+          <WebhookTestPanel />
+        </TabsContent>
         
           <TabsContent value="conversations">
             <ConversationsTab conversations={conversations} onViewConversation={setSelectedConversation} />

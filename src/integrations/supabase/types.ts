@@ -3046,6 +3046,33 @@ export type Database = {
         }
         Relationships: []
       }
+      incoming_messages: {
+        Row: {
+          created_at: string | null
+          id: string
+          message: string
+          phone_number: string
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          message: string
+          phone_number: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          message?: string
+          phone_number?: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       ingestion_pipeline: {
         Row: {
           completed_at: string | null
