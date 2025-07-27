@@ -60,6 +60,7 @@ const App = () => (
           <Route path="env-setup" element={<EnvSetup />} />
           <Route path="webhook-config" element={<WebhookConfig />} />
           <Route path="whatsapp-test" element={<WhatsAppAgentTest />} />
+          <Route path="whatsapp" element={<WhatsAppAgentTest />} />
           <Route path="agents" element={<Agents />} />
           <Route path="agents/:id" element={<AgentDetail />} />
           <Route path="businesses/:businessId" element={<BusinessDetail />} />
