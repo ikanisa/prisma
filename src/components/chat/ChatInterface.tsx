@@ -395,9 +395,18 @@ export function ChatInterface({
 
   const handleReaction = async (messageId: string, emoji: string) => {
     try {
-      // Update message with reaction - would need to add reactions column
-      console.log('Adding reaction:', { messageId, emoji });
-      // TODO: Implement reaction update when reactions column is added
+      // Find the message to get current reactions
+      const currentMessage = messages.find(m => m.id === messageId);
+      const currentReactions = currentMessage?.reactions || [];
+      
+      const { error } = await supabase
+        .from('conversation_messages')
+        .update({ 
+          reactions: [...currentReactions, { emoji, user: 'user', timestamp: new Date().toISOString() }] 
+        })
+        .eq('id', messageId);
+      
+      if (error) throw error;
     } catch (error) {
       console.error('Error adding reaction:', error);
     }

@@ -90,13 +90,20 @@ export function MessageBubble({
   };
 
   const handleForward = () => {
-    // Implementation for forwarding message
-    console.log('Forward message:', message.id);
+    // TODO: Implement message forwarding functionality
   };
 
-  const handleDelete = () => {
-    // Implementation for deleting message
-    console.log('Delete message:', message.id);
+  const handleDelete = async () => {
+    try {
+      const { error } = await supabase
+        .from('conversation_messages')
+        .update({ status: 'deleted' })
+        .eq('id', message.id);
+      
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error deleting message:', error);
+    }
   };
 
   const handleDownload = () => {
