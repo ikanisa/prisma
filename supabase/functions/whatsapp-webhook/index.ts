@@ -6,7 +6,7 @@ const supabase = createClient(
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 )
 
-const VERIFY_TOKEN = 'bd0e7b6f4a2c9d83f1e57a0c6b3d48e9'
+const VERIFY_TOKEN = Deno.env.get('META_WABA_VERIFY_TOKEN') || 'bd0e7b6f4a2c9d83f1e57a0c6b3d48e9'
 
 serve(async (req) => {
   const { method, url } = req
