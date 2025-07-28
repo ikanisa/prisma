@@ -21,8 +21,8 @@ export interface AdminBusiness {
   created_at: string;
   owner_user_id: string;
   owner_phone?: string;
-  location_gps?: any;
-  pos_system_config?: Record<string, any>;
+  location_gps?: { latitude: number; longitude: number };
+  pos_system_config?: Record<string, unknown>;
   monthly_revenue?: number;
   order_count?: number;
   rating?: number;
@@ -40,7 +40,7 @@ export interface AdminDriver {
   vehicle_plate: string | null;
   driver_kind: 'moto' | 'car' | 'bicycle' | null;
   is_online: boolean;
-  location_gps?: any;
+  location_gps?: { latitude: number; longitude: number };
   subscription_status: 'active' | 'trial' | 'suspended';
   created_at: string;
   logbook_url?: string | null;
@@ -69,7 +69,7 @@ export interface AdminPayment {
   payment_method: 'momo' | 'card' | 'bank' | 'cash';
   transaction_id?: string;
   created_at: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface AdminConversation {
@@ -203,14 +203,29 @@ export interface AdminTableColumn<T> {
   key: keyof T;
   label: string;
   sortable?: boolean;
-  render?: (value: any, item: T) => React.ReactNode;
+  render?: (value: unknown, item: T) => React.ReactNode;
 }
 
 // Error types
+export class AppError extends Error {
+  code?: string;
+  details?: Record<string, unknown>;
+  
+  constructor(message: string, code?: string) {
+    super(message);
+    this.name = 'AppError';
+    this.code = code;
+    
+    if (Error.captureStackTrace) {
+      Error.captureStackTrace(this, AppError);
+    }
+  }
+}
+
 export interface AdminError {
   code: string;
   message: string;
-  details?: Record<string, any>;
+  details?: Record<string, unknown>;
 }
 
 // Export all types for easy importing

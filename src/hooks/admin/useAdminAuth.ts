@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import type { User } from '@supabase/supabase-js';
+import type { User, Session } from '@supabase/supabase-js';
 
 interface AdminAuthState {
   user: User | null;
@@ -20,11 +20,15 @@ export function useAdminAuth(): AdminAuthState {
   useEffect(() => {
     let mounted = true;
 
-    const checkAdminAccess = async (userSession?: any) => {
+    const checkAdminAccess = async (providedSession?: Session | null) => {
       try {
         // Use provided session or get current session
-        const sessionData = userSession || await supabase.auth.getSession();
-        const session = userSession || sessionData?.data?.session;
+        let session: Session | null = providedSession || null;
+        
+        if (!session) {
+          const { data: sessionData } = await supabase.auth.getSession();
+          session = sessionData.session;
+        }
         
         if (!mounted) return;
 
@@ -69,8 +73,9 @@ export function useAdminAuth(): AdminAuthState {
             checkingAuth: false
           });
         }
-      } catch (error) {
-        console.error('Error checking admin access:', error);
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+        console.error('Error checking admin access:', errorMessage);
         if (mounted) {
           setState({
             user: null,
