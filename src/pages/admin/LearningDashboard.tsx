@@ -324,11 +324,118 @@ export function LearningDashboard() {
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
+          <div className="mb-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <span>🤖</span>
+                  <span>Omni Agent Overview</span>
+                </CardTitle>
+                <CardDescription>
+                  Comprehensive WhatsApp AI agent powering easyMO's super-app ecosystem
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                  <div className="p-4 bg-blue-50 rounded-lg">
+                    <div className="font-semibold text-blue-900">💳 Payment Solutions</div>
+                    <div className="text-sm text-blue-700 mt-1">USSD QR codes, mobile money integration, instant transfers</div>
+                  </div>
+                  <div className="p-4 bg-green-50 rounded-lg">
+                    <div className="font-semibold text-green-900">🏍️ Moto Services</div>
+                    <div className="text-sm text-green-700 mt-1">Ride booking, driver matching, route optimization</div>
+                  </div>
+                  <div className="p-4 bg-purple-50 rounded-lg">
+                    <div className="font-semibold text-purple-900">🏪 Business Discovery</div>
+                    <div className="text-sm text-purple-700 mt-1">Find pharmacies, shops, services, real-time inventory</div>
+                  </div>
+                </div>
+                
+                <div className="space-y-3">
+                  <div className="flex items-start space-x-3">
+                    <div className="w-2 h-2 bg-primary rounded-full mt-2 flex-shrink-0"></div>
+                    <div>
+                      <div className="font-medium">WhatsApp-First Architecture</div>
+                      <div className="text-sm text-muted-foreground">All user interactions happen through WhatsApp chat - no app downloads required</div>
+                    </div>
+                  </div>
+                  <div className="flex items-start space-x-3">
+                    <div className="w-2 h-2 bg-primary rounded-full mt-2 flex-shrink-0"></div>
+                    <div>
+                      <div className="font-medium">Unified Commerce Platform</div>
+                      <div className="text-sm text-muted-foreground">Seamlessly handles payments, transportation, shopping, and services in one conversation</div>
+                    </div>
+                  </div>
+                  <div className="flex items-start space-x-3">
+                    <div className="w-2 h-2 bg-primary rounded-full mt-2 flex-shrink-0"></div>
+                    <div>
+                      <div className="font-medium">Location-Aware Intelligence</div>
+                      <div className="text-sm text-muted-foreground">Contextual recommendations based on user location and preferences</div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card>
               <CardHeader>
+                <CardTitle>Core Capabilities</CardTitle>
+                <CardDescription>Key service areas and coverage levels</CardDescription>
+              </CardHeader>
+             <CardContent>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">USSD Payment & QR Codes</span>
+                    <div className="flex items-center space-x-2">
+                      <Progress value={95} className="w-20 h-2" />
+                      <span className="text-sm font-medium">95%</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">Moto Taxi / Ride Services</span>
+                    <div className="flex items-center space-x-2">
+                      <Progress value={92} className="w-20 h-2" />
+                      <span className="text-sm font-medium">92%</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">Business Discovery (Shops/Pharmacies)</span>
+                    <div className="flex items-center space-x-2">
+                      <Progress value={88} className="w-20 h-2" />
+                      <span className="text-sm font-medium">88%</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">Service Provider Network</span>
+                    <div className="flex items-center space-x-2">
+                      <Progress value={85} className="w-20 h-2" />
+                      <span className="text-sm font-medium">85%</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">Location-Based Recommendations</span>
+                    <div className="flex items-center space-x-2">
+                      <Progress value={90} className="w-20 h-2" />
+                      <span className="text-sm font-medium">90%</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">Real-time Inventory Tracking</span>
+                    <div className="flex items-center space-x-2">
+                      <Progress value={83} className="w-20 h-2" />
+                      <span className="text-sm font-medium">83%</span>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
                 <CardTitle>Recent Knowledge Gaps</CardTitle>
-                <CardDescription>Latest identified learning issues</CardDescription>
+                <CardDescription>Areas requiring attention</CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
                 {gaps.slice(0, 5).map((gap) => (
@@ -344,52 +451,6 @@ export function LearningDashboard() {
                     </div>
                   </div>
                 ))}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Coverage Trends</CardTitle>
-                <CardDescription>Knowledge coverage over time</CardDescription>
-              </CardHeader>
-               <CardContent>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm">USSD Payment & QR Codes</span>
-                    <div className="flex items-center space-x-2">
-                      <Progress value={92} className="w-20 h-2" />
-                      <span className="text-sm font-medium">92%</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm">Moto Taxi / Ride Services</span>
-                    <div className="flex items-center space-x-2">
-                      <Progress value={88} className="w-20 h-2" />
-                      <span className="text-sm font-medium">88%</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm">Business Discovery (Shops/Pharmacies)</span>
-                    <div className="flex items-center space-x-2">
-                      <Progress value={85} className="w-20 h-2" />
-                      <span className="text-sm font-medium">85%</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm">Service Provider Network</span>
-                    <div className="flex items-center space-x-2">
-                      <Progress value={78} className="w-20 h-2" />
-                      <span className="text-sm font-medium">78%</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm">Location-Based Services</span>
-                    <div className="flex items-center space-x-2">
-                      <Progress value={82} className="w-20 h-2" />
-                      <span className="text-sm font-medium">82%</span>
-                    </div>
-                  </div>
-                </div>
               </CardContent>
             </Card>
           </div>
