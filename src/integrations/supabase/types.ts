@@ -7174,40 +7174,37 @@ export type Database = {
       }
       whatsapp_logs: {
         Row: {
-          contact_name: string | null
-          media_id: string | null
-          message_content: string | null
-          message_id: string
-          message_type: string | null
-          phone_number: string | null
-          processed: boolean | null
-          processed_at: string | null
-          received_at: string | null
-          timestamp: string | null
+          created_at: string
+          error_message: string | null
+          id: string
+          message_id: string | null
+          recipient: string
+          response_payload: Json | null
+          status: string
+          template_code: string | null
+          variables: Json | null
         }
         Insert: {
-          contact_name?: string | null
-          media_id?: string | null
-          message_content?: string | null
-          message_id: string
-          message_type?: string | null
-          phone_number?: string | null
-          processed?: boolean | null
-          processed_at?: string | null
-          received_at?: string | null
-          timestamp?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          message_id?: string | null
+          recipient: string
+          response_payload?: Json | null
+          status?: string
+          template_code?: string | null
+          variables?: Json | null
         }
         Update: {
-          contact_name?: string | null
-          media_id?: string | null
-          message_content?: string | null
-          message_id?: string
-          message_type?: string | null
-          phone_number?: string | null
-          processed?: boolean | null
-          processed_at?: string | null
-          received_at?: string | null
-          timestamp?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          message_id?: string | null
+          recipient?: string
+          response_payload?: Json | null
+          status?: string
+          template_code?: string | null
+          variables?: Json | null
         }
         Relationships: []
       }
@@ -7253,42 +7250,95 @@ export type Database = {
         }
         Relationships: []
       }
-      whatsapp_templates: {
+      whatsapp_template_versions: {
         Row: {
-          approved_by: string | null
-          category: string
-          content: string
           created_at: string
+          diff: Json | null
           id: string
-          name: string
-          rejection_reason: string | null
-          status: string
-          updated_at: string
-          variables: string[] | null
+          template_id: string
+          version: number
         }
         Insert: {
-          approved_by?: string | null
-          category: string
-          content: string
           created_at?: string
+          diff?: Json | null
           id?: string
-          name: string
-          rejection_reason?: string | null
-          status?: string
-          updated_at?: string
-          variables?: string[] | null
+          template_id: string
+          version: number
         }
         Update: {
-          approved_by?: string | null
-          category?: string
-          content?: string
           created_at?: string
+          diff?: Json | null
           id?: string
-          name?: string
-          rejection_reason?: string | null
+          template_id?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_template_versions_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_templates: {
+        Row: {
+          body: string
+          buttons: Json | null
+          category: string
+          code: string
+          components: Json | null
+          created_at: string
+          domain: string
+          footer: string | null
+          header: Json | null
+          id: string
+          intent: string
+          language: string
+          meta_template_id: string | null
+          name_meta: string
+          status: string
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          body: string
+          buttons?: Json | null
+          category: string
+          code: string
+          components?: Json | null
+          created_at?: string
+          domain: string
+          footer?: string | null
+          header?: Json | null
+          id?: string
+          intent: string
+          language?: string
+          meta_template_id?: string | null
+          name_meta: string
           status?: string
           updated_at?: string
-          variables?: string[] | null
+          version?: number
+        }
+        Update: {
+          body?: string
+          buttons?: Json | null
+          category?: string
+          code?: string
+          components?: Json | null
+          created_at?: string
+          domain?: string
+          footer?: string | null
+          header?: Json | null
+          id?: string
+          intent?: string
+          language?: string
+          meta_template_id?: string | null
+          name_meta?: string
+          status?: string
+          updated_at?: string
+          version?: number
         }
         Relationships: []
       }
