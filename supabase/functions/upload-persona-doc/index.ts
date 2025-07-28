@@ -60,11 +60,14 @@ Deno.serve(async (req) => {
 
     console.log('File uploaded successfully:', uploadData);
 
+    // Handle special case for omni-agent (use null for agent_id)
+    const finalAgentId = agentId === 'omni-agent' ? null : agentId;
+    
     // Insert document record into database
     const { data: docData, error: docError } = await supabaseClient
       .from('agent_documents')
       .insert({
-        agent_id: agentId,
+        agent_id: finalAgentId,
         title: title || file.name,
         storage_path: fileName,
         drive_mime: file.type,
