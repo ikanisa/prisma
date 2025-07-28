@@ -31,10 +31,10 @@ verify_jwt = false
 [functions.push-marketing]
 verify_jwt = false
 
-[functions.whatsapp-webhook]
+[functions.unified-whatsapp-webhook]
 verify_jwt = false
 
-[functions.wa-webhook]
+[functions.test-whatsapp-webhook]
 verify_jwt = false
 
 [functions.unified-message-handler]
