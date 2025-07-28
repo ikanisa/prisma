@@ -550,29 +550,49 @@ class DataAwareAgent {
 
   private async generateAIResponse(message: string, userContext: UserContext): Promise<string> {
     try {
-      const systemPrompt = `You are an AI assistant for easyMO, Rwanda's WhatsApp super-app. 
+      // Get agent persona and documents for context
+      const { data: persona } = await this.supabase
+        .from('agent_personas')
+        .select('instructions, personality, tone, language')
+        .eq('agent_id', 'omni-agent')
+        .single();
 
-IMPORTANT: You always work with REAL DATA from our database. Never make up information about drivers, businesses, or products.
+      const { data: documents } = await this.supabase
+        .from('centralized_documents')
+        .select('title, content')
+        .eq('agent_scope', 'general')
+        .eq('status', 'active')
+        .limit(5);
 
-Available services:
-- Transport: Find real nearby drivers, book rides, go online as driver
-- Payments: Generate QR codes, mobile money
-- Marketplace: Search real products from vendors
-- Businesses: Find real pharmacies, shops, restaurants
+      const contextualKnowledge = documents?.map(doc => 
+        `${doc.title}: ${doc.content.substring(0, 500)}`
+      ).join('\n\n') || '';
 
-User context:
+      const systemPrompt = `${persona?.instructions || 'You are Aline, the AI assistant for easyMO - Rwanda\'s WhatsApp super-app.'}
+
+PERSONALITY: ${persona?.personality || 'Friendly, efficient, and helpful'}
+TONE: ${persona?.tone || 'Professional yet warm'}
+LANGUAGE: ${persona?.language || 'en'}
+
+KNOWLEDGE BASE:
+${contextualKnowledge}
+
+USER CONTEXT:
 - Phone: ${userContext.phone}
-- Type: ${userContext.userType}
-- Conversations: ${userContext.conversationCount}
+- Type: ${userContext.userType} (${userContext.conversationCount} conversations)
 - Location: ${userContext.location ? 'Available' : 'Not shared'}
+- Memory: ${JSON.stringify(userContext.memory || {})}
 
-Guidelines:
-- Keep responses under 200 characters
-- Be helpful and direct
-- Always guide users to specific keywords for data queries
-- If they ask about nearby drivers/businesses, tell them to share location first
-- Mention that all data is real and current
-- Use simple English or basic Kinyarwanda when appropriate`;
+CRITICAL RULES:
+- ALWAYS work with REAL DATA from our database
+- NEVER make up information about drivers, businesses, or products
+- Guide users through proper steps (location sharing, etc.)
+- Provide contextual, intelligent responses based on their specific situation
+- Use the knowledge base to inform your responses
+- Be reactive to user intent and context
+- Keep responses conversational and natural (under 300 chars for WhatsApp)
+
+Current user message: "${message}"`;
 
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
@@ -581,21 +601,21 @@ Guidelines:
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'gpt-4o-mini',
+          model: 'gpt-4.1-2025-04-14',
           messages: [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: message }
           ],
           temperature: 0.7,
-          max_tokens: 150
+          max_tokens: 200
         }),
       });
 
       const data = await response.json();
-      return data.choices[0]?.message?.content || "I'm here to help! Tell me what you need.";
+      return data.choices[0]?.message?.content || "I'm here to help! What would you like to do?";
     } catch (error) {
       console.error('AI response error:', error);
-      return "I'm here to help! Tell me what you need - try 'nearby drivers' or 'find pharmacy'.";
+      return "I'm here to help! Try 'nearby drivers', 'find pharmacy', or tell me what you need.";
     }
   }
 
