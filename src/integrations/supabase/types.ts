@@ -6948,6 +6948,7 @@ export type Database = {
           phone: string
           referral_code: string | null
           referred_by: string | null
+          status: string
         }
         Insert: {
           created_at?: string | null
@@ -6957,6 +6958,7 @@ export type Database = {
           phone: string
           referral_code?: string | null
           referred_by?: string | null
+          status?: string
         }
         Update: {
           created_at?: string | null
@@ -6966,6 +6968,7 @@ export type Database = {
           phone?: string
           referral_code?: string | null
           referred_by?: string | null
+          status?: string
         }
         Relationships: []
       }
