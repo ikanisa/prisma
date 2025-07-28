@@ -179,60 +179,89 @@ export function PersonaEditor({ agentId = 'omni-agent' }: PersonaEditorProps) {
   const handleMarkdownSave = async () => {
     try {
       setSaving(true);
+      console.log('Starting markdown save process...');
+      console.log('Current editableMarkdown:', editableMarkdown.substring(0, 200));
       
       // Parse markdown content back to JSON structure
       const parsedData = parseMarkdownToJSON(editableMarkdown);
+      console.log('Parsed data from markdown:', parsedData);
       
       // Update the JSON data state immediately for UI sync
       const updatedJsonData = JSON.stringify(parsedData, null, 2);
       setJsonData(updatedJsonData);
       setMarkdownData(editableMarkdown);
       
-      // Save to agent_personas table if editing the Omni Agent
+      // Save to agent_personas table for the Omni Agent
       if (selectedOmniAgent === 'unified') {
+        console.log('Saving to agent_personas table...');
+        
         // Handle special case for omni-agent (use null for agent_id)
         const finalAgentId = agentId === 'omni-agent' ? null : agentId;
         
         // Check if persona already exists
-        const { data: existingPersona } = await supabase
+        const { data: existingPersona, error: fetchError } = await supabase
           .from('agent_personas')
           .select('*')
           .is('agent_id', null)
           .maybeSingle();
         
+        if (fetchError) {
+          console.error('Error fetching existing persona:', fetchError);
+          throw fetchError;
+        }
+        
+        console.log('Existing persona:', existingPersona);
+        
         const personaUpdateData = {
           personality: parsedData.role_summary || '',
           tone: parsedData.core_objective || '',
-          instructions: updatedJsonData, // Store the formatted JSON
+          instructions: updatedJsonData,
           language: 'en'
         };
         
+        console.log('Persona update data:', personaUpdateData);
+        
         if (existingPersona) {
           // Update existing persona
-          const { error: updateError } = await supabase
+          console.log('Updating existing persona with ID:', existingPersona.id);
+          const { data: updatedData, error: updateError } = await supabase
             .from('agent_personas')
             .update(personaUpdateData)
-            .eq('id', existingPersona.id);
+            .eq('id', existingPersona.id)
+            .select()
+            .single();
             
-          if (updateError) throw updateError;
+          if (updateError) {
+            console.error('Error updating persona:', updateError);
+            throw updateError;
+          }
+          console.log('Successfully updated persona:', updatedData);
         } else {
           // Create new persona
-          const { error: insertError } = await supabase
+          console.log('Creating new persona...');
+          const { data: newData, error: insertError } = await supabase
             .from('agent_personas')
             .insert({
               agent_id: finalAgentId,
               ...personaUpdateData
-            });
+            })
+            .select()
+            .single();
             
-          if (insertError) throw insertError;
+          if (insertError) {
+            console.error('Error creating persona:', insertError);
+            throw insertError;
+          }
+          console.log('Successfully created persona:', newData);
         }
       }
       
       // Save to centralized_documents for agent learning
+      console.log('Saving to centralized_documents...');
       const { error: docError } = await supabase
         .from('centralized_documents')
         .insert({
-          title: `${parsedData.agent_name || 'Omni Agent'} - Updated Persona Configuration`,
+          title: `${parsedData.agent_name || 'Omni Agent'} - Updated Persona Configuration - ${new Date().toISOString()}`,
           content: editableMarkdown,
           document_type: 'persona_markdown',
           agent_scope: 'omni',
@@ -240,22 +269,25 @@ export function PersonaEditor({ agentId = 'omni-agent' }: PersonaEditorProps) {
         });
         
       if (docError) {
-        console.warn('Warning: Failed to save to centralized_documents:', docError);
+        console.error('Warning: Failed to save to centralized_documents:', docError);
         // Don't throw here - persona save is more important
+      } else {
+        console.log('Successfully saved to centralized_documents');
       }
       
-      // Force refresh the UNIFIED_OMNI_AGENT data if needed
+      // Update UNIFIED_OMNI_AGENT with the new data
       if (selectedOmniAgent === 'unified') {
-        // Update the unified agent data with parsed content
         UNIFIED_OMNI_AGENT.data = { ...UNIFIED_OMNI_AGENT.data, ...parsedData };
+        console.log('Updated UNIFIED_OMNI_AGENT.data');
       }
       
+      console.log('Markdown save completed successfully');
       toast({
         title: "Success",
         description: "Persona configuration saved to database. JSON and markdown are now synchronized."
       });
     } catch (error) {
-      console.error('Error saving persona:', error);
+      console.error('Critical error saving persona:', error);
       toast({
         title: "Error",
         description: error.message || "Failed to save persona configuration",
