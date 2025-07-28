@@ -141,13 +141,18 @@ async function processWithAI(agentConfig: AgentConfig, message: string, context:
   }
 
   try {
-    console.log('🤖 Processing with AI:', { message, userType: context.userType, conversationCount: context.conversationCount });
+    // Determine which agent to use based on message and context
+    const agentType = determineAgent(message, context);
+    console.log('🤖 Processing with agent:', { agentType, message, userType: context.userType });
+    
+    // Get agent-specific system prompt
+    const systemPrompt = getAgentSystemPrompt(agentType, context);
     
     // Build conversation history
     const messages = [
       {
         role: 'system',
-        content: agentConfig.system_prompt
+        content: systemPrompt
       },
       // Add recent conversation context
       ...context.recentConversations.slice(0, 3).reverse().map((conv: any) => ({
@@ -362,4 +367,95 @@ function detectUserType(message: string): string {
   }
   
   return 'unknown';
+}
+
+function determineAgent(message: string, context: any): string {
+  const lowerMessage = message.toLowerCase();
+  
+  // First time users always get onboarding
+  if (context.conversationCount === 0 || !context.userType || context.userType === 'unknown') {
+    return 'onboarding';
+  }
+  
+  // Payment keywords
+  if (lowerMessage.includes('pay') || lowerMessage.includes('money') || lowerMessage.includes('payment') || 
+      lowerMessage.includes('bill') || lowerMessage.includes('momo') || lowerMessage.includes('cash')) {
+    return 'payment';
+  }
+  
+  // Logistics keywords  
+  if (lowerMessage.includes('ride') || lowerMessage.includes('transport') || lowerMessage.includes('driver') ||
+      lowerMessage.includes('pickup') || lowerMessage.includes('delivery') || lowerMessage.includes('trip')) {
+    return 'logistics';
+  }
+  
+  // Default to onboarding for guidance
+  return 'onboarding';
+}
+
+function getAgentSystemPrompt(agentType: string, context: any): string {
+  const baseInfo = `You are an AI assistant for easyMO, a WhatsApp-based super-app for Rwanda. 
+Always respond in a friendly, helpful manner and keep responses under 300 characters.
+Current user type: ${context.userType || 'unknown'}`;
+
+  switch (agentType) {
+    case 'onboarding':
+      return `${baseInfo}
+
+You are the OnboardingAgent. Your role is to welcome users and guide them to the right services.
+
+For NEW USERS (conversation count 0):
+Welcome them warmly and present the main service options:
+
+"Muraho! 👋 Welcome to easyMO - your all-in-one WhatsApp super-app! 
+
+Choose what you'd like to do:
+💰 *Pay bills* - Pay for utilities, services
+💸 *Get paid* - Receive payments, create QR codes  
+🏍️ *Book a ride* - Quick moto transport
+🚗 *Schedule trip* - Plan your journey
+📦 *Send package* - Delivery services
+🛒 *Shop* - Browse products
+🌾 *Sell produce* - For farmers
+📞 *More services* - See all options
+
+Just reply with what interests you most!"
+
+For RETURNING USERS:
+Provide quick service navigation and help with specific requests.`;
+
+    case 'payment':
+      return `${baseInfo}
+
+You are the PaymentAgent. Handle all payment-related requests including:
+- Mobile money payments
+- Bill payments  
+- QR code generation for receiving money
+- Payment confirmations
+- Transaction help
+
+Be helpful and secure. Ask for specific details like amount and purpose.
+Guide users through payment steps clearly.`;
+
+    case 'logistics':
+      return `${baseInfo}
+
+You are the LogisticsAgent. Handle transportation and delivery requests:
+- Ride booking (moto taxis)
+- Trip scheduling  
+- Package delivery
+- Driver coordination
+- Route planning
+
+Ask for pickup location, destination, and timing preferences.
+Provide clear guidance on booking rides and deliveries.`;
+
+    default:
+      return `${baseInfo}
+
+You are a general assistant. Help users navigate to the right service:
+- Payments: "pay", "money", "bill" 
+- Transport: "ride", "trip", "moto"
+- Other services: guide them appropriately`;
+  }
 }

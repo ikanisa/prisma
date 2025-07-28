@@ -62,17 +62,15 @@ serve(async (req: Request) => {
               // Log the incoming message
               console.log(`Received ${messageType} message from ${from}: ${messageText}`);
 
-              // Check if we've already processed this message to prevent duplicates
+              // Check if we've already processed this exact message ID to prevent duplicates
               const { data: existingMessage } = await supabase
                 .from('incoming_messages')
                 .select('id')
-                .eq('from_number', from)
-                .eq('message_text', messageText)
-                .eq('created_at', timestamp.toISOString())
+                .eq('raw_payload->>id', message.id)
                 .single();
 
               if (existingMessage) {
-                console.log(`⚠️ Duplicate message detected, skipping processing for: ${messageText}`);
+                console.log(`⚠️ Duplicate message ID detected, skipping: ${message.id}`);
                 continue;
               }
 
