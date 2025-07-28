@@ -474,39 +474,35 @@ export function LearningDashboard() {
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
                   <span>💳</span>
-                  <span>Payment Journey</span>
+                  <span>Payment QR Generation</span>
                 </CardTitle>
-                <CardDescription>USSD QR code & mobile money flow</CardDescription>
+                <CardDescription>USSD QR code generation for mobile money</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
                   <div className="flex items-center space-x-3">
                     <div className="w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-medium">1</div>
                     <div>
-                      <div className="font-medium">Request Payment</div>
-                      <div className="text-sm text-muted-foreground">User requests QR code via WhatsApp</div>
+                      <div className="font-medium">Amount Request</div>
+                      <div className="text-sm text-muted-foreground">User sends amount via WhatsApp (e.g., "5000")</div>
                     </div>
                   </div>
                   <div className="flex items-center space-x-3">
                     <div className="w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-medium">2</div>
                     <div>
-                      <div className="font-medium">Generate QR</div>
-                      <div className="text-sm text-muted-foreground">System creates USSD QR code</div>
+                      <div className="font-medium">QR Generation</div>
+                      <div className="text-sm text-muted-foreground">System creates USSD QR code image</div>
                     </div>
                   </div>
                   <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-medium">3</div>
+                    <div className="w-8 h-8 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-sm font-medium">3</div>
                     <div>
-                      <div className="font-medium">Scan & Pay</div>
-                      <div className="text-sm text-muted-foreground">User scans QR, completes mobile money payment</div>
+                      <div className="font-medium">QR Delivery</div>
+                      <div className="text-sm text-muted-foreground">QR image sent to user via WhatsApp</div>
                     </div>
                   </div>
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-sm font-medium">4</div>
-                    <div>
-                      <div className="font-medium">Confirmation</div>
-                      <div className="text-sm text-muted-foreground">Payment confirmed via WhatsApp</div>
-                    </div>
+                  <div className="bg-yellow-50 p-3 rounded-lg">
+                    <p className="text-sm text-yellow-800">Note: Payment processing happens outside easyMO system via mobile money providers</p>
                   </div>
                 </div>
               </CardContent>
@@ -516,39 +512,35 @@ export function LearningDashboard() {
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
                   <span>🏍️</span>
-                  <span>Moto Ride Journey</span>
+                  <span>Transport Discovery</span>
                 </CardTitle>
-                <CardDescription>Ride booking & driver matching</CardDescription>
+                <CardDescription>Finding nearby drivers and passengers</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
                   <div className="flex items-center space-x-3">
                     <div className="w-8 h-8 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-sm font-medium">1</div>
                     <div>
-                      <div className="font-medium">Request Ride</div>
-                      <div className="text-sm text-muted-foreground">User shares location & destination</div>
+                      <div className="font-medium">Location Share</div>
+                      <div className="text-sm text-muted-foreground">User shares current location via WhatsApp</div>
                     </div>
                   </div>
                   <div className="flex items-center space-x-3">
                     <div className="w-8 h-8 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-sm font-medium">2</div>
                     <div>
-                      <div className="font-medium">Driver Matching</div>
-                      <div className="text-sm text-muted-foreground">System finds nearby available driver</div>
+                      <div className="font-medium">Discovery Query</div>
+                      <div className="text-sm text-muted-foreground">User requests "nearby drivers" or "passengers going to [destination]"</div>
                     </div>
                   </div>
                   <div className="flex items-center space-x-3">
                     <div className="w-8 h-8 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-sm font-medium">3</div>
                     <div>
-                      <div className="font-medium">Driver Accepts</div>
-                      <div className="text-sm text-muted-foreground">Driver details & ETA shared</div>
+                      <div className="font-medium">Results Display</div>
+                      <div className="text-sm text-muted-foreground">System shows available drivers/passengers with contact info</div>
                     </div>
                   </div>
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-medium">4</div>
-                    <div>
-                      <div className="font-medium">Trip Complete</div>
-                      <div className="text-sm text-muted-foreground">Payment & rating via WhatsApp</div>
-                    </div>
+                  <div className="bg-yellow-50 p-3 rounded-lg">
+                    <p className="text-sm text-yellow-800">Note: Users connect directly outside system to arrange transport details</p>
                   </div>
                 </div>
               </CardContent>
@@ -567,30 +559,26 @@ export function LearningDashboard() {
                   <div className="flex items-center space-x-3">
                     <div className="w-8 h-8 bg-purple-100 text-purple-600 rounded-full flex items-center justify-center text-sm font-medium">1</div>
                     <div>
-                      <div className="font-medium">Search Request</div>
-                      <div className="text-sm text-muted-foreground">User asks for nearby pharmacy/shop</div>
+                      <div className="font-medium">Location Requirement</div>
+                      <div className="text-sm text-muted-foreground">System requests location if not already shared</div>
                     </div>
                   </div>
                   <div className="flex items-center space-x-3">
                     <div className="w-8 h-8 bg-purple-100 text-purple-600 rounded-full flex items-center justify-center text-sm font-medium">2</div>
                     <div>
-                      <div className="font-medium">Location Analysis</div>
-                      <div className="text-sm text-muted-foreground">System finds businesses nearby</div>
+                      <div className="font-medium">Search Query</div>
+                      <div className="text-sm text-muted-foreground">User requests "nearby pharmacy" or "find shop"</div>
                     </div>
                   </div>
                   <div className="flex items-center space-x-3">
                     <div className="w-8 h-8 bg-purple-100 text-purple-600 rounded-full flex items-center justify-center text-sm font-medium">3</div>
                     <div>
-                      <div className="font-medium">Results & Inventory</div>
-                      <div className="text-sm text-muted-foreground">Shows options with real-time stock</div>
+                      <div className="font-medium">Business List</div>
+                      <div className="text-sm text-muted-foreground">Shows nearby businesses with contact details</div>
                     </div>
                   </div>
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-sm font-medium">4</div>
-                    <div>
-                      <div className="font-medium">Connect & Order</div>
-                      <div className="text-sm text-muted-foreground">Direct connection to business</div>
-                    </div>
+                  <div className="bg-yellow-50 p-3 rounded-lg">
+                    <p className="text-sm text-yellow-800">Note: Business contact & ordering happens outside easyMO system</p>
                   </div>
                 </div>
               </CardContent>
@@ -599,40 +587,112 @@ export function LearningDashboard() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
-                  <span>🔄</span>
-                  <span>Service Provider Flow</span>
+                  <span>🛒</span>
+                  <span>Product Discovery</span>
                 </CardTitle>
-                <CardDescription>Connecting users with services</CardDescription>
+                <CardDescription>Finding products from vendors</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
                   <div className="flex items-center space-x-3">
                     <div className="w-8 h-8 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center text-sm font-medium">1</div>
                     <div>
-                      <div className="font-medium">Service Request</div>
-                      <div className="text-sm text-muted-foreground">User describes needed service</div>
+                      <div className="font-medium">Product Search</div>
+                      <div className="text-sm text-muted-foreground">User searches for specific product (e.g., "rice", "medicine")</div>
                     </div>
                   </div>
                   <div className="flex items-center space-x-3">
                     <div className="w-8 h-8 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center text-sm font-medium">2</div>
                     <div>
-                      <div className="font-medium">Provider Matching</div>
-                      <div className="text-sm text-muted-foreground">AI matches user with providers</div>
+                      <div className="font-medium">Vendor Results</div>
+                      <div className="text-sm text-muted-foreground">System shows vendors who have the product in stock</div>
                     </div>
                   </div>
                   <div className="flex items-center space-x-3">
                     <div className="w-8 h-8 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center text-sm font-medium">3</div>
                     <div>
-                      <div className="font-medium">Quote & Schedule</div>
-                      <div className="text-sm text-muted-foreground">Provider responds with pricing/timing</div>
+                      <div className="font-medium">Vendor Contact</div>
+                      <div className="text-sm text-muted-foreground">User gets vendor contact details for direct communication</div>
+                    </div>
+                  </div>
+                  <div className="bg-yellow-50 p-3 rounded-lg">
+                    <p className="text-sm text-yellow-800">Note: Purchase negotiations & delivery happen outside easyMO system</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <span>👤</span>
+                  <span>Driver Registration</span>
+                </CardTitle>
+                <CardDescription>Getting online as a service provider</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-8 h-8 bg-teal-100 text-teal-600 rounded-full flex items-center justify-center text-sm font-medium">1</div>
+                    <div>
+                      <div className="font-medium">Registration Request</div>
+                      <div className="text-sm text-muted-foreground">User requests to "go online as driver"</div>
                     </div>
                   </div>
                   <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-medium">4</div>
+                    <div className="w-8 h-8 bg-teal-100 text-teal-600 rounded-full flex items-center justify-center text-sm font-medium">2</div>
                     <div>
-                      <div className="font-medium">Service Complete</div>
-                      <div className="text-sm text-muted-foreground">Payment & feedback collection</div>
+                      <div className="font-medium">Location Required</div>
+                      <div className="text-sm text-muted-foreground">System requests current location for visibility</div>
                     </div>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <div className="w-8 h-8 bg-teal-100 text-teal-600 rounded-full flex items-center justify-center text-sm font-medium">3</div>
+                    <div>
+                      <div className="font-medium">Profile Creation</div>
+                      <div className="text-sm text-muted-foreground">System records driver profile with location and contact</div>
+                    </div>
+                  </div>
+                  <div className="bg-green-50 p-3 rounded-lg">
+                    <p className="text-sm text-green-800">Result: Driver becomes discoverable by nearby passengers</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <span>🎫</span>
+                  <span>Event Discovery</span>
+                </CardTitle>
+                <CardDescription>Finding and sharing events</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-8 h-8 bg-pink-100 text-pink-600 rounded-full flex items-center justify-center text-sm font-medium">1</div>
+                    <div>
+                      <div className="font-medium">Event Query</div>
+                      <div className="text-sm text-muted-foreground">User requests "events near me" or "what's happening"</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <div className="w-8 h-8 bg-pink-100 text-pink-600 rounded-full flex items-center justify-center text-sm font-medium">2</div>
+                    <div>
+                      <div className="font-medium">Event List</div>
+                      <div className="text-sm text-muted-foreground">System shows upcoming events with details</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <div className="w-8 h-8 bg-pink-100 text-pink-600 rounded-full flex items-center justify-center text-sm font-medium">3</div>
+                    <div>
+                      <div className="font-medium">Event Information</div>
+                      <div className="text-sm text-muted-foreground">User gets event details and organizer contact</div>
+                    </div>
+                  </div>
+                  <div className="bg-yellow-50 p-3 rounded-lg">
+                    <p className="text-sm text-yellow-800">Note: Event registration & payment handled by organizers outside system</p>
                   </div>
                 </div>
               </CardContent>
