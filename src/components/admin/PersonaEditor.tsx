@@ -187,15 +187,72 @@ export function PersonaEditor({ agentId = 'omni-agent' }: PersonaEditorProps) {
       setJsonData(JSON.stringify(parsedData, null, 2));
       setMarkdownData(editableMarkdown);
       
+      // Save to agent_personas table if editing the Omni Agent
+      if (selectedOmniAgent === 'unified') {
+        // Handle special case for omni-agent (use null for agent_id)
+        const finalAgentId = agentId === 'omni-agent' ? null : agentId;
+        
+        // Check if persona already exists
+        const { data: existingPersona } = await supabase
+          .from('agent_personas')
+          .select('*')
+          .is('agent_id', null)
+          .maybeSingle();
+        
+        if (existingPersona) {
+          // Update existing persona
+          const { error: updateError } = await supabase
+            .from('agent_personas')
+            .update({
+              personality: parsedData.role_summary || '',
+              tone: parsedData.core_objective || '',
+              instructions: JSON.stringify(parsedData),
+              language: 'en'
+            })
+            .eq('id', existingPersona.id);
+            
+          if (updateError) throw updateError;
+        } else {
+          // Create new persona
+          const { error: insertError } = await supabase
+            .from('agent_personas')
+            .insert({
+              agent_id: finalAgentId,
+              personality: parsedData.role_summary || '',
+              tone: parsedData.core_objective || '',
+              instructions: JSON.stringify(parsedData),
+              language: 'en'
+            });
+            
+          if (insertError) throw insertError;
+        }
+      }
+      
+      // Save to centralized_documents for agent learning
+      const { error: docError } = await supabase
+        .from('centralized_documents')
+        .insert({
+          title: `${parsedData.agent_name || 'Omni Agent'} - Updated Persona Configuration`,
+          content: editableMarkdown,
+          document_type: 'persona_markdown',
+          agent_scope: 'omni',
+          status: 'active'
+        });
+        
+      if (docError) {
+        console.warn('Warning: Failed to save to centralized_documents:', docError);
+        // Don't throw here - persona save is more important
+      }
+      
       toast({
         title: "Success",
-        description: "Markdown documentation saved and JSON configuration updated"
+        description: "Persona configuration saved to database and agent learning system"
       });
     } catch (error) {
-      console.error('Error parsing markdown:', error);
+      console.error('Error saving persona:', error);
       toast({
         title: "Error",
-        description: "Failed to parse markdown content",
+        description: error.message || "Failed to save persona configuration",
         variant: "destructive"
       });
     } finally {
