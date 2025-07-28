@@ -22,6 +22,7 @@ import {
   CheckCircle,
   AlertTriangle,
   Clock,
+  Edit,
   Wrench as ToolIcon
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -326,9 +327,13 @@ export default function AgentDetail() {
             {agent.active ? <Pause className="mr-2 h-4 w-4" /> : <Play className="mr-2 h-4 w-4" />}
             {agent.active ? 'Deactivate' : 'Activate'}
           </Button>
-          <Button variant="outline" onClick={() => navigate(`/admin/agents/${agent.id}/edit`)}>
+          <Button variant="outline" onClick={() => navigate(`/admin/agents/${agent.id}/configuration`)}>
             <Settings className="mr-2 h-4 w-4" />
-            Configure
+            Advanced Configuration
+          </Button>
+          <Button variant="outline" onClick={() => navigate(`/admin/agents/${agent.id}/edit`)}>
+            <Edit className="mr-2 h-4 w-4" />
+            Basic Settings
           </Button>
         </div>
       </div>

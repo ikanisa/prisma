@@ -34,6 +34,55 @@ interface Persona {
   personality: string;
   instructions: string;
   updated_at: string;
+  // Enhanced fields for comprehensive agent configuration
+  mission?: string;
+  north_star_metric?: string;
+  voice_behavior?: string;
+  cultural_fit?: string;
+  conversation_style?: string;
+  responsibilities?: string[];
+  domains?: AgentDomain[];
+  operating_modes?: string[];
+  escalation_rules?: EscalationRule[];
+  kpis?: string[];
+  tools_config?: ToolConfig[];
+  intent_matrix?: IntentConfig[];
+}
+
+interface AgentDomain {
+  name: string;
+  description: string;
+  sub_agents: SubAgent[];
+  core_tasks: string[];
+  key_tables: string[];
+}
+
+interface SubAgent {
+  role: string;
+  tasks: string[];
+}
+
+interface EscalationRule {
+  condition: string;
+  action: string;
+  priority: 'low' | 'medium' | 'high' | 'critical';
+}
+
+interface ToolConfig {
+  name: string;
+  type: string;
+  description: string;
+  parameters?: any;
+}
+
+interface IntentConfig {
+  intent_id: string;
+  goal: string;
+  triggers: string[];
+  required_slots: string[];
+  optional_slots: string[];
+  tools: string[];
+  template?: string;
 }
 
 export default function PersonaDetail() {

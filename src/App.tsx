@@ -29,6 +29,7 @@ import TaskDetail from "./pages/admin/agents/TaskDetail";
 import AgentOverview from "./pages/admin/agents/AgentOverview";
 import PersonasList from "./pages/admin/agents/PersonasList";
 import PersonaDetailNew from "./pages/admin/agents/PersonaDetail";
+import AgentConfiguration from "./pages/admin/agents/AgentConfiguration";
 // Conversation and campaign detail pages
 import ConversationDetail from "./pages/admin/conversations/ConversationDetail";
 import CampaignDetail from "./pages/admin/campaigns/CampaignDetail";
@@ -80,6 +81,7 @@ const App = () => (
           <Route path="agents-overview/:id" element={<AgentOverview />} />
           <Route path="agents-overview/:id/personas" element={<PersonasList />} />
           <Route path="agents-overview/:id/personas/:personaId" element={<PersonaDetailNew />} />
+          <Route path="agents/:id/configuration" element={<AgentConfiguration />} />
           
           {/* Agent detail routes */}
           <Route path="agents-legacy/:id" element={<AgentDetailLegacy />} />
