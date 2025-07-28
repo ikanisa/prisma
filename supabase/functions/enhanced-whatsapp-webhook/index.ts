@@ -22,6 +22,13 @@ interface WhatsAppMessage {
   text?: {
     body: string;
   };
+  interactive?: {
+    type: string;
+    button_reply?: {
+      id: string;
+      title: string;
+    };
+  };
   type: string;
   timestamp: string;
 }
@@ -46,6 +53,8 @@ class EnhancedPaymentAgent {
       console.log('🔍 Payment intent analysis:', intent);
 
       switch (intent.action) {
+        case 'amount_prompt':
+          return await this.handleAmountPrompt(intent, from);
         case 'generate_qr':
           return await this.handleGenerateQR(intent, from);
         case 'confirm_payment':
@@ -58,6 +67,8 @@ class EnhancedPaymentAgent {
           return await this.handlePaymentHistory(from);
         case 'payment_status':
           return await this.handlePaymentStatus(from);
+        case 'get_paid_menu':
+          return this.sendGetPaidMenu(from);
         default:
           return this.getPaymentMenu();
       }
@@ -70,24 +81,30 @@ class EnhancedPaymentAgent {
   private analyzePaymentIntent(message: string): PaymentIntentResult {
     const msg = message.toLowerCase().trim();
     
-    // Direct amount detection for QR generation
+    // Direct amount detection - trigger amount prompt
     const amountMatch = msg.match(/^(\d+)$/);
     if (amountMatch) {
       return {
-        intent: 'amount_for_qr',
+        intent: 'amount_detected',
         confidence: 0.95,
         amount: parseInt(amountMatch[1]),
-        action: 'generate_qr'
+        action: 'amount_prompt'
       };
     }
 
-    // Get paid patterns
+    // Get paid patterns - show get paid menu
     const getPaidPatterns = [
       /get paid/i,
       /receive money/i,
+      /i want to get paid/i
+    ];
+
+    // Specific QR generation patterns
+    const qrPatterns = [
       /generate qr/i,
       /create qr/i,
-      /qr code/i
+      /qr code/i,
+      /make qr/i
     ];
 
     // Confirm payment patterns
@@ -139,8 +156,17 @@ class EnhancedPaymentAgent {
       };
     }
 
-    // Get paid intent
+    // Get paid intent - show menu
     if (getPaidPatterns.some(pattern => pattern.test(msg))) {
+      return {
+        intent: 'get_paid_request',
+        confidence: 0.85,
+        action: 'get_paid_menu'
+      };
+    }
+
+    // Direct QR generation
+    if (qrPatterns.some(pattern => pattern.test(msg))) {
       const amountInText = msg.match(/(\d+)/);
       return {
         intent: 'generate_qr',
@@ -378,6 +404,121 @@ class EnhancedPaymentAgent {
       console.error('Error sending QR message:', error);
     }
   }
+
+  private async handleAmountPrompt(intent: PaymentIntentResult, from: string): Promise<string> {
+    if (!intent.amount) {
+      return this.getPaymentMenu();
+    }
+
+    // Send interactive message with buttons for Pay or Get Paid
+    await this.sendAmountPromptMessage(from, intent.amount);
+    return `I see you entered ${intent.amount} RWF. What would you like to do?`;
+  }
+
+  private async sendAmountPromptMessage(to: string, amount: number): Promise<void> {
+    try {
+      const messageData = {
+        messaging_product: 'whatsapp',
+        to: to.replace('whatsapp:', ''),
+        type: 'interactive',
+        interactive: {
+          type: 'button',
+          body: {
+            text: `💰 ${amount} RWF\n\nWhat would you like to do with this amount?`
+          },
+          action: {
+            buttons: [
+              {
+                type: 'reply',
+                reply: {
+                  id: `get_paid_${amount}`,
+                  title: `Get Paid ${amount}`
+                }
+              },
+              {
+                type: 'reply',
+                reply: {
+                  id: `pay_${amount}`,
+                  title: `Pay ${amount}`
+                }
+              }
+            ]
+          }
+        }
+      };
+
+      await fetch(`https://graph.facebook.com/v18.0/${PHONE_ID}/messages`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${WHATSAPP_TOKEN}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(messageData)
+      });
+
+    } catch (error) {
+      console.error('Error sending amount prompt message:', error);
+    }
+  }
+
+  private sendGetPaidMenu(from: string): string {
+    // Send interactive message with Get Paid options
+    this.sendGetPaidMenuMessage(from);
+    return "Choose how you want to get paid:";
+  }
+
+  private async sendGetPaidMenuMessage(to: string): Promise<void> {
+    try {
+      const messageData = {
+        messaging_product: 'whatsapp',
+        to: to.replace('whatsapp:', ''),
+        type: 'interactive',
+        interactive: {
+          type: 'button',
+          body: {
+            text: '💰 Get Paid Options\n\nChoose how you want to receive money:'
+          },
+          action: {
+            buttons: [
+              {
+                type: 'reply',
+                reply: {
+                  id: 'add_amount',
+                  title: '💵 Add Amount'
+                }
+              },
+              {
+                type: 'reply',
+                reply: {
+                  id: 'generate_qr_any',
+                  title: '📱 Generate QR'
+                }
+              },
+              {
+                type: 'reply',
+                reply: {
+                  id: 'payment_history',
+                  title: '📜 History'
+                }
+              }
+            ]
+          }
+        }
+      };
+
+      await fetch(`https://graph.facebook.com/v18.0/${PHONE_ID}/messages`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${WHATSAPP_TOKEN}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(messageData)
+      });
+
+    } catch (error) {
+      console.error('Error sending get paid menu message:', error);
+    }
+  }
 }
 
 // Main webhook handler
@@ -440,13 +581,31 @@ async function processIncomingMessage(message: WhatsAppMessage) {
   try {
     console.log('🔄 Processing message:', message);
 
-    // Only process text messages for now
-    if (message.type !== 'text' || !message.text?.body) {
+    const from = `whatsapp:${message.from}`;
+    let messageText = '';
+    let messageType = 'text';
+
+    // Handle different message types
+    if (message.type === 'text' && message.text?.body) {
+      messageText = message.text.body;
+      messageType = 'text';
+    } else if (message.type === 'interactive' && message.interactive?.button_reply) {
+      console.log('🎯 Processing interactive message:', message.interactive);
+      messageText = await handleInteractiveMessage(message, from);
+      messageType = 'interactive';
+      
+      if (!messageText) {
+        console.log('✅ Interactive message processed:', {
+          success: true,
+          response: 'Message sent successfully',
+          processed_at: new Date().toISOString()
+        });
+        return;
+      }
+    } else {
+      console.log(`Received ${message.type} message from ${message.from}: non-text`);
       return;
     }
-
-    const messageText = message.text.body;
-    const from = `whatsapp:${message.from}`;
 
     // Log incoming message
     await supabase
@@ -455,7 +614,7 @@ async function processIncomingMessage(message: WhatsAppMessage) {
         phone_number: from,
         message_text: messageText,
         sender: 'user',
-        message_type: 'text',
+        message_type: messageType,
         channel: 'whatsapp'
       });
 
@@ -487,6 +646,54 @@ async function processIncomingMessage(message: WhatsAppMessage) {
     // Send error message to user
     await sendWhatsAppMessage(message.from, "Sorry, I'm experiencing technical difficulties. Please try again in a moment.");
   }
+}
+
+async function handleInteractiveMessage(message: WhatsAppMessage, from: string): Promise<string> {
+  if (!message.interactive?.button_reply) {
+    return '';
+  }
+
+  const buttonId = message.interactive.button_reply.id;
+  const paymentAgent = new EnhancedPaymentAgent(supabase);
+
+  // Handle different button responses
+  if (buttonId.startsWith('get_paid_')) {
+    const amount = parseInt(buttonId.replace('get_paid_', ''));
+    if (!isNaN(amount)) {
+      // Generate QR for specific amount
+      const intent: PaymentIntentResult = {
+        intent: 'amount_for_qr',
+        confidence: 1.0,
+        amount: amount,
+        action: 'generate_qr'
+      };
+      await paymentAgent.handleGenerateQR(intent, from);
+      return '';
+    }
+  } else if (buttonId.startsWith('pay_')) {
+    const amount = parseInt(buttonId.replace('pay_', ''));
+    if (!isNaN(amount)) {
+      // Initiate payment flow for specific amount
+      await sendWhatsAppMessage(message.from, `💸 Pay ${amount} RWF\n\nEnter recipient's phone number:`);
+      return '';
+    }
+  } else if (buttonId === 'add_amount') {
+    await sendWhatsAppMessage(message.from, '💵 Enter the amount you want to receive (in RWF):');
+    return '';
+  } else if (buttonId === 'generate_qr_any') {
+    // Generate QR without amount
+    const intent: PaymentIntentResult = {
+      intent: 'generate_qr',
+      confidence: 1.0,
+      action: 'generate_qr'
+    };
+    await paymentAgent.handleGenerateQR(intent, from);
+    return '';
+  } else if (buttonId === 'payment_history') {
+    return await paymentAgent.handlePaymentHistory(from);
+  }
+
+  return '';
 }
 
 async function sendWhatsAppMessage(to: string, text: string): Promise<void> {
