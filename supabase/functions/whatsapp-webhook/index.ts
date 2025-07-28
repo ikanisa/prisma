@@ -62,11 +62,10 @@ serve(async (req: Request) => {
               // Process text messages with AI
               if (messageType === 'text' && messageText) {
                 try {
-                  // Use the Smart Agent Router for proper AI orchestration
-                  console.log('🧠 Routing to smart agent system...');
+                  // Use the new unified AI orchestrator for all processing
+                  console.log('🧠 Routing to unified AI orchestrator...');
                   
-                  // First try the unified orchestrator
-                  const { data: orchestratorResult, error: orchestratorError } = await supabase.functions.invoke('mcp-orchestrator', {
+                  const { data: orchestratorResult, error: orchestratorError } = await supabase.functions.invoke('unified-ai-orchestrator', {
                     body: {
                       from: from,
                       text: messageText,
@@ -77,24 +76,9 @@ serve(async (req: Request) => {
                   });
 
                   if (orchestratorError) {
-                    console.error('Orchestrator error, falling back to process-incoming-messages:', orchestratorError);
-                    
-                    // Fallback to direct processing
-                    const { data: fallbackResult, error: fallbackError } = await supabase.functions.invoke('process-incoming-messages', {
-                      body: {
-                        from: from,
-                        message: messageText,
-                        timestamp: timestamp.toISOString()
-                      }
-                    });
-
-                    if (fallbackError) {
-                      console.error('Both orchestrator and fallback failed:', fallbackError);
-                    } else {
-                      console.log('✅ Fallback processing successful:', fallbackResult);
-                    }
+                    console.error('❌ Orchestrator error:', orchestratorError);
                   } else {
-                    console.log('✅ Smart orchestration successful:', orchestratorResult);
+                    console.log('✅ Message processed successfully by unified orchestrator:', orchestratorResult);
                   }
                 } catch (error) {
                   console.error('❌ Critical processing error:', error);

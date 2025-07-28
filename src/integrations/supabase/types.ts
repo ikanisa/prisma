@@ -59,34 +59,29 @@ export type Database = {
       agent_conversations: {
         Row: {
           id: string
-          message: string | null
-          role: string | null
+          message: string
+          metadata: Json | null
+          role: string
           ts: string | null
-          user_id: string | null
+          user_id: string
         }
         Insert: {
           id?: string
-          message?: string | null
-          role?: string | null
+          message: string
+          metadata?: Json | null
+          role: string
           ts?: string | null
-          user_id?: string | null
+          user_id: string
         }
         Update: {
           id?: string
-          message?: string | null
-          role?: string | null
+          message?: string
+          metadata?: Json | null
+          role?: string
           ts?: string | null
-          user_id?: string | null
+          user_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "agent_conversations_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       agent_documents: {
         Row: {
@@ -234,6 +229,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      agent_memory: {
+        Row: {
+          created_at: string | null
+          id: string
+          memory_type: string
+          memory_value: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          memory_type: string
+          memory_value: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          memory_type?: string
+          memory_value?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
       }
       agent_memory_enhanced: {
         Row: {
