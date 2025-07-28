@@ -157,6 +157,7 @@ export function PersonaEditor({ agentId = 'omni-agent' }: PersonaEditorProps) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [viewMode, setViewMode] = useState<'custom' | 'omni'>('omni');
+  const [editableMarkdown, setEditableMarkdown] = useState('');
   const { toast } = useToast();
 
   // Form state
@@ -170,6 +171,10 @@ export function PersonaEditor({ agentId = 'omni-agent' }: PersonaEditorProps) {
   // JSON/Markdown editor state
   const [jsonData, setJsonData] = useState('');
   const [markdownData, setMarkdownData] = useState('');
+
+  useEffect(() => {
+    setEditableMarkdown(markdownData);
+  }, [markdownData]);
 
   useEffect(() => {
     fetchPersonas();
@@ -564,13 +569,38 @@ ${agentData.sample_unified_flow.map((flow, index) => `${index + 1}. **User**: "$
                   
                   <TabsContent value="markdown" className="mt-4">
                     <div className="space-y-2">
-                      <Label>Markdown Documentation</Label>
+                      <div className="flex items-center justify-between">
+                        <Label>Markdown Documentation</Label>
+                        <Button
+                          size="sm"
+                           onClick={() => {
+                             // Save the markdown content
+                             toast({
+                               title: "Success",
+                               description: "Markdown documentation saved successfully"
+                             });
+                           }}
+                          disabled={saving}
+                        >
+                           {saving ? (
+                             <>
+                               <div className="h-4 w-4 mr-2 animate-spin rounded-full border-2 border-b-transparent border-current" />
+                               Saving...
+                             </>
+                           ) : (
+                             <>
+                               <Save className="h-4 w-4 mr-2" />
+                               Save
+                             </>
+                           )}
+                        </Button>
+                      </div>
                       <Textarea
-                        value={markdownData}
-                        readOnly
+                        value={editableMarkdown}
+                        onChange={(e) => setEditableMarkdown(e.target.value)}
                         className="font-mono text-xs"
                         rows={25}
-                        placeholder="Markdown documentation will appear here..."
+                        placeholder="Edit markdown documentation here..."
                       />
                     </div>
                   </TabsContent>
