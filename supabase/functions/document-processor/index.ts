@@ -56,18 +56,33 @@ serve(async (req) => {
           // First try agent_documents table
           const { data: doc } = await supabase
             .from('agent_documents')
-            .select('title, storage_path')
+            .select('title, storage_path, drive_mime')
             .eq('id', document_id)
             .single();
           
           if (doc?.storage_path) {
             // Download content from storage
-            const { data: fileData } = await supabase.storage
+            const { data: fileData, error: storageError } = await supabase.storage
               .from('persona-docs')
               .download(doc.storage_path);
             
+            if (storageError) {
+              throw new Error(`Failed to download file: ${storageError.message}`);
+            }
+            
             if (fileData) {
-              documentContent = await fileData.text();
+              // Handle different file types
+              if (doc.drive_mime?.includes('text/') || doc.drive_mime?.includes('application/json')) {
+                documentContent = await fileData.text();
+              } else if (doc.drive_mime?.includes('application/pdf')) {
+                // For PDF files, we'll extract text (simplified approach)
+                const arrayBuffer = await fileData.arrayBuffer();
+                const decoder = new TextDecoder('utf-8');
+                documentContent = decoder.decode(arrayBuffer);
+              } else {
+                // For other file types, try to read as text
+                documentContent = await fileData.text();
+              }
               targetTable = 'agent_documents';
               targetId = document_id;
             }
@@ -281,7 +296,8 @@ async function generateEmbeddings(content: string) {
   const chunks = createTextChunks(content, 1000, 100);
   const embeddings = [];
 
-  for (const chunk of chunks) {
+  for (let i = 0; i < chunks.length; i++) {
+    const chunk = chunks[i];
     const response = await fetch('https://api.openai.com/v1/embeddings', {
       method: 'POST',
       headers: {
@@ -289,7 +305,7 @@ async function generateEmbeddings(content: string) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'text-embedding-ada-002',
+        model: 'text-embedding-3-small',
         input: chunk
       }),
     });
@@ -300,9 +316,16 @@ async function generateEmbeddings(content: string) {
 
     const data = await response.json();
     embeddings.push({
-      chunk,
-      embedding: data.data[0].embedding
+      chunk_index: i,
+      chunk_text: chunk,
+      embedding: data.data[0].embedding,
+      metadata: {
+        chunk_size: chunk.length,
+        model: 'text-embedding-3-small'
+      }
     });
+    
+    console.log(`Generated embedding for chunk ${i + 1}/${chunks.length}`);
   }
 
   return {
@@ -342,6 +365,12 @@ async function updateDocumentWithResults(supabase: any, table: string, id: strin
   
   if (results.embedding_count) {
     updateData.vector_count = results.embedding_count;
+    // Mark as processed when embeddings are created
+    updateData.embedding_ok = true;
+  }
+
+  if (stage === 'all' && results.processed_all_stages) {
+    updateData.embedding_ok = true;
   }
 
   updateData.updated_at = new Date().toISOString();
@@ -354,6 +383,9 @@ async function updateDocumentWithResults(supabase: any, table: string, id: strin
 
     if (error) {
       console.error(`Failed to update ${table}:`, error);
+      throw error;
+    } else {
+      console.log(`Successfully updated ${table} with:`, updateData);
     }
   }
 }

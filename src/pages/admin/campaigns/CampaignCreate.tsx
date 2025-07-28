@@ -89,7 +89,19 @@ export default function CampaignCreate() {
         .order('category', { ascending: true });
 
       if (error) throw error;
-      setTemplates(data || []);
+      
+      if (data) {
+        // Convert database templates to legacy format for compatibility
+        const convertedTemplates = data.map(template => ({
+          id: template.id,
+          name: template.code, // Use code as name since title doesn't exist
+          content: template.body,
+          variables: [] as string[], // Extract variables from template body if needed
+          category: template.category,
+          status: template.status
+        }));
+        setTemplates(convertedTemplates);
+      }
     } catch (error) {
       console.error('Error fetching templates:', error);
       toast.error('Failed to load templates');
