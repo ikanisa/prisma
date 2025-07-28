@@ -12,6 +12,7 @@ import { MemoryView } from '@/components/MemoryView';
 import { Settings as SettingsComponent } from '@/components/Settings';
 import { WebhookTestPanel } from '@/components/admin/WebhookTestPanel';
 import { MessageProcessingTest } from '@/components/admin/MessageProcessingTest';
+import { WhatsAppPermissionTester } from '@/components/admin/WhatsAppPermissionTester';
 
 interface Conversation {
   id: string;
@@ -247,6 +248,7 @@ export default function WhatsAppDashboard() {
         
         <TabsContent value="webhook">
           <div className="space-y-6">
+            <WhatsAppPermissionTester />
             <MessageProcessingTest />
             <WebhookTestPanel />
           </div>
