@@ -352,34 +352,41 @@ export function LearningDashboard() {
                 <CardTitle>Coverage Trends</CardTitle>
                 <CardDescription>Knowledge coverage over time</CardDescription>
               </CardHeader>
-              <CardContent>
+               <CardContent>
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm">Mobile Money</span>
+                    <span className="text-sm">USSD Payment & QR Codes</span>
+                    <div className="flex items-center space-x-2">
+                      <Progress value={92} className="w-20 h-2" />
+                      <span className="text-sm font-medium">92%</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">Moto Taxi / Ride Services</span>
+                    <div className="flex items-center space-x-2">
+                      <Progress value={88} className="w-20 h-2" />
+                      <span className="text-sm font-medium">88%</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">Business Discovery (Shops/Pharmacies)</span>
                     <div className="flex items-center space-x-2">
                       <Progress value={85} className="w-20 h-2" />
                       <span className="text-sm font-medium">85%</span>
                     </div>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-sm">Banking Integration</span>
+                    <span className="text-sm">Service Provider Network</span>
                     <div className="flex items-center space-x-2">
-                      <Progress value={72} className="w-20 h-2" />
-                      <span className="text-sm font-medium">72%</span>
+                      <Progress value={78} className="w-20 h-2" />
+                      <span className="text-sm font-medium">78%</span>
                     </div>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-sm">Kinyarwanda Support</span>
+                    <span className="text-sm">Location-Based Services</span>
                     <div className="flex items-center space-x-2">
-                      <Progress value={45} className="w-20 h-2" />
-                      <span className="text-sm font-medium">45%</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm">Regulatory Compliance</span>
-                    <div className="flex items-center space-x-2">
-                      <Progress value={68} className="w-20 h-2" />
-                      <span className="text-sm font-medium">68%</span>
+                      <Progress value={82} className="w-20 h-2" />
+                      <span className="text-sm font-medium">82%</span>
                     </div>
                   </div>
                 </div>
