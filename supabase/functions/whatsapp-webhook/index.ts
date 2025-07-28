@@ -61,19 +61,26 @@ serve(async (req: Request) => {
                 try {
                   // Call the AI processor
                   console.log('Calling process-incoming-messages function...');
-                  const { data: response, error } = await supabase.functions.invoke('process-incoming-messages', {
-                    body: {
+                  const response = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/process-incoming-messages`, {
+                    method: 'POST',
+                    headers: {
+                      'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
                       from: from,
                       message: messageText,
                       timestamp: timestamp.toISOString()
-                    }
+                    })
                   });
-                  console.log('AI processor response:', { response, error });
 
-                  if (error) {
-                    console.error('Error calling process-incoming-messages:', error);
+                  const result = await response.json();
+                  console.log('AI processor response:', result);
+
+                  if (!response.ok) {
+                    console.error('Error calling process-incoming-messages:', result);
                   } else {
-                    console.log('Message processed successfully:', response);
+                    console.log('Message processed successfully:', result);
                   }
                 } catch (error) {
                   console.error('Error processing message:', error);
