@@ -45,6 +45,7 @@ const App = () => (
       <BrowserRouter>
       <Routes>
         <Route path="/" element={<Navigate to="/admin" replace />} />
+        <Route path="/auth" element={<AdminAuth />} />
         <Route path="/admin/setup" element={<AdminAuth />} />
         
         {/* Admin Routes */}

@@ -20,13 +20,15 @@ export function useAdminAuth(): AdminAuthState {
   useEffect(() => {
     let mounted = true;
 
-    const checkAdminAccess = async () => {
+    const checkAdminAccess = async (userSession?: any) => {
       try {
-        const { data: session } = await supabase.auth.getSession();
+        // Use provided session or get current session
+        const sessionData = userSession || await supabase.auth.getSession();
+        const session = userSession || sessionData?.data?.session;
         
         if (!mounted) return;
 
-        if (!session?.session?.user) {
+        if (!session?.user) {
           setState({
             user: null,
             isAdmin: false,
@@ -36,7 +38,7 @@ export function useAdminAuth(): AdminAuthState {
           return;
         }
 
-        const user = session.session.user;
+        const user = session.user;
 
         // For development: allow any authenticated user to be admin
         // In production: check the is_admin() function
@@ -51,10 +53,14 @@ export function useAdminAuth(): AdminAuthState {
             checkingAuth: false
           });
         } else {
-          // Production mode: check admin role
+          // Production mode: check admin role with proper session context
           const { data: isAdminResult, error } = await supabase.rpc('is_admin');
           
           if (!mounted) return;
+          
+          if (error) {
+            console.error('Error checking admin status:', error);
+          }
           
           setState({
             user,
@@ -76,9 +82,7 @@ export function useAdminAuth(): AdminAuthState {
       }
     };
 
-    checkAdminAccess();
-
-    // Listen for auth changes
+    // Listen for auth changes first
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (!mounted) return;
@@ -94,10 +98,18 @@ export function useAdminAuth(): AdminAuthState {
         }
 
         if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-          await checkAdminAccess();
+          // Use a small delay to ensure session is properly set
+          setTimeout(() => {
+            if (mounted) {
+              checkAdminAccess(session);
+            }
+          }, 100);
         }
       }
     );
+
+    // Initial check
+    checkAdminAccess();
 
     return () => {
       mounted = false;

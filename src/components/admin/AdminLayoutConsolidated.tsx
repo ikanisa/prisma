@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Outlet, useLocation, NavLink } from 'react-router-dom';
+import { Outlet, useLocation, NavLink, useNavigate } from 'react-router-dom';
 import { useAdminAuth } from '@/hooks/admin/useAdminAuth';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -39,8 +40,9 @@ const consolidatedSidebarItems: SidebarItem[] = [
 ];
 
 export function AdminLayoutConsolidated() {
-  const { user, loading } = useAdminAuth();
+  const { user, isAdmin, loading } = useAdminAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
   if (loading) {
@@ -52,11 +54,26 @@ export function AdminLayoutConsolidated() {
   }
 
   if (!user) {
+    // Redirect to auth page if not authenticated
+    navigate('/auth');
+    return null;
+  }
+
+  if (!isAdmin) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center space-y-4">
           <h2 className="text-2xl font-bold">Access Denied</h2>
           <p className="text-muted-foreground">You need admin privileges to access this area.</p>
+          <Button 
+            variant="outline"
+            onClick={async () => {
+              await supabase.auth.signOut();
+              navigate('/auth');
+            }}
+          >
+            Sign out
+          </Button>
         </div>
       </div>
     );
