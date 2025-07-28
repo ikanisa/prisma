@@ -79,14 +79,57 @@ export default function AgentDetail() {
     if (!id) return;
     
     try {
-      const { data, error } = await supabase
+      // First try to get from agent_configs table
+      const { data: configData, error: configError } = await supabase
         .from('agent_configs')
         .select('*')
         .eq('id', id)
-        .single();
+        .maybeSingle();
       
-      if (error) throw error;
-      setAgent(data);
+      if (configData) {
+        setAgent(configData);
+        return;
+      }
+      
+      // If not found in agent_configs, try to find by matching agent from agents table
+      const { data: agentData, error: agentError } = await supabase
+        .from('agents')
+        .select('*')
+        .eq('id', id)
+        .maybeSingle();
+      
+      if (agentError) throw agentError;
+      
+      if (!agentData) {
+        throw new Error('Agent not found in either agents or agent_configs table');
+      }
+      
+      // Try to find a corresponding config by name or create a mock config
+      const { data: configByName } = await supabase
+        .from('agent_configs')
+        .select('*')
+        .ilike('name', `%${agentData.name}%`)
+        .maybeSingle();
+      
+      if (configByName) {
+        setAgent(configByName);
+      } else {
+        // Create a mock config object for display purposes
+        const mockConfig: AgentConfig = {
+          id: agentData.id,
+          code: agentData.name.toLowerCase().replace(/\s+/g, '_'),
+          assistant_id: 'Not configured',
+          name: agentData.name,
+          description: agentData.description,
+          system_prompt: 'Not configured',
+          temperature: 0.7,
+          tools_json: [],
+          active: agentData.status === 'active',
+          created_at: agentData.created_at,
+          updated_at: agentData.created_at
+        };
+        setAgent(mockConfig);
+      }
     } catch (error) {
       console.error('Error fetching agent:', error);
       toast({
