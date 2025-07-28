@@ -338,16 +338,16 @@ export function LearningDashboard() {
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                   <div className="p-4 bg-blue-50 rounded-lg">
-                    <div className="font-semibold text-blue-900">💳 Payment Solutions</div>
-                    <div className="text-sm text-blue-700 mt-1">USSD QR codes, mobile money integration, instant transfers</div>
+                    <div className="font-semibold text-blue-900">💳 Payment Services</div>
+                    <div className="text-sm text-blue-700 mt-1">QR code generation, payment requests, bill payments via MoMo</div>
                   </div>
                   <div className="p-4 bg-green-50 rounded-lg">
-                    <div className="font-semibold text-green-900">🏍️ Moto Services</div>
-                    <div className="text-sm text-green-700 mt-1">Ride booking, driver matching, route optimization</div>
+                    <div className="font-semibold text-green-900">🏍️ Transport Discovery</div>
+                    <div className="text-sm text-green-700 mt-1">Find nearby drivers/passengers, schedule rides, trip coordination</div>
                   </div>
                   <div className="p-4 bg-purple-50 rounded-lg">
-                    <div className="font-semibold text-purple-900">🏪 Business Discovery</div>
-                    <div className="text-sm text-purple-700 mt-1">Find pharmacies, shops, services, real-time inventory</div>
+                    <div className="font-semibold text-purple-900">🛒 Marketplace</div>
+                    <div className="text-sm text-purple-700 mt-1">Browse products, farmer listings, business discovery</div>
                   </div>
                 </div>
                 
@@ -387,45 +387,45 @@ export function LearningDashboard() {
              <CardContent>
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm">USSD Payment & QR Codes</span>
+                    <span className="text-sm">Payment & QR Generation</span>
                     <div className="flex items-center space-x-2">
                       <Progress value={95} className="w-20 h-2" />
                       <span className="text-sm font-medium">95%</span>
                     </div>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-sm">Moto Taxi / Ride Services</span>
-                    <div className="flex items-center space-x-2">
-                      <Progress value={92} className="w-20 h-2" />
-                      <span className="text-sm font-medium">92%</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm">Business Discovery (Shops/Pharmacies)</span>
+                    <span className="text-sm">Transport Discovery</span>
                     <div className="flex items-center space-x-2">
                       <Progress value={88} className="w-20 h-2" />
                       <span className="text-sm font-medium">88%</span>
                     </div>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-sm">Service Provider Network</span>
+                    <span className="text-sm">Marketplace & Listings</span>
                     <div className="flex items-center space-x-2">
                       <Progress value={85} className="w-20 h-2" />
                       <span className="text-sm font-medium">85%</span>
                     </div>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-sm">Location-Based Recommendations</span>
+                    <span className="text-sm">Event Management</span>
+                    <div className="flex items-center space-x-2">
+                      <Progress value={82} className="w-20 h-2" />
+                      <span className="text-sm font-medium">82%</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">Customer Support</span>
                     <div className="flex items-center space-x-2">
                       <Progress value={90} className="w-20 h-2" />
                       <span className="text-sm font-medium">90%</span>
                     </div>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-sm">Real-time Inventory Tracking</span>
+                    <span className="text-sm">User Onboarding</span>
                     <div className="flex items-center space-x-2">
-                      <Progress value={83} className="w-20 h-2" />
-                      <span className="text-sm font-medium">83%</span>
+                      <Progress value={93} className="w-20 h-2" />
+                      <span className="text-sm font-medium">93%</span>
                     </div>
                   </div>
                 </div>
