@@ -187,17 +187,21 @@ async function processWithAI(agentConfig: AgentConfig, message: string, context:
       const errorText = await response.text();
       console.error('❌ OpenAI API error:', { status: response.status, error: errorText });
       
+      // Handle specific error types with more helpful messages
       if (response.status === 429) {
-        return "Muraho! I'm experiencing high demand right now. Please try again in a moment! 😊";
+        return "I'm currently experiencing high usage. Our team has been notified. Please try again in a few minutes, or feel free to ask a simpler question in the meantime.";
       }
       if (response.status === 401) {
-        return "Muraho! I have a configuration issue. Please contact support.";
+        return "There's a temporary configuration issue on our end. Our technical team has been notified and will resolve this shortly.";
       }
       if (response.status === 400) {
-        return "Muraho! Let me help you! Could you rephrase your message?";
+        return "I'm having trouble understanding your message. Could you please rephrase it or ask something else?";
+      }
+      if (response.status >= 500) {
+        return "I'm experiencing technical difficulties. Please try again in a moment.";
       }
       
-      return "Muraho! I'm having trouble understanding right now. Please try again or type 'help'.";
+      return "I'm having some technical issues right now. Please try again or contact support if this persists.";
     }
 
     const data = await response.json();
