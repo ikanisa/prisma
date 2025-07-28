@@ -1941,6 +1941,47 @@ export type Database = {
           },
         ]
       }
+      coverage_scores: {
+        Row: {
+          audit_id: string | null
+          created_at: string | null
+          detailed_analysis: Json | null
+          domain: string
+          id: string
+          missing_coverage: Json | null
+          model_evaluator: string
+          score: number
+        }
+        Insert: {
+          audit_id?: string | null
+          created_at?: string | null
+          detailed_analysis?: Json | null
+          domain: string
+          id?: string
+          missing_coverage?: Json | null
+          model_evaluator: string
+          score: number
+        }
+        Update: {
+          audit_id?: string | null
+          created_at?: string | null
+          detailed_analysis?: Json | null
+          domain?: string
+          id?: string
+          missing_coverage?: Json | null
+          model_evaluator?: string
+          score?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coverage_scores_audit_id_fkey"
+            columns: ["audit_id"]
+            isOneToOne: false
+            referencedRelation: "knowledge_audit_logs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cron_executions: {
         Row: {
           completed_at: string | null
@@ -3101,6 +3142,45 @@ export type Database = {
           },
         ]
       }
+      knowledge_audit_logs: {
+        Row: {
+          audit_type: string
+          completed_at: string | null
+          coverage_summary: Json | null
+          created_at: string | null
+          execution_time_ms: number | null
+          id: string
+          model: string
+          run_by: string
+          status: string
+          total_gaps_found: number | null
+        }
+        Insert: {
+          audit_type: string
+          completed_at?: string | null
+          coverage_summary?: Json | null
+          created_at?: string | null
+          execution_time_ms?: number | null
+          id?: string
+          model: string
+          run_by: string
+          status?: string
+          total_gaps_found?: number | null
+        }
+        Update: {
+          audit_type?: string
+          completed_at?: string | null
+          coverage_summary?: Json | null
+          created_at?: string | null
+          execution_time_ms?: number | null
+          id?: string
+          model?: string
+          run_by?: string
+          status?: string
+          total_gaps_found?: number | null
+        }
+        Relationships: []
+      }
       knowledge_base: {
         Row: {
           confidence: number | null
@@ -3152,6 +3232,62 @@ export type Database = {
         }
         Relationships: []
       }
+      knowledge_gaps: {
+        Row: {
+          assigned_to: string | null
+          audit_id: string | null
+          content_excerpt: string | null
+          created_at: string | null
+          fix_suggestion: string | null
+          gap_type: string
+          id: string
+          impacted_area: string
+          model_source: string
+          recommended_action: string | null
+          resolved_at: string | null
+          severity_level: string
+          status: string | null
+        }
+        Insert: {
+          assigned_to?: string | null
+          audit_id?: string | null
+          content_excerpt?: string | null
+          created_at?: string | null
+          fix_suggestion?: string | null
+          gap_type: string
+          id?: string
+          impacted_area: string
+          model_source: string
+          recommended_action?: string | null
+          resolved_at?: string | null
+          severity_level: string
+          status?: string | null
+        }
+        Update: {
+          assigned_to?: string | null
+          audit_id?: string | null
+          content_excerpt?: string | null
+          created_at?: string | null
+          fix_suggestion?: string | null
+          gap_type?: string
+          id?: string
+          impacted_area?: string
+          model_source?: string
+          recommended_action?: string | null
+          resolved_at?: string | null
+          severity_level?: string
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "knowledge_gaps_audit_id_fkey"
+            columns: ["audit_id"]
+            isOneToOne: false
+            referencedRelation: "knowledge_audit_logs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       learning_gap_instances: {
         Row: {
           context_excerpt: string | null
@@ -3160,7 +3296,8 @@ export type Database = {
           gap_category: string | null
           gap_description: string | null
           id: string
-          severity_level: string | null
+          identified_at: string | null
+          severity: string | null
           status: string | null
           suggested_improvement: string | null
         }
@@ -3171,7 +3308,8 @@ export type Database = {
           gap_category?: string | null
           gap_description?: string | null
           id?: string
-          severity_level?: string | null
+          identified_at?: string | null
+          severity?: string | null
           status?: string | null
           suggested_improvement?: string | null
         }
@@ -3182,7 +3320,8 @@ export type Database = {
           gap_category?: string | null
           gap_description?: string | null
           id?: string
-          severity_level?: string | null
+          identified_at?: string | null
+          severity?: string | null
           status?: string | null
           suggested_improvement?: string | null
         }
@@ -6713,6 +6852,7 @@ export type Database = {
       user_behavior_patterns: {
         Row: {
           behavioral_score: number | null
+          created_at: string | null
           id: string
           last_analyzed: string | null
           pattern_confidence: number | null
@@ -6723,6 +6863,7 @@ export type Database = {
         }
         Insert: {
           behavioral_score?: number | null
+          created_at?: string | null
           id?: string
           last_analyzed?: string | null
           pattern_confidence?: number | null
@@ -6733,6 +6874,7 @@ export type Database = {
         }
         Update: {
           behavioral_score?: number | null
+          created_at?: string | null
           id?: string
           last_analyzed?: string | null
           pattern_confidence?: number | null
@@ -8189,6 +8331,18 @@ export type Database = {
       }
       postgis_wagyu_version: {
         Args: Record<PropertyKey, never>
+        Returns: string
+      }
+      refresh_namespace: {
+        Args: { namespace: string; agent_id: string }
+        Returns: boolean
+      }
+      resolve_gap: {
+        Args: { gap_id: string; note: string }
+        Returns: boolean
+      }
+      run_knowledge_audit: {
+        Args: { audit_type: string; run_by: string }
         Returns: string
       }
       sanitize_user_input: {
