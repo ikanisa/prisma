@@ -26,6 +26,7 @@ function json(data: unknown, status = 200) {
 
 /* ——— basic router map ——— */
 type Downstream =
+  | "data-aware-agent"    // Primary data-aware agent
   | "driver-trip-create"
   | "passenger-intent-create"
   | "business-order-create"
@@ -33,40 +34,66 @@ type Downstream =
   | "realestate-listing-create"
   | "vehicle-listing-create"
   | "support-ticket"
-  | "mcp-orchestrator"; // generic fallback
+  | "mcp-orchestrator"; // fallback
 
 /** Light intent classifier (keywords + memory sniff). */
 function resolveDownstream(text: string, phone: string, memory?: Record<string, any>): Downstream {
   const t = text.toLowerCase();
 
-  if (/^(trip|ride|go|pickup|drop|driver|moto)/.test(t) || t.includes("tugende") || t.includes("gutwara"))
+  // Route most traffic to data-aware agent for proper validation
+  // Only route to specialized functions for specific patterns that don't need data validation
+  
+  // Complex transport requests that need location validation
+  if (t.includes("nearby drivers") || t.includes("drivers near") || t.includes("find drivers") ||
+      t.includes("nearby passengers") || t.includes("passengers near") || 
+      t.includes("ride") || t.includes("trip") || t.includes("moto") && !t.includes("for sale") ||
+      t.includes("go online") || t.includes("driver on")) {
+    return "data-aware-agent";
+  }
+
+  // Business and marketplace queries that need data validation
+  if (t.includes("pharmacy") || t.includes("shop") || t.includes("business") || 
+      t.includes("find") || t.includes("buy") || t.includes("sell") || 
+      t.includes("product") || t.includes("market")) {
+    return "data-aware-agent";
+  }
+
+  // Payment requests (amounts or payment keywords)
+  if (/^\d+$/.test(t) || t.includes("pay") || t.includes("money") || t.includes("qr")) {
+    return "data-aware-agent";
+  }
+
+  // Direct creation patterns for specialized functions (when user is already in flow)
+  if (/^(trip|ride|go|pickup|drop|driver|moto)/.test(t) && memory?.current_flow === 'driver_creation') {
     return "driver-trip-create";
+  }
 
-  if (/^(need|find|looking for|ride to|passenger|ndashaka)/.test(t) || t.includes("nkeneye"))
+  if (/^(need|looking for|ride to|passenger|ndashaka)/.test(t) && memory?.current_flow === 'passenger_creation') {
     return "passenger-intent-create";
+  }
 
-  if (t.includes("order") && (t.includes("bar") || t.includes("pharmacy") || t.includes("shop")))
+  if (t.includes("order") && (t.includes("bar") || t.includes("pharmacy") || t.includes("shop")) && memory?.current_flow === 'business_order') {
     return "business-order-create";
+  }
 
-  if (t.includes("maize") || t.includes("beans") || t.includes("kg") || t.includes("produce"))
+  if ((t.includes("maize") || t.includes("beans") || t.includes("kg") || t.includes("produce")) && memory?.current_flow === 'farmer_listing') {
     return "farmer-produce-create";
+  }
 
-  if (t.includes("house") || t.includes("plot") || t.includes("rent") || t.includes("buy land"))
+  if ((t.includes("house") || t.includes("plot") || t.includes("rent") || t.includes("buy land")) && memory?.current_flow === 'property_listing') {
     return "realestate-listing-create";
+  }
 
-  if (t.includes("car") || t.includes("vehicle") || t.includes("moto for sale") || t.includes("toyota"))
+  if ((t.includes("car") || t.includes("vehicle") || t.includes("moto for sale") || t.includes("toyota")) && memory?.current_flow === 'vehicle_listing') {
     return "vehicle-listing-create";
+  }
 
-  if (t.includes("help") || t.includes("problem") || t.includes("issue"))
+  if (t.includes("help") || t.includes("problem") || t.includes("issue") || t.includes("support")) {
     return "support-ticket";
+  }
 
-  // memory‑based override: if we already know user_type
-  const userType = memory?.user_type;
-  if (userType === "driver") return "driver-trip-create";
-  if (userType === "passenger") return "passenger-intent-create";
-  if (userType === "farmer") return "farmer-produce-create";
-
-  return "mcp-orchestrator";
+  // Default to data-aware agent for better user experience
+  return "data-aware-agent";
 }
 
 /* ——— main ——— */
@@ -109,16 +136,30 @@ serve(async (req) => {
     const msg = entry?.messages?.[0];
     if (!msg) return json({ ignored: true });
 
-    // Only handle text messages for now
-    if (msg.type !== "text") {
-      return json({ ignored: true, reason: "non_text_message" });
-    }
-
     const from = msg.from;
     const id = msg.id;
     const timestamp = msg.timestamp;
-    const text = msg.text.body;
     const contactName = entry.contacts?.[0]?.profile?.name || "Unknown";
+    
+    // Handle different message types
+    let text = "";
+    let location = null;
+    
+    if (msg.type === "text") {
+      text = msg.text.body;
+    } else if (msg.type === "location") {
+      location = {
+        latitude: msg.location.latitude,
+        longitude: msg.location.longitude,
+        address: msg.location.address || `${msg.location.latitude}, ${msg.location.longitude}`
+      };
+      text = "Location shared";
+    } else if (msg.type === "image" || msg.type === "document" || msg.type === "audio") {
+      // For now, just acknowledge media messages
+      text = `${msg.type} received`;
+    } else {
+      return json({ ignored: true, reason: "unsupported_message_type" });
+    }
 
     // 2.1 quick async log (fire‑and‑forget)
     sbAdmin.from("whatsapp_logs").insert({
@@ -126,7 +167,7 @@ serve(async (req) => {
       contact_name: contactName,
       message_id: id,
       message_content: text,
-      message_type: "text",
+      message_type: msg.type,
       received_at: new Date().toISOString(),
       timestamp: new Date(+timestamp * 1000).toISOString(),
       processed: false,
@@ -148,9 +189,12 @@ serve(async (req) => {
       body: {
         from,
         text,
+        message,
+        phone: from,
         message_id: id,
         contact_name: contactName,
         timestamp: new Date(+timestamp * 1000).toISOString(),
+        location
       },
     });
 
