@@ -25,6 +25,7 @@ import { AddBusinessDialog } from "@/components/admin/AddBusinessDialog";
 import { BulkImportDialog } from "@/components/admin/BulkImportDialog";
 import { GooglePlacesSearch } from "@/components/admin/GooglePlacesSearch";
 import { SmartFileUpload } from "@/components/admin/SmartFileUpload";
+import WebhookStatus from "./WebhookStatus";
 
 interface Business {
   id: string;
@@ -452,6 +453,9 @@ export default function Businesses() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Webhook Status Section */}
+      <WebhookStatus />
 
       {/* Advanced Filters */}
       {showFilters && (

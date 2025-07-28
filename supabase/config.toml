@@ -73,6 +73,9 @@ verify_jwt = false
 [functions.code-assistant]
 verify_jwt = false
 
+[functions.whatsapp-webhook]
+verify_jwt = false
+
 [storage]
 enabled = true
 port = 54323
