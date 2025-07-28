@@ -8,10 +8,12 @@ import { toast } from 'sonner';
 
 interface IncomingMessage {
   id: string;
-  phone_number: string;
-  message: string;
-  status: string;
+  from_number: string;
+  message_text: string;
+  message_type: string;
+  processed: boolean;
   created_at: string;
+  raw_payload?: any;
 }
 
 export function WebhookTestPanel() {
@@ -67,9 +69,10 @@ export function WebhookTestPanel() {
   const testMessageInsertion = async () => {
     try {
       const testMessage = {
-        phone_number: '+250000000001',
-        message: `Test message at ${new Date().toISOString()}`,
-        status: 'new'
+        from_number: '+250000000001',
+        message_text: `Test message at ${new Date().toISOString()}`,
+        message_type: 'text',
+        processed: false
       };
 
       const { error } = await supabase
@@ -203,16 +206,16 @@ export function WebhookTestPanel() {
                 <div key={message.id} className="border-b pb-3 last:border-b-0">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
-                      <Badge variant={message.status === 'new' ? 'default' : 'secondary'}>
-                        {message.status}
+                      <Badge variant={message.processed ? 'secondary' : 'default'}>
+                        {message.processed ? 'processed' : 'pending'}
                       </Badge>
-                      <span className="text-sm font-medium">{message.phone_number}</span>
+                      <span className="text-sm font-medium">{message.from_number}</span>
                     </div>
                     <span className="text-xs text-muted-foreground">
                       {new Date(message.created_at).toLocaleString()}
                     </span>
                   </div>
-                  <p className="text-sm text-muted-foreground">{message.message}</p>
+                  <p className="text-sm text-muted-foreground">{message.message_text}</p>
                 </div>
               ))}
             </div>

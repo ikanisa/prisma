@@ -24,9 +24,10 @@ export function MessageProcessingTest() {
       const { data: insertData, error: insertError } = await supabase
         .from('incoming_messages')
         .insert({
-          phone_number: testPhone,
-          message: testMessage,
-          status: 'new'
+          from_number: testPhone,
+          message_text: testMessage,
+          message_type: 'text',
+          processed: false
         })
         .select()
         .single();

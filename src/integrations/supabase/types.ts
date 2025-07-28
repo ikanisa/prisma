@@ -3014,27 +3014,30 @@ export type Database = {
       incoming_messages: {
         Row: {
           created_at: string | null
+          from_number: string
           id: string
-          message: string
-          phone_number: string
-          status: string | null
-          updated_at: string | null
+          message_text: string | null
+          message_type: string
+          processed: boolean | null
+          raw_payload: Json | null
         }
         Insert: {
           created_at?: string | null
+          from_number: string
           id?: string
-          message: string
-          phone_number: string
-          status?: string | null
-          updated_at?: string | null
+          message_text?: string | null
+          message_type?: string
+          processed?: boolean | null
+          raw_payload?: Json | null
         }
         Update: {
           created_at?: string | null
+          from_number?: string
           id?: string
-          message?: string
-          phone_number?: string
-          status?: string | null
-          updated_at?: string | null
+          message_text?: string | null
+          message_type?: string
+          processed?: boolean | null
+          raw_payload?: Json | null
         }
         Relationships: []
       }

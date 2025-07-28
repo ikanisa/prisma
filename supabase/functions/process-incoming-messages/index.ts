@@ -1,5 +1,6 @@
-import { serve } from 'https://deno.land/std@0.170.0/http/server.ts'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js'
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
+import { serve } from 'https://deno.land/std@0.224.0/http/server.ts'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -52,6 +53,13 @@ serve(async (req) => {
   }
 
   try {
+    // Handle both direct calls and webhook-style calls
+    let messageData;
+    if (req.method === 'POST') {
+      const body = await req.json();
+      messageData = body;
+    }
+
     // Initialize Supabase client 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
@@ -60,11 +68,11 @@ serve(async (req) => {
 
     console.log('🔄 Processing incoming messages...')
 
-    // STEP 1: Get the first new message
+    // STEP 1: Get unprocessed messages from the new table structure
     const { data: messages, error: fetchError } = await supabase
       .from('incoming_messages')
       .select('*')
-      .eq('status', 'received')
+      .eq('processed', false)
       .order('created_at', { ascending: true })
       .limit(1)
 
@@ -82,31 +90,30 @@ serve(async (req) => {
 
     const latestMessage = messages[0]
     console.log('📨 Processing message', {
-      phone: latestMessage.phone_number,
-      messagePreview: latestMessage.message.substring(0, 50)
+      phone: latestMessage.from_number,
+      messagePreview: latestMessage.message_text?.substring(0, 50)
     })
 
     // Validate message before processing
-    if (typeof latestMessage.message !== 'string' || latestMessage.message.length > 2000) {
+    if (typeof latestMessage.message_text !== 'string' || latestMessage.message_text.length > 2000) {
       console.log('⚠️ Skipping invalid message:', {
-        phone: latestMessage.phone_number,
-        isString: typeof latestMessage.message === 'string',
-        length: latestMessage.message?.length
+        phone: latestMessage.from_number,
+        isString: typeof latestMessage.message_text === 'string',
+        length: latestMessage.message_text?.length
       });
 
       // Mark as processed but don't send to AI
       await supabase
         .from('incoming_messages')
         .update({ 
-          status: 'processed',
-          updated_at: new Date().toISOString()
+          processed: true
         })
         .eq('id', latestMessage.id);
 
       return new Response(JSON.stringify({
         success: true,
         message: 'Invalid message skipped',
-        phone_number: latestMessage.phone_number,
+        phone_number: latestMessage.from_number,
         reason: 'Message validation failed',
         processed_at: new Date().toISOString()
       }), {
@@ -115,137 +122,83 @@ serve(async (req) => {
     }
 
     // Security: Check message content safety
-    const safetyCheck = containsUnsafeContent(latestMessage.message);
+    const safetyCheck = containsUnsafeContent(latestMessage.message_text);
     if (!safetyCheck.safe) {
       await logSecurityEvent('unsafe_content_detected', 'medium', {
-        phone: latestMessage.phone_number,
+        phone: latestMessage.from_number,
         flaggedContent: safetyCheck.flaggedContent,
-        messageLength: latestMessage.message.length
+        messageLength: latestMessage.message_text.length
       }, supabase);
-      
-      // Log the safety issue
-      await supabase.from('message_safety_log').insert({
-        phone_number: latestMessage.phone_number,
-        message_content: latestMessage.message.slice(0, 500), // Truncate for safety
-        safety_score: 0.5,
-        flagged_content: safetyCheck.flaggedContent,
-        action_taken: 'flagged_and_processed'
-      });
     }
 
-    // STEP 2: Get AI response using OpenAI Assistant
+    // STEP 2: Use modern Chat Completions API instead of Assistants
     const openaiApiKey = Deno.env.get('OPENAI_API_KEY')
     if (!openaiApiKey) {
       await logSecurityEvent('missing_openai_api_key', 'critical', {}, supabase);
       throw new Error('OPENAI_API_KEY environment variable is required')
     }
-    
-    // Security: Use environment variable for assistant ID instead of hardcoded value
-    const assistantId = Deno.env.get('OPENAI_ASSISTANT_ID') || 'asst_anmQpZHZJxr1JjrlohSyPSx1'
 
-    // Create a thread and add the user message
-    const threadResponse = await fetch('https://api.openai.com/v1/threads', {
+    // Generate AI response using GPT-4.1
+    const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${openaiApiKey}`,
         'Content-Type': 'application/json',
-        'OpenAI-Beta': 'assistants=v2'
       },
       body: JSON.stringify({
+        model: 'gpt-4.1-2025-04-14',
         messages: [
           {
+            role: 'system',
+            content: `You are easyMO, a helpful AI assistant for a WhatsApp-based super-app in Rwanda. 
+            You help users with:
+            - Mobile money payments
+            - Finding and ordering produce from farmers
+            - Booking rides and transportation
+            - Discovering local events
+            
+            Always respond in a friendly, helpful manner. Keep responses concise and actionable.
+            If users need specific services, guide them through the process step by step.`
+          },
+          {
             role: 'user',
-            content: latestMessage.message
+            content: latestMessage.message_text
           }
-        ]
-      })
-    })
+        ],
+        temperature: 0.7,
+        max_tokens: 500
+      }),
+    });
 
-    if (!threadResponse.ok) {
-      throw new Error(`Failed to create thread: ${threadResponse.statusText}`)
+    if (!openaiResponse.ok) {
+      throw new Error(`OpenAI API error: ${openaiResponse.status}`);
     }
 
-    const thread = await threadResponse.json()
-    console.log(`🧵 Created thread: ${thread.id}`)
-
-    // Run the assistant
-    const runResponse = await fetch(`https://api.openai.com/v1/threads/${thread.id}/runs`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openaiApiKey}`,
-        'Content-Type': 'application/json',
-        'OpenAI-Beta': 'assistants=v2'
-      },
-      body: JSON.stringify({
-        assistant_id: assistantId
-      })
-    })
-
-    if (!runResponse.ok) {
-      throw new Error(`Failed to run assistant: ${runResponse.statusText}`)
-    }
-
-    const run = await runResponse.json()
-    console.log(`🤖 Started assistant run: ${run.id}`)
-
-    // Wait for completion (with timeout)
-    let attempts = 0
-    const maxAttempts = 30
-    let runStatus = run.status
-
-    while (runStatus === 'queued' || runStatus === 'in_progress') {
-      if (attempts >= maxAttempts) {
-        throw new Error('Assistant run timed out')
-      }
-
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      const statusResponse = await fetch(`https://api.openai.com/v1/threads/${thread.id}/runs/${run.id}`, {
-        headers: {
-          'Authorization': `Bearer ${openaiApiKey}`,
-          'OpenAI-Beta': 'assistants=v2'
-        }
-      })
-
-      if (!statusResponse.ok) {
-        throw new Error(`Failed to check run status: ${statusResponse.statusText}`)
-      }
-
-      const statusData = await statusResponse.json()
-      runStatus = statusData.status
-      attempts++
-    }
-
-    if (runStatus !== 'completed') {
-      throw new Error(`Assistant run failed with status: ${runStatus}`)
-    }
-
-    // Get the assistant's response
-    const messagesResponse = await fetch(`https://api.openai.com/v1/threads/${thread.id}/messages`, {
-      headers: {
-        'Authorization': `Bearer ${openaiApiKey}`,
-        'OpenAI-Beta': 'assistants=v2'
-      }
-    })
-
-    if (!messagesResponse.ok) {
-      throw new Error(`Failed to get messages: ${messagesResponse.statusText}`)
-    }
-
-    const messagesData = await messagesResponse.json()
-    const assistantMessage = messagesData.data.find((msg: any) => msg.role === 'assistant')
+    const openaiData = await openaiResponse.json();
+    const aiReply = openaiData.choices[0].message.content;
     
-    if (!assistantMessage || !assistantMessage.content[0]?.text?.value) {
-      throw new Error('No assistant response found')
-    }
-
-    const aiReply = assistantMessage.content[0].text.value
     console.log('🤖 AI Response generated', { 
       responseLength: aiReply.length,
       preview: aiReply.substring(0, 100)
     })
 
-    // STEP 3: Store and send reply via WhatsApp API
+    // Store conversation messages
+    await supabase.from('conversation_messages').insert({
+      phone_number: latestMessage.from_number,
+      sender: 'user',
+      message_text: latestMessage.message_text,
+      channel: 'whatsapp'
+    });
+
+    await supabase.from('conversation_messages').insert({
+      phone_number: latestMessage.from_number,
+      sender: 'assistant',
+      message_text: aiReply,
+      channel: 'whatsapp',
+      model_used: 'gpt-4.1-2025-04-14'
+    });
+
+    // STEP 3: Send reply via WhatsApp API
     const whatsappPhoneId = Deno.env.get('META_WABA_PHONE_ID') || Deno.env.get('WHATSAPP_PHONE_ID')
     const whatsappToken = Deno.env.get('META_WABA_TOKEN') || Deno.env.get('WHATSAPP_ACCESS_TOKEN')
     
@@ -253,55 +206,34 @@ serve(async (req) => {
       throw new Error('META_WABA_PHONE_ID and META_WABA_TOKEN environment variables are required')
     }
 
-    // Store outgoing message
-    const { data: outgoingData, error: outgoingError } = await supabase
-      .from('outgoing_messages')
-      .insert({
-        to_number: latestMessage.phone_number,
-        message_text: aiReply,
-        status: 'pending'
-      })
-      .select()
-      .single()
+    // Send reply via WhatsApp API directly
+    const whatsappResponse = await fetch(`https://graph.facebook.com/v20.0/${whatsappPhoneId}/messages`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${whatsappToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        messaging_product: "whatsapp",
+        to: latestMessage.from_number,
+        type: "text",
+        text: {
+          body: aiReply
+        }
+      }),
+    });
 
-    if (outgoingError) {
-      throw new Error(`Failed to store outgoing message: ${outgoingError.message}`)
+    if (whatsappResponse.ok) {
+      console.log(`📤 Reply sent successfully to ${latestMessage.from_number}`);
+    } else {
+      console.error(`❌ Failed to send WhatsApp message: ${whatsappResponse.status}`);
     }
-
-    // Send via WhatsApp using the send function
-    const { data: sendData, error: sendError } = await supabase.functions.invoke('send-whatsapp-message', {
-      body: {
-        to_number: latestMessage.phone_number,
-        message_text: aiReply
-      }
-    })
-
-    if (sendError || !sendData?.success) {
-      console.error('❌ Failed to send WhatsApp message:', sendError || sendData)
-      
-      // Update outgoing message status to failed
-      await supabase
-        .from('outgoing_messages')
-        .update({ status: 'failed', updated_at: new Date().toISOString() })
-        .eq('id', outgoingData.id)
-        
-      throw new Error(`Failed to send WhatsApp message: ${sendError?.message || sendData?.error}`)
-    }
-    
-    // Update outgoing message status to sent
-    await supabase
-      .from('outgoing_messages')
-      .update({ status: 'sent', updated_at: new Date().toISOString() })
-      .eq('id', outgoingData.id)
-    
-    console.log('📤 WhatsApp message sent successfully')
 
     // STEP 4: Mark message as processed
     const { error: updateError } = await supabase
       .from('incoming_messages')
       .update({ 
-        status: 'processed',
-        updated_at: new Date().toISOString()
+        processed: true
       })
       .eq('id', latestMessage.id)
 
@@ -310,15 +242,15 @@ serve(async (req) => {
     }
 
     console.log('✅ Message processed successfully', {
-      phone: latestMessage.phone_number,
+      phone: latestMessage.from_number,
       messageId: latestMessage.id
     })
 
     return new Response(JSON.stringify({
       success: true,
       message: 'Message processed successfully',
-      phone_number: latestMessage.phone_number,
-      original_message: latestMessage.message,
+      phone_number: latestMessage.from_number,
+      original_message: latestMessage.message_text,
       ai_reply: aiReply,
       processed_at: new Date().toISOString()
     }), {
