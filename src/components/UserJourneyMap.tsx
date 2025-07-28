@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
-import { Phone, MessageCircle, Users, TrendingUp, AlertCircle, Map, Brain, Target, Activity, Zap } from 'lucide-react';
+import { Phone, MessageCircle, Users, TrendingUp, AlertCircle, Map as MapIcon, Brain, Target, Activity, Zap } from 'lucide-react';
 
 interface UserJourney {
   phone_number: string;
@@ -383,7 +383,7 @@ export const UserJourneyMap = () => {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Map className="h-5 w-5" />
+                <MapIcon className="h-5 w-5" />
                 Dynamic User Journeys with AI Insights
               </CardTitle>
             </CardHeader>
