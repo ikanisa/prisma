@@ -262,11 +262,23 @@ ${agentData.sample_unified_flow.map((flow, index) => `${index + 1}. **User**: "$
   const fetchPersonas = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
+      
+      // Handle special case for omni-agent (use null for agent_id)
+      const finalAgentId = agentId === 'omni-agent' ? null : agentId;
+      
+      let query = supabase
         .from('agent_personas')
         .select('*')
-        .eq('agent_id', agentId)
         .order('updated_at', { ascending: false });
+        
+      // Apply filter based on agent type
+      if (finalAgentId === null) {
+        query = query.is('agent_id', null);
+      } else {
+        query = query.eq('agent_id', finalAgentId);
+      }
+      
+      const { data, error } = await query;
 
       if (error) throw error;
       
@@ -289,10 +301,14 @@ ${agentData.sample_unified_flow.map((flow, index) => `${index + 1}. **User**: "$
   const createNewPersona = async () => {
     try {
       setSaving(true);
+      
+      // Handle special case for omni-agent (use null for agent_id)
+      const finalAgentId = agentId === 'omni-agent' ? null : agentId;
+      
       const { data, error } = await supabase
         .from('agent_personas')
         .insert({
-          agent_id: agentId,
+          agent_id: finalAgentId,
           personality: 'Professional and helpful',
           tone: 'Friendly and knowledgeable',
           instructions: 'Assist users with their queries efficiently',
