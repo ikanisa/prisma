@@ -7,7 +7,10 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Bot, Save, User, FileText, Settings, BookOpen, Brain, Activity, MessageSquare, Upload, File, Trash2 } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { ArrowLeft, Bot, Save, User, FileText, Settings, BookOpen, Brain, Activity, MessageSquare, Upload, File, Trash2, Plus, Edit, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface Persona {
@@ -31,8 +34,18 @@ interface Task {
   trigger_type: string;
   trigger_value: string;
   tool_name: string;
+  tool_input_json?: any;
   active: boolean;
   created_at: string;
+}
+
+interface NewTask {
+  name: string;
+  trigger_type: string;
+  trigger_value: string;
+  tool_name: string;
+  tool_input_json?: any;
+  active: boolean;
 }
 
 interface Document {
@@ -70,6 +83,16 @@ export default function PersonaDetail() {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
+  const [showTaskDialog, setShowTaskDialog] = useState(false);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [newTask, setNewTask] = useState<NewTask>({
+    name: '',
+    trigger_type: 'keywords',
+    trigger_value: '',
+    tool_name: '',
+    tool_input_json: {},
+    active: true
+  });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -243,6 +266,142 @@ export default function PersonaDetail() {
       });
     }
   };
+
+  const resetTaskDialog = () => {
+    setEditingTask(null);
+    setNewTask({
+      name: '',
+      trigger_type: 'keywords',
+      trigger_value: '',
+      tool_name: '',
+      tool_input_json: {},
+      active: true
+    });
+    setShowTaskDialog(false);
+  };
+
+  const handleCreateTask = async () => {
+    if (!persona?.agent_id) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('agent_tasks')
+        .insert([{
+          agent_id: persona.agent_id,
+          name: newTask.name,
+          trigger_type: newTask.trigger_type,
+          trigger_value: newTask.trigger_value,
+          tool_name: newTask.tool_name,
+          tool_input_json: newTask.tool_input_json,
+          active: newTask.active
+        }])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setTasks([data, ...tasks]);
+      resetTaskDialog();
+      toast({
+        title: "Success",
+        description: "Task created successfully"
+      });
+    } catch (error) {
+      console.error("Error creating task:", error);
+      toast({
+        title: "Error",
+        description: "Failed to create task",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleUpdateTask = async () => {
+    if (!editingTask) return;
+
+    try {
+      const { error } = await supabase
+        .from('agent_tasks')
+        .update({
+          name: newTask.name,
+          trigger_type: newTask.trigger_type,
+          trigger_value: newTask.trigger_value,
+          tool_name: newTask.tool_name,
+          tool_input_json: newTask.tool_input_json,
+          active: newTask.active
+        })
+        .eq('id', editingTask.id);
+
+      if (error) throw error;
+
+      setTasks(tasks.map(task => 
+        task.id === editingTask.id 
+          ? { ...task, ...newTask }
+          : task
+      ));
+      resetTaskDialog();
+      toast({
+        title: "Success",
+        description: "Task updated successfully"
+      });
+    } catch (error) {
+      console.error("Error updating task:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update task",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleDeleteTask = async (taskId: string) => {
+    try {
+      const { error } = await supabase
+        .from('agent_tasks')
+        .delete()
+        .eq('id', taskId);
+
+      if (error) throw error;
+
+      setTasks(tasks.filter(task => task.id !== taskId));
+      toast({
+        title: "Success",
+        description: "Task deleted successfully"
+      });
+    } catch (error) {
+      console.error("Error deleting task:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete task",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleEditTask = (task: Task) => {
+    setEditingTask(task);
+    setNewTask({
+      name: task.name,
+      trigger_type: task.trigger_type,
+      trigger_value: task.trigger_value,
+      tool_name: task.tool_name,
+      tool_input_json: task.tool_input_json || {},
+      active: task.active
+    });
+    setShowTaskDialog(true);
+  };
+
+  // Predefined tools based on the spec
+  const predefinedTools = [
+    'whatsapp.send_template',
+    'whatsapp.send_interactive',
+    'qr_render_lambda',
+    'payments.insert',
+    'payments.update_status_paid',
+    'payments.select_by_user',
+    'agent_memory.upsert',
+    'handoff.queue_insert'
+  ];
 
   if (loading) {
     return (
@@ -430,29 +589,167 @@ export default function PersonaDetail() {
         <TabsContent value="tasks" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Tasks & Tools</CardTitle>
+              <CardTitle className="flex items-center justify-between">
+                Tasks & Tools
+                <Dialog open={showTaskDialog} onOpenChange={setShowTaskDialog}>
+                  <DialogTrigger asChild>
+                    <Button size="sm" onClick={() => setShowTaskDialog(true)}>
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add Task
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-2xl">
+                    <DialogHeader>
+                      <DialogTitle>
+                        {editingTask ? 'Edit Task' : 'Create New Task'}
+                      </DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <div>
+                        <Label htmlFor="task-name">Task Name</Label>
+                        <Input
+                          id="task-name"
+                          value={newTask.name}
+                          onChange={(e) => setNewTask({ ...newTask, name: e.target.value })}
+                          placeholder="e.g., T1_get_paid_start"
+                        />
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="trigger-type">Trigger Type</Label>
+                          <Select
+                            value={newTask.trigger_type}
+                            onValueChange={(value) => setNewTask({ ...newTask, trigger_type: value })}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="keywords">Keywords</SelectItem>
+                              <SelectItem value="intent">Intent</SelectItem>
+                              <SelectItem value="flow">Flow</SelectItem>
+                              <SelectItem value="button">Button</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        
+                        <div>
+                          <Label htmlFor="trigger-value">Trigger Value</Label>
+                          <Input
+                            id="trigger-value"
+                            value={newTask.trigger_value}
+                            onChange={(e) => setNewTask({ ...newTask, trigger_value: e.target.value })}
+                            placeholder="e.g., get paid, generate_qr"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <Label htmlFor="tool-name">Tool Name</Label>
+                        <Select
+                          value={newTask.tool_name}
+                          onValueChange={(value) => setNewTask({ ...newTask, tool_name: value })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a tool" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {predefinedTools.map((tool) => (
+                              <SelectItem key={tool} value={tool}>
+                                {tool}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div>
+                        <Label htmlFor="tool-input">Tool Input (JSON)</Label>
+                        <Textarea
+                          id="tool-input"
+                          value={JSON.stringify(newTask.tool_input_json, null, 2)}
+                          onChange={(e) => {
+                            try {
+                              const parsed = JSON.parse(e.target.value);
+                              setNewTask({ ...newTask, tool_input_json: parsed });
+                            } catch {
+                              // Invalid JSON, keep the text as is for user to fix
+                            }
+                          }}
+                          placeholder='{"param1": "value1", "param2": "value2"}'
+                          rows={4}
+                          className="font-mono text-sm"
+                        />
+                      </div>
+
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id="task-active"
+                          checked={newTask.active}
+                          onChange={(e) => setNewTask({ ...newTask, active: e.target.checked })}
+                        />
+                        <Label htmlFor="task-active">Active</Label>
+                      </div>
+
+                      <div className="flex justify-end space-x-2">
+                        <Button variant="outline" onClick={resetTaskDialog}>
+                          Cancel
+                        </Button>
+                        <Button onClick={editingTask ? handleUpdateTask : handleCreateTask}>
+                          {editingTask ? 'Update' : 'Create'}
+                        </Button>
+                      </div>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              </CardTitle>
             </CardHeader>
             <CardContent>
               {tasks.length === 0 ? (
-                <p className="text-muted-foreground">No tasks configured</p>
+                <p className="text-muted-foreground">No tasks configured. Add your first task to get started.</p>
               ) : (
                 <div className="space-y-2">
                   {tasks.map((task) => (
                     <div key={task.id} className="border rounded p-3">
                       <div className="flex justify-between items-start">
-                        <div>
+                        <div className="flex-1">
                           <h4 className="font-medium">{task.name}</h4>
                           <p className="text-sm text-muted-foreground">
-                            {task.trigger_type}: {task.trigger_value}
+                            <span className="font-medium">Trigger:</span> {task.trigger_type} → {task.trigger_value}
                           </p>
-                          <p className="text-sm text-muted-foreground">Tool: {task.tool_name}</p>
-                          <p className="text-xs text-muted-foreground">
+                          <p className="text-sm text-muted-foreground">
+                            <span className="font-medium">Tool:</span> {task.tool_name}
+                          </p>
+                          {task.tool_input_json && Object.keys(task.tool_input_json).length > 0 && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              <span className="font-medium">Config:</span> {JSON.stringify(task.tool_input_json)}
+                            </p>
+                          )}
+                          <p className="text-xs text-muted-foreground mt-1">
                             {new Date(task.created_at).toLocaleDateString()}
                           </p>
                         </div>
-                        <Badge variant={task.active ? 'default' : 'secondary'}>
-                          {task.active ? 'Active' : 'Inactive'}
-                        </Badge>
+                        <div className="flex items-center gap-2">
+                          <Badge variant={task.active ? 'default' : 'secondary'}>
+                            {task.active ? 'Active' : 'Inactive'}
+                          </Badge>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleEditTask(task)}
+                          >
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDeleteTask(task.id)}
+                          >
+                            <Trash2 className="w-4 h-4 text-destructive" />
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   ))}
