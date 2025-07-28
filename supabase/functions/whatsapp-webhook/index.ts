@@ -130,26 +130,59 @@ serve(async (req: Request) => {
 async function processTextMessage(supabase: any, from: string, text: string, messageId: string, contactName: string, timestamp: Date) {
   console.log('📝 Processing text message:', text);
   
-  // Route to Smart WhatsApp Router for intelligent processing
+  // Route to Enhanced Omni Agent for intelligent processing
   try {
-    const { data: result, error } = await supabase.functions.invoke('smart-whatsapp-router', {
+    const { data: result, error } = await supabase.functions.invoke('omni-agent-enhanced', {
       body: {
-        from,
-        text,
-        message_id: messageId,
+        message: text,
+        phone: from,
         contact_name: contactName,
-        timestamp: timestamp.toISOString(),
-        message_type: 'text'
+        message_id: messageId,
+        timestamp: timestamp.toISOString()
       }
     });
 
     if (error) {
-      console.error('❌ Smart router error:', error);
+      console.error('❌ Omni agent error:', error);
     } else {
       console.log('✅ Text message processed:', result);
+      
+      // Send response back to user if agent provided one
+      if (result?.response) {
+        await sendWhatsAppMessage(from, result.response);
+      }
     }
   } catch (error) {
     console.error('❌ Text processing error:', error);
+    // Send fallback response
+    await sendWhatsAppMessage(from, "🤖 I'm here to help! Send amount for payment QR (e.g., '5000') or 'menu' for options.");
+  }
+}
+
+// Helper function to send WhatsApp messages
+async function sendWhatsAppMessage(to: string, message: string) {
+  try {
+    const response = await fetch(`https://graph.facebook.com/v21.0/${Deno.env.get('PHONE_NUMBER_ID')}/messages`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${Deno.env.get('WHATSAPP_TOKEN')}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        messaging_product: 'whatsapp',
+        to: to,
+        type: 'text',
+        text: { body: message }
+      })
+    });
+
+    if (!response.ok) {
+      console.error('Failed to send WhatsApp message:', await response.text());
+    } else {
+      console.log('✅ WhatsApp message sent successfully');
+    }
+  } catch (error) {
+    console.error('❌ Error sending WhatsApp message:', error);
   }
 }
 
