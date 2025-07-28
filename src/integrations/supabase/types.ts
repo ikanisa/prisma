@@ -4140,6 +4140,38 @@ export type Database = {
         }
         Relationships: []
       }
+      payment_events: {
+        Row: {
+          created_at: string | null
+          event_type: string
+          id: string
+          payload: Json | null
+          payment_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          event_type: string
+          id?: string
+          payload?: Json | null
+          payment_id: string
+        }
+        Update: {
+          created_at?: string | null
+          event_type?: string
+          id?: string
+          payload?: Json | null
+          payment_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_events_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "payments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payment_sessions: {
         Row: {
           amount: number | null
@@ -4186,15 +4218,20 @@ export type Database = {
         Row: {
           amount: number
           created_at: string | null
+          currency: string | null
+          direction: string | null
           id: string
           momo_code: string
+          momo_number: string | null
           momo_tx: string | null
           order_id: string | null
           paid_at: string | null
           payment_type: string | null
           qr_code_url: string | null
           qr_data: string | null
+          ref: string | null
           status: Database["public"]["Enums"]["payment_status"] | null
+          updated_at: string | null
           user_id: string | null
           ussd_code: string
           ussd_link: string | null
@@ -4202,15 +4239,20 @@ export type Database = {
         Insert: {
           amount: number
           created_at?: string | null
+          currency?: string | null
+          direction?: string | null
           id?: string
           momo_code: string
+          momo_number?: string | null
           momo_tx?: string | null
           order_id?: string | null
           paid_at?: string | null
           payment_type?: string | null
           qr_code_url?: string | null
           qr_data?: string | null
+          ref?: string | null
           status?: Database["public"]["Enums"]["payment_status"] | null
+          updated_at?: string | null
           user_id?: string | null
           ussd_code: string
           ussd_link?: string | null
@@ -4218,15 +4260,20 @@ export type Database = {
         Update: {
           amount?: number
           created_at?: string | null
+          currency?: string | null
+          direction?: string | null
           id?: string
           momo_code?: string
+          momo_number?: string | null
           momo_tx?: string | null
           order_id?: string | null
           paid_at?: string | null
           payment_type?: string | null
           qr_code_url?: string | null
           qr_data?: string | null
+          ref?: string | null
           status?: Database["public"]["Enums"]["payment_status"] | null
+          updated_at?: string | null
           user_id?: string | null
           ussd_code?: string
           ussd_link?: string | null
@@ -7850,6 +7897,22 @@ export type Database = {
       path: {
         Args: { "": unknown }
         Returns: unknown
+      }
+      payments_insert_enhanced: {
+        Args: {
+          p_direction: string
+          p_amount?: number
+          p_qr_url?: string
+          p_momo_number?: string
+          p_ref?: string
+          p_momo_code?: string
+          p_ussd_code?: string
+        }
+        Returns: string
+      }
+      payments_mark_paid: {
+        Args: { p_payment_id: string; p_confirmation_note?: string }
+        Returns: boolean
       }
       pgis_asflatgeobuf_finalfn: {
         Args: { "": unknown }
