@@ -299,15 +299,40 @@ class ContextualResponseEngine {
   }
 
   private async handleGeneralRequest(message: string, context: UserContext): Promise<string> {
+    const msg = message.toLowerCase().trim();
+    
+    // Handle greetings and acknowledgments with conversational flow
+    if (msg.match(/^(hi|hello|hey|good morning|good afternoon|good evening|ok|okay|yes|yeah|no|sure|thanks|thank you)$/i)) {
+      if (context.userType === 'new') {
+        return `Hello! 👋 Welcome to easyMO!\n\n✨ I'm Aline, your personal assistant for:\n💰 Instant payments & QR codes\n🛵 Moto rides & transport\n🛒 Shopping & business discovery\n📦 Package delivery\n\n🎯 *Quick start*: Send any amount (like '5000') for instant payment QR!\n\nWhat would you like to do?`;
+      } else {
+        // Contextual responses based on recent activity
+        const responses = [
+          "Great! 😊 What can I help you with?\n\n💡 Need payment QR? Send amount\n🛵 Need a ride? Tell me where to\n🛒 Looking for something? I can find it!",
+          "Perfect! I'm ready to assist 🚀\n\n💰 Payment: Send amount\n🚗 Transport: Share destination\n🏪 Shopping: Tell me what you need",
+          "Awesome! How can I help today?\n\n📱 Quick services:\n• Payment QR: Send amount\n• Book ride: Share location\n• Find business: Tell me what you need"
+        ];
+        return responses[Math.floor(Math.random() * responses.length)];
+      }
+    }
+    
+    // Handle menu/help requests
+    if (msg.includes('help') || msg.includes('menu') || msg.includes('services')) {
+      return "📱 *easyMO SERVICES*\n\n💰 *PAYMENTS*\n• Send amount: '5000'\n• Scan QR: 'scan qr'\n\n🛵 *TRANSPORT*\n• Book ride: 'ride to city'\n• Share location for pickup\n\n🛒 *SHOPPING*\n• Browse: 'shop electronics'\n• Find: 'pharmacy near me'\n\n📦 *DELIVERY*\n• Send package: 'deliver'\n\n🎯 Just type what you need - I understand natural language!";
+    }
+    
+    // Handle complaints or confusion
+    if (msg.includes('not working') || msg.includes('error') || msg.includes('problem') || msg.includes('wrong')) {
+      return "I apologize for any confusion! 😔\n\nLet me help you properly:\n\n🎯 *Most popular actions*:\n• Send '1000' → Get payment QR\n• Send 'ride' → Book transport\n• Send 'shop' → Browse products\n\n💬 Or just tell me what you need in your own words!\n\nWhat would you like to do?";
+    }
+    
+    // Handle new user onboarding
     if (context.userType === 'new') {
-      return `🎉 *Welcome to easyMO!*\nRwanda's #1 WhatsApp Super-App\n\n🚀 *INSTANT SERVICES*:\n💰 Payments - Send '5000'\n🛵 Transport - Send 'ride'\n🛒 Shopping - Send 'shop'\n📦 Delivery - Send 'deliver'\n🏪 Businesses - Send 'find pharmacy'\n\n✨ Just type what you need!\n\n🎯 Try sending a number for instant payment QR`;
+      return `🎉 *Welcome to easyMO!*\nRwanda's #1 WhatsApp Super-App\n\n🚀 *Try these now*:\n💰 Send '5000' → Instant payment QR\n🛵 Send 'ride to town' → Book transport\n🛒 Send 'find pharmacy' → Locate services\n\n✨ I understand natural language - just tell me what you need!\n\n🎯 What would you like to try first?`;
     }
     
-    if (message.toLowerCase().includes('help') || message.toLowerCase().includes('menu')) {
-      return "📱 *easyMO SERVICES*\n\n💰 *PAYMENTS*\n• Send amount: '5000'\n• Scan QR: 'scan qr'\n\n🛵 *TRANSPORT*\n• Book ride: 'ride to city'\n\n🛒 *SHOPPING*\n• Browse: 'shop electronics'\n\n📦 *DELIVERY*\n• Send package: 'deliver'\n\n🏪 *BUSINESSES*\n• Find services: 'pharmacy near me'\n\nType any service to get started!";
-    }
-    
-    return "🤖 I'm here to help!\n\n💡 Try:\n• Send amount for payment QR\n• 'ride' for transport\n• 'shop' to browse products\n• 'help' for all options\n\nWhat can I do for you today?";
+    // Default conversational response
+    return "I'd love to help! 😊\n\n🎯 *Popular requests*:\n💰 Payment QR: Send any amount\n🛵 Transport: Tell me your destination\n🛒 Shopping: What are you looking for?\n📦 Delivery: What needs to be sent?\n\n💬 Just describe what you need - I'm here to assist!";
   }
 
   private extractAmount(message: string): number | null {
