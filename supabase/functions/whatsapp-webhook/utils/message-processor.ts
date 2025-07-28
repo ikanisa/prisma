@@ -5,7 +5,7 @@ export class MessageProcessor {
     this.supabase = supabase;
   }
 
-  async getOrCreateUser(whatsappNumber: string): Promise<any> {
+  async getOrCreateUser(whatsappNumber: string): Promise<{ user: any, isNewUser: boolean }> {
     try {
       // Try to find existing user
       const { data: existingUser, error: selectError } = await this.supabase
@@ -15,7 +15,7 @@ export class MessageProcessor {
         .single();
 
       if (existingUser && !selectError) {
-        return existingUser;
+        return { user: existingUser, isNewUser: false };
       }
 
       // Create new user if not found
@@ -23,8 +23,10 @@ export class MessageProcessor {
         .from('users')
         .insert({
           phone: whatsappNumber,
-          momo_code: whatsappNumber,
-          credits: 60 // Default credits
+          momo_code: whatsappNumber, // Default momo code is same as WhatsApp number
+          credits: 100, // Default welcome credits
+          created_at: new Date().toISOString(),
+          status: 'active'
         })
         .select()
         .single();
@@ -34,7 +36,8 @@ export class MessageProcessor {
         throw new Error('Failed to create user');
       }
 
-      return newUser;
+      console.log(`🆕 New user created: ${whatsappNumber}`);
+      return { user: newUser, isNewUser: true };
     } catch (error) {
       console.error('Error in getOrCreateUser:', error);
       throw error;

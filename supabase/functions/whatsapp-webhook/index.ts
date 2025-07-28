@@ -130,9 +130,9 @@ serve(async (req: Request) => {
 async function processTextMessage(supabase: any, from: string, text: string, messageId: string, contactName: string, timestamp: Date) {
   console.log('📝 Processing text message:', text);
   
-  // Route to WhatsApp Core Engine for intelligent processing
+  // Route to Smart WhatsApp Router for intelligent processing
   try {
-    const { data: result, error } = await supabase.functions.invoke('whatsapp-core-engine', {
+    const { data: result, error } = await supabase.functions.invoke('smart-whatsapp-router', {
       body: {
         from,
         text,
@@ -144,7 +144,7 @@ async function processTextMessage(supabase: any, from: string, text: string, mes
     });
 
     if (error) {
-      console.error('❌ Core engine error:', error);
+      console.error('❌ Smart router error:', error);
     } else {
       console.log('✅ Text message processed:', result);
     }
