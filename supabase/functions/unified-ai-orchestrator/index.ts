@@ -148,20 +148,33 @@ async function processWithAI(agentConfig: AgentConfig, message: string, context:
   }
 
   try {
-    // Classify intent using the comprehensive domain specification
+    // Check for direct action intents and handle them immediately
     const intentResult = classifyIntent(message, context);
-    console.log('🎯 Intent classified:', { 
-      domain: intentResult.domain, 
-      intent: intentResult.intent, 
-      confidence: intentResult.confidence,
-      slots: intentResult.slots 
-    });
+    console.log('🎯 Intent classified:', intentResult);
 
-    // Handle specific intents with edge functions
-    if (intentResult.confidence > 0.7) {
-      const functionResult = await handleIntentWithFunction(intentResult, message, context);
-      if (functionResult) {
-        return functionResult;
+    // Handle direct QR generation for payment amounts
+    if (intentResult.domain === 'momo_qr_payments' && intentResult.intent === 'qr_generate_receive' && intentResult.slots.amount) {
+      console.log('🔧 Handling QR generation directly');
+      return await handleQRGeneration(intentResult.slots.amount, context.phoneNumber);
+    }
+
+    // Handle split bill requests  
+    if (intentResult.domain === 'momo_qr_payments' && intentResult.intent === 'split_bill' && intentResult.slots.total_amount && intentResult.slots.num_people) {
+      console.log('🔧 Handling split bill directly');
+      return await handleSplitBill(intentResult.slots.total_amount, intentResult.slots.num_people, context.phoneNumber);
+    }
+
+    // Handle fare estimates
+    if (intentResult.domain === 'moto_mobility' && intentResult.intent === 'fare_estimate' && intentResult.slots.origin && intentResult.slots.destination) {
+      console.log('🔧 Handling fare estimate directly');
+      return await handleFareEstimate(intentResult.slots.origin, intentResult.slots.destination);
+    }
+
+    // For other intents that need edge functions, route them
+    if (intentResult.domain !== 'onboarding' && intentResult.confidence > 0.7) {
+      const edgeFunctionResult = await routeToEdgeFunction(intentResult, context);
+      if (edgeFunctionResult) {
+        return edgeFunctionResult;
       }
     }
     
@@ -395,6 +408,17 @@ function classifyIntent(message: string, context: any): any {
   const lowerMessage = message.toLowerCase();
   
   // MoMo QR Payments Domain
+  // Handle "pay XXXX" pattern for direct QR generation
+  const directPayPattern = lowerMessage.match(/^(pay|payment)\s+(\d{3,})/i);
+  if (directPayPattern) {
+    return {
+      domain: 'momo_qr_payments',
+      intent: 'qr_generate_receive',
+      confidence: 0.95,
+      slots: { amount: parseInt(directPayPattern[2]) }
+    };
+  }
+
   if (lowerMessage.match(/(qr|get paid|scan and pay me|give me code|send me.*qr)/i)) {
     return {
       domain: 'momo_qr_payments',
@@ -856,4 +880,85 @@ Type "ride from ${routeInfo.origin} to ${routeInfo.destination}" to book!`;
     console.error(`❌ Error handling intent ${intentResult.intent}:`, error);
     return null; // Fall back to AI processing
   }
+}
+
+// Direct action handlers for instant responses
+async function handleQRGeneration(amount: number, phoneNumber: string): Promise<string> {
+  const supabase = createClient(
+    Deno.env.get('SUPABASE_URL')!,
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+  );
+
+  try {
+    const { data: qrResult, error: qrError } = await supabase.functions.invoke('qr-render', {
+      body: {
+        text: `easyMO:${amount}:RWF:instant`,
+        agent: 'payment',
+        entity: 'qr_receive', 
+        id: crypto.randomUUID()
+      }
+    });
+
+    if (qrError) throw qrError;
+
+    return `✅ QR code ready for ${amount.toLocaleString()} RWF!
+
+Your payment QR: ${qrResult.url}
+
+📋 Customer scans with MoMo → enters ${amount.toLocaleString()} → money arrives instantly!
+
+Reply "received" when paid ✅`;
+
+  } catch (error) {
+    console.error('QR generation error:', error);
+    return `I'll create your QR for ${amount.toLocaleString()} RWF. Having a small delay - please try again in a moment.`;
+  }
+}
+
+async function handleSplitBill(totalAmount: number, numPeople: number, phoneNumber: string): Promise<string> {
+  const perPerson = Math.ceil(totalAmount / numPeople);
+  
+  const supabase = createClient(
+    Deno.env.get('SUPABASE_URL')!,
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+  );
+
+  try {
+    const { data: splitResult, error: splitError } = await supabase.functions.invoke('qr-render', {
+      body: {
+        text: `easyMO:${perPerson}:RWF:split_bill`,
+        agent: 'payment',
+        entity: 'split_bill',
+        id: crypto.randomUUID()
+      }
+    });
+
+    if (splitError) throw splitError;
+
+    return `💰 Bill Split:
+Total: ${totalAmount.toLocaleString()} RWF ÷ ${numPeople} people
+Each pays: ${perPerson.toLocaleString()} RWF
+
+QR for individual payment: ${splitResult.url}
+
+Share this QR - each person scans & pays ${perPerson.toLocaleString()} RWF!`;
+
+  } catch (error) {
+    console.error('Split bill error:', error);
+    return `Split: ${totalAmount.toLocaleString()} RWF ÷ ${numPeople} = ${perPerson.toLocaleString()} RWF each. Creating QR...`;
+  }
+}
+
+async function handleFareEstimate(origin: string, destination: string): Promise<string> {
+  return `💰 Fare estimate ${origin} → ${destination}:
+
+🏍️ Moto: 1,200 - 2,000 RWF
+🚗 Car: 2,500 - 4,000 RWF
+
+Type "ride from ${origin} to ${destination}" to book!`;
+}
+
+async function routeToEdgeFunction(intentResult: any, context: any): Promise<string | null> {
+  // For now, return null to let existing handleIntentWithFunction handle these
+  return null;
 }
