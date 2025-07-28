@@ -183,8 +183,9 @@ export function PersonaEditor({ agentId = 'omni-agent' }: PersonaEditorProps) {
       // Parse markdown content back to JSON structure
       const parsedData = parseMarkdownToJSON(editableMarkdown);
       
-      // Update the JSON data state
-      setJsonData(JSON.stringify(parsedData, null, 2));
+      // Update the JSON data state immediately for UI sync
+      const updatedJsonData = JSON.stringify(parsedData, null, 2);
+      setJsonData(updatedJsonData);
       setMarkdownData(editableMarkdown);
       
       // Save to agent_personas table if editing the Omni Agent
@@ -199,16 +200,18 @@ export function PersonaEditor({ agentId = 'omni-agent' }: PersonaEditorProps) {
           .is('agent_id', null)
           .maybeSingle();
         
+        const personaUpdateData = {
+          personality: parsedData.role_summary || '',
+          tone: parsedData.core_objective || '',
+          instructions: updatedJsonData, // Store the formatted JSON
+          language: 'en'
+        };
+        
         if (existingPersona) {
           // Update existing persona
           const { error: updateError } = await supabase
             .from('agent_personas')
-            .update({
-              personality: parsedData.role_summary || '',
-              tone: parsedData.core_objective || '',
-              instructions: JSON.stringify(parsedData),
-              language: 'en'
-            })
+            .update(personaUpdateData)
             .eq('id', existingPersona.id);
             
           if (updateError) throw updateError;
@@ -218,10 +221,7 @@ export function PersonaEditor({ agentId = 'omni-agent' }: PersonaEditorProps) {
             .from('agent_personas')
             .insert({
               agent_id: finalAgentId,
-              personality: parsedData.role_summary || '',
-              tone: parsedData.core_objective || '',
-              instructions: JSON.stringify(parsedData),
-              language: 'en'
+              ...personaUpdateData
             });
             
           if (insertError) throw insertError;
@@ -244,9 +244,15 @@ export function PersonaEditor({ agentId = 'omni-agent' }: PersonaEditorProps) {
         // Don't throw here - persona save is more important
       }
       
+      // Force refresh the UNIFIED_OMNI_AGENT data if needed
+      if (selectedOmniAgent === 'unified') {
+        // Update the unified agent data with parsed content
+        UNIFIED_OMNI_AGENT.data = { ...UNIFIED_OMNI_AGENT.data, ...parsedData };
+      }
+      
       toast({
         title: "Success",
-        description: "Persona configuration saved to database and agent learning system"
+        description: "Persona configuration saved to database. JSON and markdown are now synchronized."
       });
     } catch (error) {
       console.error('Error saving persona:', error);
