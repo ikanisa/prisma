@@ -148,7 +148,10 @@ export function DocumentManager({ agentId = 'default' }: DocumentManagerProps) {
   const processDocument = async (documentId: string) => {
     try {
       const response = await supabase.functions.invoke('document-processor', {
-        body: { document_id: documentId }
+        body: { 
+          document_id: documentId,
+          stage: 'all'
+        }
       });
 
       if (response.error) {

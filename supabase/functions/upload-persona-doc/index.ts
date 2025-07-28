@@ -34,10 +34,14 @@ Deno.serve(async (req) => {
 
     console.log(`Uploading file: ${file.name}, Size: ${file.size}, Agent ID: ${agentId}`);
 
-    // Generate unique filename
+    // Generate unique filename with sanitized name
     const timestamp = Date.now();
     const fileExtension = file.name.split('.').pop();
-    const fileName = `${agentId}/${timestamp}-${file.name}`;
+    const sanitizedFileName = file.name
+      .replace(/[^a-zA-Z0-9.\-_\s]/g, '') // Remove special characters
+      .replace(/\s+/g, '_') // Replace spaces with underscores
+      .substring(0, 100); // Limit length
+    const fileName = `${agentId}/${timestamp}-${sanitizedFileName}`;
 
     // Upload file to storage
     const { data: uploadData, error: uploadError } = await supabaseClient.storage

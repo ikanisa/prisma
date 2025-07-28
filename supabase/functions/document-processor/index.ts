@@ -53,14 +53,25 @@ serve(async (req) => {
 
       if (!documentContent) {
         if (document_id) {
+          // First try agent_documents table
           const { data: doc } = await supabase
-            .from('centralized_documents')
-            .select('content, title')
+            .from('agent_documents')
+            .select('title, storage_path')
             .eq('id', document_id)
             .single();
-          documentContent = doc?.content;
-          targetTable = 'centralized_documents';
-          targetId = document_id;
+          
+          if (doc?.storage_path) {
+            // Download content from storage
+            const { data: fileData } = await supabase.storage
+              .from('persona-docs')
+              .download(doc.storage_path);
+            
+            if (fileData) {
+              documentContent = await fileData.text();
+              targetTable = 'agent_documents';
+              targetId = document_id;
+            }
+          }
         } else if (module_id) {
           const { data: module } = await supabase
             .from('learning_modules')
