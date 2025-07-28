@@ -52,11 +52,11 @@ interface Payment {
   user_id?: string;
   amount: number;
   currency?: string;
-  status: string;
   payment_method?: string;
   reference?: string;
   description?: string;
   metadata?: any;
+  purpose?: string;
   created_at: string;
   processed_at?: string;
   phone_number?: string;
@@ -167,7 +167,7 @@ export default function OrdersPayments() {
         totalOrders: ordersData?.length || 0,
         completedOrders: 0, // Can't filter by status since it doesn't exist
         totalRevenue: ordersData?.reduce((sum, o) => sum + (o.total_price || 0), 0) || 0,
-        pendingPayments: paymentsData?.filter(p => p.status === 'pending').length || 0
+        pendingPayments: paymentsData?.length || 0
       };
 
       setStats(stats);
@@ -318,11 +318,11 @@ export default function OrdersPayments() {
       ),
     },
     {
-      accessorKey: "status",
-      header: "Status",
+      accessorKey: "purpose",
+      header: "Purpose",
       cell: ({ row }) => (
-        <Badge className={getPaymentStatusColor(row.original.status)}>
-          {row.original.status}
+        <Badge variant="secondary">
+          {row.original.purpose || 'general'}
         </Badge>
       ),
     },
@@ -574,7 +574,7 @@ export default function OrdersPayments() {
                   <div><strong>Reference:</strong> {selectedPayment.reference}</div>
                   <div><strong>Amount:</strong> {formatCurrency(selectedPayment.amount)}</div>
                   <div><strong>Method:</strong> {selectedPayment.payment_method}</div>
-                  <div><strong>Status:</strong> <Badge className={getPaymentStatusColor(selectedPayment.status)}>{selectedPayment.status}</Badge></div>
+                  <div><strong>Purpose:</strong> <Badge variant="secondary">{selectedPayment.purpose || 'general'}</Badge></div>
                   <div><strong>Phone:</strong> {selectedPayment.phone_number || "N/A"}</div>
                 </div>
               </div>

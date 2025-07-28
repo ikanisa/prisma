@@ -39,9 +39,11 @@ serve(async (req) => {
     // Generate payment reference if not provided
     const payment_ref = ref || await generatePaymentRef();
 
-    // Create QR code data
+    // Create USSD QR code data
+    const ussd_code = `*182*6*1*${payment_ref}#`; // Example USSD format
     const qr_data = {
-      type: 'momo_payment',
+      type: 'ussd_payment',
+      ussd_code: ussd_code,
       momo_number: momo_number || '',
       amount: amount || null,
       ref: payment_ref,
@@ -56,11 +58,12 @@ serve(async (req) => {
     if (user_id) {
       const { data, error } = await supabase.rpc('payments_insert', {
         p_user_id: user_id,
-        p_direction: 'inbound',
         p_amount: amount || null,
         p_momo_number: momo_number || null,
         p_qr_url: qr_url,
         p_ref: payment_ref,
+        p_ussd_code: ussd_code,
+        p_purpose: 'qr_payment'
       });
 
       if (error) {

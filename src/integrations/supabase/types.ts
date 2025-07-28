@@ -4242,38 +4242,6 @@ export type Database = {
         }
         Relationships: []
       }
-      payment_events: {
-        Row: {
-          created_at: string | null
-          event_type: string
-          id: string
-          payload: Json | null
-          payment_id: string
-        }
-        Insert: {
-          created_at?: string | null
-          event_type: string
-          id?: string
-          payload?: Json | null
-          payment_id: string
-        }
-        Update: {
-          created_at?: string | null
-          event_type?: string
-          id?: string
-          payload?: Json | null
-          payment_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "payment_events_payment_id_fkey"
-            columns: ["payment_id"]
-            isOneToOne: false
-            referencedRelation: "payments"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       payment_sessions: {
         Row: {
           amount: number | null
@@ -4329,10 +4297,10 @@ export type Database = {
           order_id: string | null
           paid_at: string | null
           payment_type: string | null
+          purpose: string | null
           qr_code_url: string | null
           qr_data: string | null
           ref: string | null
-          status: Database["public"]["Enums"]["payment_status"] | null
           updated_at: string | null
           user_id: string | null
           ussd_code: string
@@ -4350,10 +4318,10 @@ export type Database = {
           order_id?: string | null
           paid_at?: string | null
           payment_type?: string | null
+          purpose?: string | null
           qr_code_url?: string | null
           qr_data?: string | null
           ref?: string | null
-          status?: Database["public"]["Enums"]["payment_status"] | null
           updated_at?: string | null
           user_id?: string | null
           ussd_code: string
@@ -4371,10 +4339,10 @@ export type Database = {
           order_id?: string | null
           paid_at?: string | null
           payment_type?: string | null
+          purpose?: string | null
           qr_code_url?: string | null
           qr_data?: string | null
           ref?: string | null
-          status?: Database["public"]["Enums"]["payment_status"] | null
           updated_at?: string | null
           user_id?: string | null
           ussd_code?: string
@@ -8005,14 +7973,24 @@ export type Database = {
         Returns: unknown
       }
       payments_insert: {
-        Args: {
-          p_user_id: string
-          p_direction: string
-          p_amount?: number
-          p_momo_number?: string
-          p_qr_url?: string
-          p_ref?: string
-        }
+        Args:
+          | {
+              p_user_id: string
+              p_direction: string
+              p_amount?: number
+              p_momo_number?: string
+              p_qr_url?: string
+              p_ref?: string
+            }
+          | {
+              p_user_id?: string
+              p_amount?: number
+              p_momo_number?: string
+              p_qr_url?: string
+              p_ref?: string
+              p_ussd_code?: string
+              p_purpose?: string
+            }
         Returns: string
       }
       payments_insert_enhanced: {
@@ -8026,10 +8004,6 @@ export type Database = {
           p_ussd_code?: string
         }
         Returns: string
-      }
-      payments_mark_paid: {
-        Args: { p_payment_id: string; p_confirmation_note?: string }
-        Returns: boolean
       }
       pgis_asflatgeobuf_finalfn: {
         Args: { "": unknown }

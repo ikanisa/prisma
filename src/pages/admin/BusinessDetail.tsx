@@ -52,10 +52,11 @@ interface Order {
 interface Payment {
   id: string;
   amount: number;
-  status: string;
   created_at: string;
-  ussd_code: string;
+  ussd_code?: string;
   ussd_link?: string;
+  ref?: string;
+  purpose?: string;
 }
 
 export default function BusinessDetail() {
@@ -455,7 +456,7 @@ export default function BusinessDetail() {
                     <TableRow>
                       <TableHead>Payment ID</TableHead>
                       <TableHead>Amount</TableHead>
-                      <TableHead>Status</TableHead>
+                       <TableHead>Type</TableHead>
                       <TableHead>USSD Code</TableHead>
                       <TableHead>Created</TableHead>
                       <TableHead>Actions</TableHead>
@@ -466,21 +467,23 @@ export default function BusinessDetail() {
                       <TableRow key={payment.id}>
                         <TableCell className="font-mono text-sm">{payment.id.substring(0, 8)}...</TableCell>
                         <TableCell>{payment.amount} RWF</TableCell>
-                        <TableCell>
-                          <Badge variant={payment.status === 'completed' ? 'default' : 'secondary'}>
-                            {payment.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="font-mono text-sm">{payment.ussd_code}</TableCell>
+                         <TableCell>
+                           <Badge variant="secondary">
+                             USSD Generated
+                           </Badge>
+                         </TableCell>
+                        <TableCell className="font-mono text-sm">{payment.ussd_code || '-'}</TableCell>
                         <TableCell>{new Date(payment.created_at).toLocaleDateString()}</TableCell>
                         <TableCell>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => copyToClipboard(payment.ussd_code)}
-                          >
-                            <Copy className="h-4 w-4" />
-                          </Button>
+                           {payment.ussd_code && (
+                             <Button
+                               variant="ghost"
+                               size="sm"
+                               onClick={() => copyToClipboard(payment.ussd_code!)}
+                             >
+                               <Copy className="h-4 w-4" />
+                             </Button>
+                           )}
                         </TableCell>
                       </TableRow>
                     ))}
