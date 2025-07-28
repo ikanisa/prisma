@@ -60,7 +60,7 @@ serve(async (req: Request) => {
               });
 
               // Log the incoming message
-              console.log(`Received ${messageType} message from ${from}: ${messageText}`);
+              console.log(`Received ${messageType} message from ${from}: ${messageText || 'non-text'}`);
 
               // Check if we've already processed this exact message ID to prevent duplicates
               const { data: existingMessage } = await supabase
@@ -83,30 +83,17 @@ serve(async (req: Request) => {
                 created_at: timestamp.toISOString()
               });
 
-              // Process text messages with AI
+              // Process different message types
               if (messageType === 'text' && messageText) {
-                try {
-                  // Use the new unified AI orchestrator for all processing
-                  console.log('🧠 Routing to unified AI orchestrator...');
-                  
-                  const { data: orchestratorResult, error: orchestratorError } = await supabase.functions.invoke('unified-ai-orchestrator', {
-                    body: {
-                      from: from,
-                      text: messageText,
-                      message_id: message.id,
-                      contact_name: contactName,
-                      timestamp: timestamp.toISOString()
-                    }
-                  });
-
-                  if (orchestratorError) {
-                    console.error('❌ Orchestrator error:', orchestratorError);
-                  } else {
-                    console.log('✅ Message processed successfully by unified orchestrator:', orchestratorResult);
-                  }
-                } catch (error) {
-                  console.error('❌ Critical processing error:', error);
-                }
+                await processTextMessage(supabase, from, messageText, message.id, contactName, timestamp);
+              } else if (messageType === 'interactive') {
+                await processInteractiveMessage(supabase, from, message.interactive, message.id, contactName, timestamp);
+              } else if (messageType === 'button') {
+                await processButtonMessage(supabase, from, message.button, message.id, contactName, timestamp);
+              } else if (messageType === 'location') {
+                await processLocationMessage(supabase, from, message.location, message.id, contactName, timestamp);
+              } else if (messageType === 'image' || messageType === 'document') {
+                await processMediaMessage(supabase, from, message, message.id, contactName, timestamp);
               }
             }
           }
@@ -131,3 +118,158 @@ serve(async (req: Request) => {
     headers: corsHeaders 
   });
 });
+
+// Process text messages
+async function processTextMessage(supabase: any, from: string, text: string, messageId: string, contactName: string, timestamp: Date) {
+  console.log('📝 Processing text message:', text);
+  
+  // Route to WhatsApp Core Engine for intelligent processing
+  try {
+    const { data: result, error } = await supabase.functions.invoke('whatsapp-core-engine', {
+      body: {
+        from,
+        text,
+        message_id: messageId,
+        contact_name: contactName,
+        timestamp: timestamp.toISOString(),
+        message_type: 'text'
+      }
+    });
+
+    if (error) {
+      console.error('❌ Core engine error:', error);
+    } else {
+      console.log('✅ Text message processed:', result);
+    }
+  } catch (error) {
+    console.error('❌ Text processing error:', error);
+  }
+}
+
+// Process interactive messages (lists, buttons)
+async function processInteractiveMessage(supabase: any, from: string, interactive: any, messageId: string, contactName: string, timestamp: Date) {
+  console.log('🎯 Processing interactive message:', interactive);
+  
+  let actionData = '';
+  if (interactive.type === 'list_reply') {
+    actionData = interactive.list_reply.id;
+  } else if (interactive.type === 'button_reply') {
+    actionData = interactive.button_reply.id;
+  }
+
+  // Route to WhatsApp Core Engine
+  try {
+    const { data: result, error } = await supabase.functions.invoke('whatsapp-core-engine', {
+      body: {
+        from,
+        text: actionData,
+        message_id: messageId,
+        contact_name: contactName,
+        timestamp: timestamp.toISOString(),
+        message_type: 'interactive',
+        interactive_data: interactive
+      }
+    });
+
+    if (error) {
+      console.error('❌ Interactive processing error:', error);
+    } else {
+      console.log('✅ Interactive message processed:', result);
+    }
+  } catch (error) {
+    console.error('❌ Interactive processing error:', error);
+  }
+}
+
+// Process button messages
+async function processButtonMessage(supabase: any, from: string, button: any, messageId: string, contactName: string, timestamp: Date) {
+  console.log('🔘 Processing button message:', button);
+  
+  // Route to WhatsApp Core Engine
+  try {
+    const { data: result, error } = await supabase.functions.invoke('whatsapp-core-engine', {
+      body: {
+        from,
+        text: button.text || button.payload,
+        message_id: messageId,
+        contact_name: contactName,
+        timestamp: timestamp.toISOString(),
+        message_type: 'button',
+        button_data: button
+      }
+    });
+
+    if (error) {
+      console.error('❌ Button processing error:', error);
+    } else {
+      console.log('✅ Button message processed:', result);
+    }
+  } catch (error) {
+    console.error('❌ Button processing error:', error);
+  }
+}
+
+// Process location messages
+async function processLocationMessage(supabase: any, from: string, location: any, messageId: string, contactName: string, timestamp: Date) {
+  console.log('📍 Processing location message:', location);
+  
+  // Store user location
+  await supabase.from('user_locations').upsert({
+    phone_number: from,
+    latitude: location.latitude,
+    longitude: location.longitude,
+    address: location.address || null,
+    updated_at: new Date().toISOString()
+  }, { onConflict: 'phone_number' });
+
+  // Route to WhatsApp Core Engine
+  try {
+    const { data: result, error } = await supabase.functions.invoke('whatsapp-core-engine', {
+      body: {
+        from,
+        text: `location_shared:${location.latitude},${location.longitude}`,
+        message_id: messageId,
+        contact_name: contactName,
+        timestamp: timestamp.toISOString(),
+        message_type: 'location',
+        location_data: location
+      }
+    });
+
+    if (error) {
+      console.error('❌ Location processing error:', error);
+    } else {
+      console.log('✅ Location message processed:', result);
+    }
+  } catch (error) {
+    console.error('❌ Location processing error:', error);
+  }
+}
+
+// Process media messages (images, documents)
+async function processMediaMessage(supabase: any, from: string, message: any, messageId: string, contactName: string, timestamp: Date) {
+  console.log('📎 Processing media message:', message.type);
+  
+  // Route to WhatsApp Core Engine for media analysis
+  try {
+    const { data: result, error } = await supabase.functions.invoke('whatsapp-core-engine', {
+      body: {
+        from,
+        text: `media_received:${message.type}`,
+        message_id: messageId,
+        contact_name: contactName,
+        timestamp: timestamp.toISOString(),
+        message_type: message.type,
+        media_data: message[message.type]
+      }
+    });
+
+    if (error) {
+      console.error('❌ Media processing error:', error);
+    } else {
+      console.log('✅ Media message processed:', result);
+    }
+  } catch (error) {
+    console.error('❌ Media processing error:', error);
+  }
+}
