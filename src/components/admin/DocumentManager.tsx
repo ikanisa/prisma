@@ -46,11 +46,24 @@ export function DocumentManager({ agentId = 'default' }: DocumentManagerProps) {
   const fetchDocuments = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
+      
+      // Check if agentId is a valid UUID format
+      const isValidUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(agentId);
+      
+      let query = supabase
         .from('agent_documents')
         .select('*')
-        .eq('agent_id', agentId)
         .order('created_at', { ascending: false });
+      
+      // Only filter by agent_id if it's a valid UUID
+      if (isValidUUID) {
+        query = query.eq('agent_id', agentId);
+      } else {
+        // For non-UUID agentIds like "omni-agent", filter by null or show all
+        query = query.is('agent_id', null);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       setDocuments(data || []);
