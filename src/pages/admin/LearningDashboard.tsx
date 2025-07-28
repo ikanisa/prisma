@@ -6,6 +6,9 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { PersonaEditor } from '@/components/admin/PersonaEditor';
+import { DocumentManager } from '@/components/admin/DocumentManager';
+import { LearningComponents } from '@/components/admin/LearningComponents';
 import { 
   Brain, 
   AlertTriangle, 
@@ -16,7 +19,10 @@ import {
   RefreshCw,
   Search,
   Settings,
-  TrendingUp
+  TrendingUp,
+  User,
+  Upload,
+  BookOpen
 } from 'lucide-react';
 
 interface LearningKPI {
@@ -308,12 +314,13 @@ export function LearningDashboard() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="personas">Personas</TabsTrigger>
+          <TabsTrigger value="documents">Documents</TabsTrigger>
+          <TabsTrigger value="learning">Learning</TabsTrigger>
           <TabsTrigger value="gaps">Knowledge Gaps</TabsTrigger>
           <TabsTrigger value="audits">Audit History</TabsTrigger>
-          <TabsTrigger value="modules">Learning Modules</TabsTrigger>
-          <TabsTrigger value="vectors">Vector Management</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
@@ -379,6 +386,18 @@ export function LearningDashboard() {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        <TabsContent value="personas" className="space-y-4">
+          <PersonaEditor agentId="omni-agent" />
+        </TabsContent>
+
+        <TabsContent value="documents" className="space-y-4">
+          <DocumentManager agentId="omni-agent" />
+        </TabsContent>
+
+        <TabsContent value="learning" className="space-y-4">
+          <LearningComponents />
         </TabsContent>
 
         <TabsContent value="gaps" className="space-y-4">

@@ -77,7 +77,7 @@ const App = () => (
           <Route path="conversations" element={<ConversationsInterface />} />
           <Route path="user-experience" element={<UserExperienceFlow />} />
           <Route path="ai-agents-models" element={<AIAgentsModels />} />
-          <Route path="omni-agent" element={<OmniAgentDashboard />} />
+          <Route path="omni-agent" element={<LearningDashboard />} />
           <Route path="omni-agent/skill/:skillId" element={<SkillDetail />} />
           <Route path="omni-agent/configure" element={<AgentConfigurationNew />} />
           <Route path="omni-agent/persona" element={<PersonaConfiguration />} />
