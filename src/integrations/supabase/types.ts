@@ -3756,6 +3756,108 @@ export type Database = {
         }
         Relationships: []
       }
+      omni_agent_conversations: {
+        Row: {
+          confidence_score: number | null
+          created_at: string | null
+          id: string
+          intent_detected: string | null
+          message_text: string
+          metadata: Json | null
+          phone_number: string
+          response_time_ms: number | null
+          sender: string
+          session_id: string | null
+          skill_used: string | null
+        }
+        Insert: {
+          confidence_score?: number | null
+          created_at?: string | null
+          id?: string
+          intent_detected?: string | null
+          message_text: string
+          metadata?: Json | null
+          phone_number: string
+          response_time_ms?: number | null
+          sender: string
+          session_id?: string | null
+          skill_used?: string | null
+        }
+        Update: {
+          confidence_score?: number | null
+          created_at?: string | null
+          id?: string
+          intent_detected?: string | null
+          message_text?: string
+          metadata?: Json | null
+          phone_number?: string
+          response_time_ms?: number | null
+          sender?: string
+          session_id?: string | null
+          skill_used?: string | null
+        }
+        Relationships: []
+      }
+      omni_agent_metrics: {
+        Row: {
+          id: string
+          metadata: Json | null
+          metric_type: string
+          metric_value: number
+          skill_name: string | null
+          timestamp: string | null
+        }
+        Insert: {
+          id?: string
+          metadata?: Json | null
+          metric_type: string
+          metric_value: number
+          skill_name?: string | null
+          timestamp?: string | null
+        }
+        Update: {
+          id?: string
+          metadata?: Json | null
+          metric_type?: string
+          metric_value?: number
+          skill_name?: string | null
+          timestamp?: string | null
+        }
+        Relationships: []
+      }
+      omni_agent_skills: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          last_used_at: string | null
+          skill_description: string | null
+          skill_name: string
+          updated_at: string | null
+          usage_count: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_used_at?: string | null
+          skill_description?: string | null
+          skill_name: string
+          updated_at?: string | null
+          usage_count?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_used_at?: string | null
+          skill_description?: string | null
+          skill_name?: string
+          updated_at?: string | null
+          usage_count?: number | null
+        }
+        Relationships: []
+      }
       opt_outs: {
         Row: {
           channel: string | null

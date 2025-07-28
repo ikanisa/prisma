@@ -4,6 +4,7 @@
  */
 
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -27,7 +28,8 @@ import {
   AlertTriangle,
   CheckCircle,
   Clock,
-  Activity
+  Activity,
+  Bot
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -63,6 +65,7 @@ export default function AgentManagement() {
   const [testDialogOpen, setTestDialogOpen] = useState(false);
   const [testingAgent, setTestingAgent] = useState<AgentConfig | null>(null);
   const { toast } = useToast();
+  const navigate = useNavigate();
   
   // Form state for editing agents
   const nameInput = useSecureInput('', { maxLength: 100 });
@@ -273,28 +276,65 @@ export default function AgentManagement() {
     );
   }
 
+  // Check if we have any agents, if not show migration message
+  if (!loading && agents.length === 0) {
+    return (
+      <div className="container mx-auto p-6 space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">Legacy Agent Management (Deprecated)</h1>
+            <p className="text-muted-foreground">
+              This page managed individual agent configurations. The system now uses a unified Omni Agent.
+            </p>
+          </div>
+          <Button onClick={() => navigate('/admin/omni-agent')}>
+            <Bot className="mr-2 h-4 w-4" />
+            View Omni Agent Dashboard
+          </Button>
+        </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>System Upgraded to Omni Agent</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <h3 className="font-semibold text-blue-800 mb-2">Migration Complete</h3>
+              <p className="text-blue-700 mb-4">
+                All legacy agent configurations have been consolidated into a single, unified Omni Agent 
+                that uses a skills-based architecture for better performance and maintainability.
+              </p>
+              <div className="space-y-2 text-sm text-blue-700">
+                <div>✅ Multi-agent complexity eliminated</div>
+                <div>✅ Skills-based routing implemented</div>
+                <div>✅ Unified conversation tracking</div>
+                <div>✅ Simplified configuration management</div>
+              </div>
+            </div>
+            
+            <div className="flex justify-center">
+              <Button onClick={() => navigate('/admin/omni-agent')} size="lg">
+                Access Omni Agent Dashboard →
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">AI Agent Management</h1>
+          <h1 className="text-3xl font-bold">Legacy Agent Management</h1>
           <p className="text-muted-foreground">
-            Configure and monitor OpenAI AI agents for WhatsApp conversations
+            Viewing remaining legacy agent configurations (if any)
           </p>
         </div>
-        <Button onClick={() => setEditingAgent({ 
-          id: '', 
-          code: '', 
-          assistant_id: '', 
-          name: '', 
-          temperature: 0.3, 
-          tools_json: [], 
-          active: true,
-          created_at: '',
-          updated_at: ''
-        })}>
-          <Plus className="mr-2 h-4 w-4" />
-          Add Agent
+        <Button onClick={() => navigate('/admin/omni-agent')}>
+          <Bot className="mr-2 h-4 w-4" />
+          View Omni Agent Dashboard
         </Button>
       </div>
 

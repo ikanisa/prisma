@@ -13,6 +13,7 @@ import OrdersPayments from "./pages/admin/OrdersPayments";
 import TripsIntents from "./pages/admin/TripsIntents";
 import MessagingCampaigns from "./pages/admin/MessagingCampaigns";
 import AIAgentsModels from "./pages/admin/AIAgentsModels";
+import OmniAgentDashboard from "./pages/admin/OmniAgentDashboard";
 import SystemOps from "./pages/admin/SystemOps";
 import BusinessDetail from "./pages/admin/BusinessDetail";
 import AdminAuth from "./pages/AdminAuth";
@@ -68,6 +69,7 @@ const App = () => (
           <Route path="conversations" element={<ConversationsInterface />} />
           <Route path="user-experience" element={<UserExperienceFlow />} />
           <Route path="ai-agents-models" element={<AIAgentsModels />} />
+          <Route path="omni-agent" element={<OmniAgentDashboard />} />
           <Route path="system-ops" element={<SystemOps />} />
           <Route path="env-setup" element={<EnvSetup />} />
           <Route path="webhook-config" element={<WebhookConfig />} />
