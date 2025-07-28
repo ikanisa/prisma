@@ -162,10 +162,20 @@ async function processTextMessage(supabase: any, from: string, text: string, mes
 // Helper function to send WhatsApp messages
 async function sendWhatsAppMessage(to: string, message: string) {
   try {
-    const response = await fetch(`https://graph.facebook.com/v21.0/${Deno.env.get('PHONE_NUMBER_ID')}/messages`, {
+    const phoneNumberId = Deno.env.get('PHONE_NUMBER_ID') || Deno.env.get('META_PHONE_NUMBER_ID') || '396791596844039';
+    const accessToken = Deno.env.get('WHATSAPP_TOKEN') || Deno.env.get('META_WABA_ACCESS_TOKEN');
+    
+    if (!accessToken) {
+      console.error('❌ No WhatsApp access token found');
+      return;
+    }
+    
+    console.log(`📤 Sending message to ${to} via phone number ID: ${phoneNumberId}`);
+    
+    const response = await fetch(`https://graph.facebook.com/v21.0/${phoneNumberId}/messages`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${Deno.env.get('WHATSAPP_TOKEN')}`,
+        'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
@@ -176,10 +186,12 @@ async function sendWhatsAppMessage(to: string, message: string) {
       })
     });
 
+    const responseData = await response.text();
+    
     if (!response.ok) {
-      console.error('Failed to send WhatsApp message:', await response.text());
+      console.error('Failed to send WhatsApp message:', responseData);
     } else {
-      console.log('✅ WhatsApp message sent successfully');
+      console.log('✅ WhatsApp message sent successfully:', responseData);
     }
   } catch (error) {
     console.error('❌ Error sending WhatsApp message:', error);
