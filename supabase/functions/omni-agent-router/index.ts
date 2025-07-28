@@ -298,35 +298,101 @@ async function handlePaymentsSkill(intent: string, message: string, userId: stri
 }
 
 async function handleMotoSkill(intent: string, message: string, userId: string, slots: Record<string, any>): Promise<AgentResponse> {
-  return {
-    success: true,
-    response_type: 'text',
-    message: '🏍️ Moto service coming soon! We\'re working on connecting drivers and passengers.'
-  };
+  switch (intent) {
+    case 'driver_create_trip':
+      return {
+        success: true,
+        response_type: 'text',
+        message: '🏍️ To go online as a driver, please share your current location.\n\nTap the 📎 button and select Location to start accepting passengers!'
+      };
+    case 'passenger_create_intent':
+      return {
+        success: true,
+        response_type: 'text', 
+        message: '🚗 To book a ride, please share your pickup location.\n\nTap the 📎 button and select Location and I\'ll find nearby drivers!'
+      };
+    default:
+      return {
+        success: true,
+        response_type: 'text',
+        message: '🏍️ easyMO Transport\n\nWhat would you like to do?\n\n🟢 Go Online (drivers)\n🚗 Book Ride (passengers)\n📍 Find Nearby Drivers\n\nJust tell me what you need!'
+      };
+  }
 }
 
 async function handleListingsSkill(intent: string, message: string, userId: string, slots: Record<string, any>): Promise<AgentResponse> {
-  return {
-    success: true,
-    response_type: 'text',
-    message: '🏠 Listings service coming soon! Soon you\'ll be able to find properties and vehicles.'
-  };
+  switch (intent) {
+    case 'property_search':
+      return {
+        success: true,
+        response_type: 'text',
+        message: '🏠 Looking for property to rent?\n\nTell me:\n• Location (Kigali, Nyamirambo, etc.)\n• Type (apartment, house, studio)\n• Budget range\n\nExample: "2 bedroom apartment in Kigali under 200k"'
+      };
+    case 'vehicle_search':
+      return {
+        success: true,
+        response_type: 'text',
+        message: '🚗 Looking for a vehicle?\n\nTell me:\n• Type (car, motorcycle, truck)\n• Make/model preferences\n• Budget range\n\nExample: "Toyota car under 5 million RWF"'
+      };
+    default:
+      return {
+        success: true,
+        response_type: 'text',
+        message: '🏠 easyMO Listings\n\nWhat are you looking for?\n\n🏠 Property (rent/buy)\n🚗 Vehicles (cars/motos)\n📝 Create Listing\n\nJust describe what you need!'
+      };
+  }
 }
 
 async function handleCommerceSkill(intent: string, message: string, userId: string, slots: Record<string, any>): Promise<AgentResponse> {
-  return {
-    success: true,
-    response_type: 'text',
-    message: '🛒 Shopping service coming soon! We\'re connecting you with pharmacies, hardware stores, and restaurants.'
-  };
+  switch (intent) {
+    case 'order_pharmacy':
+      return {
+        success: true,
+        response_type: 'text',
+        message: '💊 easyMO Pharmacy\n\nWhat medicine do you need?\n\n• Type the medicine name\n• Upload prescription photo\n• Browse categories\n\nExample: "paracetamol" or "vitamins"'
+      };
+    case 'order_hardware':
+      return {
+        success: true,
+        response_type: 'text',
+        message: '🛠️ easyMO Hardware\n\nWhat do you need for your project?\n\n• Tools & equipment\n• Construction materials\n• Electrical supplies\n• Plumbing items\n\nJust describe what you\'re looking for!'
+      };
+    case 'order_bar':
+      return {
+        success: true,
+        response_type: 'text',
+        message: '🍻 easyMO Bar & Restaurant\n\nTo order:\n• Scan QR code on your table\n• Type table number\n• Tell me the restaurant name\n\nExample: "Table 5" or "Heaven Restaurant menu"'
+      };
+    default:
+      return {
+        success: true,
+        response_type: 'text',
+        message: '🛒 easyMO Commerce\n\nWhat would you like to order?\n\n💊 Pharmacy (medicines)\n🛠️ Hardware (tools & materials)\n🍻 Bar/Restaurant (food & drinks)\n\nJust tell me what you need!'
+      };
+  }
 }
 
 async function handleSupportSkill(intent: string, message: string, userId: string, slots: Record<string, any>): Promise<AgentResponse> {
-  return {
-    success: true,
-    response_type: 'text',
-    message: '❓ easyMO Support\n\nI\'m here to help! You can:\n\n💰 Get payment QR codes\n💸 Send money\n🏍️ Book rides (coming soon)\n🏠 Find properties (coming soon)\n\nWhat would you like to do?'
-  };
+  switch (intent) {
+    case 'help':
+      return {
+        success: true,
+        response_type: 'text',
+        message: '❓ easyMO Help\n\nI can help you with:\n\n💰 Payments & QR codes\n🏍️ Transport & rides\n🏠 Property & vehicle listings\n💊 Pharmacy orders\n🛠️ Hardware shopping\n🍻 Bar/restaurant orders\n\nWhat do you need help with?'
+      };
+    case 'handoff_request':
+      return {
+        success: true,
+        response_type: 'text',
+        message: '🤝 Connecting you to a human agent...\n\nPlease describe your issue and someone will help you shortly.\n\nTypical response time: 5-15 minutes during business hours.'
+      };
+    default:
+      return {
+        success: true,
+        response_type: 'text',
+        message: '❓ easyMO Support\n\nHow can I help you?\n\n🆘 Get Help\n🤝 Talk to Human\n📝 Give Feedback\n🐛 Report Issue\n\nI\'m here to assist!'
+      };
+  }
 }
 
 function extractAmount(message: string): number | null {

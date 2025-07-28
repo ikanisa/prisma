@@ -19,7 +19,140 @@ export interface ToolResult {
   execution_time_ms?: number;
 }
 
-// Tool input schemas
+// Additional schemas for new skills
+const PassengerIntentSchema = z.object({
+  passenger_id: z.string().uuid(),
+  pickup_lat: z.number(),
+  pickup_lng: z.number(),
+  max_budget: z.number().positive()
+});
+
+const BookingCreateSchema = z.object({
+  passenger_id: z.string().uuid(),
+  trip_id: z.string().uuid(),
+  fare_rwf: z.number().positive().optional()
+});
+
+const BookingConfirmSchema = z.object({
+  booking_id: z.string().uuid(),
+  confirmed: z.boolean(),
+  driver_id: z.string().uuid().optional()
+});
+
+const ListingSearchSchema = z.object({
+  type: z.enum(['property', 'vehicle']),
+  query: z.string().optional(),
+  location: z.string().optional(),
+  lat: z.number().optional(),
+  lng: z.number().optional(),
+  radius_km: z.number().default(10),
+  min_price: z.number().optional(),
+  max_price: z.number().optional(),
+  limit: z.number().default(10)
+});
+
+const ListingCreateSchema = z.object({
+  type: z.enum(['property', 'vehicle']),
+  user_id: z.string().uuid(),
+  title: z.string().optional(),
+  status: z.enum(['draft', 'active']).default('draft')
+});
+
+const ProductSearchSchema = z.object({
+  category: z.enum(['pharmacy', 'hardware']),
+  query: z.string().optional(),
+  location: z.string().optional(),
+  limit: z.number().default(10)
+});
+
+const MenuFetchSchema = z.object({
+  table_code: z.string().optional(),
+  bar_name: z.string().optional(),
+  business_type: z.string().optional(),
+  location: z.string().optional()
+});
+
+const OrderStatusSchema = z.object({
+  order_id: z.string().uuid(),
+  user_id: z.string().uuid()
+});
+
+const OrderHistorySchema = z.object({
+  user_id: z.string().uuid(),
+  limit: z.number().default(5)
+});
+
+const GooglePlacesSchema = z.object({
+  category: z.string(),
+  location: z.string(),
+  radius: z.number().default(50000),
+  user_id: z.string().uuid()
+});
+
+const ContactsImportSchema = z.object({
+  source: z.enum(['whatsapp', 'google_contacts', 'phone_contacts', 'csv']),
+  user_id: z.string().uuid()
+});
+
+const AirbnbScraperSchema = z.object({
+  url: z.string().url(),
+  user_id: z.string().uuid()
+});
+
+const ProductsImportSchema = z.object({
+  source: z.string(),
+  category: z.string().optional(),
+  user_id: z.string().uuid()
+});
+
+const HandoffCreateSchema = z.object({
+  user_id: z.string(),
+  reason: z.string(),
+  urgency: z.enum(['normal', 'medium', 'high']).default('normal'),
+  context: z.string(),
+  source_channel: z.string().default('whatsapp')
+});
+
+const HelpContentSchema = z.object({
+  topic: z.string(),
+  language: z.string().default('en')
+});
+
+const FeedbackLogSchema = z.object({
+  user_id: z.string(),
+  feedback_text: z.string().optional(),
+  rating: z.number().int().min(1).max(5).optional(),
+  source: z.string(),
+  category: z.string().optional()
+});
+
+const IssueReportSchema = z.object({
+  user_id: z.string(),
+  description: z.string(),
+  severity: z.enum(['low', 'medium', 'high']).default('medium'),
+  source: z.string(),
+  context: z.string()
+});
+
+const FeatureRequestSchema = z.object({
+  user_id: z.string(),
+  description: z.string(),
+  source: z.string(),
+  priority: z.string().default('normal')
+});
+
+const GeoSearchSchema = z.object({
+  lat: z.number(),
+  lng: z.number(),
+  radius_km: z.number().default(5),
+  type: z.enum(['drivers', 'passengers', 'properties', 'businesses'])
+});
+
+const PaymentProcessSchema = z.object({
+  transaction_id: z.string(),
+  phone: z.string(),
+  amount: z.number().positive().optional()
+});
 const QRGenerateSchema = z.object({
   phone: z.string().min(10),
   amount: z.number().positive(),
