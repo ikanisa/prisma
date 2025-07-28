@@ -176,6 +176,150 @@ export function PersonaEditor({ agentId = 'omni-agent' }: PersonaEditorProps) {
     setEditableMarkdown(markdownData);
   }, [markdownData]);
 
+  const handleMarkdownSave = async () => {
+    try {
+      setSaving(true);
+      
+      // Parse markdown content back to JSON structure
+      const parsedData = parseMarkdownToJSON(editableMarkdown);
+      
+      // Update the JSON data state
+      setJsonData(JSON.stringify(parsedData, null, 2));
+      setMarkdownData(editableMarkdown);
+      
+      toast({
+        title: "Success",
+        description: "Markdown documentation saved and JSON configuration updated"
+      });
+    } catch (error) {
+      console.error('Error parsing markdown:', error);
+      toast({
+        title: "Error",
+        description: "Failed to parse markdown content",
+        variant: "destructive"
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const parseMarkdownToJSON = (markdown: string): any => {
+    const lines = markdown.split('\n');
+    const result: any = {
+      agent_name: "",
+      version: "",
+      role_summary: "",
+      core_objective: "",
+      primary_channels: [],
+      supported_locales: [],
+      unified_skills: {},
+      behavioural_principles: [],
+      data_contracts: {
+        reads: [],
+        writes: [],
+        edge_functions: []
+      },
+      interaction_patterns: {},
+      metrics: {},
+      sample_unified_flow: []
+    };
+
+    let currentSection = '';
+    let currentSubsection = '';
+    let content = '';
+    let skillName = '';
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      
+      if (line.startsWith('# ') && line.includes('—')) {
+        result.agent_name = line.split('—')[0].replace('#', '').trim();
+      } else if (line.startsWith('## Role Summary')) {
+        currentSection = 'role_summary';
+        content = '';
+      } else if (line.startsWith('## Core Objective')) {
+        if (currentSection === 'role_summary') result.role_summary = content.trim();
+        currentSection = 'core_objective';
+        content = '';
+      } else if (line.startsWith('## Primary Channels')) {
+        if (currentSection === 'core_objective') result.core_objective = content.trim();
+        currentSection = 'primary_channels';
+        content = '';
+      } else if (line.startsWith('## Supported Locales')) {
+        if (currentSection === 'primary_channels') {
+          result.primary_channels = content.trim().split(',').map(s => s.trim());
+        }
+        currentSection = 'supported_locales';
+        content = '';
+      } else if (line.startsWith('## Unified Skills')) {
+        if (currentSection === 'supported_locales') {
+          result.supported_locales = content.trim().split(',').map(s => s.trim());
+        }
+        currentSection = 'unified_skills';
+        content = '';
+      } else if (line.startsWith('### ') && currentSection === 'unified_skills') {
+        skillName = line.replace('###', '').trim();
+        result.unified_skills[skillName] = {
+          purpose: '',
+          triggers: [],
+          tone: ''
+        };
+      } else if (line.startsWith('- **Purpose**:') && skillName) {
+        result.unified_skills[skillName].purpose = line.replace('- **Purpose**:', '').trim();
+      } else if (line.startsWith('- **Triggers**:') && skillName) {
+        const triggers = line.replace('- **Triggers**:', '').trim();
+        result.unified_skills[skillName].triggers = triggers.split(',').map(s => s.trim());
+      } else if (line.startsWith('- **Tone**:') && skillName) {
+        result.unified_skills[skillName].tone = line.replace('- **Tone**:', '').trim();
+      } else if (line.startsWith('## Behavioural Principles')) {
+        currentSection = 'behavioural_principles';
+        content = '';
+      } else if (line.startsWith('## Data Contracts')) {
+        if (currentSection === 'behavioural_principles') {
+          result.behavioural_principles = content.split('\n')
+            .filter(l => l.trim().startsWith('-'))
+            .map(l => l.replace('-', '').trim());
+        }
+        currentSection = 'data_contracts';
+      } else if (line.startsWith('- **Reads**:')) {
+        result.data_contracts.reads = line.replace('- **Reads**:', '').trim().split(',').map(s => s.trim());
+      } else if (line.startsWith('- **Writes**:')) {
+        result.data_contracts.writes = line.replace('- **Writes**:', '').trim().split(',').map(s => s.trim());
+      } else if (line.startsWith('- **Edge Functions**:')) {
+        result.data_contracts.edge_functions = line.replace('- **Edge Functions**:', '').trim().split(',').map(s => s.trim());
+      } else if (line.startsWith('## Interaction Patterns')) {
+        currentSection = 'interaction_patterns';
+      } else if (line.startsWith('- **') && currentSection === 'interaction_patterns') {
+        const match = line.match(/- \*\*(.*?)\*\*: (.*)/);
+        if (match) {
+          result.interaction_patterns[match[1]] = match[2];
+        }
+      } else if (line.startsWith('## Key Performance Metrics')) {
+        currentSection = 'metrics';
+      } else if (line.startsWith('- **') && currentSection === 'metrics') {
+        const match = line.match(/- \*\*(.*?)\*\*: (.*)/);
+        if (match) {
+          result.metrics[match[1]] = match[2];
+        }
+      } else if (line.startsWith('## Sample Unified Flow')) {
+        currentSection = 'sample_unified_flow';
+      } else if (/^\d+\./.test(line) && currentSection === 'sample_unified_flow') {
+        const match = line.match(/\*\*User\*\*: "(.*?)" → \*\*Skill\*\*: (.*?) → \*\*Response\*\*: "(.*?)"/);
+        if (match) {
+          result.sample_unified_flow.push({
+            user: match[1],
+            skill: match[2],
+            response: match[3]
+          });
+        }
+      } else if (!line.startsWith('#') && !line.startsWith('-') && line.length > 0) {
+        content += line + '\n';
+      }
+    }
+
+    return result;
+  };
+
   useEffect(() => {
     fetchPersonas();
     // Initialize with unified omni agent
@@ -573,13 +717,7 @@ ${agentData.sample_unified_flow.map((flow, index) => `${index + 1}. **User**: "$
                         <Label>Markdown Documentation</Label>
                         <Button
                           size="sm"
-                           onClick={() => {
-                             // Save the markdown content
-                             toast({
-                               title: "Success",
-                               description: "Markdown documentation saved successfully"
-                             });
-                           }}
+                           onClick={handleMarkdownSave}
                           disabled={saving}
                         >
                            {saving ? (
