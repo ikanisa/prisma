@@ -125,11 +125,18 @@ async function buildUserContext(supabase: any, phoneNumber: string) {
       memory: Object.fromEntries((memory || []).map((m: any) => [m.memory_type, m.memory_value])),
       recentConversations: conversations || [],
       conversationCount: conversations?.length || 0,
-      userType: memory?.find((m: any) => m.memory_type === 'user_type')?.memory_value || 'unknown'
+      userType: memory?.find((m: any) => m.memory_type === 'user_type')?.memory_value || 'unknown',
+      phoneNumber: phoneNumber  // Add phoneNumber to context
     };
   } catch (error) {
     console.error('Error building user context:', error);
-    return { memory: {}, recentConversations: [], conversationCount: 0, userType: 'unknown' };
+    return { 
+      memory: {}, 
+      recentConversations: [], 
+      conversationCount: 0, 
+      userType: 'unknown',
+      phoneNumber: phoneNumber 
+    };
   }
 }
 
@@ -141,18 +148,32 @@ async function processWithAI(agentConfig: AgentConfig, message: string, context:
   }
 
   try {
-    // Determine which agent to use based on message and context
-    const agentType = determineAgent(message, context);
-    console.log('🤖 Processing with agent:', { agentType, message, userType: context.userType });
+    // Classify intent using the comprehensive domain specification
+    const intentResult = classifyIntent(message, context);
+    console.log('🎯 Intent classified:', { 
+      domain: intentResult.domain, 
+      intent: intentResult.intent, 
+      confidence: intentResult.confidence,
+      slots: intentResult.slots 
+    });
+
+    // Handle specific intents with edge functions
+    if (intentResult.confidence > 0.7) {
+      const functionResult = await handleIntentWithFunction(intentResult, message, context);
+      if (functionResult) {
+        return functionResult;
+      }
+    }
     
     // Get agent-specific system prompt
+    const agentType = determineAgent(message, context);
     const systemPrompt = getAgentSystemPrompt(agentType, context);
     
-    // Build conversation history
+    // Build conversation history with intent context
     const messages = [
       {
         role: 'system',
-        content: systemPrompt
+        content: systemPrompt + `\n\nCurrent intent: ${intentResult.intent} (confidence: ${intentResult.confidence})`
       },
       // Add recent conversation context
       ...context.recentConversations.slice(0, 3).reverse().map((conv: any) => ({
@@ -369,93 +390,470 @@ function detectUserType(message: string): string {
   return 'unknown';
 }
 
-function determineAgent(message: string, context: any): string {
+// Enhanced intent classification based on the comprehensive domain spec
+function classifyIntent(message: string, context: any): any {
   const lowerMessage = message.toLowerCase();
   
-  // First time users always get onboarding
-  if (context.conversationCount === 0 || !context.userType || context.userType === 'unknown') {
-    return 'onboarding';
+  // MoMo QR Payments Domain
+  if (lowerMessage.match(/(qr|get paid|scan and pay me|give me code|send me.*qr)/i)) {
+    return {
+      domain: 'momo_qr_payments',
+      intent: 'qr_generate_receive',
+      confidence: 0.9,
+      slots: extractAmount(message) ? { amount: extractAmount(message) } : {}
+    };
   }
   
-  // Payment keywords
-  if (lowerMessage.includes('pay') || lowerMessage.includes('money') || lowerMessage.includes('payment') || 
-      lowerMessage.includes('bill') || lowerMessage.includes('momo') || lowerMessage.includes('cash')) {
-    return 'payment';
+  if (lowerMessage.match(/(did they pay|check payment|status|money arrived|received\?)/i)) {
+    return {
+      domain: 'momo_qr_payments',
+      intent: 'payment_status_check',
+      confidence: 0.8,
+      slots: {}
+    };
   }
   
-  // Logistics keywords  
-  if (lowerMessage.includes('ride') || lowerMessage.includes('transport') || lowerMessage.includes('driver') ||
-      lowerMessage.includes('pickup') || lowerMessage.includes('delivery') || lowerMessage.includes('trip')) {
-    return 'logistics';
+  if (lowerMessage.match(/(how.*pay|scan.*code|where.*amount|pay.*help)/i)) {
+    return {
+      domain: 'momo_qr_payments',
+      intent: 'qr_pay_help',
+      confidence: 0.7,
+      slots: {}
+    };
   }
   
-  // Default to onboarding for guidance
-  return 'onboarding';
+  if (lowerMessage.match(/(wrong amount|sent.*wrong|refund|dispute)/i)) {
+    return {
+      domain: 'momo_qr_payments',
+      intent: 'refund_or_dispute',
+      confidence: 0.9,
+      slots: {}
+    };
+  }
+  
+  if (lowerMessage.match(/(split.*bill|share.*bill|divide.*payment)/i)) {
+    return {
+      domain: 'momo_qr_payments',
+      intent: 'split_bill',
+      confidence: 0.8,
+      slots: extractSplitBillInfo(message)
+    };
+  }
+  
+  // Moto Mobility Domain - Driver Intents
+  if (lowerMessage.match(/(i'm going from|leaving.*to|heading to|trip from.*to)/i)) {
+    return {
+      domain: 'moto_mobility',
+      intent: 'driver_trip_create',
+      actor: 'driver',
+      confidence: 0.9,
+      slots: extractTripInfo(message)
+    };
+  }
+  
+  if (lowerMessage.match(/(show passengers|anyone going|passengers nearby)/i)) {
+    return {
+      domain: 'moto_mobility',
+      intent: 'driver_view_passengers',
+      actor: 'driver',
+      confidence: 0.8,
+      slots: {}
+    };
+  }
+  
+  // Moto Mobility Domain - Passenger Intents
+  if (lowerMessage.match(/(need.*moto|ride from|go to|transport.*to|need ride)/i)) {
+    return {
+      domain: 'moto_mobility',
+      intent: 'passenger_intent_create',
+      actor: 'passenger',
+      confidence: 0.9,
+      slots: extractRideRequest(message)
+    };
+  }
+  
+  if (lowerMessage.match(/(how much.*from|price.*to|cost.*ride|fare)/i)) {
+    return {
+      domain: 'moto_mobility',
+      intent: 'fare_estimate',
+      actor: 'passenger',
+      confidence: 0.8,
+      slots: extractRouteInfo(message)
+    };
+  }
+  
+  // Safety and Support
+  if (lowerMessage.match(/(unsafe|stole|harass|driver rude|lost bag|report)/i)) {
+    return {
+      domain: 'shared',
+      intent: 'report_issue_safety',
+      confidence: 0.9,
+      escalate: true,
+      slots: { issue_type: 'safety' }
+    };
+  }
+  
+  if (lowerMessage.match(/(talk to human|operator|real person|agent)/i)) {
+    return {
+      domain: 'shared',
+      intent: 'help_human_handoff',
+      confidence: 0.9,
+      escalate: true,
+      slots: {}
+    };
+  }
+  
+  // Language switching
+  if (lowerMessage.match(/(kinyarwanda|français|swahili|english)/i)) {
+    return {
+      domain: 'shared',
+      intent: 'language_switch',
+      confidence: 0.8,
+      slots: { language: detectLanguage(message) }
+    };
+  }
+  
+  // Default to onboarding for new users or unclear intents
+  return {
+    domain: 'onboarding',
+    intent: 'welcome_guide',
+    confidence: 0.5,
+    slots: {}
+  };
+}
+
+// Helper functions for slot extraction
+function extractAmount(message: string): number | null {
+  const match = message.match(/(\d{3,})\s?(rwf|frw)?/i);
+  return match ? parseInt(match[1]) : null;
+}
+
+function extractSplitBillInfo(message: string): any {
+  const amountMatch = message.match(/(\d{3,})/);
+  const peopleMatch = message.match(/(\d+)\s*people/i);
+  
+  return {
+    total_amount: amountMatch ? parseInt(amountMatch[1]) : null,
+    num_people: peopleMatch ? parseInt(peopleMatch[1]) : null
+  };
+}
+
+function extractTripInfo(message: string): any {
+  // Extract origin and destination from natural language
+  const fromToMatch = message.match(/from\s+([^to]+)\s+to\s+(.+?)(?:\s+at|\s+\d|$)/i);
+  if (fromToMatch) {
+    return {
+      origin: fromToMatch[1].trim(),
+      destination: fromToMatch[2].trim()
+    };
+  }
+  return {};
+}
+
+function extractRideRequest(message: string): any {
+  const fromToMatch = message.match(/from\s+([^to]+)\s+to\s+(.+?)(?:\s+at|\s+\d|$)/i);
+  const timeMatch = message.match(/(?:at\s+)?(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)/i);
+  
+  const slots: any = {};
+  if (fromToMatch) {
+    slots.origin = fromToMatch[1].trim();
+    slots.destination = fromToMatch[2].trim();
+  }
+  if (timeMatch) {
+    slots.when = timeMatch[1];
+  }
+  return slots;
+}
+
+function extractRouteInfo(message: string): any {
+  const fromToMatch = message.match(/from\s+([^to]+)\s+to\s+(.+?)(?:\?|$)/i);
+  if (fromToMatch) {
+    return {
+      origin: fromToMatch[1].trim(),
+      destination: fromToMatch[2].trim()
+    };
+  }
+  return {};
+}
+
+function detectLanguage(message: string): string {
+  if (message.match(/kinyarwanda|kinyrwanda/i)) return 'rw';
+  if (message.match(/français|french/i)) return 'fr';
+  if (message.match(/swahili/i)) return 'sw';
+  return 'en';
+}
+
+function determineAgent(message: string, context: any): string {
+  // Use intent classification instead of simple keyword matching
+  const intentResult = classifyIntent(message, context);
+  
+  // Handle escalation cases
+  if (intentResult.escalate) {
+    return 'escalation';
+  }
+  
+  switch (intentResult.domain) {
+    case 'momo_qr_payments':
+      return 'payment';
+    case 'moto_mobility':
+      return 'logistics';
+    case 'onboarding':
+    default:
+      return 'onboarding';
+  }
 }
 
 function getAgentSystemPrompt(agentType: string, context: any): string {
-  const baseInfo = `You are an AI assistant for easyMO, a WhatsApp-based super-app for Rwanda. 
-Always respond in a friendly, helpful manner and keep responses under 300 characters.
-Current user type: ${context.userType || 'unknown'}`;
+  const baseInfo = `You are an AI assistant for easyMO, Rwanda's WhatsApp super-app for payments and transport.
+Always respond in a helpful, conversational manner. Keep responses under 300 characters unless complex information is needed.
+Current user type: ${context.userType || 'unknown'}
+Conversation count: ${context.conversationCount || 0}`;
 
   switch (agentType) {
     case 'onboarding':
       return `${baseInfo}
 
-You are the OnboardingAgent. Your role is to welcome users and guide them to the right services.
+You are the OnboardingAgent. Guide users to the right services with intelligence.
 
-For NEW USERS (conversation count 0):
-Welcome them warmly and present the main service options:
+For NEW USERS (conversation count 0-2), show the main service menu:
 
-"Muraho! 👋 Welcome to easyMO - your all-in-one WhatsApp super-app! 
+"Muraho! 👋 Welcome to easyMO!
 
-Choose what you'd like to do:
-💰 *Pay bills* - Pay for utilities, services
-💸 *Get paid* - Receive payments, create QR codes  
-🏍️ *Book a ride* - Quick moto transport
-🚗 *Schedule trip* - Plan your journey
-📦 *Send package* - Delivery services
-🛒 *Shop* - Browse products
-🌾 *Sell produce* - For farmers
-📞 *More services* - See all options
+🎯 Popular Services:
+💰 *Pay bills* → Type "pay" + amount
+💸 *Get paid* → "QR 5000" for 5k QR
+🏍️ *Book ride* → "ride from [pickup] to [destination]"  
+🚗 *Post trip* → "going from X to Y at 3pm"
+📦 *Send package* → "delivery" + details
+🛒 *More services* → Type "menu"
 
-Just reply with what interests you most!"
+What would you like to do?"
 
-For RETURNING USERS:
-Provide quick service navigation and help with specific requests.`;
+For RETURNING USERS: 
+- Help navigate services
+- Answer questions about features
+- Guide to specialized agents when needed
+
+IMPORTANT: Always provide examples of how to use commands!`;
 
     case 'payment':
       return `${baseInfo}
 
-You are the PaymentAgent. Handle all payment-related requests including:
-- Mobile money payments
-- Bill payments  
-- QR code generation for receiving money
-- Payment confirmations
-- Transaction help
+You are the PaymentAgent handling ALL payment services:
 
-Be helpful and secure. Ask for specific details like amount and purpose.
-Guide users through payment steps clearly.`;
+CORE FUNCTIONS:
+💰 QR Generation → "QR 5000" creates QR to receive 5,000 RWF
+💸 Payment Help → Guide users through MoMo payments  
+📱 Status Checks → "Did they pay?" checks recent transactions
+🔄 Refunds → Handle wrong payments, disputes
+📊 Split Bills → "Split 15k between 3 people"
+🏪 Business Mode → Register shops, bars for recurring payments
+
+ALWAYS ASK FOR:
+- Amount (if not provided)
+- Purpose (what's the payment for?)
+- Confirmation before generating QR codes
+
+RESPONSE PATTERN:
+1. Confirm amount and purpose
+2. Generate QR or provide guidance
+3. Give clear next steps
+4. Offer to save QR for reuse
+
+Example: "Got it! Creating QR for 5,000 RWF. Customer scans with MoMo and pays instantly. Reply 'received' when payment comes through!"`;
 
     case 'logistics':
       return `${baseInfo}
 
-You are the LogisticsAgent. Handle transportation and delivery requests:
-- Ride booking (moto taxis)
-- Trip scheduling  
-- Package delivery
-- Driver coordination
-- Route planning
+You are the LogisticsAgent for transport coordination:
 
-Ask for pickup location, destination, and timing preferences.
-Provide clear guidance on booking rides and deliveries.`;
+FOR DRIVERS:
+🚗 Post trips → "I'm going from Nyamirambo to CBD at 4pm, 2 seats, 1500 RWF"
+👥 View passengers → "Show passengers going my route"
+✅ Manage bookings → Accept/decline passenger requests
+
+FOR PASSENGERS:  
+🏍️ Request rides → "Need moto from Kimironko to town at 5pm"
+💰 Get fare estimates → "How much from Kicukiro to Gikondo?"
+👀 Browse trips → See available drivers and their routes
+
+ESSENTIAL QUESTIONS:
+- Where are you now? (pickup location)
+- Where are you going? (destination)
+- When do you need to travel?
+- How many passengers/seats?
+
+ALWAYS:
+- Confirm locations clearly (use landmarks)
+- Provide fare estimates when possible
+- Give ETA and contact details after booking
+- No auto-assignments - let users choose drivers
+
+Example response: "Found 3 drivers going to CBD around 5pm:
+1. KG 123A - 1,200 RWF, leaves 4:45pm
+2. KH 456B - 1,500 RWF, leaves 5:10pm  
+Reply with number to book!"`;
+
+    case 'escalation':
+      return `${baseInfo}
+
+You handle escalations and safety issues. 
+
+FOR SAFETY ISSUES: Immediately acknowledge, collect basic details, and escalate to human support.
+FOR DISPUTES: Get transaction details and escalate for amounts >100,000 RWF.
+FOR GENERAL HELP: Connect users to human support quickly.
+
+ALWAYS be empathetic and ensure users feel heard before escalating.`;
 
     default:
       return `${baseInfo}
 
 You are a general assistant. Help users navigate to the right service:
-- Payments: "pay", "money", "bill" 
-- Transport: "ride", "trip", "moto"
-- Other services: guide them appropriately`;
+- Payments: "pay", "money", "QR", "bill" 
+- Transport: "ride", "trip", "moto", "driver"
+- Support: "help", "human", "problem"
+
+Guide them with specific examples of how to use each service.`;
+  }
+}
+
+// Handle specific intents with dedicated edge functions
+async function handleIntentWithFunction(intentResult: any, message: string, context: any): Promise<string | null> {
+  const supabase = createClient(
+    Deno.env.get('SUPABASE_URL')!,
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+  );
+
+  try {
+    console.log(`🔧 Handling intent ${intentResult.intent} with edge function`);
+
+    switch (intentResult.intent) {
+      case 'qr_generate_receive':
+        // Handle QR generation for receiving payments
+        const amount = intentResult.slots.amount || extractAmount(message);
+        if (!amount) {
+          return "I'll help you create a QR code! How much do you want to receive? For example: 'QR 5000' for 5,000 RWF.";
+        }
+
+        const { data: qrResult, error: qrError } = await supabase.functions.invoke('qr-render', {
+          body: {
+            text: `easyMO:${amount}:RWF:${context.userType || 'user'}`,
+            agent: 'payment',
+            entity: 'qr_receive',
+            id: crypto.randomUUID()
+          }
+        });
+
+        if (qrError) throw qrError;
+
+        return `✅ QR code ready for ${amount.toLocaleString()} RWF!
+
+Your payment QR: ${qrResult.url}
+
+📋 Instructions:
+• Customer scans with MoMo app
+• They enter ${amount.toLocaleString()} RWF 
+• Money arrives instantly
+• Reply "received" when paid
+
+💡 Save this QR for easy reuse!`;
+
+      case 'driver_trip_create':
+        // Handle driver trip posting
+        const { origin, destination } = intentResult.slots;
+        if (!origin || !destination) {
+          return "I'll help you post a trip! Please tell me: going FROM [pickup] TO [destination] at [time]. Example: 'Trip from Nyamirambo to CBD at 4pm, 2 seats, 1500 RWF'";
+        }
+
+        const { data: tripResult, error: tripError } = await supabase.functions.invoke('driver-trip-create', {
+          body: {
+            from: context.phoneNumber || 'unknown',
+            text: message,
+            message_id: crypto.randomUUID()
+          }
+        });
+
+        if (tripError) throw tripError;
+
+        return tripResult.handled ? "🚀 Trip posted successfully! We'll notify you when passengers show interest." : 
+               "I need more details. Try: 'Trip from [pickup] to [destination] at [time], [seats] seats, [price] RWF'";
+
+      case 'passenger_intent_create':
+        // Handle passenger ride requests
+        const rideSlots = intentResult.slots;
+        if (!rideSlots.origin || !rideSlots.destination) {
+          return "I'll find you a ride! Please tell me: FROM [pickup] TO [destination] at [time]. Example: 'Need ride from Kimironko to CBD at 5pm'";
+        }
+
+        const { data: rideResult, error: rideError } = await supabase.functions.invoke('passenger-intent-create', {
+          body: {
+            from: context.phoneNumber || 'unknown',
+            text: message,
+            message_id: crypto.randomUUID()
+          }
+        });
+
+        if (rideError) throw rideError;
+
+        return rideResult.handled ? 
+               `🏍️ Looking for rides... ${rideResult.trip_options || 'We\'ll notify you when drivers become available.'}` :
+               "I need more details. Try: 'Need ride from [pickup] to [destination] at [time]'";
+
+      case 'split_bill':
+        // Handle split bill requests
+        const { total_amount, num_people } = intentResult.slots;
+        if (!total_amount || !num_people) {
+          return "I'll help split the bill! Tell me the total amount and number of people. Example: 'Split 15000 between 3 people'";
+        }
+
+        const perPerson = Math.ceil(total_amount / num_people);
+        const { data: splitResult, error: splitError } = await supabase.functions.invoke('qr-render', {
+          body: {
+            text: `easyMO:${perPerson}:RWF:split_bill`,
+            agent: 'payment',
+            entity: 'split_bill',
+            id: crypto.randomUUID()
+          }
+        });
+
+        if (splitError) throw splitError;
+
+        return `💰 Bill Split Calculator:
+Total: ${total_amount.toLocaleString()} RWF
+People: ${num_people}
+Each pays: ${perPerson.toLocaleString()} RWF
+
+QR for individual payment: ${splitResult.url}
+
+Share this QR with each person to collect ${perPerson.toLocaleString()} RWF each.`;
+
+      case 'payment_status_check':
+        return "I'll check your recent payments. Looking up your transaction history... For specific transactions, please provide the reference number or approximate time.";
+
+      case 'fare_estimate':
+        const routeInfo = intentResult.slots;
+        if (routeInfo.origin && routeInfo.destination) {
+          return `💰 Estimated fare ${routeInfo.origin} → ${routeInfo.destination}:
+
+🏍️ Moto: 1,200 - 2,000 RWF
+🚗 Car: 2,500 - 4,000 RWF
+
+Actual prices may vary based on:
+• Time of day
+• Distance  
+• Driver rates
+• Traffic conditions
+
+Type "ride from ${routeInfo.origin} to ${routeInfo.destination}" to book!`;
+        }
+        return "I'll estimate the fare! Tell me your route: 'How much from [pickup] to [destination]?'";
+
+      default:
+        return null; // Let AI handle other intents
+    }
+
+  } catch (error) {
+    console.error(`❌ Error handling intent ${intentResult.intent}:`, error);
+    return null; // Fall back to AI processing
   }
 }
