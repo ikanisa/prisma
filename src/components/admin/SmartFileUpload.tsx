@@ -71,6 +71,29 @@ export function SmartFileUpload({ targetTable, onUploadComplete, onError }: Smar
         setPreviewData(data.data);
         setProgress(100);
         
+        // Trigger dynamic learning from uploaded document
+        if (data.documentId) {
+          try {
+            await supabase.functions.invoke('dynamic-learning-processor', {
+              body: { 
+                documentId: data.documentId,
+                priority: 'high'
+              }
+            });
+            
+            // Update journey patterns based on new document
+            await supabase.functions.invoke('dynamic-user-journey-tracker', {
+              body: { 
+                action: 'update_patterns',
+                pattern_updates: [],
+                learning_source: 'document_upload'
+              }
+            });
+          } catch (learningError) {
+            console.warn('Learning update failed:', learningError);
+          }
+        }
+        
         setTimeout(() => {
           onUploadComplete(data.data);
         }, 1500);

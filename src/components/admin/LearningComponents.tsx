@@ -113,6 +113,17 @@ export function LearningComponents() {
     try {
       setProcessing(true);
       
+      // Process document through dynamic learning processor
+      const learningResponse = await supabase.functions.invoke('dynamic-learning-processor', {
+        body: { 
+          documentId: moduleId,
+          action: 'extract_skills',
+          priority: 'high'
+        }
+      });
+
+      if (learningResponse.error) throw learningResponse.error;
+
       // Tag the module
       const tagResponse = await supabase.functions.invoke('ingest-tag', {
         body: { module_id: moduleId }
@@ -135,8 +146,8 @@ export function LearningComponents() {
       if (embedResponse.error) throw embedResponse.error;
 
       toast({
-        title: "Processing Complete",
-        description: "Module has been tagged, summarized, and embedded"
+        title: "Dynamic Learning Complete",
+        description: `Module processed with ${learningResponse.data?.skills_extracted || 0} skills extracted and embedded`
       });
 
       // Refresh data
@@ -158,18 +169,27 @@ export function LearningComponents() {
     try {
       setProcessing(true);
       
-      const response = await supabase.functions.invoke('memory-consolidator', {
+      // Enhanced memory consolidation with dynamic learning
+      const response = await supabase.functions.invoke('memory-consolidator-enhanced', {
         body: { 
-          consolidation_type: 'full',
-          min_confidence: 0.7 
+          user_id: 'system',
+          consolidation_type: 'full'
         }
       });
 
       if (response.error) throw response.error;
 
+      // Trigger dynamic learning update
+      await supabase.functions.invoke('dynamic-learning-processor', {
+        body: { 
+          action: 'enhance_capabilities',
+          priority: 'medium'
+        }
+      });
+
       toast({
-        title: "Memory Consolidation Started",
-        description: "Agent memory is being consolidated and optimized"
+        title: "Enhanced Memory Consolidation Started",
+        description: "Agent memory and capabilities are being dynamically optimized"
       });
 
       // Refresh after a delay
