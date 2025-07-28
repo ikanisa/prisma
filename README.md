@@ -1,73 +1,185 @@
-# Welcome to your Lovable project
+# easyMO Admin Panel 🚀
 
-## Project info
+A comprehensive admin interface for managing the easyMO WhatsApp super-app ecosystem in Rwanda.
 
-**URL**: https://lovable.dev/projects/2b2aaaed-6798-4998-b11a-17cc8aad5935
+## 🎯 Features
 
-## How can I edit this code?
+### Core Management
+- **Users & Contacts**: Complete user lifecycle management
+- **Drivers & Fleet**: Real-time driver tracking and management  
+- **Businesses**: Vendor approval and business management
+- **Orders & Payments**: Transaction monitoring and reconciliation
 
-There are several ways of editing your application.
+### WhatsApp Integration
+- **Message Processing**: AI-powered message handling
+- **Template Management**: WhatsApp Business API integration
+- **Analytics**: Real-time messaging metrics
+- **Campaign Management**: Automated marketing campaigns
 
-**Use Lovable**
+### Real-time Operations
+- **Live Dashboard**: System health and KPI monitoring
+- **Fleet Tracking**: GPS-enabled driver management
+- **Order Tracking**: Real-time order status updates
+- **Payment Processing**: MoMo integration and QR generation
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/2b2aaaed-6798-4998-b11a-17cc8aad5935) and start prompting.
+## 🛠️ Tech Stack
 
-Changes made via Lovable will be committed automatically to this repo.
+### Frontend
+- **React 18** with TypeScript
+- **Tailwind CSS** for styling
+- **shadcn/ui** component library
+- **TanStack Query** for data management
+- **React Router** for navigation
 
-**Use your preferred IDE**
+### Backend
+- **Supabase** with PostgreSQL
+- **Row Level Security (RLS)** for data protection
+- **Edge Functions** for business logic
+- **Real-time subscriptions** for live updates
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+### Testing & Quality
+- **Vitest** for unit testing
+- **Playwright** for E2E testing
+- **GitHub Actions** for CI/CD
+- **85%+ test coverage** requirement
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+## 🚀 Quick Start
 
-Follow these steps:
+### Prerequisites
+```bash
+node >= 18
+npm or bun
+supabase account
+```
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+### Installation
+```bash
+# Clone the repository
+git clone <repository-url>
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+# Install dependencies
+npm install
 
-# Step 3: Install the necessary dependencies.
-npm i
+# Set up environment
+cp .env.example .env.local
+# Add your Supabase credentials
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Start development server
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+### Database Setup
+```bash
+# Apply migrations
+supabase db push
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+# Seed sample data (optional)
+npm run seed
+```
 
-**Use GitHub Codespaces**
+## 📊 Architecture
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+### Data Flow
+```
+WhatsApp Business API → Edge Functions → Supabase → Admin UI
+```
 
-## What technologies are used for this project?
+### Key Components
+- **AdminLayoutConsolidated**: Main layout with navigation
+- **UnifiedDashboard**: Central metrics and quick actions
+- **AdminTable**: Reusable data table with CRUD operations
+- **useUnifiedData**: Centralized data management hook
 
-This project is built with:
+### Security
+- **RLS Policies**: Database-level access control
+- **Admin Authentication**: Secure admin-only access
+- **API Protection**: Edge function security headers
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## 🧪 Testing
 
-## How can I deploy this project?
+### Run Tests
+```bash
+# Unit tests
+npm run test
 
-Simply open [Lovable](https://lovable.dev/projects/2b2aaaed-6798-4998-b11a-17cc8aad5935) and click on Share -> Publish.
+# E2E tests  
+npm run test:e2e
 
-## Can I connect a custom domain to my Lovable project?
+# Coverage report
+npm run coverage
+```
 
-Yes, you can!
+### Quality Gates
+- ✅ 85%+ test coverage
+- ✅ TypeScript strict mode
+- ✅ ESLint compliance
+- ✅ Automated CI/CD pipeline
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+## 📈 Performance
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+### Optimizations
+- **Code Splitting**: Lazy-loaded admin pages
+- **Query Optimization**: Efficient database queries
+- **Real-time Updates**: Minimal re-renders
+- **Bundle Size**: Optimized for fast loading
+
+## 🔧 Development
+
+### File Structure
+```
+src/
+├── components/admin/     # Admin-specific components
+├── hooks/               # Custom React hooks  
+├── pages/admin/         # Admin page components
+├── integrations/        # Supabase integration
+└── types/               # TypeScript definitions
+
+supabase/
+├── functions/           # Edge functions
+└── migrations/          # Database schemas
+```
+
+### Key Conventions
+- **Unified Data Management**: Single source of truth
+- **Reusable Components**: DRY principle
+- **Type Safety**: Full TypeScript coverage
+- **Design System**: Consistent UI patterns
+
+## 🌍 Deployment
+
+### Production Build
+```bash
+npm run build
+npm run preview
+```
+
+### Environment Setup
+- Configure Supabase project
+- Set up domain (optional)
+- Apply database migrations
+- Configure environment variables
+
+See [DEPLOYMENT_GUIDE.md](docs/DEPLOYMENT_GUIDE.md) for detailed instructions.
+
+## 📚 Documentation
+
+- [API Reference](docs/API_REFERENCE.md)
+- [Deployment Guide](docs/DEPLOYMENT_GUIDE.md)
+- [Architecture Overview](docs/ARCHITECTURE.md)
+
+## 🤝 Contributing
+
+1. Follow the established patterns
+2. Write tests for new features
+3. Maintain type safety
+4. Update documentation
+
+## 📄 License
+
+MIT License - see LICENSE file for details.
+
+---
+
+**easyMO Admin Panel** - Empowering Rwanda's digital economy through WhatsApp 🇷🇼
+
+*Built with ❤️ using Lovable.dev*
