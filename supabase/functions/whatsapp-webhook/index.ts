@@ -47,6 +47,18 @@ serve(async (req: Request) => {
               // Extract contact info from the payload
               const contactName = change.value?.contacts?.[0]?.profile?.name || 'Unknown';
 
+              // Store/update contact information
+              await supabase.from('wa_contacts').upsert({
+                wa_id: from,
+                profile_name: contactName,
+                phone_number: from,
+                last_seen: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+              }, { 
+                onConflict: 'wa_id',
+                ignoreDuplicates: false 
+              });
+
               // Log the incoming message
               console.log(`Received ${messageType} message from ${from}: ${messageText}`);
 

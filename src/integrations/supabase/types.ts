@@ -6782,6 +6782,39 @@ export type Database = {
         }
         Relationships: []
       }
+      wa_contacts: {
+        Row: {
+          created_at: string | null
+          id: string
+          last_seen: string | null
+          phone_number: string | null
+          profile_name: string | null
+          status: string | null
+          updated_at: string | null
+          wa_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          last_seen?: string | null
+          phone_number?: string | null
+          profile_name?: string | null
+          status?: string | null
+          updated_at?: string | null
+          wa_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          last_seen?: string | null
+          phone_number?: string | null
+          profile_name?: string | null
+          status?: string | null
+          updated_at?: string | null
+          wa_id?: string
+        }
+        Relationships: []
+      }
       whatsapp_conversations: {
         Row: {
           context_state: Json | null

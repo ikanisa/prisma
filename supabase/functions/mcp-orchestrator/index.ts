@@ -153,17 +153,17 @@ async function buildUserContext(supabase: any, phone: string) {
     .order('ts', { ascending: false })
     .limit(10);
 
-  // Get contact info
+  // Get contact info - use maybeSingle to avoid errors when no contact exists
   const { data: contact } = await supabase
     .from('wa_contacts')
     .select('*')
     .eq('wa_id', phone)
-    .single();
+    .maybeSingle();
 
   return {
     memory: memoryObj,
     recentConversations: conversations || [],
-    contact: contact,
+    contact: contact || null,
     userType: memoryObj.user_type || 'unknown',
     conversationCount: conversations?.length || 0
   };
@@ -336,7 +336,17 @@ Available services:
     });
 
     const data = await response.json();
-    const message = data.choices[0].message.content;
+    
+    if (!data.choices || data.choices.length === 0) {
+      console.error('OpenAI API returned no choices:', data);
+      return {
+        message: "I apologize, but I'm having trouble generating a response right now. Please try again.",
+        action: null,
+        data: null
+      };
+    }
+    
+    const message = data.choices[0].message?.content;
 
     return {
       message,
