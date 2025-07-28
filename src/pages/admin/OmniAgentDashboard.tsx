@@ -4,8 +4,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Bot, Brain, Activity, MessageSquare, TrendingUp, Settings } from "lucide-react";
+import { Bot, Brain, Activity, MessageSquare, TrendingUp, Settings, FileText, BookOpen } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useNavigate } from "react-router-dom";
 
 interface OmniAgentSkill {
   id: string;
@@ -41,6 +42,7 @@ export default function OmniAgentDashboard() {
   const [metrics, setMetrics] = useState<OmniAgentMetric[]>([]);
   const [conversations, setConversations] = useState<OmniAgentConversation[]>([]);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchOmniAgentData();
@@ -163,10 +165,73 @@ export default function OmniAgentDashboard() {
 
       <Tabs defaultValue="skills" className="w-full">
         <TabsList>
-          <TabsTrigger value="skills">Skills Overview</TabsTrigger>
+          <TabsTrigger value="persona">Omni Agent Persona</TabsTrigger>
+          <TabsTrigger value="documents">Documents</TabsTrigger>
+          <TabsTrigger value="learning">Omni Agent Learning</TabsTrigger>
+          <TabsTrigger value="skills">Skills</TabsTrigger>
           <TabsTrigger value="conversations">Recent Conversations</TabsTrigger>
           <TabsTrigger value="metrics">Performance Metrics</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="persona">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Brain className="h-5 w-5" />
+                Omni Agent Persona
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <p className="text-muted-foreground">Configure the personality and behavior of your omni-agent.</p>
+                <Button>
+                  <Settings className="mr-2 h-4 w-4" />
+                  Configure Persona
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="documents">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                Documents
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <p className="text-muted-foreground">Manage documents and knowledge base for agent learning.</p>
+                <Button>
+                  <FileText className="mr-2 h-4 w-4" />
+                  Upload Documents
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="learning">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <BookOpen className="h-5 w-5" />
+                Omni Agent Learning
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <p className="text-muted-foreground">Monitor and manage the agent's learning progress and improvements.</p>
+                <Button>
+                  <BookOpen className="mr-2 h-4 w-4" />
+                  View Learning Log
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         <TabsContent value="skills">
           <Card>
@@ -176,7 +241,11 @@ export default function OmniAgentDashboard() {
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {skills.map((skill) => (
-                  <Card key={skill.id} className="p-4">
+                  <Card 
+                    key={skill.id} 
+                    className="p-4 cursor-pointer hover:bg-accent transition-colors"
+                    onClick={() => navigate(`/admin/omni-agent/skill/${skill.id}`)}
+                  >
                     <div className="space-y-3">
                       <div className="flex justify-between items-center">
                         <Badge className={getSkillColor(skill.skill_name)}>
