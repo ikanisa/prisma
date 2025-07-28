@@ -43,6 +43,7 @@ import QRScannerPage from "./pages/admin/QRScannerPage";
 import ConversationDetail from "./pages/admin/conversations/ConversationDetail";
 import CampaignDetail from "./pages/admin/campaigns/CampaignDetail";
 import CampaignCreate from "./pages/admin/campaigns/CampaignCreate";
+import AutonomousAgentDashboard from "./pages/admin/AutonomousAgentDashboard";
 import ConversationsInterface from "./pages/admin/ConversationsInterface";
 import UnifiedListingsPage from "./pages/admin/UnifiedListingsPage";
 import UnifiedOrdersPage from "./pages/admin/UnifiedOrdersPage";
@@ -77,7 +78,7 @@ const App = () => (
           <Route path="conversations" element={<ConversationsInterface />} />
           <Route path="user-experience" element={<UserExperienceFlow />} />
           <Route path="ai-agents-models" element={<AIAgentsModels />} />
-          <Route path="omni-agent" element={<LearningDashboard />} />
+          <Route path="omni-agent" element={<AutonomousAgentDashboard />} />
           <Route path="omni-agent/skill/:skillId" element={<SkillDetail />} />
           <Route path="omni-agent/configure" element={<AgentConfigurationNew />} />
           <Route path="omni-agent/persona" element={<PersonaConfiguration />} />
