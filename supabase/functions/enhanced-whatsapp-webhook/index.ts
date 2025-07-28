@@ -57,6 +57,8 @@ class EnhancedPaymentAgent {
           return await this.handleAmountPrompt(intent, from);
         case 'generate_qr':
           return await this.handleGenerateQR(intent, from);
+        case 'process_qr_scan':
+          return await this.handleQRScanData(message, from);
         case 'confirm_payment':
           return await this.handleConfirmPayment(from);
         case 'pay_someone':
@@ -80,6 +82,24 @@ class EnhancedPaymentAgent {
 
   private analyzePaymentIntent(message: string): PaymentIntentResult {
     const msg = message.toLowerCase().trim();
+    
+    // QR code detection - USSD patterns, URLs, etc.
+    const qrCodePatterns = [
+      /\*182\*\d+\*\d+\*\d+\*\d+#/,  // Full USSD pattern
+      /\*182\*\d+\*\d+#/,             // Simplified USSD
+      /^\*\d{3}\*.*#$/,               // General USSD pattern
+      /^https?:\/\//,                 // URL patterns
+      /^tel:\*\d/                     // Tel URI with USSD
+    ];
+
+    // Check if message contains QR code data
+    if (qrCodePatterns.some(pattern => pattern.test(message))) {
+      return {
+        intent: 'qr_scan_data',
+        confidence: 0.95,
+        action: 'process_qr_scan'
+      };
+    }
     
     // Direct amount detection - trigger amount prompt
     const amountMatch = msg.match(/^(\d+)$/);
@@ -402,6 +422,65 @@ class EnhancedPaymentAgent {
 
     } catch (error) {
       console.error('Error sending QR message:', error);
+    }
+  }
+
+  async processQRScan(qrData: string, scannerPhone: string, scanMethod: string = 'camera'): Promise<any> {
+    try {
+      const { data, error } = await this.supabase.functions.invoke('process-qr-scan', {
+        body: {
+          qrData,
+          scannerPhone,
+          method: scanMethod,
+          confidence: 0.8,
+          lightingCondition: 'normal',
+          torchUsed: false,
+          processingTime: 1000
+        }
+      });
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('QR scan processing failed:', error);
+      return {
+        success: false,
+        message: 'Failed to process QR scan',
+        error: error.message
+      };
+    }
+  }
+
+  private async handleQRScanData(qrData: string, from: string): Promise<string> {
+    try {
+      console.log('🔍 Processing QR scan data:', { qrData, from });
+      
+      const scannerPhone = from.replace('whatsapp:', '').replace('+', '');
+      const result = await this.processQRScan(qrData, scannerPhone, 'manual');
+      
+      if (!result.success) {
+        return `❌ Could not process QR code: ${result.message}\n\n💡 Make sure it's a valid payment QR code or USSD string.`;
+      }
+
+      const { validation, data } = result;
+      
+      if (validation?.type === 'ussd' || validation?.type === 'payment') {
+        if (data?.paymentId) {
+          // Payment initiated successfully
+          return `✅ QR Payment Detected!\n\n💰 Amount: ${data.amount} RWF\n📱 To: ${data.phone}\n📞 Dial: ${data.ussdCode}\n\nOr tap to dial: tel:${data.ussdCode}\n\nSend "paid" when done to confirm.`;
+        } else if (data?.ussdCode) {
+          // USSD code detected
+          return `📱 USSD Code Detected!\n\n📞 Code: ${data.ussdCode}\n\nTap to dial: tel:${data.ussdCode}`;
+        }
+      } else if (validation?.type === 'url') {
+        return `🔗 Link Detected!\n\n${data.url}\n\nTap to open: ${data.url}`;
+      }
+
+      return `✅ QR code scanned successfully!\n\nContent: ${qrData}\n\n💡 This QR contains: ${validation?.type || 'unknown data'}`;
+
+    } catch (error) {
+      console.error('QR scan handling error:', error);
+      return "❌ Sorry, I couldn't process that QR code. Please try scanning again or check if it's a valid payment QR.";
     }
   }
 
