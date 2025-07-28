@@ -102,7 +102,7 @@ export default function OmniAgentDashboard() {
             Unified AI agent managing all easyMO services
           </p>
         </div>
-        <Button>
+        <Button onClick={() => navigate('/admin/omni-agent/configure')}>
           <Settings className="mr-2 h-4 w-4" />
           Configure Agent
         </Button>
@@ -184,7 +184,7 @@ export default function OmniAgentDashboard() {
             <CardContent>
               <div className="space-y-4">
                 <p className="text-muted-foreground">Configure the personality and behavior of your omni-agent.</p>
-                <Button>
+                <Button onClick={() => navigate('/admin/omni-agent/persona')}>
                   <Settings className="mr-2 h-4 w-4" />
                   Configure Persona
                 </Button>
@@ -204,7 +204,7 @@ export default function OmniAgentDashboard() {
             <CardContent>
               <div className="space-y-4">
                 <p className="text-muted-foreground">Manage documents and knowledge base for agent learning.</p>
-                <Button>
+                <Button onClick={() => navigate('/admin/omni-agent/documents')}>
                   <FileText className="mr-2 h-4 w-4" />
                   Upload Documents
                 </Button>
@@ -224,7 +224,7 @@ export default function OmniAgentDashboard() {
             <CardContent>
               <div className="space-y-4">
                 <p className="text-muted-foreground">Monitor and manage the agent's learning progress and improvements.</p>
-                <Button>
+                <Button onClick={() => navigate('/admin/omni-agent/learning')}>
                   <BookOpen className="mr-2 h-4 w-4" />
                   View Learning Log
                 </Button>

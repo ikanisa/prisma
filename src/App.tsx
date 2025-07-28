@@ -32,6 +32,10 @@ import AgentOverview from "./pages/admin/agents/AgentOverview";
 import PersonasList from "./pages/admin/agents/PersonasList";
 import PersonaDetailNew from "./pages/admin/agents/PersonaDetail";
 import AgentConfiguration from "./pages/admin/agents/AgentConfiguration";
+import AgentConfigurationNew from "./pages/admin/AgentConfiguration";
+import PersonaConfiguration from "./pages/admin/PersonaConfiguration";
+import DocumentManagement from "./pages/admin/DocumentManagement";
+import LearningManagement from "./pages/admin/LearningManagement";
 // Conversation and campaign detail pages
 import ConversationDetail from "./pages/admin/conversations/ConversationDetail";
 import CampaignDetail from "./pages/admin/campaigns/CampaignDetail";
@@ -72,6 +76,10 @@ const App = () => (
           <Route path="ai-agents-models" element={<AIAgentsModels />} />
           <Route path="omni-agent" element={<OmniAgentDashboard />} />
           <Route path="omni-agent/skill/:skillId" element={<SkillDetail />} />
+          <Route path="omni-agent/configure" element={<AgentConfigurationNew />} />
+          <Route path="omni-agent/persona" element={<PersonaConfiguration />} />
+          <Route path="omni-agent/documents" element={<DocumentManagement />} />
+          <Route path="omni-agent/learning" element={<LearningManagement />} />
           <Route path="system-ops" element={<SystemOps />} />
           <Route path="env-setup" element={<EnvSetup />} />
           <Route path="webhook-config" element={<WebhookConfig />} />
