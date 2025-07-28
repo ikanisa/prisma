@@ -314,13 +314,12 @@ export function LearningDashboard() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-7">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="personas">Personas</TabsTrigger>
           <TabsTrigger value="documents">Documents</TabsTrigger>
           <TabsTrigger value="learning">Learning</TabsTrigger>
           <TabsTrigger value="journeys">User Journeys</TabsTrigger>
-          <TabsTrigger value="gaps">Knowledge Gaps</TabsTrigger>
           <TabsTrigger value="audits">Audit History</TabsTrigger>
         </TabsList>
 
@@ -641,52 +640,6 @@ export function LearningDashboard() {
           </div>
         </TabsContent>
 
-        <TabsContent value="gaps" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Knowledge Gaps</CardTitle>
-              <CardDescription>Identified areas for improvement</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {gaps.map((gap) => (
-                  <div key={gap.id} className="border rounded-lg p-4 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-2">
-                        <Badge variant={getSeverityBadgeVariant(gap.severity_level)}>
-                          {gap.severity_level}
-                        </Badge>
-                        <span className="font-medium">{gap.impacted_area}</span>
-                      </div>
-                      <Badge variant="outline">{gap.status}</Badge>
-                    </div>
-                    
-                    <div className="text-sm text-muted-foreground">
-                      <strong>Type:</strong> {gap.gap_type} • <strong>Source:</strong> {gap.model_source}
-                    </div>
-                    
-                    {gap.content_excerpt && (
-                      <div className="text-sm bg-muted p-2 rounded">
-                        <strong>Excerpt:</strong> {gap.content_excerpt}
-                      </div>
-                    )}
-                    
-                    <div className="text-sm">
-                      <strong>Recommendation:</strong> {gap.fix_suggestion}
-                    </div>
-                    
-                    <div className="flex justify-between text-xs text-muted-foreground">
-                      <span>Found: {new Date(gap.created_at).toLocaleDateString()}</span>
-                      <Button variant="outline" size="sm">
-                        Resolve Gap
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
 
         <TabsContent value="audits" className="space-y-4">
           <Card>
