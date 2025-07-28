@@ -83,6 +83,44 @@ export type Database = {
         }
         Relationships: []
       }
+      agent_document_embeddings: {
+        Row: {
+          chunk_index: number
+          chunk_text: string
+          created_at: string | null
+          document_id: string | null
+          embedding: string | null
+          id: string
+          metadata: Json | null
+        }
+        Insert: {
+          chunk_index: number
+          chunk_text: string
+          created_at?: string | null
+          document_id?: string | null
+          embedding?: string | null
+          id?: string
+          metadata?: Json | null
+        }
+        Update: {
+          chunk_index?: number
+          chunk_text?: string
+          created_at?: string | null
+          document_id?: string | null
+          embedding?: string | null
+          id?: string
+          metadata?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_document_embeddings_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "agent_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agent_documents: {
         Row: {
           agent_id: string | null
@@ -8351,6 +8389,20 @@ export type Database = {
       sanitize_user_input: {
         Args: { input_text: string }
         Returns: string
+      }
+      search_agent_documents: {
+        Args: {
+          query_text: string
+          similarity_threshold?: number
+          max_results?: number
+        }
+        Returns: {
+          document_id: string
+          title: string
+          chunk_text: string
+          similarity: number
+          agent_id: string
+        }[]
       }
       security_compliance_summary: {
         Args: Record<PropertyKey, never>
