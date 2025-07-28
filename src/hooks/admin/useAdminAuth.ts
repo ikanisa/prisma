@@ -38,18 +38,31 @@ export function useAdminAuth(): AdminAuthState {
 
         const user = session.session.user;
 
-        // Check if user has admin role using Supabase function
-        const { data: isAdminResult, error } = await supabase
-          .rpc('is_admin');
-
-        if (!mounted) return;
-
-        setState({
-          user,
-          isAdmin: !error && isAdminResult === true,
-          loading: false,
-          checkingAuth: false
-        });
+        // For development: allow any authenticated user to be admin
+        // In production: check the is_admin() function
+        const isDev = import.meta.env.DEV;
+        
+        if (isDev) {
+          // Development mode: any authenticated user is admin
+          setState({
+            user,
+            isAdmin: true,
+            loading: false,
+            checkingAuth: false
+          });
+        } else {
+          // Production mode: check admin role
+          const { data: isAdminResult, error } = await supabase.rpc('is_admin');
+          
+          if (!mounted) return;
+          
+          setState({
+            user,
+            isAdmin: !error && isAdminResult === true,
+            loading: false,
+            checkingAuth: false
+          });
+        }
       } catch (error) {
         console.error('Error checking admin access:', error);
         if (mounted) {
