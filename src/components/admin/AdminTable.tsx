@@ -1,74 +1,81 @@
 import React from 'react';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import type { AdminTableProps, AdminTableColumn, SortOrder } from '@/types/admin';
+import { Eye, Edit, Trash2, MoreHorizontal } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
-interface AdminTableState {
-  sortField?: string;
-  sortOrder?: SortOrder;
+export interface AdminTableColumn<T = any> {
+  key: string;
+  header: string;
+  cell?: (item: T) => React.ReactNode;
+  sortable?: boolean;
+  className?: string;
 }
 
-export function AdminTable<T extends Record<string, any>>({
-  data,
-  loading,
-  columns,
-  onSort,
-  onAction,
-  className,
-  emptyMessage = "No data available",
-  loadingRows = 5
-}: AdminTableProps<T> & {
+export interface AdminTableAction<T = any> {
+  label: string;
+  icon?: React.ComponentType<{ className?: string }>;
+  onClick: (item: T) => void;
+  variant?: 'default' | 'destructive' | 'outline' | 'secondary';
   className?: string;
+}
+
+export interface AdminTableProps<T = any> {
+  data: T[];
+  columns: AdminTableColumn<T>[];
+  actions?: AdminTableAction<T>[];
+  isLoading?: boolean;
   emptyMessage?: string;
-  loadingRows?: number;
-}) {
-  const [sortState, setSortState] = React.useState<AdminTableState>({});
+  className?: string;
+  keyExtractor?: (item: T) => string;
+}
 
-  const handleSort = (column: AdminTableColumn<T>) => {
-    if (!column.sortable || !onSort) return;
+export function AdminTable<T = any>({
+  data,
+  columns,
+  actions = [],
+  isLoading = false,
+  emptyMessage = 'No data available',
+  className = '',
+  keyExtractor = (item: any) => item.id || Math.random().toString(),
+}: AdminTableProps<T>) {
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
-    const isCurrentSort = sortState.sortField === String(column.key);
-    const newOrder: SortOrder = 
-      isCurrentSort && sortState.sortOrder === 'asc' ? 'desc' : 'asc';
+  if (data.length === 0) {
+    return (
+      <div className="flex items-center justify-center p-8 text-muted-foreground">
+        {emptyMessage}
+      </div>
+    );
+  }
 
-    setSortState({
-      sortField: String(column.key),
-      sortOrder: newOrder
-    });
-
-    onSort(column.key, newOrder);
-  };
-
-  const getSortIcon = (column: AdminTableColumn<T>) => {
-    if (!column.sortable) return null;
-
-    const isCurrentSort = sortState.sortField === String(column.key);
+  const renderCell = (item: T, column: AdminTableColumn<T>) => {
+    if (column.cell) {
+      return column.cell(item);
+    }
     
-    if (!isCurrentSort) {
-      return <ArrowUpDown className="h-4 w-4 text-muted-foreground" />;
-    }
-
-    return sortState.sortOrder === 'asc' 
-      ? <ArrowUp className="h-4 w-4 text-primary" />
-      : <ArrowDown className="h-4 w-4 text-primary" />;
-  };
-
-  const renderCellValue = (column: AdminTableColumn<T>, item: T) => {
-    const value = item[column.key];
+    const value = (item as any)[column.key];
     
-    if (column.render) {
-      return column.render(value, item);
-    }
-
-    // Default rendering based on value type
-    if (value === null || value === undefined) {
-      return <span className="text-muted-foreground">—</span>;
-    }
-
+    // Handle different data types
     if (typeof value === 'boolean') {
       return (
         <Badge variant={value ? 'default' : 'secondary'}>
@@ -76,138 +83,93 @@ export function AdminTable<T extends Record<string, any>>({
         </Badge>
       );
     }
-
-    if (typeof value === 'number') {
-      return <span className="font-mono">{value.toLocaleString()}</span>;
+    
+    if (value instanceof Date) {
+      return value.toLocaleDateString();
     }
-
-    if (value && typeof value === 'object' && value.constructor === Date) {
-      const dateValue = value as Date;
-      return (
-        <div className="space-y-1">
-          <div className="text-sm">{dateValue.toLocaleDateString()}</div>
-          <div className="text-xs text-muted-foreground">
-            {dateValue.toLocaleTimeString()}
-          </div>
-        </div>
-      );
+    
+    if (typeof value === 'object' && value !== null) {
+      return JSON.stringify(value);
     }
-
-    if (typeof value === 'string' && value.includes('T') && !isNaN(Date.parse(value))) {
-      const date = new Date(value);
-      return (
-        <div className="space-y-1">
-          <div className="text-sm">{date.toLocaleDateString()}</div>
-          <div className="text-xs text-muted-foreground">
-            {date.toLocaleTimeString()}
-          </div>
-        </div>
-      );
-    }
-
-    return <span>{String(value)}</span>;
+    
+    return value?.toString() || '-';
   };
 
-  const LoadingRow = () => (
-    <TableRow>
-      {columns.map((column, index) => (
-        <TableCell key={index}>
-          <Skeleton className="h-4 w-full" />
-        </TableCell>
-      ))}
-    </TableRow>
-  );
+  const renderActions = (item: T) => {
+    if (actions.length === 0) return null;
+
+    if (actions.length === 1) {
+      const action = actions[0];
+      const Icon = action.icon;
+      return (
+        <Button
+          variant={action.variant || 'outline'}
+          size="sm"
+          onClick={() => action.onClick(item)}
+          className={action.className}
+        >
+          {Icon && <Icon className="h-4 w-4 mr-1" />}
+          {action.label}
+        </Button>
+      );
+    }
+
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" size="sm">
+            <MoreHorizontal className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          {actions.map((action, index) => {
+            const Icon = action.icon;
+            return (
+              <DropdownMenuItem
+                key={index}
+                onClick={() => action.onClick(item)}
+                className={action.className}
+              >
+                {Icon && <Icon className="h-4 w-4 mr-2" />}
+                {action.label}
+              </DropdownMenuItem>
+            );
+          })}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  };
 
   return (
-    <div className={cn("rounded-md border", className)}>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            {columns.map((column) => (
-              <TableHead 
-                key={String(column.key)}
-                className={cn(
-                  column.sortable && "cursor-pointer select-none hover:bg-muted/50",
-                  column.sortable && "transition-colors"
-                )}
-                onClick={() => handleSort(column)}
-              >
-                <div className="flex items-center gap-2">
-                  <span>{column.label}</span>
-                  {getSortIcon(column)}
-                </div>
-              </TableHead>
-            ))}
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {loading ? (
-            Array.from({ length: loadingRows }).map((_, index) => (
-              <LoadingRow key={index} />
-            ))
-          ) : data.length === 0 ? (
-            <TableRow>
-              <TableCell 
-                colSpan={columns.length} 
-                className="text-center py-8 text-muted-foreground"
-              >
-                {emptyMessage}
-              </TableCell>
-            </TableRow>
-          ) : (
-            data.map((item, index) => (
-              <TableRow key={item.id || index}>
-                {columns.map((column) => (
-                  <TableCell key={String(column.key)}>
-                    {renderCellValue(column, item)}
-                  </TableCell>
-                ))}
-              </TableRow>
-            ))
+    <Table className={className}>
+      <TableHeader>
+        <TableRow>
+          {columns.map((column) => (
+            <TableHead key={column.key} className={column.className}>
+              {column.header}
+            </TableHead>
+          ))}
+          {actions.length > 0 && (
+            <TableHead className="text-right">Actions</TableHead>
           )}
-        </TableBody>
-      </Table>
-    </div>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {data.map((item) => (
+          <TableRow key={keyExtractor(item)}>
+            {columns.map((column) => (
+              <TableCell key={column.key} className={column.className}>
+                {renderCell(item, column)}
+              </TableCell>
+            ))}
+            {actions.length > 0 && (
+              <TableCell className="text-right">
+                {renderActions(item)}
+              </TableCell>
+            )}
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
   );
 }
-
-// Utility function to create common column types
-export const createColumn = <T,>(
-  key: keyof T,
-  label: string,
-  options: Partial<AdminTableColumn<T>> = {}
-): AdminTableColumn<T> => ({
-  key,
-  label,
-  sortable: false,
-  ...options
-});
-
-// Pre-built column renderers
-export const columnRenderers = {
-  badge: (value: string, variant: 'default' | 'secondary' | 'destructive' | 'outline' = 'default') => (
-    <Badge variant={variant}>{value}</Badge>
-  ),
-  
-  currency: (amount: number, currency = 'RWF') => (
-    <span className="font-mono">{amount.toLocaleString()} {currency}</span>
-  ),
-  
-  phone: (phone: string) => (
-    <span className="font-mono text-sm">{phone}</span>
-  ),
-  
-  status: (status: string) => {
-    const variants: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
-      active: 'default',
-      pending: 'secondary',
-      failed: 'destructive',
-      cancelled: 'outline'
-    };
-    return <Badge variant={variants[status] || 'outline'}>{status}</Badge>;
-  },
-  
-  percentage: (value: number) => (
-    <span className="font-mono">{value.toFixed(1)}%</span>
-  )
-};

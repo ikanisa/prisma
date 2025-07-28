@@ -4,8 +4,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Navigate } from "react-router-dom";
 import NotFound from "./pages/NotFound";
-import { AdminLayout } from "@/components/admin/AdminLayout";
-import Dashboard from "./pages/admin/Dashboard";
+import { AdminLayoutConsolidated } from "@/components/admin/AdminLayoutConsolidated";
+import UnifiedDashboard from "./pages/admin/UnifiedDashboard";
 import UsersContacts from "./pages/admin/UsersContacts";
 import Businesses from "./pages/admin/Businesses";
 import ListingsInventory from "./pages/admin/ListingsInventory";
@@ -48,8 +48,8 @@ const App = () => (
         <Route path="/admin/setup" element={<AdminAuth />} />
         
         {/* Admin Routes */}
-        <Route path="/admin" element={<AdminLayout />}>
-          <Route index element={<Dashboard />} />
+        <Route path="/admin" element={<AdminLayoutConsolidated />}>
+          <Route index element={<UnifiedDashboard />} />
           <Route path="users-contacts" element={<UsersContacts />} />
           <Route path="businesses" element={<Businesses />} />
           <Route path="listings-inventory" element={<ListingsInventory />} />
