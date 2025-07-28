@@ -32,6 +32,7 @@ import CampaignCreate from "./pages/admin/campaigns/CampaignCreate";
 import ConversationsInterface from "./pages/admin/ConversationsInterface";
 import UnifiedListingsPage from "./pages/admin/UnifiedListingsPage";
 import UnifiedOrdersPage from "./pages/admin/UnifiedOrdersPage";
+import UserExperienceFlow from "./pages/admin/UserExperienceFlow";
 import { ChatProvider } from "@/components/chat/ChatProvider";
 import { WhatsAppAgentTest } from "@/components/admin/WhatsAppAgentTest";
 
@@ -60,6 +61,7 @@ const App = () => (
           <Route path="trips-intents" element={<TripsIntents />} />
           <Route path="messaging-campaigns" element={<MessagingCampaigns />} />
           <Route path="conversations" element={<ConversationsInterface />} />
+          <Route path="user-experience" element={<UserExperienceFlow />} />
           <Route path="ai-agents-models" element={<AIAgentsModels />} />
           <Route path="system-ops" element={<SystemOps />} />
           <Route path="env-setup" element={<EnvSetup />} />

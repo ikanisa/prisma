@@ -136,10 +136,13 @@ async function buildUserContext(supabase: any, phoneNumber: string) {
 async function processWithAI(agentConfig: AgentConfig, message: string, context: any): Promise<string> {
   const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
   if (!openaiApiKey) {
-    return "I'm not fully configured right now. Please contact support for assistance.";
+    console.error('🔑 OpenAI API key not configured');
+    return "Muraho! I'm not fully configured right now. Please contact support for assistance.";
   }
 
   try {
+    console.log('🤖 Processing with AI:', { message, userType: context.userType, conversationCount: context.conversationCount });
+    
     // Build conversation history
     const messages = [
       {
@@ -157,7 +160,13 @@ async function processWithAI(agentConfig: AgentConfig, message: string, context:
       }
     ];
 
-    // Use the latest, most reliable model
+    console.log('📤 Sending to OpenAI:', { 
+      model: 'gpt-4o-mini', 
+      messageCount: messages.length,
+      temperature: agentConfig.temperature 
+    });
+
+    // Use gpt-4o-mini for better rate limits and reliability
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -165,27 +174,59 @@ async function processWithAI(agentConfig: AgentConfig, message: string, context:
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4.1-2025-04-14', // Latest model
+        model: 'gpt-4o-mini', // More reliable model with better rate limits
         messages,
-        temperature: agentConfig.temperature,
-        max_tokens: 300,
-        tools: agentConfig.tools_json.length > 0 ? agentConfig.tools_json : undefined
+        temperature: agentConfig.temperature || 0.7,
+        max_tokens: 300
       }),
     });
 
+    console.log('📥 OpenAI response status:', response.status);
+
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ OpenAI API error:', { status: response.status, error: errorText });
+      
       if (response.status === 429) {
-        return "I'm experiencing high demand right now. Please try again in a moment! 😊";
+        return "Muraho! I'm experiencing high demand right now. Please try again in a moment! 😊";
       }
-      throw new Error(`OpenAI API error: ${response.status}`);
+      if (response.status === 401) {
+        return "Muraho! I have a configuration issue. Please contact support.";
+      }
+      if (response.status === 400) {
+        return "Muraho! Let me help you! Could you rephrase your message?";
+      }
+      
+      return "Muraho! I'm having trouble understanding right now. Please try again or type 'help'.";
     }
 
     const data = await response.json();
-    return data.choices[0].message.content || "I apologize, but I couldn't process your request right now.";
+    console.log('✅ OpenAI response received:', { 
+      choices: data.choices?.length,
+      usage: data.usage 
+    });
+
+    if (!data.choices || data.choices.length === 0) {
+      console.error('❌ No choices in OpenAI response:', data);
+      return "Muraho! I'm having trouble generating a response right now. Please try again.";
+    }
+
+    const aiMessage = data.choices[0].message?.content;
+    if (!aiMessage) {
+      console.error('❌ No content in OpenAI response');
+      return "Muraho! I'm having trouble with my response. Please try again.";
+    }
+
+    console.log('🎯 AI Response generated:', { 
+      length: aiMessage.length,
+      preview: aiMessage.substring(0, 50) + '...'
+    });
+
+    return aiMessage;
 
   } catch (error) {
-    console.error('AI processing error:', error);
-    return "I'm having trouble understanding right now. Could you please rephrase your message? 🤔";
+    console.error('❌ AI processing error:', error);
+    return "Muraho! I'm having technical difficulties. Please try again in a moment or type 'help' for assistance.";
   }
 }
 
