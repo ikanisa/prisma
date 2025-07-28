@@ -37,6 +37,13 @@ serve(async (req: Request) => {
       // Process incoming messages
       if (body.entry && body.entry[0]?.changes) {
         for (const change of body.entry[0].changes) {
+          // Skip status updates (delivery confirmations, read receipts)
+          if (change.value?.statuses) {
+            console.log('📨 Received status update, skipping processing');
+            continue;
+          }
+          
+          // Only process actual messages, not status updates
           if (change.field === 'messages' && change.value?.messages) {
             for (const message of change.value.messages) {
               const from = message.from;
