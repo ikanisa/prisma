@@ -19,7 +19,16 @@ export default defineConfig({
         '**/dist/',
         '**/build/',
         'supabase/functions/**',
+        'src/integrations/supabase/types.ts', // Generated file
       ],
+      thresholds: {
+        global: {
+          branches: 85,
+          functions: 85,
+          lines: 85,
+          statements: 85,
+        },
+      },
     },
   },
   resolve: {
