@@ -214,41 +214,42 @@ class EnhancedPaymentAgent {
 
   private async handleGenerateQR(intent: PaymentIntentResult, from: string): Promise<string> {
     try {
-      // Get user's MoMo number (use phone as default)
-      const momoNumber = from.replace('whatsapp:', '').replace('+', '');
+      console.log('🔄 Generating QR code:', intent);
       
-      // Generate QR code
-      const qrResponse = await fetch(`${supabaseUrl}/functions/v1/qr-render`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${supabaseServiceKey}`
-        },
-        body: JSON.stringify({
-          momo_number: momoNumber,
-          amount: intent.amount,
-          ref: `PAY_${Date.now()}`,
-          user_id: from
-        })
+      const scannerPhone = from.replace('whatsapp:', '').replace('+', '');
+      
+      // Generate QR code using the enhanced generator
+      const { data: qrData, error } = await this.supabase.functions.invoke('enhanced-qr-generator', {
+        body: {
+          action: 'generate',
+          amount: intent.amount || 0,
+          phone: scannerPhone,
+          type: 'receive'
+        }
       });
 
-      if (!qrResponse.ok) {
+      if (error) {
+        console.error('QR generation service error:', error);
         throw new Error('Failed to generate QR code');
       }
 
-      const qrData = await qrResponse.json();
-      
-      if (!qrData.success) {
+      if (!qrData || qrData.error) {
+        console.error('QR generation failed:', qrData);
         throw new Error(qrData.error || 'QR generation failed');
       }
 
-      const { qr_url, ussd_code, ref, amount } = qrData.data;
-
-      // Send QR code via WhatsApp
-      await this.sendQRMessage(from, qr_url, ussd_code, amount, ref);
-
-      return `✅ QR code generated successfully!\n\n💰 Amount: ${amount ? `${amount} RWF` : 'Any amount'}\n📱 USSD: ${ussd_code}\n🔗 Ref: ${ref}\n\nShow this QR to the payer or share the USSD code.`;
-
+      const { ussd_code, ref, qr_url } = qrData;
+      
+      // Log the QR generation for analytics
+      await this.logQRTransaction(scannerPhone, ussd_code, 'generated');
+      
+      // Return enhanced response with QR image if available
+      if (qr_url) {
+        return await this.sendQRImage(from, qr_url, intent.amount, ussd_code, ref);
+      }
+      
+      return `✅ QR code generated successfully!\n\n💰 Amount: ${intent.amount ? `${intent.amount.toLocaleString()} RWF` : 'Any amount'}\n📱 USSD: ${ussd_code}\n🔗 Ref: ${ref}\n\nShow this QR to the payer or share the USSD code.`;
+      
     } catch (error) {
       console.error('QR generation error:', error);
       return "❌ Sorry, I couldn't generate your QR code right now. Please try again in a moment.";
@@ -458,26 +459,43 @@ class EnhancedPaymentAgent {
       const scannerPhone = from.replace('whatsapp:', '').replace('+', '');
       const result = await this.processQRScan(qrData, scannerPhone, 'manual');
       
-      if (!result.success) {
-        return `❌ Could not process QR code: ${result.message}\n\n💡 Make sure it's a valid payment QR code or USSD string.`;
-      }
-
-      const { validation, data } = result;
-      
-      if (validation?.type === 'ussd' || validation?.type === 'payment') {
-        if (data?.paymentId) {
-          // Payment initiated successfully
-          return `✅ QR Payment Detected!\n\n💰 Amount: ${data.amount} RWF\n📱 To: ${data.phone}\n📞 Dial: ${data.ussdCode}\n\nOr tap to dial: tel:${data.ussdCode}\n\nSend "paid" when done to confirm.`;
-        } else if (data?.ussdCode) {
-          // USSD code detected
-          return `📱 USSD Code Detected!\n\n📞 Code: ${data.ussdCode}\n\nTap to dial: tel:${data.ussdCode}`;
+      if (result.success) {
+        // Log successful scan
+        await this.logQRTransaction(scannerPhone, qrData, 'scanned', result.transactionId);
+        
+        if (result.data?.telUri) {
+          return `✅ Payment QR detected!\n\n💰 Amount: ${result.data.amount ? `${parseInt(result.data.amount).toLocaleString()} RWF` : 'Variable'}\n📱 To: ${result.data.phone || 'N/A'}\n\n🔗 Tap this link to pay:\n${result.data.telUri}\n\n💡 Or dial: ${result.data.ussdCode}`;
+        } else if (result.data?.ussdCode) {
+          const telUri = `tel:${encodeURIComponent(result.data.ussdCode)}`;
+          return `✅ Payment code detected!\n\n📱 USSD: ${result.data.ussdCode}\n\n🔗 Tap this link to pay:\n${telUri}\n\n💡 This will open your phone's dialer.`;
         }
-      } else if (validation?.type === 'url') {
-        return `🔗 Link Detected!\n\n${data.url}\n\nTap to open: ${data.url}`;
       }
-
-      return `✅ QR code scanned successfully!\n\nContent: ${qrData}\n\n💡 This QR contains: ${validation?.type || 'unknown data'}`;
-
+      
+      // Enhanced validation using patterns from PWA scanner
+      const validation = this.validateQRContent(qrData);
+      
+      if (validation.isValid) {
+        await this.logQRTransaction(scannerPhone, qrData, 'scanned_valid');
+        
+        if (validation.type === 'ussd' || validation.type === 'payment') {
+          const telUri = `tel:${encodeURIComponent(qrData)}`;
+          return `✅ Payment code scanned!\n\n📱 USSD: ${qrData}\n\n🔗 Tap to dial:\n${telUri}\n\n💡 This will initiate the payment.`;
+        }
+        
+        return `✅ QR code scanned successfully!\n\nType: ${validation.type}\nContent: ${qrData}\n\n💡 Content appears valid but not a payment QR.`;
+      } else {
+        await this.logQRTransaction(scannerPhone, qrData, 'scanned_invalid');
+        
+        const suggestions = this.suggestQRFixes(qrData);
+        let response = `❌ This doesn't appear to be a valid payment QR code.\n\nContent: ${qrData}`;
+        
+        if (suggestions.length > 0) {
+          response += `\n\n💡 Suggestions:\n${suggestions.map(s => `• ${s}`).join('\n')}`;
+        }
+        
+        return response;
+      }
+      
     } catch (error) {
       console.error('QR scan handling error:', error);
       return "❌ Sorry, I couldn't process that QR code. Please try scanning again or check if it's a valid payment QR.";
@@ -597,6 +615,101 @@ class EnhancedPaymentAgent {
     } catch (error) {
       console.error('Error sending get paid menu message:', error);
     }
+  }
+  // Enhanced helper methods
+  private async sendQRImage(to: string, qrUrl: string, amount?: number, ussdCode?: string, ref?: string): Promise<string> {
+    try {
+      // Send image message with QR code
+      const imageMessage = {
+        messaging_product: 'whatsapp',
+        to: to.replace('whatsapp:', ''),
+        type: 'image',
+        image: {
+          link: qrUrl,
+          caption: `💰 Payment QR Code\n\n${amount ? `Amount: ${amount.toLocaleString()} RWF\n` : ''}USSD: ${ussdCode}\n${ref ? `Ref: ${ref}\n` : ''}\nScan to pay instantly!`
+        }
+      };
+
+      const response = await fetch(`https://graph.facebook.com/v18.0/${PHONE_ID}/messages`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${WHATSAPP_TOKEN}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(imageMessage)
+      });
+
+      if (response.ok) {
+        return `✅ QR code sent as image!\n\n💰 Amount: ${amount ? `${amount.toLocaleString()} RWF` : 'Any amount'}\n📱 USSD: ${ussdCode}\n🔗 Ref: ${ref}`;
+      } else {
+        // Fallback to text message
+        return `✅ QR code generated!\n\n💰 Amount: ${amount ? `${amount.toLocaleString()} RWF` : 'Any amount'}\n📱 USSD: ${ussdCode}\n🔗 Ref: ${ref}\n\nQR Image: ${qrUrl}`;
+      }
+    } catch (error) {
+      console.error('Failed to send QR image:', error);
+      return `✅ QR code generated!\n\n💰 Amount: ${amount ? `${amount.toLocaleString()} RWF` : 'Any amount'}\n📱 USSD: ${ussdCode}\n🔗 Ref: ${ref}`;
+    }
+  }
+
+  private async logQRTransaction(phone: string, qrData: string, action: string, transactionId?: string): Promise<void> {
+    try {
+      await this.supabase.functions.invoke('process-qr-scan', {
+        body: {
+          qrData,
+          scannerPhone: phone,
+          method: 'whatsapp',
+          confidence: 0.9,
+          action,
+          transactionId
+        }
+      });
+    } catch (error) {
+      console.error('Failed to log QR transaction:', error);
+    }
+  }
+
+  private validateQRContent(content: string): { isValid: boolean; type: string; confidence: number } {
+    const trimmedContent = content.trim();
+    
+    // USSD validation
+    if (/\*182\*\d+\*\d+\*\d+\*\d+#/.test(trimmedContent)) {
+      return { isValid: true, type: 'ussd', confidence: 0.95 };
+    }
+
+    // Simplified USSD pattern
+    if (/\*182\*\d+\*\d+#/.test(trimmedContent)) {
+      return { isValid: true, type: 'payment', confidence: 0.8 };
+    }
+
+    // URL pattern
+    if (trimmedContent.startsWith('http') || trimmedContent.includes('://')) {
+      return { isValid: true, type: 'url', confidence: 0.7 };
+    }
+
+    // Numeric codes
+    if (/^\d{4,8}$/.test(trimmedContent)) {
+      return { isValid: true, type: 'payment', confidence: 0.6 };
+    }
+
+    return { isValid: false, type: 'unknown', confidence: 0 };
+  }
+
+  private suggestQRFixes(content: string): string[] {
+    const suggestions: string[] = [];
+    
+    if (content.includes('*') && !content.includes('#')) {
+      suggestions.push('Add # at the end of the USSD code');
+    }
+    
+    if (content.includes('#') && !content.includes('*')) {
+      suggestions.push('USSD codes should start with *');
+    }
+    
+    if (/\d{9,10}/.test(content) && !content.includes('*182*')) {
+      suggestions.push('Try formatting as: *182*1*1*{phone}*{amount}#');
+    }
+    
+    return suggestions;
   }
 }
 
