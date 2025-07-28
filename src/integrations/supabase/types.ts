@@ -7615,6 +7615,10 @@ export type Database = {
         Args: { target_user_id: string }
         Returns: Json
       }
+      generate_payment_ref: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
       generate_test_phone: {
         Args: Record<PropertyKey, never>
         Returns: string
@@ -7999,6 +8003,17 @@ export type Database = {
       path: {
         Args: { "": unknown }
         Returns: unknown
+      }
+      payments_insert: {
+        Args: {
+          p_user_id: string
+          p_direction: string
+          p_amount?: number
+          p_momo_number?: string
+          p_qr_url?: string
+          p_ref?: string
+        }
+        Returns: string
       }
       payments_insert_enhanced: {
         Args: {

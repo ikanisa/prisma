@@ -36,6 +36,8 @@ import AgentConfigurationNew from "./pages/admin/AgentConfiguration";
 import PersonaConfiguration from "./pages/admin/PersonaConfiguration";
 import DocumentManagement from "./pages/admin/DocumentManagement";
 import LearningManagement from "./pages/admin/LearningManagement";
+import PaymentsPage from "./pages/admin/PaymentsPage";
+import QRScannerPage from "./pages/admin/QRScannerPage";
 // Conversation and campaign detail pages
 import ConversationDetail from "./pages/admin/conversations/ConversationDetail";
 import CampaignDetail from "./pages/admin/campaigns/CampaignDetail";
@@ -80,6 +82,8 @@ const App = () => (
           <Route path="omni-agent/persona" element={<PersonaConfiguration />} />
           <Route path="omni-agent/documents" element={<DocumentManagement />} />
           <Route path="omni-agent/learning" element={<LearningManagement />} />
+          <Route path="payments" element={<PaymentsPage />} />
+          <Route path="qr-scanner" element={<QRScannerPage />} />
           <Route path="system-ops" element={<SystemOps />} />
           <Route path="env-setup" element={<EnvSetup />} />
           <Route path="webhook-config" element={<WebhookConfig />} />
