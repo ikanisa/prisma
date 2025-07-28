@@ -43,6 +43,9 @@ serve(async (req: Request) => {
               const messageText = message.text?.body;
               const messageType = message.type;
               const timestamp = new Date(parseInt(message.timestamp) * 1000);
+              
+              // Extract contact info from the payload
+              const contactName = change.value?.contacts?.[0]?.profile?.name || 'Unknown';
 
               // Log the incoming message
               console.log(`Received ${messageType} message from ${from}: ${messageText}`);
@@ -59,31 +62,42 @@ serve(async (req: Request) => {
               // Process text messages with AI
               if (messageType === 'text' && messageText) {
                 try {
-                  // Call the AI processor
-                  console.log('Calling process-incoming-messages function...');
-                  const response = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/process-incoming-messages`, {
-                    method: 'POST',
-                    headers: {
-                      'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
-                      'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
+                  // Use the Smart Agent Router for proper AI orchestration
+                  console.log('🧠 Routing to smart agent system...');
+                  
+                  // First try the unified orchestrator
+                  const { data: orchestratorResult, error: orchestratorError } = await supabase.functions.invoke('mcp-orchestrator', {
+                    body: {
                       from: from,
-                      message: messageText,
+                      text: messageText,
+                      message_id: message.id,
+                      contact_name: contactName,
                       timestamp: timestamp.toISOString()
-                    })
+                    }
                   });
 
-                  const result = await response.json();
-                  console.log('AI processor response:', result);
+                  if (orchestratorError) {
+                    console.error('Orchestrator error, falling back to process-incoming-messages:', orchestratorError);
+                    
+                    // Fallback to direct processing
+                    const { data: fallbackResult, error: fallbackError } = await supabase.functions.invoke('process-incoming-messages', {
+                      body: {
+                        from: from,
+                        message: messageText,
+                        timestamp: timestamp.toISOString()
+                      }
+                    });
 
-                  if (!response.ok) {
-                    console.error('Error calling process-incoming-messages:', result);
+                    if (fallbackError) {
+                      console.error('Both orchestrator and fallback failed:', fallbackError);
+                    } else {
+                      console.log('✅ Fallback processing successful:', fallbackResult);
+                    }
                   } else {
-                    console.log('Message processed successfully:', result);
+                    console.log('✅ Smart orchestration successful:', orchestratorResult);
                   }
                 } catch (error) {
-                  console.error('Error processing message:', error);
+                  console.error('❌ Critical processing error:', error);
                 }
               }
             }
