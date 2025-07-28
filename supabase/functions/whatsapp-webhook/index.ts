@@ -60,6 +60,7 @@ serve(async (req: Request) => {
               if (messageType === 'text' && messageText) {
                 try {
                   // Call the AI processor
+                  console.log('Calling process-incoming-messages function...');
                   const { data: response, error } = await supabase.functions.invoke('process-incoming-messages', {
                     body: {
                       from: from,
@@ -67,6 +68,7 @@ serve(async (req: Request) => {
                       timestamp: timestamp.toISOString()
                     }
                   });
+                  console.log('AI processor response:', { response, error });
 
                   if (error) {
                     console.error('Error calling process-incoming-messages:', error);
