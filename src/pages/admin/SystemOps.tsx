@@ -29,14 +29,22 @@ export default function SystemOps() {
       setCronJobs(cronJobsResult.data || []);
       setAlerts(alertsResult.data || []);
       
-      // Generate synthetic metrics
-      setMetrics([
-        { name: 'API Response Time', value: '145ms', status: 'good' },
-        { name: 'Database Connections', value: '23/100', status: 'good' },
-        { name: 'Memory Usage', value: '68%', status: 'warning' },
-        { name: 'Disk Usage', value: '34%', status: 'good' },
-        { name: 'Error Rate', value: '0.2%', status: 'good' }
-      ]);
+      // Fetch real system metrics from Supabase analytics or edge functions
+      try {
+        const { data: systemMetrics, error } = await supabase.functions.invoke('system-health-monitor', {
+          body: { action: 'get_system_metrics' }
+        });
+
+        if (error) {
+          console.error('Failed to fetch system metrics:', error);
+          setMetrics([]);
+        } else {
+          setMetrics(systemMetrics?.metrics || []);
+        }
+      } catch (error) {
+        console.error('Error fetching system metrics:', error);
+        setMetrics([]);
+      }
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
@@ -88,7 +96,9 @@ export default function SystemOps() {
               <Activity className="h-5 w-5 text-green-500" />
               <div>
                 <p className="text-sm text-gray-600">System Health</p>
-                <p className="text-2xl font-bold text-green-600">98.7%</p>
+                <p className="text-2xl font-bold text-green-600">
+                  {metrics.find(m => m.name === 'System Health')?.value || '0%'}
+                </p>
               </div>
             </div>
           </CardContent>
@@ -100,7 +110,9 @@ export default function SystemOps() {
               <TrendingUp className="h-5 w-5 text-blue-500" />
               <div>
                 <p className="text-sm text-gray-600">Uptime</p>
-                <p className="text-2xl font-bold">99.9%</p>
+                <p className="text-2xl font-bold">
+                  {metrics.find(m => m.name === 'Uptime')?.value || '0%'}
+                </p>
               </div>
             </div>
           </CardContent>
@@ -112,7 +124,9 @@ export default function SystemOps() {
               <Database className="h-5 w-5 text-purple-500" />
               <div>
                 <p className="text-sm text-gray-600">DB Queries/min</p>
-                <p className="text-2xl font-bold">1,247</p>
+                <p className="text-2xl font-bold">
+                  {metrics.find(m => m.name === 'DB Queries')?.value || '0'}
+                </p>
               </div>
             </div>
           </CardContent>

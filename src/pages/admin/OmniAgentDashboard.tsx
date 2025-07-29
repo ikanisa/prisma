@@ -111,13 +111,13 @@ export default function OmniAgentDashboard() {
         variant: "destructive"
       });
       
-      // Fallback demo data
+      // Set empty/default state to indicate no data available
       setQualityMetrics({
-        overall_health: 0.85,
-        performance_score: 0.78,
-        conversation_score: 0.82,
-        critical_issues: 2,
-        last_audit: new Date().toISOString()
+        overall_health: 0,
+        performance_score: 0,
+        conversation_score: 0,
+        critical_issues: 0,
+        last_audit: null
       });
     } finally {
       setQualityLoading(false);
@@ -150,20 +150,12 @@ export default function OmniAgentDashboard() {
         variant: "destructive"
       });
       
-      // Fallback demo data
+      // Set empty state to indicate no data available
       setLearningInsights({
-        key_learnings: [
-          "Users prefer shorter responses for payment requests",
-          "Transport bookings are most common in the morning",
-          "Rwanda cultural context improves engagement by 23%"
-        ],
-        improvement_areas: [
-          "Response clarity for complex queries",
-          "Context retention across conversations",
-          "Confidence scoring for edge cases"
-        ],
-        confidence_score: 0.75,
-        last_learning_cycle: new Date().toISOString()
+        key_learnings: [],
+        improvement_areas: [],
+        confidence_score: 0,
+        last_learning_cycle: null
       });
     } finally {
       setLearningLoading(false);
