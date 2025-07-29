@@ -13,6 +13,8 @@ import CommerceDashboard from "./pages/admin/commerce/CommerceDashboard";
 import MobilityDashboard from "./pages/admin/mobility/MobilityDashboard";
 import ListingsDashboard from "./pages/admin/listings/ListingsDashboard";
 import OperationsDashboard from "./pages/admin/operations/OperationsDashboard";
+import UsersDashboard from "./pages/admin/users/UsersDashboard";
+import ContentDashboard from "./pages/admin/content/ContentDashboard";
 // Legacy pages (to be phased out)
 import ListingsInventory from "./pages/admin/ListingsInventory";
 import OrdersPayments from "./pages/admin/OrdersPayments";
@@ -81,6 +83,8 @@ const App = () => (
           <Route path="mobility" element={<MobilityDashboard />} />
           <Route path="listings" element={<ListingsDashboard />} />
           <Route path="operations" element={<OperationsDashboard />} />
+          <Route path="users" element={<UsersDashboard />} />
+          <Route path="content" element={<ContentDashboard />} />
           
           {/* Legacy routes - to be deprecated */}
           <Route path="listings-inventory" element={<ListingsInventory />} />
