@@ -50,60 +50,32 @@ async function createEasyMOOmniAssistant() {
         model: "gpt-4.1-2025-04-14",
         instructions: `You are the easyMO Omni Assistant - Rwanda's #1 AI for instant action-based services.
 
-🎯 MISSION: Transform user messages into ONE-TAP actions. Never write paragraphs - always provide interactive buttons.
+🎯 MISSION: Transform user messages into ONE-TAP actions for payments, rides, business discovery, and onboarding.
 
 🔄 WORKFLOW:
-1. ALWAYS call getUserContext() first to understand user preferences
-2. Detect intent in ONE shot - no clarifying questions unless truly ambiguous  
-3. Respond with action templates containing buttons, not text explanations
+1. ALWAYS call getUserContext() first to understand user
+2. Call detectIntentAndSlots to analyze message  
+3. Respond with action templates using composeWhatsAppMessage - NEVER plain text
+
+🎛 ONBOARDING FLOWS:
+💰 FAST PAYMENTS: Pure numbers (e.g. "1000") → if user has momo_number → pay_offer_v1, else ask_momo_v1
+🛵 DRIVER SIGNUP: "driver", "moto" → partner_type_v1 → driver_form_v1 → OCR verification
+🏪 BUSINESS SIGNUP: "business", "shop", "pharmacy" → partner_type_v1 → business_form_v1
+✅ POST-SERVICE: After successful transaction → marketing_menu_v1 with more services
 
 📱 RESPONSE RULES:
-- ONE message per domain (payment/ride/business/shopping)
-- Include ALL relevant action buttons in that ONE message
+- ONE message per domain with ALL relevant buttons (max 3)
 - Use composeWhatsAppMessage with template payloads
-- Maximum 3 buttons per message for mobile usability
-- Include relevant emojis and concise copy
-
-🎛 CORE ACTIONS:
-💰 PAYMENTS: "Create QR", "Send Money", "Request Payment"
-🚗 RIDES: "Book Ride", "Find Drivers", "Share My Trip"
-🏪 BUSINESS: "Nearby [Category]", "Call Business", "Get Directions"  
-🛒 SHOPPING: "Add to Cart", "View Cart", "Checkout"
+- Include emojis and concise copy for mobile
+- If confidence < 0.6: clarify template with 3 refinement buttons
 
 🧠 PERSONALIZATION:
-- Use getUserContext for previous preferences
+- Use getUserContext for previous preferences and onboarding stage
 - Update user profile after successful interactions
-- Suggest based on user history and location
+- For new users: prioritize fast payment path or partner onboarding
+- For returning users: suggest based on history
 
-CRITICAL: If confidence < 0.6, show clarify template with max 3 refinement buttons. Never ask open-ended questions.
-
-CORE MISSION:
-• Always consult getUserContext before deciding
-• Output ONLY tool calls or structured JSON payloads—never long text responses
-• Respond with interactive buttons that enable one-tap actions
-• When intent=payment include buttons: Create QR, Send Money, Scan QR
-• When intent=ride include buttons: Book Ride, Drivers near me, Ride Share
-• When intent=find_business include buttons: Nearby options based on query
-• If confidence <0.4 send clarify template with refine button
-• Use memory to personalize suggestions based on user history
-• Keep responses under 160 characters, prioritize action buttons
-
-RESPONSE STRATEGY:
-1. First call getUserContext to understand user profile and preferences
-2. Then call detectIntentAndSlots to understand what they want
-3. Based on intent, use composeWhatsAppMessage with interactive buttons
-4. For payments: Always offer QR code generation, mobile money options
-5. For rides: Show available drivers, fare estimates, booking options
-6. For business search: List nearby businesses with contact/direction buttons
-7. For unclear requests: Send clarification template with service options
-
-CRITICAL RULES:
-• NEVER send plain text responses - always use composeWhatsAppMessage tool
-• ALWAYS include interactive buttons for user actions
-• Responses must be concise and action-oriented
-• Use Rwandan context (RWF currency, local places, Kinyarwanda greetings)
-• Maintain conversation history for personalized experience
-• Update user profile with new preferences after successful interactions`,
+CRITICAL: Never ask open-ended questions. Always provide action buttons. Guide users through complete onboarding journeys.`,
     
     tools: [
       {
@@ -135,6 +107,39 @@ CRITICAL RULES:
         }
       },
       {
+        type: "function", 
+        function: {
+          name: "isNewUser",
+          description: "Check if user is new to the platform for onboarding flow",
+          parameters: {
+            type: "object",
+            properties: {
+              waId: { type: "string", description: "WhatsApp user ID" }
+            },
+            required: ["waId"]
+          }
+        }
+      },
+      {
+        type: "function",
+        function: {
+          name: "getMissingUserData", 
+          description: "Check what data is missing from user profile for onboarding",
+          parameters: {
+            type: "object",
+            properties: {
+              userId: { type: "string", description: "User ID" },
+              requiredFields: { 
+                type: "array",
+                items: { type: "string" },
+                description: "Fields to check (e.g. momo_number, business_name)"
+              }
+            },
+            required: ["userId"]
+          }
+        }
+      },
+      {
         type: "function",
         function: {
           name: "composeWhatsAppMessage",
@@ -148,6 +153,11 @@ CRITICAL RULES:
                 description: "Message mode - use 'interactive' for buttons"
               },
               recipient: { type: "string", description: "Recipient phone number" },
+              template: {
+                type: "string",
+                enum: ["ask_momo_v1", "pay_offer_v1", "marketing_menu_v1", "partner_type_v1", "driver_form_v1", "pharmacy_form_v1", "summary_confirm_v1"],
+                description: "Template name for predefined message types"
+              },
               content: { 
                 type: "object",
                 description: "Message content including buttons for interactive mode"
@@ -243,6 +253,64 @@ CRITICAL RULES:
               }
             },
             required: ["phoneNumber", "updates"]
+          }
+        }
+      },
+      {
+        type: "function",
+        function: {
+          name: "updateMomoNumber",
+          description: "Update user's mobile money number for payments",
+          parameters: {
+            type: "object", 
+            properties: {
+              userId: { type: "string", description: "User ID" },
+              momoNumber: { type: "string", description: "Mobile money number" },
+              momoCode: { type: "string", description: "Mobile money code (optional)" }
+            },
+            required: ["userId"]
+          }
+        }
+      },
+      {
+        type: "function",
+        function: {
+          name: "ocrDocument",
+          description: "Extract information from document images using OCR",
+          parameters: {
+            type: "object",
+            properties: {
+              imageUrl: { type: "string", description: "URL of the document image" },
+              documentType: { 
+                type: "string",
+                enum: ["logbook", "business_license", "general"],
+                description: "Type of document for specialized extraction"
+              }
+            },
+            required: ["imageUrl"]
+          }
+        }
+      },
+      {
+        type: "function",
+        function: {
+          name: "onboardingHandler",
+          description: "Handle onboarding workflows for drivers and businesses",
+          parameters: {
+            type: "object",
+            properties: {
+              action: {
+                type: "string",
+                enum: ["start_driver_onboarding", "start_business_onboarding", "confirm_data", "update_onboarding_stage"],
+                description: "Onboarding action to perform"
+              },
+              userId: { type: "string", description: "User ID" },
+              payload: { 
+                type: "object",
+                description: "Action-specific data payload"
+              }
+            },
+            required: ["action", "userId"]
           }
         }
       }

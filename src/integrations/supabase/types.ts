@@ -5050,6 +5050,93 @@ export type Database = {
           },
         ]
       }
+      pending_businesses: {
+        Row: {
+          address: string | null
+          business_name: string | null
+          category: string | null
+          created_at: string | null
+          id: string
+          lat: number | null
+          lng: number | null
+          momo_code: string | null
+          ocr_data: Json | null
+          phone_number: string | null
+          status: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          address?: string | null
+          business_name?: string | null
+          category?: string | null
+          created_at?: string | null
+          id?: string
+          lat?: number | null
+          lng?: number | null
+          momo_code?: string | null
+          ocr_data?: Json | null
+          phone_number?: string | null
+          status?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          address?: string | null
+          business_name?: string | null
+          category?: string | null
+          created_at?: string | null
+          id?: string
+          lat?: number | null
+          lng?: number | null
+          momo_code?: string | null
+          ocr_data?: Json | null
+          phone_number?: string | null
+          status?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      pending_drivers: {
+        Row: {
+          created_at: string | null
+          id: string
+          logbook_photo_url: string | null
+          momo_number: string | null
+          number_plate: string | null
+          ocr_data: Json | null
+          phone_number: string | null
+          status: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          logbook_photo_url?: string | null
+          momo_number?: string | null
+          number_plate?: string | null
+          ocr_data?: Json | null
+          phone_number?: string | null
+          status?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          logbook_photo_url?: string | null
+          momo_number?: string | null
+          number_plate?: string | null
+          ocr_data?: Json | null
+          phone_number?: string | null
+          status?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       performance_benchmarks: {
         Row: {
           concurrent_requests: number | null
@@ -7905,8 +7992,16 @@ export type Database = {
         Row: {
           created_at: string | null
           default_wallet: string | null
+          fav_businesses: string[] | null
+          interaction_count: number | null
           language: string | null
+          last_payment_amount: number | null
+          last_ride_destination: string | null
+          momo_code: string | null
+          momo_number: string | null
           name: string | null
+          onboarding_completed_at: string | null
+          onboarding_stage: string | null
           preferences: Json | null
           preferred_service: string | null
           updated_at: string | null
@@ -7915,8 +8010,16 @@ export type Database = {
         Insert: {
           created_at?: string | null
           default_wallet?: string | null
+          fav_businesses?: string[] | null
+          interaction_count?: number | null
           language?: string | null
+          last_payment_amount?: number | null
+          last_ride_destination?: string | null
+          momo_code?: string | null
+          momo_number?: string | null
           name?: string | null
+          onboarding_completed_at?: string | null
+          onboarding_stage?: string | null
           preferences?: Json | null
           preferred_service?: string | null
           updated_at?: string | null
@@ -7925,8 +8028,16 @@ export type Database = {
         Update: {
           created_at?: string | null
           default_wallet?: string | null
+          fav_businesses?: string[] | null
+          interaction_count?: number | null
           language?: string | null
+          last_payment_amount?: number | null
+          last_ride_destination?: string | null
+          momo_code?: string | null
+          momo_number?: string | null
           name?: string | null
+          onboarding_completed_at?: string | null
+          onboarding_stage?: string | null
           preferences?: Json | null
           preferred_service?: string | null
           updated_at?: string | null
@@ -8677,6 +8788,10 @@ export type Database = {
       cleanup_expired_payment_sessions: {
         Args: Record<PropertyKey, never>
         Returns: number
+      }
+      cleanup_old_conversations: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
       }
       cleanup_old_logs: {
         Args: Record<PropertyKey, never>

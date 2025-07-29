@@ -35,7 +35,7 @@ serve(async (req) => {
           {
             role: 'system',
             content: `You are a terse NLU decoder. Given text, respond _only_ with JSON:
-{intent: <payment|ride|find_business|marketplace|support|driver|unknown>, confidence: 0-1, slots: {...}}
+{intent: <payment|ride|find_business|marketplace|support|driver|onboarding|unknown>, confidence: 0-1, slots: {...}}
 
 Extract:
 - payment: {amount, currency?, recipient_phone?}
@@ -44,6 +44,12 @@ Extract:
 - marketplace: {product_name?, category?}
 - support: {issue_type?}
 - driver: {action: "go_online|go_offline|check_earnings"}
+- onboarding: {type: "driver|business|pharmacy", action: "start|continue|complete"}
+
+SPECIAL RULES:
+- Pure numbers (e.g. "1000", "5000") = payment intent with amount
+- "driver", "moto", "transport" = onboarding intent with type=driver
+- "business", "shop", "pharmacy" = onboarding intent with type=business
 
 Return ONLY valid JSON, no explanations.`
           },
