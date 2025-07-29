@@ -1,0 +1,4 @@
+# pnpm Workspace Configuration for easyMO Refactor
+packages:
+  - "apps/*"
+  - "packages/*"

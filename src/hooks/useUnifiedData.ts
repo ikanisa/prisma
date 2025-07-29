@@ -2,6 +2,11 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { UnifiedListing } from './useUnifiedListings';
 
+// TODO: Import from @easymo/lib-core once packages are built and linked
+// import { AppError, createErrorResponse, createSuccessResponse } from '@easymo/lib-core/error';
+// import { retryWithBackoff } from '@easymo/lib-core/utils';
+
+// Unified data types
 export interface UnifiedOrder {
   id: string;
   user_id: string;
@@ -13,15 +18,128 @@ export interface UnifiedOrder {
   updated_at: string;
 }
 
-// Enhanced typed hooks for unified data management
+export interface UnifiedContact {
+  id: string;
+  phone_number: string;
+  name?: string;
+  email?: string;
+  preferred_language: 'en' | 'fr' | 'rw';
+  contact_type: 'prospect' | 'customer' | 'vendor' | 'partner' | 'support';
+  status: 'active' | 'blocked' | 'opted_out' | 'inactive';
+  lifecycle_stage: 'lead' | 'qualified' | 'opportunity' | 'customer' | 'advocate';
+  location_data?: Record<string, any>;
+  preferences: Record<string, any>;
+  tags?: string[];
+  custom_fields: Record<string, any>;
+  first_contact_date: string;
+  last_interaction_date?: string;
+  total_conversations: number;
+  total_orders: number;
+  total_spent: number;
+  avg_response_time_minutes?: number;
+  satisfaction_rating?: number;
+  created_at: string;
+  updated_at: string;
+}
 
+export interface UnifiedConversation {
+  id: string;
+  phone_number: string;
+  contact_name?: string;
+  session_id: string;
+  conversation_type: 'support' | 'sales' | 'service' | 'bridge';
+  status: 'active' | 'paused' | 'completed' | 'archived';
+  priority: 'low' | 'normal' | 'high' | 'urgent';
+  assigned_agent?: string;
+  metadata: Record<string, any>;
+  tags?: string[];
+  created_at: string;
+  updated_at: string;
+  last_message_at: string;
+  total_messages: number;
+  satisfaction_score?: number;
+  resolution_time_minutes?: number;
+}
+
+export interface UnifiedMessage {
+  id: string;
+  conversation_id?: string;
+  phone_number: string;
+  sender_role: 'user' | 'agent' | 'system' | 'bot';
+  message_text?: string;
+  message_type: 'text' | 'image' | 'document' | 'audio' | 'video' | 'location' | 'contact';
+  message_status: 'pending' | 'sent' | 'delivered' | 'read' | 'failed';
+  direction: 'inbound' | 'outbound';
+  agent_id?: string;
+  model_used?: string;
+  confidence_score?: number;
+  processing_time_ms?: number;
+  media_url?: string;
+  media_type?: string;
+  media_size?: number;
+  reply_to_message_id?: string;
+  metadata: Record<string, any>;
+  created_at: string;
+  delivered_at?: string;
+  read_at?: string;
+}
+
+export interface EdgeFunctionLog {
+  id: string;
+  function_name: string;
+  execution_id: string;
+  user_id?: string;
+  phone_number?: string;
+  request_method?: string;
+  request_path?: string;
+  request_headers?: Record<string, any>;
+  request_body?: Record<string, any>;
+  response_status?: number;
+  response_body?: Record<string, any>;
+  error_message?: string;
+  error_stack?: string;
+  execution_time_ms?: number;
+  memory_used_mb?: number;
+  cold_start: boolean;
+  environment: string;
+  version?: string;
+  metadata: Record<string, any>;
+  created_at: string;
+}
+
+export interface SystemMetric {
+  id: string;
+  metric_name: string;
+  metric_value: number;
+  metric_type: 'performance' | 'business' | 'technical' | 'security';
+  measurement_unit?: string;
+  tags: Record<string, any>;
+  dimensions: Record<string, any>;
+  timestamp: string;
+  source: string;
+  environment: string;
+  created_at: string;
+}
+
+// Enhanced filters interface
 export interface UnifiedFilters {
   status?: string;
   type?: string;
   userId?: string;
+  phoneNumber?: string;
   search?: string;
   dateFrom?: string;
   dateTo?: string;
+  environment?: string;
+  functionName?: string;
+  conversationType?: string;
+  messageType?: string;
+  priority?: string;
+  contactType?: string;
+  lifecycleStage?: string;
+  metricType?: string;
+  source?: string;
+  tags?: string[];
 }
 
 // Unified Listings Hook

@@ -2640,6 +2640,75 @@ export type Database = {
         }
         Relationships: []
       }
+      edge_function_logs: {
+        Row: {
+          cold_start: boolean | null
+          created_at: string | null
+          environment: string | null
+          error_message: string | null
+          error_stack: string | null
+          execution_id: string | null
+          execution_time_ms: number | null
+          function_name: string
+          id: string
+          memory_used_mb: number | null
+          metadata: Json | null
+          phone_number: string | null
+          request_body: Json | null
+          request_headers: Json | null
+          request_method: string | null
+          request_path: string | null
+          response_body: Json | null
+          response_status: number | null
+          user_id: string | null
+          version: string | null
+        }
+        Insert: {
+          cold_start?: boolean | null
+          created_at?: string | null
+          environment?: string | null
+          error_message?: string | null
+          error_stack?: string | null
+          execution_id?: string | null
+          execution_time_ms?: number | null
+          function_name: string
+          id?: string
+          memory_used_mb?: number | null
+          metadata?: Json | null
+          phone_number?: string | null
+          request_body?: Json | null
+          request_headers?: Json | null
+          request_method?: string | null
+          request_path?: string | null
+          response_body?: Json | null
+          response_status?: number | null
+          user_id?: string | null
+          version?: string | null
+        }
+        Update: {
+          cold_start?: boolean | null
+          created_at?: string | null
+          environment?: string | null
+          error_message?: string | null
+          error_stack?: string | null
+          execution_id?: string | null
+          execution_time_ms?: number | null
+          function_name?: string
+          id?: string
+          memory_used_mb?: number | null
+          metadata?: Json | null
+          phone_number?: string | null
+          request_body?: Json | null
+          request_headers?: Json | null
+          request_method?: string | null
+          request_path?: string | null
+          response_body?: Json | null
+          response_status?: number | null
+          user_id?: string | null
+          version?: string | null
+        }
+        Relationships: []
+      }
       evaluation_results: {
         Row: {
           actual_output: string | null
@@ -6117,6 +6186,48 @@ export type Database = {
         }
         Relationships: []
       }
+      system_metrics_enhanced: {
+        Row: {
+          created_at: string | null
+          dimensions: Json | null
+          environment: string | null
+          id: string
+          measurement_unit: string | null
+          metric_name: string
+          metric_type: string
+          metric_value: number
+          source: string
+          tags: Json | null
+          timestamp: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          dimensions?: Json | null
+          environment?: string | null
+          id?: string
+          measurement_unit?: string | null
+          metric_name: string
+          metric_type: string
+          metric_value: number
+          source: string
+          tags?: Json | null
+          timestamp?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          dimensions?: Json | null
+          environment?: string | null
+          id?: string
+          measurement_unit?: string | null
+          metric_name?: string
+          metric_type?: string
+          metric_value?: number
+          source?: string
+          tags?: Json | null
+          timestamp?: string | null
+        }
+        Relationships: []
+      }
       tab_items: {
         Row: {
           id: number
@@ -6786,6 +6897,138 @@ export type Database = {
           },
         ]
       }
+      unified_contacts: {
+        Row: {
+          avg_response_time_minutes: number | null
+          contact_source: string | null
+          contact_type: string | null
+          created_at: string | null
+          custom_fields: Json | null
+          email: string | null
+          first_contact_date: string | null
+          id: string
+          last_interaction_date: string | null
+          lifecycle_stage: string | null
+          location_data: Json | null
+          name: string | null
+          phone_number: string
+          preferences: Json | null
+          preferred_language: string | null
+          satisfaction_rating: number | null
+          status: string | null
+          tags: string[] | null
+          total_conversations: number | null
+          total_orders: number | null
+          total_spent: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          avg_response_time_minutes?: number | null
+          contact_source?: string | null
+          contact_type?: string | null
+          created_at?: string | null
+          custom_fields?: Json | null
+          email?: string | null
+          first_contact_date?: string | null
+          id?: string
+          last_interaction_date?: string | null
+          lifecycle_stage?: string | null
+          location_data?: Json | null
+          name?: string | null
+          phone_number: string
+          preferences?: Json | null
+          preferred_language?: string | null
+          satisfaction_rating?: number | null
+          status?: string | null
+          tags?: string[] | null
+          total_conversations?: number | null
+          total_orders?: number | null
+          total_spent?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          avg_response_time_minutes?: number | null
+          contact_source?: string | null
+          contact_type?: string | null
+          created_at?: string | null
+          custom_fields?: Json | null
+          email?: string | null
+          first_contact_date?: string | null
+          id?: string
+          last_interaction_date?: string | null
+          lifecycle_stage?: string | null
+          location_data?: Json | null
+          name?: string | null
+          phone_number?: string
+          preferences?: Json | null
+          preferred_language?: string | null
+          satisfaction_rating?: number | null
+          status?: string | null
+          tags?: string[] | null
+          total_conversations?: number | null
+          total_orders?: number | null
+          total_spent?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      unified_conversations: {
+        Row: {
+          assigned_agent: string | null
+          contact_name: string | null
+          conversation_type: string | null
+          created_at: string | null
+          id: string
+          last_message_at: string | null
+          metadata: Json | null
+          phone_number: string
+          priority: string | null
+          resolution_time_minutes: number | null
+          satisfaction_score: number | null
+          session_id: string | null
+          status: string | null
+          tags: string[] | null
+          total_messages: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          assigned_agent?: string | null
+          contact_name?: string | null
+          conversation_type?: string | null
+          created_at?: string | null
+          id?: string
+          last_message_at?: string | null
+          metadata?: Json | null
+          phone_number: string
+          priority?: string | null
+          resolution_time_minutes?: number | null
+          satisfaction_score?: number | null
+          session_id?: string | null
+          status?: string | null
+          tags?: string[] | null
+          total_messages?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          assigned_agent?: string | null
+          contact_name?: string | null
+          conversation_type?: string | null
+          created_at?: string | null
+          id?: string
+          last_message_at?: string | null
+          metadata?: Json | null
+          phone_number?: string
+          priority?: string | null
+          resolution_time_minutes?: number | null
+          satisfaction_score?: number | null
+          session_id?: string | null
+          status?: string | null
+          tags?: string[] | null
+          total_messages?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       unified_listings: {
         Row: {
           created_at: string | null
@@ -6832,6 +7075,90 @@ export type Database = {
             columns: ["owner_id"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      unified_messages: {
+        Row: {
+          agent_id: string | null
+          confidence_score: number | null
+          conversation_id: string | null
+          created_at: string | null
+          delivered_at: string | null
+          direction: string
+          id: string
+          media_size: number | null
+          media_type: string | null
+          media_url: string | null
+          message_status: string | null
+          message_text: string | null
+          message_type: string | null
+          metadata: Json | null
+          model_used: string | null
+          phone_number: string
+          processing_time_ms: number | null
+          read_at: string | null
+          reply_to_message_id: string | null
+          sender_role: string
+        }
+        Insert: {
+          agent_id?: string | null
+          confidence_score?: number | null
+          conversation_id?: string | null
+          created_at?: string | null
+          delivered_at?: string | null
+          direction: string
+          id?: string
+          media_size?: number | null
+          media_type?: string | null
+          media_url?: string | null
+          message_status?: string | null
+          message_text?: string | null
+          message_type?: string | null
+          metadata?: Json | null
+          model_used?: string | null
+          phone_number: string
+          processing_time_ms?: number | null
+          read_at?: string | null
+          reply_to_message_id?: string | null
+          sender_role: string
+        }
+        Update: {
+          agent_id?: string | null
+          confidence_score?: number | null
+          conversation_id?: string | null
+          created_at?: string | null
+          delivered_at?: string | null
+          direction?: string
+          id?: string
+          media_size?: number | null
+          media_type?: string | null
+          media_url?: string | null
+          message_status?: string | null
+          message_text?: string | null
+          message_type?: string | null
+          metadata?: Json | null
+          model_used?: string | null
+          phone_number?: string
+          processing_time_ms?: number | null
+          read_at?: string | null
+          reply_to_message_id?: string | null
+          sender_role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "unified_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "unified_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "unified_messages_reply_to_message_id_fkey"
+            columns: ["reply_to_message_id"]
+            isOneToOne: false
+            referencedRelation: "unified_messages"
             referencedColumns: ["id"]
           },
         ]
