@@ -881,14 +881,38 @@ async function handleInteractiveMessage(message: WhatsAppMessage, from: string):
 
   // Handle QR code button clicks
   if (buttonId.startsWith('qr_')) {
-    // User clicked "Open QR Code" button - send the QR image URL
+    // User clicked "Open QR Code" button - get the latest QR code for this user
     try {
-      // Get the QR URL from context (could be stored in session or retrieved from payment record)
-      await sendWhatsAppMessage(message.from, '📱 Opening your QR code...');
+      const phone = from.replace('whatsapp:', '').replace('+', '');
+      
+      // Get the most recent QR code for this user
+      const { data: payments, error } = await supabase
+        .from('payments')
+        .select('qr_url, amount, ref')
+        .eq('momo_number', phone)
+        .eq('direction', 'inbound')
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (error || !payments || payments.length === 0) {
+        await sendWhatsAppMessage(message.from, '❌ No QR code found. Please generate a new one first.');
+        return '';
+      }
+
+      const payment = payments[0];
+      
+      if (!payment.qr_url) {
+        await sendWhatsAppMessage(message.from, '❌ QR code URL not available. Please generate a new one.');
+        return '';
+      }
+
+      // Send the QR code as an image message
+      await sendQRImageMessage(message.from, payment.qr_url, payment.amount, payment.ref);
       return '';
+      
     } catch (error) {
       console.error('Error handling QR button click:', error);
-      await sendWhatsAppMessage(message.from, 'Sorry, there was an error opening the QR code. Please try again.');
+      await sendWhatsAppMessage(message.from, '❌ Sorry, there was an error opening the QR code. Please try again.');
       return '';
     }
   }
@@ -963,27 +987,48 @@ async function sendWhatsAppMessage(to: string, text: string): Promise<void> {
   }
 }
 
+async function sendQRImageMessage(to: string, qrUrl: string, amount: number, ref: string): Promise<void> {
+  try {
+    const messageData = {
+      messaging_product: 'whatsapp',
+      to: to,
+      type: 'image',
+      image: {
+        link: qrUrl,
+        caption: `💰 Payment QR Code\n\n${amount ? `Amount: ${amount.toLocaleString()} RWF\n` : ''}Ref: ${ref}\n\nScan this QR code to pay instantly!`
+      }
+    };
+
+    const response = await fetch(`https://graph.facebook.com/v18.0/${PHONE_ID}/messages`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${WHATSAPP_TOKEN}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(messageData)
+    });
+
+    if (!response.ok) {
+      const errorData = await response.text();
+      console.error('WhatsApp API error:', response.status, errorData);
+      throw new Error(`WhatsApp API error: ${response.status}`);
+    }
+
+    console.log('📤 QR image message sent successfully');
+
+  } catch (error) {
+    console.error('❌ Error sending QR image message:', error);
+    throw error;
+  }
+}
+
 async function sendInteractiveButtonMessage(to: string, buttonMessage: any): Promise<void> {
   try {
     const messageData = {
       messaging_product: 'whatsapp',
       to: to,
       type: 'interactive',
-      interactive: {
-        type: 'button',
-        body: buttonMessage.interactive.body,
-        action: {
-          buttons: [
-            {
-              type: 'url',
-              url: {
-                link: buttonMessage.qr_url,
-                text: '📱 Open QR Code'
-              }
-            }
-          ]
-        }
-      }
+      interactive: buttonMessage.interactive
     };
 
     const response = await fetch(`https://graph.facebook.com/v18.0/${PHONE_ID}/messages`, {

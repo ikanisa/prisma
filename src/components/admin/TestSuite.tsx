@@ -81,11 +81,60 @@ export function TestSuite() {
   const [running, setRunning] = useState(false);
   const { toast } = useToast();
 
+  // Test QR generation function directly
+  const testQRGeneration = async () => {
+    try {
+      const response = await fetch('https://ijblirphkrrsnxazohwt.supabase.co/functions/v1/qr-render', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlqYmxpcnBoa3Jyc254YXpvaHd0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI2NDAzMzAsImV4cCI6MjA2ODIxNjMzMH0.gH-rvhmX1RvQSlgwbjqq15bHBgKmlDRkAGyfzFyEeKs'
+        },
+        body: JSON.stringify({
+          momo_number: '0781234567',
+          amount: 1000,
+          user_id: 'test_user'
+        })
+      });
+
+      const result = await response.json();
+      console.log('🧪 QR Generation Test:', { status: response.status, result });
+      
+      if (!response.ok) {
+        throw new Error(`QR Generation failed: ${result.error || 'Unknown error'}`);
+      }
+      
+      if (!result.data?.qr_url) {
+        throw new Error('QR URL not returned in response');
+      }
+      
+      return { success: true, qr_url: result.data.qr_url };
+    } catch (error) {
+      console.error('❌ QR Generation Test Failed:', error);
+      return { success: false, error: error.message };
+    }
+  };
+
   const runTests = async () => {
     setRunning(true);
     
     // Reset all tests to pending
     setTests(prev => prev.map(test => ({ ...test, status: "pending" as const })));
+
+    // First test QR generation directly
+    console.log('🧪 Testing QR generation...');
+    const qrTest = await testQRGeneration();
+    if (!qrTest.success) {
+      toast({
+        title: "QR Generation Failed",
+        description: qrTest.error,
+        variant: "destructive"
+      });
+      setRunning(false);
+      return;
+    }
+    
+    console.log('✅ QR Generation test passed:', qrTest.qr_url);
 
     // Run each E2E test scenario
     for (let i = 0; i < E2E_TEST_SCENARIOS.length; i++) {
