@@ -4,3 +4,4 @@ packages:
   - "packages/lib-core"
   - "packages/types"
   - "packages/edge-functions"
+  - "packages/testing"
