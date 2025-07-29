@@ -90,8 +90,27 @@ Just send amount for instant QR!`;
         return "Sorry, couldn't generate QR code. Please try again.";
       }
 
-      // Return ONLY the QR code image URL - no text
-      return data.qr_url || "Sorry, couldn't generate QR code. Please try again.";
+      if (!data.qr_url) {
+        return "Sorry, couldn't generate QR code. Please try again.";
+      }
+
+      // Fetch the actual QR code image content
+      try {
+        const imageResponse = await fetch(data.qr_url);
+        if (!imageResponse.ok) {
+          throw new Error('Failed to fetch QR image');
+        }
+        
+        const imageBuffer = await imageResponse.arrayBuffer();
+        const base64Image = btoa(String.fromCharCode(...new Uint8Array(imageBuffer)));
+        
+        // Return the image as base64 data URL for WhatsApp
+        return `data:image/png;base64,${base64Image}`;
+        
+      } catch (fetchError) {
+        console.error('Failed to fetch QR image:', fetchError);
+        return "Sorry, couldn't retrieve QR code image. Please try again.";
+      }
 
     } catch (error) {
       console.error('QR generation failed:', error);
