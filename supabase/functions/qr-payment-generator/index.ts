@@ -60,14 +60,10 @@ async function generateQRCode(supabase: any, amount: number, phone: string, type
         user_id: userId,
         amount: amount,
         currency: 'RWF',
-        payment_method: 'momo',
-        status: 'pending',
-        reference: reference,
-        metadata: {
-          type: type,
-          phone: phone,
-          generated_at: new Date().toISOString()
-        }
+        momo_code: phone,
+        ussd_code: '', // Will be updated after generation
+        ref: reference,
+        purpose: type || 'payment'
       })
       .select()
       .single();
@@ -119,7 +115,7 @@ async function generateQRCode(supabase: any, amount: number, phone: string, type
       .update({
         qr_code_url: qrData.url,
         ussd_code: ussdCode,
-        payment_link: paymentLink
+        ussd_link: paymentLink
       })
       .eq('id', payment.id);
 
@@ -165,7 +161,7 @@ async function processScannedQR(supabase: any, qrData: string, userId: string) {
       const { data: payment, error } = await supabase
         .from('payments')
         .select('*')
-        .eq('reference', parsedData.reference)
+        .eq('ref', parsedData.reference)
         .single();
 
       if (error || !payment) {
@@ -175,11 +171,11 @@ async function processScannedQR(supabase: any, qrData: string, userId: string) {
         );
       }
 
-      if (payment.status !== 'pending') {
+      if (payment.paid_at) {
         return new Response(
           JSON.stringify({ 
             error: 'Payment already processed',
-            status: payment.status 
+            paid_at: payment.paid_at 
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
         );
