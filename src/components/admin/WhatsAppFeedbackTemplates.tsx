@@ -68,12 +68,21 @@ export function WhatsAppFeedbackTemplates() {
 
   const createTemplate = async () => {
     try {
+      const templateData = {
+        code: newTemplate.code!,
+        name_meta: newTemplate.name_meta!,
+        body: newTemplate.body!,
+        category: newTemplate.category!,
+        domain: newTemplate.domain!,
+        intent: newTemplate.intent!,
+        language: newTemplate.language!,
+        status: newTemplate.status!,
+        buttons: JSON.parse(typeof newTemplate.buttons === 'string' ? newTemplate.buttons : '[]')
+      };
+      
       const { error } = await supabase
         .from('whatsapp_templates')
-        .insert([{
-          ...newTemplate,
-          buttons: typeof newTemplate.buttons === 'string' ? newTemplate.buttons : JSON.stringify(newTemplate.buttons || [])
-        }]);
+        .insert([templateData]);
 
       if (error) throw error;
 
