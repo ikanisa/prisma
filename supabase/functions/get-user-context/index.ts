@@ -60,22 +60,22 @@ serve(async (req) => {
 
     console.log(`📋 Getting user context for user: ${userId}`);
 
-    // 1️⃣ Get user profile
+    // 1️⃣ Get user profile - handle phone as text ID
     const { data: profile, error: profileError } = await supabase
       .from('user_profiles')
       .select('*')
-      .eq('user_id', userId)
+      .eq('phone_number', userId) // Use phone_number instead of user_id for phone lookup
       .single();
 
     if (profileError && profileError.code !== 'PGRST116') {
       console.error('Profile error:', profileError);
     }
 
-    // 2️⃣ Get latest conversation summary
+    // 2️⃣ Get latest conversation summary - use phone directly
     const { data: summaryRow, error: summaryError } = await supabase
       .from('conversation_summaries')
       .select('summary, start_ts, end_ts, message_count')
-      .eq('user_id', userId)
+      .eq('phone_number', userId) // Use phone_number field
       .order('end_ts', { ascending: false })
       .limit(1)
       .single();
@@ -84,11 +84,11 @@ serve(async (req) => {
       console.error('Summary error:', summaryError);
     }
 
-    // 3️⃣ Get recent orders (transactional history)
+    // 3️⃣ Get recent orders (use buyer_phone which exists)
     const { data: lastOrders, error: ordersError } = await supabase
       .from('orders')
-      .select('id, total, status, created_at, type')
-      .eq('user_phone', profile?.name || userId) // Assuming phone is stored in name for now
+      .select('id, created_at, status')
+      .eq('buyer_phone', userId) // Use buyer_phone which exists in orders table
       .order('created_at', { ascending: false })
       .limit(5);
 
@@ -102,7 +102,7 @@ serve(async (req) => {
       const { data: memoryData, error: memoryError } = await supabase
         .from('memory_cache')
         .select('data')
-        .eq('user_id', userId)
+        .eq('phone_number', userId) // Use phone_number field
         .eq('session_id', sessionId)
         .gt('expires_at', new Date().toISOString())
         .single();

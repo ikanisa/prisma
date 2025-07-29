@@ -144,11 +144,39 @@ Respond only with valid JSON matching the schema.`;
       }
     } catch (parseError) {
       console.error('Failed to parse classification:', parseError);
-      // Fallback classification
+      // Fallback: Try to determine intent from simple text analysis
+      const lowerMessage = message.toLowerCase();
+      let intent = 'unclear';
+      let confidence = 0.4;
+      
+      if (lowerMessage.includes('pay') || lowerMessage.includes('money') || /\d+/.test(message)) {
+        intent = 'payment';
+        confidence = 0.7;
+      } else if (lowerMessage.includes('ride') || lowerMessage.includes('moto') || lowerMessage.includes('transport')) {
+        intent = 'ride'; 
+        confidence = 0.7;
+      } else if (lowerMessage.includes('buy') || lowerMessage.includes('shop') || lowerMessage.includes('product')) {
+        intent = 'shop';
+        confidence = 0.7;
+      } else if (lowerMessage.includes('sell') || lowerMessage.includes('list')) {
+        intent = 'list_product';
+        confidence = 0.7;
+      } else if (lowerMessage.includes('help') || lowerMessage.includes('support')) {
+        intent = 'support';
+        confidence = 0.7;
+      } else if (lowerMessage.includes('hi') || lowerMessage.includes('hello') || lowerMessage.includes('muraho')) {
+        intent = 'greeting';
+        confidence = 0.8;
+      }
+      
       classification = {
-        intent: 'unclear',
-        confidence: 0.3,
-        suggested_skill: 'GeneralSkill'
+        intent,
+        confidence,
+        suggested_skill: intent === 'payment' ? 'PaymentSkill' : 
+                        intent === 'ride' ? 'TransportSkill' :
+                        intent === 'shop' ? 'CommerceSkill' :
+                        intent === 'list_product' ? 'ListingsSkill' :
+                        'GeneralSkill'
       };
     }
 

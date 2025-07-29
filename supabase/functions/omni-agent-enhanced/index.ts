@@ -50,103 +50,69 @@ class IntelligentOmniAgent {
   }
 
   private buildUnifiedPersonaPrompt(): string {
-    return `You are the easyMO Omni Agent - A unified autonomous AI agent operating entirely via WhatsApp to handle Mobile Money payments, Moto mobility, Unified Ordering, Listings, Marketing, Learning, QA, and System Operations for Rwandan users.
+    return `You are the easyMO Omni Agent - Rwanda's WhatsApp super-app AI assistant.
 
 # CORE PERSONALITY
 - Warm, respectful, Rwanda-first cultural awareness
-- Action-oriented and efficient (prefers doing over explaining)  
-- Proactive helper: anticipates next step, offers shortcuts
-- Calm under pressure; empathetic when users are frustrated
-- Transparent: admits uncertainty, never bluffs facts or payment status
-- Privacy-minded: treats MoMo numbers and personal data carefully
+- Action-oriented and efficient - always offer next steps
+- Empathetic when users are frustrated
+- Never repeat the same response - always be unique and helpful
 
-# TONE GUIDELINES BY CONTEXT
-**General:** Friendly, concise, professional
-**Payments & Trips:** Direct, instructional ("Here's your QR", "Tap 'Share Location'")
-**Support/Issues:** Empathetic, solution-focused ("Let's fix this together")
-**Marketing/Nudges:** Light, value-driven, never spammy
-**Language:** Default EN; auto-switch to RW/FR/SW if confidence > 0.7 or user preference stored
-**Length Rule:** Max 2 short messages before presenting buttons/templates. Avoid walls of text.
+# RESPONSE GUIDELINES
+- Keep responses concise and actionable
+- Offer specific next steps or options
+- Use emojis appropriately for Rwandan context
+- Detect user intent accurately and respond accordingly
 
-# CORE INSTRUCTIONS
-1. **Route Fast:** Classify domain + intent from any user input. If unclear, ask one clarifier or show main action template
-2. **Template First:** Prefer WhatsApp templates/flows (buttons, lists, forms) for structured data (amounts, locations, product choices)
-3. **Use Memory:** Reuse stored MoMo number, language, recent location, last intent. Don't ask twice unless outdated
-4. **Minimal Text, Max Action:** Keep replies short, then offer next button ("Generate QR", "Share Location", "See Drivers")
-5. **Safety & Compliance:** Never expose secrets/PII, respect STOP/opt-out, provide USSD fallback if QR fails
-6. **Escalate Smartly:** If confidence < 0.4 twice, or user asks for a human, summarize context and hand off
-7. **Log & Learn:** Store every turn (intent, entities, outcome) to DB + vector memory
-8. **Error Handling:** Friendly retry + fallback paths (plain text/template swap, USSD when payment API down)
-9. **Languages:** Detect on each free-text turn if not locked. Switch politely ("Ndagukorera mu Kinyarwanda niba ubishaka")
-10. **Always Offer Next Step:** End with clear CTA or quick actions when possible
+# CAPABILITIES
+**Payments:** Generate QR codes, mobile money transfers, payment links
+**Transport:** Book moto rides, arrange transport, find drivers  
+**Shopping:** Find products, connect with vendors, marketplace
+**Support:** Answer questions, solve problems, escalate when needed
 
-# DYNAMIC TOOL USAGE
-When user needs require actions, call appropriate functions:
-- Payment amounts → create-momo-payment-link
-- Transport requests → book-ride  
-- Product searches → product search functions
-- QR generation → generate-qr-code-svg
-- Context retrieval → get-user-context
-- Intent unclear → classify-intent
-
-# DOMAINS & CAPABILITIES
-**Payments:** MoMo QR/USSD generation, payment status checks
-**Mobility:** Moto taxi driver trips, passenger ride requests (manual matching)
-**Ordering:** Unified ordering for bars, pharmacies, hardware shops, farmers
-**Listings:** Real estate and vehicle listings (rent/buy)
-**Support:** Issue resolution and human handoff management
+# LANGUAGE SUPPORT
+- Default: English
+- Support: Kinyarwanda, French when needed
+- Detect language preference and adapt
 
 # RESPONSE FORMAT
-Always respond in this JSON structure:
-{
-  "response": "Your message text",
-  "confidence": 0.0-1.0,
-  "intent": "detected_intent",
-  "nextActions": ["suggested_actions"],
-  "toolsCalled": ["function_names"],
-  "learningInsights": {...}
-}
-
-# CONTEXT AWARENESS
-- Remember user's language preference, location, payment history
-- Adapt tone based on user type (new/returning/power)
-- Consider time of day, previous interactions
-- Use retrieved context to provide personalized responses
-
-Always maintain Rwanda-first cultural awareness while being efficient and action-oriented.`;
+Always provide helpful, unique responses. Never send duplicate or generic messages.
+Focus on understanding what the user actually needs and provide specific assistance.`;
   }
 
   async processMessage(message: string, userContext: UserContext): Promise<AIProcessingResult> {
-    console.log(`🧠 AI Processing: ${userContext.phone} - ${message.substring(0, 50)}...`);
+    console.log(`🧠 Starting multi-tier memory retrieval for ${userContext.phone}`);
 
     try {
       // Step 1: Get enhanced user context
       const enhancedContext = await this.getEnhancedUserContext(userContext.phone, message);
       userContext.enhancedContext = enhancedContext;
+      
+      console.log(`✅ Retrieved enhanced context:`, {
+        hasProfile: !!enhancedContext?.profile,
+        hasSummary: !!enhancedContext?.recentSummary,
+        orderCount: enhancedContext?.lastOrders?.length || 0,
+        vectorHitCount: enhancedContext?.vectorHits?.length || 0
+      });
 
-      // Step 2: Build dynamic context-aware prompt
-      const contextPrompt = this.buildContextualPrompt(message, userContext);
+      // Step 2: Classify intent properly
+      const intent = await this.classifyIntent(message, userContext);
+      console.log(`🎯 Intent classified: ${intent.intent} (confidence: ${intent.confidence})`);
 
-      // Step 3: Process with OpenAI GPT-4.1 for intelligent response
-      const aiResponse = await this.processWithOpenAI(contextPrompt, userContext);
+      // Step 3: Generate contextual response based on intent
+      const response = await this.generateContextualResponse(message, intent, userContext);
 
-      // Step 4: Execute any required tools based on AI decision
-      const toolResults = await this.executeRequiredTools(aiResponse, userContext);
-
-      // Step 5: Generate final response incorporating tool results
-      const finalResponse = await this.generateFinalResponse(aiResponse, toolResults, userContext);
-
-      // Step 6: Learn and store insights
-      await this.storeConversationInsights(userContext.phone, message, finalResponse);
+      // Step 4: Store conversation for learning
+      await this.storeConversationInsights(userContext.phone, message, response);
 
       return {
         success: true,
-        response: finalResponse.response,
-        confidence: finalResponse.confidence,
-        intent: finalResponse.intent,
-        nextActions: finalResponse.nextActions,
-        toolsCalled: finalResponse.toolsCalled,
-        learningInsights: finalResponse.learningInsights
+        response: response.response,
+        confidence: response.confidence,
+        intent: response.intent,
+        nextActions: response.nextActions,
+        toolsCalled: response.toolsCalled,
+        learningInsights: response.learningInsights
       };
 
     } catch (error) {
@@ -182,234 +148,160 @@ Always maintain Rwanda-first cultural awareness while being efficient and action
     }
   }
 
-  private buildContextualPrompt(message: string, userContext: UserContext): string {
-    let contextInfo = `
-USER CONTEXT:
-- Phone: ${userContext.phone}
-- Type: ${userContext.userType}
-- Language: ${userContext.preferredLanguage}
-- Conversations: ${userContext.conversationCount}
-- Last interaction: ${userContext.lastInteraction || 'first time'}
-`;
-
-    if (userContext.enhancedContext) {
-      const ctx = userContext.enhancedContext;
-      contextInfo += `
-ENHANCED CONTEXT:
-- Profile: ${ctx.profile ? 'Available' : 'None'}
-- Recent summary: ${ctx.recentSummary || 'None'}
-- Order history: ${ctx.lastOrders?.length || 0} orders
-- Vector hits: ${ctx.vectorHits?.length || 0} relevant memories
-- Ephemeral memory: ${ctx.ephemeralMemory ? 'Available' : 'None'}
-`;
-    }
-
-    return `${this.personaPrompt}
-
-${contextInfo}
-
-USER MESSAGE: "${message}"
-
-Analyze this message and respond intelligently according to your persona. If the user needs specific actions (payments, rides, etc.), indicate which tools should be called in your response.`;
-  }
-
-  private async processWithOpenAI(prompt: string, userContext: UserContext): Promise<any> {
-    try {
-      const messages: AIMessage[] = [
-        {
-          role: 'system',
-          content: prompt
-        }
-      ];
-
-      const completion = await createChatCompletion(messages, {
-        model: 'gpt-4.1-2025-04-14',
-        max_tokens: 800,
-        temperature: 0.7,
-        presence_penalty: 0.1,
-        frequency_penalty: 0.1
-      });
-
-      const content = completion.choices[0]?.message?.content;
-
-      // Try to parse as JSON, fallback to text
-      try {
-        return JSON.parse(content);
-      } catch {
-        return {
-          response: content,
-          confidence: 0.8,
-          intent: 'general_query',
-          nextActions: [],
-          toolsCalled: []
-        };
-      }
-    } catch (error) {
-      console.error('❌ OpenAI SDK processing error:', error);
-      throw error;
-    }
-  }
-
-  private async executeRequiredTools(aiResponse: any, userContext: UserContext): Promise<any> {
-    const toolResults: any = {};
-    
-    if (!aiResponse.toolsCalled || aiResponse.toolsCalled.length === 0) {
-      return toolResults;
-    }
-
-    console.log(`🔧 Executing tools: ${aiResponse.toolsCalled.join(', ')}`);
-
-    for (const tool of aiResponse.toolsCalled) {
-      try {
-        switch (tool) {
-          case 'create-momo-payment-link':
-            toolResults[tool] = await this.handlePaymentGeneration(aiResponse, userContext);
-            break;
-          case 'book-ride':
-            toolResults[tool] = await this.handleRideBooking(aiResponse, userContext);
-            break;
-          case 'generate-qr-code-svg':
-            toolResults[tool] = await this.handleQRGeneration(aiResponse, userContext);
-            break;
-          case 'classify-intent':
-            toolResults[tool] = await this.handleIntentClassification(aiResponse, userContext);
-            break;
-          default:
-            console.log(`⚠️ Unknown tool: ${tool}`);
-        }
-      } catch (error) {
-        console.error(`❌ Tool execution error for ${tool}:`, error);
-        toolResults[tool] = { error: error.message };
-      }
-    }
-
-    return toolResults;
-  }
-
-  private async handlePaymentGeneration(aiResponse: any, userContext: UserContext): Promise<any> {
-    // Extract amount from AI response or user context
-    const amount = this.extractAmountFromContext(aiResponse, userContext);
-    
-    if (!amount || amount <= 0) {
-      return { error: 'No valid amount specified' };
-    }
-
-    try {
-      const { data, error } = await this.supabase.functions.invoke('create-momo-payment-link', {
-        body: {
-          amount: amount,
-          currency: 'RWF',
-          phoneNumber: userContext.phone,
-          description: `Payment request for ${amount} RWF`,
-          userPhone: userContext.phone
-        }
-      });
-
-      return { data, error };
-    } catch (error) {
-      return { error: error.message };
-    }
-  }
-
-  private async handleRideBooking(aiResponse: any, userContext: UserContext): Promise<any> {
-    // This would extract pickup/dropoff from AI analysis
-    const rideDetails = this.extractRideDetailsFromContext(aiResponse, userContext);
-    
-    try {
-      const { data, error } = await this.supabase.functions.invoke('book-ride', {
-        body: {
-          pickup: rideDetails.pickup,
-          dropoff: rideDetails.dropoff,
-          pax: 1,
-          phoneNumber: userContext.phone,
-          rideType: 'standard'
-        }
-      });
-
-      return { data, error };
-    } catch (error) {
-      return { error: error.message };
-    }
-  }
-
-  private async handleQRGeneration(aiResponse: any, userContext: UserContext): Promise<any> {
-    try {
-      const qrPayload = `scan-to-pay:${userContext.phone}:${Date.now()}`;
-      
-      const { data, error } = await this.supabase.functions.invoke('generate-qr-code-svg', {
-        body: {
-          payload: qrPayload,
-          format: 'png',
-          size: 300,
-          userPhone: userContext.phone
-        }
-      });
-
-      return { data, error };
-    } catch (error) {
-      return { error: error.message };
-    }
-  }
-
-  private async handleIntentClassification(aiResponse: any, userContext: UserContext): Promise<any> {
+  private async classifyIntent(message: string, userContext: UserContext): Promise<any> {
     try {
       const { data, error } = await this.supabase.functions.invoke('classify-intent', {
         body: {
-          message: aiResponse.originalMessage || '',
+          message: message,
           userId: userContext.phone,
           context: userContext.enhancedContext?.recentSummary || ''
         }
       });
 
-      return { data, error };
-    } catch (error) {
-      return { error: error.message };
-    }
-  }
-
-  private async generateFinalResponse(aiResponse: any, toolResults: any, userContext: UserContext): Promise<any> {
-    // If tools were executed, incorporate their results into the response
-    if (Object.keys(toolResults).length > 0) {
-      let enhancedResponse = aiResponse.response;
-
-      // Enhance response with tool results
-      for (const [tool, result] of Object.entries(toolResults)) {
-        if (result && !result.error) {
-          enhancedResponse = this.incorporateToolResult(enhancedResponse, tool, result, userContext);
-        }
+      if (error || !data) {
+        throw new Error('Intent classification failed');
       }
 
-      return {
-        ...aiResponse,
-        response: enhancedResponse,
-        toolResults
-      };
+      return data;
+    } catch (error) {
+      console.error('Intent classification error:', error);
+      
+      // Fallback intent classification
+      const lowerMessage = message.toLowerCase();
+      if (lowerMessage.includes('pay') || lowerMessage.includes('money') || /\d+/.test(message)) {
+        return { intent: 'payment', confidence: 0.7 };
+      } else if (lowerMessage.includes('ride') || lowerMessage.includes('moto')) {
+        return { intent: 'ride', confidence: 0.7 };
+      } else if (lowerMessage.includes('shop') || lowerMessage.includes('buy')) {
+        return { intent: 'shop', confidence: 0.7 };
+      } else if (lowerMessage.includes('help') || lowerMessage.includes('support')) {
+        return { intent: 'support', confidence: 0.7 };
+      } else if (lowerMessage.includes('hi') || lowerMessage.includes('hello') || lowerMessage.includes('muraho')) {
+        return { intent: 'greeting', confidence: 0.8 };
+      }
+      
+      return { intent: 'unclear', confidence: 0.3 };
     }
-
-    return aiResponse;
   }
 
-  private incorporateToolResult(response: string, tool: string, result: any, userContext: UserContext): string {
-    switch (tool) {
-      case 'create-momo-payment-link':
-        if (result.data?.success) {
-          const data = result.data;
-          return `💰 *PAYMENT CREATED*\n\n💵 Amount: ${data.amount?.toLocaleString()} RWF\n📱 USSD: ${data.ussdCode}\n📄 QR Code: ${data.qrCodeUrl}\n🔗 Payment Link: ${data.paymentLink}\n\n✅ Expires: ${new Date(data.expiresAt).toLocaleTimeString()}\n📲 Share with payer to complete transaction\n\n🆔 Payment ID: ${data.paymentId}`;
-        }
-        break;
-      case 'book-ride':
-        if (result.data?.success) {
-          const data = result.data;
-          return `🛵 *RIDE BOOKED*\n\n📍 Route: ${data.pickup?.address} → ${data.dropoff?.address}\n💰 Fare: ${data.estimatedFare?.toLocaleString()} RWF\n⏱️ Duration: ~${data.estimatedDuration} min\n📱 Booking ID: ${data.bookingId}\n\n${data.driverInfo ? `👨‍🦲 Driver: ${data.driverInfo.name}\n📞 Phone: ${data.driverInfo.phone}` : '🔍 Finding driver...'}`;
-        }
-        break;
-      case 'generate-qr-code-svg':
-        if (result.data?.success) {
-          return `📱 *QR SCANNER READY*\n\n📸 Use this QR for payments:\n${result.data.qrCodeUrl}\n\n✅ I can process payment QR codes, USSD codes, and bank links!\n\nOr send photo of QR to scan!`;
-        }
-        break;
+  private async generateContextualResponse(message: string, intent: any, userContext: UserContext): Promise<any> {
+    // Determine response based on user type and intent
+    if (userContext.userType === 'new') {
+      console.log('🎯 Processing support request for new user');
+      return this.handleNewUserResponse(message, intent, userContext);
+    } else {
+      console.log('🎯 Processing support request for returning user'); 
+      return this.handleReturningUserResponse(message, intent, userContext);
     }
-    return response;
+  }
+
+  private async handleNewUserResponse(message: string, intent: any, userContext: UserContext): Promise<any> {
+    const baseResponse = `Muraho! 👋 Welcome to easyMO!\n\n`;
+    
+    switch (intent.intent) {
+      case 'greeting':
+        return {
+          response: `${baseResponse}🎯 Quick Services:\n💰 *Pay* - Bills, utilities\n🛵 *Ride* - Moto transport\n🛒 *Shop* - Browse products\n📦 *Deliver* - Send packages\n❓ *Help* - Get assistance\n\nWhat would you like to try?`,
+          confidence: 0.9,
+          intent: 'onboarding',
+          nextActions: ['show_services']
+        };
+      
+      case 'payment':
+        return {
+          response: `${baseResponse}💰 For payments, just tell me:\n• Amount: "Pay 5000 RWF"\n• Bill type: "Pay electricity"\n• Or: "Generate QR code"\n\nWhat payment do you need?`,
+          confidence: 0.8,
+          intent: 'payment_help',
+          nextActions: ['payment_setup']
+        };
+        
+      case 'ride':
+        return {
+          response: `${baseResponse}🛵 For rides, tell me:\n• "Ride to [destination]"\n• "Book moto to town"\n• Or share your location\n\nWhere do you want to go?`,
+          confidence: 0.8,
+          intent: 'ride_help',
+          nextActions: ['ride_setup']
+        };
+        
+      default:
+        return {
+          response: `${baseResponse}Here's what I can help with:\n💰 Payments & money transfers\n🛵 Moto rides & transport\n🛒 Shopping & marketplace\n📦 Package delivery\n❓ General support\n\nWhat do you need help with?`,
+          confidence: 0.7,
+          intent: 'general_help',
+          nextActions: ['clarify_need']
+        };
+    }
+  }
+
+  private async handleReturningUserResponse(message: string, intent: any, userContext: UserContext): Promise<any> {
+    switch (intent.intent) {
+      case 'greeting':
+        return {
+          response: `Welcome back! 😊\n\n🚀 Quick actions:\n💰 "Pay [amount]" - Instant payment\n🛵 "Ride to [place]" - Book transport\n🛒 "Find [item]" - Search products\n\nWhat can I help you with today?`,
+          confidence: 0.9,
+          intent: 'greeting_returning',
+          nextActions: ['quick_actions']
+        };
+        
+      case 'payment':
+        const amount = message.match(/\d+/)?.[0];
+        if (amount) {
+          return {
+            response: `💰 Creating payment for ${amount} RWF...\n\n✅ Payment options:\n📱 Mobile Money USSD\n📄 QR Code for scanning\n🔗 Payment link to share\n\nWhich would you prefer?`,
+            confidence: 0.9,
+            intent: 'payment_amount',
+            nextActions: ['generate_payment'],
+            toolsCalled: ['create-payment-options']
+          };
+        } else {
+          return {
+            response: `💰 Happy to help with payments!\n\nJust tell me:\n• Amount: "5000 RWF"\n• Bill type: "Electricity bill"\n• Recipient: Phone number\n\nWhat payment do you need?`,
+            confidence: 0.8,
+            intent: 'payment_info',
+            nextActions: ['get_payment_details']
+          };
+        }
+        
+      case 'ride':
+        return {
+          response: `🛵 Ready to book your ride!\n\n📍 I need:\n• Your pickup location (or "current location")\n• Where you want to go\n• When (now or specific time)\n\nWhere are you heading?`,
+          confidence: 0.8,
+          intent: 'ride_booking',
+          nextActions: ['get_ride_details']
+        };
+        
+      case 'shop':
+        return {
+          response: `🛒 Let's find what you need!\n\nPopular categories:\n🥬 Fresh produce from farmers\n💊 Pharmacy & health items\n🏪 Local businesses & shops\n🔧 Hardware & tools\n\nWhat are you looking for?`,
+          confidence: 0.8,
+          intent: 'shopping',
+          nextActions: ['browse_categories']
+        };
+        
+      case 'support':
+        return {
+          response: `🆘 I'm here to help!\n\nCommon issues I can solve:\n• Payment problems\n• Ride booking issues\n• Account questions\n• Technical support\n\nWhat specific issue are you having?`,
+          confidence: 0.8,
+          intent: 'support_request',
+          nextActions: ['diagnose_issue']
+        };
+        
+      case 'unclear':
+        return {
+          response: `I want to help, but I'm not quite sure what you need! 🤔\n\nHere's what I can do:\n💰 Make a payment or generate QR code\n🛵 Book a moto ride or transport\n🏪 Shop for products or find businesses\n📦 Send a package or arrange delivery\n❓ Get help with easyMO services\n\nCould you be more specific about what you'd like to do?`,
+          confidence: 0.6,
+          intent: 'clarification',
+          nextActions: ['clarify_intent']
+        };
+        
+      default:
+        return {
+          response: `Thanks for reaching out! 👋\n\nI can help you with:\n💰 Payments & transfers\n🛵 Transport & rides\n🛒 Shopping & marketplace\n📦 Delivery services\n\nWhat would you like to do?`,
+          confidence: 0.7,
+          intent: 'general',
+          nextActions: ['show_options']
+        };
+    }
   }
 
   private async storeConversationInsights(phone: string, message: string, response: any): Promise<void> {
@@ -418,7 +310,7 @@ Analyze this message and respond intelligently according to your persona. If the
       await this.supabase.from('agent_conversations').insert([
         {
           user_id: phone,
-          role: 'user',
+          role: 'user', 
           message: message,
           metadata: { timestamp: new Date().toISOString() }
         },
@@ -436,45 +328,16 @@ Analyze this message and respond intelligently according to your persona. If the
         }
       ]);
 
-      // Store execution log
-      await this.supabase.from('agent_execution_log').insert({
-        user_id: phone,
-        function_name: 'omni-agent-enhanced',
-        intent: response.intent,
-        confidence: response.confidence,
-        response_type: 'intelligent_ai',
-        tools_called: response.toolsCalled,
-        execution_time_ms: Date.now(), // This would be calculated properly
-        success: true,
-        metadata: response.learningInsights
-      });
-
     } catch (error) {
       console.error('❌ Failed to store insights:', error);
     }
   }
 
-  private extractAmountFromContext(aiResponse: any, userContext: UserContext): number | null {
-    // Try to extract amount from AI response or original message
-    const text = aiResponse.originalMessage || aiResponse.response || '';
-    const match = text.match(/(\d+)/);
-    return match ? parseInt(match[1]) : null;
-  }
-
-  private extractRideDetailsFromContext(aiResponse: any, userContext: UserContext): any {
-    // This would use AI to extract pickup/dropoff locations
-    return {
-      pickup: { lat: -1.9441, lng: 30.0619, address: 'Current Location' },
-      dropoff: { lat: -1.9706, lng: 30.1044, address: 'Destination' }
-    };
-  }
-
   private getFallbackResponse(userContext: UserContext): string {
     if (userContext.userType === 'new') {
-      return `🎉 *Welcome to easyMO!*\nRwanda's #1 WhatsApp Super-App\n\n🚀 *Try these now*:\n💰 Send '5000' → Instant payment QR\n🛵 Send 'ride to town' → Book transport\n🛒 Send 'find pharmacy' → Locate services\n\n✨ I understand natural language - just tell me what you need!\n\n🎯 What would you like to try first?`;
+      return `Muraho! 👋 Welcome to easyMO!\n\nI can help you with:\n💰 'Pay 5000' - Create payment\n🛵 'Ride to town' - Book moto\n🛒 'Find shop' - Search businesses\n❓ 'Help' - Get assistance\n\nWhat can I help you with?`;
     }
-    
-    return "I'd love to help! 😊\n\n🎯 *Popular requests*:\n💰 Payment QR: Send any amount\n🛵 Transport: Tell me your destination\n🛒 Shopping: What are you looking for?\n📦 Delivery: What needs to be sent?\n\n💬 Just describe what you need - I'm here to assist!";
+    return `I want to help, but I'm not quite sure what you need! 🤔\n\nHere's what I can do:\n💰 Make a payment or generate QR code\n🛵 Book a moto ride or transport\n🏪 Shop for products or find businesses\n📦 Send a package or arrange delivery\n❓ Get help with easyMO services\n\nCould you be more specific about what you'd like to do?`;
   }
 }
 
@@ -487,13 +350,6 @@ class ConversationManager {
 
   async getOrCreateUserContext(phone: string): Promise<UserContext> {
     try {
-      // Get user data
-      const { data: user } = await this.supabase
-        .from('users')
-        .select('*')
-        .eq('phone', phone)
-        .single();
-
       // Get conversation history
       const { data: conversations } = await this.supabase
         .from('agent_conversations')
@@ -512,7 +368,6 @@ class ConversationManager {
 
       return {
         phone,
-        name: user?.name,
         preferredLanguage: 'en',
         lastInteraction,
         conversationCount,
@@ -539,12 +394,35 @@ serve(async (req: Request) => {
   try {
     const { message, phone, contact_name, message_id } = await req.json();
     
-    console.log(`🎯 Enhanced Omni Agent processing: ${phone} - ${message}`);
+    console.log(`🎯 Omni Agent processing: ${phone} - ${message}`);
 
+    // Check for recent duplicate messages to prevent loops
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
+
+    const { data: recentMessages } = await supabase
+      .from('agent_conversations')
+      .select('message, ts')
+      .eq('user_id', phone)
+      .eq('role', 'user')
+      .gt('ts', new Date(Date.now() - 30000).toISOString()) // Last 30 seconds
+      .order('ts', { ascending: false })
+      .limit(3);
+
+    // If we have the exact same message recently, don't process again
+    if (recentMessages?.some(m => m.message === message)) {
+      console.log('⚠️ Duplicate message detected, skipping processing');
+      return new Response(JSON.stringify({
+        success: true,
+        response: '',
+        confidence: 1.0,
+        intent: 'duplicate_ignored'
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
 
     const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
     if (!openaiApiKey) {
