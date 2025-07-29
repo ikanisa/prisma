@@ -9,6 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { PersonaEditor } from '@/components/admin/PersonaEditor';
 import { DocumentManager } from '@/components/admin/DocumentManager';
 import { LearningComponents } from '@/components/admin/LearningComponents';
+import { ComprehensiveUserJourneySystem } from '@/components/admin/ComprehensiveUserJourneySystem';
 import { 
   Brain, 
   AlertTriangle, 
@@ -314,7 +315,7 @@ export function LearningDashboard() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="personas">Personas</TabsTrigger>
           <TabsTrigger value="documents">Documents</TabsTrigger>
@@ -470,235 +471,11 @@ export function LearningDashboard() {
         </TabsContent>
 
         <TabsContent value="journeys" className="space-y-4">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <span>💳</span>
-                  <span>Payment QR Generation</span>
-                </CardTitle>
-                <CardDescription>USSD QR code generation for mobile money</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-medium">1</div>
-                    <div>
-                      <div className="font-medium">Amount Request</div>
-                      <div className="text-sm text-muted-foreground">User sends amount via WhatsApp (e.g., "5000")</div>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-medium">2</div>
-                    <div>
-                      <div className="font-medium">QR Generation</div>
-                      <div className="text-sm text-muted-foreground">System creates USSD QR code image</div>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-sm font-medium">3</div>
-                    <div>
-                      <div className="font-medium">QR Delivery</div>
-                      <div className="text-sm text-muted-foreground">QR image sent to user via WhatsApp</div>
-                    </div>
-                  </div>
-                  <div className="bg-yellow-50 p-3 rounded-lg">
-                    <p className="text-sm text-yellow-800">Note: Payment processing happens outside easyMO system via mobile money providers</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+          <ComprehensiveUserJourneySystem />
+        </TabsContent>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <span>🏍️</span>
-                  <span>Transport Discovery</span>
-                </CardTitle>
-                <CardDescription>Finding nearby drivers and passengers</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-sm font-medium">1</div>
-                    <div>
-                      <div className="font-medium">Location Share</div>
-                      <div className="text-sm text-muted-foreground">User shares current location via WhatsApp</div>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-sm font-medium">2</div>
-                    <div>
-                      <div className="font-medium">Discovery Query</div>
-                      <div className="text-sm text-muted-foreground">User requests "nearby drivers" or "passengers going to [destination]"</div>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-sm font-medium">3</div>
-                    <div>
-                      <div className="font-medium">Results Display</div>
-                      <div className="text-sm text-muted-foreground">System shows available drivers/passengers with contact info</div>
-                    </div>
-                  </div>
-                  <div className="bg-yellow-50 p-3 rounded-lg">
-                    <p className="text-sm text-yellow-800">Note: Users connect directly outside system to arrange transport details</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <span>🏪</span>
-                  <span>Business Discovery</span>
-                </CardTitle>
-                <CardDescription>Finding shops, pharmacies & services</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-purple-100 text-purple-600 rounded-full flex items-center justify-center text-sm font-medium">1</div>
-                    <div>
-                      <div className="font-medium">Location Requirement</div>
-                      <div className="text-sm text-muted-foreground">System requests location if not already shared</div>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-purple-100 text-purple-600 rounded-full flex items-center justify-center text-sm font-medium">2</div>
-                    <div>
-                      <div className="font-medium">Search Query</div>
-                      <div className="text-sm text-muted-foreground">User requests "nearby pharmacy" or "find shop"</div>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-purple-100 text-purple-600 rounded-full flex items-center justify-center text-sm font-medium">3</div>
-                    <div>
-                      <div className="font-medium">Business List</div>
-                      <div className="text-sm text-muted-foreground">Shows nearby businesses with contact details</div>
-                    </div>
-                  </div>
-                  <div className="bg-yellow-50 p-3 rounded-lg">
-                    <p className="text-sm text-yellow-800">Note: Business contact & ordering happens outside easyMO system</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <span>🛒</span>
-                  <span>Product Discovery</span>
-                </CardTitle>
-                <CardDescription>Finding products from vendors</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center text-sm font-medium">1</div>
-                    <div>
-                      <div className="font-medium">Product Search</div>
-                      <div className="text-sm text-muted-foreground">User searches for specific product (e.g., "rice", "medicine")</div>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center text-sm font-medium">2</div>
-                    <div>
-                      <div className="font-medium">Vendor Results</div>
-                      <div className="text-sm text-muted-foreground">System shows vendors who have the product in stock</div>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center text-sm font-medium">3</div>
-                    <div>
-                      <div className="font-medium">Vendor Contact</div>
-                      <div className="text-sm text-muted-foreground">User gets vendor contact details for direct communication</div>
-                    </div>
-                  </div>
-                  <div className="bg-yellow-50 p-3 rounded-lg">
-                    <p className="text-sm text-yellow-800">Note: Purchase negotiations & delivery happen outside easyMO system</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <span>👤</span>
-                  <span>Driver Registration</span>
-                </CardTitle>
-                <CardDescription>Getting online as a service provider</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-teal-100 text-teal-600 rounded-full flex items-center justify-center text-sm font-medium">1</div>
-                    <div>
-                      <div className="font-medium">Registration Request</div>
-                      <div className="text-sm text-muted-foreground">User requests to "go online as driver"</div>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-teal-100 text-teal-600 rounded-full flex items-center justify-center text-sm font-medium">2</div>
-                    <div>
-                      <div className="font-medium">Location Required</div>
-                      <div className="text-sm text-muted-foreground">System requests current location for visibility</div>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-teal-100 text-teal-600 rounded-full flex items-center justify-center text-sm font-medium">3</div>
-                    <div>
-                      <div className="font-medium">Profile Creation</div>
-                      <div className="text-sm text-muted-foreground">System records driver profile with location and contact</div>
-                    </div>
-                  </div>
-                  <div className="bg-green-50 p-3 rounded-lg">
-                    <p className="text-sm text-green-800">Result: Driver becomes discoverable by nearby passengers</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <span>🎫</span>
-                  <span>Event Discovery</span>
-                </CardTitle>
-                <CardDescription>Finding and sharing events</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-pink-100 text-pink-600 rounded-full flex items-center justify-center text-sm font-medium">1</div>
-                    <div>
-                      <div className="font-medium">Event Query</div>
-                      <div className="text-sm text-muted-foreground">User requests "events near me" or "what's happening"</div>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-pink-100 text-pink-600 rounded-full flex items-center justify-center text-sm font-medium">2</div>
-                    <div>
-                      <div className="font-medium">Event List</div>
-                      <div className="text-sm text-muted-foreground">System shows upcoming events with details</div>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-pink-100 text-pink-600 rounded-full flex items-center justify-center text-sm font-medium">3</div>
-                    <div>
-                      <div className="font-medium">Event Information</div>
-                      <div className="text-sm text-muted-foreground">User gets event details and organizer contact</div>
-                    </div>
-                  </div>
-                  <div className="bg-yellow-50 p-3 rounded-lg">
-                    <p className="text-sm text-yellow-800">Note: Event registration & payment handled by organizers outside system</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+        <TabsContent value="comprehensive" className="space-y-4">
+          <ComprehensiveUserJourneySystem />
         </TabsContent>
 
 
