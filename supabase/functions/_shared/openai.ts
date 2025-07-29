@@ -47,7 +47,7 @@ class OpenAIClient {
     options: OpenAICompletionOptions = {}
   ): Promise<OpenAIResponse> {
     const {
-      model = 'gpt-4o',
+      model = 'gpt-4.1-2025-04-14',
       temperature = 0.7,
       max_tokens = 1000,
       stream = false

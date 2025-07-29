@@ -311,7 +311,7 @@ async function callOpenAIWithTools(messages: OpenAIMessage[], tools: any[], temp
     iteration++;
     
     const requestBody = {
-      model: 'gpt-4o',
+      model: 'gpt-4.1-2025-04-14',
       messages: currentMessages,
       temperature,
       tools: tools.length > 0 ? tools : undefined,

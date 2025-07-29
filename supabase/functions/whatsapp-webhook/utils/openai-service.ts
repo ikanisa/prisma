@@ -33,7 +33,7 @@ export class OpenAIService {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          model: 'gpt-4o',
+          model: 'gpt-4.1-2025-04-14',
           messages: messages,
           max_tokens: maxTokens,
           temperature: 0.8,
@@ -72,7 +72,7 @@ export class OpenAIService {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          model: 'gpt-4o',
+          model: 'gpt-4.1-2025-04-14',
           messages: [
             {
               role: 'system',
@@ -112,7 +112,7 @@ export class OpenAIService {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          model: 'gpt-4o',
+          model: 'gpt-4.1-2025-04-14',
           messages: [
             {
               role: 'system',

@@ -119,7 +119,7 @@ Respond with JSON only: {"safe": boolean, "flags": {"inappropriate": boolean, "h
     ];
 
     const completion = await createChatCompletion(messages, {
-      model: 'gpt-4o-mini',
+      model: 'gpt-4.1-2025-04-14',
       response_format: { type: 'json_object' },
       temperature: 0.1
     });
@@ -271,7 +271,7 @@ Respond with JSON only: {"accuracy": float, "helpfulness": float, "safety": floa
     ];
 
     const completion = await createChatCompletion(messages, {
-      model: 'gpt-4o-mini',
+      model: 'gpt-4.1-2025-04-14',
       response_format: { type: 'json_object' },
       temperature: 0.1
     });
