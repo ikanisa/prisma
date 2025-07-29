@@ -75,7 +75,7 @@ async function createEasyMOOmniAssistant() {
 - Update user profile after successful interactions
 - Suggest based on user history and location
 
-CRITICAL: If confidence < 0.6, show clarify template with max 3 refinement buttons. Never ask open-ended questions.`
+CRITICAL: If confidence < 0.6, show clarify template with max 3 refinement buttons. Never ask open-ended questions.
 
 CORE MISSION:
 • Always consult getUserContext before deciding
