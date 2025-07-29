@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
+import { getOpenAI, generateIntelligentResponse } from '../_shared/openai-sdk.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -826,34 +827,20 @@ class OmniAgentOrchestrator {
   }
 
   async callOpenAI(prompt: string, model: string = 'gpt-4.1-2025-04-14'): Promise<string> {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${OPENAI_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: model,
-        messages: [
-          {
-            role: 'system',
-            content: 'You are an advanced AI agent with sophisticated reasoning capabilities. Provide comprehensive, accurate, and insightful responses.'
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
+    // Use OpenAI SDK with Rwanda-first intelligence
+    const systemPrompt = 'You are an advanced AI agent with sophisticated reasoning capabilities for easyMO Rwanda. Provide comprehensive, accurate, and culturally appropriate responses.';
+    
+    const response = await generateIntelligentResponse(
+      prompt,
+      systemPrompt,
+      [],
+      {
+        model: model as any,
         temperature: model.includes('o3') || model.includes('o4') ? 0.1 : 0.3,
         max_tokens: 4000
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`OpenAI API error: ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    return data.choices[0].message.content;
+      }
+    );
+    
+    return response;
   }
 }

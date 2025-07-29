@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { getOpenAI, generateIntelligentResponse } from '../_shared/openai-sdk.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -51,37 +52,28 @@ Return ONLY a JSON object with your evaluation:
 }
 `;
 
-    const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openaiApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o',
-        messages: [
-          { role: 'system', content: 'You are a quality evaluation expert. Return only valid JSON.' },
-          { role: 'user', content: evaluationPrompt }
-        ],
+    // Use OpenAI SDK with Rwanda-specific evaluation criteria
+    const systemPrompt = 'You are a quality evaluation expert for easyMO Rwanda WhatsApp marketplace. Focus on mobile money context, cultural appropriateness, and local business practices. Return only valid JSON.';
+    
+    const evaluation = await generateIntelligentResponse(
+      evaluationPrompt,
+      systemPrompt,
+      [],
+      {
+        model: 'gpt-4.1-2025-04-14',
         temperature: 0.1,
-        max_tokens: 300
-      }),
-    });
+        max_tokens: 300,
+        response_format: { type: 'json_object' }
+      }
+    );
 
-    if (!openaiResponse.ok) {
-      throw new Error(`OpenAI API error: ${await openaiResponse.text()}`);
-    }
-
-    const data = await openaiResponse.json();
-    const evaluationText = data.choices[0].message.content;
-
-    let evaluation;
+    let evaluationResult;
     try {
-      evaluation = JSON.parse(evaluationText);
+      evaluationResult = JSON.parse(evaluation);
     } catch (parseError) {
-      console.error('Failed to parse evaluation JSON:', evaluationText);
+      console.error('Failed to parse evaluation JSON:', evaluation);
       // Fallback evaluation
-      evaluation = {
+      evaluationResult = {
         overall_score: 0.5,
         helpfulness_score: 0.5,
         clarity_score: 0.5,
@@ -96,12 +88,12 @@ Return ONLY a JSON object with your evaluation:
       .insert({
         conversation_id,
         phone_number,
-        overall_score: evaluation.overall_score,
-        helpfulness_score: evaluation.helpfulness_score,
-        clarity_score: evaluation.clarity_score,
-        style_score: evaluation.style_score,
-        model_used: 'gpt-4o',
-        evaluation_notes: evaluation.evaluation_notes
+        overall_score: evaluationResult.overall_score,
+        helpfulness_score: evaluationResult.helpfulness_score,
+        clarity_score: evaluationResult.clarity_score,
+        style_score: evaluationResult.style_score,
+        model_used: 'gpt-4.1-2025-04-14',
+        evaluation_notes: evaluationResult.evaluation_notes
       })
       .select()
       .single();
@@ -111,10 +103,10 @@ Return ONLY a JSON object with your evaluation:
       throw dbError;
     }
 
-    console.log(`✅ Quality evaluation complete. Overall score: ${evaluation.overall_score}`);
+    console.log(`✅ Quality evaluation complete. Overall score: ${evaluationResult.overall_score}`);
 
     // If score is below threshold, trigger improvement
-    if (evaluation.overall_score < 0.7) {
+    if (evaluationResult.overall_score < 0.7) {
       console.log('⚠️ Low quality score detected, logging for improvement');
       
       // Could trigger rewrite or fine-tuning data collection here
@@ -122,15 +114,15 @@ Return ONLY a JSON object with your evaluation:
         .from('conversation_learning_log')
         .insert({
           user_id: phone_number,
-          learning_summary: `Low quality response (${evaluation.overall_score}): ${evaluation.evaluation_notes}`,
-          confidence_level: evaluation.overall_score,
+          learning_summary: `Low quality response (${evaluationResult.overall_score}): ${evaluationResult.evaluation_notes}`,
+          confidence_level: evaluationResult.overall_score,
           improvement_note: 'Consider response rewrite or additional training'
         });
     }
 
     return new Response(JSON.stringify({
       success: true,
-      evaluation: evaluation,
+      evaluation: evaluationResult,
       evaluation_id: evaluationRecord.id
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

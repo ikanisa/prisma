@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getOpenAI, generateIntelligentResponse } from '../_shared/openai-sdk.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -100,25 +101,22 @@ Response: "${message}"
 
 Reply with ONLY a decimal number between 0.0 and 1.0:`;
 
+  // Use OpenAI SDK with Rwanda-specific quality assessment
+  const systemPrompt = 'You are a quality assessor for easyMO Rwanda WhatsApp responses. Focus on mobile money context, cultural appropriateness, and clear communication. Reply with ONLY a decimal number between 0.0 and 1.0.';
+  
   try {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [{ role: 'user', content: prompt }],
+    const scoreText = await generateIntelligentResponse(
+      prompt,
+      systemPrompt,
+      [],
+      {
+        model: 'gpt-4.1-2025-04-14',
         temperature: 0.1,
         max_tokens: 10
-      })
-    });
-
-    const result = await response.json();
-    const scoreText = result.choices[0].message.content.trim();
-    const score = parseFloat(scoreText);
+      }
+    );
     
+    const score = parseFloat(scoreText.trim());
     return isNaN(score) ? 0.5 : Math.max(0, Math.min(1, score));
   } catch (error) {
     console.error('Error scoring response:', error);
@@ -137,23 +135,22 @@ Original: "${message}"
 
 Improved response:`;
 
+  // Use OpenAI SDK with Rwanda-specific improvement
+  const systemPrompt = 'You are a response improver for easyMO Rwanda WhatsApp service. Make responses clear, helpful, concise (1-2 sentences), friendly but professional, and culturally appropriate for Rwanda.';
+  
   try {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [{ role: 'user', content: prompt }],
+    const improvedResponse = await generateIntelligentResponse(
+      prompt,
+      systemPrompt,
+      [],
+      {
+        model: 'gpt-4.1-2025-04-14',
         temperature: 0.3,
         max_tokens: 150
-      })
-    });
-
-    const result = await response.json();
-    return result.choices[0].message.content.trim();
+      }
+    );
+    
+    return improvedResponse.trim();
   } catch (error) {
     console.error('Error improving response:', error);
     return null;

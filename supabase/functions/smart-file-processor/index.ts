@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getOpenAI, generateIntelligentResponse } from '../_shared/openai-sdk.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -56,46 +57,30 @@ serve(async (req) => {
     // Use OpenAI to intelligently parse and structure the data
     const prompt = createExtractionPrompt(targetTable, fileContent, file.name);
     
-    const openAIResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          {
-            role: 'system',
-            content: 'You are a data extraction expert. Extract and structure data from files into the specified database table format. Always respond with valid JSON.'
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
+    // Use OpenAI SDK with Rwanda-specific data extraction
+    const systemPrompt = 'You are a data extraction expert for easyMO Rwanda business data. Extract and structure data from files into the specified database table format. Focus on mobile money integration, local business practices, and Rwanda market context. Always respond with valid JSON.';
+    
+    const extractedData = await generateIntelligentResponse(
+      prompt,
+      systemPrompt,
+      [],
+      {
+        model: 'gpt-4.1-2025-04-14',
         temperature: 0.1,
-        max_tokens: 4000
-      }),
-    });
-
-    if (!openAIResponse.ok) {
-      throw new Error(`OpenAI API error: ${openAIResponse.status}`);
-    }
-
-    const aiResult = await openAIResponse.json();
-    const extractedContent = aiResult.choices[0].message.content;
-
-    console.log(`🤖 AI extracted content: ${extractedContent.substring(0, 200)}...`);
-
-    // Parse the AI response
+        max_tokens: 4000,
+        response_format: { type: 'json_object' }
+      }
+    );
+    
     let structuredData;
     try {
-      structuredData = JSON.parse(extractedContent);
+      structuredData = JSON.parse(extractedData);
     } catch (parseError) {
       console.error('Failed to parse AI response as JSON:', parseError);
       throw new Error('AI response was not valid JSON');
     }
+
+    console.log(`🤖 AI extracted content: ${JSON.stringify(structuredData).substring(0, 200)}...`);
 
     // Process based on action and target table
     let result;
@@ -122,14 +107,14 @@ serve(async (req) => {
       },
       success_status: true,
       execution_time_ms: Date.now(),
-      model_used: 'gpt-4o-mini'
+      model_used: 'gpt-4.1-2025-04-14'
     });
 
     return new Response(JSON.stringify({
       success: true,
       data: result,
       message: `Successfully processed ${file.name} for ${targetTable}`,
-      aiResponse: extractedContent
+      aiResponse: JSON.stringify(structuredData).substring(0, 500)
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

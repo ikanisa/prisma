@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0';
+import { getOpenAI, generateIntelligentResponse } from '../_shared/openai-sdk.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -74,40 +75,27 @@ serve(async (req: Request) => {
 
     if (comment && openaiApiKey) {
       try {
-        const sentimentResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${openaiApiKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            model: 'gpt-4o-mini',
-            messages: [
-              {
-                role: 'system',
-                content: 'Analyze the sentiment of this feedback comment. Return a JSON object with "score" (0-1, where 0 is very negative and 1 is very positive) and "label" (positive, negative, or neutral).'
-              },
-              {
-                role: 'user',
-                content: comment
-              }
-            ],
+        // Use OpenAI SDK with Rwanda-specific sentiment analysis
+        const systemPrompt = 'Analyze the sentiment of this feedback comment about easyMO Rwanda service. Return a JSON object with "score" (0-1, where 0 is very negative and 1 is very positive) and "label" (positive, negative, or neutral).';
+        
+        const sentimentText = await generateIntelligentResponse(
+          comment,
+          systemPrompt,
+          [],
+          {
+            model: 'gpt-4.1-2025-04-14',
+            temperature: 0.1,
             max_tokens: 100,
-            temperature: 0.1
-          }),
-        });
-
-        if (sentimentResponse.ok) {
-          const sentimentData = await sentimentResponse.json();
-          const sentimentText = sentimentData.choices[0].message.content;
-          
-          try {
-            const parsed = JSON.parse(sentimentText);
-            sentimentScore = parsed.score || sentimentScore;
-            sentimentLabel = parsed.label || sentimentLabel;
-          } catch (parseError) {
-            console.warn('Failed to parse sentiment analysis:', parseError);
+            response_format: { type: 'json_object' }
           }
+        );
+        
+        try {
+          const parsed = JSON.parse(sentimentText);
+          sentimentScore = parsed.score || sentimentScore;
+          sentimentLabel = parsed.label || sentimentLabel;
+        } catch (parseError) {
+          console.warn('Failed to parse sentiment analysis:', parseError);
         }
       } catch (sentimentError) {
         console.warn('Sentiment analysis failed:', sentimentError);

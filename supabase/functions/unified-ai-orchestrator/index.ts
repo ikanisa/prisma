@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getOpenAI, generateIntelligentResponse } from '../_shared/openai-sdk.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -205,67 +206,26 @@ async function processWithAI(agentConfig: AgentConfig, message: string, context:
       temperature: agentConfig.temperature 
     });
 
-    // Use gpt-4o-mini for better rate limits and reliability
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openaiApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini', // More reliable model with better rate limits
-        messages,
+    // Use OpenAI SDK with Rwanda-first intelligence
+    const response = await generateIntelligentResponse(
+      message,
+      agentConfig.system_prompt,
+      messages.slice(1).map(m => m.content), // Remove system prompt for context
+      {
+        model: 'gpt-4.1-2025-04-14',
         temperature: agentConfig.temperature || 0.7,
         max_tokens: 300
-      }),
+      }
+    );
+    
+    return response;
+
+    console.log('✅ OpenAI SDK response received:', { 
+      length: response.length,
+      preview: response.substring(0, 50) + '...'
     });
 
-    console.log('📥 OpenAI response status:', response.status);
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('❌ OpenAI API error:', { status: response.status, error: errorText });
-      
-      // Handle specific error types with more helpful messages
-      if (response.status === 429) {
-        return "I'm currently experiencing high usage. Our team has been notified. Please try again in a few minutes, or feel free to ask a simpler question in the meantime.";
-      }
-      if (response.status === 401) {
-        return "There's a temporary configuration issue on our end. Our technical team has been notified and will resolve this shortly.";
-      }
-      if (response.status === 400) {
-        return "I'm having trouble understanding your message. Could you please rephrase it or ask something else?";
-      }
-      if (response.status >= 500) {
-        return "I'm experiencing technical difficulties. Please try again in a moment.";
-      }
-      
-      return "I'm having some technical issues right now. Please try again or contact support if this persists.";
-    }
-
-    const data = await response.json();
-    console.log('✅ OpenAI response received:', { 
-      choices: data.choices?.length,
-      usage: data.usage 
-    });
-
-    if (!data.choices || data.choices.length === 0) {
-      console.error('❌ No choices in OpenAI response:', data);
-      return "Muraho! I'm having trouble generating a response right now. Please try again.";
-    }
-
-    const aiMessage = data.choices[0].message?.content;
-    if (!aiMessage) {
-      console.error('❌ No content in OpenAI response');
-      return "Muraho! I'm having trouble with my response. Please try again.";
-    }
-
-    console.log('🎯 AI Response generated:', { 
-      length: aiMessage.length,
-      preview: aiMessage.substring(0, 50) + '...'
-    });
-
-    return aiMessage;
+    return response;
 
   } catch (error) {
     console.error('❌ AI processing error:', error);
