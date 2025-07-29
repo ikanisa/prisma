@@ -75,25 +75,79 @@ export default function WhatsAppTemplatesManagement() {
 
   const fetchData = async () => {
     try {
-      const [templatesRes, flowsRes, listsRes, variablesRes] = await Promise.all([
-        supabase.functions.invoke('whatsapp-templates-manager', {
-          body: { action: 'list' }
-        }),
-        supabase.functions.invoke('whatsapp-flows-handler', {
-          body: { action: 'list_flows' }
-        }),
-        fetch('/api/whatsapp-lists').then(r => r.json()).catch(() => ({ data: [] })),
-        fetch('/api/whatsapp-variables').then(r => r.json()).catch(() => ({ data: [] }))
+      // For now, fetch from existing WhatsApp templates table structure
+      const { data: existingTemplates, error } = await supabase
+        .from('whatsapp_templates')
+        .select('*');
+
+      if (error) {
+        console.error('Error fetching templates:', error);
+      } else {
+        // Transform existing data to match our interface
+        const transformedTemplates = existingTemplates?.map(template => ({
+          id: template.id,
+          code: template.code || template.name_meta || 'Unknown',
+          domain: template.domain || 'system',
+          intent_ids: template.intent ? [template.intent] : [],
+          description: `${template.category} template for ${template.domain}`,
+          is_active: template.status === 'APPROVED',
+          ab_group: 'A',
+          created_at: template.created_at,
+          whatsapp_template_versions: [{
+            id: template.id,
+            language: template.language || 'en',
+            meta_name: template.name_meta || template.code,
+            category: template.category || 'UTILITY',
+            status: template.status || 'PENDING',
+            created_at: template.created_at
+          }]
+        })) || [];
+        
+        setTemplates(transformedTemplates);
+      }
+
+      // Mock data for flows, lists, and variables for now
+      setFlows([
+        {
+          id: '1',
+          code: 'FLOW_GET_PAID',
+          title: 'Receive Money',
+          description: 'Collect amount and MoMo number to generate QR',
+          domain: 'payments',
+          status: 'APPROVED'
+        },
+        {
+          id: '2', 
+          code: 'FLOW_BOOK_TRIP',
+          title: 'Book Trip',
+          description: 'Collect pickup and dropoff locations',
+          domain: 'mobility',
+          status: 'APPROVED'
+        }
       ]);
 
-      if (templatesRes.data?.templates) {
-        setTemplates(templatesRes.data.templates);
-      }
-      if (flowsRes.data?.flows) {
-        setFlows(flowsRes.data.flows);
-      }
-      setLists([]);
-      setVariables([]);
+      setLists([
+        {
+          id: '1',
+          code: 'LIST_NEARBY_DRIVERS', 
+          title: 'Drivers near you',
+          body: 'Pick one to chat & book:',
+          sections: [
+            {
+              title: 'Closest',
+              rows: [
+                { id: 'DRV_123', title: 'Eric (400m)', description: 'Kimironko → CBD, 5 min' }
+              ]
+            }
+          ]
+        }
+      ]);
+
+      setVariables([
+        { id: '1', var_key: 'amount', description: 'Payment amount in RWF', required: false, example_value: '2500' },
+        { id: '2', var_key: 'pickup', description: 'Pickup location', required: true, example_value: 'Kimironko' },
+        { id: '3', var_key: 'momo_number', description: 'Mobile money number', required: true, example_value: '+250123456789' }
+      ]);
     } catch (error) {
       console.error('Error fetching data:', error);
       toast({
