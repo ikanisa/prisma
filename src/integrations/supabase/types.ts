@@ -1051,6 +1051,7 @@ export type Database = {
           address: string | null
           category: Database["public"]["Enums"]["business_type"] | null
           created_at: string | null
+          geo: unknown | null
           google_place_id: string | null
           id: string
           location_gps: unknown | null
@@ -1063,6 +1064,8 @@ export type Database = {
           reviews_count: number | null
           status: string | null
           subscription_status: string | null
+          tags: string[] | null
+          vector: string | null
           website: string | null
           whatsapp_number: string | null
         }
@@ -1070,6 +1073,7 @@ export type Database = {
           address?: string | null
           category?: Database["public"]["Enums"]["business_type"] | null
           created_at?: string | null
+          geo?: unknown | null
           google_place_id?: string | null
           id?: string
           location_gps?: unknown | null
@@ -1082,6 +1086,8 @@ export type Database = {
           reviews_count?: number | null
           status?: string | null
           subscription_status?: string | null
+          tags?: string[] | null
+          vector?: string | null
           website?: string | null
           whatsapp_number?: string | null
         }
@@ -1089,6 +1095,7 @@ export type Database = {
           address?: string | null
           category?: Database["public"]["Enums"]["business_type"] | null
           created_at?: string | null
+          geo?: unknown | null
           google_place_id?: string | null
           id?: string
           location_gps?: unknown | null
@@ -1101,6 +1108,8 @@ export type Database = {
           reviews_count?: number | null
           status?: string | null
           subscription_status?: string | null
+          tags?: string[] | null
+          vector?: string | null
           website?: string | null
           whatsapp_number?: string | null
         }
