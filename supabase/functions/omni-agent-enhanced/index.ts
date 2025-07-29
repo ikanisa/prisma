@@ -229,7 +229,8 @@ class OpenAIAssistantAgent {
       'generateQRCodeSVG': 'generate-qr-code-svg',
       'bookRide': 'book-ride',
       'composeWhatsAppMessage': 'compose-whatsapp-message',
-      'updateUserProfile': 'update-user-profile'
+      'updateUserProfile': 'update-user-profile',
+      'saveFileToStorage': 'store-file'
     };
 
     const functionName = toolMap[name];
