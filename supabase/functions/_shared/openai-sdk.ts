@@ -3,7 +3,7 @@
  * Replaces all manual fetch() calls with proper SDK usage
  */
 
-import OpenAI from "https://esm.sh/openai@4.66.0";
+import OpenAI from "https://esm.sh/openai@4.28.4";
 
 // Singleton OpenAI client
 let openaiClient: OpenAI | null = null;
