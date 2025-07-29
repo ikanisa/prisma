@@ -6,155 +6,59 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ThumbsUp, ThumbsDown, MessageSquare, Send, Edit, Check, X } from "lucide-react";
+import { ThumbsUp, ThumbsDown, MessageSquare, Send, Edit, Check, X, Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
 interface FeedbackTemplate {
   id: string;
-  template_name: string;
-  template_type: string;
-  content: any;
-  is_active: boolean;
+  code: string;
+  name_meta: string;
+  body: string;
+  category: string;
+  domain: string;
+  intent: string;
+  language: string;
+  buttons?: any;
+  status: string;
   created_at: string;
-  updated_at: string;
 }
-
-const DEFAULT_TEMPLATES = [
-  {
-    template_name: "rating_request",
-    template_type: "interactive",
-    content: {
-      type: "interactive",
-      interactive: {
-        type: "button",
-        body: {
-          text: "How was my help today? Your feedback helps me improve! 🤖"
-        },
-        action: {
-          buttons: [
-            {
-              type: "reply",
-              reply: {
-                id: "feedback_helpful",
-                title: "👍 Helpful"
-              }
-            },
-            {
-              type: "reply", 
-              reply: {
-                id: "feedback_not_helpful",
-                title: "👎 Needs work"
-              }
-            }
-          ]
-        }
-      }
-    },
-    is_active: true
-  },
-  {
-    template_name: "detailed_feedback_request",
-    template_type: "text",
-    content: {
-      type: "text",
-      text: "Thanks for the feedback! Could you tell me what I could improve? Just reply with your suggestions."
-    },
-    is_active: true
-  },
-  {
-    template_name: "satisfaction_survey",
-    template_type: "interactive",
-    content: {
-      type: "interactive",
-      interactive: {
-        type: "list",
-        body: {
-          text: "How satisfied are you with easyMO services?"
-        },
-        action: {
-          button: "Rate Experience",
-          sections: [
-            {
-              title: "Rating",
-              rows: [
-                { id: "rating_5", title: "⭐⭐⭐⭐⭐ Excellent" },
-                { id: "rating_4", title: "⭐⭐⭐⭐ Good" },
-                { id: "rating_3", title: "⭐⭐⭐ Average" },
-                { id: "rating_2", title: "⭐⭐ Poor" },
-                { id: "rating_1", title: "⭐ Very Poor" }
-              ]
-            }
-          ]
-        }
-      }
-    },
-    is_active: false
-  },
-  {
-    template_name: "feature_feedback",
-    template_type: "interactive",
-    content: {
-      type: "interactive",
-      interactive: {
-        type: "list",
-        body: {
-          text: "Which feature would you like feedback on?"
-        },
-        action: {
-          button: "Select Feature",
-          sections: [
-            {
-              title: "Features",
-              rows: [
-                { id: "feedback_payments", title: "💰 Payment System" },
-                { id: "feedback_transport", title: "🏍️ Transport Booking" },
-                { id: "feedback_shopping", title: "🛒 Shopping Experience" },
-                { id: "feedback_general", title: "💬 General Service" }
-              ]
-            }
-          ]
-        }
-      }
-    },
-    is_active: false
-  }
-];
 
 export function WhatsAppFeedbackTemplates() {
   const [templates, setTemplates] = useState<FeedbackTemplate[]>([]);
   const [loading, setLoading] = useState(true);
-  const [editingTemplate, setEditingTemplate] = useState<string | null>(null);
-  const [editContent, setEditContent] = useState<any>({});
-  const [previewTemplate, setPreviewTemplate] = useState<FeedbackTemplate | null>(null);
+  const [newTemplate, setNewTemplate] = useState<Partial<FeedbackTemplate>>({
+    code: '',
+    name_meta: '',
+    body: '',
+    category: 'utility',
+    domain: 'easymo',
+    intent: 'feedback_collection',
+    language: 'en',
+    buttons: '[]',
+    status: 'APPROVED'
+  });
   const { toast } = useToast();
 
   useEffect(() => {
-    fetchFeedbackTemplates();
+    fetchTemplates();
   }, []);
 
-  const fetchFeedbackTemplates = async () => {
+  const fetchTemplates = async () => {
     try {
       const { data, error } = await supabase
         .from('whatsapp_templates')
-        .select('id, template_name, template_type, content, is_active, created_at, updated_at')
-        .in('template_name', DEFAULT_TEMPLATES.map(t => t.template_name))
+        .select('*')
+        .eq('intent', 'feedback_collection')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-
-      // If no templates exist, create defaults
-      if (!data || data.length === 0) {
-        await createDefaultTemplates();
-        return;
-      }
-
-      setTemplates(data);
+      setTemplates(data || []);
     } catch (error) {
-      console.error('Error fetching feedback templates:', error);
+      console.error('Error fetching templates:', error);
       toast({
         title: "Error",
-        description: "Failed to fetch WhatsApp feedback templates",
+        description: "Failed to fetch feedback templates",
         variant: "destructive"
       });
     } finally {
@@ -162,172 +66,86 @@ export function WhatsAppFeedbackTemplates() {
     }
   };
 
-  const createDefaultTemplates = async () => {
+  const createTemplate = async () => {
     try {
-      const templatesForInsert = DEFAULT_TEMPLATES.map(t => ({
-        template_name: t.template_name,
-        template_type: t.template_type,
-        content: t.content,
-        is_active: t.is_active
-      }));
-      
       const { error } = await supabase
         .from('whatsapp_templates')
-        .insert(templatesForInsert);
+        .insert([{
+          ...newTemplate,
+          buttons: typeof newTemplate.buttons === 'string' ? newTemplate.buttons : JSON.stringify(newTemplate.buttons || [])
+        }]);
 
       if (error) throw error;
-      
-      await fetchFeedbackTemplates();
-      
+
+      await fetchTemplates();
+      setNewTemplate({
+        code: '',
+        name_meta: '',
+        body: '',
+        category: 'utility',
+        domain: 'easymo',
+        intent: 'feedback_collection',
+        language: 'en',
+        buttons: '[]',
+        status: 'APPROVED'
+      });
+
       toast({
         title: "Success",
-        description: "Default feedback templates created",
+        description: "Feedback template created successfully",
       });
     } catch (error) {
-      console.error('Error creating default templates:', error);
+      console.error('Error creating template:', error);
       toast({
         title: "Error",
-        description: "Failed to create default templates",
+        description: "Failed to create feedback template",
         variant: "destructive"
       });
     }
   };
 
-  const toggleTemplate = async (templateId: string, isActive: boolean) => {
+  const deleteTemplate = async (templateId: string) => {
     try {
       const { error } = await supabase
         .from('whatsapp_templates')
-        .update({ is_active: isActive } as any)
+        .delete()
         .eq('id', templateId);
 
       if (error) throw error;
 
-      setTemplates(prev => prev.map(t => 
-        t.id === templateId ? { ...t, is_active: isActive } : t
-      ));
-
-      toast({
-        title: "Success",
-        description: `Template ${isActive ? 'activated' : 'deactivated'}`,
-      });
-    } catch (error) {
-      console.error('Error toggling template:', error);
-      toast({
-        title: "Error",
-        description: "Failed to update template",
-        variant: "destructive"
-      });
-    }
-  };
-
-  const updateTemplate = async (templateId: string, content: any) => {
-    try {
-      const { error } = await supabase
-        .from('whatsapp_templates')
-        .update({ 
-          content: content,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', templateId);
-
-      if (error) throw error;
-
-      setTemplates(prev => prev.map(t => 
-        t.id === templateId ? { ...t, content: content } : t
-      ));
-
-      setEditingTemplate(null);
+      setTemplates(prev => prev.filter(t => t.id !== templateId));
       
       toast({
         title: "Success",
-        description: "Template updated successfully",
+        description: "Template deleted successfully",
       });
     } catch (error) {
-      console.error('Error updating template:', error);
+      console.error('Error deleting template:', error);
       toast({
         title: "Error",
-        description: "Failed to update template",
+        description: "Failed to delete template",
         variant: "destructive"
       });
     }
   };
 
-  const testTemplate = async (template: FeedbackTemplate) => {
+  const renderTemplateButtons = (buttons: any) => {
     try {
-      const { error } = await supabase.functions.invoke('whatsapp-webhook', {
-        body: {
-          action: 'send_template',
-          template_name: template.template_name,
-          to: '+250788123456', // Test number
-          content: template.content
-        }
-      });
-
-      if (error) throw error;
-
-      toast({
-        title: "Test Sent",
-        description: `Test message sent using ${template.template_name} template`,
-      });
+      const buttonArray = typeof buttons === 'string' ? JSON.parse(buttons) : buttons;
+      if (!Array.isArray(buttonArray)) return null;
+      
+      return (
+        <div className="flex flex-wrap gap-1 mt-2">
+          {buttonArray.map((button: any, idx: number) => (
+            <Badge key={idx} variant="outline" className="text-xs">
+              {button.text || button.title || button.reply?.title || 'Button'}
+            </Badge>
+          ))}
+        </div>
+      );
     } catch (error) {
-      console.error('Error testing template:', error);
-      toast({
-        title: "Test Failed",
-        description: "Failed to send test message",
-        variant: "destructive"
-      });
+      return <span className="text-xs text-muted-foreground">Invalid button format</span>;
     }
-  };
-
-  const renderTemplatePreview = (template: FeedbackTemplate) => {
-    const content = template.content;
-    
-    if (content.type === 'text') {
-      return (
-        <div className="bg-primary/10 p-3 rounded-lg">
-          <p className="text-sm">{content.text}</p>
-        </div>
-      );
-    }
-    
-    if (content.type === 'interactive' && content.interactive?.type === 'button') {
-      return (
-        <div className="bg-primary/10 p-3 rounded-lg space-y-3">
-          <p className="text-sm">{content.interactive.body.text}</p>
-          <div className="flex gap-2">
-            {content.interactive.action.buttons?.map((button: any, index: number) => (
-              <Badge key={index} variant="outline" className="text-xs">
-                {button.reply.title}
-              </Badge>
-            ))}
-          </div>
-        </div>
-      );
-    }
-    
-    if (content.type === 'interactive' && content.interactive?.type === 'list') {
-      return (
-        <div className="bg-primary/10 p-3 rounded-lg space-y-3">
-          <p className="text-sm">{content.interactive.body.text}</p>
-          <Badge variant="outline" className="text-xs">
-            {content.interactive.action.button}
-          </Badge>
-          <div className="space-y-1">
-            {content.interactive.action.sections?.[0]?.rows?.map((row: any, index: number) => (
-              <div key={index} className="text-xs text-muted-foreground">
-                • {row.title}
-              </div>
-            ))}
-          </div>
-        </div>
-      );
-    }
-    
-    return (
-      <div className="bg-muted p-3 rounded-lg">
-        <p className="text-xs text-muted-foreground">Preview not available</p>
-      </div>
-    );
   };
 
   if (loading) {
@@ -347,135 +165,137 @@ export function WhatsAppFeedbackTemplates() {
         <div>
           <h2 className="text-2xl font-bold">WhatsApp Feedback Templates</h2>
           <p className="text-muted-foreground">
-            Interactive templates for collecting user feedback via WhatsApp
+            Create and manage feedback collection templates for WhatsApp
           </p>
         </div>
-        <Button onClick={createDefaultTemplates} variant="outline">
-          Reset to Defaults
-        </Button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {templates.map((template) => (
-          <Card key={template.id} className={`transition-all ${
-            template.is_active ? 'ring-2 ring-primary/20 bg-primary/5' : ''
-          }`}>
-            <CardHeader className="pb-3">
-              <div className="flex items-start justify-between">
-                <div className="space-y-1">
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    {template.template_type === 'interactive' ? (
-                      <MessageSquare className="h-5 w-5 text-primary" />
-                    ) : (
-                      <Send className="h-5 w-5 text-secondary" />
-                    )}
-                    {template.template_name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                  </CardTitle>
-                  <Badge variant={template.is_active ? 'default' : 'secondary'}>
-                    {template.is_active ? 'Active' : 'Inactive'}
-                  </Badge>
-                </div>
-                <Switch
-                  checked={template.is_active}
-                  onCheckedChange={(checked) => toggleTemplate(template.id, checked)}
+        {/* Create New Template */}
+        <Card className="border-dashed">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Plus className="h-5 w-5" />
+              Create New Template
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Template Code</Label>
+                <Input
+                  value={newTemplate.code || ''}
+                  onChange={(e) => setNewTemplate({
+                    ...newTemplate,
+                    code: e.target.value
+                  })}
+                  placeholder="e.g., service_feedback"
                 />
+              </div>
+              <div className="space-y-2">
+                <Label>Template Name</Label>
+                <Input
+                  value={newTemplate.name_meta || ''}
+                  onChange={(e) => setNewTemplate({
+                    ...newTemplate,
+                    name_meta: e.target.value
+                  })}
+                  placeholder="e.g., Service Feedback Request"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Message Body</Label>
+              <Textarea
+                value={newTemplate.body || ''}
+                onChange={(e) => setNewTemplate({
+                  ...newTemplate,
+                  body: e.target.value
+                })}
+                placeholder="How was your experience with our service?"
+                rows={3}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Buttons (JSON)</Label>
+              <Textarea
+                value={newTemplate.buttons || '[]'}
+                onChange={(e) => setNewTemplate({
+                  ...newTemplate,
+                  buttons: e.target.value
+                })}
+                placeholder='[{"type": "quick_reply", "text": "👍 Good"}, {"type": "quick_reply", "text": "👎 Poor"}]'
+                rows={2}
+              />
+            </div>
+
+            <Button 
+              onClick={createTemplate}
+              disabled={!newTemplate.code || !newTemplate.name_meta || !newTemplate.body}
+              className="w-full"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Create Template
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Existing Templates */}
+        {templates.map((template) => (
+          <Card key={template.id} className="border-l-4 border-l-primary">
+            <CardHeader className="pb-3">
+              <div className="flex justify-between items-start">
+                <div>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <MessageSquare className="h-5 w-5 text-primary" />
+                    {template.name_meta}
+                  </CardTitle>
+                  <div className="flex gap-2 mt-2">
+                    <Badge variant={template.status === 'APPROVED' ? "default" : "secondary"}>
+                      {template.status}
+                    </Badge>
+                    <Badge variant="outline">{template.code}</Badge>
+                  </div>
+                </div>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => deleteTemplate(template.id)}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
               </div>
             </CardHeader>
             
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label className="text-xs font-medium text-muted-foreground">
-                  Preview
-                </Label>
-                {renderTemplatePreview(template)}
-              </div>
-
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setEditingTemplate(template.id);
-                    setEditContent(template.content);
-                  }}
-                  className="flex-1"
-                >
-                  <Edit className="h-4 w-4 mr-2" />
-                  Edit
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => testTemplate(template)}
-                  disabled={!template.is_active}
-                  className="flex-1"
-                >
-                  <Send className="h-4 w-4 mr-2" />
-                  Test
-                </Button>
+            <CardContent>
+              <div className="space-y-3">
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Message Body</Label>
+                  <p className="text-sm mt-1">{template.body}</p>
+                </div>
+                
+                <div>
+                  <Label className="text-sm font-medium text-muted-foreground">Feedback Buttons</Label>
+                  {renderTemplateButtons(template.buttons)}
+                </div>
+                
+                <div className="flex gap-2 pt-2">
+                  <Button variant="outline" size="sm" className="flex-1">
+                    <Edit className="h-4 w-4 mr-2" />
+                    Edit
+                  </Button>
+                  <Button variant="outline" size="sm" className="flex-1">
+                    <Send className="h-4 w-4 mr-2" />
+                    Test
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
         ))}
       </div>
-
-      {/* Edit Dialog */}
-      {editingTemplate && (
-        <Card className="fixed inset-4 z-50 max-w-4xl mx-auto my-auto bg-background border shadow-lg">
-          <CardHeader>
-            <CardTitle>Edit Template</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="space-y-4">
-                <Label>Template Content (JSON)</Label>
-                <Textarea
-                  value={JSON.stringify(editContent, null, 2)}
-                  onChange={(e) => {
-                    try {
-                      setEditContent(JSON.parse(e.target.value));
-                    } catch {
-                      // Invalid JSON, keep current state
-                    }
-                  }}
-                  className="font-mono text-sm min-h-[300px]"
-                />
-              </div>
-              
-              <div className="space-y-4">
-                <Label>Live Preview</Label>
-                <div className="border rounded-lg p-4 min-h-[300px] bg-muted/50">
-                  {renderTemplatePreview({ 
-                    id: '', 
-                    template_name: '', 
-                    template_type: '', 
-                    content: editContent,
-                    is_active: true,
-                    created_at: '',
-                    updated_at: ''
-                  })}
-                </div>
-              </div>
-            </div>
-            
-            <div className="flex justify-end space-x-2 pt-4 border-t">
-              <Button
-                variant="outline"
-                onClick={() => setEditingTemplate(null)}
-              >
-                <X className="h-4 w-4 mr-2" />
-                Cancel
-              </Button>
-              <Button
-                onClick={() => updateTemplate(editingTemplate, editContent)}
-              >
-                <Check className="h-4 w-4 mr-2" />
-                Save Changes
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 }
