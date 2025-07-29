@@ -6929,6 +6929,30 @@ export type Database = {
         }
         Relationships: []
       }
+      temporary_cache: {
+        Row: {
+          created_at: string
+          expires_at: string
+          id: string
+          key: string
+          value: Json
+        }
+        Insert: {
+          created_at?: string
+          expires_at: string
+          id?: string
+          key: string
+          value: Json
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          key?: string
+          value?: Json
+        }
+        Relationships: []
+      }
       test_cases: {
         Row: {
           created_at: string | null
@@ -7884,6 +7908,7 @@ export type Database = {
           language: string | null
           name: string | null
           preferences: Json | null
+          preferred_service: string | null
           updated_at: string | null
           user_id: string
         }
@@ -7893,6 +7918,7 @@ export type Database = {
           language?: string | null
           name?: string | null
           preferences?: Json | null
+          preferred_service?: string | null
           updated_at?: string | null
           user_id: string
         }
@@ -7902,6 +7928,7 @@ export type Database = {
           language?: string | null
           name?: string | null
           preferences?: Json | null
+          preferred_service?: string | null
           updated_at?: string | null
           user_id?: string
         }
@@ -8640,6 +8667,10 @@ export type Database = {
         Returns: undefined
       }
       clean_test_data: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+      cleanup_expired_cache: {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
