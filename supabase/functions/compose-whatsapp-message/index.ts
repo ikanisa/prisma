@@ -21,7 +21,10 @@ interface WhatsAppButton {
 
 interface ComposeRequest {
   mode: 'text' | 'interactive' | 'template' | 'image';
-  to: string;
+  recipient: string;
+  template?: string;
+  content?: any;
+  amount?: number;
   body_text?: string;
   button_options?: WhatsAppButton[];
   template_name?: string;
@@ -39,39 +42,93 @@ serve(async (req) => {
 
   try {
     const request: ComposeRequest = await req.json();
-    const { mode, to, body_text, button_options, template_name, template_params, image_url, header_text, footer_text } = request;
+    const { mode, recipient, template, content, amount, body_text, button_options, template_name, template_params, image_url, header_text, footer_text } = request;
+    const to = recipient || request.to;
     
-    console.log('Composing WhatsApp message:', { mode, to, template_name });
+    console.log('🔧 Composing WhatsApp message:', { mode, to, template });
 
     // Initialize Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    let payload: any = {
-      messaging_product: "whatsapp",
-      to: to.replace(/\D/g, ''), // Remove non-digits from phone number
-      recipient_type: "individual"
-    };
-
-    if (mode === 'text') {
-      // Simple text message
-      payload.type = "text";
-      payload.text = {
-        body: body_text || "Hello from easyMO!"
-      };
-    } 
-    else if (mode === 'interactive') {
-      // Interactive message with buttons
-      payload.type = "interactive";
-      payload.interactive = {
-        type: "button",
-        body: {
-          text: body_text || "Choose an option:"
+    let payload: any;
+    
+    if (mode === 'template' && template) {
+      // Get template from database
+      const { data: templateData, error } = await supabase
+        .from('whatsapp_templates')
+        .select('*')
+        .eq('template_name', template)
+        .single();
+        
+      if (error || !templateData) {
+        console.warn(`Template ${template} not found, using fallback`);
+        // Fallback to text message
+        payload = {
+          messaging_product: "whatsapp",
+          to: to.replace(/\D/g, ''),
+          type: "text",
+          text: {
+            body: content?.text || body_text || "Hello from easyMO!"
+          }
+        };
+      } else {
+        let messageText = templateData.template_content;
+        
+        // Replace variables in template
+        if (template === 'pay_offer_v1' && amount) {
+          messageText = messageText.replace('{{1}}', amount.toString());
+        }
+        if (template === 'summary_confirm_v1' && content?.details_summary) {
+          messageText = messageText.replace('{{1}}', content.details_summary);
+        }
+        
+        if (templateData.buttons && templateData.buttons.length > 0) {
+          payload = {
+            messaging_product: "whatsapp",
+            to: to.replace(/\D/g, ''),
+            type: "interactive",
+            interactive: {
+              type: "button",
+              body: {
+                text: messageText
+              },
+              action: {
+                buttons: templateData.buttons.slice(0, 3).map((btn: any) => ({
+                  type: "reply",
+                  reply: {
+                    id: btn.payload,
+                    title: btn.text.substring(0, 20) // WhatsApp button title limit
+                  }
+                }))
+              }
+            }
+          };
+        } else {
+          payload = {
+            messaging_product: "whatsapp", 
+            to: to.replace(/\D/g, ''),
+            type: "text",
+            text: {
+              body: messageText
+            }
+          };
+        }
+      }
+    } else if (mode === 'interactive' && (content || button_options)) {
+      payload = {
+        messaging_product: "whatsapp",
+        to: to.replace(/\D/g, ''),
+        type: "interactive",
+        interactive: {
+          type: "button",
+          body: {
+            text: body_text || content?.text || "Choose an option:"
+          }
         }
       };
 
-      // Add header if provided
       if (header_text) {
         payload.interactive.header = {
           type: "text",
@@ -79,17 +136,15 @@ serve(async (req) => {
         };
       }
 
-      // Add footer if provided
       if (footer_text) {
         payload.interactive.footer = {
           text: footer_text
         };
       }
 
-      // Convert button options to WhatsApp format
       if (button_options && button_options.length > 0) {
         payload.interactive.action = {
-          buttons: button_options.slice(0, 3).map((btn, idx) => ({ // Max 3 buttons for WhatsApp
+          buttons: button_options.slice(0, 3).map((btn, idx) => ({
             type: "reply",
             reply: {
               id: btn.payload || btn.reply?.id || `btn_${idx}`,
@@ -98,38 +153,29 @@ serve(async (req) => {
           }))
         };
       }
-    }
-    else if (mode === 'image') {
-      // Image message
-      payload.type = "image";
-      payload.image = {
-        link: image_url
+    } else if (mode === 'image') {
+      payload = {
+        messaging_product: "whatsapp",
+        to: to.replace(/\D/g, ''),
+        type: "image",
+        image: {
+          link: image_url
+        }
       };
       
       if (body_text) {
         payload.image.caption = body_text;
       }
-    }
-    else if (mode === 'template') {
-      // Template message
-      payload.type = "template";
-      payload.template = {
-        name: template_name || "hello_world",
-        language: {
-          code: "en"
+    } else {
+      // Default text message
+      payload = {
+        messaging_product: "whatsapp",
+        to: to.replace(/\D/g, ''),
+        type: "text",
+        text: {
+          body: content?.text || body_text || "Hello from easyMO!"
         }
       };
-
-      // Add template parameters if provided
-      if (template_params && Object.keys(template_params).length > 0) {
-        payload.template.components = [{
-          type: "body",
-          parameters: Object.values(template_params).map(value => ({
-            type: "text",
-            text: value
-          }))
-        }];
-      }
     }
 
     // Log the outgoing message to the outbound_queue table

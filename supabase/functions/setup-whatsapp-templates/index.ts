@@ -20,144 +20,107 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Cart Templates
-    const cartTemplates = [
+    // Onboarding Templates as specified in the prompt
+    const onboardingTemplates = [
       {
-        template_name: "cart_summary",
-        category: "TRANSACTIONAL", 
-        language: "en",
-        template_content: `🛒 Your Cart Summary
-
-Hi {{1}}! Your cart has {{2}} items totaling {{3}} RWF.
-
-Items:
-{{4}}
-
-Ready to checkout? Reply CHECKOUT to proceed.`,
-        variables: ["customer_name", "item_count", "total_amount", "item_list"],
-        status: "PENDING"
-      },
-      {
-        template_name: "cart_summary_rw", 
-        category: "TRANSACTIONAL",
-        language: "rw",
-        template_content: `🛒 Inyandiko yawe
-
-Muraho {{1}}! Inyandiko yawe ifite {{2}} bintu {{3}} RWF.
-
-Ibintu:
-{{4}}
-
-Witeguye kwishyura? Andika CHECKOUT.`,
-        variables: ["customer_name", "item_count", "total_amount", "item_list"],
-        status: "PENDING"
-      }
-    ];
-
-    // Payment Templates  
-    const paymentTemplates = [
-      {
-        template_name: "payment_confirmation",
-        category: "TRANSACTIONAL",
-        language: "en", 
-        template_content: `✅ Payment Confirmed
-
-Payment received! {{1}} RWF for order #{{2}}.
-
-USSD: {{3}}
-MoMo TX: {{4}}
-
-Your order is being prepared.`,
-        variables: ["amount", "order_id", "ussd_code", "momo_tx"],
-        status: "PENDING"
-      },
-      {
-        template_name: "payment_confirmation_rw",
-        category: "TRANSACTIONAL", 
-        language: "rw",
-        template_content: `✅ Kwishyura byemejwe
-
-Kwishyura byakiriwe! {{1}} RWF kuri order #{{2}}.
-
-USSD: {{3}}
-MoMo TX: {{4}}
-
-Order yawe irateguriwa.`,
-        variables: ["amount", "order_id", "ussd_code", "momo_tx"],
-        status: "PENDING"
-      },
-      {
-        template_name: "payment_failed",
-        category: "TRANSACTIONAL",
-        language: "en",
-        template_content: `❌ Payment Issue
-
-Payment for order #{{1}} failed.
-
-Amount: {{2}} RWF
-Reason: {{3}}
-
-Try again? Reply RETRY`,
-        variables: ["order_id", "amount", "failure_reason"],
-        status: "PENDING"
-      }
-    ];
-
-    // Rating Templates
-    const ratingTemplates = [
-      {
-        template_name: "rating_request",
+        template_name: "ask_momo_v1",
         category: "UTILITY",
         language: "en",
-        template_content: `⭐ Rate Your Experience
-
-Hi {{1}}! How was your order #{{2}}?
-
-Rate us 1-5:
-1️⃣ Poor
-2️⃣ Fair
-3️⃣ Good
-4️⃣ Very Good
-5️⃣ Excellent
-
-Just reply with a number!`,
-        variables: ["customer_name", "order_id"],
-        status: "PENDING"
+        template_content: `💳 I need your MoMo number to continue.`,
+        variables: [],
+        status: "PENDING",
+        buttons: [
+          { type: "quick_reply", text: "Use WhatsApp number", payload: "USE_WA" },
+          { type: "quick_reply", text: "Enter another", payload: "ENTER_MOMO" }
+        ]
       },
       {
-        template_name: "rating_request_rw",
+        template_name: "pay_offer_v1", 
+        category: "TRANSACTIONAL",
+        language: "en",
+        template_content: `💰 Payment for {{1}} RWF
+
+Your payment is ready to process.`,
+        variables: ["amount"],
+        status: "PENDING",
+        buttons: [
+          { type: "quick_reply", text: "✅ Pay Now", payload: "PAY_CONFIRM" },
+          { type: "quick_reply", text: "❌ Cancel", payload: "PAY_CANCEL" }
+        ]
+      },
+      {
+        template_name: "marketing_menu_v1",
         category: "UTILITY", 
-        language: "rw",
-        template_content: `⭐ Dushimangire
-
-Muraho {{1}}! Order #{{2}} yakunze bite?
-
-Dutange 1-5:
-1️⃣ Kibi
-2️⃣ Kibiri
-3️⃣ Byiza
-4️⃣ Byiza cyane
-5️⃣ Bitangaje
-
-Subiza ukoresheje numero!`,
-        variables: ["customer_name", "order_id"],
-        status: "PENDING"
+        language: "en",
+        template_content: `🎉 Thanks for using easyMO! Here's what else I can do:
+• 🚗 Book a ride
+• 🏪 Shop or find businesses  
+• 💼 Onboard as driver or merchant`,
+        variables: [],
+        status: "PENDING",
+        buttons: [
+          { type: "quick_reply", text: "Ride", payload: "NAV_RIDE" },
+          { type: "quick_reply", text: "Find businesses", payload: "NAV_SHOP" },
+          { type: "quick_reply", text: "Become a partner", payload: "NAV_PARTNER" }
+        ]
       },
       {
-        template_name: "rating_thanks",
+        template_name: "partner_type_v1",
         category: "UTILITY",
         language: "en", 
-        template_content: `🙏 Thank You!
-
-Thanks {{1}} for rating us {{2}}/5! {{3}}
-
-Your feedback helps us improve.`,
-        variables: ["customer_name", "rating", "custom_message"],
-        status: "PENDING"
+        template_content: `Select what you'd like to onboard as:`,
+        variables: [],
+        status: "PENDING",
+        buttons: [
+          { type: "quick_reply", text: "🚕 Moto Driver", payload: "OB_DRIVER" },
+          { type: "quick_reply", text: "🏥 Pharmacy", payload: "OB_PHARMACY" },
+          { type: "quick_reply", text: "🏪 Shop", payload: "OB_SHOP" }
+        ]
+      },
+      {
+        template_name: "driver_form_v1",
+        category: "UTILITY",
+        language: "en",
+        template_content: `🛵 *Driver onboarding*  
+1️⃣ Send number plate  
+2️⃣ Send log‑book photo  
+3️⃣ Confirm MoMo number`,
+        variables: [],
+        status: "PENDING", 
+        buttons: [
+          { type: "quick_reply", text: "Confirm", payload: "DRV_CONFIRM" }
+        ]
+      },
+      {
+        template_name: "pharmacy_form_v1", 
+        category: "UTILITY",
+        language: "en",
+        template_content: `🏥 *Pharmacy onboarding*  
+• Name  
+• Address / GPS  
+• MoMo code or number`,
+        variables: [],
+        status: "PENDING",
+        buttons: [
+          { type: "quick_reply", text: "Submit", payload: "PHA_SUBMIT" }
+        ]
+      },
+      {
+        template_name: "summary_confirm_v1",
+        category: "UTILITY", 
+        language: "en",
+        template_content: `Please confirm your details:  
+{{1}}`,
+        variables: ["details_summary"],
+        status: "PENDING",
+        buttons: [
+          { type: "quick_reply", text: "✅ Correct", payload: "DATA_OK" },
+          { type: "quick_reply", text: "✏️ Edit", payload: "DATA_EDIT" }
+        ]
       }
     ];
 
-    const allTemplates = [...cartTemplates, ...paymentTemplates, ...ratingTemplates];
+    const allTemplates = [...onboardingTemplates];
     
     const { data: templates, error: templateError } = await supabase
       .from('whatsapp_templates')

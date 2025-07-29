@@ -230,7 +230,12 @@ class OpenAIAssistantAgent {
       'bookRide': 'book-ride',
       'composeWhatsAppMessage': 'compose-whatsapp-message',
       'updateUserProfile': 'update-user-profile',
-      'saveFileToStorage': 'store-file'
+      'saveFileToStorage': 'store-file',
+      'isNewUser': 'is-new-user',
+      'getMissingUserData': 'get-missing-user-data',
+      'updateMomoNumber': 'update-momo-number',
+      'ocrDocument': 'ocr-document',
+      'onboardingHandler': 'onboarding-handler'
     };
 
     const functionName = toolMap[name];
