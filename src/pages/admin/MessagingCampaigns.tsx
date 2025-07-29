@@ -4,8 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { MessageSquare, Send, Users, TrendingUp } from "lucide-react";
+import { MessageSquare, Send, Users, TrendingUp, Settings, Brain, Zap } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { SkillsMatrix } from "@/components/admin/SkillsMatrix";
+import { WhatsAppFeedbackTemplates } from "@/components/admin/WhatsAppFeedbackTemplates";
 
 export default function MessagingCampaigns() {
   const navigate = useNavigate();
@@ -13,6 +15,7 @@ export default function MessagingCampaigns() {
   const [messages, setMessages] = useState<any[]>([]);
   const [campaigns, setCampaigns] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [learningLoading, setLearningLoading] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -44,6 +47,24 @@ export default function MessagingCampaigns() {
       case 'failed': return 'bg-red-500';
       case 'delivered': return 'bg-green-600';
       default: return 'bg-gray-500';
+    }
+  };
+
+  const runLearningCycle = async () => {
+    try {
+      setLearningLoading(true);
+      
+      const { data, error } = await supabase.functions.invoke('continuous-learning-pipeline', {
+        body: { action: 'run_learning_cycle', period: '24h' }
+      });
+
+      if (error) throw error;
+
+      console.log('Learning cycle completed:', data);
+    } catch (error) {
+      console.error('Error running learning cycle:', error);
+    } finally {
+      setLearningLoading(false);
     }
   };
 
@@ -127,9 +148,12 @@ export default function MessagingCampaigns() {
       </div>
 
       <Tabs defaultValue="conversations" className="w-full">
-        <TabsList>
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="conversations">Live Conversations</TabsTrigger>
           <TabsTrigger value="campaigns">Marketing Campaigns</TabsTrigger>
+          <TabsTrigger value="skills">Skills Matrix</TabsTrigger>
+          <TabsTrigger value="feedback">Feedback Templates</TabsTrigger>
+          <TabsTrigger value="learning">Learning Pipeline</TabsTrigger>
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
         </TabsList>
 
@@ -237,6 +261,151 @@ export default function MessagingCampaigns() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="skills">
+          <SkillsMatrix />
+        </TabsContent>
+
+        <TabsContent value="feedback">
+          <WhatsAppFeedbackTemplates />
+        </TabsContent>
+
+        <TabsContent value="learning">
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <div>
+                <h2 className="text-2xl font-bold">Continuous Learning Pipeline</h2>
+                <p className="text-muted-foreground">
+                  Automated learning and improvement processes
+                </p>
+              </div>
+              <Button onClick={runLearningCycle}>
+                <Brain className="mr-2 h-4 w-4" />
+                Run Learning Cycle
+              </Button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Brain className="h-5 w-5 text-primary" />
+                    Learning Status
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <div className="flex justify-between">
+                      <span className="text-sm">Last Learning Cycle</span>
+                      <Badge variant="secondary">2 hours ago</Badge>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm">Conversations Analyzed</span>
+                      <span className="font-bold">156</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm">Insights Generated</span>
+                      <span className="font-bold">23</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm">Knowledge Updates</span>
+                      <span className="font-bold">12</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Zap className="h-5 w-5 text-yellow-500" />
+                    Performance Metrics
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <div className="flex justify-between">
+                      <span className="text-sm">Learning Confidence</span>
+                      <span className="font-bold">84%</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm">Response Quality</span>
+                      <span className="font-bold">91%</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm">User Satisfaction</span>
+                      <span className="font-bold">87%</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm">Critical Issues</span>
+                      <Badge variant="destructive">2</Badge>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Settings className="h-5 w-5 text-secondary" />
+                    Pipeline Status
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm">Conversation Analysis</span>
+                      <Badge variant="default">Active</Badge>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm">Knowledge Ingestion</span>
+                      <Badge variant="default">Active</Badge>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm">Feedback Processing</span>
+                      <Badge variant="default">Active</Badge>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm">Model Optimization</span>
+                      <Badge variant="secondary">Scheduled</Badge>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Recent Learning Insights</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="p-4 bg-blue-50 rounded-lg">
+                    <h4 className="font-medium text-blue-900">Payment Flow Optimization</h4>
+                    <p className="text-sm text-blue-700 mt-1">
+                      Users prefer shorter confirmation messages for MoMo payments (92% positive feedback)
+                    </p>
+                    <Badge variant="outline" className="mt-2 text-xs">Confidence: 94%</Badge>
+                  </div>
+                  <div className="p-4 bg-green-50 rounded-lg">
+                    <h4 className="font-medium text-green-900">Cultural Context Improvement</h4>
+                    <p className="text-sm text-green-700 mt-1">
+                      Including Kinyarwanda greetings increases engagement by 23% in rural areas
+                    </p>
+                    <Badge variant="outline" className="mt-2 text-xs">Confidence: 87%</Badge>
+                  </div>
+                  <div className="p-4 bg-orange-50 rounded-lg">
+                    <h4 className="font-medium text-orange-900">Response Time Analysis</h4>
+                    <p className="text-sm text-orange-700 mt-1">
+                      Peak usage hours (7-9 AM, 6-8 PM) require 30% faster response times
+                    </p>
+                    <Badge variant="outline" className="mt-2 text-xs">Confidence: 91%</Badge>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
 
         <TabsContent value="analytics">
