@@ -53,7 +53,7 @@ serve(async (req) => {
     };
 
     // Generate QR code using external service or library
-    const qr_url = await generateQRCode(JSON.stringify(qr_data), payment_ref);
+    const qrResult = await generateQRCode(JSON.stringify(qr_data), payment_ref);
 
     // Create payment record if user_id provided
     let payment_id = null;
@@ -62,7 +62,7 @@ serve(async (req) => {
         p_user_id: user_id,
         p_amount: amount || null,
         p_momo_number: momo_number || null,
-        p_qr_url: qr_url,
+        p_qr_url: qrResult.url,
         p_ref: payment_ref,
         p_ussd_code: ussd_code,
         p_purpose: 'qr_payment'
@@ -89,7 +89,8 @@ serve(async (req) => {
     return new Response(JSON.stringify({
       success: true,
       data: {
-        qr_url,
+        qr_url: qrResult.url,
+        qr_base64: qrResult.base64,
         payment_ref,
         payment_id,
         qr_data,
@@ -130,26 +131,17 @@ async function generatePaymentRef(): Promise<string> {
   return `EM${dateStr}${randomNum}`;
 }
 
-async function generateQRCode(data: string, filename: string): Promise<string> {
+async function generateQRCode(data: string, filename: string): Promise<{ url: string, base64: string }> {
   try {
     // Use QR code generation service
-    const qrResponse = await fetch('https://api.qrserver.com/v1/create-qr-code/', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: new URLSearchParams({
-        size: '256x256',
-        data: data,
-        format: 'png',
-      }),
-    });
+    const qrResponse = await fetch(`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(data)}`);
 
     if (!qrResponse.ok) {
       throw new Error('Failed to generate QR code');
     }
 
     const qrBuffer = await qrResponse.arrayBuffer();
+    const base64Image = btoa(String.fromCharCode(...new Uint8Array(qrBuffer)));
 
     // Upload to Supabase Storage
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -174,7 +166,10 @@ async function generateQRCode(data: string, filename: string): Promise<string> {
       .from('qr-codes')
       .getPublicUrl(filePath);
 
-    return urlData.publicUrl;
+    return {
+      url: urlData.publicUrl,
+      base64: `data:image/png;base64,${base64Image}`
+    };
 
   } catch (error) {
     console.error('Error generating QR code:', error);

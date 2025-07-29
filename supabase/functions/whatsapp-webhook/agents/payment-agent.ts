@@ -75,12 +75,10 @@ Just send amount for instant QR!`;
 
   private async generateQRForReceiving(amount: number, user: any, whatsappNumber: string): Promise<string> {
     try {
-      const { data, error } = await this.supabase.functions.invoke('qr-payment-generator', {
+      const { data, error } = await this.supabase.functions.invoke('qr-render', {
         body: { 
-          action: 'generate',
+          momo_number: whatsappNumber,
           amount: amount,
-          phone: whatsappNumber,
-          type: 'receive',
           user_id: user.id
         }
       });
@@ -90,27 +88,13 @@ Just send amount for instant QR!`;
         return "Sorry, couldn't generate QR code. Please try again.";
       }
 
-      if (!data.qr_url) {
+      if (!data?.data?.qr_base64) {
+        console.error('No QR base64 in response:', data);
         return "Sorry, couldn't generate QR code. Please try again.";
       }
 
-      // Fetch the actual QR code image content
-      try {
-        const imageResponse = await fetch(data.qr_url);
-        if (!imageResponse.ok) {
-          throw new Error('Failed to fetch QR image');
-        }
-        
-        const imageBuffer = await imageResponse.arrayBuffer();
-        const base64Image = btoa(String.fromCharCode(...new Uint8Array(imageBuffer)));
-        
-        // Return the image as base64 data URL for WhatsApp
-        return `data:image/png;base64,${base64Image}`;
-        
-      } catch (fetchError) {
-        console.error('Failed to fetch QR image:', fetchError);
-        return "Sorry, couldn't retrieve QR code image. Please try again.";
-      }
+      // Return ONLY the QR code image as base64 - no text
+      return data.data.qr_base64;
 
     } catch (error) {
       console.error('QR generation failed:', error);
