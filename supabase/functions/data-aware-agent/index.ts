@@ -1,6 +1,12 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0';
+import { 
+  createChatCompletion,
+  generateIntelligentResponse,
+  type AIMessage,
+  type CompletionOptions
+} from "../_shared/openai-sdk.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -129,37 +135,26 @@ class AIDataAgent {
     const systemPrompt = this.buildDataAwarePrompt(userContext, dataContext);
     
     try {
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${this.openaiApiKey}`,
-          'Content-Type': 'application/json',
+      const messages: AIMessage[] = [
+        {
+          role: 'system',
+          content: systemPrompt
         },
-        body: JSON.stringify({
-          model: 'gpt-4.1-2025-04-14',
-          messages: [
-            {
-              role: 'system',
-              content: systemPrompt
-            },
-            {
-              role: 'user',
-              content: message
-            }
-          ],
-          max_tokens: 800,
-          temperature: 0.7,
-          presence_penalty: 0.1,
-          frequency_penalty: 0.1
-        })
+        {
+          role: 'user',
+          content: message
+        }
+      ];
+
+      const completion = await createChatCompletion(messages, {
+        model: 'gpt-4.1-2025-04-14',
+        max_tokens: 800,
+        temperature: 0.7,
+        presence_penalty: 0.1,
+        frequency_penalty: 0.1
       });
 
-      if (!response.ok) {
-        throw new Error(`OpenAI API error: ${response.status}`);
-      }
-
-      const data = await response.json();
-      const content = data.choices[0]?.message?.content;
+      const content = completion.choices[0]?.message?.content;
 
       // Try to parse as JSON for structured responses
       try {
@@ -172,7 +167,7 @@ class AIDataAgent {
         };
       }
     } catch (error) {
-      console.error('❌ OpenAI processing error:', error);
+      console.error('❌ OpenAI SDK processing error:', error);
       throw error;
     }
   }
