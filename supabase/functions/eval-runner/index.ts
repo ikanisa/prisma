@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getOpenAI, generateIntelligentResponse } from '../_shared/openai-sdk.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -226,29 +227,19 @@ Return ONLY a number from 1-10, nothing else.
 `;
 
   try {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o',
-        messages: [{
-          role: 'user',
-          content: evalPrompt
-        }],
-        max_tokens: 10,
-        temperature: 0.1
-      })
-    });
+    // Use OpenAI SDK with Rwanda-first intelligence
+    const response = await generateIntelligentResponse(
+      evalPrompt,
+      'You are an AI evaluation expert. Provide only a numeric score from 1-10.',
+      [],
+      {
+        model: 'gpt-4.1-2025-04-14',
+        temperature: 0.1,
+        max_tokens: 10
+      }
+    );
 
-    if (!response.ok) {
-      throw new Error('Failed to evaluate response');
-    }
-
-    const result = await response.json();
-    const scoreText = result.choices[0].message.content.trim();
+    const scoreText = response.trim();
     const score = parseInt(scoreText);
 
     return isNaN(score) ? 5 : Math.max(1, Math.min(10, score));

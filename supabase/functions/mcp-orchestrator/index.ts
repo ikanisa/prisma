@@ -2,6 +2,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getOpenAI, generateIntelligentResponse, analyzeIntent } from '../_shared/openai-sdk.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -314,42 +315,25 @@ Available services:
 - Payments: Mobile money integration
 - Business: Order from bars, pharmacies, shops`;
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          ...context.recentConversations.slice(0, 5).reverse().map((conv: any) => ({
-            role: conv.role === 'user' ? 'user' : 'assistant',
-            content: conv.message
-          })),
-          { role: 'user', content: text }
-        ],
+    // Use OpenAI SDK with Rwanda-first persona
+    const contextMessages = context.recentConversations.slice(0, 5).reverse().map((conv: any) => ({
+      role: conv.role === 'user' ? 'user' : 'assistant',
+      content: conv.message
+    }));
+    
+    const response = await generateIntelligentResponse(
+      text,
+      systemPrompt,
+      contextMessages.map(c => c.content),
+      { 
+        model: model as any,
         temperature: 0.7,
         max_tokens: 150
-      }),
-    });
-
-    const data = await response.json();
+      }
+    );
     
-    if (!data.choices || data.choices.length === 0) {
-      console.error('OpenAI API returned no choices:', data);
-      return {
-        message: "I apologize, but I'm having trouble generating a response right now. Please try again.",
-        action: null,
-        data: null
-      };
-    }
-    
-    const message = data.choices[0].message?.content;
-
     return {
-      message,
+      message: response,
       action: null,
       data: null
     };

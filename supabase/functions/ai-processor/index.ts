@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders, validateRequiredEnvVars } from "../_shared/cors.ts";
+import { getOpenAI, generateIntelligentResponse } from '../_shared/openai-sdk.ts';
 
 // CRITICAL SECURITY FIX: Validate environment variables at startup
 validateRequiredEnvVars([
@@ -216,29 +217,19 @@ Key easyMO benefits:
 - Instant QR code generation for MoMo payments`;
 
   try {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${OPENAI_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
+    // Use OpenAI SDK with Rwanda-first persona
+    const response = await generateIntelligentResponse(
+      content,
+      systemPrompt,
+      [],
+      {
         model: 'gpt-4o-mini',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: content }
-        ],
-        max_tokens: 150,
-        temperature: 0.7
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`OpenAI API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    return data.choices[0]?.message?.content || "Hi! I'm Aline from easyMO. How can I help you today?";
+        temperature: 0.7,
+        max_tokens: 150
+      }
+    );
+    
+    return response || "Hi! I'm Aline from easyMO. How can I help you today?";
   } catch (error) {
     console.error('OpenAI fallback failed:', error);
     return "Hi! I'm Aline from easyMO. How can I help you with mobile money payments today?";

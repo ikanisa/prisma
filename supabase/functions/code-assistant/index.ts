@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.50.1";
+import { assistantSDK, getOpenAI } from '../_shared/openai-sdk.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -28,24 +29,10 @@ serve(async (req) => {
 
     console.log('📞 Starting assistant conversation', { sessionId, messageLength: message?.length });
 
-    // Create a thread if sessionId is not provided
+    // Create a thread if sessionId is not provided using OpenAI SDK
     let threadId = sessionId;
     if (!threadId) {
-      const threadResponse = await fetch('https://api.openai.com/v1/threads', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${OPENAI_API_KEY}`,
-          'Content-Type': 'application/json',
-          'OpenAI-Beta': 'assistants=v2'
-        },
-        body: JSON.stringify({})
-      });
-
-      if (!threadResponse.ok) {
-        throw new Error(`Failed to create thread: ${threadResponse.statusText}`);
-      }
-
-      const thread = await threadResponse.json();
+      const thread = await assistantSDK.createThread();
       threadId = thread.id;
       console.log('🧵 Created new thread:', threadId);
     }

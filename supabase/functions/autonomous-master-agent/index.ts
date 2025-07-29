@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
+import { getOpenAI, generateIntelligentResponse, analyzeIntent } from '../_shared/openai-sdk.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -135,45 +136,30 @@ class OmniMasterAgent {
   }
 
   private async processIntent(message: string, context: UserContext) {
-    const systemPrompt = `
-You are the cognitive engine for easyMO Omni Agent serving Rwanda.
-
-DOMAIN CLASSIFICATION:
-1. payments - MoMo QR, sending money, receiving payments
-2. mobility - moto taxi rides, driver trips, passenger requests  
-3. ordering - bars, pharmacies, hardware stores, farmers
-4. listings - real estate, vehicles
-5. support - help, complaints, escalation
-
-Analyze the message and return JSON: {
-  "domain": "string",
-  "intent": "string", 
-  "confidence": number,
-  "slots": {},
-  "language_detected": "en|rw|fr"
-}
-`;
-
     try {
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${this.openaiApiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'gpt-4o',
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: `Message: "${message}"\nContext: ${JSON.stringify(context.current_state)}` }
-          ],
-          temperature: 0.1,
-        }),
-      });
-
-      const result = await response.json();
-      return JSON.parse(result.choices[0].message.content);
+      // Use OpenAI SDK with Rwanda-first intelligence
+      const analysis = await analyzeIntent(message);
+      
+      // Map to easyMO domains
+      const domainMapping: Record<string, string> = {
+        'payment': 'payments',
+        'ride_request': 'mobility', 
+        'product_browse': 'ordering',
+        'driver_signup': 'mobility',
+        'event_inquiry': 'listings',
+        'support': 'support',
+        'general': 'support'
+      };
+      
+      return {
+        domain: domainMapping[analysis.intent] || 'support',
+        intent: analysis.intent,
+        confidence: analysis.confidence,
+        slots: analysis.entities,
+        language_detected: 'en' // Will enhance with language detection
+      };
     } catch (error) {
+      console.error('Intent processing error:', error);
       return {
         domain: 'support',
         intent: 'help',

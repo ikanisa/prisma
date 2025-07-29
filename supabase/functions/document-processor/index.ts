@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
+import { getOpenAI, generateIntelligentResponse, createEmbedding } from '../_shared/openai-sdk.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -235,36 +236,22 @@ async function generateSummary(content: string) {
     throw new Error('OpenAI API key not configured');
   }
 
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${OPENAI_API_KEY}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
+  // Use OpenAI SDK with Rwanda-first intelligence
+  const systemPrompt = 'You are a knowledge summarization expert for Rwanda fintech AI agents. Create concise, actionable summaries focusing on mobile money, banking, and local business practices.';
+  
+  const response = await generateIntelligentResponse(
+    `Summarize this content for AI agent learning in Rwanda fintech context:\n\n${content.slice(0, 4000)}`,
+    systemPrompt,
+    [],
+    {
       model: 'gpt-4o-mini',
-      messages: [
-        {
-          role: 'system',
-          content: 'You are a knowledge summarization expert for Rwanda fintech AI agents. Create concise, actionable summaries focusing on mobile money, banking, and local business practices.'
-        },
-        {
-          role: 'user',
-          content: `Summarize this content for AI agent learning in Rwanda fintech context:\n\n${content.slice(0, 4000)}`
-        }
-      ],
       temperature: 0.3,
       max_tokens: 500
-    }),
-  });
+    }
+  );
 
-  if (!response.ok) {
-    throw new Error(`OpenAI summarization failed: ${response.statusText}`);
-  }
-
-  const data = await response.json();
   return {
-    summary: data.choices[0].message.content,
+    summary: response,
     summary_timestamp: new Date().toISOString()
   };
 }
@@ -274,41 +261,26 @@ async function generateTags(content: string) {
     throw new Error('OpenAI API key not configured');
   }
 
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${OPENAI_API_KEY}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
+  // Use OpenAI SDK with Rwanda-first intelligence
+  const systemPrompt = 'Generate relevant tags for Rwanda fintech content. Focus on: mobile_money, mtn_momo, airtel_money, banking, kinyarwanda, ussd, payments, regulations, business_practices, rural_banking, microfinance';
+  
+  const response = await generateIntelligentResponse(
+    `Generate 5-10 relevant tags for this content (return as JSON array of strings):\n\n${content.slice(0, 2000)}`,
+    systemPrompt,
+    [],
+    {
       model: 'gpt-4o-mini',
-      messages: [
-        {
-          role: 'system',
-          content: 'Generate relevant tags for Rwanda fintech content. Focus on: mobile_money, mtn_momo, airtel_money, banking, kinyarwanda, ussd, payments, regulations, business_practices, rural_banking, microfinance'
-        },
-        {
-          role: 'user',
-          content: `Generate 5-10 relevant tags for this content (return as JSON array of strings):\n\n${content.slice(0, 2000)}`
-        }
-      ],
       temperature: 0.2,
       max_tokens: 200
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`OpenAI tagging failed: ${response.statusText}`);
-  }
-
-  const data = await response.json();
+    }
+  );
   let tags: string[] = [];
   
   try {
-    tags = JSON.parse(data.choices[0].message.content);
+    tags = JSON.parse(response);
   } catch {
     // Fallback: extract tags from text
-    tags = data.choices[0].message.content
+    tags = response
       .split(/[,\n]/)
       .map((tag: string) => tag.trim().replace(/[^\w\s]/g, ''))
       .filter((tag: string) => tag.length > 0)
@@ -332,23 +304,10 @@ async function generateEmbeddings(content: string) {
 
   for (let i = 0; i < chunks.length; i++) {
     const chunk = chunks[i];
-    const response = await fetch('https://api.openai.com/v1/embeddings', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${OPENAI_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'text-embedding-3-small',
-        input: chunk
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`OpenAI embedding failed: ${response.statusText}`);
-    }
-
-    const data = await response.json();
+    
+    // Use OpenAI SDK for embeddings
+    const data = await createEmbedding(chunk, 'text-embedding-3-small');
+    
     embeddings.push({
       chunk_index: i,
       chunk_text: chunk,

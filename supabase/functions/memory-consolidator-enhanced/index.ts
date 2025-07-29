@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0';
+import { getOpenAI, generateIntelligentResponse } from '../_shared/openai-sdk.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -135,29 +136,19 @@ Extract:
 
 Return a concise summary focusing on actionable insights for future conversations.`;
 
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${openaiApiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
+  // Use OpenAI SDK with Rwanda-first intelligence
+  const systemPrompt = 'You are a memory consolidation system for easyMO Rwanda that extracts key user insights from conversation history. Focus on mobile money patterns, local business needs, and cultural preferences.';
+  
+  const consolidatedSummary = await generateIntelligentResponse(
+    summaryPrompt,
+    systemPrompt,
+    [],
+    {
       model: 'gpt-4.1-2025-04-14',
-      messages: [
-        { role: 'system', content: 'You are a memory consolidation system that extracts key user insights from conversation history.' },
-        { role: 'user', content: summaryPrompt }
-      ],
       temperature: 0.3,
       max_tokens: 1000
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`OpenAI API error: ${response.status}`);
-  }
-
-  const data = await response.json();
-  const consolidatedSummary = data.choices[0].message.content;
+    }
+  );
 
   // Save consolidated summary
   const startTime = conversationTexts[conversationTexts.length - 1]?.startTime || cutoffDate;
