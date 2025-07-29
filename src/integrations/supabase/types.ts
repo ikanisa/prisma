@@ -7673,8 +7673,16 @@ export type Database = {
               _max_requests?: number
               _window_minutes?: number
             }
-          | { identifier: string; max_requests: number; window_minutes: number }
-        Returns: boolean
+          | {
+              identifier: string
+              max_requests?: number
+              window_seconds?: number
+            }
+        Returns: {
+          allowed: boolean
+          remaining: number
+          reset_time: number
+        }[]
       }
       clean_test_data: {
         Args: Record<PropertyKey, never>
