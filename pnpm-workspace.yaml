@@ -1,4 +1,6 @@
 # pnpm Workspace Configuration for easyMO Refactor
 packages:
-  - "apps/*"
   - "packages/*"
+  - "packages/lib-core"
+  - "packages/types"
+  - "packages/edge-functions"
