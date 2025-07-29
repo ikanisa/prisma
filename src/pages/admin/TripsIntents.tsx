@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { MapPin, Clock, User, Car } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { DynamicUserJourneyManager } from "@/components/admin/DynamicUserJourneyManager";
 
 export default function TripsIntents() {
   const [trips, setTrips] = useState<any[]>([]);
@@ -198,115 +199,7 @@ export default function TripsIntents() {
         </TabsContent>
 
         <TabsContent value="journeys">
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Driver Onboarding Journey</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="prose max-w-none">
-                  <ol className="list-decimal space-y-2">
-                    <li>Driver sends "driver on" via WhatsApp</li>
-                    <li>System prompts for location sharing</li>
-                    <li>AI validates vehicle plate number format</li>
-                    <li>System creates driver profile with MoMo code</li>
-                    <li>Driver status set to "online" and available for bookings</li>
-                    <li>Welcome message sent with trip management instructions</li>
-                  </ol>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Driver Trip Scheduling</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="prose max-w-none">
-                  <ol className="list-decimal space-y-2">
-                    <li>Driver shares pickup location via WhatsApp</li>
-                    <li>System creates trip record with driver location</li>
-                    <li>AI estimates price based on route and demand</li>
-                    <li>Trip becomes available for passenger matching</li>
-                    <li>Driver receives confirmation with trip ID</li>
-                    <li>Real-time updates sent for booking requests</li>
-                  </ol>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Passenger Trip Scheduling</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="prose max-w-none">
-                  <ol className="list-decimal space-y-2">
-                    <li>Passenger sends "ride" command via WhatsApp</li>
-                    <li>System requests pickup location sharing</li>
-                    <li>AI creates passenger intent with location data</li>
-                    <li>System searches for nearby available trips</li>
-                    <li>List of matching trips sent to passenger</li>
-                    <li>Passenger selects preferred option by number</li>
-                  </ol>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Passenger Booking Process</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="prose max-w-none">
-                  <ol className="list-decimal space-y-2">
-                    <li>Passenger replies with trip number (e.g., "1")</li>
-                    <li>System creates booking record linking passenger to trip</li>
-                    <li>Booking request sent to driver for confirmation</li>
-                    <li>Passenger receives booking confirmation with details</li>
-                    <li>Payment instructions sent via MoMo integration</li>
-                    <li>Trip status updated to "booked" when confirmed</li>
-                  </ol>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Driver Trip Offering</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="prose max-w-none">
-                  <ol className="list-decimal space-y-2">
-                    <li>Driver creates trip by sharing location</li>
-                    <li>System sets default seat availability and pricing</li>
-                    <li>Trip published to nearby passenger search results</li>
-                    <li>Real-time notifications for incoming booking requests</li>
-                    <li>Driver can modify trip details via WhatsApp commands</li>
-                    <li>Trip automatically expires after set duration</li>
-                  </ol>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Driver Trip/Booking Confirmation</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="prose max-w-none">
-                  <ol className="list-decimal space-y-2">
-                    <li>Driver receives booking request notification</li>
-                    <li>System shows passenger details and pickup location</li>
-                    <li>Driver responds "yes/accept" or "no/decline"</li>
-                    <li>If accepted: passenger and driver details exchanged</li>
-                    <li>Trip status updated to "confirmed" in system</li>
-                    <li>Both parties receive contact info and meeting instructions</li>
-                  </ol>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+          <DynamicUserJourneyManager />
         </TabsContent>
       </Tabs>
     </div>

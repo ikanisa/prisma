@@ -57,6 +57,12 @@ serve(async (req) => {
         return await updateJourneyPatterns(req, supabase, openai);
       case 'real_time_insights':
         return await getRealTimeInsights(req, supabase, openai);
+      case 'generate_ai_journey':
+        return await generateAIJourney(req, supabase, openai);
+      case 'optimize_journey':
+        return await optimizeJourney(req, supabase, openai);
+      case 'update_from_interactions':
+        return await updateFromInteractions(req, supabase, openai);
       default:
         return await processJourneyUpdate(req, supabase, openai);
     }
