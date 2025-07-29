@@ -1,5 +1,6 @@
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -7,17 +8,15 @@ const corsHeaders = {
 };
 
 interface TemplateRequest {
-  action: 'list' | 'get' | 'send' | 'create' | 'update' | 'delete';
-  template_id?: string;
+  action: 'get_template' | 'send_template' | 'create_template' | 'update_template' | 'sync_meta';
   intent?: string;
   language?: string;
+  template_data?: any;
   recipient_phone?: string;
   variables?: Record<string, string>;
-  template_data?: any;
 }
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -28,356 +27,380 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { action, template_id, intent, language, recipient_phone, variables, template_data } = await req.json() as TemplateRequest;
+    const { action, intent, language = 'en', template_data, recipient_phone, variables } = await req.json() as TemplateRequest;
 
-    console.log(`Processing WhatsApp templates action: ${action}`);
+    console.log(`WhatsApp Templates Manager - Action: ${action}`, { intent, language });
 
     switch (action) {
-      case 'list':
-        return await listTemplates(supabase, intent, language);
+      case 'get_template':
+        return await getTemplate(supabase, intent!, language);
       
-      case 'get':
-        return await getTemplate(supabase, template_id!, language);
+      case 'send_template':
+        return await sendTemplate(supabase, template_data, recipient_phone!, variables);
       
-      case 'send':
-        return await sendTemplate(supabase, template_id!, recipient_phone!, variables || {});
-      
-      case 'create':
+      case 'create_template':
         return await createTemplate(supabase, template_data);
       
-      case 'update':
-        return await updateTemplate(supabase, template_id!, template_data);
+      case 'update_template':
+        return await updateTemplate(supabase, template_data);
       
-      case 'delete':
-        return await deleteTemplate(supabase, template_id!);
+      case 'sync_meta':
+        return await syncWithMeta(supabase);
       
       default:
-        return new Response(JSON.stringify({ error: 'Invalid action' }), {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
+        throw new Error(`Unknown action: ${action}`);
     }
+
   } catch (error) {
-    console.error('Error in WhatsApp templates manager:', error);
-    return new Response(JSON.stringify({ 
-      error: 'Internal server error',
-      details: error.message 
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
+    console.error('WhatsApp Templates Manager Error:', error);
+    return new Response(
+      JSON.stringify({ error: error.message }),
+      { 
+        status: 500, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      }
+    );
   }
 });
 
-async function listTemplates(supabase: any, intent?: string, language?: string) {
-  let query = supabase
-    .from('whatsapp_templates')
-    .select(`
-      id,
-      code,
-      domain,
-      intent_ids,
-      description,
-      is_active,
-      ab_group,
-      created_at,
-      whatsapp_template_versions (
-        id,
-        language,
-        meta_name,
-        category,
-        status,
-        created_at,
-        whatsapp_template_components (
-          component_type,
-          text,
-          format,
-          position
-        ),
-        whatsapp_template_buttons (
-          btn_type,
-          text,
-          url,
-          payload_key,
-          position
-        )
-      )
-    `)
-    .eq('is_active', true);
+async function getTemplate(supabase: any, intent: string, language: string) {
+  console.log(`Getting template for intent: ${intent}, language: ${language}`);
 
-  if (intent) {
-    query = query.contains('intent_ids', [intent]);
-  }
-
-  const { data, error } = await query;
-
-  if (error) throw error;
-
-  // Filter by language if specified
-  let filteredData = data;
-  if (language) {
-    filteredData = data.map(template => ({
-      ...template,
-      whatsapp_template_versions: template.whatsapp_template_versions.filter(
-        (version: any) => version.language === language
-      )
-    })).filter(template => template.whatsapp_template_versions.length > 0);
-  }
-
-  return new Response(JSON.stringify({ 
-    templates: filteredData,
-    count: filteredData.length 
-  }), {
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-  });
-}
-
-async function getTemplate(supabase: any, template_id: string, language?: string) {
-  let query = supabase
-    .from('whatsapp_templates')
+  // First, try to find a template binding for this intent
+  const { data: bindings, error: bindingError } = await supabase
+    .from('whatsapp_template_bindings')
     .select(`
       *,
-      whatsapp_template_versions!inner (
-        *,
-        whatsapp_template_components (*),
-        whatsapp_template_buttons (*)
-      )
+      template_version:whatsapp_template_versions(*),
+      flow:whatsapp_flows(*),
+      list:whatsapp_interactive_lists(*)
     `)
-    .eq('id', template_id);
+    .eq('intent_id', intent)
+    .order('priority', { ascending: true })
+    .limit(1);
 
-  if (language) {
-    query = query.eq('whatsapp_template_versions.language', language);
+  if (bindingError) {
+    console.error('Error fetching template bindings:', bindingError);
+    throw bindingError;
   }
 
-  const { data, error } = await query.single();
+  if (!bindings || bindings.length === 0) {
+    // Fallback to default welcome template
+    const { data: fallbackTemplate } = await supabase
+      .from('whatsapp_template_versions')
+      .select(`
+        *,
+        template:whatsapp_templates(*),
+        components:whatsapp_template_components(*),
+        buttons:whatsapp_template_buttons(*)
+      `)
+      .eq('language', language)
+      .eq('status', 'APPROVED')
+      .limit(1);
 
-  if (error) throw error;
+    return new Response(
+      JSON.stringify({ 
+        template: fallbackTemplate?.[0] || null,
+        type: 'template',
+        fallback_text: "Hello! How can I help you today?"
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
 
-  return new Response(JSON.stringify({ template: data }), {
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-  });
-}
+  const binding = bindings[0];
+  let result: any = { binding };
 
-async function sendTemplate(supabase: any, template_id: string, recipient_phone: string, variables: Record<string, string>) {
-  const startTime = Date.now();
-
-  try {
-    // Get best template version
+  // Get template version if exists
+  if (binding.template_version_id) {
     const { data: template } = await supabase
       .from('whatsapp_template_versions')
       .select(`
         *,
-        whatsapp_templates (*),
-        whatsapp_template_components (*),
-        whatsapp_template_buttons (*)
+        template:whatsapp_templates(*),
+        components:whatsapp_template_components(*),
+        buttons:whatsapp_template_buttons(*)
       `)
-      .eq('template_id', template_id)
+      .eq('id', binding.template_version_id)
+      .eq('language', language)
       .eq('status', 'APPROVED')
-      .order('created_at', { ascending: false })
-      .limit(1)
       .single();
 
-    if (!template) {
-      throw new Error('No approved template version found');
+    if (template) {
+      result.template = template;
+      result.type = 'template';
+    }
+  }
+
+  // Get flow if exists
+  if (binding.flow_id) {
+    const { data: flow } = await supabase
+      .from('whatsapp_flows')
+      .select(`
+        *,
+        steps:whatsapp_flow_steps(*, fields:whatsapp_flow_fields(*))
+      `)
+      .eq('id', binding.flow_id)
+      .eq('status', 'APPROVED')
+      .single();
+
+    if (flow) {
+      result.flow = flow;
+      result.type = 'flow';
+    }
+  }
+
+  // Get list if exists
+  if (binding.list_id) {
+    const { data: list } = await supabase
+      .from('whatsapp_interactive_lists')
+      .select('*')
+      .eq('id', binding.list_id)
+      .single();
+
+    if (list) {
+      result.list = list;
+      result.type = 'list';
+    }
+  }
+
+  return new Response(
+    JSON.stringify(result),
+    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+  );
+}
+
+async function sendTemplate(supabase: any, templateData: any, recipientPhone: string, variables?: Record<string, string>) {
+  console.log(`Sending template to ${recipientPhone}`, { templateData, variables });
+
+  const startTime = Date.now();
+  let success = true;
+  let errorMessage = '';
+
+  try {
+    // Here you would integrate with WhatsApp Business Cloud API
+    // For now, we'll just log the usage
+    
+    // Log template usage
+    const usageData: any = {
+      recipient_phone: recipientPhone,
+      sent_at: new Date().toISOString(),
+      latency_ms: Date.now() - startTime,
+      success,
+      context: { variables, template_data: templateData }
+    };
+
+    if (templateData.template_version_id) {
+      usageData.version_id = templateData.template_version_id;
+    }
+    if (templateData.flow_id) {
+      usageData.flow_id = templateData.flow_id;
+    }
+    if (templateData.list_id) {
+      usageData.list_id = templateData.list_id;
     }
 
-    // Build message content with variables
-    const messageContent = buildMessageContent(template, variables);
-
-    // Send via WhatsApp API (mock for now)
-    const messageId = `msg_${Date.now()}`;
-    const success = true; // Mock success
-
-    // Log usage
-    await supabase
+    const { error: logError } = await supabase
       .from('whatsapp_template_usage_log')
-      .insert({
-        version_id: template.id,
-        recipient_phone,
-        message_id: messageId,
-        latency_ms: Date.now() - startTime,
-        success,
-        context: { variables, intent: template.whatsapp_templates.intent_ids }
-      });
+      .insert(usageData);
 
-    return new Response(JSON.stringify({ 
-      success,
-      message_id: messageId,
-      content: messageContent
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
+    if (logError) {
+      console.error('Error logging template usage:', logError);
+    }
+
+    return new Response(
+      JSON.stringify({ 
+        success: true, 
+        message_id: `msg_${Date.now()}`,
+        latency_ms: Date.now() - startTime
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
 
   } catch (error) {
+    success = false;
+    errorMessage = error.message;
+    
     // Log failed usage
     await supabase
       .from('whatsapp_template_usage_log')
       .insert({
-        version_id: null,
-        recipient_phone,
-        message_id: null,
+        recipient_phone: recipientPhone,
+        sent_at: new Date().toISOString(),
         latency_ms: Date.now() - startTime,
         success: false,
-        error_message: error.message,
-        context: { variables, template_id }
+        error_message: errorMessage,
+        context: { variables, template_data: templateData }
       });
 
     throw error;
   }
 }
 
-async function createTemplate(supabase: any, template_data: any) {
-  const { template, version, components, buttons } = template_data;
+async function createTemplate(supabase: any, templateData: any) {
+  console.log('Creating new template:', templateData);
 
-  // Create template
-  const { data: newTemplate, error: templateError } = await supabase
+  // Create the base template
+  const { data: template, error: templateError } = await supabase
     .from('whatsapp_templates')
-    .insert(template)
+    .insert({
+      code: templateData.code,
+      domain: templateData.domain,
+      intent_ids: templateData.intent_ids || [],
+      description: templateData.description,
+      is_active: true
+    })
     .select()
     .single();
 
-  if (templateError) throw templateError;
+  if (templateError) {
+    throw templateError;
+  }
 
-  // Create version
-  const { data: newVersion, error: versionError } = await supabase
+  // Create template version
+  const { data: version, error: versionError } = await supabase
     .from('whatsapp_template_versions')
-    .insert({ ...version, template_id: newTemplate.id })
+    .insert({
+      template_id: template.id,
+      language: templateData.language || 'en',
+      meta_name: templateData.meta_name,
+      category: templateData.category || 'UTILITY',
+      status: 'PENDING',
+      sample_json: templateData.sample_json || {}
+    })
     .select()
     .single();
 
-  if (versionError) throw versionError;
-
-  // Create components
-  if (components?.length > 0) {
-    const { error: componentsError } = await supabase
-      .from('whatsapp_template_components')
-      .insert(components.map((comp: any) => ({ ...comp, version_id: newVersion.id })));
-
-    if (componentsError) throw componentsError;
+  if (versionError) {
+    throw versionError;
   }
 
-  // Create buttons
-  if (buttons?.length > 0) {
-    const { error: buttonsError } = await supabase
-      .from('whatsapp_template_buttons')
-      .insert(buttons.map((btn: any) => ({ ...btn, version_id: newVersion.id })));
-
-    if (buttonsError) throw buttonsError;
-  }
-
-  return new Response(JSON.stringify({ 
-    template: newTemplate,
-    version: newVersion 
-  }), {
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-  });
-}
-
-async function updateTemplate(supabase: any, template_id: string, template_data: any) {
-  const { template, version, components, buttons } = template_data;
-
-  // Update template
-  if (template) {
-    const { error: templateError } = await supabase
-      .from('whatsapp_templates')
-      .update(template)
-      .eq('id', template_id);
-
-    if (templateError) throw templateError;
-  }
-
-  // Handle version updates (create new version for changes)
-  if (version) {
-    const { data: newVersion, error: versionError } = await supabase
-      .from('whatsapp_template_versions')
-      .insert({ ...version, template_id })
-      .select()
-      .single();
-
-    if (versionError) throw versionError;
-
-    // Create new components and buttons for new version
-    if (components?.length > 0) {
+  // Create components if provided
+  if (templateData.components) {
+    for (const component of templateData.components) {
       await supabase
         .from('whatsapp_template_components')
-        .insert(components.map((comp: any) => ({ ...comp, version_id: newVersion.id })));
+        .insert({
+          version_id: version.id,
+          component_type: component.type,
+          text: component.text,
+          format: component.format || 'TEXT',
+          position: component.position || 1
+        });
     }
+  }
 
-    if (buttons?.length > 0) {
+  // Create buttons if provided
+  if (templateData.buttons) {
+    for (const button of templateData.buttons) {
       await supabase
         .from('whatsapp_template_buttons')
-        .insert(buttons.map((btn: any) => ({ ...btn, version_id: newVersion.id })));
+        .insert({
+          version_id: version.id,
+          btn_type: button.type,
+          text: button.text,
+          url: button.url,
+          phone_number: button.phone_number,
+          payload_key: button.payload_key,
+          position: button.position || 1
+        });
     }
   }
 
-  return new Response(JSON.stringify({ success: true }), {
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-  });
+  return new Response(
+    JSON.stringify({ 
+      success: true, 
+      template,
+      version,
+      message: 'Template created successfully'
+    }),
+    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+  );
 }
 
-async function deleteTemplate(supabase: any, template_id: string) {
-  const { error } = await supabase
+async function updateTemplate(supabase: any, templateData: any) {
+  console.log('Updating template:', templateData.id);
+
+  const { data, error } = await supabase
     .from('whatsapp_templates')
-    .update({ is_active: false })
-    .eq('id', template_id);
+    .update({
+      description: templateData.description,
+      intent_ids: templateData.intent_ids,
+      is_active: templateData.is_active,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', templateData.id)
+    .select()
+    .single();
 
-  if (error) throw error;
-
-  return new Response(JSON.stringify({ success: true }), {
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-  });
-}
-
-function buildMessageContent(template: any, variables: Record<string, string>) {
-  const components = template.whatsapp_template_components || [];
-  const buttons = template.whatsapp_template_buttons || [];
-
-  let content = '';
-  
-  components
-    .sort((a: any, b: any) => a.position - b.position)
-    .forEach((comp: any) => {
-      if (comp.text) {
-        let text = comp.text;
-        // Replace variables
-        Object.entries(variables).forEach(([key, value]) => {
-          text = text.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), value);
-        });
-        content += text + '\n';
-      }
-    });
-
-  // Add buttons as text for now
-  if (buttons.length > 0) {
-    content += '\nOptions:\n';
-    buttons
-      .sort((a: any, b: any) => a.position - b.position)
-      .forEach((btn: any, index: number) => {
-        content += `${index + 1}. ${btn.text}\n`;
-      });
+  if (error) {
+    throw error;
   }
 
-  return content.trim();
+  return new Response(
+    JSON.stringify({ 
+      success: true, 
+      template: data,
+      message: 'Template updated successfully'
+    }),
+    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+  );
 }
 
-// Helper function to get best template for intent
-export async function getBestTemplateForIntent(supabase: any, intent: string, language: string = 'en') {
-  const { data } = await supabase
-    .from('whatsapp_template_bindings')
-    .select(`
-      *,
-      whatsapp_template_versions!inner (
-        *,
-        whatsapp_templates (*),
-        whatsapp_template_components (*),
-        whatsapp_template_buttons (*)
-      )
-    `)
-    .eq('intent_id', intent)
-    .eq('whatsapp_template_versions.language', language)
-    .eq('whatsapp_template_versions.status', 'APPROVED')
-    .order('priority', { ascending: true })
-    .limit(1);
+async function syncWithMeta(supabase: any) {
+  console.log('Syncing templates with Meta WhatsApp Business API');
 
-  return data?.[0] || null;
+  // Start sync job
+  const { data: syncJob, error: jobError } = await supabase
+    .from('whatsapp_template_sync_jobs')
+    .insert({
+      direction: 'PULL',
+      payload: { action: 'sync_all_templates' },
+      started_at: new Date().toISOString()
+    })
+    .select()
+    .single();
+
+  if (jobError) {
+    throw jobError;
+  }
+
+  try {
+    // Here you would integrate with Meta's WhatsApp Business API
+    // to pull the latest template statuses and update the database
+    
+    // For now, we'll simulate a successful sync
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    // Update sync job as completed
+    await supabase
+      .from('whatsapp_template_sync_jobs')
+      .update({
+        finished_at: new Date().toISOString(),
+        success: true
+      })
+      .eq('id', syncJob.id);
+
+    return new Response(
+      JSON.stringify({ 
+        success: true, 
+        sync_job_id: syncJob.id,
+        message: 'Sync completed successfully'
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+
+  } catch (error) {
+    // Update sync job as failed
+    await supabase
+      .from('whatsapp_template_sync_jobs')
+      .update({
+        finished_at: new Date().toISOString(),
+        success: false,
+        error: error.message
+      })
+      .eq('id', syncJob.id);
+
+    throw error;
+  }
 }

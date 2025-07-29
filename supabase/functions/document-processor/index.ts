@@ -127,6 +127,40 @@ serve(async (req) => {
       // Update the document/module with results
       if (targetTable && targetId) {
         await updateDocumentWithResults(supabase, targetTable, targetId, results, stage);
+        
+        // Trigger learning and journey pattern updates for comprehensive processing
+        if (stage === 'all' && results.processed_all_stages) {
+          try {
+            console.log('Triggering dynamic learning from document content...');
+            await supabase.functions.invoke('dynamic-learning-processor', {
+              body: {
+                action: 'process_full_document',
+                document_id: targetId,
+                content: documentContent,
+                document_type: 'processed_document',
+                processing_results: results
+              }
+            });
+
+            console.log('Triggering user journey pattern updates...');
+            await supabase.functions.invoke('dynamic-user-journey-tracker', {
+              body: {
+                action: 'update_patterns',
+                source: 'document_learning',
+                document_id: targetId,
+                insights: {
+                  content_summary: results.summary,
+                  extracted_tags: results.auto_tags,
+                  document_type: 'knowledge_base',
+                  processing_results: results
+                }
+              }
+            });
+          } catch (learningError) {
+            console.error('Error triggering learning updates:', learningError);
+            // Don't fail the main process for learning errors
+          }
+        }
       }
 
       const executionTime = Date.now() - startTime;
