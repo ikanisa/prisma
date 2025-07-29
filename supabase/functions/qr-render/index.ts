@@ -133,15 +133,64 @@ async function generatePaymentRef(): Promise<string> {
 
 async function generateQRCode(data: string, filename: string): Promise<{ url: string, base64: string }> {
   try {
-    // Use QR code generation service
-    const qrResponse = await fetch(`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(data)}`);
-
-    if (!qrResponse.ok) {
-      throw new Error('Failed to generate QR code');
+    const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+    if (!openAIApiKey) {
+      throw new Error('OpenAI API key not configured');
     }
 
-    const qrBuffer = await qrResponse.arrayBuffer();
-    const base64Image = btoa(String.fromCharCode(...new Uint8Array(qrBuffer)));
+    // Parse the QR data to get payment details for better prompt
+    let qrData;
+    try {
+      qrData = JSON.parse(data);
+    } catch {
+      qrData = { ussd_code: data };
+    }
+
+    // Create a detailed prompt for QR code generation
+    const prompt = `Generate a high-contrast, scannable QR code that encodes the following USSD payment data: "${qrData.ussd_code || data}". The QR code should be:
+- Black squares on white background
+- High contrast and clearly defined
+- Functional and scannable
+- Clean and minimal design
+- Standard QR code format
+- 300x300 pixels
+- PNG format with transparent or white background`;
+
+    console.log('Generating QR code with OpenAI for data:', data);
+
+    // Call OpenAI image generation API
+    const response = await fetch('https://api.openai.com/v1/images/generations', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openAIApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-image-1',
+        prompt: prompt,
+        n: 1,
+        size: '1024x1024',
+        quality: 'high',
+        output_format: 'png',
+        background: 'opaque'
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.text();
+      console.error('OpenAI API error:', response.status, errorData);
+      throw new Error(`OpenAI API error: ${response.status}`);
+    }
+
+    const result = await response.json();
+    
+    if (!result.data || !result.data[0] || !result.data[0].b64_json) {
+      console.error('Invalid OpenAI response:', result);
+      throw new Error('Invalid response from OpenAI API');
+    }
+
+    const base64Image = result.data[0].b64_json;
+    const imageBuffer = Uint8Array.from(atob(base64Image), c => c.charCodeAt(0));
 
     // Upload to Supabase Storage
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -151,7 +200,7 @@ async function generateQRCode(data: string, filename: string): Promise<{ url: st
     const filePath = `${filename}.png`;
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from('qr-codes')
-      .upload(filePath, qrBuffer, {
+      .upload(filePath, imageBuffer, {
         contentType: 'image/png',
         upsert: true,
       });
@@ -166,13 +215,15 @@ async function generateQRCode(data: string, filename: string): Promise<{ url: st
       .from('qr-codes')
       .getPublicUrl(filePath);
 
+    console.log('Successfully generated QR code with OpenAI');
+
     return {
       url: urlData.publicUrl,
       base64: `data:image/png;base64,${base64Image}`
     };
 
   } catch (error) {
-    console.error('Error generating QR code:', error);
+    console.error('Error generating QR code with OpenAI:', error);
     throw error;
   }
 }
