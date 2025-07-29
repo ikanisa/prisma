@@ -36,7 +36,7 @@ export function WhatsAppFeedbackTemplates() {
     intent: 'feedback_collection',
     language: 'en',
     buttons: '[]',
-    status: 'REJECTED'
+    status: 'draft'
   });
   const { toast } = useToast();
 
@@ -96,7 +96,7 @@ export function WhatsAppFeedbackTemplates() {
         intent: 'feedback_collection',
         language: 'en',
         buttons: '[]',
-        status: 'REJECTED'
+        status: 'draft'
       });
 
       toast({
@@ -262,7 +262,7 @@ export function WhatsAppFeedbackTemplates() {
                     {template.name_meta}
                   </CardTitle>
                   <div className="flex gap-2 mt-2">
-                    <Badge variant={template.status === 'APPROVED' ? "default" : template.status === 'PENDING' ? "secondary" : "destructive"}>
+                    <Badge variant={template.status === 'approved' ? "default" : template.status === 'submitted' ? "secondary" : "outline"}>
                       {template.status}
                     </Badge>
                     <Badge variant="outline">{template.code}</Badge>
