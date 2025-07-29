@@ -39,6 +39,7 @@ import LearningManagement from "./pages/admin/LearningManagement";
 import { LearningDashboard } from "./pages/admin/LearningDashboard";
 import PaymentsPage from "./pages/admin/PaymentsPage";
 import QRScannerPage from "./pages/admin/QRScannerPage";
+import PaymentScannerPage from "./pages/PaymentScannerPage";
 // Conversation and campaign detail pages
 import ConversationDetail from "./pages/admin/conversations/ConversationDetail";
 import CampaignDetail from "./pages/admin/campaigns/CampaignDetail";
@@ -112,6 +113,9 @@ const App = () => (
           <Route path="campaigns/create" element={<CampaignCreate />} />
           <Route path="campaigns/:id" element={<CampaignDetail />} />
         </Route>
+        
+        {/* Public Payment Scanner Route */}
+        <Route path="/scan-to-pay" element={<PaymentScannerPage />} />
         
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
         <Route path="*" element={<NotFound />} />

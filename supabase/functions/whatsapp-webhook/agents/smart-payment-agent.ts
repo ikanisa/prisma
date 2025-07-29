@@ -11,24 +11,71 @@ export class SmartPaymentAgent {
     try {
       console.log('💰 Processing with Smart Payment Agent');
 
+      const lowercaseMessage = message.toLowerCase().trim();
+
+      // Handle "want to pay" intent - send QR scanner button
+      if (lowercaseMessage.includes('pay') && !lowercaseMessage.includes('get paid') && !lowercaseMessage.includes('receive')) {
+        return this.handlePaySomeone(message, user);
+      }
+
+      // Handle "get paid" or "receive money" intent
+      if (lowercaseMessage.includes('get paid') || lowercaseMessage.includes('receive money') || lowercaseMessage.includes('receive payment')) {
+        const amount = this.extractAmount(message);
+        if (amount) {
+          return await this.generatePaymentQR(amount, user, whatsappNumber);
+        } else {
+          return "💰 I can help you get paid! Please tell me the amount you want to receive. For example: 'I want to get paid 1000 RWF'";
+        }
+      }
+
+      // Handle direct amount for receiving payments (default behavior)
       const amount = this.extractAmount(message);
+      if (amount && amount > 0) {
+        if (amount > 1000000) {
+          return "⚠️ Amount too high. Maximum payment is 1,000,000 RWF per transaction.";
+        }
+        return await this.generatePaymentQR(amount, user, whatsappNumber);
+      }
+
+      // No amount detected - provide payment menu
+      const systemMessage = `You are a payment assistant for easyMO. The user sent "${message}" but it's not clear what they want. 
       
-      if (!amount || amount <= 0) {
-        const systemMessage = `You are a payment assistant for easyMO. The user sent "${message}" but it's not a valid payment amount. 
-        
-        Guide them to send a valid amount like:
-        - 5000 (for 5000 RWF)
-        - 1500 (for 1500 RWF)
-        
-        Be helpful and explain the format. Keep response under 200 characters.`;
+      Guide them with these options:
+      - "Get paid [amount]" - to receive money
+      - "Pay someone" - to scan QR or send money
+      - Just send an amount number for payment QR
+      
+      Be helpful and explain the options clearly. Keep response under 200 characters.`;
 
-        return await this.openAI.generateResponse(message, systemMessage, context);
-      }
+      return await this.openAI.generateResponse(message, systemMessage, context);
 
-      if (amount > 1000000) {
-        return "Maximum payment amount is 1,000,000 RWF. Please enter a smaller amount. 💳";
-      }
+    } catch (error) {
+      console.error('❌ Smart Payment Agent error:', error);
+      return "Sorry, I'm having trouble processing your payment right now. Please try again in a moment! 💳";
+    }
+  }
 
+  private handlePaySomeone(message: string, user: any): string {
+    // Send QR scanner button for mobile users
+    const scannerUrl = `https://2b2aaaed-6798-4998-b11a-17cc8aad5935.lovableproject.com/scan-to-pay`;
+    
+    return `📱 **Ready to Pay?**
+
+You can pay in two ways:
+
+1️⃣ **Scan QR Code** - Tap the link below to open camera scanner
+2️⃣ **Send Money** - Tell me: amount and phone number (e.g., "Send 5000 to 0788123456")
+
+🔗 *Tap here to scan QR code:*
+${scannerUrl}
+
+*This will open your camera to scan any payment QR code*
+
+Or just tell me the amount and phone number to send money directly!`;
+  }
+
+  private async generatePaymentQR(amount: number, user: any, phone: string): Promise<string> {
+    try {
       // Generate payment using edge function
       const paymentResponse = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/generate-payment`, {
         method: 'POST',
@@ -38,41 +85,38 @@ export class SmartPaymentAgent {
         },
         body: JSON.stringify({
           user_id: user.id,
-          amount: amount
+          amount: amount,
+          phone: phone
         })
       });
 
       if (!paymentResponse.ok) {
         console.error('❌ Payment generation failed:', await paymentResponse.text());
-        
-        const systemMessage = `The payment system is temporarily unavailable. Apologize to the user and ask them to try again in a few minutes. Be empathetic and helpful. Keep response under 200 characters.`;
-        
-        return await this.openAI.generateResponse(message, systemMessage, context);
+        return "Sorry, I couldn't generate your payment QR code right now. Please try again in a moment! 💳";
       }
 
       const paymentData = await paymentResponse.json();
       
       // AI-enhanced payment response
-      const systemMessage = `You are confirming a successful payment request generation. The payment details are:
+      const systemMessage = `You are confirming a successful payment QR generation for receiving money. The payment details are:
       - Amount: ${amount} RWF
       - USSD Code: ${paymentData.ussd_code}
-      - USSD Link: ${paymentData.ussd_link || 'Not available'}
-      - QR Code: ${paymentData.qr_code_url || 'Not available'}
+      - QR Code: ${paymentData.qr_code_url || 'Generated'}
       
-      Create a friendly confirmation message with payment instructions. Include the USSD code prominently. Use emojis. Keep under 200 characters.`;
+      Create a friendly confirmation message explaining they can share the QR or USSD code with the payer. Use emojis. Keep under 200 characters.`;
 
       const aiResponse = await this.openAI.generateResponse(
-        `Payment request for ${amount} RWF generated successfully`, 
+        `Payment QR for ${amount} RWF generated successfully`, 
         systemMessage, 
         []
       );
 
       // Ensure critical payment info is included
-      return `✅ ${aiResponse}\n\nUSSD: ${paymentData.ussd_code}${paymentData.qr_code_url ? `\nQR: ${paymentData.qr_code_url}` : ''}`;
+      return `✅ ${aiResponse}\n\n💰 Amount: ${amount} RWF\n📱 USSD: ${paymentData.ussd_code}${paymentData.qr_code_url ? `\n📄 QR Code: ${paymentData.qr_code_url}` : ''}`;
 
     } catch (error) {
-      console.error('❌ Smart Payment Agent error:', error);
-      return "Sorry, I'm having trouble processing your payment right now. Please try again in a moment! 💳";
+      console.error('❌ Payment QR generation error:', error);
+      return "Sorry, I'm having trouble generating your payment QR code right now. Please try again in a moment! 💳";
     }
   }
 
