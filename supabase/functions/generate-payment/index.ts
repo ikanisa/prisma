@@ -91,7 +91,8 @@ serve(async (req) => {
         ussd_code: ussdCode,
         ussd_link: ussdLink,
         qr_code_url: qrCodeUrl,
-        status: 'pending'
+        ref: paymentRef,
+        purpose: 'qr_payment'
       })
       .select()
       .single();
