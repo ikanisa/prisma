@@ -43,14 +43,28 @@ export default function OperationsDashboard() {
     },
     {
       title: "Error Rate",
-      value: `${Math.round((logs?.data?.filter((l: any) => l.status === 'error').length || 0) / Math.max(logs?.data?.length || 1, 1) * 100)}%`,
+      value: (() => {
+        const logsData = logs?.data || [];
+        const errorCount = logsData.filter((l: any) => l.status === 'error').length;
+        const totalCount = Math.max(logsData.length, 1);
+        return `${Math.round((errorCount / totalCount) * 100)}%`;
+      })(),
       icon: AlertTriangle,
       change: "-5%",
       changeType: "positive" as const
     },
     {
       title: "Avg Response Time",
-      value: `${Math.round(((logs?.data || []).reduce((sum: number, l: any) => sum + (l.execution_time_ms || 0), 0) / Math.max((logs?.data || []).length, 1))}ms`,
+      value: (() => {
+        const logsData = logs?.data || [];
+        if (logsData.length === 0) return "0ms";
+        const totalTime = logsData.reduce((sum: number, l: any) => {
+          const time = Number(l.execution_time_ms) || 0;
+          return sum + time;
+        }, 0);
+        const avgTime = Math.round((totalTime as number) / (logsData.length as number));
+        return `${avgTime}ms`;
+      })(),
       icon: Clock,
       change: "-12ms",
       changeType: "positive" as const
