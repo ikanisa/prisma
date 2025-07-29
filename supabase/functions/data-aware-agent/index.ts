@@ -7,8 +7,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
-
 interface UserContext {
   phone: string;
   name?: string;
@@ -23,725 +21,416 @@ interface UserContext {
   memory?: Record<string, any>;
 }
 
-interface DataValidationResult {
-  isValid: boolean;
-  requiresLocation: boolean;
-  missingFields: string[];
-  dataFound?: any;
-  message?: string;
+class AIDataAgent {
+  private supabase: any;
+  private openaiApiKey: string;
+
+  constructor(supabase: any, openaiApiKey: string) {
+    this.supabase = supabase;
+    this.openaiApiKey = openaiApiKey;
+  }
+
+  async processMessage(message: string, userContext: UserContext): Promise<string> {
+    console.log(`🧠 AI Data Agent processing: "${message}" for ${userContext.phone}`);
+    
+    try {
+      // Step 1: Get real-time data context
+      const dataContext = await this.gatherDataContext(userContext, message);
+      
+      // Step 2: Process with OpenAI using data-aware prompting
+      const aiResponse = await this.processWithAI(message, userContext, dataContext);
+      
+      // Step 3: Execute any required database operations
+      const result = await this.executeDataOperations(aiResponse, userContext, dataContext);
+      
+      return result;
+    } catch (error) {
+      console.error('❌ AI Data Agent error:', error);
+      return this.getFallbackResponse(userContext);
+    }
+  }
+
+  private async gatherDataContext(userContext: UserContext, message: string): Promise<any> {
+    const context: any = {};
+    
+    try {
+      // Gather location-based data if user has location
+      if (userContext.location) {
+        // Get nearby drivers
+        const { data: drivers } = await this.supabase.rpc("fn_get_nearby_drivers_spatial", {
+          lat: userContext.location.lat,
+          lng: userContext.location.lng,
+          radius: 5
+        });
+        context.nearbyDrivers = drivers || [];
+
+        // Get nearby passengers
+        const { data: passengers } = await this.supabase
+          .from('passenger_intents_spatial')
+          .select('*')
+          .eq('status', 'open')
+          .order('created_at', { ascending: false })
+          .limit(10);
+        context.nearbyPassengers = passengers || [];
+
+        // Get nearby businesses
+        const { data: businesses } = await this.supabase
+          .from('businesses')
+          .select('*')
+          .eq('status', 'active')
+          .limit(10);
+        context.nearbyBusinesses = businesses || [];
+      }
+
+      // Get user's interaction history
+      const { data: recentMessages } = await this.supabase
+        .from('conversation_messages')
+        .select('*')
+        .eq('phone_number', userContext.phone)
+        .order('created_at', { ascending: false })
+        .limit(5);
+      context.recentHistory = recentMessages || [];
+
+      // Get user's payment history
+      const { data: payments } = await this.supabase
+        .from('payments')
+        .select('*')
+        .eq('user_phone', userContext.phone)
+        .order('created_at', { ascending: false })
+        .limit(3);
+      context.paymentHistory = payments || [];
+
+      // Get products for marketplace queries
+      const { data: products } = await this.supabase
+        .from('products')
+        .select('*')
+        .eq('status', 'active')
+        .gt('stock_qty', 0)
+        .limit(10);
+      context.availableProducts = products || [];
+
+      // Check if user is a driver
+      const { data: driverProfile } = await this.supabase
+        .from('drivers')
+        .select('*')
+        .or(`phone.eq.${userContext.phone},user_id.eq.${userContext.phone}`)
+        .maybeSingle();
+      context.isDriver = !!driverProfile;
+      context.driverProfile = driverProfile;
+
+      return context;
+    } catch (error) {
+      console.error('Error gathering data context:', error);
+      return context;
+    }
+  }
+
+  private async processWithAI(message: string, userContext: UserContext, dataContext: any): Promise<any> {
+    const systemPrompt = this.buildDataAwarePrompt(userContext, dataContext);
+    
+    try {
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.openaiApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gpt-4.1-2025-04-14',
+          messages: [
+            {
+              role: 'system',
+              content: systemPrompt
+            },
+            {
+              role: 'user',
+              content: message
+            }
+          ],
+          max_tokens: 800,
+          temperature: 0.7,
+          presence_penalty: 0.1,
+          frequency_penalty: 0.1
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`OpenAI API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const content = data.choices[0]?.message?.content;
+
+      // Try to parse as JSON for structured responses
+      try {
+        return JSON.parse(content);
+      } catch {
+        return {
+          response: content,
+          action: 'text_response',
+          confidence: 0.8
+        };
+      }
+    } catch (error) {
+      console.error('❌ OpenAI processing error:', error);
+      throw error;
+    }
+  }
+
+  private buildDataAwarePrompt(userContext: UserContext, dataContext: any): string {
+    return `You are the easyMO AI Data Agent. Use REAL DATA from the database to provide accurate, helpful responses.
+
+# USER CONTEXT
+- Phone: ${userContext.phone}
+- Type: ${userContext.userType}
+- Language: ${userContext.preferredLanguage}
+- Location: ${userContext.location ? 'Available' : 'Not shared'}
+- Is Driver: ${dataContext.isDriver ? 'Yes' : 'No'}
+
+# REAL-TIME DATA AVAILABLE
+- Nearby Drivers: ${dataContext.nearbyDrivers?.length || 0} drivers within 5km
+- Nearby Passengers: ${dataContext.nearbyPassengers?.length || 0} passenger requests within 10km  
+- Nearby Businesses: ${dataContext.nearbyBusinesses?.length || 0} active businesses
+- Available Products: ${dataContext.availableProducts?.length || 0} products in stock
+- Payment History: ${dataContext.paymentHistory?.length || 0} recent payments
+- Recent Conversations: ${dataContext.recentHistory?.length || 0} messages
+
+# DRIVERS DATA
+${dataContext.nearbyDrivers?.length > 0 ? 
+  dataContext.nearbyDrivers.map(d => `- ${d.driver_type?.toUpperCase() || 'MOTO'}: ${d.driver_phone} (${d.distance_km?.toFixed(1) || '?'}km away, ${d.status || 'available'})`).join('\n') 
+  : '- No drivers currently available in the area'}
+
+# PASSENGER REQUESTS
+${dataContext.nearbyPassengers?.length > 0 ? 
+  dataContext.nearbyPassengers.map(p => `- ${p.from_text} → ${p.to_text} (${p.seats_needed || 1} seats, budget: ${p.max_price_rwf || 'negotiable'} RWF)`).join('\n')
+  : '- No active passenger requests in the area'}
+
+# BUSINESSES DATA
+${dataContext.nearbyBusinesses?.length > 0 ? 
+  dataContext.nearbyBusinesses.map(b => `- ${b.name} (${b.category || 'General'}) - ${b.phone_number || 'No phone'}`).join('\n')
+  : '- No businesses found in database'}
+
+# PRODUCTS DATA  
+${dataContext.availableProducts?.length > 0 ? 
+  dataContext.availableProducts.map(p => `- ${p.name}: ${p.price_rwf} RWF (${p.stock_qty} in stock)`).join('\n')
+  : '- No products currently available'}
+
+# INSTRUCTIONS
+1. ALWAYS use the real data provided above - never make up information
+2. If no data is available for a request, clearly state this fact
+3. For location-based requests without user location, ask them to share it
+4. Provide specific details from the database (phone numbers, exact distances, prices)
+5. If user wants to take action (book ride, contact driver, etc.), provide specific instructions
+
+# RESPONSE FORMAT
+Respond with JSON in this format:
+{
+  "response": "Your message to the user using real data",
+  "action": "text_response|create_payment|book_ride|go_online|contact_business",
+  "data": {...any data needed for the action},
+  "confidence": 0.0-1.0
 }
 
-class DataAwareAgent {
+# PERSONA
+- Warm, respectful, Rwanda-first cultural awareness
+- Action-oriented and efficient
+- Always base responses on real database data
+- Be transparent about data availability
+- Provide specific, actionable information when possible
+
+Use ONLY the real data provided above. Do not invent or assume any information not explicitly given.`;
+  }
+
+  private async executeDataOperations(aiResponse: any, userContext: UserContext, dataContext: any): Promise<string> {
+    if (!aiResponse.action || aiResponse.action === 'text_response') {
+      return aiResponse.response || this.getFallbackResponse(userContext);
+    }
+
+    try {
+      switch (aiResponse.action) {
+        case 'create_payment':
+          return await this.handlePaymentCreation(aiResponse.data, userContext);
+        
+        case 'book_ride':
+          return await this.handleRideBooking(aiResponse.data, userContext);
+        
+        case 'go_online':
+          return await this.handleDriverGoOnline(userContext, dataContext);
+        
+        case 'contact_business':
+          return this.handleBusinessContact(aiResponse.data, aiResponse.response);
+        
+        default:
+          return aiResponse.response || this.getFallbackResponse(userContext);
+      }
+    } catch (error) {
+      console.error('❌ Error executing data operation:', error);
+      return aiResponse.response || this.getFallbackResponse(userContext);
+    }
+  }
+
+  private async handlePaymentCreation(data: any, userContext: UserContext): Promise<string> {
+    try {
+      const { data: result, error } = await this.supabase.functions.invoke('create-momo-payment-link', {
+        body: {
+          amount: data.amount,
+          currency: 'RWF',
+          phoneNumber: userContext.phone,
+          description: data.description || `Payment request for ${data.amount} RWF`,
+          userPhone: userContext.phone
+        }
+      });
+
+      if (error) throw error;
+
+      if (result?.success) {
+        return `💰 *PAYMENT CREATED*\n\n💵 Amount: ${data.amount?.toLocaleString()} RWF\n📱 USSD: ${result.ussdCode}\n📄 QR Code: ${result.qrCodeUrl}\n🔗 Payment Link: ${result.paymentLink}\n\n✅ Expires: ${new Date(result.expiresAt).toLocaleTimeString()}\n📲 Share with payer to complete transaction\n\n🆔 Payment ID: ${result.paymentId}`;
+      } else {
+        throw new Error(result?.error || 'Payment creation failed');
+      }
+    } catch (error) {
+      console.error('Payment creation error:', error);
+      return "❌ *Payment Error*\n\nCouldn't generate payment link\nPlease try again in a moment";
+    }
+  }
+
+  private async handleRideBooking(data: any, userContext: UserContext): Promise<string> {
+    try {
+      // Create passenger intent in database
+      const { data: intent, error } = await this.supabase
+        .from('passenger_intents_spatial')
+        .insert({
+          passenger_phone: userContext.phone,
+          from_text: data.pickup || 'Current location',
+          to_text: data.destination,
+          seats_needed: data.seats || 1,
+          max_price_rwf: data.maxPrice || null,
+          pickup: userContext.location ? `SRID=4326;POINT(${userContext.location.lng} ${userContext.location.lat})` : null,
+          status: 'open'
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      return `🚗 *RIDE REQUEST CREATED*\n\n📍 From: ${data.pickup || 'Your location'}\n🎯 To: ${data.destination}\n👥 Seats: ${data.seats || 1}\n\n✅ Request ID: ${intent.id}\n⏱️ Drivers in your area will be notified\n📞 You'll receive contact from interested drivers\n\nWant to contact drivers directly? Reply 'nearby drivers'`;
+    } catch (error) {
+      console.error('Ride booking error:', error);
+      return "❌ *Booking Error*\n\nCouldn't create ride request\nPlease try again";
+    }
+  }
+
+  private async handleDriverGoOnline(userContext: UserContext, dataContext: any): Promise<string> {
+    if (!dataContext.isDriver) {
+      return "👤 You need to register as a driver first. Reply 'register driver' to get started.";
+    }
+
+    if (!userContext.location) {
+      return "📍 To go online, please share your current location so passengers can find you.";
+    }
+
+    try {
+      // Update driver session
+      await this.supabase
+        .from('driver_sessions')
+        .upsert({
+          driver_id: dataContext.driverProfile.id,
+          status: 'online',
+          last_location: `SRID=4326;POINT(${userContext.location.lng} ${userContext.location.lat})`,
+          session_start: new Date().toISOString()
+        }, { onConflict: 'driver_id' });
+
+      // Update driver status
+      await this.supabase
+        .from('drivers')
+        .update({ 
+          status: 'active',
+          location_gps: `SRID=4326;POINT(${userContext.location.lng} ${userContext.location.lat})`
+        })
+        .eq('id', dataContext.driverProfile.id);
+
+      return `🟢 *YOU'RE NOW ONLINE!*\n\n✅ Status: Active\n📍 Location: Updated\n🚗 Vehicle: ${dataContext.driverProfile.driver_type?.toUpperCase() || 'MOTO'}\n\n👥 Passengers can now see and contact you\n💰 You'll receive ride requests in your area\n\n🔔 Keep WhatsApp open to receive requests!\nType 'offline' when you want to stop driving.`;
+    } catch (error) {
+      console.error('Driver online error:', error);
+      return "❌ Error going online. Please try again.";
+    }
+  }
+
+  private handleBusinessContact(data: any, baseResponse: string): string {
+    return baseResponse;
+  }
+
+  private getFallbackResponse(userContext: UserContext): string {
+    if (userContext.userType === 'new') {
+      return `🎉 *Welcome to easyMO!*\nRwanda's #1 WhatsApp Super-App\n\n🚀 *Try these now*:\n💰 Send '5000' → Instant payment QR\n🛵 Send 'nearby drivers' → Find transport\n🛒 Send 'find pharmacy' → Locate services\n\n✨ I understand natural language - just tell me what you need!\n\n🎯 What would you like to try first?`;
+    }
+    
+    return "I'd love to help! 😊\n\n🎯 *Popular requests*:\n💰 Payment QR: Send any amount\n🛵 Transport: Tell me your destination\n🛒 Shopping: What are you looking for?\n📦 Delivery: What needs to be sent?\n\n💬 Just describe what you need - I'm here to assist!";
+  }
+}
+
+class ConversationManager {
   private supabase: any;
   
   constructor(supabase: any) {
     this.supabase = supabase;
   }
 
-  async processMessage(message: string, userContext: UserContext): Promise<string> {
-    console.log(`🧠 Processing: "${message}" for ${userContext.phone}`);
-    
-    // Detect intent and validate required data
-    const intent = this.detectIntent(message);
-    const validation = await this.validateDataRequirements(intent, userContext, message);
-    
-    if (!validation.isValid) {
-      return this.handleMissingRequirements(validation, intent, userContext);
-    }
-    
-    // Process with real data
-    return await this.executeWithRealData(intent, userContext, message, validation.dataFound);
-  }
-
-  private detectIntent(message: string): string {
-    const msg = message.toLowerCase().trim();
-    
-    // Location-based queries
-    if (msg.includes('nearby drivers') || msg.includes('drivers near me') || msg.includes('find drivers')) {
-      return 'find_nearby_drivers';
-    }
-    
-    if (msg.includes('nearby passengers') || msg.includes('passengers near me')) {
-      return 'find_nearby_passengers';
-    }
-    
-    if (msg.includes('ride') || msg.includes('trip') || msg.includes('moto') && !msg.includes('for sale')) {
-      return 'request_ride';
-    }
-    
-    if (msg.includes('driver on') || msg.includes('go online') || msg.includes('start driving')) {
-      return 'driver_go_online';
-    }
-    
-    // Payment queries
-    if (/^\d+$/.test(msg) || msg.includes('pay') || msg.includes('money') || msg.includes('qr')) {
-      return 'payment_request';
-    }
-    
-    // Business queries
-    if (msg.includes('pharmacy') || msg.includes('shop') || msg.includes('business') || msg.includes('find')) {
-      return 'find_business';
-    }
-    
-    // Marketplace
-    if (msg.includes('buy') || msg.includes('sell') || msg.includes('product') || msg.includes('shop')) {
-      return 'marketplace_query';
-    }
-    
-    return 'general_inquiry';
-  }
-
-  private async validateDataRequirements(intent: string, userContext: UserContext, message: string): Promise<DataValidationResult> {
-    switch (intent) {
-      case 'find_nearby_drivers':
-        return await this.validateNearbyDriversRequest(userContext);
-      
-      case 'find_nearby_passengers':
-        return await this.validateNearbyPassengersRequest(userContext);
-        
-      case 'request_ride':
-        return await this.validateRideRequest(userContext, message);
-        
-      case 'driver_go_online':
-        return await this.validateDriverOnlineRequest(userContext);
-        
-      case 'find_business':
-        return await this.validateBusinessSearch(userContext, message);
-        
-      case 'marketplace_query':
-        return await this.validateMarketplaceQuery(userContext, message);
-        
-      default:
-        return { isValid: true, requiresLocation: false, missingFields: [] };
-    }
-  }
-
-  private async validateNearbyDriversRequest(userContext: UserContext): Promise<DataValidationResult> {
-    // Check if user has shared location
-    if (!userContext.location) {
-      return {
-        isValid: false,
-        requiresLocation: true,
-        missingFields: ['location'],
-        message: "📍 I need your location to find nearby drivers. Please share your current location or type your address."
-      };
-    }
-
-    // Check for actual drivers in database
-    const { data: drivers, error } = await this.supabase.rpc("fn_get_nearby_drivers_spatial", {
-      lat: userContext.location.lat,
-      lng: userContext.location.lng,
-      radius: 5 // 5km radius
-    });
-
-    if (error) {
-      console.error('Error fetching nearby drivers:', error);
-      return {
-        isValid: false,
-        requiresLocation: false,
-        missingFields: [],
-        message: "❌ I'm having trouble checking for drivers right now. Please try again."
-      };
-    }
-
-    return {
-      isValid: true,
-      requiresLocation: false,
-      missingFields: [],
-      dataFound: { drivers: drivers || [] }
-    };
-  }
-
-  private async validateNearbyPassengersRequest(userContext: UserContext): Promise<DataValidationResult> {
-    if (!userContext.location) {
-      return {
-        isValid: false,
-        requiresLocation: true,
-        missingFields: ['location'],
-        message: "📍 I need your location to find nearby passenger requests. Please share your current location."
-      };
-    }
-
-    // Check for actual passenger intents
-    const { data: passengers, error } = await this.supabase
-      .from('passenger_intents_spatial')
-      .select(`
-        id, passenger_phone, from_text, to_text, seats_needed, max_price_rwf, created_at,
-        ST_Distance(pickup, ST_SetSRID(ST_MakePoint(${userContext.location.lng}, ${userContext.location.lat}), 4326)) as distance_meters
-      `)
-      .eq('status', 'open')
-      .order('created_at', { ascending: false })
-      .limit(10);
-
-    if (error) {
-      console.error('Error fetching nearby passengers:', error);
-      return {
-        isValid: false,
-        requiresLocation: false,
-        missingFields: [],
-        message: "❌ I'm having trouble checking for passengers right now. Please try again."
-      };
-    }
-
-    // Filter to within 10km
-    const nearbyPassengers = (passengers || []).filter(p => 
-      p.distance_meters && p.distance_meters < 10000
-    );
-
-    return {
-      isValid: true,
-      requiresLocation: false,
-      missingFields: [],
-      dataFound: { passengers: nearbyPassengers }
-    };
-  }
-
-  private async validateRideRequest(userContext: UserContext, message: string): Promise<DataValidationResult> {
-    if (!userContext.location) {
-      return {
-        isValid: false,
-        requiresLocation: true,
-        missingFields: ['location'],
-        message: "📍 To book a ride, I need your pickup location. Please share your current location or type your address."
-      };
-    }
-
-    // Extract destination if mentioned
-    const destination = this.extractDestination(message);
-    if (!destination) {
-      return {
-        isValid: false,
-        requiresLocation: false,
-        missingFields: ['destination'],
-        message: "🎯 Where would you like to go? Please tell me your destination."
-      };
-    }
-
-    // Check for available drivers
-    const { data: drivers } = await this.supabase.rpc("fn_get_nearby_drivers_spatial", {
-      lat: userContext.location.lat,
-      lng: userContext.location.lng,
-      radius: 10 // 10km radius for ride requests
-    });
-
-    return {
-      isValid: true,
-      requiresLocation: false,
-      missingFields: [],
-      dataFound: { drivers: drivers || [], destination }
-    };
-  }
-
-  private async validateDriverOnlineRequest(userContext: UserContext): Promise<DataValidationResult> {
-    // Check if user is registered as driver
-    const { data: driver } = await this.supabase
-      .from('drivers')
-      .select('id, user_id, driver_type, status')
-      .or(`phone.eq.${userContext.phone},user_id.eq.${userContext.phone}`)
-      .maybeSingle();
-
-    if (!driver) {
-      return {
-        isValid: false,
-        requiresLocation: false,
-        missingFields: ['driver_registration'],
-        message: "👤 You need to register as a driver first. Reply 'register driver' to get started."
-      };
-    }
-
-    if (!userContext.location) {
-      return {
-        isValid: false,
-        requiresLocation: true,
-        missingFields: ['location'],
-        message: "📍 To go online, please share your current location so passengers can find you."
-      };
-    }
-
-    return {
-      isValid: true,
-      requiresLocation: false,
-      missingFields: [],
-      dataFound: { driver }
-    };
-  }
-
-  private async validateBusinessSearch(userContext: UserContext, message: string): Promise<DataValidationResult> {
-    if (!userContext.location) {
-      return {
-        isValid: false,
-        requiresLocation: true,
-        missingFields: ['location'],
-        message: "📍 To find businesses near you, please share your location."
-      };
-    }
-
-    const businessType = this.extractBusinessType(message);
-    
-    // Search for actual businesses
-    const { data: businesses } = await this.supabase
-      .from('businesses')
-      .select('*')
-      .eq('status', 'active')
-      .like('category', businessType ? `%${businessType}%` : '%')
-      .limit(10);
-
-    return {
-      isValid: true,
-      requiresLocation: false,
-      missingFields: [],
-      dataFound: { businesses: businesses || [], businessType }
-    };
-  }
-
-  private async validateMarketplaceQuery(userContext: UserContext, message: string): Promise<DataValidationResult> {
-    const searchQuery = this.extractSearchQuery(message);
-    
-    // Search for actual products
-    let queryBuilder = this.supabase
-      .from('products')
-      .select('id, name, description, price_rwf, category, stock_qty, vendor_phone')
-      .eq('status', 'active')
-      .gt('stock_qty', 0);
-    
-    if (searchQuery) {
-      queryBuilder = queryBuilder.or(`name.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%`);
-    }
-    
-    const { data: products } = await queryBuilder.limit(10);
-
-    return {
-      isValid: true,
-      requiresLocation: false,
-      missingFields: [],
-      dataFound: { products: products || [], searchQuery }
-    };
-  }
-
-  private handleMissingRequirements(validation: DataValidationResult, intent: string, userContext: UserContext): string {
-    if (validation.message) {
-      return validation.message;
-    }
-
-    if (validation.requiresLocation) {
-      return "📍 I need your location to help with that. Please share your current location using the 📎 attachment button → Location.";
-    }
-
-    return "ℹ️ I need some more information to help you. Please provide more details.";
-  }
-
-  private async executeWithRealData(intent: string, userContext: UserContext, message: string, dataFound: any): Promise<string> {
-    switch (intent) {
-      case 'find_nearby_drivers':
-        return this.handleNearbyDriversWithData(dataFound.drivers, userContext);
-        
-      case 'find_nearby_passengers':
-        return this.handleNearbyPassengersWithData(dataFound.passengers, userContext);
-        
-      case 'request_ride':
-        return this.handleRideRequestWithData(dataFound.drivers, dataFound.destination, userContext);
-        
-      case 'driver_go_online':
-        return await this.handleDriverGoOnlineWithData(dataFound.driver, userContext);
-        
-      case 'find_business':
-        return this.handleBusinessSearchWithData(dataFound.businesses, dataFound.businessType, userContext);
-        
-      case 'marketplace_query':
-        return this.handleMarketplaceWithData(dataFound.products, dataFound.searchQuery);
-        
-      case 'payment_request':
-        return await this.handlePaymentRequest(message, userContext);
-        
-      default:
-        return await this.handleGeneralInquiry(message, userContext);
-    }
-  }
-
-  private handleNearbyDriversWithData(drivers: any[], userContext: UserContext): string {
-    if (!drivers || drivers.length === 0) {
-      return "🚫 **No Nearby Drivers**\n\nThere are currently no drivers within 5km of your location.\n\n💡 Try:\n• Expanding search area\n• Checking again in a few minutes\n• Scheduling a trip for later\n\nWould you like me to help with something else?";
-    }
-
-    let response = `🚗 **${drivers.length} Driver${drivers.length > 1 ? 's' : ''} Found Near You**\n\n`;
-    
-    drivers.slice(0, 5).forEach((driver, index) => {
-      const distance = driver.distance_km ? `${driver.distance_km.toFixed(1)}km away` : 'Distance unknown';
-      const driverType = driver.driver_type || 'moto';
-      const status = driver.status || 'available';
-      
-      response += `${index + 1}. ${driverType.toUpperCase()} - ${distance}\n`;
-      response += `   📱 ${driver.driver_phone}\n`;
-      response += `   🟢 ${status}\n\n`;
-    });
-    
-    response += "📞 **Contact a driver directly** or type 'book ride' to request a trip.\n\n";
-    response += "🔄 Drivers shown are currently active in your area.";
-    
-    return response;
-  }
-
-  private handleNearbyPassengersWithData(passengers: any[], userContext: UserContext): string {
-    if (!passengers || passengers.length === 0) {
-      return "🚫 **No Passenger Requests**\n\nThere are currently no passenger requests within 10km of your location.\n\n💡 Try:\n• Checking again in a few minutes\n• Moving to a busier area\n• Checking during peak hours\n\nType 'go online' to start accepting ride requests.";
-    }
-
-    let response = `🙋‍♂️ **${passengers.length} Passenger Request${passengers.length > 1 ? 's' : ''} Found**\n\n`;
-    
-    passengers.slice(0, 5).forEach((passenger, index) => {
-      const distance = passenger.distance_meters ? `${(passenger.distance_meters / 1000).toFixed(1)}km away` : 'Distance unknown';
-      const price = passenger.max_price_rwf ? `Budget: ${passenger.max_price_rwf.toLocaleString()} RWF` : 'Price negotiable';
-      const route = `${passenger.from_text} → ${passenger.to_text}`;
-      const seats = passenger.seats_needed || 1;
-      
-      response += `${index + 1}. ${route}\n`;
-      response += `   👥 ${seats} seat${seats > 1 ? 's' : ''} • ${distance}\n`;
-      response += `   💰 ${price}\n`;
-      response += `   📱 ${passenger.passenger_phone}\n\n`;
-    });
-    
-    response += "📞 **Contact passengers directly** or reply with number to accept (e.g., '1').\n\n";
-    response += "🔄 Requests shown are currently active.";
-    
-    return response;
-  }
-
-  private handleRideRequestWithData(drivers: any[], destination: string, userContext: UserContext): string {
-    if (!drivers || drivers.length === 0) {
-      return `🚫 **No Drivers Available**\n\nSorry, there are no drivers within 10km of your location right now.\n\n💡 **Options:**\n• Try again in 5-10 minutes\n• Schedule for later\n• Post a passenger request\n\nWould you like me to create a passenger request for "${destination}"?`;
-    }
-
-    // Create passenger intent in database
-    this.createPassengerIntent(userContext, destination);
-
-    let response = `🚗 **Ride Request Created**\n\n`;
-    response += `📍 **From:** Your location\n`;
-    response += `🎯 **To:** ${destination}\n\n`;
-    response += `**${drivers.length} Driver${drivers.length > 1 ? 's' : ''} in Your Area:**\n\n`;
-    
-    drivers.slice(0, 3).forEach((driver, index) => {
-      const distance = driver.distance_km ? `${driver.distance_km.toFixed(1)}km away` : 'Near you';
-      response += `${index + 1}. ${driver.driver_type?.toUpperCase() || 'MOTO'} - ${distance}\n`;
-      response += `   📱 ${driver.driver_phone}\n\n`;
-    });
-    
-    response += "📞 **Contact a driver** or wait for someone to accept your request.\n";
-    response += "⏱️ We'll notify you when a driver responds!";
-    
-    return response;
-  }
-
-  private async handleDriverGoOnlineWithData(driver: any, userContext: UserContext): Promise<string> {
-    // Update driver session to online
-    await this.supabase
-      .from('driver_sessions')
-      .upsert({
-        driver_id: driver.id,
-        status: 'online',
-        last_location: `SRID=4326;POINT(${userContext.location!.lng} ${userContext.location!.lat})`,
-        session_start: new Date().toISOString()
-      }, { onConflict: 'driver_id' });
-
-    // Update driver status
-    await this.supabase
-      .from('drivers')
-      .update({ 
-        status: 'active',
-        location_gps: `SRID=4326;POINT(${userContext.location!.lng} ${userContext.location!.lat})`
-      })
-      .eq('id', driver.id);
-
-    return `🟢 **You're Now Online!**\n\n✅ Status: Active\n📍 Location: Updated\n🚗 Vehicle: ${driver.driver_type?.toUpperCase() || 'MOTO'}\n\n👥 Passengers can now see and contact you.\n💰 You'll receive ride requests in your area.\n\n🔔 Keep WhatsApp open to receive requests!\nType 'offline' when you want to stop driving.`;
-  }
-
-  private handleBusinessSearchWithData(businesses: any[], businessType: string, userContext: UserContext): string {
-    if (!businesses || businesses.length === 0) {
-      const typeText = businessType ? `${businessType}s` : 'businesses';
-      return `🚫 **No ${typeText} Found**\n\nSorry, I couldn't find any active ${typeText} in our database right now.\n\n💡 Try:\n• Searching for a different type\n• Checking again later\n• Contacting us to add a business\n\nWhat else can I help you with?`;
-    }
-
-    const typeText = businessType || 'business';
-    let response = `🏪 **${businesses.length} ${typeText.charAt(0).toUpperCase() + typeText.slice(1)}${businesses.length > 1 ? 'es' : ''} Found**\n\n`;
-    
-    businesses.slice(0, 5).forEach((business, index) => {
-      response += `${index + 1}. **${business.name}**\n`;
-      if (business.address) response += `   📍 ${business.address}\n`;
-      if (business.phone_number) response += `   📞 ${business.phone_number}\n`;
-      if (business.whatsapp_number) response += `   💬 ${business.whatsapp_number}\n`;
-      if (business.rating) response += `   ⭐ ${business.rating}/5 (${business.reviews_count || 0} reviews)\n`;
-      response += `\n`;
-    });
-    
-    response += "📞 **Contact businesses directly** using the phone numbers above.\n";
-    response += "💬 WhatsApp numbers are available for quick messaging.";
-    
-    return response;
-  }
-
-  private handleMarketplaceWithData(products: any[], searchQuery: string): string {
-    if (!products || products.length === 0) {
-      const queryText = searchQuery ? ` matching "${searchQuery}"` : '';
-      return `🚫 **No Products Found**\n\nSorry, I couldn't find any products${queryText} in our marketplace right now.\n\n💡 Try:\n• Different search terms\n• Browsing categories\n• Checking again later\n\nWhat else are you looking for?`;
-    }
-
-    const queryText = searchQuery ? ` for "${searchQuery}"` : '';
-    let response = `🛒 **${products.length} Product${products.length > 1 ? 's' : ''} Found${queryText}**\n\n`;
-    
-    products.slice(0, 5).forEach((product, index) => {
-      const price = product.price_rwf ? `${product.price_rwf.toLocaleString()} RWF` : 'Price on request';
-      const stock = product.stock_qty ? `${product.stock_qty} available` : 'Limited stock';
-      
-      response += `${index + 1}. **${product.name}**\n`;
-      response += `   💰 ${price}\n`;
-      response += `   📦 ${stock}\n`;
-      if (product.description) response += `   📝 ${product.description.substring(0, 60)}${product.description.length > 60 ? '...' : ''}\n`;
-      if (product.vendor_phone) response += `   📱 Seller: ${product.vendor_phone}\n`;
-      response += `\n`;
-    });
-    
-    response += "📞 **Contact sellers directly** to order or negotiate prices.\n";
-    response += "💬 All prices and availability shown are current.";
-    
-    return response;
-  }
-
-  private async handlePaymentRequest(message: string, userContext: UserContext): Promise<string> {
-    const amount = this.extractAmount(message);
-    
-    if (!amount || amount <= 0) {
-      return "💰 **Payment Service**\n\n📝 Please specify the amount you want to generate a QR code for.\n\nExample: '5000' for 5,000 RWF\n\nOr tell me what you'd like to pay for.";
-    }
-
-    if (amount > 1000000) {
-      return "❌ **Amount Too Large**\n\nMaximum payment is 1,000,000 RWF.\nPlease enter a smaller amount.";
-    }
-
+  async getOrCreateUserContext(phone: string): Promise<UserContext> {
     try {
-      const { data, error } = await this.supabase.functions.invoke('qr-payment-generator', {
-        body: { 
-          action: 'generate',
-          amount: amount,
-          phone: userContext.phone,
-          type: 'receive'
-        }
-      });
-
-      if (error) throw error;
-
-      return `💰 **Payment QR Generated**\n\n💵 **Amount:** ${amount.toLocaleString()} RWF\n📱 **QR Code:** ${data.qr_url}\n💳 **USSD:** ${data.ussd_code}\n🔗 **Link:** ${data.payment_link}\n\n✅ Valid for 24 hours\n📲 Share QR to receive payment instantly`;
-    } catch (error) {
-      console.error('Payment QR generation failed:', error);
-      return "❌ **Payment Error**\n\nCouldn't generate QR code right now.\nPlease try again in a moment.";
-    }
-  }
-
-  private async handleGeneralInquiry(message: string, userContext: UserContext): Promise<string> {
-    if (userContext.conversationCount === 0) {
-      return `🎉 **Welcome to easyMO!**\nRwanda's #1 WhatsApp Super-App\n\n🚀 **Quick Services:**\n💰 **Payments** - Type amount (e.g., '5000')\n🛵 **Transport** - Type 'ride' or 'nearby drivers'\n🛒 **Shopping** - Type 'shop' or product name\n🏪 **Businesses** - Type 'pharmacy' or 'shop'\n\n✨ Just tell me what you need!\n\n💡 Try: 'nearby drivers' or 'find pharmacy'`;
-    }
-
-    // Use AI for complex queries
-    if (openAIApiKey && message.length > 20) {
-      return await this.generateAIResponse(message, userContext);
-    }
-
-    return "🤖 **How can I help?**\n\n💡 **Quick options:**\n• 'nearby drivers' - Find transport\n• '5000' - Generate payment QR\n• 'pharmacy' - Find businesses\n• 'shop electronics' - Browse products\n\nWhat would you like to do?";
-  }
-
-  private async generateAIResponse(message: string, userContext: UserContext): Promise<string> {
-    try {
-      // Get agent persona and documents for context
-      const { data: persona } = await this.supabase
-        .from('agent_personas')
-        .select('instructions, personality, tone, language')
-        .eq('agent_id', 'omni-agent')
+      // Get user data
+      const { data: user } = await this.supabase
+        .from('users')
+        .select('*')
+        .eq('phone', phone)
         .single();
 
-      const { data: documents } = await this.supabase
-        .from('centralized_documents')
-        .select('title, content')
-        .eq('agent_scope', 'general')
-        .eq('status', 'active')
-        .limit(5);
+      // Get user location
+      const { data: location } = await this.supabase
+        .from('user_locations')
+        .select('*')
+        .eq('phone_number', phone)
+        .single();
 
-      const contextualKnowledge = documents?.map(doc => 
-        `${doc.title}: ${doc.content.substring(0, 500)}`
-      ).join('\n\n') || '';
+      // Get conversation history
+      const { data: conversations } = await this.supabase
+        .from('agent_conversations')
+        .select('*')
+        .eq('user_id', phone)
+        .order('ts', { ascending: false })
+        .limit(10);
 
-      const systemPrompt = `${persona?.instructions || 'You are Aline, the AI assistant for easyMO - Rwanda\'s WhatsApp super-app.'}
+      const conversationCount = conversations?.length || 0;
+      const lastInteraction = conversations?.[0]?.ts;
+      
+      // Determine user type
+      let userType: 'new' | 'returning' | 'power_user' = 'new';
+      if (conversationCount > 20) userType = 'power_user';
+      else if (conversationCount > 0) userType = 'returning';
 
-PERSONALITY: ${persona?.personality || 'Friendly, efficient, and helpful'}
-TONE: ${persona?.tone || 'Professional yet warm'}
-LANGUAGE: ${persona?.language || 'en'}
-
-KNOWLEDGE BASE:
-${contextualKnowledge}
-
-USER CONTEXT:
-- Phone: ${userContext.phone}
-- Type: ${userContext.userType} (${userContext.conversationCount} conversations)
-- Location: ${userContext.location ? 'Available' : 'Not shared'}
-- Memory: ${JSON.stringify(userContext.memory || {})}
-
-CRITICAL RULES:
-- ALWAYS work with REAL DATA from our database
-- NEVER make up information about drivers, businesses, or products
-- Guide users through proper steps (location sharing, etc.)
-- Provide contextual, intelligent responses based on their specific situation
-- Use the knowledge base to inform your responses
-- Be reactive to user intent and context
-- Keep responses conversational and natural (under 300 chars for WhatsApp)
-
-Current user message: "${message}"`;
-
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${openAIApiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'gpt-4.1-2025-04-14',
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: message }
-          ],
-          temperature: 0.7,
-          max_tokens: 200
-        }),
-      });
-
-      const data = await response.json();
-      return data.choices[0]?.message?.content || "I'm here to help! What would you like to do?";
+      return {
+        phone,
+        name: user?.name,
+        location: location ? {
+          lat: parseFloat(location.latitude),
+          lng: parseFloat(location.longitude),
+          address: location.address
+        } : undefined,
+        preferredLanguage: 'en',
+        lastInteraction,
+        conversationCount,
+        userType,
+        preferences: {}
+      };
     } catch (error) {
-      console.error('AI response error:', error);
-      return "I'm here to help! Try 'nearby drivers', 'find pharmacy', or tell me what you need.";
+      console.error('Error getting user context:', error);
+      return {
+        phone,
+        preferredLanguage: 'en',
+        conversationCount: 0,
+        userType: 'new'
+      };
     }
-  }
-
-  // Helper methods
-  private extractAmount(message: string): number | null {
-    const match = message.match(/(\d+)/);
-    return match ? parseInt(match[1]) : null;
-  }
-
-  private extractDestination(message: string): string | null {
-    const patterns = [
-      /to\s+([^,.\n]+)/i,
-      /going\s+to\s+([^,.\n]+)/i,
-      /destination\s+([^,.\n]+)/i,
-      /→\s*([^,.\n]+)/i,
-      /-\s*([^,.\n]+)/i
-    ];
-
-    for (const pattern of patterns) {
-      const match = message.match(pattern);
-      if (match) return match[1].trim();
-    }
-
-    return null;
-  }
-
-  private extractBusinessType(message: string): string | null {
-    const types = ['pharmacy', 'shop', 'restaurant', 'bar', 'supermarket', 'hospital'];
-    const msg = message.toLowerCase();
-    
-    for (const type of types) {
-      if (msg.includes(type)) return type;
-    }
-    
-    return null;
-  }
-
-  private extractSearchQuery(message: string): string | null {
-    const patterns = [
-      /buy\s+([^,.\n]+)/i,
-      /looking for\s+([^,.\n]+)/i,
-      /need\s+([^,.\n]+)/i,
-      /shop\s+([^,.\n]+)/i,
-      /find\s+([^,.\n]+)/i
-    ];
-
-    for (const pattern of patterns) {
-      const match = message.match(pattern);
-      if (match) return match[1].trim();
-    }
-
-    return null;
-  }
-
-  private async createPassengerIntent(userContext: UserContext, destination: string) {
-    try {
-      await this.supabase
-        .from('passenger_intents_spatial')
-        .insert({
-          passenger_phone: userContext.phone,
-          from_text: userContext.location?.address || 'Current location',
-          to_text: destination,
-          seats_needed: 1,
-          pickup: `SRID=4326;POINT(${userContext.location!.lng} ${userContext.location!.lat})`,
-          status: 'open'
-        });
-    } catch (error) {
-      console.error('Error creating passenger intent:', error);
-    }
-  }
-}
-
-async function buildUserContext(supabase: any, phone: string): Promise<UserContext> {
-  try {
-    // Get user memory
-    const { data: memory } = await supabase
-      .from('agent_memory')
-      .select('memory_type, memory_value')
-      .eq('user_id', phone);
-
-    const memoryObj = Object.fromEntries((memory || []).map((m: any) => [m.memory_type, m.memory_value]));
-
-    // Get conversation count
-    const { data: conversations } = await supabase
-      .from('agent_conversations')
-      .select('role, message, ts')
-      .eq('user_id', phone)
-      .order('ts', { ascending: false })
-      .limit(10);
-
-    const conversationCount = conversations?.length || 0;
-    
-    // Determine user type
-    let userType: 'new' | 'returning' | 'power_user' = 'new';
-    if (conversationCount > 20) userType = 'power_user';
-    else if (conversationCount > 0) userType = 'returning';
-
-    // Get location from memory if available
-    let location = null;
-    if (memoryObj.location) {
-      try {
-        location = JSON.parse(memoryObj.location);
-      } catch (e) {
-        console.warn('Could not parse location from memory');
-      }
-    }
-
-    return {
-      phone,
-      location,
-      preferredLanguage: memoryObj.language || 'en',
-      lastInteraction: memoryObj.last_interaction,
-      conversationCount,
-      userType,
-      currentFlow: memoryObj.current_flow,
-      currentStep: memoryObj.current_step,
-      memory: memoryObj
-    };
-  } catch (error) {
-    console.error('Error building user context:', error);
-    return {
-      phone,
-      preferredLanguage: 'en',
-      conversationCount: 0,
-      userType: 'new'
-    };
   }
 }
 
@@ -751,90 +440,67 @@ serve(async (req: Request) => {
   }
 
   try {
-    const { message, phone, contact_name, message_id, from, text, location } = await req.json();
+    const { message, phone, contact_name, message_id } = await req.json();
     
-    const userPhone = phone || from;
-    const userMessage = message || text;
-    
-    console.log(`🎯 Data-Aware Agent processing: ${userPhone} - ${userMessage}`);
+    console.log(`🧠 AI Data Agent processing: ${phone} - ${message}`);
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
-    // Build user context
-    const userContext = await buildUserContext(supabase, userPhone);
-    
-    // Update location if provided
-    if (location && location.latitude && location.longitude) {
-      userContext.location = {
-        lat: location.latitude,
-        lng: location.longitude,
-        address: location.address
-      };
-      
-      // Save location to memory
-      await supabase
-        .from('agent_memory')
-        .upsert({
-          user_id: userPhone,
-          memory_type: 'location',
-          memory_value: JSON.stringify(userContext.location)
-        }, { onConflict: 'user_id,memory_type' });
+    const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
+    if (!openaiApiKey) {
+      throw new Error('OPENAI_API_KEY not configured');
     }
 
-    // Process with data-aware agent
-    const agent = new DataAwareAgent(supabase);
-    const response = await agent.processMessage(userMessage, userContext);
+    const conversationManager = new ConversationManager(supabase);
+    const aiDataAgent = new AIDataAgent(supabase, openaiApiKey);
+
+    // Get user context with real data
+    const userContext = await conversationManager.getOrCreateUserContext(phone);
     
-    // Save conversation
+    // Process with AI using real database data
+    const response = await aiDataAgent.processMessage(message, userContext);
+
+    // Log conversation
     await supabase.from('agent_conversations').insert([
       {
-        user_id: userPhone,
+        user_id: phone,
         role: 'user',
-        message: userMessage,
-        metadata: { message_id, contact_name }
+        message: message,
+        metadata: { timestamp: new Date().toISOString() }
       },
       {
-        user_id: userPhone,
+        user_id: phone,
         role: 'assistant',
         message: response,
-        metadata: { agent: 'data-aware-agent' }
+        metadata: { 
+          agent: 'data-aware-agent',
+          contact_name,
+          message_id,
+          timestamp: new Date().toISOString()
+        }
       }
     ]);
 
-    // Log execution
-    await supabase.from('agent_execution_log').insert({
-      user_id: userPhone,
-      function_name: 'data-aware-agent',
-      input_data: { message: userMessage, location },
-      success_status: true,
-      model_used: 'data-aware-agent-v1',
-      execution_time_ms: Date.now() % 1000
-    });
+    console.log(`✅ AI Data Agent response generated for ${phone}`);
 
     return new Response(JSON.stringify({
       success: true,
-      response,
-      user_type: userContext.userType,
-      agent: 'data-aware-agent',
-      location_required: response.includes('share your location'),
-      data_validated: true
+      response: response
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
 
   } catch (error) {
-    console.error('❌ Data-Aware Agent Error:', error);
+    console.error('❌ AI Data Agent error:', error);
     
     return new Response(JSON.stringify({
-      success: true,
-      response: "I'm having technical difficulties. Please try again or contact support.",
-      agent: 'data-aware-agent',
-      fallback: true,
-      error: error.message
+      success: false,
+      response: "I apologize, but I'm experiencing technical difficulties. Please try again in a moment."
     }), {
+      status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
   }

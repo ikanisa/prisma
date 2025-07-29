@@ -126,36 +126,53 @@ serve(async (req: Request) => {
   });
 });
 
-// Process text messages
+// Process text messages with AI-powered intelligent routing
 async function processTextMessage(supabase: any, from: string, text: string, messageId: string, contactName: string, timestamp: Date) {
-  console.log('📝 Processing text message:', text);
+  console.log('🧠 Processing text message with AI routing:', text);
   
-  // SINGLE SOURCE OF TRUTH: Route to Enhanced Omni Agent for intelligent processing
+  // Route to AI Smart Router for intelligent agent selection
   try {
-    const { data: result, error } = await supabase.functions.invoke('omni-agent-enhanced', {
+    const { data: result, error } = await supabase.functions.invoke('whatsapp-webhook/agents/smart-router', {
       body: {
         message: text,
+        userId: from,
         phone: from,
-        contact_name: contactName,
-        message_id: messageId,
-        timestamp: timestamp.toISOString()
+        context: {
+          contact_name: contactName,
+          message_id: messageId,
+          timestamp: timestamp.toISOString()
+        }
       }
     });
 
     if (error) {
-      console.error('❌ Omni agent error:', error);
-      return; // Don't send duplicate fallback
+      console.error('❌ Smart router error:', error);
+      throw error;
     }
 
-    console.log('✅ Text message processed:', result);
+    console.log(`✅ Smart routing result: ${result.intent} → ${result.agent} (confidence: ${result.confidence})`);
     
-    // Send response back to user if agent provided one
+    // Send response back to user if routing was successful
     if (result?.success && result?.response) {
       await sendWhatsAppMessage(from, result.response);
     } else if (!result?.success) {
-      console.error('❌ Agent processing failed:', result);
-      // Only send fallback if no other response was provided
-      await sendWhatsAppMessage(from, "🤖 I'm here to help! Send amount for payment QR (e.g., '5000') or 'menu' for options.");
+      console.error('❌ Smart routing failed:', result);
+      // Fallback to enhanced omni agent
+      const { data: fallbackResult, error: fallbackError } = await supabase.functions.invoke('omni-agent-enhanced', {
+        body: {
+          message: text,
+          phone: from,
+          contact_name: contactName,
+          message_id: messageId,
+          timestamp: timestamp.toISOString()
+        }
+      });
+
+      if (!fallbackError && fallbackResult?.response) {
+        await sendWhatsAppMessage(from, fallbackResult.response);
+      } else {
+        await sendWhatsAppMessage(from, "🤖 I'm here to help! Send amount for payment QR or 'help' for options.");
+      }
     }
   } catch (error) {
     console.error('❌ Text processing error:', error);
