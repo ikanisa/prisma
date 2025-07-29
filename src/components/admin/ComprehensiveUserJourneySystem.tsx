@@ -91,54 +91,79 @@ export const ComprehensiveUserJourneySystem = () => {
     {
       name: "Payment Services",
       icon: <CreditCard className="h-5 w-5" />,
-      description: "QR generation, bill payments, money transfers",
-      journeys: ["payment_qr_generation", "bill_payment", "money_transfer", "payment_verification"]
+      description: "QR code generation, payment requests, MoMo integration",
+      journeys: ["payment_qr_generation", "payment_request_creation", "bill_payment_assistance", "payment_verification"]
     },
     {
-      name: "Transportation",
+      name: "Transportation Discovery",
       icon: <Car className="h-5 w-5" />,
-      description: "Driver registration, ride booking, route optimization",
-      journeys: ["driver_onboarding", "passenger_booking", "ride_matching", "trip_completion"]
+      description: "Driver/passenger connection, ride matching, location sharing",
+      journeys: ["driver_registration", "passenger_ride_request", "ride_matching", "driver_passenger_connection"]
     },
     {
-      name: "Marketplace",
+      name: "Business Discovery",
+      icon: <Building className="h-5 w-5" />,
+      description: "Finding nearby businesses, services, and vendors",
+      journeys: ["business_search", "nearby_services_discovery", "business_details_inquiry", "service_category_browsing"]
+    },
+    {
+      name: "Business Listing",
       icon: <ShoppingCart className="h-5 w-5" />,
-      description: "Product discovery, vendor registration, order management",
-      journeys: ["product_search", "vendor_onboarding", "order_placement", "inventory_management"]
+      description: "Vendors registering and managing their business presence",
+      journeys: ["business_registration", "business_profile_setup", "business_verification", "listing_management"]
     },
     {
-      name: "Events",
-      icon: <Calendar className="h-5 w-5" />,
-      description: "Event discovery, ticket booking, organizer tools",
-      journeys: ["event_discovery", "ticket_booking", "event_creation", "attendee_management"]
+      name: "User Onboarding",
+      icon: <UserPlus className="h-5 w-5" />,
+      description: "New user registration, verification, initial setup",
+      journeys: ["user_registration", "phone_verification", "profile_creation", "referral_code_entry"]
     },
     {
-      name: "Customer Support",
+      name: "Connection Facilitation",
+      icon: <Phone className="h-5 w-5" />,
+      description: "Connecting users with businesses for direct communication",
+      journeys: ["business_contact_facilitation", "service_inquiry_routing", "vendor_client_introduction", "connection_followup"]
+    },
+    {
+      name: "Location Services",
+      icon: <MapPin className="h-5 w-5" />,
+      description: "Location sharing, GPS tracking, area-based discovery",
+      journeys: ["location_sharing", "nearby_discovery", "area_exploration", "location_verification"]
+    },
+    {
+      name: "Support & Help",
       icon: <MessageCircle className="h-5 w-5" />,
-      description: "Help requests, escalation, FAQ resolution",
-      journeys: ["support_request", "issue_escalation", "faq_assistance", "feedback_collection"]
+      description: "User assistance, FAQ, issue resolution, escalation",
+      journeys: ["help_request", "faq_assistance", "issue_escalation", "feedback_collection"]
     },
     {
-      name: "User Management",
+      name: "Referral System",
       icon: <Users className="h-5 w-5" />,
-      description: "Registration, profile management, preferences",
-      journeys: ["user_onboarding", "profile_update", "preference_setting", "account_verification"]
+      description: "User referrals, credit rewards, growth tracking",
+      journeys: ["referral_invitation", "referral_reward_claiming", "credit_management", "referral_tracking"]
+    },
+    {
+      name: "Event Discovery",
+      icon: <Calendar className="h-5 w-5" />,
+      description: "Finding local events, community activities, announcements",
+      journeys: ["event_discovery", "event_details_inquiry", "event_location_sharing", "community_events"]
     }
   ];
 
   const comprehensiveJourneyTemplates: ComprehensiveUserJourney[] = [
+    // PAYMENT SERVICES
     {
       id: "payment_qr_generation",
-      journey_name: "Payment QR Generation",
+      journey_name: "Payment QR Code Generation",
       service_category: "Payment Services",
       user_types: ["general"],
       flow_steps: [
         {
           step_number: 1,
-          step_name: "Amount Input Recognition",
-          description: "AI detects payment amount in user message",
-          expected_input: "Numeric amount (e.g., '5000', 'five thousand')",
-          ai_response_template: "I'll generate a QR code for {amount} RWF. Please confirm the amount.",
+          step_name: "Amount Request",
+          description: "User sends payment amount via WhatsApp",
+          expected_input: "Numeric amount (e.g., '5000', 'five thousand RWF')",
+          ai_response_template: "I'll generate a QR code for {amount} RWF. Please confirm this amount.",
           success_criteria: ["Amount correctly parsed", "User confirmation received"],
           fallback_actions: ["Request clarification", "Provide amount format examples"],
           estimated_time_seconds: 30
@@ -146,174 +171,533 @@ export const ComprehensiveUserJourneySystem = () => {
         {
           step_number: 2,
           step_name: "QR Code Generation",
-          description: "System generates USSD QR code image",
-          expected_input: "User confirmation",
-          ai_response_template: "Processing your QR code for {amount} RWF...",
-          success_criteria: ["QR image generated successfully", "USSD code valid"],
-          fallback_actions: ["Retry generation", "Escalate to support"],
+          description: "System generates USSD-compatible QR code",
+          expected_input: "User confirmation ('yes', 'confirm', 'ok')",
+          ai_response_template: "Generating your payment QR code for {amount} RWF...",
+          success_criteria: ["QR code generated", "USSD code embedded"],
+          fallback_actions: ["Retry generation", "Manual USSD code"],
           estimated_time_seconds: 15
         },
         {
           step_number: 3,
-          step_name: "QR Delivery",
-          description: "Send QR image to user via WhatsApp",
+          step_name: "QR Code Delivery",
+          description: "Send QR image with instructions via WhatsApp",
           expected_input: "Generated QR image",
-          ai_response_template: "Here's your QR code for {amount} RWF. Scan with any banking app to pay.",
-          success_criteria: ["Image sent successfully", "User acknowledgment"],
-          fallback_actions: ["Resend image", "Provide USSD code as text"],
+          ai_response_template: "Here's your QR code for {amount} RWF. Scan with any MoMo app to complete payment.",
+          success_criteria: ["Image delivered", "Instructions provided"],
+          fallback_actions: ["Resend image", "Provide USSD text alternative"],
           estimated_time_seconds: 10
         }
       ],
-      success_criteria: {
-        completion_threshold: 0.95,
-        satisfaction_target: 4.5,
-        time_limit_seconds: 60
-      },
+      success_criteria: { completion_threshold: 0.95, satisfaction_target: 4.5, time_limit_seconds: 60 },
       ai_insights: {
-        completion_rate: 0.97,
-        success_probability: 0.95,
-        optimization_suggestions: ["Reduce QR generation time", "Add payment confirmation tracking"],
-        risk_factors: ["Network connectivity issues", "Image delivery failures"],
-        user_satisfaction: 4.7,
-        avg_completion_time: 45
+        completion_rate: 0.97, success_probability: 0.95,
+        optimization_suggestions: ["Reduce generation time", "Add payment tracking"],
+        risk_factors: ["Network issues", "Image delivery failures"],
+        user_satisfaction: 4.7, avg_completion_time: 45
       },
-      is_active: true,
-      last_updated: new Date().toISOString(),
-      ai_generated: false,
-      integration_points: ["USSD Gateway", "WhatsApp Media API", "Payment Verification Service"],
-      dependencies: ["User Authentication", "Amount Validation"]
+      is_active: true, last_updated: new Date().toISOString(), ai_generated: false,
+      integration_points: ["USSD Gateway", "WhatsApp Media API", "MoMo Services"],
+      dependencies: ["User Registration", "Amount Validation"]
     },
+
+    // TRANSPORTATION DISCOVERY
     {
-      id: "driver_onboarding",
-      journey_name: "Driver Registration & Onboarding",
-      service_category: "Transportation",
+      id: "driver_registration",
+      journey_name: "Driver Registration & Profile Setup",
+      service_category: "Transportation Discovery",
       user_types: ["driver"],
       flow_steps: [
         {
           step_number: 1,
-          step_name: "Registration Intent",
-          description: "User expresses intent to become a driver",
-          expected_input: "'driver on', 'register as driver', 'become driver'",
-          ai_response_template: "Great! I'll help you register as a driver. First, I need your current location.",
-          success_criteria: ["Intent recognized", "Location request sent"],
-          fallback_actions: ["Clarify driver requirements", "Explain benefits"],
+          step_name: "Driver Intent Recognition",
+          description: "User expresses desire to register as driver",
+          expected_input: "'driver on', 'register driver', 'become driver'",
+          ai_response_template: "Great! I'll help you register as a driver. First, please share your current location.",
+          success_criteria: ["Intent recognized", "Location sharing requested"],
+          fallback_actions: ["Clarify driver benefits", "Explain requirements"],
           estimated_time_seconds: 30
         },
         {
           step_number: 2,
-          step_name: "Location Collection",
-          description: "Collect and validate driver's location",
-          expected_input: "WhatsApp location share",
-          ai_response_template: "Location received! Now I need your vehicle details. What's your plate number?",
-          success_criteria: ["Valid GPS coordinates", "Location stored"],
-          fallback_actions: ["Request manual location entry", "Provide location sharing guide"],
-          estimated_time_seconds: 60
+          step_name: "Location & Vehicle Details",
+          description: "Collect location and vehicle information",
+          expected_input: "Location share + vehicle plate number",
+          ai_response_template: "Perfect! Vehicle {plate} registered for area {location}. You're now discoverable by passengers!",
+          success_criteria: ["Location stored", "Vehicle verified", "Profile activated"],
+          fallback_actions: ["Request manual entry", "Verify plate format"],
+          estimated_time_seconds: 90
         },
         {
           step_number: 3,
-          step_name: "Vehicle Information",
-          description: "Collect vehicle plate number and type",
-          expected_input: "Vehicle plate number",
-          ai_response_template: "Vehicle {plate} registered! You're now online and visible to passengers.",
-          success_criteria: ["Plate format validated", "Vehicle profile created"],
-          fallback_actions: ["Request correct format", "Manual verification"],
-          estimated_time_seconds: 45
-        },
-        {
-          step_number: 4,
-          step_name: "Profile Activation",
-          description: "Activate driver profile and set online status",
+          step_name: "Online Status Activation",
+          description: "Set driver as available for ride requests",
           expected_input: "System confirmation",
-          ai_response_template: "Welcome! You'll receive notifications when passengers need rides nearby.",
-          success_criteria: ["Profile active", "Location tracking enabled"],
-          fallback_actions: ["Retry activation", "Manual profile setup"],
+          ai_response_template: "You're now ONLINE! Passengers can find you. Type 'driver off' when unavailable.",
+          success_criteria: ["Status set to online", "Notifications enabled"],
+          fallback_actions: ["Manual activation", "Status verification"],
           estimated_time_seconds: 15
         }
       ],
-      success_criteria: {
-        completion_threshold: 0.85,
-        satisfaction_target: 4.0,
-        time_limit_seconds: 300
-      },
+      success_criteria: { completion_threshold: 0.85, satisfaction_target: 4.2, time_limit_seconds: 180 },
       ai_insights: {
-        completion_rate: 0.88,
-        success_probability: 0.82,
-        optimization_suggestions: ["Streamline vehicle verification", "Add photo capture"],
-        risk_factors: ["Location permission issues", "Invalid plate numbers"],
-        user_satisfaction: 4.2,
-        avg_completion_time: 180
+        completion_rate: 0.88, success_probability: 0.84,
+        optimization_suggestions: ["Simplify vehicle entry", "Add photo verification"],
+        risk_factors: ["Location permission denied", "Invalid plate numbers"],
+        user_satisfaction: 4.3, avg_completion_time: 135
       },
-      is_active: true,
-      last_updated: new Date().toISOString(),
-      ai_generated: false,
-      integration_points: ["Location Services", "Vehicle Database", "Driver Management System"],
-      dependencies: ["Location Permissions", "User Verification"]
+      is_active: true, last_updated: new Date().toISOString(), ai_generated: false,
+      integration_points: ["Location Services", "Driver Database", "Vehicle Registry"],
+      dependencies: ["User Onboarding", "Location Permissions"]
     },
+
     {
-      id: "product_search",
-      journey_name: "Product Discovery & Vendor Matching",
-      service_category: "Marketplace",
-      user_types: ["buyer", "general"],
+      id: "passenger_ride_request",
+      journey_name: "Passenger Ride Request & Driver Matching",
+      service_category: "Transportation Discovery",
+      user_types: ["passenger", "general"],
       flow_steps: [
         {
           step_number: 1,
-          step_name: "Product Query Processing",
-          description: "AI understands product search intent",
-          expected_input: "Product name or category (e.g., 'rice', 'medicine')",
-          ai_response_template: "I'll help you find {product}. Let me search for vendors nearby.",
-          success_criteria: ["Product identified", "Search initiated"],
-          fallback_actions: ["Request clarification", "Suggest categories"],
+          step_name: "Ride Request Intent",
+          description: "User requests transportation assistance",
+          expected_input: "'need ride', 'transport', 'taxi', 'moto'",
+          ai_response_template: "I'll help you find transportation! Please share your current location.",
+          success_criteria: ["Transport intent recognized", "Location requested"],
+          fallback_actions: ["Clarify transport type", "Explain process"],
           estimated_time_seconds: 20
         },
         {
           step_number: 2,
-          step_name: "Location-Based Search",
-          description: "Find vendors with product in user's area",
-          expected_input: "User location (automatic or requested)",
-          ai_response_template: "Found {count} vendors with {product} near you:",
-          success_criteria: ["Location obtained", "Vendors found"],
-          fallback_actions: ["Expand search radius", "Manual location entry"],
+          step_name: "Location & Destination",
+          description: "Collect pickup and destination details",
+          expected_input: "Current location + destination description",
+          ai_response_template: "Searching for drivers near {pickup_location} to go to {destination}...",
+          success_criteria: ["Both locations captured", "Driver search initiated"],
+          fallback_actions: ["Request clearer destination", "Suggest landmarks"],
+          estimated_time_seconds: 45
+        },
+        {
+          step_number: 3,
+          step_name: "Driver Matching & Connection",
+          description: "Find available drivers and facilitate contact",
+          expected_input: "Available drivers in area",
+          ai_response_template: "Found {count} drivers nearby! Contact {driver_name} at {phone} (Vehicle: {plate})",
+          success_criteria: ["Driver found", "Contact information shared"],
+          fallback_actions: ["Expand search area", "Wait for drivers to come online"],
+          estimated_time_seconds: 30
+        }
+      ],
+      success_criteria: { completion_threshold: 0.90, satisfaction_target: 4.4, time_limit_seconds: 120 },
+      ai_insights: {
+        completion_rate: 0.91, success_probability: 0.87,
+        optimization_suggestions: ["Reduce search time", "Add estimated fares"],
+        risk_factors: ["No drivers available", "Location ambiguity"],
+        user_satisfaction: 4.5, avg_completion_time: 95
+      },
+      is_active: true, last_updated: new Date().toISOString(), ai_generated: false,
+      integration_points: ["Driver Database", "Location Services", "Contact Bridge"],
+      dependencies: ["Driver Registration", "Location Services"]
+    },
+
+    // BUSINESS DISCOVERY
+    {
+      id: "business_search",
+      journey_name: "Business & Service Discovery",
+      service_category: "Business Discovery",
+      user_types: ["general", "client"],
+      flow_steps: [
+        {
+          step_number: 1,
+          step_name: "Service/Business Query",
+          description: "User searches for specific business type or service",
+          expected_input: "Business type (e.g., 'pharmacy', 'restaurant', 'mechanic')",
+          ai_response_template: "Looking for {business_type} services. Let me find options near you!",
+          success_criteria: ["Service type identified", "Search initiated"],
+          fallback_actions: ["Suggest categories", "Ask for more specific description"],
+          estimated_time_seconds: 20
+        },
+        {
+          step_number: 2,
+          step_name: "Location-Based Discovery",
+          description: "Find businesses matching criteria in user's area",
+          expected_input: "User location (shared or detected)",
+          ai_response_template: "Found {count} {business_type} businesses near {location}:",
+          success_criteria: ["Location obtained", "Businesses found and listed"],
+          fallback_actions: ["Expand search radius", "Show alternative services"],
           estimated_time_seconds: 30
         },
         {
           step_number: 3,
-          step_name: "Vendor Results Display",
-          description: "Present vendor options with details",
-          expected_input: "Vendor search results",
-          ai_response_template: "Here are vendors selling {product}: [vendor list with contacts]",
-          success_criteria: ["Results displayed", "Contact info provided"],
-          fallback_actions: ["Show alternative products", "Suggest nearby areas"],
+          step_name: "Business Information & Contact",
+          description: "Present business details and facilitate connection",
+          expected_input: "Business selection from user",
+          ai_response_template: "{business_name} - {address}. Contact: {phone}. Say easyMO referred you!",
+          success_criteria: ["Business details shared", "Contact facilitated"],
+          fallback_actions: ["Show more options", "Provide directions"],
+          estimated_time_seconds: 15
+        }
+      ],
+      success_criteria: { completion_threshold: 0.92, satisfaction_target: 4.3, time_limit_seconds: 90 },
+      ai_insights: {
+        completion_rate: 0.94, success_probability: 0.90,
+        optimization_suggestions: ["Add business hours", "Include ratings"],
+        risk_factors: ["Limited business database", "Outdated contact info"],
+        user_satisfaction: 4.4, avg_completion_time: 65
+      },
+      is_active: true, last_updated: new Date().toISOString(), ai_generated: false,
+      integration_points: ["Business Directory", "Location Services", "Contact Bridge"],
+      dependencies: ["Business Registration", "Location Data"]
+    },
+
+    // BUSINESS LISTING
+    {
+      id: "business_registration",
+      journey_name: "Business Registration & Listing Setup",
+      service_category: "Business Listing",
+      user_types: ["business_owner", "vendor"],
+      flow_steps: [
+        {
+          step_number: 1,
+          step_name: "Business Registration Intent",
+          description: "Business owner wants to list their business",
+          expected_input: "'register business', 'list my business', 'add my shop'",
+          ai_response_template: "I'll help you register your business! What type of business do you run?",
+          success_criteria: ["Registration intent confirmed", "Business type requested"],
+          fallback_actions: ["Explain benefits", "Show registration examples"],
+          estimated_time_seconds: 30
+        },
+        {
+          step_number: 2,
+          step_name: "Business Details Collection",
+          description: "Gather essential business information",
+          expected_input: "Business name, type, location, contact details",
+          ai_response_template: "Perfect! {business_name} ({business_type}) at {location}. Is this correct?",
+          success_criteria: ["All details collected", "Information confirmed"],
+          fallback_actions: ["Request missing info", "Clarify location"],
+          estimated_time_seconds: 120
+        },
+        {
+          step_number: 3,
+          step_name: "Listing Activation",
+          description: "Activate business listing for discovery",
+          expected_input: "Final confirmation from business owner",
+          ai_response_template: "Congratulations! {business_name} is now listed and discoverable by customers!",
+          success_criteria: ["Listing activated", "Business searchable"],
+          fallback_actions: ["Manual review", "Verification required"],
+          estimated_time_seconds: 15
+        }
+      ],
+      success_criteria: { completion_threshold: 0.88, satisfaction_target: 4.2, time_limit_seconds: 200 },
+      ai_insights: {
+        completion_rate: 0.90, success_probability: 0.86,
+        optimization_suggestions: ["Simplify info collection", "Add photo upload"],
+        risk_factors: ["Incomplete information", "Duplicate listings"],
+        user_satisfaction: 4.3, avg_completion_time: 165
+      },
+      is_active: true, last_updated: new Date().toISOString(), ai_generated: false,
+      integration_points: ["Business Directory", "Verification System", "Search Index"],
+      dependencies: ["User Verification", "Location Services"]
+    },
+
+    // USER ONBOARDING
+    {
+      id: "user_registration",
+      journey_name: "New User Onboarding & Setup",
+      service_category: "User Onboarding",
+      user_types: ["new_user"],
+      flow_steps: [
+        {
+          step_number: 1,
+          step_name: "Welcome & Introduction",
+          description: "First-time user interaction with easyMO",
+          expected_input: "Any message from new user",
+          ai_response_template: "Welcome to easyMO! 🇷🇼 I'm your AI assistant for payments, transport, and business discovery. What can I help you with?",
+          success_criteria: ["Welcome sent", "Service overview provided"],
+          fallback_actions: ["Resend welcome", "Provide help menu"],
           estimated_time_seconds: 15
         },
         {
-          step_number: 4,
-          step_name: "Connection Facilitation",
-          description: "Help user contact selected vendor",
-          expected_input: "Vendor selection",
-          ai_response_template: "Contact {vendor_name} at {phone} for {product}. Say easyMO sent you!",
-          success_criteria: ["Vendor contact provided", "Connection facilitated"],
-          fallback_actions: ["Provide alternative vendors", "Schedule callback"],
+          step_number: 2,
+          step_name: "Basic Profile Setup",
+          description: "Collect essential user information",
+          expected_input: "User's preferred name and location preference",
+          ai_response_template: "Nice to meet you, {name}! I'll remember your preferences. You can change them anytime by saying 'settings'.",
+          success_criteria: ["Profile created", "Preferences stored"],
+          fallback_actions: ["Skip profile setup", "Use minimal defaults"],
+          estimated_time_seconds: 45
+        },
+        {
+          step_number: 3,
+          step_name: "Service Introduction",
+          description: "Brief tour of available services",
+          expected_input: "User readiness for tour",
+          ai_response_template: "I can help with: 💳 Payment QR codes, 🚗 Finding transport, 🏪 Discovering businesses. Try saying 'payment 5000' or 'need ride'!",
+          success_criteria: ["Services explained", "Example interactions provided"],
+          fallback_actions: ["Skip tour", "Provide help command"],
+          estimated_time_seconds: 30
+        }
+      ],
+      success_criteria: { completion_threshold: 0.95, satisfaction_target: 4.6, time_limit_seconds: 120 },
+      ai_insights: {
+        completion_rate: 0.96, success_probability: 0.93,
+        optimization_suggestions: ["Personalize welcome", "Add quick start guide"],
+        risk_factors: ["User overwhelm", "Language barriers"],
+        user_satisfaction: 4.7, avg_completion_time: 90
+      },
+      is_active: true, last_updated: new Date().toISOString(), ai_generated: false,
+      integration_points: ["User Database", "Preference Manager", "Welcome System"],
+      dependencies: ["WhatsApp Integration", "Language Detection"]
+    },
+
+    // CONNECTION FACILITATION
+    {
+      id: "business_contact_facilitation",
+      journey_name: "Business Contact & Connection Facilitation",
+      service_category: "Connection Facilitation",
+      user_types: ["general", "client"],
+      flow_steps: [
+        {
+          step_number: 1,
+          step_name: "Connection Request",
+          description: "User wants to contact a specific business or service",
+          expected_input: "'contact [business_name]', 'call [service]', 'reach [vendor]'",
+          ai_response_template: "I'll help you connect with {business_name}. Let me find their current contact information.",
+          success_criteria: ["Business identified", "Contact search initiated"],
+          fallback_actions: ["Clarify business name", "Suggest similar businesses"],
+          estimated_time_seconds: 20
+        },
+        {
+          step_number: 2,
+          step_name: "Contact Information Retrieval",
+          description: "Retrieve current business contact details and availability",
+          expected_input: "Business verification and contact data",
+          ai_response_template: "Found {business_name}! Contact them at {phone_number}. Available: {business_hours}",
+          success_criteria: ["Contact info retrieved", "Business verified as active"],
+          fallback_actions: ["Show alternative contacts", "Provide general location info"],
+          estimated_time_seconds: 15
+        },
+        {
+          step_number: 3,
+          step_name: "Introduction & Follow-up",
+          description: "Facilitate introduction and track connection success",
+          expected_input: "User acknowledgment of contact information",
+          ai_response_template: "Connection facilitated! Mention 'easyMO referred me' when you contact them. Need anything else?",
+          success_criteria: ["Introduction completed", "Follow-up scheduled"],
+          fallback_actions: ["Provide alternative contact methods", "Schedule callback"],
           estimated_time_seconds: 10
         }
       ],
-      success_criteria: {
-        completion_threshold: 0.90,
-        satisfaction_target: 4.3,
-        time_limit_seconds: 120
-      },
+      success_criteria: { completion_threshold: 0.93, satisfaction_target: 4.4, time_limit_seconds: 60 },
       ai_insights: {
-        completion_rate: 0.92,
-        success_probability: 0.89,
-        optimization_suggestions: ["Add price comparison", "Include vendor ratings"],
-        risk_factors: ["Limited vendor database", "Outdated inventory"],
-        user_satisfaction: 4.4,
-        avg_completion_time: 75
+        completion_rate: 0.95, success_probability: 0.91,
+        optimization_suggestions: ["Add business availability status", "Include estimated response times"],
+        risk_factors: ["Outdated contact information", "Business temporarily closed"],
+        user_satisfaction: 4.6, avg_completion_time: 45
       },
-      is_active: true,
-      last_updated: new Date().toISOString(),
-      ai_generated: false,
-      integration_points: ["Vendor Database", "Inventory Management", "Location Services"],
-      dependencies: ["Vendor Registration", "Product Catalog"]
+      is_active: true, last_updated: new Date().toISOString(), ai_generated: false,
+      integration_points: ["Business Directory", "Contact Verification", "Connection Tracking"],
+      dependencies: ["Business Registration", "Contact Database"]
+    },
+
+    // LOCATION SERVICES
+    {
+      id: "location_sharing",
+      journey_name: "Location Sharing & Nearby Discovery",
+      service_category: "Location Services",
+      user_types: ["general"],
+      flow_steps: [
+        {
+          step_number: 1,
+          step_name: "Location Sharing Request",
+          description: "User shares location or requests location-based services",
+          expected_input: "WhatsApp location share or 'near me', 'around here'",
+          ai_response_template: "Location received! I can now show you nearby services. What are you looking for?",
+          success_criteria: ["Location captured", "GPS coordinates stored"],
+          fallback_actions: ["Request manual location", "Use previous location"],
+          estimated_time_seconds: 30
+        },
+        {
+          step_number: 2,
+          step_name: "Nearby Services Discovery",
+          description: "Find and present nearby businesses and services",
+          expected_input: "User service/business inquiry",
+          ai_response_template: "Found {count} services near {location}. Here are the closest options:",
+          success_criteria: ["Services found", "Results sorted by distance"],
+          fallback_actions: ["Expand search radius", "Show popular categories"],
+          estimated_time_seconds: 25
+        },
+        {
+          step_number: 3,
+          step_name: "Service Selection & Direction",
+          description: "Help user select service and provide location guidance",
+          expected_input: "User selection of specific service/business",
+          ai_response_template: "{business_name} is {distance} away at {address}. Contact: {phone}",
+          success_criteria: ["Selection confirmed", "Location details provided"],
+          fallback_actions: ["Provide walking directions", "Share exact coordinates"],
+          estimated_time_seconds: 15
+        }
+      ],
+      success_criteria: { completion_threshold: 0.91, satisfaction_target: 4.3, time_limit_seconds: 90 },
+      ai_insights: {
+        completion_rate: 0.93, success_probability: 0.89,
+        optimization_suggestions: ["Add real-time business hours", "Include user reviews"],
+        risk_factors: ["Location permission denied", "GPS inaccuracy"],
+        user_satisfaction: 4.4, avg_completion_time: 70
+      },
+      is_active: true, last_updated: new Date().toISOString(), ai_generated: false,
+      integration_points: ["GPS Services", "Business Directory", "Maps Integration"],
+      dependencies: ["Location Permissions", "Business Database"]
+    },
+
+    // SUPPORT & HELP
+    {
+      id: "help_request",
+      journey_name: "User Support & Help Assistance",
+      service_category: "Support & Help",
+      user_types: ["general"],
+      flow_steps: [
+        {
+          step_number: 1,
+          step_name: "Help Request Recognition",
+          description: "User requests help or encounters an issue",
+          expected_input: "'help', 'problem', 'issue', 'not working', 'support'",
+          ai_response_template: "I'm here to help! Can you describe what you're trying to do or what issue you're experiencing?",
+          success_criteria: ["Help intent recognized", "Issue gathering initiated"],
+          fallback_actions: ["Show help menu", "Provide FAQ links"],
+          estimated_time_seconds: 15
+        },
+        {
+          step_number: 2,
+          step_name: "Issue Diagnosis & Resolution",
+          description: "Analyze issue and provide solution or escalate",
+          expected_input: "User description of problem or specific question",
+          ai_response_template: "I understand the issue. Here's how to resolve it: {solution_steps}",
+          success_criteria: ["Issue diagnosed", "Solution provided or escalation initiated"],
+          fallback_actions: ["Ask clarifying questions", "Escalate to human support"],
+          estimated_time_seconds: 60
+        },
+        {
+          step_number: 3,
+          step_name: "Resolution Confirmation",
+          description: "Confirm issue is resolved and collect feedback",
+          expected_input: "User confirmation of resolution status",
+          ai_response_template: "Great! Is your issue resolved? Rate this help session (1-5) to help me improve.",
+          success_criteria: ["Resolution confirmed", "Feedback collected"],
+          fallback_actions: ["Offer additional help", "Schedule follow-up"],
+          estimated_time_seconds: 20
+        }
+      ],
+      success_criteria: { completion_threshold: 0.87, satisfaction_target: 4.2, time_limit_seconds: 120 },
+      ai_insights: {
+        completion_rate: 0.89, success_probability: 0.84,
+        optimization_suggestions: ["Build better FAQ database", "Add visual troubleshooting guides"],
+        risk_factors: ["Complex technical issues", "Language barriers"],
+        user_satisfaction: 4.3, avg_completion_time: 95
+      },
+      is_active: true, last_updated: new Date().toISOString(), ai_generated: false,
+      integration_points: ["Knowledge Base", "Support Ticketing", "Feedback System"],
+      dependencies: ["FAQ Database", "Support Staff Escalation"]
+    },
+
+    // REFERRAL SYSTEM
+    {
+      id: "referral_invitation",
+      journey_name: "User Referral & Reward System",
+      service_category: "Referral System",
+      user_types: ["general"],
+      flow_steps: [
+        {
+          step_number: 1,
+          step_name: "Referral Intent Recognition",
+          description: "User wants to refer friends or claim referral rewards",
+          expected_input: "'refer friend', 'invite', 'referral code', 'reward'",
+          ai_response_template: "Great! You can earn rewards by referring friends to easyMO. Your referral code is: {referral_code}",
+          success_criteria: ["Referral intent recognized", "User code provided"],
+          fallback_actions: ["Explain referral benefits", "Show how to share code"],
+          estimated_time_seconds: 20
+        },
+        {
+          step_number: 2,
+          step_name: "Referral Sharing & Tracking",
+          description: "Help user share referral code and track invitations",
+          expected_input: "User confirmation to share or request tracking info",
+          ai_response_template: "Share this message: 'Join easyMO for payments & transport! Use code {code} for bonuses: [link]'",
+          success_criteria: ["Sharing message provided", "Tracking initiated"],
+          fallback_actions: ["Provide manual sharing instructions", "Show referral status"],
+          estimated_time_seconds: 30
+        },
+        {
+          step_number: 3,
+          step_name: "Reward Processing",
+          description: "Process successful referrals and award credits",
+          expected_input: "New user registration with referral code",
+          ai_response_template: "Congratulations! {friend_name} joined using your code. You earned {reward_amount} RWF credit!",
+          success_criteria: ["Referral confirmed", "Reward credited"],
+          fallback_actions: ["Manual verification", "Credit adjustment"],
+          estimated_time_seconds: 15
+        }
+      ],
+      success_criteria: { completion_threshold: 0.85, satisfaction_target: 4.1, time_limit_seconds: 80 },
+      ai_insights: {
+        completion_rate: 0.87, success_probability: 0.82,
+        optimization_suggestions: ["Simplify code sharing", "Add social media integration"],
+        risk_factors: ["Code sharing barriers", "Reward processing delays"],
+        user_satisfaction: 4.2, avg_completion_time: 65
+      },
+      is_active: true, last_updated: new Date().toISOString(), ai_generated: false,
+      integration_points: ["Referral Tracking", "Credit System", "Messaging API"],
+      dependencies: ["User Registration", "Payment System"]
+    },
+
+    // EVENT DISCOVERY
+    {
+      id: "event_discovery",
+      journey_name: "Local Event Discovery & Information",
+      service_category: "Event Discovery",
+      user_types: ["general"],
+      flow_steps: [
+        {
+          step_number: 1,
+          step_name: "Event Interest Recognition",
+          description: "User searches for local events or activities",
+          expected_input: "'events', 'activities', 'what's happening', 'concerts', 'meetings'",
+          ai_response_template: "Looking for local events! Let me find activities happening near you.",
+          success_criteria: ["Event interest recognized", "Location-based search initiated"],
+          fallback_actions: ["Ask for specific event type", "Show popular categories"],
+          estimated_time_seconds: 20
+        },
+        {
+          step_number: 2,
+          step_name: "Event Discovery & Filtering",
+          description: "Find and present relevant local events",
+          expected_input: "User location and event preferences",
+          ai_response_template: "Found {count} events near you: {event_list}",
+          success_criteria: ["Events found", "Results filtered by relevance"],
+          fallback_actions: ["Expand search area", "Show upcoming events"],
+          estimated_time_seconds: 30
+        },
+        {
+          step_number: 3,
+          step_name: "Event Details & Location Sharing",
+          description: "Provide detailed event information and directions",
+          expected_input: "User selection of specific event",
+          ai_response_template: "{event_name} - {date} at {venue}. Details: {description}. Location: {address}",
+          success_criteria: ["Event details provided", "Location information shared"],
+          fallback_actions: ["Provide contact info", "Show similar events"],
+          estimated_time_seconds: 25
+        }
+      ],
+      success_criteria: { completion_threshold: 0.88, satisfaction_target: 4.0, time_limit_seconds: 90 },
+      ai_insights: {
+        completion_rate: 0.90, success_probability: 0.85,
+        optimization_suggestions: ["Add event calendar integration", "Include RSVP tracking"],
+        risk_factors: ["Limited event database", "Outdated event information"],
+        user_satisfaction: 4.1, avg_completion_time: 75
+      },
+      is_active: true, last_updated: new Date().toISOString(), ai_generated: false,
+      integration_points: ["Event Database", "Calendar Systems", "Location Services"],
+      dependencies: ["Event Registration", "Venue Database"]
     }
   ];
 
