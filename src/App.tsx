@@ -8,6 +8,12 @@ import { AdminLayoutConsolidated } from "@/components/admin/AdminLayoutConsolida
 import UnifiedDashboard from "./pages/admin/UnifiedDashboard";
 import UsersContacts from "./pages/admin/UsersContacts";
 import Businesses from "./pages/admin/Businesses";
+// Consolidated dashboards
+import CommerceDashboard from "./pages/admin/commerce/CommerceDashboard";
+import MobilityDashboard from "./pages/admin/mobility/MobilityDashboard";
+import ListingsDashboard from "./pages/admin/listings/ListingsDashboard";
+import OperationsDashboard from "./pages/admin/operations/OperationsDashboard";
+// Legacy pages (to be phased out)
 import ListingsInventory from "./pages/admin/ListingsInventory";
 import OrdersPayments from "./pages/admin/OrdersPayments";
 import TripsIntents from "./pages/admin/TripsIntents";
@@ -69,6 +75,14 @@ const App = () => (
           <Route index element={<UnifiedDashboard />} />
           <Route path="users-contacts" element={<UsersContacts />} />
           <Route path="businesses" element={<Businesses />} />
+          
+          {/* Consolidated Dashboards */}
+          <Route path="commerce" element={<CommerceDashboard />} />
+          <Route path="mobility" element={<MobilityDashboard />} />
+          <Route path="listings" element={<ListingsDashboard />} />
+          <Route path="operations" element={<OperationsDashboard />} />
+          
+          {/* Legacy routes - to be deprecated */}
           <Route path="listings-inventory" element={<ListingsInventory />} />
           <Route path="unified-listings" element={<UnifiedListingsPage />} />
           <Route path="orders-payments" element={<OrdersPayments />} />
