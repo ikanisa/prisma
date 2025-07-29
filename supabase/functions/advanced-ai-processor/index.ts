@@ -1,7 +1,12 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0';
 import { corsHeaders } from "../_shared/cors.ts";
-import { getOpenAIClient } from "../_shared/openai.ts";
+import { 
+  createChatCompletion,
+  generateIntelligentResponse,
+  type AIMessage,
+  type CompletionOptions
+} from "../_shared/openai-sdk.ts";
 
 interface ProcessingRequest {
   message: string;
@@ -37,15 +42,15 @@ serve(async (req) => {
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
   );
 
-  const openai = getOpenAIClient();
+  // Advanced AI processing now uses SDK - no need for openai variable
 
   try {
     const { message, userId, phoneNumber, agentId, context } = await req.json() as ProcessingRequest;
 
     console.log(`🧠 Advanced AI processing for user: ${phoneNumber}`);
 
-    // 1. Content Safety Check
-    const safetyResult = await performSafetyCheck(message, openai);
+    // 1. Content Safety Check using SDK
+    const safetyResult = await performSafetyCheck(message);
     if (!safetyResult.safe) {
       return createResponse({ 
         message: "I can't process that request. Please rephrase your message.", 
@@ -60,17 +65,16 @@ serve(async (req) => {
     // 3. Get Agent Configuration with A/B Testing
     const agentConfig = await getOptimalAgent(supabase, agentId, userId);
 
-    // 4. Generate Context-Aware Response
+    // 4. Generate Context-Aware Response using SDK
     const aiResponse = await generateAdvancedResponse(
-      openai, 
-      message, 
+      message,
       userMemory, 
       agentConfig,
       context
     );
 
     // 5. Quality Assessment
-    const qualityScores = await assessResponseQuality(openai, message, aiResponse.message);
+    const qualityScores = await assessResponseQuality(message, aiResponse.message);
 
     // 6. Update Enhanced Memory
     await updateEnhancedMemory(supabase, userId, message, aiResponse.message, qualityScores);
@@ -97,7 +101,7 @@ serve(async (req) => {
   }
 });
 
-async function performSafetyCheck(message: string, openai: any): Promise<{safe: boolean, flags: SafetyFlags}> {
+async function performSafetyCheck(message: string): Promise<{safe: boolean, flags: SafetyFlags}> {
   try {
     const systemPrompt = `
 You are a content safety classifier. Analyze the following message for:
@@ -109,17 +113,18 @@ You are a content safety classifier. Analyze the following message for:
 
 Respond with JSON only: {"safe": boolean, "flags": {"inappropriate": boolean, "hallucination": boolean, "harmful": boolean, "misinformation": boolean, "sensitive_topic": boolean}, "confidence": number}`;
 
-    const response = await openai.chat.completions.create({
+    const messages: AIMessage[] = [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: message }
+    ];
+
+    const completion = await createChatCompletion(messages, {
       model: 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: message }
-      ],
       response_format: { type: 'json_object' },
       temperature: 0.1
     });
 
-    const result = JSON.parse(response.choices[0].message.content);
+    const result = JSON.parse(completion.choices[0]?.message?.content || '{}');
     return {
       safe: result.safe && result.confidence > 0.8,
       flags: result.flags
@@ -191,7 +196,6 @@ async function getOptimalAgent(supabase: any, requestedAgentId: string, userId: 
 }
 
 async function generateAdvancedResponse(
-  openai: any, 
   message: string, 
   userMemory: any, 
   agentConfig: any,
@@ -221,21 +225,22 @@ Model Configuration:
 ${JSON.stringify(agentConfig.configuration, null, 2)}`;
 
   try {
-    const response = await openai.chat.completions.create({
-      model: agentConfig.model_type || 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: message }
-      ],
+    const messages: AIMessage[] = [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: message }
+    ];
+
+    const completion = await createChatCompletion(messages, {
+      model: agentConfig.model_type || 'gpt-4.1-2025-04-14',
       temperature: agentConfig.configuration.temperature || 0.7,
       max_tokens: agentConfig.configuration.max_tokens || 500
     });
 
     return {
-      message: response.choices[0].message.content,
+      message: completion.choices[0]?.message?.content,
       confidence: 0.9,
       modelUsed: agentConfig.model_type,
-      tokenUsage: response.usage
+      tokenUsage: completion.usage
     };
   } catch (error) {
     console.error('Response generation failed:', error);
@@ -243,7 +248,7 @@ ${JSON.stringify(agentConfig.configuration, null, 2)}`;
   }
 }
 
-async function assessResponseQuality(openai: any, userMessage: string, aiResponse: string): Promise<QualityScores> {
+async function assessResponseQuality(userMessage: string, aiResponse: string): Promise<QualityScores> {
   try {
     const systemPrompt = `
 Analyze the quality of this AI response across multiple dimensions.
@@ -260,17 +265,18 @@ Rate each dimension from 0.0 to 1.0:
 
 Respond with JSON only: {"accuracy": float, "helpfulness": float, "safety": float, "relevance": float, "coherence": float}`;
 
-    const response = await openai.chat.completions.create({
+    const messages: AIMessage[] = [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: 'Please assess this conversation.' }
+    ];
+
+    const completion = await createChatCompletion(messages, {
       model: 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: 'Please assess this conversation.' }
-      ],
       response_format: { type: 'json_object' },
       temperature: 0.1
     });
 
-    return JSON.parse(response.choices[0].message.content);
+    return JSON.parse(completion.choices[0]?.message?.content || '{}');
   } catch (error) {
     console.error('Quality assessment failed:', error);
     return { accuracy: 0.8, helpfulness: 0.8, safety: 1.0, relevance: 0.8, coherence: 0.8 };

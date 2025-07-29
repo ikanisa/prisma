@@ -1,6 +1,12 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0';
+import { 
+  createChatCompletion,
+  analyzeIntent,
+  type AIMessage,
+  type CompletionOptions
+} from "../_shared/openai-sdk.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -107,38 +113,35 @@ When confidence < 0.6, suggest asking for clarification.
 
 Respond only with valid JSON matching the schema.`;
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openaiApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4.1-2025-04-14',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: message }
-        ],
-        functions: [{
+    // Use OpenAI SDK for intent classification
+    const messages: AIMessage[] = [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: message }
+    ];
+
+    const completion = await createChatCompletion(messages, {
+      model: 'gpt-4.1-2025-04-14',
+      temperature: 0.1,
+      tools: [{
+        type: 'function',
+        function: {
           name: 'classify_intent',
           description: 'Classify user intent with confidence score',
           parameters: INTENT_SCHEMA
-        }],
-        function_call: { name: 'classify_intent' },
-        temperature: 0.1
-      }),
+        }
+      }],
+      tool_choice: { type: 'function', function: { name: 'classify_intent' } }
     });
 
-    if (!response.ok) {
-      throw new Error(`OpenAI API error: ${response.status}`);
-    }
-
-    const data = await response.json();
     let classification: IntentClassification;
 
     try {
-      const functionCall = data.choices[0].message.function_call;
-      classification = JSON.parse(functionCall.arguments);
+      const toolCall = completion.choices[0]?.message?.tool_calls?.[0];
+      if (toolCall?.function?.arguments) {
+        classification = JSON.parse(toolCall.function.arguments);
+      } else {
+        throw new Error('No tool call found');
+      }
     } catch (parseError) {
       console.error('Failed to parse classification:', parseError);
       // Fallback classification
