@@ -235,7 +235,9 @@ class OpenAIAssistantAgent {
       'getMissingUserData': 'get-missing-user-data',
       'updateMomoNumber': 'update-momo-number',
       'ocrDocument': 'ocr-document',
-      'onboardingHandler': 'onboarding-handler'
+      'onboardingHandler': 'onboarding-handler',
+      'saveUserLocation': 'save-user-location',
+      'searchNearby': 'search-nearby'
     };
 
     const functionName = toolMap[name];

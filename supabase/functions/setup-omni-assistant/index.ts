@@ -63,11 +63,18 @@ async function createEasyMOOmniAssistant() {
 🏪 BUSINESS SIGNUP: "business", "shop", "pharmacy" → partner_type_v1 → business_form_v1
 ✅ POST-SERVICE: After successful transaction → marketing_menu_v1 with more services
 
+📍 GEO & LISTING FLOWS:
+🔍 LOCATION REQUEST: If intent requires location AND latest location ≤ 2h missing → geo_request_v1 template
+📱 LOCATION RECEIVED: After webhook type=location → saveUserLocation → searchNearby → listing_* template  
+🚗 DRIVER LISTING: "drivers", "transport" → geo_request_v1 → listing_drivers_v1 with chat buttons
+🏥 PHARMACY LISTING: "pharmacy", "medicine" → geo_request_v1 → listing_pharmacies_v1 with chat buttons
+
 📱 RESPONSE RULES:
 - ONE message per domain with ALL relevant buttons (max 3)
 - Use composeWhatsAppMessage with template payloads
 - Include emojis and concise copy for mobile
 - If confidence < 0.6: clarify template with 3 refinement buttons
+- Each listing_* template MUST include Chat URL buttons automatically populated with wa_number
 
 🧠 PERSONALIZATION:
 - Use getUserContext for previous preferences and onboarding stage
@@ -311,6 +318,44 @@ CRITICAL: Never ask open-ended questions. Always provide action buttons. Guide u
               }
             },
             required: ["action", "userId"]
+          }
+        }
+      },
+      {
+        type: "function",
+        function: {
+          name: "saveUserLocation",
+          description: "Save user's location coordinates for geo-based services",
+          parameters: {
+            type: "object",
+            properties: {
+              waId: { type: "string", description: "User's WhatsApp ID" },
+              phoneNumber: { type: "string", description: "User's phone number" },
+              latitude: { type: "number", description: "Latitude coordinate" },
+              longitude: { type: "number", description: "Longitude coordinate" }
+            },
+            required: ["latitude", "longitude"]
+          }
+        }
+      },
+      {
+        type: "function",
+        function: {
+          name: "searchNearby",
+          description: "Search for nearby drivers, pharmacies, or businesses based on user location",
+          parameters: {
+            type: "object",
+            properties: {
+              waId: { type: "string", description: "User's WhatsApp ID" },
+              phoneNumber: { type: "string", description: "User's phone number" },
+              domain: { 
+                type: "string", 
+                enum: ["driver", "drivers", "pharmacy", "pharmacies", "business"],
+                description: "Type of service to search for"
+              },
+              radiusKm: { type: "number", default: 5, description: "Search radius in kilometers" }
+            },
+            required: ["domain"]
           }
         }
       }

@@ -7926,6 +7926,30 @@ export type Database = {
         }
         Relationships: []
       }
+      user_locations: {
+        Row: {
+          created_at: string | null
+          id: number
+          lat: number
+          lng: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: never
+          lat: number
+          lng: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: never
+          lat?: number
+          lng?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_memory_enhanced: {
         Row: {
           access_count: number | null
