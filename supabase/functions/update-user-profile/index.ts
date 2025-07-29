@@ -1,122 +1,147 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
-interface UpdateProfileRequest {
-  userId: string;
-  updates: {
-    language?: string;
-    default_wallet?: string;
-    name?: string;
-    preferences?: Record<string, any>;
-  };
 }
 
-serve(async (req) => {
-  // Handle CORS preflight requests
+interface UpdateProfileRequest {
+  phone_number: string
+  updates: {
+    preferred_service?: string
+    fav_businesses?: string[]
+    last_payment_amount?: number
+    last_ride_destination?: string
+    preferred_language?: string
+    location?: { lat: number; lng: number }
+    interaction_type?: string
+  }
+}
+
+Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { headers: corsHeaders })
   }
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    )
 
-    if (!supabaseUrl || !supabaseServiceKey) {
-      throw new Error('Missing Supabase environment variables');
+    const { phone_number, updates }: UpdateProfileRequest = await req.json()
+
+    if (!phone_number) {
+      return new Response(
+        JSON.stringify({ error: 'phone_number is required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
 
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    const { userId, updates }: UpdateProfileRequest = await req.json();
+    if (!updates || Object.keys(updates).length === 0) {
+      return new Response(
+        JSON.stringify({ error: 'updates object is required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
 
-    console.log(`👤 Updating user profile for user: ${userId}`, updates);
+    // Build the update object
+    const updateData: any = {
+      updated_at: new Date().toISOString()
+    }
 
-    // First, try to get existing profile
-    const { data: existingProfile } = await supabase
+    // Map updates to database columns
+    if (updates.preferred_service) {
+      updateData.preferred_service = updates.preferred_service
+    }
+
+    if (updates.fav_businesses) {
+      updateData.fav_businesses = updates.fav_businesses
+    }
+
+    if (updates.last_payment_amount) {
+      updateData.last_payment_amount = updates.last_payment_amount
+    }
+
+    if (updates.last_ride_destination) {
+      updateData.last_ride_destination = updates.last_ride_destination
+    }
+
+    if (updates.preferred_language) {
+      updateData.preferred_language = updates.preferred_language
+    }
+
+    if (updates.location) {
+      updateData.last_known_location = `POINT(${updates.location.lng} ${updates.location.lat})`
+    }
+
+    // Upsert user profile
+    const { data: profile, error: profileError } = await supabase
       .from('user_profiles')
-      .select('*')
-      .eq('user_id', userId)
-      .single();
+      .upsert({
+        phone_number,
+        ...updateData
+      }, {
+        onConflict: 'phone_number'
+      })
+      .select()
+      .single()
 
-    let result;
-    if (existingProfile) {
-      // Update existing profile
-      const { data, error } = await supabase
-        .from('user_profiles')
-        .update({
-          ...updates,
-          updated_at: new Date().toISOString()
-        })
-        .eq('user_id', userId)
-        .select()
-        .single();
-
-      if (error) {
-        throw error;
-      }
-      result = data;
-    } else {
-      // Create new profile
-      const { data, error } = await supabase
-        .from('user_profiles')
-        .insert({
-          user_id: userId,
-          ...updates
-        })
-        .select()
-        .single();
-
-      if (error) {
-        throw error;
-      }
-      result = data;
+    if (profileError) {
+      console.error('Profile update error:', profileError)
+      return new Response(
+        JSON.stringify({ error: 'Failed to update user profile' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
 
-    // If preferences were updated, merge with existing preferences
-    if (updates.preferences && existingProfile?.preferences) {
-      const mergedPreferences = {
-        ...existingProfile.preferences,
-        ...updates.preferences
-      };
-
-      const { data: updatedProfile, error: mergeError } = await supabase
-        .from('user_profiles')
-        .update({
-          preferences: mergedPreferences,
-          updated_at: new Date().toISOString()
-        })
-        .eq('user_id', userId)
-        .select()
-        .single();
-
-      if (mergeError) {
-        console.error('Error merging preferences:', mergeError);
-      } else {
-        result = updatedProfile;
-      }
+    // Update interaction stats if interaction_type is provided
+    if (updates.interaction_type) {
+      await supabase.rpc('update_user_interaction_stats', {
+        phone_number,
+        interaction_type: updates.interaction_type
+      })
     }
 
-    console.log(`✅ Updated user profile for ${userId}:`, result);
+    // Log the profile update for analytics
+    await supabase
+      .from('agent_execution_log')
+      .insert({
+        function_name: 'update_user_profile',
+        user_id: phone_number,
+        input_data: { updates },
+        success_status: true,
+        execution_time_ms: 0,
+        model_used: 'profile_update'
+      })
 
-    return new Response(JSON.stringify({ 
-      success: true, 
-      profile: result 
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    const result = {
+      success: true,
+      phone_number,
+      updated_fields: Object.keys(updates),
+      profile: {
+        phone_number: profile.phone_number,
+        preferred_service: profile.preferred_service,
+        fav_businesses: profile.fav_businesses,
+        interaction_count: profile.interaction_count,
+        last_payment_amount: profile.last_payment_amount,
+        last_ride_destination: profile.last_ride_destination,
+        preferred_language: profile.preferred_language,
+        updated_at: profile.updated_at
+      },
+      message: 'Profile updated successfully'
+    }
+
+    return new Response(
+      JSON.stringify(result),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
 
   } catch (error) {
-    console.error('Error in update-user-profile:', error);
-    return new Response(JSON.stringify({ 
-      error: error.message,
-      success: false
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    console.error('Error in update-user-profile:', error)
+    return new Response(
+      JSON.stringify({ error: 'Internal server error' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
   }
-});
+})

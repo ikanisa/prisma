@@ -1,261 +1,140 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
-interface QRRequest {
-  action: 'generate' | 'scan';
-  amount?: number;
-  phone?: string;
-  type?: 'receive' | 'send';
-  user_id?: string;
-  qr_data?: string;
 }
 
-serve(async (req) => {
+interface QRPaymentRequest {
+  amount: number
+  currency?: string
+  description?: string
+  recipient_phone?: string
+  user_phone: string
+  transaction_type?: 'send' | 'request'
+}
+
+Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { headers: corsHeaders })
   }
 
   try {
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
+    )
 
-    const { action, amount, phone, type, user_id, qr_data }: QRRequest = await req.json();
+    const { 
+      amount, 
+      currency = 'RWF', 
+      description = 'Payment via easyMO',
+      recipient_phone,
+      user_phone,
+      transaction_type = 'send'
+    }: QRPaymentRequest = await req.json()
 
-    if (action === 'generate') {
-      return await generateQRCode(supabase, amount!, phone!, type!, user_id!);
-    } else if (action === 'scan') {
-      return await processScannedQR(supabase, qr_data!, user_id!);
+    // Validate inputs
+    if (!amount || amount <= 0) {
+      return new Response(
+        JSON.stringify({ error: 'Valid amount is required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
 
-    return new Response(
-      JSON.stringify({ error: 'Invalid action' }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-    );
+    if (!user_phone) {
+      return new Response(
+        JSON.stringify({ error: 'User phone number is required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
 
-  } catch (error) {
-    console.error('QR Payment Generator error:', error);
-    return new Response(
-      JSON.stringify({ error: 'Internal server error', details: error.message }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-    );
-  }
-});
-
-async function generateQRCode(supabase: any, amount: number, phone: string, type: string, userId: string) {
-  try {
     // Generate payment reference
-    const reference = `EMO${Date.now()}${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
-    
+    const payment_ref = `EMO${Date.now()}${Math.random().toString(36).substr(2, 5).toUpperCase()}`
+
     // Create payment record
     const { data: payment, error: paymentError } = await supabase
       .from('payments')
       .insert({
-        user_id: userId,
+        phone_number: user_phone,
         amount: amount,
-        currency: 'RWF',
-        momo_code: phone,
-        ussd_code: '', // Will be updated after generation
-        ref: reference,
-        purpose: type || 'payment'
+        currency: currency,
+        payment_method: 'momo_qr',
+        status: 'pending',
+        reference: payment_ref,
+        description: description,
+        recipient_phone: recipient_phone,
+        metadata: {
+          transaction_type,
+          qr_generated: true,
+          generated_at: new Date().toISOString()
+        }
       })
       .select()
-      .single();
+      .single()
 
     if (paymentError) {
-      throw new Error(`Payment creation failed: ${paymentError.message}`);
-    }
-
-    // Generate QR code content
-    const qrContent = {
-      type: 'easymo_payment',
-      reference: reference,
-      amount: amount,
-      currency: 'RWF',
-      phone: phone,
-      action: type
-    };
-
-    // Call QR generation service
-    const qrResponse = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/qr-render`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`
-      },
-      body: JSON.stringify({
-        text: JSON.stringify(qrContent),
-        id: reference,
-        agent: 'payment',
-        entity: 'qr_code'
-      })
-    });
-
-    if (!qrResponse.ok) {
-      throw new Error('QR code generation failed');
-    }
-
-    const qrData = await qrResponse.json();
-
-    // Generate USSD code based on phone type
-    let ussdCode;
-    if (phone.startsWith('078') || phone.startsWith('079')) {
-      // MTN MoMo number format
-      ussdCode = `*182*1*1*${phone}*${amount}#`;
-    } else {
-      // MoMo code format
-      ussdCode = `*182*8*1*${phone}*${amount}#`;
-    }
-    
-    // Generate payment link
-    const paymentLink = `https://pay.easymo.rw/qr/${reference}`;
-
-    // Update payment with QR data
-    await supabase
-      .from('payments')
-      .update({
-        qr_code_url: qrData.url,
-        ussd_code: ussdCode,
-        ussd_link: paymentLink
-      })
-      .eq('id', payment.id);
-
-    return new Response(
-      JSON.stringify({
-        success: true,
-        payment_id: payment.id,
-        reference: reference,
-        qr_url: qrData.url,
-        ussd_code: ussdCode,
-        payment_link: paymentLink,
-        amount: amount,
-        currency: 'RWF',
-        expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-
-  } catch (error) {
-    console.error('QR generation error:', error);
-    return new Response(
-      JSON.stringify({ error: 'QR generation failed', details: error.message }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-    );
-  }
-}
-
-async function processScannedQR(supabase: any, qrData: string, userId: string) {
-  try {
-    let parsedData;
-    
-    // Try to parse QR data
-    try {
-      parsedData = JSON.parse(qrData);
-    } catch {
-      // If not JSON, treat as plain text (could be USSD, link, etc.)
-      return handleNonJSONQR(qrData);
-    }
-
-    // Handle easyMO payment QR
-    if (parsedData.type === 'easymo_payment') {
-      // Look up the payment
-      const { data: payment, error } = await supabase
-        .from('payments')
-        .select('*')
-        .eq('ref', parsedData.reference)
-        .single();
-
-      if (error || !payment) {
-        return new Response(
-          JSON.stringify({ error: 'Payment not found or expired' }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 404 }
-        );
-      }
-
-      if (payment.paid_at) {
-        return new Response(
-          JSON.stringify({ 
-            error: 'Payment already processed',
-            paid_at: payment.paid_at 
-          }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-        );
-      }
-
+      console.error('Payment creation error:', paymentError)
       return new Response(
-        JSON.stringify({
-          success: true,
-          message: `Payment found: ${payment.amount} RWF to ${parsedData.phone}`,
-          payment: {
-            reference: parsedData.reference,
-            amount: payment.amount,
-            currency: payment.currency,
-            recipient: parsedData.phone,
-            action: parsedData.action
-          },
-          next_step: 'confirm_payment'
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+        JSON.stringify({ error: 'Failed to create payment record' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
 
-    // Handle other QR types
+    // Generate QR code data payload
+    const qr_data = {
+      payment_ref,
+      amount,
+      currency,
+      description,
+      recipient_phone: recipient_phone || 'easyMO',
+      sender_phone: user_phone,
+      type: transaction_type,
+      expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString() // 15 minutes
+    }
+
+    // Generate QR code SVG using the generate-qr-code-svg function
+    const qrResponse = await supabase.functions.invoke('generate-qr-code-svg', {
+      body: { 
+        data: JSON.stringify(qr_data),
+        size: 256,
+        error_correction: 'M'
+      }
+    })
+
+    if (qrResponse.error) {
+      console.error('QR generation error:', qrResponse.error)
+      return new Response(
+        JSON.stringify({ error: 'Failed to generate QR code' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    const result = {
+      payment_id: payment.id,
+      payment_ref,
+      qr_code_svg: qrResponse.data.svg,
+      qr_data: qr_data,
+      amount,
+      currency,
+      description,
+      expires_at: qr_data.expires_at,
+      status: 'pending',
+      instructions: transaction_type === 'send' 
+        ? `Scan this QR code with your mobile money app to send ${amount} ${currency}`
+        : `Share this QR code to request ${amount} ${currency}`
+    }
+
     return new Response(
-      JSON.stringify({ 
-        error: 'Unsupported QR code type',
-        type: parsedData.type || 'unknown'
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-    );
+      JSON.stringify(result),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
 
   } catch (error) {
-    console.error('QR scan processing error:', error);
+    console.error('Error in qr-payment-generator:', error)
     return new Response(
-      JSON.stringify({ error: 'QR scan processing failed', details: error.message }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-    );
+      JSON.stringify({ error: 'Internal server error' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
   }
-}
-
-function handleNonJSONQR(qrData: string) {
-  // Handle USSD codes
-  if (qrData.match(/^\*\d+\*.*#$/)) {
-    return new Response(
-      JSON.stringify({
-        success: true,
-        message: 'USSD code detected',
-        ussd_code: qrData,
-        instruction: `Dial ${qrData} on your phone to complete the payment`
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-  }
-
-  // Handle URLs
-  if (qrData.startsWith('http')) {
-    return new Response(
-      JSON.stringify({
-        success: true,
-        message: 'Payment link detected',
-        payment_url: qrData,
-        instruction: 'Open this link to complete the payment'
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-  }
-
-  // Unknown format
-  return new Response(
-    JSON.stringify({
-      error: 'Unknown QR code format',
-      data: qrData.substring(0, 100) // Limit for security
-    }),
-    { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-  );
-}
+})

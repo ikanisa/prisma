@@ -1,84 +1,108 @@
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0';
-
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+}
 
-serve(async (req) => {
-  // Handle CORS preflight requests
+interface QRCodeRequest {
+  data: string
+  size?: number
+  error_correction?: 'L' | 'M' | 'Q' | 'H'
+  margin?: number
+  dark_color?: string
+  light_color?: string
+}
+
+Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { headers: corsHeaders })
   }
 
   try {
-    const { ussd, txId, amount } = await req.json();
-    
-    if (!ussd || !txId) {
-      throw new Error('USSD code and transaction ID are required');
+    const { 
+      data, 
+      size = 256, 
+      error_correction = 'M',
+      margin = 4,
+      dark_color = '000000',
+      light_color = 'ffffff'
+    }: QRCodeRequest = await req.json()
+
+    if (!data) {
+      return new Response(
+        JSON.stringify({ error: 'Data is required for QR code generation' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
 
-    console.log('Generating QR code for:', { ussd, txId, amount });
+    // Using QR Server API for QR code generation
+    const qrApiUrl = new URL('https://api.qrserver.com/v1/create-qr-code/')
+    qrApiUrl.searchParams.set('data', data)
+    qrApiUrl.searchParams.set('size', `${size}x${size}`)
+    qrApiUrl.searchParams.set('format', 'svg')
+    qrApiUrl.searchParams.set('ecc', error_correction)
+    qrApiUrl.searchParams.set('margin', margin.toString())
+    qrApiUrl.searchParams.set('color', dark_color)
+    qrApiUrl.searchParams.set('bgcolor', light_color)
 
-    // Create QR code using a simple approach (since external QR libraries might not work in Deno)
-    // Using Google Charts API as a fallback for QR generation
-    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(ussd)}`;
-    
-    const response = await fetch(qrUrl);
-    if (!response.ok) {
-      throw new Error('Failed to generate QR code');
+    const qrResponse = await fetch(qrApiUrl.toString())
+
+    if (!qrResponse.ok) {
+      console.error('QR API error:', qrResponse.status, qrResponse.statusText)
+      return new Response(
+        JSON.stringify({ error: 'Failed to generate QR code' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
 
-    const imageBuffer = await response.arrayBuffer();
-    const uint8Array = new Uint8Array(imageBuffer);
-    
-    // Initialize Supabase client
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const svgContent = await qrResponse.text()
 
-    // Upload to Supabase Storage
-    const fileName = `qr_${txId}.png`;
-    const filePath = `payments/${fileName}`;
+    // Enhanced SVG with easyMO branding
+    const enhancedSvg = `
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size + 80} ${size + 120}">
+        <rect width="100%" height="100%" fill="#ffffff"/>
+        
+        <!-- easyMO Logo/Text -->
+        <text x="${(size + 80) / 2}" y="30" text-anchor="middle" 
+              fill="#1a365d" font-family="Arial, sans-serif" font-size="16" font-weight="bold">
+          easyMO Payment
+        </text>
+        
+        <!-- QR Code -->
+        <g transform="translate(40, 50)">
+          ${svgContent.replace(/<\?xml[^>]*\?>/g, '').replace(/<svg[^>]*>/g, '').replace(/<\/svg>/g, '')}
+        </g>
+        
+        <!-- Footer Instructions -->
+        <text x="${(size + 80) / 2}" y="${size + 90}" text-anchor="middle" 
+              fill="#4a5568" font-family="Arial, sans-serif" font-size="12">
+          Scan with your mobile money app
+        </text>
+        <text x="${(size + 80) / 2}" y="${size + 105}" text-anchor="middle" 
+              fill="#718096" font-family="Arial, sans-serif" font-size="10">
+          Powered by easyMO
+        </text>
+      </svg>
+    `.trim()
 
-    const { data: uploadData, error: uploadError } = await supabase.storage
-      .from('qr_codes')
-      .upload(filePath, uint8Array, {
-        contentType: 'image/png',
-        upsert: true
-      });
-
-    if (uploadError) {
-      throw new Error(`Upload failed: ${uploadError.message}`);
+    const result = {
+      svg: enhancedSvg,
+      data_encoded: data,
+      size,
+      format: 'svg',
+      error_correction,
+      generated_at: new Date().toISOString()
     }
 
-    // Get public URL
-    const { data: urlData } = supabase.storage
-      .from('qr_codes')
-      .getPublicUrl(filePath);
-
-    console.log('QR code generated and uploaded:', { fileName, publicUrl: urlData.publicUrl });
-
-    return new Response(JSON.stringify({
-      success: true,
-      fileName,
-      publicUrl: urlData.publicUrl,
-      txId,
-      amount
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return new Response(
+      JSON.stringify(result),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
 
   } catch (error) {
-    console.error('Error in generate-qr-code-svg function:', error);
-    return new Response(JSON.stringify({ 
-      error: error.message,
-      success: false 
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    console.error('Error in generate-qr-code-svg:', error)
+    return new Response(
+      JSON.stringify({ error: 'Internal server error' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
   }
-});
+})

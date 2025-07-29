@@ -1,129 +1,111 @@
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+}
 
-serve(async (req) => {
-  // Handle CORS preflight requests
+interface SearchBusinessesRequest {
+  query: string
+  category?: string
+  location?: { lat: number; lng: number }
+  radius_km?: number
+  limit?: number
+}
+
+Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { headers: corsHeaders })
   }
 
   try {
-    const { intent, user_lat, user_lng, query, limit = 5 } = await req.json();
-    
-    console.log('Searching businesses with:', { intent, user_lat, user_lng, query, limit });
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    )
 
-    // Initialize Supabase client
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const { query, category, location, radius_km = 5, limit = 10 }: SearchBusinessesRequest = await req.json()
 
-    let searchQuery = supabase
+    let businessQuery = supabase
       .from('businesses')
       .select(`
         id,
         name,
         address,
+        category,
         phone_number,
         whatsapp_number,
-        website,
+        momo_code,
         rating,
         reviews_count,
-        location_gps,
-        category,
-        tags
+        location_gps
       `)
       .eq('status', 'active')
-      .limit(limit);
+      .limit(limit)
 
-    // Apply intent-based filtering
-    if (intent === 'health' || intent === 'pharmacy') {
-      searchQuery = searchQuery.or('category.eq.pharmacy,tags.cs.{health,pharmacy,medical}');
-    } else if (intent === 'bar' || intent === 'restaurant') {
-      searchQuery = searchQuery.or('category.eq.bar,category.eq.restaurant,tags.cs.{bar,restaurant,food,drinks}');
-    } else if (intent === 'hardware') {
-      searchQuery = searchQuery.or('category.eq.hardware,tags.cs.{hardware,tools,construction}');
-    } else if (intent === 'shop' || intent === 'commerce') {
-      searchQuery = searchQuery.or('category.eq.retail,category.eq.shop,tags.cs.{shop,retail,store}');
+    // Apply category filter
+    if (category) {
+      businessQuery = businessQuery.eq('category', category)
     }
 
-    // If query text provided, add text search
+    // Apply text search
     if (query) {
-      searchQuery = searchQuery.or(`name.ilike.%${query}%,address.ilike.%${query}%`);
+      businessQuery = businessQuery.or(`name.ilike.%${query}%,address.ilike.%${query}%`)
     }
 
-    const { data: businesses, error } = await searchQuery;
+    const { data: businesses, error } = await businessQuery
 
     if (error) {
-      throw new Error(`Database query failed: ${error.message}`);
+      console.error('Database error:', error)
+      return new Response(
+        JSON.stringify({ error: 'Failed to search businesses' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
 
-    // Calculate distances if user location provided
-    let results = businesses || [];
-    
-    if (user_lat && user_lng && results.length > 0) {
-      results = results.map(business => {
-        let distance_km = null;
-        
-        // Extract coordinates from location_gps if available
-        if (business.location_gps && typeof business.location_gps === 'object') {
-          const coords = business.location_gps as any;
-          if (coords.coordinates && Array.isArray(coords.coordinates)) {
-            const [biz_lng, biz_lat] = coords.coordinates;
-            // Calculate rough distance using Haversine formula
-            const R = 6371; // Earth's radius in km
-            const dLat = (biz_lat - user_lat) * Math.PI / 180;
-            const dLng = (biz_lng - user_lng) * Math.PI / 180;
+    // Calculate distances if location provided
+    let results = businesses || []
+    if (location && results.length > 0) {
+      results = results
+        .map(business => {
+          let distance = null
+          if (business.location_gps?.coordinates) {
+            // Simple distance calculation (haversine approximation)
+            const lat1 = location.lat
+            const lng1 = location.lng
+            const lat2 = business.location_gps.coordinates[1]
+            const lng2 = business.location_gps.coordinates[0]
+            
+            const R = 6371 // Earth's radius in km
+            const dLat = (lat2 - lat1) * Math.PI / 180
+            const dLng = (lng2 - lng1) * Math.PI / 180
             const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-                     Math.cos(user_lat * Math.PI / 180) * Math.cos(biz_lat * Math.PI / 180) *
-                     Math.sin(dLng/2) * Math.sin(dLng/2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-            distance_km = Math.round((R * c) * 100) / 100; // Round to 2 decimal places
+                     Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                     Math.sin(dLng/2) * Math.sin(dLng/2)
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))
+            distance = R * c
           }
-        }
-        
-        return {
-          ...business,
-          distance_km
-        };
-      });
-
-      // Sort by distance if available, otherwise keep original order
-      results.sort((a, b) => {
-        if (a.distance_km !== null && b.distance_km !== null) {
-          return a.distance_km - b.distance_km;
-        }
-        if (a.distance_km !== null) return -1;
-        if (b.distance_km !== null) return 1;
-        return 0;
-      });
+          
+          return { ...business, distance_km: distance }
+        })
+        .filter(business => !business.distance_km || business.distance_km <= radius_km)
+        .sort((a, b) => (a.distance_km || Infinity) - (b.distance_km || Infinity))
     }
 
-    console.log(`Found ${results.length} businesses for intent: ${intent}`);
-
-    return new Response(JSON.stringify({
-      success: true,
-      businesses: results,
-      total: results.length,
-      intent,
-      user_location: user_lat && user_lng ? { lat: user_lat, lng: user_lng } : null
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return new Response(
+      JSON.stringify({ 
+        businesses: results,
+        count: results.length,
+        query_params: { query, category, location, radius_km, limit }
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
 
   } catch (error) {
-    console.error('Error in search-businesses function:', error);
-    return new Response(JSON.stringify({ 
-      error: error.message,
-      success: false 
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    console.error('Error in search-businesses:', error)
+    return new Response(
+      JSON.stringify({ error: 'Internal server error' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
   }
-});
+})
