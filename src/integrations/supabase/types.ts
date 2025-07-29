@@ -466,6 +466,44 @@ export type Database = {
         }
         Relationships: []
       }
+      agent_skills: {
+        Row: {
+          agent_id: string | null
+          config: Json | null
+          created_at: string | null
+          enabled: boolean | null
+          id: string
+          skill: string
+          updated_at: string | null
+        }
+        Insert: {
+          agent_id?: string | null
+          config?: Json | null
+          created_at?: string | null
+          enabled?: boolean | null
+          id?: string
+          skill: string
+          updated_at?: string | null
+        }
+        Update: {
+          agent_id?: string | null
+          config?: Json | null
+          created_at?: string | null
+          enabled?: boolean | null
+          id?: string
+          skill?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_skills_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agent_tasks: {
         Row: {
           active: boolean | null
@@ -679,6 +717,60 @@ export type Database = {
           status?: string | null
           temperature?: number | null
           tools?: Json | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      automated_tasks: {
+        Row: {
+          completed_at: string | null
+          created_at: string | null
+          error_message: string | null
+          id: string
+          max_retries: number | null
+          payload: Json
+          priority: number | null
+          result: Json | null
+          retry_count: number | null
+          scheduled_for: string | null
+          started_at: string | null
+          status: string | null
+          task_name: string
+          task_type: string
+          updated_at: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          max_retries?: number | null
+          payload: Json
+          priority?: number | null
+          result?: Json | null
+          retry_count?: number | null
+          scheduled_for?: string | null
+          started_at?: string | null
+          status?: string | null
+          task_name: string
+          task_type: string
+          updated_at?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          max_retries?: number | null
+          payload?: Json
+          priority?: number | null
+          result?: Json | null
+          retry_count?: number | null
+          scheduled_for?: string | null
+          started_at?: string | null
+          status?: string | null
+          task_name?: string
+          task_type?: string
           updated_at?: string | null
         }
         Relationships: []
@@ -1560,6 +1652,62 @@ export type Database = {
           total_conversations?: number | null
         }
         Relationships: []
+      }
+      content_moderation_logs: {
+        Row: {
+          action_taken: string | null
+          agent_id: string | null
+          confidence_score: number | null
+          content_hash: string | null
+          content_type: string
+          created_at: string | null
+          escalated_at: string | null
+          id: string
+          moderation_result: Json
+          resolved_at: string | null
+          review_notes: string | null
+          reviewer_id: string | null
+          user_phone: string
+        }
+        Insert: {
+          action_taken?: string | null
+          agent_id?: string | null
+          confidence_score?: number | null
+          content_hash?: string | null
+          content_type: string
+          created_at?: string | null
+          escalated_at?: string | null
+          id?: string
+          moderation_result: Json
+          resolved_at?: string | null
+          review_notes?: string | null
+          reviewer_id?: string | null
+          user_phone: string
+        }
+        Update: {
+          action_taken?: string | null
+          agent_id?: string | null
+          confidence_score?: number | null
+          content_hash?: string | null
+          content_type?: string
+          created_at?: string | null
+          escalated_at?: string | null
+          id?: string
+          moderation_result?: Json
+          resolved_at?: string | null
+          review_notes?: string | null
+          reviewer_id?: string | null
+          user_phone?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_moderation_logs_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       content_safety_rules: {
         Row: {
@@ -2983,6 +3131,77 @@ export type Database = {
         }
         Relationships: []
       }
+      feedback_enhanced: {
+        Row: {
+          agent_id: string | null
+          categories: string[] | null
+          comment: string | null
+          conversation_id: string | null
+          created_at: string | null
+          follow_up_required: boolean | null
+          handled: boolean | null
+          handled_at: string | null
+          handled_by: string | null
+          id: string
+          metadata: Json | null
+          rating: number | null
+          resolution_notes: string | null
+          sentiment_label: string | null
+          sentiment_score: number | null
+          session_id: string | null
+          updated_at: string | null
+          user_phone: string
+        }
+        Insert: {
+          agent_id?: string | null
+          categories?: string[] | null
+          comment?: string | null
+          conversation_id?: string | null
+          created_at?: string | null
+          follow_up_required?: boolean | null
+          handled?: boolean | null
+          handled_at?: string | null
+          handled_by?: string | null
+          id?: string
+          metadata?: Json | null
+          rating?: number | null
+          resolution_notes?: string | null
+          sentiment_label?: string | null
+          sentiment_score?: number | null
+          session_id?: string | null
+          updated_at?: string | null
+          user_phone: string
+        }
+        Update: {
+          agent_id?: string | null
+          categories?: string[] | null
+          comment?: string | null
+          conversation_id?: string | null
+          created_at?: string | null
+          follow_up_required?: boolean | null
+          handled?: boolean | null
+          handled_at?: string | null
+          handled_by?: string | null
+          id?: string
+          metadata?: Json | null
+          rating?: number | null
+          resolution_notes?: string | null
+          sentiment_label?: string | null
+          sentiment_score?: number | null
+          session_id?: string | null
+          updated_at?: string | null
+          user_phone?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feedback_enhanced_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       file_uploads: {
         Row: {
           created_at: string | null
@@ -3433,6 +3652,53 @@ export type Database = {
           suggested_improvement?: string | null
         }
         Relationships: []
+      }
+      learning_metrics: {
+        Row: {
+          agent_id: string | null
+          calculated_at: string | null
+          id: string
+          measurement_period: string | null
+          metadata: Json | null
+          metric_context: Json | null
+          metric_type: string
+          metric_value: number
+          skill_name: string | null
+          user_segment: string | null
+        }
+        Insert: {
+          agent_id?: string | null
+          calculated_at?: string | null
+          id?: string
+          measurement_period?: string | null
+          metadata?: Json | null
+          metric_context?: Json | null
+          metric_type: string
+          metric_value: number
+          skill_name?: string | null
+          user_segment?: string | null
+        }
+        Update: {
+          agent_id?: string | null
+          calculated_at?: string | null
+          id?: string
+          measurement_period?: string | null
+          metadata?: Json | null
+          metric_context?: Json | null
+          metric_type?: string
+          metric_value?: number
+          skill_name?: string | null
+          user_segment?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "learning_metrics_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       learning_modules: {
         Row: {
@@ -5584,6 +5850,57 @@ export type Database = {
         }
         Relationships: []
       }
+      rag_chunks: {
+        Row: {
+          chunk_overlap: number | null
+          chunk_size: number | null
+          content_preview: string | null
+          created_at: string | null
+          embedding_model: string | null
+          id: string
+          metadata: Json | null
+          namespace: string
+          pinecone_id: string | null
+          processed_at: string | null
+          source_type: string | null
+          source_url: string | null
+          title: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          chunk_overlap?: number | null
+          chunk_size?: number | null
+          content_preview?: string | null
+          created_at?: string | null
+          embedding_model?: string | null
+          id?: string
+          metadata?: Json | null
+          namespace: string
+          pinecone_id?: string | null
+          processed_at?: string | null
+          source_type?: string | null
+          source_url?: string | null
+          title?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          chunk_overlap?: number | null
+          chunk_size?: number | null
+          content_preview?: string | null
+          created_at?: string | null
+          embedding_model?: string | null
+          id?: string
+          metadata?: Json | null
+          namespace?: string
+          pinecone_id?: string | null
+          processed_at?: string | null
+          source_type?: string | null
+          source_url?: string | null
+          title?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       rate_limit_log: {
         Row: {
           created_at: string | null
@@ -6701,6 +7018,68 @@ export type Database = {
         }
         Relationships: []
       }
+      tool_execution_logs: {
+        Row: {
+          agent_id: string | null
+          context_metadata: Json | null
+          created_at: string | null
+          error_code: string | null
+          error_message: string | null
+          execution_time_ms: number | null
+          id: string
+          input_params: Json | null
+          output_result: Json | null
+          retry_count: number | null
+          session_id: string | null
+          success: boolean
+          tool_name: string
+          tool_version: string | null
+          user_phone: string
+        }
+        Insert: {
+          agent_id?: string | null
+          context_metadata?: Json | null
+          created_at?: string | null
+          error_code?: string | null
+          error_message?: string | null
+          execution_time_ms?: number | null
+          id?: string
+          input_params?: Json | null
+          output_result?: Json | null
+          retry_count?: number | null
+          session_id?: string | null
+          success: boolean
+          tool_name: string
+          tool_version?: string | null
+          user_phone: string
+        }
+        Update: {
+          agent_id?: string | null
+          context_metadata?: Json | null
+          created_at?: string | null
+          error_code?: string | null
+          error_message?: string | null
+          execution_time_ms?: number | null
+          id?: string
+          input_params?: Json | null
+          output_result?: Json | null
+          retry_count?: number | null
+          session_id?: string | null
+          success?: boolean
+          tool_name?: string
+          tool_version?: string | null
+          user_phone?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tool_execution_logs_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       training_data_export: {
         Row: {
           assistant_message: string
@@ -7282,6 +7661,68 @@ export type Database = {
           source?: string | null
         }
         Relationships: []
+      }
+      user_memory_enhanced: {
+        Row: {
+          access_count: number | null
+          agent_id: string | null
+          confidence_score: number | null
+          created_at: string | null
+          embedding: string | null
+          expires_at: string | null
+          id: string
+          importance_weight: number | null
+          last_accessed_at: string | null
+          memory_key: string
+          memory_type: string
+          memory_value: Json
+          source_type: string | null
+          updated_at: string | null
+          user_phone: string
+        }
+        Insert: {
+          access_count?: number | null
+          agent_id?: string | null
+          confidence_score?: number | null
+          created_at?: string | null
+          embedding?: string | null
+          expires_at?: string | null
+          id?: string
+          importance_weight?: number | null
+          last_accessed_at?: string | null
+          memory_key: string
+          memory_type: string
+          memory_value: Json
+          source_type?: string | null
+          updated_at?: string | null
+          user_phone: string
+        }
+        Update: {
+          access_count?: number | null
+          agent_id?: string | null
+          confidence_score?: number | null
+          created_at?: string | null
+          embedding?: string | null
+          expires_at?: string | null
+          id?: string
+          importance_weight?: number | null
+          last_accessed_at?: string | null
+          memory_key?: string
+          memory_type?: string
+          memory_value?: Json
+          source_type?: string | null
+          updated_at?: string | null
+          user_phone?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_memory_enhanced_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {

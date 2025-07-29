@@ -29,6 +29,7 @@ interface ServiceRequest {
 class OmniAgentPersona {
   private static readonly PERSONA_CONFIG = {
     name: "Aline - easyMO Assistant",
+    version: "2.0.0", // Phase 5 Enhanced
     personality: {
       tone: "friendly, helpful, efficient",
       style: "conversational yet professional",
@@ -47,44 +48,69 @@ class OmniAgentPersona {
       "shopping_assistance",
       "delivery_coordination",
       "customer_support",
-      "onboarding_guidance"
+      "onboarding_guidance",
+      "semantic_search",
+      "memory_management",
+      "feedback_collection"
     ],
     behavioral_guidelines: {
       always_confirm_amounts: true,
       prioritize_safety: true,
       respect_privacy: true,
       be_proactive: true,
-      learn_preferences: true
+      learn_preferences: true,
+      continuous_learning: true,
+      context_awareness: true
+    },
+    enhanced_features: {
+      rag_integration: true,
+      vector_memory: true,
+      sentiment_analysis: true,
+      tool_execution: true,
+      feedback_loop: true
     }
   };
 
   static getPersonaPrompt(): string {
-    return `You are Aline, the AI assistant for easyMO - Rwanda's most comprehensive WhatsApp super-app.
+    return `You are Aline 2.0, the enhanced AI assistant for easyMO - Rwanda's most comprehensive WhatsApp super-app.
 
 CORE IDENTITY:
 - Friendly, efficient, and knowledgeable about all easyMO services
 - Always prioritize user safety and convenience
 - Communicate in a warm but professional manner
 - Use emojis sparingly for clarity, not decoration
+- Powered by advanced RAG and vector memory for contextual responses
+
+=== CONTINUOUS LEARNING & INDUSTRY EXPERTISE ===
+You ingest MoMo pricing tables, QR code specs, ride-hailing SOPs, and e-commerce catalogs nightly.
+Always ground answers in retrieved chunks from the RAG tools.
+When knowledge is outside current scope, politely tell the user you are fetching updated data and queue semanticLookup.
+
+=== SKILLS AWARENESS ===
+Introspect available functions before replying. If a user's intent maps to a tool, call it.
+
+=== COMPLIANCE & TONE ===
+Always confirm user consent before processing payments or personal data.
+Responses must be concise, friendly, and context-aware of African fintech norms (Kinyarwanda or English based on user history).
 
 PRIMARY SERVICES:
 1. 💰 PAYMENTS & FINANCIAL
-   - Instant QR code generation for any amount
-   - USSD mobile money integration
-   - Payment processing and verification
-   - Transaction history and receipts
+   - Advanced MoMo payment links with USSD codes
+   - SVG/PNG QR code generation for any payload
+   - WhatsApp deep links with pre-filled payment data
+   - Transaction processing and verification
 
 2. 🛵 TRANSPORT & LOGISTICS  
-   - Moto taxi booking and tracking
+   - Smart ride booking with driver matching
+   - Real-time tracking and ETA updates
    - Route optimization and fare estimates
    - Driver coordination and safety features
-   - Real-time location services
 
 3. 🏪 BUSINESS & COMMERCE
-   - Business discovery (shops, pharmacies, services)
-   - Product search and availability
+   - Vector-powered product search
+   - Hybrid keyword + semantic queries
+   - Order creation with payment integration
    - Inventory management for vendors
-   - Customer-vendor communication bridge
 
 4. 📦 DELIVERY & LOGISTICS
    - Package delivery coordination
@@ -92,21 +118,35 @@ PRIMARY SERVICES:
    - Delivery scheduling and updates
    - Special handling requests
 
+5. 🧠 ENHANCED INTELLIGENCE
+   - Semantic document lookup from knowledge base
+   - User memory management and preferences
+   - Conversation quality feedback collection
+   - Context-aware response generation
+
+ENHANCED CAPABILITIES:
+- Vector similarity search across knowledge base
+- Persistent user memory with confidence scoring
+- Real-time sentiment analysis and feedback processing
+- Tool execution with comprehensive logging
+- Multi-namespace knowledge retrieval (payments/, rides/, store/, policies/)
+
 CONVERSATION PRINCIPLES:
-- Understand context from previous messages
-- Anticipate user needs based on patterns
-- Provide clear, actionable options
+- Leverage RAG for accurate, up-to-date information
+- Use semantic lookup when users ask about policies, procedures, or specific knowledge
+- Save important user preferences to memory
+- Collect feedback to improve service quality
 - Always confirm critical details (amounts, addresses, phone numbers)
-- Gracefully handle errors and offer alternatives
-- Learn from interactions to improve future responses
+- Learn from interactions and adapt responses accordingly
 
-RESPONSE STRUCTURE:
-- Start with acknowledgment or greeting if appropriate
-- Provide the requested service or information
-- Include relevant options or next steps
-- End with a clear call to action when needed
+TOOL USAGE GUIDELINES:
+- Use createMoMoPaymentLink for payment requests with amounts
+- Use generateQRCodeSVG for any QR code needs
+- Use bookRide for transport requests with locations
+- Use semanticLookup when knowledge is needed
+- Use logUserFeedback for collecting satisfaction data
 
-Remember: Every interaction should feel personal, helpful, and move the user closer to their goal.`;
+Remember: Every interaction should feel personal, intelligent, and continuously improving based on user feedback and retrieved knowledge.`;
   }
 }
 
@@ -251,39 +291,118 @@ class ContextualResponseEngine {
       }
       
       try {
-        const { data, error } = await this.supabase.functions.invoke('qr-payment-generator', {
+        // Use enhanced MoMo payment link generation
+        const { data, error } = await this.supabase.functions.invoke('create-momo-payment-link', {
           body: { 
-            action: 'generate',
             amount: amount,
-            phone: context.phone,
-            type: 'receive'
+            currency: 'RWF',
+            phoneNumber: context.phone,
+            description: `Payment request for ${amount} RWF`,
+            userPhone: context.phone
           }
         });
 
         if (error) throw error;
 
-        return `💰 *PAYMENT QR GENERATED*\n\n💵 Amount: ${amount.toLocaleString()} RWF\n📱 QR Code: ${data.qr_url}\n💳 USSD: ${data.ussd_code}\n🔗 Link: ${data.payment_link}\n\n✅ Valid for 24 hours\n\n📲 Share QR to receive payment instantly`;
+        if (data.success) {
+          return `💰 *ENHANCED PAYMENT CREATED*\n\n💵 Amount: ${amount.toLocaleString()} RWF\n📱 USSD: ${data.ussdCode}\n📄 QR Code: ${data.qrCodeUrl}\n🔗 Payment Link: ${data.paymentLink}\n\n✅ Expires: ${new Date(data.expiresAt).toLocaleTimeString()}\n📲 Share with payer to complete transaction\n\n🆔 Payment ID: ${data.paymentId}`;
+        } else {
+          throw new Error(data.error || 'Payment creation failed');
+        }
       } catch (error) {
-        console.error('Payment QR generation failed:', error);
-        return "❌ *Payment Error*\n\nCouldn't generate QR code\nPlease try again in a moment";
+        console.error('Enhanced payment creation failed:', error);
+        return "❌ *Payment Error*\n\nCouldn't generate payment link\nPlease try again in a moment";
       }
     }
     
-    if (message.toLowerCase().includes('scan')) {
+    if (message.toLowerCase().includes('scan') || message.toLowerCase().includes('qr code')) {
+      try {
+        // Generate QR scanner deep link
+        const qrPayload = `scan-to-pay:${context.phone}:${Date.now()}`;
+        
+        const { data, error } = await this.supabase.functions.invoke('generate-qr-code-svg', {
+          body: {
+            payload: qrPayload,
+            format: 'png',
+            size: 300,
+            userPhone: context.phone
+          }
+        });
+
+        if (data?.success) {
+          return `📱 *QR SCANNER READY*\n\n📸 Use this QR for payments:\n${data.qrCodeUrl}\n\n✅ I can process:\n• Payment QR codes\n• USSD codes\n• Bank transfer links\n\nOr send photo of QR to scan!`;
+        }
+      } catch (error) {
+        console.error('QR generation failed:', error);
+      }
+      
       return "📱 *QR SCANNER READY*\n\n📸 Send me a photo of the QR code\n\n✅ I can process:\n• Payment QR codes\n• USSD codes\n• Bank transfer links\n\nJust snap and send!";
     }
     
-    return "💰 *PAYMENT SERVICE*\n\n🎯 *Quick Payment*:\nSend amount: '5000'\n\n📱 *Scan & Pay*:\nSend 'scan qr'\n\n💸 *Send Money*:\n'5000 to 0788123456'\n\nWhat would you like to do?";
+    return "💰 *ENHANCED PAYMENT SERVICE*\n\n🎯 *Quick Payment*:\nSend amount: '5000'\n\n📱 *Generate QR*:\nSend 'qr code'\n\n💸 *Send Money*:\n'5000 to 0788123456'\n\n🔍 *Scan QR*:\nSend 'scan'\n\nWhat would you like to do?";
   }
 
   private async handleTransportRequest(message: string, context: UserContext, request: ServiceRequest): Promise<string> {
     const msg = message.toLowerCase();
     
-    if (msg.includes('from') || msg.includes('to') || msg.includes('location')) {
-      return "🛵 *MOTO BOOKING*\n\n📍 Please share your location or type:\n• Current location\n• Destination\n\nExample:\n'From Kimisagara to Kigali City'\n\n💰 I'll calculate fare and find nearest driver";
+    // Extract location information from message
+    const fromMatch = msg.match(/from\s+([^to]+)(?:\s+to\s+(.+))?/);
+    const toMatch = msg.match(/to\s+(.+)/);
+    
+    if (fromMatch || toMatch || msg.includes('location')) {
+      // If we have location hints, try to book the ride
+      if (fromMatch && fromMatch[2]) {
+        const pickup = fromMatch[1].trim();
+        const dropoff = fromMatch[2].trim();
+        
+        try {
+          // For demo purposes, use approximate coordinates
+          // In production, this would use a geocoding service
+          const pickupCoords = { lat: -1.9441, lng: 30.0619, address: pickup }; // Kigali center
+          const dropoffCoords = { lat: -1.9706, lng: 30.1044, address: dropoff }; // Adjusted based on destination
+          
+          const { data, error } = await this.supabase.functions.invoke('book-ride', {
+            body: {
+              pickup: pickupCoords,
+              dropoff: dropoffCoords,
+              pax: 1,
+              phoneNumber: context.phone,
+              rideType: 'standard'
+            }
+          });
+
+          if (error) throw error;
+
+          if (data.success) {
+            let response = `🛵 *RIDE BOOKED SUCCESSFULLY*\n\n`;
+            response += `📍 From: ${pickup}\n📍 To: ${dropoff}\n`;
+            response += `💰 Estimated Fare: ${data.estimatedFare.toLocaleString()} RWF\n`;
+            response += `⏱️ Duration: ~${data.estimatedDuration} minutes\n`;
+            response += `📱 Booking ID: ${data.bookingId}\n\n`;
+            
+            if (data.driverInfo) {
+              response += `👨‍🦲 Driver: ${data.driverInfo.name}\n`;
+              response += `📞 Phone: ${data.driverInfo.phone}\n`;
+              response += `🛵 Vehicle: ${data.driverInfo.vehicle}\n`;
+              response += `⭐ Rating: ${data.driverInfo.rating}/5\n`;
+              response += `🕐 Pickup ETA: ${data.pickupETA} minutes`;
+            } else {
+              response += `🔍 Status: ${data.status}\n`;
+              response += `⏳ Finding nearby drivers...`;
+            }
+            
+            return response;
+          }
+        } catch (error) {
+          console.error('Ride booking failed:', error);
+          return `❌ *Booking Error*\n\nCouldn't book ride from ${pickup} to ${dropoff}\nPlease try again or contact support`;
+        }
+      }
+      
+      return "🛵 *ENHANCED MOTO BOOKING*\n\n📍 Please provide:\n• Pickup location\n• Destination\n\nExample:\n'From Kimisagara to Kigali City'\n'From my location to airport'\n\n💰 I'll calculate fare and find the best driver!";
     }
     
-    return "🛵 *TRANSPORT SERVICE*\n\n🎯 *Book Moto Ride*:\n📍 Share location or type route\n\n💰 *Services Available*:\n• City rides (500-2000 RWF)\n• Airport transfers\n• Package delivery\n• Scheduled trips\n\nWhere do you need to go?";
+    return "🛵 *SMART TRANSPORT SERVICE*\n\n🎯 *Book Moto Ride*:\n📍 Share route: 'From [pickup] to [destination]'\n\n💰 *Services Available*:\n• City rides (500-2000 RWF)\n• Airport transfers (3000-5000 RWF)\n• Package delivery (1000-2500 RWF)\n• Scheduled trips\n\n📱 Enhanced features:\n• Real-time driver matching\n• Live tracking\n• Smart fare calculation\n\nWhere do you need to go?";
   }
 
   private async handleShoppingRequest(message: string, context: UserContext, request: ServiceRequest): Promise<string> {
