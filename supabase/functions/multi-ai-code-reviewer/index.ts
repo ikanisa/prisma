@@ -62,21 +62,8 @@ class MultiAICodeReviewer {
           max_tokens: 4000
         }
       );
-              role: 'system',
-              content: `You are an expert full-stack code reviewer specializing in React, TypeScript, Supabase, and modern web development. Analyze code for errors, security issues, performance problems, and maintainability concerns. Provide actionable fixes and refactoring suggestions.`
-            },
-            {
-              role: 'user',
-              content: prompt
-            }
-          ],
-          temperature: 0.1,
-          max_tokens: 4000
-        }),
-      });
 
-      const data = await response.json();
-      const analysis = data.choices[0].message.content;
+      const analysis = response;
       
       return this.parseAIResponse(analysis, 'OpenAI GPT-4o');
     } catch (error) {
