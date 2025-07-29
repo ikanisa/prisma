@@ -46,6 +46,42 @@ serve(async (req) => {
     const ussdCode = `*182*1*1*${amount}*${phone}#`;
     const ussdLink = `tel:${encodeURIComponent(ussdCode)}`;
 
+    // Generate QR code content
+    const qrContent = {
+      type: 'easymo_payment',
+      reference: paymentRef,
+      amount: paymentAmount,
+      currency: 'RWF',
+      phone: phone,
+      ussd_code: ussdCode,
+      action: 'receive'
+    };
+
+    logger.info('Generating QR code', { reference: paymentRef });
+
+    // Generate QR code via qr-payment-generator function
+    let qrCodeUrl = null;
+    try {
+      const qrResponse = await supabase.functions.invoke('qr-payment-generator', {
+        body: {
+          action: 'generate',
+          amount: paymentAmount,
+          phone: phone,
+          type: 'receive',
+          user_id: requestData.user_id || 'anonymous'
+        }
+      });
+
+      if (qrResponse.data && qrResponse.data.qr_url) {
+        qrCodeUrl = qrResponse.data.qr_url;
+        logger.info('QR code generated successfully', { qrUrl: qrCodeUrl });
+      } else {
+        logger.warn('QR generation failed', qrResponse.error);
+      }
+    } catch (qrError) {
+      logger.error('QR generation error', qrError);
+    }
+
     // Insert payment record
     const { data: payment, error } = await supabase
       .from('payments')
@@ -54,6 +90,7 @@ serve(async (req) => {
         momo_code: phone,
         ussd_code: ussdCode,
         ussd_link: ussdLink,
+        qr_code_url: qrCodeUrl,
         status: 'pending'
       })
       .select()
@@ -64,13 +101,14 @@ serve(async (req) => {
       return createErrorResponse('Failed to create payment record');
     }
 
-    logger.info('Payment created successfully', { paymentId: payment.id });
+    logger.info('Payment created successfully', { paymentId: payment.id, qrUrl: qrCodeUrl });
 
     return createSuccessResponse('Payment created successfully', {
       payment_id: payment.id,
       amount: paymentAmount,
       ussd_code: ussdCode,
       ussd_link: ussdLink,
+      qr_code_url: qrCodeUrl,
       reference: paymentRef,
       instructions: `Dial ${ussdCode} to complete P2P mobile money payment (outside system)`
     });
