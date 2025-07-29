@@ -117,6 +117,42 @@ Your payment is ready to process.`,
           { type: "quick_reply", text: "✅ Correct", payload: "DATA_OK" },
           { type: "quick_reply", text: "✏️ Edit", payload: "DATA_EDIT" }
         ]
+      },
+      {
+        template_name: "geo_request_v1",
+        category: "UTILITY",
+        language: "en",
+        template_content: `📍 I need your location to find nearby {{1}}.
+Tap *Share location*, then choose "Current location".`,
+        variables: ["service_type"],
+        status: "PENDING",
+        buttons: [
+          { type: "quick_reply", text: "📡 Share location", payload: "GEO_SHARE" }
+        ]
+      },
+      {
+        template_name: "listing_drivers_v1", 
+        category: "UTILITY",
+        language: "en",
+        template_content: `🚗 *Available drivers near you* (radius {{1}} km):
+{{2}}`,
+        variables: ["radius", "driver_list"],
+        status: "PENDING",
+        buttons: [
+          { type: "url", text: "Chat ☎️", url: "https://wa.me/{{3}}" }
+        ]
+      },
+      {
+        template_name: "listing_pharmacies_v1",
+        category: "UTILITY", 
+        language: "en",
+        template_content: `🏥 *Nearby pharmacies* (radius {{1}} km):
+{{2}}`,
+        variables: ["radius", "pharmacy_list", "wa_number"],
+        status: "PENDING",
+        buttons: [
+          { type: "url", text: "Chat ☎️", url: "https://wa.me/{{3}}" }
+        ]
       }
     ];
 
