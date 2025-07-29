@@ -2065,6 +2065,39 @@ export type Database = {
         }
         Relationships: []
       }
+      conversation_summaries: {
+        Row: {
+          created_at: string | null
+          end_ts: string
+          id: number
+          message_count: number | null
+          start_ts: string
+          summary: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          end_ts: string
+          id?: never
+          message_count?: number | null
+          start_ts: string
+          summary: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          end_ts?: string
+          id?: never
+          message_count?: number | null
+          start_ts?: string
+          summary?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       conversation_threads: {
         Row: {
           created_at: string | null
@@ -3468,6 +3501,39 @@ export type Database = {
           },
         ]
       }
+      intent_classifications: {
+        Row: {
+          classified_intent: string
+          confidence_score: number
+          correct_classification: boolean | null
+          created_at: string | null
+          feedback_received_at: string | null
+          id: string
+          message_text: string
+          user_id: string
+        }
+        Insert: {
+          classified_intent: string
+          confidence_score: number
+          correct_classification?: boolean | null
+          created_at?: string | null
+          feedback_received_at?: string | null
+          id?: string
+          message_text: string
+          user_id: string
+        }
+        Update: {
+          classified_intent?: string
+          confidence_score?: number
+          correct_classification?: boolean | null
+          created_at?: string | null
+          feedback_received_at?: string | null
+          id?: string
+          message_text?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       knowledge_audit_logs: {
         Row: {
           audit_type: string
@@ -3892,6 +3958,33 @@ export type Database = {
           prompt_prefix?: string | null
           secondary_model?: string | null
           task_name?: string | null
+        }
+        Relationships: []
+      }
+      memory_cache: {
+        Row: {
+          created_at: string | null
+          data: Json
+          expires_at: string
+          id: string
+          session_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          data: Json
+          expires_at: string
+          id?: string
+          session_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          data?: Json
+          expires_at?: string
+          id?: string
+          session_id?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -7724,6 +7817,36 @@ export type Database = {
           },
         ]
       }
+      user_profiles: {
+        Row: {
+          created_at: string | null
+          default_wallet: string | null
+          language: string | null
+          name: string | null
+          preferences: Json | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          default_wallet?: string | null
+          language?: string | null
+          name?: string | null
+          preferences?: Json | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          default_wallet?: string | null
+          language?: string | null
+          name?: string | null
+          preferences?: Json | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string | null
@@ -8451,6 +8574,10 @@ export type Database = {
           remaining: number
           reset_time: number
         }[]
+      }
+      clean_expired_memory_cache: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
       }
       clean_test_data: {
         Args: Record<PropertyKey, never>

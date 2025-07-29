@@ -79,12 +79,26 @@ CORE IDENTITY:
 - Always prioritize user safety and convenience
 - Communicate in a warm but professional manner
 - Use emojis sparingly for clarity, not decoration
-- Powered by advanced RAG and vector memory for contextual responses
+- Powered by advanced RAG and multi-tier memory for deeply contextual responses
+
+=== MULTI-TIER MEMORY SYSTEM ===
+You have access to a sophisticated memory architecture:
+1. EPHEMERAL (Last 50 msgs/24h): Inject verbatim into prompt for immediate context
+2. SHORT-TERM (1-7 days): Conversation summaries for recent interaction patterns
+3. LONG-TERM (Persistent): User preferences, facts, and behavior patterns via vector search
+4. TRANSACTIONAL: Orders, payments, rides history from domain tables
+5. GLOBAL: Policies, docs, and knowledge base via existing RAG pipeline
+
+ALWAYS call getUserContext first in each conversation to retrieve this rich context before responding.
 
 === CONTINUOUS LEARNING & INDUSTRY EXPERTISE ===
 You ingest MoMo pricing tables, QR code specs, ride-hailing SOPs, and e-commerce catalogs nightly.
 Always ground answers in retrieved chunks from the RAG tools.
 When knowledge is outside current scope, politely tell the user you are fetching updated data and queue semanticLookup.
+
+=== INTENT CLASSIFICATION & ROUTING ===
+Before processing any request, use classifyIntent to determine user intent with confidence scoring.
+Route to appropriate skills based on classification. Ask for clarification if confidence < 0.6.
 
 === SKILLS AWARENESS ===
 Introspect available functions before replying. If a user's intent maps to a tool, call it.
@@ -230,25 +244,112 @@ class ContextualResponseEngine {
   }
 
   async generateResponse(message: string, userContext: UserContext): Promise<string> {
-    const serviceRequest = this.parseServiceRequest(message, userContext);
-    const persona = OmniAgentPersona.getPersonaPrompt();
+    console.log(`🧠 Starting multi-tier memory retrieval for ${userContext.phone}`);
+    
+    // Step 1: Get comprehensive user context using new memory system
+    let enhancedContext = null;
+    try {
+      const { data, error } = await this.supabase.functions.invoke('get-user-context', {
+        body: {
+          userId: userContext.phone,
+          query: message,
+          sessionId: `session_${userContext.phone}_${Date.now()}`
+        }
+      });
+
+      if (error) {
+        console.error('Context retrieval error:', error);
+      } else {
+        enhancedContext = data;
+        console.log(`✅ Retrieved enhanced context:`, {
+          hasProfile: !!enhancedContext?.profile,
+          hasSummary: !!enhancedContext?.recentSummary,
+          orderCount: enhancedContext?.lastOrders?.length || 0,
+          vectorHitCount: enhancedContext?.vectorHits?.length || 0
+        });
+      }
+    } catch (error) {
+      console.error('Failed to get user context:', error);
+    }
+
+    // Step 2: Classify intent using new classification system
+    let intentClassification = null;
+    try {
+      const { data: classification, error } = await this.supabase.functions.invoke('classify-intent', {
+        body: {
+          message,
+          userId: userContext.phone,
+          context: enhancedContext?.recentSummary || ''
+        }
+      });
+
+      if (error) {
+        console.error('Intent classification error:', error);
+      } else {
+        intentClassification = classification;
+        console.log(`🎯 Intent classified: ${classification.intent} (confidence: ${classification.confidence})`);
+      }
+    } catch (error) {
+      console.error('Failed to classify intent:', error);
+    }
+
+    // Step 3: Route based on classified intent or fallback to pattern matching
+    const serviceRequest = intentClassification 
+      ? this.mapIntentToServiceRequest(intentClassification)
+      : this.parseServiceRequest(message, userContext);
     
     console.log(`🎯 Processing ${serviceRequest.type} request for ${userContext.userType} user`);
 
+    // If confidence is too low, ask for clarification
+    if (intentClassification && intentClassification.confidence < 0.6) {
+      return await this.handleUnclearIntent(message, userContext, intentClassification);
+    }
+
     switch (serviceRequest.type) {
       case 'payment':
-        return await this.handlePaymentRequest(message, userContext, serviceRequest);
+        return await this.handlePaymentRequest(message, userContext, serviceRequest, enhancedContext);
       case 'transport':
-        return await this.handleTransportRequest(message, userContext, serviceRequest);
+        return await this.handleTransportRequest(message, userContext, serviceRequest, enhancedContext);
       case 'shopping':
-        return await this.handleShoppingRequest(message, userContext, serviceRequest);
+        return await this.handleShoppingRequest(message, userContext, serviceRequest, enhancedContext);
       case 'business':
-        return await this.handleBusinessRequest(message, userContext, serviceRequest);
+        return await this.handleBusinessRequest(message, userContext, serviceRequest, enhancedContext);
       case 'delivery':
-        return await this.handleDeliveryRequest(message, userContext, serviceRequest);
+        return await this.handleDeliveryRequest(message, userContext, serviceRequest, enhancedContext);
       default:
-        return await this.handleGeneralRequest(message, userContext);
+        return await this.handleGeneralRequest(message, userContext, enhancedContext);
     }
+  }
+
+  private mapIntentToServiceRequest(classification: any): ServiceRequest {
+    const intentMap: Record<string, ServiceRequest['type']> = {
+      'payment': 'payment',
+      'ride': 'transport',
+      'shop': 'shopping',
+      'list_product': 'shopping',
+      'support': 'support',
+      'faq': 'support'
+    };
+
+    return {
+      type: intentMap[classification.intent] || 'support',
+      urgency: classification.parameters?.urgency || 'medium',
+      parameters: classification.parameters || {}
+    };
+  }
+
+  private async handleUnclearIntent(message: string, context: UserContext, classification: any): Promise<string> {
+    const suggestions = [
+      "💰 Make a payment or generate QR code",
+      "🛵 Book a moto ride or transport",
+      "🛒 Shop for products or find businesses",
+      "📦 Send a package or arrange delivery",
+      "❓ Get help with easyMO services"
+    ];
+
+    return `I want to help, but I'm not quite sure what you need! 🤔\n\n` +
+           `Here's what I can do:\n\n${suggestions.join('\n')}\n\n` +
+           `Could you be more specific about what you'd like to do?`;
   }
 
   private parseServiceRequest(message: string, context: UserContext): ServiceRequest {
@@ -282,7 +383,7 @@ class ContextualResponseEngine {
     return { type: 'support', urgency: 'low' };
   }
 
-  private async handlePaymentRequest(message: string, context: UserContext, request: ServiceRequest): Promise<string> {
+  private async handlePaymentRequest(message: string, context: UserContext, request: ServiceRequest, enhancedContext?: any): Promise<string> {
     const amount = this.extractAmount(message);
     
     if (amount && amount > 0) {
@@ -342,7 +443,7 @@ class ContextualResponseEngine {
     return "💰 *ENHANCED PAYMENT SERVICE*\n\n🎯 *Quick Payment*:\nSend amount: '5000'\n\n📱 *Generate QR*:\nSend 'qr code'\n\n💸 *Send Money*:\n'5000 to 0788123456'\n\n🔍 *Scan QR*:\nSend 'scan'\n\nWhat would you like to do?";
   }
 
-  private async handleTransportRequest(message: string, context: UserContext, request: ServiceRequest): Promise<string> {
+  private async handleTransportRequest(message: string, context: UserContext, request: ServiceRequest, enhancedContext?: any): Promise<string> {
     const msg = message.toLowerCase();
     
     // Extract location information from message
@@ -405,19 +506,26 @@ class ContextualResponseEngine {
     return "🛵 *SMART TRANSPORT SERVICE*\n\n🎯 *Book Moto Ride*:\n📍 Share route: 'From [pickup] to [destination]'\n\n💰 *Services Available*:\n• City rides (500-2000 RWF)\n• Airport transfers (3000-5000 RWF)\n• Package delivery (1000-2500 RWF)\n• Scheduled trips\n\n📱 Enhanced features:\n• Real-time driver matching\n• Live tracking\n• Smart fare calculation\n\nWhere do you need to go?";
   }
 
-  private async handleShoppingRequest(message: string, context: UserContext, request: ServiceRequest): Promise<string> {
-    return "🛒 *SHOPPING ASSISTANT*\n\n🎯 *What are you looking for?*\n\n📱 *Categories*:\n• Electronics & Phones\n• Clothing & Fashion\n• Food & Groceries\n• Health & Beauty\n• Home & Garden\n\n🔍 Type item name or category\nExample: 'iPhone 15' or 'groceries'\n\nI'll find best prices and availability!";
+  private async handleShoppingRequest(message: string, context: UserContext, request: ServiceRequest, enhancedContext?: any): Promise<string> {
+    // Leverage enhanced context for personalized shopping
+    let personalizedGreeting = "🛒 *SHOPPING ASSISTANT*\n\n";
+    
+    if (enhancedContext?.profile?.preferences?.preferredCategories) {
+      personalizedGreeting += `🎯 Based on your interests: ${enhancedContext.profile.preferences.preferredCategories.join(', ')}\n\n`;
+    }
+    
+    return personalizedGreeting + "🎯 *What are you looking for?*\n\n📱 *Categories*:\n• Electronics & Phones\n• Clothing & Fashion\n• Food & Groceries\n• Health & Beauty\n• Home & Garden\n\n🔍 Type item name or category\nExample: 'iPhone 15' or 'groceries'\n\nI'll find best prices and availability!";
   }
 
-  private async handleBusinessRequest(message: string, context: UserContext, request: ServiceRequest): Promise<string> {
+  private async handleBusinessRequest(message: string, context: UserContext, request: ServiceRequest, enhancedContext?: any): Promise<string> {
     return "🏪 *BUSINESS DISCOVERY*\n\n🎯 *Find Services Near You*\n\n📍 *Categories*:\n• 💊 Pharmacies\n• 🛒 Supermarkets\n• 🍽️ Restaurants\n• 🔧 Repair Services\n• 🏥 Health Centers\n\n💡 Tell me what you need:\n'Find pharmacy near me'\n'Restaurants in Kimisagara'\n\nI'll show options with ratings & contact info!";
   }
 
-  private async handleDeliveryRequest(message: string, context: UserContext, request: ServiceRequest): Promise<string> {
+  private async handleDeliveryRequest(message: string, context: UserContext, request: ServiceRequest, enhancedContext?: any): Promise<string> {
     return "📦 *DELIVERY SERVICE*\n\n🎯 *Send Packages Safely*\n\n📋 *Delivery Types*:\n• Documents (500 RWF)\n• Small packages (1000 RWF)\n• Large items (2000+ RWF)\n• Food delivery\n\n📍 *Setup Delivery*:\nTell me:\n• What to send\n• Pickup location\n• Delivery address\n\nI'll arrange pickup within 30 minutes!";
   }
 
-  private async handleGeneralRequest(message: string, context: UserContext): Promise<string> {
+  private async handleGeneralRequest(message: string, context: UserContext, enhancedContext?: any): Promise<string> {
     const msg = message.toLowerCase().trim();
     
     // Handle greetings and acknowledgments with conversational flow
