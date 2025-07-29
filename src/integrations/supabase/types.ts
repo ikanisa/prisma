@@ -8217,6 +8217,15 @@ export type Database = {
         Args:
           | {
               p_user_id: string
+              p_amount: number
+              p_momo_number: string
+              p_qr_url: string
+              p_ref: string
+              p_ussd_code: string
+              p_purpose?: string
+            }
+          | {
+              p_user_id: string
               p_direction: string
               p_amount?: number
               p_momo_number?: string
