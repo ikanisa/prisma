@@ -60,7 +60,7 @@ serve(async (req) => {
     }
 
     // Send response
-    await supabase.functions.invoke('whatsapp-message-processor', {
+    await supabase.functions.invoke('compose-whatsapp-message', {
       body: {
         phone,
         message: response,

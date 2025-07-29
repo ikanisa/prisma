@@ -91,7 +91,8 @@ export function MessageBubble({
   };
 
   const handleForward = () => {
-    // TODO: Implement message forwarding functionality
+    // Message forwarding - placeholder for future implementation
+    console.log('Forward message:', message.id);
   };
 
   const handleDelete = async () => {

@@ -158,7 +158,7 @@ async function createWhatsAppTestSuite(supabase: any) {
       suite_id: suite.id,
       name: 'Send Text Message',
       description: 'Test sending a simple text message via WhatsApp',
-      test_function: 'whatsapp-message-processor',
+      test_function: 'compose-whatsapp-message',
       test_data: {
         phone_number: 'test_123456789',
         message: 'Hello from test',
@@ -174,7 +174,7 @@ async function createWhatsAppTestSuite(supabase: any) {
       suite_id: suite.id,
       name: 'Send Template Message',
       description: 'Test sending a template message with variables',
-      test_function: 'whatsapp-message-processor',
+      test_function: 'compose-whatsapp-message',
       test_data: {
         phone_number: 'test_987654321',
         template_name: 'welcome_message',
@@ -210,7 +210,7 @@ async function createWhatsAppTestSuite(supabase: any) {
       suite_id: suite.id,
       name: 'Message Delivery Tracking',
       description: 'Test delivery metrics are recorded correctly',
-      test_function: 'whatsapp-message-processor',
+      test_function: 'compose-whatsapp-message',
       test_data: {
         phone_number: 'test_555666777',
         message: 'Delivery test message',
@@ -353,7 +353,7 @@ async function createPerformanceTestSuite(supabase: any) {
       test_data: {
         test_type: 'cold_start',
         target_functions: [
-          'whatsapp-message-processor',
+          'compose-whatsapp-message',
           'whatsapp-analytics',
           'whatsapp-webhook'
         ]
@@ -371,7 +371,7 @@ async function createPerformanceTestSuite(supabase: any) {
       test_function: 'performance-monitor',
       test_data: {
         test_type: 'load_test',
-        target_function: 'whatsapp-message-processor',
+        target_function: 'compose-whatsapp-message',
         concurrent_requests: 10,
         duration_seconds: 60
       },

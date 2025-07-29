@@ -75,7 +75,7 @@ serve(async (req) => {
       const message = statusMessages[event_type] || `Trip status: ${status}`;
 
       for (const passenger of trip.passengers) {
-        await supabase.functions.invoke('whatsapp-message-processor', {
+        await supabase.functions.invoke('compose-whatsapp-message', {
           body: {
             phone: passenger.passenger_id,
             message,

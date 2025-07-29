@@ -118,7 +118,7 @@ async function processCampaignMessages(supabase: any, campaignId?: string) {
     try {
       // Send message via WhatsApp
       const { data: sendResult, error: sendError } = await supabase.functions.invoke(
-        'whatsapp-message-processor',
+        'compose-whatsapp-message',
         {
           body: {
             phone_number: message.phone_number,
@@ -250,7 +250,7 @@ async function processDripSequences(supabase: any) {
 
       // Send drip message
       const { data: sendResult, error: sendError } = await supabase.functions.invoke(
-        'whatsapp-message-processor',
+        'compose-whatsapp-message',
         {
           body: {
             phone_number: enrollment.phone_number,

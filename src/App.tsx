@@ -15,14 +15,6 @@ import ListingsDashboard from "./pages/admin/listings/ListingsDashboard";
 import OperationsDashboard from "./pages/admin/operations/OperationsDashboard";
 import UsersDashboard from "./pages/admin/users/UsersDashboard";
 import ContentDashboard from "./pages/admin/content/ContentDashboard";
-// Legacy pages (to be phased out)
-import ListingsInventory from "./pages/admin/ListingsInventory";
-import OrdersPayments from "./pages/admin/OrdersPayments";
-import TripsIntents from "./pages/admin/TripsIntents";
-import MessagingCampaigns from "./pages/admin/MessagingCampaigns";
-import AIAgentsModels from "./pages/admin/AIAgentsModels";
-import OmniAgentDashboard from "./pages/admin/OmniAgentDashboard";
-import SkillDetail from "./pages/admin/SkillDetail";
 import SystemOps from "./pages/admin/SystemOps";
 import BusinessDetail from "./pages/admin/BusinessDetail";
 import AdminAuth from "./pages/AdminAuth";
@@ -30,8 +22,6 @@ import EnvSetup from "./pages/admin/EnvSetup";
 import Agents from "./pages/admin/Agents";
 import AgentDetail from "./pages/admin/AgentDetail";
 import WebhookConfig from "./pages/admin/WebhookConfig";
-// Agent detail pages
-import AgentDetailLegacy from "./pages/admin/agents/AgentDetail";
 import PersonaDetail from "./pages/admin/PersonaDetail";
 import AgentLearning from "./pages/admin/agents/AgentLearning";
 import TaskDetail from "./pages/admin/agents/TaskDetail";
@@ -57,7 +47,7 @@ import UnifiedListingsPage from "./pages/admin/UnifiedListingsPage";
 import UnifiedOrdersPage from "./pages/admin/UnifiedOrdersPage";
 import UserExperienceFlow from "./pages/admin/UserExperienceFlow";
 import { ChatProvider } from "@/components/chat/ChatProvider";
-import { WhatsAppAgentTest } from "@/components/admin/WhatsAppAgentTest";
+
 
 const queryClient = new QueryClient();
 
@@ -86,18 +76,12 @@ const App = () => (
           <Route path="users" element={<UsersDashboard />} />
           <Route path="content" element={<ContentDashboard />} />
           
-          {/* Legacy routes - to be deprecated */}
-          <Route path="listings-inventory" element={<ListingsInventory />} />
+          {/* Core functionality routes */}
           <Route path="unified-listings" element={<UnifiedListingsPage />} />
-          <Route path="orders-payments" element={<OrdersPayments />} />
           <Route path="unified-orders" element={<UnifiedOrdersPage />} />
-          <Route path="trips-intents" element={<TripsIntents />} />
-          <Route path="messaging-campaigns" element={<MessagingCampaigns />} />
           <Route path="conversations" element={<ConversationsInterface />} />
           <Route path="user-experience" element={<UserExperienceFlow />} />
-          <Route path="ai-agents-models" element={<AIAgentsModels />} />
           <Route path="omni-agent" element={<LearningDashboard />} />
-          <Route path="omni-agent/skill/:skillId" element={<SkillDetail />} />
           <Route path="omni-agent/configure" element={<AgentConfigurationNew />} />
           <Route path="omni-agent/persona" element={<PersonaConfiguration />} />
           <Route path="omni-agent/documents" element={<DocumentManagement />} />
@@ -108,8 +92,6 @@ const App = () => (
           <Route path="system-ops" element={<SystemOps />} />
           <Route path="env-setup" element={<EnvSetup />} />
           <Route path="webhook-config" element={<WebhookConfig />} />
-          <Route path="whatsapp-test" element={<WhatsAppAgentTest />} />
-          <Route path="whatsapp" element={<WhatsAppAgentTest />} />
           <Route path="agents" element={<Agents />} />
           <Route path="agents/:id" element={<AgentDetail />} />
           <Route path="businesses/:businessId" element={<BusinessDetail />} />
@@ -121,7 +103,6 @@ const App = () => (
           <Route path="agents/:id/configuration" element={<AgentConfiguration />} />
           
           {/* Agent detail routes */}
-          <Route path="agents-legacy/:id" element={<AgentDetailLegacy />} />
           <Route path="agents/:agentId/personas/:id" element={<PersonaDetail />} />
           <Route path="agents/:id/learning" element={<AgentLearning />} />
           <Route path="agents/:agentId/tasks/:taskId" element={<TaskDetail />} />

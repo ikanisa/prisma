@@ -82,8 +82,7 @@ serve(async (req) => {
       
       const webhookFunctions = [
         'unified-whatsapp-webhook',
-        'whatsapp-webhook', 
-        'wa-webhook',
+        'whatsapp-webhook',
         'whatsapp_webhook'
       ];
 
