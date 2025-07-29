@@ -238,6 +238,7 @@ class UserJourneyManager {
 
 class ContextualResponseEngine {
   private supabase: any;
+  private persona: any = null;
   
   constructor(supabase: any) {
     this.supabase = supabase;
@@ -245,6 +246,9 @@ class ContextualResponseEngine {
 
   async generateResponse(message: string, userContext: UserContext): Promise<string> {
     console.log(`🧠 Starting multi-tier memory retrieval for ${userContext.phone}`);
+    
+    // Step 0: Load dynamic persona configuration
+    await this.loadPersonaConfiguration();
     
     // Step 1: Get comprehensive user context using new memory system
     let enhancedContext = null;
@@ -560,6 +564,89 @@ class ContextualResponseEngine {
     
     // Default conversational response
     return "I'd love to help! 😊\n\n🎯 *Popular requests*:\n💰 Payment QR: Send any amount\n🛵 Transport: Tell me your destination\n🛒 Shopping: What are you looking for?\n📦 Delivery: What needs to be sent?\n\n💬 Just describe what you need - I'm here to assist!";
+  }
+
+  private async loadPersonaConfiguration(): Promise<void> {
+    if (this.persona) return; // Already loaded
+    
+    try {
+      // Load from agent_personas table
+      const { data: personas, error } = await this.supabase
+        .from('agent_personas')
+        .select(`
+          *,
+          agents!inner(name, description)
+        `)
+        .eq('agents.name', 'OmniAgent')
+        .limit(1);
+
+      if (personas && personas.length > 0) {
+        const dbPersona = personas[0];
+        this.persona = {
+          name: dbPersona.agents.name || 'Aline',
+          description: dbPersona.agents.description,
+          tone: dbPersona.tone || 'friendly',
+          language: dbPersona.language || 'en',
+          personality: dbPersona.personality || 'helpful and efficient',
+          instructions: dbPersona.instructions || '',
+          source: 'database'
+        };
+        console.log(`✅ Loaded persona from database: ${this.persona.name}`);
+        return;
+      }
+    } catch (error) {
+      console.error('Failed to load persona from database:', error);
+    }
+
+    // Fallback to enhanced hardcoded persona
+    this.persona = {
+      name: 'Aline - easyMO Assistant',
+      tone: 'friendly, helpful, efficient',
+      language: 'en',
+      personality: 'conversational yet professional',
+      instructions: OmniAgentPersona.getPersonaPrompt(),
+      source: 'fallback'
+    };
+    console.log(`⚠️ Using fallback persona configuration`);
+  }
+
+  private getPersonalizedGreeting(context: UserContext): string {
+    if (!this.persona) return "Hello! How can I help you today?";
+    
+    const greeting = context.userType === 'new' 
+      ? `Hello! 👋 Welcome to easyMO! I'm ${this.persona.name}` 
+      : `Hi again! 😊 It's ${this.persona.name}`;
+    
+    return greeting;
+  }
+
+  private getPersonaSystemPrompt(): string {
+    if (!this.persona) return OmniAgentPersona.getPersonaPrompt();
+    
+    if (this.persona.source === 'database' && this.persona.instructions) {
+      return `You are ${this.persona.name}, an AI assistant for easyMO with these characteristics:
+
+PERSONA:
+- Name: ${this.persona.name}
+- Tone: ${this.persona.tone}
+- Personality: ${this.persona.personality}
+- Primary Language: ${this.persona.language}
+
+INSTRUCTIONS:
+${this.persona.instructions}
+
+CORE CAPABILITIES:
+- Advanced MoMo payment links with USSD codes
+- SVG/PNG QR code generation
+- Smart ride booking and tracking
+- Business discovery and product search
+- Package delivery coordination
+- Comprehensive customer support
+
+Always follow the persona guidelines and maintain the specified tone in all interactions.`;
+    }
+    
+    return this.persona.instructions || OmniAgentPersona.getPersonaPrompt();
   }
 
   private extractAmount(message: string): number | null {
