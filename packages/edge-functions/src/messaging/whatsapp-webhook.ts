@@ -55,6 +55,55 @@ const verifyWebhook = (req: Request): Response => {
   return createErrorResponse('Bad request', 400);
 };
 
+// Generate SHA256 hash for idempotency
+const generateTxHash = async (msgId: string, toolName: string, args: any): Promise<string> => {
+  const hashString = msgId + toolName + JSON.stringify(args);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(hashString));
+  return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+};
+
+// Send WhatsApp message with idempotency
+const sendOnce = async (txHash: string, waId: string, payload: any) => {
+  logger.info('Checking message idempotency', { txHash, waId });
+  
+  const { data: existing } = await supabase
+    .from('outgoing_log')
+    .select('tx_hash')
+    .eq('tx_hash', txHash)
+    .single();
+
+  if (existing) {
+    logger.info('Message already sent, skipping', { txHash });
+    return;
+  }
+
+  // Send to WhatsApp API
+  const response = await fetch(`https://graph.facebook.com/v18.0/${Deno.env.get('META_WABA_PHONE_ID')}/messages`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${Deno.env.get('META_WABA_TOKEN')}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    logger.error('WhatsApp API error', { status: response.status, error: errorText });
+    throw new Error(`WhatsApp API error: ${response.status} ${errorText}`);
+  }
+
+  // Log successful send
+  await supabase.from('outgoing_log').insert({
+    tx_hash: txHash,
+    wa_id: waId,
+    payload: payload,
+    delivery_status: 'sent'
+  });
+
+  logger.info('Message sent and logged', { txHash });
+};
+
 // Process incoming WhatsApp messages
 const processMessage = async (body: any) => {
   logger.info('Processing WhatsApp webhook', { body });
@@ -75,6 +124,28 @@ const processMessage = async (body: any) => {
   const messageType = message.type;
   const messageId = message.id;
   const timestamp = new Date(parseInt(message.timestamp) * 1000).toISOString();
+
+  // 🔒 IDEMPOTENCY CHECK: Prevent duplicate processing
+  const { data: existing } = await supabase
+    .from('processed_inbound')
+    .select('msg_id')
+    .eq('msg_id', messageId)
+    .single();
+
+  if (existing) {
+    logger.info('Message already processed', { messageId });
+    return { processed: true, reason: 'Duplicate message', message_id: messageId };
+  }
+
+  // Mark as processed
+  await supabase.from('processed_inbound').insert({
+    msg_id: messageId,
+    wa_id: phoneNumber,
+    metadata: {
+      timestamp: message.timestamp,
+      message_type: messageType
+    }
+  });
 
   let content = '';
   switch (messageType) {

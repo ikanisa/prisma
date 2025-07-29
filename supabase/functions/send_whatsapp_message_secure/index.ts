@@ -21,6 +21,111 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Generate SHA256 hash for idempotency
+async function generateTxHash(msgId: string, toolName: string, args: any): Promise<string> {
+  const hashString = msgId + toolName + JSON.stringify(args);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(hashString));
+  return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// Send WhatsApp message with idempotency protection
+async function sendOnce(txHash: string, waId: string, payload: any): Promise<{ sent: boolean; messageId?: string }> {
+  logger.info('Checking message idempotency', { txHash, waId });
+  
+  const { data: existing } = await supabase
+    .from('outgoing_log')
+    .select('tx_hash')
+    .eq('tx_hash', txHash)
+    .single();
+
+  if (existing) {
+    logger.info('Message already sent, skipping', { txHash });
+    return { sent: false }; // Already sent
+  }
+
+  logger.info('Sending new message', { txHash });
+  
+  try {
+    // Send to WhatsApp API with timeout
+    const whatsappResponse = await Promise.race([
+      fetch(`https://graph.facebook.com/v20.0/${WhatsAppEnv.getPhoneId()}/messages`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${WhatsAppEnv.getToken()}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
+      }),
+      new Promise<never>((_, reject) => 
+        setTimeout(() => reject(new Error('WhatsApp API timeout')), 10000)
+      )
+    ]);
+
+    const responseData = await whatsappResponse.json();
+    
+    if (!whatsappResponse.ok) {
+      logger.error("WhatsApp API error", { 
+        status: whatsappResponse.status, 
+        error: responseData.error?.message 
+      });
+      throw new Error(`WhatsApp API error: ${whatsappResponse.status}`);
+    }
+
+    const messageId = responseData.messages?.[0]?.id;
+    
+    // Log successful send in outgoing_log
+    await supabase.from('outgoing_log').insert({
+      tx_hash: txHash,
+      wa_id: waId,
+      payload: payload,
+      delivery_status: 'sent'
+    });
+
+    logger.info('Message sent and logged', { txHash, messageId });
+    return { sent: true, messageId };
+    
+  } catch (error) {
+    logger.error('Failed to send message', { txHash, error });
+    
+    // Log failed attempt
+    await supabase.from('outgoing_log').insert({
+      tx_hash: txHash,
+      wa_id: waId,
+      payload: payload,
+      delivery_status: 'failed'
+    });
+    
+    throw error;
+  }
+}
+
+// Check if banner should be sent (throttle to once per hour)
+async function shouldSendBanner(waId: string): Promise<boolean> {
+  const { data: contact } = await supabase
+    .from('contacts')
+    .select('last_banner_ts')
+    .eq('phone_number', waId)
+    .single();
+
+  if (!contact?.last_banner_ts) {
+    return true;
+  }
+
+  const lastBanner = new Date(contact.last_banner_ts);
+  const now = new Date();
+  const hoursSinceLastBanner = (now.getTime() - lastBanner.getTime()) / (1000 * 60 * 60);
+
+  return hoursSinceLastBanner >= 1;
+}
+
+// Update banner timestamp
+async function updateBannerTimestamp(waId: string) {
+  await supabase
+    .from('contacts')
+    .update({ last_banner_ts: new Date().toISOString() })
+    .eq('phone_number', waId);
+}
+
 serve(async (req) => {
   const startTime = Date.now();
   
@@ -52,11 +157,18 @@ serve(async (req) => {
     }
 
     const requestBody = await req.json();
-    const { to, body } = requestBody;
+    const { 
+      to, 
+      body, 
+      message_id = Date.now().toString(), 
+      tool_name = 'secure_send',
+      check_banner_throttle = false,
+      payload // Allow custom payload instead of just text
+    } = requestBody;
 
-    if (!to || !body) {
+    if (!to || (!body && !payload)) {
       return new Response(JSON.stringify({ 
-        error: "Missing required parameters: 'to' and 'body'" 
+        error: "Missing required parameters: 'to' and ('body' or 'payload')" 
       }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -74,95 +186,82 @@ serve(async (req) => {
       });
     }
 
-    // Validate and sanitize message content
-    const messageValidation = validateMessageContent(body);
-    if (!messageValidation.isValid) {
-      return new Response(JSON.stringify({ 
-        error: `Invalid message content: ${messageValidation.error}` 
-      }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
-
     const sanitizedPhone = phoneValidation.sanitized!;
-    const sanitizedBody = messageValidation.sanitized!;
-
-    logger.info('Sending WhatsApp message', { 
-      to: sanitizedPhone.substring(0, 8) + '***', // Partial masking for logs
-      messageLength: sanitizedBody.length 
-    });
 
     // Prepare WhatsApp API payload
-    const payload = {
-      messaging_product: "whatsapp",
-      to: sanitizedPhone,
-      type: "text",
-      text: { body: sanitizedBody }
-    };
-
-    // Send to WhatsApp API with timeout
-    const whatsappResponse = await Promise.race([
-      fetch(`https://graph.facebook.com/v20.0/${WhatsAppEnv.getPhoneId()}/messages`, {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${WhatsAppEnv.getToken()}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(payload)
-      }),
-      new Promise<never>((_, reject) => 
-        setTimeout(() => reject(new Error('WhatsApp API timeout')), 10000)
-      )
-    ]);
-
-    const responseData = await whatsappResponse.json();
+    let messagePayload: any;
     
-    if (!whatsappResponse.ok) {
-      logger.error("WhatsApp API error", { 
-        status: whatsappResponse.status, 
-        error: responseData.error?.message 
-      });
+    if (payload) {
+      // Use custom payload if provided
+      messagePayload = { ...payload, to: sanitizedPhone };
+    } else {
+      // Validate and sanitize message content for text messages
+      const messageValidation = validateMessageContent(body);
+      if (!messageValidation.isValid) {
+        return new Response(JSON.stringify({ 
+          error: `Invalid message content: ${messageValidation.error}` 
+        }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      const sanitizedBody = messageValidation.sanitized!;
       
-      return new Response(JSON.stringify({ 
-        error: "Failed to send message",
-        status: whatsappResponse.status
-      }), {
-        status: whatsappResponse.status,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+      messagePayload = {
+        messaging_product: "whatsapp",
+        to: sanitizedPhone,
+        type: "text",
+        text: { body: sanitizedBody }
+      };
     }
 
-    // Log message to database for audit trail
-    const messageId = responseData.messages?.[0]?.id;
-    if (messageId) {
-      try {
-        await supabase.from("whatsapp_messages").insert({
-          wa_message_id: messageId,
-          from_number: WhatsAppEnv.getPhoneId(),
-          to_number: sanitizedPhone,
-          direction: 'out',
-          body: sanitizedBody,
-          msg_type: 'text',
-          status: 'sent',
-          raw_json: responseData
+    logger.info('Sending WhatsApp message with idempotency', { 
+      to: sanitizedPhone.substring(0, 8) + '***', // Partial masking for logs
+      messageId: message_id,
+      toolName: tool_name
+    });
+
+    // Generate transaction hash for idempotency
+    const txHash = await generateTxHash(message_id, tool_name, messagePayload);
+
+    // Check banner throttle if requested
+    if (check_banner_throttle) {
+      const shouldSend = await shouldSendBanner(sanitizedPhone);
+      if (!shouldSend) {
+        logger.info('Banner throttled', { phone: sanitizedPhone.substring(0, 8) + '***' });
+        return new Response(JSON.stringify({ 
+          success: false, 
+          reason: 'Banner throttled', 
+          tx_hash: txHash 
+        }), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
-      } catch (dbError) {
-        logger.error("Failed to log message to database", dbError);
-        // Don't fail the request - message was sent successfully
       }
     }
 
+    // Send message with idempotency protection
+    const result = await sendOnce(txHash, sanitizedPhone, messagePayload);
+
+    // Update banner timestamp if this was a banner message and it was sent
+    if (check_banner_throttle && result.sent) {
+      await updateBannerTimestamp(sanitizedPhone);
+    }
+
     const duration = Date.now() - startTime;
-    logger.info('WhatsApp message sent successfully', { 
-      messageId,
+    logger.info('WhatsApp message process completed', { 
+      messageId: result.messageId,
+      sent: result.sent,
       duration: `${duration}ms`,
-      status: "sent"
+      txHash
     });
 
     return new Response(JSON.stringify({
       success: true,
-      messageId,
+      sent: result.sent,
+      messageId: result.messageId,
+      tx_hash: txHash,
       duration
     }), {
       status: 200,

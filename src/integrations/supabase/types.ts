@@ -1618,6 +1618,7 @@ export type Database = {
           id: string
           is_online: boolean | null
           is_typing: boolean | null
+          last_banner_ts: string | null
           last_interaction: string | null
           location: string | null
           name: string | null
@@ -1635,6 +1636,7 @@ export type Database = {
           id?: string
           is_online?: boolean | null
           is_typing?: boolean | null
+          last_banner_ts?: string | null
           last_interaction?: string | null
           location?: string | null
           name?: string | null
@@ -1652,6 +1654,7 @@ export type Database = {
           id?: string
           is_online?: boolean | null
           is_typing?: boolean | null
+          last_banner_ts?: string | null
           last_interaction?: string | null
           location?: string | null
           name?: string | null
@@ -4641,6 +4644,33 @@ export type Database = {
         }
         Relationships: []
       }
+      outgoing_log: {
+        Row: {
+          created_at: string | null
+          delivery_status: string | null
+          payload: Json
+          sent_at: string | null
+          tx_hash: string
+          wa_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          delivery_status?: string | null
+          payload: Json
+          sent_at?: string | null
+          tx_hash: string
+          wa_id: string
+        }
+        Update: {
+          created_at?: string | null
+          delivery_status?: string | null
+          payload?: Json
+          sent_at?: string | null
+          tx_hash?: string
+          wa_id?: string
+        }
+        Relationships: []
+      }
       outgoing_messages: {
         Row: {
           created_at: string | null
@@ -5299,6 +5329,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      processed_inbound: {
+        Row: {
+          metadata: Json | null
+          msg_id: string
+          processed_at: string | null
+          wa_id: string
+        }
+        Insert: {
+          metadata?: Json | null
+          msg_id: string
+          processed_at?: string | null
+          wa_id: string
+        }
+        Update: {
+          metadata?: Json | null
+          msg_id?: string
+          processed_at?: string | null
+          wa_id?: string
+        }
+        Relationships: []
       }
       produce_drafts: {
         Row: {
