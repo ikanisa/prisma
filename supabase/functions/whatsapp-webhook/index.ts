@@ -130,7 +130,7 @@ serve(async (req: Request) => {
 async function processTextMessage(supabase: any, from: string, text: string, messageId: string, contactName: string, timestamp: Date) {
   console.log('📝 Processing text message:', text);
   
-  // Route to Enhanced Omni Agent for intelligent processing
+  // SINGLE SOURCE OF TRUTH: Route to Enhanced Omni Agent for intelligent processing
   try {
     const { data: result, error } = await supabase.functions.invoke('omni-agent-enhanced', {
       body: {
@@ -144,18 +144,23 @@ async function processTextMessage(supabase: any, from: string, text: string, mes
 
     if (error) {
       console.error('❌ Omni agent error:', error);
-    } else {
-      console.log('✅ Text message processed:', result);
-      
-      // Send response back to user if agent provided one
-      if (result?.response) {
-        await sendWhatsAppMessage(from, result.response);
-      }
+      return; // Don't send duplicate fallback
+    }
+
+    console.log('✅ Text message processed:', result);
+    
+    // Send response back to user if agent provided one
+    if (result?.success && result?.response) {
+      await sendWhatsAppMessage(from, result.response);
+    } else if (!result?.success) {
+      console.error('❌ Agent processing failed:', result);
+      // Only send fallback if no other response was provided
+      await sendWhatsAppMessage(from, "🤖 I'm here to help! Send amount for payment QR (e.g., '5000') or 'menu' for options.");
     }
   } catch (error) {
     console.error('❌ Text processing error:', error);
-    // Send fallback response
-    await sendWhatsAppMessage(from, "🤖 I'm here to help! Send amount for payment QR (e.g., '5000') or 'menu' for options.");
+    // Send fallback response only on complete failure
+    await sendWhatsAppMessage(from, "🤖 I'm experiencing technical difficulties. Please try again in a moment.");
   }
 }
 

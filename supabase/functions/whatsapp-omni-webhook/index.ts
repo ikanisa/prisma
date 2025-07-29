@@ -75,40 +75,18 @@ serve(async (req) => {
 });
 
 /**
- * Route to omni-agent
+ * Route to omni-agent (DISABLED - Preventing duplicate processing)
+ * This function is disabled to prevent duplicate message processing.
+ * All routing now goes through whatsapp-webhook -> omni-agent-enhanced
  */
 async function routeToOmniAgent(message: string, phone: string): Promise<any> {
-  try {
-    console.log('🤖 Routing to omni-agent', { phone, message: message.substring(0, 100) });
-    
-    const { data, error } = await supabase.functions.invoke('omni-agent-router', {
-      body: {
-        message,
-        userId: phone,
-        phone,
-        context: { channel: 'whatsapp' }
-      }
-    });
-    
-    if (error) {
-      console.error('❌ Omni-agent error', error);
-      throw error;
-    }
-    
-    return data?.response || {
-      success: true,
-      response_type: 'text',
-      message: "Welcome to easyMO! How can I help you today?"
-    };
-    
-  } catch (error) {
-    console.error('❌ Omni-agent routing error', error);
-    return {
-      success: false,
-      response_type: 'text',
-      message: "I'm having trouble processing your request. Please try again."
-    };
-  }
+  console.log('⚠️ whatsapp-omni-webhook disabled to prevent duplicates. Use whatsapp-webhook instead.');
+  
+  return {
+    success: false,
+    response_type: 'text',
+    message: "Service temporarily unavailable. Please try again."
+  };
 }
 
 /**
