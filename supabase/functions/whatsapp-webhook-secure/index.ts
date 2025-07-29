@@ -200,9 +200,9 @@ async function processWithGPT(body: any) {
     await updateBannerTimestamp(waId);
   }
 
-  // Process with Omni Agent
+  // Process with Template-Driven Agent (prioritizes templates, quick actions, and services)
   try {
-    const { error: agentError } = await supabase.functions.invoke('omni-agent-enhanced', {
+    const { error: templateAgentError } = await supabase.functions.invoke('template-driven-agent', {
       body: {
         phone_number: waId,
         message: messageText || 'hello',
@@ -211,24 +211,38 @@ async function processWithGPT(body: any) {
       }
     });
 
-    if (agentError) {
-      console.warn('⚠️ Omni agent failed:', agentError);
+    if (templateAgentError) {
+      console.warn('⚠️ Template agent failed, falling back to Omni agent:', templateAgentError);
       
-      // Send fallback message
-      const fallbackTxHash = generateTxHash(msgId, 'fallback_message', { waId });
-      const fallbackPayload = {
-        messaging_product: "whatsapp",
-        to: waId,
-        type: "text",
-        text: {
-          body: "I apologize, but I'm experiencing technical difficulties. Please try again in a moment."
+      // Fallback to Omni Agent
+      const { error: omniAgentError } = await supabase.functions.invoke('omni-agent-enhanced', {
+        body: {
+          phone_number: waId,
+          message: messageText || 'hello',
+          message_id: msgId,
+          platform: 'whatsapp'
         }
-      };
-      
-      await sendOnce(fallbackTxHash, waId, fallbackPayload);
+      });
+
+      if (omniAgentError) {
+        console.warn('⚠️ Both agents failed, sending fallback message:', omniAgentError);
+        
+        // Send fallback message
+        const fallbackTxHash = generateTxHash(msgId, 'fallback_message', { waId });
+        const fallbackPayload = {
+          messaging_product: "whatsapp",
+          to: waId,
+          type: "text",
+          text: {
+            body: "I apologize, but I'm experiencing technical difficulties. Please try again in a moment."
+          }
+        };
+        
+        await sendOnce(fallbackTxHash, waId, fallbackPayload);
+      }
     }
   } catch (error) {
-    console.error('❌ Failed to invoke omni agent:', error);
+    console.error('❌ Failed to invoke template-driven agent:', error);
   }
 }
 
