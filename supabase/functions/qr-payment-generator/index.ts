@@ -103,8 +103,15 @@ async function generateQRCode(supabase: any, amount: number, phone: string, type
 
     const qrData = await qrResponse.json();
 
-    // Generate USSD code for MTN MoMo (common format in Rwanda)
-    const ussdCode = `*182*8*1*${amount}*${phone}#`;
+    // Generate USSD code based on phone type
+    let ussdCode;
+    if (phone.startsWith('078') || phone.startsWith('079')) {
+      // MTN MoMo number format
+      ussdCode = `*182*1*1*${phone}*${amount}#`;
+    } else {
+      // MoMo code format
+      ussdCode = `*182*8*1*${phone}*${amount}#`;
+    }
     
     // Generate payment link
     const paymentLink = `https://pay.easymo.rw/qr/${reference}`;

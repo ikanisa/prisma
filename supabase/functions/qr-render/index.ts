@@ -39,8 +39,10 @@ serve(async (req) => {
     // Generate payment reference if not provided
     const payment_ref = ref || await generatePaymentRef();
 
-    // Create USSD QR code data
-    const ussd_code = `*182*6*1*${payment_ref}#`; // Example USSD format
+    // Create USSD QR code data with proper format
+    const ussd_code = momo_number && momo_number.startsWith('078') ? 
+      `*182*1*1*${momo_number}*${amount}#` : // MTN MoMo number
+      `*182*8*1*${momo_number || payment_ref}*${amount}#`; // MoMo code
     const qr_data = {
       type: 'ussd_payment',
       ussd_code: ussd_code,

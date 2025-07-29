@@ -90,15 +90,8 @@ Just send amount for instant QR!`;
         return "Sorry, couldn't generate QR code. Please try again.";
       }
 
-      return `💰 *RECEIVE ${amount.toLocaleString()} RWF*
-
-📱 Show this QR code to receive payment:
-${data.qr_url}
-
-💳 Or share USSD: ${data.ussd_code}
-🔗 Link: ${data.payment_link}
-
-✅ Valid for 24 hours`;
+      // Return ONLY the QR code image URL - no text
+      return data.qr_url || "Sorry, couldn't generate QR code. Please try again.";
 
     } catch (error) {
       console.error('QR generation failed:', error);
