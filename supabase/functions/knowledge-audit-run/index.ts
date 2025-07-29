@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
+import { getOpenAI, generateIntelligentResponse } from '../_shared/openai-sdk.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -221,29 +222,21 @@ Return a JSON response with:
   }
 }`;
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${OPENAI_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o',
-        messages: [
-          { role: 'system', content: 'You are a knowledge audit specialist for AI agents in Rwanda fintech.' },
-          { role: 'user', content: analysisPrompt }
-        ],
+    // Use OpenAI SDK with Rwanda-first intelligence
+    const systemPrompt = 'You are a knowledge audit specialist for AI agents in Rwanda fintech.';
+    
+    const aiResponse = await generateIntelligentResponse(
+      analysisPrompt,
+      systemPrompt,
+      [],
+      {
+        model: 'gpt-4.1-2025-04-14',
         temperature: 0.3,
         max_tokens: 3000
-      }),
-    });
+      }
+    );
 
-    if (!response.ok) {
-      throw new Error(`OpenAI API error: ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    const auditResults = JSON.parse(data.choices[0].message.content);
+    const auditResults = JSON.parse(aiResponse);
 
     // Process gaps
     for (const gap of auditResults.gaps || []) {

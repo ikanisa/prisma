@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0';
+import { getOpenAI, generateIntelligentResponse } from '../_shared/openai-sdk.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -235,25 +236,21 @@ async function generateLearningInsights(supabase: any, openaiApiKey: string, per
     - Technical performance optimizations
   `;
 
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${openaiApiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'gpt-4o',
-      messages: [
-        { role: 'system', content: 'You are an AI learning analyst for easyMO, a Rwandan super-app. Provide actionable insights based on performance data.' },
-        { role: 'user', content: analysisPrompt }
-      ],
-      response_format: { type: 'json_object' },
+  // Use OpenAI SDK with Rwanda-first intelligence
+  const systemPrompt = 'You are an AI learning analyst for easyMO, a Rwandan super-app. Provide actionable insights based on performance data.';
+  
+  const aiResponse = await generateIntelligentResponse(
+    analysisPrompt,
+    systemPrompt,
+    [],
+    {
+      model: 'gpt-4.1-2025-04-14',
       temperature: 0.3,
-    }),
-  });
-
-  const aiResponse = await response.json();
-  const insights = JSON.parse(aiResponse.choices[0].message.content);
+      response_format: { type: 'json_object' }
+    }
+  );
+  
+  const insights = JSON.parse(aiResponse);
 
   // Store insights
   await supabase.from('learning_metrics').insert({

@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4';
+import { getOpenAI, generateIntelligentResponse } from '../_shared/openai-sdk.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -48,16 +49,19 @@ class MultiAICodeReviewer {
     const prompt = this.buildCodeReviewPrompt(files, 'openai');
     
     try {
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${this.openaiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'gpt-4o',
-          messages: [
-            {
+      // Use OpenAI SDK with Rwanda-first intelligence
+      const systemPrompt = 'You are a senior code reviewer specializing in Rwanda fintech applications. Focus on mobile money integration, security, and local business patterns.';
+      
+      const response = await generateIntelligentResponse(
+        prompt,
+        systemPrompt,
+        [],
+        {
+          model: 'gpt-4.1-2025-04-14',
+          temperature: 0.1,
+          max_tokens: 4000
+        }
+      );
               role: 'system',
               content: `You are an expert full-stack code reviewer specializing in React, TypeScript, Supabase, and modern web development. Analyze code for errors, security issues, performance problems, and maintainability concerns. Provide actionable fixes and refactoring suggestions.`
             },

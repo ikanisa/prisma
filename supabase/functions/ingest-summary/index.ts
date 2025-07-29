@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts"
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { getOpenAI, generateIntelligentResponse } from '../_shared/openai-sdk.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -35,42 +36,22 @@ serve(async (req) => {
       throw new Error('Insufficient content for summary generation')
     }
 
-    // Generate summary using OpenAI
-    const openaiKey = Deno.env.get('OPENAI_API_KEY')
-    if (!openaiKey) {
-      throw new Error('OpenAI API key not configured')
-    }
+    // Use OpenAI SDK with Rwanda-first intelligence
+    const systemPrompt = 'You are an expert at creating concise, informative summaries for financial technology documentation in Rwanda.';
+    const userPrompt = `Summarize the following content in exactly 120 words or less, focusing on key points relevant to Rwanda's fintech and mobile money ecosystem:
 
-    const summaryPrompt = `Summarize the following content in exactly 120 words or less, focusing on key points relevant to Rwanda's fintech and mobile money ecosystem:
+${module.content.slice(0, 7000)}`;
 
-${module.content.slice(0, 7000)}`
-
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openaiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4.1-mini-2025-04-14',
-        messages: [
-          { 
-            role: 'system', 
-            content: 'You are an expert at creating concise, informative summaries for financial technology documentation in Rwanda.' 
-          },
-          { role: 'user', content: summaryPrompt }
-        ],
-        max_tokens: 200,
-        temperature: 0.3
-      }),
-    })
-
-    if (!response.ok) {
-      throw new Error(`OpenAI API error: ${response.status}`)
-    }
-
-    const result = await response.json()
-    const summary = result.choices[0].message.content.trim()
+    const summary = await generateIntelligentResponse(
+      userPrompt,
+      systemPrompt,
+      [],
+      {
+        model: 'gpt-4.1-2025-04-14',
+        temperature: 0.1,
+        max_tokens: 200
+      }
+    );
 
     // Update module with summary
     const { error: updateError } = await supabase
