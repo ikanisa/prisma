@@ -218,13 +218,12 @@ class EnhancedPaymentAgent {
       
       const scannerPhone = from.replace('whatsapp:', '').replace('+', '');
       
-      // Generate QR code using the enhanced generator
-      const { data: qrData, error } = await this.supabase.functions.invoke('enhanced-qr-generator', {
+      // Generate QR code using the qr-render function with OpenAI
+      const { data: qrData, error } = await this.supabase.functions.invoke('qr-render', {
         body: {
-          action: 'generate',
+          momo_number: scannerPhone,
           amount: intent.amount || 0,
-          phone: scannerPhone,
-          type: 'receive'
+          user_id: 'whatsapp_user' // Temporary user ID for WhatsApp users
         }
       });
 
@@ -233,26 +232,45 @@ class EnhancedPaymentAgent {
         throw new Error('Failed to generate QR code');
       }
 
-      if (!qrData || qrData.error) {
+      if (!qrData?.data?.qr_url) {
         console.error('QR generation failed:', qrData);
-        throw new Error(qrData.error || 'QR generation failed');
+        throw new Error('QR generation failed - no URL returned');
       }
 
-      const { ussd_code, ref, qr_url } = qrData;
+      const { qr_url, qr_base64, payment_ref } = qrData.data;
       
       // Log the QR generation for analytics
-      await this.logQRTransaction(scannerPhone, ussd_code, 'generated');
+      await this.logQRTransaction(scannerPhone, `*182*1*1*${scannerPhone}*${intent.amount || 0}#`, 'generated');
       
-      // Return enhanced response with QR image if available
-      if (qr_url) {
-        return await this.sendQRImage(from, qr_url, intent.amount, ussd_code, ref);
-      }
-      
-      return `✅ QR code generated successfully!\n\n💰 Amount: ${intent.amount ? `${intent.amount.toLocaleString()} RWF` : 'Any amount'}\n📱 USSD: ${ussd_code}\n🔗 Ref: ${ref}\n\nShow this QR to the payer or share the USSD code.`;
+      // Return interactive button message with QR URL
+      const buttonMessage = {
+        type: "interactive",
+        interactive: {
+          type: "button",
+          body: {
+            text: `💰 Payment QR Code Ready\n\nAmount: ${intent.amount ? `${intent.amount.toLocaleString()} RWF` : 'Any amount'}\nRef: ${payment_ref}\n\nClick the button below to view your QR code for scanning.`
+          },
+          action: {
+            buttons: [
+              {
+                type: "reply",
+                reply: {
+                  id: `qr_${Date.now()}`,
+                  title: "📱 Open QR Code"
+                }
+              }
+            ]
+          }
+        },
+        qr_url: qr_url // Include QR URL for webhook processing
+      };
+
+      // Return the structured message as JSON string
+      return JSON.stringify(buttonMessage);
       
     } catch (error) {
       console.error('QR generation error:', error);
-      return "❌ Sorry, I couldn't generate your QR code right now. Please try again in a moment.";
+      return "❌ *Payment Error*\n\nCouldn't generate QR code\nPlease try again in a moment";
     }
   }
 
