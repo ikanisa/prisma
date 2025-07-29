@@ -320,6 +320,7 @@ export function LearningDashboard() {
           <TabsTrigger value="documents">Documents</TabsTrigger>
           <TabsTrigger value="learning">Learning</TabsTrigger>
           <TabsTrigger value="journeys">User Journeys</TabsTrigger>
+          <TabsTrigger value="comprehensive">All Services</TabsTrigger>
           <TabsTrigger value="audits">Audit History</TabsTrigger>
         </TabsList>
 
