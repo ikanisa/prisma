@@ -17,6 +17,7 @@ import UsersDashboard from "./pages/admin/users/UsersDashboard";
 import ContentDashboard from "./pages/admin/content/ContentDashboard";
 import SystemOps from "./pages/admin/SystemOps";
 import BusinessDetail from "./pages/admin/BusinessDetail";
+import MessagingCampaigns from "./pages/admin/MessagingCampaigns";
 import AdminAuth from "./pages/AdminAuth";
 import EnvSetup from "./pages/admin/EnvSetup";
 import Agents from "./pages/admin/Agents";
@@ -75,6 +76,7 @@ const App = () => (
           <Route path="operations" element={<OperationsDashboard />} />
           <Route path="users" element={<UsersDashboard />} />
           <Route path="content" element={<ContentDashboard />} />
+          <Route path="messaging-campaigns" element={<MessagingCampaigns />} />
           
           {/* Core functionality routes */}
           <Route path="unified-listings" element={<UnifiedListingsPage />} />
