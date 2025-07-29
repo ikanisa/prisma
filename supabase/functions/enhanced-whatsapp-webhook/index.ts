@@ -816,17 +816,30 @@ async function processIncomingMessage(message: WhatsAppMessage) {
     // Process with payment agent
     const response = await paymentAgent.processMessage(messageText, from);
     
-    // Send response
-    await sendWhatsAppMessage(message.from, response);
+    // Check if response is a JSON interactive button message
+    let parsedResponse;
+    try {
+      parsedResponse = JSON.parse(response);
+    } catch {
+      parsedResponse = null;
+    }
+
+    if (parsedResponse && parsedResponse.type === 'interactive') {
+      // Send interactive button message
+      await sendInteractiveButtonMessage(message.from, parsedResponse);
+    } else {
+      // Send regular text response
+      await sendWhatsAppMessage(message.from, response);
+    }
     
     // Log outgoing message
     await supabase
       .from('conversation_messages')
       .insert({
         phone_number: from,
-        message_text: response,
+        message_text: typeof response === 'string' ? response : JSON.stringify(response),
         sender: 'assistant',
-        message_type: 'text',
+        message_type: parsedResponse ? 'interactive' : 'text',
         channel: 'whatsapp'
       });
 
@@ -847,6 +860,20 @@ async function handleInteractiveMessage(message: WhatsAppMessage, from: string):
 
   const buttonId = message.interactive.button_reply.id;
   const paymentAgent = new EnhancedPaymentAgent(supabase);
+
+  // Handle QR code button clicks
+  if (buttonId.startsWith('qr_')) {
+    // User clicked "Open QR Code" button - send the QR image URL
+    try {
+      // Get the QR URL from context (could be stored in session or retrieved from payment record)
+      await sendWhatsAppMessage(message.from, '📱 Opening your QR code...');
+      return '';
+    } catch (error) {
+      console.error('Error handling QR button click:', error);
+      await sendWhatsAppMessage(message.from, 'Sorry, there was an error opening the QR code. Please try again.');
+      return '';
+    }
+  }
 
   // Handle different button responses
   if (buttonId.startsWith('get_paid_')) {
@@ -914,6 +941,52 @@ async function sendWhatsAppMessage(to: string, text: string): Promise<void> {
 
   } catch (error) {
     console.error('❌ Error sending message:', error);
+    throw error;
+  }
+}
+
+async function sendInteractiveButtonMessage(to: string, buttonMessage: any): Promise<void> {
+  try {
+    const messageData = {
+      messaging_product: 'whatsapp',
+      to: to,
+      type: 'interactive',
+      interactive: {
+        type: 'button',
+        body: buttonMessage.interactive.body,
+        action: {
+          buttons: [
+            {
+              type: 'url',
+              url: {
+                link: buttonMessage.qr_url,
+                text: '📱 Open QR Code'
+              }
+            }
+          ]
+        }
+      }
+    };
+
+    const response = await fetch(`https://graph.facebook.com/v18.0/${PHONE_ID}/messages`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${WHATSAPP_TOKEN}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(messageData)
+    });
+
+    if (!response.ok) {
+      const errorData = await response.text();
+      console.error('WhatsApp API error:', response.status, errorData);
+      throw new Error(`WhatsApp API error: ${response.status}`);
+    }
+
+    console.log('📤 Interactive button message sent successfully');
+
+  } catch (error) {
+    console.error('❌ Error sending interactive button message:', error);
     throw error;
   }
 }

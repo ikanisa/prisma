@@ -88,13 +88,36 @@ Just send amount for instant QR!`;
         return "Sorry, couldn't generate QR code. Please try again.";
       }
 
-      if (!data?.data?.qr_base64) {
-        console.error('No QR base64 in response:', data);
+      if (!data?.data?.qr_url) {
+        console.error('No QR URL in response:', data);
         return "Sorry, couldn't generate QR code. Please try again.";
       }
 
-      // Return ONLY the QR code image as base64 - no text
-      return data.data.qr_base64;
+      // Return WhatsApp interactive button message
+      const buttonMessage = {
+        type: "interactive",
+        interactive: {
+          type: "button",
+          body: {
+            text: `💰 Payment QR Code Ready\n\nAmount: ${amount.toLocaleString()} RWF\nClick the button below to view your QR code for scanning.`
+          },
+          action: {
+            buttons: [
+              {
+                type: "reply",
+                reply: {
+                  id: `qr_${Date.now()}`,
+                  title: "📱 Open QR Code"
+                }
+              }
+            ]
+          }
+        },
+        qr_url: data.data.qr_url // Include QR URL for webhook processing
+      };
+
+      // Return the structured message as JSON string
+      return JSON.stringify(buttonMessage);
 
     } catch (error) {
       console.error('QR generation failed:', error);
