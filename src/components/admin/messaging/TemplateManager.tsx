@@ -46,11 +46,14 @@ export function TemplateManager() {
 
   const domains = [
     { value: "all", label: "All Domains" },
+    { value: "welcome", label: "Welcome" },
     { value: "payment", label: "Payment" },
     { value: "moto", label: "Moto/Transport" },
-    { value: "listings", label: "Listings/Products" },
-    { value: "commerce", label: "Commerce" },
-    { value: "support", label: "Support" },
+    { value: "commerce", label: "Commerce/Ordering" },
+    { value: "listings", label: "Listings/Properties" },
+    { value: "events", label: "Events" },
+    { value: "support", label: "Support/Help" },
+    { value: "language", label: "Language/Localization" },
     { value: "onboarding", label: "Onboarding" }
   ];
 
@@ -405,11 +408,14 @@ function TemplateForm({ template, onSubmit, onCancel }: TemplateFormProps) {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="welcome">Welcome</SelectItem>
               <SelectItem value="payment">Payment</SelectItem>
               <SelectItem value="moto">Moto/Transport</SelectItem>
-              <SelectItem value="listings">Listings</SelectItem>
-              <SelectItem value="commerce">Commerce</SelectItem>
-              <SelectItem value="support">Support</SelectItem>
+              <SelectItem value="commerce">Commerce/Ordering</SelectItem>
+              <SelectItem value="listings">Listings/Properties</SelectItem>
+              <SelectItem value="events">Events</SelectItem>
+              <SelectItem value="support">Support/Help</SelectItem>
+              <SelectItem value="language">Language/Localization</SelectItem>
             </SelectContent>
           </Select>
         </div>
