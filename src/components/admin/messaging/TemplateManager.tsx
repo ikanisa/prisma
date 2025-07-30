@@ -32,7 +32,15 @@ interface WhatsAppTemplate {
   header?: any;
   name_meta?: string;
   version?: number;
-  buttons?: any;
+  buttons?: WhatsAppButton[];
+}
+
+interface WhatsAppButton {
+  type: 'reply' | 'url' | 'phone_number';
+  title: string;
+  payload?: string;
+  url?: string;
+  phone_number?: string;
 }
 
 export function TemplateManager() {
@@ -78,20 +86,135 @@ export function TemplateManager() {
 
       if (error) throw error;
       
-      // Transform database templates to match our interface
-      const transformedTemplates = data?.map(template => ({
+      // Transform database templates to match our interface  
+      const dbTemplates = data?.map(template => ({
         ...template,
         name: template.name_meta || template.code || 'Untitled',
         content: template.body || '',
         template_type: 'text',
         variables: template.components ? [] : [],
-        status: 'active' as const
+        status: 'active' as const,
+        buttons: []
       })) || [];
       
-      setTemplates(transformedTemplates);
+      // Add predefined templates with action buttons for zero-typing experience
+      const predefinedTemplates: WhatsAppTemplate[] = [
+        {
+          id: 'welcome_main_template',
+          name: 'Welcome Main Menu',
+          content: '🚀 Welcome to easyMO! Choose what you need:',
+          template_type: 'button',
+          domain: 'welcome',
+          intent: 'main_menu',
+          language: 'en',
+          status: 'active',
+          buttons: [
+            { type: 'reply', title: 'Pay', payload: 'PAY' },
+            { type: 'reply', title: 'Get Paid', payload: 'GET_PAID' },
+            { type: 'reply', title: 'Nearby Drivers', payload: 'NEARBY_DRIVERS' }
+          ]
+        },
+        {
+          id: 'payment_menu_template',
+          name: 'Payment Menu',
+          content: '💰 Payment Options:',
+          template_type: 'button',
+          domain: 'payment',
+          intent: 'menu',
+          language: 'en',
+          status: 'active',
+          buttons: [
+            { type: 'reply', title: 'Scan QR', payload: 'SCAN_QR' },
+            { type: 'reply', title: 'Get QR', payload: 'GET_QR' },
+            { type: 'reply', title: 'Send Money', payload: 'SEND_MONEY' }
+          ]
+        },
+        {
+          id: 'moto_passenger_template',
+          name: 'Moto Passenger Menu',
+          content: '🏍️ Moto Services:',
+          template_type: 'button',
+          domain: 'moto',
+          intent: 'passenger_menu',
+          language: 'en',
+          status: 'active',
+          buttons: [
+            { type: 'reply', title: 'Find Driver', payload: 'FIND_DRIVER' },
+            { type: 'reply', title: 'Schedule Trip', payload: 'SCHEDULE_TRIP' },
+            { type: 'reply', title: 'My Trips', payload: 'MY_TRIPS' }
+          ]
+        },
+        {
+          id: 'commerce_categories_template',
+          name: 'Commerce Categories',
+          content: '🏪 Browse Businesses:',
+          template_type: 'button',
+          domain: 'commerce',
+          intent: 'categories',
+          language: 'en',
+          status: 'active',
+          buttons: [
+            { type: 'reply', title: 'Bars', payload: 'BARS' },
+            { type: 'reply', title: 'Pharmacy', payload: 'PHARMACY' },
+            { type: 'reply', title: 'Hardware', payload: 'HARDWARE' }
+          ]
+        },
+        {
+          id: 'listing_menu_template',
+          name: 'Listings Menu',
+          content: '🏠 Property & Vehicle Listings:',
+          template_type: 'button',
+          domain: 'listings',
+          intent: 'menu',
+          language: 'en',
+          status: 'active',
+          buttons: [
+            { type: 'reply', title: 'Browse Properties', payload: 'BROWSE_PROPERTIES' },
+            { type: 'reply', title: 'List Property', payload: 'LIST_PROPERTY' },
+            { type: 'reply', title: 'Vehicles', payload: 'VEHICLES' }
+          ]
+        },
+        {
+          id: 'support_menu_template',
+          name: 'Support Menu',
+          content: '❓ How can I help you?',
+          template_type: 'button',
+          domain: 'support',
+          intent: 'help_menu',
+          language: 'en',
+          status: 'active',
+          buttons: [
+            { type: 'reply', title: 'Payment Help', payload: 'PAYMENT_HELP' },
+            { type: 'reply', title: 'Account Help', payload: 'ACCOUNT_HELP' },
+            { type: 'reply', title: 'Talk to Human', payload: 'HUMAN_AGENT' }
+          ]
+        }
+      ];
+      
+      setTemplates([...predefinedTemplates, ...dbTemplates]);
     } catch (error) {
       console.error('Error fetching templates:', error);
       toast.error('Failed to fetch templates');
+      
+      // Show predefined templates even if DB fetch fails
+      const predefinedTemplates: WhatsAppTemplate[] = [
+        {
+          id: 'welcome_main_template',
+          name: 'Welcome Main Menu',
+          content: '🚀 Welcome to easyMO! Choose what you need:',
+          template_type: 'button',
+          domain: 'welcome',
+          intent: 'main_menu',
+          language: 'en',
+          status: 'active',
+          buttons: [
+            { type: 'reply', title: 'Pay', payload: 'PAY' },
+            { type: 'reply', title: 'Get Paid', payload: 'GET_PAID' },
+            { type: 'reply', title: 'Nearby Drivers', payload: 'NEARBY_DRIVERS' }
+          ]
+        }
+      ];
+      setTemplates(predefinedTemplates);
     } finally {
       setLoading(false);
     }
@@ -119,13 +242,14 @@ export function TemplateManager() {
       if (error) throw error;
       
       // Transform back for our state
-      const newTemplate = {
+      const newTemplate: WhatsAppTemplate = {
         ...data,
         name: data.name_meta,
         content: data.body,
         template_type: 'text' as const,
         variables: [],
-        status: 'active' as const
+        status: 'active' as const,
+        buttons: []
       };
       
       setTemplates(prev => [newTemplate, ...prev]);
@@ -158,13 +282,14 @@ export function TemplateManager() {
       if (error) throw error;
       
       // Transform back for our state
-      const updatedTemplate = {
+      const updatedTemplate: WhatsAppTemplate = {
         ...data,
         name: data.name_meta,
         content: data.body,
         template_type: 'text' as const,
         variables: [],
-        status: 'active' as const
+        status: 'active' as const,
+        buttons: []
       };
       
       setTemplates(prev => prev.map(t => t.id === id ? updatedTemplate : t));
@@ -291,9 +416,28 @@ export function TemplateManager() {
               </div>
             </CardHeader>
             <CardContent className="pt-0">
-              <p className="text-sm text-muted-foreground mb-4 line-clamp-3">
+              <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
                 {template.content}
               </p>
+              
+              {/* Display Action Buttons for Zero-Typing Experience */}
+              {template.buttons && template.buttons.length > 0 && (
+                <div className="mb-3">
+                  <p className="text-xs font-medium text-foreground mb-2">Action Buttons:</p>
+                  <div className="flex flex-wrap gap-1">
+                    {template.buttons.map((button, index) => (
+                      <Badge 
+                        key={index} 
+                        variant="outline" 
+                        className="text-xs px-2 py-1 bg-primary/10 text-primary border-primary/20"
+                      >
+                        {button.title}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
               <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                 <Button
                   size="sm"
