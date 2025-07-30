@@ -15,6 +15,7 @@ import {
   MessageSquare, 
   Brain, 
   Settings,
+  MousePointer,
   Menu,
   X,
   Bell

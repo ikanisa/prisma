@@ -14,6 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      action_buttons: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          domain: string
+          id: string
+          label: string
+          payload: string
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          domain: string
+          id: string
+          label: string
+          payload: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          domain?: string
+          id?: string
+          label?: string
+          payload?: string
+        }
+        Relationships: []
+      }
       agent_configs: {
         Row: {
           active: boolean | null

@@ -48,6 +48,7 @@ import UnifiedListingsPage from "./pages/admin/UnifiedListingsPage";
 import UnifiedOrdersPage from "./pages/admin/UnifiedOrdersPage";
 import UserExperienceFlow from "./pages/admin/UserExperienceFlow";
 import TemplateManagement from "./pages/admin/TemplateManagement";
+import ActionButtons from "./pages/admin/ActionButtons";
 import { ChatProvider } from "@/components/chat/ChatProvider";
 
 
@@ -85,6 +86,7 @@ const App = () => (
           <Route path="conversations" element={<ConversationsInterface />} />
           <Route path="user-experience" element={<UserExperienceFlow />} />
           <Route path="templates" element={<TemplateManagement />} />
+          <Route path="action-buttons" element={<ActionButtons />} />
           <Route path="omni-agent" element={<LearningDashboard />} />
           <Route path="omni-agent/configure" element={<AgentConfigurationNew />} />
           <Route path="omni-agent/persona" element={<PersonaConfiguration />} />
