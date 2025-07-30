@@ -3792,6 +3792,45 @@ export type Database = {
         }
         Relationships: []
       }
+      knowledge_documents: {
+        Row: {
+          chunk_index: number
+          content: string
+          created_at: string | null
+          domain: string | null
+          hash: string
+          id: string
+          lang: string | null
+          source_ref: string
+          source_type: string
+          updated_at: string | null
+        }
+        Insert: {
+          chunk_index?: number
+          content: string
+          created_at?: string | null
+          domain?: string | null
+          hash: string
+          id?: string
+          lang?: string | null
+          source_ref: string
+          source_type: string
+          updated_at?: string | null
+        }
+        Update: {
+          chunk_index?: number
+          content?: string
+          created_at?: string | null
+          domain?: string | null
+          hash?: string
+          id?: string
+          lang?: string | null
+          source_ref?: string
+          source_type?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       knowledge_gaps: {
         Row: {
           assigned_to: string | null

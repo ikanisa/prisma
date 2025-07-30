@@ -378,84 +378,93 @@ export function DocumentManager({ agentId = 'default' }: DocumentManagerProps) {
                 size="sm" 
                 onClick={async () => {
                   try {
-                    const response = await supabase.functions.invoke('test-openai-key');
-                    if (response.data?.success) {
+                    const response = await supabase.functions.invoke('test-vector-setup');
+                    const data = response.data;
+                    
+                    if (data?.openai?.success && data?.pinecone?.success) {
                       toast({
-                        title: "OpenAI API Key Working",
-                        description: response.data.message
+                        title: "✅ All API Keys Working",
+                        description: "OpenAI and Pinecone are both connected successfully"
                       });
                     } else {
                       toast({
-                        title: "OpenAI API Key Failed",
-                        description: response.data?.error || "Unknown error",
+                        title: "❌ API Key Issues",
+                        description: `OpenAI: ${data?.openai?.success ? '✅' : '❌'}, Pinecone: ${data?.pinecone?.success ? '✅' : '❌'}`,
                         variant: "destructive"
                       });
                     }
                   } catch (error) {
                     toast({
                       title: "Test Failed",
-                      description: "Could not test OpenAI API key",
+                      description: "Could not test API keys",
                       variant: "destructive"
                     });
                   }
                 }}
               >
-                Test OpenAI Key
+                Test API Keys
               </Button>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={async () => {
-                  const failedDocs = documents.filter(doc => !doc.embedding_ok);
-                  if (failedDocs.length === 0) {
-                    toast({
-                      title: "No Documents to Process",
-                      description: "All documents are already processed"
-                    });
-                    return;
-                  }
-                  
-                  setProcessing(true);
-                  toast({
-                    title: "Processing Started",
-                    description: `Processing ${failedDocs.length} documents for summarization, semantic search, and vector embeddings`
-                  });
-                  
-                  try {
-                    for (const doc of failedDocs) {
-                      console.log(`Processing document: ${doc.title}`);
-                      await triggerFullDocumentProcessing(doc.id);
-                    }
-                    
-                    toast({
-                      title: "Processing Complete",
-                      description: `Successfully initiated processing for ${failedDocs.length} documents`
-                    });
-                    
-                    // Refresh documents to see updated status
-                    setTimeout(fetchDocuments, 3000);
-                  } catch (error) {
-                    console.error('Error processing documents:', error);
-                    toast({
-                      title: "Processing Error",
-                      description: "Some documents failed to process",
-                      variant: "destructive"
-                    });
-                  } finally {
-                    setProcessing(false);
-                  }
-                }}
-                disabled={documents.length === 0 || processing}
-              >
-                {processing ? (
-                  <>
-                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                    Processing...
-                  </>
-                ) : (
-                  `Process All Failed (${documents.filter(doc => !doc.embedding_ok).length})`
-                )}
-              </Button>
+               <Button 
+                 variant="outline" 
+                 size="sm" 
+                 onClick={async () => {
+                   const failedDocs = documents.filter(doc => !doc.embedding_ok);
+                   if (failedDocs.length === 0) {
+                     toast({
+                       title: "No Documents to Process",
+                       description: "All documents are already processed"
+                     });
+                     return;
+                   }
+                   
+                   setProcessing(true);
+                   toast({
+                     title: "🚀 Starting Vector Processing",
+                     description: `Processing ${failedDocs.length} documents for summarization, semantic search, and vector embeddings`
+                   });
+                   
+                   try {
+                     const failedIds = failedDocs.map(doc => doc.id);
+                     const response = await supabase.functions.invoke('vector-ingest', {
+                       body: { documents: failedIds }
+                     });
+
+                     if (response.data?.success) {
+                       toast({
+                         title: "✅ Vector Processing Complete",
+                         description: `Processed ${response.data.processed}/${response.data.total} documents successfully`
+                       });
+                       // Refresh documents to see updated status
+                       setTimeout(fetchDocuments, 2000);
+                     } else {
+                       toast({
+                         title: "❌ Processing Failed", 
+                         description: response.data?.error || "Unknown error occurred",
+                         variant: "destructive"
+                       });
+                     }
+                   } catch (error) {
+                     console.error('Error processing documents:', error);
+                     toast({
+                       title: "❌ Processing Error",
+                       description: "Failed to process documents with vector embeddings",
+                       variant: "destructive"
+                     });
+                   } finally {
+                     setProcessing(false);
+                   }
+                 }}
+                 disabled={documents.length === 0 || processing}
+               >
+                 {processing ? (
+                   <>
+                     <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                     Processing...
+                   </>
+                 ) : (
+                   `🧠 Vectorize Failed Documents (${documents.filter(doc => !doc.embedding_ok).length})`
+                 )}
+               </Button>
               <Button variant="outline" size="sm" onClick={fetchDocuments}>
                 <RefreshCw className="h-4 w-4 mr-2" />
                 Refresh
