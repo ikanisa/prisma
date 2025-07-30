@@ -3322,6 +3322,42 @@ export type Database = {
         }
         Relationships: []
       }
+      forgotten_memories_archive: {
+        Row: {
+          archived_at: string | null
+          forgetting_reason: string
+          forgotten_at: string
+          id: string
+          memory_key: string
+          memory_type: string
+          memory_value: Json | null
+          original_memory_id: string | null
+          user_id: string
+        }
+        Insert: {
+          archived_at?: string | null
+          forgetting_reason: string
+          forgotten_at: string
+          id?: string
+          memory_key: string
+          memory_type: string
+          memory_value?: Json | null
+          original_memory_id?: string | null
+          user_id: string
+        }
+        Update: {
+          archived_at?: string | null
+          forgetting_reason?: string
+          forgotten_at?: string
+          id?: string
+          memory_key?: string
+          memory_type?: string
+          memory_value?: Json | null
+          original_memory_id?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       function_circuit_breaker: {
         Row: {
           circuit_open: boolean | null
@@ -4000,6 +4036,39 @@ export type Database = {
           prompt_prefix?: string | null
           secondary_model?: string | null
           task_name?: string | null
+        }
+        Relationships: []
+      }
+      memory_access_patterns: {
+        Row: {
+          access_time: string
+          context_type: string | null
+          created_at: string | null
+          day_of_week: number | null
+          id: string
+          memory_types_accessed: string[] | null
+          time_of_day: number | null
+          user_id: string
+        }
+        Insert: {
+          access_time?: string
+          context_type?: string | null
+          created_at?: string | null
+          day_of_week?: number | null
+          id?: string
+          memory_types_accessed?: string[] | null
+          time_of_day?: number | null
+          user_id: string
+        }
+        Update: {
+          access_time?: string
+          context_type?: string | null
+          created_at?: string | null
+          day_of_week?: number | null
+          id?: string
+          memory_types_accessed?: string[] | null
+          time_of_day?: number | null
+          user_id?: string
         }
         Relationships: []
       }
@@ -8021,37 +8090,34 @@ export type Database = {
       }
       user_behavior_patterns: {
         Row: {
-          behavioral_score: number | null
+          confidence_score: number | null
           created_at: string | null
           id: string
-          last_analyzed: string | null
-          pattern_confidence: number | null
-          pattern_data: Json | null
-          pattern_type: string | null
-          updated_at: string | null
-          user_id: string | null
+          last_updated: string | null
+          observations_count: number | null
+          pattern_data: Json
+          pattern_type: string
+          user_id: string
         }
         Insert: {
-          behavioral_score?: number | null
+          confidence_score?: number | null
           created_at?: string | null
           id?: string
-          last_analyzed?: string | null
-          pattern_confidence?: number | null
-          pattern_data?: Json | null
-          pattern_type?: string | null
-          updated_at?: string | null
-          user_id?: string | null
+          last_updated?: string | null
+          observations_count?: number | null
+          pattern_data: Json
+          pattern_type: string
+          user_id: string
         }
         Update: {
-          behavioral_score?: number | null
+          confidence_score?: number | null
           created_at?: string | null
           id?: string
-          last_analyzed?: string | null
-          pattern_confidence?: number | null
-          pattern_data?: Json | null
-          pattern_type?: string | null
-          updated_at?: string | null
-          user_id?: string | null
+          last_updated?: string | null
+          observations_count?: number | null
+          pattern_data?: Json
+          pattern_type?: string
+          user_id?: string
         }
         Relationships: []
       }
