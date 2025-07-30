@@ -8228,6 +8228,69 @@ export type Database = {
         }
         Relationships: []
       }
+      whatsapp_action_buttons: {
+        Row: {
+          button_text: string
+          button_type: string
+          context_tags: string[] | null
+          created_at: string | null
+          created_by: string | null
+          domain: string
+          id: string
+          intent: string
+          is_active: boolean | null
+          last_used_at: string | null
+          payload: string
+          phone_number: string | null
+          priority: number | null
+          success_rate: number | null
+          updated_at: string | null
+          url: string | null
+          usage_count: number | null
+          user_feedback_score: number | null
+        }
+        Insert: {
+          button_text: string
+          button_type?: string
+          context_tags?: string[] | null
+          created_at?: string | null
+          created_by?: string | null
+          domain: string
+          id?: string
+          intent: string
+          is_active?: boolean | null
+          last_used_at?: string | null
+          payload: string
+          phone_number?: string | null
+          priority?: number | null
+          success_rate?: number | null
+          updated_at?: string | null
+          url?: string | null
+          usage_count?: number | null
+          user_feedback_score?: number | null
+        }
+        Update: {
+          button_text?: string
+          button_type?: string
+          context_tags?: string[] | null
+          created_at?: string | null
+          created_by?: string | null
+          domain?: string
+          id?: string
+          intent?: string
+          is_active?: boolean | null
+          last_used_at?: string | null
+          payload?: string
+          phone_number?: string | null
+          priority?: number | null
+          success_rate?: number | null
+          updated_at?: string | null
+          url?: string | null
+          usage_count?: number | null
+          user_feedback_score?: number | null
+        }
+        Relationships: []
+      }
       whatsapp_conversations: {
         Row: {
           context_state: Json | null
@@ -10719,6 +10782,10 @@ export type Database = {
       }
       update_agent_assistant_id: {
         Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+      update_button_usage: {
+        Args: { button_id: string; success?: boolean }
         Returns: undefined
       }
       updategeometrysrid: {

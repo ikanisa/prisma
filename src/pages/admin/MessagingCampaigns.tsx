@@ -3,6 +3,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CampaignStats } from "@/components/admin/messaging/CampaignStats";
 import { TemplateManager } from "@/components/admin/messaging/TemplateManager";
 import { QuickActions } from "@/components/admin/messaging/QuickActions";
+import { ActionButtonsManager } from "@/components/admin/messaging/ActionButtonsManager";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -184,9 +185,10 @@ const MessagingCampaigns = () => {
 
       {/* Main Content Tabs */}
       <Tabs defaultValue="templates" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="templates">Message Templates</TabsTrigger>
           <TabsTrigger value="actions">Quick Actions</TabsTrigger>
+          <TabsTrigger value="buttons">Action Buttons</TabsTrigger>
           <TabsTrigger value="campaigns">Campaigns</TabsTrigger>
         </TabsList>
 
@@ -196,6 +198,10 @@ const MessagingCampaigns = () => {
 
         <TabsContent value="actions" className="space-y-6">
           <QuickActions />
+        </TabsContent>
+
+        <TabsContent value="buttons" className="space-y-6">
+          <ActionButtonsManager />
         </TabsContent>
 
         <TabsContent value="campaigns" className="space-y-6">
