@@ -2140,6 +2140,33 @@ export type Database = {
         }
         Relationships: []
       }
+      conversation_state: {
+        Row: {
+          last_domain: string | null
+          last_template: string | null
+          last_user_msg_at: string | null
+          stage: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          last_domain?: string | null
+          last_template?: string | null
+          last_user_msg_at?: string | null
+          stage?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          last_domain?: string | null
+          last_template?: string | null
+          last_user_msg_at?: string | null
+          stage?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       conversation_summaries: {
         Row: {
           created_at: string | null

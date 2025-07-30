@@ -1,7 +1,11 @@
-// easyMO WhatsApp Template Registry
+// easyMO WhatsApp Template Registry  
 // Centralized template names and helper functions
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.59.0";
+// @ts-ignore
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+// @ts-ignore
+const Deno = globalThis.Deno;
 
 export const TPL = {
   // Core templates

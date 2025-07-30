@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { TPL, quickReplyMap, sendTemplate, logTemplateSend } from '../_shared/templates.ts';
 import { decideResponse } from '../_shared/decideResponse.ts';
 import { sendInteractive, sendPlain } from '../_shared/waSendHelpers.ts';
+import { getState, setState } from '../_shared/conversationState.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -223,7 +224,10 @@ async function processMessageWithDecisionEngine(
   console.log(`🧠 Processing ${messageType} message with decision engine from ${from}:`, text);
   
   try {
-    // Get intent classification first
+    // Get conversation state first
+    const state = await getState(from);
+    
+    // Get intent classification
     const { data: intentResponse } = await supabase.functions.invoke('classify-intent', {
       body: { 
         message: text, 
@@ -261,22 +265,43 @@ async function processMessageWithDecisionEngine(
 
     console.log(`🎯 Response strategy: ${responsePlan.type} for domain: ${domain}, confidence: ${confidence}`);
 
+    // **PREVENT WELCOME SPAM** - cooldown 30s & not stage new
+    const cooldownMs = 30_000;
+    const now = Date.now();
+    if (responsePlan.type === 'template' && responsePlan.name === TPL.WELCOME) {
+      const tooSoon = state.last_template === TPL.WELCOME &&
+                      now - new Date(state.updated_at || 0).getTime() < cooldownMs;
+      const stageDone = state.stage !== 'new';
+      
+      if (tooSoon || stageDone) {
+        console.log(`🚫 Preventing welcome loop: tooSoon=${tooSoon}, stageDone=${stageDone}`);
+        responsePlan.type = 'interactive';  // fallback to interactive
+      }
+    }
+
     // Execute the response plan
     switch (responsePlan.type) {
       case 'template':
         await sendTemplate(from, responsePlan.name, [], responsePlan.language);
         await logTemplateSend(supabase, from, responsePlan.name);
+        await setState(from, { last_template: responsePlan.name, stage: domain });
         break;
       case 'interactive':
         await sendInteractive(from, responsePlan.text ?? 'Choose an option:', responsePlan.buttons);
+        await setState(from, { stage: domain });
         break;
       case 'clarify':
         await sendInteractive(from, responsePlan.text, responsePlan.buttons);
+        await setState(from, { stage: 'clarify' });
         break;
       case 'plain':
       default:
         await sendPlain(from, responsePlan.text);
+        await setState(from, { stage: domain });
     }
+
+    // Always update last_user_msg_at at END of request
+    await setState(from, { last_user_msg_at: timestamp.toISOString() });
 
     // Update contact interaction
     await supabase.from('contacts').upsert({
@@ -454,6 +479,13 @@ async function routeQuickReply(supabase: any, phone: string, payload: string, co
   console.log(`🎯 Routing quick reply: ${payload} for ${phone}`);
   
   try {
+    // Get button domain for stage advancement
+    const { data: buttonRow } = await supabase
+      .from('action_buttons')
+      .select('domain')
+      .eq('payload', payload)
+      .single();
+
     // Track button click analytics
     await supabase.functions.invoke('template-analytics-tracker', {
       body: {
@@ -507,6 +539,12 @@ async function routeQuickReply(supabase: any, phone: string, payload: string, co
 
       await sendWhatsAppMessage(phone, truncatedResponse);
       console.log(`✅ Quick reply response sent: ${payload} -> ${truncatedResponse.substring(0, 50)}...`);
+      
+      // **ADVANCE STAGE AFTER BUTTON TAP**
+      if (buttonRow?.domain) {
+        await setState(phone, { stage: buttonRow.domain });
+        console.log(`📈 Advanced stage to: ${buttonRow.domain}`);
+      }
       
       // Track conversion if this completes a flow
       if (['PAY_QR', 'PAX_REQUEST', 'DRV_GO_ONLINE'].includes(payload)) {
