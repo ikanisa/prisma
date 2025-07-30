@@ -1,138 +1,74 @@
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
-import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0';
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// CONSOLIDATED WHATSAPP WEBHOOK - THE ONLY ONE
-console.log('🚀 Consolidated WhatsApp Webhook starting...');
+// **FIX #6: ENVIRONMENT VARIABLES** - Support multiple env var formats
+const verifyToken = Deno.env.get('META_WABA_VERIFY_TOKEN') || 
+                   Deno.env.get('WHATSAPP_VERIFY_TOKEN') || 
+                   Deno.env.get('VERIFY_TOKEN') || 
+                   'your_verify_token';
 
-serve(async (req: Request) => {
-  // Handle CORS preflight requests
+const accessToken = Deno.env.get('META_WABA_ACCESS_TOKEN') || 
+                   Deno.env.get('WHATSAPP_TOKEN') || 
+                   Deno.env.get('ACCESS_TOKEN');
+
+const phoneNumberId = Deno.env.get('META_PHONE_NUMBER_ID') || 
+                     Deno.env.get('PHONE_NUMBER_ID');
+
+// **FIX #8: CIRCULAR CALL PREVENTION** - Track processing to prevent loops
+const processingMessages = new Set<string>();
+
+serve(async (req) => {
+  console.log('🚀 Consolidated WhatsApp Webhook starting...');
+  
+  // **FIX #3 & #4: IMMEDIATE RESPONSE** - Respond to Meta immediately to prevent retries
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
-  if (req.method === "GET") {
+  if (req.method === 'GET') {
     const url = new URL(req.url);
-    const mode = url.searchParams.get("hub.mode");
-    const token = url.searchParams.get("hub.verify_token");
-    const challenge = url.searchParams.get("hub.challenge");
+    const mode = url.searchParams.get('hub.mode');
+    const token = url.searchParams.get('hub.verify_token');
+    const challenge = url.searchParams.get('hub.challenge');
 
-    const verifyToken = Deno.env.get("META_WABA_VERIFY_TOKEN") || Deno.env.get("WHATSAPP_VERIFY_TOKEN") || 'easymo_verify';
-    
-    if (mode === "subscribe" && token === verifyToken) {
-      console.log('✅ WhatsApp webhook verified successfully');
-      return new Response(challenge ?? "", { status: 200 });
+    console.log('🔐 Webhook verification request:', { mode, token });
+
+    if (mode === 'subscribe' && token === verifyToken) {
+      console.log('✅ Webhook verified successfully');
+      return new Response(challenge, { headers: corsHeaders });
+    } else {
+      console.log('❌ Webhook verification failed');
+      return new Response('Verification failed', { 
+        status: 403,
+        headers: corsHeaders 
+      });
     }
-    console.log('❌ WhatsApp webhook verification failed - invalid token');
-    return new Response("Forbidden", { status: 403 });
   }
 
-  if (req.method === "POST") {
+  if (req.method === 'POST') {
     try {
       const body = await req.json();
-      console.log("Incoming WhatsApp payload:", JSON.stringify(body, null, 2));
+      console.log('Incoming WhatsApp payload:', JSON.stringify(body, null, 2));
 
-      // Initialize Supabase client
-      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-      const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-      const supabase = createClient(supabaseUrl, supabaseKey);
+      // **FIX #3 & #4: IMMEDIATE RESPONSE** - Process async, respond immediately
+      processWebhookAsync(body).catch(error => {
+        console.error("❌ Async webhook processing error:", error);
+      });
 
-      // Process incoming messages
-      if (body.entry && body.entry[0]?.changes) {
-        for (const change of body.entry[0].changes) {
-          // Skip status updates (delivery confirmations, read receipts)
-          if (change.value?.statuses) {
-            console.log('📨 Received status update, skipping processing');
-            continue;
-          }
-          
-          // Only process actual messages, not status updates
-          if (change.field === 'messages' && change.value?.messages) {
-            for (const message of change.value.messages) {
-              const from = message.from;
-              const messageText = message.text?.body;
-              const messageType = message.type;
-              const timestamp = new Date(parseInt(message.timestamp) * 1000);
-              const messageId = message.id;
-              
-              // Extract contact info from the payload
-              const contactName = change.value?.contacts?.[0]?.profile?.name || 'Unknown';
-              
-              console.log(`📨 Processing ${messageType} message from ${from}: ${messageText || 'non-text'} [ID: ${messageId}]`);
-
-              // Store/update contact information
-              await supabase.from('wa_contacts').upsert({
-                wa_id: from,
-                profile_name: contactName,
-                phone_number: from,
-                last_seen: new Date().toISOString(),
-                updated_at: new Date().toISOString()
-              }, { 
-                onConflict: 'wa_id',
-                ignoreDuplicates: false 
-              });
-
-              // Log the incoming message
-              console.log(`Received ${messageType} message from ${from}: ${messageText || 'non-text'}`);
-
-              // Enhanced duplicate detection with message processing tracking
-              const { data: existingMessage } = await supabase
-                .from('incoming_messages')
-                .select('id')
-                .eq('raw_payload->>id', messageId)
-                .single();
-
-              if (existingMessage) {
-                console.log(`⚠️ Duplicate message ID detected, skipping: ${messageId}`);
-                continue;
-              }
-
-              // Store processing attempt to prevent infinite loops
-              await supabase.from('incoming_messages').insert({
-                from_number: from,
-                message_type: messageType,
-                message_text: messageText,
-                raw_payload: message,
-                created_at: timestamp.toISOString()
-              });
-
-              // Update contact information
-              await supabase.from('contacts').upsert({
-                phone_number: from,
-                name: contactName,
-                last_interaction: timestamp.toISOString(),
-                status: 'active'
-              }, { 
-                onConflict: 'phone_number',
-                ignoreDuplicates: false 
-              });
-
-              // Process message with unified handler
-              try {
-                await processMessage(supabase, from, messageText, messageType, messageId, contactName, timestamp, message);
-              } catch (error) {
-                console.error(`❌ Error processing message ${messageId}:`, error);
-                // Send fallback response
-                await sendWhatsAppMessage(from, "🤖 I'm experiencing technical difficulties. Please try again in a moment.");
-              }
-            }
-          }
-        }
-      }
-
+      // Return immediate response to prevent Meta retries
       return new Response("EVENT_RECEIVED", { 
         status: 200,
         headers: corsHeaders 
       });
     } catch (error) {
       console.error("Error processing webhook:", error);
-      return new Response("Error processing webhook", { 
-        status: 500,
+      return new Response("EVENT_RECEIVED", { 
+        status: 200, // Always return 200 to prevent Meta retries
         headers: corsHeaders 
       });
     }
@@ -144,140 +80,198 @@ serve(async (req: Request) => {
   });
 });
 
-// Unified message processor - handles all message types
-async function processMessage(supabase: any, from: string, text: string, messageType: string, messageId: string, contactName: string, timestamp: Date, rawMessage: any) {
+// **FIX #1 & #5: ATOMIC DUPLICATE PREVENTION** - Async processing with proper duplicate handling
+async function processWebhookAsync(body: any) {
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+  const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const supabase = createClient(supabaseUrl, supabaseKey);
+
+  try {
+    // Handle different webhook events
+    for (const entry of body.entry || []) {
+      for (const change of entry.changes || []) {
+        const value = change.value;
+
+        // Skip status updates
+        if (value.statuses) {
+          console.log('📨 Received status update, skipping processing');
+          continue;
+        }
+
+        // Process messages
+        if (value.messages) {
+          for (const message of value.messages) {
+            const messageId = message.id;
+            const from = message.from;
+            const messageType = message.type;
+            const contactName = value.contacts?.[0]?.profile?.name || 'Unknown';
+
+            // **FIX #8: CIRCULAR CALL PREVENTION** - Check if already processing
+            if (processingMessages.has(messageId)) {
+              console.log(`🔄 Message ${messageId} already being processed, skipping`);
+              continue;
+            }
+
+            processingMessages.add(messageId);
+
+            try {
+              // **FIX #1: ATOMIC DUPLICATE PREVENTION** - Use database constraint
+              const { data: insertResult, error: insertError } = await supabase
+                .from('processed_inbound')
+                .insert({
+                  msg_id: messageId,
+                  wa_id: from,
+                  processed_at: new Date().toISOString(),
+                  metadata: { contact_name: contactName, message_type: messageType }
+                })
+                .select('msg_id')
+                .single();
+
+              // If insert failed due to duplicate, skip processing
+              if (insertError && insertError.code === '23505') {
+                console.log(`⏭️ Duplicate message detected via DB constraint: ${messageId}`);
+                continue;
+              }
+
+              if (insertError) {
+                console.error(`❌ Error inserting processed message: ${insertError.message}`);
+                continue;
+              }
+
+              console.log(`📨 Processing ${messageType} message from ${from}: ${message.text?.body || 'non-text'} [ID: ${messageId}]`);
+
+              if (messageType === 'text') {
+                console.log(`Received text message from ${from}: ${message.text.body}`);
+                
+                // **FIX #2: SINGLE AGENT CALL** - Process with single, controlled agent call
+                await processMessageSafely(
+                  supabase,
+                  from,
+                  message.text.body,
+                  messageType,
+                  messageId,
+                  contactName,
+                  new Date(parseInt(message.timestamp) * 1000),
+                  message
+                );
+              }
+            } finally {
+              // Always remove from processing set
+              processingMessages.delete(messageId);
+            }
+          }
+        }
+      }
+    }
+  } catch (error) {
+    console.error("❌ Async webhook processing error:", error);
+  }
+}
+
+// **FIX #2: CONTROLLED AGENT PROCESSING** - Single agent call with timeout and error handling
+async function processMessageSafely(
+  supabase: any,
+  from: string,
+  text: string,
+  messageType: string,
+  messageId: string,
+  contactName: string,
+  timestamp: Date,
+  rawMessage: any
+) {
   console.log(`🧠 Processing ${messageType} message from ${from}:`, text || 'non-text');
   
   try {
-    let processedText = text;
-    
-    // Handle different message types
-    if (messageType === 'interactive') {
-      if (rawMessage.interactive?.type === 'list_reply') {
-        processedText = rawMessage.interactive.list_reply.id;
-      } else if (rawMessage.interactive?.type === 'button_reply') {
-        processedText = rawMessage.interactive.button_reply.id;
+    // **FIX #2: SINGLE AGENT CALL** - Only call one agent with timeout
+    const timeoutMs = 8000; // 8 seconds max
+    const agentPromise = supabase.functions.invoke('omni-agent-enhanced', {
+      body: { 
+        message: text, 
+        phone: from,
+        userContext: {
+          phone: from,
+          name: contactName,
+          preferredLanguage: 'rw',
+          lastInteraction: timestamp.toISOString(),
+          conversationCount: 1,
+          userType: 'returning'
+        }
       }
-    } else if (messageType === 'button') {
-      processedText = rawMessage.button?.text || rawMessage.button?.payload || 'button_pressed';
-    } else if (messageType === 'location') {
-      // Store location
-      await supabase.from('user_locations').upsert({
-        phone_number: from,
-        latitude: rawMessage.location?.latitude,
-        longitude: rawMessage.location?.longitude,
-        address: rawMessage.location?.address || null,
-        updated_at: new Date().toISOString()
-      }, { onConflict: 'phone_number' });
-      
-      processedText = 'shared_location';
-    } else if (messageType === 'image' || messageType === 'document') {
-      processedText = `shared_${messageType}`;
-    }
-
-    // Route message to AI agent
-    const response = await routeMessage(processedText || 'help', from);
-    
-    console.log(`✅ Generated response for ${messageId}: ${response.substring(0, 100)}...`);
-    
-    // Send response back to user
-    await sendWhatsAppMessage(from, response);
-    
-  } catch (error) {
-    console.error('❌ Message processing error:', error);
-    // Send fallback response only on complete failure
-    await sendWhatsAppMessage(from, "🤖 I'm here to help! Say 'pay', 'ride', 'shop', or 'help' for assistance.");
-  }
-}
-
-// AI-powered message processing using omni-agent-enhanced
-async function routeMessage(text: string, phone: string): Promise<string> {
-  try {
-    console.log('🤖 Calling omni-agent-enhanced for AI processing...');
-    
-    // Get Supabase URL for function calls
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    
-    // Call the omni-agent-enhanced function
-    const response = await fetch(`${supabaseUrl}/functions/v1/omni-agent-enhanced`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${supabaseKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        message: text,
-        phone: phone
-      })
     });
 
-    if (!response.ok) {
-      console.error('❌ AI agent call failed:', response.status, await response.text());
-      throw new Error(`AI agent call failed with status ${response.status}`);
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Agent timeout')), timeoutMs)
+    );
+
+    console.log(`🤖 Calling omni-agent-enhanced for AI processing...`);
+    const { data: response, error } = await Promise.race([agentPromise, timeoutPromise]) as any;
+
+    if (error) {
+      console.error(`❌ AI agent error:`, error);
+      await sendWhatsAppMessage(from, "🤖 I'm experiencing technical difficulties. Please try again in a moment.");
+      return;
     }
 
-    const data = await response.json();
-    console.log('✅ AI agent response received:', data);
-    
-    // Return the AI-generated response
-    return data.response || data.message || "🤖 I'm here to help! How can I assist you today?";
-    
+    if (response?.success && response?.response) {
+      console.log(`✅ AI agent response received:`, JSON.stringify({
+        success: response.success,
+        response: response.response,
+        confidence: response.confidence,
+        intent: response.intent,
+        toolsCalled: response.toolsCalled
+      }));
+
+      const truncatedResponse = response.response.length > 1000 
+        ? response.response.substring(0, 1000) + '...' 
+        : response.response;
+
+      await sendWhatsAppMessage(from, truncatedResponse);
+      console.log(`✅ Generated response for ${messageId}: ${truncatedResponse}`);
+    } else {
+      console.error(`❌ Invalid AI response:`, response);
+      await sendWhatsAppMessage(from, "🤖 I'm experiencing technical difficulties. Please try again in a moment.");
+    }
+
   } catch (error) {
-    console.error('❌ Error calling AI agent:', error);
-    
-    // Fallback to welcome message if AI fails
-    return "👋 **Welcome to easyMO!**\n\nYour all-in-one platform for:\n\n💰 **Payments** - Send/receive money\n🏍️ **Moto** - Book rides & transport\n🛒 **Shopping** - Bars, pharmacy, hardware\n🏠 **Property** - Houses & apartments\n\nWhat do you need help with today?";
+    console.error(`❌ Error processing message:`, error);
+    await sendWhatsAppMessage(from, "🤖 I'm experiencing technical difficulties. Please try again in a moment.");
   }
 }
 
-// Enhanced WhatsApp message sender with better error handling
+// **FIX #9: SINGLE CONSOLIDATED ENDPOINT** - Unified WhatsApp message sending
 async function sendWhatsAppMessage(to: string, message: string) {
+  if (!accessToken || !phoneNumberId) {
+    console.error('❌ Missing WhatsApp credentials');
+    return;
+  }
+
   try {
-    const phoneNumberId = Deno.env.get('WHATSAPP_PHONE_ID') || 
-                         Deno.env.get('PHONE_NUMBER_ID') || 
-                         Deno.env.get('META_PHONE_NUMBER_ID') || 
-                         '396791596844039';
-                         
-    const accessToken = Deno.env.get('WHATSAPP_ACCESS_TOKEN') || 
-                       Deno.env.get('WHATSAPP_TOKEN') || 
-                       Deno.env.get('META_WABA_ACCESS_TOKEN');
-    
-    if (!accessToken) {
-      console.error('❌ No WhatsApp access token configured');
-      return false;
-    }
-    
     console.log(`📤 Sending message to ${to} via phone number ID: ${phoneNumberId}`);
     
-    const response = await fetch(`https://graph.facebook.com/v21.0/${phoneNumberId}/messages`, {
+    const response = await fetch(`https://graph.facebook.com/v17.0/${phoneNumberId}/messages`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         messaging_product: 'whatsapp',
         to: to,
         type: 'text',
         text: { body: message }
-      })
+      }),
     });
 
-    const responseData = await response.text();
-    
     if (!response.ok) {
-      console.error(`❌ Failed to send WhatsApp message (${response.status}):`, responseData);
-      return false;
-    } else {
-      console.log('✅ WhatsApp message sent successfully');
-      return true;
+      const errorText = await response.text();
+      console.error(`❌ WhatsApp API error: ${response.status} - ${errorText}`);
+      return;
     }
+
+    const result = await response.json();
+    console.log('✅ WhatsApp message sent successfully');
+    
   } catch (error) {
     console.error('❌ Error sending WhatsApp message:', error);
-    return false;
   }
 }
-
-// LEGACY FUNCTIONS - REMOVED FOR CONSOLIDATION
-// All message types now handled by unified processMessage() function above
