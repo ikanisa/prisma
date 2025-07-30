@@ -35,6 +35,7 @@ export function DocumentManager({ agentId = 'default' }: DocumentManagerProps) {
   const [documents, setDocuments] = useState<Document[]>([]);
   const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [processing, setProcessing] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [title, setTitle] = useState('');
   const { toast } = useToast();
@@ -375,14 +376,56 @@ export function DocumentManager({ agentId = 'default' }: DocumentManagerProps) {
               <Button 
                 variant="outline" 
                 size="sm" 
-                onClick={() => {
+                onClick={async () => {
                   const failedDocs = documents.filter(doc => !doc.embedding_ok);
-                  console.log('Processing failed docs:', failedDocs.length);
-                  failedDocs.forEach(doc => triggerFullDocumentProcessing(doc.id));
+                  if (failedDocs.length === 0) {
+                    toast({
+                      title: "No Documents to Process",
+                      description: "All documents are already processed"
+                    });
+                    return;
+                  }
+                  
+                  setProcessing(true);
+                  toast({
+                    title: "Processing Started",
+                    description: `Processing ${failedDocs.length} documents for summarization, semantic search, and vector embeddings`
+                  });
+                  
+                  try {
+                    for (const doc of failedDocs) {
+                      console.log(`Processing document: ${doc.title}`);
+                      await triggerFullDocumentProcessing(doc.id);
+                    }
+                    
+                    toast({
+                      title: "Processing Complete",
+                      description: `Successfully initiated processing for ${failedDocs.length} documents`
+                    });
+                    
+                    // Refresh documents to see updated status
+                    setTimeout(fetchDocuments, 3000);
+                  } catch (error) {
+                    console.error('Error processing documents:', error);
+                    toast({
+                      title: "Processing Error",
+                      description: "Some documents failed to process",
+                      variant: "destructive"
+                    });
+                  } finally {
+                    setProcessing(false);
+                  }
                 }}
-                disabled={documents.length === 0}
+                disabled={documents.length === 0 || processing}
               >
-                Process All Failed ({documents.filter(doc => !doc.embedding_ok).length})
+                {processing ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  `Process All Failed (${documents.filter(doc => !doc.embedding_ok).length})`
+                )}
               </Button>
               <Button variant="outline" size="sm" onClick={fetchDocuments}>
                 <RefreshCw className="h-4 w-4 mr-2" />
