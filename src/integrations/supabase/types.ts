@@ -7184,6 +7184,150 @@ export type Database = {
         }
         Relationships: []
       }
+      template_ab_tests: {
+        Row: {
+          confidence_threshold: number | null
+          created_at: string | null
+          end_date: string | null
+          id: string
+          metadata: Json | null
+          minimum_sample_size: number | null
+          name: string
+          start_date: string | null
+          status: string | null
+          target_metric: string | null
+          traffic_split: number | null
+          updated_at: string | null
+          variant_a_template: string
+          variant_b_template: string
+          winner: string | null
+        }
+        Insert: {
+          confidence_threshold?: number | null
+          created_at?: string | null
+          end_date?: string | null
+          id?: string
+          metadata?: Json | null
+          minimum_sample_size?: number | null
+          name: string
+          start_date?: string | null
+          status?: string | null
+          target_metric?: string | null
+          traffic_split?: number | null
+          updated_at?: string | null
+          variant_a_template: string
+          variant_b_template: string
+          winner?: string | null
+        }
+        Update: {
+          confidence_threshold?: number | null
+          created_at?: string | null
+          end_date?: string | null
+          id?: string
+          metadata?: Json | null
+          minimum_sample_size?: number | null
+          name?: string
+          start_date?: string | null
+          status?: string | null
+          target_metric?: string | null
+          traffic_split?: number | null
+          updated_at?: string | null
+          variant_a_template?: string
+          variant_b_template?: string
+          winner?: string | null
+        }
+        Relationships: []
+      }
+      template_performance_alerts: {
+        Row: {
+          acknowledged_at: string | null
+          alert_type: string
+          current_value: number
+          id: string
+          metadata: Json | null
+          resolved_at: string | null
+          severity: string | null
+          status: string | null
+          template_name: string | null
+          threshold_value: number
+          triggered_at: string | null
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          alert_type: string
+          current_value: number
+          id?: string
+          metadata?: Json | null
+          resolved_at?: string | null
+          severity?: string | null
+          status?: string | null
+          template_name?: string | null
+          threshold_value: number
+          triggered_at?: string | null
+        }
+        Update: {
+          acknowledged_at?: string | null
+          alert_type?: string
+          current_value?: number
+          id?: string
+          metadata?: Json | null
+          resolved_at?: string | null
+          severity?: string | null
+          status?: string | null
+          template_name?: string | null
+          threshold_value?: number
+          triggered_at?: string | null
+        }
+        Relationships: []
+      }
+      template_performance_metrics: {
+        Row: {
+          avg_response_time_ms: number | null
+          created_at: string | null
+          date: string
+          hour: number | null
+          id: string
+          template_name: string
+          total_clicked: number | null
+          total_converted: number | null
+          total_delivered: number | null
+          total_errors: number | null
+          total_read: number | null
+          total_sent: number | null
+          unique_users: number | null
+        }
+        Insert: {
+          avg_response_time_ms?: number | null
+          created_at?: string | null
+          date: string
+          hour?: number | null
+          id?: string
+          template_name: string
+          total_clicked?: number | null
+          total_converted?: number | null
+          total_delivered?: number | null
+          total_errors?: number | null
+          total_read?: number | null
+          total_sent?: number | null
+          unique_users?: number | null
+        }
+        Update: {
+          avg_response_time_ms?: number | null
+          created_at?: string | null
+          date?: string
+          hour?: number | null
+          id?: string
+          template_name?: string
+          total_clicked?: number | null
+          total_converted?: number | null
+          total_delivered?: number | null
+          total_errors?: number | null
+          total_read?: number | null
+          total_sent?: number | null
+          unique_users?: number | null
+        }
+        Relationships: []
+      }
       template_rendering_logs: {
         Row: {
           error_details: string | null
@@ -7219,30 +7363,48 @@ export type Database = {
       }
       template_sends: {
         Row: {
+          ab_test_id: string | null
           created_at: string | null
+          error_code: string | null
           event_type: string | null
           id: string
           metadata: Json | null
+          response_time_ms: number | null
           sent_at: string | null
+          session_id: string | null
           template_name: string
+          user_segment: string | null
+          variant: string | null
           wa_id: string
         }
         Insert: {
+          ab_test_id?: string | null
           created_at?: string | null
+          error_code?: string | null
           event_type?: string | null
           id?: string
           metadata?: Json | null
+          response_time_ms?: number | null
           sent_at?: string | null
+          session_id?: string | null
           template_name: string
+          user_segment?: string | null
+          variant?: string | null
           wa_id: string
         }
         Update: {
+          ab_test_id?: string | null
           created_at?: string | null
+          error_code?: string | null
           event_type?: string | null
           id?: string
           metadata?: Json | null
+          response_time_ms?: number | null
           sent_at?: string | null
+          session_id?: string | null
           template_name?: string
+          user_segment?: string | null
+          variant?: string | null
           wa_id?: string
         }
         Relationships: []
