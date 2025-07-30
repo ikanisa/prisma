@@ -255,68 +255,14 @@ async function routeToSkill(intent: IntentResult, message: string, userId: strin
 }
 
 async function handlePaymentsSkill(intent: string, message: string, userId: string, slots: Record<string, any>): Promise<AgentResponse> {
-  console.log(`💰 Processing payments skill - Intent: ${intent}, Message: ${message}, Amount extracted:`, extractAmount(message));
+  console.log(`💰 DEPRECATED: Redirecting to intelligent processor - Intent: ${intent}, User: ${userId}`);
   
-  switch (intent) {
-    case 'get_paid':
-      const amount = extractAmount(message);
-      console.log(`💰 QR Generation Request - Amount: ${amount}, User: ${userId}`);
-      
-      if (!amount) {
-        return {
-          success: true,
-          response_type: 'text',
-          message: '💰 To generate a payment QR code, please tell me the amount.\n\nExample: "Get paid 5000 RWF"'
-        };
-      }
-      
-      // Call QR generation tool
-      try {
-        console.log(`🎯 Calling qr-render with:`, { phone: userId, amount, description: 'Payment via easyMO' });
-        
-        // First generate the payment USSD code
-        const ussdCode = `*182*1*2*${userId}*${amount}#`;
-        
-        const qrResponse = await supabase.functions.invoke('qr-render', {
-          body: { 
-            data: ussdCode,
-            size: 300,
-            entity: 'payment',
-            description: `Payment - ${amount} RWF`
-          }
-        });
-        
-        console.log(`📸 QR Generation Response:`, qrResponse);
-        
-        if (qrResponse.data?.url) {
-          console.log(`✅ QR Generated successfully: ${qrResponse.data.url}`);
-          return {
-            success: true,
-            response_type: 'media',
-            media_url: qrResponse.data.url,
-            message: `🎯 Your payment QR is ready!\n\n💰 Amount: ${amount} RWF\n📱 Show this to the payer\n\n⚡ Payment will be instant!\n\n📱 USSD: ${ussdCode}`
-          };
-        } else {
-          console.log(`❌ QR Generation failed - no url in response:`, qrResponse);
-        }
-      } catch (error) {
-        console.error('QR generation error:', error);
-      }
-      
-      return {
-        success: false,
-        response_type: 'text',
-        message: '❌ Sorry, I couldn\'t generate your QR code. Please try again.'
-      };
-      
-    case 'menu':
-    default:
-      return {
-        success: true,
-        response_type: 'text',
-        message: '💰 easyMO Payments\n\nHow can I help you today?\n\n📱 Get Paid - Generate QR code\n💸 Pay Someone - Send money\n📋 History - View transactions\n\nJust tell me what you need!'
-      };
-  }
+  // This function is deprecated - redirect to intelligent processor
+  return {
+    success: true,
+    response_type: 'text',
+    message: '🤖 Processing your payment request with AI...'
+  };
 }
 
 async function handleMotoSkill(intent: string, message: string, userId: string, slots: Record<string, any>): Promise<AgentResponse> {

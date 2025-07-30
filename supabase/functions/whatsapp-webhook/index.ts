@@ -185,8 +185,8 @@ async function processWebhookAsync(body: any) {
               if (messageType === 'text') {
                 console.log(`Received text message from ${from}: ${message.text.body}`);
                 
-                // Use smart response strategy
-                await processMessageWithDecisionEngine(
+                // Use intelligent AI processor instead of hardcoded responses
+                await processMessageWithIntelligentAI(
                   supabase,
                   from,
                   message.text.body,
@@ -210,8 +210,8 @@ async function processWebhookAsync(body: any) {
   }
 }
 
-// Smart response processing with decision engine
-async function processMessageWithDecisionEngine(
+// Intelligent AI-powered message processing
+async function processMessageWithIntelligentAI(
   supabase: any,
   from: string,
   text: string,
@@ -221,98 +221,74 @@ async function processMessageWithDecisionEngine(
   timestamp: Date,
   rawMessage: any
 ) {
-  console.log(`🧠 Processing ${messageType} message with decision engine from ${from}:`, text);
+  console.log(`🧠 Processing ${messageType} message with intelligent AI from ${from}:`, text);
   
   try {
-    // Get conversation state first
-    const state = await getState(from);
-    
-    // Get intent classification
-    const { data: intentResponse } = await supabase.functions.invoke('classify-intent', {
+    // Call the intelligent WhatsApp processor
+    const { data: aiResponse, error } = await supabase.functions.invoke('intelligent-whatsapp-processor', {
       body: { 
-        message: text, 
-        userId: from,
-        context: {
-          phone: from,
-          name: contactName,
-          lastInteraction: timestamp.toISOString()
-        }
+        message: text,
+        phone: from,
+        contactName: contactName,
+        timestamp: timestamp.toISOString(),
+        messageId: messageId
       }
     });
 
-    const intent = intentResponse?.intent || 'unknown';
-    const domain = intentResponse?.domain || 'core';
-    const confidence = intentResponse?.confidence || 0.3;
+    if (error) {
+      console.error(`❌ Intelligent AI processor error:`, error);
+      await sendWhatsAppMessage(from, "🤖 I'm experiencing technical difficulties. Please try again in a moment.");
+      return;
+    }
 
-    // Get last message time for session management
-    const { data: contactData } = await supabase
-      .from('contacts')
-      .select('last_interaction')
-      .eq('phone_number', from)
-      .single();
+    if (aiResponse?.success && aiResponse?.response) {
+      console.log(`✅ Intelligent AI response received for ${from}:`, {
+        intent: aiResponse.intent?.intent,
+        domain: aiResponse.intent?.domain,
+        confidence: aiResponse.intent?.confidence,
+        response_type: aiResponse.response?.type
+      });
 
-    const lastMsgAt = contactData?.last_interaction ? new Date(contactData.last_interaction) : null;
-
-    // Use decision engine to determine response strategy
-    const responsePlan = await decideResponse({
-      waId: from,
-      domain,
-      intent,
-      confidence,
-      lastMsgAt,
-      language: 'en_US'
-    });
-
-    console.log(`🎯 Response strategy: ${responsePlan.type} for domain: ${domain}, confidence: ${confidence}`);
-
-    // **PREVENT WELCOME SPAM** - cooldown 30s & not stage new
-    const cooldownMs = 30_000;
-    const now = Date.now();
-    if (responsePlan.type === 'template' && responsePlan.name === TPL.WELCOME) {
-      const tooSoon = state.last_template === TPL.WELCOME &&
-                      now - new Date(state.updated_at || 0).getTime() < cooldownMs;
-      const stageDone = state.stage !== 'new';
+      // Send the appropriate response type
+      const response = aiResponse.response;
       
-      if (tooSoon || stageDone) {
-        console.log(`🚫 Preventing welcome loop: tooSoon=${tooSoon}, stageDone=${stageDone}`);
-        responsePlan.type = 'interactive';  // fallback to interactive
+      if (response.type === 'media' && response.media_url) {
+        // For media responses (QR codes, images)
+        await sendWhatsAppMedia(from, response.media_url, response.message || '');
+      } else if (response.buttons && response.buttons.length > 0) {
+        // For interactive button responses
+        await sendWhatsAppInteractive(from, response.message || 'Choose an option:', response.buttons);
+      } else {
+        // For text responses
+        await sendWhatsAppMessage(from, response.message || 'How can I help you?');
       }
+
+      // Update conversation state based on AI response
+      if (aiResponse.intent?.domain) {
+        await setState(from, { 
+          stage: aiResponse.intent.domain,
+          last_user_msg_at: timestamp.toISOString(),
+          last_intent: aiResponse.intent.intent,
+          last_confidence: aiResponse.intent.confidence
+        });
+      }
+
+      // Update contact interaction
+      await supabase.from('contacts').upsert({
+        phone_number: from,
+        name: contactName,
+        last_interaction: timestamp.toISOString(),
+        status: 'active'
+      }, { onConflict: 'phone_number' });
+
+    } else {
+      console.error(`❌ Invalid AI response:`, aiResponse);
+      await sendWhatsAppMessage(from, "🤖 I'm experiencing technical difficulties. Please try again in a moment.");
     }
-
-    // Execute the response plan
-    switch (responsePlan.type) {
-      case 'template':
-        await sendTemplate(from, responsePlan.name, [], responsePlan.language);
-        await logTemplateSend(supabase, from, responsePlan.name);
-        await setState(from, { last_template: responsePlan.name, stage: domain });
-        break;
-      case 'interactive':
-        await sendInteractive(from, responsePlan.text ?? 'Choose an option:', responsePlan.buttons);
-        await setState(from, { stage: domain });
-        break;
-      case 'clarify':
-        await sendInteractive(from, responsePlan.text, responsePlan.buttons);
-        await setState(from, { stage: 'clarify' });
-        break;
-      case 'plain':
-      default:
-        await sendPlain(from, responsePlan.text);
-        await setState(from, { stage: domain });
-    }
-
-    // Always update last_user_msg_at at END of request
-    await setState(from, { last_user_msg_at: timestamp.toISOString() });
-
-    // Update contact interaction
-    await supabase.from('contacts').upsert({
-      phone_number: from,
-      last_interaction: timestamp.toISOString(),
-      status: 'active'
-    }, { onConflict: 'phone_number' });
 
   } catch (error) {
-    console.error(`❌ Error in decision engine processing:`, error);
-    await sendPlain(from, "🤖 I'm experiencing technical difficulties. Please try again in a moment.");
+    console.error(`❌ Error in intelligent AI processing:`, error);
+    await sendWhatsAppMessage(from, "🤖 I'm experiencing technical difficulties. Please try again in a moment.");
   }
 }
 
@@ -399,7 +375,7 @@ async function processMessageSafely(
   }
 }
 
-// **FIX #9: SINGLE CONSOLIDATED ENDPOINT** - Unified WhatsApp message sending
+// Enhanced WhatsApp message sending with multiple formats
 async function sendWhatsAppMessage(to: string, message: string) {
   if (!accessToken || !phoneNumberId) {
     console.error('❌ Missing WhatsApp credentials');
@@ -407,7 +383,7 @@ async function sendWhatsAppMessage(to: string, message: string) {
   }
 
   try {
-    console.log(`📤 Sending message to ${to} via phone number ID: ${phoneNumberId}`);
+    console.log(`📤 Sending text message to ${to} via phone number ID: ${phoneNumberId}`);
     
     const response = await fetch(`https://graph.facebook.com/v17.0/${phoneNumberId}/messages`, {
       method: 'POST',
@@ -434,6 +410,105 @@ async function sendWhatsAppMessage(to: string, message: string) {
     
   } catch (error) {
     console.error('❌ Error sending WhatsApp message:', error);
+  }
+}
+
+// Send WhatsApp media (images, QR codes)
+async function sendWhatsAppMedia(to: string, mediaUrl: string, caption: string = '') {
+  if (!accessToken || !phoneNumberId) {
+    console.error('❌ Missing WhatsApp credentials for media');
+    return;
+  }
+
+  try {
+    console.log(`📸 Sending media to ${to}: ${mediaUrl}`);
+    
+    const response = await fetch(`https://graph.facebook.com/v17.0/${phoneNumberId}/messages`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        messaging_product: 'whatsapp',
+        to: to,
+        type: 'image',
+        image: {
+          link: mediaUrl,
+          caption: caption
+        }
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`❌ WhatsApp media API error: ${response.status} - ${errorText}`);
+      // Fallback to text message
+      await sendWhatsAppMessage(to, caption || 'Media content');
+      return;
+    }
+
+    console.log('✅ WhatsApp media sent successfully');
+    
+  } catch (error) {
+    console.error('❌ Error sending WhatsApp media:', error);
+    // Fallback to text message
+    await sendWhatsAppMessage(to, caption || 'Media content');
+  }
+}
+
+// Send WhatsApp interactive message with buttons
+async function sendWhatsAppInteractive(to: string, text: string, buttons: any[]) {
+  if (!accessToken || !phoneNumberId) {
+    console.error('❌ Missing WhatsApp credentials for interactive');
+    return;
+  }
+
+  try {
+    console.log(`🔘 Sending interactive message to ${to} with ${buttons.length} buttons`);
+    
+    const interactiveButtons = buttons.slice(0, 3).map((button, index) => ({
+      type: 'reply',
+      reply: {
+        id: button.id || `btn_${index}`,
+        title: button.title || button.text || button.label || `Option ${index + 1}`
+      }
+    }));
+
+    const response = await fetch(`https://graph.facebook.com/v17.0/${phoneNumberId}/messages`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        messaging_product: 'whatsapp',
+        to: to,
+        type: 'interactive',
+        interactive: {
+          type: 'button',
+          body: { text: text },
+          action: {
+            buttons: interactiveButtons
+          }
+        }
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`❌ WhatsApp interactive API error: ${response.status} - ${errorText}`);
+      // Fallback to text message
+      await sendWhatsAppMessage(to, text);
+      return;
+    }
+
+    console.log('✅ WhatsApp interactive message sent successfully');
+    
+  } catch (error) {
+    console.error('❌ Error sending WhatsApp interactive message:', error);
+    // Fallback to text message
+    await sendWhatsAppMessage(to, text);
   }
 }
 
