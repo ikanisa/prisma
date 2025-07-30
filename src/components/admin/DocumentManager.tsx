@@ -377,11 +377,12 @@ export function DocumentManager({ agentId = 'default' }: DocumentManagerProps) {
                 size="sm" 
                 onClick={() => {
                   const failedDocs = documents.filter(doc => !doc.embedding_ok);
+                  console.log('Processing failed docs:', failedDocs.length);
                   failedDocs.forEach(doc => triggerFullDocumentProcessing(doc.id));
                 }}
-                disabled={documents.filter(doc => !doc.embedding_ok).length === 0}
+                disabled={documents.length === 0}
               >
-                Process All Failed
+                Process All Failed ({documents.filter(doc => !doc.embedding_ok).length})
               </Button>
               <Button variant="outline" size="sm" onClick={fetchDocuments}>
                 <RefreshCw className="h-4 w-4 mr-2" />
