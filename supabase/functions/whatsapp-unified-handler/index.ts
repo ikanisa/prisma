@@ -161,7 +161,18 @@ serve(async (req) => {
       return json({ ignored: true, reason: "unsupported_message_type" });
     }
 
-    // 2.1 quick async log (fire‑and‑forget)
+    // 2.1 Ensure user exists in users table
+    const { data: userResult, error: userError } = await sbAdmin.functions.invoke("ensure-user-exists", {
+      body: { phone: from, contact_name: contactName }
+    });
+
+    if (userError) {
+      console.error("Failed to ensure user exists:", userError);
+    } else {
+      console.log("User check result:", userResult);
+    }
+
+    // 2.2 quick async log (fire‑and‑forget)
     sbAdmin.from("whatsapp_logs").insert({
       phone_number: from,
       contact_name: contactName,
@@ -173,7 +184,7 @@ serve(async (req) => {
       processed: false,
     }).then().catch(console.error);
 
-    // 2.2 fetch memory (for routing hints)
+    // 2.3 fetch memory (for routing hints)
     const { data: mem } = await sbAdmin
       .from("agent_memory")
       .select("memory_type, memory_value")
@@ -181,10 +192,10 @@ serve(async (req) => {
 
     const memoryObj = Object.fromEntries((mem || []).map((m) => [m.memory_type, m.memory_value]));
 
-    // 2.3 decide downstream
+    // 2.4 decide downstream
     const fn = resolveDownstream(text, from, memoryObj);
 
-    // 2.4 invoke downstream Edge Function (async but we await for status)
+    // 2.5 invoke downstream Edge Function (async but we await for status)
     const { error, data } = await sbAdmin.functions.invoke(fn, {
       body: {
         from,

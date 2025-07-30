@@ -94,6 +94,17 @@ serve(async (req) => {
       messagePreview: latestMessage.message_text?.substring(0, 50)
     })
 
+    // Ensure user exists in users table
+    const { data: userResult, error: userError } = await supabase.functions.invoke("ensure-user-exists", {
+      body: { phone: latestMessage.from_number, contact_name: "WhatsApp User" }
+    });
+
+    if (userError) {
+      console.error("Failed to ensure user exists:", userError);
+    } else {
+      console.log("User check result:", userResult);
+    }
+
     // Validate message before processing
     if (typeof latestMessage.message_text !== 'string' || latestMessage.message_text.length > 2000) {
       console.log('⚠️ Skipping invalid message:', {
