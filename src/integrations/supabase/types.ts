@@ -3322,6 +3322,36 @@ export type Database = {
         }
         Relationships: []
       }
+      function_circuit_breaker: {
+        Row: {
+          circuit_open: boolean | null
+          created_at: string | null
+          failure_count: number | null
+          function_name: string
+          id: string
+          last_failure_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          circuit_open?: boolean | null
+          created_at?: string | null
+          failure_count?: number | null
+          function_name: string
+          id?: string
+          last_failure_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          circuit_open?: boolean | null
+          created_at?: string | null
+          failure_count?: number | null
+          function_name?: string
+          id?: string
+          last_failure_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       google_places_businesses: {
         Row: {
           agent_verified: boolean | null
@@ -5443,21 +5473,30 @@ export type Database = {
       }
       processed_inbound: {
         Row: {
+          last_retry_at: string | null
           metadata: Json | null
           msg_id: string
           processed_at: string | null
+          processing_timeout: boolean | null
+          retry_count: number | null
           wa_id: string
         }
         Insert: {
+          last_retry_at?: string | null
           metadata?: Json | null
           msg_id: string
           processed_at?: string | null
+          processing_timeout?: boolean | null
+          retry_count?: number | null
           wa_id: string
         }
         Update: {
+          last_retry_at?: string | null
           metadata?: Json | null
           msg_id?: string
           processed_at?: string | null
+          processing_timeout?: boolean | null
+          retry_count?: number | null
           wa_id?: string
         }
         Relationships: []
@@ -9044,6 +9083,10 @@ export type Database = {
         Returns: undefined
       }
       cleanup_old_messages: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+      cleanup_old_processed_messages: {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
