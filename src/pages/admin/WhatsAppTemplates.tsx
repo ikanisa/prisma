@@ -577,7 +577,8 @@ export default function WhatsAppTemplates() {
             </TableBody>
           </Table>
         </CardContent>
-      </Card>
+        </Card>
+        </>
       )}
       
       {activeTab === 'campaigns' && (

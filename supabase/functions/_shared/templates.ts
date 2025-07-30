@@ -1,6 +1,8 @@
 // easyMO WhatsApp Template Registry
 // Centralized template names and helper functions
 
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
 export const TPL = {
   // Core templates
   WELCOME: 'tpl_welcome_quick_v1',
@@ -162,5 +164,26 @@ export async function logTemplateSend(
     
   } catch (err) {
     console.error('❌ Failed to log template send:', err);
+  }
+}
+
+export async function trackTemplateEvent(event: {
+  eventType: 'sent' | 'delivered' | 'read' | 'clicked' | 'converted';
+  templateName: string;
+  userId: string;
+  metadata?: any;
+  timestamp?: string;
+}) {
+  try {
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    );
+
+    await supabase.functions.invoke('template-analytics-tracker', {
+      body: { events: [event] }
+    });
+  } catch (error) {
+    console.error('Error tracking template event:', error);
   }
 }
