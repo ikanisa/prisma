@@ -19,65 +19,68 @@ enable_confirmations = false
 [db]
 port = 54322
 
+# SECURITY: Enable JWT verification for all functions except webhooks
 [functions.generate-payment]
-verify_jwt = false
+verify_jwt = true
 
 [functions.import-contacts]
-verify_jwt = false
+verify_jwt = true
 
 [functions.assign-driver]
-verify_jwt = false
+verify_jwt = true
 
 [functions.push-marketing]
-verify_jwt = false
+verify_jwt = true
 
+# Webhooks need to remain public for external services
 [functions.unified-whatsapp-webhook]
 verify_jwt = false
 
 [functions.test-whatsapp-webhook]
 verify_jwt = false
 
-[functions.unified-message-handler]
-verify_jwt = false
-
-[functions.advanced-ai-processor]
-verify_jwt = false
-
-[functions.model-management]
-verify_jwt = false
-
-[functions.knowledge-manager]
-verify_jwt = false
-
-[functions.circuit-breaker-manager]
-verify_jwt = false
-
-[functions.file-upload-manager]
-verify_jwt = false
-
-[functions.notification-manager]
-verify_jwt = false
-
-[functions.channel-gateway]
-verify_jwt = false
-
-[functions.mcp-orchestrator]
-verify_jwt = false
-
-[functions.multi-ai-code-reviewer]
-verify_jwt = false
-
-[functions.system-health-monitor]
-verify_jwt = false
-
-[functions.code-assistant]
-verify_jwt = false
-
 [functions.whatsapp-webhook]
 verify_jwt = false
 
+# Admin and system functions should require authentication
+[functions.unified-message-handler]
+verify_jwt = true
+
+[functions.advanced-ai-processor]
+verify_jwt = true
+
+[functions.model-management]
+verify_jwt = true
+
+[functions.knowledge-manager]
+verify_jwt = true
+
+[functions.circuit-breaker-manager]
+verify_jwt = true
+
+[functions.file-upload-manager]
+verify_jwt = true
+
+[functions.notification-manager]
+verify_jwt = true
+
+[functions.channel-gateway]
+verify_jwt = true
+
+[functions.mcp-orchestrator]
+verify_jwt = true
+
+[functions.multi-ai-code-reviewer]
+verify_jwt = true
+
+[functions.system-health-monitor]
+verify_jwt = true
+
+[functions.code-assistant]
+verify_jwt = true
+
 [functions.context-memory-v3]
-verify_jwt = false
+verify_jwt = true
 
 [storage]
 enabled = true

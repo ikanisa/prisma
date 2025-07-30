@@ -44,35 +44,22 @@ export function useAdminAuth(): AdminAuthState {
 
         const user = session.user;
 
-        // For development: allow any authenticated user to be admin
-        // In production: check the is_admin() function
-        const isDev = import.meta.env.DEV;
+        // Always check admin role properly in all environments
+        // SECURITY: No development bypasses allowed
+        const { data: isAdminResult, error } = await supabase.rpc('is_admin');
         
-        if (isDev) {
-          // Development mode: any authenticated user is admin
-          setState({
-            user,
-            isAdmin: true,
-            loading: false,
-            checkingAuth: false
-          });
-        } else {
-          // Production mode: check admin role with proper session context
-          const { data: isAdminResult, error } = await supabase.rpc('is_admin');
-          
-          if (!mounted) return;
-          
-          if (error) {
-            console.error('Error checking admin status:', error);
-          }
-          
-          setState({
-            user,
-            isAdmin: !error && isAdminResult === true,
-            loading: false,
-            checkingAuth: false
-          });
+        if (!mounted) return;
+        
+        if (error) {
+          console.error('Error checking admin status:', error);
         }
+        
+        setState({
+          user,
+          isAdmin: !error && isAdminResult === true,
+          loading: false,
+          checkingAuth: false
+        });
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
         console.error('Error checking admin access:', errorMessage);

@@ -34,14 +34,11 @@ export class AuthManager {
         };
       }
 
-      // Check if user has admin role
-      const { data: profile } = await this.supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user.id)
-        .single();
+      // Check if user has admin role using secure function
+      const { data: isAdminResult } = await this.supabase
+        .rpc('is_admin');
 
-      const isAdmin = profile?.role === 'admin';
+      const isAdmin = isAdminResult === true;
 
       return {
         user,
