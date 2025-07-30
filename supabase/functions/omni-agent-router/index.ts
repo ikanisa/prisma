@@ -271,24 +271,32 @@ async function handlePaymentsSkill(intent: string, message: string, userId: stri
       
       // Call QR generation tool
       try {
-        console.log(`🎯 Calling enhanced-qr-generator with:`, { phone: userId, amount, description: 'Payment via easyMO' });
+        console.log(`🎯 Calling qr-render with:`, { phone: userId, amount, description: 'Payment via easyMO' });
         
-        const qrResponse = await supabase.functions.invoke('enhanced-qr-generator', {
-          body: { phone: userId, amount: amount, description: 'Payment via easyMO' }
+        // First generate the payment USSD code
+        const ussdCode = `*182*1*2*${userId}*${amount}#`;
+        
+        const qrResponse = await supabase.functions.invoke('qr-render', {
+          body: { 
+            data: ussdCode,
+            size: 300,
+            entity: 'payment',
+            description: `Payment - ${amount} RWF`
+          }
         });
         
         console.log(`📸 QR Generation Response:`, qrResponse);
         
-        if (qrResponse.data?.qr_url) {
-          console.log(`✅ QR Generated successfully: ${qrResponse.data.qr_url}`);
+        if (qrResponse.data?.url) {
+          console.log(`✅ QR Generated successfully: ${qrResponse.data.url}`);
           return {
             success: true,
             response_type: 'media',
-            media_url: qrResponse.data.qr_url,
-            message: `🎯 Your payment QR is ready!\n\n💰 Amount: ${amount} RWF\n📱 Show this to the payer\n\n⚡ Payment will be instant!`
+            media_url: qrResponse.data.url,
+            message: `🎯 Your payment QR is ready!\n\n💰 Amount: ${amount} RWF\n📱 Show this to the payer\n\n⚡ Payment will be instant!\n\n📱 USSD: ${ussdCode}`
           };
         } else {
-          console.log(`❌ QR Generation failed - no qr_url in response:`, qrResponse);
+          console.log(`❌ QR Generation failed - no url in response:`, qrResponse);
         }
       } catch (error) {
         console.error('QR generation error:', error);
