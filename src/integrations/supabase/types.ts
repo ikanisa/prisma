@@ -7217,6 +7217,36 @@ export type Database = {
         }
         Relationships: []
       }
+      template_sends: {
+        Row: {
+          created_at: string | null
+          event_type: string | null
+          id: string
+          metadata: Json | null
+          sent_at: string | null
+          template_name: string
+          wa_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          event_type?: string | null
+          id?: string
+          metadata?: Json | null
+          sent_at?: string | null
+          template_name: string
+          wa_id: string
+        }
+        Update: {
+          created_at?: string | null
+          event_type?: string | null
+          id?: string
+          metadata?: Json | null
+          sent_at?: string | null
+          template_name?: string
+          wa_id?: string
+        }
+        Relationships: []
+      }
       template_usage_logs: {
         Row: {
           button_count: number
