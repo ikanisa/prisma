@@ -407,7 +407,7 @@ export function DocumentManager({ agentId = 'default' }: DocumentManagerProps) {
                   
                   <div className="flex items-center space-x-2">
                     <div className="flex gap-2">
-                      <Badge variant={doc.embedding_ok ? "default" : "secondary"}>
+                      <Badge variant={doc.embedding_ok ? "default" : "destructive"}>
                         {doc.embedding_ok ? (
                           <>
                             <CheckCircle className="h-3 w-3 mr-1" />
@@ -416,7 +416,7 @@ export function DocumentManager({ agentId = 'default' }: DocumentManagerProps) {
                         ) : (
                           <>
                             <AlertCircle className="h-3 w-3 mr-1" />
-                            Processing...
+                            Processing Failed
                           </>
                         )}
                       </Badge>
