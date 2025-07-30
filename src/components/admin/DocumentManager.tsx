@@ -371,10 +371,23 @@ export function DocumentManager({ agentId = 'default' }: DocumentManagerProps) {
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
             <span>Document Library</span>
-            <Button variant="outline" size="sm" onClick={fetchDocuments}>
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Refresh
-            </Button>
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => {
+                  const failedDocs = documents.filter(doc => !doc.embedding_ok);
+                  failedDocs.forEach(doc => triggerFullDocumentProcessing(doc.id));
+                }}
+                disabled={documents.filter(doc => !doc.embedding_ok).length === 0}
+              >
+                Process All Failed
+              </Button>
+              <Button variant="outline" size="sm" onClick={fetchDocuments}>
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Refresh
+              </Button>
+            </div>
           </CardTitle>
           <CardDescription>
             Manage uploaded documents and their processing status
