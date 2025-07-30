@@ -32,6 +32,8 @@ serve(async (req) => {
     );
 
     console.log(`📞 Ensuring user exists for phone: ${phone}`);
+    console.log(`🔑 Using service key: ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ? 'Present' : 'Missing'}`);
+    console.log(`🌐 Supabase URL: ${Deno.env.get('SUPABASE_URL')}`);
 
     // Check if user already exists
     const { data: existingUser, error: checkError } = await supabase
