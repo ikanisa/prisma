@@ -81,9 +81,7 @@ serve(async (req) => {
       results.webhooks = {};
       
       const webhookFunctions = [
-        'unified-whatsapp-webhook',
-        'whatsapp-webhook',
-        'whatsapp_webhook'
+        'whatsapp-webhook'
       ];
 
       const baseUrl = Deno.env.get('SUPABASE_URL')?.replace('/rest/v1', '') || '';
@@ -120,7 +118,7 @@ serve(async (req) => {
       const testMessage = 'Test message from webhook diagnostic';
       
       try {
-        const { data, error } = await supabase.functions.invoke('unified-whatsapp-webhook', {
+        const { data, error } = await supabase.functions.invoke('whatsapp-webhook', {
           body: {
             entry: [{
               changes: [{
@@ -221,7 +219,7 @@ serve(async (req) => {
       results.recommendations.push({
         priority: 'HIGH',
         issue: 'Webhook function not accessible',
-        action: 'Ensure unified-whatsapp-webhook function is deployed and publicly accessible'
+        action: 'Ensure whatsapp-webhook function is deployed and publicly accessible'
       });
     }
 

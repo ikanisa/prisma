@@ -20,7 +20,7 @@ export function Settings() {
     setTestResult(null);
     
     try {
-      const { data, error } = await supabase.functions.invoke('wa-webhook', {
+      const { data, error } = await supabase.functions.invoke('whatsapp-webhook', {
         body: {
           test: true,
           verification: true,
@@ -50,7 +50,7 @@ export function Settings() {
   };
 
   const copyWebhookUrl = () => {
-    const url = `https://ijblirphkrrsnxazohwt.supabase.co/functions/v1/wa-webhook`;
+    const url = `https://ijblirphkrrsnxazohwt.supabase.co/functions/v1/whatsapp-webhook`;
     navigator.clipboard.writeText(url);
     toast.success('Webhook URL copied to clipboard');
   };
@@ -69,7 +69,7 @@ export function Settings() {
             <Label>Webhook URL</Label>
             <div className="flex gap-2">
               <Input
-                value="https://ijblirphkrrsnxazohwt.supabase.co/functions/v1/wa-webhook"
+                value="https://ijblirphkrrsnxazohwt.supabase.co/functions/v1/whatsapp-webhook"
                 readOnly
                 className="font-mono text-sm"
               />

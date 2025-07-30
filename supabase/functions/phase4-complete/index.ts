@@ -386,7 +386,7 @@ async function validateIntegration(supabase: any) {
       }]
     };
 
-    const response = await supabase.functions.invoke('enhanced-whatsapp-webhook', {
+    const response = await supabase.functions.invoke('whatsapp-webhook', {
       body: testPayload
     });
 

@@ -343,7 +343,7 @@ async function runEndToEndTests(supabase: any): Promise<TestResult[]> {
         const testMessage = 'Muraho! Nshaka kohereza amafaranga';
 
         // 1. Process incoming message
-        const webhookResponse = await supabase.functions.invoke('enhanced-whatsapp-webhook', {
+        const webhookResponse = await supabase.functions.invoke('whatsapp-webhook', {
           body: {
             entry: [{
               changes: [{

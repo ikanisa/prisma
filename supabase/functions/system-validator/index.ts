@@ -154,7 +154,7 @@ async function validateFunctions(supabase: any) {
       category: 'critical' as const,
       check: async () => {
         try {
-          const response = await supabase.functions.invoke('enhanced-whatsapp-webhook', {
+          const response = await supabase.functions.invoke('whatsapp-webhook', {
             body: { test: true }
           });
           return response.status === 200;
