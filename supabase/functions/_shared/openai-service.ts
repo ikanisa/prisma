@@ -1,11 +1,13 @@
-import { OpenAIEnv } from './env.ts';
 import { logger } from './logger.ts';
 
 export class OpenAIService {
   private apiKey: string;
 
   constructor() {
-    this.apiKey = OpenAIEnv.getApiKey();
+    this.apiKey = Deno.env.get('OPENAI_API_KEY') || '';
+    if (!this.apiKey) {
+      logger.error('OpenAI API key not found in environment variables');
+    }
   }
 
   /**
