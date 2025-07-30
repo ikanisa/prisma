@@ -29,6 +29,7 @@ interface AgentRunOutput {
     toolCalls?: any[];
     ragContext?: string[];
     qualityScore?: number;
+    runId?: string;
     error?: string;
   };
 }
