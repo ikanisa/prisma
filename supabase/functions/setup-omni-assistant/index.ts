@@ -358,6 +358,31 @@ CRITICAL: Never ask open-ended questions. Always provide action buttons. Guide u
             required: ["domain"]
           }
         }
+      },
+      {
+        type: "function",
+        function: {
+          name: "consolidateMemory",
+          description: "Store conversation insights and learning patterns in user memory",
+          parameters: {
+            type: "object",
+            properties: {
+              userId: { type: "string", description: "User ID" },
+              conversationSummary: { type: "string", description: "Summary of conversation interactions" },
+              learningInsights: {
+                type: "object",
+                description: "Learning insights including preferences, patterns, and improvements",
+                properties: {
+                  preferences: { type: "object", description: "User preferences discovered" },
+                  patterns: { type: "object", description: "User behavior patterns" },
+                  improvements: { type: "string", description: "Suggestions for improvement" },
+                  confidence: { type: "number", description: "Confidence level of insights" }
+                }
+              }
+            },
+            required: ["userId"]
+          }
+        }
       }
     ],
     response_format: { type: "json_object" },

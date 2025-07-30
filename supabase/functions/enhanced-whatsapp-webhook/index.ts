@@ -862,6 +862,35 @@ async function processIncomingMessage(message: WhatsAppMessage) {
         channel: 'whatsapp'
       });
 
+    // After-Turn Middleware: Consolidate memory and learning
+    try {
+      // Get recent conversation history for this user
+      const { data: recentMessages } = await supabase
+        .from('conversation_messages')
+        .select('message_text, sender, created_at')
+        .eq('phone_number', from)
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      // Determine intent and outcome
+      const intent = messageText.includes('pay') || messageText.includes('money') ? 'payment' : 'general';
+      const outcome = response.includes('❌') ? 'error' : 'success';
+
+      // Call after-turn middleware
+      await supabase.functions.invoke('after-turn-middleware', {
+        body: {
+          waId: from.replace('whatsapp:', ''),
+          conversationHistory: recentMessages || [],
+          intent,
+          outcome
+        }
+      });
+
+    } catch (middlewareError) {
+      console.error('After-turn middleware error:', middlewareError);
+      // Don't fail the main flow if middleware fails
+    }
+
     console.log('✅ Message processed successfully');
 
   } catch (error) {

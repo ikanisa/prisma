@@ -1,5 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -7,6 +8,10 @@ const corsHeaders = {
 };
 
 const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+const supabase = createClient(
+  Deno.env.get('SUPABASE_URL') ?? '',
+  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+);
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -14,7 +19,7 @@ serve(async (req) => {
   }
 
   try {
-    const { userText } = await req.json();
+    const { userText, userId } = await req.json();
 
     if (!userText) {
       return new Response(
@@ -35,7 +40,7 @@ serve(async (req) => {
           {
             role: 'system',
             content: `You are a terse NLU decoder. Given text, respond _only_ with JSON:
-{intent: <payment|ride|find_business|marketplace|support|driver|onboarding|unknown>, confidence: 0-1, slots: {...}}
+{intent: <payment|ride|find_business|marketplace|support|driver|onboarding|unknown>, confidence: 0-1, slots: {...}, language: <rw|en|fr|sw>, languageConfidence: 0-1}
 
 Extract:
 - payment: {amount, currency?, recipient_phone?}
@@ -50,6 +55,11 @@ SPECIAL RULES:
 - Pure numbers (e.g. "1000", "5000") = payment intent with amount
 - "driver", "moto", "transport" = onboarding intent with type=driver
 - "business", "shop", "pharmacy" = onboarding intent with type=business
+
+LANGUAGE DETECTION:
+- Detect Kinyarwanda (rw), English (en), French (fr), Swahili (sw)
+- Common Kinyarwanda: muraho, murakoze, urakoze, ariko, umufasha, imbere
+- Return languageConfidence: confidence level for detected language (0-1)
 
 Return ONLY valid JSON, no explanations.`
           },
@@ -80,8 +90,27 @@ Return ONLY valid JSON, no explanations.`
       intentData = {
         intent: 'unknown',
         confidence: 0.2,
-        slots: {}
+        slots: {},
+        language: 'en',
+        languageConfidence: 0.5
       };
+    }
+
+    // Auto-Language Store: if confidence > 0.7, update user_profiles.language
+    if (userId && intentData.language && intentData.languageConfidence > 0.7) {
+      try {
+        await supabase
+          .from('user_profiles')
+          .upsert({
+            user_id: userId,
+            language: intentData.language,
+            updated_at: new Date().toISOString()
+          }, { onConflict: 'user_id' });
+        
+        console.log(`Language preference updated: ${userId} -> ${intentData.language} (confidence: ${intentData.languageConfidence})`);
+      } catch (langError) {
+        console.error('Failed to update language preference:', langError);
+      }
     }
 
     return new Response(
