@@ -212,9 +212,17 @@ export default function TemplateAnalytics() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {Math.round(analytics.topTemplates[0]?.engagement * 100)}%
+              {analytics.topTemplates && analytics.topTemplates.length > 0 
+                ? Math.round(analytics.topTemplates[0].engagement * 100) + '%'
+                : 'N/A'
+              }
             </div>
-            <p className="text-xs text-muted-foreground">{analytics.topTemplates[0]?.name.replace('tpl_', '').replace('_v1', '')}</p>
+            <p className="text-xs text-muted-foreground">
+              {analytics.topTemplates && analytics.topTemplates.length > 0 
+                ? analytics.topTemplates[0].name.replace('tpl_', '').replace('_v1', '')
+                : 'No data'
+              }
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -226,9 +234,10 @@ export default function TemplateAnalytics() {
           <CardDescription>Click rates and conversions by template</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {analytics.templateStats.map((template, index) => (
-              <div key={index} className="flex items-center justify-between p-4 border rounded-lg">
+          {analytics.templateStats && analytics.templateStats.length > 0 ? (
+            <div className="space-y-4">
+              {analytics.templateStats.map((template, index) => (
+                <div key={index} className="flex items-center justify-between p-4 border rounded-lg">
                 <div className="flex-1">
                   <h4 className="font-medium">{template.name.replace('tpl_', '').replace('_v1', '')}</h4>
                   <p className="text-sm text-muted-foreground">
@@ -251,10 +260,15 @@ export default function TemplateAnalytics() {
                   <div className="text-center">
                     {getEngagementBadge(template.engagement)}
                   </div>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              <p>No template performance data available</p>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -266,15 +280,21 @@ export default function TemplateAnalytics() {
             <CardDescription>User engagement by hour of day</CardDescription>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={analytics.engagementPatterns.bestHours}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="hour" />
-                <YAxis />
-                <Tooltip />
-                <Bar dataKey="engagement" fill="hsl(var(--primary))" />
-              </BarChart>
-            </ResponsiveContainer>
+            {analytics.engagementPatterns?.bestHours && analytics.engagementPatterns.bestHours.length > 0 ? (
+              <ResponsiveContainer width="100%" height={200}>
+                <BarChart data={analytics.engagementPatterns.bestHours}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="hour" />
+                  <YAxis />
+                  <Tooltip />
+                  <Bar dataKey="engagement" fill="hsl(var(--primary))" />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-48 flex items-center justify-center text-muted-foreground">
+                No engagement data available
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -284,15 +304,21 @@ export default function TemplateAnalytics() {
             <CardDescription>User engagement by day of week</CardDescription>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={analytics.engagementPatterns.bestDays}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="day" />
-                <YAxis />
-                <Tooltip />
-                <Bar dataKey="engagement" fill="hsl(var(--secondary))" />
-              </BarChart>
-            </ResponsiveContainer>
+            {analytics.engagementPatterns?.bestDays && analytics.engagementPatterns.bestDays.length > 0 ? (
+              <ResponsiveContainer width="100%" height={200}>
+                <BarChart data={analytics.engagementPatterns.bestDays}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="day" />
+                  <YAxis />
+                  <Tooltip />
+                  <Bar dataKey="engagement" fill="hsl(var(--secondary))" />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-48 flex items-center justify-center text-muted-foreground">
+                No engagement data available
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -304,9 +330,10 @@ export default function TemplateAnalytics() {
           <CardDescription>Templates ranked by overall engagement score</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-3">
-            {analytics.topTemplates.map((template, index) => (
-              <div key={index} className="flex items-center justify-between p-3 bg-muted rounded-lg">
+          {analytics.topTemplates && analytics.topTemplates.length > 0 ? (
+            <div className="space-y-3">
+              {analytics.topTemplates.map((template, index) => (
+                <div key={index} className="flex items-center justify-between p-3 bg-muted rounded-lg">
                 <div className="flex items-center space-x-3">
                   <Badge variant="outline">{index + 1}</Badge>
                   <span className="font-medium">{template.name.replace('tpl_', '').replace('_v1', '')}</span>
@@ -321,10 +348,15 @@ export default function TemplateAnalytics() {
                   <span className="text-muted-foreground">
                     {Math.round(template.conversionRate * 100)}% conversions
                   </span>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              <p>No template performance data available</p>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
