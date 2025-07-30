@@ -1,3 +1,4 @@
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0';
 
@@ -5,6 +6,9 @@ const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// CONSOLIDATED WHATSAPP WEBHOOK - THE ONLY ONE
+console.log('🚀 Consolidated WhatsApp Webhook starting...');
 
 serve(async (req: Request) => {
   // Handle CORS preflight requests
@@ -18,9 +22,13 @@ serve(async (req: Request) => {
     const token = url.searchParams.get("hub.verify_token");
     const challenge = url.searchParams.get("hub.challenge");
 
-    if (mode === "subscribe" && token === Deno.env.get("META_WABA_VERIFY_TOKEN")) {
+    const verifyToken = Deno.env.get("META_WABA_VERIFY_TOKEN") || Deno.env.get("WHATSAPP_VERIFY_TOKEN") || 'easymo_verify';
+    
+    if (mode === "subscribe" && token === verifyToken) {
+      console.log('✅ WhatsApp webhook verified successfully');
       return new Response(challenge ?? "", { status: 200 });
     }
+    console.log('❌ WhatsApp webhook verification failed - invalid token');
     return new Response("Forbidden", { status: 403 });
   }
 
@@ -50,9 +58,12 @@ serve(async (req: Request) => {
               const messageText = message.text?.body;
               const messageType = message.type;
               const timestamp = new Date(parseInt(message.timestamp) * 1000);
+              const messageId = message.id;
               
               // Extract contact info from the payload
               const contactName = change.value?.contacts?.[0]?.profile?.name || 'Unknown';
+              
+              console.log(`📨 Processing ${messageType} message from ${from}: ${messageText || 'non-text'} [ID: ${messageId}]`);
 
               // Store/update contact information
               await supabase.from('wa_contacts').upsert({
@@ -69,19 +80,19 @@ serve(async (req: Request) => {
               // Log the incoming message
               console.log(`Received ${messageType} message from ${from}: ${messageText || 'non-text'}`);
 
-              // Check if we've already processed this exact message ID to prevent duplicates
+              // Enhanced duplicate detection with message processing tracking
               const { data: existingMessage } = await supabase
                 .from('incoming_messages')
                 .select('id')
-                .eq('raw_payload->>id', message.id)
+                .eq('raw_payload->>id', messageId)
                 .single();
 
               if (existingMessage) {
-                console.log(`⚠️ Duplicate message ID detected, skipping: ${message.id}`);
+                console.log(`⚠️ Duplicate message ID detected, skipping: ${messageId}`);
                 continue;
               }
 
-              // Store in database
+              // Store processing attempt to prevent infinite loops
               await supabase.from('incoming_messages').insert({
                 from_number: from,
                 message_type: messageType,
@@ -90,17 +101,24 @@ serve(async (req: Request) => {
                 created_at: timestamp.toISOString()
               });
 
-              // Process different message types
-              if (messageType === 'text' && messageText) {
-                await processTextMessage(supabase, from, messageText, message.id, contactName, timestamp);
-              } else if (messageType === 'interactive') {
-                await processInteractiveMessage(supabase, from, message.interactive, message.id, contactName, timestamp);
-              } else if (messageType === 'button') {
-                await processButtonMessage(supabase, from, message.button, message.id, contactName, timestamp);
-              } else if (messageType === 'location') {
-                await processLocationMessage(supabase, from, message.location, message.id, contactName, timestamp);
-              } else if (messageType === 'image' || messageType === 'document') {
-                await processMediaMessage(supabase, from, message, message.id, contactName, timestamp);
+              // Update contact information
+              await supabase.from('contacts').upsert({
+                phone_number: from,
+                name: contactName,
+                last_interaction: timestamp.toISOString(),
+                status: 'active'
+              }, { 
+                onConflict: 'phone_number',
+                ignoreDuplicates: false 
+              });
+
+              // Process message with unified handler
+              try {
+                await processMessage(supabase, from, messageText, messageType, messageId, contactName, timestamp, message);
+              } catch (error) {
+                console.error(`❌ Error processing message ${messageId}:`, error);
+                // Send fallback response
+                await sendWhatsAppMessage(from, "🤖 I'm experiencing technical difficulties. Please try again in a moment.");
               }
             }
           }
@@ -126,21 +144,47 @@ serve(async (req: Request) => {
   });
 });
 
-// Process text messages with built-in intelligent routing
-async function processTextMessage(supabase: any, from: string, text: string, messageId: string, contactName: string, timestamp: Date) {
-  console.log('🧠 Processing text message:', text);
+// Unified message processor - handles all message types
+async function processMessage(supabase: any, from: string, text: string, messageType: string, messageId: string, contactName: string, timestamp: Date, rawMessage: any) {
+  console.log(`🧠 Processing ${messageType} message from ${from}:`, text || 'non-text');
   
   try {
-    // Route message based on intent
-    const response = await routeMessage(text, from);
+    let processedText = text;
     
-    console.log(`✅ Generated response: ${response}`);
+    // Handle different message types
+    if (messageType === 'interactive') {
+      if (rawMessage.interactive?.type === 'list_reply') {
+        processedText = rawMessage.interactive.list_reply.id;
+      } else if (rawMessage.interactive?.type === 'button_reply') {
+        processedText = rawMessage.interactive.button_reply.id;
+      }
+    } else if (messageType === 'button') {
+      processedText = rawMessage.button?.text || rawMessage.button?.payload || 'button_pressed';
+    } else if (messageType === 'location') {
+      // Store location
+      await supabase.from('user_locations').upsert({
+        phone_number: from,
+        latitude: rawMessage.location?.latitude,
+        longitude: rawMessage.location?.longitude,
+        address: rawMessage.location?.address || null,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'phone_number' });
+      
+      processedText = 'shared_location';
+    } else if (messageType === 'image' || messageType === 'document') {
+      processedText = `shared_${messageType}`;
+    }
+
+    // Route message to AI agent
+    const response = await routeMessage(processedText || 'help', from);
+    
+    console.log(`✅ Generated response for ${messageId}: ${response.substring(0, 100)}...`);
     
     // Send response back to user
     await sendWhatsAppMessage(from, response);
     
   } catch (error) {
-    console.error('❌ Text processing error:', error);
+    console.error('❌ Message processing error:', error);
     // Send fallback response only on complete failure
     await sendWhatsAppMessage(from, "🤖 I'm here to help! Say 'pay', 'ride', 'shop', or 'help' for assistance.");
   }
@@ -187,15 +231,21 @@ async function routeMessage(text: string, phone: string): Promise<string> {
   }
 }
 
-// Helper function to send WhatsApp messages
+// Enhanced WhatsApp message sender with better error handling
 async function sendWhatsAppMessage(to: string, message: string) {
   try {
-    const phoneNumberId = Deno.env.get('PHONE_NUMBER_ID') || Deno.env.get('META_PHONE_NUMBER_ID') || '396791596844039';
-    const accessToken = Deno.env.get('WHATSAPP_TOKEN') || Deno.env.get('META_WABA_ACCESS_TOKEN');
+    const phoneNumberId = Deno.env.get('WHATSAPP_PHONE_ID') || 
+                         Deno.env.get('PHONE_NUMBER_ID') || 
+                         Deno.env.get('META_PHONE_NUMBER_ID') || 
+                         '396791596844039';
+                         
+    const accessToken = Deno.env.get('WHATSAPP_ACCESS_TOKEN') || 
+                       Deno.env.get('WHATSAPP_TOKEN') || 
+                       Deno.env.get('META_WABA_ACCESS_TOKEN');
     
     if (!accessToken) {
-      console.error('❌ No WhatsApp access token found');
-      return;
+      console.error('❌ No WhatsApp access token configured');
+      return false;
     }
     
     console.log(`📤 Sending message to ${to} via phone number ID: ${phoneNumberId}`);
@@ -217,99 +267,17 @@ async function sendWhatsAppMessage(to: string, message: string) {
     const responseData = await response.text();
     
     if (!response.ok) {
-      console.error('Failed to send WhatsApp message:', responseData);
+      console.error(`❌ Failed to send WhatsApp message (${response.status}):`, responseData);
+      return false;
     } else {
-      console.log('✅ WhatsApp message sent successfully:', responseData);
+      console.log('✅ WhatsApp message sent successfully');
+      return true;
     }
   } catch (error) {
     console.error('❌ Error sending WhatsApp message:', error);
+    return false;
   }
 }
 
-// Process interactive messages (lists, buttons)
-async function processInteractiveMessage(supabase: any, from: string, interactive: any, messageId: string, contactName: string, timestamp: Date) {
-  console.log('🎯 Processing interactive message:', interactive);
-  
-  let actionData = '';
-  if (interactive.type === 'list_reply') {
-    actionData = interactive.list_reply.id;
-  } else if (interactive.type === 'button_reply') {
-    actionData = interactive.button_reply.id;
-  }
-
-  // Handle interactive responses directly
-  try {
-    const response = await routeMessage(actionData, from);
-    await sendWhatsAppMessage(from, response);
-    console.log('✅ Interactive message processed successfully');
-  } catch (error) {
-    console.error('❌ Interactive processing error:', error);
-    await sendWhatsAppMessage(from, "🤖 I understand. How can I help you?");
-  }
-}
-
-// Process button messages
-async function processButtonMessage(supabase: any, from: string, button: any, messageId: string, contactName: string, timestamp: Date) {
-  console.log('🔘 Processing button message:', button);
-  
-  // Handle button responses directly
-  try {
-    const buttonText = button.text || button.payload || 'help';
-    const response = await routeMessage(buttonText, from);
-    await sendWhatsAppMessage(from, response);
-    console.log('✅ Button message processed successfully');
-  } catch (error) {
-    console.error('❌ Button processing error:', error);
-    await sendWhatsAppMessage(from, "🤖 Thanks for clicking! How can I help you?");
-  }
-}
-
-// Process location messages
-async function processLocationMessage(supabase: any, from: string, location: any, messageId: string, contactName: string, timestamp: Date) {
-  console.log('📍 Processing location message:', location);
-  
-  // Store user location
-  await supabase.from('user_locations').upsert({
-    phone_number: from,
-    latitude: location.latitude,
-    longitude: location.longitude,
-    address: location.address || null,
-    updated_at: new Date().toISOString()
-  }, { onConflict: 'phone_number' });
-
-  // Handle location sharing
-  try {
-    const response = "📍 **Location Received!**\n\nGreat! I've saved your location. Now I can:\n🏍️ Find nearby drivers for rides\n🛒 Show local businesses\n🏠 Search properties in your area\n\nWhat would you like to do?";
-    await sendWhatsAppMessage(from, response);
-    console.log('✅ Location message processed successfully');
-  } catch (error) {
-    console.error('❌ Location processing error:', error);
-    await sendWhatsAppMessage(from, "📍 Thanks for sharing your location! How can I help you?");
-  }
-}
-
-// Process media messages (images, documents)
-async function processMediaMessage(supabase: any, from: string, message: any, messageId: string, contactName: string, timestamp: Date) {
-  console.log('📎 Processing media message:', message.type);
-  
-  // Handle media messages directly
-  try {
-    let response = "📎 **Media Received!**\n\nThanks for sharing! ";
-    
-    if (message.type === 'image') {
-      response += "I can see your image. How can I help you with this?";
-    } else if (message.type === 'document') {
-      response += "I received your document. What would you like me to do?";
-    } else {
-      response += "I received your file. How can I assist you?";
-    }
-    
-    response += "\n\nSay 'help' to see all available services.";
-    
-    await sendWhatsAppMessage(from, response);
-    console.log('✅ Media message processed successfully');
-  } catch (error) {
-    console.error('❌ Media processing error:', error);
-    await sendWhatsAppMessage(from, "📎 Thanks for sharing! How can I help you?");
-  }
-}
+// LEGACY FUNCTIONS - REMOVED FOR CONSOLIDATION
+// All message types now handled by unified processMessage() function above
