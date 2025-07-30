@@ -181,23 +181,6 @@ serve(async (req) => {
         } else {
           processedCount++;
           console.log(`✅ Successfully processed document: ${doc.title} with ${chunks.length} embeddings`);
-          
-          // Add to knowledge base for RAG
-          try {
-            await supabase.functions.invoke('knowledge-manager', {
-              body: {
-                action: 'add',
-                topic: doc.title,
-                content: text.slice(0, 2000), // First 2000 chars as summary
-                source: 'document_upload',
-                confidence: 0.9,
-                tags: ['document', 'vectorized', doc.drive_mime?.split('/')[1] || 'unknown']
-              }
-            });
-            console.log('📚 Added to knowledge base for RAG');
-          } catch (kbError) {
-            console.error('Knowledge base addition failed:', kbError);
-          }
         }
 
       } catch (docError) {

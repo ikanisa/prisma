@@ -130,10 +130,7 @@ export function DocumentManager({ agentId = 'default' }: DocumentManagerProps) {
       // Refresh documents list
       await fetchDocuments();
 
-      // Trigger comprehensive document processing with OpenAI
-      await processDocument(response.data.document.id);
-      
-      // Auto-trigger full AI processing pipeline
+      // Trigger single comprehensive processing pipeline
       await triggerFullDocumentProcessing(response.data.document.id);
 
     } catch (error) {
