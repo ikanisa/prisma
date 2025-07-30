@@ -146,37 +146,45 @@ async function processTextMessage(supabase: any, from: string, text: string, mes
   }
 }
 
-// Built-in intent routing and response generation
+// AI-powered message processing using omni-agent-enhanced
 async function routeMessage(text: string, phone: string): Promise<string> {
-  const message = text.toLowerCase().trim();
-  
-  // Payment intents
-  if (message.includes('pay') || message.includes('payment') || message.includes('qr') || message.includes('money')) {
-    return "💰 **easyMO Payments**\n\nI can help you:\n🔗 Generate QR code to receive money\n💸 Send money to someone\n📊 Check your balance\n\nJust say 'generate qr for 5000' or 'send money'.";
-  }
-  
-  // Transport/Moto intents  
-  if (message.includes('ride') || message.includes('moto') || message.includes('driver') || message.includes('transport')) {
-    return "🏍️ **easyMO Moto**\n\nI can help you:\n🚗 Book a ride anywhere\n🏍️ Find nearby drivers\n📍 Share your location\n\nSay 'need ride' or 'find driver' to get started.";
-  }
-  
-  // Commerce intents
-  if (message.includes('shop') || message.includes('buy') || message.includes('bar') || message.includes('pharmacy') || message.includes('drink')) {
-    return "🛒 **easyMO Shopping**\n\nI can help you:\n🍺 Order from local bars\n💊 Buy pharmacy items\n🔨 Find hardware stores\n\nSay 'find bars' or 'pharmacy' to browse.";
-  }
-  
-  // Property/Listings intents
-  if (message.includes('house') || message.includes('rent') || message.includes('property') || message.includes('apartment')) {
-    return "🏠 **easyMO Property**\n\nI can help you:\n🔍 Find houses for rent\n🏗️ Search apartments\n📝 List your property\n\nSay 'find house' or 'rent apartment'.";
-  }
-  
-  // Help or unrecognized
-  if (message.includes('help') || message.includes('start') || message.includes('menu') || message === 'ok' || message === 'hello' || message === 'hi') {
+  try {
+    console.log('🤖 Calling omni-agent-enhanced for AI processing...');
+    
+    // Get Supabase URL for function calls
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    
+    // Call the omni-agent-enhanced function
+    const response = await fetch(`${supabaseUrl}/functions/v1/omni-agent-enhanced`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${supabaseKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        message: text,
+        phone: phone
+      })
+    });
+
+    if (!response.ok) {
+      console.error('❌ AI agent call failed:', response.status, await response.text());
+      throw new Error(`AI agent call failed with status ${response.status}`);
+    }
+
+    const data = await response.json();
+    console.log('✅ AI agent response received:', data);
+    
+    // Return the AI-generated response
+    return data.response || data.message || "🤖 I'm here to help! How can I assist you today?";
+    
+  } catch (error) {
+    console.error('❌ Error calling AI agent:', error);
+    
+    // Fallback to welcome message if AI fails
     return "👋 **Welcome to easyMO!**\n\nYour all-in-one platform for:\n\n💰 **Payments** - Send/receive money\n🏍️ **Moto** - Book rides & transport\n🛒 **Shopping** - Bars, pharmacy, hardware\n🏠 **Property** - Houses & apartments\n\nWhat do you need help with today?";
   }
-  
-  // Default response for unclear messages
-  return "🤖 I'm here to help! Try saying:\n• 'pay' for payments\n• 'ride' for transport\n• 'shop' for shopping\n• 'house' for property\n• 'help' for more options";
 }
 
 // Helper function to send WhatsApp messages
