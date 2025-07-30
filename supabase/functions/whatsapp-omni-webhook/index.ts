@@ -133,25 +133,75 @@ class OmniAgent {
 
   private async executeSkill(routing: any, message: string, context: any): Promise<string> {
     try {
-      // Call the omni-agent-core function to execute the skill
-      const { data, error } = await supabase.functions.invoke('omni-agent-core', {
-        body: {
-          skill: routing.skill,
-          intent: routing.intent,
-          message,
-          user_id: this.userId,
-          phone: this.phone,
-          context,
-          parameters: routing.parameters
-        }
-      });
-
-      if (error) throw error;
-      return data.response || "I understand your request. Let me help you with that.";
+      console.log(`🎯 Executing skill: ${routing.skill} with intent: ${routing.intent}`);
+      
+      // Execute skills directly based on intent
+      switch (routing.skill) {
+        case 'payments':
+          return await this.handlePayments(routing, message, context);
+        case 'moto':
+          return await this.handleMoto(routing, message, context);
+        case 'commerce':
+          return await this.handleCommerce(routing, message, context);
+        case 'listings':
+          return await this.handleListings(routing, message, context);
+        default:
+          return await this.handleSupport(routing, message, context);
+      }
     } catch (error) {
       console.error('Error executing skill:', error);
-      return "I'm here to help! Could you please rephrase your request?";
+      return "I understand your request. Let me get you the help you need. Please wait a moment while I process this.";
     }
+  }
+
+  private async handlePayments(routing: any, message: string, context: any): Promise<string> {
+    const intent = routing.intent;
+    
+    if (intent === 'get_paid' || message.toLowerCase().includes('pay')) {
+      return "💰 **easyMO Payments**\n\nI can help you with:\n🔗 Generate QR code to receive payment\n💸 Send money to someone\n📊 Check your balance\n\nWhat would you like to do? Just say 'generate qr' or 'send money'.";
+    }
+    
+    if (message.toLowerCase().includes('qr') || message.toLowerCase().includes('generate')) {
+      return "🔗 **Generate Payment QR Code**\n\nPlease tell me the amount you want to receive. For example: 'Generate QR for 5000 RWF'";
+    }
+    
+    return "💰 I can help you with payments. Say 'generate qr', 'send money', or 'check balance'.";
+  }
+
+  private async handleMoto(routing: any, message: string, context: any): Promise<string> {
+    if (message.toLowerCase().includes('ride') || routing.intent === 'passenger_create_intent') {
+      return "🏍️ **easyMO Moto**\n\nI'll help you find a ride!\n\n📍 Please share your current location\n📍 Where do you want to go?\n\nOr just tell me: 'From [location] to [destination]'";
+    }
+    
+    if (message.toLowerCase().includes('driver')) {
+      return "🏍️ **Driver Mode**\n\nI can help you:\n🟢 Go online for passengers\n📍 Update your location\n💰 Check earnings\n\nSay 'go online' to start accepting rides.";
+    }
+    
+    return "🏍️ I can help you with transport. Say 'need ride', 'find driver', or 'go online' if you're a driver.";
+  }
+
+  private async handleCommerce(routing: any, message: string, context: any): Promise<string> {
+    if (message.toLowerCase().includes('bar') || message.toLowerCase().includes('drink')) {
+      return "🍺 **easyMO Bar Orders**\n\nOrder drinks from local bars:\n🍻 Browse drink menu\n📱 Scan table QR code\n🚚 Get delivery\n\nSay 'show bars' or 'scan table' to get started.";
+    }
+    
+    if (message.toLowerCase().includes('pharmacy')) {
+      return "💊 **easyMO Pharmacy**\n\nOrder medicine and health products:\n🔍 Search medications\n📋 Upload prescription\n🚚 Get delivery\n\nSay 'find medicine' to browse pharmacy products.";
+    }
+    
+    return "🛒 I can help you shop. Say 'find bars', 'pharmacy', or 'hardware store' for what you need.";
+  }
+
+  private async handleListings(routing: any, message: string, context: any): Promise<string> {
+    if (message.toLowerCase().includes('house') || message.toLowerCase().includes('rent')) {
+      return "🏠 **easyMO Property**\n\nFind your perfect home:\n🔍 Search houses for rent\n🏗️ Apartments for sale\n📝 List your property\n\nSay 'find houses' or 'rent apartment' to search.";
+    }
+    
+    return "🏠 I can help you find property. Say 'find house', 'rent apartment', or 'list property'.";
+  }
+
+  private async handleSupport(routing: any, message: string, context: any): Promise<string> {
+    return "👋 **Welcome to easyMO!**\n\nI can help you with:\n\n💰 **Payments** - Send money, receive payments\n🏍️ **Moto** - Book rides, find drivers\n🛒 **Shopping** - Bars, pharmacy, hardware\n🏠 **Property** - Find houses, apartments\n\nWhat do you need help with today?";
   }
 
   private async logInteraction(message: string, response: string, routing: any): Promise<void> {
@@ -227,8 +277,8 @@ serve(async (req) => {
                 
                 console.log(`Generated response: ${response}`);
                 
-                // TODO: Send response back to WhatsApp
-                // This would typically involve calling WhatsApp's Send Message API
+                // Send response back to WhatsApp
+                await sendWhatsAppMessage(userPhone, response);
               }
             }
           }
@@ -248,3 +298,39 @@ serve(async (req) => {
     });
   }
 });
+
+/**
+ * Send message back to WhatsApp user
+ */
+async function sendWhatsAppMessage(phone: string, message: string): Promise<void> {
+  try {
+    const payload = {
+      messaging_product: "whatsapp",
+      to: phone,
+      type: "text",
+      text: {
+        body: message
+      }
+    };
+
+    const response = await fetch(`https://graph.facebook.com/v18.0/${Deno.env.get('META_WABA_PHONE_ID')}/messages`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${Deno.env.get('META_WABA_TOKEN')}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      console.error('WhatsApp API error:', error);
+      throw new Error(`WhatsApp API error: ${response.statusText}`);
+    }
+
+    console.log(`✅ Message sent to ${phone}: ${message.substring(0, 50)}...`);
+  } catch (error) {
+    console.error('Error sending WhatsApp message:', error);
+    // Don't throw - log error but continue processing
+  }
+}
