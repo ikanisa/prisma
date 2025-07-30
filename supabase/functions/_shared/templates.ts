@@ -1,7 +1,7 @@
 // easyMO WhatsApp Template Registry
 // Centralized template names and helper functions
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.59.0";
 
 export const TPL = {
   // Core templates
@@ -86,8 +86,8 @@ export async function sendTemplate(
 ) {
   console.log(`📤 Sending template ${templateName} to ${waId}`);
   
-  const phoneId = Deno.env.get('META_WABA_PHONE_ID');
-  const token = Deno.env.get('META_WABA_TOKEN');
+  const phoneId = Deno.env.get('META_WABA_PHONE_ID') || Deno.env.get('META_PHONE_NUMBER_ID');
+  const token = Deno.env.get('META_WABA_TOKEN') || Deno.env.get('META_WABA_ACCESS_TOKEN');
   
   if (!phoneId || !token) {
     console.error('❌ Missing WhatsApp credentials');

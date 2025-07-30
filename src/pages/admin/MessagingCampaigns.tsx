@@ -3,7 +3,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CampaignStats } from "@/components/admin/messaging/CampaignStats";
 import { TemplateManager } from "@/components/admin/messaging/TemplateManager";
 import { QuickActions } from "@/components/admin/messaging/QuickActions";
-import { ActionButtonsManager } from "@/components/admin/messaging/ActionButtonsManager";
+import { ActionButtonsManager } from "@/components/admin/ActionButtonsManager";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
