@@ -5298,6 +5298,30 @@ export type Database = {
         }
         Relationships: []
       }
+      phase_completion_log: {
+        Row: {
+          completed_at: string | null
+          completion_details: Json | null
+          id: string
+          phase: string
+          status: string
+        }
+        Insert: {
+          completed_at?: string | null
+          completion_details?: Json | null
+          id?: string
+          phase: string
+          status: string
+        }
+        Update: {
+          completed_at?: string | null
+          completion_details?: Json | null
+          id?: string
+          phase?: string
+          status?: string
+        }
+        Relationships: []
+      }
       pos_sync_log: {
         Row: {
           bar_id: string | null
@@ -6782,6 +6806,42 @@ export type Database = {
           source?: string
           tags?: Json | null
           timestamp?: string | null
+        }
+        Relationships: []
+      }
+      system_validation_logs: {
+        Row: {
+          created_at: string | null
+          critical_failures: number
+          failed_checks: number
+          id: string
+          passed_checks: number
+          status: string
+          total_checks: number
+          validation_results: Json | null
+          validation_type: string
+        }
+        Insert: {
+          created_at?: string | null
+          critical_failures?: number
+          failed_checks?: number
+          id?: string
+          passed_checks?: number
+          status?: string
+          total_checks?: number
+          validation_results?: Json | null
+          validation_type: string
+        }
+        Update: {
+          created_at?: string | null
+          critical_failures?: number
+          failed_checks?: number
+          id?: string
+          passed_checks?: number
+          status?: string
+          total_checks?: number
+          validation_results?: Json | null
+          validation_type?: string
         }
         Relationships: []
       }
