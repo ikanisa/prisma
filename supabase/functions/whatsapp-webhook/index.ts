@@ -115,26 +115,28 @@ async function processWebhookAsync(body: any) {
             processingMessages.add(messageId);
 
             try {
-              // **FIX #1: ATOMIC DUPLICATE PREVENTION** - Use database constraint
-              const { data: insertResult, error: insertError } = await supabase
+              // **FIX #1: ATOMIC DUPLICATE PREVENTION** - Use upsert for safe insert
+              const { data: upsertResult, error: upsertError } = await supabase
                 .from('processed_inbound')
-                .insert({
+                .upsert({
                   msg_id: messageId,
                   wa_id: from,
                   processed_at: new Date().toISOString(),
                   metadata: { contact_name: contactName, message_type: messageType }
+                }, {
+                  onConflict: 'msg_id',
+                  ignoreDuplicates: true
                 })
-                .select('msg_id')
-                .single();
+                .select('msg_id');
 
-              // If insert failed due to duplicate, skip processing
-              if (insertError && insertError.code === '23505') {
-                console.log(`⏭️ Duplicate message detected via DB constraint: ${messageId}`);
+              // If upsert returns no data, it means this was a duplicate
+              if (!upsertResult || upsertResult.length === 0) {
+                console.log(`⏭️ Duplicate message detected via upsert: ${messageId}`);
                 continue;
               }
 
-              if (insertError) {
-                console.error(`❌ Error inserting processed message: ${insertError.message}`);
+              if (upsertError) {
+                console.error(`❌ Error upserting processed message: ${upsertError.message}`);
                 continue;
               }
 
