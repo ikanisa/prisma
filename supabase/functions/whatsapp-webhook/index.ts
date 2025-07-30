@@ -1,6 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { TPL, quickReplyMap, sendTemplate, logTemplateSend } from '../_shared/templates.ts';
+import { decideResponse } from '../_shared/decideResponse.ts';
+import { sendInteractive, sendPlain } from '../_shared/waSendHelpers.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -182,8 +184,8 @@ async function processWebhookAsync(body: any) {
               if (messageType === 'text') {
                 console.log(`Received text message from ${from}: ${message.text.body}`);
                 
-                // **FIX #2: SINGLE AGENT CALL** - Process with single, controlled agent call
-                await processMessageSafely(
+                // Use smart response strategy
+                await processMessageWithDecisionEngine(
                   supabase,
                   from,
                   message.text.body,
@@ -204,6 +206,88 @@ async function processWebhookAsync(body: any) {
     }
   } catch (error) {
     console.error("❌ Async webhook processing error:", error);
+  }
+}
+
+// Smart response processing with decision engine
+async function processMessageWithDecisionEngine(
+  supabase: any,
+  from: string,
+  text: string,
+  messageType: string,
+  messageId: string,
+  contactName: string,
+  timestamp: Date,
+  rawMessage: any
+) {
+  console.log(`🧠 Processing ${messageType} message with decision engine from ${from}:`, text);
+  
+  try {
+    // Get intent classification first
+    const { data: intentResponse } = await supabase.functions.invoke('classify-intent', {
+      body: { 
+        message: text, 
+        userId: from,
+        context: {
+          phone: from,
+          name: contactName,
+          lastInteraction: timestamp.toISOString()
+        }
+      }
+    });
+
+    const intent = intentResponse?.intent || 'unknown';
+    const domain = intentResponse?.domain || 'core';
+    const confidence = intentResponse?.confidence || 0.3;
+
+    // Get last message time for session management
+    const { data: contactData } = await supabase
+      .from('contacts')
+      .select('last_interaction')
+      .eq('phone_number', from)
+      .single();
+
+    const lastMsgAt = contactData?.last_interaction ? new Date(contactData.last_interaction) : null;
+
+    // Use decision engine to determine response strategy
+    const responsePlan = await decideResponse({
+      waId: from,
+      domain,
+      intent,
+      confidence,
+      lastMsgAt,
+      language: 'en_US'
+    });
+
+    console.log(`🎯 Response strategy: ${responsePlan.type} for domain: ${domain}, confidence: ${confidence}`);
+
+    // Execute the response plan
+    switch (responsePlan.type) {
+      case 'template':
+        await sendTemplate(from, responsePlan.name, [], responsePlan.language);
+        await logTemplateSend(supabase, from, responsePlan.name);
+        break;
+      case 'interactive':
+        await sendInteractive(from, responsePlan.text ?? 'Choose an option:', responsePlan.buttons);
+        break;
+      case 'clarify':
+        await sendInteractive(from, responsePlan.text, responsePlan.buttons);
+        break;
+      case 'plain':
+      default:
+        await sendPlain(from, responsePlan.text);
+    }
+
+    // Update contact interaction
+    await supabase.from('contacts').upsert({
+      phone_number: from,
+      last_interaction: timestamp.toISOString(),
+      status: 'active'
+    }, { onConflict: 'phone_number' });
+
+  } catch (error) {
+    console.error(`❌ Error in decision engine processing:`, error);
+    await sendPlain(from, "🤖 I'm experiencing technical difficulties. Please try again in a moment.");
   }
 }
 

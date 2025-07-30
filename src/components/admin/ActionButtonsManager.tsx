@@ -18,6 +18,7 @@ interface ActionButton {
   payload: string;
   description: string;
   created_at: string;
+  template_eligible?: boolean;
 }
 
 const DOMAINS = [
@@ -38,7 +39,8 @@ export function ActionButtonsManager() {
     domain: '',
     label: '',
     payload: '',
-    description: ''
+    description: '',
+    template_eligible: true
   });
 
   useEffect(() => {
@@ -100,7 +102,7 @@ export function ActionButtonsManager() {
 
       setIsDialogOpen(false);
       setEditingButton(null);
-      setFormData({ id: '', domain: '', label: '', payload: '', description: '' });
+      setFormData({ id: '', domain: '', label: '', payload: '', description: '', template_eligible: true });
       fetchButtons();
     } catch (error) {
       console.error('Error saving button:', error);
@@ -115,7 +117,8 @@ export function ActionButtonsManager() {
       domain: button.domain,
       label: button.label,
       payload: button.payload,
-      description: button.description
+      description: button.description,
+      template_eligible: button.template_eligible ?? true
     });
     setIsDialogOpen(true);
   };
@@ -181,7 +184,7 @@ export function ActionButtonsManager() {
             <DialogTrigger asChild>
               <Button onClick={() => {
                 setEditingButton(null);
-                setFormData({ id: '', domain: '', label: '', payload: '', description: '' });
+                setFormData({ id: '', domain: '', label: '', payload: '', description: '', template_eligible: true });
               }}>
                 <Plus className="h-4 w-4 mr-2" />
                 Add Button
@@ -319,6 +322,7 @@ export function ActionButtonsManager() {
                   <TableHead>Label</TableHead>
                   <TableHead>Payload</TableHead>
                   <TableHead>Description</TableHead>
+                  <TableHead>Template?</TableHead>
                   <TableHead className="w-20">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -332,6 +336,7 @@ export function ActionButtonsManager() {
                     <TableCell>{button.label}</TableCell>
                     <TableCell className="font-mono text-xs">{button.payload}</TableCell>
                     <TableCell className="max-w-xs truncate">{button.description}</TableCell>
+                    <TableCell>{button.template_eligible ? '✅' : '—'}</TableCell>
                     <TableCell>
                       <div className="flex gap-1">
                         <Button size="sm" variant="ghost" onClick={() => handleEdit(button)}>

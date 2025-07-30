@@ -22,6 +22,7 @@ export type Database = {
           id: string
           label: string
           payload: string
+          template_eligible: boolean | null
         }
         Insert: {
           created_at?: string | null
@@ -30,6 +31,7 @@ export type Database = {
           id: string
           label: string
           payload: string
+          template_eligible?: boolean | null
         }
         Update: {
           created_at?: string | null
@@ -38,6 +40,7 @@ export type Database = {
           id?: string
           label?: string
           payload?: string
+          template_eligible?: boolean | null
         }
         Relationships: []
       }
