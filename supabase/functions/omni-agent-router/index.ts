@@ -109,29 +109,31 @@ async function detectIntent(message: string, userId: string, context?: any): Pro
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'gpt-4.1-2025-04-14',
         messages: [{
+          role: 'system',
+          content: `You are an intelligent intent classifier for easyMO, Rwanda's premier WhatsApp super-app.
+
+RWANDA CONTEXT:
+- Primary language: Kinyarwanda (locals often mix with French/English)
+- Currency: Rwandan Francs (RWF)  
+- Mobile money: Dominant payment method
+- Transport: Motos are primary transport in cities
+- Location: East Africa, hilly terrain, tech-forward economy
+
+AVAILABLE DOMAINS & INTENTS:
+🏦 PAYMENTS: get_paid, pay_someone, confirm_paid, history, menu
+🏍️ MOTO: driver_create_trip, passenger_create_intent, view_nearby_drivers, view_nearby_passengers, menu  
+🏠 LISTINGS: property_list, property_search, vehicle_list, vehicle_search, menu
+🛒 COMMERCE: order_pharmacy, order_hardware, order_bar, see_menu, menu
+📊 DATA_SYNC: import_google_places, sync_airbnb, upload_csv
+🆘 ADMIN_SUPPORT: handoff_request, help, feedback_submit, menu
+
+RESPONSE FORMAT: JSON only, no explanations
+{"domain": "domain_name", "intent": "intent_name", "confidence": 0.0-1.0, "slots": {}}`
+        }, {
           role: 'user',
-          content: `
-You are an intent classifier for easyMO, a WhatsApp service platform in Rwanda.
-
-Available domains and intents:
-- payments: get_paid, pay_someone, confirm_paid, history, menu
-- moto: driver_create_trip, passenger_create_intent, view_nearby_drivers, view_nearby_passengers, menu
-- listings: property_list, property_search, vehicle_list, vehicle_search, menu
-- commerce: order_pharmacy, order_hardware, order_bar, see_menu, menu
-- data_sync: import_google_places, sync_airbnb, upload_csv
-- admin_support: handoff_request, help, feedback_submit, menu
-
-User message: "${message}"
-
-Respond with JSON only:
-{
-  "domain": "domain_name",
-  "intent": "intent_name", 
-  "confidence": 0.0-1.0,
-  "slots": {}
-}`
+          content: `User message: "${message}"`
         }],
         temperature: 0.1,
         max_tokens: 200
@@ -252,9 +254,13 @@ async function routeToSkill(intent: IntentResult, message: string, userId: strin
 }
 
 async function handlePaymentsSkill(intent: string, message: string, userId: string, slots: Record<string, any>): Promise<AgentResponse> {
+  console.log(`💰 Processing payments skill - Intent: ${intent}, Message: ${message}, Amount extracted:`, extractAmount(message));
+  
   switch (intent) {
     case 'get_paid':
       const amount = extractAmount(message);
+      console.log(`💰 QR Generation Request - Amount: ${amount}, User: ${userId}`);
+      
       if (!amount) {
         return {
           success: true,
@@ -265,17 +271,24 @@ async function handlePaymentsSkill(intent: string, message: string, userId: stri
       
       // Call QR generation tool
       try {
+        console.log(`🎯 Calling enhanced-qr-generator with:`, { phone: userId, amount, description: 'Payment via easyMO' });
+        
         const qrResponse = await supabase.functions.invoke('enhanced-qr-generator', {
           body: { phone: userId, amount: amount, description: 'Payment via easyMO' }
         });
         
+        console.log(`📸 QR Generation Response:`, qrResponse);
+        
         if (qrResponse.data?.qr_url) {
+          console.log(`✅ QR Generated successfully: ${qrResponse.data.qr_url}`);
           return {
             success: true,
             response_type: 'media',
             media_url: qrResponse.data.qr_url,
             message: `🎯 Your payment QR is ready!\n\n💰 Amount: ${amount} RWF\n📱 Show this to the payer\n\n⚡ Payment will be instant!`
           };
+        } else {
+          console.log(`❌ QR Generation failed - no qr_url in response:`, qrResponse);
         }
       } catch (error) {
         console.error('QR generation error:', error);
