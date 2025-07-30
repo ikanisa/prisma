@@ -1,0 +1,433 @@
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
+import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import { 
+  Brain, 
+  BookOpen, 
+  MessageSquare, 
+  User,
+  FileText,
+  Target,
+  TrendingUp,
+  Zap,
+  RefreshCw,
+  Database,
+  Lightbulb,
+  Settings2,
+  MousePointer
+} from 'lucide-react';
+
+interface LearningOverviewStats {
+  totalDocuments: number;
+  totalPersonas: number;
+  totalActionButtons: number;
+  totalTemplates: number;
+  totalUserJourneys: number;
+  totalSkills: number;
+  totalEmbeddings: number;
+  lastLearningUpdate: string;
+  comprehensivenessScore: number;
+}
+
+interface LearningItem {
+  id: string;
+  title: string;
+  type: string;
+  status: string;
+  relevanceScore?: number;
+  lastUpdated: string;
+  tags?: string[];
+}
+
+export function ComprehensiveLearningOverview() {
+  const [stats, setStats] = useState<LearningOverviewStats>({
+    totalDocuments: 0,
+    totalPersonas: 0,
+    totalActionButtons: 0,
+    totalTemplates: 0,
+    totalUserJourneys: 0,
+    totalSkills: 0,
+    totalEmbeddings: 0,
+    lastLearningUpdate: '',
+    comprehensivenessScore: 0
+  });
+  const [learningItems, setLearningItems] = useState<LearningItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [processing, setProcessing] = useState(false);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    fetchComprehensiveLearningData();
+  }, []);
+
+  const fetchComprehensiveLearningData = async () => {
+    try {
+      setLoading(true);
+      
+      // Fetch all learning-related data in parallel
+      const [
+        documentsData,
+        personasData,
+        actionButtonsData,
+        templatesData,
+        skillsData,
+        embeddingsData,
+        learningModulesData
+      ] = await Promise.all([
+        supabase.from('centralized_documents').select('*').eq('status', 'active'),
+        supabase.from('agent_personas').select('*'),
+        supabase.from('action_buttons').select('*'),
+        supabase.from('whatsapp_templates').select('*').eq('status', 'APPROVED'),
+        supabase.from('agent_skills').select('*').eq('enabled', true),
+        supabase.from('agent_document_embeddings').select('id, created_at'),
+        supabase.from('learning_modules').select('*').order('updated_at', { ascending: false })
+      ]);
+
+      // Calculate stats
+      const totalDocuments = documentsData.data?.length || 0;
+      const totalPersonas = personasData.data?.length || 0;
+      const totalActionButtons = actionButtonsData.data?.length || 0;
+      const totalTemplates = templatesData.data?.length || 0;
+      const totalSkills = skillsData.data?.length || 0;
+      const totalEmbeddings = embeddingsData.data?.length || 0;
+      const totalUserJourneys = 12; // Based on the comprehensive journey system
+
+      // Calculate comprehensiveness score based on coverage areas
+      const maxPossibleItems = {
+        documents: 50,
+        personas: 10,
+        actionButtons: 100,
+        templates: 50,
+        skills: 30,
+        journeys: 15
+      };
+
+      const currentCoverage = {
+        documents: Math.min(totalDocuments / maxPossibleItems.documents, 1),
+        personas: Math.min(totalPersonas / maxPossibleItems.personas, 1),
+        actionButtons: Math.min(totalActionButtons / maxPossibleItems.actionButtons, 1),
+        templates: Math.min(totalTemplates / maxPossibleItems.templates, 1),
+        skills: Math.min(totalSkills / maxPossibleItems.skills, 1),
+        journeys: Math.min(totalUserJourneys / maxPossibleItems.journeys, 1)
+      };
+
+      const comprehensivenessScore = Math.round(
+        (Object.values(currentCoverage).reduce((sum, score) => sum + score, 0) / 6) * 100
+      );
+
+      const lastUpdate = learningModulesData.data?.[0]?.updated_at || new Date().toISOString();
+
+      setStats({
+        totalDocuments,
+        totalPersonas,
+        totalActionButtons,
+        totalTemplates,
+        totalUserJourneys,
+        totalSkills,
+        totalEmbeddings,
+        lastLearningUpdate: lastUpdate,
+        comprehensivenessScore
+      });
+
+      // Combine learning items from different sources
+      const items: LearningItem[] = [
+        ...(documentsData.data?.slice(0, 5).map(doc => ({
+          id: doc.id,
+          title: doc.title,
+          type: 'Document',
+          status: doc.status,
+          lastUpdated: doc.updated_at,
+          tags: [doc.document_type, doc.agent_scope].filter(Boolean)
+        })) || []),
+        ...(actionButtonsData.data?.slice(0, 5).map(button => ({
+          id: button.id,
+          title: button.label,
+          type: 'Action Button',
+          status: 'active',
+          lastUpdated: button.created_at,
+          tags: [button.domain].filter(Boolean)
+        })) || []),
+        ...(skillsData.data?.slice(0, 5).map(skill => ({
+          id: skill.id,
+          title: skill.skill,
+          type: 'Agent Skill',
+          status: skill.enabled ? 'active' : 'inactive',
+          lastUpdated: skill.updated_at,
+          tags: []
+        })) || [])
+      ];
+
+      setLearningItems(items);
+
+    } catch (error) {
+      console.error('Error fetching comprehensive learning data:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch learning data",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const triggerComprehensiveLearning = async () => {
+    try {
+      setProcessing(true);
+      
+      // Trigger multiple learning pipelines
+      const responses = await Promise.all([
+        supabase.functions.invoke('dynamic-learning-processor', {
+          body: { 
+            action: 'comprehensive_analysis',
+            priority: 'high',
+            includeAllSources: true
+          }
+        }),
+        supabase.functions.invoke('continuous-learning-pipeline', {
+          body: { 
+            triggerType: 'manual',
+            scope: 'full_system'
+          }
+        })
+      ]);
+
+      const hasErrors = responses.some(r => r.error);
+      if (hasErrors) {
+        throw new Error('Some learning processes failed to start');
+      }
+
+      toast({
+        title: "Comprehensive Learning Started",
+        description: "All knowledge sources are being processed and integrated"
+      });
+
+      // Refresh data after processing
+      setTimeout(fetchComprehensiveLearningData, 5000);
+
+    } catch (error) {
+      console.error('Error triggering comprehensive learning:', error);
+      toast({
+        title: "Error",
+        description: "Failed to start comprehensive learning",
+        variant: "destructive"
+      });
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const getTypeIcon = (type: string) => {
+    switch (type.toLowerCase()) {
+      case 'document': return <FileText className="h-4 w-4" />;
+      case 'action button': return <MousePointer className="h-4 w-4" />;
+      case 'agent skill': return <Lightbulb className="h-4 w-4" />;
+      case 'template': return <MessageSquare className="h-4 w-4" />;
+      case 'persona': return <User className="h-4 w-4" />;
+      default: return <Database className="h-4 w-4" />;
+    }
+  };
+
+  const getStatusBadgeVariant = (status: string) => {
+    switch (status.toLowerCase()) {
+      case 'active': return 'default';
+      case 'inactive': return 'secondary';
+      case 'processing': return 'outline';
+      default: return 'secondary';
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p>Loading comprehensive learning overview...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Knowledge Base Overview */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <Brain className="h-5 w-5" />
+            <span>AI Agent Knowledge Base</span>
+          </CardTitle>
+          <CardDescription>
+            Comprehensive overview of all knowledge sources powering the Omni Agent
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div className="text-center p-4 bg-blue-50 rounded-lg">
+              <div className="text-2xl font-bold text-blue-900">{stats.comprehensivenessScore}%</div>
+              <div className="text-sm text-blue-700">Knowledge Coverage</div>
+              <Progress value={stats.comprehensivenessScore} className="mt-2 h-2" />
+            </div>
+            <div className="text-center p-4 bg-green-50 rounded-lg">
+              <div className="text-2xl font-bold text-green-900">{stats.totalEmbeddings}</div>
+              <div className="text-sm text-green-700">Vector Embeddings</div>
+            </div>
+            <div className="text-center p-4 bg-purple-50 rounded-lg">
+              <div className="text-2xl font-bold text-purple-900">{stats.totalSkills}</div>
+              <div className="text-sm text-purple-700">Active Skills</div>
+            </div>
+            <div className="text-center p-4 bg-orange-50 rounded-lg">
+              <div className="text-2xl font-bold text-orange-900">
+                {stats.lastLearningUpdate ? new Date(stats.lastLearningUpdate).toLocaleDateString() : 'Never'}
+              </div>
+              <div className="text-sm text-orange-700">Last Update</div>
+            </div>
+          </div>
+
+          <div className="flex justify-center">
+            <Button 
+              onClick={triggerComprehensiveLearning} 
+              disabled={processing}
+              className="w-full md:w-auto"
+            >
+              {processing ? (
+                <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Zap className="h-4 w-4 mr-2" />
+              )}
+              Trigger Comprehensive Learning
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Knowledge Sources Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Documents & Knowledge</CardTitle>
+            <FileText className="h-4 w-4 text-blue-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.totalDocuments}</div>
+            <p className="text-xs text-muted-foreground">
+              Centralized documents, guides, and knowledge base
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">AI Personas</CardTitle>
+            <User className="h-4 w-4 text-green-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.totalPersonas}</div>
+            <p className="text-xs text-muted-foreground">
+              Personality configurations and interaction styles
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Action Buttons</CardTitle>
+            <MousePointer className="h-4 w-4 text-purple-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.totalActionButtons}</div>
+            <p className="text-xs text-muted-foreground">
+              Interactive buttons for user engagement
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Message Templates</CardTitle>
+            <MessageSquare className="h-4 w-4 text-orange-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.totalTemplates}</div>
+            <p className="text-xs text-muted-foreground">
+              Pre-configured message templates and responses
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">User Journeys</CardTitle>
+            <TrendingUp className="h-4 w-4 text-red-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.totalUserJourneys}</div>
+            <p className="text-xs text-muted-foreground">
+              Defined user flows and interaction patterns
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Agent Skills</CardTitle>
+            <Lightbulb className="h-4 w-4 text-yellow-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.totalSkills}</div>
+            <p className="text-xs text-muted-foreground">
+              Enabled capabilities and service skills
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Recent Learning Items */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Recent Knowledge Items</CardTitle>
+          <CardDescription>Latest additions and updates across all knowledge sources</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {learningItems.map((item) => (
+            <div key={item.id} className="flex items-center space-x-3 p-3 border rounded-lg">
+              <div className="text-muted-foreground">
+                {getTypeIcon(item.type)}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center space-x-2">
+                  <p className="text-sm font-medium truncate">{item.title}</p>
+                  <Badge variant={getStatusBadgeVariant(item.status)}>
+                    {item.status}
+                  </Badge>
+                </div>
+                <div className="flex items-center space-x-2 mt-1">
+                  <span className="text-xs text-muted-foreground">{item.type}</span>
+                  {item.tags && item.tags.length > 0 && (
+                    <>
+                      <span className="text-xs text-muted-foreground">•</span>
+                      <div className="flex space-x-1">
+                        {item.tags.slice(0, 2).map((tag, idx) => (
+                          <Badge key={idx} variant="outline" className="text-xs">
+                            {tag}
+                          </Badge>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+              <div className="text-xs text-muted-foreground">
+                {new Date(item.lastUpdated).toLocaleDateString()}
+              </div>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

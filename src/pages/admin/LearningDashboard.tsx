@@ -11,6 +11,8 @@ import { DocumentManager } from '@/components/admin/DocumentManager';
 import { LearningComponents } from '@/components/admin/LearningComponents';
 import { ComprehensiveUserJourneySystem } from '@/components/admin/ComprehensiveUserJourneySystem';
 import { ContextMemoryTester } from '@/components/admin/ContextMemoryTester';
+import { ComprehensiveLearningOverview } from '@/components/admin/ComprehensiveLearningOverview';
+import { ComprehensiveMemoryOverview } from '@/components/admin/ComprehensiveMemoryOverview';
 import { 
   Brain, 
   AlertTriangle, 
@@ -469,11 +471,11 @@ export function LearningDashboard() {
         </TabsContent>
 
         <TabsContent value="learning" className="space-y-4">
-          <LearningComponents />
+          <ComprehensiveLearningOverview />
         </TabsContent>
 
         <TabsContent value="memory" className="space-y-4">
-          <ContextMemoryTester />
+          <ComprehensiveMemoryOverview />
         </TabsContent>
 
         <TabsContent value="journeys" className="space-y-4">
