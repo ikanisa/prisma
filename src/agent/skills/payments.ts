@@ -1,205 +1,89 @@
-import { toolRegistry } from '../tools/registry';
-import { templateRegistry } from '../templates/whatsapp_templates';
-import { IntentResult } from '../router/intent_router';
+// Payments Skill - QR generation, money transfer, payment history
+import { z } from 'zod';
 
-export interface PaymentSkillResult {
-  success: boolean;
-  response_type: 'template' | 'text' | 'media';
-  template_id?: string;
-  message?: string;
-  media_url?: string;
-  template_params?: Record<string, string>;
+export interface PaymentsContext {
+  userId: string;
+  phone: string;
+  amount?: number;
+  recipient?: string;
+  reference?: string;
 }
 
-export class PaymentsSkill {
-  async handle(intent: string, message: string, userId: string, slots: Record<string, any>): Promise<PaymentSkillResult> {
-    console.log(`PaymentsSkill handling intent: ${intent} for user: ${userId}`);
-    
-    switch (intent) {
-      case 'get_paid':
-        return this.handleGetPaid(message, userId, slots);
-      case 'pay_someone':
-        return this.handlePaySomeone(message, userId, slots);
-      case 'confirm_paid':
-        return this.handleConfirmPaid(message, userId, slots);
-      case 'history':
-        return this.handleHistory(message, userId, slots);
-      default:
-        return this.handlePaymentMenu(userId);
-    }
-  }
+export const PaymentsSkill = {
+  name: 'payments',
+  description: 'Handle payment operations, QR generation, and money transfers',
   
-  private async handleGetPaid(message: string, userId: string, slots: Record<string, any>): Promise<PaymentSkillResult> {
-    // Extract amount and phone from message or slots
-    const amount = this.extractAmount(message) || slots.amount;
-    const phone = this.extractPhone(message) || slots.phone;
-    
-    if (!amount) {
-      return {
-        success: true,
-        response_type: 'text',
-        message: '💰 To generate a payment QR code, please tell me the amount.\n\nExample: "Get paid 5000 RWF"'
-      };
-    }
-    
-    if (!phone) {
-      // Use user's registered phone from context
-      // For now, we'll generate QR without specific phone
-    }
-    
-    try {
-      const qrResult = await toolRegistry.executeTool('qr_render', {
-        phone: phone || userId, // fallback to userId
-        amount: amount,
-        description: 'Payment via easyMO'
-      });
-      
-      if (qrResult.success && qrResult.data?.qr_url) {
+  tools: {
+    generate_qr: {
+      name: 'generate_qr',
+      description: 'Generate QR code for payment',
+      parameters: z.object({
+        amount: z.number().min(100).max(1000000),
+        currency: z.string().default('RWF'),
+        reference: z.string().optional(),
+        description: z.string().optional()
+      }),
+      execute: async (params: any, context: PaymentsContext) => {
         return {
-          success: true,
-          response_type: 'media',
-          template_id: 'qr_ready_v1',
-          media_url: qrResult.data.qr_url,
-          template_params: {
-            amount: amount.toString()
-          }
-        };
-      } else {
-        return {
-          success: false,
-          response_type: 'text',
-          message: '❌ Sorry, I couldn\'t generate your QR code. Please try again.'
+          qr_code_url: `https://api.qr-server.com/v1/create-qr-code/?size=300x300&data=PAY:${params.amount}:${context.phone}:${params.reference || 'payment'}`,
+          payment_reference: params.reference || `PAY_${Date.now()}`,
+          amount: params.amount,
+          expires_in: 900 // 15 minutes
         };
       }
-      
-    } catch (error) {
-      console.error('QR generation error:', error);
-      return {
-        success: false,
-        response_type: 'text',
-        message: '❌ There was an error generating your QR code. Please try again later.'
-      };
-    }
-  }
-  
-  private async handlePaySomeone(message: string, userId: string, slots: Record<string, any>): Promise<PaymentSkillResult> {
-    const amount = this.extractAmount(message) || slots.amount;
-    const phone = this.extractPhone(message) || slots.phone;
+    },
     
-    if (!amount || !phone) {
-      return {
-        success: true,
-        response_type: 'text',
-        message: '💸 To send money, I need:\n\n📱 Phone number\n💰 Amount\n\nExample: "Pay 250788123456 5000 RWF"'
-      };
-    }
-    
-    try {
-      const paymentResult = await toolRegistry.executeTool('momo_tx_check', {
-        transaction_id: `PAY_${Date.now()}`,
-        phone: phone
-      });
-      
-      return {
-        success: true,
-        response_type: 'text',
-        message: `💸 Payment initiated!\n\n📱 To: ${phone}\n💰 Amount: ${amount} RWF\n\n⏳ Please complete the transaction on your phone.`
-      };
-      
-    } catch (error) {
-      console.error('Payment error:', error);
-      return {
-        success: false,
-        response_type: 'text',
-        message: '❌ Payment failed. Please check the phone number and try again.'
-      };
-    }
-  }
-  
-  private async handleConfirmPaid(message: string, userId: string, slots: Record<string, any>): Promise<PaymentSkillResult> {
-    // This would typically be triggered by webhook
-    const amount = slots.amount || '0';
-    const phone = slots.phone || 'Unknown';
-    const timestamp = new Date().toLocaleString();
-    
-    return {
-      success: true,
-      response_type: 'template',
-      template_id: 'payment_confirm_v1',
-      template_params: {
-        amount: amount.toString(),
-        phone: phone,
-        timestamp: timestamp
+    transfer_money: {
+      name: 'transfer_money',
+      description: 'Transfer money to another user',
+      parameters: z.object({
+        recipient_phone: z.string().min(10),
+        amount: z.number().min(100).max(500000),
+        message: z.string().optional()
+      }),
+      execute: async (params: any, context: PaymentsContext) => {
+        // Simulate transfer processing
+        return {
+          transaction_id: `TXN_${Date.now()}`,
+          status: 'pending',
+          recipient: params.recipient_phone,
+          amount: params.amount,
+          fee: Math.ceil(params.amount * 0.01), // 1% fee
+          estimated_completion: new Date(Date.now() + 60000).toISOString()
+        };
       }
-    };
-  }
-  
-  private async handleHistory(message: string, userId: string, slots: Record<string, any>): Promise<PaymentSkillResult> {
-    // Get payment history from database
-    // For now, return mock data
-    return {
-      success: true,
-      response_type: 'text',
-      message: `📋 Your recent payments:\n\n✅ Received 2,500 RWF - 2 hours ago\n✅ Sent 1,000 RWF - Yesterday\n✅ Received 5,000 RWF - 2 days ago\n\n💰 Total this week: 6,500 RWF`
-    };
-  }
-  
-  private handlePaymentMenu(userId: string): PaymentSkillResult {
-    return {
-      success: true,
-      response_type: 'template',
-      template_id: 'payment_menu_v1'
-    };
-  }
-  
-  private extractAmount(message: string): number | null {
-    // Extract amount from various formats
-    const patterns = [
-      /(\d{1,3}(?:,\d{3})*)\s*(?:rwf|frw|francs?)/i,
-      /(?:rwf|frw|francs?)\s*(\d{1,3}(?:,\d{3})*)/i,
-      /(\d{1,3}(?:,\d{3})*)/
-    ];
+    },
     
-    for (const pattern of patterns) {
-      const match = message.match(pattern);
-      if (match) {
-        const amount = parseInt(match[1].replace(/,/g, ''));
-        if (amount > 0 && amount <= 1000000) { // Reasonable limits
-          return amount;
-        }
+    check_balance: {
+      name: 'check_balance',
+      description: 'Check user account balance',
+      parameters: z.object({}),
+      execute: async (params: any, context: PaymentsContext) => {
+        // Simulate balance check
+        return {
+          balance: Math.floor(Math.random() * 100000) + 1000,
+          currency: 'RWF',
+          last_updated: new Date().toISOString()
+        };
       }
     }
-    
-    return null;
-  }
+  },
   
-  private extractPhone(message: string): string | null {
-    // Extract Rwandan phone numbers
-    const patterns = [
-      /(\+?250\s?)?([67]\d{8})/,
-      /0([67]\d{8})/
-    ];
-    
-    for (const pattern of patterns) {
-      const match = message.match(pattern);
-      if (match) {
-        let phone = match[0].replace(/\s/g, '');
-        
-        // Normalize to international format
-        if (phone.startsWith('0')) {
-          phone = '250' + phone.slice(1);
-        } else if (phone.startsWith('+250')) {
-          phone = phone.slice(1);
-        } else if (!phone.startsWith('250')) {
-          phone = '250' + phone;
-        }
-        
-        return phone;
-      }
+  // Intent patterns for fast routing
+  intents: [
+    { pattern: /pay|payment|send money|transfer/i, confidence: 0.9 },
+    { pattern: /qr|code|scan/i, confidence: 0.8 },
+    { pattern: /balance|check.*money|how much/i, confidence: 0.8 }
+  ],
+  
+  // Response templates
+  templates: {
+    qr_generated: {
+      text: "🔗 Payment QR Code Generated!\n\nAmount: {amount} RWF\nReference: {reference}\n\nScan the QR code or share this link:\n{qr_code_url}\n\n⏰ Expires in 15 minutes",
+      buttons: [
+        { id: 'share_qr', title: 'Share QR Code' },
+        { id: 'cancel_payment', title: 'Cancel' }
+      ]
     }
-    
-    return null;
   }
-}
-
-export const paymentsSkill = new PaymentsSkill();
+};
