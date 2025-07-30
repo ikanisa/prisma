@@ -34,14 +34,8 @@ interface AgentRunOutput {
 }
 
 export class AgentExecutor {
-  private config: AgentExecutorConfig;
-
-  constructor(config: AgentExecutorConfig) {
-    this.config = config;
-  }
-
   /**
-   * Main agent execution entry point
+   * Main agent execution entry point - uses existing Chat Completions API
    */
   async run(input: AgentRunInput): Promise<AgentRunOutput> {
     try {
@@ -53,19 +47,29 @@ export class AgentExecutor {
       // Step 1: Retrieve RAG context
       const ragContext = await this.retrieve(input.input);
       
-      // Step 2: Route to appropriate Supabase Edge Function
-      const response = await this.routeToAgent(input, ragContext);
+      // Step 2: Use existing runAgent function from openai-agent.ts
+      const { data, error } = await supabase.functions.invoke('agent-router', {
+        body: {
+          agentCode: 'easymo_main',
+          userMessage: input.input,
+          history: [], // Could include conversation history here
+          conversationId: input.conversationId,
+          userPhone: input.userId
+        }
+      });
+
+      if (error) throw error;
       
       // Step 3: Apply quality gate
-      const qualityResult = await this.qualityGate(response.output);
+      const qualityResult = await this.qualityGate(data.response || "I couldn't process your request.");
       
       return {
-        output: qualityResult.enhanced_response || response.output,
-        buttons: response.buttons,
+        output: qualityResult.enhanced_response || data.response,
+        buttons: data.buttons,
         metadata: {
           ragContext,
           qualityScore: qualityResult.score,
-          toolCalls: response.toolCalls
+          runId: data.runId
         }
       };
       
@@ -102,28 +106,6 @@ export class AgentExecutor {
     }
   }
 
-  /**
-   * Route to appropriate agent based on input
-   */
-  private async routeToAgent(input: AgentRunInput, ragContext: string[]): Promise<any> {
-    try {
-      // Call the agent-router edge function
-      const { data, error } = await supabase.functions.invoke('agent-router', {
-        body: {
-          user_message: input.input,
-          user_id: input.userId,
-          conversation_id: input.conversationId,
-          rag_context: ragContext
-        }
-      });
-
-      if (error) throw error;
-      return data;
-    } catch (error) {
-      console.error('Agent routing error:', error);
-      throw error;
-    }
-  }
 
   /**
    * Quality gate implementation
@@ -165,8 +147,5 @@ export class AgentExecutor {
   }
 }
 
-// Export singleton instance
-export const executor = new AgentExecutor({
-  assistantId: import.meta.env.VITE_OPENAI_ASSISTANT_ID,
-  openAIApiKey: import.meta.env.VITE_OPENAI_API_KEY,
-});
+// Export singleton instance - no config needed, uses existing edge functions
+export const executor = new AgentExecutor();
