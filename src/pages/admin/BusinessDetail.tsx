@@ -87,10 +87,7 @@ export default function BusinessDetail() {
       // Load business details
       const { data: businessData, error: businessError } = await supabase
         .from('businesses')
-        .select(`
-          *,
-          owner:users(phone)
-        `)
+        .select('*')
         .eq('id', businessId)
         .single();
 
@@ -98,7 +95,7 @@ export default function BusinessDetail() {
 
       setBusiness({
         ...businessData,
-        owner_phone: businessData.owner?.phone
+        owner_phone: null // TODO: Re-establish relationship with new users table
       });
 
       // Load products

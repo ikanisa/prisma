@@ -1001,13 +1001,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "bookings_passenger_id_fkey"
-            columns: ["passenger_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "bookings_passenger_intent_id_fkey"
             columns: ["passenger_intent_id"]
             isOneToOne: false
@@ -1176,15 +1169,7 @@ export type Database = {
           website?: string | null
           whatsapp_number?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "businesses_owner_user_id_fkey"
-            columns: ["owner_user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       campaign_messages: {
         Row: {
@@ -2252,15 +2237,7 @@ export type Database = {
           updated_at?: string | null
           user_id?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "conversations_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       coverage_scores: {
         Row: {
@@ -2889,15 +2866,7 @@ export type Database = {
           user_id?: string | null
           vehicle_plate?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "drivers_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       edge_function_config: {
         Row: {
@@ -3113,15 +3082,7 @@ export type Database = {
           price?: number | null
           title?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "events_organizer_user_id_fkey"
-            columns: ["organizer_user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       experiment_assignments: {
         Row: {
@@ -4102,13 +4063,6 @@ export type Database = {
             referencedRelation: "businesses"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "marketing_campaigns_owner_id_fkey"
-            columns: ["owner_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
         ]
       }
       marketing_gate_log: {
@@ -4373,13 +4327,6 @@ export type Database = {
             columns: ["conversation_id"]
             isOneToOne: false
             referencedRelation: "conversations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "messages_sender_id_fkey"
-            columns: ["sender_id"]
-            isOneToOne: false
-            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]
@@ -4796,24 +4743,10 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "orders_farmer_id_fkey"
-            columns: ["farmer_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "orders_payment_id_fkey"
             columns: ["payment_id"]
             isOneToOne: false
             referencedRelation: "payments"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "orders_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]
@@ -5226,13 +5159,6 @@ export type Database = {
             columns: ["order_id"]
             isOneToOne: false
             referencedRelation: "orders"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "payments_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]
@@ -5826,13 +5752,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "produce_matches_buyer_id_fkey"
-            columns: ["buyer_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "produce_matches_listing_id_fkey"
             columns: ["listing_id"]
             isOneToOne: false
@@ -5890,15 +5809,7 @@ export type Database = {
           stock_quantity?: number | null
           unit?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "products_farmer_id_fkey"
-            columns: ["business_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       property_listings: {
         Row: {
@@ -6499,22 +6410,7 @@ export type Database = {
           referred_user_id?: string | null
           referrer_user_id?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "referrals_referred_user_id_fkey"
-            columns: ["referred_user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "referrals_referrer_user_id_fkey"
-            columns: ["referrer_user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       ride_bookings: {
         Row: {
@@ -6559,13 +6455,6 @@ export type Database = {
             columns: ["driver_id"]
             isOneToOne: false
             referencedRelation: "drivers"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "ride_bookings_passenger_id_fkey"
-            columns: ["passenger_id"]
-            isOneToOne: false
-            referencedRelation: "users"
             referencedColumns: ["id"]
           },
           {
@@ -6887,15 +6776,7 @@ export type Database = {
           sub_type?: string | null
           user_id?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "subscriptions_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       support_tickets: {
         Row: {
@@ -6919,15 +6800,7 @@ export type Database = {
           topic?: string | null
           user_id?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "support_tickets_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       system_alerts: {
         Row: {
@@ -8264,15 +8137,7 @@ export type Database = {
           type?: Database["public"]["Enums"]["listing_type"]
           updated_at?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "unified_listings_owner_id_fkey"
-            columns: ["owner_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       unified_messages: {
         Row: {
@@ -8398,13 +8263,6 @@ export type Database = {
             columns: ["listing_id"]
             isOneToOne: false
             referencedRelation: "unified_listings"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "unified_orders_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]
@@ -8672,33 +8530,33 @@ export type Database = {
       users: {
         Row: {
           created_at: string | null
-          credits: number
+          display_name: string | null
           id: string
-          momo_code: string | null
-          phone: string
-          referral_code: string | null
-          referred_by: string | null
-          status: string
+          language: string | null
+          momo_number: string | null
+          source: string | null
+          updated_at: string | null
+          wa_id: string | null
         }
         Insert: {
           created_at?: string | null
-          credits?: number
+          display_name?: string | null
           id?: string
-          momo_code?: string | null
-          phone: string
-          referral_code?: string | null
-          referred_by?: string | null
-          status?: string
+          language?: string | null
+          momo_number?: string | null
+          source?: string | null
+          updated_at?: string | null
+          wa_id?: string | null
         }
         Update: {
           created_at?: string | null
-          credits?: number
+          display_name?: string | null
           id?: string
-          momo_code?: string | null
-          phone?: string
-          referral_code?: string | null
-          referred_by?: string | null
-          status?: string
+          language?: string | null
+          momo_number?: string | null
+          source?: string | null
+          updated_at?: string | null
+          wa_id?: string | null
         }
         Relationships: []
       }

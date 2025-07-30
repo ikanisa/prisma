@@ -94,15 +94,19 @@ serve(async (req) => {
       messagePreview: latestMessage.message_text?.substring(0, 50)
     })
 
-    // Ensure user exists in users table
-    const { data: userResult, error: userError } = await supabase.functions.invoke("ensure-user-exists", {
-      body: { phone: latestMessage.from_number, contact_name: "WhatsApp User" }
-    });
+    // Upsert user in users table using WhatsApp data  
+    console.log(`📞 Upserting user for wa_id: ${latestMessage.from_number}`);
+    const { error: upsertError } = await supabase.from('users').upsert({
+      wa_id: latestMessage.from_number,
+      display_name: "WhatsApp User",
+      language: 'en',
+      source: 'whatsapp'
+    }, { onConflict: 'wa_id' });
 
-    if (userError) {
-      console.error("Failed to ensure user exists:", userError);
+    if (upsertError) {
+      console.error("Failed to upsert user:", upsertError);
     } else {
-      console.log("User check result:", userResult);
+      console.log(`✅ User upserted successfully for wa_id: ${latestMessage.from_number}`);
     }
 
     // Validate message before processing

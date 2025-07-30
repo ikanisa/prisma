@@ -168,10 +168,7 @@ export default function Businesses() {
       
       let query = supabase
         .from('businesses')
-        .select(`
-          *,
-          users!businesses_owner_user_id_fkey(phone)
-        `, { count: 'exact' })
+        .select('*', { count: 'exact' })
         .order(sortBy, { ascending: sortOrder === 'asc' })
         .range((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage - 1);
 
@@ -193,7 +190,7 @@ export default function Businesses() {
 
       const businessesWithPhone = (data || []).map(business => ({
         ...business,
-        owner_phone: business.users?.phone,
+        owner_phone: null, // TODO: Re-establish relationship with new users table
         monthly_revenue: Math.floor(Math.random() * 50000) + 10000,
         order_count: Math.floor(Math.random() * 100) + 5,
         rating: Number((Math.random() * 2 + 3).toFixed(1)),

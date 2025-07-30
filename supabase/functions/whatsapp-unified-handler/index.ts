@@ -161,15 +161,19 @@ serve(async (req) => {
       return json({ ignored: true, reason: "unsupported_message_type" });
     }
 
-    // 2.1 Ensure user exists in users table
-    const { data: userResult, error: userError } = await sbAdmin.functions.invoke("ensure-user-exists", {
-      body: { phone: from, contact_name: contactName }
-    });
+    // 2.1 Upsert user in users table using WhatsApp data
+    console.log(`📞 Upserting user for wa_id: ${from}`);
+    const { error: upsertError } = await sbAdmin.from('users').upsert({
+      wa_id: from,
+      display_name: contactName,
+      language: 'en', // Default language, could be detected from message
+      source: 'whatsapp'
+    }, { onConflict: 'wa_id' });
 
-    if (userError) {
-      console.error("Failed to ensure user exists:", userError);
+    if (upsertError) {
+      console.error("Failed to upsert user:", upsertError);
     } else {
-      console.log("User check result:", userResult);
+      console.log(`✅ User upserted successfully for wa_id: ${from}`);
     }
 
     // 2.2 quick async log (fire‑and‑forget)

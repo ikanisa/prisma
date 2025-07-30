@@ -32,10 +32,11 @@ export function AddUserDialog({ onUserAdded }: AddUserDialogProps) {
       const { error } = await supabase
         .from('users')
         .insert([{
-          phone: formData.phone,
-          momo_code: formData.momo_code || null,
-          credits: parseInt(formData.credits),
-          referral_code: referralCode
+          wa_id: formData.phone,
+          momo_number: formData.momo_code || null,
+          display_name: `User ${formData.phone}`,
+          language: 'en',
+          source: 'admin'
         }]);
 
       if (error) throw error;
