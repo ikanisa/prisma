@@ -146,9 +146,17 @@ async function processWebhookAsync(body: any) {
               // Check for button responses first
               if (messageType === 'button' && message.button?.text) {
                 const buttonText = message.button.text;
-                const payload = quickReplyMap[buttonText];
                 
-                console.log(`🔘 Button pressed: "${buttonText}" -> payload: ${payload}`);
+                // Look up button payload from database instead of hardcoded map
+                const { data: buttonRow, error: buttonError } = await supabase
+                  .from('action_buttons')
+                  .select('payload')
+                  .eq('label', buttonText)
+                  .single();
+                
+                const payload = buttonRow?.payload || quickReplyMap[buttonText]; // Fallback to old map
+                
+                console.log(`🔘 Button pressed: "${buttonText}" -> payload: ${payload} (source: ${buttonRow ? 'DB' : 'fallback'})`);
                 
                 if (payload) {
                   await routeQuickReply(supabase, from, payload, contactName);
