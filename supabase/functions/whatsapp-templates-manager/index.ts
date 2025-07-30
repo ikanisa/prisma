@@ -8,7 +8,7 @@ const corsHeaders = {
 };
 
 interface TemplateRequest {
-  action: 'get_template' | 'send_template' | 'create_template' | 'update_template' | 'sync_meta';
+  action: 'get_template' | 'send_template' | 'create_template' | 'update_template' | 'sync_meta' | 'list';
   intent?: string;
   language?: string;
   template_data?: any;
@@ -46,6 +46,9 @@ serve(async (req) => {
       
       case 'sync_meta':
         return await syncWithMeta(supabase);
+      
+      case 'list':
+        return await listTemplates(supabase);
       
       default:
         throw new Error(`Unknown action: ${action}`);
@@ -403,4 +406,28 @@ async function syncWithMeta(supabase: any) {
 
     throw error;
   }
+}
+
+async function listTemplates(supabase: any) {
+  console.log('Listing all templates');
+
+  const { data: templates, error } = await supabase
+    .from('whatsapp_templates')
+    .select(`
+      *,
+      buttons:whatsapp_template_buttons(*)
+    `)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    throw error;
+  }
+
+  return new Response(
+    JSON.stringify({ 
+      success: true, 
+      templates: templates || []
+    }),
+    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+  );
 }
