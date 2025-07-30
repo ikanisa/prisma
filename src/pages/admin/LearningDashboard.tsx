@@ -10,6 +10,7 @@ import { PersonaEditor } from '@/components/admin/PersonaEditor';
 import { DocumentManager } from '@/components/admin/DocumentManager';
 import { LearningComponents } from '@/components/admin/LearningComponents';
 import { ComprehensiveUserJourneySystem } from '@/components/admin/ComprehensiveUserJourneySystem';
+import { ContextMemoryTester } from '@/components/admin/ContextMemoryTester';
 import { 
   Brain, 
   AlertTriangle, 
@@ -315,11 +316,12 @@ export function LearningDashboard() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-7">
+        <TabsList className="grid w-full grid-cols-8">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="personas">Personas</TabsTrigger>
           <TabsTrigger value="documents">Documents</TabsTrigger>
           <TabsTrigger value="learning">Learning</TabsTrigger>
+          <TabsTrigger value="memory">Memory V3</TabsTrigger>
           <TabsTrigger value="journeys">User Journeys</TabsTrigger>
           <TabsTrigger value="comprehensive">All Services</TabsTrigger>
           <TabsTrigger value="audits">Audit History</TabsTrigger>
@@ -468,6 +470,10 @@ export function LearningDashboard() {
 
         <TabsContent value="learning" className="space-y-4">
           <LearningComponents />
+        </TabsContent>
+
+        <TabsContent value="memory" className="space-y-4">
+          <ContextMemoryTester />
         </TabsContent>
 
         <TabsContent value="journeys" className="space-y-4">
