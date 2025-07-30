@@ -41,210 +41,65 @@ class OpenAIAssistantAgent {
   }
 
   async processMessage(message: string, userContext: UserContext): Promise<AIProcessingResult> {
-    console.log(`🤖 OpenAI Assistant processing: ${userContext.phone} - ${message}`);
+    console.log(`🤖 OpenAI Chat Completions processing: ${userContext.phone} - ${message}`);
 
     try {
-      // Use direct intent processing instead of assistant lookup
-      console.log('🎯 Processing with direct intent routing');
-      return await this.processDirectIntent(message, userContext);
+      const response = await this.callOpenAI(message, userContext);
+      
+      // Store conversation
+      await this.storeConversation(userContext.phone, message, response);
+      
+      return {
+        success: true,
+        response: response,
+        confidence: 0.9,
+        intent: 'openai_processed',
+        toolsCalled: ['openai_chat_completions']
+      };
 
     } catch (error) {
-      console.error('❌ Assistant processing error:', error);
+      console.error('❌ OpenAI processing error:', error);
       return this.getFallbackResult(message, userContext);
     }
   }
 
-  private async createThread() {
-    const response = await fetch('https://api.openai.com/v1/threads', {
+  private async callOpenAI(message: string, userContext: UserContext): Promise<string> {
+    const systemPrompt = `You are easyMO assistant for Rwanda. Help users with:
+💰 Payments - MoMo, QR codes, bill payments  
+🛵 Moto rides - Book transport, find drivers
+🛒 Shopping - Find products, local businesses
+🏠 Property - Houses, apartments for rent
+
+User context: ${JSON.stringify(userContext)}
+
+Keep responses under 160 characters and always include relevant emojis.
+If user asks about payments, guide them to specific amounts.
+If user asks about rides, ask for pickup/destination.
+Always be helpful in Kinyarwanda/English mix.`;
+
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${this.openaiApiKey}`,
         'Content-Type': 'application/json',
-        'OpenAI-Beta': 'assistants=v2'
-      }
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to create thread: ${response.status}`);
-    }
-
-    return await response.json();
-  }
-
-  private async addMessageToThread(threadId: string, content: string) {
-    const response = await fetch(`https://api.openai.com/v1/threads/${threadId}/messages`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${this.openaiApiKey}`,
-        'Content-Type': 'application/json',
-        'OpenAI-Beta': 'assistants=v2'
       },
       body: JSON.stringify({
-        role: 'user',
-        content
+        model: 'gpt-4.1-2025-04-14',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: message }
+        ],
+        max_tokens: 150,
+        temperature: 0.7
       })
     });
 
     if (!response.ok) {
-      throw new Error(`Failed to add message: ${response.status}`);
+      throw new Error(`OpenAI API error: ${response.status}`);
     }
 
-    return await response.json();
-  }
-
-  private async runAssistant(threadId: string, assistantId: string, userContext: UserContext) {
-    const response = await fetch(`https://api.openai.com/v1/threads/${threadId}/runs`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${this.openaiApiKey}`,
-        'Content-Type': 'application/json',
-        'OpenAI-Beta': 'assistants=v2'
-      },
-      body: JSON.stringify({
-        assistant_id: assistantId,
-        additional_instructions: `User context: ${JSON.stringify(userContext)}. CRITICAL: Respond with action buttons using composeWhatsAppMessage tool. Keep responses under 160 characters.`,
-        max_prompt_tokens: 8000,
-        max_completion_tokens: 1000
-      })
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to run assistant: ${response.status}`);
-    }
-
-    const run = await response.json();
-    return await this.pollRunCompletion(threadId, run.id);
-  }
-
-  private async pollRunCompletion(threadId: string, runId: string, maxAttempts = 30) {
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      const response = await fetch(`https://api.openai.com/v1/threads/${threadId}/runs/${runId}`, {
-        headers: {
-          'Authorization': `Bearer ${this.openaiApiKey}`,
-          'OpenAI-Beta': 'assistants=v2'
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to check run: ${response.status}`);
-      }
-
-      const run = await response.json();
-      console.log(`📊 Run status: ${run.status}`);
-
-      if (run.status === 'completed') {
-        return run;
-      } else if (run.status === 'requires_action') {
-        await this.handleToolCalls(threadId, runId, run.required_action);
-        continue;
-      } else if (['failed', 'cancelled', 'expired'].includes(run.status)) {
-        throw new Error(`Run ${run.status}: ${run.last_error?.message || 'Unknown error'}`);
-      }
-
-      await new Promise(resolve => setTimeout(resolve, 1000));
-    }
-
-    throw new Error('Run timed out');
-  }
-
-  private async handleToolCalls(threadId: string, runId: string, requiredAction: any) {
-    const toolCalls = requiredAction.submit_tool_outputs.tool_calls;
-    const toolOutputs = [];
-
-    for (const toolCall of toolCalls) {
-      console.log(`🔧 Executing tool: ${toolCall.function.name}`);
-      
-      try {
-        const result = await this.executeToolCall(toolCall);
-        toolOutputs.push({
-          tool_call_id: toolCall.id,
-          output: JSON.stringify(result)
-        });
-      } catch (error) {
-        console.error(`❌ Tool call failed: ${toolCall.function.name}`, error);
-        toolOutputs.push({
-          tool_call_id: toolCall.id,
-          output: JSON.stringify({ error: error.message })
-        });
-      }
-    }
-
-    // Submit tool outputs
-    const response = await fetch(`https://api.openai.com/v1/threads/${threadId}/runs/${runId}/submit_tool_outputs`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${this.openaiApiKey}`,
-        'Content-Type': 'application/json',
-        'OpenAI-Beta': 'assistants=v2'
-      },
-      body: JSON.stringify({ tool_outputs: toolOutputs })
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to submit tool outputs: ${response.status}`);
-    }
-  }
-
-  private async executeToolCall(toolCall: any) {
-    const { name, arguments: args } = toolCall.function;
-    const parsedArgs = JSON.parse(args);
-
-    const toolMap: { [key: string]: string } = {
-      'detectIntentAndSlots': 'detect-intent-slots',
-      'getUserContext': 'get-user-context', 
-      'searchBusinesses': 'search-businesses',
-      'createMoMoPaymentLink': 'qr-payment-generator',
-      'generateQRCodeSVG': 'generate-qr-code-svg',
-      'bookRide': 'book-ride',
-      'composeWhatsAppMessage': 'compose-whatsapp-message',
-      'updateUserProfile': 'update-user-profile',
-      'saveFileToStorage': 'store-file',
-      'isNewUser': 'is-new-user',
-      'getMissingUserData': 'get-missing-user-data',
-      'updateMomoNumber': 'update-momo-number',
-      'ocrDocument': 'ocr-document',
-      'onboardingHandler': 'onboarding-handler',
-      'saveUserLocation': 'save-user-location',
-      'searchNearby': 'search-nearby'
-    };
-
-    const functionName = toolMap[name];
-    if (!functionName) {
-      throw new Error(`Unknown tool: ${name}`);
-    }
-
-    const { data, error } = await this.supabase.functions.invoke(functionName, {
-      body: parsedArgs
-    });
-
-    if (error) {
-      throw new Error(`Tool execution failed: ${error.message}`);
-    }
-
-    return data;
-  }
-
-  private async getAssistantResponse(threadId: string): Promise<string> {
-    const response = await fetch(`https://api.openai.com/v1/threads/${threadId}/messages`, {
-      headers: {
-        'Authorization': `Bearer ${this.openaiApiKey}`,
-        'OpenAI-Beta': 'assistants=v2'
-      }
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to get messages: ${response.status}`);
-    }
-
-    const messagesData = await response.json();
-    const assistantMessages = messagesData.data.filter((msg: any) => msg.role === 'assistant');
-
-    if (assistantMessages.length === 0) {
-      return "I processed your request. Please check for any action buttons sent.";
-    }
-
-    const lastMessage = assistantMessages[0];
-    return lastMessage.content[0]?.text?.value || "Processing completed.";
+    const data = await response.json();
+    return data.choices[0].message.content;
   }
 
   private async storeConversation(phone: string, message: string, response: string) {
@@ -261,7 +116,7 @@ class OpenAIAssistantAgent {
           role: 'assistant', 
           message: response,
           metadata: {
-            agent: 'openai_assistant',
+            agent: 'openai_chat_completions',
             timestamp: new Date().toISOString()
           }
         }
@@ -269,26 +124,6 @@ class OpenAIAssistantAgent {
     } catch (error) {
       console.error('❌ Failed to store conversation:', error);
     }
-  }
-
-  private async processDirectIntent(message: string, userContext: UserContext): Promise<AIProcessingResult> {
-    // Classify intent first
-    const intent = await this.classifyIntent(message, userContext);
-    
-    // Generate contextual response
-    const response = await this.generateContextualResponse(message, intent, userContext);
-    
-    // Store conversation
-    await this.storeConversation(userContext.phone, message, response.response);
-    
-    return {
-      success: true,
-      response: response.response,
-      confidence: response.confidence,
-      intent: response.intent,
-      nextActions: response.nextActions,
-      toolsCalled: response.toolsCalled || ['direct_intent_processing']
-    };
   }
 
   private getFallbackResult(message: string, userContext: UserContext): AIProcessingResult {
