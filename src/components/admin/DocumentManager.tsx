@@ -374,6 +374,35 @@ export function DocumentManager({ agentId = 'default' }: DocumentManagerProps) {
             <span>Document Library</span>
             <div className="flex gap-2">
               <Button 
+                variant="secondary" 
+                size="sm" 
+                onClick={async () => {
+                  try {
+                    const response = await supabase.functions.invoke('test-openai-key');
+                    if (response.data?.success) {
+                      toast({
+                        title: "OpenAI API Key Working",
+                        description: response.data.message
+                      });
+                    } else {
+                      toast({
+                        title: "OpenAI API Key Failed",
+                        description: response.data?.error || "Unknown error",
+                        variant: "destructive"
+                      });
+                    }
+                  } catch (error) {
+                    toast({
+                      title: "Test Failed",
+                      description: "Could not test OpenAI API key",
+                      variant: "destructive"
+                    });
+                  }
+                }}
+              >
+                Test OpenAI Key
+              </Button>
+              <Button 
                 variant="outline" 
                 size="sm" 
                 onClick={async () => {
