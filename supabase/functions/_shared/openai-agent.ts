@@ -5,6 +5,7 @@
 
 import { getEnv, OpenAIEnv, SupabaseEnv } from './env.ts';
 import { logger } from './logger.ts';
+import { executeToolFunction } from './toolsRegistry.ts';
 
 // Interface definitions
 interface AgentConfig {
@@ -194,30 +195,16 @@ async function logToolCall(runId: string, toolName: string, toolArgs: any, toolR
 }
 
 /**
- * Execute tool function based on name and arguments
+ * Execute tool function using tools registry
  */
-async function executeToolFunction(toolName: string, args: any, runId: string): Promise<any> {
+async function executeAgentToolFunction(toolName: string, args: any, runId: string): Promise<any> {
   const startTime = Date.now();
   
   try {
-    let result;
+    const supabaseUrl = SupabaseEnv.getUrl();
+    const serviceKey = SupabaseEnv.getServiceRoleKey();
     
-    switch (toolName) {
-      case 'generateMomoUssd':
-        result = await generateMomoUssd(args);
-        break;
-      case 'savePaymentIntent':
-        result = await savePaymentIntent(args);
-        break;
-      case 'searchProducts':
-        result = await searchProducts(args);
-        break;
-      case 'createRideRequest':
-        result = await createRideRequest(args);
-        break;
-      default:
-        throw new Error(`Unknown tool: ${toolName}`);
-    }
+    const result = await executeToolFunction(toolName, args, supabaseUrl, serviceKey);
     
     const executionTime = Date.now() - startTime;
     await logToolCall(runId, toolName, args, result, executionTime);
@@ -353,7 +340,7 @@ async function callOpenAIWithTools(messages: OpenAIMessage[], tools: any[], temp
       for (const toolCall of message.tool_calls) {
         try {
           const args = JSON.parse(toolCall.function.arguments);
-          const result = await executeToolFunction(toolCall.function.name, args, runId);
+          const result = await executeAgentToolFunction(toolCall.function.name, args, runId);
           
           // Add tool result to conversation
           currentMessages.push({

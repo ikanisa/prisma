@@ -4,6 +4,7 @@ import { TPL, quickReplyMap, sendTemplate, logTemplateSend } from '../_shared/te
 import { decideResponse } from '../_shared/decideResponse.ts';
 import { sendInteractive, sendPlain } from '../_shared/waSendHelpers.ts';
 import { getState, setState } from '../_shared/conversationState.ts';
+import { agentExecutorFallback } from '../_shared/agentExecutorFallback.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -237,6 +238,36 @@ async function processMessageWithIntelligentAI(
 
     if (error) {
       console.error(`❌ Intelligent AI processor error:`, error);
+      
+      // Fallback to AgentExecutor for unhandled cases
+      console.log('🤖 Falling back to AgentExecutor for intelligent processing...');
+      const fallbackResult = await agentExecutorFallback({
+        waId: from,
+        message: text,
+        domain: undefined,
+        intent: undefined,
+        confidence: 0.0
+      });
+      
+      if (fallbackResult.type === 'agent_response') {
+        if (fallbackResult.buttons && fallbackResult.buttons.length > 0) {
+          await sendWhatsAppInteractive(from, fallbackResult.text, fallbackResult.buttons);
+        } else {
+          await sendWhatsAppMessage(from, fallbackResult.text);
+        }
+        
+        // Update conversation state
+        await setState(from, { 
+          stage: 'agent_handled',
+          last_user_msg_at: timestamp.toISOString(),
+          last_intent: 'agent_fallback',
+          last_confidence: fallbackResult.metadata?.qualityScore || 0.5
+        });
+        
+        return;
+      }
+      
+      // Final fallback
       await sendWhatsAppMessage(from, "🤖 I'm experiencing technical difficulties. Please try again in a moment.");
       return;
     }
@@ -282,13 +313,55 @@ async function processMessageWithIntelligentAI(
       }, { onConflict: 'phone_number' });
 
     } else {
-      console.error(`❌ Invalid AI response:`, aiResponse);
-      await sendWhatsAppMessage(from, "🤖 I'm experiencing technical difficulties. Please try again in a moment.");
+      console.log('🤖 No valid AI response, trying AgentExecutor fallback...');
+      
+      // Use AgentExecutor for cases where intelligent processor doesn't provide valid response
+      const fallbackResult = await agentExecutorFallback({
+        waId: from,
+        message: text,
+        domain: aiResponse?.intent?.domain,
+        intent: aiResponse?.intent?.intent,
+        confidence: aiResponse?.intent?.confidence || 0.0
+      });
+      
+      if (fallbackResult.type === 'agent_response') {
+        if (fallbackResult.buttons && fallbackResult.buttons.length > 0) {
+          await sendWhatsAppInteractive(from, fallbackResult.text, fallbackResult.buttons);
+        } else {
+          await sendWhatsAppMessage(from, fallbackResult.text);
+        }
+        
+        // Update conversation state
+        await setState(from, { 
+          stage: 'agent_handled',
+          last_user_msg_at: timestamp.toISOString(),
+          last_intent: 'agent_fallback',
+          last_confidence: fallbackResult.metadata?.qualityScore || 0.5
+        });
+      } else {
+        await sendWhatsAppMessage(from, fallbackResult.text);
+      }
     }
 
   } catch (error) {
     console.error(`❌ Error in intelligent AI processing:`, error);
-    await sendWhatsAppMessage(from, "🤖 I'm experiencing technical difficulties. Please try again in a moment.");
+    
+    // Final fallback using AgentExecutor
+    try {
+      console.log('🤖 Critical fallback to AgentExecutor...');
+      const fallbackResult = await agentExecutorFallback({
+        waId: from,
+        message: text,
+        domain: undefined,
+        intent: 'error_fallback',
+        confidence: 0.0
+      });
+      
+      await sendWhatsAppMessage(from, fallbackResult.text);
+    } catch (fallbackError) {
+      console.error('❌ AgentExecutor fallback failed:', fallbackError);
+      await sendWhatsAppMessage(from, "🤖 I'm experiencing technical difficulties. Please try again in a moment.");
+    }
   }
 }
 
