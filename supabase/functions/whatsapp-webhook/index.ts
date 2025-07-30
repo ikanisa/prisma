@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { TPL, quickReplyMap, sendTemplate, logTemplateSend } from '../_shared/templates.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -141,6 +142,30 @@ async function processWebhookAsync(body: any) {
               }
 
               console.log(`📨 Processing ${messageType} message from ${from}: ${message.text?.body || 'non-text'} [ID: ${messageId}]`);
+
+              // Check for button responses first
+              if (messageType === 'button' && message.button?.text) {
+                const buttonText = message.button.text;
+                const payload = quickReplyMap[buttonText];
+                
+                console.log(`🔘 Button pressed: "${buttonText}" -> payload: ${payload}`);
+                
+                if (payload) {
+                  await routeQuickReply(supabase, from, payload, contactName);
+                  continue;
+                }
+              }
+              
+              // Check if this is a new user or session expired (24h)
+              const isNewUser = await checkNewUser(supabase, from);
+              const sessionExpired = await checkSessionExpired(supabase, from);
+              
+              if (isNewUser || sessionExpired) {
+                console.log(`👋 Sending welcome template to ${from} (new: ${isNewUser}, expired: ${sessionExpired})`);
+                await sendTemplate(from, TPL.WELCOME);
+                await logTemplateSend(supabase, from, TPL.WELCOME);
+                continue;
+              }
 
               if (messageType === 'text') {
                 console.log(`Received text message from ${from}: ${message.text.body}`);
@@ -288,5 +313,96 @@ async function sendWhatsAppMessage(to: string, message: string) {
     
   } catch (error) {
     console.error('❌ Error sending WhatsApp message:', error);
+  }
+}
+
+// Helper functions for user session management
+async function checkNewUser(supabase: any, phone: string): Promise<boolean> {
+  try {
+    const { data, error } = await supabase
+      .from('contacts')
+      .select('phone_number')
+      .eq('phone_number', phone)
+      .single();
+      
+    return !data; // New user if no existing contact
+  } catch (error) {
+    console.log(`🆕 Treating ${phone} as new user due to query error`);
+    return true;
+  }
+}
+
+async function checkSessionExpired(supabase: any, phone: string): Promise<boolean> {
+  try {
+    const { data, error } = await supabase
+      .from('contacts')
+      .select('last_interaction')
+      .eq('phone_number', phone)
+      .single();
+      
+    if (!data?.last_interaction) return true;
+    
+    const lastInteraction = new Date(data.last_interaction);
+    const now = new Date();
+    const hoursSinceLastInteraction = (now.getTime() - lastInteraction.getTime()) / (1000 * 60 * 60);
+    
+    return hoursSinceLastInteraction > 24; // 24-hour session timeout
+  } catch (error) {
+    console.log(`⏰ Treating ${phone} as expired session due to query error`);
+    return true;
+  }
+}
+
+// Quick reply routing function
+async function routeQuickReply(supabase: any, phone: string, payload: string, contactName: string) {
+  console.log(`🎯 Routing quick reply: ${payload} for ${phone}`);
+  
+  try {
+    // Route to omni-agent-router with the payload
+    const { data: response, error } = await supabase.functions.invoke('omni-agent-router', {
+      body: { 
+        message: payload,
+        userId: phone,
+        phone: phone,
+        quickReply: true,
+        context: {
+          phone: phone,
+          name: contactName,
+          preferredLanguage: 'rw',
+          userType: 'returning'
+        }
+      }
+    });
+
+    if (error) {
+      console.error(`❌ Quick reply routing error:`, error);
+      await sendWhatsAppMessage(phone, "🤖 I'm experiencing technical difficulties. Please try again in a moment.");
+      return;
+    }
+
+    if (response?.success && response?.response) {
+      let finalMessage = response.response.message || response.response;
+      
+      // Handle media responses
+      if (response.response.response_type === 'media' && response.response.media_url) {
+        finalMessage = response.response.message || 'Here is your requested content:';
+        console.log(`📷 Media response for quick reply: ${response.response.media_url}`);
+        // TODO: Implement media sending via WhatsApp API
+      }
+
+      const truncatedResponse = finalMessage.length > 1000 
+        ? finalMessage.substring(0, 1000) + '...' 
+        : finalMessage;
+
+      await sendWhatsAppMessage(phone, truncatedResponse);
+      console.log(`✅ Quick reply response sent: ${payload} -> ${truncatedResponse.substring(0, 50)}...`);
+    } else {
+      console.error(`❌ Invalid quick reply response:`, response);
+      await sendWhatsAppMessage(phone, "🤖 I'm experiencing technical difficulties. Please try again in a moment.");
+    }
+    
+  } catch (error) {
+    console.error(`❌ Error routing quick reply:`, error);
+    await sendWhatsAppMessage(phone, "🤖 I'm experiencing technical difficulties. Please try again in a moment.");
   }
 }
