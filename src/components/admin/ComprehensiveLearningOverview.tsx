@@ -81,9 +81,9 @@ export function ComprehensiveLearningOverview() {
         supabase.from('centralized_documents').select('*').eq('status', 'active'),
         supabase.from('agent_personas').select('*'),
         supabase.from('action_buttons').select('*'),
-        supabase.from('whatsapp_templates').select('*').eq('status', 'APPROVED'),
+        supabase.from('whatsapp_templates').select('*'),
         supabase.from('agent_skills').select('*').eq('enabled', true),
-        supabase.from('agent_document_embeddings').select('id, created_at'),
+        supabase.from('agent_resource_embeddings').select('id, resource_type, created_at'),
         supabase.from('learning_modules').select('*').order('updated_at', { ascending: false })
       ]);
 
@@ -179,6 +179,18 @@ export function ComprehensiveLearningOverview() {
     try {
       setProcessing(true);
       
+      // Trigger vectorization of all agent resources
+      const vectorizeResponse = await supabase.functions.invoke('vectorize-agent-resources', {
+        body: { 
+          resourceTypes: ['action_button', 'template', 'skill', 'persona', 'document'],
+          force: false
+        }
+      });
+
+      if (vectorizeResponse.error) {
+        throw new Error('Failed to vectorize resources: ' + vectorizeResponse.error.message);
+      }
+
       // Trigger multiple learning pipelines
       const responses = await Promise.all([
         supabase.functions.invoke('dynamic-learning-processor', {
@@ -190,6 +202,7 @@ export function ComprehensiveLearningOverview() {
         }),
         supabase.functions.invoke('continuous-learning-pipeline', {
           body: { 
+            action: 'run_learning_cycle',
             triggerType: 'manual',
             scope: 'full_system'
           }
@@ -198,16 +211,16 @@ export function ComprehensiveLearningOverview() {
 
       const hasErrors = responses.some(r => r.error);
       if (hasErrors) {
-        throw new Error('Some learning processes failed to start');
+        console.warn('Some learning processes had errors:', responses.filter(r => r.error));
       }
 
       toast({
         title: "Comprehensive Learning Started",
-        description: "All knowledge sources are being processed and integrated"
+        description: "All knowledge sources are being processed and integrated into vector embeddings"
       });
 
       // Refresh data after processing
-      setTimeout(fetchComprehensiveLearningData, 5000);
+      setTimeout(fetchComprehensiveLearningData, 3000);
 
     } catch (error) {
       console.error('Error triggering comprehensive learning:', error);
