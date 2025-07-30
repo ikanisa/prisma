@@ -161,20 +161,50 @@ serve(async (req) => {
       return json({ ignored: true, reason: "unsupported_message_type" });
     }
 
-    // 2.1 Upsert user in users table using WhatsApp data
-    console.log(`📞 Upserting user for wa_id: ${from}`);
-    const { error: upsertError } = await sbAdmin.from('users').upsert({
+    // 2.1 Upsert contact and ensure conversation
+    console.log(`📞 Upserting contact for wa_id: ${from}`);
+    const { data: contact, error: contactError } = await sbAdmin.from('contacts').upsert({
       wa_id: from,
       display_name: contactName,
-      language: 'en', // Default language, could be detected from message
-      source: 'whatsapp'
-    }, { onConflict: 'wa_id' });
+      language: 'en' // Default language, could be detected from message
+    }, { onConflict: 'wa_id', ignoreDuplicates: false }).select().single();
 
-    if (upsertError) {
-      console.error("Failed to upsert user:", upsertError);
+    if (contactError) {
+      console.error("Failed to upsert contact:", contactError);
     } else {
-      console.log(`✅ User upserted successfully for wa_id: ${from}`);
+      console.log(`✅ Contact upserted successfully for wa_id: ${from}`);
     }
+
+    // 2.2 Ensure conversation exists (24hr window for grouping)
+    let conversationId: string;
+    const { data: openConv } = await sbAdmin.from('conversations')
+      .select('*')
+      .eq('contact_wa_id', from)
+      .order('started_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (!openConv || Date.now() - new Date(openConv.last_message_at ?? 0).getTime() > 24*60*60*1000) {
+      // Create new conversation
+      const { data: newConv } = await sbAdmin.from('conversations')
+        .insert({ contact_wa_id: from, started_at: new Date() })
+        .select().single();
+      conversationId = newConv.id;
+    } else {
+      conversationId = openConv.id;
+    }
+
+    // Update last_message_at for the conversation
+    await sbAdmin.from('conversations')
+      .update({ last_message_at: new Date() })
+      .eq('id', conversationId);
+
+    // 2.3 Log turn memory
+    await sbAdmin.from('agent_memory').insert({
+      contact_wa_id: from,
+      memory_type: 'turn',
+      content: `user: ${text}`
+    });
 
     // 2.2 quick async log (fire‑and‑forget)
     sbAdmin.from("whatsapp_logs").insert({
@@ -188,18 +218,19 @@ serve(async (req) => {
       processed: false,
     }).then().catch(console.error);
 
-    // 2.3 fetch memory (for routing hints)
+    // 2.4 fetch memory (for routing hints)
     const { data: mem } = await sbAdmin
       .from("agent_memory")
-      .select("memory_type, memory_value")
-      .eq("user_id", from);
+      .select("memory_type, content")
+      .eq("contact_wa_id", from);
 
-    const memoryObj = Object.fromEntries((mem || []).map((m) => [m.memory_type, m.memory_value]));
+    const memoryObj = Object.fromEntries((mem || []).map((m) => [m.memory_type, m.content]));
 
     // 2.4 decide downstream
     const fn = resolveDownstream(text, from, memoryObj);
 
     // 2.5 invoke downstream Edge Function (async but we await for status)
+    const start = Date.now();
     const { error, data } = await sbAdmin.functions.invoke(fn, {
       body: {
         from,
@@ -209,9 +240,21 @@ serve(async (req) => {
         message_id: id,
         contact_name: contactName,
         timestamp: new Date(+timestamp * 1000).toISOString(),
-        location
+        location,
+        conversation_id: conversationId
       },
     });
+
+    // 2.6 Log tool call if it was successful
+    if (!error && data) {
+      await sbAdmin.from('agent_tool_calls').insert({
+        conversation_id: conversationId,
+        skill_name: fn,
+        input_params: { text, from },
+        output_payload: data,
+        latency_ms: Date.now() - start
+      });
+    }
 
     if (error) {
       console.error(`${fn} failed:`, error);
