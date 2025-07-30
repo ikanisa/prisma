@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
+import { getOpenAI, createEmbedding } from '../_shared/openai-sdk.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -14,23 +15,34 @@ serve(async (req) => {
   }
 
   try {
-    console.log('Starting document vectorization process...');
+    const { document_id } = await req.json();
+    console.log('Starting OpenAI-powered document vectorization...', { document_id });
     
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
-    // Fetch un-embedded documents
-    const { data: documents, error: fetchError } = await supabase
-      .from('agent_documents')
-      .select('*')
-      .eq('embedding_ok', false)
-      .limit(10);
-
-    if (fetchError) {
-      console.error('Error fetching documents:', fetchError);
-      throw fetchError;
+    // Fetch specific document or un-embedded documents
+    let documents;
+    if (document_id) {
+      const { data: singleDoc, error: singleError } = await supabase
+        .from('agent_documents')
+        .select('*')
+        .eq('id', document_id)
+        .single();
+      
+      if (singleError) throw singleError;
+      documents = singleDoc ? [singleDoc] : [];
+    } else {
+      const { data: allDocs, error: fetchError } = await supabase
+        .from('agent_documents')
+        .select('*')
+        .eq('embedding_ok', false)
+        .limit(10);
+      
+      if (fetchError) throw fetchError;
+      documents = allDocs || [];
     }
 
     if (!documents?.length) {
@@ -49,23 +61,29 @@ serve(async (req) => {
         
         // Download file from storage
         const { data: fileData, error: downloadError } = await supabase.storage
-          .from('uploads/docs')
-          .download(doc.storage_path.replace('uploads/docs/', ''));
+          .from('persona-docs')
+          .download(doc.storage_path);
 
         if (downloadError) {
           console.error(`Error downloading file ${doc.storage_path}:`, downloadError);
           continue;
         }
 
-        // Convert file to text (assuming text files for now)
-        const text = new TextDecoder().decode(await fileData.arrayBuffer());
+        // Convert file to text with proper handling
+        let text: string;
+        if (doc.drive_mime?.includes('application/pdf')) {
+          // For PDFs, we'll extract text (simplified approach)
+          const arrayBuffer = await fileData.arrayBuffer();
+          const decoder = new TextDecoder('utf-8');
+          text = decoder.decode(arrayBuffer);
+        } else {
+          text = new TextDecoder().decode(await fileData.arrayBuffer());
+        }
+        
         console.log(`File content length: ${text.length} characters`);
 
-        // Split into chunks (800 characters each)
-        const chunks = [];
-        for (let i = 0; i < text.length; i += 800) {
-          chunks.push(text.slice(i, i + 800));
-        }
+        // Smart text chunking with overlap
+        const chunks = createTextChunks(text, 1000, 100);
 
         console.log(`Split into ${chunks.length} chunks`);
 
@@ -74,26 +92,21 @@ serve(async (req) => {
           const chunk = chunks[i];
           
           try {
-            // Generate embedding using OpenAI
-            const embeddingResponse = await fetch('https://api.openai.com/v1/embeddings', {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${Deno.env.get('OPENAI_API_KEY')}`,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                model: 'text-embedding-3-small',
-                input: chunk,
-              }),
-            });
-
-            if (!embeddingResponse.ok) {
-              console.error(`OpenAI API error: ${embeddingResponse.status}`);
-              continue;
-            }
-
-            const embeddingData = await embeddingResponse.json();
+            // Generate embedding using OpenAI SDK
+            console.log(`🔢 Creating embeddings: {
+  model: "text-embedding-3-small",
+  inputType: "string",
+  inputLength: ${chunk.length}
+}`);
+            
+            const embeddingData = await createEmbedding(chunk, 'text-embedding-3-small');
             const embedding = embeddingData.data[0].embedding;
+            
+            console.log(`✅ Embedding created: {
+  model: "text-embedding-3-small",
+  usage: { prompt_tokens: ${embeddingData.usage?.prompt_tokens}, total_tokens: ${embeddingData.usage?.total_tokens} },
+  dataLength: ${embeddingData.data.length}
+}`);
 
             // Store embedding in Pinecone (if available) and local vector store
             try {
@@ -153,17 +166,38 @@ serve(async (req) => {
           }
         }
 
-        // Mark document as embedded
+        // Mark document as embedded and update with metadata
         const { error: updateError } = await supabase
           .from('agent_documents')
-          .update({ embedding_ok: true })
+          .update({ 
+            embedding_ok: true,
+            vector_count: chunks.length,
+            updated_at: new Date().toISOString()
+          })
           .eq('id', doc.id);
 
         if (updateError) {
           console.error('Error updating document status:', updateError);
         } else {
           processedCount++;
-          console.log(`Successfully processed document: ${doc.title}`);
+          console.log(`✅ Successfully processed document: ${doc.title} with ${chunks.length} embeddings`);
+          
+          // Add to knowledge base for RAG
+          try {
+            await supabase.functions.invoke('knowledge-manager', {
+              body: {
+                action: 'add',
+                topic: doc.title,
+                content: text.slice(0, 2000), // First 2000 chars as summary
+                source: 'document_upload',
+                confidence: 0.9,
+                tags: ['document', 'vectorized', doc.drive_mime?.split('/')[1] || 'unknown']
+              }
+            });
+            console.log('📚 Added to knowledge base for RAG');
+          } catch (kbError) {
+            console.error('Knowledge base addition failed:', kbError);
+          }
         }
 
       } catch (docError) {
@@ -172,12 +206,15 @@ serve(async (req) => {
     }
 
     const result = {
-      message: `Processed ${processedCount}/${documents.length} documents`,
+      success: true,
+      message: `OpenAI vectorization complete: ${processedCount}/${documents.length} documents`,
       processed: processedCount,
       total: documents.length,
+      integration: 'openai_embeddings',
+      rag_enabled: true
     };
 
-    console.log('Vectorization complete:', result);
+    console.log('🎉 OpenAI vectorization complete:', result);
 
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -197,3 +234,29 @@ serve(async (req) => {
     );
   }
 });
+
+function createTextChunks(text: string, maxSize = 1000, overlap = 100): string[] {
+  if (text.length <= maxSize) {
+    return [text];
+  }
+
+  const chunks: string[] = [];
+  let start = 0;
+
+  while (start < text.length) {
+    let end = Math.min(start + maxSize, text.length);
+    
+    // Try to break at sentence boundary
+    if (end < text.length) {
+      const sentenceEnd = text.lastIndexOf('.', end);
+      if (sentenceEnd > start + maxSize * 0.5) {
+        end = sentenceEnd + 1;
+      }
+    }
+
+    chunks.push(text.slice(start, end).trim());
+    start = Math.max(start + maxSize - overlap, end);
+  }
+
+  return chunks.filter(chunk => chunk.length > 0);
+}

@@ -130,8 +130,11 @@ export function DocumentManager({ agentId = 'default' }: DocumentManagerProps) {
       // Refresh documents list
       await fetchDocuments();
 
-      // Trigger document processing
+      // Trigger comprehensive document processing with OpenAI
       await processDocument(response.data.document.id);
+      
+      // Auto-trigger full AI processing pipeline
+      await triggerFullDocumentProcessing(response.data.document.id);
 
     } catch (error) {
       console.error('Error uploading document:', error);
@@ -163,12 +166,58 @@ export function DocumentManager({ agentId = 'default' }: DocumentManagerProps) {
         });
       } else {
         toast({
-          title: "Processing Started",
-          description: "Document is being processed for embeddings"
+          title: "OpenAI Processing Started",
+          description: "Document is being summarized and embedded with OpenAI"
         });
       }
     } catch (error) {
       console.error('Error processing document:', error);
+    }
+  };
+
+  const triggerFullDocumentProcessing = async (documentId: string) => {
+    try {
+      // Step 1: Vectorize document for embeddings
+      const vectorizeResponse = await supabase.functions.invoke('vectorize-docs', {
+        body: { document_id: documentId }
+      });
+
+      // Step 2: Add to knowledge base for RAG
+      const knowledgeResponse = await supabase.functions.invoke('knowledge-manager', {
+        body: {
+          action: 'add',
+          document_id: documentId,
+          source: 'document_upload'
+        }
+      });
+
+      // Step 3: Trigger agent learning updates
+      const learningResponse = await supabase.functions.invoke('dynamic-learning-processor', {
+        body: {
+          action: 'process_document_upload',
+          document_id: documentId,
+          trigger_source: 'admin_upload'
+        }
+      });
+
+      console.log('Full processing pipeline triggered:', {
+        vectorize: vectorizeResponse.data,
+        knowledge: knowledgeResponse.data,
+        learning: learningResponse.data
+      });
+
+      toast({
+        title: "Complete AI Pipeline Activated",
+        description: "Document processing, RAG integration, and agent learning initiated"
+      });
+
+    } catch (error) {
+      console.error('Error in full processing pipeline:', error);
+      toast({
+        title: "Pipeline Warning",
+        description: "Some advanced processing may have failed",
+        variant: "default"
+      });
     }
   };
 
@@ -360,19 +409,30 @@ export function DocumentManager({ agentId = 'default' }: DocumentManagerProps) {
                   </div>
                   
                   <div className="flex items-center space-x-2">
-                    <Badge variant={doc.embedding_ok ? "default" : "secondary"}>
-                      {doc.embedding_ok ? (
-                        <>
-                          <CheckCircle className="h-3 w-3 mr-1" />
-                          Processed
-                        </>
-                      ) : (
-                        <>
-                          <AlertCircle className="h-3 w-3 mr-1" />
-                          Pending
-                        </>
+                    <div className="flex gap-2">
+                      <Badge variant={doc.embedding_ok ? "default" : "secondary"}>
+                        {doc.embedding_ok ? (
+                          <>
+                            <CheckCircle className="h-3 w-3 mr-1" />
+                            AI Processed
+                          </>
+                        ) : (
+                          <>
+                            <AlertCircle className="h-3 w-3 mr-1" />
+                            Processing...
+                          </>
+                        )}
+                      </Badge>
+                      {doc.embedding_ok && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => triggerFullDocumentProcessing(doc.id)}
+                        >
+                          Re-process
+                        </Button>
                       )}
-                    </Badge>
+                    </div>
                     
                     <Button
                       size="sm"
