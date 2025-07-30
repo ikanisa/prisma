@@ -35,6 +35,7 @@ const consolidatedSidebarItems: SidebarItem[] = [
   { name: 'Orders & Payments', path: '/admin/unified-orders', icon: ShoppingCart },
   { name: 'Trips & Intents', path: '/admin/trips-intents', icon: Route },
   { name: 'Messaging & Campaigns', path: '/admin/messaging-campaigns', icon: MessageSquare },
+  { name: 'Template Management', path: '/admin/templates', icon: MessageSquare, badge: { text: 'New', variant: 'default' } },
   { name: 'Omni Agent', path: '/admin/omni-agent', icon: Brain },
   { name: 'System Ops', path: '/admin/system-ops', icon: Settings },
 ];

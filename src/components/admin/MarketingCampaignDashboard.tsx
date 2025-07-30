@@ -14,13 +14,13 @@ interface Campaign {
   template_name: string;
   status: string;
   csat_threshold: number;
-  priority: number;
+  priority: string;
   target_count: number;
   sent_count: number;
-  success_rate: number;
+  click_rate: number;
+  conversion_rate: number;
   created_at: string;
-  starts_at: string;
-  ends_at: string;
+  scheduled_for: string;
 }
 
 interface CSATMetrics {
@@ -63,97 +63,92 @@ export function MarketingCampaignDashboard() {
   };
 
   const loadCampaigns = async () => {
-    const { data, error } = await supabase
-      .from('marketing_campaigns')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (error) {
+    try {
+      // Mock data for development until marketing tables are created
+      const mockCampaigns: Campaign[] = [
+        {
+          id: '1',
+          name: 'Welcome Series',
+          description: 'Onboarding campaign for new users',
+          template_name: 'tpl_welcome_quick_v1',
+          status: 'active',
+          target_count: 1000,
+          sent_count: 756,
+          click_rate: 34.2,
+          conversion_rate: 12.8,
+          csat_threshold: 7.0,
+          priority: 'medium',
+          created_at: new Date().toISOString(),
+          scheduled_for: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+        },
+        {
+          id: '2',
+          name: 'Payment Reminder',
+          description: 'Remind users about pending payments',
+          template_name: 'tpl_payment_reminder_v1',
+          status: 'paused',
+          target_count: 500,
+          sent_count: 234,
+          click_rate: 45.1,
+          conversion_rate: 67.3,
+          csat_threshold: 8.0,
+          priority: 'high',
+          created_at: new Date().toISOString(),
+          scheduled_for: new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString()
+        }
+      ];
+      
+      setCampaigns(mockCampaigns);
+    } catch (error) {
       console.error('Error loading campaigns:', error);
-      return;
     }
-
-    setCampaigns(data || []);
   };
 
   const loadCSATMetrics = async () => {
-    // Get CSAT metrics for the last 30 days
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-    const { data, error } = await supabase
-      .from('csat_scores')
-      .select('score')
-      .gte('created_at', thirtyDaysAgo.toISOString());
-
-    if (error) {
-      console.error('Error loading CSAT metrics:', error);
-      return;
-    }
-
-    if (data && data.length > 0) {
-      const averageScore = data.reduce((sum, item) => sum + item.score, 0) / data.length;
-      
-      // Calculate distribution
-      const distribution = [1, 2, 3, 4, 5].map(score => ({
-        score,
-        count: data.filter(item => item.score === score).length
-      }));
+    try {
+      // Mock CSAT data for development
+      const mockDistribution = [
+        { score: 1, count: 5 },
+        { score: 2, count: 12 },
+        { score: 3, count: 23 },
+        { score: 4, count: 45 },
+        { score: 5, count: 67 }
+      ];
 
       setCSATMetrics({
-        averageScore: Math.round(averageScore * 10) / 10,
-        totalScores: data.length,
-        distribution
+        averageScore: 4.2,
+        totalScores: 152,
+        distribution: mockDistribution
       });
+    } catch (error) {
+      console.error('Error loading CSAT metrics:', error);
     }
   };
 
   const loadFrequencyStats = async () => {
-    const { data, error } = await supabase
-      .from('marketing_frequency_controls')
-      .select('is_opted_out, daily_count, daily_limit, weekly_count, weekly_limit');
-
-    if (error) {
-      console.error('Error loading frequency stats:', error);
-      return;
-    }
-
-    if (data) {
-      const totalUsers = data.length;
-      const optedOut = data.filter(item => item.is_opted_out).length;
-      const nearLimits = data.filter(item => 
-        !item.is_opted_out && (
-          item.daily_count >= item.daily_limit * 0.8 ||
-          item.weekly_count >= item.weekly_limit * 0.8
-        )
-      ).length;
-
+    try {
+      // Mock frequency stats for development
       setFrequencyStats({
-        totalUsers,
-        optedOut,
-        nearLimits
+        totalUsers: 1250,
+        optedOut: 45,
+        nearLimits: 23
       });
+    } catch (error) {
+      console.error('Error loading frequency stats:', error);
     }
   };
 
   const toggleCampaignStatus = async (campaignId: string, currentStatus: string) => {
     const newStatus = currentStatus === 'active' ? 'paused' : 'active';
     
-    const { error } = await supabase
-      .from('marketing_campaigns')
-      .update({ 
-        status: newStatus,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', campaignId);
-
-    if (error) {
-      toast.error('Failed to update campaign status');
-      return;
-    }
+    // Update campaign status in mock data
+    setCampaigns(prev => prev.map(campaign => 
+      campaign.id === campaignId 
+        ? { ...campaign, status: newStatus }
+        : campaign
+    ));
 
     toast.success(`Campaign ${newStatus === 'active' ? 'activated' : 'paused'}`);
-    loadCampaigns();
   };
 
   const triggerMarketingStrategy = async (phone: string, campaignType: string) => {
@@ -335,7 +330,8 @@ export function MarketingCampaignDashboard() {
                         <span>Template: {campaign.template_name}</span>
                         <span>Priority: {campaign.priority}</span>
                         <span>Sent: {campaign.sent_count}/{campaign.target_count}</span>
-                        <span>Success: {(campaign.success_rate * 100).toFixed(1)}%</span>
+                        <span>Click Rate: {campaign.click_rate.toFixed(1)}%</span>
+                        <span>Conversion: {campaign.conversion_rate.toFixed(1)}%</span>
                       </div>
                     </div>
                     <div className="flex gap-2">
