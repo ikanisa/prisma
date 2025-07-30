@@ -161,9 +161,13 @@ async function processWebhookAsync(body: any) {
               const sessionExpired = await checkSessionExpired(supabase, from);
               
               if (isNewUser || sessionExpired) {
-                console.log(`👋 Sending welcome template to ${from} (new: ${isNewUser}, expired: ${sessionExpired})`);
-                await sendTemplate(from, TPL.WELCOME);
-                await logTemplateSend(supabase, from, TPL.WELCOME);
+                // Use intelligent template routing for better experience
+                const templateDecision = await getIntelligentTemplate(supabase, message.text?.body || '', from, sessionExpired);
+                
+                console.log(`🧠 Intelligent template for ${from}: ${templateDecision.templateName} (confidence: ${templateDecision.confidence})`);
+                
+                await sendTemplate(from, templateDecision.templateName);
+                await logTemplateSend(supabase, from, templateDecision.templateName);
                 continue;
               }
 
@@ -358,6 +362,21 @@ async function routeQuickReply(supabase: any, phone: string, payload: string, co
   console.log(`🎯 Routing quick reply: ${payload} for ${phone}`);
   
   try {
+    // Track button click analytics
+    await supabase.functions.invoke('template-analytics-tracker', {
+      body: {
+        events: [{
+          eventType: 'clicked',
+          templateName: 'quick_reply_button',
+          userId: phone,
+          metadata: { 
+            payload,
+            buttonText: Object.keys(quickReplyMap).find(key => quickReplyMap[key] === payload) 
+          }
+        }]
+      }
+    });
+
     // Route to omni-agent-router with the payload
     const { data: response, error } = await supabase.functions.invoke('omni-agent-router', {
       body: { 
@@ -396,6 +415,20 @@ async function routeQuickReply(supabase: any, phone: string, payload: string, co
 
       await sendWhatsAppMessage(phone, truncatedResponse);
       console.log(`✅ Quick reply response sent: ${payload} -> ${truncatedResponse.substring(0, 50)}...`);
+      
+      // Track conversion if this completes a flow
+      if (['PAY_QR', 'PAX_REQUEST', 'DRV_GO_ONLINE'].includes(payload)) {
+        await supabase.functions.invoke('template-analytics-tracker', {
+          body: {
+            events: [{
+              eventType: 'converted',
+              templateName: 'quick_reply_conversion',
+              userId: phone,
+              metadata: { payload, action: 'flow_completed' }
+            }]
+          }
+        });
+      }
     } else {
       console.error(`❌ Invalid quick reply response:`, response);
       await sendWhatsAppMessage(phone, "🤖 I'm experiencing technical difficulties. Please try again in a moment.");
@@ -405,4 +438,38 @@ async function routeQuickReply(supabase: any, phone: string, payload: string, co
     console.error(`❌ Error routing quick reply:`, error);
     await sendWhatsAppMessage(phone, "🤖 I'm experiencing technical difficulties. Please try again in a moment.");
   }
+}
+
+// Intelligent template selection
+async function getIntelligentTemplate(supabase: any, message: string, userId: string, sessionExpired: boolean) {
+  try {
+    const { data: templateDecision } = await supabase.functions.invoke('intelligent-template-router', {
+      body: {
+        message,
+        userId,
+        sessionExpired,
+        context: {
+          phone: userId,
+          preferredLanguage: 'en'
+        }
+      }
+    });
+
+    if (templateDecision?.success) {
+      return {
+        templateName: templateDecision.templateName,
+        confidence: templateDecision.confidence,
+        reasoning: templateDecision.reasoning
+      };
+    }
+  } catch (error) {
+    console.error('Error getting intelligent template:', error);
+  }
+
+  // Fallback to welcome template
+  return {
+    templateName: TPL.WELCOME,
+    confidence: 0.5,
+    reasoning: 'Fallback to welcome template'
+  };
 }

@@ -138,14 +138,27 @@ export async function logTemplateSend(
   error?: string
 ) {
   try {
+    // Update contacts table
     await supabase.from('contacts').upsert({
       phone_number: waId,
       last_interaction: new Date().toISOString(),
       status: 'active'
     }, { onConflict: 'phone_number' });
     
-    // For now, we'll log to the console until we create the table
-    console.log(`📊 Template log: ${waId} -> ${templateName} (${success ? 'SUCCESS' : 'FAILED'})`);
+    // Log to template_sends table for analytics
+    await supabase.from('template_sends').insert({
+      wa_id: waId,
+      template_name: templateName,
+      sent_at: new Date().toISOString(),
+      event_type: 'sent',
+      metadata: { 
+        success, 
+        error: error || null,
+        timestamp: new Date().toISOString()
+      }
+    });
+    
+    console.log(`📊 Template logged: ${waId} -> ${templateName} (${success ? 'SUCCESS' : 'FAILED'})`);
     
   } catch (err) {
     console.error('❌ Failed to log template send:', err);

@@ -5,7 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { MessageSquare, CheckCircle, Clock, XCircle, Search, Plus } from "lucide-react";
+import { MessageSquare, CheckCircle, Clock, XCircle, Search, Plus, BarChart3, Zap } from "lucide-react";
+import TemplateAnalytics from "@/components/admin/TemplateAnalytics";
 import { useToast } from "@/hooks/use-toast";
 import {
   Table,
@@ -51,6 +52,7 @@ export default function WhatsAppTemplates() {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<'templates' | 'analytics' | 'campaigns'>('templates');
   const { toast } = useToast();
 
   const [newTemplate, setNewTemplate] = useState({
@@ -284,90 +286,120 @@ export default function WhatsAppTemplates() {
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">WhatsApp Templates</h1>
-          <p className="text-muted-foreground">Manage and approve WhatsApp message templates</p>
+          <h1 className="text-3xl font-bold">WhatsApp Management</h1>
+          <p className="text-muted-foreground">Intelligent template system with analytics and campaigns</p>
         </div>
-        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Create Template
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Create New Template</DialogTitle>
-              <DialogDescription>
-                Create a new WhatsApp message template for passenger communications
-              </DialogDescription>
-            </DialogHeader>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm font-medium">Template Name</label>
-                <Input
-                  placeholder="e.g., Driver Assigned Notification"
-                  value={newTemplate.name}
-                  onChange={(e) => setNewTemplate(prev => ({ ...prev, name: e.target.value }))}
-                />
-              </div>
-              
-              <div>
-                <label className="text-sm font-medium">Category</label>
-                <Select 
-                  value={newTemplate.category} 
-                  onValueChange={(value) => setNewTemplate(prev => ({ ...prev, category: value }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map(cat => (
-                      <SelectItem key={cat.value} value={cat.value}>
-                        {cat.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <div>
-                <label className="text-sm font-medium">Template Content</label>
-                <Textarea
-                  placeholder="🛵 Driver {{driver_name}} ({{vehicle_plate}}) is arriving in {{eta_minutes}} minutes..."
-                  rows={6}
-                  value={newTemplate.content}
-                  onChange={(e) => setNewTemplate(prev => ({ ...prev, content: e.target.value }))}
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  Use double braces for dynamic content (e.g., driver_name)
-                </p>
-              </div>
-              
-              {newTemplate.content && (
-                <div>
-                  <label className="text-sm font-medium">Preview</label>
-                  <div className="p-3 bg-muted rounded border">
-                    {previewTemplate(newTemplate.content, extractVariables(newTemplate.content))}
-                  </div>
-                </div>
-              )}
-              
-              <div className="flex gap-2">
-                <Button onClick={createTemplate} disabled={!newTemplate.name || !newTemplate.content}>
-                  Create Template
-                </Button>
-                <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
-                  Cancel
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
+        <div className="flex gap-2">
+          <Button
+            variant={activeTab === 'templates' ? 'default' : 'outline'}
+            onClick={() => setActiveTab('templates')}
+          >
+            <MessageSquare className="h-4 w-4 mr-2" />
+            Templates
+          </Button>
+          <Button
+            variant={activeTab === 'analytics' ? 'default' : 'outline'}
+            onClick={() => setActiveTab('analytics')}
+          >
+            <BarChart3 className="h-4 w-4 mr-2" />
+            Analytics
+          </Button>
+          <Button
+            variant={activeTab === 'campaigns' ? 'default' : 'outline'}
+            onClick={() => setActiveTab('campaigns')}
+          >
+            <Zap className="h-4 w-4 mr-2" />
+            Campaigns
+          </Button>
+        </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      {activeTab === 'analytics' && <TemplateAnalytics />}
+      
+      {activeTab === 'templates' && (
+        <>
+          <div className="flex justify-end mb-4">
+            <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create Template
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>Create New Template</DialogTitle>
+                  <DialogDescription>
+                    Create a new WhatsApp message template for passenger communications
+                  </DialogDescription>
+                </DialogHeader>
+                
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-sm font-medium">Template Name</label>
+                    <Input
+                      placeholder="e.g., Driver Assigned Notification"
+                      value={newTemplate.name}
+                      onChange={(e) => setNewTemplate(prev => ({ ...prev, name: e.target.value }))}
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="text-sm font-medium">Category</label>
+                    <Select 
+                      value={newTemplate.category} 
+                      onValueChange={(value) => setNewTemplate(prev => ({ ...prev, category: value }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {categories.map(cat => (
+                          <SelectItem key={cat.value} value={cat.value}>
+                            {cat.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div>
+                    <label className="text-sm font-medium">Template Content</label>
+                    <Textarea
+                      placeholder="🛵 Driver {{driver_name}} ({{vehicle_plate}}) is arriving in {{eta_minutes}} minutes..."
+                      rows={6}
+                      value={newTemplate.content}
+                      onChange={(e) => setNewTemplate(prev => ({ ...prev, content: e.target.value }))}
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Use double braces for dynamic content (e.g., driver_name)
+                    </p>
+                  </div>
+                  
+                  {newTemplate.content && (
+                    <div>
+                      <label className="text-sm font-medium">Preview</label>
+                      <div className="p-3 bg-muted rounded border">
+                        {previewTemplate(newTemplate.content, extractVariables(newTemplate.content))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  <div className="flex gap-2">
+                    <Button onClick={createTemplate} disabled={!newTemplate.name || !newTemplate.content}>
+                      Create Template
+                    </Button>
+                    <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
+
+          {/* Stats Cards */}
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Templates</CardTitle>
@@ -546,6 +578,28 @@ export default function WhatsAppTemplates() {
           </Table>
         </CardContent>
       </Card>
+      )}
+      
+      {activeTab === 'campaigns' && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Marketing Campaigns</CardTitle>
+            <CardDescription>Campaign management coming soon - intelligent template routing active</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-muted-foreground">
+              The intelligent template system is now active and automatically routing users to the best templates based on:
+            </p>
+            <ul className="list-disc list-inside mt-4 space-y-2 text-sm">
+              <li>Intent detection from user messages</li>
+              <li>User behavior and conversation history</li>
+              <li>Template performance analytics</li>
+              <li>CSAT gating for marketing campaigns</li>
+              <li>User segmentation and preferences</li>
+            </ul>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
