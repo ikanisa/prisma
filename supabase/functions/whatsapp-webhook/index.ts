@@ -184,13 +184,14 @@ async function processMessageSafely(
   console.log(`🧠 Processing ${messageType} message from ${from}:`, text || 'non-text');
   
   try {
-    // **FIX #2: SINGLE AGENT CALL** - Only call one agent with timeout
+    // **FIX #2: SINGLE AGENT CALL** - Call omni-agent-router for intent detection and actions
     const timeoutMs = 8000; // 8 seconds max
-    const agentPromise = supabase.functions.invoke('omni-agent-enhanced', {
+    const agentPromise = supabase.functions.invoke('omni-agent-router', {
       body: { 
         message: text, 
+        userId: from,
         phone: from,
-        userContext: {
+        context: {
           phone: from,
           name: contactName,
           preferredLanguage: 'rw',
@@ -205,7 +206,7 @@ async function processMessageSafely(
       setTimeout(() => reject(new Error('Agent timeout')), timeoutMs)
     );
 
-    console.log(`🤖 Calling omni-agent-enhanced for AI processing...`);
+    console.log(`🤖 Calling omni-agent-router for intent detection and actions...`);
     const { data: response, error } = await Promise.race([agentPromise, timeoutPromise]) as any;
 
     if (error) {
@@ -217,15 +218,27 @@ async function processMessageSafely(
     if (response?.success && response?.response) {
       console.log(`✅ AI agent response received:`, JSON.stringify({
         success: response.success,
-        response: response.response,
-        confidence: response.confidence,
         intent: response.intent,
-        toolsCalled: response.toolsCalled
+        response_type: response.response?.response_type,
+        message: response.response?.message?.substring(0, 100) + '...',
+        media_url: response.response?.media_url
       }));
 
-      const truncatedResponse = response.response.length > 1000 
-        ? response.response.substring(0, 1000) + '...' 
-        : response.response;
+      // Extract the actual message from the response structure
+      let finalMessage = '';
+      
+      if (response.response.response_type === 'media' && response.response.media_url) {
+        // For media responses, send the image URL and message
+        finalMessage = response.response.message || 'Here is your requested content:';
+        // TODO: Implement media sending via WhatsApp API
+        console.log(`📷 Media response detected: ${response.response.media_url}`);
+      } else {
+        finalMessage = response.response.message || response.response;
+      }
+
+      const truncatedResponse = finalMessage.length > 1000 
+        ? finalMessage.substring(0, 1000) + '...' 
+        : finalMessage;
 
       await sendWhatsAppMessage(from, truncatedResponse);
       console.log(`✅ Generated response for ${messageId}: ${truncatedResponse}`);
