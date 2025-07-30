@@ -126,59 +126,57 @@ serve(async (req: Request) => {
   });
 });
 
-// Process text messages with AI-powered intelligent routing
+// Process text messages with built-in intelligent routing
 async function processTextMessage(supabase: any, from: string, text: string, messageId: string, contactName: string, timestamp: Date) {
-  console.log('🧠 Processing text message with AI routing:', text);
+  console.log('🧠 Processing text message:', text);
   
-  // Route to AI Smart Router for intelligent agent selection
   try {
-    const { data: result, error } = await supabase.functions.invoke('whatsapp-webhook/agents/smart-router', {
-      body: {
-        message: text,
-        userId: from,
-        phone: from,
-        context: {
-          contact_name: contactName,
-          message_id: messageId,
-          timestamp: timestamp.toISOString()
-        }
-      }
-    });
-
-    if (error) {
-      console.error('❌ Smart router error:', error);
-      throw error;
-    }
-
-    console.log(`✅ Smart routing result: ${result.intent} → ${result.agent} (confidence: ${result.confidence})`);
+    // Route message based on intent
+    const response = await routeMessage(text, from);
     
-    // Send response back to user if routing was successful
-    if (result?.success && result?.response) {
-      await sendWhatsAppMessage(from, result.response);
-    } else if (!result?.success) {
-      console.error('❌ Smart routing failed:', result);
-      // Fallback to enhanced omni agent
-      const { data: fallbackResult, error: fallbackError } = await supabase.functions.invoke('omni-agent-enhanced', {
-        body: {
-          message: text,
-          phone: from,
-          contact_name: contactName,
-          message_id: messageId,
-          timestamp: timestamp.toISOString()
-        }
-      });
-
-      if (!fallbackError && fallbackResult?.response) {
-        await sendWhatsAppMessage(from, fallbackResult.response);
-      } else {
-        await sendWhatsAppMessage(from, "🤖 I'm here to help! Send amount for payment QR or 'help' for options.");
-      }
-    }
+    console.log(`✅ Generated response: ${response}`);
+    
+    // Send response back to user
+    await sendWhatsAppMessage(from, response);
+    
   } catch (error) {
     console.error('❌ Text processing error:', error);
     // Send fallback response only on complete failure
-    await sendWhatsAppMessage(from, "🤖 I'm experiencing technical difficulties. Please try again in a moment.");
+    await sendWhatsAppMessage(from, "🤖 I'm here to help! Say 'pay', 'ride', 'shop', or 'help' for assistance.");
   }
+}
+
+// Built-in intent routing and response generation
+async function routeMessage(text: string, phone: string): Promise<string> {
+  const message = text.toLowerCase().trim();
+  
+  // Payment intents
+  if (message.includes('pay') || message.includes('payment') || message.includes('qr') || message.includes('money')) {
+    return "💰 **easyMO Payments**\n\nI can help you:\n🔗 Generate QR code to receive money\n💸 Send money to someone\n📊 Check your balance\n\nJust say 'generate qr for 5000' or 'send money'.";
+  }
+  
+  // Transport/Moto intents  
+  if (message.includes('ride') || message.includes('moto') || message.includes('driver') || message.includes('transport')) {
+    return "🏍️ **easyMO Moto**\n\nI can help you:\n🚗 Book a ride anywhere\n🏍️ Find nearby drivers\n📍 Share your location\n\nSay 'need ride' or 'find driver' to get started.";
+  }
+  
+  // Commerce intents
+  if (message.includes('shop') || message.includes('buy') || message.includes('bar') || message.includes('pharmacy') || message.includes('drink')) {
+    return "🛒 **easyMO Shopping**\n\nI can help you:\n🍺 Order from local bars\n💊 Buy pharmacy items\n🔨 Find hardware stores\n\nSay 'find bars' or 'pharmacy' to browse.";
+  }
+  
+  // Property/Listings intents
+  if (message.includes('house') || message.includes('rent') || message.includes('property') || message.includes('apartment')) {
+    return "🏠 **easyMO Property**\n\nI can help you:\n🔍 Find houses for rent\n🏗️ Search apartments\n📝 List your property\n\nSay 'find house' or 'rent apartment'.";
+  }
+  
+  // Help or unrecognized
+  if (message.includes('help') || message.includes('start') || message.includes('menu') || message === 'ok' || message === 'hello' || message === 'hi') {
+    return "👋 **Welcome to easyMO!**\n\nYour all-in-one platform for:\n\n💰 **Payments** - Send/receive money\n🏍️ **Moto** - Book rides & transport\n🛒 **Shopping** - Bars, pharmacy, hardware\n🏠 **Property** - Houses & apartments\n\nWhat do you need help with today?";
+  }
+  
+  // Default response for unclear messages
+  return "🤖 I'm here to help! Try saying:\n• 'pay' for payments\n• 'ride' for transport\n• 'shop' for shopping\n• 'house' for property\n• 'help' for more options";
 }
 
 // Helper function to send WhatsApp messages
@@ -231,27 +229,14 @@ async function processInteractiveMessage(supabase: any, from: string, interactiv
     actionData = interactive.button_reply.id;
   }
 
-  // Route to WhatsApp Core Engine
+  // Handle interactive responses directly
   try {
-    const { data: result, error } = await supabase.functions.invoke('whatsapp-core-engine', {
-      body: {
-        from,
-        text: actionData,
-        message_id: messageId,
-        contact_name: contactName,
-        timestamp: timestamp.toISOString(),
-        message_type: 'interactive',
-        interactive_data: interactive
-      }
-    });
-
-    if (error) {
-      console.error('❌ Interactive processing error:', error);
-    } else {
-      console.log('✅ Interactive message processed:', result);
-    }
+    const response = await routeMessage(actionData, from);
+    await sendWhatsAppMessage(from, response);
+    console.log('✅ Interactive message processed successfully');
   } catch (error) {
     console.error('❌ Interactive processing error:', error);
+    await sendWhatsAppMessage(from, "🤖 I understand. How can I help you?");
   }
 }
 
@@ -259,27 +244,15 @@ async function processInteractiveMessage(supabase: any, from: string, interactiv
 async function processButtonMessage(supabase: any, from: string, button: any, messageId: string, contactName: string, timestamp: Date) {
   console.log('🔘 Processing button message:', button);
   
-  // Route to WhatsApp Core Engine
+  // Handle button responses directly
   try {
-    const { data: result, error } = await supabase.functions.invoke('whatsapp-core-engine', {
-      body: {
-        from,
-        text: button.text || button.payload,
-        message_id: messageId,
-        contact_name: contactName,
-        timestamp: timestamp.toISOString(),
-        message_type: 'button',
-        button_data: button
-      }
-    });
-
-    if (error) {
-      console.error('❌ Button processing error:', error);
-    } else {
-      console.log('✅ Button message processed:', result);
-    }
+    const buttonText = button.text || button.payload || 'help';
+    const response = await routeMessage(buttonText, from);
+    await sendWhatsAppMessage(from, response);
+    console.log('✅ Button message processed successfully');
   } catch (error) {
     console.error('❌ Button processing error:', error);
+    await sendWhatsAppMessage(from, "🤖 Thanks for clicking! How can I help you?");
   }
 }
 
@@ -296,27 +269,14 @@ async function processLocationMessage(supabase: any, from: string, location: any
     updated_at: new Date().toISOString()
   }, { onConflict: 'phone_number' });
 
-  // Route to WhatsApp Core Engine
+  // Handle location sharing
   try {
-    const { data: result, error } = await supabase.functions.invoke('whatsapp-core-engine', {
-      body: {
-        from,
-        text: `location_shared:${location.latitude},${location.longitude}`,
-        message_id: messageId,
-        contact_name: contactName,
-        timestamp: timestamp.toISOString(),
-        message_type: 'location',
-        location_data: location
-      }
-    });
-
-    if (error) {
-      console.error('❌ Location processing error:', error);
-    } else {
-      console.log('✅ Location message processed:', result);
-    }
+    const response = "📍 **Location Received!**\n\nGreat! I've saved your location. Now I can:\n🏍️ Find nearby drivers for rides\n🛒 Show local businesses\n🏠 Search properties in your area\n\nWhat would you like to do?";
+    await sendWhatsAppMessage(from, response);
+    console.log('✅ Location message processed successfully');
   } catch (error) {
     console.error('❌ Location processing error:', error);
+    await sendWhatsAppMessage(from, "📍 Thanks for sharing your location! How can I help you?");
   }
 }
 
@@ -324,26 +284,24 @@ async function processLocationMessage(supabase: any, from: string, location: any
 async function processMediaMessage(supabase: any, from: string, message: any, messageId: string, contactName: string, timestamp: Date) {
   console.log('📎 Processing media message:', message.type);
   
-  // Route to WhatsApp Core Engine for media analysis
+  // Handle media messages directly
   try {
-    const { data: result, error } = await supabase.functions.invoke('whatsapp-core-engine', {
-      body: {
-        from,
-        text: `media_received:${message.type}`,
-        message_id: messageId,
-        contact_name: contactName,
-        timestamp: timestamp.toISOString(),
-        message_type: message.type,
-        media_data: message[message.type]
-      }
-    });
-
-    if (error) {
-      console.error('❌ Media processing error:', error);
+    let response = "📎 **Media Received!**\n\nThanks for sharing! ";
+    
+    if (message.type === 'image') {
+      response += "I can see your image. How can I help you with this?";
+    } else if (message.type === 'document') {
+      response += "I received your document. What would you like me to do?";
     } else {
-      console.log('✅ Media message processed:', result);
+      response += "I received your file. How can I assist you?";
     }
+    
+    response += "\n\nSay 'help' to see all available services.";
+    
+    await sendWhatsAppMessage(from, response);
+    console.log('✅ Media message processed successfully');
   } catch (error) {
     console.error('❌ Media processing error:', error);
+    await sendWhatsAppMessage(from, "📎 Thanks for sharing! How can I help you?");
   }
 }
