@@ -24,6 +24,8 @@ interface RoutingDecision {
   confidence: number;
   reasoning: string;
   payload?: string;
+  fallbackTemplates?: string[];
+  metadata?: any;
 }
 
 serve(async (req) => {
@@ -124,87 +126,149 @@ async function getUserContext(supabase: any, userId: string, phone: string, sess
 }
 
 async function determineRouting(supabase: any, message: string, context: MessageContext): Promise<RoutingDecision> {
-  const lowerMsg = message.toLowerCase();
-  
-  // Intent detection patterns
-  const intentPatterns = {
-    payment: ['pay', 'payment', 'momo', 'money', 'qr', 'generate', 'scan'],
-    ride: ['ride', 'taxi', 'moto', 'driver', 'transport', 'trip'],
-    property: ['house', 'rent', 'property', 'apartment', 'home'],
-    vehicle: ['car', 'vehicle', 'sell car', 'buy car', 'moto sale'],
-    ordering: ['order', 'food', 'drink', 'bar', 'pharmacy', 'shop'],
-    support: ['help', 'support', 'problem', 'issue', 'talk', 'human'],
-    driver_status: ['online', 'offline', 'available', 'busy', 'location']
-  };
-
   // 1. If session is active (within 24h), use interactive messages for most intents
   if (context.sessionActive) {
-    for (const [intent, keywords] of Object.entries(intentPatterns)) {
-      if (keywords.some(keyword => lowerMsg.includes(keyword))) {
-        return {
-          action: 'interactive',
-          confidence: 0.85,
-          reasoning: `Active session detected, using interactive flow for ${intent}`,
-          payload: getPayloadForIntent(intent)
-        };
-      }
-    }
-    
+    const interactivePayload = await getInteractivePayloadForContext(message, context);
     return {
       action: 'interactive',
-      confidence: 0.7,
-      reasoning: 'Active session - using interactive menu',
-      payload: 'MAIN_MENU'
+      confidence: 0.85,
+      reasoning: 'Active session detected, using interactive flow',
+      payload: interactivePayload
     };
   }
 
-  // 2. Outside 24h window - need templates
+  // 2. Outside 24h window - use smart template routing
+  try {
+    console.log('🎯 Calling smart template router for advanced template selection');
+    
+    const { data: smartRouting, error } = await supabase.functions.invoke('smart-template-router', {
+      body: {
+        message,
+        phone: context.phone,
+        userId: context.userId,
+        sessionActive: context.sessionActive
+      }
+    });
+
+    if (error) {
+      console.error('Smart template router error:', error);
+      throw error;
+    }
+
+    if (smartRouting?.success && smartRouting.routing) {
+      const routing = smartRouting.routing;
+      return {
+        action: 'template',
+        templateName: routing.templateName,
+        confidence: routing.confidence,
+        reasoning: `Smart routing: ${routing.reasoning}`,
+        fallbackTemplates: routing.fallbackTemplates,
+        metadata: routing.metadata
+      };
+    }
+  } catch (error) {
+    console.error('Smart template routing failed, using fallback logic:', error);
+  }
+
+  // 3. Fallback to basic template routing if smart routing fails
+  return await getBasicTemplateRouting(supabase, message, context);
+}
+
+async function getInteractivePayloadForContext(message: string, context: MessageContext): Promise<string> {
+  const lowerMsg = message.toLowerCase();
   
+  // Quick intent detection for interactive payloads
+  if (lowerMsg.includes('pay') || lowerMsg.includes('money') || lowerMsg.includes('qr')) {
+    return 'PAY_MENU';
+  }
+  if (lowerMsg.includes('ride') || lowerMsg.includes('taxi') || lowerMsg.includes('moto')) {
+    return context.userType === 'driver' ? 'DRV_STATUS' : 'PAX_REQUEST';
+  }
+  if (lowerMsg.includes('property') || lowerMsg.includes('house') || lowerMsg.includes('rent')) {
+    return 'PROP_MENU';
+  }
+  if (lowerMsg.includes('car') || lowerMsg.includes('vehicle')) {
+    return 'VEH_MENU';
+  }
+  if (lowerMsg.includes('order') || lowerMsg.includes('shop') || lowerMsg.includes('pharmacy')) {
+    return 'ORD_MENU';
+  }
+  if (lowerMsg.includes('help') || lowerMsg.includes('support')) {
+    return 'SUP_MENU';
+  }
+  
+  return 'MAIN_MENU';
+}
+
+async function getBasicTemplateRouting(supabase: any, message: string, context: MessageContext): Promise<RoutingDecision> {
+  const lowerMsg = message.toLowerCase();
+  
+  // Basic intent patterns for fallback
+  const basicPatterns = {
+    payment: ['pay', 'payment', 'momo', 'money', 'qr', 'generate', 'scan'],
+    driver: ['driver', 'online', 'offline', 'available', 'busy', 'status'],
+    property: ['house', 'rent', 'property', 'apartment', 'home'],
+    vehicle: ['car', 'vehicle', 'sell car', 'buy car', 'moto sale'],
+    ride: ['ride', 'taxi', 'passenger', 'book', 'trip'],
+    support: ['help', 'support', 'problem', 'issue']
+  };
+
   // Driver-specific routing
   if (context.userType === 'driver') {
-    if (intentPatterns.driver_status.some(keyword => lowerMsg.includes(keyword))) {
+    if (basicPatterns.driver.some(keyword => lowerMsg.includes(keyword))) {
       return {
         action: 'template',
         templateName: 'tpl_driver_status_v1',
-        confidence: 0.9,
-        reasoning: 'Driver requesting status change'
+        confidence: 0.8,
+        reasoning: 'Driver requesting status - basic fallback'
       };
     }
   }
 
-  // Intent-based template routing
-  for (const [intent, keywords] of Object.entries(intentPatterns)) {
+  // Intent-based basic routing
+  for (const [intent, keywords] of Object.entries(basicPatterns)) {
     if (keywords.some(keyword => lowerMsg.includes(keyword))) {
-      const templateName = getTemplateForIntent(intent, context);
+      const templateName = getBasicTemplateForIntent(intent, context);
       if (templateName) {
         return {
           action: 'template',
           templateName,
-          confidence: 0.8,
-          reasoning: `Intent detected: ${intent}`
+          confidence: 0.7,
+          reasoning: `Basic intent detected: ${intent}`
         };
       }
     }
   }
 
-  // 3. New user or no clear intent
+  // New user
   if (context.userType === 'new' || context.conversationCount === 0) {
     return {
       action: 'template',
       templateName: 'tpl_welcome_quick_v1',
       confidence: 0.9,
-      reasoning: 'New user - showing welcome template'
+      reasoning: 'New user - welcome template'
     };
   }
 
-  // 4. Returning user - contextual template
-  const contextualTemplate = await getContextualTemplate(supabase, context);
+  // Default fallback
   return {
     action: 'template',
-    templateName: contextualTemplate,
-    confidence: 0.6,
-    reasoning: 'Returning user - contextual template based on history'
+    templateName: 'tpl_welcome_quick_v1',
+    confidence: 0.5,
+    reasoning: 'Default fallback template'
   };
+}
+
+function getBasicTemplateForIntent(intent: string, context: MessageContext): string | null {
+  const templateMap: Record<string, string> = {
+    payment: 'tpl_payments_quick_v1',
+    driver: 'tpl_driver_status_v1',
+    property: 'tpl_property_quick_v1',
+    vehicle: 'tpl_vehicle_quick_v1',
+    ride: context.userType === 'driver' ? 'tpl_driver_status_v1' : 'tpl_passenger_quick_v1',
+    support: 'tpl_support_quick_v1'
+  };
+  return templateMap[intent] || null;
 }
 
 function getPayloadForIntent(intent: string): string {
