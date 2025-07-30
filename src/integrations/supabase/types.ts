@@ -7016,6 +7016,69 @@ export type Database = {
         }
         Relationships: []
       }
+      template_rendering_logs: {
+        Row: {
+          error_details: string | null
+          id: string
+          language: string
+          render_time_ms: number | null
+          rendered_at: string
+          success: boolean | null
+          template_id: string
+          user_phone: string
+        }
+        Insert: {
+          error_details?: string | null
+          id?: string
+          language?: string
+          render_time_ms?: number | null
+          rendered_at?: string
+          success?: boolean | null
+          template_id: string
+          user_phone: string
+        }
+        Update: {
+          error_details?: string | null
+          id?: string
+          language?: string
+          render_time_ms?: number | null
+          rendered_at?: string
+          success?: boolean | null
+          template_id?: string
+          user_phone?: string
+        }
+        Relationships: []
+      }
+      template_usage_logs: {
+        Row: {
+          button_count: number
+          domain: string
+          id: string
+          intent: string
+          metadata: Json | null
+          timestamp: string
+          user_phone: string
+        }
+        Insert: {
+          button_count?: number
+          domain: string
+          id?: string
+          intent: string
+          metadata?: Json | null
+          timestamp?: string
+          user_phone: string
+        }
+        Update: {
+          button_count?: number
+          domain?: string
+          id?: string
+          intent?: string
+          metadata?: Json | null
+          timestamp?: string
+          user_phone?: string
+        }
+        Relationships: []
+      }
       temporary_cache: {
         Row: {
           created_at: string
@@ -8423,6 +8486,42 @@ export type Database = {
           status?: string | null
           to_number?: string
           wa_message_id?: string | null
+        }
+        Relationships: []
+      }
+      whatsapp_template_buttons: {
+        Row: {
+          button_order: number
+          button_text: string
+          button_type: string
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          payload: Json | null
+          template_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          button_order?: number
+          button_text: string
+          button_type?: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          payload?: Json | null
+          template_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          button_order?: number
+          button_text?: string
+          button_type?: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          payload?: Json | null
+          template_id?: string
+          updated_at?: string | null
         }
         Relationships: []
       }
