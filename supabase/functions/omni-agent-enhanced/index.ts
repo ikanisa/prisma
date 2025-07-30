@@ -44,41 +44,9 @@ class OpenAIAssistantAgent {
     console.log(`🤖 OpenAI Assistant processing: ${userContext.phone} - ${message}`);
 
     try {
-      // Get active assistant
-      const { data: assistantConfig } = await this.supabase
-        .from('assistant_configs')
-        .select('assistant_id')
-        .eq('name', 'easyMO_Omni_V2')
-        .eq('status', 'active')
-        .single();
-
-      if (!assistantConfig) {
-        console.warn('No active assistant found, using fallback');
-        return this.getFallbackResult(message, userContext);
-      }
-
-      // Create thread
-      const thread = await this.createThread();
-      
-      // Add user message
-      await this.addMessageToThread(thread.id, message);
-      
-      // Run assistant
-      const run = await this.runAssistant(thread.id, assistantConfig.assistant_id, userContext);
-      
-      // Get response
-      const response = await this.getAssistantResponse(thread.id);
-      
-      // Store conversation
-      await this.storeConversation(userContext.phone, message, response);
-
-      return {
-        success: true,
-        response: response,
-        confidence: 0.9,
-        intent: 'assistant_processed',
-        toolsCalled: ['openai_assistant']
-      };
+      // Use direct intent processing instead of assistant lookup
+      console.log('🎯 Processing with direct intent routing');
+      return await this.processDirectIntent(message, userContext);
 
     } catch (error) {
       console.error('❌ Assistant processing error:', error);
@@ -301,6 +269,26 @@ class OpenAIAssistantAgent {
     } catch (error) {
       console.error('❌ Failed to store conversation:', error);
     }
+  }
+
+  private async processDirectIntent(message: string, userContext: UserContext): Promise<AIProcessingResult> {
+    // Classify intent first
+    const intent = await this.classifyIntent(message, userContext);
+    
+    // Generate contextual response
+    const response = await this.generateContextualResponse(message, intent, userContext);
+    
+    // Store conversation
+    await this.storeConversation(userContext.phone, message, response.response);
+    
+    return {
+      success: true,
+      response: response.response,
+      confidence: response.confidence,
+      intent: response.intent,
+      nextActions: response.nextActions,
+      toolsCalled: response.toolsCalled || ['direct_intent_processing']
+    };
   }
 
   private getFallbackResult(message: string, userContext: UserContext): AIProcessingResult {
