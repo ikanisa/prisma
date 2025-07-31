@@ -1662,10 +1662,12 @@ export type Database = {
           contact_type: string | null
           conversion_status: string | null
           created_at: string | null
+          display_name: string | null
           first_contact_date: string | null
           id: string
           is_online: boolean | null
           is_typing: boolean | null
+          language: string | null
           last_banner_ts: string | null
           last_interaction: string | null
           location: string | null
@@ -1674,16 +1676,19 @@ export type Database = {
           preferred_channel: string | null
           status: string | null
           total_conversations: number | null
+          wa_id: string | null
         }
         Insert: {
           avatar_url?: string | null
           contact_type?: string | null
           conversion_status?: string | null
           created_at?: string | null
+          display_name?: string | null
           first_contact_date?: string | null
           id?: string
           is_online?: boolean | null
           is_typing?: boolean | null
+          language?: string | null
           last_banner_ts?: string | null
           last_interaction?: string | null
           location?: string | null
@@ -1692,16 +1697,19 @@ export type Database = {
           preferred_channel?: string | null
           status?: string | null
           total_conversations?: number | null
+          wa_id?: string | null
         }
         Update: {
           avatar_url?: string | null
           contact_type?: string | null
           conversion_status?: string | null
           created_at?: string | null
+          display_name?: string | null
           first_contact_date?: string | null
           id?: string
           is_online?: boolean | null
           is_typing?: boolean | null
+          language?: string | null
           last_banner_ts?: string | null
           last_interaction?: string | null
           location?: string | null
@@ -1710,6 +1718,7 @@ export type Database = {
           preferred_channel?: string | null
           status?: string | null
           total_conversations?: number | null
+          wa_id?: string | null
         }
         Relationships: []
       }
@@ -2215,29 +2224,46 @@ export type Database = {
       conversations: {
         Row: {
           channel: Database["public"]["Enums"]["channel_type"]
+          contact_id: string | null
           context: Json | null
           created_at: string | null
           id: string
+          last_message_at: string | null
+          started_at: string | null
           updated_at: string | null
           user_id: string | null
         }
         Insert: {
           channel?: Database["public"]["Enums"]["channel_type"]
+          contact_id?: string | null
           context?: Json | null
           created_at?: string | null
           id?: string
+          last_message_at?: string | null
+          started_at?: string | null
           updated_at?: string | null
           user_id?: string | null
         }
         Update: {
           channel?: Database["public"]["Enums"]["channel_type"]
+          contact_id?: string | null
           context?: Json | null
           created_at?: string | null
           id?: string
+          last_message_at?: string | null
+          started_at?: string | null
           updated_at?: string | null
           user_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "conversations_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       coverage_scores: {
         Row: {
