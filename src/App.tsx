@@ -1,0 +1,148 @@
+import { Toaster } from "@/components/ui/toaster";
+import { Toaster as Sonner } from "@/components/ui/sonner";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { Navigate } from "react-router-dom";
+import NotFound from "./pages/NotFound";
+import { AdminLayoutConsolidated } from "@/components/admin/AdminLayoutConsolidated";
+import UnifiedDashboard from "./pages/admin/UnifiedDashboard";
+import UsersContacts from "./pages/admin/UsersContacts";
+import Businesses from "./pages/admin/Businesses";
+// Consolidated dashboards
+import CommerceDashboard from "./pages/admin/commerce/CommerceDashboard";
+import MobilityDashboard from "./pages/admin/mobility/MobilityDashboard";
+import ListingsDashboard from "./pages/admin/listings/ListingsDashboard";
+import OperationsDashboard from "./pages/admin/operations/OperationsDashboard";
+import UsersDashboard from "./pages/admin/users/UsersDashboard";
+import ContentDashboard from "./pages/admin/content/ContentDashboard";
+import SystemOps from "./pages/admin/SystemOps";
+import BusinessDetail from "./pages/admin/BusinessDetail";
+import MessagingCampaigns from "./pages/admin/MessagingCampaigns";
+import AdminAuth from "./pages/AdminAuth";
+import EnvSetup from "./pages/admin/EnvSetup";
+import Agents from "./pages/admin/Agents";
+import AgentDetail from "./pages/admin/AgentDetail";
+import WebhookConfig from "./pages/admin/WebhookConfig";
+import PersonaDetail from "./pages/admin/PersonaDetail";
+import AgentLearning from "./pages/admin/agents/AgentLearning";
+import TaskDetail from "./pages/admin/agents/TaskDetail";
+// New Agent Management Pages
+import AgentOverview from "./pages/admin/agents/AgentOverview";
+import PersonasList from "./pages/admin/agents/PersonasList";
+import PersonaDetailNew from "./pages/admin/agents/PersonaDetail";
+import AgentConfiguration from "./pages/admin/agents/AgentConfiguration";
+import AgentConfigurationNew from "./pages/admin/AgentConfiguration";
+import PersonaConfiguration from "./pages/admin/PersonaConfiguration";
+import DocumentManagement from "./pages/admin/DocumentManagement";
+import LearningManagement from "./pages/admin/LearningManagement";
+import { LearningDashboard } from "./pages/admin/LearningDashboard";
+import PaymentsPage from "./pages/admin/PaymentsPage";
+import QRScannerPage from "./pages/admin/QRScannerPage";
+import PaymentScannerPage from "./pages/PaymentScannerPage";
+// Conversation and campaign detail pages
+import ConversationDetail from "./pages/admin/conversations/ConversationDetail";
+import CampaignDetail from "./pages/admin/campaigns/CampaignDetail";
+import CampaignCreate from "./pages/admin/campaigns/CampaignCreate";
+import ConversationsInterface from "./pages/admin/ConversationsInterface";
+import UnifiedListingsPage from "./pages/admin/UnifiedListingsPage";
+import UnifiedOrdersPage from "./pages/admin/UnifiedOrdersPage";
+import UserExperienceFlow from "./pages/admin/UserExperienceFlow";
+import TemplateManagement from "./pages/admin/TemplateManagement";
+import ActionButtons from "./pages/admin/ActionButtons";
+import { ChatProvider } from "@/components/chat/ChatProvider";
+// Phase 6: Admin Interface Completion
+import KnowledgeManagement from "./pages/admin/knowledge/KnowledgeManagement";
+import MemoryManagement from "./pages/admin/memory/MemoryManagement";
+import TasksManagement from "./pages/admin/tasks/TasksManagement";
+import DataHealthMonitoring from "./pages/admin/monitoring/DataHealthMonitoring";
+import QualityGateLogging from "./pages/admin/quality/QualityGateLogging";
+import SystemMetrics from "./pages/admin/metrics/SystemMetrics";
+
+
+const queryClient = new QueryClient();
+
+const App = () => (
+  <QueryClientProvider client={queryClient}>
+    <ChatProvider>
+      <Toaster />
+      <Sonner />
+      <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Navigate to="/admin" replace />} />
+        <Route path="/auth" element={<AdminAuth />} />
+        <Route path="/admin/setup" element={<AdminAuth />} />
+        
+        {/* Admin Routes */}
+        <Route path="/admin" element={<AdminLayoutConsolidated />}>
+          <Route index element={<UnifiedDashboard />} />
+          <Route path="users-contacts" element={<UsersContacts />} />
+          <Route path="businesses" element={<Businesses />} />
+          
+          {/* Consolidated Dashboards */}
+          <Route path="commerce" element={<CommerceDashboard />} />
+          <Route path="mobility" element={<MobilityDashboard />} />
+          <Route path="listings" element={<ListingsDashboard />} />
+          <Route path="operations" element={<OperationsDashboard />} />
+          <Route path="users" element={<UsersDashboard />} />
+          <Route path="content" element={<ContentDashboard />} />
+          <Route path="messaging-campaigns" element={<MessagingCampaigns />} />
+          
+          {/* Core functionality routes */}
+          <Route path="unified-listings" element={<UnifiedListingsPage />} />
+          <Route path="unified-orders" element={<UnifiedOrdersPage />} />
+          <Route path="conversations" element={<ConversationsInterface />} />
+          <Route path="user-experience" element={<UserExperienceFlow />} />
+          <Route path="templates" element={<TemplateManagement />} />
+          <Route path="action-buttons" element={<ActionButtons />} />
+          <Route path="omni-agent" element={<LearningDashboard />} />
+          <Route path="omni-agent/configure" element={<AgentConfigurationNew />} />
+          <Route path="omni-agent/persona" element={<PersonaConfiguration />} />
+          <Route path="omni-agent/documents" element={<DocumentManagement />} />
+          <Route path="omni-agent/learning" element={<LearningManagement />} />
+          <Route path="learning" element={<LearningDashboard />} />
+          <Route path="payments" element={<PaymentsPage />} />
+          <Route path="qr-scanner" element={<QRScannerPage />} />
+          <Route path="system-ops" element={<SystemOps />} />
+          <Route path="env-setup" element={<EnvSetup />} />
+          <Route path="webhook-config" element={<WebhookConfig />} />
+          <Route path="agents" element={<Agents />} />
+          <Route path="agents/:id" element={<AgentDetail />} />
+          <Route path="businesses/:businessId" element={<BusinessDetail />} />
+          
+          {/* New Agent Management Routes */}
+          <Route path="agents-overview/:id" element={<AgentOverview />} />
+          <Route path="agents-overview/:id/personas" element={<PersonasList />} />
+          <Route path="agents-overview/:id/personas/:personaId" element={<PersonaDetailNew />} />
+          <Route path="agents/:id/configuration" element={<AgentConfiguration />} />
+          
+          {/* Agent detail routes */}
+          <Route path="agents/:agentId/personas/:id" element={<PersonaDetail />} />
+          <Route path="agents/:id/learning" element={<AgentLearning />} />
+          <Route path="agents/:agentId/tasks/:taskId" element={<TaskDetail />} />
+          
+          {/* Conversation and campaign detail routes */}
+          <Route path="conversations/:id" element={<ConversationDetail />} />
+          <Route path="campaigns/create" element={<CampaignCreate />} />
+          <Route path="campaigns/:id" element={<CampaignDetail />} />
+          
+          {/* Phase 6: Admin Interface Completion */}
+          <Route path="knowledge" element={<KnowledgeManagement />} />
+          <Route path="memory" element={<MemoryManagement />} />
+          <Route path="tasks" element={<TasksManagement />} />
+          <Route path="data-health" element={<DataHealthMonitoring />} />
+          <Route path="quality-gate" element={<QualityGateLogging />} />
+          <Route path="system-metrics" element={<SystemMetrics />} />
+        </Route>
+        
+        {/* Public Payment Scanner Route */}
+        <Route path="/scan-to-pay" element={<PaymentScannerPage />} />
+        
+        {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+      </BrowserRouter>
+    </ChatProvider>
+  </QueryClientProvider>
+);
+
+export default App;

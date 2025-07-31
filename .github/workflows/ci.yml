@@ -1,0 +1,173 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Run type checking
+      run: npm run type-check
+
+    - name: Run linting
+      run: npm run lint
+
+    - name: Run unit tests
+      run: npm run test:coverage
+
+    - name: Upload coverage reports
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage/coverage-final.json
+        flags: unittests
+
+    - name: Build application
+      run: npm run build
+
+  e2e-tests:
+    runs-on: ubuntu-latest
+    needs: test
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Install Playwright
+      run: npx playwright install --with-deps
+
+    - name: Build application
+      run: npm run build
+
+    - name: Run Playwright tests
+      run: npm run test:e2e
+
+    - name: Upload Playwright report
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: playwright-report
+        path: playwright-report/
+        retention-days: 30
+
+  quality-gate:
+    runs-on: ubuntu-latest
+    needs: [test, e2e-tests]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Run quality checks
+      run: |
+        echo "Running quality gate checks..."
+        npm run test:coverage -- --reporter=json > coverage-summary.json
+        
+        # Extract coverage percentages
+        LINES_PCT=$(cat coverage-summary.json | jq '.total.lines.pct')
+        FUNCTIONS_PCT=$(cat coverage-summary.json | jq '.total.functions.pct')
+        BRANCHES_PCT=$(cat coverage-summary.json | jq '.total.branches.pct')
+        STATEMENTS_PCT=$(cat coverage-summary.json | jq '.total.statements.pct')
+        
+        echo "Coverage: Lines: $LINES_PCT%, Functions: $FUNCTIONS_PCT%, Branches: $BRANCHES_PCT%, Statements: $STATEMENTS_PCT%"
+        
+        # Check minimum thresholds (85%)
+        if (( $(echo "$LINES_PCT < 85" | bc -l) )); then
+          echo "❌ Lines coverage below 85%: $LINES_PCT%"
+          exit 1
+        fi
+        
+        if (( $(echo "$FUNCTIONS_PCT < 85" | bc -l) )); then
+          echo "❌ Functions coverage below 85%: $FUNCTIONS_PCT%"
+          exit 1
+        fi
+        
+        if (( $(echo "$BRANCHES_PCT < 85" | bc -l) )); then
+          echo "❌ Branches coverage below 85%: $BRANCHES_PCT%"
+          exit 1
+        fi
+        
+        if (( $(echo "$STATEMENTS_PCT < 85" | bc -l) )); then
+          echo "❌ Statements coverage below 85%: $STATEMENTS_PCT%"
+          exit 1
+        fi
+        
+        echo "✅ All quality gates passed!"
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: [quality-gate]
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Build for production
+      run: npm run build
+
+    - name: Deploy to staging
+      run: |
+        echo "🚀 Deploying to staging environment..."
+        # Add deployment commands here
+        
+    - name: Run smoke tests
+      run: |
+        echo "🔍 Running smoke tests..."
+        # Add smoke test commands here
+
+    - name: Notify deployment
+      run: |
+        echo "✅ Deployment completed successfully!"
+    - name: Run agent-intel Deno tests
+      run: |
+        deno test packages/agent-intel/src/__tests__ \
+          --allow-env --allow-net
+
+    - name: Run webhook router Deno tests
+      run: |
+        deno test supabase/functions/__tests__ \
+          --allow-env --allow-net
