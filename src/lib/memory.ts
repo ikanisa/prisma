@@ -21,6 +21,7 @@ export interface MemoryEntry {
     entities?: string[];
     turn_number?: number;
     message_id?: string;
+    turn_count_total?: number;
   };
   createdAt: string;
   expiresAt?: string;
@@ -514,7 +515,13 @@ export class EnhancedMemoryManager {
 
       // Generate summary using OpenAI
       const conversationText = recentTurns
-        .map(turn => turn.memory_value.content)
+        .map(turn => {
+          const memoryValue = turn.memory_value;
+          if (typeof memoryValue === 'object' && memoryValue !== null && 'content' in memoryValue) {
+            return String((memoryValue as any).content);
+          }
+          return String(memoryValue);
+        })
         .reverse()
         .join('\n\n');
 
@@ -549,26 +556,35 @@ export class EnhancedMemoryManager {
    */
   private async generateConversationSummary(conversationText: string): Promise<string> {
     try {
-      if (!openaiAgent.isConfigured()) {
-        return 'Summary unavailable - OpenAI not configured';
-      }
-
-      const response = await openaiAgent.createChatCompletion({
-        model: 'gpt-4.1-2025-04-14',
-        messages: [
-          {
-            role: 'system',
-            content: 'Summarize this conversation concisely, focusing on key preferences, facts, and outcomes. Keep it under 200 words.'
-          },
-          {
-            role: 'user',
-            content: `Conversation to summarize:\n\n${conversationText}`
-          }
-        ],
-        max_tokens: 200
+      // Use direct OpenAI API call instead of agent method
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [
+            {
+              role: 'system',
+              content: 'Summarize this conversation concisely, focusing on key preferences, facts, and outcomes. Keep it under 200 words.'
+            },
+            {
+              role: 'user',
+              content: `Conversation to summarize:\n\n${conversationText}`
+            }
+          ],
+          max_tokens: 200
+        })
       });
 
-      return response.choices[0].message.content || 'Unable to generate summary';
+      if (!response.ok) {
+        return 'Summary unavailable - OpenAI API error';
+      }
+
+      const data = await response.json();
+      return data.choices[0].message.content || 'Unable to generate summary';
 
     } catch (error) {
       console.error('❌ Failed to generate conversation summary:', error);
@@ -592,9 +608,11 @@ export class EnhancedMemoryManager {
 
     if (error || !data) return undefined;
 
-    return typeof data.memory_value === 'object' && data.memory_value?.content 
-      ? String(data.memory_value.content) 
-      : String(data.memory_value);
+    const memoryValue = data.memory_value;
+    if (typeof memoryValue === 'object' && memoryValue !== null && 'content' in memoryValue) {
+      return String((memoryValue as any).content);
+    }
+    return String(memoryValue);
   }
 
   /**
