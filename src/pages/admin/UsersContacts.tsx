@@ -19,6 +19,7 @@ import { SmartFileUpload } from "@/components/admin/SmartFileUpload";
 export default function UsersContacts() {
   const [contacts, setContacts] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
+  const [systemUsers, setSystemUsers] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
   const [showUpload, setShowUpload] = useState(false);
@@ -32,9 +33,10 @@ export default function UsersContacts() {
 
   const fetchData = async () => {
     try {
-      const [contactsResult, conversationsResult] = await Promise.all([
+      const [contactsResult, conversationsResult, messagesResult] = await Promise.all([
         supabase.from('contacts').select('*').limit(100),
-        supabase.from('conversations').select('user_id, created_at').limit(100)
+        supabase.from('conversations').select('user_id, created_at').limit(100),
+        supabase.from('conversation_messages').select('phone_number, created_at, sender').limit(200)
       ]);
 
       setContacts(contactsResult.data || []);
@@ -56,6 +58,45 @@ export default function UsersContacts() {
       }));
       
       setUsers(uniqueUsers);
+
+      // Create system users from conversation messages
+      if (!messagesResult.error && messagesResult.data) {
+        const messageStats = messagesResult.data.reduce((acc: any, msg: any) => {
+          if (!acc[msg.phone_number]) {
+            acc[msg.phone_number] = {
+              phone_number: msg.phone_number,
+              first_message: msg.created_at,
+              last_message: msg.created_at,
+              total_messages: 0,
+              sent_messages: 0,
+              received_messages: 0
+            };
+          }
+          
+          acc[msg.phone_number].total_messages++;
+          if (msg.sender === 'user') acc[msg.phone_number].sent_messages++;
+          if (msg.sender === 'agent') acc[msg.phone_number].received_messages++;
+          
+          if (new Date(msg.created_at) < new Date(acc[msg.phone_number].first_message)) {
+            acc[msg.phone_number].first_message = msg.created_at;
+          }
+          if (new Date(msg.created_at) > new Date(acc[msg.phone_number].last_message)) {
+            acc[msg.phone_number].last_message = msg.created_at;
+          }
+          
+          return acc;
+        }, {});
+
+        const systemUsersData = Object.values(messageStats).map((user: any) => ({
+          ...user,
+          id: user.phone_number,
+          name: (contactsResult.data || []).find(c => c.phone_number === user.phone_number)?.name || 'Unknown User',
+          contact_type: (contactsResult.data || []).find(c => c.phone_number === user.phone_number)?.contact_type || 'user',
+          status: 'active'
+        }));
+
+        setSystemUsers(systemUsersData);
+      }
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
@@ -71,6 +112,11 @@ export default function UsersContacts() {
   });
 
   const filteredUsers = users.filter(user =>
+    user.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    user.phone_number?.includes(searchTerm)
+  );
+
+  const filteredSystemUsers = systemUsers.filter(user =>
     user.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     user.phone_number?.includes(searchTerm)
   );
@@ -254,6 +300,7 @@ export default function UsersContacts() {
         <TabsList>
           <TabsTrigger value="contacts">Contacts Database</TabsTrigger>
           <TabsTrigger value="whatsapp">WhatsApp Users</TabsTrigger>
+          <TabsTrigger value="system">System Users</TabsTrigger>
         </TabsList>
 
         <TabsContent value="contacts">
@@ -343,6 +390,65 @@ export default function UsersContacts() {
                     </div>
                   </div>
                 ))}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="system">
+          <Card>
+            <CardHeader>
+              <CardTitle>System Users</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                All users who have messaged the agent, automatically tracked from conversations
+              </p>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {filteredSystemUsers.map((user) => (
+                  <div key={user.id} className="border rounded-lg p-4">
+                    <div className="flex justify-between items-start">
+                      <div className="space-y-2">
+                        <div className="flex items-center space-x-2">
+                          <h3 className="font-semibold">{user.name}</h3>
+                          <Badge className={getContactTypeColor(user.contact_type)}>
+                            {user.contact_type}
+                          </Badge>
+                          <Badge variant="outline" className="text-green-600 border-green-600">
+                            {user.status}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center space-x-4 text-sm text-gray-600">
+                          <span>📱 {user.phone_number}</span>
+                          <span>💬 {user.total_messages} messages</span>
+                          <span>📤 {user.sent_messages} sent</span>
+                          <span>📥 {user.received_messages} received</span>
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          First message: {new Date(user.first_message).toLocaleDateString()}
+                          <span className="ml-4">
+                            Last message: {new Date(user.last_message).toLocaleDateString()}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex space-x-2">
+                        <Button variant="outline" size="sm">
+                          <MessageCircle className="h-3 w-3 mr-1" />
+                          View Messages
+                        </Button>
+                        <Button variant="outline" size="sm">
+                          <Activity className="h-3 w-3 mr-1" />
+                          Activity Log
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {filteredSystemUsers.length === 0 && (
+                  <div className="text-center py-8 text-muted-foreground">
+                    No system users found. Users will appear here once they start messaging the agent.
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
