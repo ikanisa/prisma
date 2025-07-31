@@ -5,6 +5,183 @@
 
 import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
 
+// =======================================================================
+// Shared Types and Interfaces for Edge Functions
+// =======================================================================
+
+// Standard response formats
+export interface SuccessResponse<T = any> {
+  success: true;
+  data: T;
+  timestamp: string;
+}
+
+export interface ErrorResponse {
+  success: false;
+  error: {
+    code: string;
+    message: string;
+    details?: any;
+  };
+  timestamp: string;
+}
+
+export type FunctionResponse<T = any> = SuccessResponse<T> | ErrorResponse;
+
+// Logging interfaces
+export interface LogEntry {
+  level: 'info' | 'warn' | 'error' | 'debug';
+  function: string;
+  message: string;
+  metadata?: Record<string, any>;
+  timestamp: string;
+  requestId?: string;
+  userId?: string;
+}
+
+export interface PerformanceMetrics {
+  functionName: string;
+  executionTime: number;
+  memoryUsage?: number;
+  timestamp: string;
+  requestId?: string;
+}
+
+// Authentication and authorization
+export interface AuthContext {
+  userId?: string;
+  role?: string;
+  permissions?: string[];
+  isAuthenticated: boolean;
+}
+
+// Database connection
+export interface DatabaseConfig {
+  url: string;
+  poolSize?: number;
+  timeout?: number;
+}
+
+// Rate limiting
+export interface RateLimitConfig {
+  maxRequests: number;
+  windowMs: number;
+  keyGenerator?: (req: any) => string;
+}
+
+// Input validation schemas (using Zod)
+export interface ValidationSchema<T> {
+  parse: (data: unknown) => T;
+  safeParse: (data: unknown) => { success: boolean; data?: T; error?: any };
+}
+
+// Common error codes
+export enum ErrorCodes {
+  // Authentication errors
+  UNAUTHORIZED = 'UNAUTHORIZED',
+  FORBIDDEN = 'FORBIDDEN',
+  INVALID_TOKEN = 'INVALID_TOKEN',
+  
+  // Validation errors
+  INVALID_INPUT = 'INVALID_INPUT',
+  MISSING_REQUIRED_FIELD = 'MISSING_REQUIRED_FIELD',
+  INVALID_FORMAT = 'INVALID_FORMAT',
+  
+  // Database errors
+  DATABASE_ERROR = 'DATABASE_ERROR',
+  RECORD_NOT_FOUND = 'RECORD_NOT_FOUND',
+  DUPLICATE_RECORD = 'DUPLICATE_RECORD',
+  
+  // External API errors
+  EXTERNAL_API_ERROR = 'EXTERNAL_API_ERROR',
+  API_TIMEOUT = 'API_TIMEOUT',
+  API_RATE_LIMITED = 'API_RATE_LIMITED',
+  
+  // System errors
+  INTERNAL_ERROR = 'INTERNAL_ERROR',
+  SERVICE_UNAVAILABLE = 'SERVICE_UNAVAILABLE',
+  CONFIGURATION_ERROR = 'CONFIGURATION_ERROR',
+  
+  // Business logic errors
+  BUSINESS_RULE_VIOLATION = 'BUSINESS_RULE_VIOLATION',
+  INSUFFICIENT_PERMISSIONS = 'INSUFFICIENT_PERMISSIONS',
+  RESOURCE_EXHAUSTED = 'RESOURCE_EXHAUSTED'
+}
+
+// Common HTTP status codes
+export enum HttpStatus {
+  OK = 200,
+  CREATED = 201,
+  NO_CONTENT = 204,
+  BAD_REQUEST = 400,
+  UNAUTHORIZED = 401,
+  FORBIDDEN = 403,
+  NOT_FOUND = 404,
+  CONFLICT = 409,
+  UNPROCESSABLE_ENTITY = 422,
+  INTERNAL_SERVER_ERROR = 500,
+  SERVICE_UNAVAILABLE = 503
+}
+
+// Environment variable types
+export interface EnvironmentVariables {
+  SUPABASE_URL: string;
+  SUPABASE_ANON_KEY: string;
+  SUPABASE_SERVICE_ROLE_KEY: string;
+  OPENAI_API_KEY?: string;
+  WHATSAPP_TOKEN?: string;
+  WHATSAPP_PHONE_ID?: string;
+  WHATSAPP_VERIFY_TOKEN?: string;
+  [key: string]: string | undefined;
+}
+
+// Request context
+export interface RequestContext {
+  requestId: string;
+  userId?: string;
+  ipAddress?: string;
+  userAgent?: string;
+  startTime: number;
+}
+
+// Function configuration
+export interface FunctionConfig {
+  name: string;
+  domain: string;
+  version: string;
+  requiresAuth: boolean;
+  rateLimit?: RateLimitConfig;
+  timeout?: number;
+  memory?: number;
+}
+
+// Audit log entry
+export interface AuditLogEntry {
+  id: string;
+  functionName: string;
+  userId?: string;
+  action: string;
+  resourceType?: string;
+  resourceId?: string;
+  ipAddress?: string;
+  userAgent?: string;
+  metadata?: Record<string, any>;
+  timestamp: string;
+}
+
+// Health check response
+export interface HealthCheckResponse {
+  status: 'healthy' | 'unhealthy' | 'degraded';
+  timestamp: string;
+  checks: {
+    database: boolean;
+    externalApis: boolean;
+    memory: boolean;
+    disk: boolean;
+  };
+  details?: Record<string, any>;
+}
+
 // ============================================================================
 // Core Response Types
 // ============================================================================

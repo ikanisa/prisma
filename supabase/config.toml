@@ -9,12 +9,12 @@ max_rows = 1000
 
 [auth]
 enabled = true
-port = 54320
+# port = 54320  # removed for CLI compatibility
 site_url = "http://localhost:3000"
 additional_redirect_urls = ["https://localhost:3000"]
 jwt_expiry = 3600
 enable_signup = true
-enable_confirmations = false
+# enable_confirmations = false  # removed for CLI compatibility
 
 [db]
 port = 54322
@@ -31,6 +31,13 @@ verify_jwt = true
 
 [functions.push-marketing]
 verify_jwt = true
+
+# Health check and system monitor should be publicly accessible
+[functions.health-check]
+verify_jwt = false
+
+[functions.system-monitor]
+verify_jwt = false
 
 # Webhooks need to remain public for external services
 [functions.unified-whatsapp-webhook]
@@ -84,7 +91,7 @@ verify_jwt = true
 
 [storage]
 enabled = true
-port = 54323
+# port = 54323  # removed for CLI compatibility
 file_size_limit = "50MiB"
 
 # Automation edge functions - no JWT verification for cron jobs
