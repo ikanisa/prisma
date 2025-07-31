@@ -1,0 +1,20 @@
+#!/bin/bash
+
+# easyMO Pre-commit Hook
+set -e
+
+echo "🔍 Running pre-commit checks..."
+
+# Lint check
+echo "📝 Checking code style..."
+npm run lint
+
+# Type check
+echo "🔧 Running type check..."
+npm run type-check
+
+# Run quick tests
+echo "🧪 Running quick tests..."
+npm run test:unit -- --run --reporter=dot
+
+echo "✅ Pre-commit checks passed!"
