@@ -1,152 +1,99 @@
-/**
- * OpenAI Agent SDK Integration for easyMO
- * Phase 5: AgentExecutor wrapper implementation
- */
+import { createClient } from '@supabase/supabase-js';
 
-import { supabase } from '@/integrations/supabase/client';
+const SUPABASE_URL = "https://ijblirphkrrsnxazohwt.supabase.co";
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const EDGE_URL = "https://ijblirphkrrsnxazohwt.supabase.co/functions/v1";
 
-interface AgentExecutorConfig {
-  assistantId?: string;
-  openAIApiKey?: string;
-  supabaseUrl?: string;
-  supabaseKey?: string;
-}
+const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY!);
 
 interface AgentRunInput {
   input: string;
   userId: string;
-  conversationId?: string;
+  domain?: string;
 }
 
 interface AgentRunOutput {
   output: string;
-  buttons?: Array<{
-    id: string;
-    title: string;
-    payload: string;
+  buttons?: Array<{ text: string; payload: string }>;
+  toolCalls?: Array<{
+    name: string;
+    args: any;
+    result: any;
+    latency: number;
   }>;
-  metadata?: {
-    toolCalls?: any[];
-    ragContext?: string[];
-    qualityScore?: number;
-    runId?: string;
-    error?: string;
-  };
 }
 
+/**
+ * Simple agent executor for Phase 1
+ * Will be enhanced with OpenAI Agent SDK in Phase 2
+ */
 export class AgentExecutor {
-  /**
-   * Main agent execution entry point - uses existing Chat Completions API
-   */
   async run(input: AgentRunInput): Promise<AgentRunOutput> {
-    try {
-      console.log('🤖 AgentExecutor.run() starting', { 
-        userId: input.userId, 
-        inputLength: input.input.length 
-      });
-
-      // Step 1: Retrieve RAG context
-      const ragContext = await this.retrieve(input.input);
-      
-      // Step 2: Use existing runAgent function from openai-agent.ts
-      const { data, error } = await supabase.functions.invoke('agent-router', {
-        body: {
-          agentCode: 'easymo_main',
-          userMessage: input.input,
-          history: [], // Could include conversation history here
-          conversationId: input.conversationId,
-          userPhone: input.userId
-        }
-      });
-
-      if (error) throw error;
-      
-      // Step 3: Apply quality gate
-      const qualityResult = await this.qualityGate(data.response || "I couldn't process your request.");
-      
-      return {
-        output: qualityResult.enhanced_response || data.response,
-        buttons: data.buttons,
-        metadata: {
-          ragContext,
-          qualityScore: qualityResult.score,
-          runId: data.runId
-        }
-      };
-      
-    } catch (error) {
-      console.error('❌ AgentExecutor error:', error);
-      return {
-        output: "I'm experiencing technical difficulties. Please try again.",
-        metadata: { error: error.message }
-      };
-    }
+    // For now, just return a simple response
+    // This will be replaced with full OpenAI Agent SDK integration
+    const response = this.generateSimpleResponse(input.input);
+    
+    return {
+      output: response,
+      buttons: this.getRecommendedButtons(input.input),
+      toolCalls: []
+    };
   }
 
-  /**
-   * RAG retrieval implementation using Supabase vector search
-   */
-  private async retrieve(query: string, k: number = 3): Promise<string[]> {
-    try {
-      // Use Supabase vector search on agent_document_embeddings table
-      const { data, error } = await supabase
-        .from('agent_document_embeddings')
-        .select('chunk_text, metadata')
-        .textSearch('chunk_text', query)
-        .limit(k);
-
-      if (error) {
-        console.error('RAG retrieval error:', error);
-        return [];
-      }
-
-      return data?.map(doc => doc.chunk_text) || [];
-    } catch (error) {
-      console.error('RAG retrieval failed:', error);
-      return [];
+  private generateSimpleResponse(input: string): string {
+    const normalizedInput = input.toLowerCase();
+    
+    if (normalizedInput.includes('pay') || normalizedInput.includes('payment') || normalizedInput.includes('qr')) {
+      return "I can help you with payments! Would you like to generate a QR code to receive money or pay someone?";
     }
+    
+    if (normalizedInput.includes('trip') || normalizedInput.includes('driver') || normalizedInput.includes('ride')) {
+      return "I can help you with transportation! Are you looking for a ride or do you want to offer one as a driver?";
+    }
+    
+    if (normalizedInput.includes('order') || normalizedInput.includes('buy') || normalizedInput.includes('product')) {
+      return "I can help you with orders! What would you like to buy - products from a pharmacy, hardware store, or farm?";
+    }
+    
+    return "Hello! I'm your easyMO assistant. I can help you with payments, trips, orders, and more. What would you like to do today?";
   }
 
-
-  /**
-   * Quality gate implementation
-   */
-  private async qualityGate(response: string): Promise<{ approved: boolean; score: number; enhanced_response?: string }> {
-    try {
-      // Simple quality scoring - can be enhanced with AI
-      const score = this.calculateQualityScore(response);
-      
-      return {
-        approved: score >= 0.6,
-        score,
-        enhanced_response: response // Could enhance with AI here
-      };
-    } catch (error) {
-      console.error('Quality gate error:', error);
-      return { approved: true, score: 0.5 };
+  private getRecommendedButtons(input: string): Array<{ text: string; payload: string }> {
+    const normalizedInput = input.toLowerCase();
+    
+    if (normalizedInput.includes('pay') || normalizedInput.includes('payment')) {
+      return [
+        { text: "Generate QR", payload: "payment_qr_generate" },
+        { text: "Scan QR", payload: "payment_scan_qr" },
+        { text: "Send Money", payload: "payment_send_money" }
+      ];
     }
-  }
-
-  /**
-   * Simple quality scoring algorithm
-   */
-  private calculateQualityScore(response: string): number {
-    let score = 0.5; // Base score
     
-    // Length check
-    if (response.length > 10 && response.length < 1000) score += 0.2;
+    if (normalizedInput.includes('trip') || normalizedInput.includes('driver')) {
+      return [
+        { text: "Find Driver", payload: "mobility_find_driver" },
+        { text: "Offer Trip", payload: "mobility_offer_trip" },
+        { text: "My Location", payload: "mobility_share_location" }
+      ];
+    }
     
-    // Contains helpful indicators
-    if (response.includes('?') || response.includes('help') || response.includes('contact')) score += 0.1;
+    if (normalizedInput.includes('order') || normalizedInput.includes('buy')) {
+      return [
+        { text: "Pharmacy", payload: "order_pharmacy" },
+        { text: "Hardware", payload: "order_hardware" },
+        { text: "Fresh Produce", payload: "order_farmers" }
+      ];
+    }
     
-    // Not too repetitive
-    const words = response.split(' ');
-    const uniqueWords = new Set(words.map(w => w.toLowerCase()));
-    if (uniqueWords.size / words.length > 0.7) score += 0.2;
-    
-    return Math.min(score, 1.0);
+    // Default buttons for welcome/unknown input
+    return [
+      { text: "💸 Payments", payload: "domain_payments" },
+      { text: "🚖 Transport", payload: "domain_mobility" },
+      { text: "🛒 Orders", payload: "domain_ordering" },
+      { text: "🏠 Listings", payload: "domain_listings" }
+    ];
   }
 }
 
-// Export singleton instance - no config needed, uses existing edge functions
+// Export singleton instance
 export const executor = new AgentExecutor();
