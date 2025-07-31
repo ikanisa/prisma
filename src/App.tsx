@@ -50,6 +50,13 @@ import UserExperienceFlow from "./pages/admin/UserExperienceFlow";
 import TemplateManagement from "./pages/admin/TemplateManagement";
 import ActionButtons from "./pages/admin/ActionButtons";
 import { ChatProvider } from "@/components/chat/ChatProvider";
+// Phase 6: Admin Interface Completion
+import KnowledgeManagement from "./pages/admin/knowledge/KnowledgeManagement";
+import MemoryManagement from "./pages/admin/memory/MemoryManagement";
+import TasksManagement from "./pages/admin/tasks/TasksManagement";
+import DataHealthMonitoring from "./pages/admin/monitoring/DataHealthMonitoring";
+import QualityGateLogging from "./pages/admin/quality/QualityGateLogging";
+import SystemMetrics from "./pages/admin/metrics/SystemMetrics";
 
 
 const queryClient = new QueryClient();
@@ -117,6 +124,14 @@ const App = () => (
           <Route path="conversations/:id" element={<ConversationDetail />} />
           <Route path="campaigns/create" element={<CampaignCreate />} />
           <Route path="campaigns/:id" element={<CampaignDetail />} />
+          
+          {/* Phase 6: Admin Interface Completion */}
+          <Route path="knowledge" element={<KnowledgeManagement />} />
+          <Route path="memory" element={<MemoryManagement />} />
+          <Route path="tasks" element={<TasksManagement />} />
+          <Route path="data-health" element={<DataHealthMonitoring />} />
+          <Route path="quality-gate" element={<QualityGateLogging />} />
+          <Route path="system-metrics" element={<SystemMetrics />} />
         </Route>
         
         {/* Public Payment Scanner Route */}
