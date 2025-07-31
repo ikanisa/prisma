@@ -1,10 +1,12 @@
 /**
- * PHASE 4: FULL OPENAI AGENT SDK INTEGRATION
- * Complete implementation with RAG pipeline, function calling, and tool routing
+ * PHASE 4: COMPREHENSIVE AGENT EXECUTOR - FINAL IMPLEMENTATION
+ * Integration of real OpenAI SDK, Pinecone RAG, and verified tool routing
  */
 
 import { createClient } from '@supabase/supabase-js';
-import { toolRegistry } from '../agent/tools/registry';
+import { OpenAIAgent, createOpenAIAgent } from './openaiAgentSDK';
+import { verifiedToolRouter } from './verifiedToolRouter';
+import { createRAGService } from './ragService';
 
 const SUPABASE_URL = "https://ijblirphkrrsnxazohwt.supabase.co";
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
@@ -64,100 +66,160 @@ interface IntentResult {
 }
 
 /**
- * COMPREHENSIVE AGENT EXECUTOR - PHASE 4
- * Full OpenAI Agent SDK with RAG pipeline and function calling
+ * ENHANCED AGENT EXECUTOR - PHASE 4 FINAL
+ * Uses real OpenAI SDK, Pinecone RAG, and verified tool routing
  */
 export class AgentExecutor {
-  private memoryCache: Map<string, RAGMemory[]> = new Map();
-  private toolCache: Map<string, any> = new Map();
+  private openaiAgent: OpenAIAgent | null;
+  private ragService: any;
+  private initialized: boolean = false;
+
+  constructor() {
+    this.initialize();
+  }
+
+  private async initialize(): Promise<void> {
+    try {
+      console.log('🔄 Initializing enhanced AgentExecutor...');
+
+      // Initialize OpenAI Agent with real SDK
+      this.openaiAgent = createOpenAIAgent({
+        openaiApiKey: process.env.OPENAI_API_KEY,
+        pineconeApiKey: process.env.PINECONE_API_KEY
+      });
+
+      // Initialize RAG service
+      this.ragService = createRAGService({
+        openaiApiKey: process.env.OPENAI_API_KEY,
+        pineconeApiKey: process.env.PINECONE_API_KEY
+      });
+
+      this.initialized = true;
+      console.log('✅ Enhanced AgentExecutor initialized with:', {
+        hasOpenAI: !!this.openaiAgent,
+        hasRAG: !!this.ragService
+      });
+
+    } catch (error) {
+      console.error('❌ Failed to initialize enhanced AgentExecutor:', error);
+      this.initialized = false;
+    }
+  }
 
   async run(input: AgentRunInput): Promise<AgentRunOutput> {
     const startTime = performance.now();
-    console.log('🚀 AgentExecutor.run() - Phase 4 SDK Integration', {
+    
+    console.log('🚀 Enhanced AgentExecutor.run() - Phase 4 Final', {
       userId: input.userId,
       domain: input.domain,
-      hasContext: !!input.context,
-      inputLength: input.input.length
+      hasOpenAI: !!this.openaiAgent,
+      hasRAG: !!this.ragService
     });
 
     try {
-      // 1. Intent Analysis
-      const intent = await this.analyzeUserIntent(input.input, input.domain);
-      console.log('🎯 Intent analyzed:', intent);
+      // Use real OpenAI Agent if available
+      if (this.openaiAgent && this.initialized) {
+        console.log('🤖 Using real OpenAI Agent SDK');
+        
+        const response = await this.openaiAgent.run({
+          input: input.input,
+          userId: input.userId,
+          domain: input.domain,
+          context: input.context
+        });
 
-      // 2. RAG Memory Retrieval
-      const ragMemory = await this.retrieveRAGMemory(input.input, input.userId, intent.intent);
-      console.log('🧠 RAG memory retrieved:', ragMemory.length, 'entries');
+        // Convert OpenAI Agent response to our format
+        return {
+          output: response.output,
+          buttons: response.buttons,
+          toolCalls: response.toolCalls || [],
+          intent: response.intent,
+          ragSources: response.ragSources
+        };
+      }
 
-      // 3. Generate Response with Function Calling
-      const agentResponse = await this.generateAgentResponse(input, intent, ragMemory);
-      console.log('🤖 Agent response generated');
-
-      // 4. Execute Tools if Needed
-      const toolResults = await this.executeAgentTools(agentResponse.toolCalls || []);
-      console.log('🔧 Tools executed:', toolResults.length);
-
-      // 5. Update Memory
-      const memoryUpdates = await this.updateRAGMemory(input, agentResponse.output, intent);
-      console.log('💾 Memory updated');
-
-      const executionTime = performance.now() - startTime;
-      console.log('✅ AgentExecutor completed in', executionTime.toFixed(2), 'ms');
-
-      return {
-        output: agentResponse.output,
-        buttons: agentResponse.buttons,
-        toolCalls: toolResults,
-        intent: {
-          domain: intent.intent,
-          confidence: intent.confidence,
-          entities: intent.entities
-        },
-        memoryUpdates,
-        ragSources: ragMemory.map(m => m.id)
-      };
+      // Fallback to enhanced implementation
+      console.log('🔄 Using fallback implementation');
+      return await this.runFallback(input);
 
     } catch (error) {
-      console.error('❌ AgentExecutor error:', error);
-      return {
-        output: "I apologize, but I'm experiencing technical difficulties. Please try again or contact support if the issue persists.",
-        buttons: [
-          { text: "Try Again", payload: "retry" },
-          { text: "Contact Support", payload: "support" }
-        ],
-        toolCalls: []
-      };
+      console.error('❌ Enhanced AgentExecutor error:', error);
+      return this.getErrorResponse();
     }
   }
 
   /**
-   * INTENT ANALYSIS - Enhanced with domain classification
+   * FALLBACK IMPLEMENTATION - When OpenAI Agent unavailable
    */
-  private async analyzeUserIntent(message: string, domain?: string): Promise<IntentResult> {
+  private async runFallback(input: AgentRunInput): Promise<AgentRunOutput> {
     try {
-      // Call the omni-agent-enhanced function for intent analysis
-      const { data: intentResult } = await sb.functions.invoke('omni-agent-enhanced', {
-        body: {
-          action: 'analyze_intent',
-          message,
-          domain,
-          model: 'gpt-4.1-2025-04-14'
-        }
-      });
+      // 1. Analyze intent
+      const intent = await this.analyzeIntentFallback(input.input, input.domain);
 
-      if (intentResult?.intent) {
-        return intentResult;
+      // 2. Generate response
+      const response = this.generateEnhancedResponse(input.input, intent);
+
+      // 3. Execute any needed tools via verified router
+      const toolCalls = await this.executeToolsIfNeeded(intent, input);
+
+      // 4. Store memory if RAG available
+      if (this.ragService) {
+        await this.storeMemoryFallback(input, response, intent);
       }
 
-      // Fallback to simple pattern matching
-      return this.fallbackIntentAnalysis(message, domain);
+      return {
+        output: response,
+        buttons: this.generateContextualButtons(intent.intent, intent.entities),
+        toolCalls,
+        intent: {
+          domain: intent.intent,
+          confidence: intent.confidence,
+          entities: intent.entities
+        }
+      };
+
     } catch (error) {
-      console.error('Intent analysis error:', error);
-      return this.fallbackIntentAnalysis(message, domain);
+      console.error('❌ Fallback implementation error:', error);
+      return this.getErrorResponse();
     }
   }
 
-  private fallbackIntentAnalysis(message: string, domain?: string): IntentResult {
+  /**
+   * ANALYZE INTENT - Fallback implementation
+   */
+  private async analyzeIntentFallback(message: string, domain?: string): Promise<{
+    intent: string;
+    confidence: number;
+    entities: Record<string, any>;
+    suggested_action: string;
+  }> {
+    // Try calling omni-agent-enhanced for intent analysis
+    try {
+      const { data } = await sb.functions.invoke('omni-agent-enhanced', {
+        body: {
+          action: 'analyze_intent',
+          message,
+          domain
+        }
+      });
+
+      if (data?.intent) {
+        return data;
+      }
+    } catch (error) {
+      console.warn('Intent analysis function unavailable, using pattern matching');
+    }
+
+    // Pattern matching fallback
+    return this.patternMatchIntent(message, domain);
+  }
+
+  private patternMatchIntent(message: string, domain?: string): {
+    intent: string;
+    confidence: number;
+    entities: Record<string, any>;
+    suggested_action: string;
+  } {
     const normalizedInput = message.toLowerCase();
     
     if (normalizedInput.includes('pay') || normalizedInput.includes('payment') || normalizedInput.includes('qr')) {
@@ -195,6 +257,104 @@ export class AgentExecutor {
     };
   }
 
+  /**
+   * EXECUTE TOOLS IF NEEDED - Use verified tool router
+   */
+  private async executeToolsIfNeeded(
+    intent: any,
+    input: AgentRunInput
+  ): Promise<Array<{name: string; args: any; result: any; latency: number}>> {
+    const toolCalls = [];
+
+    try {
+      // Determine if tools are needed based on intent
+      if (intent.suggested_action === 'generate_qr' && intent.entities.amount) {
+        const result = await verifiedToolRouter.executeTool(
+          'qr_render',
+          {
+            amount: intent.entities.amount,
+            phone: input.userId,
+            description: 'Payment request'
+          },
+          {
+            userId: input.userId,
+            domain: intent.intent
+          }
+        );
+
+        toolCalls.push({
+          name: 'qr_render',
+          args: { amount: intent.entities.amount },
+          result: result.data,
+          latency: result.execution_time_ms
+        });
+      }
+
+      // Add more tool executions based on intent
+      if (intent.suggested_action === 'find_driver' && intent.entities.location) {
+        // Could execute location-based search tools
+      }
+
+    } catch (error) {
+      console.error('❌ Tool execution error:', error);
+    }
+
+    return toolCalls;
+  }
+
+  /**
+   * STORE MEMORY - Fallback implementation
+   */
+  private async storeMemoryFallback(
+    input: AgentRunInput,
+    response: string,
+    intent: any
+  ): Promise<void> {
+    if (!this.ragService) return;
+
+    try {
+      const memoryId = `conv_${input.userId}_${Date.now()}`;
+      const content = `User: ${input.input}\nAssistant: ${response}`;
+
+      await this.ragService.storeMemory(memoryId, content, {
+        userId: input.userId,
+        domain: intent.intent,
+        importance: intent.confidence
+      });
+
+    } catch (error) {
+      console.error('❌ Memory storage error:', error);
+    }
+  }
+
+  /**
+   * ENHANCED RESPONSE GENERATION
+   */
+  private generateEnhancedResponse(input: string, intent: any): string {
+    const responses = {
+      payment: "Muraho! I can help you with payments. Would you like to generate a QR code or check a payment status?",
+      ride: "I can help you find transport! Are you looking for a moto ride or offering a trip?",
+      product_browse: "I can help you browse products! What would you like - pharmacy items, hardware, or fresh produce?",
+      general: "Muraho! I'm your easyMO assistant. I can help with payments, transport, orders, and more. What would you like to do?"
+    };
+
+    const baseResponse = responses[intent.intent as keyof typeof responses] || responses.general;
+    
+    // Add context-specific information
+    if (intent.entities.amount) {
+      return `${baseResponse} I see you mentioned ${intent.entities.amount} RWF.`;
+    }
+    
+    if (intent.entities.location) {
+      return `${baseResponse} I see you mentioned ${intent.entities.location}.`;
+    }
+
+    return baseResponse;
+  }
+
+  /**
+   * UTILITY METHODS
+   */
   private extractAmount(message: string): number | null {
     const amountMatch = message.match(/(\d+(?:,\d{3})*(?:\.\d{2})?)/);
     return amountMatch ? parseFloat(amountMatch[1].replace(',', '')) : null;
@@ -212,233 +372,6 @@ export class AgentExecutor {
     return categories.find(cat => lowerMessage.includes(cat)) || null;
   }
 
-  /**
-   * RAG MEMORY RETRIEVAL - Pinecone integration
-   */
-  private async retrieveRAGMemory(query: string, userId: string, domain: string): Promise<RAGMemory[]> {
-    try {
-      // Check cache first
-      const cacheKey = `rag_${userId}_${domain}`;
-      if (this.memoryCache.has(cacheKey)) {
-        console.log('🗄️ Using cached RAG memory');
-        return this.memoryCache.get(cacheKey)!;
-      }
-
-      // Search local agent memory
-      const { data: localMemory } = await sb
-        .from('agent_memory_enhanced')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('memory_type', domain)
-        .order('updated_at', { ascending: false })
-        .limit(10);
-
-      // Format results
-      const ragMemory: RAGMemory[] = (localMemory || []).map(mem => ({
-        id: mem.id,
-        content: JSON.stringify(mem.memory_value),
-        metadata: {
-          domain: mem.memory_type,
-          timestamp: mem.updated_at,
-          importance: mem.importance_weight || 0.5,
-          user_id: mem.user_id
-        }
-      }));
-
-      // Cache for future use
-      this.memoryCache.set(cacheKey, ragMemory);
-      
-      return ragMemory;
-    } catch (error) {
-      console.error('RAG memory retrieval error:', error);
-      return [];
-    }
-  }
-
-  /**
-   * GENERATE AGENT RESPONSE - With function calling
-   */
-  private async generateAgentResponse(
-    input: AgentRunInput,
-    intent: IntentResult,
-    ragMemory: RAGMemory[]
-  ): Promise<{
-    output: string;
-    buttons?: Array<{ text: string; payload: string }>;
-    toolCalls?: ToolCall[];
-  }> {
-    try {
-      // Call the enhanced AI agent for response generation
-      const { data: agentResult } = await sb.functions.invoke('omni-agent-enhanced', {
-        body: {
-          action: 'generate_response',
-          input: input.input,
-          userId: input.userId,
-          domain: intent.intent,
-          context: {
-            intent,
-            ragMemory: ragMemory.slice(0, 3), // Limit context size
-            userContext: input.context
-          }
-        }
-      });
-
-      if (agentResult?.response) {
-        const buttons = this.generateContextualButtons(intent.intent, intent.entities);
-        
-        return {
-          output: agentResult.response,
-          buttons,
-          toolCalls: agentResult.toolCalls || []
-        };
-      }
-
-      // Fallback to simple response
-      return {
-        output: this.generateSimpleResponse(input.input, intent),
-        buttons: this.generateContextualButtons(intent.intent, intent.entities),
-        toolCalls: []
-      };
-
-    } catch (error) {
-      console.error('Agent response generation error:', error);
-      
-      return {
-        output: this.generateSimpleResponse(input.input, intent),
-        buttons: this.generateContextualButtons(intent.intent),
-        toolCalls: []
-      };
-    }
-  }
-
-  private generateSimpleResponse(input: string, intent: IntentResult): string {
-    const responses = {
-      payment: "Muraho! I can help you with payments. Would you like to generate a QR code to receive money or send a payment?",
-      ride: "I can help you find transport! Are you looking for a moto ride or do you want to offer a trip as a driver?",
-      product_browse: "I can help you browse products! What would you like to buy - pharmacy items, hardware, or fresh produce?",
-      general: "Muraho! I'm your easyMO assistant. I can help with payments, transport, orders, and more. What would you like to do?"
-    };
-
-    return responses[intent.intent as keyof typeof responses] || responses.general;
-  }
-
-  /**
-   * EXECUTE AGENT TOOLS - Function calling implementation
-   */
-  private async executeAgentTools(toolCalls: ToolCall[]): Promise<Array<{
-    name: string;
-    args: any;
-    result: any;
-    latency: number;
-  }>> {
-    const results = [];
-
-    for (const toolCall of toolCalls) {
-      const startTime = performance.now();
-      console.log(`🔧 Executing tool: ${toolCall.name}`, toolCall.args);
-
-      try {
-        // Try enhanced tool registry
-        const toolResult = await toolRegistry.executeTool(toolCall.name, toolCall.args);
-        
-        results.push({
-          name: toolCall.name,
-          args: toolCall.args,
-          result: toolResult.success ? toolResult.data : { error: toolResult.error },
-          latency: performance.now() - startTime
-        });
-
-      } catch (error) {
-        console.error(`❌ Tool execution failed for ${toolCall.name}:`, error);
-        results.push({
-          name: toolCall.name,
-          args: toolCall.args,
-          result: { error: String(error) },
-          latency: performance.now() - startTime
-        });
-      }
-    }
-
-    return results;
-  }
-
-  /**
-   * UPDATE RAG MEMORY - Store conversation context
-   */
-  private async updateRAGMemory(
-    input: AgentRunInput,
-    response: string,
-    intent: IntentResult
-  ): Promise<RAGMemory[]> {
-    try {
-      const updates: RAGMemory[] = [];
-
-      // Create conversation memory entry
-      const conversationMemory: RAGMemory = {
-        id: `conv_${Date.now()}`,
-        content: `User: ${input.input}\nAssistant: ${response}`,
-        metadata: {
-          domain: intent.intent,
-          timestamp: new Date().toISOString(),
-          importance: intent.confidence,
-          user_id: input.userId
-        }
-      };
-
-      // Store in local database
-      await sb.from('agent_memory_enhanced').insert({
-        user_id: input.userId,
-        memory_type: intent.intent,
-        memory_key: `conversation_${Date.now()}`,
-        memory_value: {
-          input: input.input,
-          response,
-          intent: intent.intent,
-          confidence: intent.confidence
-        },
-        importance_weight: intent.confidence,
-        confidence_score: intent.confidence
-      });
-
-      updates.push(conversationMemory);
-
-      // Store intent entities if significant
-      if (Object.keys(intent.entities).length > 0) {
-        const entityMemory: RAGMemory = {
-          id: `entities_${Date.now()}`,
-          content: `Extracted entities: ${JSON.stringify(intent.entities)}`,
-          metadata: {
-            domain: intent.intent,
-            timestamp: new Date().toISOString(),
-            importance: 0.7,
-            user_id: input.userId
-          }
-        };
-
-        await sb.from('agent_memory_enhanced').insert({
-          user_id: input.userId,
-          memory_type: 'entities',
-          memory_key: `entities_${Date.now()}`,
-          memory_value: intent.entities,
-          importance_weight: 0.7,
-          confidence_score: intent.confidence
-        });
-
-        updates.push(entityMemory);
-      }
-
-      console.log('💾 RAG memory updated:', updates.length, 'entries');
-      return updates;
-
-    } catch (error) {
-      console.error('RAG memory update error:', error);
-      return [];
-    }
-  }
-
-  /**
-   * GENERATE CONTEXTUAL BUTTONS - Domain-specific actions
-   */
   private generateContextualButtons(
     domain: string,
     entities: Record<string, any> = {}
@@ -470,13 +403,41 @@ export class AgentExecutor {
     return baseButtons[domain as keyof typeof baseButtons] || baseButtons.general;
   }
 
+  private getErrorResponse(): AgentRunOutput {
+    return {
+      output: "I apologize, but I'm experiencing technical difficulties. Please try again or contact support if the issue persists.",
+      buttons: [
+        { text: "Try Again", payload: "retry" },
+        { text: "Contact Support", payload: "support" }
+      ],
+      toolCalls: []
+    };
+  }
+
   /**
-   * CLEAR CACHE - Utility method
+   * CHECK SYSTEM HEALTH
    */
-  public clearCache(): void {
-    this.memoryCache.clear();
-    this.toolCache.clear();
-    console.log('🗑️ Agent cache cleared');
+  public getSystemHealth(): {
+    openaiAgent: boolean;
+    ragService: boolean;
+    toolRouter: boolean;
+    verifiedFunctions: string[];
+  } {
+    return {
+      openaiAgent: !!this.openaiAgent && this.initialized,
+      ragService: !!this.ragService,
+      toolRouter: true, // verifiedToolRouter is always available
+      verifiedFunctions: verifiedToolRouter.getVerifiedFunctions()
+    };
+  }
+
+  /**
+   * CLEANUP RESOURCES
+   */
+  public cleanup(): void {
+    this.openaiAgent?.cleanup();
+    this.ragService?.clearCache();
+    console.log('🗑️ AgentExecutor cleaned up');
   }
 }
 
