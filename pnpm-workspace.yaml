@@ -5,3 +5,8 @@ packages:
   - "packages/types"
   - "packages/edge-functions"
   - "packages/testing"
+  - "packages/openai-sdk"
+  - "packages/wa-utils"
+  - "apps/*"
+  - "apps/wa-router"
+  - "supabase/functions/*"
