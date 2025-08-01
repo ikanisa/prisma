@@ -14,5 +14,17 @@
     "lint": "eslint .",
     "test": "pnpm -r --filter ./packages/* test",
     "smoke": "bash scripts/smoke.sh"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "^5.84.1",
+    "@types/node": "^24.1.0",
+    "@types/react": "^19.1.9",
+    "@types/react-dom": "^19.1.7",
+    "@zxing/library": "^0.21.3",
+    "lucide-react": "^0.536.0",
+    "react": "^19.1.1",
+    "react-router-dom": "^7.7.1",
+    "sonner": "^2.0.6",
+    "zod": "^4.0.14"
   }
 }
