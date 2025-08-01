@@ -9,6 +9,8 @@
   },
   "dependencies": {
     "openai": "^4.0.0"
+    ,
+    "@easyMO/payments-sdk": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.0.0"

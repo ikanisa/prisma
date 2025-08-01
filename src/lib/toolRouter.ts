@@ -6,6 +6,23 @@
 import { createClient } from '@supabase/supabase-js';
 import { toolRegistry } from '../agent/tools/registry';
 
+// Lightweight optional OpenTelemetry support – the router will emit spans when
+// the host application has `@opentelemetry/api` installed and a tracer provider
+// registered.  In environments without OpenTelemetry the router falls back to
+// no-op implementations so that the dependency remains optional.
+
+let otelTracer: { startSpan: (name: string) => { end: () => void; recordException?: (err: unknown) => void } } = {
+  startSpan: () => ({ end: () => {} })
+};
+
+try {
+  // eslint-disable-next-line import/no-extraneous-dependencies, @typescript-eslint/no-var-requires
+  const { trace } = require('@opentelemetry/api');
+  otelTracer = trace.getTracer('wa-tool-router');
+} catch {
+  // OpenTelemetry not available – ignore.
+}
+
 const SUPABASE_URL = "https://ijblirphkrrsnxazohwt.supabase.co";
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
@@ -44,6 +61,9 @@ export class ToolRouter {
     context: ToolContext
   ): Promise<ToolResult> {
     const startTime = performance.now();
+
+    // ---- OpenTelemetry span ------------------------------------------------
+    const span = otelTracer.startSpan?.('toolRouter.executeTool');
     
     console.log(`🔧 ToolRouter executing: ${toolName}`, {
       args: this.sanitizeArgs(args),
@@ -131,6 +151,7 @@ export class ToolRouter {
 
       // Log execution
       this.logExecution(toolName, startTime, true, result);
+      span?.end();
       
       console.log(`✅ Tool ${toolName} completed in ${result.execution_time_ms.toFixed(2)}ms`);
       return result;
@@ -145,6 +166,8 @@ export class ToolRouter {
       };
 
       this.logExecution(toolName, startTime, false, errorResult);
+      span?.recordException?.(error);
+      span?.end();
       console.error(`❌ Tool ${toolName} failed:`, error);
       
       return errorResult;
