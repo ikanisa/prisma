@@ -82,60 +82,7 @@ async function bootstrapContactConversation(
   };
 }
 
-// Simple agent executor
-function generateSimpleResponse(input: string): string {
-  const normalizedInput = input.toLowerCase();
-  
-  if (normalizedInput.includes('pay') || normalizedInput.includes('payment') || normalizedInput.includes('qr')) {
-    return "I can help you with payments! Would you like to generate a QR code to receive money or pay someone?";
-  }
-  
-  if (normalizedInput.includes('trip') || normalizedInput.includes('driver') || normalizedInput.includes('ride')) {
-    return "I can help you with transportation! Are you looking for a ride or do you want to offer one as a driver?";
-  }
-  
-  if (normalizedInput.includes('order') || normalizedInput.includes('buy') || normalizedInput.includes('product')) {
-    return "I can help you with orders! What would you like to buy - products from a pharmacy, hardware store, or farm?";
-  }
-  
-  return "Hello! I'm your easyMO assistant. I can help you with payments, trips, orders, and more. What would you like to do today?";
-}
-
-function getRecommendedButtons(input: string): Array<{ text: string; payload: string }> {
-  const normalizedInput = input.toLowerCase();
-  
-  if (normalizedInput.includes('pay') || normalizedInput.includes('payment')) {
-    return [
-      { text: "Generate QR", payload: "payment_qr_generate" },
-      { text: "Scan QR", payload: "payment_scan_qr" },
-      { text: "Send Money", payload: "payment_send_money" }
-    ];
-  }
-  
-  if (normalizedInput.includes('trip') || normalizedInput.includes('driver')) {
-    return [
-      { text: "Find Driver", payload: "mobility_find_driver" },
-      { text: "Offer Trip", payload: "mobility_offer_trip" },
-      { text: "My Location", payload: "mobility_share_location" }
-    ];
-  }
-  
-  if (normalizedInput.includes('order') || normalizedInput.includes('buy')) {
-    return [
-      { text: "Pharmacy", payload: "order_pharmacy" },
-      { text: "Hardware", payload: "order_hardware" },
-      { text: "Fresh Produce", payload: "order_farmers" }
-    ];
-  }
-  
-  // Default buttons for welcome/unknown input
-  return [
-    { text: "💸 Payments", payload: "domain_payments" },
-    { text: "🚖 Transport", payload: "domain_mobility" },
-    { text: "🛒 Orders", payload: "domain_ordering" },
-    { text: "🏠 Listings", payload: "domain_listings" }
-  ];
-}
+import { handleInbound } from '../../../packages/agent-intel/dist/index.js';
 
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
@@ -186,24 +133,31 @@ Deno.serve(async (req) => {
       let response = '';
       let buttons: Array<{ text: string; payload: string }> = [];
 
-      if (message.type === 'text') {
-        const messageText = message.text.body;
-        console.log(`💬 Text message: "${messageText}"`);
+      // Delegate to intelligent response layer
+      const inboundEvent = {
+        wa_id: waId,
+        from: waId,
+        text: message.type === 'text' ? message.text.body : undefined,
+        payload: message.type === 'button' ? message.button.payload : undefined,
+        media: message.type !== 'text' ? message[message.type]?.url : undefined
+      };
+      const outbound = await handleInbound(inboundEvent);
+      response = outbound.text ?? '';
+      buttons = outbound.buttons ?? [];
 
-        // Use the simple agent to generate response
-        response = generateSimpleResponse(messageText);
-        buttons = getRecommendedButtons(messageText);
-      } else {
-        response = `I received your ${message.type} message. For now, I work best with text messages. How can I help you today?`;
-        buttons = [
-          { text: "💸 Payments", payload: "domain_payments" },
-          { text: "🚖 Transport", payload: "domain_mobility" },
-          { text: "🛒 Orders", payload: "domain_ordering" }
-        ];
-      }
+      // Persist outgoing
+      await supabase.from('outgoing_messages').insert({
+        conversation_id: conversationId,
+        contact_id: contactId,
+        role: 'assistant',
+        message: response,
+        metadata: { buttons, agent: 'intel' }
+      });
 
-      // Send response back to WhatsApp
-      await sendWhatsAppMessage(waId, response, buttons);
+      // Send via existing WA function
+      await supabase.functions.invoke('send-whatsapp-message', {
+        body: { to: waId, text: response, buttons }
+      });
 
       // Update conversation last_message_at
       await supabase.from('conversations')

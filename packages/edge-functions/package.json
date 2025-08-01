@@ -8,7 +8,7 @@
     "dev": "tsc --watch",
     "clean": "rm -rf dist",
     "deploy": "supabase functions deploy --project-ref ijblirphkrrsnxazohwt",
-    "test": "vitest",
+    "test": "node ./tests/run-node-tests.js",
     "lint": "eslint src/**/*.ts"
   },
   "dependencies": {

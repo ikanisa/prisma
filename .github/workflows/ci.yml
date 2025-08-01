@@ -162,3 +162,12 @@ jobs:
     - name: Notify deployment
       run: |
         echo "✅ Deployment completed successfully!"
+    - name: Run agent-intel Deno tests
+      run: |
+        deno test packages/agent-intel/src/__tests__ \
+          --allow-env --allow-net
+
+    - name: Run webhook router Deno tests
+      run: |
+        deno test supabase/functions/__tests__ \
+          --allow-env --allow-net

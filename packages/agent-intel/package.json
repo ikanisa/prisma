@@ -1,0 +1,17 @@
+{
+  "name": "@easyMO/agent-intel",
+  "version": "0.1.0",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "deno test --allow-env --allow-net",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "zod": "^3.0.0",
+    "@easyMO/wa-utils": "*",
+    "@easyMO/types": "*",
+    "@supabase/supabase-js": "^2.0.0"
+  }
+}

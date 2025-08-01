@@ -1,12 +1,8 @@
 # pnpm Workspace Configuration for easyMO Refactor
 packages:
-  - "packages/*"
-  - "packages/lib-core"
-  - "packages/types"
-  - "packages/edge-functions"
-  - "packages/testing"
+  - "supabase"
   - "packages/openai-sdk"
   - "packages/wa-utils"
-  - "apps/*"
   - "apps/wa-router"
-  - "supabase/functions/*"
+  - "scripts"
+  - "docs"

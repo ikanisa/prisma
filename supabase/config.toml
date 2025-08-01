@@ -1,5 +1,9 @@
 project_id = "ijblirphkrrsnxazohwt"
 
+[functions]
+# Source directory for Supabase Edge Functions (relative to this config file)
+directory = "../server/functions"
+
 [api]
 enabled = true
 port = 54321
@@ -105,17 +109,4 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.task-runner]
-verify_jwt = false
-
-# easyMO Cron jobs
-[functions."vectorize-docs"]
-schedule = "*/2 * * * *"
-verify_jwt = false
-
-[functions."memory-consolidator"]
-schedule = "*/30 * * * *"
-verify_jwt = false
-
-[functions."skills-extract"]
-schedule = "0 0 * * *"
 verify_jwt = false

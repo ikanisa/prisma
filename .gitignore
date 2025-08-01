@@ -12,6 +12,18 @@ dist
 dist-ssr
 *.local
 
+# Workspace lock files
+/*-lock.json
+
+# Monorepo artifacts
+pnpm-lock.yaml
+node_modules
+
+# Ignore workspace placeholders
+**/.gitkeep
+# local envs
+server/.env
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

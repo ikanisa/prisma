@@ -141,6 +141,17 @@ export interface Message {
   read_at?: string;
 }
 
+// Agent learning records capturing intent & template usage
+export interface AgentLearning {
+  id: string;
+  thread_id: string;
+  input_text: string;
+  intent: string;
+  intent_conf?: number;
+  template_used?: string;
+  created_at: string;
+}
+
 // Conversation types
 export type ConversationType = 'support' | 'sales' | 'service' | 'bridge';
 export type ConversationStatus = 'active' | 'paused' | 'completed' | 'archived';

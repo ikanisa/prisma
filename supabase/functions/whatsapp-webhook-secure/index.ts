@@ -287,35 +287,29 @@ serve(async (req) => {
 
       console.log(`📥 Received message: ${msgId} from ${waId}`);
 
-      // 🔒 IDEMPOTENCY CHECK: Prevent duplicate processing of webhook
-      const { data: inbound } = await supabase
+      // 🔒 IDEMPOTENCY CHECK: Prevent duplicate processing
+      const { data: existing } = await supabase
         .from('processed_inbound')
         .select('msg_id')
         .eq('msg_id', msgId)
         .single();
-      if (inbound) {
-        console.log(`✅ Webhook duplicate ignored: ${msgId}`);
+
+      if (existing) {
+        console.log(`✅ Message already processed: ${msgId}`);
         return new Response('duplicate', { status: 200, headers: corsHeaders });
       }
-      // Mark webhook received
+
+      // Mark as processed
       await supabase.from('processed_inbound').insert({
         msg_id: msgId,
         wa_id: waId,
-        metadata: { timestamp: new Date().toISOString(), webhook_body: body }
+        metadata: {
+          timestamp: new Date().toISOString(),
+          webhook_body: body
+        }
       });
 
-      // Persist to incoming_messages for processing pipeline
-      const messageText = body.entry?.[0]?.changes?.[0]?.value?.messages?.[0]?.text?.body;
-      await supabase.from('incoming_messages').insert({
-        phone_number: waId,
-        message_id: msgId,
-        message_text: messageText || null,
-        status: 'new',
-        processed: false,
-        metadata: body
-      });
-
-      // Invoke processing pipeline (Quick services, template & omni agents)
+      // Process the message
       await processWithGPT(body);
 
       return new Response('OK', { status: 200, headers: corsHeaders });

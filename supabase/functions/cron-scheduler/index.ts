@@ -28,9 +28,21 @@ const CRON_TASKS: CronTask[] = [
     enabled: true
   },
   {
+    name: 'vectorize-docs',
+    schedule: '0 1 * * *', // Daily at 1 AM
+    function_name: 'vectorize-docs',
+    enabled: true
+  },
+  {
+    name: 'skills-extract',
+    schedule: '0 3 * * *', // Daily at 3 AM
+    function_name: 'skills-extract',
+    enabled: true
+  },
+  {
     name: 'memory-consolidator',
     schedule: '0 */6 * * *', // Every 6 hours
-    function_name: 'memory-consolidator-v2',
+    function_name: 'memory-consolidator',
     enabled: true
   },
   {
