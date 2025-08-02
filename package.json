@@ -16,6 +16,7 @@
     "lint": "eslint . --ext ts,tsx --max-warnings 0",
     "preview": "vite preview",
     "test": "vitest",
+    "test:watch": "vitest --watch",
     "format": "prettier --write .",
     "easy-momo:dev": "cd apps/easy-momo && npm run dev",
     "easy-momo:build": "cd apps/easy-momo && npm run build",
