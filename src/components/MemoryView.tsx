@@ -27,26 +27,32 @@ export function MemoryView() {
   const fetchMemories = async () => {
     setLoading(true);
     try {
+      // Use events table to fetch memory data
       const { data, error } = await supabase
-        .from('agent_memory_enhanced')
+        .from('events')
         .select('*')
-        .order('updated_at', { ascending: false })
+        .eq('event_type', 'memory_set')
+        .order('created_at', { ascending: false })
         .limit(100);
 
       if (error) throw error;
       
-      // Transform the enhanced memory data to match the expected Memory interface
-      const transformedData = data?.map(item => ({
-        id: item.id,
-        user_id: item.user_id,
-        memory_type: item.memory_type,
-        memory_value: typeof item.memory_value === 'string' ? item.memory_value : JSON.stringify(item.memory_value),
-        updated_at: item.updated_at
-      })) || [];
+      // Transform events to memory format
+      const transformedData = data?.map(item => {
+        const eventData = item.event_data as any;
+        return {
+          id: item.id,
+          user_id: eventData?.user_id || 'unknown',
+          memory_type: eventData?.memory_type || 'unknown',
+          memory_value: eventData?.memory_value || 'No data',
+          updated_at: item.created_at
+        };
+      }) || [];
       
       setMemories(transformedData);
     } catch (error) {
       console.error('Error fetching memories:', error);
+      setMemories([]);
     } finally {
       setLoading(false);
     }

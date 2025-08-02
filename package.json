@@ -15,7 +15,6 @@
     "build:dev": "vite build --mode development",
     "lint": "eslint . --ext ts,tsx --max-warnings 0",
     "preview": "vite preview",
-
     "easy-momo:dev": "cd apps/easy-momo && npm run dev",
     "easy-momo:build": "cd apps/easy-momo && npm run build",
     "easy-momo:build:dev": "cd apps/easy-momo && npm run build:dev",
@@ -29,6 +28,7 @@
     "@types/react": "^18.3.23",
     "@types/react-dom": "^18.3.7",
     "@zxing/library": "^0.20.0",
+    "lovable-tagger": "^1.1.9",
     "lucide-react": "^0.263.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

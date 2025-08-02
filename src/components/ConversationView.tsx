@@ -51,16 +51,30 @@ export function ConversationView({ phoneNumber, onClose }: ConversationViewProps
 
   const fetchMessages = async () => {
     try {
+      // Use events table to fetch conversation messages
       const { data, error } = await supabase
-        .from('conversation_messages')
+        .from('events')
         .select('*')
-        .eq('phone_number', phoneNumber)
+        .eq('event_type', 'message')
+        .like('session_id', `%${phoneNumber}%`)
         .order('created_at', { ascending: true });
 
       if (error) throw error;
-      setMessages(data || []);
+      
+      // Transform events to message format
+      const transformedMessages = data?.map(event => ({
+        id: event.id,
+        phone_number: phoneNumber,
+        sender: 'user', // Default sender
+        message_text: (event.event_data as any)?.message || 'Message content',
+        created_at: event.created_at
+      })) || [];
+
+      setMessages(transformedMessages);
     } catch (error) {
       console.error('Error fetching messages:', error);
+      // Set empty array on error
+      setMessages([]);
     } finally {
       setLoading(false);
     }
