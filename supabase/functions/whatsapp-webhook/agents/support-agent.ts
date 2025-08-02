@@ -1,3 +1,4 @@
+import { supabaseClient } from "./client.ts";
 export class SupportAgent {
   private supabase: any;
 

@@ -1,9 +1,8 @@
+import { supabaseClient } from "./client.ts";
 // response-sender – send outbound msg + log conversation
 import { serve } from "https://deno.land/std@0.195.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.50.1";
 import { sendWaMessage, sendTelegramMessage, sendSMSMessage } from "./utils.ts";
 
-const sb = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
 const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, content-type' };
 
 serve(async (req) => {

@@ -1,8 +1,8 @@
+import { supabaseClient } from "./client.ts";
 // easyMO WhatsApp Template Registry  
 // Centralized template names and helper functions
 
 // @ts-ignore
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 // @ts-ignore
 const Deno = globalThis.Deno;
@@ -179,7 +179,6 @@ export async function trackTemplateEvent(event: {
   timestamp?: string;
 }) {
   try {
-    const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );

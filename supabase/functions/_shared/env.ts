@@ -1,3 +1,4 @@
+import { supabaseClient } from "./client.ts";
 /**
  * Secure Environment Variable Management
  * Centralized utility for safe environment variable access in edge functions

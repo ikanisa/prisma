@@ -1,3 +1,4 @@
+import { supabaseClient } from "./client.ts";
 // Test suite for AI Agent system
 // Run with: deno run --allow-net --allow-env test-agents.ts
 

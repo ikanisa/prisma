@@ -1,3 +1,4 @@
+import { supabaseClient } from "./client.ts";
 /**
  * REFACTOR: Centralized WhatsApp Business API client
  * Replaces scattered WhatsApp integration code

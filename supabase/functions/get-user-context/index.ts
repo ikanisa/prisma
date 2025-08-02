@@ -1,5 +1,5 @@
+import { supabaseClient } from "./client.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -55,7 +55,6 @@ serve(async (req) => {
       throw new Error('Missing Supabase environment variables');
     }
 
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
     const { userId, query, sessionId }: UserContextRequest = await req.json();
 
     console.log(`📋 Getting user context for user: ${userId}`);

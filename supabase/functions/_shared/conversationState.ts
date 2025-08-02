@@ -1,5 +1,5 @@
+import { supabaseClient } from "./client.ts";
 // @ts-ignore
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 // @ts-ignore  
 const Deno = globalThis.Deno;
@@ -16,7 +16,6 @@ interface ConversationState {
 export async function getState(userId: string): Promise<ConversationState> {
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-  const sb = createClient(supabaseUrl, supabaseKey);
 
   const { data } = await sb
     .from('conversation_state')
@@ -35,7 +34,6 @@ export async function getState(userId: string): Promise<ConversationState> {
 export async function setState(userId: string, patch: Partial<ConversationState>) {
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-  const sb = createClient(supabaseUrl, supabaseKey);
 
   patch.updated_at = new Date().toISOString();
   

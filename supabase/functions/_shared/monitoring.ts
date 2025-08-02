@@ -1,3 +1,4 @@
+import { supabaseClient } from "./client.ts";
 /**
  * Production monitoring and health check utilities
  * Provides comprehensive system monitoring and alerting

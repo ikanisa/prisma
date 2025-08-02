@@ -1,5 +1,5 @@
+import { supabaseClient } from "./client.ts";
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0';
 import { getOpenAI, generateIntelligentResponse } from '../_shared/openai-sdk.ts';
 
 const corsHeaders = {
@@ -62,7 +62,6 @@ serve(async (req: Request) => {
       throw new Error('Rating must be 1 (positive) or -1 (negative)');
     }
 
-    const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );

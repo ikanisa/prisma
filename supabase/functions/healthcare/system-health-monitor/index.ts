@@ -1,3 +1,4 @@
+import { supabaseClient } from "./client.ts";
 /**
  * System Health Monitor Edge Function
  * Comprehensive production monitoring and alerting system

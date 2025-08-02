@@ -1,3 +1,4 @@
+import { supabaseClient } from "./client.ts";
 /**
  * Tools Registry for OpenAI Agent SDK
  * Phase 3: Register Functions with Assistant

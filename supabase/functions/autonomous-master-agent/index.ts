@@ -1,6 +1,6 @@
+import { supabaseClient } from "./client.ts";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 import { getOpenAI, generateIntelligentResponse, analyzeIntent } from '../_shared/openai-sdk.ts';
 
 const corsHeaders = {
@@ -367,7 +367,6 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const openaiApiKey = Deno.env.get('OPENAI_API_KEY')!;
     
-    const supabase = createClient(supabaseUrl, supabaseKey);
     const omniAgent = new OmniMasterAgent(supabase, openaiApiKey);
     
     const response = await omniAgent.processMessage(phone, message);

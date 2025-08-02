@@ -1,3 +1,4 @@
+import { supabaseClient } from "./client.ts";
 export class SmartEventsAgent {
   constructor(private supabase: any, private vectorMemory: any, private openAI: any) {}
 

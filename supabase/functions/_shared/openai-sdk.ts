@@ -1,3 +1,4 @@
+import { supabaseClient } from "./client.ts";
 /**
  * COMPREHENSIVE OpenAI SDK Integration
  * Replaces all manual fetch() calls with proper SDK usage

@@ -1,3 +1,4 @@
+import { supabaseClient } from "./client.ts";
 import { assertEquals } from 'https://deno.land/std@0.224.0/testing/asserts.ts';
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import router from '../whatsapp-webhook/index.ts';

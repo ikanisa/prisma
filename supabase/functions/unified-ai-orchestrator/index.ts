@@ -1,6 +1,6 @@
+import { supabaseClient } from "./client.ts";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getOpenAI, generateIntelligentResponse } from '../_shared/openai-sdk.ts';
 
 const corsHeaders = {
@@ -31,7 +31,6 @@ serve(async (req) => {
   }
 
   try {
-    const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
@@ -703,7 +702,6 @@ Guide them with specific examples of how to use each service.`;
 
 // Handle specific intents with dedicated edge functions
 async function handleIntentWithFunction(intentResult: any, message: string, context: any): Promise<string | null> {
-  const supabase = createClient(
     Deno.env.get('SUPABASE_URL')!,
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
   );
@@ -844,7 +842,6 @@ Type "ride from ${routeInfo.origin} to ${routeInfo.destination}" to book!`;
 
 // Direct action handlers for instant responses
 async function handleQRGeneration(amount: number, phoneNumber: string): Promise<string> {
-  const supabase = createClient(
     Deno.env.get('SUPABASE_URL')!,
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
   );
@@ -878,7 +875,6 @@ Reply "received" when paid ✅`;
 async function handleSplitBill(totalAmount: number, numPeople: number, phoneNumber: string): Promise<string> {
   const perPerson = Math.ceil(totalAmount / numPeople);
   
-  const supabase = createClient(
     Deno.env.get('SUPABASE_URL')!,
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
   );

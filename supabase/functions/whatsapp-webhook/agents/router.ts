@@ -1,3 +1,4 @@
+import { supabaseClient } from "./client.ts";
 import { OnboardingAgent } from './onboarding-agent.ts';
 import { PaymentAgent } from './payment-agent.ts';
 import { ListingAgent } from './listing-agent.ts';

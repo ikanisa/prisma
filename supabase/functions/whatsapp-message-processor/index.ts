@@ -1,10 +1,10 @@
+import { supabaseClient } from "./client.ts";
 /**
  * STEP 5: Enhanced WhatsApp Message Processor
  * Centralized message processing with template support and delivery tracking
  */
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -36,7 +36,6 @@ serve(async (req) => {
   }
 
   try {
-    const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
@@ -201,7 +200,6 @@ serve(async (req) => {
 
     // Track failed delivery
     try {
-      const supabase = createClient(
         Deno.env.get('SUPABASE_URL')!,
         Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
       );

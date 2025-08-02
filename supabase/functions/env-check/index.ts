@@ -1,3 +1,4 @@
+import { supabaseClient } from "./client.ts";
 /**
  * Environment Variables Status Check API
  * Admin-only endpoint to verify environment configuration

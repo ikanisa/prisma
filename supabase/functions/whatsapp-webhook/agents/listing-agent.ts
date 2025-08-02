@@ -1,3 +1,4 @@
+import { supabaseClient } from "./client.ts";
 import { MessageProcessor } from '../utils/message-processor.ts';
 
 export class ListingAgent {

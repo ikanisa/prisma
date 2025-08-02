@@ -1,5 +1,5 @@
+import { supabaseClient } from "./client.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -7,14 +7,12 @@ const corsHeaders = {
 };
 
 // Initialize Supabase client using service role for server-side operations
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
 if (!SUPABASE_URL || !SERVICE_KEY) {
   console.error("Supabase URL or service role key missing");
 }
 
-const supabase = createClient(SUPABASE_URL!, SERVICE_KEY!, {
   auth: {
     persistSession: false,
   },

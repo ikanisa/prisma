@@ -1,5 +1,5 @@
+import { supabaseClient } from "./client.ts";
 import { TPL } from './templates.ts';
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const RESPONSE_POLICY = {
   sessionWindowMinutes: 24 * 60,
@@ -25,7 +25,6 @@ interface DecideOpts {
 async function fetchButtons(domain: string, limit: number = 10) {
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-  const sb = createClient(supabaseUrl, supabaseKey);
   
   const { data } = await sb
     .from('action_buttons')

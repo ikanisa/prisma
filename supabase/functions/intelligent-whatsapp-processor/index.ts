@@ -1,6 +1,6 @@
+import { supabaseClient } from "./client.ts";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { validateRequiredEnvVars, OpenAIEnv, SupabaseEnv } from '../_shared/env.ts';
 import { logger } from '../_shared/logger.ts';
 
@@ -25,7 +25,6 @@ serve(async (req) => {
     
     console.log(`🧠 Processing intelligent WhatsApp message from ${phone}: ${message?.substring(0, 100)}...`);
     
-    const supabase = createClient(SupabaseEnv.getUrl(), SupabaseEnv.getServiceRoleKey());
     
     // Analyze user intent with OpenAI
     const intentAnalysis = await analyzeUserIntent(message, phone);

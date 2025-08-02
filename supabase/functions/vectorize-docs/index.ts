@@ -1,6 +1,6 @@
+import { supabaseClient } from "./client.ts";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 import { getOpenAI, createEmbedding } from '../_shared/openai-sdk.ts';
 
 const corsHeaders = {
@@ -18,7 +18,6 @@ serve(async (req) => {
     const { document_id } = await req.json();
     console.log('Starting OpenAI-powered document vectorization...', { document_id });
     
-    const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );

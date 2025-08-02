@@ -1,3 +1,4 @@
+import { supabaseClient } from "./client.ts";
 import { Pinecone } from 'https://esm.sh/@pinecone-database/pinecone@3.0.3';
 
 export class VectorMemory {

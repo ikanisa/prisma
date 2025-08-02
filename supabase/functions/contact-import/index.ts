@@ -1,3 +1,4 @@
+import { supabaseClient } from "./client.ts";
 import { serve } from "https://deno.land/std@0.192.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 import { getSupabaseClient, withSupabase } from "../_shared/supabase.ts";

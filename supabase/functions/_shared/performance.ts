@@ -1,3 +1,4 @@
+import { supabaseClient } from "./client.ts";
 /**
  * Production-ready performance monitoring utilities
  * Tracks function execution, database performance, and system metrics

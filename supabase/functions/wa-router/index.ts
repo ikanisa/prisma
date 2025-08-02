@@ -1,5 +1,5 @@
+import { supabaseClient } from "./client.ts";
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.51.0";
 import { verifySignature } from "@easymo/wa-utils";
 import { askAgent } from "@easymo/openai-sdk";
 
@@ -39,7 +39,6 @@ export async function handler(req: Request): Promise<Response> {
     return new Response("Invalid JSON", { status: 400 });
   }
 
-  const supabase = createClient(getEnv("SUPABASE_URL"), getEnv("SUPABASE_SERVICE_ROLE_KEY"));
   const entry = payload.entry?.[0]?.changes?.[0]?.value;
   const msg = entry.messages?.[0];
   const waId = entry.contacts?.[0]?.wa_id;

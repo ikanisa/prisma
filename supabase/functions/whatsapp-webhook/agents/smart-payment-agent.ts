@@ -1,3 +1,4 @@
+import { supabaseClient } from "./client.ts";
 export class SmartPaymentAgent {
   constructor(private supabase: any, private vectorMemory: any, private openAI: any) {}
 

@@ -1,3 +1,4 @@
+import { supabaseClient } from "./client.ts";
 export class OpenAIService {
   private apiKey: string;
 

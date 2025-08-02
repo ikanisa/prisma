@@ -1,3 +1,4 @@
+import { supabaseClient } from "./client.ts";
 /**
  * Test endpoint for webhook verification - Admin only
  * Tests the webhook verification flow without exposing the token

@@ -1,10 +1,10 @@
+import { supabaseClient } from "./client.ts";
 /**
  * Comprehensive QA Test Script: Passenger Ride Journey
  * Tests: ride request → driver match → payment → rating
  * Usage: deno run --allow-net test-passenger-flow.ts
  */
 
-const SUPABASE_URL = 'https://ijblirphkrrsnxazohwt.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlqYmxpcnBoa3Jyc254YXpvaHd0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI2NDAzMzAsImV4cCI6MjA2ODIxNjMzMH0.gH-rvhmX1RvQSlgwbjqq15bHBgKmlDRkAGyfzFyEeKs';
 
 interface TestResult {

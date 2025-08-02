@@ -1,6 +1,6 @@
+import { supabaseClient } from "./client.ts";
 // SECURE VERSION: Replaces hardcoded secrets with centralized utilities
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { securityManager, SecurityConfigs } from "../_shared/security.ts";
 import { WhatsAppEnv, SupabaseEnv, validateRequiredEnvVars } from "../_shared/env.ts";
 import { validateMessageContent, validateWhatsAppNumber } from "../_shared/validation.ts";
@@ -14,7 +14,6 @@ validateRequiredEnvVars([
   'SUPABASE_SERVICE_ROLE_KEY'
 ]);
 
-const supabase = createClient(SupabaseEnv.getUrl(), SupabaseEnv.getServiceRoleKey());
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',

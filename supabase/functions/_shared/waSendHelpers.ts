@@ -1,3 +1,4 @@
+import { supabaseClient } from "./client.ts";
 // WhatsApp send helper functions for different message types
 
 export async function sendInteractive(waId: string, text: string, buttons: Array<{label: string, payload: string}>) {

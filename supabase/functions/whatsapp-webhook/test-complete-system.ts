@@ -1,3 +1,4 @@
+import { supabaseClient } from "./client.ts";
 // Comprehensive test suite for easyMO AI Agent System
 // Tests the specific scenarios mentioned in the specification
 

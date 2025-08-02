@@ -1,3 +1,4 @@
+import { supabaseClient } from "./client.ts";
 /**
  * REFACTOR: Enhanced TypeScript type definitions
  * Consolidated domain models for all business contexts

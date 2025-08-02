@@ -1,3 +1,4 @@
+import { supabaseClient } from "./client.ts";
 /**
  * QA Test Script: Driver Workflow End-to-End
  * Tests: driver on → job assignment → accept → pickup → delivered → payout

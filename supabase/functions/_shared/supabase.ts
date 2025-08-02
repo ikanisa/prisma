@@ -1,4 +1,4 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0';
+import { supabaseClient } from "./client.ts";
 
 export function getSupabaseClient() {
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
@@ -8,5 +8,4 @@ export function getSupabaseClient() {
     throw new Error('Missing Supabase environment variables');
   }
   
-  return createClient(supabaseUrl, supabaseServiceKey);
 }

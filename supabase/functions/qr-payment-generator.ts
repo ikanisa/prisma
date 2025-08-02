@@ -1,8 +1,7 @@
+import { supabaseClient } from "./client.ts";
 import { serve } from 'std/server';
-import { createClient } from '@supabase/supabase-js';
 
 // Supabase Authenticated client via environment variables
-const supabase = createClient(
   Deno.env.get('SUPABASE_URL')!,
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 );

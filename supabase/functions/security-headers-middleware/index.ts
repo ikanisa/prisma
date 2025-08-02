@@ -1,3 +1,4 @@
+import { supabaseClient } from "./client.ts";
 import { corsHeaders } from '../_shared/cors.ts'
 
 const securityHeaders = {

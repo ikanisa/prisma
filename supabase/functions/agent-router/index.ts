@@ -1,3 +1,4 @@
+import { supabaseClient } from "./client.ts";
 /**
  * Agent Router Edge Function
  * Routes WhatsApp messages to appropriate AI agents and handles responses

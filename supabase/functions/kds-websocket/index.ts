@@ -1,5 +1,5 @@
+import { supabaseClient } from "./client.ts";
 import { serve } from "https://deno.land/std@0.195.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.50.1";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -79,7 +79,6 @@ serve(async (req) => {
 
 async function sendKitchenItems(bar_id: string, socket: WebSocket) {
   try {
-    const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
@@ -135,7 +134,6 @@ async function sendKitchenItems(bar_id: string, socket: WebSocket) {
 
 async function markItemServed(item_id: string, bar_id: string) {
   try {
-    const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );

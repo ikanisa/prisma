@@ -1,6 +1,6 @@
+import { supabaseClient } from "./client.ts";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -26,7 +26,6 @@ serve(async (req) => {
       throw new Error('OpenAI API key not configured');
     }
 
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
     
     const { resourceTypes = ['action_button', 'template', 'skill', 'persona', 'document'], force = false }: EmbeddingRequest = 
       req.method === 'POST' ? await req.json() : {};

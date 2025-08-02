@@ -1,3 +1,4 @@
+import { supabaseClient } from "./client.ts";
 import { logger } from './logger.ts';
 
 export class OpenAIService {

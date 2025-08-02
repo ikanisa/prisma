@@ -1,3 +1,4 @@
+import { supabaseClient } from "./client.ts";
 export function validateRequiredEnvVars(requiredVars: string[]) {
   const missing = requiredVars.filter(varName => !Deno.env.get(varName));
   if (missing.length > 0) {

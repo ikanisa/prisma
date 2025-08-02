@@ -1,3 +1,4 @@
+import { supabaseClient } from "./client.ts";
 export class MessageProcessor {
   private supabase: any;
 

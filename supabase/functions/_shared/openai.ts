@@ -1,3 +1,4 @@
+import { supabaseClient } from "./client.ts";
 /**
  * REFACTOR: Centralized OpenAI client with error handling
  * Eliminates duplicate OpenAI setup across multiple edge functions

@@ -1,3 +1,4 @@
+import { supabaseClient } from "./client.ts";
 import { serve } from 'https://deno.land/std@0.203.0/http/server.ts';
 
 const APIFY_TOKEN = Deno.env.get('APIFY_TOKEN');

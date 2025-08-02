@@ -1,3 +1,4 @@
+import { supabaseClient } from "./client.ts";
 /**
  * Production database utilities
  * Centralized database operations with proper error handling

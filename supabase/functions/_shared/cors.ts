@@ -1,3 +1,4 @@
+import { supabaseClient } from "./client.ts";
 // SECURITY FIX: More restrictive CORS configuration
 export const corsHeaders = {
   'Access-Control-Allow-Origin': Deno.env.get('CORS_ORIGIN') || '*',

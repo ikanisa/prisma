@@ -1,3 +1,4 @@
+import { supabaseClient } from "./client.ts";
 /**
  * OpenAI Agent SDK Integration
  * Server-only utilities for agent execution and tool calling

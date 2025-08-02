@@ -1,3 +1,4 @@
+import { supabaseClient } from "./client.ts";
 /**
  * REFACTOR: Modular agent system
  * Breaks down monolithic whatsapp-webhook into focused agents

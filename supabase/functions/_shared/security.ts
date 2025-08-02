@@ -1,3 +1,4 @@
+import { supabaseClient } from "./client.ts";
 /**
  * Production security utilities
  * Comprehensive security measures for edge functions

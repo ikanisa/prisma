@@ -1,9 +1,9 @@
+import { supabaseClient } from "./client.ts";
 /**
  * Agent Executor Fallback Integration
  * Phase 6: Hook AgentExecutor into webhook for free-text fallback
  */
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { runAgent } from './openai-agent.ts';
 
 interface FallbackInput {

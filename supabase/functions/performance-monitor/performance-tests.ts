@@ -1,5 +1,5 @@
+import { supabaseClient } from "./client.ts";
 // Performance test implementations for the monitor
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.51.0'
 
 interface PerformanceResult {
   function_name: string

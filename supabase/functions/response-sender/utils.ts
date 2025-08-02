@@ -1,3 +1,4 @@
+import { supabaseClient } from "./client.ts";
 // Utility functions for sending messages across different channels
 
 // WhatsApp messaging utility

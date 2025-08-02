@@ -1,3 +1,4 @@
+import { supabaseClient } from "./client.ts";
 export class OnboardingAgent {
   private supabase: any;
 
