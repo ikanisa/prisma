@@ -34,7 +34,6 @@ const consolidatedSidebarItems: SidebarItem[] = [
   { name: 'Businesses', path: '/admin/businesses', icon: Building2 },
   { name: 'Listings & Inventory', path: '/admin/unified-listings', icon: Package },
   { name: 'Orders & Payments', path: '/admin/unified-orders', icon: ShoppingCart },
-  { name: 'Trips & Intents', path: '/admin/trips-intents', icon: Route },
   { name: 'Messaging & Campaigns', path: '/admin/messaging-campaigns', icon: MessageSquare },
   { name: 'Template Management', path: '/admin/templates', icon: MessageSquare, badge: { text: 'New', variant: 'default' } },
   { name: 'Action Buttons', path: '/admin/action-buttons', icon: MousePointer },

@@ -103,6 +103,7 @@ const App = () => (
           <Route path="payments" element={<PaymentsPage />} />
           <Route path="qr-scanner" element={<QRScannerPage />} />
           <Route path="system-ops" element={<SystemOps />} />
+          <Route path="trips-intents" element={<div className="space-y-6"><h1 className="text-3xl font-bold">Trips & Intents</h1><p className="text-muted-foreground">Manage driver trips and passenger requests</p></div>} />
           <Route path="env-setup" element={<EnvSetup />} />
           <Route path="webhook-config" element={<WebhookConfig />} />
           <Route path="agents" element={<Agents />} />
