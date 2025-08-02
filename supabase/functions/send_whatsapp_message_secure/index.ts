@@ -1,3 +1,4 @@
+import { withErrorHandling } from "./_shared/errorHandler.ts";
 import { supabaseClient } from "./client.ts";
 // SECURE VERSION: Replaces hardcoded secrets with centralized utilities
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -125,7 +126,7 @@ async function updateBannerTimestamp(waId: string) {
     .eq('phone_number', waId);
 }
 
-serve(async (req) => {
+serve(withErrorHandling(async (req) => {
   const startTime = Date.now();
   
   // Handle CORS preflight requests

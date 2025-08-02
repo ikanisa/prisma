@@ -1,3 +1,4 @@
+import { withErrorHandling } from "./_shared/errorHandler.ts";
 import { supabaseClient } from "./client.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders, createErrorResponse, createSuccessResponse, withRetry, RateLimiter } from "../_shared/utils.ts";
@@ -12,7 +13,7 @@ validateRequiredEnvVars(['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY']);
 // Rate limiter for marketing messages (max 100 per hour)
 const marketingRateLimiter = new RateLimiter(100, 60 * 60 * 1000);
 
-serve(async (req) => {
+serve(withErrorHandling(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }

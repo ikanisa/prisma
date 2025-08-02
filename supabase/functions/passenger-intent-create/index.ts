@@ -1,3 +1,4 @@
+import { withErrorHandling } from "./_shared/errorHandler.ts";
 import { supabaseClient } from "./client.ts";
 
 // deno-lint-ignore-file no-explicit-any
@@ -58,7 +59,7 @@ async function quickGeocode(text: string) {
   return JSON.parse(call);
 }
 
-serve(async (req) => {
+serve(withErrorHandling(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
 
     Deno.env.get("SUPABASE_URL")!,

@@ -1,3 +1,4 @@
+import { withErrorHandling } from "./_shared/errorHandler.ts";
 import { supabaseClient } from "./client.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
@@ -148,7 +149,7 @@ async function performHealthCheck(): Promise<HealthCheckResult> {
   };
 }
 
-serve(async (req) => {
+serve(withErrorHandling(async (req) => {
   try {
     console.log('Health check requested');
     

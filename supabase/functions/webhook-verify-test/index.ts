@@ -1,3 +1,4 @@
+import { withErrorHandling } from "./_shared/errorHandler.ts";
 import { supabaseClient } from "./client.ts";
 /**
  * Test endpoint for webhook verification - Admin only
@@ -9,7 +10,7 @@ import { corsHeaders, createErrorResponse, createSuccessResponse } from "../_sha
 import { getEnv } from "../_shared/env.ts";
 import { logger } from "../_shared/logger.ts";
 
-serve(async (req) => {
+serve(withErrorHandling(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });

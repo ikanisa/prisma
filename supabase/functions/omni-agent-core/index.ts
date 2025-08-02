@@ -1,3 +1,4 @@
+import { withErrorHandling } from "./_shared/errorHandler.ts";
 import { supabaseClient } from "./client.ts";
 // ============================================================================
 // Omni-Agent Core - Self-Learning Autonomous AI System
@@ -49,7 +50,7 @@ interface QualityResult {
 }
 
 // Step 1: Webhook Handler (Entry Point)
-serve(async (req) => {
+serve(withErrorHandling(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }

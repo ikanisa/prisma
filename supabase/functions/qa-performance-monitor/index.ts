@@ -1,3 +1,4 @@
+import { withErrorHandling } from "./_shared/errorHandler.ts";
 import { supabaseClient } from "./client.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 
@@ -15,7 +16,7 @@ interface PerformanceMetric {
   labels?: Record<string, any>;
 }
 
-serve(async (req) => {
+serve(withErrorHandling(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }

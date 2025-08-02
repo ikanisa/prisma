@@ -1,3 +1,4 @@
+import { withErrorHandling } from "./_shared/errorHandler.ts";
 import { supabaseClient } from "./client.ts";
 import { serve } from "https://deno.land/std@0.195.0/http/server.ts";
 
@@ -9,7 +10,7 @@ const corsHeaders = {
 // Store active WebSocket connections by bar_id
 const connections = new Map<string, Set<WebSocket>>();
 
-serve(async (req) => {
+serve(withErrorHandling(async (req) => {
   const { headers } = req;
   const upgradeHeader = headers.get("upgrade") || "";
 

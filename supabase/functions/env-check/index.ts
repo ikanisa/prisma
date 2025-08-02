@@ -1,3 +1,4 @@
+import { withErrorHandling } from "./_shared/errorHandler.ts";
 import { supabaseClient } from "./client.ts";
 /**
  * Environment Variables Status Check API
@@ -14,7 +15,7 @@ import { logger } from "../_shared/logger.ts";
 
 const supabase = getSupabaseClient();
 
-serve(async (req) => {
+serve(withErrorHandling(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });

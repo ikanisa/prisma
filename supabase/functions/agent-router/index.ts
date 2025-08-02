@@ -1,3 +1,4 @@
+import { withErrorHandling } from "./_shared/errorHandler.ts";
 import { supabaseClient } from "./client.ts";
 /**
  * Agent Router Edge Function
@@ -24,7 +25,7 @@ const supabase = getSupabaseClient();
 // Update agent assistant ID on startup
 await updateAgentAssistantId();
 
-serve(async (req) => {
+serve(withErrorHandling(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });

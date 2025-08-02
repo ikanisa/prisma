@@ -1,3 +1,4 @@
+import { withErrorHandling } from "./_shared/errorHandler.ts";
 import { supabaseClient } from "./client.ts";
 
 // deno-lint-ignore-file no-explicit-any
@@ -95,7 +96,7 @@ function resolveDownstream(text: string, phone: string, memory?: Record<string, 
 }
 
 /* ——— main ——— */
-serve(async (req) => {
+serve(withErrorHandling(async (req) => {
   /* 0. CORS pre‑flight */
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
 

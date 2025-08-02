@@ -1,3 +1,4 @@
+import { withErrorHandling } from "./_shared/errorHandler.ts";
 import { supabaseClient } from "./client.ts";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -14,7 +15,7 @@ interface ConsolidationRequest {
   action: 'consolidate_user' | 'consolidate_all' | 'summarize_conversations';
 }
 
-serve(async (req) => {
+serve(withErrorHandling(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });

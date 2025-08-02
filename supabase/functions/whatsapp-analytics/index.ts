@@ -1,3 +1,4 @@
+import { withErrorHandling } from "./_shared/errorHandler.ts";
 import { supabaseClient } from "./client.ts";
 /**
  * STEP 5: WhatsApp Analytics & Performance Monitoring
@@ -18,7 +19,7 @@ interface AnalyticsQuery {
   metric_type?: 'delivery' | 'engagement' | 'templates' | 'overview';
 }
 
-serve(async (req) => {
+serve(withErrorHandling(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }

@@ -1,3 +1,4 @@
+import { withErrorHandling } from "./_shared/errorHandler.ts";
 import { supabaseClient } from "./client.ts";
 
 const corsHeaders = {
@@ -11,7 +12,7 @@ interface FetchButtonsRequest {
   offset?: number;
 }
 
-Deno.serve(async (req) => {
+Deno.serve(withErrorHandling(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });

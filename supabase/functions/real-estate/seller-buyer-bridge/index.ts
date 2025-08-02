@@ -1,3 +1,4 @@
+import { withErrorHandling } from "./_shared/errorHandler.ts";
 import { supabaseClient } from "./client.ts";
 
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
@@ -15,7 +16,7 @@ const corsHeaders = {
 const whatsappToken = Deno.env.get('WHATSAPP_ACCESS_TOKEN');
 const whatsappPhoneId = Deno.env.get('WHATSAPP_PHONE_NUMBER_ID');
 
-serve(async (req) => {
+serve(withErrorHandling(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }

@@ -1,3 +1,4 @@
+import { withErrorHandling } from "./_shared/errorHandler.ts";
 import { supabaseClient } from "./client.ts";
 
 const corsHeaders = {
@@ -13,7 +14,7 @@ interface SearchBusinessesRequest {
   limit?: number
 }
 
-Deno.serve(async (req) => {
+Deno.serve(withErrorHandling(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }

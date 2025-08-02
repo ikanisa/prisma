@@ -1,3 +1,4 @@
+import { withErrorHandling } from "./_shared/errorHandler.ts";
 import { supabaseClient } from "./client.ts";
 // response-sender – send outbound msg + log conversation
 import { serve } from "https://deno.land/std@0.195.0/http/server.ts";
@@ -5,7 +6,7 @@ import { sendWaMessage, sendTelegramMessage, sendSMSMessage } from "./utils.ts";
 
 const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, content-type' };
 
-serve(async (req) => {
+serve(withErrorHandling(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: cors });
   const start = Date.now();
 

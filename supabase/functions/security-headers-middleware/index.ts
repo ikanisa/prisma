@@ -1,3 +1,4 @@
+import { withErrorHandling } from "./_shared/errorHandler.ts";
 import { supabaseClient } from "./client.ts";
 import { corsHeaders } from '../_shared/cors.ts'
 
@@ -28,7 +29,7 @@ const securityHeaders = {
   'Expires': '0'
 }
 
-Deno.serve(async (req) => {
+Deno.serve(withErrorHandling(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: securityHeaders })

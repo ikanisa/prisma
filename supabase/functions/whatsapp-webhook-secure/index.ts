@@ -1,3 +1,4 @@
+import { withErrorHandling } from "./_shared/errorHandler.ts";
 import { supabaseClient } from "./client.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createHash } from "https://deno.land/std@0.168.0/crypto/mod.ts";
@@ -245,7 +246,7 @@ async function processWithGPT(body: any) {
   }
 }
 
-serve(async (req) => {
+serve(withErrorHandling(async (req) => {
   try {
     // Handle CORS preflight requests
     if (req.method === 'OPTIONS') {

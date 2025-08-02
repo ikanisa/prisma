@@ -1,3 +1,4 @@
+import { withErrorHandling } from "./_shared/errorHandler.ts";
 import { supabaseClient } from "./client.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders, handleCorsPreFlight } from "../_shared/cors.ts";
@@ -7,7 +8,7 @@ const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
 const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
 
-serve(async (req) => {
+serve(withErrorHandling(async (req) => {
   const corsResponse = handleCorsPreFlight(req);
   if (corsResponse) return corsResponse;
 

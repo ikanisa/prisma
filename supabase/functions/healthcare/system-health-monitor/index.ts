@@ -1,3 +1,4 @@
+import { withErrorHandling } from "./_shared/errorHandler.ts";
 import { supabaseClient } from "./client.ts";
 /**
  * System Health Monitor Edge Function
@@ -21,7 +22,7 @@ interface HealthCheckResult {
   metadata?: Record<string, any>;
 }
 
-serve(async (req) => {
+serve(withErrorHandling(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });

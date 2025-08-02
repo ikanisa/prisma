@@ -1,3 +1,4 @@
+import { withErrorHandling } from "./_shared/errorHandler.ts";
 import { supabaseClient } from "./client.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { getSupabaseClient, withDatabase, dbOperations } from "../_shared/supabase.ts";
@@ -13,7 +14,7 @@ const requestSchema: ValidationSchema = {
   order_type: { required: false, type: 'string', enum: ['pharmacy', 'grocery', 'hardware'] }
 };
 
-serve(async (req) => {
+serve(withErrorHandling(async (req) => {
   if (req.method === 'OPTIONS') {
     return handleCorsPrelight();
   }
