@@ -46,7 +46,7 @@ export function useAdminAuth(): AdminAuthState {
 
         // Always check admin role properly in all environments
         // SECURITY: No development bypasses allowed
-        const { data: isAdminResult, error } = await supabase.rpc('is_admin');
+        const { data: isAdminResult, error } = await supabase.rpc('is_admin', { uid: user.id });
         
         if (!mounted) return;
         
@@ -56,7 +56,7 @@ export function useAdminAuth(): AdminAuthState {
         
         setState({
           user,
-          isAdmin: !error && isAdminResult === true,
+          isAdmin: error ? false : Boolean(isAdminResult),
           loading: false,
           checkingAuth: false
         });
