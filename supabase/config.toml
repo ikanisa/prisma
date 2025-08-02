@@ -1,7 +1,5 @@
 project_id = "ijblirphkrrsnxazohwt"
 
-[functions]
-# Legacy config; convert to array format expected by Supabase CLI
 [[functions]]
 # Source directory for Supabase Edge Functions (relative to this config file)
 directory = "functions"
