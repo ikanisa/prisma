@@ -1,0 +1,119 @@
+
+{
+  "name": "easyMO",
+  "short_name": "easyMO",
+  "description": "Seamless QR and USSD money transfers. Trusted, fast, and beautifully simple.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#00C9A7",
+  "scope": "/",
+  "orientation": "portrait-primary",
+  "lang": "en-US",
+  "dir": "ltr",
+  "prefer_related_applications": false,
+  "display_override": ["window-controls-overlay", "standalone"],
+  "categories": ["finance", "utilities", "productivity"],
+  "icons": [
+    {
+      "src": "/lovable-uploads/45a979fc-7f8d-465b-b23c-67bb8e61d90c.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/lovable-uploads/45a979fc-7f8d-465b-b23c-67bb8e61d90c.png",
+      "sizes": "512x512", 
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/lovable-uploads/45a979fc-7f8d-465b-b23c-67bb8e61d90c.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/lovable-uploads/45a979fc-7f8d-465b-b23c-67bb8e61d90c.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/lovable-uploads/45a979fc-7f8d-465b-b23c-67bb8e61d90c.png",
+      "sizes": "72x72",
+      "type": "image/png"
+    },
+    {
+      "src": "/lovable-uploads/45a979fc-7f8d-465b-b23c-67bb8e61d90c.png",
+      "sizes": "96x96",
+      "type": "image/png"
+    },
+    {
+      "src": "/lovable-uploads/45a979fc-7f8d-465b-b23c-67bb8e61d90c.png",
+      "sizes": "128x128",
+      "type": "image/png"
+    },
+    {
+      "src": "/lovable-uploads/45a979fc-7f8d-465b-b23c-67bb8e61d90c.png",
+      "sizes": "144x144",
+      "type": "image/png"
+    },
+    {
+      "src": "/lovable-uploads/45a979fc-7f8d-465b-b23c-67bb8e61d90c.png",
+      "sizes": "152x152",
+      "type": "image/png"
+    },
+    {
+      "src": "/lovable-uploads/45a979fc-7f8d-465b-b23c-67bb8e61d90c.png",
+      "sizes": "384x384",
+      "type": "image/png"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Generate QR",
+      "short_name": "Generate",
+      "description": "Create a new payment QR code",
+      "url": "/get-paid",
+      "icons": [{ 
+        "src": "/lovable-uploads/45a979fc-7f8d-465b-b23c-67bb8e61d90c.png", 
+        "sizes": "192x192",
+        "type": "image/png"
+      }]
+    },
+    {
+      "name": "Scan QR",
+      "short_name": "Scan", 
+      "description": "Scan a Mobile Money QR code",
+      "url": "/pay",
+      "icons": [{ 
+        "src": "/lovable-uploads/45a979fc-7f8d-465b-b23c-67bb8e61d90c.png", 
+        "sizes": "192x192",
+        "type": "image/png"
+      }]
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/lovable-uploads/45a979fc-7f8d-465b-b23c-67bb8e61d90c.png",
+      "type": "image/png",
+      "sizes": "540x720",
+      "form_factor": "narrow",
+      "label": "easyMO home screen"
+    }
+  ],
+  "launch_handler": {
+    "client_mode": "navigate-existing"
+  },
+  "edge_side_panel": {
+    "preferred_width": 400
+  },
+  "handle_links": "preferred",
+  "protocol_handlers": [
+    {
+      "protocol": "web+easymo",
+      "url": "/?action=%s"
+    }
+  ]
+}

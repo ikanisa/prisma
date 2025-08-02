@@ -1,0 +1,76 @@
+
+{
+  "home": {
+    "title": "easyMO",
+    "welcomeTitle": "easyMO",
+    "welcomeSubtitle": "Pay . Get Paid . Instant . Secure",
+    "pay": "Scan & Pay",
+    "receive": "Get Paid",
+    "shareApp": "Share this app",
+    "joinWhatsapp": "Join WhatsApp Channel",
+    "promoBanner": "🎉 Enjoy instant payments with zero fees!"
+  },
+  "generic": {
+    "copied": "Copied!",
+    "linkCopied": "App link copied to clipboard",
+    "shareError": "Error sharing:",
+    "shareFallback": "Your link has been copied.",
+    "save": "Save",
+    "close": "Close"
+  },
+  "pay": {
+    "scanTitle": "Scan QR Code",
+    "startingCamera": "Starting camera...",
+    "demoCameraView": "📷 Demo Camera View",
+    "qrScanned": "QR Code Scanned!",
+    "paymentCodeDetected": "Payment code detected",
+    "ussdCopiedTitle": "USSD Code Copied!",
+    "ussdCopiedDesc": "Paste in your dialer to complete payment",
+    "flashOn": "Flash On",
+    "flashOff": "Flash Off",
+    "flashDesc": "Flash toggled (demo mode)",
+    "scannedPaymentCode": "Scanned Payment Code:",
+    "tapToCopy": "Tap to copy and dial this code",
+    "retryScan": "Retry Scan"
+  },
+  "get": {
+    "screenTitle": "Request Payment",
+    "amountLabel": "Enter amount (RWF)",
+    "phoneLabel": "Your phone number",
+    "amountPlaceholder": "Type amount",
+    "phonePlaceholder": "e.g. 07XX...",
+    "helper": "This is the number that will receive payment",
+    "createQR": "Generate QR Code",
+    "shareLink": "Share Payment Link",
+    "recentAmounts": "Recent Amounts",
+    "recentPhones": "Recent Phones"
+  },
+  "qr": {
+    "share": "Share",
+    "save": "Save QR",
+    "label": "Pay {{amount}} RWF",
+    "ussd": "USSD Payment Code:",
+    "tapToCopy": "Tap to copy • Dial this code to pay"
+  },
+  "offline": {
+    "message": "⚠️ No internet – some features may not be available",
+    "banner": "You are offline. Most features may be unavailable.",
+    "showingRecentQR": "You're offline – displaying most recent QR. Some actions may be limited."
+  },
+  "cta": {
+    "whatsapp": "Join our WhatsApp Channel"
+  },
+  "toast": {
+    "linkCopied": "Payment link copied!",
+    "shareFailed": "Failed to share, please try again.",
+    "qrSaved": "QR Code Saved!",
+    "qrFailed": "QR generation failed",
+    "offlineQR": "QR generated offline. Save/share or revisit from QR history."
+  },
+  "error": {
+    "camera": "Whoops! No Camera Found",
+    "cameraDesc": "Device can't access the camera. Try a different device, or preview scan below.",
+    "noInternet": "No internet connection",
+    "validation": "Please fill all required fields correctly"
+  }
+}
