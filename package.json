@@ -10,10 +10,18 @@
     "docs"
   ],
   "scripts": {
-    "bootstrap": "pnpm install",
-    "lint": "eslint .",
-    "test": "pnpm -r --filter ./packages/* test",
-    "smoke": "bash scripts/smoke.sh"
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "build:dev": "vite build --mode development",
+    "lint": "eslint . --ext ts,tsx --max-warnings 0",
+    "preview": "vite preview",
+
+    "easy-momo:dev": "cd apps/easy-momo && npm run dev",
+    "easy-momo:build": "cd apps/easy-momo && npm run build",
+    "easy-momo:build:dev": "cd apps/easy-momo && npm run build:dev",
+    "easy-momo:lint": "cd apps/easy-momo && npm run lint",
+    "easy-momo:format": "cd apps/easy-momo && npm run format",
+    "easy-momo:preview": "cd apps/easy-momo && npm run preview"
   },
   "dependencies": {
     "@tanstack/react-query": "^4.40.1",
