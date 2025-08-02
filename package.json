@@ -15,6 +15,12 @@
     "build:dev": "vite build --mode development",
     "lint": "eslint . --ext ts,tsx --max-warnings 0",
     "preview": "vite preview",
+<<<<<<< HEAD
+=======
+    "test": "vitest",
+    "format": "prettier --write .",
+
+>>>>>>> 519e461 (✅ Fullstack audit & refactor for production readiness)
     "easy-momo:dev": "cd apps/easy-momo && npm run dev",
     "easy-momo:build": "cd apps/easy-momo && npm run build",
     "easy-momo:build:dev": "cd apps/easy-momo && npm run build:dev",
@@ -38,5 +44,9 @@
     "sonner": "^0.6.2",
     "vitest": "^3.2.4",
     "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "vitest": "^3.2.4",
+    "prettier": "^3.0.0"
   }
 }
