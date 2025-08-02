@@ -2,7 +2,7 @@ project_id = "ijblirphkrrsnxazohwt"
 
 [functions]
 # Source directory for Supabase Edge Functions (relative to this config file)
-directory = "../server/functions"
+directory = "functions"
 
 [api]
 enabled = true
