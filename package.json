@@ -2,25 +2,14 @@
   "name": "easyMO-whatsapp-agent",
   "version": "0.1.0",
   "private": true,
-  "workspaces": [
-    "supabase",
-    "packages/*",
-    "apps/*",
-    "scripts",
-    "docs"
-  ],
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint . --ext ts,tsx --max-warnings 0",
     "preview": "vite preview",
-<<<<<<< HEAD
-=======
     "test": "vitest",
     "format": "prettier --write .",
-
->>>>>>> 519e461 (✅ Fullstack audit & refactor for production readiness)
     "easy-momo:dev": "cd apps/easy-momo && npm run dev",
     "easy-momo:build": "cd apps/easy-momo && npm run build",
     "easy-momo:build:dev": "cd apps/easy-momo && npm run build:dev",
