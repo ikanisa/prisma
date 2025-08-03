@@ -62,9 +62,7 @@ serve(withErrorHandling(async (req) => {
     }
 
     // Initialize Supabase client 
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    )
+    const supabase = supabaseClient;
 
     console.log('🔄 Processing incoming messages...')
 
@@ -277,9 +275,7 @@ serve(withErrorHandling(async (req) => {
     
     // Log security event for processing failures
     try {
-        Deno.env.get('SUPABASE_URL')!,
-        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-      )
+      const supabase = supabaseClient;
       await logSecurityEvent('message_processing_error', 'high', { 
         error: error.message 
       }, supabase);
