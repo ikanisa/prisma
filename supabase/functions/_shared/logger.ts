@@ -1,4 +1,4 @@
-import { supabaseClient } from "./client.ts";
+import { supabaseClient } from "../client.ts";
 export const logger = {
   info: (message: string, data?: any) => {
     console.log(`[INFO] ${message}`, data ? JSON.stringify(data) : '');
