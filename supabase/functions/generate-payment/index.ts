@@ -112,4 +112,4 @@ serve(withErrorHandling(async (req) => {
     logger.error('Payment generation error', error);
     return createErrorResponse('Internal server error', null, 500);
   }
-});
+}));
