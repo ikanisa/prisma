@@ -106,15 +106,7 @@ serve(withErrorHandling(async (req) => {
 
     logger.info('Payment created successfully', { paymentId: payment.id, qrUrl: qrCodeUrl });
 
-    return createSuccessResponse('Payment created successfully', {
-      payment_id: payment.id,
-      amount: paymentAmount,
-      ussd_code: ussdCode,
-      ussd_link: ussdLink,
-      qr_code_url: qrCodeUrl,
-      reference: paymentRef,
-      instructions: `Dial ${ussdCode} to complete P2P mobile money payment (outside system)`
-    });
+    return createSuccessResponse('Payment created successfully', { payment_id: payment.id, amount: paymentAmount, ussd_code: ussdCode, ussd_link: ussdLink, qr_code_url: qrCodeUrl, reference: paymentRef, instructions: `Dial ${ussdCode} to complete P2P mobile money payment (outside system)` });
 
   } catch (error) {
     logger.error('Payment generation error', error);
