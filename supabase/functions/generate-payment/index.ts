@@ -1,5 +1,5 @@
-import { withErrorHandling } from "./_shared/errorHandler.ts";
-import { supabaseClient } from "./client.ts";
+import { withErrorHandling } from "../_shared/errorHandler.ts";
+import { supabaseClient } from "../client.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsHeaders, createErrorResponse, createSuccessResponse } from "../_shared/utils.ts";
 import { validateRequiredEnvVars, validateRequestBody, ValidationPatterns } from "../_shared/validation.ts";
