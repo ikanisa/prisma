@@ -61,7 +61,11 @@ serve(withErrorHandling(async (req) => {
       messageData = body;
     }
 
+<<<<<<< HEAD
     // Initialize Supabase client 
+=======
+    // Initialize Supabase client
+>>>>>>> fe34c5e (fix: remove workspace config and allow package-lock; fix supabase client import)
     const supabase = supabaseClient;
 
     console.log('🔄 Processing incoming messages...')

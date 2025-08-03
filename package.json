@@ -2,13 +2,6 @@
   "name": "easyMO-whatsapp-agent",
   "version": "0.1.0",
   "private": true,
-  "workspaces": [
-    "supabase",
-    "packages/*",
-    "apps/*",
-    "scripts",
-    "docs"
-  ],
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
