@@ -9,7 +9,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useAppStore } from "@/stores/mock-data";
+import { OrganizationSwitcher } from "@/components/organization-switcher";
+import { useAuth } from "@/hooks/use-auth";
+import { useOrganizations } from "@/hooks/use-organizations";
 import { useNavigate } from "react-router-dom";
 
 interface HeaderProps {
@@ -17,17 +19,25 @@ interface HeaderProps {
 }
 
 export function Header({ onOpenCommandPalette }: HeaderProps) {
-  const { currentUser, setCurrentUser } = useAppStore();
+  const { user, signOut } = useAuth();
+  const { isSystemAdmin } = useOrganizations();
   const navigate = useNavigate();
 
-  const handleLogout = () => {
-    setCurrentUser(null);
+  const handleLogout = async () => {
+    await signOut();
     navigate('/auth/sign-in');
+  };
+
+  const handleSystemAdmin = () => {
+    navigate('/admin/system');
   };
 
   return (
     <header className="h-16 bg-card/50 backdrop-blur-sm border-b border-border/50 flex items-center px-6 gap-4">
       <SidebarTrigger />
+      
+      {/* Organization Switcher */}
+      <OrganizationSwitcher />
       
       {/* Search / Command Palette */}
       <div className="flex-1 max-w-md mx-4">
@@ -56,23 +66,39 @@ export function Header({ onOpenCommandPalette }: HeaderProps) {
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon">
               <Avatar className="h-8 w-8">
-                <AvatarImage src={currentUser?.avatarUrl} />
+                <AvatarImage src={user?.user_metadata?.avatar_url} />
                 <AvatarFallback>
-                  {currentUser?.name?.charAt(0) || 'U'}
+                  {user?.user_metadata?.name 
+                    ? user.user_metadata.name.split(' ').map((n: string) => n[0]).join('').toUpperCase()
+                    : user?.email?.substring(0, 2).toUpperCase()
+                  }
                 </AvatarFallback>
               </Avatar>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
             <div className="p-2">
-              <p className="font-medium">{currentUser?.name}</p>
-              <p className="text-sm text-muted-foreground">{currentUser?.email}</p>
+              <p className="font-medium">{user?.user_metadata?.name || 'User'}</p>
+              <p className="text-sm text-muted-foreground">{user?.email}</p>
             </div>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
+            <DropdownMenuItem onClick={() => navigate('/aurora/settings')}>
+              <User className="mr-2 h-4 w-4" />
+              Profile
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => navigate('/aurora/settings')}>
               <Settings className="mr-2 h-4 w-4" />
               Settings
             </DropdownMenuItem>
+            {isSystemAdmin() && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleSystemAdmin}>
+                  <Settings className="mr-2 h-4 w-4" />
+                  System Admin
+                </DropdownMenuItem>
+              </>
+            )}
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleLogout}>
               <LogOut className="mr-2 h-4 w-4" />

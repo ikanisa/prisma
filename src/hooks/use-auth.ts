@@ -1,66 +1,125 @@
-// Authentication hook - placeholder for Supabase integration
 import { useState, useEffect } from 'react';
-import { useAppStore, User } from '@/stores/mock-data';
+import { supabase } from '@/integrations/supabase/client';
+import { User, Session } from '@supabase/supabase-js';
+import { useToast } from '@/hooks/use-toast';
 
 export interface AuthState {
   user: User | null;
+  session: Session | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, name: string) => Promise<void>;
+  signIn: (email: string, password: string) => Promise<{ error?: string }>;
+  signUp: (email: string, password: string, name: string) => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
-  sendMagicLink: (email: string) => Promise<void>;
+  sendMagicLink: (email: string) => Promise<{ error?: string }>;
 }
 
 export function useAuth(): AuthState {
-  const { currentUser, setCurrentUser, users } = useAppStore();
-  const [loading, setLoading] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
+  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    // Set up auth state listener FIRST
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        setSession(session);
+        setUser(session?.user ?? null);
+        setLoading(false);
+      }
+    );
+
+    // THEN check for existing session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      setLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   const signIn = async (email: string, password: string) => {
     setLoading(true);
-    // Placeholder: In real app, this would call Supabase auth
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    const user = users.find(u => u.email === email);
-    if (user) {
-      setCurrentUser(user);
-    } else {
-      throw new Error('Invalid credentials');
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      
+      if (error) {
+        throw error;
+      }
+      
+      return {};
+    } catch (error: any) {
+      return { error: error.message };
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const signUp = async (email: string, password: string, name: string) => {
     setLoading(true);
-    // Placeholder: In real app, this would call Supabase auth
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    const newUser: User = {
-      id: Math.random().toString(),
-      email,
-      name,
-      createdAt: new Date().toISOString()
-    };
-    setCurrentUser(newUser);
-    setLoading(false);
+    try {
+      const redirectUrl = `${window.location.origin}/`;
+      
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: redirectUrl,
+          data: {
+            name: name
+          }
+        }
+      });
+      
+      if (error) {
+        throw error;
+      }
+      
+      return {};
+    } catch (error: any) {
+      return { error: error.message };
+    } finally {
+      setLoading(false);
+    }
   };
 
   const signOut = async () => {
     setLoading(true);
-    // Placeholder: In real app, this would call Supabase auth
-    await new Promise(resolve => setTimeout(resolve, 500));
-    setCurrentUser(null);
+    await supabase.auth.signOut();
     setLoading(false);
   };
 
   const sendMagicLink = async (email: string) => {
     setLoading(true);
-    // Placeholder: In real app, this would call Supabase auth
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    setLoading(false);
+    try {
+      const redirectUrl = `${window.location.origin}/`;
+      
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          emailRedirectTo: redirectUrl
+        }
+      });
+      
+      if (error) {
+        throw error;
+      }
+      
+      return {};
+    } catch (error: any) {
+      return { error: error.message };
+    } finally {
+      setLoading(false);
+    }
   };
 
   return {
-    user: currentUser,
+    user,
+    session,
     loading,
     signIn,
     signUp,

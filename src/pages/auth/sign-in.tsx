@@ -1,44 +1,80 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Eye, EyeOff, Sparkles, ArrowRight } from 'lucide-react';
+import { Eye, EyeOff, Sparkles, ArrowRight, Mail, UserPlus } from 'lucide-react';
 import { Button } from '@/components/enhanced-button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
-
-const demoUsers = [
-  { email: 'sophia@aurora.test', name: 'Sophia System', role: 'System Admin' },
-  { email: 'mark@aurora.test', name: 'Mark Manager', role: 'Manager' },
-  { email: 'eli@aurora.test', name: 'Eli Employee', role: 'Employee' },
-];
 
 export function SignIn() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [activeTab, setActiveTab] = useState('signin');
   
   const navigate = useNavigate();
-  const { signIn, loading } = useAuth();
+  const { signIn, signUp, sendMagicLink, loading } = useAuth();
   const { toast } = useToast();
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    try {
-      await signIn(email, password);
+    const { error } = await signIn(email, password);
+    
+    if (error) {
+      toast({
+        variant: "destructive",
+        title: "Authentication failed",
+        description: error,
+      });
+    } else {
       toast({
         title: "Welcome back!",
         description: "Successfully signed in",
       });
       navigate('/aurora/dashboard');
-    } catch (error) {
+    }
+  };
+
+  const handleSignUp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    const { error } = await signUp(email, password, name);
+    
+    if (error) {
       toast({
         variant: "destructive",
-        title: "Authentication failed",
-        description: error instanceof Error ? error.message : "Please try again",
+        title: "Registration failed",
+        description: error,
+      });
+    } else {
+      toast({
+        title: "Account created!",
+        description: "Please check your email to verify your account",
+      });
+    }
+  };
+
+  const handleMagicLink = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    const { error } = await sendMagicLink(email);
+    
+    if (error) {
+      toast({
+        variant: "destructive",
+        title: "Failed to send magic link",
+        description: error,
+      });
+    } else {
+      toast({
+        title: "Magic link sent!",
+        description: "Check your email for the sign-in link",
       });
     }
   };
@@ -46,6 +82,7 @@ export function SignIn() {
   const quickLogin = (userEmail: string) => {
     setEmail(userEmail);
     setPassword('lovable123');
+    setActiveTab('signin');
   };
 
   return (
@@ -91,56 +128,143 @@ export function SignIn() {
             <p className="text-muted-foreground mt-2">Professional services platform</p>
           </div>
 
-          {/* Sign In Form */}
+          {/* Auth Forms */}
           <Card className="glass border-white/20">
             <CardHeader>
-              <CardTitle>Welcome back</CardTitle>
+              <CardTitle>Welcome</CardTitle>
               <CardDescription>
-                Sign in to your account to continue
+                Sign in to your account or create a new one
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleSignIn} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="Enter your email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                  />
-                </div>
+              <Tabs value={activeTab} onValueChange={setActiveTab}>
+                <TabsList className="grid w-full grid-cols-3">
+                  <TabsTrigger value="signin">Sign In</TabsTrigger>
+                  <TabsTrigger value="signup">Sign Up</TabsTrigger>
+                  <TabsTrigger value="magic">Magic Link</TabsTrigger>
+                </TabsList>
                 
-                <div className="space-y-2">
-                  <Label htmlFor="password">Password</Label>
-                  <div className="relative">
-                    <Input
-                      id="password"
-                      type={showPassword ? "text" : "password"}
-                      placeholder="Enter your password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      required
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                      onClick={() => setShowPassword(!showPassword)}
-                    >
-                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </Button>
-                  </div>
-                </div>
+                <TabsContent value="signin" className="space-y-4 mt-6">
+                  <form onSubmit={handleSignIn} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="signin-email">Email</Label>
+                      <Input
+                        id="signin-email"
+                        type="email"
+                        placeholder="Enter your email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        required
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="signin-password">Password</Label>
+                      <div className="relative">
+                        <Input
+                          id="signin-password"
+                          type={showPassword ? "text" : "password"}
+                          placeholder="Enter your password"
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          required
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                          onClick={() => setShowPassword(!showPassword)}
+                        >
+                          {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </Button>
+                      </div>
+                    </div>
 
-                <Button type="submit" className="w-full" variant="gradient" loading={loading}>
-                  {!loading && <ArrowRight className="w-4 h-4 mr-2" />}
-                  Sign In
-                </Button>
-              </form>
+                    <Button type="submit" className="w-full" variant="gradient" loading={loading}>
+                      {!loading && <ArrowRight className="w-4 h-4 mr-2" />}
+                      Sign In
+                    </Button>
+                  </form>
+                </TabsContent>
+                
+                <TabsContent value="signup" className="space-y-4 mt-6">
+                  <form onSubmit={handleSignUp} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="signup-name">Full Name</Label>
+                      <Input
+                        id="signup-name"
+                        type="text"
+                        placeholder="Enter your full name"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        required
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="signup-email">Email</Label>
+                      <Input
+                        id="signup-email"
+                        type="email"
+                        placeholder="Enter your email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        required
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="signup-password">Password</Label>
+                      <div className="relative">
+                        <Input
+                          id="signup-password"
+                          type={showPassword ? "text" : "password"}
+                          placeholder="Create a password"
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          required
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                          onClick={() => setShowPassword(!showPassword)}
+                        >
+                          {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </Button>
+                      </div>
+                    </div>
+
+                    <Button type="submit" className="w-full" variant="gradient" loading={loading}>
+                      {!loading && <UserPlus className="w-4 h-4 mr-2" />}
+                      Create Account
+                    </Button>
+                  </form>
+                </TabsContent>
+                
+                <TabsContent value="magic" className="space-y-4 mt-6">
+                  <form onSubmit={handleMagicLink} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="magic-email">Email</Label>
+                      <Input
+                        id="magic-email"
+                        type="email"
+                        placeholder="Enter your email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        required
+                      />
+                    </div>
+
+                    <Button type="submit" className="w-full" variant="gradient" loading={loading}>
+                      {!loading && <Mail className="w-4 h-4 mr-2" />}
+                      Send Magic Link
+                    </Button>
+                  </form>
+                </TabsContent>
+              </Tabs>
             </CardContent>
           </Card>
 
@@ -153,7 +277,11 @@ export function SignIn() {
           >
             <p className="text-sm text-muted-foreground text-center mb-3">Demo Users (password: lovable123)</p>
             <div className="grid gap-2">
-              {demoUsers.map((user, index) => (
+              {[
+                { email: 'sophia@aurora.test', name: 'Sophia System', role: 'System Admin' },
+                { email: 'mark@aurora.test', name: 'Mark Manager', role: 'Manager' },
+                { email: 'eli@aurora.test', name: 'Eli Employee', role: 'Employee' },
+              ].map((user, index) => (
                 <motion.button
                   key={user.email}
                   onClick={() => quickLogin(user.email)}
@@ -170,6 +298,12 @@ export function SignIn() {
               ))}
             </div>
           </motion.div>
+
+          <div className="mt-6 text-center">
+            <Link to="/" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+              ← Back to Home
+            </Link>
+          </div>
         </motion.div>
       </div>
     </div>
