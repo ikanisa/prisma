@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Eye, EyeOff, Sparkles, ArrowRight, Mail, UserPlus } from 'lucide-react';
@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/hooks/use-auth';
+import { useOrganizations } from '@/hooks/use-organizations';
 import { useToast } from '@/hooks/use-toast';
 
 export function SignIn() {
@@ -18,8 +19,17 @@ export function SignIn() {
   const [activeTab, setActiveTab] = useState('signin');
   
   const navigate = useNavigate();
-  const { signIn, signUp, sendMagicLink, loading } = useAuth();
+  const { user, signIn, signUp, sendMagicLink, loading } = useAuth();
+  const { currentOrg, memberships } = useOrganizations();
   const { toast } = useToast();
+
+  // Redirect authenticated users to their organization
+  useEffect(() => {
+    if (user && memberships.length > 0) {
+      const firstOrg = memberships[0].organization;
+      navigate(`/${firstOrg.slug}/dashboard`, { replace: true });
+    }
+  }, [user, memberships, navigate]);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,7 +47,7 @@ export function SignIn() {
         title: "Welcome back!",
         description: "Successfully signed in",
       });
-      navigate('/aurora/dashboard');
+      // Navigation will be handled by useEffect when user state updates
     }
   };
 

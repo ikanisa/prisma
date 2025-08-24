@@ -1,18 +1,45 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Header } from "./header";
 import { Sidebar } from "./sidebar";
 import { CommandPalette } from "@/components/command-palette";
-import { useAppStore } from "@/stores/mock-data";
-import { Navigate, Outlet } from "react-router-dom";
+import { Navigate, Outlet, useParams } from "react-router-dom";
+import { useAuth } from "@/hooks/use-auth";
+import { useOrganizations } from "@/hooks/use-organizations";
 
 export function AppShell() {
-  const { currentUser, currentOrg } = useAppStore();
+  const { user, loading: authLoading } = useAuth();
+  const { currentOrg, loading: orgLoading, switchOrganization, memberships } = useOrganizations();
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const { orgSlug } = useParams();
+
+  // Auto-switch to the organization based on URL slug
+  useEffect(() => {
+    if (orgSlug && memberships.length > 0 && currentOrg?.slug !== orgSlug) {
+      const targetOrg = memberships.find(m => m.organization.slug === orgSlug);
+      if (targetOrg) {
+        switchOrganization(targetOrg.org_id);
+      }
+    }
+  }, [orgSlug, memberships, currentOrg, switchOrganization]);
+
+  // Show loading while checking authentication and organizations
+  if (authLoading || orgLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   // Redirect to login if not authenticated
-  if (!currentUser || !currentOrg) {
+  if (!user) {
     return <Navigate to="/auth/sign-in" replace />;
+  }
+
+  // Redirect to 404 if organization doesn't exist or user doesn't have access
+  if (orgSlug && (!currentOrg || currentOrg.slug !== orgSlug)) {
+    return <Navigate to="/404" replace />;
   }
 
   return (
