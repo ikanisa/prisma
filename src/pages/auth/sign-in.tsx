@@ -307,6 +307,40 @@ export function SignIn() {
                 </motion.button>
               ))}
             </div>
+            <div className="mt-3 text-center">
+              <button
+                onClick={async () => {
+                  try {
+                    const response = await fetch('https://xzwowkxzgqigfuefmaji.supabase.co/functions/v1/create-demo-users', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' }
+                    });
+                    const result = await response.json();
+                    if (result.success) {
+                      toast({
+                        title: "Demo users created!",
+                        description: "You can now use the demo accounts to sign in",
+                      });
+                    } else {
+                      toast({
+                        variant: "destructive",
+                        title: "Failed to create demo users",
+                        description: result.error || "Unknown error",
+                      });
+                    }
+                  } catch (error) {
+                    toast({
+                      variant: "destructive", 
+                      title: "Network error",
+                      description: "Could not connect to create demo users",
+                    });
+                  }
+                }}
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors underline"
+              >
+                Create demo users if not available
+              </button>
+            </div>
           </motion.div>
 
           <div className="mt-6 text-center">
