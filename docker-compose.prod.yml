@@ -1,0 +1,57 @@
+version: '3.9'
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: app
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+  redis:
+    image: redis:7
+  minio:
+    image: minio/minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minio
+      MINIO_ROOT_PASSWORD: minio123
+  sentry:
+    image: getsentry/sentry:latest
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      SENTRY_SECRET_KEY: prodsecret
+      SENTRY_DB_USER: postgres
+      SENTRY_DB_PASSWORD: postgres
+      SENTRY_DB_HOST: postgres
+      SENTRY_REDIS_HOST: redis
+  gateway:
+    image: ${YOUR_DOCKER_REGISTRY}/gateway:latest
+    depends_on:
+      - postgres
+      - redis
+  rag:
+    image: ${YOUR_DOCKER_REGISTRY}/rag:latest
+    depends_on:
+      - postgres
+      - redis
+  agent:
+    image: ${YOUR_DOCKER_REGISTRY}/agent:latest
+    depends_on:
+      - postgres
+      - redis
+  analytics:
+    image: ${YOUR_DOCKER_REGISTRY}/analytics:latest
+    depends_on:
+      - postgres
+      - redis
+  ui:
+    image: ${YOUR_DOCKER_REGISTRY}/ui:latest
+    depends_on:
+      - gateway
+    ports:
+      - "3000:3000"
+volumes:
+  postgres-data:
