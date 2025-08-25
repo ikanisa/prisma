@@ -20,6 +20,22 @@ If you want to work locally using your own IDE, you can clone this repo and push
 
 The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
 
+## Environment Setup
+
+This project requires a few environment variables for Supabase.
+Create a local `.env` file by copying the provided `.env.example` and
+filling in your project details:
+
+```sh
+cp .env.example .env
+```
+
+Required variables:
+
+- `VITE_SUPABASE_PROJECT_ID`
+- `VITE_SUPABASE_PUBLISHABLE_KEY`
+- `VITE_SUPABASE_URL`
+
 Follow these steps:
 
 ```sh
@@ -71,3 +87,35 @@ Yes, you can!
 To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
 
 Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+
+## Testing
+
+Run the Python test suites:
+
+```bash
+pytest
+```
+
+## Curl smoke tests
+
+Assuming the service is running locally on port 8000:
+
+```bash
+# RAG ingest
+curl -X POST http://localhost:8000/rag/ingest -H "Content-Type: application/json" -d '{"text":"sample"}'
+
+# RAG search
+curl "http://localhost:8000/rag/search?q=VAT"
+
+# Agent routing
+curl "http://localhost:8000/route?q=What%20is%20the%20current%20VAT%20rate%20in%20the%20UK?"
+
+# VAT evaluator
+curl -X POST http://localhost:8000/vat/evaluate -H "Content-Type: application/json" -d '{"question":"What is the current VAT rate in the UK?"}'
+
+# Idempotent request
+curl -X POST http://localhost:8000/process -H "Idempotency-Key: test-1" -d '{"payload":"data"}'
+
+# Rate limit check
+curl -I http://localhost:8000/ratelimit/test
+```
