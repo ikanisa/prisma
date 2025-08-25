@@ -8,7 +8,8 @@
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "risk:audit": "npx gitleaks detect --no-git && npm audit && npx depcheck"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -67,7 +68,8 @@
     "vaul": "^0.9.9",
     "vitest": "^3.2.4",
     "zod": "^3.25.76",
-    "zustand": "^5.0.8"
+    "zustand": "^5.0.8",
+    "bottleneck": "^2.19.5"
   },
   "devDependencies": {
     "@eslint/js": "^9.32.0",
