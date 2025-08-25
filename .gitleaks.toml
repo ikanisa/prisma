@@ -1,0 +1,20 @@
+[extend]
+useDefault = true
+
+[[rules]]
+id = "supabase-key"
+description = "Supabase URL"
+regex = '''https://[a-zA-Z0-9]{20}\.supabase\.co'''
+tags = ["supabase"]
+
+[[rules]]
+id = "jwt-token"
+description = "JSON Web Token"
+regex = '''eyJ[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}'''
+tags = ["jwt"]
+
+[[rules]]
+id = "bearer-token"
+description = "Generic Bearer Token"
+regex = '''Bearer\s+[A-Za-z0-9\-\._]{20,}'''
+tags = ["token"]
