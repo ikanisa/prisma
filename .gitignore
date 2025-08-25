@@ -22,3 +22,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+# Environment files and workflow exports
+.env
+.n8n/
+workflow_exports/
+workflow-exports/
+workflows/

@@ -1,0 +1,35 @@
+{
+  "$schema": "./schema.json",
+  "id": "anomaly_explain",
+  "task": "Explain anomalies observed in data and suggest actions.",
+  "system": "You are an analytical assistant that interprets anomalies and recommends follow-up steps.",
+  "user": "Anomaly: {anomaly_description}\nData: {data_points}",
+  "input_schema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+      "anomaly_description": { "type": "string", "description": "Description of the anomaly" },
+      "data_points": {
+        "type": "array",
+        "items": { "type": "number" },
+        "description": "Data points related to the anomaly"
+      }
+    },
+    "required": ["anomaly_description"],
+    "additionalProperties": false
+  },
+  "output_schema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+      "explanation": { "type": "string", "description": "Explanation for the anomaly" },
+      "recommended_actions": {
+        "type": "array",
+        "items": { "type": "string" },
+        "description": "Suggested follow-up actions"
+      }
+    },
+    "required": ["explanation"],
+    "additionalProperties": false
+  }
+}
