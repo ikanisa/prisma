@@ -15,6 +15,7 @@ jobs:
         with:
           node-version: 20
           cache: npm
+codex/perform-code-audit-of-autonomous-tax-ai-agent
       - name: Install dependencies
         run: npm ci
       - name: Lint
@@ -30,6 +31,7 @@ jobs:
       - name: Upload SBOM
         if: always()
         uses: actions/upload-artifact@v4
+main
         with:
           name: sbom
           path: sbom.json
