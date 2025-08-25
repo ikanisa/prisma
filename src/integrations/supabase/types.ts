@@ -389,6 +389,53 @@ export type Database = {
           },
         ]
       }
+      transactions: {
+        Row: {
+          id: string
+          org_id: string
+          provider: string
+          external_id: string
+          amount: number | null
+          currency: string | null
+          description: string | null
+          transaction_date: string | null
+          raw_data: Json | null
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          provider: string
+          external_id: string
+          amount?: number | null
+          currency?: string | null
+          description?: string | null
+          transaction_date?: string | null
+          raw_data?: Json | null
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          provider?: string
+          external_id?: string
+          amount?: number | null
+          currency?: string | null
+          description?: string | null
+          transaction_date?: string | null
+          raw_data?: Json | null
+          created_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transactions_org_id_fkey",
+            columns: ["org_id"],
+            isOneToOne: false,
+            referencedRelation: "organizations",
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       users: {
         Row: {
           avatar_url: string | null
