@@ -12,6 +12,7 @@ from opentelemetry import trace
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, OTLPSpanExporter
+import structlog
 
 from .db import AsyncSessionLocal, Chunk, init_db
 from .rag import extract_text, chunk_text, embed_chunks, store_chunks
@@ -28,6 +29,9 @@ FastAPIInstrumentor.instrument_app(app, tracer_provider=provider)
 
 # Sentry stub
 sentry_sdk.init(dsn=os.getenv("SENTRY_DSN"), traces_sample_rate=1.0)
+
+structlog.configure(processors=[structlog.processors.TimeStamper(fmt="iso"), structlog.processors.JSONRenderer()])
+logger = structlog.get_logger()
 
 app.add_middleware(
     CORSMiddleware,
@@ -53,6 +57,7 @@ async def ingest(file: UploadFile = File(...), document_id: str = Form(None)):
     chunks = chunk_text(text, max_tokens=1200, overlap=200)
     embeds = await embed_chunks(chunks)
     await store_chunks(document_id or file.filename, chunks, embeds)
+    logger.info("ingest", filename=file.filename, chunks=len(chunks))
     return {"chunks": len(chunks)}
 
 @app.post("/v1/rag/search")
@@ -73,10 +78,12 @@ async def search(query: str, k: int = 5):
                 text("SELECT id, content FROM chunks WHERE content ILIKE :q LIMIT :k").bindparams(q=f"%{query}%", k=k)
             )
             rows = [(r.id, r.content, None) for r in res.fetchall()]
+    logger.info("search", query=query, results=len(rows))
     return [{"id": r[0], "content": r[1], "score": r[2]} for r in rows]
 
 @app.post("/v1/rag/reembed")
 async def reembed(chunks: List[int]):
     for cid in chunks:
         queue.enqueue("worker.reembed_chunk", cid)
+    logger.info("reembed", count=len(chunks))
     return {"enqueued": len(chunks)}

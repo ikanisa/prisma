@@ -1,8 +1,9 @@
 import io
 import os
+import time
 from typing import List
 
-from fastapi import UploadFile
+from fastapi import UploadFile, HTTPException
 
 try:
     from google.cloud import documentai
@@ -14,9 +15,11 @@ import tiktoken
 from openai import AsyncOpenAI
 
 from .db import Chunk, AsyncSessionLocal
+from .rate_limit import RateLimiter
 
 MODEL = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
 client = AsyncOpenAI()
+rate_limiter = RateLimiter(int(os.getenv("OPENAI_RPM", "60")))
 
 def count_tokens(text: str) -> int:
     enc = tiktoken.get_encoding("cl100k_base")
@@ -56,6 +59,8 @@ async def extract_text(file: UploadFile) -> str:
 async def embed_chunks(chunks: List[str]) -> List[List[float]]:
     embeddings = []
     for ch in chunks:
+        if not rate_limiter.allow(time.time()):
+            raise HTTPException(status_code=429, detail="OpenAI rate limit exceeded")
         res = await client.embeddings.create(model=MODEL, input=ch)
         embeddings.append(res.data[0].embedding)
     return embeddings
