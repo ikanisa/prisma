@@ -3,9 +3,9 @@ services:
   postgres:
     image: pgvector/pgvector:pg16
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: app
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - postgres-data:/var/lib/postgresql/data
   redis:
@@ -14,41 +14,41 @@ services:
     image: minio/minio
     command: server /data --console-address ":9001"
     environment:
-      MINIO_ROOT_USER: minio
-      MINIO_ROOT_PASSWORD: minio123
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
   sentry:
     image: getsentry/sentry:latest
     depends_on:
       - postgres
       - redis
     environment:
-      SENTRY_SECRET_KEY: prodsecret
-      SENTRY_DB_USER: postgres
-      SENTRY_DB_PASSWORD: postgres
-      SENTRY_DB_HOST: postgres
-      SENTRY_REDIS_HOST: redis
+      SENTRY_SECRET_KEY: ${SENTRY_SECRET_KEY}
+      SENTRY_DB_USER: ${SENTRY_DB_USER}
+      SENTRY_DB_PASSWORD: ${SENTRY_DB_PASSWORD}
+      SENTRY_DB_HOST: ${SENTRY_DB_HOST}
+      SENTRY_REDIS_HOST: ${SENTRY_REDIS_HOST}
   gateway:
-    image: ${YOUR_DOCKER_REGISTRY}/gateway:latest
+    image: ${GATEWAY_IMAGE}
     depends_on:
       - postgres
       - redis
   rag:
-    image: ${YOUR_DOCKER_REGISTRY}/rag:latest
+    image: ${RAG_IMAGE}
     depends_on:
       - postgres
       - redis
   agent:
-    image: ${YOUR_DOCKER_REGISTRY}/agent:latest
+    image: ${AGENT_IMAGE}
     depends_on:
       - postgres
       - redis
   analytics:
-    image: ${YOUR_DOCKER_REGISTRY}/analytics:latest
+    image: ${ANALYTICS_IMAGE}
     depends_on:
       - postgres
       - redis
   ui:
-    image: ${YOUR_DOCKER_REGISTRY}/ui:latest
+    image: ${UI_IMAGE}
     depends_on:
       - gateway
     ports:
