@@ -223,6 +223,51 @@ export type Database = {
           },
         ]
       }
+      kams: {
+        Row: {
+          created_at: string
+          engagement_id: string
+          id: string
+          org_id: string
+          rationale: string | null
+          references: Json | null
+          title: string | null
+        }
+        Insert: {
+          created_at?: string
+          engagement_id: string
+          id?: string
+          org_id: string
+          rationale?: string | null
+          references?: Json | null
+          title?: string | null
+        }
+        Update: {
+          created_at?: string
+          engagement_id?: string
+          id?: string
+          org_id?: string
+          rationale?: string | null
+          references?: Json | null
+          title?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kams_engagement_id_fkey"
+            columns: ["engagement_id"]
+            isOneToOne: false
+            referencedRelation: "engagements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kams_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       memberships: {
         Row: {
           created_at: string | null
@@ -418,6 +463,51 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      workpapers: {
+        Row: {
+          created_at: string
+          drive_url: string | null
+          engagement_id: string
+          id: string
+          linked_evidence: Json | null
+          org_id: string
+          type: string | null
+        }
+        Insert: {
+          created_at?: string
+          drive_url?: string | null
+          engagement_id: string
+          id?: string
+          linked_evidence?: Json | null
+          org_id: string
+          type?: string | null
+        }
+        Update: {
+          created_at?: string
+          drive_url?: string | null
+          engagement_id?: string
+          id?: string
+          linked_evidence?: Json | null
+          org_id?: string
+          type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workpapers_engagement_id_fkey"
+            columns: ["engagement_id"]
+            isOneToOne: false
+            referencedRelation: "engagements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workpapers_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
