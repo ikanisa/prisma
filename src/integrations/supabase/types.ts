@@ -76,6 +76,128 @@ export type Database = {
         }
         Relationships: []
       }
+      categories: {
+        Row: {
+          description: string | null
+          id: string
+          name: string
+          org_id: string
+        }
+        Insert: {
+          description?: string | null
+          id?: string
+          name: string
+          org_id: string
+        }
+        Update: {
+          description?: string | null
+          id?: string
+          name?: string
+          org_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "categories_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chart_of_accounts: {
+        Row: {
+          code: string
+          id: string
+          name: string
+          org_id: string
+          parent_id: string | null
+          type: string
+        }
+        Insert: {
+          code: string
+          id?: string
+          name: string
+          org_id: string
+          parent_id?: string | null
+          type: string
+        }
+        Update: {
+          code?: string
+          id?: string
+          name?: string
+          org_id?: string
+          parent_id?: string | null
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chart_of_accounts_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chart_of_accounts_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "chart_of_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chunks: {
+        Row: {
+          chunk_index: number
+          content: string
+          content_hash: string | null
+          document_id: string
+          embed_model: string | null
+          embedding: string | null
+          id: string
+          last_embedded_at: string | null
+          org_id: string
+        }
+        Insert: {
+          chunk_index: number
+          content: string
+          content_hash?: string | null
+          document_id: string
+          embed_model?: string | null
+          embedding?: string | null
+          id?: string
+          last_embedded_at?: string | null
+          org_id: string
+        }
+        Update: {
+          chunk_index?: number
+          content?: string
+          content_hash?: string | null
+          document_id?: string
+          embed_model?: string | null
+          embedding?: string | null
+          id?: string
+          last_embedded_at?: string | null
+          org_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chunks_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chunks_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clients: {
         Row: {
           contact_name: string | null
@@ -244,6 +366,44 @@ export type Database = {
           },
         ]
       }
+      independence_checks: {
+        Row: {
+          client_id: string
+          conclusion: string | null
+          created_at: string
+          id: string
+          org_id: string
+          safeguards: Json
+          threats: Json
+        }
+        Insert: {
+          client_id: string
+          conclusion?: string | null
+          created_at?: string
+          id?: string
+          org_id: string
+          safeguards?: Json
+          threats?: Json
+        }
+        Update: {
+          client_id?: string
+          conclusion?: string | null
+          created_at?: string
+          id?: string
+          org_id?: string
+          safeguards?: Json
+          threats?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "independence_checks_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       kams: {
         Row: {
           created_at: string
@@ -282,6 +442,57 @@ export type Database = {
           },
           {
             foreignKeyName: "kams_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      materiality_sets: {
+        Row: {
+          basis: string | null
+          basis_amount: number | null
+          created_at: string
+          engagement_id: string
+          id: string
+          org_id: string
+          pm: number | null
+          rationale: string | null
+          te_threshold: number | null
+        }
+        Insert: {
+          basis?: string | null
+          basis_amount?: number | null
+          created_at?: string
+          engagement_id: string
+          id?: string
+          org_id: string
+          pm?: number | null
+          rationale?: string | null
+          te_threshold?: number | null
+        }
+        Update: {
+          basis?: string | null
+          basis_amount?: number | null
+          created_at?: string
+          engagement_id?: string
+          id?: string
+          org_id?: string
+          pm?: number | null
+          rationale?: string | null
+          te_threshold?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "materiality_sets_engagement_id_fkey"
+            columns: ["engagement_id"]
+            isOneToOne: false
+            referencedRelation: "engagements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "materiality_sets_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -428,6 +639,60 @@ export type Database = {
         }
         Relationships: []
       }
+      risks: {
+        Row: {
+          assertion: string | null
+          created_at: string
+          description: string | null
+          engagement_id: string
+          id: string
+          impact: number | null
+          likelihood: number | null
+          org_id: string
+          response_plan: Json | null
+          updated_at: string
+        }
+        Insert: {
+          assertion?: string | null
+          created_at?: string
+          description?: string | null
+          engagement_id: string
+          id?: string
+          impact?: number | null
+          likelihood?: number | null
+          org_id: string
+          response_plan?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          assertion?: string | null
+          created_at?: string
+          description?: string | null
+          engagement_id?: string
+          id?: string
+          impact?: number | null
+          likelihood?: number | null
+          org_id?: string
+          response_plan?: Json | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "risks_engagement_id_fkey"
+            columns: ["engagement_id"]
+            isOneToOne: false
+            referencedRelation: "engagements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "risks_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tasks: {
         Row: {
           assigned_to: string | null
@@ -488,6 +753,73 @@ export type Database = {
           },
         ]
       }
+      transactions: {
+        Row: {
+          amount: number
+          category_id: string | null
+          confidence: number | null
+          created_at: string
+          currency: string
+          date: string
+          description: string | null
+          id: string
+          org_id: string
+          source_ref: string | null
+          vat_code: string | null
+          vendor_id: string | null
+        }
+        Insert: {
+          amount: number
+          category_id?: string | null
+          confidence?: number | null
+          created_at?: string
+          currency?: string
+          date: string
+          description?: string | null
+          id?: string
+          org_id: string
+          source_ref?: string | null
+          vat_code?: string | null
+          vendor_id?: string | null
+        }
+        Update: {
+          amount?: number
+          category_id?: string | null
+          confidence?: number | null
+          created_at?: string
+          currency?: string
+          date?: string
+          description?: string | null
+          id?: string
+          org_id?: string
+          source_ref?: string | null
+          vat_code?: string | null
+          vendor_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transactions_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       users: {
         Row: {
           avatar_url: string | null
@@ -517,6 +849,134 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      vat_rules: {
+        Row: {
+          effective_from: string | null
+          effective_to: string | null
+          id: string
+          jurisdiction: string | null
+          name: string
+          org_id: string
+          rule: Json
+        }
+        Insert: {
+          effective_from?: string | null
+          effective_to?: string | null
+          id?: string
+          jurisdiction?: string | null
+          name: string
+          org_id: string
+          rule?: Json
+        }
+        Update: {
+          effective_from?: string | null
+          effective_to?: string | null
+          id?: string
+          jurisdiction?: string | null
+          name?: string
+          org_id?: string
+          rule?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vat_rules_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vendor_category_mappings: {
+        Row: {
+          category_id: string
+          confidence: number | null
+          examples: Json
+          id: string
+          org_id: string
+          updated_at: string
+          vat_code: string | null
+          vendor_id: string
+        }
+        Insert: {
+          category_id: string
+          confidence?: number | null
+          examples?: Json
+          id?: string
+          org_id: string
+          updated_at?: string
+          vat_code?: string | null
+          vendor_id: string
+        }
+        Update: {
+          category_id?: string
+          confidence?: number | null
+          examples?: Json
+          id?: string
+          org_id?: string
+          updated_at?: string
+          vat_code?: string | null
+          vendor_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vendor_category_mappings_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendor_category_mappings_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendor_category_mappings_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vendors: {
+        Row: {
+          country: string | null
+          extra: Json
+          id: string
+          name: string
+          org_id: string
+          vat_number: string | null
+        }
+        Insert: {
+          country?: string | null
+          extra?: Json
+          id?: string
+          name: string
+          org_id: string
+          vat_number?: string | null
+        }
+        Update: {
+          country?: string | null
+          extra?: Json
+          id?: string
+          name?: string
+          org_id?: string
+          vat_number?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vendors_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       workpapers: {
         Row: {
