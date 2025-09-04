@@ -39,8 +39,8 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             {/* Public routes */}
-            <Route path="/" element={<Navigate to="/auth/sign-in" replace />} />
             <Route path="/auth/sign-in" element={<SignIn />} />
+            <Route path="/" element={<Navigate to="/demo/dashboard" replace />} />
             
             {/* Protected org routes */}
             <Route 
@@ -51,43 +51,15 @@ const App = () => (
                 </ProtectedRoute>
               }
             >
-              <Route path="dashboard" element={
-                <ProtectedRoute orgSlug="aurora">
-                  <Dashboard />
-                </ProtectedRoute>
-              } />
-              <Route path="clients" element={
-                <ProtectedRoute orgSlug="aurora">
-                  <Clients />
-                </ProtectedRoute>
-              } />
-              <Route path="engagements" element={
-                <ProtectedRoute orgSlug="aurora">
-                  <Engagements />
-                </ProtectedRoute>
-              } />
-              <Route path="tasks" element={
-                <ProtectedRoute orgSlug="aurora">
-                  <Tasks />
-                </ProtectedRoute>
-              } />
-              <Route path="documents" element={
-                <ProtectedRoute orgSlug="aurora">
-                  <Documents />
-                </ProtectedRoute>
-              } />
-              <Route path="notifications" element={
-                <ProtectedRoute orgSlug="aurora">
-                  <Notifications />
-                </ProtectedRoute>
-              } />
-              <Route path="activity" element={
-                <ProtectedRoute orgSlug="aurora">
-                  <Activity />
-                </ProtectedRoute>
-              } />
+              <Route path="dashboard" element={<Dashboard />} />
+              <Route path="clients" element={<Clients />} />
+              <Route path="engagements" element={<Engagements />} />
+              <Route path="tasks" element={<Tasks />} />
+              <Route path="documents" element={<Documents />} />
+              <Route path="notifications" element={<Notifications />} />
+              <Route path="activity" element={<Activity />} />
               <Route path="settings" element={
-                <ProtectedRoute orgSlug="aurora" requiredRole="MANAGER">
+                <ProtectedRoute requiredRole="MANAGER">
                   <Settings />
                 </ProtectedRoute>
               } />
