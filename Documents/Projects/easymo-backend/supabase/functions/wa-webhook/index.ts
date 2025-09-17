@@ -95,10 +95,6 @@ serve(async (req: Request) => {
     });
   }
 
-  if (state.key === "home") {
-    await sendHome(from);
-  }
-
   return new Response("ok", {
     status: 200,
     headers: { "content-type": "text/plain; charset=utf-8" },

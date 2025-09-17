@@ -55,5 +55,5 @@ export async function handleShareButton(to: string, id: string) {
 }
 
 export async function handleHomeSelection(to: string, id: string) {
-  await sendText(to, `Coming soon: ${id}`);
+  await sendText(to, "Thanks for your interest! We'll keep you posted.");
 }
