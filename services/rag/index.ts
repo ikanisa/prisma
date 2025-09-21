@@ -8,6 +8,8 @@ import { vector } from 'pgvector';
 import NodeCache from 'node-cache';
 import OpenAI from 'openai';
 import jwt, { type JwtPayload } from 'jsonwebtoken';
+import { randomUUID } from 'crypto';
+import { createClient } from '@supabase/supabase-js';
 
 // Basic RAG service implementing ingest, search and reembed endpoints.
 // Documents are stored in PostgreSQL with pgvector embeddings.
@@ -26,7 +28,7 @@ const upload = multer();
 const cache = new NodeCache({ stdTTL: 60 });
 
 const RATE_LIMIT = Number(process.env.API_RATE_LIMIT ?? '60');
-const RATE_WINDOW_MS = Number(process.env.API_RATE_WINDOW_SECONDS ?? '60000');
+const RATE_WINDOW_MS = Number(process.env.API_RATE_WINDOW_SECONDS ?? '60') * 1000;
 const requestBuckets = new Map<string, number[]>();
 
 interface AuthenticatedRequest extends Request {
@@ -104,6 +106,51 @@ const db = new Client({ connectionString: process.env.DATABASE_URL });
 await db.connect();
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+  throw new Error('SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be configured.');
+}
+
+const supabaseService = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+  auth: { persistSession: false },
+});
+
+async function ensureDocumentsBucket() {
+  const { data: bucket } = await supabaseService.storage.getBucket('documents');
+  if (!bucket) {
+    await supabaseService.storage.createBucket('documents', { public: false });
+  }
+}
+
+await ensureDocumentsBucket();
+
+async function resolveOrgForUser(userId: string, orgSlug: string) {
+  const { data: org, error: orgError } = await supabaseService
+    .from('organizations')
+    .select('id, slug')
+    .eq('slug', orgSlug)
+    .maybeSingle();
+
+  if (orgError || !org) {
+    throw new Error('organization_not_found');
+  }
+
+  const { data: membership, error: membershipError } = await supabaseService
+    .from('memberships')
+    .select('role')
+    .eq('org_id', org.id)
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (membershipError || !membership) {
+    throw new Error('not_a_member');
+  }
+
+  return { orgId: org.id, role: membership.role as 'EMPLOYEE' | 'MANAGER' | 'SYSTEM_ADMIN' };
+}
 
 async function extractText(buffer: Buffer, mimetype: string): Promise<string> {
   if (mimetype === 'application/pdf') {
@@ -228,6 +275,195 @@ app.post('/v1/rag/reembed', async (req: AuthenticatedRequest, res) => {
   } catch (err) {
     logError('reembed.failed', err, { userId: req.user?.sub });
     res.status(500).json({ error: 'reembed failed' });
+  }
+});
+
+app.post('/v1/storage/documents', upload.single('file'), async (req: AuthenticatedRequest, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'file required' });
+    }
+
+    const { orgSlug, engagementId, name } = req.body as {
+      orgSlug?: string;
+      engagementId?: string;
+      name?: string;
+    };
+
+    if (!orgSlug) {
+      return res.status(400).json({ error: 'orgSlug is required' });
+    }
+
+    const userId = req.user?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: 'invalid session' });
+    }
+
+    let orgContext;
+    try {
+      orgContext = await resolveOrgForUser(userId, orgSlug);
+    } catch (err) {
+      if ((err as Error).message === 'organization_not_found') {
+        return res.status(404).json({ error: 'organization not found' });
+      }
+      if ((err as Error).message === 'not_a_member') {
+        return res.status(403).json({ error: 'forbidden' });
+      }
+      throw err;
+    }
+
+    const storagePath = `documents/${orgSlug}/${engagementId ?? 'general'}/${randomUUID()}_${req.file.originalname}`;
+
+    const { error: uploadError } = await supabaseService.storage
+      .from('documents')
+      .upload(storagePath, req.file.buffer, {
+        contentType: req.file.mimetype,
+        upsert: false,
+      });
+
+    if (uploadError) {
+      throw uploadError;
+    }
+
+    const { data: document, error: insertError } = await supabaseService
+      .from('documents')
+      .insert({
+        org_id: orgContext.orgId,
+        engagement_id: engagementId ?? null,
+        name: name ?? req.file.originalname,
+        file_path: storagePath,
+        file_size: req.file.size,
+        file_type: req.file.mimetype,
+        uploaded_by: userId,
+      })
+      .select('*')
+      .single();
+
+    if (insertError) {
+      throw insertError;
+    }
+
+    await supabaseService.from('activity_log').insert({
+      org_id: orgContext.orgId,
+      user_id: userId,
+      action: 'UPLOAD_DOCUMENT',
+      entity_type: 'document',
+      entity_id: document.id,
+      metadata: {
+        name: document.name,
+        path: storagePath,
+        size: req.file.size,
+      },
+    });
+
+    logInfo('documents.uploaded', { userId, documentId: document.id, path: storagePath });
+    return res.status(201).json({ document });
+  } catch (err) {
+    logError('documents.upload_failed', err, { userId: req.user?.sub });
+    return res.status(500).json({ error: 'upload failed' });
+  }
+});
+
+app.get('/v1/storage/documents', async (req: AuthenticatedRequest, res) => {
+  try {
+    const orgSlug = req.query.orgSlug as string | undefined;
+    const limit = Number(req.query.limit ?? '100');
+
+    if (!orgSlug) {
+      return res.status(400).json({ error: 'orgSlug query param required' });
+    }
+
+    const userId = req.user?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: 'invalid session' });
+    }
+
+    let orgContext;
+    try {
+      orgContext = await resolveOrgForUser(userId, orgSlug);
+    } catch (err) {
+      if ((err as Error).message === 'organization_not_found') {
+        return res.status(404).json({ error: 'organization not found' });
+      }
+      if ((err as Error).message === 'not_a_member') {
+        return res.status(403).json({ error: 'forbidden' });
+      }
+      throw err;
+    }
+
+    const { data: documents, error } = await supabaseService
+      .from('documents')
+      .select('*')
+      .eq('org_id', orgContext.orgId)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      throw error;
+    }
+
+    return res.json({ documents: documents ?? [] });
+  } catch (err) {
+    logError('documents.list_failed', err, { userId: req.user?.sub });
+    return res.status(500).json({ error: 'list failed' });
+  }
+});
+
+app.post('/v1/storage/sign', async (req: AuthenticatedRequest, res) => {
+  try {
+    const { documentId } = req.body as { documentId?: string };
+    if (!documentId) {
+      return res.status(400).json({ error: 'documentId is required' });
+    }
+
+    const userId = req.user?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: 'invalid session' });
+    }
+
+    const { data: document, error: fetchError } = await supabaseService
+      .from('documents')
+      .select('id, org_id, file_path, name')
+      .eq('id', documentId)
+      .maybeSingle();
+
+    if (fetchError || !document) {
+      return res.status(404).json({ error: 'document not found' });
+    }
+
+    const { data: org } = await supabaseService
+      .from('organizations')
+      .select('slug')
+      .eq('id', document.org_id)
+      .maybeSingle();
+
+    if (!org) {
+      return res.status(404).json({ error: 'organization not found' });
+    }
+
+    try {
+      await resolveOrgForUser(userId, org.slug);
+    } catch (err) {
+      if ((err as Error).message === 'not_a_member') {
+        return res.status(403).json({ error: 'forbidden' });
+      }
+      throw err;
+    }
+
+    const { data: signedUrlData, error: signError } = await supabaseService
+      .storage
+      .from('documents')
+      .createSignedUrl(document.file_path, Number(process.env.DOCUMENT_SIGN_TTL ?? '120'));
+
+    if (signError || !signedUrlData) {
+      throw signError ?? new Error('failed to sign url');
+    }
+
+    logInfo('documents.signed_url', { userId, documentId });
+    return res.json({ url: signedUrlData.signedUrl });
+  } catch (err) {
+    logError('documents.sign_failed', err, { userId: req.user?.sub });
+    return res.status(500).json({ error: 'sign failed' });
   }
 });
 

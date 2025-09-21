@@ -37,6 +37,9 @@ Required variables:
 - `VITE_SUPABASE_URL`
 - `SUPABASE_JWT_SECRET` (server-side auth for protected APIs)
 - `SUPABASE_SERVICE_ROLE_KEY` (for privileged server jobs)
+- `SUPABASE_URL` (for server-side Supabase client)
+- `OPENAI_API_KEY` (RAG embedding service)
+- Optional: `API_RATE_LIMIT` (default 60 req/min), `API_RATE_WINDOW_SECONDS`, `DOCUMENT_SIGN_TTL` (default 120s) for upload/sign services
 
 Follow these steps:
 
