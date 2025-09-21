@@ -23,11 +23,11 @@ The only requirement is having Node.js & npm installed - [install with nvm](http
 ## Environment Setup
 
 This project requires a few environment variables for Supabase.
-Create a local `.env` file by copying the provided `.env.example` and
+Create a local `.env.local` file (ignored by git) by copying the provided `.env.example` and
 filling in your project details:
 
 ```sh
-cp .env.example .env
+cp .env.example .env.local
 ```
 
 Required variables:

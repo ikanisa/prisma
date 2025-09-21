@@ -24,6 +24,10 @@ dist-ssr
 *.sw?
 # Environment files and workflow exports
 .env
+.env.*
+!.env.example
+!.env.development.example
+!.env.production.example
 .n8n/
 workflow_exports/
 workflow-exports/
