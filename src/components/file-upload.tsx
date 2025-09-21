@@ -3,24 +3,24 @@ import { Upload, X, File, Image } from 'lucide-react';
 import { Button } from '@/components/enhanced-button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { useFileUpload, UploadedFile } from '@/hooks/use-file-upload';
 
 interface FileUploadProps {
-  onFilesUploaded: (files: UploadedFile[]) => void;
+  onUpload: (files: File[]) => Promise<void>;
   accept?: string;
   multiple?: boolean;
   maxSize?: number; // in MB
 }
 
-export function FileUpload({ 
-  onFilesUploaded, 
-  accept = "*/*", 
+export function FileUpload({
+  onUpload,
+  accept = '*/*',
   multiple = true,
-  maxSize = 10 
+  maxSize = 10,
 }: FileUploadProps) {
-  const { uploading, progress, uploadMultipleFiles } = useFileUpload();
   const [dragActive, setDragActive] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState(0);
 
   const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -61,13 +61,18 @@ export function FileUpload({
 
   const handleUpload = async () => {
     if (selectedFiles.length === 0) return;
-    
+
+    setUploading(true);
+    setProgress(0);
     try {
-      const uploadedFiles = await uploadMultipleFiles(selectedFiles as any);
-      onFilesUploaded(uploadedFiles);
+      await onUpload(selectedFiles);
+      setProgress(100);
       setSelectedFiles([]);
     } catch (error) {
       console.error('Upload failed:', error);
+    } finally {
+      setUploading(false);
+      setProgress(0);
     }
   };
 
@@ -151,22 +156,22 @@ export function FileUpload({
             </Card>
           ))}
           
-          {uploading && (
-            <div className="space-y-2">
-              <Progress value={progress} className="w-full" />
-              <p className="text-sm text-muted-foreground text-center">
-                Uploading... {progress}%
-              </p>
-            </div>
-          )}
-          
-          <Button 
-            onClick={handleUpload} 
-            disabled={uploading || selectedFiles.length === 0}
-            className="w-full"
-          >
-            {uploading ? 'Uploading...' : `Upload ${selectedFiles.length} file(s)`}
-          </Button>
+      {uploading && (
+        <div className="space-y-2">
+          <Progress value={progress} className="w-full" />
+          <p className="text-sm text-muted-foreground text-center">
+            Uploading... {progress}%
+          </p>
+        </div>
+      )}
+
+      <Button
+        onClick={handleUpload}
+        disabled={uploading || selectedFiles.length === 0}
+        className="w-full"
+      >
+        {uploading ? 'Uploading...' : `Upload ${selectedFiles.length} file(s)`}
+      </Button>
         </div>
       )}
     </div>
