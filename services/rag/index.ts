@@ -152,6 +152,10 @@ async function resolveOrgForUser(userId: string, orgSlug: string) {
   return { orgId: org.id, role: membership.role as 'EMPLOYEE' | 'MANAGER' | 'SYSTEM_ADMIN' };
 }
 
+function hasManagerPrivileges(role: 'EMPLOYEE' | 'MANAGER' | 'SYSTEM_ADMIN') {
+  return role === 'MANAGER' || role === 'SYSTEM_ADMIN';
+}
+
 async function extractText(buffer: Buffer, mimetype: string): Promise<string> {
   if (mimetype === 'application/pdf') {
     const data = await pdfParse(buffer);
@@ -470,11 +474,11 @@ app.post('/v1/storage/sign', async (req: AuthenticatedRequest, res) => {
       return res.status(401).json({ error: 'invalid session' });
     }
 
-    const { data: document, error: fetchError } = await supabaseService
-      .from('documents')
-      .select('id, org_id, file_path, name')
-      .eq('id', documentId)
-      .maybeSingle();
+  const { data: document, error: fetchError } = await supabaseService
+    .from('documents')
+    .select('id, org_id, file_path, name, uploaded_by')
+    .eq('id', documentId)
+    .maybeSingle();
 
     if (fetchError || !document) {
       return res.status(404).json({ error: 'document not found' });
@@ -552,6 +556,20 @@ app.delete('/v1/storage/documents/:id', async (req: AuthenticatedRequest, res) =
       }
       throw err;
     }
+    const actorContext = await resolveOrgForUser(userId, org.slug);
+    const { data: membership } = await supabaseService
+      .from('memberships')
+      .select('role')
+      .eq('org_id', actorContext.orgId)
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    const actorRole = membership?.role ?? 'EMPLOYEE';
+    const isUploader = document.uploaded_by === userId;
+    const isManager = actorRole === 'MANAGER' || actorRole === 'SYSTEM_ADMIN';
+    if (!isUploader && !isManager) {
+      return res.status(403).json({ error: 'forbidden' });
+    }
 
     const { error: storageError } = await supabaseService
       .storage
@@ -589,6 +607,223 @@ app.delete('/v1/storage/documents/:id', async (req: AuthenticatedRequest, res) =
   } catch (err) {
     logError('documents.delete_failed', err, { userId: req.user?.sub });
     return res.status(500).json({ error: 'delete failed' });
+  }
+});
+
+app.get('/v1/tasks', async (req: AuthenticatedRequest, res) => {
+  try {
+    const orgSlug = req.query.orgSlug as string | undefined;
+    const limit = Math.max(1, Math.min(100, Number(req.query.limit ?? '20')));
+    const offset = Math.max(0, Number(req.query.offset ?? '0'));
+    const status = req.query.status as string | undefined;
+
+    if (!orgSlug) {
+      return res.status(400).json({ error: 'orgSlug query param required' });
+    }
+
+    const userId = req.user?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: 'invalid session' });
+    }
+
+    const { orgId } = await resolveOrgForUser(userId, orgSlug);
+
+    let query = supabaseService
+      .from('tasks')
+      .select('id, org_id, engagement_id, title, description, status, priority, assigned_to, due_date, created_at, updated_at')
+      .eq('org_id', orgId)
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    if (status && ['TODO', 'IN_PROGRESS', 'REVIEW', 'COMPLETED'].includes(status)) {
+      query = query.eq('status', status);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      throw error;
+    }
+
+    res.set('Cache-Control', 'private, max-age=30, stale-while-revalidate=60');
+    return res.json({ tasks: data ?? [] });
+  } catch (err) {
+    logError('tasks.list_failed', err, { userId: req.user?.sub });
+    return res.status(500).json({ error: 'list failed' });
+  }
+});
+
+app.post('/v1/tasks', async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = req.user?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: 'invalid session' });
+    }
+
+    const {
+      orgSlug,
+      title,
+      description,
+      status,
+      priority,
+      engagementId,
+      assigneeId,
+      dueDate,
+    } = req.body as {
+      orgSlug?: string;
+      title?: string;
+      description?: string | null;
+      status?: string;
+      priority?: string;
+      engagementId?: string | null;
+      assigneeId?: string | null;
+      dueDate?: string | null;
+    };
+
+    if (!orgSlug || !title) {
+      return res.status(400).json({ error: 'orgSlug and title are required' });
+    }
+
+    const { orgId } = await resolveOrgForUser(userId, orgSlug);
+
+    const { data: task, error: insertError } = await supabaseService
+      .from('tasks')
+      .insert({
+        org_id: orgId,
+        title,
+        description: description ?? null,
+        status: status ?? 'TODO',
+        priority: priority ?? 'MEDIUM',
+        engagement_id: engagementId ?? null,
+        assigned_to: assigneeId ?? null,
+        due_date: dueDate ?? null,
+      })
+      .select('id, org_id, engagement_id, title, description, status, priority, assigned_to, due_date, created_at, updated_at')
+      .single();
+
+    if (insertError) {
+      throw insertError;
+    }
+
+    await supabaseService.from('activity_log').insert({
+      org_id: orgId,
+      user_id: userId,
+      action: 'CREATE_TASK',
+      entity_type: 'task',
+      entity_id: task.id,
+      metadata: {
+        title: task.title,
+        status: task.status,
+      },
+    });
+
+    logInfo('tasks.created', { userId, taskId: task.id });
+    return res.status(201).json({ task });
+  } catch (err) {
+    logError('tasks.create_failed', err, { userId: req.user?.sub });
+    return res.status(500).json({ error: 'create failed' });
+  }
+});
+
+app.patch('/v1/tasks/:id', async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = req.user?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: 'invalid session' });
+    }
+
+    const taskId = req.params.id;
+    const updates = req.body as {
+      status?: string;
+      priority?: string;
+      assigneeId?: string | null;
+      engagementId?: string | null;
+      dueDate?: string | null;
+      title?: string;
+      description?: string | null;
+    };
+
+    const { data: taskRow, error: fetchError } = await supabaseService
+      .from('tasks')
+      .select('id, org_id, assigned_to, status, priority, engagement_id, due_date, title, description')
+      .eq('id', taskId)
+      .maybeSingle();
+
+    if (fetchError || !taskRow) {
+      return res.status(404).json({ error: 'task not found' });
+    }
+
+    const { data: orgRow } = await supabaseService
+      .from('organizations')
+      .select('slug')
+      .eq('id', taskRow.org_id)
+      .maybeSingle();
+
+    if (!orgRow) {
+      return res.status(404).json({ error: 'organization not found' });
+    }
+
+    const { orgId, role } = await resolveOrgForUser(userId, orgRow.slug);
+
+    const isAssignee = taskRow.assigned_to === userId;
+    if (!isAssignee && !hasManagerPrivileges(role)) {
+      return res.status(403).json({ error: 'forbidden' });
+    }
+
+    const updatePayload: Record<string, unknown> = {};
+    if (updates.status && ['TODO', 'IN_PROGRESS', 'REVIEW', 'COMPLETED'].includes(updates.status)) {
+      updatePayload.status = updates.status;
+    }
+    if (updates.priority && ['LOW', 'MEDIUM', 'HIGH', 'URGENT'].includes(updates.priority)) {
+      updatePayload.priority = updates.priority;
+    }
+    if (Object.prototype.hasOwnProperty.call(updates, 'assigneeId')) {
+      updatePayload.assigned_to = updates.assigneeId ?? null;
+    }
+    if (Object.prototype.hasOwnProperty.call(updates, 'engagementId')) {
+      updatePayload.engagement_id = updates.engagementId ?? null;
+    }
+    if (Object.prototype.hasOwnProperty.call(updates, 'dueDate')) {
+      updatePayload.due_date = updates.dueDate ?? null;
+    }
+    if (Object.prototype.hasOwnProperty.call(updates, 'title')) {
+      updatePayload.title = updates.title;
+    }
+    if (Object.prototype.hasOwnProperty.call(updates, 'description')) {
+      updatePayload.description = updates.description;
+    }
+
+    if (Object.keys(updatePayload).length === 0) {
+      return res.status(400).json({ error: 'no valid updates provided' });
+    }
+
+    const { data: task, error: updateError } = await supabaseService
+      .from('tasks')
+      .update(updatePayload)
+      .eq('id', taskId)
+      .select('id, org_id, engagement_id, title, description, status, priority, assigned_to, due_date, created_at, updated_at')
+      .single();
+
+    if (updateError) {
+      throw updateError;
+    }
+
+    await supabaseService.from('activity_log').insert({
+      org_id: orgId,
+      user_id: userId,
+      action: 'UPDATE_TASK',
+      entity_type: 'task',
+      entity_id: taskId,
+      metadata: {
+        updates: updatePayload,
+      },
+    });
+
+    logInfo('tasks.updated', { userId, taskId });
+    return res.json({ task });
+  } catch (err) {
+    logError('tasks.update_failed', err, { userId: req.user?.sub });
+    return res.status(500).json({ error: 'update failed' });
   }
 });
 
