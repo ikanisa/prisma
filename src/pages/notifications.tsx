@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useOrganizations } from '@/hooks/use-organizations';
 import { useToast } from '@/hooks/use-toast';
 import { authorizedFetch } from '@/lib/api';
+import { markNotificationRead, markAllNotificationsRead } from '@/lib/notifications';
 
 interface NotificationRecord {
   id: string;
@@ -105,12 +106,31 @@ export function Notifications() {
   const unreadCount = notifications.filter((n) => !n.read).length;
   const urgentCount = notifications.filter((n) => n.urgent).length;
 
-  const markAsRead = (id: string) => {
-    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
+  const markAsRead = async (id: string) => {
+    try {
+      await markNotificationRead(id);
+      setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
+    } catch (error) {
+      toast({
+        title: 'Failed to mark notification',
+        description: (error as Error).message,
+        variant: 'destructive',
+      });
+    }
   };
 
-  const markAllAsRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+  const markAllAsRead = async () => {
+    if (!orgSlug) return;
+    try {
+      await markAllNotificationsRead(orgSlug);
+      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    } catch (error) {
+      toast({
+        title: 'Failed to mark notifications',
+        description: (error as Error).message,
+        variant: 'destructive',
+      });
+    }
   };
 
   const deleteNotification = (id: string) => {

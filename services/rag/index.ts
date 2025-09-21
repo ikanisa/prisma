@@ -827,4 +827,87 @@ app.patch('/v1/tasks/:id', async (req: AuthenticatedRequest, res) => {
   }
 });
 
+app.patch('/v1/notifications/:id', async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = req.user?.sub;
+    const notificationId = req.params.id;
+    const { read } = req.body as { read?: boolean };
+
+    if (!userId) {
+      return res.status(401).json({ error: 'invalid session' });
+    }
+
+    const { data: notification, error: fetchError } = await supabaseService
+      .from('notifications')
+      .select('id, org_id, user_id, read')
+      .eq('id', notificationId)
+      .maybeSingle();
+
+    if (fetchError || !notification) {
+      return res.status(404).json({ error: 'notification not found' });
+    }
+
+    const { data: orgRow } = await supabaseService
+      .from('organizations')
+      .select('slug')
+      .eq('id', notification.org_id)
+      .maybeSingle();
+
+    if (!orgRow) {
+      return res.status(404).json({ error: 'organization not found' });
+    }
+
+    await resolveOrgForUser(userId, orgRow.slug);
+
+    if (notification.user_id !== userId) {
+      return res.status(403).json({ error: 'forbidden' });
+    }
+
+    const { data: updated, error: updateError } = await supabaseService
+      .from('notifications')
+      .update({ read: read ?? true })
+      .eq('id', notificationId)
+      .select('id, org_id, user_id, title, body, type, read, created_at')
+      .single();
+
+    if (updateError) {
+      throw updateError;
+    }
+
+    return res.json({ notification: updated });
+  } catch (err) {
+    logError('notifications.update_failed', err, { userId: req.user?.sub });
+    return res.status(500).json({ error: 'update failed' });
+  }
+});
+
+app.post('/v1/notifications/mark-all', async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = req.user?.sub;
+    const { orgSlug } = req.body as { orgSlug?: string };
+
+    if (!userId || !orgSlug) {
+      return res.status(400).json({ error: 'orgSlug required' });
+    }
+
+    const { orgId } = await resolveOrgForUser(userId, orgSlug);
+
+    const { error } = await supabaseService
+      .from('notifications')
+      .update({ read: true })
+      .eq('org_id', orgId)
+      .eq('user_id', userId)
+      .eq('read', false);
+
+    if (error) {
+      throw error;
+    }
+
+    return res.status(204).send();
+  } catch (err) {
+    logError('notifications.mark_all_failed', err, { userId: req.user?.sub });
+    return res.status(500).json({ error: 'mark all failed' });
+  }
+});
+
 export default app;
