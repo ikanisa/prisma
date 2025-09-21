@@ -26,7 +26,7 @@ export function useOrganizations() {
   const [currentOrgId, setCurrentOrgId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const currentOrg = memberships.find(m => m.org_id === currentOrgId)?.organization || null;
+  const currentOrg = memberships.find((m) => m.org_id === currentOrgId)?.organization || null;
   const tenantClient = useMemo<TenantClient | null>(() => {
     if (!currentOrg) return null;
     return createTenantClient(currentOrg.id);
@@ -42,9 +42,8 @@ export function useOrganizations() {
   }, [user]);
 
   useEffect(() => {
-    // Set current org from localStorage on mount
     const savedOrgId = localStorage.getItem('currentOrgId');
-    if (savedOrgId && memberships.some(m => m.org_id === savedOrgId)) {
+    if (savedOrgId && memberships.some((m) => m.org_id === savedOrgId)) {
       setCurrentOrgId(savedOrgId);
     } else if (memberships.length > 0) {
       setCurrentOrgId(memberships[0].org_id);
@@ -52,7 +51,6 @@ export function useOrganizations() {
   }, [memberships]);
 
   useEffect(() => {
-    // Save current org to localStorage when it changes
     if (currentOrgId) {
       localStorage.setItem('currentOrgId', currentOrgId);
     }
@@ -60,15 +58,17 @@ export function useOrganizations() {
 
   const fetchMemberships = async () => {
     if (!user) return;
-    
+
     setLoading(true);
     try {
       const { data, error } = await supabase
         .from('memberships')
-        .select(`
+        .select(
+          `
           *,
           organization:organizations(*)
-        `)
+        `,
+        )
         .eq('user_id', user.id);
 
       if (error) throw error;
@@ -87,17 +87,15 @@ export function useOrganizations() {
 
   const hasRole = (minRole: 'EMPLOYEE' | 'MANAGER' | 'SYSTEM_ADMIN') => {
     if (!currentOrg) return false;
-    
-    const membership = memberships.find(m => m.org_id === currentOrgId);
+
+    const membership = memberships.find((m) => m.org_id === currentOrgId);
     if (!membership) return false;
 
-    const roleHierarchy = { 'EMPLOYEE': 1, 'MANAGER': 2, 'SYSTEM_ADMIN': 3 };
+    const roleHierarchy = { EMPLOYEE: 1, MANAGER: 2, SYSTEM_ADMIN: 3 };
     return roleHierarchy[membership.role] >= roleHierarchy[minRole];
   };
 
-  const isSystemAdmin = () => {
-    return memberships.some(m => m.role === 'SYSTEM_ADMIN');
-  };
+  const isSystemAdmin = () => memberships.some((m) => m.role === 'SYSTEM_ADMIN');
 
   return {
     memberships,
