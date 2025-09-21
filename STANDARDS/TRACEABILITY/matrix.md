@@ -58,3 +58,6 @@
 | TM-054 | Performance SLI tracking | Performance targets & runbook | `/PERF/targets.md`, `/PERF/runbook.md`; telemetry snapshots | PERF/ | Ops Lead |
 | TM-055 | Learning governance | Learning pipeline/checklist/governance docs | `/LEARNING/*`; monitoring checklist references | LEARNING/ | AI Safety Lead |
 | TM-056 | Go-live gate & rollback | Go-live checklist, rollback steps, comms templates | `/GOLIVE/*`; Activity log approval of gate | GOLIVE/ | Operations Director |
+| TM-057 | IESBA independence (NAS prohibitions) | Engagement acceptance NAS gate + override approval | `approval_queue` (INDEPENDENCE_OVERRIDE), ActivityLog `ENGAGEMENT_INDEPENDENCE_CHECK` | STANDARDS/POLICY/independence_catalog.md | Engagement Partner |
+| TM-058 | ISA 220 engagement acceptance | Independence evaluation records & approvals | `engagements.independence_*` fields; override approval record | services/rag/index.ts | Engagement Partner |
+| TM-059 | ISQM 1 acceptance control | Independence control in QMS controls inventory | Control evidence in ActivityLog + QMS table | STANDARDS/QMS/isqm1_framework.md | QMS Lead |

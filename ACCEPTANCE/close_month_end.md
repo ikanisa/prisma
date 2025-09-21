@@ -7,6 +7,7 @@ Validate the month-end accounting cycle from data import through journal approva
 - Org slug with demo data (e.g., `/demo`).
 - Employee role with data entry permissions; Manager role for approvals.
 - Sensitive tool approvals enabled.
+- Engagement acceptance completed with independence conclusion `OK` or override approval recorded.
 
 ## Steps
 1. **Import source data**
@@ -44,4 +45,3 @@ Validate the month-end accounting cycle from data import through journal approva
 - Activity log IDs (`activity_log.id`).
 - Trace IDs from `agent_traces` for POST/LOCK actions.
 - Screenshot of Approvals page showing status change.
-

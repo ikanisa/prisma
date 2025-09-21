@@ -29,6 +29,7 @@
 | Control | Purpose | Frequency | Owner | Evidence |
 | --- | --- | --- | --- | --- |
 | HITL approvals (POST/LOCK/HANDOFF/ARCHIVE/SEND) | Require manager review before executing sensitive journal, lock, handoff, archive, or client-send actions | Per sensitive tool invocation | Operations Director | services/rag/index.ts (`approval_queue`), src/pages/approvals.tsx |
+| Independence & NAS gate | Prevent accepting audit engagements with prohibited NAS unless partner override + approval documented | Per engagement acceptance | Engagement Partner | STANDARDS/POLICY/independence_catalog.md, approval_queue (INDEPENDENCE_OVERRIDE), activity_log |
 | Row-level security (RLS) | Enforce least-privilege data access across org membership | Continuous (database policy) | Security Lead | supabase/rls/agents_001.sql, STANDARDS/POLICY/data_privacy_and_RLS.md |
 | Signed URL document delivery | Ensure evidence exports require authenticated request and expire automatically | Per document download | Security Lead | services/rag/index.ts (`ensureDocumentsBucket`), src/pages/documents.tsx |
 | Calculator dominance guardrail | Prevent AI overrides of regulated calculators without human review | At every memo/tool call | AI Safety Lead | STANDARDS/POLICY/calculator_dominance.md, lib/agents/runtime.ts |
