@@ -35,6 +35,8 @@ Required variables:
 - `VITE_SUPABASE_PROJECT_ID`
 - `VITE_SUPABASE_PUBLISHABLE_KEY`
 - `VITE_SUPABASE_URL`
+- `SUPABASE_JWT_SECRET` (server-side auth for protected APIs)
+- `SUPABASE_SERVICE_ROLE_KEY` (for privileged server jobs)
 
 Follow these steps:
 
