@@ -367,7 +367,8 @@ app.post('/v1/storage/documents', upload.single('file'), async (req: Authenticat
 app.get('/v1/storage/documents', async (req: AuthenticatedRequest, res) => {
   try {
     const orgSlug = req.query.orgSlug as string | undefined;
-    const limit = Number(req.query.limit ?? '100');
+    const limit = Math.max(1, Math.min(100, Number(req.query.limit ?? '20')));
+    const offset = Math.max(0, Number(req.query.offset ?? '0'));
 
     if (!orgSlug) {
       return res.status(400).json({ error: 'orgSlug query param required' });
@@ -396,15 +397,63 @@ app.get('/v1/storage/documents', async (req: AuthenticatedRequest, res) => {
       .select('*')
       .eq('org_id', orgContext.orgId)
       .order('created_at', { ascending: false })
-      .limit(limit);
+      .range(offset, offset + limit - 1);
 
     if (error) {
       throw error;
     }
 
+    res.set('Cache-Control', 'private, max-age=60, stale-while-revalidate=120');
     return res.json({ documents: documents ?? [] });
   } catch (err) {
     logError('documents.list_failed', err, { userId: req.user?.sub });
+    return res.status(500).json({ error: 'list failed' });
+  }
+});
+
+app.get('/v1/notifications', async (req: AuthenticatedRequest, res) => {
+  try {
+    const orgSlug = req.query.orgSlug as string | undefined;
+    const limit = Math.max(1, Math.min(100, Number(req.query.limit ?? '20')));
+    const offset = Math.max(0, Number(req.query.offset ?? '0'));
+
+    if (!orgSlug) {
+      return res.status(400).json({ error: 'orgSlug query param required' });
+    }
+
+    const userId = req.user?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: 'invalid session' });
+    }
+
+    let orgContext;
+    try {
+      orgContext = await resolveOrgForUser(userId, orgSlug);
+    } catch (err) {
+      if ((err as Error).message === 'organization_not_found') {
+        return res.status(404).json({ error: 'organization not found' });
+      }
+      if ((err as Error).message === 'not_a_member') {
+        return res.status(403).json({ error: 'forbidden' });
+      }
+      throw err;
+    }
+
+    const { data, error } = await supabaseService
+      .from('notifications')
+      .select('id, org_id, user_id, title, body, type, read, created_at')
+      .eq('org_id', orgContext.orgId)
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    if (error) {
+      throw error;
+    }
+
+    res.set('Cache-Control', 'private, max-age=30, stale-while-revalidate=60');
+    return res.json({ notifications: data ?? [] });
+  } catch (err) {
+    logError('notifications.list_failed', err, { userId: req.user?.sub });
     return res.status(500).json({ error: 'list failed' });
   }
 });
