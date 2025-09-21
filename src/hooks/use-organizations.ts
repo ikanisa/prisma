@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './use-auth';
+import { createTenantClient, TenantClient } from '@/lib/tenant-client';
 
 export interface Organization {
   id: string;
@@ -26,6 +27,10 @@ export function useOrganizations() {
   const [loading, setLoading] = useState(false);
 
   const currentOrg = memberships.find(m => m.org_id === currentOrgId)?.organization || null;
+  const tenantClient = useMemo<TenantClient | null>(() => {
+    if (!currentOrg) return null;
+    return createTenantClient(currentOrg.id);
+  }, [currentOrg]);
 
   useEffect(() => {
     if (user) {
@@ -102,6 +107,7 @@ export function useOrganizations() {
     switchOrganization,
     hasRole,
     isSystemAdmin,
-    refetch: fetchMemberships
+    refetch: fetchMemberships,
+    tenantClient,
   };
 }
