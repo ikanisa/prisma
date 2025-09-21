@@ -1,0 +1,39 @@
+{
+  "title": "ISA Completion & Reporting",
+  "code": "ISA 230 / ISA 560 / ISA 570 / ISA 580",
+  "description": "Completion procedures covering subsequent events, going concern, written representations, and documentation closures.",
+  "sections": [
+    {
+      "title": "Subsequent events (ISA 560)",
+      "items": [
+        {"id": "isa560-inquiry", "text": "Inquire of management and TCWG regarding subsequent events up to the report date.", "standard": "ISA 560.6", "matrixId": "TM-011"},
+        {"id": "isa560-minutes", "text": "Review post year-end board/committee minutes for adjusting/non-adjusting events.", "standard": "ISA 560.7", "matrixId": "TM-011"},
+        {"id": "isa560-adjustments", "text": "Evaluate if identified events require adjustment or disclosure and document conclusions.", "standard": "ISA 560.8", "matrixId": "TM-011"}
+      ]
+    },
+    {
+      "title": "Going concern (ISA 570)",
+      "items": [
+        {"id": "isa570-assessment", "text": "Obtain management's going concern assessment covering ≥12 months from report date.", "standard": "ISA 570.10", "matrixId": "TM-012"},
+        {"id": "isa570-evidence", "text": "Evaluate mitigating plans and supporting evidence (cash flow forecasts, financing arrangements).", "standard": "ISA 570.12", "matrixId": "TM-012"},
+        {"id": "isa570-reporting", "text": "Conclude on GC; determine if EOM/KAM or modified opinion required.", "standard": "ISA 570.22", "matrixId": "TM-012"}
+      ]
+    },
+    {
+      "title": "Written representations (ISA 580)",
+      "items": [
+        {"id": "isa580-draft", "text": "Prepare representation letter covering financial statements and specific assertions.", "standard": "ISA 580.10", "matrixId": "TM-013"},
+        {"id": "isa580-signature", "text": "Obtain signed management representations dated on or near the audit report date.", "standard": "ISA 580.14", "matrixId": "TM-013"},
+        {"id": "isa580-inconsistencies", "text": "Address any contradictions between representations and other evidence.", "standard": "ISA 580.16", "matrixId": "TM-013"}
+      ]
+    },
+    {
+      "title": "Documentation close-out (ISA 230)",
+      "items": [
+        {"id": "isa230-index", "text": "Ensure workpapers are properly referenced, indexed, and cross-referenced to the FS.", "standard": "ISA 230.8", "matrixId": "TM-009"},
+        {"id": "isa230-review", "text": "Capture review notes cleared; maintain final sign-off evidence (manager/partner/EQR).", "standard": "ISA 230.9", "matrixId": "TM-009"},
+        {"id": "isa230-lockdown", "text": "Complete assembly within 60 days; lock workpaper set and record archive hash.", "standard": "ISA 230.14", "matrixId": "TM-009"}
+      ]
+    }
+  ]
+}

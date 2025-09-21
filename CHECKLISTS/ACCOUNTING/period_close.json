@@ -1,0 +1,38 @@
+{
+  "title": "Period Close Checklist",
+  "code": "Accounting Close",
+  "description": "Month/quarter/year-end close procedures covering cut-off, reconciliations, and approvals.",
+  "sections": [
+    {
+      "title": "Pre-close",
+      "items": [
+        {"id": "close-calendar", "text": "Confirm close calendar communicated and responsibilities assigned.", "standard": "ISQM1-Governance", "matrixId": "TM-016"},
+        {"id": "close-access", "text": "Verify user access reviews completed; sensitive roles limited.", "standard": "ISQM1-Resources", "matrixId": "TM-017"}
+      ]
+    },
+    {
+      "title": "Cut-off procedures",
+      "items": [
+        {"id": "close-ar", "text": "Run AR ageing and agree post-period receipts to ensure revenue cut-off.", "standard": "ISA 330", "matrixId": "TM-008"},
+        {"id": "close-ap", "text": "Review unmatched GRNs and AP accruals for completeness.", "standard": "ISA 330", "matrixId": "TM-008"},
+        {"id": "close-inventory", "text": "Perform inventory roll-forward / count reconciliation.", "standard": "ISA 501", "matrixId": "TM-051"}
+      ]
+    },
+    {
+      "title": "Reconciliations",
+      "items": [
+        {"id": "close-bank", "text": "Complete bank reconciliations with outstanding items documented.", "standard": "IFRS", "matrixId": "TM-037"},
+        {"id": "close-balance", "text": "Reconcile key balance sheet accounts (payroll, VAT, CIT, accruals).", "standard": "IFRS", "matrixId": "TM-037"},
+        {"id": "close-journal", "text": "Compile list of manual journals requiring manager approval before posting.", "standard": "ISA 240", "matrixId": "TM-025"}
+      ]
+    },
+    {
+      "title": "Reporting",
+      "items": [
+        {"id": "close-trial", "text": "Lock trial balance snapshot and archive supporting evidence.", "standard": "ISA 230", "matrixId": "TM-009"},
+        {"id": "close-dashboard", "text": "Update close dashboard with status and ageing metrics.", "standard": "ISQM1-Monitoring", "matrixId": "TM-038"},
+        {"id": "close-approval", "text": "Submit close package for Manager approval (HITL gate).", "standard": "ISQM1-Responses", "matrixId": "TM-033"}
+      ]
+    }
+  ]
+}

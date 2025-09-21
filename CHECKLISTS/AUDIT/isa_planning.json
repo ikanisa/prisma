@@ -1,0 +1,39 @@
+{
+  "title": "ISA Planning & Risk Assessment",
+  "code": "ISA 300 / ISA 315 / ISA 320",
+  "description": "Planning procedures covering engagement acceptance, entity understanding, materiality and risk identification.",
+  "sections": [
+    {
+      "title": "Engagement acceptance & independence",
+      "items": [
+        {"id": "isa300-acceptance", "text": "Confirm engagement acceptance/continuance and independence documentation is signed.", "standard": "ISA 300.7", "matrixId": "TM-001"},
+        {"id": "isa300-team", "text": "Assign engagement team, assess competence, and record planning meeting minutes.", "standard": "ISA 300.8", "matrixId": "TM-001"},
+        {"id": "isa300-timing", "text": "Document overall timetable including deadlines for key milestones.", "standard": "ISA 300.9", "matrixId": "TM-001"}
+      ]
+    },
+    {
+      "title": "Entity understanding",
+      "items": [
+        {"id": "isa315-industry", "text": "Capture industry, regulatory and external factors influencing the entity.", "standard": "ISA 315.11", "matrixId": "TM-002"},
+        {"id": "isa315-operations", "text": "Summarise key business processes, IT environment and significant classes of transactions.", "standard": "ISA 315.15", "matrixId": "TM-002"},
+        {"id": "isa315-controls", "text": "Evaluate design of relevant controls and determine whether to test operating effectiveness.", "standard": "ISA 315.25", "matrixId": "TM-002"}
+      ]
+    },
+    {
+      "title": "Materiality",
+      "items": [
+        {"id": "isa320-benchmark", "text": "Select appropriate benchmark and calculate overall materiality with rationale.", "standard": "ISA 320.10", "matrixId": "TM-003"},
+        {"id": "isa320-performance", "text": "Set performance materiality and clearly document chosen percentage.", "standard": "ISA 320.11", "matrixId": "TM-003"},
+        {"id": "isa320-trivial", "text": "Establish clearly trivial threshold communicated to the team.", "standard": "ISA 320.A14", "matrixId": "TM-003"}
+      ]
+    },
+    {
+      "title": "Risk identification",
+      "items": [
+        {"id": "isa315-fraud", "text": "Perform fraud brainstorming and record significant fraud risk factors.", "standard": "ISA 315.16", "matrixId": "TM-002"},
+        {"id": "isa315-significant", "text": "Identify significant risks requiring special audit consideration (incl. management override).", "standard": "ISA 315.27", "matrixId": "TM-002"},
+        {"id": "isa315-analytics", "text": "Execute preliminary analytics and note unusual trends requiring follow up.", "standard": "ISA 315.6", "matrixId": "TM-010"}
+      ]
+    }
+  ]
+}

@@ -1,16 +1,18 @@
+import type { ComponentType } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  LayoutDashboard, 
-  Users, 
-  Briefcase, 
-  CheckSquare, 
-  FileText, 
-  Bell, 
-  Activity, 
+import {
+  LayoutDashboard,
+  Users,
+  Briefcase,
+  CheckSquare,
+  FileText,
+  Bell,
+  Activity,
   Settings,
   Menu,
-  Sparkles
+  Sparkles,
+  ShieldCheck,
 } from 'lucide-react';
 import { Button } from '@/components/enhanced-button';
 import { useAppStore } from '@/stores/mock-data';
@@ -21,7 +23,14 @@ interface SidebarProps {
   onToggle: () => void;
 }
 
-const navigation = [
+type NavRole = 'EMPLOYEE' | 'MANAGER' | 'SYSTEM_ADMIN';
+
+const navigation: Array<{
+  name: string;
+  href: string;
+  icon: ComponentType<{ className?: string }>;
+  minRole?: NavRole;
+}> = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Clients', href: '/clients', icon: Users },
   { name: 'Engagements', href: '/engagements', icon: Briefcase },
@@ -29,7 +38,8 @@ const navigation = [
   { name: 'Documents', href: '/documents', icon: FileText },
   { name: 'Notifications', href: '/notifications', icon: Bell },
   { name: 'Activity', href: '/activity', icon: Activity },
-  { name: 'Settings', href: '/settings', icon: Settings },
+  { name: 'Approvals', href: '/approvals', icon: ShieldCheck, minRole: 'MANAGER' },
+  { name: 'Settings', href: '/settings', icon: Settings, minRole: 'MANAGER' },
 ];
 
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {
@@ -123,6 +133,12 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
       {/* Navigation */}
       <nav className="flex-1 p-4 space-y-2">
         {navigation.map((item, index) => {
+          if (item.minRole) {
+            const hierarchy = { EMPLOYEE: 1, MANAGER: 2, SYSTEM_ADMIN: 3 } as const;
+            if ((hierarchy[userRole as NavRole] ?? 0) < hierarchy[item.minRole]) {
+              return null;
+            }
+          }
           const active = isActive(item.href);
           const href = `/${currentOrg?.slug}${item.href}`;
           

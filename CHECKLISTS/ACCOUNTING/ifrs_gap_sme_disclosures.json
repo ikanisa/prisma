@@ -1,0 +1,45 @@
+{
+  "title": "IFRS & GAPSME Disclosure Checklist",
+  "code": "IFRS / GAPSME",
+  "description": "Disclosure requirements for IFRS and GAPSME financial statements with applicability toggles.",
+  "sections": [
+    {
+      "title": "Primary statements",
+      "items": [
+        {"id": "ifrs-present", "text": "Present statement of financial position, profit or loss, cash flows, and changes in equity.", "standard": "IAS 1.10", "defaultApplicable": true, "matrixId": "TM-026"},
+        {"id": "ifrs-comparatives", "text": "Ensure comparative information for prior period and opening balances when restated.", "standard": "IAS 1.38", "defaultApplicable": true, "matrixId": "TM-026"},
+        {"id": "gapsme-cashflow", "text": "Confirm cash flow statement exemption (GAPSME) assessed and documented if omitted.", "standard": "GAPSME 1.15", "defaultApplicable": false, "matrixId": "TM-027"}
+      ]
+    },
+    {
+      "title": "Accounting policies",
+      "items": [
+        {"id": "ifrs-policies", "text": "Disclose significant accounting policies, judgements, and estimation uncertainty.", "standard": "IAS 1.117", "defaultApplicable": true, "matrixId": "TM-041"},
+        {"id": "ifrs-standards", "text": "Disclose new standards issued but not yet effective and expected impact.", "standard": "IAS 8.30", "defaultApplicable": true, "matrixId": "TM-042"}
+      ]
+    },
+    {
+      "title": "Financial instruments",
+      "items": [
+        {"id": "ifrs-financial", "text": "Provide categories, measurement bases, and fair value hierarchy for financial instruments.", "standard": "IFRS 7.8", "defaultApplicable": true, "matrixId": "TM-043"},
+        {"id": "ifrs-risk", "text": "Disclose qualitative and quantitative risk information (credit, liquidity, market).", "standard": "IFRS 7.31", "defaultApplicable": true, "matrixId": "TM-044"},
+        {"id": "gapsme-financial", "text": "For GAPSME, disclose financial instrument classes and valuation methods.", "standard": "GAPSME 1.53", "defaultApplicable": true, "matrixId": "TM-045"}
+      ]
+    },
+    {
+      "title": "Tax and deferred tax",
+      "items": [
+        {"id": "ias12-tax", "text": "Reconcile tax expense to accounting profit and disclose deferred tax components.", "standard": "IAS 12.81", "defaultApplicable": true, "matrixId": "TM-046"},
+        {"id": "gapsme-tax", "text": "Where GAPSME exemption taken, document rationale and notify stakeholders.", "standard": "GAPSME 1.86", "defaultApplicable": false, "matrixId": "TM-047"}
+      ]
+    },
+    {
+      "title": "Other disclosures",
+      "items": [
+        {"id": "ias7-noncash", "text": "Disclose non-cash movements in financing liabilities (IAS 7).", "standard": "IAS 7.44A", "defaultApplicable": true, "matrixId": "TM-048"},
+        {"id": "ias24-related", "text": "Include related party balances and transactions per IAS 24.", "standard": "IAS 24.18", "defaultApplicable": true, "matrixId": "TM-049"},
+        {"id": "ifrs5-discontinued", "text": "If applicable, present results and cash flows for discontinued operations.", "standard": "IFRS 5.30", "defaultApplicable": false, "matrixId": "TM-050"}
+      ]
+    }
+  ]
+}
