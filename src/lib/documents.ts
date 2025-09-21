@@ -43,8 +43,17 @@ export async function uploadDocument(file: File, params: UploadDocumentParams): 
   return payload.document as DocumentRecord;
 }
 
-export async function listDocuments(orgSlug: string, limit = 100): Promise<DocumentRecord[]> {
-  const response = await authorizedFetch(`/v1/storage/documents?orgSlug=${encodeURIComponent(orgSlug)}&limit=${limit}`);
+export interface ListDocumentsParams {
+  orgSlug: string;
+  page?: number;
+  pageSize?: number;
+}
+
+export async function listDocuments({ orgSlug, page = 1, pageSize = 20 }: ListDocumentsParams): Promise<DocumentRecord[]> {
+  const offset = (page - 1) * pageSize;
+  const response = await authorizedFetch(
+    `/v1/storage/documents?orgSlug=${encodeURIComponent(orgSlug)}&limit=${pageSize}&offset=${offset}`,
+  );
   const payload = await response.json();
   if (!response.ok) {
     throw new Error(payload.error ?? 'Document list failed');

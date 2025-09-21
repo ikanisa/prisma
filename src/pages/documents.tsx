@@ -35,6 +35,8 @@ export function Documents() {
   const { toast } = useToast();
   const { currentOrg } = useOrganizations();
   const [documents, setDocuments] = useState<DocumentRecord[]>([]);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [uploadOpen, setUploadOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -52,8 +54,13 @@ export function Documents() {
     const load = async () => {
       setLoading(true);
       try {
-        const docs = await listDocuments(orgSlug);
-        setDocuments(docs);
+        const docs = await listDocuments({ orgSlug, page });
+        if (page === 1) {
+          setDocuments(docs);
+        } else {
+          setDocuments((prev) => [...prev, ...docs]);
+        }
+        setHasMore(docs.length === 20);
       } catch (error) {
         toast({
           title: 'Unable to load documents',
@@ -66,7 +73,11 @@ export function Documents() {
     };
 
     void load();
-  }, [orgSlug, toast]);
+  }, [orgSlug, page, toast]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [orgSlug]);
 
   const filteredDocuments = useMemo(() => {
     return documents.filter((doc) => doc.name.toLowerCase().includes(searchQuery.toLowerCase()));
@@ -193,7 +204,7 @@ export function Documents() {
         />
       </div>
 
-      {loading ? (
+      {loading && documents.length === 0 ? (
         <div className="flex items-center justify-center py-10 text-muted-foreground">
           <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading documents...
         </div>
@@ -267,6 +278,14 @@ export function Documents() {
           <Search className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
           <h3 className="text-lg font-medium mb-2">No documents found</h3>
           <p className="text-muted-foreground">Try adjusting your search query</p>
+        </div>
+      )}
+
+      {hasMore && (
+        <div className="flex justify-center">
+          <Button variant="outline" onClick={() => setPage((prev) => prev + 1)} disabled={loading}>
+            {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Load more'}
+          </Button>
         </div>
       )}
 
