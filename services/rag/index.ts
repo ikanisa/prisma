@@ -516,4 +516,80 @@ app.post('/v1/storage/sign', async (req: AuthenticatedRequest, res) => {
   }
 });
 
+app.delete('/v1/storage/documents/:id', async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = req.user?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: 'invalid session' });
+    }
+
+    const documentId = req.params.id;
+    const { data: document, error: fetchError } = await supabaseService
+      .from('documents')
+      .select('id, org_id, file_path, name')
+      .eq('id', documentId)
+      .maybeSingle();
+
+    if (fetchError || !document) {
+      return res.status(404).json({ error: 'document not found' });
+    }
+
+    const { data: org } = await supabaseService
+      .from('organizations')
+      .select('slug')
+      .eq('id', document.org_id)
+      .maybeSingle();
+
+    if (!org) {
+      return res.status(404).json({ error: 'organization not found' });
+    }
+
+    try {
+      await resolveOrgForUser(userId, org.slug);
+    } catch (err) {
+      if ((err as Error).message === 'not_a_member') {
+        return res.status(403).json({ error: 'forbidden' });
+      }
+      throw err;
+    }
+
+    const { error: storageError } = await supabaseService
+      .storage
+      .from('documents')
+      .remove([document.file_path]);
+
+    if (storageError) {
+      throw storageError;
+    }
+
+    const { error: deleteError } = await supabaseService
+      .from('documents')
+      .delete()
+      .eq('id', documentId)
+      .eq('org_id', document.org_id);
+
+    if (deleteError) {
+      throw deleteError;
+    }
+
+    await supabaseService.from('activity_log').insert({
+      org_id: document.org_id,
+      user_id: userId,
+      action: 'DELETE_DOCUMENT',
+      entity_type: 'document',
+      entity_id: documentId,
+      metadata: {
+        name: document.name,
+        path: document.file_path,
+      },
+    });
+
+    logInfo('documents.deleted', { userId, documentId });
+    return res.status(204).send();
+  } catch (err) {
+    logError('documents.delete_failed', err, { userId: req.user?.sub });
+    return res.status(500).json({ error: 'delete failed' });
+  }
+});
+
 export default app;

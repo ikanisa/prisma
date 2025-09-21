@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Upload, FileText, Download, Search, Eye, Loader2 } from 'lucide-react';
+import { Upload, FileText, Download, Search, Eye, Loader2, Trash2 } from 'lucide-react';
 import { Button } from '@/components/enhanced-button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -18,6 +18,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useOrganizations } from '@/hooks/use-organizations';
 import {
   createSignedDocumentUrl,
+  deleteDocument,
   DocumentRecord,
   listDocuments,
   uploadDocument,
@@ -145,6 +146,27 @@ export function Documents() {
     }
   };
 
+  const handleDelete = async (document: DocumentRecord) => {
+    if (!confirm('Delete this document? This cannot be undone.')) {
+      return;
+    }
+
+    try {
+      await deleteDocument(document.id);
+      setDocuments((prev) => prev.filter((entry) => entry.id !== document.id));
+      toast({
+        title: 'Document deleted',
+        description: `${document.name} has been removed.`,
+      });
+    } catch (error) {
+      toast({
+        title: 'Delete failed',
+        description: (error as Error).message,
+        variant: 'destructive',
+      });
+    }
+  };
+
   if (!currentOrg) {
     return (
       <div className="p-6">
@@ -241,6 +263,15 @@ export function Documents() {
                         title="Download"
                       >
                         <Download className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 text-destructive hover:text-destructive"
+                        onClick={() => void handleDelete(document)}
+                        title="Delete"
+                      >
+                        <Trash2 className="h-3 w-3" />
                       </Button>
                     </div>
                   </CardTitle>

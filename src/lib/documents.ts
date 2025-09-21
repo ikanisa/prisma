@@ -72,3 +72,14 @@ export async function createSignedDocumentUrl(documentId: string, ttlSeconds?: n
   }
   return payload.url as string;
 }
+
+export async function deleteDocument(documentId: string): Promise<void> {
+  const response = await authorizedFetch(`/v1/storage/documents/${documentId}`, {
+    method: 'DELETE',
+  });
+
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({ error: 'delete failed' }));
+    throw new Error(payload.error ?? 'delete failed');
+  }
+}

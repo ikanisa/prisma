@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './use-auth';
 import { createTenantClient, TenantClient } from '@/lib/tenant-client';
@@ -32,31 +32,7 @@ export function useOrganizations() {
     return createTenantClient(currentOrg.id);
   }, [currentOrg]);
 
-  useEffect(() => {
-    if (user) {
-      fetchMemberships();
-    } else {
-      setMemberships([]);
-      setCurrentOrgId(null);
-    }
-  }, [user]);
-
-  useEffect(() => {
-    const savedOrgId = localStorage.getItem('currentOrgId');
-    if (savedOrgId && memberships.some((m) => m.org_id === savedOrgId)) {
-      setCurrentOrgId(savedOrgId);
-    } else if (memberships.length > 0) {
-      setCurrentOrgId(memberships[0].org_id);
-    }
-  }, [memberships]);
-
-  useEffect(() => {
-    if (currentOrgId) {
-      localStorage.setItem('currentOrgId', currentOrgId);
-    }
-  }, [currentOrgId]);
-
-  const fetchMemberships = async () => {
+  const fetchMemberships = useCallback(async () => {
     if (!user) return;
 
     setLoading(true);
@@ -79,7 +55,32 @@ export function useOrganizations() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
+
+  useEffect(() => {
+    if (user) {
+      void fetchMemberships();
+    } else {
+      setMemberships([]);
+      setCurrentOrgId(null);
+    }
+  }, [user, fetchMemberships]);
+
+  useEffect(() => {
+    const savedOrgId = localStorage.getItem('currentOrgId');
+    if (savedOrgId && memberships.some((m) => m.org_id === savedOrgId)) {
+      setCurrentOrgId(savedOrgId);
+    } else if (memberships.length > 0) {
+      setCurrentOrgId(memberships[0].org_id);
+    }
+  }, [memberships]);
+
+  useEffect(() => {
+    if (currentOrgId) {
+      localStorage.setItem('currentOrgId', currentOrgId);
+    }
+  }, [currentOrgId]);
+
 
   const switchOrganization = (orgId: string) => {
     setCurrentOrgId(orgId);
