@@ -1,6 +1,0 @@
-To create a new produce listing, send a message like:
-"sell 10kg potatoes for 5000 RWF"
-or
-"list 5 crates of tomatoes at 4500 RWF"
-
-I will confirm once your listing is live.

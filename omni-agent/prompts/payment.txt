@@ -1,7 +1,0 @@
-To pay for an order, send:
-"pay 7500 RWF for order #12345"
-
-Or request a QR code:
-"qr for order 12345"
-
-We will send you a QR and USSD code for quick payment.
