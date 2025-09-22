@@ -5,6 +5,8 @@ import { sb } from "../config.ts";
 import { safeButtonTitle, safeRowDesc, safeRowTitle } from "../utils/text.ts";
 import { e164, to07FromE164 } from "../utils/phone.ts";
 import { buildShareLink, buildShareQR } from "../utils/share.ts";
+import { ctxFromConversation, logError } from "../utils/logger.ts";
+import type { LogContext } from "../utils/logger.ts";
 
 interface BasketRow {
   id: string;
@@ -47,25 +49,59 @@ interface CreateBasketState {
 const PAGE_SIZE = 5;
 
 function slugifyName(name: string): string {
-  return name.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+  return name.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(
+    /(^-|-$)/g,
+    "",
+  );
 }
 
-async function fetchBasket(id: string): Promise<BasketRow | null> {
+function replyText(ctx: ConversationContext, body: string) {
+  return sendText(ctx.phone, body, ctxFromConversation(ctx));
+}
+
+function replyButtons(
+  ctx: ConversationContext,
+  body: string,
+  buttons: Parameters<typeof sendButtons>[2],
+) {
+  return sendButtons(ctx.phone, body, buttons, ctxFromConversation(ctx));
+}
+
+function replyList(
+  ctx: ConversationContext,
+  options: Parameters<typeof sendList>[1],
+) {
+  return sendList(ctx.phone, options, ctxFromConversation(ctx));
+}
+
+function replyImage(ctx: ConversationContext, link: string, caption?: string) {
+  return sendImageUrl(ctx.phone, link, caption, ctxFromConversation(ctx));
+}
+
+async function fetchBasket(
+  id: string,
+  logCtx: LogContext,
+): Promise<BasketRow | null> {
   try {
     const { data, error } = await sb
       .from("baskets")
-      .select("id,name,description,type,status,public_slug,creator_id,momo_target,momo_is_code,created_at")
+      .select(
+        "id,name,description,type,status,public_slug,creator_id,momo_target,momo_is_code,created_at",
+      )
       .eq("id", id)
       .maybeSingle();
     if (error) throw error;
     return data as BasketRow ?? null;
   } catch (err) {
-    console.error("fetchBasket failed", err);
+    logError("BASKET_FETCH_FAILED", err, { basketId: id }, logCtx);
     return null;
   }
 }
 
-async function fetchBasketByToken(token: string): Promise<BasketRow | null> {
+async function fetchBasketByToken(
+  token: string,
+  logCtx: LogContext,
+): Promise<BasketRow | null> {
   try {
     const { data, error } = await sb
       .from("baskets")
@@ -75,17 +111,22 @@ async function fetchBasketByToken(token: string): Promise<BasketRow | null> {
     if (error) throw error;
     return data as BasketRow ?? null;
   } catch (err) {
-    console.error("fetchBasketByToken failed", err);
+    logError("BASKET_FETCH_BY_TOKEN_FAILED", err, { token }, logCtx);
     return null;
   }
 }
 
-async function loadUserBaskets(userId: string): Promise<BasketRow[]> {
+async function loadUserBaskets(
+  userId: string,
+  logCtx: LogContext,
+): Promise<BasketRow[]> {
   const baskets: Record<string, BasketRow> = {};
   try {
     const owned = await sb
       .from("baskets")
-      .select("id,name,description,type,status,public_slug,creator_id,momo_target,momo_is_code,created_at")
+      .select(
+        "id,name,description,type,status,public_slug,creator_id,momo_target,momo_is_code,created_at",
+      )
       .eq("creator_id", userId);
     if (!owned.error) {
       for (const row of owned.data as BasketRow[]) {
@@ -93,16 +134,21 @@ async function loadUserBaskets(userId: string): Promise<BasketRow[]> {
       }
     }
   } catch (err) {
-    console.error("loadUserBaskets owned failed", err);
+    logError("BASKET_LIST_OWNED_FAILED", err, { userId }, logCtx);
   }
 
   try {
     const member = await sb
       .from("basket_members")
-      .select("basket_id,baskets(id,name,description,type,status,public_slug,creator_id,momo_target,momo_is_code,created_at)")
+      .select(
+        "basket_id,baskets(id,name,description,type,status,public_slug,creator_id,momo_target,momo_is_code,created_at)",
+      )
       .eq("user_id", userId);
     if (!member.error) {
-      const memberRows = (member.data ?? []) as unknown as { basket_id: string; baskets: BasketRow | null }[];
+      const memberRows = (member.data ?? []) as unknown as {
+        basket_id: string;
+        baskets: BasketRow | null;
+      }[];
       for (const row of memberRows) {
         if (row.baskets) {
           baskets[row.basket_id] = row.baskets;
@@ -110,13 +156,17 @@ async function loadUserBaskets(userId: string): Promise<BasketRow[]> {
       }
     }
   } catch (err) {
-    console.error("loadUserBaskets member failed", err);
+    logError("BASKET_LIST_MEMBER_FAILED", err, { userId }, logCtx);
   }
 
   return Object.values(baskets);
 }
 
-async function ensureMember(basketId: string, userId: string) {
+async function ensureMember(
+  basketId: string,
+  userId: string,
+  logCtx: LogContext,
+) {
   try {
     await sb
       .from("basket_members")
@@ -126,11 +176,15 @@ async function ensureMember(basketId: string, userId: string) {
         joined_at: new Date().toISOString(),
       }, { onConflict: "basket_id,user_id" });
   } catch (err) {
-    console.error("ensureMember failed", err);
+    logError("BASKET_MEMBER_ENSURE_FAILED", err, { basketId, userId }, logCtx);
   }
 }
 
-async function removeMember(basketId: string, userId: string) {
+async function removeMember(
+  basketId: string,
+  userId: string,
+  logCtx: LogContext,
+) {
   try {
     await sb
       .from("basket_members")
@@ -138,11 +192,16 @@ async function removeMember(basketId: string, userId: string) {
       .eq("basket_id", basketId)
       .eq("user_id", userId);
   } catch (err) {
-    console.error("removeMember failed", err);
+    logError("BASKET_MEMBER_REMOVE_FAILED", err, { basketId, userId }, logCtx);
   }
 }
 
-async function insertContribution(basketId: string, userId: string, amount: number): Promise<string | null> {
+async function insertContribution(
+  basketId: string,
+  userId: string,
+  amount: number,
+  logCtx: LogContext,
+): Promise<string | null> {
   try {
     const { data, error } = await sb
       .from("basket_contributions")
@@ -158,12 +217,17 @@ async function insertContribution(basketId: string, userId: string, amount: numb
     if (error) throw error;
     return data?.id as string;
   } catch (err) {
-    console.error("insertContribution failed", err);
+    logError("BASKET_CONTRIB_INSERT_FAILED", err, { basketId, userId }, logCtx);
     return null;
   }
 }
 
-async function updateContributionStatus(id: string, status: "approved" | "rejected", approver: string) {
+async function updateContributionStatus(
+  id: string,
+  status: "approved" | "rejected",
+  approver: string,
+  logCtx: LogContext,
+) {
   try {
     const payload = {
       status,
@@ -176,11 +240,19 @@ async function updateContributionStatus(id: string, status: "approved" | "reject
       .update(payload)
       .eq("id", id);
   } catch (err) {
-    console.error("updateContributionStatus failed", err);
+    logError("BASKET_CONTRIB_STATUS_FAILED", err, {
+      contributionId: id,
+      status,
+    }, logCtx);
   }
 }
 
-async function incrementMemberTotal(basketId: string, userId: string, amount: number) {
+async function incrementMemberTotal(
+  basketId: string,
+  userId: string,
+  amount: number,
+  logCtx: LogContext,
+) {
   try {
     const { data, error } = await sb
       .from("basket_members")
@@ -199,11 +271,14 @@ async function incrementMemberTotal(basketId: string, userId: string, amount: nu
         joined_at: new Date().toISOString(),
       }, { onConflict: "basket_id,user_id" });
   } catch (err) {
-    console.error("incrementMemberTotal failed", err);
+    logError("BASKET_MEMBER_TOTAL_FAILED", err, { basketId, userId }, logCtx);
   }
 }
 
-async function fetchContribution(id: string): Promise<ContributionRow | null> {
+async function fetchContribution(
+  id: string,
+  logCtx: LogContext,
+): Promise<ContributionRow | null> {
   try {
     const { data, error } = await sb
       .from("basket_contributions")
@@ -213,12 +288,22 @@ async function fetchContribution(id: string): Promise<ContributionRow | null> {
     if (error) throw error;
     return data as ContributionRow ?? null;
   } catch (err) {
-    console.error("fetchContribution failed", err);
+    logError(
+      "BASKET_CONTRIB_FETCH_FAILED",
+      err,
+      { contributionId: id },
+      logCtx,
+    );
     return null;
   }
 }
 
-async function notifyContributor(contrib: ContributionRow, message: string) {
+async function notifyContributor(
+  ctx: ConversationContext,
+  contrib: ContributionRow,
+  message: string,
+) {
+  const logCtx = ctxFromConversation(ctx);
   try {
     const { data, error } = await sb
       .from("profiles")
@@ -228,14 +313,23 @@ async function notifyContributor(contrib: ContributionRow, message: string) {
     if (error) throw error;
     const wa = data?.whatsapp_e164;
     if (wa) {
-      await sendText(wa, message);
+      await sendText(wa, message, logCtx);
     }
   } catch (err) {
-    console.error("notifyContributor failed", err);
+    logError("BASKET_NOTIFY_CONTRIBUTOR_FAILED", err, {
+      contributionId: contrib.id,
+    }, logCtx);
   }
 }
 
-async function notifyCreatorOfContribution(basket: BasketRow, contributionId: string, amount: number, contributor: string) {
+async function notifyCreatorOfContribution(
+  ctx: ConversationContext,
+  basket: BasketRow,
+  contributionId: string,
+  amount: number,
+  contributor: string,
+) {
+  const logCtx = ctxFromConversation(ctx);
   try {
     const digits = e164(contributor || "");
     const contributorDisplay = to07FromE164(digits);
@@ -247,13 +341,21 @@ async function notifyCreatorOfContribution(basket: BasketRow, contributionId: st
     if (error) throw error;
     const wa = data?.whatsapp_e164;
     if (wa) {
-      await sendButtons(wa, `Contribution request: RWF ${amount.toLocaleString()} from ${contributorDisplay} for ${basket.name}`, [
-        { id: `bk_appr_${contributionId}`, title: safeButtonTitle("Approve") },
-        { id: `bk_rej_${contributionId}`, title: safeButtonTitle("Reject") },
-      ]);
+      await sendButtons(
+        wa,
+        `Contribution request: RWF ${amount.toLocaleString()} from ${contributorDisplay} for ${basket.name}`,
+        [
+          {
+            id: `bk_appr_${contributionId}`,
+            title: safeButtonTitle("Approve"),
+          },
+          { id: `bk_rej_${contributionId}`, title: safeButtonTitle("Reject") },
+        ],
+        logCtx,
+      );
     }
   } catch (err) {
-    console.error("notifyCreatorOfContribution failed", err);
+    logError("BASKET_NOTIFY_CREATOR_FAILED", err, { contributionId }, logCtx);
   }
 }
 
@@ -263,19 +365,27 @@ function buildSharePayload(basket: BasketRow) {
   return { token, prefill };
 }
 
-async function sendShareLinks(to: string, basket: BasketRow) {
+async function sendShareLinks(ctx: ConversationContext, basket: BasketRow) {
   const { token, prefill } = buildSharePayload(basket);
   const link = await buildShareLink(undefined, prefill);
   const qr = await buildShareQR(link);
-  await sendText(to, `Share this basket link:\n${link}\nUse code: JOIN_BASKET:${token}`);
-  await sendImageUrl(to, qr, `${basket.name} basket QR`);
+  await replyText(
+    ctx,
+    `Share this basket link:\n${link}\nUse code: JOIN_BASKET:${token}`,
+  );
+  await replyImage(ctx, qr, `${basket.name} basket QR`);
 }
 
 function parseContributionId(id: string): string {
   return id.replace(/^bk_(?:appr|rej)_/, "");
 }
 
-async function listMembers(ctx: ConversationContext, basket: BasketRow, page: number) {
+async function listMembers(
+  ctx: ConversationContext,
+  basket: BasketRow,
+  page: number,
+) {
+  const logCtx = ctxFromConversation(ctx);
   try {
     const { data, error } = await sb
       .from("basket_members")
@@ -286,21 +396,31 @@ async function listMembers(ctx: ConversationContext, basket: BasketRow, page: nu
     if (error) throw error;
     const members = data as BasketMemberRow[];
     if (!members.length) {
-      await sendText(ctx.phone, "No more members to show.");
+      await replyText(ctx, "No more members to show.");
       return;
     }
     const lines = members.map((m, idx) => {
-      const wa = m.profiles?.whatsapp_e164 ? to07FromE164(m.profiles.whatsapp_e164) : m.user_id.slice(0, 8);
+      const wa = m.profiles?.whatsapp_e164
+        ? to07FromE164(m.profiles.whatsapp_e164)
+        : m.user_id.slice(0, 8);
       const contributed = Number(m.total_contributed ?? 0).toLocaleString();
       return `${page * PAGE_SIZE + idx + 1}. ${wa} • RWF ${contributed}`;
     });
-    await sendButtons(ctx.phone, `Members for ${basket.name}\n${lines.join("\n")}`, [
-      { id: `bk_mems_${basket.id}_${page + 1}`, title: safeButtonTitle("More") },
+    await replyButtons(ctx, `Members for ${basket.name}\n${lines.join("\n")}`, [
+      {
+        id: `bk_mems_${basket.id}_${page + 1}`,
+        title: safeButtonTitle("More"),
+      },
       { id: "back_home", title: safeButtonTitle("Back") },
     ]);
   } catch (err) {
-    console.error("listMembers failed", err);
-    await sendText(ctx.phone, "Could not load members right now.");
+    logError(
+      "BASKET_MEMBERS_LIST_FAILED",
+      err,
+      { basketId: basket.id, page },
+      logCtx,
+    );
+    await replyText(ctx, "Could not load members right now.");
   }
 }
 
@@ -311,34 +431,57 @@ async function showBasketActions(ctx: ConversationContext, basket: BasketRow) {
     { id: `bk_share_${basket.id}`, title: safeButtonTitle("Share") },
   ];
   buttons.push({ id: `bk_qr_${basket.id}`, title: safeButtonTitle("QR") });
-  buttons.push({ id: `bk_mems_${basket.id}_0`, title: safeButtonTitle("Members") });
+  buttons.push({
+    id: `bk_mems_${basket.id}_0`,
+    title: safeButtonTitle("Members"),
+  });
   if (basket.status !== "closed") {
-    buttons.push({ id: `bk_leave_${basket.id}`, title: safeButtonTitle("Leave") });
+    buttons.push({
+      id: `bk_leave_${basket.id}`,
+      title: safeButtonTitle("Leave"),
+    });
   }
   if (ctx.userId === basket.creator_id) {
     if (basket.status !== "closed") {
-      buttons.push({ id: `bk_close_${basket.id}`, title: safeButtonTitle("Close") });
+      buttons.push({
+        id: `bk_close_${basket.id}`,
+        title: safeButtonTitle("Close"),
+      });
     }
   } else {
-    buttons.push({ id: `bk_join_${basket.id}`, title: safeButtonTitle("Join") });
+    buttons.push({
+      id: `bk_join_${basket.id}`,
+      title: safeButtonTitle("Join"),
+    });
   }
-  await sendButtons(ctx.phone, `Basket: ${basket.name}`, buttons.slice(0, 3));
+  await replyButtons(ctx, `Basket: ${basket.name}`, buttons.slice(0, 3));
   if (buttons.length > 3) {
-    await sendButtons(ctx.phone, "More actions", buttons.slice(3, 6));
+    await replyButtons(ctx, "More actions", buttons.slice(3, 6));
   }
 }
 
 export async function startBaskets(ctx: ConversationContext) {
-  const baskets = await loadUserBaskets(ctx.userId);
+  const logCtx = ctxFromConversation(ctx);
+  const baskets = await loadUserBaskets(ctx.userId, logCtx);
   const rows = baskets.slice(0, 10).map((basket) => ({
     id: `b_${basket.id}`,
     title: safeRowTitle(basket.name || "(untitled)"),
-    description: safeRowDesc(`${basket.type ?? ""} • ${basket.status ?? ""}`.trim()),
+    description: safeRowDesc(
+      `${basket.type ?? ""} • ${basket.status ?? ""}`.trim(),
+    ),
   }));
-  rows.push({ id: "bk_new", title: "Create basket", description: "Start a new basket" });
-  rows.push({ id: "bk_join_code", title: "Join via code", description: "Send JOIN_BASKET:<code>" });
+  rows.push({
+    id: "bk_new",
+    title: "Create basket",
+    description: "Start a new basket",
+  });
+  rows.push({
+    id: "bk_join_code",
+    title: "Join via code",
+    description: "Send JOIN_BASKET:<code>",
+  });
 
-  await sendList(ctx.phone, {
+  await replyList(ctx, {
     title: "Baskets",
     body: "Manage or create baskets.",
     buttonText: "Open",
@@ -349,22 +492,26 @@ export async function startBaskets(ctx: ConversationContext) {
   ctx.state = { key: "basket_ctx", data: {} };
 }
 
-export async function handleBasketListSelection(ctx: ConversationContext, id: string) {
+export async function handleBasketListSelection(
+  ctx: ConversationContext,
+  id: string,
+) {
+  const logCtx = ctxFromConversation(ctx);
   if (id === "bk_new") {
-    await sendText(ctx.phone, "What is the basket name?");
+    await replyText(ctx, "What is the basket name?");
     await setState(ctx.userId, "await_basket_name", {});
     ctx.state = { key: "await_basket_name", data: {} };
     return;
   }
   if (id === "bk_join_code") {
-    await sendText(ctx.phone, "Send the JOIN_BASKET:<code> you received.");
+    await replyText(ctx, "Send the JOIN_BASKET:<code> you received.");
     return;
   }
   if (id.startsWith("b_")) {
     const basketId = id.replace("b_", "");
-    const basket = await fetchBasket(basketId);
+    const basket = await fetchBasket(basketId, logCtx);
     if (!basket) {
-      await sendText(ctx.phone, "Basket not found.");
+      await replyText(ctx, "Basket not found.");
       return;
     }
     await showBasketActions(ctx, basket);
@@ -372,7 +519,10 @@ export async function handleBasketListSelection(ctx: ConversationContext, id: st
   }
 }
 
-export async function handleBasketText(ctx: ConversationContext, text: string): Promise<boolean> {
+export async function handleBasketText(
+  ctx: ConversationContext,
+  text: string,
+): Promise<boolean> {
   const trimmed = text.trim();
   if (trimmed.toUpperCase().startsWith("JOIN_BASKET:")) {
     const token = trimmed.slice("JOIN_BASKET:".length).trim();
@@ -396,11 +546,11 @@ export async function handleBasketText(ctx: ConversationContext, text: string): 
         return true;
       }
       if (trimmed.toLowerCase() === "no") {
-        await sendText(ctx.phone, "Cancelled basket creation.");
+        await replyText(ctx, "Cancelled basket creation.");
         await startBaskets(ctx);
         return true;
       }
-      await sendText(ctx.phone, "Reply YES to confirm or NO to cancel.");
+      await replyText(ctx, "Reply YES to confirm or NO to cancel.");
       return true;
     case "await_contrib_amount":
       await handleContributionAmount(ctx, trimmed);
@@ -413,11 +563,11 @@ export async function handleBasketText(ctx: ConversationContext, text: string): 
 
 async function handleBasketName(ctx: ConversationContext, name: string) {
   if (!name) {
-    await sendText(ctx.phone, "Name cannot be empty.");
+    await replyText(ctx, "Name cannot be empty.");
     return;
   }
   const data: CreateBasketState = { name };
-  await sendText(ctx.phone, "Describe the basket (optional).");
+  await replyText(ctx, "Describe the basket (optional).");
   await setState(ctx.userId, "await_basket_desc", data);
   ctx.state = { key: "await_basket_desc", data };
 }
@@ -429,7 +579,7 @@ async function handleBasketDesc(ctx: ConversationContext, desc: string) {
     return;
   }
   const data = { ...current, description: desc };
-  await sendButtons(ctx.phone, "Is this basket Public or Private?", [
+  await replyButtons(ctx, "Is this basket Public or Private?", [
     { id: "bk_type_public", title: "Public" },
     { id: "bk_type_private", title: "Private" },
   ]);
@@ -445,7 +595,10 @@ export async function handleBasketType(ctx: ConversationContext, id: string) {
   }
   const type = id === "bk_type_public" ? "public" : "private";
   const data = { ...current, type };
-  await sendText(ctx.phone, "Provide MoMo number/code for contributions, or reply SKIP.");
+  await replyText(
+    ctx,
+    "Provide MoMo number/code for contributions, or reply SKIP.",
+  );
   await setState(ctx.userId, "await_basket_momo", data);
   ctx.state = { key: "await_basket_momo", data };
 }
@@ -465,18 +618,26 @@ async function handleBasketMomo(ctx: ConversationContext, text: string) {
     momo_is_code = digits.length >= 4 && digits.length <= 9;
   }
   const data: CreateBasketState = { ...current, momo_target, momo_is_code };
-  await sendText(ctx.phone, `Confirm basket creation?\nName: ${data.name}\nType: ${data.type}\nMoMo: ${data.momo_target ?? "(none)"}\nReply YES to confirm or NO to cancel.`);
+  await replyText(
+    ctx,
+    `Confirm basket creation?\nName: ${data.name}\nType: ${data.type}\nMoMo: ${
+      data.momo_target ?? "(none)"
+    }\nReply YES to confirm or NO to cancel.`,
+  );
   await setState(ctx.userId, "await_basket_confirm", data);
   ctx.state = { key: "await_basket_confirm", data };
 }
 
 async function finalizeBasket(ctx: ConversationContext) {
+  const logCtx = ctxFromConversation(ctx);
   const data = ctx.state.data as CreateBasketState | undefined;
   if (!data?.name || !data.type) {
     await startBaskets(ctx);
     return;
   }
-  const slug = data.type === "public" ? `${slugifyName(data.name)}-${crypto.randomUUID().slice(0, 6)}` : null;
+  const slug = data.type === "public"
+    ? `${slugifyName(data.name)}-${crypto.randomUUID().slice(0, 6)}`
+    : null;
   try {
     const { data: inserted, error } = await sb
       .from("baskets")
@@ -491,29 +652,38 @@ async function finalizeBasket(ctx: ConversationContext) {
         momo_is_code: data.momo_is_code ?? null,
         created_at: new Date().toISOString(),
       })
-      .select("id,name,type,status,public_slug,creator_id,momo_target,momo_is_code")
+      .select(
+        "id,name,type,status,public_slug,creator_id,momo_target,momo_is_code",
+      )
       .single();
     if (error) throw error;
     const basket = inserted as BasketRow;
-    await ensureMember(basket.id, ctx.userId);
+    await ensureMember(basket.id, ctx.userId, logCtx);
     if (basket.type === "public") {
-      await sendText(ctx.phone, "Basket created and sent for review. We'll notify you once approved.");
+      await replyText(
+        ctx,
+        "Basket created and sent for review. We'll notify you once approved.",
+      );
     } else {
-      await sendText(ctx.phone, "✅ Basket created! You can share it now.");
-      await sendShareLinks(ctx.phone, basket);
+      await replyText(ctx, "✅ Basket created! You can share it now.");
+      await sendShareLinks(ctx, basket);
     }
   } catch (err) {
-    console.error("finalizeBasket failed", err);
-    await sendText(ctx.phone, "Could not create basket. Try again later.");
+    logError("BASKET_FINALIZE_FAILED", err, { userId: ctx.userId }, logCtx);
+    await replyText(ctx, "Could not create basket. Try again later.");
   }
   await clearState(ctx.userId);
   await startBaskets(ctx);
 }
 
-async function handleContributionAmount(ctx: ConversationContext, text: string) {
+async function handleContributionAmount(
+  ctx: ConversationContext,
+  text: string,
+) {
+  const logCtx = ctxFromConversation(ctx);
   const amount = Number.parseInt(text.replace(/\D/g, ""), 10);
   if (!Number.isFinite(amount) || amount <= 0) {
-    await sendText(ctx.phone, "Enter a valid amount (numbers only).");
+    await replyText(ctx, "Enter a valid amount (numbers only).");
     return;
   }
   const current = ctx.state.data as { basket_id?: string } | undefined;
@@ -522,68 +692,85 @@ async function handleContributionAmount(ctx: ConversationContext, text: string) 
     await startBaskets(ctx);
     return;
   }
-  await ensureMember(basketId, ctx.userId);
-  const contribId = await insertContribution(basketId, ctx.userId, amount);
+  await ensureMember(basketId, ctx.userId, logCtx);
+  const contribId = await insertContribution(
+    basketId,
+    ctx.userId,
+    amount,
+    logCtx,
+  );
   if (!contribId) {
-    await sendText(ctx.phone, "Could not submit contribution. Try later.");
+    await replyText(ctx, "Could not submit contribution. Try later.");
     await startBaskets(ctx);
     return;
   }
-  const basket = await fetchBasket(basketId);
+  const basket = await fetchBasket(basketId, logCtx);
   if (basket) {
-    await notifyCreatorOfContribution(basket, contribId, amount, ctx.phone);
+    await notifyCreatorOfContribution(
+      ctx,
+      basket,
+      contribId,
+      amount,
+      ctx.phone,
+    );
   }
-  await sendText(ctx.phone, "Contribution submitted for approval.");
+  await replyText(ctx, "Contribution submitted for approval.");
   await clearState(ctx.userId);
   await startBaskets(ctx);
 }
 
 export async function handleBasketButton(ctx: ConversationContext, id: string) {
+  const logCtx = ctxFromConversation(ctx);
   if (id.startsWith("bk_det_")) {
     const basketId = id.replace("bk_det_", "");
-    const basket = await fetchBasket(basketId);
+    const basket = await fetchBasket(basketId, logCtx);
     if (!basket) {
-      await sendText(ctx.phone, "Basket not found.");
+      await replyText(ctx, "Basket not found.");
       return;
     }
-    await sendText(ctx.phone, `Basket: ${basket.name}\nType: ${basket.type}\nStatus: ${basket.status}\nDescription: ${basket.description ?? "(none)"}`);
+    await replyText(
+      ctx,
+      `Basket: ${basket.name}\nType: ${basket.type}\nStatus: ${basket.status}\nDescription: ${
+        basket.description ?? "(none)"
+      }`,
+    );
     return;
   }
   if (id.startsWith("bk_cont_")) {
     const basketId = id.replace("bk_cont_", "");
-    await sendText(ctx.phone, "Enter contribution amount (RWF).");
+    await replyText(ctx, "Enter contribution amount (RWF).");
     await setState(ctx.userId, "await_contrib_amount", { basket_id: basketId });
     ctx.state = { key: "await_contrib_amount", data: { basket_id: basketId } };
     return;
   }
   if (id.startsWith("bk_share_")) {
     const basketId = id.replace("bk_share_", "");
-    const basket = await fetchBasket(basketId);
+    const basket = await fetchBasket(basketId, logCtx);
     if (!basket) {
-      await sendText(ctx.phone, "Basket not found.");
+      await replyText(ctx, "Basket not found.");
       return;
     }
-    await sendShareLinks(ctx.phone, basket);
+    await sendShareLinks(ctx, basket);
     return;
   }
   if (id.startsWith("bk_qr_")) {
     const basketId = id.replace("bk_qr_", "");
-    const basket = await fetchBasket(basketId);
+    const basket = await fetchBasket(basketId, logCtx);
     if (!basket) {
-      await sendText(ctx.phone, "Basket not found.");
+      await replyText(ctx, "Basket not found.");
       return;
     }
     const { prefill } = buildSharePayload(basket);
     const link = await buildShareLink(undefined, prefill);
     const qr = await buildShareQR(link);
-    await sendImageUrl(ctx.phone, qr, `${basket.name} basket QR`);
+    await replyImage(ctx, qr, `${basket.name} basket QR`);
     return;
   }
   if (id.startsWith("bk_mems_")) {
     const [, basketId, pageRaw] = id.split("_");
-    const basket = await fetchBasket(basketId);
+    const basket = await fetchBasket(basketId, logCtx);
     if (!basket) {
-      await sendText(ctx.phone, "Basket not found.");
+      await replyText(ctx, "Basket not found.");
       return;
     }
     const page = Number.parseInt(pageRaw ?? "0", 10) || 0;
@@ -592,86 +779,103 @@ export async function handleBasketButton(ctx: ConversationContext, id: string) {
   }
   if (id.startsWith("bk_join_")) {
     const basketId = id.replace("bk_join_", "");
-    await ensureMember(basketId, ctx.userId);
-    await sendText(ctx.phone, "Joined the basket successfully.");
+    await ensureMember(basketId, ctx.userId, logCtx);
+    await replyText(ctx, "Joined the basket successfully.");
     return;
   }
   if (id.startsWith("bk_leave_")) {
     const basketId = id.replace("bk_leave_", "");
-    await removeMember(basketId, ctx.userId);
-    await sendText(ctx.phone, "You have left the basket.");
+    await removeMember(basketId, ctx.userId, logCtx);
+    await replyText(ctx, "You have left the basket.");
     return;
   }
   if (id.startsWith("bk_close_")) {
     const basketId = id.replace("bk_close_", "");
-    const basket = await fetchBasket(basketId);
+    const basket = await fetchBasket(basketId, logCtx);
     if (!basket || basket.creator_id !== ctx.userId) {
-      await sendText(ctx.phone, "Only the creator can close this basket.");
+      await replyText(ctx, "Only the creator can close this basket.");
       return;
     }
     try {
       await sb.from("baskets").update({ status: "closed" }).eq("id", basketId);
-      await sendText(ctx.phone, "Basket closed.");
+      await replyText(ctx, "Basket closed.");
     } catch (err) {
-      console.error("close basket failed", err);
-      await sendText(ctx.phone, "Could not close basket.");
+      logError("BASKET_CLOSE_FAILED", err, { basketId }, logCtx);
+      await replyText(ctx, "Could not close basket.");
     }
     return;
   }
   if (id.startsWith("bk_appr_")) {
     const contribId = parseContributionId(id);
-    const contrib = await fetchContribution(contribId);
+    const contrib = await fetchContribution(contribId, logCtx);
     if (!contrib) {
-      await sendText(ctx.phone, "Contribution not found.");
+      await replyText(ctx, "Contribution not found.");
       return;
     }
-    const basket = await fetchBasket(contrib.basket_id);
+    const basket = await fetchBasket(contrib.basket_id, logCtx);
     if (!basket || basket.creator_id !== ctx.userId) {
-      await sendText(ctx.phone, "Only the creator can approve contributions.");
+      await replyText(ctx, "Only the creator can approve contributions.");
       return;
     }
-    await updateContributionStatus(contribId, "approved", ctx.userId);
-    await incrementMemberTotal(contrib.basket_id, contrib.contributor_user_id, contrib.amount_rwf);
-    await notifyContributor(contrib, "✅ Contribution approved! Thank you.");
-    await sendText(ctx.phone, "Contribution approved.");
+    await updateContributionStatus(contribId, "approved", ctx.userId, logCtx);
+    await incrementMemberTotal(
+      contrib.basket_id,
+      contrib.contributor_user_id,
+      contrib.amount_rwf,
+      logCtx,
+    );
+    await notifyContributor(
+      ctx,
+      contrib,
+      "✅ Contribution approved! Thank you.",
+    );
+    await replyText(ctx, "Contribution approved.");
     return;
   }
   if (id.startsWith("bk_rej_")) {
     const contribId = parseContributionId(id);
-    const contrib = await fetchContribution(contribId);
+    const contrib = await fetchContribution(contribId, logCtx);
     if (!contrib) {
-      await sendText(ctx.phone, "Contribution not found.");
+      await replyText(ctx, "Contribution not found.");
       return;
     }
-    const basket = await fetchBasket(contrib.basket_id);
+    const basket = await fetchBasket(contrib.basket_id, logCtx);
     if (!basket || basket.creator_id !== ctx.userId) {
-      await sendText(ctx.phone, "Only the creator can reject contributions.");
+      await replyText(ctx, "Only the creator can reject contributions.");
       return;
     }
-    await updateContributionStatus(contribId, "rejected", ctx.userId);
-    await notifyContributor(contrib, "❌ Contribution rejected by the basket creator.");
-    await sendText(ctx.phone, "Contribution rejected.");
+    await updateContributionStatus(contribId, "rejected", ctx.userId, logCtx);
+    await notifyContributor(
+      ctx,
+      contrib,
+      "❌ Contribution rejected by the basket creator.",
+    );
+    await replyText(ctx, "Contribution rejected.");
     return;
   }
 }
 
-export async function handleBasketTypeButton(ctx: ConversationContext, id: string) {
+export async function handleBasketTypeButton(
+  ctx: ConversationContext,
+  id: string,
+) {
   if (id === "bk_type_public" || id === "bk_type_private") {
     await handleBasketType(ctx, id);
   }
 }
 
 export async function handleJoinToken(ctx: ConversationContext, token: string) {
+  const logCtx = ctxFromConversation(ctx);
   if (!token) {
-    await sendText(ctx.phone, "Invalid code.");
+    await replyText(ctx, "Invalid code.");
     return;
   }
-  const basket = await fetchBasketByToken(token);
+  const basket = await fetchBasketByToken(token, logCtx);
   if (!basket) {
-    await sendText(ctx.phone, "No basket found for that code.");
+    await replyText(ctx, "No basket found for that code.");
     return;
   }
-  await ensureMember(basket.id, ctx.userId);
-  await sendText(ctx.phone, `Joined basket ${basket.name}.`);
+  await ensureMember(basket.id, ctx.userId, logCtx);
+  await replyText(ctx, `Joined basket ${basket.name}.`);
   await showBasketActions(ctx, basket);
 }

@@ -5,6 +5,8 @@ import { getBotDigits } from "../utils/share.ts";
 import { to07FromE164 } from "../utils/phone.ts";
 import { sb } from "../config.ts";
 import { safeRowDesc, safeRowTitle, safeButtonTitle } from "../utils/text.ts";
+import { logError, ctxFromConversation } from "../utils/logger.ts";
+import type { LogContext } from "../utils/logger.ts";
 
 interface MomoQrState {
   kind?: "number" | "code";
@@ -33,6 +35,18 @@ function normalizeCode(input: string): string | null {
   return null;
 }
 
+function replyText(ctx: ConversationContext, body: string, logCtx?: LogContext) {
+  return sendText(ctx.phone, body, logCtx ?? ctxFromConversation(ctx));
+}
+
+function replyButtons(ctx: ConversationContext, body: string, buttons: Parameters<typeof sendButtons>[2], logCtx?: LogContext) {
+  return sendButtons(ctx.phone, body, buttons, logCtx ?? ctxFromConversation(ctx));
+}
+
+function replyList(ctx: ConversationContext, options: Parameters<typeof sendList>[1], logCtx?: LogContext) {
+  return sendList(ctx.phone, options, logCtx ?? ctxFromConversation(ctx));
+}
+
 function buildUssd(kind: "number" | "code", value: string, amount: number | null): string {
   if (kind === "number") {
     return `*182*1*1*${value}${amount ? `*${amount}` : ""}#`;
@@ -58,6 +72,7 @@ async function logRequest(params: {
   tel: string;
   qr: string;
   share: string;
+  logCtx: LogContext;
 }) {
   try {
     await sb.from("momo_qr_requests").insert({
@@ -73,7 +88,10 @@ async function logRequest(params: {
       created_at: new Date().toISOString(),
     });
   } catch (err) {
-    console.error("momo_qr_requests insert failed", err);
+    logError("MOMO_QR_LOG_FAILED", err, {
+      userId: params.userId,
+      kind: params.kind,
+    }, params.logCtx);
   }
 }
 
@@ -85,16 +103,16 @@ function sleep(ms: number) {
 
 async function sendQrImage(ctx: ConversationContext, qr: string, caption: string): Promise<boolean> {
   try {
-    await sendImageUrl(ctx.phone, qr, caption);
+    await sendImageUrl(ctx.phone, qr, caption, ctxFromConversation(ctx));
     return true;
   } catch (error) {
-    console.error("MOMO_QR_IMAGE_SEND_FAILED", error);
+    logError("MOMO_QR_IMAGE_SEND_FAILED", error, {}, ctxFromConversation(ctx));
     return false;
   }
 }
 
 export async function startMomoQr(ctx: ConversationContext) {
-  await sendList(ctx.phone, {
+  await replyList(ctx, {
     title: "MoMo QR",
     body: "Choose how to generate your QR.",
     buttonText: "Choose",
@@ -115,8 +133,8 @@ export async function startMomoQr(ctx: ConversationContext) {
 
 
 async function promptAmount(ctx: ConversationContext, state: MomoQrState, label: string) {
-  await sendText(ctx.phone, `Enter amount in RWF for ${label}, or tap Skip.`);
-  await sendButtons(ctx.phone, "Amount options", [
+  await replyText(ctx, `Enter amount in RWF for ${label}, or tap Skip.`);
+  await replyButtons(ctx, "Amount options", [
     { id: "mqr_amt_skip", title: safeButtonTitle("Skip") },
     { id: "back_home", title: safeButtonTitle("Back") },
   ]);
@@ -131,6 +149,7 @@ async function generateAndSendMomoQR(ctx: ConversationContext, state: MomoQrStat
   const tel = buildTelUri(ussd);
   const qr = buildQrUrl(ussd);
   const caption = kind === "number" ? `MoMo ${value}` : `MoMo code ${value}`;
+  const ctxLog = ctxFromConversation(ctx);
 
   if (!await sendQrImage(ctx, qr, caption)) {
     await sleep(SEND_DELAY_MS);
@@ -138,12 +157,12 @@ async function generateAndSendMomoQR(ctx: ConversationContext, state: MomoQrStat
   }
 
   await sleep(SEND_DELAY_MS);
-  await sendText(ctx.phone, `USSD: ${ussd}\nTap to dial: ${tel}\nShare: ${tel}`);
+  await replyText(ctx, `USSD: ${ussd}\nTap to dial: ${tel}\nShare: ${tel}`, ctxLog);
   await sleep(SEND_DELAY_MS);
-  await sendButtons(ctx.phone, "Need another?", [
+  await replyButtons(ctx, "Need another?", [
     { id: "mqr_again", title: safeButtonTitle("Generate another") },
     { id: "back_home", title: safeButtonTitle("Back to menu") },
-  ]);
+  ], ctxLog);
 
   await logRequest({
     userId: ctx.userId,
@@ -155,6 +174,7 @@ async function generateAndSendMomoQR(ctx: ConversationContext, state: MomoQrStat
     tel,
     qr,
     share: tel,
+    logCtx: ctxLog,
   });
 
   await setState(ctx.userId, "momoqr_start", {});
@@ -165,8 +185,8 @@ export async function handleMomoQrList(ctx: ConversationContext, id: string) {
   if (id === "mqr_use_wa") {
     const digits = await getBotDigits();
     if (!digits) {
-      await sendText(ctx.phone, "No WhatsApp number configured. Please enter a MoMo number instead.");
-      await sendText(ctx.phone, "Enter the MoMo number (07…)");
+      await replyText(ctx, "No WhatsApp number configured. Please enter a MoMo number instead.");
+      await replyText(ctx, "Enter the MoMo number (07…)");
       await setState(ctx.userId, "momoqr_await_number", {});
       ctx.state = { key: "momoqr_await_number", data: {} };
       return;
@@ -177,13 +197,13 @@ export async function handleMomoQrList(ctx: ConversationContext, id: string) {
     return;
   }
   if (id === "mqr_enter_num") {
-    await sendText(ctx.phone, "Enter the MoMo number (07…)");
+    await replyText(ctx, "Enter the MoMo number (07…)");
     await setState(ctx.userId, "momoqr_await_number", {});
     ctx.state = { key: "momoqr_await_number", data: {} };
     return;
   }
   if (id === "mqr_enter_code") {
-    await sendText(ctx.phone, "Enter the MoMo payment code (4–9 digits).");
+    await replyText(ctx, "Enter the MoMo payment code (4–9 digits).");
     await setState(ctx.userId, "momoqr_await_code", {});
     ctx.state = { key: "momoqr_await_code", data: {} };
   }
@@ -211,7 +231,7 @@ export async function handleMomoQrText(ctx: ConversationContext, text: string): 
     case "momoqr_await_number": {
       const normalized = normalizeNumber(trimmed);
       if (!normalized) {
-        await sendText(ctx.phone, "Invalid number. Use format 07XXXXXXXX.");
+        await replyText(ctx, "Invalid number. Use format 07XXXXXXXX.");
         return true;
       }
       await promptAmount(ctx, { kind: "number", value: normalized }, normalized);
@@ -220,7 +240,7 @@ export async function handleMomoQrText(ctx: ConversationContext, text: string): 
     case "momoqr_await_code": {
       const normalized = normalizeCode(trimmed);
       if (!normalized) {
-        await sendText(ctx.phone, "Invalid code. Enter 4–9 digits.");
+        await replyText(ctx, "Invalid code. Enter 4–9 digits.");
         return true;
       }
       await promptAmount(ctx, { kind: "code", value: normalized }, normalized);
@@ -238,7 +258,7 @@ export async function handleMomoQrText(ctx: ConversationContext, text: string): 
       }
       const amount = Number.parseInt(trimmed.replace(/\D/g, ""), 10);
       if (!Number.isFinite(amount) || amount <= 0) {
-        await sendText(ctx.phone, "Enter a valid amount or type SKIP.");
+        await replyText(ctx, "Enter a valid amount or type SKIP.");
         return true;
       }
       const current = ctx.state.data as MomoQrState | undefined;

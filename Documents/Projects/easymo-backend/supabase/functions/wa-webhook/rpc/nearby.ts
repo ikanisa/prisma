@@ -1,4 +1,6 @@
 import { sb } from "../config.ts";
+import { logError, logInfo } from "../utils/logger.ts";
+import type { LogContext } from "../utils/logger.ts";
 
 export interface NearbyDriverRow {
   driver_user_id?: string;
@@ -24,6 +26,7 @@ export async function rpcNearbyDriversByVehicle(
   viewer: string,
   vehicle: string,
   limit = 10,
+  logCtx?: LogContext,
 ): Promise<NearbyDriverRow[]> {
   try {
     const { data, error } = await sb.rpc("nearby_drivers_by_vehicle", {
@@ -34,13 +37,24 @@ export async function rpcNearbyDriversByVehicle(
       _limit: limit,
     });
     if (error) throw error;
-    return Array.isArray(data) ? data as NearbyDriverRow[] : [];
+    const rows = Array.isArray(data) ? data as NearbyDriverRow[] : [];
+    logInfo("RPC_NEARBY_DRIVERS_OK", {
+      viewer,
+      vehicle,
+      count: rows.length,
+      limit,
+    }, logCtx);
+    return rows;
   } catch (err) {
     const message = (err as { message?: string } | null | undefined)?.message ?? "";
     if (message.includes("does not exist")) {
-      console.error("MISSING_RPC: nearby_drivers_by_vehicle");
+      logError("RPC_NEARBY_DRIVERS_MISSING", err, {}, logCtx);
     } else {
-      console.error("nearby_drivers_by_vehicle failed", err);
+      logError("RPC_NEARBY_DRIVERS_FAILED", err, {
+        viewer,
+        vehicle,
+        limit,
+      }, logCtx);
     }
     return [];
   }
@@ -52,6 +66,7 @@ export async function rpcNearbyPassengersByVehicle(
   viewer: string,
   vehicle: string,
   limit = 10,
+  logCtx?: LogContext,
 ): Promise<NearbyPassengerRow[]> {
   try {
     const { data, error } = await sb.rpc("nearby_passengers_by_vehicle", {
@@ -62,19 +77,30 @@ export async function rpcNearbyPassengersByVehicle(
       _limit: limit,
     });
     if (error) throw error;
-    return Array.isArray(data) ? data as NearbyPassengerRow[] : [];
+    const rows = Array.isArray(data) ? data as NearbyPassengerRow[] : [];
+    logInfo("RPC_NEARBY_PASSENGERS_OK", {
+      viewer,
+      vehicle,
+      count: rows.length,
+      limit,
+    }, logCtx);
+    return rows;
   } catch (err) {
     const message = (err as { message?: string } | null | undefined)?.message ?? "";
     if (message.includes("does not exist")) {
-      console.error("MISSING_RPC: nearby_passengers_by_vehicle");
+      logError("RPC_NEARBY_PASSENGERS_MISSING", err, {}, logCtx);
     } else {
-      console.error("nearby_passengers_by_vehicle failed", err);
+      logError("RPC_NEARBY_PASSENGERS_FAILED", err, {
+        viewer,
+        vehicle,
+        limit,
+      }, logCtx);
     }
     return [];
   }
 }
 
-export async function markServedDriver(viewerMsisdn: string, driverUserId?: string | null) {
+export async function markServedDriver(viewerMsisdn: string, driverUserId?: string | null, logCtx?: LogContext) {
   if (!driverUserId) return;
   try {
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
@@ -85,11 +111,14 @@ export async function markServedDriver(viewerMsisdn: string, driverUserId?: stri
       created_at: new Date().toISOString(),
     });
   } catch (err) {
-    console.error("markServedDriver failed", err);
+    logError("SERVED_DRIVER_MARK_FAILED", err, {
+      viewer: viewerMsisdn,
+      driverUserId,
+    }, logCtx);
   }
 }
 
-export async function markServedPassenger(viewerMsisdn: string, tripId?: string | null) {
+export async function markServedPassenger(viewerMsisdn: string, tripId?: string | null, logCtx?: LogContext) {
   if (!tripId) return;
   try {
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
@@ -100,6 +129,9 @@ export async function markServedPassenger(viewerMsisdn: string, tripId?: string 
       created_at: new Date().toISOString(),
     });
   } catch (err) {
-    console.error("markServedPassenger failed", err);
+    logError("SERVED_PASSENGER_MARK_FAILED", err, {
+      viewer: viewerMsisdn,
+      tripId,
+    }, logCtx);
   }
 }

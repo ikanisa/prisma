@@ -4,6 +4,8 @@ export interface ChatState<T = unknown> {
 }
 
 export interface ConversationContext {
+  requestId: string;
+  startedAt: number;
   userId: string;
   phone: string;
   state: ChatState;

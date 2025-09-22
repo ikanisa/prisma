@@ -11,6 +11,7 @@ import {
   NearbyDriverRow,
   NearbyPassengerRow,
 } from "../rpc/nearby.ts";
+import { ctxFromConversation } from "../utils/logger.ts";
 
 interface DriverOption {
   title: string;
@@ -104,7 +105,7 @@ async function askForVehicle(ctx: ConversationContext, kind: "drivers" | "passen
       title: safeRowTitle(row.title),
       description: safeRowDesc(""),
     })),
-  });
+  }, ctxFromConversation(ctx));
 }
 
 export async function startNearbyDrivers(ctx: ConversationContext) {
@@ -123,29 +124,29 @@ export async function handleDriverVehicleChoice(ctx: ConversationContext, id: st
   const vehicle = vehicleFromId(id);
   await setState(ctx.userId, "near_await_loc_drivers", { vehicle_type: vehicle });
   ctx.state = { key: "near_await_loc_drivers", data: { vehicle_type: vehicle } };
-  await sendText(ctx.phone, "Share your live location to see nearby drivers.");
+  await sendText(ctx.phone, "Share your live location to see nearby drivers.", ctxFromConversation(ctx));
 }
 
 export async function handlePassengerVehicleChoice(ctx: ConversationContext, id: string) {
   const vehicle = vehicleFromId(id);
   await setState(ctx.userId, "near_await_loc_passengers", { vehicle_type: vehicle });
   ctx.state = { key: "near_await_loc_passengers", data: { vehicle_type: vehicle } };
-  await sendText(ctx.phone, "Share your live location to find passengers near you.");
+  await sendText(ctx.phone, "Share your live location to find passengers near you.", ctxFromConversation(ctx));
 }
 
 export async function handleDriverLocation(ctx: ConversationContext, lat: number, lon: number) {
   const current = (ctx.state.data as NearbyState<DriverOption> | undefined) ?? {};
   const vehicle = current.vehicle_type ?? "";
   if (!vehicle) {
-    await sendText(ctx.phone, "Please choose a vehicle type first.");
+    await sendText(ctx.phone, "Please choose a vehicle type first.", ctxFromConversation(ctx));
     await startNearbyDrivers(ctx);
     return;
   }
 
-  const rows = await rpcNearbyDriversByVehicle(lat, lon, ctx.phone, vehicle, 10);
+  const rows = await rpcNearbyDriversByVehicle(lat, lon, ctx.phone, vehicle, 10, ctxFromConversation(ctx));
   const options = makeDriverOptions(rows);
   if (!options.length) {
-    await sendText(ctx.phone, "No drivers nearby for that vehicle right now. Try again soon.");
+    await sendText(ctx.phone, "No drivers nearby for that vehicle right now. Try again soon.", ctxFromConversation(ctx));
     await setState(ctx.userId, "home", {});
     ctx.state = { key: "home", data: {} };
     return;
@@ -161,7 +162,7 @@ export async function handleDriverLocation(ctx: ConversationContext, lat: number
       title: safeRowTitle(option.title),
       description: safeRowDesc(option.description),
     })),
-  });
+  }, ctxFromConversation(ctx));
 
   const nextState: NearbyState<DriverOption> = {
     vehicle_type: vehicle,
@@ -175,15 +176,15 @@ export async function handlePassengerLocation(ctx: ConversationContext, lat: num
   const current = (ctx.state.data as NearbyState<PassengerOption> | undefined) ?? {};
   const vehicle = current.vehicle_type ?? "";
   if (!vehicle) {
-    await sendText(ctx.phone, "Please choose a vehicle type first.");
+    await sendText(ctx.phone, "Please choose a vehicle type first.", ctxFromConversation(ctx));
     await startNearbyPassengers(ctx);
     return;
   }
 
-  const rows = await rpcNearbyPassengersByVehicle(lat, lon, ctx.phone, vehicle, 10);
+  const rows = await rpcNearbyPassengersByVehicle(lat, lon, ctx.phone, vehicle, 10, ctxFromConversation(ctx));
   const options = makePassengerOptions(rows);
   if (!options.length) {
-    await sendText(ctx.phone, "No passengers nearby for that vehicle right now. Try again soon.");
+    await sendText(ctx.phone, "No passengers nearby for that vehicle right now. Try again soon.", ctxFromConversation(ctx));
     await setState(ctx.userId, "home", {});
     ctx.state = { key: "home", data: {} };
     return;
@@ -199,7 +200,7 @@ export async function handlePassengerLocation(ctx: ConversationContext, lat: num
       title: safeRowTitle(option.title),
       description: safeRowDesc(option.description),
     })),
-  });
+  }, ctxFromConversation(ctx));
 
   const nextState: NearbyState<PassengerOption> = {
     vehicle_type: vehicle,
@@ -214,18 +215,18 @@ export async function handleDriverSelection(ctx: ConversationContext, id: string
   const current = (ctx.state.data as NearbyState<DriverOption> | undefined) ?? {};
   const option = current.results?.[index];
   if (!option) {
-    await sendText(ctx.phone, "Driver no longer available.");
+    await sendText(ctx.phone, "Driver no longer available.", ctxFromConversation(ctx));
     return;
   }
 
   const digits = option.wa.replace(/\D/g, "");
   if (!digits) {
-    await sendText(ctx.phone, "Driver contact unavailable. Try another option.");
+    await sendText(ctx.phone, "Driver contact unavailable. Try another option.", ctxFromConversation(ctx));
     return;
   }
 
-  await sendText(ctx.phone, `Open chat: https://wa.me/${digits}`);
-  await markServedDriver(ctx.phone, option.driver_user_id ?? null);
+  await sendText(ctx.phone, `Open chat: https://wa.me/${digits}`, ctxFromConversation(ctx));
+  await markServedDriver(ctx.phone, option.driver_user_id ?? null, ctxFromConversation(ctx));
   await setState(ctx.userId, "home", {});
   ctx.state = { key: "home", data: {} };
 }
@@ -235,18 +236,18 @@ export async function handlePassengerSelection(ctx: ConversationContext, id: str
   const current = (ctx.state.data as NearbyState<PassengerOption> | undefined) ?? {};
   const option = current.results?.[index];
   if (!option) {
-    await sendText(ctx.phone, "Passenger no longer available.");
+    await sendText(ctx.phone, "Passenger no longer available.", ctxFromConversation(ctx));
     return;
   }
 
   const digits = option.wa.replace(/\D/g, "");
   if (!digits) {
-    await sendText(ctx.phone, "Passenger contact unavailable right now.");
+    await sendText(ctx.phone, "Passenger contact unavailable right now.", ctxFromConversation(ctx));
     return;
   }
 
-  await sendText(ctx.phone, `Open chat: https://wa.me/${digits}`);
-  await markServedPassenger(ctx.phone, option.passenger_trip_id ?? null);
+  await sendText(ctx.phone, `Open chat: https://wa.me/${digits}`, ctxFromConversation(ctx));
+  await markServedPassenger(ctx.phone, option.passenger_trip_id ?? null, ctxFromConversation(ctx));
   await setState(ctx.userId, "home", {});
   ctx.state = { key: "home", data: {} };
 }

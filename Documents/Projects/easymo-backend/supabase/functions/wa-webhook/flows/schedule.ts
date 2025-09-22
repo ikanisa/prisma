@@ -5,6 +5,7 @@ import { sb } from "../config.ts";
 import { fmtKm, safeRowDesc, safeRowTitle } from "../utils/text.ts";
 import { to07FromE164 } from "../utils/phone.ts";
 import { rpcMatchDriversForTrip, rpcMatchPassengersForTrip, TripMatchRow } from "../rpc/match.ts";
+import { ctxFromConversation } from "../utils/logger.ts";
 
 interface ScheduleState {
   role?: "passenger" | "driver";
@@ -42,8 +43,20 @@ function vehicleFromId(id: string): string {
   return "others";
 }
 
+function replyText(ctx: ConversationContext, body: string) {
+  return sendText(ctx.phone, body, ctxFromConversation(ctx));
+}
+
+function replyButtons(ctx: ConversationContext, body: string, buttons: Parameters<typeof sendButtons>[2]) {
+  return sendButtons(ctx.phone, body, buttons, ctxFromConversation(ctx));
+}
+
+function replyList(ctx: ConversationContext, options: Parameters<typeof sendList>[1]) {
+  return sendList(ctx.phone, options, ctxFromConversation(ctx));
+}
+
 export async function startSchedule(ctx: ConversationContext) {
-  await sendList(ctx.phone, {
+  await replyList(ctx, {
     title: "Schedule Trip",
     body: "Who are you scheduling for?",
     buttonText: "Select",
@@ -60,7 +73,7 @@ export async function startSchedule(ctx: ConversationContext) {
 
 export async function handleRoleChoice(ctx: ConversationContext, id: string) {
   const role: "passenger" | "driver" = id === "role_driver" ? "driver" : "passenger";
-  await sendList(ctx.phone, {
+  await replyList(ctx, {
     title: "Select Vehicle",
     body: "Which vehicle type?",
     buttonText: "Choose",
@@ -86,7 +99,7 @@ export async function handleVehicleChoice(ctx: ConversationContext, id: string) 
 
   const vehicle_type = vehicleFromId(id);
   const nextState: ScheduleState = { role, vehicle_type };
-  await sendText(ctx.phone, "Share pickup location to schedule your trip.");
+  await replyText(ctx, "Share pickup location to schedule your trip.");
   await setState(ctx.userId, "await_schedule_pickup", nextState);
   ctx.state = { key: "await_schedule_pickup", data: nextState };
 }
@@ -130,7 +143,7 @@ export async function handlePickupLocation(ctx: ConversationContext, lat: number
   }
 
   const tripId = await insertTrip(ctx.userId, role, vehicle_type, lon, lat);
-  await sendButtons(ctx.phone, "Add a drop-off point?", [
+  await replyButtons(ctx, "Add a drop-off point?", [
     { id: `sched_add_drop_${tripId}`, title: "Add Drop-off" },
     { id: `sched_skip_drop_${tripId}`, title: "Skip" },
   ]);
@@ -143,23 +156,24 @@ export async function handlePickupLocation(ctx: ConversationContext, lat: number
 export async function handleAddDropButton(ctx: ConversationContext, tripId: string) {
   const current = (ctx.state.data as ScheduleState | undefined) ?? {};
   if (!current.trip_id || current.trip_id !== tripId) {
-    await sendText(ctx.phone, "Trip session expired. Start again.");
+    await replyText(ctx, "Trip session expired. Start again.");
     await startSchedule(ctx);
     return;
   }
 
-  await sendText(ctx.phone, "Share the drop-off location.");
+  await replyText(ctx, "Share the drop-off location.");
   await setState(ctx.userId, "sched_await_drop", current);
   ctx.state = { key: "sched_await_drop", data: current };
 }
 
 async function matchTrips(ctx: ConversationContext, tripId: string, role: "passenger" | "driver", vehicle_type?: string) {
+  const logCtx = ctxFromConversation(ctx);
   const matches = role === "passenger"
-    ? await rpcMatchDriversForTrip(tripId, 10)
-    : await rpcMatchPassengersForTrip(tripId, 10);
+    ? await rpcMatchDriversForTrip(tripId, 10, logCtx)
+    : await rpcMatchPassengersForTrip(tripId, 10, logCtx);
 
   if (!matches.length) {
-    await sendText(ctx.phone, "No matches yet. We will notify you when someone is available.");
+    await replyText(ctx, "No matches yet. We will notify you when someone is available.");
     await setState(ctx.userId, "home", {});
     ctx.state = { key: "home", data: {} };
     return;
@@ -179,7 +193,7 @@ async function matchTrips(ctx: ConversationContext, tripId: string, role: "passe
     };
   });
 
-  await sendList(ctx.phone, {
+  await replyList(ctx, {
     title: "Possible Matches",
     body: `Here are ${options.length} match(es). Choose one to contact on WhatsApp.`,
     buttonText: "View",
@@ -199,7 +213,7 @@ async function matchTrips(ctx: ConversationContext, tripId: string, role: "passe
 export async function handleSkipDrop(ctx: ConversationContext, tripId: string) {
   const current = (ctx.state.data as ScheduleState | undefined) ?? {};
   if (!current.trip_id || current.trip_id !== tripId || !current.role) {
-    await sendText(ctx.phone, "Trip session expired. Start again.");
+    await replyText(ctx, "Trip session expired. Start again.");
     await startSchedule(ctx);
     return;
   }
@@ -210,7 +224,7 @@ export async function handleSkipDrop(ctx: ConversationContext, tripId: string) {
 export async function handleDropLocation(ctx: ConversationContext, lat: number, lon: number) {
   const current = (ctx.state.data as ScheduleState | undefined) ?? {};
   if (!current.trip_id || !current.role) {
-    await sendText(ctx.phone, "Trip session expired. Start again.");
+    await replyText(ctx, "Trip session expired. Start again.");
     await startSchedule(ctx);
     return;
   }
@@ -225,24 +239,24 @@ export async function handleMatchSelection(ctx: ConversationContext, id: string)
   const tripId = parts[2] ?? "";
   const current = (ctx.state.data as ScheduleState | undefined) ?? {};
   if (!current.trip_id || current.trip_id !== tripId) {
-    await sendText(ctx.phone, "Match expired. Start again.");
+    await replyText(ctx, "Match expired. Start again.");
     await startSchedule(ctx);
     return;
   }
 
   const option = current.results?.[index];
   if (!option) {
-    await sendText(ctx.phone, "Match unavailable. Try another option.");
+    await replyText(ctx, "Match unavailable. Try another option.");
     return;
   }
 
   const digits = option.wa.replace(/\D/g, "");
   if (!digits) {
-    await sendText(ctx.phone, "Contact unavailable at the moment.");
+    await replyText(ctx, "Contact unavailable at the moment.");
     return;
   }
 
-  await sendText(ctx.phone, `Open chat: https://wa.me/${digits}`);
+  await replyText(ctx, `Open chat: https://wa.me/${digits}`);
   await setState(ctx.userId, "home", {});
   ctx.state = { key: "home", data: {} };
 }

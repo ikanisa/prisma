@@ -1,4 +1,6 @@
 import { sb } from "../config.ts";
+import { logError } from "../utils/logger.ts";
+import type { LogContext } from "../utils/logger.ts";
 
 export interface CategoryRow {
   id: number;
@@ -18,7 +20,7 @@ export interface BusinessRow {
   is_active?: boolean;
 }
 
-export async function fetchMarketplaceCategories(): Promise<CategoryRow[]> {
+export async function fetchMarketplaceCategories(logCtx?: LogContext): Promise<CategoryRow[]> {
   try {
     const { data, error } = await sb
       .from("marketplace_categories")
@@ -28,12 +30,12 @@ export async function fetchMarketplaceCategories(): Promise<CategoryRow[]> {
     if (error) throw error;
     return Array.isArray(data) ? data as CategoryRow[] : [];
   } catch (err) {
-    console.error("fetchMarketplaceCategories failed", err);
+    logError("MARKETPLACE_CATEGORIES_FAILED", err, {}, logCtx);
     return [];
   }
 }
 
-export async function fetchBusinessById(id: string): Promise<BusinessRow | null> {
+export async function fetchBusinessById(id: string, logCtx?: LogContext): Promise<BusinessRow | null> {
   try {
     const { data, error } = await sb
       .from("businesses")
@@ -43,7 +45,7 @@ export async function fetchBusinessById(id: string): Promise<BusinessRow | null>
     if (error) throw error;
     return (data as BusinessRow) ?? null;
   } catch (err) {
-    console.error("fetchBusinessById failed", err);
+    logError("MARKETPLACE_BUSINESS_FETCH_FAILED", err, { id }, logCtx);
     return null;
   }
 }
@@ -55,7 +57,7 @@ export async function insertBusiness(payload: {
   description?: string | null;
   catalog_url?: string | null;
   geo?: string | null;
-}) {
+}, logCtx?: LogContext) {
   try {
     const { data, error } = await sb
       .from("businesses")
@@ -65,7 +67,7 @@ export async function insertBusiness(payload: {
     if (error) throw error;
     return data?.id as string;
   } catch (err) {
-    console.error("insertBusiness failed", err);
+    logError("MARKETPLACE_INSERT_FAILED", err, { owner: payload.owner_whatsapp }, logCtx);
     return null;
   }
 }
@@ -75,6 +77,7 @@ export async function rpcNearbyBusinesses(
   lon: number,
   viewer: string,
   limit = 10,
+  logCtx?: LogContext,
 ): Promise<BusinessRow[]> {
   try {
     const { data, error } = await sb.rpc("nearby_businesses", {
@@ -86,7 +89,10 @@ export async function rpcNearbyBusinesses(
     if (error) throw error;
     return Array.isArray(data) ? data as BusinessRow[] : [];
   } catch (err) {
-    console.error("nearby_businesses failed", err);
+    logError("RPC_NEARBY_BUSINESSES_FAILED", err, {
+      viewer,
+      limit,
+    }, logCtx);
     return [];
   }
 }

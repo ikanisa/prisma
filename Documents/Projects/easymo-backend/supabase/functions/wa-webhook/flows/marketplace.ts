@@ -9,6 +9,7 @@ import {
   insertBusiness,
   rpcNearbyBusinesses,
 } from "../rpc/marketplace.ts";
+import { ctxFromConversation } from "../utils/logger.ts";
 
 interface MarketplaceState {
   mode?: "create" | "discover";
@@ -39,8 +40,20 @@ function toWaDigits(value: string | undefined): string {
   return e164(value).replace(/\D/g, "");
 }
 
+function replyText(ctx: ConversationContext, body: string) {
+  return sendText(ctx.phone, body, ctxFromConversation(ctx));
+}
+
+function replyButtons(ctx: ConversationContext, body: string, buttons: Parameters<typeof sendButtons>[2]) {
+  return sendButtons(ctx.phone, body, buttons, ctxFromConversation(ctx));
+}
+
+function replyList(ctx: ConversationContext, options: Parameters<typeof sendList>[1]) {
+  return sendList(ctx.phone, options, ctxFromConversation(ctx));
+}
+
 export async function startMarketplace(ctx: ConversationContext) {
-  await sendButtons(ctx.phone, "Marketplace options", [
+  await replyButtons(ctx, "Marketplace options", [
     { id: "mk_add", title: "Create Business" },
     { id: "mk_see", title: "Discover" },
   ]);
@@ -49,14 +62,14 @@ export async function startMarketplace(ctx: ConversationContext) {
 }
 
 async function promptCategory(ctx: ConversationContext, mode: "create" | "discover") {
-  const categories = await fetchMarketplaceCategories();
+  const categories = await fetchMarketplaceCategories(ctxFromConversation(ctx));
   if (!categories.length) {
-    await sendText(ctx.phone, "No categories available right now.");
+    await replyText(ctx, "No categories available right now.");
     await setState(ctx.userId, "home", {});
     ctx.state = { key: "home", data: {} };
     return;
   }
-  await sendList(ctx.phone, {
+  await replyList(ctx, {
     title: "Marketplace Categories",
     body: mode === "create" ? "Pick a category for your business." : "Which category do you want to browse?",
     buttonText: "Choose",
@@ -89,7 +102,7 @@ export async function handleCreateCategory(ctx: ConversationContext, id: string)
     await startMarketplace(ctx);
     return;
   }
-  await sendText(ctx.phone, "Send the business name.");
+  await replyText(ctx, "Send the business name.");
   await setState(ctx.userId, "await_business_name", { category_id: catId });
   ctx.state = { key: "await_business_name", data: { category_id: catId } };
 }
@@ -100,7 +113,7 @@ export async function handleDiscoverCategory(ctx: ConversationContext, id: strin
     await startMarketplace(ctx);
     return;
   }
-  await sendText(ctx.phone, "Share your location to discover nearby businesses.");
+  await replyText(ctx, "Share your location to discover nearby businesses.");
   await setState(ctx.userId, "await_market_see_loc", { category_id: catId });
   ctx.state = { key: "await_market_see_loc", data: { category_id: catId } };
 }
@@ -112,7 +125,7 @@ export async function handleBusinessName(ctx: ConversationContext, text: string)
     return;
   }
   const data = { ...current, name: text.trim() };
-  await sendText(ctx.phone, "Optional: send a short description.");
+  await replyText(ctx, "Optional: send a short description.");
   await setState(ctx.userId, "await_business_desc", data);
   ctx.state = { key: "await_business_desc", data };
 }
@@ -124,8 +137,8 @@ export async function handleBusinessDesc(ctx: ConversationContext, text: string)
     return;
   }
   const data = { ...current, description: text.trim() };
-  await sendText(ctx.phone, "Share a catalog URL or tap Skip.");
-  await sendButtons(ctx.phone, "Catalog link?", [
+  await replyText(ctx, "Share a catalog URL or tap Skip.");
+  await replyButtons(ctx, "Catalog link?", [
     { id: "biz_catalog_skip", title: "Skip" },
   ]);
   await setState(ctx.userId, "await_business_catalog", data);
@@ -140,7 +153,7 @@ export async function handleBusinessCatalog(ctx: ConversationContext, text: stri
   }
   const normalized = text.trim();
   if (!normalized) {
-    await sendText(ctx.phone, "Please send a valid URL or tap Skip.");
+    await replyText(ctx, "Please send a valid URL or tap Skip.");
     return;
   }
   if (normalized.toLowerCase() === "skip") {
@@ -148,7 +161,7 @@ export async function handleBusinessCatalog(ctx: ConversationContext, text: stri
     return;
   }
   const data = { ...current, catalog_url: normalized };
-  await sendText(ctx.phone, "Share your business location.");
+  await replyText(ctx, "Share your business location.");
   await setState(ctx.userId, "await_business_location", data);
   ctx.state = { key: "await_business_location", data };
 }
@@ -160,7 +173,7 @@ export async function handleCatalogSkip(ctx: ConversationContext) {
     return;
   }
   const data = { ...current, catalog_url: null };
-  await sendText(ctx.phone, "Share your business location.");
+  await replyText(ctx, "Share your business location.");
   await setState(ctx.userId, "await_business_location", data);
   ctx.state = { key: "await_business_location", data };
 }
@@ -180,15 +193,15 @@ export async function handleBusinessLocation(ctx: ConversationContext, lat: numb
     description: current.description ?? null,
     catalog_url: current.catalog_url ?? null,
     geo,
-  });
+  }, ctxFromConversation(ctx));
 
   if (!id) {
-    await sendText(ctx.phone, "Could not save business. Try again later.");
+    await replyText(ctx, "Could not save business. Try again later.");
     await startMarketplace(ctx);
     return;
   }
 
-  await sendText(ctx.phone, "Business submitted! We'll review it shortly.");
+  await replyText(ctx, "Business submitted! We'll review it shortly.");
   await setState(ctx.userId, "home", {});
   ctx.state = { key: "home", data: {} };
 }
@@ -200,10 +213,10 @@ export async function handleDiscoverLocation(ctx: ConversationContext, lat: numb
     return;
   }
 
-  const rows = await rpcNearbyBusinesses(lat, lon, ctx.phone, 20);
+  const rows = await rpcNearbyBusinesses(lat, lon, ctx.phone, 20, ctxFromConversation(ctx));
   const filtered = rows.filter((row) => row.category_id === current.category_id);
   if (!filtered.length) {
-    await sendText(ctx.phone, "No businesses nearby for that category right now.");
+    await replyText(ctx, "No businesses nearby for that category right now.");
     await setState(ctx.userId, "home", {});
     ctx.state = { key: "home", data: {} };
     return;
@@ -217,7 +230,7 @@ export async function handleDiscoverLocation(ctx: ConversationContext, lat: numb
     catalog_url: row.catalog_url ?? null,
   }));
 
-  await sendList(ctx.phone, {
+  await replyList(ctx, {
     title: "Nearby Businesses",
     body: `Found ${options.length} result(s). Choose one for actions.`,
     buttonText: "View",
@@ -242,11 +255,11 @@ export async function handleBusinessAction(ctx: ConversationContext, id: string)
     const current = ctx.state.data as MarketplaceState | undefined;
     const option = current?.temp_results?.[idx];
     if (!option || option.id !== bizId) {
-      await sendText(ctx.phone, "Business not available now.");
+      await replyText(ctx, "Business not available now.");
       return;
     }
 
-    await sendButtons(ctx.phone, option.name, [
+    await replyButtons(ctx, option.name, [
       { id: `biz_contact_${bizId}`, title: "Contact" },
       { id: `biz_catalog_${bizId}`, title: "View Catalog" },
     ]);
@@ -255,23 +268,23 @@ export async function handleBusinessAction(ctx: ConversationContext, id: string)
 
   if (id.startsWith("biz_contact_")) {
     const bizId = id.replace("biz_contact_", "");
-    const business = await fetchBusinessById(bizId);
+    const business = await fetchBusinessById(bizId, ctxFromConversation(ctx));
     const digits = toWaDigits(business?.owner_whatsapp);
     if (!digits) {
-      await sendText(ctx.phone, "Contact unavailable.");
+      await replyText(ctx, "Contact unavailable.");
       return;
     }
-    await sendText(ctx.phone, `Open chat: https://wa.me/${digits}`);
+    await replyText(ctx, `Open chat: https://wa.me/${digits}`);
     return;
   }
 
   if (id.startsWith("biz_catalog_")) {
     const bizId = id.replace("biz_catalog_", "");
-    const business = await fetchBusinessById(bizId);
+    const business = await fetchBusinessById(bizId, ctxFromConversation(ctx));
     if (!business?.catalog_url) {
-      await sendText(ctx.phone, "No catalog link provided.");
+      await replyText(ctx, "No catalog link provided.");
       return;
     }
-    await sendText(ctx.phone, business.catalog_url);
+    await replyText(ctx, business.catalog_url);
   }
 }

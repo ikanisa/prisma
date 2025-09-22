@@ -1,5 +1,6 @@
 import { sb } from "../config.ts";
 import { e164 } from "./phone.ts";
+import { logError } from "./logger.ts";
 
 let cachedDigits: string | null = null;
 
@@ -15,7 +16,7 @@ async function fetchBotDigits(): Promise<string> {
     const value = data?.WA_BOT_NUMBER_E164 ?? "";
     cachedDigits = value ? e164(value).replace(/\D/g, "") : "";
   } catch (error) {
-    console.error("FETCH_BOT_DIGITS_FAILED", error);
+    logError("FETCH_BOT_DIGITS_FAILED", error);
     cachedDigits = "";
   }
   return cachedDigits;

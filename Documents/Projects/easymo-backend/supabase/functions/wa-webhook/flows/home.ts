@@ -1,6 +1,8 @@
 import { sendButtons, sendImageUrl, sendList, sendText } from "../wa/client.ts";
 import { safeButtonTitle, safeRowDesc, safeRowTitle } from "../utils/text.ts";
 import { buildShareLink, buildShareQR } from "../utils/share.ts";
+import { ctxFromConversation, logError } from "../utils/logger.ts";
+import { ConversationContext } from "../state/types.ts";
 
 const MENU_ROWS = [
   { id: "see_drivers", title: "Nearby Drivers" },
@@ -19,8 +21,9 @@ const SHARE_BUTTONS = [
 
 export const HOME_MENU_IDS = MENU_ROWS.map((row) => row.id);
 
-export async function sendHome(to: string) {
-  await sendList(to, {
+export async function sendHome(ctx: ConversationContext) {
+  const logCtx = ctxFromConversation(ctx);
+  await sendList(ctx.phone, {
     title: "easyMO",
     body: "What would you like to do?",
     buttonText: "Open Menu",
@@ -30,30 +33,43 @@ export async function sendHome(to: string) {
       title: safeRowTitle(row.title),
       description: safeRowDesc(""),
     })),
-  });
+  }, logCtx);
 
-  await sendButtons(to, "Love easyMO??? Share it!", SHARE_BUTTONS);
+  await sendButtons(
+    ctx.phone,
+    "Love easyMO??? Share it!",
+    SHARE_BUTTONS,
+    logCtx,
+  );
 }
 
-export async function handleShareButton(to: string, id: string) {
+export async function handleShareButton(ctx: ConversationContext, id: string) {
+  const logCtx = ctxFromConversation(ctx);
   const link = await buildShareLink();
   if (id === "share_link") {
-    await sendText(to, `Share easyMO with friends:\n${link}`);
+    await sendText(ctx.phone, `Share easyMO with friends:\n${link}`, logCtx);
     return;
   }
   if (id === "share_qr") {
     const qr = await buildShareQR(link);
     if (qr) {
       try {
-        await sendImageUrl(to, qr, "Scan to share easyMO");
+        await sendImageUrl(ctx.phone, qr, "Scan to share easyMO", logCtx);
       } catch (error) {
-        console.error("SHARE_QR_SEND_FAILED", error);
+        logError("SHARE_QR_SEND_FAILED", error, {}, logCtx);
       }
     }
-    await sendText(to, `Share easyMO with friends:\n${link}`);
+    await sendText(ctx.phone, `Share easyMO with friends:\n${link}`, logCtx);
   }
 }
 
-export async function handleHomeSelection(to: string, id: string) {
-  await sendText(to, "Thanks for your interest! We'll keep you posted.");
+export async function handleHomeSelection(
+  ctx: ConversationContext,
+  id: string,
+) {
+  await sendText(
+    ctx.phone,
+    "Thanks for your interest! We'll keep you posted.",
+    ctxFromConversation(ctx),
+  );
 }

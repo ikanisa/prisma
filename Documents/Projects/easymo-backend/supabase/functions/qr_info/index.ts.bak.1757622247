@@ -1,0 +1,41 @@
+// deno-lint-ignore-file no-explicit-any
+import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
+
+const sb = createClient(
+  Deno.env.get("SUPABASE_URL")!,
+  Deno.env.get("SERVICE_ROLE_KEY") ?? Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+);
+
+function mask(s: string) { return s.replace(/.(?=.{4})/g, "●"); }
+
+serve(async (req) => {
+  const url = new URL(req.url);
+  const secret = url.searchParams.get("qr_secret");
+  if (!secret) return new Response(JSON.stringify({ error: "Missing qr_secret" }), { status: 400 });
+
+  const { data: qr } = await sb.from("wallet_qr").select("*").eq("qr_secret", secret).maybeSingle();
+  if (!qr || qr.revoked) return new Response(JSON.stringify({ error: "Invalid QR" }), { status: 404 });
+
+  const { data: wallet } = await sb.from("wallets").select("*").eq("id", qr.wallet_id).maybeSingle();
+  if (!wallet) return new Response(JSON.stringify({ error: "Wallet not found" }), { status: 404 });
+
+  // mint session (2 minutes)
+  const expires = new Date(Date.now() + 2 * 60 * 1000).toISOString();
+  const ins = await sb.from("scan_sessions").insert({
+    wallet_id: wallet.id, qr_secret: secret, expires_at: expires
+  }).select("*").single();
+  if (ins.error) return new Response(JSON.stringify({ error: ins.error.message }), { status: 500 });
+
+  // balance
+  const { data: balRow } = await sb.from("v_wallet_balances").select("balance").eq("wallet_id", wallet.id).maybeSingle();
+  const balance = balRow?.balance ?? 0;
+
+  return new Response(JSON.stringify({
+    wallet_mask: `Wallet ${mask(wallet.user_code)}`,
+    balance,
+    status: wallet.status,
+    scan_session_token: ins.data.id,
+    expires_at: expires
+  }), { status: 200, headers: { "Content-Type": "application/json" }});
+});

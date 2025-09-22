@@ -3,6 +3,8 @@ import { ConversationContext } from "../state/types.ts";
 import { clearState, setState } from "../state/store.ts";
 import { sb, OPENAI_API_KEY } from "../config.ts";
 import { fetchWAMedia, extOf } from "../utils/media.ts";
+import { logError, logInfo, ctxFromConversation } from "../utils/logger.ts";
+import type { LogContext } from "../utils/logger.ts";
 
 interface InsuranceLead {
   id: string;
@@ -34,7 +36,7 @@ async function getAdminNumbers(): Promise<string[]> {
     cachedAdmins = { numbers: nums, fetchedAt: now };
     return nums;
   } catch (err) {
-    console.error("getAdminNumbers failed", err);
+    logError("INSURANCE_ADMIN_FETCH_FAILED", err);
     cachedAdmins = { numbers: [], fetchedAt: now };
     return [];
   }
@@ -53,9 +55,9 @@ async function upsertLead(phone: string): Promise<InsuranceLead> {
   return insert.data as InsuranceLead;
 }
 
-async function callOpenAI(url: string): Promise<{ raw: string | null; extracted: Record<string, unknown> | null }> {
+async function callOpenAI(url: string, logCtx: LogContext): Promise<{ raw: string | null; extracted: Record<string, unknown> | null }> {
   if (!OPENAI_API_KEY) {
-    console.error("MISSING_OPENAI_API_KEY");
+    logError("INSURANCE_OPENAI_MISSING_KEY", new Error("OPENAI_API_KEY missing"), {}, logCtx);
     return { raw: null, extracted: null };
   }
   try {
@@ -77,7 +79,10 @@ async function callOpenAI(url: string): Promise<{ raw: string | null; extracted:
     });
     if (!response.ok) {
       const text = await response.text();
-      console.error("OpenAI error", text);
+      logError("INSURANCE_OPENAI_HTTP_ERROR", new Error("OpenAI HTTP error"), {
+        status: response.status,
+        body: text,
+      }, logCtx);
       return { raw: null, extracted: null };
     }
     const json = await response.json();
@@ -85,10 +90,20 @@ async function callOpenAI(url: string): Promise<{ raw: string | null; extracted:
     if (typeof content !== "string") {
       return { raw: null, extracted: null };
     }
-    const parsed = JSON.parse(content);
-    return { raw: content, extracted: normalizeExtracted(parsed) };
+    try {
+      const parsed = JSON.parse(content);
+      const normalized = normalizeExtracted(parsed);
+      logInfo("INSURANCE_OCR_RESULT", {
+        hasRaw: Boolean(content),
+        hasExtracted: Object.keys(normalized).length > 0,
+      }, logCtx);
+      return { raw: content, extracted: normalized };
+    } catch (parseErr) {
+      logError("INSURANCE_OCR_PARSE_FAILED", parseErr, {}, logCtx);
+      return { raw: content, extracted: null };
+    }
   } catch (err) {
-    console.error("callOpenAI failed", err);
+    logError("INSURANCE_OPENAI_FAILED", err, {}, logCtx);
     return { raw: null, extracted: null };
   }
 }
@@ -149,14 +164,14 @@ function summaryFromExtracted(extracted: Record<string, unknown> | null): string
 }
 
 export async function startInsurance(ctx: ConversationContext) {
-  await sendText(ctx.phone, "Please send a clear photo or PDF of your insurance document.");
+  await sendText(ctx.phone, "Please send a clear photo or PDF of your insurance document.", ctxFromConversation(ctx));
   await setState(ctx.userId, "ins_wait_doc", {});
   ctx.state = { key: "ins_wait_doc", data: {} };
 }
 
 export async function handleInsuranceText(ctx: ConversationContext, text: string): Promise<boolean> {
   if (ctx.state.key !== "ins_wait_doc") return false;
-  await sendText(ctx.phone, "Send a photo or PDF of the insurance document to proceed.");
+  await sendText(ctx.phone, "Send a photo or PDF of the insurance document to proceed.", ctxFromConversation(ctx));
   return true;
 }
 
@@ -164,11 +179,12 @@ export async function handleInsuranceMedia(ctx: ConversationContext, message: an
   const mediaId: string | undefined = message?.image?.id ?? message?.document?.id;
   const mimeType: string | undefined = message?.image?.mime_type ?? message?.document?.mime_type ?? message?.document?.mime_type ?? "application/octet-stream";
   if (!mediaId) {
-    await sendText(ctx.phone, "Could not process the attachment. Please try again.");
+    await sendText(ctx.phone, "Could not process the attachment. Please try again.", ctxFromConversation(ctx));
     return;
   }
 
   try {
+    const ctxLog = ctxFromConversation(ctx);
     const lead = await upsertLead(ctx.phone);
     const media = await fetchWAMedia(mediaId);
     const resolvedMime = media.mimeType || mimeType || "application/octet-stream";
@@ -182,7 +198,7 @@ export async function handleInsuranceMedia(ctx: ConversationContext, message: an
     if (upload.error) {
       const message = (upload.error as { message?: string } | null | undefined)?.message?.toLowerCase() ?? "";
       if (message.includes("bucket")) {
-        console.error("MISSING_STORAGE_BUCKET", upload.error);
+        logError("INSURANCE_STORAGE_BUCKET_MISSING", upload.error, {}, ctxLog);
       }
       throw upload.error;
     }
@@ -197,11 +213,11 @@ export async function handleInsuranceMedia(ctx: ConversationContext, message: an
 
     const signed = await sb.storage.from("insurance").createSignedUrl(path, 60 * 60 * 24);
     if (signed.error) {
-      console.error("INSURANCE_SIGNED_URL_FAILED", signed.error);
+      logError("INSURANCE_SIGNED_URL_FAILED", signed.error, { path }, ctxLog);
     }
     const signedUrl = signed.error ? null : signed.data?.signedUrl ?? null;
 
-    const { raw, extracted } = signedUrl ? await callOpenAI(signedUrl) : { raw: null, extracted: null };
+    const { raw, extracted } = signedUrl ? await callOpenAI(signedUrl, ctxLog) : { raw: null, extracted: null };
 
     await sb
       .from("insurance_leads")
@@ -213,18 +229,18 @@ export async function handleInsuranceMedia(ctx: ConversationContext, message: an
       .eq("id", lead.id);
 
     const summary = summaryFromExtracted(extracted);
-    await sendText(ctx.phone, `${summary}\n\nOur team will contact you soon.`);
+    await sendText(ctx.phone, `${summary}\n\nOur team will contact you soon.`, ctxLog);
 
     const adminNumbers = await getAdminNumbers();
     const adminSummary = `New insurance lead\nFrom: ${ctx.phone}\n${summary}\nDocument link: ${signedUrl ?? "(no link)"}`;
     for (const admin of adminNumbers) {
       const trimmed = String(admin ?? "").trim();
       if (!trimmed) continue;
-      await sendText(trimmed, adminSummary);
+      await sendText(trimmed, adminSummary, ctxLog);
     }
   } catch (err) {
-    console.error("handleInsuranceMedia failed", err);
-    await sendText(ctx.phone, "We couldn't process that file. Please try again or contact support.");
+    logError("INSURANCE_MEDIA_FAILED", err, {}, ctxFromConversation(ctx));
+    await sendText(ctx.phone, "We couldn't process that file. Please try again or contact support.", ctxFromConversation(ctx));
   } finally {
     await clearState(ctx.userId);
   }
