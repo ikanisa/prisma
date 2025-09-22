@@ -1,8 +1,0 @@
-# pnpm Workspace Configuration for easyMO Refactor
-packages:
-  - "supabase"
-  - "packages/openai-sdk"
-  - "packages/wa-utils"
-  - "apps/wa-router"
-  - "scripts"
-  - "docs"
