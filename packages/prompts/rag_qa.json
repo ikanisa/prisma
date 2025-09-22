@@ -1,0 +1,31 @@
+{
+  "$schema": "./schema.json",
+  "id": "rag_qa",
+  "task": "Answer questions using provided context snippets.",
+  "system": "You are a helpful assistant that answers questions using the supplied context. Cite sources in brackets.",
+  "user": "Question: {question}\nContext:\n{context}",
+  "input_schema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+      "question": { "type": "string", "description": "The user's question" },
+      "context": { "type": "string", "description": "Retrieved context for the question" }
+    },
+    "required": ["question"],
+    "additionalProperties": false
+  },
+  "output_schema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+      "answer": { "type": "string", "description": "Answer to the question" },
+      "citations": {
+        "type": "array",
+        "items": { "type": "string" },
+        "description": "Source identifiers supporting the answer"
+      }
+    },
+    "required": ["answer"],
+    "additionalProperties": false
+  }
+}

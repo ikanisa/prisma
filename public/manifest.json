@@ -1,0 +1,21 @@
+{
+  "name": "Aurora Advisors",
+  "short_name": "Aurora",
+  "description": "Professional services platform for accounting, audit, and tax services",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#00bcd4",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "48x48",
+      "type": "image/x-icon",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["business", "productivity", "finance"],
+  "lang": "en-US",
+  "dir": "ltr"
+}
