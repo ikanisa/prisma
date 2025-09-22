@@ -1,0 +1,282 @@
+-- ===== EXTENSIONS =====
+create extension if not exists pgcrypto;
+create extension if not exists pg_trgm;
+
+-- ===== SHOPS (admin-managed) =====
+create table if not exists public.shops (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  short_code text unique not null,
+  is_active boolean not null default true,
+  created_at timestamptz default now()
+);
+
+-- ===== WALLETS =====
+create table if not exists public.wallets (
+  id uuid primary key default gen_random_uuid(),
+  user_code text unique not null,
+  whatsapp text not null,
+  status text not null default 'active',   -- active|frozen|expired
+  allow_any_shop boolean not null default true,
+  created_at timestamptz default now()
+);
+
+create table if not exists public.wallet_allowed_shops (
+  wallet_id uuid references public.wallets(id) on delete cascade,
+  shop_id   uuid references public.shops(id) on delete cascade,
+  primary key (wallet_id, shop_id)
+);
+
+-- one reusable QR secret per wallet (rotatable)
+create table if not exists public.wallet_qr (
+  wallet_id uuid primary key references public.wallets(id) on delete cascade,
+  qr_secret text not null unique,
+  revoked boolean not null default false,
+  created_at timestamptz default now()
+);
+
+-- ===== LEDGER CORE =====
+create table if not exists public.ledger_accounts (
+  id uuid primary key default gen_random_uuid(),
+  kind text not null check (kind in ('issuer','wallet','shop')),
+  wallet_id uuid references public.wallets(id),
+  shop_id   uuid references public.shops(id),
+  unique (kind, wallet_id, shop_id)
+);
+
+create table if not exists public.account_balances (
+  account_id uuid primary key references public.ledger_accounts(id) on delete cascade,
+  balance int not null default 0
+);
+
+create table if not exists public.transactions (
+  id uuid primary key default gen_random_uuid(),
+  type text not null check (type in ('issue','spend','reversal','settlement')),
+  merchant_id uuid references public.shops(id),
+  wallet_id uuid references public.wallets(id), -- for quick filtering
+  amount int not null check (amount > 0),
+  idempotency_key text unique,
+  created_at timestamptz default now()
+);
+
+create table if not exists public.ledger_entries (
+  id uuid primary key default gen_random_uuid(),
+  tx_id uuid references public.transactions(id) on delete cascade,
+  account_id uuid references public.ledger_accounts(id),
+  amount int not null check (amount > 0),
+  is_debit boolean not null,
+  created_at timestamptz default now()
+);
+
+-- keep balances updated
+create or replace function public.apply_ledger_entry()
+returns trigger language plpgsql as $$
+begin
+  if (tg_op = 'INSERT') then
+    insert into public.account_balances (account_id, balance)
+    values (new.account_id, case when new.is_debit then new.amount else -new.amount end)
+    on conflict (account_id) do update
+      set balance = public.account_balances.balance + excluded.balance;
+  end if;
+  return new;
+end$$;
+
+drop trigger if exists trg_apply_ledger_entry on public.ledger_entries;
+create trigger trg_apply_ledger_entry
+after insert on public.ledger_entries
+for each row execute function public.apply_ledger_entry();
+
+-- ===== SCAN SESSIONS (ephemeral) =====
+create table if not exists public.scan_sessions (
+  id uuid primary key default gen_random_uuid(),
+  wallet_id uuid not null references public.wallets(id) on delete cascade,
+  qr_secret text not null,
+  expires_at timestamptz not null,
+  used boolean not null default false,
+  created_at timestamptz default now()
+);
+create index if not exists idx_scan_sessions_wallet on public.scan_sessions (wallet_id);
+create index if not exists idx_scan_sessions_expires on public.scan_sessions (expires_at);
+
+-- ===== APP CONFIG HOOKS =====
+alter table if exists public.app_config
+  add column if not exists token_issuer_account uuid,
+  add column if not exists spend_rate_per_min integer default 1;
+
+-- seed a single issuer account if missing and link it in app_config
+do $$
+declare issuer uuid;
+begin
+  select id into issuer from public.ledger_accounts
+    where kind='issuer' limit 1;
+  if issuer is null then
+    insert into public.ledger_accounts(kind) values ('issuer') returning id into issuer;
+    insert into public.account_balances(account_id,balance) values (issuer,0);
+  end if;
+  update public.app_config set token_issuer_account = issuer where id is true;
+end$$;
+
+-- ===== VIEW + helper function =====
+create or replace view public.v_wallet_balances as
+select w.id as wallet_id, coalesce(b.balance,0) as balance
+from public.wallets w
+left join public.ledger_accounts la on la.kind='wallet' and la.wallet_id = w.id
+left join public.account_balances b on b.account_id = la.id;
+
+create or replace function public.get_wallet_balance(_wallet_id uuid)
+returns integer language sql stable as $$
+  select coalesce(balance,0) from public.v_wallet_balances where wallet_id=_wallet_id
+$$;
+
+-- ===== RLS: deny all (functions use service role) =====
+alter table public.shops enable row level security;
+alter table public.wallets enable row level security;
+alter table public.wallet_allowed_shops enable row level security;
+alter table public.wallet_qr enable row level security;
+alter table public.ledger_accounts enable row level security;
+alter table public.account_balances enable row level security;
+alter table public.transactions enable row level security;
+alter table public.ledger_entries enable row level security;
+alter table public.scan_sessions enable row level security;
+
+do $$
+begin
+  if not exists (select 1 from pg_policies where tablename='shops') then
+    create policy no_public_shops on public.shops for all using (false);
+  end if;
+  if not exists (select 1 from pg_policies where tablename='wallets') then
+    create policy no_public_wallets on public.wallets for all using (false);
+  end if;
+  if not exists (select 1 from pg_policies where tablename='wallet_allowed_shops') then
+    create policy no_public_wallet_allowed_shops on public.wallet_allowed_shops for all using (false);
+  end if;
+  if not exists (select 1 from pg_policies where tablename='wallet_qr') then
+    create policy no_public_wallet_qr on public.wallet_qr for all using (false);
+  end if;
+  if not exists (select 1 from pg_policies where tablename='ledger_accounts') then
+    create policy no_public_ledger_accounts on public.ledger_accounts for all using (false);
+  end if;
+  if not exists (select 1 from pg_policies where tablename='account_balances') then
+    create policy no_public_balances on public.account_balances for all using (false);
+  end if;
+  if not exists (select 1 from pg_policies where tablename='transactions') then
+    create policy no_public_tx on public.transactions for all using (false);
+  end if;
+  if not exists (select 1 from pg_policies where tablename='ledger_entries') then
+    create policy no_public_entries on public.ledger_entries for all using (false);
+  end if;
+  if not exists (select 1 from pg_policies where tablename='scan_sessions') then
+    create policy no_public_scans on public.scan_sessions for all using (false);
+  end if;
+end$$;
+
+-- ===== STRONG SPEND: single SQL function (atomic) =====
+create or replace function public.spend_tokens(
+  _scan_session_id uuid,
+  _shop_short_code text,
+  _amount int,
+  _idempotency_key text
+)
+returns table (
+  tx_id uuid,
+  receipt text,
+  new_balance int,
+  shop_name text
+) language plpgsql security definer as $$
+declare
+  ses record;
+  w record;
+  s record;
+  w_acc uuid;
+  s_acc uuid;
+  bal int;
+  tx record;
+  rid text;
+begin
+  -- load + validate session
+  select * into ses from public.scan_sessions where id=_scan_session_id for update;
+  if ses is null or ses.used or ses.expires_at < now() then
+    raise exception 'Session invalid or expired';
+  end if;
+
+  -- load wallet
+  select * into w from public.wallets where id=ses.wallet_id;
+  if w is null or w.status <> 'active' then
+    raise exception 'Wallet unavailable';
+  end if;
+
+  -- load shop
+  select * into s from public.shops where short_code=_shop_short_code and is_active=true;
+  if s is null then
+    raise exception 'Shop inactive or not found';
+  end if;
+
+  -- allow-list check
+  if w.allow_any_shop = false then
+    if not exists (
+      select 1 from public.wallet_allowed_shops was
+      where was.wallet_id=w.id and was.shop_id=s.id
+    ) then
+      raise exception 'Shop not allowed for this wallet';
+    end if;
+  end if;
+
+  -- resolve accounts
+  select id into w_acc from public.ledger_accounts where kind='wallet' and wallet_id=w.id;
+  if w_acc is null then
+    insert into public.ledger_accounts(kind, wallet_id) values ('wallet', w.id)
+    returning id into w_acc;
+    insert into public.account_balances(account_id,balance) values (w_acc,0)
+    on conflict (account_id) do nothing;
+  end if;
+
+  select id into s_acc from public.ledger_accounts where kind='shop' and shop_id=s.id;
+  if s_acc is null then
+    insert into public.ledger_accounts(kind, shop_id) values ('shop', s.id)
+    returning id into s_acc;
+    insert into public.account_balances(account_id,balance) values (s_acc,0)
+    on conflict (account_id) do nothing;
+  end if;
+
+  -- check balance
+  select public.get_wallet_balance(w.id) into bal;
+  if bal < _amount then
+    raise exception 'Insufficient balance';
+  end if;
+
+  -- idempotency
+  if _idempotency_key is not null then
+    perform 1 from public.transactions where idempotency_key=_idempotency_key;
+    if found then
+      select id, merchant_id, amount, wallet_id into tx from public.transactions where idempotency_key=_idempotency_key;
+      -- reuse existing tx; return its data
+      select public.get_wallet_balance(w.id) into bal;
+      rid := upper(substr(tx.id::text,1,6));
+      return query select tx.id, ('#'||rid), bal, (select name from public.shops where id=tx.merchant_id);
+      return;
+    end if;
+  end if;
+
+  -- create tx
+  insert into public.transactions(type, merchant_id, wallet_id, amount, idempotency_key)
+  values ('spend', s.id, w.id, _amount, _idempotency_key)
+  returning * into tx;
+
+  -- ledger moves
+  insert into public.ledger_entries(tx_id, account_id, amount, is_debit) values
+    (tx.id, w_acc, _amount, true),     -- debit wallet
+    (tx.id, s_acc, _amount, false);    -- credit shop
+
+  -- consume session
+  update public.scan_sessions set used=true where id=ses.id;
+
+  -- new balance + receipt
+  select public.get_wallet_balance(w.id) into bal;
+  rid := upper(substr(tx.id::text,1,6));
+
+  return query
+    select tx.id, ('#'||rid), bal, s.name;
+end$$;
+
+-- owner & grants for function (allow edge function to call)
+revoke all on function public.spend_tokens(uuid,text,int,text) from public;

@@ -1,0 +1,87 @@
+{
+  "analysis_date": "2025-01-20",
+  "project_structure": {
+    "admin_pages": 62,
+    "edge_functions": 102,
+    "database_tables": 89,
+    "estimated_duplicate_tables": 15,
+    "estimated_dead_code_files": 8
+  },
+  "domains_identified": {
+    "core": {
+      "tables": ["users", "user_roles", "subscriptions", "referrals"],
+      "pages": ["Users", "AdminAuth"],
+      "edge_functions": ["user-management", "auth-handlers"]
+    },
+    "commerce": {
+      "tables": ["products", "unified_products", "orders", "unified_orders", "payments", "carts", "cart_items"],
+      "pages": ["Products", "UnifiedProducts", "Orders", "UnifiedOrders", "Payments"],
+      "edge_functions": ["product-sync", "order-processing", "payment-handlers"]
+    },
+    "mobility": {
+      "tables": ["drivers", "driver_trips_spatial", "passenger_intents_spatial", "bookings", "trips"],
+      "pages": ["Drivers", "Trips", "Passengers", "Rides"],
+      "edge_functions": ["driver-trip-create", "passenger-intent-create", "matchmaker"]
+    },
+    "agri": {
+      "tables": ["farmers", "produce_drafts", "produce_listings"],
+      "pages": ["Farmers", "ProduceDrafts", "ProduceListings"],
+      "edge_functions": ["farmers-api", "produce-sync"]
+    },
+    "marketplace": {
+      "tables": ["properties", "vehicles", "property_listings", "vehicle_listings"],
+      "pages": ["Properties", "Vehicles"],
+      "edge_functions": ["property-sync", "vehicle-listings-crud"]
+    },
+    "messaging": {
+      "tables": ["whatsapp_logs", "conversations", "conversation_messages", "contacts", "campaign_messages"],
+      "pages": ["WhatsAppDashboard", "WhatsAppContacts", "Conversations", "UnifiedConversations", "MarketingCampaigns"],
+      "edge_functions": ["whatsapp-unified-handler", "marketing-automation", "response-engine"]
+    },
+    "ai_agents": {
+      "tables": ["agents", "agent_personas", "agent_tasks", "agent_learning", "agent_documents", "agent_logs"],
+      "pages": ["Agents", "Personas", "Tasks", "LearningModules", "Documents", "AgentLogs"],
+      "edge_functions": ["ai-processor", "assistant-manager", "eval-runner"]
+    },
+    "system_ops": {
+      "tables": ["system_metrics", "data_sync_runs", "cron_jobs", "edge_function_logs"],
+      "pages": ["QualityDashboard", "SystemMetrics", "Experiments", "EdgeLogs", "DataSync", "Settings"],
+      "edge_functions": ["metrics-aggregator", "cron-scheduler", "system-health"]
+    }
+  },
+  "duplicate_analysis": {
+    "high_overlap": [
+      {
+        "tables": ["products", "unified_products"],
+        "overlap_percentage": 85,
+        "recommendation": "merge_into_unified_products"
+      },
+      {
+        "tables": ["orders", "unified_orders"],
+        "overlap_percentage": 90,
+        "recommendation": "merge_into_unified_orders"
+      },
+      {
+        "tables": ["conversations", "conversation_messages"],
+        "overlap_percentage": 70,
+        "recommendation": "normalize_conversation_structure"
+      },
+      {
+        "pages": ["WhatsAppContacts", "WAContactsPage"],
+        "overlap_percentage": 95,
+        "recommendation": "merge_whatsapp_contact_pages"
+      },
+      {
+        "pages": ["Conversations", "UnifiedConversations"],
+        "overlap_percentage": 80,
+        "recommendation": "consolidate_conversation_views"
+      }
+    ]
+  },
+  "dead_code_candidates": [
+    "src/pages/admin/PharmacyLoadTest.tsx",
+    "src/pages/admin/RealtimeStressTesting.tsx", 
+    "supabase/functions/pharmacy-load-test/",
+    "supabase/functions/stress-test-runner/"
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "object": "whatsapp_business_account",
+  "entry": [
+    {
+      "id": "WHATSAPP_BUSINESS_ACCOUNT_ID",
+      "changes": [
+        {
+          "value": {
+            "messages": [
+              {
+                "from": "250788001122",
+                "id": "wamid.STOP",
+                "timestamp": "1716297670",
+                "type": "text",
+                "text": { "body": "STOP" }
+              }
+            ]
+          },
+          "field": "messages"
+        }
+      ]
+    }
+  ]
+}

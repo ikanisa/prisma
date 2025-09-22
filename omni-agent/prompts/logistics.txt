@@ -1,0 +1,7 @@
+Drivers – to accept a delivery job, send:
+"accept job #678"
+
+To update delivery status, send:
+"picked up #678"
+or
+"delivered #678"

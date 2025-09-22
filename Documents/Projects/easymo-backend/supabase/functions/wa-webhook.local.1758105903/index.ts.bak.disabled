@@ -1,0 +1,2916 @@
+// deno-lint-ignore-file no-explicit-any
+
+/**
+ * wa-webhook — additive-only, part 1/3
+ * This file section contains ONLY:
+ *   - Imports
+ *   - ENV/constants (kept original names; added a few new ones safely)
+ *   - Supabase client
+ *   - WhatsApp send helpers (text/list/buttons/image)
+ *   - Signature verification
+ *   - Utils (phone normalization, etc.)
+ *   - Profiles / idempotency / state
+ *   - App config readers (original + additive-safe getters)
+ *   - WA media fetch + OCR (unchanged)
+ *   - Basket helpers (unchanged) + NEW deep-link helpers
+ *   - RPC wrappers (original + new vehicle-aware versions)
+ *   - MoMo QR helpers + logging
+ *   - Contribution helpers (create/approve/reject)
+ *   - Admin review helpers for public baskets
+ *   - NO `serve(...)` HERE (it starts in part 2/3)
+ *
+ * NOTE: This is additive-only vs your base. We did NOT remove/rename originals.
+ */
+
+import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
+
+// ------------------------------------
+// ENV (original names preserved)
+// ------------------------------------
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const WA_TOKEN = Deno.env.get("WA_TOKEN")!;
+const WA_PHONE_ID = Deno.env.get("WA_PHONE_ID")!;
+const WA_APP_SECRET = Deno.env.get("WA_APP_SECRET") || "";
+const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY") || "";
+const WA_VERIFY_TOKEN = Deno.env.get("WA_VERIFY_TOKEN") || "";
+
+// NEW (additive-safe): Optional public bot number for deep links
+const WA_BOT_NUMBER_E164 = Deno.env.get("WA_BOT_NUMBER_E164") || "";
+
+// Admins (kept as in your base)
+const EXTRA_INSURANCE_ADMINS = ["0250788767816", "0250795588248"];
+const BASKET_REVIEW_ADMIN = "+250795588248"; // review notify for public baskets
+
+// ------------------------------------
+// Supabase client
+// ------------------------------------
+const sb = createClient(SUPABASE_URL, SERVICE_KEY);
+
+// ------------------------------------
+// WhatsApp helpers (original)
+// ------------------------------------
+const WA_BASE = `https://graph.facebook.com/v20.0/${WA_PHONE_ID}`;
+
+async function waSend(path: string, payload: any) {
+  const res = await fetch(`${WA_BASE}/${path}`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${WA_TOKEN}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const errTxt = await res.text();
+    throw new Error(`WA send failed: ${res.status} ${errTxt}`);
+  }
+  return res.json();
+}
+
+async function sendText(to: string, body: string) {
+  return waSend("messages", {
+    messaging_product: "whatsapp",
+    to,
+    type: "text",
+    text: { body },
+  });
+}
+
+function safeRowTitle(t: string, max = 24) {
+  if (!t) return "";
+  if (t.length <= max) return t;
+  return t.slice(0, max - 1) + "…";
+}
+function safeRowDesc(t?: string | null, max = 72) {
+  const s = (t ?? "").toString();
+  if (s.length <= max) return s;
+  return s.slice(0, max - 1) + "…";
+}
+function safeButtonTitle(t: string, max = 20) {
+  if (t.length <= max) return t;
+  return t.slice(0, max - 1) + "…";
+}
+
+async function sendButtons(
+  to: string,
+  body: string,
+  buttons: Array<{ id: string; title: string }>
+) {
+  return waSend("messages", {
+    messaging_product: "whatsapp",
+    to,
+    type: "interactive",
+    interactive: {
+      type: "button",
+      body: { text: body },
+      action: {
+        buttons: buttons.slice(0, 3).map((b) => ({
+          type: "reply",
+          reply: { id: b.id, title: safeButtonTitle(b.title, 20) },
+        })),
+      },
+    },
+  });
+}
+
+async function sendList(
+  to: string,
+  opts: {
+    title: string;
+    body: string;
+    sectionTitle: string;
+    rows: Array<{ id: string; title: string; description?: string }>;
+    buttonText?: string;
+  }
+) {
+  return waSend("messages", {
+    messaging_product: "whatsapp",
+    to,
+    type: "interactive",
+    interactive: {
+      type: "list",
+      header: { type: "text", text: safeRowTitle(opts.title, 60) },
+      body: { text: opts.body.slice(0, 1024) },
+      footer: { text: "Tip: Reply 'home' anytime." },
+      action: {
+        button: safeButtonTitle(opts.buttonText || "Choose", 20),
+        sections: [
+          {
+            title: safeRowTitle(opts.sectionTitle, 60),
+            rows: opts.rows.slice(0, 10).map((r) => ({
+              id: r.id,
+              title: safeRowTitle(r.title, 24),
+              description: r.description ? safeRowDesc(r.description, 72) : undefined,
+            })),
+          },
+        ],
+      },
+    },
+  });
+}
+
+async function sendImageUrl(to: string, link: string, caption?: string) {
+  // Uses link-based image sending (no upload to Meta)
+  return waSend("messages", {
+    messaging_product: "whatsapp",
+    to,
+    type: "image",
+    image: { link, caption },
+  });
+}
+
+// ------------------------------------
+// Signature verification (Meta)
+// ------------------------------------
+function hexToBytes(h: string) {
+  const len = h.length;
+  const out = new Uint8Array(len / 2);
+  for (let i = 0; i < len; i += 2) out[i / 2] = parseInt(h.slice(i, i + 2), 16);
+  return out;
+}
+function constantTimeEqual(a: Uint8Array, b: Uint8Array) {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a[i] ^ b[i];
+  return diff === 0;
+}
+async function verifySignature(req: Request, raw: string) {
+  if (!WA_APP_SECRET) return true; // dev
+  const hdr = req.headers.get("X-Hub-Signature-256") || "";
+  if (!hdr.startsWith("sha256=")) return false;
+  const providedHex = hdr.slice(7);
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw",
+    enc.encode(WA_APP_SECRET),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const macBuf = await crypto.subtle.sign("HMAC", key, enc.encode(raw));
+  const mac = new Uint8Array(macBuf);
+  const provided = hexToBytes(providedHex);
+  return constantTimeEqual(mac, provided);
+}
+
+// ------------------------------------
+// utils
+// ------------------------------------
+function e164(s: string) {
+  s = s.trim();
+  if (s.startsWith("+")) return s;
+  if (s.startsWith("0250")) return "+250" + s.slice(4);
+  if (s.startsWith("250")) return "+250" + s.slice(3);
+  if (s.startsWith("0") && s[1] === "7") return "+250" + s.slice(1);
+  return s.startsWith("+") ? s : "+" + s;
+}
+function to07FromE164(e: string) {
+  // Convert +2507XXXXXXXX → 07XXXXXXXX (Rwanda)
+  const s = e164(e);
+  const d = s.replace(/\D/g, "");
+  if (d.startsWith("2507")) return "0" + d.slice(3);
+  if (d.startsWith("07")) return d;
+  return d; // fallback: digits as-is
+}
+function fmtKm(k?: number | string | null) {
+  if (k == null) return "";
+  const n = typeof k === "string" ? parseFloat(k) : k;
+  if (!isFinite(n)) return "";
+  if (n < 1) return `${Math.round(n * 1000)} m`;
+  return `${(Math.round(n * 10) / 10).toFixed(1)} km`;
+}
+function timeAgo(iso?: string | null) {
+  if (!iso) return "";
+  const d = new Date(iso).getTime();
+  const s = Math.max(1, Math.floor((Date.now() - d) / 1000));
+  if (s < 60) return `${s}s ago`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 48) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
+}
+
+// NEW (additive): strictly digits for wa.me links (no spaces, no +)
+
+// ------------------------------------
+// profiles / idempotency / state (original)
+// ------------------------------------
+type ChatState = { key: string; data?: any };
+
+async function ensureProfile(phone: string) {
+  const { data } = await sb
+    .from("profiles")
+    .select("*")
+    .eq("whatsapp_e164", phone)
+    .maybeSingle();
+  if (data) return data;
+
+  const ins = await sb
+    .from("profiles")
+    .insert({ whatsapp_e164: phone })
+    .select("*")
+    .single();
+  if (ins.error) throw ins.error;
+  return ins.data;
+}
+
+async function idempotent(mid: string) {
+  const got = await sb
+    .from("wa_events")
+    .select("wa_message_id")
+    .eq("wa_message_id", mid)
+    .maybeSingle();
+  if (got.data) return false;
+  await sb.from("wa_events").insert({ wa_message_id: mid });
+  return true;
+}
+
+async function getState(uid: string): Promise<ChatState> {
+  const { data } = await sb
+    .from("chat_state")
+    .select("state")
+    .eq("user_id", uid)
+    .maybeSingle();
+
+  const raw = (data?.state ?? null) as any;
+  if (!raw) return { key: "home", data: {} };
+  if (typeof raw === "string") return { key: raw, data: {} };
+  if (typeof raw === "object" && raw.key)
+    return { key: raw.key, data: raw.data ?? {} };
+  return { key: "home", data: {} };
+}
+
+async function setState(uid: string, key: string, data: any = {}) {
+  await sb.from("chat_state").upsert({
+    user_id: uid,
+    state: { key, data },
+    updated_at: new Date().toISOString(),
+  });
+}
+
+async function clearState(uid: string) {
+  await sb.from("chat_state").delete().eq("user_id", uid);
+}
+
+// ------------------------------------
+// app config
+// ------------------------------------
+async function getConfig() {
+  // original fields kept; function name preserved
+  const { data } = await sb
+    .from("app_config")
+    .select("insurance_admin_numbers, momo_qr_logo_url")
+    .eq("id", 1)
+    .maybeSingle();
+  const arr = (data?.insurance_admin_numbers ?? []) as string[];
+  const logo = data?.momo_qr_logo_url ?? null;
+  return { insurance_admin_numbers: arr, momo_qr_logo_url: logo };
+}
+
+// NEW (additive-safe): fetch WA_BOT_NUMBER_E164 from db if not in ENV
+async function getBotNumberE164(): Promise<string | null> {
+  if (WA_BOT_NUMBER_E164) return e164(WA_BOT_NUMBER_E164);
+  try {
+    const { data } = await sb
+      .from("app_config")
+      .select("wa_bot_number_e164")
+      .eq("id", 1)
+      .maybeSingle();
+    const v = (data?.wa_bot_number_e164 || "").trim();
+    return v ? e164(v) : null;
+  } catch {
+    return null;
+  }
+}
+
+// ------------------------------------
+// WA media fetch (original)
+// ------------------------------------
+async function fetchWAMedia(metaId: string) {
+  const md = await fetch(`https://graph.facebook.com/v20.0/${metaId}`, {
+    headers: { Authorization: `Bearer ${WA_TOKEN}` },
+  });
+  if (!md.ok) throw new Error(await md.text());
+  const j = await md.json();
+  const b = await fetch(j.url, { headers: { Authorization: `Bearer ${WA_TOKEN}` } });
+  if (!b.ok) throw new Error(await b.text());
+  return { bytes: new Uint8Array(await b.arrayBuffer()), mime: j.mime_type as string };
+}
+function extOf(m: string) {
+  if (m.includes("jpeg")) return "jpg";
+  if (m.includes("png")) return "png";
+  if (m.includes("pdf")) return "pdf";
+  return "bin";
+}
+
+// ------------------------------------
+// OCR (original)
+// ------------------------------------
+async function runInsuranceOCR(url: string) {
+  if (!OPENAI_API_KEY) return { extracted: {}, raw: { error: "no OPENAI key" } };
+
+  const body = {
+    model: "gpt-4o-mini",
+    response_format: { type: "json_object" },
+    temperature: 0,
+    max_tokens: 600,
+    messages: [
+      {
+        role: "system",
+        content:
+          "Extract Rwanda motor insurance fields as JSON only. Keys: " +
+          "insurer_name, policy_number, certificate_number, policy_inception, policy_expiry, " +
+          "carte_jaune_number, carte_jaune_expiry, make, model, vehicle_year, registration_plate, " +
+          "vin_chassis, licensed_to_carry.",
+      },
+      {
+        role: "user",
+        content: [
+          { type: "text", text: "Return ONLY JSON. No commentary." },
+          { type: "image_url", image_url: { url } },
+        ],
+      },
+    ],
+  };
+
+  try {
+    const r = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!r.ok) {
+      const errTxt = await r.text();
+      return { extracted: {}, raw: { error: errTxt } };
+    }
+
+    const j = await r.json();
+    const content = j?.choices?.[0]?.message?.content ?? "{}";
+    let parsed: any = {};
+    try {
+      parsed = JSON.parse(content);
+    } catch {
+      parsed = {};
+    }
+
+    return { extracted: parsed, raw: j };
+  } catch (e) {
+    return { extracted: {}, raw: { error: String(e) } };
+  }
+}
+
+function normIns(e: any) {
+  const up = (s: string) => (s ? s.toUpperCase() : s);
+  const o: any = { ...e };
+  if (o.registration_plate)
+    o.registration_plate = up(String(o.registration_plate)).replace(/[^A-Z0-9]/g, "");
+  if (o.vin_chassis) o.vin_chassis = up(String(o.vin_chassis)).replace(/[^A-Z0-9]/g, "");
+  for (const k of ["policy_inception", "policy_expiry", "carte_jaune_expiry"]) {
+    if (o[k]) {
+      const d = new Date(o[k]);
+      o[k] = isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
+    }
+  }
+  if (o.licensed_to_carry != null) {
+    const n = parseInt(String(o.licensed_to_carry).replace(/\D/g, ""), 10);
+    o.licensed_to_carry = Number.isFinite(n) ? n : null;
+  }
+  return o;
+}
+function insUserSummary(e: any) {
+  const a = [
+    e.make || e.model
+      ? `Vehicle: ${e.make ?? ""} ${e.model ?? ""}${e.vehicle_year ? ` (${e.vehicle_year})` : ""}`.trim()
+      : "Vehicle: (not detected)",
+    e.registration_plate ? `Plate: ${e.registration_plate}` : null,
+    e.vin_chassis ? `VIN: ${e.vin_chassis}` : null,
+    e.insurer_name ? `Insurer: ${e.insurer_name}` : null,
+    e.policy_number ? `Policy #: ${e.policy_number}` : null,
+    e.policy_expiry ? `Expiry: ${e.policy_expiry}` : null,
+    e.certificate_number ? `Certificate: ${e.certificate_number}` : null,
+    e.carte_jaune_number ? `Carte Jaune: ${e.carte_jaune_number}` : null,
+  ]
+    .filter(Boolean)
+    .join("\n");
+  return "Thanks! Here’s what we captured:\n" + a;
+}
+function insAdminSummary(user: string, e: any) {
+  const p = [
+    e.make && e.model ? `${e.make} ${e.model}` : null,
+    e.registration_plate ? `Plate ${e.registration_plate}` : null,
+    e.policy_number ? `Policy ${e.policy_number}` : null,
+    e.policy_expiry ? `Exp ${e.policy_expiry}` : null,
+  ]
+    .filter(Boolean)
+    .join(" | ");
+  return `New Motor Insurance Lead\nClient: ${user}\n${p}\nChat: https://wa.me/${user.replace(
+    "+",
+    "",
+  )}`;
+}
+
+// ------------------------------------
+// RPCs (original + new)
+// ------------------------------------
+async function rpcNearbyDrivers(lat: number, lon: number, viewer: string, limit = 10) {
+  const { data, error } = await sb.rpc("nearby_drivers", {
+    _lat: lat,
+    _lon: lon,
+    _viewer: viewer,
+    _limit: limit,
+  });
+  if (error) throw error;
+  return data as Array<{
+    driver_user_id: string;
+    whatsapp_e164: string | null;
+    distance_km: number;
+    last_seen: string;
+  }>;
+}
+
+async function rpcNearbyPassengers(lat: number, lon: number, viewer: string, limit = 10) {
+  const { data, error } = await sb.rpc("nearby_passengers", {
+    _lat: lat,
+    _lon: lon,
+    _viewer: viewer,
+    _limit: limit,
+  });
+  if (error) throw error;
+  return data as Array<{
+    trip_id: string;
+    creator_user_id: string;
+    whatsapp_e164: string | null;
+    distance_km: number;
+    created_at: string;
+  }>;
+}
+
+async function rpcNearbyBusinesses(lat: number, lon: number, viewer: string, limit = 10) {
+  const { data, error } = await sb.rpc("nearby_businesses", {
+    _lat: lat,
+    _lon: lon,
+    _viewer: viewer,
+    _limit: limit,
+  });
+  if (error) throw error;
+  return data as Array<{ id: string; name: string; description: string | null; distance_km: number }>;
+}
+
+async function rpcMatchDriversForTrip(tripId: string, limit = 10) {
+  const { data, error } = await sb.rpc("match_drivers_for_trip", {
+    _trip_id: tripId,
+    _limit: limit,
+  });
+  if (error) throw error;
+  return data as Array<{ trip_id: string; creator_user_id: string; distance_km: number; created_at: string }>;
+}
+async function rpcMatchPassengersForTrip(tripId: string, limit = 10) {
+  const { data, error } = await sb.rpc("match_passengers_for_trip", {
+    _trip_id: tripId,
+    _limit: limit,
+  });
+  if (error) throw error;
+  return data as Array<{ trip_id: string; creator_user_id: string; distance_km: number; created_at: string }>;
+}
+
+// NEW: vehicle-aware RPCs (will fallback to client-side filter if RPC missing)
+async function rpcNearbyDriversByVehicle(
+  lat: number,
+  lon: number,
+  viewer: string,
+  vehicle: string,
+  limit = 10,
+) {
+  try {
+    const { data, error } = await sb.rpc("nearby_drivers_by_vehicle", {
+      _lat: lat,
+      _lon: lon,
+      _viewer: viewer,
+      _vehicle: vehicle,
+      _limit: limit,
+    });
+    if (error) throw error;
+    return data as Array<{
+      driver_user_id: string;
+      whatsapp_e164: string | null;
+      distance_km: number;
+      last_seen: string;
+      vehicle_type?: string | null;
+    }>;
+  } catch {
+    // fallback: fetch generic list + enrich via profiles table and filter
+    const base = await rpcNearbyDrivers(lat, lon, viewer, limit * 3);
+    if (!base?.length) return base;
+    const ids = Array.from(
+      new Set(
+        base
+          .map((r: any) => r.driver_user_id)
+          .filter(Boolean)
+      )
+    );
+    if (!ids.length) return base.slice(0, limit);
+    try {
+      const { data: profs } = await sb
+        .from("driver_profiles")
+        .select("user_id, vehicle_type")
+        .in("user_id", ids);
+      const map = new Map((profs || []).map((p: any) => [p.user_id, p.vehicle_type]));
+      const filtered = base.filter((r: any) => {
+        const vt = (map.get(r.driver_user_id) || "").toString();
+        return vt === vehicle;
+      });
+      return filtered.slice(0, limit);
+    } catch {
+      return base.slice(0, limit);
+    }
+  }
+}
+
+async function rpcNearbyPassengersByVehicle(
+  lat: number,
+  lon: number,
+  viewer: string,
+  vehicle: string,
+  limit = 10,
+) {
+  try {
+    const { data, error } = await sb.rpc("nearby_passengers_by_vehicle", {
+      _lat: lat,
+      _lon: lon,
+      _viewer: viewer,
+      _vehicle: vehicle,
+      _limit: limit,
+    });
+    if (error) throw error;
+    return data as Array<{
+      trip_id: string;
+      creator_user_id: string;
+      whatsapp_e164: string | null;
+      distance_km: number;
+      created_at: string;
+      vehicle_type?: string | null;
+    }>;
+  } catch {
+    // fallback: generic + filter by trips.vehicle_type
+    const base = await rpcNearbyPassengers(lat, lon, viewer, limit * 3);
+    if (!base?.length) return base;
+    const tripIds = Array.from(new Set(base.map((r: any) => r.trip_id)));
+    try {
+      const { data: rows } = await sb
+        .from("trips")
+        .select("id, vehicle_type")
+        .in("id", tripIds);
+      const map = new Map((rows || []).map((r: any) => [r.id, r.vehicle_type]));
+      const filtered = base.filter((r: any) => (map.get(r.trip_id) || "") === vehicle);
+      return filtered.slice(0, limit);
+    } catch {
+      return base.slice(0, limit);
+    }
+  }
+}
+
+// ------------------------------------
+// Served records (original)
+// ------------------------------------
+async function markServedDriver(viewerMsisdn: string, driverUserId: string) {
+  const expires = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+  try {
+    await sb.from("served_drivers").insert({
+      viewer_passenger_msisdn: viewerMsisdn,
+      driver_contact_id: driverUserId,
+      expires_at: expires,
+      created_at: new Date().toISOString(),
+    });
+  } catch (e) {
+    console.error("served_drivers insert failed", e);
+  }
+}
+async function markServedPassenger(viewerMsisdn: string, tripId: string) {
+  const expires = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+  try {
+    await sb.from("served_passengers").insert({
+      viewer_driver_msisdn: viewerMsisdn,
+      passenger_trip_id: tripId,
+      expires_at: expires,
+      created_at: new Date().toISOString(),
+    });
+  } catch (e) {
+    console.error("served_passengers insert failed", e);
+  }
+}
+
+// ------------------------------------
+// UI (Home) — original (kept)
+// ------------------------------------
+async function sendHome(to: string) {
+  await sendList(to, {
+    title: "Open menu",
+    body: "Welcome 👋\nChoose an option below.",
+    sectionTitle: "Menu",
+    rows: [
+      { id: "see_drivers", title: "Nearby Drivers" },
+      { id: "see_passengers", title: "Nearby Passengers" },
+      { id: "schedule_trip", title: "Schedule Trip" },
+      { id: "marketplace", title: "Marketplace" },
+      { id: "baskets", title: "Baskets" },
+      { id: "motor_insurance", title: "Motor Insurance" },
+      { id: "momoqr_start", title: "MoMo QR Code" }, // NEW
+    ],
+  });
+}
+
+// ------------------------------------
+// Basket helpers (original) + NEW deep link helpers
+// ------------------------------------
+function buildMomoUssd(target: string, isCode: boolean, amount?: number | null) {
+  // USSD rules per your plan
+  const clean = target.replace(/\D/g, "");
+  if (isCode) {
+    return amount && amount > 0
+      ? `*182*8*1*${clean}*${amount}#`
+      : `*182*8*1*${clean}#`;
+  } else {
+    // number path
+    return amount && amount > 0
+      ? `*182*1*1*${clean}*${amount}#`
+      : `*182*1*1*${clean}#`;
+  }
+}
+
+async function getBasket(basketId: string) {
+  const { data } = await sb.from("baskets").select("*").eq("id", basketId).maybeSingle();
+  return data || null;
+}
+
+async function isMember(basketId: string, userId: string) {
+  const { data } = await sb
+    .from("basket_members")
+    .select("basket_id")
+    .eq("basket_id", basketId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  return !!data;
+}
+
+async function addMember(basketId: string, userId: string) {
+  try {
+    await sb.from("basket_members").upsert({
+      basket_id: basketId,
+      user_id: userId,
+      joined_at: new Date().toISOString(),
+      total_contributed: 0,
+    });
+  } catch (e) {
+    console.error("addMember failed", e);
+  }
+}
+
+async function removeMember(basketId: string, userId: string) {
+  try {
+    await sb.from("basket_members").delete().eq("basket_id", basketId).eq("user_id", userId);
+  } catch (e) {
+    console.error("removeMember failed", e);
+  }
+}
+
+async function listMembersPage(
+  basketId: string,
+  page: number,
+  pageSize: number,
+): Promise<Array<{ user_id: string; total_contributed: number; code: string }>> {
+  const offset = page * pageSize;
+  const { data, error } = await sb
+    .from("basket_members")
+    .select("user_id,total_contributed")
+    .eq("basket_id", basketId)
+    .order("total_contributed", { ascending: false })
+    .range(offset, offset + pageSize - 1);
+  if (error) throw error;
+
+  return (data || []).map((m) => {
+    const h = Array.from(new TextEncoder().encode(m.user_id)).reduce((a, c) => (a * 33 + c) >>> 0, 5381);
+    const code = String(h % 1000000).padStart(6, "0");
+    return { user_id: m.user_id, total_contributed: m.total_contributed ?? 0, code };
+  });
+}
+
+function basketActionsRows(b: any, isCreator: boolean, isMemberNow: boolean) {
+  const rows: Array<{ id: string; title: string; description?: string }> = [
+    { id: `bk_det_${b.id}`, title: "View Basket Details" },
+    { id: `bk_cont_${b.id}`, title: "Contribute" },
+    { id: `bk_share_${b.id}`, title: "Copy Basket Link" },
+    { id: `bk_qr_${b.id}`, title: "Basket QR Code" },
+    { id: `bk_mems_${b.id}_0`, title: "View Members (page 1)" },
+    // NEW deep-link actions (additive):
+    { id: `bkdl_share_${b.id}`, title: "Share Basket (WhatsApp)" },
+    { id: `bkdl_qr_${b.id}`, title: "QR to Open (WhatsApp)" },
+  ];
+  if (!isMemberNow) rows.push({ id: `bk_join_${b.id}`, title: "Join Basket" });
+  if (isMemberNow && !isCreator) rows.push({ id: `bk_leave_${b.id}`, title: "Leave Basket" });
+  if (isCreator) rows.push({ id: `bk_close_${b.id}`, title: "Close Basket" });
+  return rows;
+}
+
+function basketDetailsText(b: any) {
+  const momo = b.momo_target
+    ? (b.momo_is_code ? `MoMo Code: ${b.momo_target}` : `MoMo Number: ${b.momo_target}`)
+    : "No MoMo set";
+  return [
+    `Name: ${b.name}`,
+    b.description ? `About: ${b.description}` : undefined,
+    `Type: ${b.type}`,
+    `Status: ${b.status}`,
+    momo,
+    b.public_slug ? `Join token: JOIN_BASKET:${b.public_slug}` : `Basket ID: ${b.id}`,
+  ].filter(Boolean).join("\n");
+}
+
+function qrUrlForJoin(slugOrId: string) {
+  const text = `JOIN_BASKET:${slugOrId}`;
+  const encoded = encodeURIComponent(text);
+  return `https://quickchart.io/qr?text=${encoded}&margin=1&size=512`;
+}
+
+// NEW: deep-link helpers (WhatsApp wa.me with prefilled JOIN_BASKET:<token>)
+async function basketDeepLinkUrl(token: string): Promise<string | null> {
+  const bot = (await getBotNumberE164()) || "";
+  if (!bot) return null;
+  const digits = toWaDigits(bot);
+  const text = encodeURIComponent(`JOIN_BASKET:${token}`);
+  return `https://wa.me/${digits}?text=${text}`;
+}
+function qrUrlForDeepLink(url: string, size = 512) {
+  return `https://quickchart.io/qr?text=${encodeURIComponent(url)}&margin=1&size=${size}`;
+}
+
+// ------------------------------------
+// MoMo QR: helpers & logging (original)
+// ------------------------------------
+function normalizeMoMoNumberInput(s: string): string | null {
+  const digits = s.replace(/\D/g, "");
+  // Accept 07…, +2507…, 2507… → normalize to 07XXXXXXXX
+  if (digits.startsWith("2507") && digits.length >= 11) return "0" + digits.slice(3);
+  if (digits.startsWith("07") && digits.length >= 10) return digits.slice(0, 10);
+  if (digits.startsWith("7") && digits.length >= 9) return "0" + digits.slice(0, 9);
+  return null;
+}
+function normalizeMoMoCodeInput(s: string): string | null {
+  const d = s.replace(/\D/g, "");
+  if (d.length >= 4 && d.length <= 9) return d;
+  return null;
+}
+function buildUssdFor(kind: "number" | "code", value: string, amount?: number | null) {
+  const digits = value.replace(/\D/g, "");
+  const ussd = buildMomoUssd(digits, kind === "code", amount ?? undefined);
+  const tel = `tel:${ussd}`;
+  return { ussd, tel };
+}
+function qrUrlForUssdTel(telUri: string, size = 768) {
+  return `https://quickchart.io/qr?text=${encodeURIComponent(telUri)}&margin=1&size=${size}`;
+}
+
+async function logMomoQrRequest(params: {
+  user_id: string;
+  whatsapp_e164: string;
+  kind: "number" | "code";
+  momo_value: string;
+  amount_rwf?: number | null;
+  ussd_text: string;
+  tel_uri: string;
+  qr_url: string;
+  share_url?: string | null;
+}) {
+  try {
+    await sb.from("momo_qr_requests").insert({
+      user_id: params.user_id,
+      whatsapp_e164: params.whatsapp_e164,
+      kind: params.kind,
+      momo_value: params.momo_value,
+      amount_rwf: params.amount_rwf ?? null,
+      ussd_text: params.ussd_text,
+      tel_uri: params.tel_uri,
+      qr_url: params.qr_url,
+      share_url: params.share_url ?? null,
+      created_at: new Date().toISOString(),
+    });
+  } catch (e) {
+    console.error("momo_qr_requests insert failed", e);
+  }
+}
+
+// ------------------------------------
+// NEW: Contribution helpers (pending/approve/reject)
+// ------------------------------------
+type ContributionRow = {
+  id: string;
+  basket_id: string;
+  contributor_user_id: string;
+  amount_rwf: number;
+  status: "pending" | "approved" | "rejected";
+  created_at: string;
+  approved_at?: string | null;
+  approver_user_id?: string | null;
+  wa_message_id?: string | null;
+};
+
+async function createPendingContribution(params: {
+  basket_id: string;
+  contributor_user_id: string;
+  amount_rwf: number;
+  wa_message_id?: string | null;
+}): Promise<ContributionRow> {
+  const ins = await sb
+    .from("basket_contributions")
+    .insert({
+      basket_id: params.basket_id,
+      contributor_user_id: params.contributor_user_id,
+      amount_rwf: params.amount_rwf,
+      status: "pending",
+      wa_message_id: params.wa_message_id ?? null,
+      created_at: new Date().toISOString(),
+    })
+    .select("*")
+    .single();
+  if (ins.error) throw ins.error;
+  return ins.data as ContributionRow;
+}
+
+async function approveContribution(contribId: string, approver_user_id: string) {
+  const { data: row, error } = await sb
+    .from("basket_contributions")
+    .select("*")
+    .eq("id", contribId)
+    .maybeSingle();
+  if (error) throw error;
+  const c = row as ContributionRow | null;
+  if (!c) throw new Error("Contribution not found");
+  if (c.status === "approved") return c;
+
+  const upd = await sb
+    .from("basket_contributions")
+    .update({
+      status: "approved",
+      approved_at: new Date().toISOString(),
+      approver_user_id,
+    })
+    .eq("id", contribId)
+    .select("*")
+    .single();
+  if (upd.error) throw upd.error;
+
+  // bump total in basket_members
+  try {
+    const { data: bm } = await sb
+      .from("basket_members")
+      .select("total_contributed")
+      .eq("basket_id", c.basket_id)
+      .eq("user_id", c.contributor_user_id)
+      .maybeSingle();
+    const prev = Number(bm?.total_contributed ?? 0);
+    await sb.from("basket_members").upsert({
+      basket_id: c.basket_id,
+      user_id: c.contributor_user_id,
+      total_contributed: prev + Number(c.amount_rwf || 0),
+      joined_at: new Date().toISOString(),
+    });
+  } catch (e) {
+    console.error("basket_members total update failed", e);
+  }
+
+  return upd.data as ContributionRow;
+}
+
+async function rejectContribution(contribId: string, approver_user_id: string) {
+  const { data: row, error } = await sb
+    .from("basket_contributions")
+    .select("*")
+    .eq("id", contribId)
+    .maybeSingle();
+  if (error) throw error;
+  const c = row as ContributionRow | null;
+  if (!c) throw new Error("Contribution not found");
+  if (c.status === "rejected") return c;
+
+  const upd = await sb
+    .from("basket_contributions")
+    .update({
+      status: "rejected",
+      approved_at: null,
+      approver_user_id,
+    })
+    .eq("id", contribId)
+    .select("*")
+    .single();
+  if (upd.error) throw upd.error;
+  return upd.data as ContributionRow;
+}
+
+// ------------------------------------
+// NEW: Admin review helpers for public baskets
+// ------------------------------------
+async function sendPublicBasketReviewCard(params: {
+  adminWa: string;
+  basket: any;
+  creatorWa: string;
+}) {
+  const b = params.basket;
+  const body = [
+    "Basket review",
+    `Name: ${b.name}`,
+    `Type: Public`,
+    `Creator: ${params.creatorWa}`,
+    `Slug: ${b.public_slug || "(none)"}`,
+  ].join("\n");
+
+  const buttons = [
+    { id: `pubrev_appr_${b.id}`, title: "Approve" },
+    { id: `pubrev_chat_${toWaDigits(params.creatorWa)}`, title: "Chat creator" },
+    { id: `pubrev_view_${b.id}`, title: "View basket" },
+  ];
+
+  await sendButtons(e164(params.adminWa), body, buttons);
+}
+
+// ------------------------------------
+// NEW: Trip helpers (optional dropoff)
+// ------------------------------------
+async function updateTripDropoff(tripId: string, lon: number, lat: number) {
+  await sb
+    .from("trips")
+    .update({ dropoff: `SRID=4326;POINT(${lon} ${lat})` })
+    .eq("id", tripId);
+}
+
+// ------------------------------------
+// NEW: after-create CTAs for baskets (share/QR via deep-link)
+// ------------------------------------
+async function sendBasketShareCtas(to: string, basket: any) {
+  const token = basket.public_slug || basket.id;
+  const deeplink = await basketDeepLinkUrl(token);
+  const shareText = deeplink
+    ? `Share this WhatsApp link:\n${deeplink}\nAnyone opening it will get basket options right away.`
+    : `Share this token:\nJOIN_BASKET:${token}`;
+  await sendButtons(to, shareText, [
+    { id: `bkdl_share_${basket.id}`, title: "Share Basket (WhatsApp)" },
+    { id: `bkdl_qr_${basket.id}`, title: "QR to Open (WhatsApp)" },
+  ]);
+}
+
+// ------------------------------------
+// NEW: Generate & send MoMo QR (moved BEFORE serve; declared ONCE only)
+// ------------------------------------
+async function generateAndSendMomoQR(args: {
+  to: string;
+  user_id: string;
+  kind: "number" | "code";
+  momo_value: string;
+  amount: number | null;
+}) {
+  const { to, user_id, kind, momo_value, amount } = args;
+  const amt = (amount && amount > 0) ? Math.floor(amount) : null;
+  const { ussd, tel } = buildUssdFor(kind, momo_value, amt);
+  const qr = qrUrlForUssdTel(tel, 768);
+
+  const footer = kind === "number" ? `Number: ${momo_value}` : `Code: ${momo_value}`;
+  await sendImageUrl(to, qr, `Scan to pay\n${footer}`);
+
+  const shareLink = tel; // still tel:… (deeplink not required here)
+  const lines = [
+    `USSD: ${ussd}`,
+    `Tap to dial: ${tel}`,
+    `Share: ${shareLink}`,
+  ];
+  await sendText(to, lines.join("\n"));
+
+  await sendButtons(to, "Do you want to generate another one?", [
+    { id: "mqr_again", title: "Generate another" },
+    { id: "back_home", title: "Back to Menu" },
+  ]);
+
+  await logMomoQrRequest({
+    user_id,
+    whatsapp_e164: to,
+    kind,
+    momo_value,
+    amount_rwf: amt ?? null,
+    ussd_text: ussd,
+    tel_uri: tel,
+    qr_url: qr,
+    share_url: shareLink,
+  });
+}
+
+// ===== End of PART 1/3 =====
+// (Part 2 will start `serve(async (req) => { …` and include all state handlers.)
+// ===== PART 2/3 — MAIN WEBHOOK HANDLER =====
+
+serve(async (req) => {
+  // --- GET: Meta verification handshake ---
+  if (req.method === "GET") {
+    const u = new URL(req.url);
+    if (
+      u.searchParams.get("hub.mode") === "subscribe" &&
+      u.searchParams.get("hub.verify_token") === WA_VERIFY_TOKEN
+    ) {
+      return new Response(u.searchParams.get("hub.challenge") || "", { status: 200 });
+    }
+    return new Response("OK");
+  }
+
+  // --- POST: inbound WhatsApp webhook ---
+  const raw = await req.text();
+  if (!(await verifySignature(req, raw))) return new Response("Bad sig", { status: 401 });
+
+  let payload: any;
+  try {
+    payload = JSON.parse(raw);
+  } catch {
+    return new Response("ok");
+  }
+
+  const msg = payload?.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
+  if (!msg) return new Response("ok");
+
+  // Deduplicate
+  if (!(await idempotent(msg.id))) return new Response("dup");
+
+  // From/contact & profile
+  const from = e164(msg.from?.startsWith("+") ? msg.from : `+${msg.from}`);
+  const profile = await ensureProfile(from);
+  const user_id: string = profile.user_id;
+
+  // --- STOP/START + last inbound marker ---
+  const txtBody = (msg.text?.body || "").trim();
+  try {
+    if (msg.type === "text") {
+      if (/^\s*(stop|unsubscribe)\s*$/i.test(txtBody)) {
+        await sb.from("contacts").upsert({
+          msisdn_e164: from,
+          opted_out: true,
+          opt_out_ts: new Date().toISOString(),
+        }, { onConflict: "msisdn_e164" });
+        await sendText(from, "You’re opted out. Reply START to opt back in.");
+        return new Response("ok");
+      }
+      if (/^\s*start\s*$/i.test(txtBody)) {
+        await sb.from("contacts").upsert({
+          msisdn_e164: from,
+          opted_out: false,
+          opted_in: true,
+          opt_in_ts: new Date().toISOString(),
+        }, { onConflict: "msisdn_e164" });
+        await sendText(from, "You’re opted in. Thanks!");
+      }
+      await sb.from("contacts").upsert({
+        msisdn_e164: from,
+        attributes: { last_inbound_ts: new Date().toISOString() },
+      }, { onConflict: "msisdn_e164" });
+    }
+  } catch (_e) {
+    // ignore if contacts table not present
+  }
+
+  // Load state
+  const st = await getState(user_id);
+  let state = st.key;
+  let data = st.data || {};
+
+  // --- global 'home' / 'menu' ---
+  const txtLow = txtBody.toLowerCase();
+  if (txtLow === "home" || txtLow === "menu") {
+    await clearState(user_id);
+    await sendHome(from);
+    return new Response("ok");
+  }
+
+  // Back to menu via button
+  if (msg.interactive?.type === "button_reply" && msg.interactive.button_reply.id === "back_home") {
+    await clearState(user_id);
+    await sendHome(from);
+    return new Response("ok");
+  }
+
+  // ===========================================================
+  // BUTTON REPLIES (top-priority intercepts for new IDs)
+  // ===========================================================
+  if (msg.interactive?.type === "button_reply") {
+    const bid = msg.interactive.button_reply.id || "";
+
+    // ---- Public basket review (admin) ----
+    if (bid.startsWith("pubrev_")) {
+      // pubrev_appr_<basketId>
+      if (bid.startsWith("pubrev_appr_")) {
+        const basketId = bid.slice("pubrev_appr_".length);
+        const { data: b } = await sb.from("baskets").select("*").eq("id", basketId).maybeSingle();
+        if (!b) {
+          await sendButtons(from, "Basket not found.", [{ id: "back_home", title: "Back to Menu" }]);
+          return new Response("ok");
+        }
+        if (b.status !== "approved") {
+          await sb.from("baskets").update({ status: "approved" }).eq("id", basketId);
+        }
+        // notify creator with Share/QR CTAs
+        try {
+          const { data: creator } = await sb.from("profiles").select("whatsapp_e164").eq("user_id", b.creator_id).maybeSingle();
+          if (creator?.whatsapp_e164) {
+            await sendButtons(e164(creator.whatsapp_e164), "✅ Basket approved! Share it or get the QR below.", [
+              { id: `bkdl_share_${b.id}`, title: "Share Basket (WhatsApp)" },
+              { id: `bkdl_qr_${b.id}`, title: "QR to Open (WhatsApp)" },
+            ]);
+          }
+        } catch (_e) {}
+        await sendButtons(from, "Approved. Creator notified.", [{ id: "back_home", title: "Back to Menu" }]);
+        return new Response("ok");
+      }
+
+      // pubrev_chat_<creatorDigits>
+      if (bid.startsWith("pubrev_chat_")) {
+        const digits = bid.slice("pubrev_chat_".length).replace(/\D/g, "");
+        if (!digits) {
+          await sendButtons(from, "Invalid creator number.", [{ id: "back_home", title: "Back to Menu" }]);
+          return new Response("ok");
+        }
+        await sendButtons(from, `Tap to chat with creator:\nhttps://wa.me/${digits}`, [
+          { id: "back_home", title: "Back to Menu" },
+        ]);
+        return new Response("ok");
+      }
+
+      // pubrev_view_<basketId>
+      if (bid.startsWith("pubrev_view_")) {
+        const basketId = bid.slice("pubrev_view_".length);
+        const { data: b } = await sb.from("baskets").select("*").eq("id", basketId).maybeSingle();
+        if (!b) {
+          await sendButtons(from, "Basket not found.", [{ id: "back_home", title: "Back to Menu" }]);
+          return new Response("ok");
+        }
+        const token = b.public_slug || b.id;
+        const dl = await basketDeepLinkUrl(token);
+        const text = dl
+          ? `Open this basket thread:\n${dl}`
+          : `Use token:\nJOIN_BASKET:${token}`;
+        await sendButtons(from, text, [{ id: "back_home", title: "Back to Menu" }]);
+        return new Response("ok");
+      }
+    }
+
+    // ---- Contribution approve/reject/chat (new flow) ----
+    if (bid.startsWith("contrib_")) {
+      // contrib_appr_<contribId>
+      if (bid.startsWith("contrib_appr_")) {
+        const cid = bid.slice("contrib_appr_".length);
+        try {
+          const c = await approveContribution(cid, user_id);
+          // notify contributor
+          const { data: prof } = await sb.from("profiles")
+            .select("whatsapp_e164")
+            .eq("user_id", c.contributor_user_id)
+            .maybeSingle();
+          if (prof?.whatsapp_e164) {
+            await sendText(e164(prof.whatsapp_e164), `✅ Contribution approved: RWF ${Number(c.amount_rwf).toLocaleString()}.`);
+          }
+          await sendButtons(from, "Approved and contributor notified.", [{ id: "back_home", title: "Back to Menu" }]);
+        } catch (e) {
+          console.error(e);
+          await sendButtons(from, "Couldn’t approve. Try again.", [{ id: "back_home", title: "Back to Menu" }]);
+        }
+        return new Response("ok");
+      }
+
+      // contrib_rej_<contribId>
+      if (bid.startsWith("contrib_rej_")) {
+        const cid = bid.slice("contrib_rej_".length);
+        try {
+          const c = await rejectContribution(cid, user_id);
+          const { data: prof } = await sb.from("profiles")
+            .select("whatsapp_e164")
+            .eq("user_id", c.contributor_user_id)
+            .maybeSingle();
+          if (prof?.whatsapp_e164) {
+            await sendText(e164(prof.whatsapp_e164), "❌ Contribution rejected by the creator.");
+          }
+          await sendButtons(from, "Rejected and contributor notified.", [{ id: "back_home", title: "Back to Menu" }]);
+        } catch (e) {
+          console.error(e);
+          await sendButtons(from, "Couldn’t reject. Try again.", [{ id: "back_home", title: "Back to Menu" }]);
+        }
+        return new Response("ok");
+      }
+
+      // contrib_chat_<digits>
+      if (bid.startsWith("contrib_chat_")) {
+        const digits = bid.slice("contrib_chat_".length).replace(/\D/g, "");
+        if (!digits) {
+          await sendButtons(from, "Invalid number.", [{ id: "back_home", title: "Back to Menu" }]);
+          return new Response("ok");
+        }
+        await sendButtons(from, `Tap to chat with contributor:\nhttps://wa.me/${digits}`, [
+          { id: "back_home", title: "Back to Menu" },
+        ]);
+        return new Response("ok");
+      }
+    }
+
+    // ---- Legacy contribution approve/reject (kept for backward compatibility) ----
+    if (bid.startsWith("bk_appr_") || bid.startsWith("bk_rej_")) {
+      const parts = bid.split("_");
+      const action = parts[1]; // appr or rej
+      const basketId = parts[2];
+      const memberId = parts[3];
+      const amountCents = parseInt(parts[4] || "0", 10);
+      const amountRwf = Math.floor(amountCents / 100);
+
+      if (!basketId || !memberId || !Number.isFinite(amountCents)) {
+        await sendButtons(from, "Invalid action button.", [{ id: "back_home", title: "Back to Menu" }]);
+        return new Response("ok");
+      }
+
+      if (action === "appr") {
+        try {
+          const { data: row } = await sb
+            .from("basket_members")
+            .select("total_contributed")
+            .eq("basket_id", basketId)
+            .eq("user_id", memberId)
+            .maybeSingle();
+          const prev = row?.total_contributed ?? 0;
+          await sb
+            .from("basket_members")
+            .upsert({
+              basket_id: basketId,
+              user_id: memberId,
+              total_contributed: Number(prev) + amountRwf,
+              joined_at: new Date().toISOString(),
+            });
+
+          const { data: prof } = await sb
+            .from("profiles")
+            .select("whatsapp_e164")
+            .eq("user_id", memberId)
+            .maybeSingle();
+          const memberWa = prof?.whatsapp_e164;
+          if (memberWa) {
+            await sendText(memberWa, `✅ Contribution approved: RWF ${amountRwf.toLocaleString()}. Thank you!`);
+          }
+          await sendButtons(from, "Approved and member notified.", [{ id: "back_home", title: "Back to Menu" }]);
+        } catch (e) {
+          console.error("approve error", e);
+          await sendButtons(from, "Couldn’t approve. Try again.", [{ id: "back_home", title: "Back to Menu" }]);
+        }
+        return new Response("ok");
+      }
+
+      if (action === "rej") {
+        try {
+          const { data: prof } = await sb
+            .from("profiles")
+            .select("whatsapp_e164")
+            .eq("user_id", memberId)
+            .maybeSingle();
+          const memberWa = prof?.whatsapp_e164;
+          if (memberWa) {
+            await sendText(memberWa, `❌ Contribution rejected by the creator.`);
+          }
+          await sendButtons(from, "Rejected and member notified.", [{ id: "back_home", title: "Back to Menu" }]);
+        } catch (e) {
+          console.error("reject error", e);
+          await sendButtons(from, "Couldn’t reject. Try again.", [{ id: "back_home", title: "Back to Menu" }]);
+        }
+        return new Response("ok");
+      }
+    }
+
+    // ---- MoMo QR: skip/again buttons ----
+    if (bid === "mqr_amt_skip" && state === "momoqr_await_amount") {
+      const kind = data?.kind as "number" | "code";
+      const momo_value = String(data?.momo_value ?? "");
+      await generateAndSendMomoQR({ to: from, user_id, kind, momo_value, amount: null });
+      await clearState(user_id);
+      return new Response("ok");
+    }
+    if (bid === "mqr_again") {
+      await setState(user_id, "momoqr_start");
+      const my07 = to07FromE164(from);
+      await sendList(from, {
+        title: "MoMo QR Code",
+        body: "Generate a QR that opens your dialer with MoMo payment USSD.",
+        sectionTitle: "Options",
+        rows: [
+          { id: "mqr_use_wa", title: "Use this number", description: `Your WhatsApp: ${my07 || "unknown"}` },
+          { id: "mqr_enter_num", title: "Enter MoMo number", description: "07… mobile number" },
+          { id: "mqr_enter_code", title: "Enter MoMo code", description: "4–9 digit code" },
+        ],
+      });
+      return new Response("ok");
+    }
+
+    // ---- Basket final create ----
+    if (bid === "bk_do_create" && state === "await_basket_confirm") {
+      const { name, description, type, momo_target, momo_is_code } = data || {};
+      try {
+        const slug = "BK-" + crypto.randomUUID().slice(0, 6).toUpperCase();
+        const ins = await sb
+          .from("baskets")
+          .insert({
+            name,
+            description,
+            type,
+            status: type === "public" ? "pending_review" : "approved",
+            creator_id: user_id,
+            public_slug: slug,
+            momo_target: momo_target ?? null,
+            momo_is_code: momo_is_code ?? null,
+          })
+          .select("*")
+          .single();
+        if (ins.error) throw ins.error;
+
+        const bask = ins.data;
+        await addMember(bask.id, user_id);
+
+        if (type === "public") {
+          // 1) Plain text summary
+          await sendText(e164(BASKET_REVIEW_ADMIN),
+            `Basket pending review:\n${name}\nCreator: ${from}\nSlug: ${slug}`);
+          // 2) Interactive review card
+          await sendPublicBasketReviewCard({
+            adminWa: e164(BASKET_REVIEW_ADMIN),
+            basket: bask,
+            creatorWa: from,
+          });
+          // 3) Creator gets preview/share CTAs while waiting
+          await sendButtons(from,
+            "Basket created and sent for review. Meanwhile you can preview/share:",
+            [
+              { id: `bkdl_share_${bask.id}`, title: "Share Basket (WhatsApp)" },
+              { id: `bkdl_qr_${bask.id}`, title: "QR to Open (WhatsApp)" },
+            ],
+          );
+        } else {
+          // Private basket: give immediate share CTAs
+          await sendButtons(from,
+            "✅ Basket created! Share with others or show a QR to join.",
+            [
+              { id: `bkdl_share_${bask.id}`, title: "Share Basket (WhatsApp)" },
+              { id: `bkdl_qr_${bask.id}`, title: "QR to Open (WhatsApp)" },
+            ],
+          );
+        }
+      } catch (e) {
+        console.error(e);
+        await sendButtons(from, "Couldn’t create basket.", [{ id: "back_home", title: "Back to Menu" }]);
+      }
+      await clearState(user_id);
+      return new Response("ok");
+    }
+  }
+
+  // ===========================================================
+  // LIST REPLIES (menus, lists, row clicks)
+  // ===========================================================
+  if (msg.interactive?.type === "list_reply") {
+    const id = msg.interactive.list_reply.id;
+
+    // ---------- Home menu ----------
+    if (id === "see_drivers") {
+      // NEW: first ask vehicle type
+      await setState(user_id, "near_choose_v_drivers");
+      await sendList(from, {
+        title: "Drivers nearby",
+        body: "Which vehicle type do you want to see nearby?",
+        sectionTitle: "Vehicle",
+        rows: [
+          { id: "near_v_drv_moto",  title: "Moto" },
+          { id: "near_v_drv_cab",   title: "Cab" },
+          { id: "near_v_drv_lifan", title: "Lifan" },
+          { id: "near_v_drv_truck", title: "Truck" },
+          { id: "near_v_drv_others", title: "Others" },
+        ],
+      });
+      return new Response("ok");
+    }
+
+    if (id === "see_passengers") {
+      // NEW: vehicle type first
+      await setState(user_id, "near_choose_v_passengers");
+      await sendList(from, {
+        title: "Passengers nearby",
+        body: "Which vehicle type do you want to see nearby?",
+        sectionTitle: "Vehicle",
+        rows: [
+          { id: "near_v_pax_moto",  title: "Moto" },
+          { id: "near_v_pax_cab",   title: "Cab" },
+          { id: "near_v_pax_lifan", title: "Lifan" },
+          { id: "near_v_pax_truck", title: "Truck" },
+          { id: "near_v_pax_others", title: "Others" },
+        ],
+      });
+      return new Response("ok");
+    }
+
+    if (id === "schedule_trip") {
+      await setState(user_id, "await_schedule_role");
+      await sendList(from, {
+        title: "Schedule Trip",
+        body: "Choose your role.",
+        sectionTitle: "Role",
+        rows: [
+          { id: "role_passenger", title: "Passenger" },
+          { id: "role_driver", title: "Driver" },
+        ],
+      });
+      return new Response("ok");
+    }
+
+    if (id === "marketplace") {
+      await setState(user_id, "await_market_option");
+      await sendList(from, {
+        title: "Marketplace",
+        body: "Choose an option.",
+        sectionTitle: "Marketplace",
+        rows: [
+          { id: "mk_add", title: "Add Business" },
+          { id: "mk_see", title: "See Businesses" },
+        ],
+      });
+      return new Response("ok");
+    }
+
+    if (id === "baskets") {
+      await setState(user_id, "await_baskets_action");
+      await sendList(from, {
+        title: "Baskets",
+        body: "Choose an option.",
+        sectionTitle: "Baskets",
+        rows: [
+          { id: "bk_view", title: "View Baskets" },
+          { id: "bk_create", title: "Create Basket" },
+          { id: "bk_help", title: "Help" },
+        ],
+      });
+      return new Response("ok");
+    }
+
+    if (id === "motor_insurance") {
+      await setState(user_id, "ins_wait_doc");
+      await sendButtons(
+        from,
+        "Send a photo or PDF of your insurance certificate or yellow vehicle card (one file only).\n\nTap ➕ and upload your file.",
+        [{ id: "back_home", title: "Back to Menu" }],
+      );
+      return new Response("ok");
+    }
+
+    if (id === "momoqr_start") {
+      await setState(user_id, "momoqr_start");
+      const my07 = to07FromE164(from);
+      await sendList(from, {
+        title: "MoMo QR Code",
+        body: "Generate a QR that opens your dialer with MoMo payment USSD.",
+        sectionTitle: "Options",
+        rows: [
+          { id: "mqr_use_wa", title: "Use this number", description: `Your WhatsApp: ${my07 || "unknown"}` },
+          { id: "mqr_enter_num", title: "Enter MoMo number", description: "07… mobile number" },
+          { id: "mqr_enter_code", title: "Enter MoMo code", description: "4–9 digit code" },
+        ],
+      });
+      return new Response("ok");
+    }
+
+    // ---------- Near vehicle picks ----------
+    if (id.startsWith("near_v_drv_")) {
+      const vehicle = id.replace("near_v_drv_", ""); // moto|cab|lifan|truck|others
+      await setState(user_id, "near_await_loc_drivers", { vehicle_type: vehicle });
+      await sendButtons(
+        from,
+        "Share your pickup area to see nearby drivers.\n\nTap ➕ and share your current location.",
+        [{ id: "back_home", title: "Back to Menu" }],
+      );
+      return new Response("ok");
+    }
+
+    if (id.startsWith("near_v_pax_")) {
+      const vehicle = id.replace("near_v_pax_", "");
+      await setState(user_id, "near_await_loc_passengers", { vehicle_type: vehicle });
+      await sendButtons(
+        from,
+        "Share your pickup area to see nearby passengers.\n\nTap ➕ and share your current location.",
+        [{ id: "back_home", title: "Back to Menu" }],
+      );
+      return new Response("ok");
+    }
+
+    // ---------- Schedule: role & vehicle ----------
+    if (id === "role_passenger" || id === "role_driver") {
+      const role = id === "role_passenger" ? "passenger" : "driver";
+      await setState(user_id, "await_schedule_vehicle", { role });
+      await sendList(from, {
+        title: "Vehicle Type",
+        body: "Choose your vehicle type.",
+        sectionTitle: "Vehicle",
+        rows: [
+          { id: "veh_moto", title: "Moto" },
+          { id: "veh_cab", title: "Cab" },
+          { id: "veh_lifan", title: "Lifan" },
+          { id: "veh_truck", title: "Truck" },
+          { id: "veh_others", title: "Others" },
+        ],
+      });
+      return new Response("ok");
+    }
+
+    if (id.startsWith("veh_") && state === "await_schedule_vehicle") {
+      const role = data.role;
+      const vehicle_type = id.replace("veh_", "");
+      await setState(user_id, "await_schedule_pickup", { role, vehicle_type });
+      await sendButtons(from, "Share your pickup location.\n\nTap ➕ and share your current location.", [
+        { id: "back_home", title: "Back to Menu" },
+      ]);
+      return new Response("ok");
+    }
+
+    // ---------- Marketplace (kept minimal) ----------
+    if (id === "mk_add") {
+      const { data: cats } = await sb
+        .from("marketplace_categories")
+        .select("id,name,sort_order,is_active")
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true })
+        .order("name", { ascending: true });
+
+      const rows = (cats || [])
+        .slice(0, 10)
+        .map((c) => ({
+          id: `cat_${c.id}`,
+          title: safeRowTitle(c.name, 24),
+        }));
+
+      await setState(user_id, "await_market_category");
+      await sendList(from, {
+        title: "Add Business",
+        body: "Choose a category.",
+        sectionTitle: "Categories",
+        rows: rows.length ? rows : [{ id: "back_home", title: "No categories" }],
+      });
+      return new Response("ok");
+    }
+
+    if (id.startsWith("cat_")) {
+      const category_id = Number(id.split("_")[1]);
+      await setState(user_id, "await_business_name", { category_id });
+      await sendButtons(from, "Enter your business name (send it as text).", [
+        { id: "back_home", title: "Back to Menu" },
+      ]);
+      return new Response("ok");
+    }
+
+    if (id === "mk_see") {
+      const { data: cats } = await sb
+        .from("marketplace_categories")
+        .select("id,name,sort_order,is_active")
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true })
+        .order("name", { ascending: true });
+
+      const rows = (cats || [])
+        .slice(0, 10)
+        .map((c) => ({
+          id: `see_cat_${c.id}`,
+          title: safeRowTitle(c.name, 24),
+        }));
+
+      await setState(user_id, "await_market_see_category");
+      await sendList(from, {
+        title: "See Businesses",
+        body: "Choose a category.",
+        sectionTitle: "Categories",
+        rows: rows.length ? rows : [{ id: "back_home", title: "No categories" }],
+      });
+      return new Response("ok");
+    }
+
+    if (id.startsWith("see_cat_")) {
+      const category_id = Number(id.split("_")[2]);
+      await setState(user_id, "await_market_see_loc", { category_id });
+      await sendButtons(
+        from,
+        "Share your location to find nearby businesses.\n\nTap ➕ and share your current location.",
+        [{ id: "back_home", title: "Back to Menu" }],
+      );
+      return new Response("ok");
+    }
+
+    // ---------- Baskets main ----------
+    if (id === "bk_view") {
+      // show most relevant baskets (mine or public approved)
+      const mineIds: string[] = [];
+      const created = await sb
+        .from("baskets")
+        .select("id,name,created_at")
+        .eq("creator_id", user_id)
+        .order("created_at", { ascending: false })
+        .limit(10);
+      (created.data || []).forEach((b) => mineIds.push(b.id));
+
+      const memberOf = await sb
+        .from("basket_members")
+        .select("basket_id")
+        .eq("user_id", user_id)
+        .limit(50);
+      (memberOf.data || []).forEach((m) => {
+        if (!mineIds.includes(m.basket_id)) mineIds.push(m.basket_id);
+      });
+
+      let rows: Array<{ id: string; title: string; description?: string }> = [];
+      if (mineIds.length) {
+        const { data: bs } = await sb
+          .from("baskets")
+          .select("id,name,type,status,created_at")
+          .in("id", mineIds)
+          .order("created_at", { ascending: false })
+          .limit(10);
+        rows = (bs || []).map((b) => ({
+          id: `b_${b.id}`,
+          title: safeRowTitle(b.name, 24),
+          description: `${b.type}/${b.status}`,
+        }));
+      } else {
+        const pub = await sb
+          .from("baskets")
+          .select("id,name,description,created_at")
+          .eq("type", "public")
+          .eq("status", "approved")
+          .order("created_at", { ascending: false })
+          .limit(10);
+        rows = (pub.data || []).map((b) => ({ id: `b_${b.id}`, title: safeRowTitle(b.name, 24), description: "Public" }));
+      }
+
+      if (!rows.length) {
+        await sendButtons(from, "No baskets yet.", [{ id: "back_home", title: "Back to Menu" }]);
+        return new Response("ok");
+      }
+
+      await sendList(from, {
+        title: "Baskets",
+        body: "Pick a basket.",
+        sectionTitle: "Baskets",
+        rows,
+      });
+      return new Response("ok");
+    }
+
+    if (id === "bk_create") {
+      await setState(user_id, "await_basket_name");
+      await sendButtons(from, "What’s the basket name?", [{ id: "back_home", title: "Back to Menu" }]);
+      return new Response("ok");
+    }
+
+    if (id === "bk_help") {
+      await sendButtons(from, "Chat with support:\nhttps://wa.me/35677186193", [
+        { id: "back_home", title: "Back to Menu" },
+      ]);
+      return new Response("ok");
+    }
+
+    // ---------- Row-clicks for selected basket ----------
+    if (id.startsWith("b_")) {
+      const basketId = id.slice(2);
+      const b = await getBasket(basketId);
+      if (!b) {
+        await sendButtons(from, "Basket not available.", [{ id: "back_home", title: "Back to Menu" }]);
+        return new Response("ok");
+      }
+      const isCreator = b.creator_id === user_id;
+      const memberNow = await isMember(basketId, user_id);
+      await setState(user_id, "basket_ctx", { basket_id: basketId });
+      await sendList(from, {
+        title: safeRowTitle(b.name, 60),
+        body: "Choose an action.",
+        sectionTitle: "Actions",
+        rows: basketActionsRows(b, isCreator, memberNow),
+      });
+      return new Response("ok");
+    }
+
+    // ---------- Intercept NEW deep link actions before generic bk_ ----------
+    if (id.startsWith("bkdl_")) {
+      const parts = id.split("_"); // bkdl_share_<id> OR bkdl_qr_<id>
+      const kind = parts[1]; // share | qr
+      const basketId = parts.slice(2).join("_");
+      const b = await getBasket(basketId);
+      if (!b) {
+        await sendButtons(from, "Basket not available.", [{ id: "back_home", title: "Back to Menu" }]);
+        return new Response("ok");
+      }
+      const token = b.public_slug || b.id;
+      const dl = await basketDeepLinkUrl(token);
+
+      if (kind === "share") {
+        if (dl) {
+          await sendButtons(from, `Share this WhatsApp link:\n${dl}\nAnyone opening it will get basket options right away.`, [
+            { id: "back_home", title: "Back to Menu" },
+          ]);
+        } else {
+          await sendButtons(from, `Share this token:\nJOIN_BASKET:${token}`, [
+            { id: "back_home", title: "Back to Menu" },
+          ]);
+        }
+        return new Response("ok");
+      }
+
+      if (kind === "qr") {
+        if (dl) {
+          const q = qrUrlForDeepLink(dl, 512);
+          await sendImageUrl(from, q, `Scan to open basket: ${b.name}`);
+        } else {
+          const q = qrUrlForJoin(token);
+          await sendImageUrl(from, q, `Scan to open basket: ${b.name}`);
+        }
+        return new Response("ok");
+      }
+    }
+
+    // ---------- Generic bk_* actions (legacy kept) ----------
+    if (id.startsWith("bk_")) {
+      // NOTE: we purposely avoid intercepting bk_type_* here (handled in TEXT flow below)
+      const st2 = await getState(user_id);
+      const basketId = (st2?.data?.basket_id) || id.split("_")[2];
+      const b = await getBasket(basketId);
+      if (!b) {
+        await sendButtons(from, "Basket not available.", [{ id: "back_home", title: "Back to Menu" }]);
+        return new Response("ok");
+      }
+      const isCreator = b.creator_id === user_id;
+
+      if (id.startsWith("bk_det_")) {
+        await sendButtons(from, basketDetailsText(b), [{ id: "back_home", title: "Back to Menu" }]);
+        return new Response("ok");
+      }
+
+      if (id.startsWith("bk_share_")) {
+        const token = b.public_slug || b.id;
+        await sendButtons(from, `Share this token:\nJOIN_BASKET:${token}`, [
+          { id: "back_home", title: "Back to Menu" },
+        ]);
+        return new Response("ok");
+      }
+
+      if (id.startsWith("bk_qr_")) {
+        const token = b.public_slug || b.id;
+        const url = qrUrlForJoin(token);
+        await sendImageUrl(from, url, `Scan to join: ${b.name}`);
+        return new Response("ok");
+      }
+
+      if (id.startsWith("bk_join_")) {
+        await addMember(b.id, user_id);
+        try {
+          const { data: creator } = await sb.from("profiles").select("whatsapp_e164").eq("user_id", b.creator_id).maybeSingle();
+          if (creator?.whatsapp_e164) {
+            await sendText(creator.whatsapp_e164, `New member joined your basket: ${from} (${b.name})`);
+          }
+        } catch (_e) {}
+        await sendButtons(from, "Joined ✅", [{ id: "back_home", title: "Back to Menu" }]);
+        return new Response("ok");
+      }
+
+      if (id.startsWith("bk_leave_")) {
+        if (isCreator) {
+          await sendButtons(from, "Creator cannot leave. Close the basket instead.", [
+            { id: "back_home", title: "Back to Menu" },
+          ]);
+          return new Response("ok");
+        }
+        await removeMember(b.id, user_id);
+        await sendButtons(from, "You left the basket.", [{ id: "back_home", title: "Back to Menu" }]);
+        return new Response("ok");
+      }
+
+      if (id.startsWith("bk_close_")) {
+        if (!isCreator) {
+          await sendButtons(from, "Only the creator can close this basket.", [{ id: "back_home", title: "Back to Menu" }]);
+          return new Response("ok");
+        }
+        try {
+          await sb.from("baskets").update({ status: "closed" }).eq("id", b.id);
+          await sendButtons(from, "Basket closed.", [{ id: "back_home", title: "Back to Menu" }]);
+        } catch (e) {
+          console.error(e);
+          await sendButtons(from, "Couldn’t close the basket.", [{ id: "back_home", title: "Back to Menu" }]);
+        }
+        return new Response("ok");
+      }
+
+      if (id.startsWith("bk_cont_")) {
+        if (b.momo_target) {
+          const ussd = buildMomoUssd(b.momo_target, !!b.momo_is_code);
+          await sendButtons(from, `Tap to dial USSD:\n${ussd}`, [
+            { id: "back_home", title: "Back to Menu" },
+          ]);
+        } else {
+          await sendButtons(from, "Creator didn’t set MoMo yet.", [{ id: "back_home", title: "Back to Menu" }]);
+        }
+        // NEW: move to pending-contribution amount entry
+        await setState(user_id, "await_contrib_amount", { basket_id: b.id });
+        await sendButtons(from, "Reply with the amount you sent (numbers only).", [
+          { id: "back_home", title: "Back to Menu" },
+        ]);
+        return new Response("ok");
+      }
+
+      if (id.startsWith("bk_mems_")) {
+        const parts = id.split("_");
+        const page = parseInt(parts[3] || "0", 10);
+        const members = await listMembersPage(b.id, page, 9);
+        if (!members.length) {
+          await sendButtons(from, "No more members.", [{ id: "back_home", title: "Back to Menu" }]);
+          return new Response("ok");
+        }
+        const rows = members.map((m, i) => ({
+          id: `bk_mem_${m.user_id}`,
+          title: safeRowTitle(`#${(page * 9) + (i + 1)} • ${m.code}`, 24),
+          description: `RWF ${m.total_contributed?.toLocaleString?.() ?? m.total_contributed}`,
+        }));
+        rows.push({ id: `bk_mems_${b.id}_${page + 1}`, title: "Next page →" });
+        await setState(user_id, "basket_ctx", { basket_id: b.id, page });
+        await sendList(from, {
+          title: safeRowTitle(`${b.name} — Members`, 60),
+          body: "Ranked by total contributed",
+          sectionTitle: `Page ${page + 1}`,
+          rows,
+        });
+        return new Response("ok");
+      }
+    }
+
+    // ---------- Nearby row picks ----------
+    if (id.startsWith("drv_")) {
+      const st2 = await getState(user_id);
+      const arr = st2?.data?.drivers || [];
+      const idx = parseInt(id.split("_")[1] || "0", 10);
+      const chosen = arr[idx];
+      if (!chosen) {
+        await sendButtons(from, "That driver is no longer available.", [{ id: "back_home", title: "Back to Menu" }]);
+        return new Response("ok");
+      }
+      const wa = chosen.whatsapp_e164 ? e164(chosen.whatsapp_e164) : null;
+      if (!wa) {
+        await sendButtons(from, "No contact for this driver.", [{ id: "back_home", title: "Back to Menu" }]);
+        return new Response("ok");
+      }
+      await markServedDriver(from, String(chosen.driver_user_id));
+      await clearState(user_id);
+      await sendButtons(from, `Chat with driver:\nhttps://wa.me/${toWaDigits(wa)}`, [
+        { id: "back_home", title: "Back to Menu" },
+      ]);
+      return new Response("ok");
+    }
+
+    if (id.startsWith("pax_")) {
+      const st2 = await getState(user_id);
+      const arr = st2?.data?.pax || [];
+      const idx = parseInt(id.split("_")[1] || "0", 10);
+      const chosen = arr[idx];
+      if (!chosen) {
+        await sendButtons(from, "That passenger is no longer available.", [
+          { id: "back_home", title: "Back to Menu" },
+        ]);
+        return new Response("ok");
+      }
+      let wa = chosen.whatsapp_e164;
+      if (!wa && chosen.creator_user_id) {
+        const p = await sb
+          .from("profiles")
+          .select("whatsapp_e164")
+          .eq("user_id", chosen.creator_user_id)
+          .maybeSingle();
+        wa = p.data?.whatsapp_e164;
+      }
+      if (!wa) {
+        await sendButtons(from, "No contact for this passenger.", [{ id: "back_home", title: "Back to Menu" }]);
+        return new Response("ok");
+      }
+      await markServedPassenger(from, String(chosen.trip_id));
+      await clearState(user_id);
+      await sendButtons(from, `Chat with passenger:\nhttps://wa.me/${toWaDigits(e164(wa))}`, [
+        { id: "back_home", title: "Back to Menu" },
+      ]);
+      return new Response("ok");
+    }
+
+    // ---------- Trip matches selection ----------
+    if (id.startsWith("mtch_")) {
+      const st2 = await getState(user_id);
+      const list = st2?.data?.list || [];
+      const idx = parseInt(id.split("_")[1], 10);
+      const tripRow = list[idx];
+      if (!tripRow) {
+        await sendButtons(from, "No longer available.", [{ id: "back_home", title: "Back to Menu" }]);
+        return new Response("ok");
+      }
+      const { data: prof } = await sb
+        .from("profiles")
+        .select("whatsapp_e164")
+        .eq("user_id", tripRow.creator_user_id)
+        .maybeSingle();
+      const wa = prof?.whatsapp_e164;
+      if (!wa) {
+        await sendButtons(from, "No contact found.", [{ id: "back_home", title: "Back to Menu" }]);
+        return new Response("ok");
+      }
+      await clearState(user_id);
+      await sendButtons(from, `Chat:\nhttps://wa.me/${toWaDigits(e164(wa))}`, [
+        { id: "back_home", title: "Back to Menu" },
+      ]);
+      return new Response("ok");
+    }
+
+    // ---------- MoMo QR list sub-options ----------
+    if (id === "mqr_use_wa" || id === "mqr_enter_num" || id === "mqr_enter_code") {
+      if (id === "mqr_use_wa") {
+        const my07 = to07FromE164(from);
+        if (!isRwanda07Number(my07)) {
+          await sendButtons(from, "Your WhatsApp number isn’t +2507… — please enter a MoMo number instead.", [
+            { id: "back_home", title: "Back to Menu" },
+          ]);
+          return new Response("ok");
+        }
+        await setState(user_id, "momoqr_await_amount", { kind: "number", momo_value: my07 });
+        await sendButtons(from, "Reply with amount in RWF (numbers only), or tap Skip amount.", [
+          { id: "mqr_amt_skip", title: "Skip amount" },
+          { id: "back_home", title: "Back to Menu" },
+        ]);
+        return new Response("ok");
+      }
+      if (id === "mqr_enter_num") {
+        await setState(user_id, "momoqr_await_number");
+        await sendButtons(from, "Send your MoMo number (07…).", [{ id: "back_home", title: "Back to Menu" }]);
+        return new Response("ok");
+      }
+      if (id === "mqr_enter_code") {
+        await setState(user_id, "momoqr_await_code");
+        await sendButtons(from, "Send your MoMo code (4–9 digits).", [{ id: "back_home", title: "Back to Menu" }]);
+        return new Response("ok");
+      }
+    }
+  }
+
+  // ===========================================================
+  // TEXT INPUTS (free text)
+  // ===========================================================
+  if (msg.type === "text" && msg.text?.body) {
+    const body = msg.text.body.trim();
+
+    // JOIN_BASKET:<token> (global deep link catcher)
+    const joinMatch = /^JOIN_BASKET:([A-Za-z0-9\-_]+)$/.exec(body);
+    if (joinMatch) {
+      const token = joinMatch[1];
+      let bask: any = null;
+      const bySlug = await sb.from("baskets").select("*").eq("public_slug", token).maybeSingle();
+      if (bySlug.data) bask = bySlug.data;
+      if (!bask) {
+        const byId = await sb.from("baskets").select("*").eq("id", token).maybeSingle();
+        if (byId.data) bask = byId.data;
+      }
+      if (!bask) {
+        await sendButtons(from, "Basket not found.", [{ id: "back_home", title: "Back to Menu" }]);
+        return new Response("ok");
+      }
+      await addMember(bask.id, user_id);
+      try {
+        const { data: creator } = await sb.from("profiles").select("whatsapp_e164").eq("user_id", bask.creator_id).maybeSingle();
+        if (creator?.whatsapp_e164) {
+          await sendText(e164(creator.whatsapp_e164), `New member joined your basket: ${from} (${bask.name})`);
+        }
+        await sendText(e164(BASKET_REVIEW_ADMIN), `New member joined basket: ${bask.name}\nMember: ${from}`);
+      } catch (_e) {}
+      await sendButtons(from, `Joined ✅\n${bask.name}`, [{ id: "back_home", title: "Back to Menu" }]);
+      return new Response("ok");
+    }
+
+    // Marketplace add flow (minimal)
+    if (state === "await_business_name") {
+      await setState(user_id, "await_business_desc", { ...data, name: body });
+      await sendButtons(from, "Add a short description (one line).", [
+        { id: "back_home", title: "Back to Menu" },
+      ]);
+      return new Response("ok");
+    }
+    if (state === "await_business_desc") {
+      await setState(user_id, "await_business_catalog", { ...data, description: body });
+      await sendButtons(
+        from,
+        "Paste your WhatsApp catalog link (http…) or tap Skip.",
+        [
+          { id: "biz_catalog_skip", title: "Skip" },
+          { id: "back_home", title: "Back to Menu" },
+        ],
+      );
+      return new Response("ok");
+    }
+    if (state === "await_business_catalog") {
+      const catalog_url = body.startsWith("http://") || body.startsWith("https://") ? body : null;
+      await setState(user_id, "await_business_location", { ...data, catalog_url });
+      await sendButtons(
+        from,
+        "Share your business location.\n\nTap ➕ and share your current location.",
+        [{ id: "back_home", title: "Back to Menu" }],
+      );
+      return new Response("ok");
+    }
+
+    // Baskets create — name → desc → type (intercept bk_type_* later)
+    if (state === "await_basket_name") {
+      await setState(user_id, "await_basket_desc", { name: body });
+      await sendButtons(from, "Add a short description (≤ 256 chars).", [
+        { id: "back_home", title: "Back to Menu" },
+      ]);
+      return new Response("ok");
+    }
+    if (state === "await_basket_desc") {
+      // show type options with ids bk_type_public/private
+      await setState(user_id, "await_basket_type", { ...data, description: body });
+      await sendList(from, {
+        title: "Basket Type",
+        body: "Choose basket type.",
+        sectionTitle: "Type",
+        rows: [
+          { id: "bk_type_public", title: "Public" },
+          { id: "bk_type_private", title: "Private" },
+        ],
+      });
+      return new Response("ok");
+    }
+
+    // **BUGFIX intercept**: when type chosen, we must NOT fall into generic bk_* handler
+    // So we process typed text AFTER user clicked list id — but ids are list-reply (handled above).
+    // Here, we handle the MoMo prompt acceptance:
+    if (state === "await_basket_momo") {
+      const rawNumOrCode = body.replace(/\s+/g, "");
+      let momo_is_code = false;
+      let momo_target = "";
+
+      if (/^\d{4,9}$/.test(rawNumOrCode)) {
+        momo_is_code = true;
+        momo_target = rawNumOrCode;
+      } else {
+        const normalized = normalizeMoMoNumberInput(rawNumOrCode);
+        if (normalized) {
+          momo_is_code = false;
+          momo_target = normalized;
+        } else {
+          await sendButtons(from, "Send MoMo Number (07…) or MoMo Code (4–9 digits).", [
+            { id: "back_home", title: "Back to Menu" },
+          ]);
+          return new Response("ok");
+        }
+      }
+
+      await setState(user_id, "await_basket_confirm", { ...data, momo_target, momo_is_code });
+      await sendButtons(
+        from,
+        `Saved.\n${momo_is_code ? "MoMo Code" : "MoMo Number"}: ${momo_target}\nCreate basket now?`,
+        [
+          { id: "bk_do_create", title: "Create" },
+          { id: "back_home", title: "Back to Menu" },
+        ],
+      );
+      return new Response("ok");
+    }
+
+    // Contribution amount (NEW: create pending + notify creator with contrib_* buttons)
+    if (state === "await_contrib_amount") {
+      const amount = parseInt(body.replace(/\D/g, ""), 10);
+      if (!Number.isFinite(amount) || amount <= 0) {
+        await sendButtons(from, "Enter a valid amount (RWF).", [{ id: "back_home", title: "Back to Menu" }]);
+        return new Response("ok");
+      }
+      const baskId = data?.basket_id as string;
+      const bask = await getBasket(baskId);
+      if (!bask) {
+        await clearState(user_id);
+        await sendButtons(from, "Basket not found.", [{ id: "back_home", title: "Back to Menu" }]);
+        return new Response("ok");
+      }
+
+      // create pending contribution row
+      let contrib: ContributionRow | null = null;
+      try {
+        contrib = await createPendingContribution({
+          basket_id: bask.id,
+          contributor_user_id: user_id,
+          amount_rwf: amount,
+          wa_message_id: msg.id || null,
+        });
+      } catch (e) {
+        console.error("createPendingContribution failed", e);
+      }
+
+      // notify creator with contrib_* buttons (+chat)
+      try {
+        const { data: creator } = await sb.from("profiles").select("whatsapp_e164").eq("user_id", bask.creator_id).maybeSingle();
+        const creatorWa = creator?.whatsapp_e164;
+        if (creatorWa && contrib) {
+          await sendButtons(
+            e164(creatorWa),
+            `Contribution review\nBasket: ${bask.name}\nFrom: ${from}\nAmount: RWF ${amount.toLocaleString()}`,
+            [
+              { id: `contrib_appr_${contrib.id}`, title: "Approve" },
+              { id: `contrib_rej_${contrib.id}`, title: "Reject" },
+              { id: `contrib_chat_${toWaDigits(from)}`, title: "Chat contributor" },
+            ],
+          );
+        }
+      } catch (e) {
+        console.error("notify creator contrib", e);
+      }
+
+      await clearState(user_id);
+      await sendButtons(from, "Sent to creator for approval. You’ll be notified.", [
+        { id: "back_home", title: "Back to Menu" },
+      ]);
+      return new Response("ok");
+    }
+
+    // MoMo QR inputs
+    if (state === "momoqr_await_number") {
+      const normalized = normalizeMoMoNumberInput(body);
+      if (!normalized) {
+        await sendButtons(from, "Send your MoMo number (07…).", [{ id: "back_home", title: "Back to Menu" }]);
+        return new Response("ok");
+      }
+      await setState(user_id, "momoqr_await_amount", { kind: "number", momo_value: normalized });
+      await sendButtons(from, "Reply with amount in RWF (numbers only), or tap Skip amount.", [
+        { id: "mqr_amt_skip", title: "Skip amount" },
+        { id: "back_home", title: "Back to Menu" },
+      ]);
+      return new Response("ok");
+    }
+
+    if (state === "momoqr_await_code") {
+      const normalized = normalizeMoMoCodeInput(body);
+      if (!normalized) {
+        await sendButtons(from, "Send your MoMo code (4–9 digits).", [{ id: "back_home", title: "Back to Menu" }]);
+        return new Response("ok");
+      }
+      await setState(user_id, "momoqr_await_amount", { kind: "code", momo_value: normalized });
+      await sendButtons(from, "Reply with amount in RWF (numbers only), or tap Skip amount.", [
+        { id: "mqr_amt_skip", title: "Skip amount" },
+        { id: "back_home", title: "Back to Menu" },
+      ]);
+      return new Response("ok");
+    }
+
+    if (state === "momoqr_await_amount") {
+      const rawAmt = body.replace(/\s/g, "");
+      const amt = parseInt(rawAmt.replace(/\D/g, ""), 10);
+      if (!Number.isFinite(amt) || amt <= 0) {
+        await sendButtons(from, "Enter a valid amount (RWF) or tap Skip amount.", [
+          { id: "mqr_amt_skip", title: "Skip amount" },
+          { id: "back_home", title: "Back to Menu" },
+        ]);
+        return new Response("ok");
+      }
+      const kind = data?.kind as "number" | "code";
+      const momo_value = String(data?.momo_value ?? "");
+      await generateAndSendMomoQR({ to: from, user_id, kind, momo_value, amount: amt });
+      await clearState(user_id);
+      return new Response("ok");
+    }
+
+    // Ins: fallthrough to home when idle
+    if (state === "home") {
+      await sendHome(from);
+      return new Response("ok");
+    }
+  }
+
+  // ===========================================================
+  // BUTTON REPLIES (secondary small ones)
+  // ===========================================================
+  if (msg.interactive?.type === "button_reply") {
+    const bid = msg.interactive.button_reply.id || "";
+
+    // Add business: catalog skip
+    if (bid === "biz_catalog_skip" && state === "await_business_catalog") {
+      await setState(user_id, "await_business_location", { ...data, catalog_url: null });
+      await sendButtons(
+        from,
+        "Share your business location.\n\nTap ➕ and share your current location.",
+        [{ id: "back_home", title: "Back to Menu" }],
+      );
+      return new Response("ok");
+    }
+  }
+
+  // ===========================================================
+  // LOCATION MESSAGES
+  // ===========================================================
+  if (msg.type === "location") {
+    const { latitude: lat, longitude: lon } = msg.location;
+
+    // NEW: near drivers by vehicle
+    if (state === "near_await_loc_drivers") {
+      const vehicle = (data?.vehicle_type || "").toString();
+      try {
+        const rows = await rpcNearbyDriversByVehicle(lat, lon, from, vehicle, 10);
+        if (!rows?.length) {
+          await sendButtons(from, "No drivers nearby right now.", [{ id: "back_home", title: "Back to Menu" }]);
+          await clearState(user_id);
+          return new Response("ok");
+        }
+        await setState(user_id, "near_await_loc_drivers", { lat, lon, vehicle_type: vehicle, drivers: rows });
+        await sendList(from, {
+          title: "Nearby Drivers",
+          body: "Pick a driver to chat.",
+          sectionTitle: "Drivers",
+          rows: rows.slice(0, 10).map((d, i) => ({
+            id: `drv_${i}`,
+            title: safeRowTitle(`${fmtKm(d.distance_km)} • ${timeAgo(d.last_seen)}`, 24),
+            description: d.whatsapp_e164 || "driver",
+          })),
+        });
+      } catch (e) {
+        console.error(e);
+        await sendButtons(from, "Couldn’t fetch drivers.", [{ id: "back_home", title: "Back to Menu" }]);
+      }
+      return new Response("ok");
+    }
+
+    // NEW: near passengers by vehicle
+    if (state === "near_await_loc_passengers") {
+      const vehicle = (data?.vehicle_type || "").toString();
+      try {
+        const rows = await rpcNearbyPassengersByVehicle(lat, lon, from, vehicle, 10);
+        if (!rows?.length) {
+          await sendButtons(from, "No passengers nearby right now.", [{ id: "back_home", title: "Back to Menu" }]);
+          await clearState(user_id);
+          return new Response("ok");
+        }
+        await setState(user_id, "near_await_loc_passengers", { lat, lon, vehicle_type: vehicle, pax: rows });
+        await sendList(from, {
+          title: "Nearby Passengers",
+          body: "Pick a passenger to chat.",
+          sectionTitle: "Passengers",
+          rows: rows.slice(0, 10).map((p, i) => ({
+            id: `pax_${i}`,
+            title: safeRowTitle(`${fmtKm(p.distance_km)} • ${timeAgo(p.created_at)}`, 24),
+            description: `trip ${p.trip_id}`,
+          })),
+        });
+      } catch (e) {
+        console.error(e);
+        await sendButtons(from, "Couldn’t fetch passengers.", [{ id: "back_home", title: "Back to Menu" }]);
+      }
+      return new Response("ok");
+    }
+
+    // Marketplace: add business location
+    if (state === "await_business_location") {
+      const st2 = await getState(user_id);
+      try {
+        await sb.from("businesses").insert({
+          owner_whatsapp: from,
+          category_id: st2.data.category_id,
+          name: st2.data.name,
+          description: st2.data.description || "",
+          catalog_url: st2.data.catalog_url || null,
+          geo: `SRID=4326;POINT(${lon} ${lat})`,
+          is_active: true,
+        });
+        await sendButtons(from, "✅ Business listed! People nearby can discover it in Marketplace.", [
+          { id: "back_home", title: "Back to Menu" },
+        ]);
+      } catch (e) {
+        console.error(e);
+        await sendButtons(from, "Couldn’t save your business. Try again.", [
+          { id: "back_home", title: "Back to Menu" },
+        ]);
+      }
+      await clearState(user_id);
+      return new Response("ok");
+    }
+
+    // Marketplace: see businesses near
+    if (state === "await_market_see_loc") {
+      const st2 = await getState(user_id);
+      const catId = st2?.data?.category_id as number | undefined;
+      try {
+        const rows = await rpcNearbyBusinesses(lat, lon, from, 20);
+        let filtered = rows;
+
+        if (catId) {
+          const ids = rows.map((r) => r.id);
+          if (ids.length) {
+            const { data: meta } = await sb.from("businesses").select("id,category_id").in("id", ids);
+            const idToCat = new Map(meta?.map((m) => [m.id, m.category_id]) || []);
+            filtered = rows.filter((r) => idToCat.get(r.id) === catId);
+          }
+        }
+
+        if (!filtered?.length) {
+          await sendButtons(from, "No businesses found nearby for that category.", [
+            { id: "back_home", title: "Back to Menu" },
+          ]);
+          await clearState(user_id);
+          return new Response("ok");
+        }
+        await setState(user_id, "await_market_see_loc", {
+          ...st2.data,
+          lat,
+          lon,
+          results: filtered,
+        });
+        await sendList(from, {
+          title: "Nearby Businesses",
+          body: "Pick a business for actions.",
+          sectionTitle: "Businesses",
+          rows: filtered.slice(0, 10).map((b, i) => ({
+            id: `biz_${i}_${b.id}`,
+            title: safeRowTitle(b.name, 24),
+            description: safeRowDesc(`${fmtKm(b.distance_km)} • ${(b.description || "").slice(0, 48)}`, 72),
+          })),
+        });
+      } catch (e) {
+        console.error(e);
+        await sendButtons(from, "Couldn’t fetch businesses.", [{ id: "back_home", title: "Back to Menu" }]);
+      }
+      return new Response("ok");
+    }
+
+    // Schedule: pickup → create trip + ask dropoff + show matches
+    if (state === "await_schedule_pickup") {
+      const st2 = await getState(user_id);
+      const role = st2.data.role;
+      const vehicle_type = st2.data.vehicle_type;
+      try {
+        const ins = await sb.from("trips").insert({
+          creator_user_id: user_id,
+          role,
+          vehicle_type,
+          pickup: `SRID=4326;POINT(${lon} ${lat})`,
+          status: "open",
+        }).select("id").single();
+
+        if (ins.error) throw ins.error;
+        const newTripId = ins.data.id as string;
+
+        // Ask optional drop-off
+        await setState(user_id, "sched_await_drop", { trip_id: newTripId, role });
+        await sendButtons(
+          from,
+          "Add a drop-off location? It helps find better matches.",
+          [
+            { id: "sched_add_drop", title: "Add Drop-off" },
+            { id: "sched_skip_drop", title: "Skip" },
+          ],
+        );
+
+        // Also send matches right away
+        try {
+          if (role === "passenger") {
+            const matches = await rpcMatchDriversForTrip(newTripId, 10);
+            if (matches?.length) {
+              await setState(user_id, "await_match_select", { role, list: matches });
+              await sendList(from, {
+                title: "Matching Drivers",
+                body: "Pick a driver to chat.",
+                sectionTitle: "Drivers",
+                rows: matches.slice(0, 10).map((m, i) => ({
+                  id: `mtch_${i}_${m.trip_id}`,
+                  title: safeRowTitle(`${fmtKm(m.distance_km)} • ${timeAgo(m.created_at)}`, 24),
+                })),
+              });
+            }
+          } else {
+            const matches = await rpcMatchPassengersForTrip(newTripId, 10);
+            if (matches?.length) {
+              await setState(user_id, "await_match_select", { role, list: matches });
+              await sendList(from, {
+                title: "Matching Passengers",
+                body: "Pick a passenger to chat.",
+                sectionTitle: "Passengers",
+                rows: matches.slice(0, 10).map((m, i) => ({
+                  id: `mtch_${i}_${m.trip_id}`,
+                  title: safeRowTitle(`${fmtKm(m.distance_km)} • ${timeAgo(m.created_at)}`, 24),
+                })),
+              });
+            }
+          }
+        } catch (matchErr) {
+          console.error("match fetch error", matchErr);
+        }
+      } catch (e) {
+        console.error(e);
+        await sendButtons(from, "Couldn’t save your trip.", [{ id: "back_home", title: "Back to Menu" }]);
+      }
+      return new Response("ok");
+    }
+
+    // While awaiting dropoff, user sent a location → update trip.dropoff, optionally re-run matches
+    if (state === "sched_await_drop") {
+      const tripId = data?.trip_id as string;
+      if (tripId) {
+        try {
+          await updateTripDropoff(tripId, lon, lat);
+          await sendText(from, "Drop-off saved ✅");
+        } catch (e) {
+          console.error(e);
+          await sendText(from, "We couldn’t save the drop-off, but your trip is saved.");
+        }
+        // optional: re-run matches (same as above)
+        try {
+          const role = data?.role as string;
+          if (role === "passenger") {
+            const matches = await rpcMatchDriversForTrip(tripId, 10);
+            if (matches?.length) {
+              await setState(user_id, "await_match_select", { role, list: matches });
+              await sendList(from, {
+                title: "Matching Drivers",
+                body: "Pick a driver to chat.",
+                sectionTitle: "Drivers",
+                rows: matches.slice(0, 10).map((m, i) => ({
+                  id: `mtch_${i}_${m.trip_id}`,
+                  title: safeRowTitle(`${fmtKm(m.distance_km)} • ${timeAgo(m.created_at)}`, 24),
+                })),
+              });
+            }
+          } else {
+            const matches = await rpcMatchPassengersForTrip(tripId, 10);
+            if (matches?.length) {
+              await setState(user_id, "await_match_select", { role, list: matches });
+              await sendList(from, {
+                title: "Matching Passengers",
+                body: "Pick a passenger to chat.",
+                sectionTitle: "Passengers",
+                rows: matches.slice(0, 10).map((m, i) => ({
+                  id: `mtch_${i}_${m.trip_id}`,
+                  title: safeRowTitle(`${fmtKm(m.distance_km)} • ${timeAgo(m.created_at)}`, 24),
+                })),
+              });
+            }
+          }
+        } catch (e) {
+          console.error("match rerun after dropoff", e);
+        }
+        return new Response("ok");
+      }
+    }
+  }
+
+  // ===========================================================
+  // SCHEDULE: drop-off buttons
+  // ===========================================================
+  if (msg.interactive?.type === "button_reply") {
+    const bid = msg.interactive.button_reply.id || "";
+
+    if ((bid === "sched_add_drop" || bid === "sched_skip_drop") && state === "sched_await_drop") {
+      if (bid === "sched_add_drop") {
+        await sendButtons(
+          from,
+          "Share your drop-off location.\n\nTap ➕ and share your current location.",
+          [{ id: "back_home", title: "Back to Menu" }],
+        );
+        // keep state as sched_await_drop; next location updates trip
+      } else {
+        await clearState(user_id);
+        await sendButtons(from, "Okay. You can always schedule another trip from Home.", [
+          { id: "back_home", title: "Back to Menu" },
+        ]);
+      }
+      return new Response("ok");
+    }
+  }
+
+  // ===========================================================
+  // INSURANCE: media reception
+  // ===========================================================
+  if (state === "ins_wait_doc" && (msg.type === "image" || msg.type === "document")) {
+    const mediaId = msg.image?.id || msg.document?.id;
+    if (!mediaId) {
+      await sendButtons(from, "Please send a photo or PDF (one file only).\n\nTap ➕ and upload your file.", [
+        { id: "back_home", title: "Back to Menu" },
+      ]);
+      return new Response("ok");
+    }
+    try {
+      const leadIns = await sb.from("insurance_leads").insert({ whatsapp: from }).select("id").single();
+      if (leadIns.error) throw leadIns.error;
+      const leadId = leadIns.data.id as string;
+
+      const bin = await fetchWAMedia(mediaId);
+      const path = `insurance/${leadId}/${crypto.randomUUID()}.${extOf(bin.mime)}`;
+      const up = await sb.storage.from("insurance").upload(path, bin.bytes, {
+        contentType: bin.mime,
+        upsert: false,
+      });
+      if (up.error) throw up.error;
+
+      try {
+        await sb.from("insurance_media").insert({
+          lead_id: leadId,
+          wa_media_id: mediaId,
+          storage_path: path,
+          mime_type: bin.mime,
+        });
+      } catch (_e) {}
+
+      const signed = await sb.storage.from("insurance").createSignedUrl(path, 600);
+      const ocr = await runInsuranceOCR(signed.data?.signedUrl || "");
+      const ex = normIns(ocr.extracted || {});
+
+      await sb.from("insurance_leads").update({
+        file_path: path,
+        raw_ocr: ocr.raw,
+        extracted: ex,
+      }).eq("id", leadId);
+
+      await sendButtons(from, insUserSummary(ex) + "\n\nOur team will contact you shortly.", [
+        { id: "back_home", title: "Back to Menu" },
+      ]);
+
+      const cfg = await getConfig();
+      const admins = [
+        ...(cfg.insurance_admin_numbers || []),
+        ...EXTRA_INSURANCE_ADMINS,
+      ].map(e164);
+      for (const a of Array.from(new Set(admins))) {
+        await sendText(a, insAdminSummary(from, ex));
+      }
+    } catch (err) {
+      console.error(err);
+      await sendButtons(
+        from,
+        "We couldn’t read the file. Please send a clear photo or PDF (one file only).\n\nTap ➕ and upload your file.",
+        [{ id: "back_home", title: "Back to Menu" }],
+      );
+    }
+    await clearState(user_id);
+    return new Response("ok");
+  }
+
+  // ===========================================================
+  // TYPE SELECTION INTERCEPT (bug fix)
+  // ===========================================================
+  // When user picks basket type via list IDs bk_type_public/private,
+  // immediately route to MoMo number/code prompt (avoid generic bk_* handler).
+  if (msg.interactive?.type === "list_reply") {
+    const id = msg.interactive.list_reply.id;
+    if (id === "bk_type_public" || id === "bk_type_private") {
+      const type = id === "bk_type_public" ? "public" : "private";
+      const prev = await getState(user_id);
+      const nextData = { ...(prev.data || {}), type };
+      await setState(user_id, "await_basket_momo", nextData);
+      await sendButtons(from, "Send MoMo Number (07…) or MoMo Code (4–9 digits).", [
+        { id: "back_home", title: "Back to Menu" },
+      ]);
+      return new Response("ok");
+    }
+  }
+
+  // ===========================================================
+  // DEFAULT FALLBACKS
+  // ===========================================================
+  if (state === "home") {
+    await sendHome(from);
+    return new Response("ok");
+  }
+
+  await sendButtons(from, "I didn’t get that. Please choose an option.", [
+    { id: "back_home", title: "Back to Menu" },
+  ]);
+  return new Response("ok");
+});
+// ===== PART 3/3 — SMALL HELPERS ADDED BY THE PLAN (NO DUPLICATES) =====
+
+// -- type used by contribution helpers --
+type ContributionRow = {
+  id: string;
+  basket_id: string;
+  contributor_user_id: string;
+  amount_rwf: number;
+  status: "pending" | "approved" | "rejected";
+  created_at?: string | null;
+  approved_at?: string | null;
+  approver_user_id?: string | null;
+  wa_message_id?: string | null;
+};
+
+// -- simple number checker used in part 2 --
+function isRwanda07Number(s: string | null | undefined): boolean {
+  return !!s && /^07\d{8}$/.test(s);
+}
+
+// ----------------- Nearby by vehicle (RPC with safe fallback) -----------------
+
+async function rpcNearbyDriversByVehicle(
+  lat: number,
+  lon: number,
+  viewer: string,
+  vehicle: string,
+  limit = 10,
+) {
+  // Try dedicated RPC first (cheapest/cleanest)
+  const tryRpc = await sb.rpc("nearby_drivers_by_vehicle", {
+    _lat: lat,
+    _lon: lon,
+    _viewer: viewer,
+    _vehicle: vehicle,
+    _limit: limit,
+  });
+
+  if (!tryRpc.error && Array.isArray(tryRpc.data)) {
+    return tryRpc.data as Array<{
+      driver_user_id: string;
+      whatsapp_e164: string | null;
+      distance_km: number;
+      last_seen: string;
+      vehicle_type?: string | null;
+    }>;
+  }
+
+  // Fallback: use existing RPC, then filter client-side (additive, non-breaking)
+  const base = await sb.rpc("nearby_drivers", {
+    _lat: lat,
+    _lon: lon,
+    _viewer: viewer,
+    _limit: 40, // wider, we’ll filter
+  });
+  if (base.error || !Array.isArray(base.data)) return [];
+
+  const ids = (base.data as any[]).map((r) => r.driver_user_id).filter(Boolean);
+  if (!ids.length) return [];
+
+  // join vehicle types from a profile/driver meta table if available; otherwise skip join
+  let typeByUser = new Map<string, string>();
+  try {
+    const meta = await sb.from("driver_profiles")
+      .select("user_id,vehicle_type")
+      .in("user_id", ids);
+    if (!meta.error && Array.isArray(meta.data)) {
+      typeByUser = new Map(meta.data.map((m: any) => [m.user_id, (m.vehicle_type || "").toString()]));
+    }
+  } catch (_e) {
+    // ignore if table not present; show unfiltered
+  }
+
+  const wanted = String(vehicle || "").toLowerCase();
+  const filtered = (base.data as any[]).filter((row) => {
+    if (!wanted) return true;
+    const vt = (typeByUser.get(row.driver_user_id) || "").toLowerCase();
+    if (!vt) return wanted === "others" ? true : false;
+    if (wanted === "others") {
+      return !/(moto|cab|lifan|truck)/i.test(vt);
+    }
+    return vt.includes(wanted);
+  });
+
+  return filtered.slice(0, limit);
+}
+
+async function rpcNearbyPassengersByVehicle(
+  lat: number,
+  lon: number,
+  viewer: string,
+  vehicle: string,
+  limit = 10,
+) {
+  const tryRpc = await sb.rpc("nearby_passengers_by_vehicle", {
+    _lat: lat,
+    _lon: lon,
+    _viewer: viewer,
+    _vehicle: vehicle,
+    _limit: limit,
+  });
+
+  if (!tryRpc.error && Array.isArray(tryRpc.data)) {
+    return tryRpc.data as Array<{
+      trip_id: string;
+      creator_user_id: string;
+      whatsapp_e164: string | null;
+      distance_km: number;
+      created_at: string;
+      vehicle_type?: string | null;
+    }>;
+  }
+
+  // Fallback: existing passengers RPC + filter via trips.vehicle_type
+  const base = await sb.rpc("nearby_passengers", {
+    _lat: lat,
+    _lon: lon,
+    _viewer: viewer,
+    _limit: 40,
+  });
+  if (base.error || !Array.isArray(base.data)) return [];
+
+  const tripIds = (base.data as any[]).map((r) => r.trip_id).filter(Boolean);
+  if (!tripIds.length) return [];
+
+  let typeByTrip = new Map<string, string>();
+  try {
+    const meta = await sb.from("trips")
+      .select("id,vehicle_type")
+      .in("id", tripIds);
+    if (!meta.error && Array.isArray(meta.data)) {
+      typeByTrip = new Map(meta.data.map((m: any) => [m.id, (m.vehicle_type || "").toString()]));
+    }
+  } catch (_e) {
+    // ignore if table missing; show unfiltered
+  }
+
+  const wanted = String(vehicle || "").toLowerCase();
+  const filtered = (base.data as any[]).filter((row) => {
+    if (!wanted) return true;
+    const vt = (typeByTrip.get(row.trip_id) || "").toLowerCase();
+    if (!vt) return wanted === "others" ? true : false;
+    if (wanted === "others") {
+      return !/(moto|cab|lifan|truck)/i.test(vt);
+    }
+    return vt.includes(wanted);
+  });
+
+  return filtered.slice(0, limit);
+}
+
+// ----------------- Trips: update drop-off (additive column) -----------------
+
+async function updateTripDropoff(tripId: string, lon: number, lat: number) {
+  const { error } = await sb.from("trips")
+    .update({ dropoff: `SRID=4326;POINT(${lon} ${lat})` })
+    .eq("id", tripId);
+  if (error) throw error;
+}
+
+// ----------------- Basket Contributions (pending → approved/rejected) -----------------
+
+async function createPendingContribution(args: {
+  basket_id: string;
+  contributor_user_id: string;
+  amount_rwf: number;
+  wa_message_id?: string | null;
+}): Promise<ContributionRow> {
+  const ins = await sb.from("basket_contributions")
+    .insert({
+      basket_id: args.basket_id,
+      contributor_user_id: args.contributor_user_id,
+      amount_rwf: args.amount_rwf,
+      status: "pending",
+      wa_message_id: args.wa_message_id ?? null,
+    })
+    .select("*")
+    .single();
+  if (ins.error) throw ins.error;
+  return ins.data as ContributionRow;
+}
+
+async function approveContribution(contribId: string, approver_user_id: string): Promise<ContributionRow> {
+  // 1) load
+  const got = await sb.from("basket_contributions").select("*").eq("id", contribId).maybeSingle();
+  if (got.error || !got.data) throw new Error("Contribution not found");
+  const row = got.data as ContributionRow;
+  if (row.status === "approved") return row;
+
+  // 2) approve
+  const upd = await sb.from("basket_contributions")
+    .update({ status: "approved", approved_at: new Date().toISOString(), approver_user_id })
+    .eq("id", contribId)
+    .select("*")
+    .single();
+  if (upd.error) throw upd.error;
+  const approved = upd.data as ContributionRow;
+
+  // 3) ensure member & bump total
+  try {
+    // join member if missing
+    await sb.from("basket_members").upsert({
+      basket_id: approved.basket_id,
+      user_id: approved.contributor_user_id,
+      joined_at: new Date().toISOString(),
+    });
+
+    // fetch current total
+    const cur = await sb.from("basket_members")
+      .select("total_contributed")
+      .eq("basket_id", approved.basket_id)
+      .eq("user_id", approved.contributor_user_id)
+      .maybeSingle();
+
+    const prev = Number(cur.data?.total_contributed ?? 0);
+    const next = prev + Number(approved.amount_rwf ?? 0);
+
+    await sb.from("basket_members")
+      .update({ total_contributed: next })
+      .eq("basket_id", approved.basket_id)
+      .eq("user_id", approved.contributor_user_id);
+  } catch (e) {
+    console.error("approveContribution: member sync failed", e);
+  }
+
+  return approved;
+}
+
+async function rejectContribution(contribId: string, approver_user_id: string): Promise<ContributionRow> {
+  const upd = await sb.from("basket_contributions")
+    .update({ status: "rejected", approved_at: null, approver_user_id })
+    .eq("id", contribId)
+    .select("*")
+    .single();
+  if (upd.error) throw upd.error;
+  return upd.data as ContributionRow;
+}
+
+// ----------------- Public basket review card (admin) -----------------
+
+async function sendPublicBasketReviewCard(args: {
+  adminWa: string; // e164
+  basket: {
+    id: string;
+    name: string;
+    type: string;
+    public_slug?: string | null;
+  };
+  creatorWa: string; // e164
+}) {
+  const creatorDigits = (typeof (globalThis as any).toWaDigits === "function")
+    ? (globalThis as any).toWaDigits(args.creatorWa)
+    : (args.creatorWa.replace(/\D/g, ""));
+
+  const body = [
+    "Basket review",
+    `Name: ${args.basket.name}`,
+    "Type: Public",
+    `Creator: ${args.creatorWa}`,
+    args.basket.public_slug ? `Slug: ${args.basket.public_slug}` : undefined,
+  ].filter(Boolean).join("\n");
+
+  await sendButtons(args.adminWa, body, [
+    { id: `pubrev_appr_${args.basket.id}`, title: "Approve" },
+    { id: `pubrev_chat_${creatorDigits}`, title: "Chat creator" },
+    { id: `pubrev_view_${args.basket.id}`, title: "View basket" },
+  ]);
+}
+
+// ----------------- Basket deeplink + QR over deeplink -----------------
+
+function basketDeepLinkUrl(token: string): string | null {
+  // Read bot number from ENV at call-time to avoid top-level redeclarations
+  const botE164 = Deno.env.get("WA_BOT_NUMBER_E164") || "";
+  const digits = botE164.replace(/\D/g, "");
+  if (!digits) return null;
+  const text = encodeURIComponent(`JOIN_BASKET:${token}`);
+  return `https://wa.me/${digits}?text=${text}`;
+}
+
+function qrUrlForDeepLink(url: string, size = 512): string {
+  return `https://quickchart.io/qr?text=${encodeURIComponent(url)}&margin=1&size=${size}`;
+}
+
+// ===== END OF FILE =====
+

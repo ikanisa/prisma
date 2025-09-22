@@ -1,0 +1,29 @@
+{
+  "object": "whatsapp_business_account",
+  "entry": [
+    {
+      "id": "WHATSAPP_BUSINESS_ACCOUNT_ID",
+      "changes": [
+        {
+          "value": {
+            "messages": [
+              {
+                "from": "35677186193",
+                "id": "wamid.DRIVER.PICKUP",
+                "timestamp": "1716297610",
+                "type": "location",
+                "location": {
+                  "latitude": -1.95620,
+                  "longitude": 30.09150,
+                  "name": "Remera Taxi Park",
+                  "address": "KG 11 Ave, Kigali"
+                }
+              }
+            ]
+          },
+          "field": "messages"
+        }
+      ]
+    }
+  ]
+}

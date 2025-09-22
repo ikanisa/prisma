@@ -1,0 +1,8 @@
+Welcome to easyMO OmniAgent! 🌱
+Would you like to register as:
+- Farmer
+- Driver
+- Business
+- Consumer (Personal)
+
+Please reply with one of the above options.

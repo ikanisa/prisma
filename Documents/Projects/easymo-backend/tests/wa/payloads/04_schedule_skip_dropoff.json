@@ -1,0 +1,30 @@
+{
+  "object": "whatsapp_business_account",
+  "entry": [
+    {
+      "id": "WHATSAPP_BUSINESS_ACCOUNT_ID",
+      "changes": [
+        {
+          "value": {
+            "messages": [
+              {
+                "from": "250788001122",
+                "id": "wamid.SCHEDULE.SKIP",
+                "timestamp": "1716297615",
+                "type": "interactive",
+                "interactive": {
+                  "type": "button_reply",
+                  "button_reply": {
+                    "id": "sched_skip_drop_TRIP_UUID_PLACEHOLDER",
+                    "title": "Skip"
+                  }
+                }
+              }
+            ]
+          },
+          "field": "messages"
+        }
+      ]
+    }
+  ]
+}

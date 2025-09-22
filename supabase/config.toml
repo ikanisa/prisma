@@ -1,7 +1,109 @@
-project_id = "xzwowkxzgqigfuefmaji"
+project_id = "ijblirphkrrsnxazohwt"
 
-[functions.seed-data]
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[auth]
+enabled = true
+# port = 54320  # removed for CLI compatibility
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["https://localhost:3000"]
+jwt_expiry = 3600
+enable_signup = true
+# enable_confirmations = false  # removed for CLI compatibility
+
+[db]
+port = 54322
+
+# SECURITY: Enable JWT verification for all functions except webhooks
+[functions.generate-payment]
 verify_jwt = true
 
-[functions.create-demo-users]
+[functions.import-contacts]
 verify_jwt = true
+
+[functions.assign-driver]
+verify_jwt = true
+
+[functions.push-marketing]
+verify_jwt = true
+
+# Health check and system monitor should be publicly accessible
+[functions.health-check]
+verify_jwt = false
+
+[functions.system-monitor]
+verify_jwt = false
+
+# Webhooks need to remain public for external services
+[functions.unified-whatsapp-webhook]
+verify_jwt = false
+
+[functions.test-whatsapp-webhook]
+verify_jwt = false
+
+[functions.whatsapp-webhook]
+verify_jwt = false
+
+# Admin and system functions should require authentication
+[functions.unified-message-handler]
+verify_jwt = true
+
+[functions.advanced-ai-processor]
+verify_jwt = true
+
+[functions.model-management]
+verify_jwt = true
+
+[functions.knowledge-manager]
+verify_jwt = true
+
+[functions.circuit-breaker-manager]
+verify_jwt = true
+
+[functions.file-upload-manager]
+verify_jwt = true
+
+[functions.notification-manager]
+verify_jwt = true
+
+[functions.channel-gateway]
+verify_jwt = true
+
+[functions.mcp-orchestrator]
+verify_jwt = true
+
+[functions.multi-ai-code-reviewer]
+verify_jwt = true
+
+[functions.system-health-monitor]
+verify_jwt = true
+
+[functions.code-assistant]
+verify_jwt = true
+
+[functions.context-memory-v3]
+verify_jwt = true
+
+[storage]
+enabled = true
+# port = 54323  # removed for CLI compatibility
+file_size_limit = "50MiB"
+
+# Automation edge functions - no JWT verification for cron jobs
+[functions.memory-consolidate]
+verify_jwt = false
+
+[functions.vector-refresh]  
+verify_jwt = false
+
+[functions.schedule-task]
+verify_jwt = false
+
+[functions.task-runner]
+verify_jwt = false

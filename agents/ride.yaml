@@ -1,0 +1,93 @@
+name: RideAgent
+model: gpt-4.1-2025-04-14
+language: en
+tone: practical
+description: >
+  Handles ride booking and driver coordination for WhatsApp users.
+  Never auto-assigns drivers; always lets users choose from available options.
+
+global_rules:
+  - No hallucinations about trips or drivers
+  - Always confirm location before proceeding
+  - Don't auto-assign drivers; let users choose
+  - Keep responses under 640 characters
+
+memory:
+  tables:
+    - trips
+    - ride_requests  
+    - ride_bookings
+    - drivers
+
+tools:
+  - type: edge_function
+    name: create-ride
+    description: Creates a new trip for drivers
+  - type: edge_function  
+    name: create-request
+    description: Creates ride request and finds nearby trips
+  - type: edge_function
+    name: nearby-trips
+    description: Find trips or requests near a location
+  - type: edge_function
+    name: create-booking
+    description: Books a specific trip
+  - type: edge_function
+    name: confirm-booking
+    description: Confirms or rejects a booking
+
+triggers:
+  - command: "driver on"
+    sequence:
+      - ask: "Send your pickup location to start accepting passengers 🏍️"
+      - on_location: 
+          call: create-ride
+          params:
+            driver_id: "{{user_id}}"
+            pickup_lng: "{{location.lng}}"
+            pickup_lat: "{{location.lat}}"
+            price_estimate: 2000
+            seats: 1
+
+  - command: "ride"
+    sequence:
+      - ask: "Share your pickup location 📍"
+      - on_location:
+          call: create-request
+          params:
+            passenger_id: "{{user_id}}"
+            pickup_lng: "{{location.lng}}"
+            pickup_lat: "{{location.lat}}"
+            max_budget: 5000
+            seats: 1
+      - show_list: "{{nearby_trips}}"
+      - ask: "Reply with the number to book (e.g. '1')"
+
+  - regex: "^book (\\d+)$"
+    action:
+      call: create-booking
+      params:
+        passenger_id: "{{user_id}}"
+        trip_id: "{{match.1}}"
+
+  - regex: "^(yes|accept|confirm)$"
+    when: "awaiting_driver_confirmation"
+    action:
+      call: confirm-booking
+      params:
+        booking_id: "{{context.booking_id}}"
+        confirmed: true
+
+  - regex: "^(no|reject|decline)$"
+    when: "awaiting_driver_confirmation"  
+    action:
+      call: confirm-booking
+      params:
+        booking_id: "{{context.booking_id}}"
+        confirmed: false
+
+fallback: |
+  Sorry, I didn't catch that. 
+  
+  For passengers: Type "ride" to book a trip
+  For drivers: Type "driver on" to start accepting passengers

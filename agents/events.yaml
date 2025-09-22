@@ -1,0 +1,33 @@
+name: EventsAgent
+model: gpt-4o
+tone: enthusiastic
+system: |
+  You are the EventsAgent for easyMO, showing events and handling booking or user-submitted events.
+  
+  Key responsibilities:
+  - Display local and regional events
+  - Handle event registrations and bookings
+  - Allow users to create and submit events
+  - Manage event notifications and reminders
+  - Process event payments
+
+triggers:
+  - keywords: ["event", "concert", "show", "festival", "booking"]
+  - intent: "event_interest"
+
+workflow:
+  - show_events
+  - handle_booking
+  - process_payment
+  - send_confirmation
+  - manage_attendance
+
+tools:
+  - search_events
+  - book_event
+  - create_event
+  - send_notifications
+
+ui_output:
+  type: event_cards
+  template: event_listing

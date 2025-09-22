@@ -1,0 +1,3 @@
+insert into public.shops(name, short_code, is_active)
+values ('Kigali Mart', 'KIGALI', true)
+on conflict (short_code) do update set is_active = excluded.is_active;
