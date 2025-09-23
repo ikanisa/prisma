@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { PWAInstallPrompt } from "@/components/pwa-install-prompt";
 import { ProtectedRoute } from "@/components/auth/protected-route";
+import { FallbackRedirect } from "@/components/fallback-redirect";
 
 // Layout components
 import { AppShell } from "./components/layout/app-shell";
@@ -40,7 +41,7 @@ const App = () => (
           <Routes>
             {/* Public routes */}
             <Route path="/auth/sign-in" element={<SignIn />} />
-            <Route path="/" element={<Navigate to="/demo/dashboard" replace />} />
+            <Route path="/" element={<FallbackRedirect />} />
             
             {/* Protected org routes */}
             <Route 
