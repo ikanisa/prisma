@@ -13,9 +13,9 @@
 | Secrets managed via n8n credentials or vault | FAIL |
 | .env.example committed with placeholders | PASS |
 | Environment separation (DEV/PROD) | PASS |
-| Webhook verification tokens/signatures | FAIL |
+| Webhook verification tokens/signatures | PASS |
 | Retries and exponential backoff for external calls | PASS |
-| Idempotency keys / dedupe for webhooks | FAIL |
+| Idempotency keys / dedupe for webhooks | PASS |
 | Centralized error handling workflow | FAIL |
 | Structured logging and metrics | PASS |
 | Alerting and incident response runbooks | PASS |

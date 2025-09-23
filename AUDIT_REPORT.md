@@ -26,7 +26,7 @@ Overall the project is in prototype stage and requires substantial work before p
 |---|---|---|---|---|---|
 | Hard-coded Supabase credentials | High | High | Critical | `.env` and `src/integrations/supabase/client.ts` (redacted) | Move to env vars & rotate keys |
 | Missing n8n workflow exports | Medium | High | High | Repository lacks workflow JSON exports | Establish workflow export & version control |
-| No webhook verification | High | High | Critical | No code handling signatures or tokens | Implement verification in n8n and web layer |
+| No webhook verification | High | Low | Medium | `lib/webhook.ts` lacked auth/dup protection (pre-fix) | ✅ Implemented HMAC/token checks + idempotency persistence |
 | Lack of retries/backoff for external calls | Medium | High | High | No retry logic in code | Use n8n retry nodes / custom logic |
 | No centralized error handling | Medium | High | High | No error workflow or logging | Build global error workflow with alerts |
 | Unbounded Google Sheets operations | Medium | Medium | Medium | No batching/backoff | Use Sheets API batch updates and quotas |
@@ -50,7 +50,7 @@ flowchart TD
 
 | STRIDE | Threat | Mitigation |
 |---|---|---|
-| Spoofing | Unverified webhooks could be called by attackers | Add webhook secret verification and auth tokens |
+| Spoofing | Unverified webhooks could be called by attackers | Enforce shared-secret HMAC + idempotency via `handleWebhook` |
 | Tampering | Lack of input validation for Sheet/AI data | Validate all inputs, use schemas |
 | Repudiation | No audit logs beyond basic activity table | Enable n8n and Supabase logs |
 | Information Disclosure | Hard-coded keys and PII exposure | Use secret manager and data minimization |
