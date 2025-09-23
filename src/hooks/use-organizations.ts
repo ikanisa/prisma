@@ -33,8 +33,12 @@ export function useOrganizations() {
   }, [currentOrg]);
 
   const fetchMemberships = useCallback(async () => {
-    if (!user) return;
+    if (!user) {
+      console.log('[ORG] No user, skipping membership fetch');
+      return;
+    }
 
+    console.log('[ORG] Fetching memberships for user:', user.email);
     setLoading(true);
     try {
       const { data, error } = await supabase
@@ -49,9 +53,10 @@ export function useOrganizations() {
 
       if (error) throw error;
 
+      console.log('[ORG] Memberships fetched:', data?.length || 0, 'memberships');
       setMemberships(data || []);
     } catch (error) {
-      console.error('Error fetching memberships:', error);
+      console.error('[ORG] Error fetching memberships:', error);
     } finally {
       setLoading(false);
     }
@@ -68,10 +73,15 @@ export function useOrganizations() {
 
   useEffect(() => {
     const savedOrgId = localStorage.getItem('currentOrgId');
+    console.log('[ORG] Setting current org. Saved:', savedOrgId, 'Memberships:', memberships.length);
     if (savedOrgId && memberships.some((m) => m.org_id === savedOrgId)) {
+      console.log('[ORG] Using saved org:', savedOrgId);
       setCurrentOrgId(savedOrgId);
     } else if (memberships.length > 0) {
+      console.log('[ORG] Using first membership:', memberships[0].org_id);
       setCurrentOrgId(memberships[0].org_id);
+    } else if (memberships.length === 0) {
+      console.log('[ORG] No memberships found!');
     }
   }, [memberships]);
 
