@@ -55,6 +55,249 @@ export type Database = {
           },
         ]
       }
+      audit_specialist_evidence: {
+        Row: {
+          description: string | null
+          document_id: string | null
+          engagement_id: string
+          expert_assessment_id: string | null
+          id: string
+          internal_assessment_id: string | null
+          notes: string | null
+          org_id: string
+          standard_refs: string[]
+          uploaded_at: string | null
+          uploaded_by: string | null
+          updated_at: string | null
+          evidence_url: string | null
+        }
+        Insert: {
+          description?: string | null
+          document_id?: string | null
+          engagement_id: string
+          expert_assessment_id?: string | null
+          id?: string
+          internal_assessment_id?: string | null
+          notes?: string | null
+          org_id: string
+          standard_refs?: string[]
+          uploaded_at?: string | null
+          uploaded_by?: string | null
+          updated_at?: string | null
+          evidence_url?: string | null
+        }
+        Update: {
+          description?: string | null
+          document_id?: string | null
+          engagement_id?: string
+          expert_assessment_id?: string | null
+          id?: string
+          internal_assessment_id?: string | null
+          notes?: string | null
+          org_id?: string
+          standard_refs?: string[]
+          uploaded_at?: string | null
+          uploaded_by?: string | null
+          updated_at?: string | null
+          evidence_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_specialist_evidence_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "audit_specialist_evidence_engagement_id_fkey"
+            columns: ["engagement_id"]
+            isOneToOne: false
+            referencedRelation: "engagements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "audit_specialist_evidence_expert_assessment_id_fkey"
+            columns: ["expert_assessment_id"]
+            isOneToOne: false
+            referencedRelation: "audit_specialist_experts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "audit_specialist_evidence_internal_assessment_id_fkey"
+            columns: ["internal_assessment_id"]
+            isOneToOne: false
+            referencedRelation: "audit_specialist_internal"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "audit_specialist_evidence_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      audit_specialist_experts: {
+        Row: {
+          area: string
+          competence_assessment: string | null
+          conclusion: string | null
+          concluded_at: string | null
+          concluded_by: string | null
+          created_at: string | null
+          engagement_id: string
+          id: string
+          objectivity_assessment: string | null
+          org_id: string
+          prepared_by: string | null
+          results_summary: string | null
+          scope_of_work: string | null
+          specialist_firm: string | null
+          specialist_name: string
+          standard_refs: string[]
+          status: Database["public"]["Enums"]["audit_specialist_status"] | null
+          updated_at: string | null
+          work_performed: string | null
+        }
+        Insert: {
+          area: string
+          competence_assessment?: string | null
+          conclusion?: string | null
+          concluded_at?: string | null
+          concluded_by?: string | null
+          created_at?: string | null
+          engagement_id: string
+          id?: string
+          objectivity_assessment?: string | null
+          org_id: string
+          prepared_by?: string | null
+          results_summary?: string | null
+          scope_of_work?: string | null
+          specialist_firm?: string | null
+          specialist_name: string
+          standard_refs?: string[]
+          status?: Database["public"]["Enums"]["audit_specialist_status"] | null
+          updated_at?: string | null
+          work_performed?: string | null
+        }
+        Update: {
+          area?: string
+          competence_assessment?: string | null
+          conclusion?: string | null
+          concluded_at?: string | null
+          concluded_by?: string | null
+          created_at?: string | null
+          engagement_id?: string
+          id?: string
+          objectivity_assessment?: string | null
+          org_id?: string
+          prepared_by?: string | null
+          results_summary?: string | null
+          scope_of_work?: string | null
+          specialist_firm?: string | null
+          specialist_name?: string
+          standard_refs?: string[]
+          status?: Database["public"]["Enums"]["audit_specialist_status"] | null
+          updated_at?: string | null
+          work_performed?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_specialist_experts_engagement_id_fkey"
+            columns: ["engagement_id"]
+            isOneToOne: false
+            referencedRelation: "engagements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "audit_specialist_experts_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      audit_specialist_internal: {
+        Row: {
+          conclusion: string | null
+          concluded_at: string | null
+          concluded_by: string | null
+          competence_evaluation: string | null
+          created_at: string | null
+          engagement_id: string
+          id: string
+          internal_audit_lead: string | null
+          objectivity_evaluation: string | null
+          org_id: string
+          prepared_by: string | null
+          reliance_area: string
+          risk_assessment: string | null
+          scope_of_reliance: string | null
+          standard_refs: string[]
+          status: Database["public"]["Enums"]["audit_specialist_status"] | null
+          updated_at: string | null
+          work_evaluation: string | null
+        }
+        Insert: {
+          conclusion?: string | null
+          concluded_at?: string | null
+          concluded_by?: string | null
+          competence_evaluation?: string | null
+          created_at?: string | null
+          engagement_id: string
+          id?: string
+          internal_audit_lead?: string | null
+          objectivity_evaluation?: string | null
+          org_id: string
+          prepared_by?: string | null
+          reliance_area: string
+          risk_assessment?: string | null
+          scope_of_reliance?: string | null
+          standard_refs?: string[]
+          status?: Database["public"]["Enums"]["audit_specialist_status"] | null
+          updated_at?: string | null
+          work_evaluation?: string | null
+        }
+        Update: {
+          conclusion?: string | null
+          concluded_at?: string | null
+          concluded_by?: string | null
+          competence_evaluation?: string | null
+          created_at?: string | null
+          engagement_id?: string
+          id?: string
+          internal_audit_lead?: string | null
+          objectivity_evaluation?: string | null
+          org_id?: string
+          prepared_by?: string | null
+          reliance_area?: string
+          risk_assessment?: string | null
+          scope_of_reliance?: string | null
+          standard_refs?: string[]
+          status?: Database["public"]["Enums"]["audit_specialist_status"] | null
+          updated_at?: string | null
+          work_evaluation?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_specialist_internal_engagement_id_fkey"
+            columns: ["engagement_id"]
+            isOneToOne: false
+            referencedRelation: "engagements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "audit_specialist_internal_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       app_users: {
         Row: {
           created_at: string
@@ -1165,6 +1408,7 @@ export type Database = {
       }
     }
     Enums: {
+      audit_specialist_status: "draft" | "in_review" | "final"
       engagement_status: "planned" | "active" | "completed" | "archived"
       org_role: "admin" | "manager" | "staff" | "client"
       role_level: "EMPLOYEE" | "MANAGER" | "SYSTEM_ADMIN"

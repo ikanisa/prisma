@@ -6,6 +6,7 @@ export default function Home() {
     { href: '/agent-chat', label: 'Agent Chat' },
     { href: '/engagements', label: 'Engagements' },
     { href: '/accounting', label: 'Accounting' },
+    { href: '/audit/specialists', label: 'Audit Specialists' },
     { href: '/tax', label: 'Tax' },
     { href: '/client-portal', label: 'Client Portal' }
   ];
