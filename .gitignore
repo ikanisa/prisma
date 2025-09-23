@@ -11,3 +11,4 @@ supabase/.temp/
 # Misc
 *.swp
 supabase/config.toml.bak
+node_modules/

@@ -105,6 +105,179 @@ export type Database = {
           },
         ]
       }
+      component_reviews: {
+        Row: {
+          assigned_at: string | null
+          component_id: string
+          created_at: string | null
+          due_at: string | null
+          engagement_id: string
+          id: string
+          metadata: Json | null
+          org_id: string
+          review_notes: string | null
+          reviewer_id: string | null
+          signed_off_at: string | null
+          signed_off_by: string | null
+          status: string | null
+          updated_at: string | null
+          workpaper_id: string | null
+        }
+        Insert: {
+          assigned_at?: string | null
+          component_id: string
+          created_at?: string | null
+          due_at?: string | null
+          engagement_id: string
+          id?: string
+          metadata?: Json | null
+          org_id: string
+          review_notes?: string | null
+          reviewer_id?: string | null
+          signed_off_at?: string | null
+          signed_off_by?: string | null
+          status?: string | null
+          updated_at?: string | null
+          workpaper_id?: string | null
+        }
+        Update: {
+          assigned_at?: string | null
+          component_id?: string
+          created_at?: string | null
+          due_at?: string | null
+          engagement_id?: string
+          id?: string
+          metadata?: Json | null
+          org_id?: string
+          review_notes?: string | null
+          reviewer_id?: string | null
+          signed_off_at?: string | null
+          signed_off_by?: string | null
+          status?: string | null
+          updated_at?: string | null
+          workpaper_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "component_reviews_component_id_fkey"
+            columns: ["component_id"]
+            isOneToOne: false
+            referencedRelation: "group_components"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "component_reviews_engagement_id_fkey"
+            columns: ["engagement_id"]
+            isOneToOne: false
+            referencedRelation: "engagements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "component_reviews_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "component_reviews_workpaper_id_fkey"
+            columns: ["workpaper_id"]
+            isOneToOne: false
+            referencedRelation: "component_workpapers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      component_workpapers: {
+        Row: {
+          component_id: string
+          created_at: string | null
+          document_id: string | null
+          engagement_id: string
+          id: string
+          ingested_at: string | null
+          ingested_by: string | null
+          ingestion_method: string | null
+          instruction_id: string | null
+          metadata: Json | null
+          notes: string | null
+          org_id: string
+          status: string | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          component_id: string
+          created_at?: string | null
+          document_id?: string | null
+          engagement_id: string
+          id?: string
+          ingested_at?: string | null
+          ingested_by?: string | null
+          ingestion_method?: string | null
+          instruction_id?: string | null
+          metadata?: Json | null
+          notes?: string | null
+          org_id: string
+          status?: string | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          component_id?: string
+          created_at?: string | null
+          document_id?: string | null
+          engagement_id?: string
+          id?: string
+          ingested_at?: string | null
+          ingested_by?: string | null
+          ingestion_method?: string | null
+          instruction_id?: string | null
+          metadata?: Json | null
+          notes?: string | null
+          org_id?: string
+          status?: string | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "component_workpapers_component_id_fkey"
+            columns: ["component_id"]
+            isOneToOne: false
+            referencedRelation: "group_components"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "component_workpapers_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "component_workpapers_engagement_id_fkey"
+            columns: ["engagement_id"]
+            isOneToOne: false
+            referencedRelation: "engagements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "component_workpapers_instruction_id_fkey"
+            columns: ["instruction_id"]
+            isOneToOne: false
+            referencedRelation: "group_instructions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "component_workpapers_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       chart_of_accounts: {
         Row: {
           code: string
@@ -359,6 +532,148 @@ export type Database = {
           },
           {
             foreignKeyName: "engagements_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      group_components: {
+        Row: {
+          component_code: string | null
+          component_name: string
+          component_type: string | null
+          created_at: string | null
+          engagement_id: string
+          id: string
+          jurisdiction: string | null
+          lead_auditor: string | null
+          materiality_scope: string | null
+          metadata: Json | null
+          org_id: string
+          risk_level: string | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          component_code?: string | null
+          component_name: string
+          component_type?: string | null
+          created_at?: string | null
+          engagement_id: string
+          id?: string
+          jurisdiction?: string | null
+          lead_auditor?: string | null
+          materiality_scope?: string | null
+          metadata?: Json | null
+          org_id: string
+          risk_level?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          component_code?: string | null
+          component_name?: string
+          component_type?: string | null
+          created_at?: string | null
+          engagement_id?: string
+          id?: string
+          jurisdiction?: string | null
+          lead_auditor?: string | null
+          materiality_scope?: string | null
+          metadata?: Json | null
+          org_id?: string
+          risk_level?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_components_engagement_id_fkey"
+            columns: ["engagement_id"]
+            isOneToOne: false
+            referencedRelation: "engagements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "group_components_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      group_instructions: {
+        Row: {
+          acknowledged_at: string | null
+          acknowledged_by: string | null
+          component_id: string
+          created_at: string | null
+          due_at: string | null
+          engagement_id: string
+          id: string
+          instruction_body: string | null
+          instruction_title: string
+          metadata: Json | null
+          org_id: string
+          sent_at: string | null
+          sent_by: string | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          component_id: string
+          created_at?: string | null
+          due_at?: string | null
+          engagement_id: string
+          id?: string
+          instruction_body?: string | null
+          instruction_title: string
+          metadata?: Json | null
+          org_id: string
+          sent_at?: string | null
+          sent_by?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          component_id?: string
+          created_at?: string | null
+          due_at?: string | null
+          engagement_id?: string
+          id?: string
+          instruction_body?: string | null
+          instruction_title?: string
+          metadata?: Json | null
+          org_id?: string
+          sent_at?: string | null
+          sent_by?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_instructions_component_id_fkey"
+            columns: ["component_id"]
+            isOneToOne: false
+            referencedRelation: "group_components"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "group_instructions_engagement_id_fkey"
+            columns: ["engagement_id"]
+            isOneToOne: false
+            referencedRelation: "engagements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "group_instructions_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
