@@ -27,4 +27,8 @@
 | Data retention & deletion policy | PASS |
 | Access controls & least privilege | PASS |
 | GDPR/PII handling guidelines | PASS |
-
+| Accounting Supabase schemas with RLS | PASS |
+| Accounting API approvals & trace logging | PASS |
+| Accounting workspace job cards implemented | PASS |
+| Policy guides in STANDARDS/POLICY refreshed | PASS |
+| Automated tests for accounting modules | PASS |
