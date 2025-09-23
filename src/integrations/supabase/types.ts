@@ -696,6 +696,269 @@ export type Database = {
           },
         ]
       }
+      service_orgs: {
+        Row: {
+          contact_email: string | null
+          contact_phone: string | null
+          control_owner: string | null
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          industry: string | null
+          name: string
+          org_id: string
+          oversight_notes: string | null
+          system_scope: string | null
+          updated_at: string
+        }
+        Insert: {
+          contact_email?: string | null
+          contact_phone?: string | null
+          control_owner?: string | null
+          created_at?: string
+          created_by: string
+          description?: string | null
+          id?: string
+          industry?: string | null
+          name: string
+          org_id: string
+          oversight_notes?: string | null
+          system_scope?: string | null
+          updated_at?: string
+        }
+        Update: {
+          contact_email?: string | null
+          contact_phone?: string | null
+          control_owner?: string | null
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          industry?: string | null
+          name?: string
+          org_id?: string
+          oversight_notes?: string | null
+          system_scope?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_orgs_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_orgs_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      soc1_cuecs: {
+        Row: {
+          control_objective: string
+          control_owner: string | null
+          control_reference: string | null
+          created_at: string
+          description: string | null
+          exception_summary: string | null
+          frequency: string | null
+          id: string
+          last_tested_at: string | null
+          remediation_plan: string | null
+          report_id: string | null
+          residual_risk: string | null
+          service_org_id: string
+          status: string
+          tested_by: string | null
+          testing_notes: string | null
+          updated_at: string
+        }
+        Insert: {
+          control_objective: string
+          control_owner?: string | null
+          control_reference?: string | null
+          created_at?: string
+          description?: string | null
+          exception_summary?: string | null
+          frequency?: string | null
+          id?: string
+          last_tested_at?: string | null
+          remediation_plan?: string | null
+          report_id?: string | null
+          residual_risk?: string | null
+          service_org_id: string
+          status?: string
+          tested_by?: string | null
+          testing_notes?: string | null
+          updated_at?: string
+        }
+        Update: {
+          control_objective?: string
+          control_owner?: string | null
+          control_reference?: string | null
+          created_at?: string
+          description?: string | null
+          exception_summary?: string | null
+          frequency?: string | null
+          id?: string
+          last_tested_at?: string | null
+          remediation_plan?: string | null
+          report_id?: string | null
+          residual_risk?: string | null
+          service_org_id?: string
+          status?: string
+          tested_by?: string | null
+          testing_notes?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "soc1_cuecs_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "soc1_reports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "soc1_cuecs_service_org_id_fkey"
+            columns: ["service_org_id"]
+            isOneToOne: false
+            referencedRelation: "service_orgs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "soc1_cuecs_tested_by_fkey"
+            columns: ["tested_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      soc1_reports: {
+        Row: {
+          auditor: string | null
+          control_deficiencies: string | null
+          coverage_summary: string | null
+          created_at: string
+          document_storage_path: string | null
+          id: string
+          issued_at: string | null
+          period_end: string
+          period_start: string
+          report_type: string
+          service_org_id: string
+          testing_summary: string | null
+          uploaded_by: string | null
+        }
+        Insert: {
+          auditor?: string | null
+          control_deficiencies?: string | null
+          coverage_summary?: string | null
+          created_at?: string
+          document_storage_path?: string | null
+          id?: string
+          issued_at?: string | null
+          period_end: string
+          period_start: string
+          report_type?: string
+          service_org_id: string
+          testing_summary?: string | null
+          uploaded_by?: string | null
+        }
+        Update: {
+          auditor?: string | null
+          control_deficiencies?: string | null
+          coverage_summary?: string | null
+          created_at?: string
+          document_storage_path?: string | null
+          id?: string
+          issued_at?: string | null
+          period_end?: string
+          period_start?: string
+          report_type?: string
+          service_org_id?: string
+          testing_summary?: string | null
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "soc1_reports_service_org_id_fkey"
+            columns: ["service_org_id"]
+            isOneToOne: false
+            referencedRelation: "service_orgs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "soc1_reports_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      soc1_residual_risk_notes: {
+        Row: {
+          cuec_id: string | null
+          created_at: string
+          follow_up_owner: string | null
+          id: string
+          logged_by: string | null
+          note: string
+          risk_rating: string | null
+          service_org_id: string
+        }
+        Insert: {
+          cuec_id?: string | null
+          created_at?: string
+          follow_up_owner?: string | null
+          id?: string
+          logged_by?: string | null
+          note: string
+          risk_rating?: string | null
+          service_org_id: string
+        }
+        Update: {
+          cuec_id?: string | null
+          created_at?: string
+          follow_up_owner?: string | null
+          id?: string
+          logged_by?: string | null
+          note?: string
+          risk_rating?: string | null
+          service_org_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "soc1_residual_risk_notes_cuec_id_fkey"
+            columns: ["cuec_id"]
+            isOneToOne: false
+            referencedRelation: "soc1_cuecs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "soc1_residual_risk_notes_logged_by_fkey"
+            columns: ["logged_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "soc1_residual_risk_notes_service_org_id_fkey"
+            columns: ["service_org_id"]
+            isOneToOne: false
+            referencedRelation: "service_orgs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tasks: {
         Row: {
           assigned_to: string | null

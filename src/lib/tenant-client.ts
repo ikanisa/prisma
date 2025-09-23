@@ -7,6 +7,10 @@ const ORG_SCOPED_TABLES = [
   'notifications',
   'tasks',
   'activity_log',
+  'service_orgs',
+  'soc1_reports',
+  'soc1_cuecs',
+  'soc1_residual_risk_notes',
 ] as const;
 
 export type OrgScopedTable = (typeof ORG_SCOPED_TABLES)[number];
