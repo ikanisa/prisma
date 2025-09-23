@@ -105,6 +105,73 @@ export type Database = {
           },
         ]
       }
+      comparatives_checks: {
+        Row: {
+          assertion: string
+          check_key: string
+          checked_at: string | null
+          checked_by: string | null
+          created_at: string
+          engagement_id: string
+          id: string
+          linked_flag_id: string | null
+          notes: string | null
+          org_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          assertion: string
+          check_key: string
+          checked_at?: string | null
+          checked_by?: string | null
+          created_at?: string
+          engagement_id: string
+          id?: string
+          linked_flag_id?: string | null
+          notes?: string | null
+          org_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          assertion?: string
+          check_key?: string
+          checked_at?: string | null
+          checked_by?: string | null
+          created_at?: string
+          engagement_id?: string
+          id?: string
+          linked_flag_id?: string | null
+          notes?: string | null
+          org_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comparatives_checks_engagement_id_fkey"
+            columns: ["engagement_id"]
+            isOneToOne: false
+            referencedRelation: "engagements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comparatives_checks_linked_flag_id_fkey"
+            columns: ["linked_flag_id"]
+            isOneToOne: false
+            referencedRelation: "oi_flags"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comparatives_checks_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       chart_of_accounts: {
         Row: {
           code: string
@@ -602,6 +669,145 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "notifications_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      oi_flags: {
+        Row: {
+          category: string
+          created_at: string
+          description: string
+          document_id: string | null
+          engagement_id: string
+          id: string
+          metadata: Json | null
+          org_id: string
+          raised_by: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          resolution_notes: string | null
+          severity: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          description: string
+          document_id?: string | null
+          engagement_id: string
+          id?: string
+          metadata?: Json | null
+          org_id: string
+          raised_by?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          resolution_notes?: string | null
+          severity?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string
+          document_id?: string | null
+          engagement_id?: string
+          id?: string
+          metadata?: Json | null
+          org_id?: string
+          raised_by?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          resolution_notes?: string | null
+          severity?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "oi_flags_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "other_information_docs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "oi_flags_engagement_id_fkey"
+            columns: ["engagement_id"]
+            isOneToOne: false
+            referencedRelation: "engagements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "oi_flags_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      other_information_docs: {
+        Row: {
+          checksum: string | null
+          engagement_id: string
+          file_size: number | null
+          id: string
+          metadata: Json | null
+          mime_type: string | null
+          org_id: string
+          status: string
+          storage_path: string
+          title: string
+          updated_at: string
+          uploaded_at: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          checksum?: string | null
+          engagement_id: string
+          file_size?: number | null
+          id?: string
+          metadata?: Json | null
+          mime_type?: string | null
+          org_id: string
+          status?: string
+          storage_path: string
+          title: string
+          updated_at?: string
+          uploaded_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          checksum?: string | null
+          engagement_id?: string
+          file_size?: number | null
+          id?: string
+          metadata?: Json | null
+          mime_type?: string | null
+          org_id?: string
+          status?: string
+          storage_path?: string
+          title?: string
+          updated_at?: string
+          uploaded_at?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "other_information_docs_engagement_id_fkey"
+            columns: ["engagement_id"]
+            isOneToOne: false
+            referencedRelation: "engagements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "other_information_docs_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
