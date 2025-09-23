@@ -11,3 +11,9 @@ supabase/.temp/
 # Misc
 *.swp
 supabase/config.toml.bak
+node_modules/
+**/node_modules/
+dist/
+apps/web/.next/
+*.tsbuildinfo
+apps/web/public/workbox-*.js
