@@ -5,6 +5,8 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+const allowDemoBootstrap = Deno.env.get('ALLOW_DEMO_BOOTSTRAP') === 'true'
+
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -12,11 +14,49 @@ Deno.serve(async (req) => {
   }
 
   try {
+    if (!allowDemoBootstrap) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Demo bootstrap disabled' }),
+        {
+          status: 403,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        },
+      )
+    }
+
+    const authHeader = req.headers.get('authorization')
+    if (!authHeader || !authHeader.toLowerCase().startsWith('bearer ')) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Missing bearer token' }),
+        {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        },
+      )
+    }
+
+    const accessToken = authHeader.split(' ')[1]
+
     // Create admin client using service role key
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
+
+    const {
+      data: { user: caller },
+      error: callerError,
+    } = await supabaseAdmin.auth.getUser(accessToken)
+
+    if (callerError || !caller) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Invalid access token' }),
+        {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        },
+      )
+    }
 
     console.log('Creating demo users...')
 
@@ -35,28 +75,52 @@ Deno.serve(async (req) => {
 
     // Demo users to create
     const demoUsers = [
-      { email: 'sophia@aurora.test', password: 'lovable123', name: 'Sophia System', role: 'SYSTEM_ADMIN' as const },
-      { email: 'mark@aurora.test', password: 'lovable123', name: 'Mark Manager', role: 'MANAGER' as const },
-      { email: 'eli@aurora.test', password: 'lovable123', name: 'Eli Employee', role: 'EMPLOYEE' as const }
+      { email: 'sophia@aurora.test', name: 'Sophia System', role: 'SYSTEM_ADMIN' as const },
+      { email: 'mark@aurora.test', name: 'Mark Manager', role: 'MANAGER' as const },
+      { email: 'eli@aurora.test', name: 'Eli Employee', role: 'EMPLOYEE' as const }
     ]
+
+    const { data: callerProfile } = await supabaseAdmin
+      .from('users')
+      .select('is_system_admin')
+      .eq('id', caller.id)
+      .maybeSingle()
+
+    const { data: orgMembership } = await supabaseAdmin
+      .from('memberships')
+      .select('role')
+      .eq('org_id', org.id)
+      .eq('user_id', caller.id)
+      .maybeSingle()
+
+    const callerIsSystemAdmin = callerProfile?.is_system_admin === true || orgMembership?.role === 'SYSTEM_ADMIN'
+
+    if (!callerIsSystemAdmin) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Insufficient permissions' }),
+        {
+          status: 403,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        },
+      )
+    }
 
     const results = []
 
     for (const userData of demoUsers) {
       // Check if user already exists
-      const { data: existingUser } = await supabaseAdmin.auth.admin.listUsers()
-      const userExists = existingUser.users.some(u => u.email === userData.email)
-      
-      if (userExists) {
+      const { data: existingUser } = await supabaseAdmin.auth.admin.getUserByEmail(userData.email)
+      if (existingUser?.user) {
         console.log(`User ${userData.email} already exists, skipping...`)
         results.push({ email: userData.email, status: 'already_exists' })
         continue
       }
 
       // Create auth user
+      const password = crypto.randomUUID()
       const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
         email: userData.email,
-        password: userData.password,
+        password,
         user_metadata: { name: userData.name },
         email_confirm: true
       })
@@ -84,18 +148,23 @@ Deno.serve(async (req) => {
       // Create membership
       const { error: membershipError } = await supabaseAdmin
         .from('memberships')
-        .insert({
+        .upsert({
           org_id: org.id,
           user_id: authUser.user.id,
           role: userData.role
-        })
+        }, { onConflict: 'org_id,user_id' })
 
       if (membershipError) {
         console.error(`Error creating membership for ${userData.email}:`, membershipError)
         results.push({ email: userData.email, status: 'membership_error', error: membershipError.message })
       } else {
         console.log(`Created membership for ${userData.email} with role ${userData.role}`)
-        results.push({ email: userData.email, status: 'created', role: userData.role })
+        results.push({
+          email: userData.email,
+          status: 'created',
+          role: userData.role,
+          temporaryPassword: password,
+        })
       }
     }
 

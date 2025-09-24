@@ -20,8 +20,18 @@ import { Documents } from "./pages/documents";
 import { Notifications } from "./pages/notifications";
 import { Activity } from "./pages/activity";
 import { Settings } from "./pages/settings";
+import KamReportingPage from "./pages/reporting/kam";
+import ReportBuilderPage from "./pages/reporting/report";
+import TcwgPage from "./pages/reporting/tcwg";
+import PbcManagerPage from "./pages/reporting/pbc";
+import ControlsMatrixPage from "./pages/reporting/controls";
+import AcceptancePage from "./pages/acceptance";
 import { SignIn } from "./pages/auth/sign-in";
 import NotFound from "./pages/NotFound";
+import Unauthorized from "./pages/Unauthorized";
+import AgentLearningPage from "./pages/agents/learning";
+import KnowledgeRepositoriesPage from "./pages/knowledge/repositories";
+import KnowledgeRunsPage from "./pages/knowledge/runs";
 
 const queryClient = new QueryClient();
 
@@ -55,8 +65,38 @@ const App = () => (
               <Route path="dashboard" element={<Dashboard />} />
               <Route path="clients" element={<Clients />} />
               <Route path="engagements" element={<Engagements />} />
+              <Route path="engagements/:engagementId/reporting/kam" element={<KamReportingPage />} />
+              <Route path="engagements/:engagementId/reporting/report" element={<ReportBuilderPage />} />
+              <Route path="engagements/:engagementId/reporting/tcwg" element={<TcwgPage />} />
+              <Route path="engagements/:engagementId/reporting/pbc" element={<PbcManagerPage />} />
+              <Route path="engagements/:engagementId/reporting/controls" element={<ControlsMatrixPage />} />
+              <Route path="engagements/:engagementId/acceptance" element={<AcceptancePage />} />
               <Route path="tasks" element={<Tasks />} />
               <Route path="documents" element={<Documents />} />
+              <Route
+                path="knowledge/repositories"
+                element={
+                  <ProtectedRoute requiredRole="MANAGER">
+                    <KnowledgeRepositoriesPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="knowledge/runs"
+                element={
+                  <ProtectedRoute requiredRole="MANAGER">
+                    <KnowledgeRunsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="agents/learning"
+                element={
+                  <ProtectedRoute requiredRole="MANAGER">
+                    <AgentLearningPage />
+                  </ProtectedRoute>
+                }
+              />
               <Route path="notifications" element={<Notifications />} />
               <Route path="activity" element={<Activity />} />
               <Route path="settings" element={
@@ -79,6 +119,8 @@ const App = () => (
                 </ProtectedRoute>
               } 
             />
+
+            <Route path="/unauthorized" element={<Unauthorized />} />
 
             {/* Catch all - 404 */}
             <Route path="*" element={<NotFound />} />

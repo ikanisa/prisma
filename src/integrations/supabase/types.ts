@@ -3,8 +3,8 @@ export type Json =
   | number
   | boolean
   | null
-  | { [key: string]: Json | undefined }
-  | Json[]
+  | { [key: string]: Json }
+  | Json[];
 
 export type Database = {
   // Allows to automatically instantiate createClient with right options

@@ -12,16 +12,16 @@ export function AppShell() {
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const { orgSlug } = useParams();
+  const targetMembership = orgSlug
+    ? memberships.find((membership) => membership.organization.slug === orgSlug)
+    : undefined;
 
   // Auto-switch to the organization based on URL slug
   useEffect(() => {
-    if (orgSlug && memberships.length > 0 && currentOrg?.slug !== orgSlug) {
-      const targetOrg = memberships.find(m => m.organization.slug === orgSlug);
-      if (targetOrg) {
-        switchOrganization(targetOrg.org_id);
-      }
+    if (orgSlug && targetMembership && currentOrg?.slug !== orgSlug) {
+      switchOrganization(targetMembership.org_id);
     }
-  }, [orgSlug, memberships, currentOrg, switchOrganization]);
+  }, [orgSlug, targetMembership, currentOrg, switchOrganization]);
 
   // Show loading while checking authentication and organizations
   if (authLoading || orgLoading) {
@@ -38,7 +38,12 @@ export function AppShell() {
   }
 
   // Redirect to 404 if organization doesn't exist or user doesn't have access
-  if (orgSlug && (!currentOrg || currentOrg.slug !== orgSlug)) {
+  if (
+    orgSlug &&
+    !orgLoading &&
+    memberships.length > 0 &&
+    !targetMembership
+  ) {
     return <Navigate to="/404" replace />;
   }
 
