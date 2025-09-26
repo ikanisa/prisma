@@ -56,7 +56,10 @@ export function AppShell() {
         />
       </div>
       <div className="flex-1 flex flex-col">
-        <Header onOpenCommandPalette={() => setCommandPaletteOpen(true)} />
+        <Header
+          onOpenCommandPalette={() => setCommandPaletteOpen(true)}
+          onToggleSidebar={() => setSidebarCollapsed((prev) => !prev)}
+        />
         <main className="flex-1 p-6 overflow-auto">
           <Outlet />
         </main>
