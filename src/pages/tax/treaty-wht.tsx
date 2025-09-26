@@ -652,7 +652,7 @@ export default function TreatyWhtPage() {
                       <td className="px-3 py-2">{item.opened_on}</td>
                       <td className="px-3 py-2 text-right">
                         <Button
-                          size="xs"
+                          size="sm"
                           variant={item.id === selectedCaseId ? 'default' : 'ghost'}
                           onClick={() => setSelectedCaseId(item.id)}
                         >

@@ -152,7 +152,7 @@ export default function ReportBuilderPage() {
 
   const handleFetchNotes = async () => {
     if (!currentOrg || !engagementId) return;
-    const periodId = report.report?.period_id ?? report.report?.id ?? '';
+    const periodId = report.report?.id ?? '';
     if (!periodId) {
       toast({
         title: 'Period required',
@@ -184,7 +184,7 @@ export default function ReportBuilderPage() {
 
   const handleDownloadEsef = async () => {
     if (!currentOrg || !engagementId) return;
-    const periodId = report.report?.period_id ?? report.report?.id ?? '';
+    const periodId = report.report?.id ?? '';
     if (!periodId) {
       toast({
         title: 'Period required',
@@ -200,7 +200,7 @@ export default function ReportBuilderPage() {
         orgId: currentOrg.id,
         entityId: engagementId,
         periodId,
-        periodLabel: report.report?.title ?? 'ReportingPeriod',
+        periodLabel: report.report?.id ?? 'ReportingPeriod',
         basis: noteBasis,
         currency: 'EUR',
       });
