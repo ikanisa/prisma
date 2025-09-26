@@ -1,4 +1,4 @@
-project_id = "prisma-glow-15"
+project_id = "xzwowkxzgqigfuefmaji"
 
 [api]
 port = 56321
@@ -24,4 +24,3 @@ file_size_limit = 52428800
 site_url = "http://localhost:56321"
 additional_redirect_urls = []
 jwt_expiry = 3600
-

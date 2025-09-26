@@ -13,8 +13,6 @@ import {
   type ItgcType,
 } from '@/hooks/use-controls';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import type { Database } from '@/integrations/supabase/types';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -28,7 +26,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Loader2, ClipboardList, CheckCircle2, AlertTriangle, Plus, ShieldCheck } from 'lucide-react';
-import { matchProcedureId } from '@/utils/pbc';
+import { fetchResponses } from '@/lib/audit-responses-service';
+import { matchProcedureId, type ProcedureSummary } from '@/utils/pbc';
 
 const WALKTHROUGH_RESULTS: ControlWalkthroughResult[] = ['DESIGNED', 'NOT_DESIGNED', 'IMPLEMENTED', 'NOT_IMPLEMENTED'];
 const TEST_RESULTS: ControlTestResult[] = ['PASS', 'EXCEPTIONS'];
@@ -37,8 +36,9 @@ const DEFICIENCY_STATUS: DeficiencyStatus[] = ['OPEN', 'REMEDIATION', 'CLOSED'];
 const ITGC_TYPES: ItgcType[] = ['ACCESS', 'CHANGE', 'OPERATIONS'];
 
 const DEFAULT_SAMPLE_SIZE = 25;
+const NOT_LINKED_VALUE = 'NOT_LINKED';
 
-type ProcedureRow = Database['public']['Tables']['audit_planned_procedures']['Row'];
+type ProcedureRow = ProcedureSummary;
 
 type SimpleControlForm = {
   cycle: string;
@@ -71,17 +71,19 @@ export default function ControlsMatrixPage() {
   const manager = useControlsManager(engagementId ?? null);
 
   const proceduresQuery = useQuery<ProcedureRow[]>({
-    queryKey: ['controls-procedures', currentOrg?.id, engagementId],
+    queryKey: ['controls-procedures', currentOrg?.slug, engagementId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('audit_planned_procedures')
-        .select('id, title, objective')
-        .eq('org_id', currentOrg!.id)
-        .eq('engagement_id', engagementId!);
-      if (error) throw new Error(error.message);
-      return data ?? [];
+      const { responses } = await fetchResponses({
+        orgSlug: currentOrg!.slug,
+        engagementId: engagementId!,
+      });
+      return responses.map((response) => ({
+        id: response.id,
+        title: response.title,
+        objective: response.objective ?? '',
+      }));
     },
-    enabled: Boolean(currentOrg?.id && engagementId),
+    enabled: Boolean(currentOrg?.slug && engagementId),
     staleTime: 60_000,
   });
 
@@ -119,6 +121,7 @@ export default function ControlsMatrixPage() {
     acceptanceStatus.isLoading ||
     manager.isLoading ||
     manager.createControl.isPending ||
+    proceduresQuery.isLoading ||
     manager.logWalkthrough.isPending ||
     manager.runTest.isPending ||
     manager.createDeficiency.isPending ||
@@ -605,12 +608,15 @@ export default function ControlsMatrixPage() {
             </div>
             <div>
               <Label className="text-xs text-muted-foreground">Linked procedure (optional)</Label>
-              <Select value={walkthroughProcedureId} onValueChange={setWalkthroughProcedureId}>
+              <Select
+                value={walkthroughProcedureId || NOT_LINKED_VALUE}
+                onValueChange={(value) => setWalkthroughProcedureId(value === NOT_LINKED_VALUE ? '' : value)}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Select planned procedure" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Not linked</SelectItem>
+                  <SelectItem value={NOT_LINKED_VALUE}>Not linked</SelectItem>
                   {availableProcedures.map((proc) => (
                     <SelectItem key={proc.id} value={proc.id}>{proc.title}</SelectItem>
                   ))}
@@ -662,12 +668,15 @@ export default function ControlsMatrixPage() {
             </div>
             <div>
               <Label className="text-xs text-muted-foreground">Linked procedure</Label>
-              <Select value={testProcedureId} onValueChange={setTestProcedureId}>
+              <Select
+                value={testProcedureId || NOT_LINKED_VALUE}
+                onValueChange={(value) => setTestProcedureId(value === NOT_LINKED_VALUE ? '' : value)}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Optional: map to planned procedure" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Not linked</SelectItem>
+                  <SelectItem value={NOT_LINKED_VALUE}>Not linked</SelectItem>
                   {availableProcedures.map((proc) => (
                     <SelectItem key={proc.id} value={proc.id}>{proc.title}</SelectItem>
                   ))}
@@ -745,12 +754,15 @@ export default function ControlsMatrixPage() {
             </div>
             <div>
               <Label className="text-xs text-muted-foreground">Linked procedure (optional)</Label>
-              <Select value={defProcedureId} onValueChange={setDefProcedureId}>
+              <Select
+                value={defProcedureId || NOT_LINKED_VALUE}
+                onValueChange={(value) => setDefProcedureId(value === NOT_LINKED_VALUE ? '' : value)}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Select planned procedure" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Not linked</SelectItem>
+                  <SelectItem value={NOT_LINKED_VALUE}>Not linked</SelectItem>
                   {availableProcedures.map((proc) => (
                     <SelectItem key={proc.id} value={proc.id}>{proc.title}</SelectItem>
                   ))}

@@ -20,7 +20,7 @@ export async function POST(request: Request) {
   }
 
   const { orgId, userId, exceptionId, disposition, note, misstatementId } = payload;
-  const supabase = getServiceSupabaseClient();
+  const supabase = await getServiceSupabaseClient();
 
   const guard = await createApiGuard({
     request,

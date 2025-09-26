@@ -12,7 +12,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'orgId, entityId, and periodId are required' }, { status: 400 });
   }
 
-  const supabase = getServiceSupabaseClient();
+  const supabase = await getServiceSupabaseClient();
 
   const { data: entries } = await supabase
     .from('ledger_entries')

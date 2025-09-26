@@ -8,8 +8,8 @@
 
 ## Testing Pyramid
 1. **Unit Tests**: Components, hooks, util functions using Vitest and Testing Library.
-2. **Integration Tests**: Supabase edge functions, n8n workflows with mocked external services.
-3. **End-to-End Tests**: User flows via Playwright hitting staging n8n & Supabase.
+2. **Integration Tests**: Supabase edge functions and scheduled automation jobs with mocked external services.
+3. **End-to-End Tests**: User flows via Playwright hitting staging automation APIs & Supabase.
 
 ## Fixtures and Mocks
 - **OpenAI**: Mock with `nock` or custom fetch wrapper returning deterministic responses.
@@ -29,6 +29,22 @@ npm run test:integration
 
 # run e2e
 npm run test:e2e
+
+# collect coverage (v8)
+npm run coverage
+
+# run RLS policy tests against Supabase (requires DATABASE_URL)
+chmod +x scripts/test_policies.sql
+psql "$DATABASE_URL" -f scripts/test_policies.sql
+
+# targeted financial reporting tests
+npm test -- tests/financials/consolidation-service.test.ts
+
+# targeted group audit API + helpers
+npm test -- --run "tests/api/group-*.test.ts" "tests/audit/module-records.test.ts" "tests/audit/approvals.test.ts" "tests/audit/evidence.test.ts" "tests/audit/idempotency.test.ts"
+
+# load/performance baseline (k6)
+k6 run tests/perf/k6-group-audit.js
 ```
 
 ## Manual Regression – KAM Module (Job E1)
@@ -82,6 +98,42 @@ npm run test:e2e
 4. Run attributes test with sample size 20 → backend coerces to ≥25; re-run with `EXCEPTIONS`, observe deficiency auto-created and ActivityLog `CTRL_TEST_RUN` + `CTRL_DEFICIENCY_RAISED`.
 5. Confirm deficiency appears in the Controls page list and in the TCWG tab after refresh (pack `deficiencies` array updated).
 6. Add ITGC ACCESS group note; validate `itgc_groups` insert and presence in UI.
+
+### Treaty WHT & MAP Tracker (Job T-3A)
+1. Navigate to `/[org]/tax/treaty-wht`; confirm Supabase connectivity badge renders correctly.
+2. Compute a €100k dividend with domestic 25% vs treaty 10%; verify relief summary equals €15k and ActivityLog `TREATY_WHT_COMPUTED` captures metadata.
+3. Ensure computation history lists the new record (jurisdiction, rates, relief amount) and links to the stored calculation.
+4. Create a MAP case (counterparty US, status OPEN) and confirm it appears in the case table with expected fields.
+5. Log an event (e.g., Submission) and check the timeline plus ActivityLog `TAX_DISPUTE_EVENT_LOGGED`.
+6. Update the case status to RESOLVED and ensure relief amount persists and list reflects the new status.
+
+### US Overlays (Job T-3B)
+1. Navigate to `/[org]/tax/us-overlays`; choose each overlay type in turn and confirm the form adjusts to required inputs.
+2. Run a GILTI scenario (tested income 500k, QBAI 200k). Verify net GILTI tax is stored, ActivityLog `US_GILTI_COMPUTED` fires, and history shows the calculation.
+3. Run a §163(j) scenario with expense > limitation; confirm disallowed interest and updated carryforward values are persisted.
+4. Compute a CAMT case with AFSI 2m and credits; ensure top-up equals CAMT minus regular tax and is stored as adjustment.
+5. Compute a stock buyback excise calculation (net repurchase 300k, exceptions 50k) and check excise tax equals 2.5k.
+6. Confirm the history filter (by overlay type) works and that adjustment amounts tie to the expected metrics in the result panel.
+
+### Telemetry Sync (Phase T-4B)
+1. Invoke `/functions/v1/telemetry-sync` with the organisation slug for the active workspace.
+2. Verify `telemetry_coverage_metrics` contains rows for `TAX_TREATY_WHT` and `TAX_US_OVERLAY` with coverage ratios aligned to recent computations.
+3. Confirm `telemetry_service_levels` upserted `MAP_CASE_RESPONSE` with `open_breaches` matching unresolved dispute cases.
+4. Re-run telemetry sync for a different period window; ensure data upserts instead of duplicating rows.
+5. Smoke check `src/lib/telemetry-service.ts` by calling `syncTelemetry` from a manager session and observing the returned payload.
+
+### Error Notification Pipeline
+1. Simulate an edge-function failure by calling `/functions/v1/error-notify` with test payload (`module=TAX_US_OVERLAY`, synthetic error message).
+2. Confirm `telemetry_refusal_events` includes an `EDGE_FUNCTION_ERROR` row with severity `ERROR` and metadata aligning to the payload.
+3. If `ERROR_NOTIFY_WEBHOOK` is configured, verify the external channel receives a notification; otherwise ensure the function handles missing webhook gracefully.
+4. Use `notifyError` helper from a test harness and ensure errors bubble correctly when the function responds with non-200.
+
+### Archive Manifest (Phase T-4B)
+1. Trigger `/functions/v1/archive-sync` for an engagement with completed acceptance/TCWG workflows.
+2. Inspect `engagement_archives` to ensure `manifest` includes acceptance, TCWG, and module summaries with updated timestamps.
+3. Validate `sha256` matches a locally computed hash of the manifest JSON.
+4. Confirm ActivityLog records `ARCHIVE_MANIFEST_UPDATED` with matching checksum metadata.
+5. Use `syncArchive` helper to update the manifest from the front-end and repeat the verification steps.
 
 ## CI Matrix
 | Node Version | OS |

@@ -1,4 +1,4 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { getServiceSupabaseClient } from '../_shared/supabase-client.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': Deno.env.get('API_ALLOWED_ORIGINS') ?? '*',
@@ -6,14 +6,7 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST,OPTIONS',
 };
 
-const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
-const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-
-if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
-  throw new Error('SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be configured.');
-}
-
-const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistSession: false } });
+const supabasePromise = getServiceSupabaseClient();
 
 interface ScheduleBody {
   orgId?: string;
@@ -46,6 +39,8 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
+
+    const supabase = await supabasePromise;
 
     const { data: corpus, error: corpusError } = await supabase
       .from('knowledge_corpora')

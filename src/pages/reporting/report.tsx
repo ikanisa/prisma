@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
 import { AlertCircle, CheckCircle2, Loader2, RefreshCw, ShieldCheck } from 'lucide-react';
 
 import { useOrganizations } from '@/hooks/use-organizations';
 import { useReportBuilder } from '@/hooks/use-report-builder';
 import { useAcceptanceStatus } from '@/hooks/use-acceptance-status';
-import { supabase } from '@/integrations/supabase/client';
+import { useKamModule } from '@/hooks/use-kam-module';
 import { useToast } from '@/hooks/use-toast';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -21,9 +20,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 
 import type { AuditReportDraft } from '@/lib/report-service';
-import type { KamDraft } from '@/lib/kam-service';
-
-type ApprovedKamSummary = Pick<KamDraft, 'id' | 'heading' | 'why_kam'>;
+import { fetchFinancialNotes, requestEsefExport } from '@/lib/financial-report-service';
 
 const opinionOptions: AuditReportDraft['opinion'][] = ['UNMODIFIED', 'QUALIFIED', 'ADVERSE', 'DISCLAIMER'];
 
@@ -32,27 +29,18 @@ export default function ReportBuilderPage() {
   const { currentOrg } = useOrganizations();
   const { toast } = useToast();
   const report = useReportBuilder(engagementId ?? null);
+  const kam = useKamModule(engagementId ?? null);
   const acceptanceStatus = useAcceptanceStatus(engagementId ?? null);
   const acceptanceApproved =
     acceptanceStatus.data?.status?.status === 'APPROVED' && acceptanceStatus.data?.status?.decision === 'ACCEPT';
 
-  const approvedKamsQuery = useQuery<ApprovedKamSummary[], Error>({
-    queryKey: ['approved-kams', currentOrg?.id, engagementId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('kam_drafts')
-        .select('id, heading, why_kam')
-        .eq('org_id', currentOrg!.id)
-        .eq('engagement_id', engagementId!)
-        .eq('status', 'APPROVED');
-      if (error) throw new Error(error.message);
-      return (data ?? []) as ApprovedKamSummary[];
-    },
-    enabled: Boolean(currentOrg?.id && engagementId),
-    staleTime: 60_000,
-  });
-
-  const approvedKams = approvedKamsQuery.data ?? [];
+  const approvedKams = useMemo(
+    () =>
+      (kam.data?.drafts ?? [])
+        .filter((draft) => draft.status === 'APPROVED')
+        .map((draft) => ({ id: draft.id, heading: draft.heading, why_kam: draft.why_kam })),
+    [kam.data?.drafts],
+  );
 
   const [formState, setFormState] = useState({
     opinion: 'UNMODIFIED' as AuditReportDraft['opinion'],
@@ -65,6 +53,10 @@ export default function ReportBuilderPage() {
     kamIds: [] as string[],
     gcDisclosure: false,
   });
+
+  const [notesLoading, setNotesLoading] = useState(false);
+  const [notes, setNotes] = useState<Awaited<ReturnType<typeof fetchFinancialNotes>> | null>(null);
+  const [noteBasis, setNoteBasis] = useState<'IFRS_EU' | 'GAPSME'>('IFRS_EU');
 
   useEffect(() => {
     if (report.report) {
@@ -158,6 +150,79 @@ export default function ReportBuilderPage() {
     }
   };
 
+  const handleFetchNotes = async () => {
+    if (!currentOrg || !engagementId) return;
+    const periodId = report.report?.period_id ?? report.report?.id ?? '';
+    if (!periodId) {
+      toast({
+        title: 'Period required',
+        description: 'Create or load a report draft to establish the reporting period.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setNotesLoading(true);
+    try {
+      const result = await fetchFinancialNotes({
+        orgId: currentOrg.id,
+        entityId: engagementId,
+        periodId,
+        basis: noteBasis,
+      });
+      setNotes(result);
+    } catch (error: any) {
+      toast({
+        title: 'Disclosure generation failed',
+        description: error.message ?? 'Unexpected error while fetching financial notes.',
+        variant: 'destructive',
+      });
+    } finally {
+      setNotesLoading(false);
+    }
+  };
+
+  const handleDownloadEsef = async () => {
+    if (!currentOrg || !engagementId) return;
+    const periodId = report.report?.period_id ?? report.report?.id ?? '';
+    if (!periodId) {
+      toast({
+        title: 'Period required',
+        description: 'Create or load a report draft to establish the reporting period.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setNotesLoading(true);
+    try {
+      const response = await requestEsefExport({
+        orgId: currentOrg.id,
+        entityId: engagementId,
+        periodId,
+        periodLabel: report.report?.title ?? 'ReportingPeriod',
+        basis: noteBasis,
+        currency: 'EUR',
+      });
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `${engagementId}-esef.zip`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      URL.revokeObjectURL(url);
+
+      toast({ title: 'ESEF package ready', description: 'Inline XBRL export downloaded.' });
+    } catch (error: any) {
+      toast({ title: 'ESEF export failed', description: error.message ?? 'Unexpected error', variant: 'destructive' });
+    } finally {
+      setNotesLoading(false);
+    }
+  };
+
   const renderApprovalTimeline = () => {
     if (report.approvals.length === 0) {
       return <p className="text-sm text-muted-foreground">No approvals queued yet.</p>;
@@ -232,7 +297,16 @@ export default function ReportBuilderPage() {
             <Link to={`/${currentOrg?.slug}/engagements`} className="underline">Back to engagements</Link>
           </p>
         </div>
-        <Badge variant="outline">Engagement: {engagementId ?? 'N/A'}</Badge>
+        <div className="flex flex-col items-end gap-2">
+          <Badge variant="outline">Engagement: {engagementId ?? 'N/A'}</Badge>
+          {orgSlug && engagementId ? (
+            <Button asChild variant="outline" className="h-8">
+              <Link to={`/${orgSlug}/engagements/${engagementId}/reporting/consolidation`}>
+                Consolidation workspace
+              </Link>
+            </Button>
+          ) : null}
+        </div>
       </div>
 
       {!report.report && !report.isLoading && (
@@ -369,7 +443,7 @@ export default function ReportBuilderPage() {
                       <Label className="text-xs">Select approved KAMs</Label>
                       <ScrollArea className="border rounded-md h-40">
                         <div className="p-3 space-y-2">
-                          {approvedKamsQuery.isLoading && (
+                          {kam.isLoading && (
                             <div className="text-xs text-muted-foreground">Loading KAMs…</div>
                           )}
                           {approvedKams.map((kam) => {
@@ -394,7 +468,7 @@ export default function ReportBuilderPage() {
                               </button>
                             );
                           })}
-                          {!approvedKamsQuery.isLoading && approvedKams.length === 0 && (
+                          {!kam.isLoading && approvedKams.length === 0 && (
                             <div className="text-xs text-muted-foreground">No approved KAMs available.</div>
                           )}
                         </div>
@@ -465,6 +539,71 @@ export default function ReportBuilderPage() {
                     Export PDF
                   </Button>
                 </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <CardTitle>Disclosures & IFRS notes</CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    Generate automated note disclosures (IFRS 15/16/9, IAS 36/12/19/7, IFRS 13/8) and trigger the
+                    Inline XBRL export package.
+                  </p>
+                </div>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <Label className="text-xs text-muted-foreground">Basis</Label>
+              <Select value={noteBasis} onValueChange={(value: 'IFRS_EU' | 'GAPSME') => setNoteBasis(value)}>
+                <SelectTrigger className="h-8 w-[140px]">
+                  <SelectValue placeholder="Select basis" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="IFRS_EU">IFRS (EU)</SelectItem>
+                  <SelectItem value="GAPSME">GAPSME</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Button variant="outline" onClick={handleFetchNotes} disabled={notesLoading || !report.report}>
+              {notesLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Refresh notes
+            </Button>
+            <Button onClick={handleDownloadEsef} disabled={notesLoading || !report.report}>
+                    {notesLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                    Download ESEF (iXBRL)
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {notesLoading && !notes ? (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" /> Generating disclosures…
+                  </div>
+                ) : null}
+                {!notes && !notesLoading ? (
+                  <p className="text-sm text-muted-foreground">
+                    Use the controls above to produce topic-level disclosures and export an Inline XBRL package aligned to
+                    the selected reporting basis.
+                  </p>
+                ) : null}
+                {notes ? (
+                  <div className="grid gap-4 md:grid-cols-2">
+                    {notes.notes.map((note) => (
+                      <div key={note.standard} className="rounded-lg border border-border bg-card/60 p-3 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-medium">{note.standard}</p>
+                            <p className="text-xs text-muted-foreground">{note.title}</p>
+                          </div>
+                          <Badge variant="outline">{note.standard.includes('GAPSME') ? 'GAPSME' : 'IFRS'}</Badge>
+                        </div>
+                        <ScrollArea className="max-h-40 rounded bg-muted p-3 text-xs">
+                          <pre>{JSON.stringify(note, null, 2)}</pre>
+                        </ScrollArea>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
               </CardContent>
             </Card>
 

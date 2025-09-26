@@ -9,7 +9,9 @@ import NodeCache from 'node-cache';
 import OpenAI from 'openai';
 import jwt, { type JwtPayload } from 'jsonwebtoken';
 import { randomUUID } from 'crypto';
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { createClient } from '@supabase/supabase-js';
+import { getSignedUrlTTL } from '../../lib/security/signed-url-policy';
 import {
   scheduleLearningRun,
   getDriveConnectorMetadata,
@@ -17,6 +19,7 @@ import {
 } from './knowledge/ingestion';
 import type { DriveSource } from './knowledge/drive';
 import { listWebSources, getWebSource, type WebSourceRow } from './knowledge/web';
+import { getSupabaseJwtSecret, getSupabaseServiceRoleKey } from '../../lib/secrets';
 
 type AgentPersona = 'AUDIT' | 'FINANCE' | 'TAX';
 type LearningMode = 'INITIAL' | 'CONTINUOUS';
@@ -195,8 +198,19 @@ async function ensureWebSourceSyncForOrg(options: {
 const app = express();
 app.use(express.json({ limit: '10mb' }));
 
-const JWT_SECRET = process.env.SUPABASE_JWT_SECRET;
+const HEADER_REQUEST_ID = 'x-request-id';
+
+app.use((req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  const existing = req.header(HEADER_REQUEST_ID);
+  const requestId = existing && existing.trim().length > 0 ? existing : randomUUID();
+  req.requestId = requestId;
+  res.set(HEADER_REQUEST_ID, requestId);
+  requestContext.run({ requestId }, () => next());
+});
+
+const JWT_SECRET = await getSupabaseJwtSecret();
 const JWT_AUDIENCE = process.env.SUPABASE_JWT_AUDIENCE ?? 'authenticated';
+const RATE_LIMIT_ALERT_WEBHOOK = process.env.RATE_LIMIT_ALERT_WEBHOOK ?? process.env.ERROR_NOTIFY_WEBHOOK ?? '';
 
 if (!JWT_SECRET) {
   throw new Error('SUPABASE_JWT_SECRET must be set to secure the RAG service.');
@@ -209,12 +223,23 @@ const RATE_LIMIT = Number(process.env.API_RATE_LIMIT ?? '60');
 const RATE_WINDOW_MS = Number(process.env.API_RATE_WINDOW_SECONDS ?? '60') * 1000;
 const requestBuckets = new Map<string, number[]>();
 
+const requestContext = new AsyncLocalStorage<{ requestId: string }>();
+
 interface AuthenticatedRequest extends Request {
   user?: JwtPayload & { sub?: string };
+  requestId?: string;
 }
 
-function logInfo(message: string, meta: Record<string, unknown>) {
-  console.log(JSON.stringify({ level: 'info', msg: message, ...meta }));
+function enrichMeta(meta: Record<string, unknown> = {}): Record<string, unknown> {
+  const ctx = requestContext.getStore();
+  if (ctx?.requestId && !('requestId' in meta)) {
+    return { requestId: ctx.requestId, ...meta };
+  }
+  return meta;
+}
+
+function logInfo(message: string, meta: Record<string, unknown> = {}) {
+  console.log(JSON.stringify({ level: 'info', msg: message, ...enrichMeta(meta) }));
 }
 
 function logError(message: string, error: unknown, meta: Record<string, unknown> = {}) {
@@ -224,7 +249,7 @@ function logError(message: string, error: unknown, meta: Record<string, unknown>
       msg: message,
       error: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack : undefined,
-      ...meta,
+      ...enrichMeta(meta),
     })
   );
 }
@@ -264,7 +289,18 @@ function authenticate(req: AuthenticatedRequest, res: Response, next: NextFuncti
 
     const userId = payload.sub ?? 'anonymous';
     if (!allowRequest(userId)) {
+      const orgSlug = typeof req.query?.orgSlug === 'string'
+        ? (req.query.orgSlug as string)
+        : (req.body && typeof req.body === 'object' && 'orgSlug' in req.body
+            ? (req.body as Record<string, unknown>).orgSlug
+            : null);
       logInfo('rate.limit_exceeded', { userId, path: req.path });
+      notifyRateLimitBreach({
+        userId,
+        path: req.path,
+        orgSlug: typeof orgSlug === 'string' ? orgSlug : null,
+        requestId: req.requestId,
+      }).catch((error) => logError('alerts.rate_limit_notify_failed', error, { userId, path: req.path }));
       return res.status(429).json({ error: 'rate limit exceeded' });
     }
 
@@ -291,15 +327,44 @@ const OPENAI_WEB_SEARCH_MODEL = process.env.OPENAI_WEB_SEARCH_MODEL ?? 'gpt-4.1-
 const OPENAI_SUMMARY_MODEL = process.env.OPENAI_SUMMARY_MODEL ?? OPENAI_WEB_SEARCH_MODEL;
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-  throw new Error('SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be configured.');
+if (!SUPABASE_URL) {
+  throw new Error('SUPABASE_URL must be configured.');
 }
+
+const SUPABASE_SERVICE_ROLE_KEY = await getSupabaseServiceRoleKey();
 
 const supabaseService = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
   auth: { persistSession: false },
 });
+
+async function notifyRateLimitBreach(meta: { userId: string; path: string; orgSlug?: string | null; requestId?: string }) {
+  const context = {
+    userId: meta.userId,
+    path: meta.path,
+    orgSlug: meta.orgSlug ?? null,
+    requestId: meta.requestId ?? null,
+  };
+
+  await supabaseService
+    .from('telemetry_alerts')
+    .insert({
+      alert_type: 'RATE_LIMIT_BREACH',
+      severity: 'WARNING',
+      message: `Rate limit exceeded on ${meta.path}`,
+      context,
+    })
+    .catch((error) => logError('alerts.rate_limit_insert_failed', error, context));
+
+  if (!RATE_LIMIT_ALERT_WEBHOOK) return;
+
+  await fetch(RATE_LIMIT_ALERT_WEBHOOK, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      text: `⚠️ Rate limit exceeded for ${meta.path} (user=${meta.userId})`,
+    }),
+  }).catch((error) => logError('alerts.rate_limit_webhook_failed', error, context));
+}
 
 async function ensureDocumentsBucket() {
   const { data: bucket } = await supabaseService.storage.getBucket('documents');
@@ -1516,10 +1581,9 @@ app.post('/v1/storage/sign', async (req: AuthenticatedRequest, res) => {
       throw err;
     }
 
-    const { data: signedUrlData, error: signError } = await supabaseService
-      .storage
+    const { data: signedUrlData, error: signError } = await supabaseService.storage
       .from('documents')
-      .createSignedUrl(document.file_path, Number(process.env.DOCUMENT_SIGN_TTL ?? '120'));
+      .createSignedUrl(document.file_path, getSignedUrlTTL('document'));
 
     if (signError || !signedUrlData) {
       throw signError ?? new Error('failed to sign url');
@@ -1840,8 +1904,9 @@ app.patch('/v1/tasks/:id', async (req: AuthenticatedRequest, res) => {
   }
 });
 
-app.get('/v1/knowledge/drive/metadata', (_req, res) => {
-  return res.json({ connector: getDriveConnectorMetadata() });
+app.get('/v1/knowledge/drive/metadata', async (_req, res) => {
+  const connector = await getDriveConnectorMetadata();
+  return res.json({ connector });
 });
 
 app.get('/v1/knowledge/sources/:id/preview', async (req: AuthenticatedRequest, res) => {

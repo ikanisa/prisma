@@ -210,7 +210,7 @@ export default function AgentLearningPage() {
           </div>
           <div className="flex items-start gap-2">
             <RefreshCw className="h-4 w-4 mt-0.5" />
-            Enable continuous Drive sync through n8n/workflow automation.
+            Enable continuous Drive sync through the scheduled ingestion service.
           </div>
         </CardContent>
       </Card>

@@ -1,4 +1,4 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { getServiceSupabaseClient } from '../_shared/supabase-client.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -38,10 +38,7 @@ Deno.serve(async (req) => {
     const accessToken = authHeader.split(' ')[1]
 
     // Create admin client using service role key
-    const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    )
+    const supabaseAdmin = await getServiceSupabaseClient()
 
     const {
       data: { user: caller },

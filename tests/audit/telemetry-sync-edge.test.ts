@@ -4,14 +4,12 @@ let handler: (request: Request) => Promise<Response>;
 
 const hoisted = vi.hoisted(() => {
   const envGetMock = vi.fn((key: string) => {
-    if (key === 'SUPABASE_URL') return 'https://supabase.test';
-    if (key === 'SUPABASE_SERVICE_ROLE_KEY') return 'service-role-key';
     if (key === 'API_ALLOWED_ORIGINS') return 'https://app.example.com';
     return undefined;
   });
 
   let supabaseClient: any = null;
-  const createClientMock = vi.fn(() => supabaseClient);
+  const createSupabaseClientWithAuthMock = vi.fn(() => supabaseClient);
   const serveMock = vi.fn((fn: (request: Request) => Promise<Response>) => {
     handler = fn;
   });
@@ -19,7 +17,7 @@ const hoisted = vi.hoisted(() => {
 
   return {
     envGetMock,
-    createClientMock,
+    createSupabaseClientWithAuthMock,
     serveMock,
     logEdgeErrorMock,
     setSupabaseClient(client: any) {
@@ -32,8 +30,8 @@ vi.mock('https://deno.land/std@0.224.0/http/server.ts', () => ({
   serve: hoisted.serveMock,
 }));
 
-vi.mock('https://esm.sh/@supabase/supabase-js@2', () => ({
-  createClient: (...args: unknown[]) => hoisted.createClientMock(...args),
+vi.mock('../../supabase/functions/_shared/supabase-client.ts', () => ({
+  createSupabaseClientWithAuth: (...args: unknown[]) => hoisted.createSupabaseClientWithAuthMock(...args),
 }));
 
 vi.mock('../../supabase/functions/_shared/error-notify.ts', () => ({
@@ -117,6 +115,7 @@ describe('telemetry-sync edge function', () => {
     const body = await response.json();
     expect(body.coverage).toHaveLength(2);
     expect(body.sla).toMatchObject({ module: 'TAX_TREATY_WHT', status: 'ON_TRACK' });
+    expect(hoisted.createSupabaseClientWithAuthMock).toHaveBeenCalledWith('Bearer token');
   });
 
   it('returns 401 when Authorization header is missing', async () => {

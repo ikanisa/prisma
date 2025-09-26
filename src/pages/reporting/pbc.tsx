@@ -19,8 +19,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Label } from '@/components/ui/label';
 
-import type { Database } from '@/integrations/supabase/types';
-import { matchProcedureId } from '@/utils/pbc';
+import { fetchResponses } from '@/lib/audit-responses-service';
+import { matchProcedureId, type ProcedureSummary } from '@/utils/pbc';
 
 const STATUS_BADGE: Record<PbcRequestStatus, string> = {
   REQUESTED: 'bg-slate-100 text-slate-800',
@@ -29,8 +29,14 @@ const STATUS_BADGE: Record<PbcRequestStatus, string> = {
   OBSOLETE: 'bg-amber-100 text-amber-800',
 };
 
-type PlannedProcedure = Database['public']['Tables']['audit_planned_procedures']['Row'];
-type DocumentRow = Database['public']['Tables']['documents']['Row'];
+const NOT_LINKED_VALUE = 'NOT_LINKED';
+
+type PlannedProcedure = ProcedureSummary;
+type DocumentRow = {
+  id: string;
+  name: string;
+  created_at: string;
+};
 
 type TemplateItem = {
   item: string;
@@ -113,17 +119,19 @@ export default function PbcManagerPage() {
   const manager = usePbcManager(engagementId ?? null);
 
   const proceduresQuery = useQuery<PlannedProcedure[]>({
-    queryKey: ['pbc-procedures', currentOrg?.id, engagementId],
+    queryKey: ['pbc-procedures', currentOrg?.slug, engagementId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('audit_planned_procedures')
-        .select('id, title, objective')
-        .eq('org_id', currentOrg!.id)
-        .eq('engagement_id', engagementId!);
-      if (error) throw new Error(error.message);
-      return data ?? [];
+      const { responses } = await fetchResponses({
+        orgSlug: currentOrg!.slug,
+        engagementId: engagementId!,
+      });
+      return responses.map((response) => ({
+        id: response.id,
+        title: response.title,
+        objective: response.objective ?? '',
+      }));
     },
-    enabled: Boolean(currentOrg?.id && engagementId),
+    enabled: Boolean(currentOrg?.slug && engagementId),
     staleTime: 60_000,
   });
 
@@ -152,6 +160,7 @@ export default function PbcManagerPage() {
   const isLoading =
     acceptanceStatus.isLoading ||
     manager.isLoading ||
+    proceduresQuery.isLoading ||
     manager.instantiate.isPending ||
     manager.updateStatus.isPending;
 
@@ -476,12 +485,15 @@ export default function PbcManagerPage() {
               </div>
               <div>
                 <Label className="text-xs text-muted-foreground">Procedure mapping</Label>
-                <Select value={selectedProcedure} onValueChange={setSelectedProcedure}>
+                <Select
+                  value={selectedProcedure || NOT_LINKED_VALUE}
+                  onValueChange={(value) => setSelectedProcedure(value === NOT_LINKED_VALUE ? '' : value)}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Optional: map to planned procedure" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Not linked</SelectItem>
+                    <SelectItem value={NOT_LINKED_VALUE}>Not linked</SelectItem>
                     {proceduresQuery.data?.map((proc) => (
                       <SelectItem key={proc.id} value={proc.id}>
                         {proc.title}

@@ -1,18 +1,34 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { GoogleDrivePlaceholder, type DriveSource } from './drive';
+import { getSupabaseServiceRoleKey } from '../../../lib/secrets';
 
-const SUPABASE_URL = process.env.SUPABASE_URL ?? '';
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
+let cachedSupabase: SupabaseClient | null = null;
+let drivePlaceholderPromise: Promise<GoogleDrivePlaceholder> | null = null;
 
-if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-  throw new Error('SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be configured for ingestion.');
+async function getSupabase(): Promise<SupabaseClient> {
+  if (cachedSupabase) {
+    return cachedSupabase;
+  }
+
+  const url = process.env.SUPABASE_URL ?? '';
+  if (!url) {
+    throw new Error('SUPABASE_URL must be configured for ingestion.');
+  }
+
+  const serviceRoleKey = await getSupabaseServiceRoleKey();
+  cachedSupabase = createClient(url, serviceRoleKey, {
+    auth: { persistSession: false },
+  });
+
+  return cachedSupabase;
 }
 
-const supabase: SupabaseClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-  auth: { persistSession: false },
-});
-
-const drivePlaceholder = new GoogleDrivePlaceholder(supabase);
+async function getDrivePlaceholder(): Promise<GoogleDrivePlaceholder> {
+  if (!drivePlaceholderPromise) {
+    drivePlaceholderPromise = (async () => new GoogleDrivePlaceholder(await getSupabase()))();
+  }
+  return drivePlaceholderPromise;
+}
 
 export interface LearningRunRequest {
   orgId: string;
@@ -34,6 +50,7 @@ export interface LearningRun {
  * intent so the UI and evaluation flows can be wired up.
  */
 export async function scheduleLearningRun(request: LearningRunRequest): Promise<LearningRun> {
+  const supabase = await getSupabase();
   const { data: run, error } = await supabase
     .from('learning_runs')
     .insert({
@@ -71,9 +88,11 @@ export async function scheduleLearningRun(request: LearningRunRequest): Promise<
  * what would be processed. Replaced later with real Drive change feeds.
  */
 export async function previewDriveDocuments(source: DriveSource) {
-  return drivePlaceholder.listDocuments(source);
+  const placeholder = await getDrivePlaceholder();
+  return placeholder.listDocuments(source);
 }
 
-export function getDriveConnectorMetadata() {
-  return drivePlaceholder.getConnectorMetadata();
+export async function getDriveConnectorMetadata() {
+  const placeholder = await getDrivePlaceholder();
+  return placeholder.getConnectorMetadata();
 }

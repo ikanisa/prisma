@@ -37,7 +37,7 @@ export async function GET(request: Request) {
     );
   }
 
-  const supabase = getServiceSupabaseClient();
+  const supabase = await getServiceSupabaseClient();
   const { data, error } = await supabase
     .from('specialist_assessments')
     .select('*')
@@ -57,7 +57,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   const requestId = getOrCreateRequestId(request);
-  const supabase = getServiceSupabaseClient();
+  const supabase = await getServiceSupabaseClient();
   let payload;
   try {
     payload = upsertSchema.parse(await request.json());

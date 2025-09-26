@@ -17,14 +17,43 @@ jobs:
       - name: Install deps
         run: npm ci
       - name: Unit tests with coverage (Vitest)
-        run: npm test -- --coverage
-      - name: Policy tests (pgTAP)
-        if: env.DATABASE_URL != ''
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          TARGET_STATEMENTS: 45
+          TARGET_BRANCHES: 40
+          TARGET_FUNCTIONS: 45
+          TARGET_LINES: 45
+        run: npm run coverage
+      - name: Policy tests (pgTAP)
+        env:
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
         run: |
-          chmod +x scripts/test_policies.sql
+          if [ -z "$DATABASE_URL" ]; then
+            echo 'STAGING_DATABASE_URL secret is required for policy tests.' >&2
+            exit 1
+          fi
           psql "$DATABASE_URL" -f scripts/test_policies.sql
       - name: Audit dependencies
         run: npm audit --omit=dev || true
 
+  ui-smoke:
+    needs: build-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install deps
+        run: npm ci
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps
+      - name: Smoke tests (Playwright)
+        env:
+          PLAYWRIGHT_BASE_URL: ${{ secrets.PLAYWRIGHT_BASE_URL }}
+          PLAYWRIGHT_SMOKE_PATHS: ${{ secrets.PLAYWRIGHT_SMOKE_PATHS }}
+        run: |
+          if [ -z "$PLAYWRIGHT_BASE_URL" ]; then
+            echo 'PLAYWRIGHT_BASE_URL secret is required for UI smoke tests.' >&2
+            exit 1
+          fi
+          npm run test:playwright

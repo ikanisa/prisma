@@ -1,15 +1,26 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
-const SUPABASE_URL = process.env.SUPABASE_URL ?? '';
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
+import { getSupabaseServiceRoleKey } from '../../../lib/secrets';
 
-if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-  throw new Error('SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be configured for web ingestion.');
+let cachedClient: SupabaseClient | null = null;
+
+async function getSupabase(): Promise<SupabaseClient> {
+  if (cachedClient) {
+    return cachedClient;
+  }
+
+  const url = process.env.SUPABASE_URL ?? '';
+  if (!url) {
+    throw new Error('SUPABASE_URL must be configured for web ingestion.');
+  }
+
+  const serviceRoleKey = await getSupabaseServiceRoleKey();
+  cachedClient = createClient(url, serviceRoleKey, {
+    auth: { persistSession: false },
+  });
+
+  return cachedClient;
 }
-
-const supabase: SupabaseClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-  auth: { persistSession: false },
-});
 
 export interface WebSourceRow {
   id: string;
@@ -21,6 +32,7 @@ export interface WebSourceRow {
 }
 
 export async function listWebSources(): Promise<WebSourceRow[]> {
+  const supabase = await getSupabase();
   const { data, error } = await supabase
     .from('web_knowledge_sources')
     .select('id, title, url, domain, jurisdiction, tags')
@@ -34,6 +46,7 @@ export async function listWebSources(): Promise<WebSourceRow[]> {
 }
 
 export async function getWebSource(webSourceId: string): Promise<WebSourceRow> {
+  const supabase = await getSupabase();
   const { data, error } = await supabase
     .from('web_knowledge_sources')
     .select('id, title, url, domain, jurisdiction, tags')

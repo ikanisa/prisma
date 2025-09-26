@@ -1,6 +1,8 @@
-import type { Database } from '@/integrations/supabase/types';
-
-type PlannedProcedure = Database['public']['Tables']['audit_planned_procedures']['Row'];
+export interface ProcedureSummary {
+  id: string;
+  title?: string | null;
+  objective?: string | null;
+}
 
 const SYNONYMS: Record<string, string[]> = {
   bank: ['bank', 'cash'],
@@ -34,7 +36,7 @@ const expandToken = (token: string) => {
   return Array.from(new Set([token, base, ...expansions]));
 };
 
-const scoreProcedure = (procedure: PlannedProcedure, hintTokens: string[]) => {
+const scoreProcedure = (procedure: ProcedureSummary, hintTokens: string[]) => {
   const titleTokens = tokenise(procedure.title ?? '');
   const objectiveTokens = tokenise(procedure.objective ?? '');
   const procedureTokens = new Set([...titleTokens, ...objectiveTokens]);
@@ -57,7 +59,7 @@ const scoreProcedure = (procedure: PlannedProcedure, hintTokens: string[]) => {
   return score;
 };
 
-export function matchProcedureId(procedures: PlannedProcedure[], hint?: string | null): string | null {
+export function matchProcedureId(procedures: ProcedureSummary[], hint?: string | null): string | null {
   if (!hint) return null;
   const hintTokens = tokenise(hint);
   if (hintTokens.length === 0) return null;

@@ -118,6 +118,26 @@ export function Engagements() {
                       </Link>
                     </UIButton>
                     <UIButton variant="outline" size="sm" asChild>
+                      <Link to={`/${currentOrg?.slug}/engagements/${engagement.id}/planning/audit-plan`}>
+                        Audit Plan
+                      </Link>
+                    </UIButton>
+                    <UIButton variant="outline" size="sm" asChild>
+                      <Link to={`/${currentOrg?.slug}/engagements/${engagement.id}/planning/risk-register`}>
+                        Risk Register
+                      </Link>
+                    </UIButton>
+                    <UIButton variant="outline" size="sm" asChild>
+                      <Link to={`/${currentOrg?.slug}/engagements/${engagement.id}/planning/responses`}>
+                        Responses Matrix
+                      </Link>
+                    </UIButton>
+                    <UIButton variant="outline" size="sm" asChild>
+                      <Link to={`/${currentOrg?.slug}/engagements/${engagement.id}/planning/fraud-plan`}>
+                        Fraud Plan
+                      </Link>
+                    </UIButton>
+                    <UIButton variant="outline" size="sm" asChild>
                       <Link to={`/${currentOrg?.slug}/engagements/${engagement.id}/reporting/controls`}>
                         Open Controls
                       </Link>

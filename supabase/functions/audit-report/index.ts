@@ -1,4 +1,5 @@
-import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createSupabaseClientWithAuth } from '../_shared/supabase-client.ts';
 import type { Database } from '../../../src/integrations/supabase/types.ts';
 import { evaluateOpinion } from '../../../src/utils/report-evaluation.ts';
 import { ensureAcceptanceApproved } from '../_shared/acceptance.ts';
@@ -8,13 +9,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, content-type',
   'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
 };
-
-const supabaseUrl = Deno.env.get('SUPABASE_URL');
-const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-
-if (!supabaseUrl || !serviceRoleKey) {
-  throw new Error('Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
-}
 
 type TypedClient = SupabaseClient<Database>;
 type RoleLevel = Database['public']['Enums']['role_level'];
@@ -43,11 +37,8 @@ function jsonResponse(status: number, body: Record<string, unknown>) {
   });
 }
 
-function createSupabaseClient(authHeader: string): TypedClient {
-  return createClient<Database>(supabaseUrl!, serviceRoleKey!, {
-    auth: { persistSession: false },
-    global: { headers: { Authorization: authHeader } },
-  });
+async function createSupabaseClient(authHeader: string): Promise<TypedClient> {
+  return createSupabaseClientWithAuth<Database>(authHeader);
 }
 
 async function getUser(client: TypedClient): Promise<SupabaseUser> {
@@ -690,7 +681,7 @@ Deno.serve(async (req) => {
   const authHeader = req.headers.get('authorization') ?? req.headers.get('Authorization');
   if (!authHeader) return jsonResponse(401, { error: 'missing_authorization' });
 
-  const client = createSupabaseClient(authHeader);
+  const client = await createSupabaseClient(authHeader);
 
   try {
     const user = await getUser(client);

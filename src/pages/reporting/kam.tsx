@@ -7,7 +7,6 @@ import { useOrganizations } from '@/hooks/use-organizations';
 import { useKamModule, findDraftByCandidate, candidateStatusLabel } from '@/hooks/use-kam-module';
 import { useAcceptanceStatus } from '@/hooks/use-acceptance-status';
 import { supabase } from '@/integrations/supabase/client';
-import type { Database } from '@/integrations/supabase/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -20,6 +19,8 @@ import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 
 import type { KamCandidate, KamDraft, ApprovalQueueItem } from '@/lib/kam-service';
+import { fetchResponses } from '@/lib/audit-responses-service';
+import { fetchRiskRegister, type AuditRiskRecord } from '@/lib/audit-risk-service';
 import { buildKamMarkdown, buildKamJson } from '@/utils/kam-export';
 
 const statusColor: Record<KamCandidate['status'], string> = {
@@ -34,13 +35,30 @@ const sourceColor: Record<KamCandidate['source'], string> = {
   GOING_CONCERN: 'bg-cyan-100 text-cyan-800',
   OTHER: 'bg-gray-100 text-gray-800',
 };
+type ProcedureRow = {
+  id: string;
+  title: string;
+  objective?: string | null;
+  coverageAssertions?: string[];
+};
 
-type ProcedureRow = Database['public']['Tables']['audit_planned_procedures']['Row'];
-type EvidenceRow = Database['public']['Tables']['audit_evidence']['Row'];
-type DocumentRow = Database['public']['Tables']['documents']['Row'];
-type RiskRow = Database['public']['Tables']['risks']['Row'];
-type EstimateRow = Database['public']['Tables']['estimate_register']['Row'];
-type GoingConcernRow = Database['public']['Tables']['going_concern_worksheets']['Row'];
+type DocumentRow = {
+  id: string;
+  name: string;
+  created_at: string;
+};
+
+type EstimateOption = {
+  id: string;
+  caption: string;
+  uncertainty_level?: string | null;
+};
+
+type GoingConcernOption = {
+  id: string;
+  assessment: string;
+  conclusion?: string | null;
+};
 
 type ProcedureSelection = Record<string, { isaRefs: string[] }>; // key = procedureId
 type EvidenceSelection = Record<string, { evidenceId?: string; documentId?: string; note: string }>; // key prefixed with type
@@ -150,94 +168,57 @@ export function KamReportingPage() {
   );
 
   const proceduresQuery = useQuery<ProcedureRow[]>({
-    queryKey: ['kam-procedures', currentOrg?.id, engagementId],
+    queryKey: ['kam-procedures', currentOrg?.slug, engagementId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('audit_planned_procedures')
-        .select('id, title, objective, isa_references')
-        .eq('org_id', currentOrg!.id)
-        .eq('engagement_id', engagementId!);
-      if (error) throw new Error(error.message);
-      return data ?? [];
+      const { responses } = await fetchResponses({
+        orgSlug: currentOrg!.slug,
+        engagementId: engagementId!,
+      });
+      return responses.map((response) => ({
+        id: response.id,
+        title: response.title,
+        objective: response.objective ?? '',
+        coverageAssertions: response.coverageAssertions,
+      }));
     },
-    enabled: Boolean(currentOrg?.id && engagementId),
-    staleTime: 60_000,
-  });
-
-  const evidenceQuery = useQuery<EvidenceRow[]>({
-    queryKey: ['kam-evidence', currentOrg?.id, engagementId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('audit_evidence')
-        .select('id, description, document_id, workpaper_id, engagement_id, org_id, created_at')
-        .eq('org_id', currentOrg!.id)
-        .eq('engagement_id', engagementId!);
-      if (error) throw new Error(error.message);
-      return data ?? [];
-    },
-    enabled: Boolean(currentOrg?.id && engagementId),
+    enabled: Boolean(currentOrg?.slug && engagementId),
     staleTime: 60_000,
   });
 
   const documentsQuery = useQuery<DocumentRow[]>({
-    queryKey: ['kam-documents', currentOrg?.id, engagementId],
+    queryKey: ['kam-documents', currentOrg?.slug, engagementId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('documents')
-        .select('id, name, engagement_id, org_id')
+        .select('id, name, created_at')
         .eq('org_id', currentOrg!.id)
         .eq('engagement_id', engagementId!);
       if (error) throw new Error(error.message);
-      return data ?? [];
+      return (data ?? []).map(({ id, name, created_at }) => ({
+        id,
+        name,
+        created_at: created_at ?? new Date().toISOString(),
+      }));
     },
-    enabled: Boolean(currentOrg?.id && engagementId),
+    enabled: Boolean(currentOrg?.slug && engagementId),
     staleTime: 60_000,
   });
 
-  const risksQuery = useQuery<RiskRow[]>({
-    queryKey: ['kam-risks', currentOrg?.id, engagementId],
+  const risksQuery = useQuery<AuditRiskRecord[]>({
+    queryKey: ['kam-risks', currentOrg?.slug, engagementId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('risks')
-        .select('id, description, area, is_significant, is_fraud_risk')
-        .eq('org_id', currentOrg!.id)
-        .eq('engagement_id', engagementId!);
-      if (error) throw new Error(error.message);
-      return data ?? [];
+      const { risks } = await fetchRiskRegister({
+        orgSlug: currentOrg!.slug,
+        engagementId: engagementId!,
+      });
+      return risks;
     },
-    enabled: Boolean(currentOrg?.id && engagementId),
+    enabled: Boolean(currentOrg?.slug && engagementId),
     staleTime: 60_000,
   });
 
-  const estimatesQuery = useQuery<EstimateRow[]>({
-    queryKey: ['kam-estimates', currentOrg?.id, engagementId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('estimate_register')
-        .select('id, caption, uncertainty_level')
-        .eq('org_id', currentOrg!.id)
-        .eq('engagement_id', engagementId!);
-      if (error) throw new Error(error.message);
-      return data ?? [];
-    },
-    enabled: Boolean(currentOrg?.id && engagementId),
-    staleTime: 60_000,
-  });
-
-  const gcQuery = useQuery<GoingConcernRow[]>({
-    queryKey: ['kam-gc', currentOrg?.id, engagementId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('going_concern_worksheets')
-        .select('id, assessment, conclusion')
-        .eq('org_id', currentOrg!.id)
-        .eq('engagement_id', engagementId!);
-      if (error) throw new Error(error.message);
-      return data ?? [];
-    },
-    enabled: Boolean(currentOrg?.id && engagementId),
-    staleTime: 60_000,
-  });
+  const estimateOptions: EstimateOption[] = [];
+  const goingConcernOptions: GoingConcernOption[] = [];
 
   useEffect(() => {
     if (!selectedDraft) {
@@ -282,14 +263,19 @@ export function KamReportingPage() {
 
   const isDraftEditable = selectedDraft && selectedDraft.status !== 'APPROVED';
 
+  const linkedEvidenceEntries = useMemo(
+    () => Object.entries(draftState.evidence).filter(([key]) => key.startsWith('evidence:')),
+    [draftState.evidence],
+  );
+
   const handleToggleProcedure = (procedure: ProcedureRow) => {
     setDraftState((prev) => {
       const nextProcedures = { ...prev.procedures };
       if (nextProcedures[procedure.id]) {
         delete nextProcedures[procedure.id];
       } else {
-        const defaults = Array.isArray(procedure.isa_references)
-          ? procedure.isa_references.filter((entry): entry is string => typeof entry === 'string')
+        const defaults = Array.isArray(procedure.coverageAssertions)
+          ? procedure.coverageAssertions.filter((entry): entry is string => typeof entry === 'string')
           : [];
         nextProcedures[procedure.id] = { isaRefs: defaults };
       }
@@ -563,7 +549,7 @@ export function KamReportingPage() {
                     <SelectContent>
                       {risksQuery.data?.map((risk) => (
                         <SelectItem key={risk.id} value={risk.id}>
-                          {risk.area ?? risk.description ?? risk.id}
+                          {risk.title}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -578,14 +564,18 @@ export function KamReportingPage() {
                     onValueChange={(value) => setNewCandidate((prev) => ({ ...prev, estimateId: value }))}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select estimate" />
+                      <SelectValue placeholder="Estimates coming soon" />
                     </SelectTrigger>
                     <SelectContent>
-                      {estimatesQuery.data?.map((estimate) => (
-                        <SelectItem key={estimate.id} value={estimate.id}>
-                          {estimate.caption} ({estimate.uncertainty_level})
-                        </SelectItem>
-                      ))}
+                      {estimateOptions.length === 0 ? (
+                        <div className="px-3 py-2 text-xs text-muted-foreground">No estimates available yet.</div>
+                      ) : (
+                        estimateOptions.map((estimate) => (
+                          <SelectItem key={estimate.id} value={estimate.id}>
+                            {estimate.caption} {estimate.uncertainty_level ? `(${estimate.uncertainty_level})` : ''}
+                          </SelectItem>
+                        ))
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
@@ -598,14 +588,18 @@ export function KamReportingPage() {
                     onValueChange={(value) => setNewCandidate((prev) => ({ ...prev, goingConcernId: value }))}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select worksheet" />
+                      <SelectValue placeholder="Going concern data coming soon" />
                     </SelectTrigger>
                     <SelectContent>
-                      {gcQuery.data?.map((worksheet) => (
-                        <SelectItem key={worksheet.id} value={worksheet.id}>
-                          {worksheet.assessment} — {worksheet.conclusion ?? 'No conclusion captured'}
-                        </SelectItem>
-                      ))}
+                      {goingConcernOptions.length === 0 ? (
+                        <div className="px-3 py-2 text-xs text-muted-foreground">No going concern worksheets yet.</div>
+                      ) : (
+                        goingConcernOptions.map((worksheet) => (
+                          <SelectItem key={worksheet.id} value={worksheet.id}>
+                            {worksheet.assessment} — {worksheet.conclusion ?? 'No conclusion captured'}
+                          </SelectItem>
+                        ))
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
@@ -805,27 +799,25 @@ export function KamReportingPage() {
                   <section className="space-y-3">
                     <div className="flex items-center justify-between">
                       <h3 className="text-sm font-semibold">Evidence references</h3>
-                      {(evidenceQuery.isLoading || documentsQuery.isLoading) && (
+                      {documentsQuery.isLoading && (
                         <span className="text-xs text-muted-foreground">Loading…</span>
                       )}
                     </div>
                     <div className="space-y-3">
-                      {evidenceQuery.data?.map((evidence) => {
-                        const key = `evidence:${evidence.id}`;
+                      {linkedEvidenceEntries.map(([key, value]) => {
+                        const evidenceId = value.evidenceId ?? key.split(':')[1] ?? '';
                         const checked = Boolean(draftState.evidence[key]);
                         return (
                           <div key={key} className="border rounded-lg p-3 space-y-2">
                             <div className="flex items-center justify-between">
                               <div>
-                                <div className="font-medium text-sm">Evidence {evidence.id.slice(0, 8)}</div>
-                                {evidence.description && (
-                                  <div className="text-xs text-muted-foreground">{evidence.description}</div>
-                                )}
+                                <div className="font-medium text-sm">Evidence {evidenceId.slice(0, 8)}</div>
+                                <div className="text-xs text-muted-foreground">Linked legacy evidence record</div>
                               </div>
                               <Button
                                 variant={checked ? 'default' : 'outline'}
                                 size="sm"
-                                onClick={() => handleToggleEvidence({ type: 'evidence', id: evidence.id })}
+                                onClick={() => handleToggleEvidence({ type: 'evidence', id: evidenceId })}
                                 disabled={!isDraftEditable}
                               >
                                 {checked ? 'Remove' : 'Link'}
@@ -877,7 +869,7 @@ export function KamReportingPage() {
                         );
                       })}
 
-                      {!evidenceQuery.isLoading && !documentsQuery.isLoading && !evidenceQuery.data?.length && !documentsQuery.data?.length && (
+                      {!documentsQuery.isLoading && !documentsQuery.data?.length && linkedEvidenceEntries.length === 0 && (
                         <div className="text-xs text-muted-foreground">No evidence recorded for this engagement yet.</div>
                       )}
                     </div>

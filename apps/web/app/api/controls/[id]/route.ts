@@ -10,7 +10,7 @@ import { createApiGuard } from '../../lib/api-guard';
 export async function PATCH(request: Request, context: { params: { id: string } }) {
   const requestId = getOrCreateRequestId(request);
   const { id } = context.params;
-  const supabase = getServiceSupabaseClient();
+  const supabase = await getServiceSupabaseClient();
   let payload;
 
   try {

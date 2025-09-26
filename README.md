@@ -39,7 +39,12 @@ Required variables:
 - `SUPABASE_JWT_SECRET`
 - `DATABASE_URL` (Postgres connection string for the Supabase instance)
 - `OPENAI_API_KEY` (RAG embedding service)
-- Optional: `API_RATE_LIMIT` (default 60 req/min), `API_RATE_WINDOW_SECONDS`, `DOCUMENT_SIGN_TTL` (default 120s) for upload/sign services
+- Optional: `API_RATE_LIMIT` (default 60 req/min), `API_RATE_WINDOW_SECONDS`,
+  `SIGNED_URL_DEFAULT_TTL_SECONDS` (default 300s) and `SIGNED_URL_EVIDENCE_TTL_SECONDS`
+  to control signed URL expiry windows.
+- Optional alerts: `RATE_LIMIT_ALERT_WEBHOOK` for Express rate-limit breaches and
+  `TELEMETRY_ALERT_WEBHOOK` for telemetry/SLA warnings (fallbacks to
+  `ERROR_NOTIFY_WEBHOOK` if unset).
 
 ### Agent learning & RAG additions
 
@@ -145,6 +150,54 @@ Run the Python test suites:
 ```bash
 pytest
 ```
+
+## CI gating & RLS policy tests
+
+GitHub Actions (`.github/workflows/ci.yml`) runs linting, Vitest (with coverage thresholds), and
+pgTAP policy tests. The policy step connects to a staging database via the
+`STAGING_DATABASE_URL` secret. Without this secret the workflow fails fast, so be sure to configure
+it in the repository/organization secrets. Locally you can run the same check with:
+
+```bash
+psql "$STAGING_DATABASE_URL" -f scripts/test_policies.sql
+```
+
+Vitest coverage thresholds are enforced through `npm run coverage`, which
+honours `TARGET_STATEMENTS`, `TARGET_BRANCHES`, `TARGET_FUNCTIONS`, and
+`TARGET_LINES` (defaults 45/40/45/45). Run the script locally before opening a
+PR so the CI job matches your results.
+
+## Performance harness
+
+The Phase 4 load scenarios live in `tests/perf/*.js`. The helper script
+`scripts/perf/run_k6.sh` wraps k6 execution, exporting JSON summaries under
+`docs/PERF/<timestamp>/`:
+
+```bash
+./scripts/perf/run_k6.sh ada recon telemetry
+```
+
+Set the environment variables referenced inside each scenario (for example
+`K6_BASE_URL`, `ACCESS_TOKEN`, `K6_ORG_ID`, `K6_ENG_ID`). The exported JSON files
+should be attached to the performance evidence pack described in
+`docs/performance-uat-plan.md`.
+
+## Playwright smoke tests
+
+UI smokes can be executed against any environment with:
+
+```bash
+PLAYWRIGHT_BASE_URL="https://staging.example.com" \
+PLAYWRIGHT_SMOKE_PATHS="/,/login" \
+npm run test:playwright
+```
+
+The suite defaults to `http://localhost:3000` and probes the provided routes,
+skipping gracefully if the target environment is unreachable. HTML reports are
+written to `playwright-report/` when running in CI.
+
+> CI expects the `PLAYWRIGHT_BASE_URL` secret (and optional
+> `PLAYWRIGHT_SMOKE_PATHS`) so the GitHub Action can run the smoke job.
 
 ## Curl smoke tests
 

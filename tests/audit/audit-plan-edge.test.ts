@@ -4,21 +4,19 @@ let handler: (request: Request) => Promise<Response>;
 
 const hoisted = vi.hoisted(() => {
   const envGetMock = vi.fn((key: string) => {
-    if (key === 'SUPABASE_URL') return 'https://supabase.test';
-    if (key === 'SUPABASE_SERVICE_ROLE_KEY') return 'service-role-key';
     if (key === 'API_ALLOWED_ORIGINS') return 'https://app.example.com';
     return undefined;
   });
 
   let supabaseClient: any = null;
-  const createClientMock = vi.fn(() => supabaseClient);
+  const createSupabaseClientWithAuthMock = vi.fn(() => supabaseClient);
   const serveMock = vi.fn((fn: (request: Request) => Promise<Response>) => {
     handler = fn;
   });
 
   return {
     envGetMock,
-    createClientMock,
+    createSupabaseClientWithAuthMock,
     serveMock,
     setSupabaseClient(client: any) {
       supabaseClient = client;
@@ -35,8 +33,8 @@ vi.mock('https://deno.land/std@0.224.0/http/server.ts', () => ({
   serve: hoisted.serveMock,
 }));
 
-vi.mock('https://esm.sh/@supabase/supabase-js@2', () => ({
-  createClient: (...args: unknown[]) => hoisted.createClientMock(...args),
+vi.mock('../../supabase/functions/_shared/supabase-client.ts', () => ({
+  createSupabaseClientWithAuth: (...args: unknown[]) => hoisted.createSupabaseClientWithAuthMock(...args),
 }));
 
 function makeResult<T>(data: T, error: any = null) {
@@ -124,11 +122,7 @@ describe('audit-plan edge function', () => {
     expect(body.changeLog).toEqual([{ id: 'change-1' }]);
     expect(body.approvals).toEqual([{ id: 'approval-1', status: 'PENDING' }]);
 
-    expect(hoisted.createClientMock).toHaveBeenCalledWith(
-      'https://supabase.test',
-      'service-role-key',
-      expect.objectContaining({ auth: expect.any(Object) }),
-    );
+    expect(hoisted.createSupabaseClientWithAuthMock).toHaveBeenCalledWith('Bearer token');
   });
 
   it('rejects requests missing Authorization header', async () => {

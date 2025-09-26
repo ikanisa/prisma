@@ -19,7 +19,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'orgId and engagementId are required query parameters.' }, { status: 400 });
   }
 
-  const supabase = getServiceSupabaseClient();
+  const supabase = await getServiceSupabaseClient();
   const { data, error } = await supabase
     .from('ada_runs')
     .select('*, ada_exceptions(*)')
@@ -47,7 +47,7 @@ export async function POST(request: Request) {
   }
 
   const { kind, orgId, engagementId, userId, datasetRef, params } = payload;
-  const supabase = getServiceSupabaseClient();
+  const supabase = await getServiceSupabaseClient();
 
   const guard = await createApiGuard({
     request,

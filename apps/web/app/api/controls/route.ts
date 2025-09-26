@@ -16,7 +16,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'orgId and engagementId are required query parameters.' }, { status: 400 });
   }
 
-  const supabase = getServiceSupabaseClient();
+  const supabase = await getServiceSupabaseClient();
 
   const [{ data: controls, error: controlsError }, { data: itgcGroups, error: itgcError }, { data: deficiencies, error: defError }] =
     await Promise.all([
@@ -50,7 +50,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   const requestId = getOrCreateRequestId(request);
-  const supabase = getServiceSupabaseClient();
+  const supabase = await getServiceSupabaseClient();
   let payload;
 
   try {

@@ -1,21 +1,16 @@
-import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createSupabaseClientWithAuth } from '../_shared/supabase-client.ts';
 import JSZip from 'https://deno.land/x/jszip@0.11.0/mod.ts';
 import type { Database } from '../../../src/integrations/supabase/types.ts';
 import { buildTcwgMarkdown } from '../../../src/utils/tcwg-pack.ts';
 import { ensureAcceptanceApproved } from '../_shared/acceptance.ts';
+import { logEdgeError } from '../_shared/error-notify.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': Deno.env.get('API_ALLOWED_ORIGINS') ?? '*',
   'Access-Control-Allow-Headers': 'authorization, content-type',
   'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
 };
-
-const supabaseUrl = Deno.env.get('SUPABASE_URL');
-const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-
-if (!supabaseUrl || !serviceRoleKey) {
-  throw new Error('Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
-}
 
 type TypedClient = SupabaseClient<Database>;
 type RoleLevel = Database['public']['Enums']['role_level'];
@@ -44,11 +39,8 @@ function jsonResponse(status: number, body: Record<string, unknown>) {
   });
 }
 
-function createSupabaseClient(authHeader: string): TypedClient {
-  return createClient<Database>(supabaseUrl!, serviceRoleKey!, {
-    auth: { persistSession: false },
-    global: { headers: { Authorization: authHeader } },
-  });
+async function createSupabaseClient(authHeader: string): Promise<TypedClient> {
+  return createSupabaseClientWithAuth<Database>(authHeader);
 }
 
 async function getUser(client: TypedClient): Promise<SupabaseUser> {
@@ -893,19 +885,31 @@ Deno.serve(async (req) => {
   const authHeader = req.headers.get('authorization') ?? req.headers.get('Authorization');
   if (!authHeader) return jsonResponse(401, { error: 'missing_authorization' });
 
-  const client = createSupabaseClient(authHeader);
+  const client = await createSupabaseClient(authHeader);
+
+  let orgId: string | null = null;
+  let orgSlug: string | null = null;
+  let engagementId: string | null = null;
+  let contextInfo: Record<string, unknown> = {};
 
   try {
     const user = await getUser(client);
     const url = new URL(req.url);
     const pathname = url.pathname.replace(/^\/audit-tcwg/, '') || '/';
+    contextInfo = { pathname, method: req.method };
 
     if (req.method === 'GET' && pathname === '/get') {
+      orgSlug = url.searchParams.get('orgSlug');
+      engagementId = url.searchParams.get('engagementId');
+      contextInfo = { ...contextInfo, orgSlug, engagementId };
       return await handleGet(client, user, url);
     }
 
     if (req.method === 'POST') {
       const body = await req.json().catch(() => ({}));
+      orgSlug = typeof body.orgSlug === 'string' ? body.orgSlug : url.searchParams.get('orgSlug');
+      engagementId = typeof body.engagementId === 'string' ? body.engagementId : body.engagement_id ?? null;
+      contextInfo = { ...contextInfo, orgSlug, engagementId, action: pathname };
 
       if (pathname === '/create') return await handleCreate(client, user, body);
       if (pathname === '/update') return await handleUpdate(client, user, body);
@@ -918,10 +922,27 @@ Deno.serve(async (req) => {
 
     return jsonResponse(404, { error: 'not_found' });
   } catch (error) {
+    const message = error instanceof Error ? error.message : 'unknown_error';
     if (error instanceof HttpError) {
+      if (error.status >= 500) {
+        await logEdgeError(client, {
+          module: 'AUDIT_TCWG',
+          message,
+          orgSlug,
+          orgId,
+          context: { ...contextInfo, engagementId },
+        });
+      }
       return jsonResponse(error.status, { error: error.message });
     }
     console.error('audit-tcwg-unhandled', error);
+    await logEdgeError(client, {
+      module: 'AUDIT_TCWG',
+      message,
+      orgSlug,
+      orgId,
+      context: { ...contextInfo, engagementId },
+    });
     return jsonResponse(500, { error: 'internal_error' });
   }
 });

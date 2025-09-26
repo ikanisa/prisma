@@ -1,3 +1,5 @@
+import 'server-only';
+
 import { NextRequest, NextResponse } from 'next/server';
 import { handleWebhook } from '../../../../lib/webhook';
 import { evaluateCompliance, loadComplianceConfig } from '../../../../lib/compliance/evaluator';
@@ -69,7 +71,7 @@ export async function POST(request: NextRequest) {
 
   const guard = await createApiGuard({
     request,
-    supabase: getServiceSupabaseClient(),
+    supabase: await getServiceSupabaseClient(),
     requestId,
     orgId,
     resource: `compliance:webhook:${orgId}`,

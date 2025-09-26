@@ -22,10 +22,10 @@ export default defineConfig({
         'tests/**',
       ],
       thresholds: {
-        statements: 40,
-        branches: 35,
-        functions: 40,
-        lines: 40,
+        statements: Number(process.env.VITEST_COVERAGE_STATEMENTS ?? '45'),
+        branches: Number(process.env.VITEST_COVERAGE_BRANCHES ?? '40'),
+        functions: Number(process.env.VITEST_COVERAGE_FUNCTIONS ?? '45'),
+        lines: Number(process.env.VITEST_COVERAGE_LINES ?? '45'),
       },
     },
   },
@@ -33,6 +33,7 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, './src'),
       'next/server': path.resolve(__dirname, './tests/stubs/next-server.ts'),
+      'server-only': path.resolve(__dirname, './tests/stubs/server-only.ts'),
     },
   },
 })

@@ -4,25 +4,23 @@ let handler: (request: Request) => Promise<Response>;
 
 const hoisted = vi.hoisted(() => {
   const envGetMock = vi.fn((key: string) => {
-    if (key === 'SUPABASE_URL') return 'https://supabase.test';
-    if (key === 'SUPABASE_SERVICE_ROLE_KEY') return 'service-role-key';
     if (key === 'API_ALLOWED_ORIGINS') return 'https://app.example.com';
     return undefined;
   });
-  const createClientMock = vi.fn();
+  const createSupabaseClientWithAuthMock = vi.fn();
   const logEdgeErrorMock = vi.fn();
   const serveMock = vi.fn((fn: (request: Request) => Promise<Response>) => {
     handler = fn;
   });
-  return { envGetMock, createClientMock, logEdgeErrorMock, serveMock };
+  return { envGetMock, createSupabaseClientWithAuthMock, logEdgeErrorMock, serveMock };
 });
 
 vi.mock('https://deno.land/std@0.224.0/http/server.ts', () => ({
   serve: hoisted.serveMock,
 }));
 
-vi.mock('https://esm.sh/@supabase/supabase-js@2', () => ({
-  createClient: (...args: unknown[]) => hoisted.createClientMock(...args),
+vi.mock('../../supabase/functions/_shared/supabase-client.ts', () => ({
+  createSupabaseClientWithAuth: (...args: unknown[]) => hoisted.createSupabaseClientWithAuthMock(...args),
 }));
 
 vi.mock('../../supabase/functions/_shared/error-notify.ts', () => ({
@@ -182,7 +180,8 @@ beforeEach(() => {
   upsertPayload = null;
   activityLogs = [];
   globalFetch.mockReset();
-  hoisted.createClientMock.mockImplementation(() => createSupabaseClient());
+  hoisted.createSupabaseClientWithAuthMock.mockReset();
+  hoisted.createSupabaseClientWithAuthMock.mockImplementation(() => createSupabaseClient());
   hoisted.logEdgeErrorMock.mockReset();
 });
 
@@ -246,6 +245,7 @@ describe('archive-sync edge function', () => {
     const body = await response.json();
     expect(body.manifest.engagementId).toBe('eng-123');
     expect(body.sha256).toHaveLength(64);
+    expect(hoisted.createSupabaseClientWithAuthMock).toHaveBeenCalledWith('Bearer token');
 
     expect(upsertPayload).toMatchObject({
       org_id: 'org-1',

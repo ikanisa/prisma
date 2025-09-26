@@ -2,6 +2,7 @@ import crypto from 'crypto'
 import { createClient, type SupabaseClient, type PostgrestError } from '@supabase/supabase-js'
 
 import type { Database } from '../src/integrations/supabase/types'
+import { getSupabaseServiceRoleKey, isSupabaseVaultBacked } from './secrets'
 
 type StoreResult = 'new' | 'duplicate'
 
@@ -13,39 +14,55 @@ export interface IdempotencyStore {
 let activeStore: IdempotencyStore | null = null
 
 function hasSupabaseCredentials(): boolean {
-  return Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY)
+  const url = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL
+  if (!url) {
+    return false
+  }
+  if (isSupabaseVaultBacked()) {
+    return true
+  }
+  return Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY)
 }
 
-let supabaseClient: SupabaseClient<Database> | null = null
+let supabaseClientPromise: Promise<SupabaseClient<Database>> | null = null
 
-function getSupabaseClient(): SupabaseClient<Database> {
-  if (supabaseClient) {
-    return supabaseClient
+async function getSupabaseClient(): Promise<SupabaseClient<Database>> {
+  if (supabaseClientPromise) {
+    return supabaseClientPromise
   }
 
   const url = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-
-  if (!url || !serviceRoleKey) {
-    throw new Error('Supabase credentials are required to persist webhook idempotency state.')
+  if (!url) {
+    throw new Error('Supabase URL is required to persist webhook idempotency state.')
   }
 
-  supabaseClient = createClient<Database>(url, serviceRoleKey, {
-    auth: { persistSession: false },
-  })
+  const pending = (async () => {
+    const serviceRoleKey = await getSupabaseServiceRoleKey()
+    return createClient<Database>(url, serviceRoleKey, {
+      auth: { persistSession: false },
+    })
+  })()
 
-  return supabaseClient
+  supabaseClientPromise = pending
+
+  try {
+    return await pending
+  } catch (error) {
+    supabaseClientPromise = null
+    throw error
+  }
 }
 
 class SupabaseIdempotencyStore implements IdempotencyStore {
-  private client: SupabaseClient<Database>
+  private readonly clientPromise: Promise<SupabaseClient<Database>>
 
   constructor() {
-    this.client = getSupabaseClient()
+    this.clientPromise = getSupabaseClient()
   }
 
   async checkAndStore(hash: string): Promise<StoreResult> {
-    const { error } = await this.client.from('webhook_events').insert({ hash }).select('id').single()
+    const client = await this.clientPromise
+    const { error } = await client.from('webhook_events').insert({ hash }).select('id').single()
 
     if (!error) {
       return 'new'
@@ -115,4 +132,3 @@ export async function seenBefore(hash: string): Promise<boolean> {
   const result = await store.checkAndStore(hash)
   return result === 'duplicate'
 }
-

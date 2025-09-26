@@ -18,7 +18,7 @@ const createFlagSchema = z.object({
 
 export async function POST(request: Request) {
   const requestId = getOrCreateRequestId(request);
-  const supabase = getServiceSupabaseClient();
+  const supabase = await getServiceSupabaseClient();
   let payload;
   try {
     payload = createFlagSchema.parse(await request.json());
