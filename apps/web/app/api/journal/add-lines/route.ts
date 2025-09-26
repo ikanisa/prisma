@@ -3,21 +3,35 @@ import { ZodError } from 'zod';
 import { getServiceSupabaseClient } from '../../../../../lib/supabase-server';
 import { addJournalLinesSchema } from '../../../../../lib/accounting/schemas';
 import { validateJournalBalance, evaluateAndPersistJournalAlerts } from '../../../../../lib/accounting/journal';
+import { attachRequestId, getOrCreateRequestId } from '../../../lib/observability';
+import { createApiGuard } from '../../../lib/api-guard';
 
 export async function POST(request: Request) {
+  const requestId = getOrCreateRequestId(request);
   const supabase = getServiceSupabaseClient();
   let payload;
   try {
     payload = addJournalLinesSchema.parse(await request.json());
   } catch (error) {
     if (error instanceof ZodError) {
-      return NextResponse.json({ error: error.flatten() }, { status: 400 });
+      return NextResponse.json({ error: error.flatten() }, attachRequestId({ status: 400 }, requestId));
     }
-    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    return NextResponse.json({ error: 'Invalid JSON body' }, attachRequestId({ status: 400 }, requestId));
   }
 
+  const guard = await createApiGuard({
+    request,
+    supabase,
+    requestId,
+    orgId: payload.orgId,
+    resource: `journal:lines:${payload.batchId}`,
+    rateLimit: { limit: 120, windowSeconds: 60 },
+  });
+  if (guard.rateLimitResponse) return guard.rateLimitResponse;
+  if (guard.replayResponse) return guard.replayResponse;
+
   if (!validateJournalBalance(payload.lines)) {
-    return NextResponse.json({ error: 'Journal batch is out of balance' }, { status: 422 });
+    return guard.json({ error: 'Journal batch is out of balance' }, { status: 422 });
   }
 
   const { data: batch } = await supabase
@@ -27,7 +41,7 @@ export async function POST(request: Request) {
     .maybeSingle();
 
   if (!batch) {
-    return NextResponse.json({ error: 'Batch not found' }, { status: 404 });
+    return guard.json({ error: 'Batch not found' }, { status: 404 });
   }
 
   const periodId = payload.periodId ?? batch.period_id ?? null;
@@ -50,7 +64,7 @@ export async function POST(request: Request) {
 
   const { error } = await supabase.from('ledger_entries').insert(rows);
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return guard.json({ error: error.message }, { status: 500 });
   }
 
   if (periodId && !batch.period_id) {
@@ -66,5 +80,5 @@ export async function POST(request: Request) {
     userId: payload.userId,
   });
 
-  return NextResponse.json({ inserted: rows.length });
+  return guard.respond({ inserted: rows.length });
 }

@@ -4,20 +4,34 @@ import { ZodError } from 'zod';
 import { logAuditActivity } from '../../../../../../lib/audit/activity-log';
 import { updateAdaExceptionSchema } from '../../../../../../lib/audit/schemas';
 import { getServiceSupabaseClient } from '../../../../../../lib/supabase-server';
+import { attachRequestId, getOrCreateRequestId } from '../../../../lib/observability';
+import { createApiGuard } from '../../../../lib/api-guard';
 
 export async function POST(request: Request) {
+  const requestId = getOrCreateRequestId(request);
   let payload;
   try {
     payload = updateAdaExceptionSchema.parse(await request.json());
   } catch (error) {
     if (error instanceof ZodError) {
-      return NextResponse.json({ error: error.flatten() }, { status: 400 });
+      return NextResponse.json({ error: error.flatten() }, attachRequestId({ status: 400 }, requestId));
     }
-    return NextResponse.json({ error: 'Invalid JSON payload.' }, { status: 400 });
+    return NextResponse.json({ error: 'Invalid JSON payload.' }, attachRequestId({ status: 400 }, requestId));
   }
 
   const { orgId, userId, exceptionId, disposition, note, misstatementId } = payload;
   const supabase = getServiceSupabaseClient();
+
+  const guard = await createApiGuard({
+    request,
+    supabase,
+    requestId,
+    orgId,
+    resource: `ada:exception:${exceptionId}`,
+    rateLimit: { limit: 60, windowSeconds: 60 },
+  });
+  if (guard.rateLimitResponse) return guard.rateLimitResponse;
+  if (guard.replayResponse) return guard.replayResponse;
 
   const { data: existingException, error: fetchError } = await supabase
     .from('ada_exceptions')
@@ -26,11 +40,11 @@ export async function POST(request: Request) {
     .maybeSingle();
 
   if (fetchError) {
-    return NextResponse.json({ error: fetchError.message ?? 'Unable to load exception.' }, { status: 500 });
+    return guard.json({ error: fetchError.message ?? 'Unable to load exception.' }, { status: 500 });
   }
 
   if (!existingException) {
-    return NextResponse.json({ error: 'Exception not found.' }, { status: 404 });
+    return guard.json({ error: 'Exception not found.' }, { status: 404 });
   }
 
   const { data: runRow, error: runError } = await supabase
@@ -40,11 +54,11 @@ export async function POST(request: Request) {
     .maybeSingle();
 
   if (runError) {
-    return NextResponse.json({ error: runError.message ?? 'Unable to verify analytics run.' }, { status: 500 });
+    return guard.json({ error: runError.message ?? 'Unable to verify analytics run.' }, { status: 500 });
   }
 
   if (!runRow || runRow.org_id !== orgId) {
-    return NextResponse.json({ error: 'You do not have access to update this exception.' }, { status: 403 });
+    return guard.json({ error: 'You do not have access to update this exception.' }, { status: 403 });
   }
 
   const updates: Record<string, unknown> = {
@@ -70,11 +84,11 @@ export async function POST(request: Request) {
     .maybeSingle();
 
   if (updateError) {
-    return NextResponse.json({ error: updateError.message ?? 'Failed to update exception.' }, { status: 500 });
+    return guard.json({ error: updateError.message ?? 'Failed to update exception.' }, { status: 500 });
   }
 
   if (!updatedException) {
-    return NextResponse.json({ error: 'Exception update returned no record.' }, { status: 500 });
+    return guard.json({ error: 'Exception update returned no record.' }, { status: 500 });
   }
 
   if (updatedException.disposition === 'RESOLVED') {
@@ -87,9 +101,10 @@ export async function POST(request: Request) {
       metadata: {
         exceptionId,
         misstatementId: updatedException.misstatement_id,
+        requestId,
       },
     });
   }
 
-  return NextResponse.json({ exception: updatedException });
+  return guard.respond({ exception: updatedException });
 }

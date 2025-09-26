@@ -3,18 +3,33 @@ import { ZodError } from 'zod';
 import { getServiceSupabaseClient } from '../../../../../lib/supabase-server';
 import { createReconciliationSchema } from '../../../../../lib/accounting/schemas';
 import { logActivity } from '../../../../../lib/accounting/activity-log';
+import { upsertAuditModuleRecord } from '../../../../../lib/audit/module-records';
+import { attachRequestId, getOrCreateRequestId } from '../../../../../lib/observability';
+import { createApiGuard } from '../../../../../lib/api-guard';
 
 export async function POST(request: Request) {
+  const requestId = getOrCreateRequestId(request);
   const supabase = getServiceSupabaseClient();
   let payload;
   try {
     payload = createReconciliationSchema.parse(await request.json());
   } catch (error) {
     if (error instanceof ZodError) {
-      return NextResponse.json({ error: error.flatten() }, { status: 400 });
+      return NextResponse.json({ error: error.flatten() }, attachRequestId({ status: 400 }, requestId));
     }
-    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    return NextResponse.json({ error: 'Invalid JSON body' }, attachRequestId({ status: 400 }, requestId));
   }
+
+  const guard = await createApiGuard({
+    request,
+    supabase,
+    requestId,
+    orgId: payload.orgId,
+    resource: `reconciliation:create:${payload.orgId}:${payload.entityId}:${payload.periodId}`,
+    rateLimit: { limit: 30, windowSeconds: 60 },
+  });
+  if (guard.rateLimitResponse) return guard.rateLimitResponse;
+  if (guard.replayResponse) return guard.replayResponse;
 
   let glBalance = 0;
   if (payload.controlAccountId) {
@@ -48,7 +63,7 @@ export async function POST(request: Request) {
     .maybeSingle();
 
   if (error || !data) {
-    return NextResponse.json({ error: error?.message ?? 'Failed to create reconciliation' }, { status: 500 });
+    return guard.json({ error: error?.message ?? 'Failed to create reconciliation' }, { status: 500 });
   }
 
   await logActivity(supabase, {
@@ -60,5 +75,34 @@ export async function POST(request: Request) {
     metadata: { type: payload.type, difference },
   });
 
-  return NextResponse.json({ reconciliation: data });
+  if (payload.engagementId) {
+    try {
+      await upsertAuditModuleRecord(supabase, {
+        orgId: payload.orgId,
+        engagementId: payload.engagementId,
+        moduleCode: 'REC1',
+        recordRef: data.id,
+        title: `${payload.type} reconciliation`,
+        recordStatus: 'IN_PROGRESS',
+        approvalState: 'DRAFT',
+        currentStage: 'PREPARER',
+        preparedByUserId: payload.preparedByUserId,
+        ownerUserId: payload.preparedByUserId,
+        metadata: {
+          type: payload.type,
+          glBalance,
+          externalBalance: payload.externalBalance,
+          difference,
+        },
+        userId: payload.preparedByUserId,
+      });
+    } catch (moduleError) {
+      return guard.json(
+        { error: moduleError instanceof Error ? moduleError.message : 'Failed to register reconciliation in audit module tracker.' },
+        { status: 500 },
+      );
+    }
+  }
+
+  return guard.respond({ reconciliation: data });
 }

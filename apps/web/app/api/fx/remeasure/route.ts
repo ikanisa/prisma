@@ -3,18 +3,32 @@ import { ZodError } from 'zod';
 import { getServiceSupabaseClient } from '../../../../../lib/supabase-server';
 import { fxRemeasureSchema } from '../../../../../lib/accounting/schemas';
 import { logActivity } from '../../../../../lib/accounting/activity-log';
+import { attachRequestId, getOrCreateRequestId } from '../../../lib/observability';
+import { createApiGuard } from '../../../lib/api-guard';
 
 export async function POST(request: Request) {
+  const requestId = getOrCreateRequestId(request);
   const supabase = getServiceSupabaseClient();
   let payload;
   try {
     payload = fxRemeasureSchema.parse(await request.json());
   } catch (error) {
     if (error instanceof ZodError) {
-      return NextResponse.json({ error: error.flatten() }, { status: 400 });
+      return NextResponse.json({ error: error.flatten() }, attachRequestId({ status: 400 }, requestId));
     }
-    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    return NextResponse.json({ error: 'Invalid JSON body' }, attachRequestId({ status: 400 }, requestId));
   }
+
+  const guard = await createApiGuard({
+    request,
+    supabase,
+    requestId,
+    orgId: payload.orgId,
+    resource: `fx:remeasure:${payload.entityId}`,
+    rateLimit: { limit: 30, windowSeconds: 60 },
+  });
+  if (guard.rateLimitResponse) return guard.rateLimitResponse;
+  if (guard.replayResponse) return guard.replayResponse;
 
   const { data: entries } = await supabase
     .from('ledger_entries')
@@ -36,10 +50,10 @@ export async function POST(request: Request) {
     action: 'FX_REMEASURE_PREVIEW',
     entityType: 'LEDGER',
     entityId: payload.entityId,
-    metadata: { exposureCount: exposures.length },
+    metadata: { exposureCount: exposures.length, requestId },
   });
 
-  return NextResponse.json({
+  return guard.respond({
     status: 'PREVIEW',
     exposures,
     ratesUsed: payload.rates ?? {},

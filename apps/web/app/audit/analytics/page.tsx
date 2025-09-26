@@ -603,7 +603,7 @@ export default function AnalyticsWorkspace() {
   };
 
   return (
-    <div className="mx-auto flex max-w-6xl flex-col gap-6 px-6 py-8">
+    <section className="flex flex-col gap-6">
       <header className="space-y-2">
         <h1 className="text-3xl font-semibold">Deterministic Analytics</h1>
         <p className="max-w-3xl text-sm text-muted-foreground">
@@ -884,6 +884,6 @@ export default function AnalyticsWorkspace() {
           </div>
         )}
       </section>
-    </div>
+    </section>
   );
 }

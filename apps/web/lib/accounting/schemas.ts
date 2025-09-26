@@ -100,6 +100,7 @@ export const createReconciliationSchema = z.object({
   orgId: uuid,
   entityId: uuid,
   periodId: uuid,
+  engagementId: uuid.optional(),
   type: z.string(),
   controlAccountId: uuid.nullable().optional(),
   externalBalance: z.number(),

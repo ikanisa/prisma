@@ -3,18 +3,32 @@ import { ZodError } from 'zod';
 import { getServiceSupabaseClient } from '../../../../../lib/supabase-server';
 import { approveJournalSchema } from '../../../../../lib/accounting/schemas';
 import { logActivity } from '../../../../../lib/accounting/activity-log';
+import { attachRequestId, getOrCreateRequestId } from '../../../lib/observability';
+import { createApiGuard } from '../../../lib/api-guard';
 
 export async function POST(request: Request) {
+  const requestId = getOrCreateRequestId(request);
   const supabase = getServiceSupabaseClient();
   let payload;
   try {
     payload = approveJournalSchema.parse(await request.json());
   } catch (error) {
     if (error instanceof ZodError) {
-      return NextResponse.json({ error: error.flatten() }, { status: 400 });
+      return NextResponse.json({ error: error.flatten() }, attachRequestId({ status: 400 }, requestId));
     }
-    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    return NextResponse.json({ error: 'Invalid JSON body' }, attachRequestId({ status: 400 }, requestId));
   }
+
+  const guard = await createApiGuard({
+    request,
+    supabase,
+    requestId,
+    orgId: payload.orgId,
+    resource: `journal:approve:${payload.batchId}`,
+    rateLimit: { limit: 30, windowSeconds: 60 },
+  });
+  if (guard.rateLimitResponse) return guard.rateLimitResponse;
+  if (guard.replayResponse) return guard.replayResponse;
 
   const { data: batch } = await supabase
     .from('journal_batches')
@@ -24,11 +38,11 @@ export async function POST(request: Request) {
     .maybeSingle();
 
   if (!batch) {
-    return NextResponse.json({ error: 'Batch not found' }, { status: 404 });
+    return guard.json({ error: 'Batch not found' }, { status: 404 });
   }
 
   if (batch.status !== 'SUBMITTED') {
-    return NextResponse.json({ error: 'Only submitted batches can be approved' }, { status: 409 });
+    return guard.json({ error: 'Only submitted batches can be approved' }, { status: 409 });
   }
 
   const { data: unresolved } = await supabase
@@ -39,9 +53,9 @@ export async function POST(request: Request) {
     .eq('resolved', false);
 
   if (unresolved && unresolved.length > 0) {
-    return NextResponse.json(
+    return guard.json(
       { error: 'High severity alerts must be resolved before approval', alerts: unresolved },
-      { status: 422 }
+      { status: 422 },
     );
   }
 
@@ -56,7 +70,7 @@ export async function POST(request: Request) {
     .eq('org_id', payload.orgId);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return guard.json({ error: error.message }, { status: 500 });
   }
 
   await logActivity(supabase, {
@@ -65,7 +79,8 @@ export async function POST(request: Request) {
     action: 'JE_APPROVED',
     entityType: 'JOURNAL_BATCH',
     entityId: payload.batchId,
+    metadata: { requestId },
   });
 
-  return NextResponse.json({ status: 'APPROVED' });
+  return guard.respond({ status: 'APPROVED' });
 }

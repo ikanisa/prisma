@@ -3,8 +3,11 @@ import { ZodError } from 'zod';
 import { getServiceSupabaseClient } from '../../../../../lib/supabase-server';
 import { fsMapApplySchema } from '../../../../../lib/accounting/schemas';
 import { logActivity } from '../../../../../lib/accounting/activity-log';
+import { attachRequestId, getOrCreateRequestId } from '../../../lib/observability';
+import { createApiGuard } from '../../../lib/api-guard';
 
 export async function POST(request: Request) {
+  const requestId = getOrCreateRequestId(request);
   const supabase = getServiceSupabaseClient();
 
   let payload;
@@ -12,10 +15,21 @@ export async function POST(request: Request) {
     payload = fsMapApplySchema.parse(await request.json());
   } catch (error) {
     if (error instanceof ZodError) {
-      return NextResponse.json({ error: error.flatten() }, { status: 400 });
+      return NextResponse.json({ error: error.flatten() }, attachRequestId({ status: 400 }, requestId));
     }
-    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    return NextResponse.json({ error: 'Invalid JSON body' }, attachRequestId({ status: 400 }, requestId));
   }
+
+  const guard = await createApiGuard({
+    request,
+    supabase,
+    requestId,
+    orgId: payload.orgId,
+    resource: `fsmap:apply:${payload.entityId}`,
+    rateLimit: { limit: 60, windowSeconds: 60 },
+  });
+  if (guard.rateLimitResponse) return guard.rateLimitResponse;
+  if (guard.replayResponse) return guard.replayResponse;
 
   const rows = payload.mappings.map((mapping) => ({
     org_id: payload.orgId,
@@ -32,7 +46,7 @@ export async function POST(request: Request) {
   });
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return guard.json({ error: error.message }, { status: 500 });
   }
 
   await logActivity(supabase, {
@@ -41,8 +55,8 @@ export async function POST(request: Request) {
     action: 'FS_MAPPING_APPLIED',
     entityType: 'FINANCIAL_STATEMENT',
     entityId: payload.entityId,
-    metadata: { count: rows.length, basis: payload.basis },
+    metadata: { count: rows.length, basis: payload.basis, requestId },
   });
 
-  return NextResponse.json({ mapped: rows.length });
+  return guard.respond({ mapped: rows.length });
 }

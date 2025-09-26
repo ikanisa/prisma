@@ -818,7 +818,7 @@ export default function ControlsWorkspace() {
   };
 
   return (
-    <main className="space-y-6 p-6" aria-labelledby="audit-controls-heading">
+    <section className="space-y-6" aria-labelledby="audit-controls-heading">
       <header className="space-y-2">
         <h1 id="audit-controls-heading" className="text-2xl font-semibold">
           Audit Controls &amp; ITGC Workspace
@@ -1364,6 +1364,6 @@ export default function ControlsWorkspace() {
           </ul>
         </article>
       </section>
-    </main>
+    </section>
   );
 }

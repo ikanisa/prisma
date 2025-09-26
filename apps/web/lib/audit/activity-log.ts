@@ -15,7 +15,22 @@ export async function logAuditActivity(
       | 'ADA_RUN_STARTED'
       | 'ADA_RUN_COMPLETED'
       | 'ADA_EXCEPTION_ADDED'
-      | 'ADA_EXCEPTION_RESOLVED';
+      | 'ADA_EXCEPTION_RESOLVED'
+      | 'SOC_CREATED'
+      | 'SOC_REPORT_ADDED'
+      | 'SOC_CUEC_TESTED'
+      | 'SOC_EXCEPTION_ESCALATED'
+      | 'GRP_COMPONENT_CREATED'
+      | 'GRP_INSTRUCTION_SENT'
+      | 'GRP_INSTRUCTION_ACKED'
+      | 'GRP_INSTRUCTION_COMPLETED'
+      | 'GRP_WORKPAPER_RECEIVED'
+      | 'GRP_REVIEW_UPDATED'
+      | 'EXP_EXPERT_ASSESSED'
+      | 'EXP_IA_ASSESSED'
+      | 'OI_UPLOADED'
+      | 'OI_FLAGGED'
+      | 'OI_RESOLVED';
     entityType?: string | null;
     entityId?: string | null;
     metadata?: Record<string, unknown> | null;

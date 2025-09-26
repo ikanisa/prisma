@@ -4,14 +4,11 @@ import type { Database } from './types';
 const envSupabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const envSupabaseAnonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
-const DEFAULT_SUPABASE_URL = 'https://xzwowkxzgqigfuefmaji.supabase.co';
-const DEFAULT_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh6d293a3h6Z3FpZ2Z1ZWZtYWppIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU3NzUzNDEsImV4cCI6MjA3MTM1MTM0MX0.tg1qX-dse9sYvj23BRwd7Znt0sbVpnRV7ggGCxvWjgI';
-
-const SUPABASE_URL = envSupabaseUrl ?? DEFAULT_SUPABASE_URL;
-const SUPABASE_ANON_KEY = envSupabaseAnonKey ?? DEFAULT_SUPABASE_ANON_KEY;
-
 const isPlaceholder = (value?: string) =>
   !value || value.startsWith('REPLACE_WITH_') || value.includes('your_project_id');
+
+const SUPABASE_URL = envSupabaseUrl ?? '';
+const SUPABASE_ANON_KEY = envSupabaseAnonKey ?? '';
 
 export const isSupabaseConfigured = Boolean(
   !isPlaceholder(envSupabaseUrl) && !isPlaceholder(envSupabaseAnonKey),

@@ -3,26 +3,37 @@ import { ZodError } from 'zod';
 import { getServiceSupabaseClient } from '../../../../../lib/supabase-server';
 import { accountImportSchema } from '../../../../../lib/accounting/schemas';
 import { logActivity } from '../../../../../lib/accounting/activity-log';
+import { attachRequestId, getOrCreateRequestId } from '../../../../../lib/observability';
+import { createApiGuard } from '../../../../../lib/api-guard';
 
 export async function POST(request: Request) {
+  const requestId = getOrCreateRequestId(request);
   const supabase = getServiceSupabaseClient();
 
   let parsedBody;
   try {
-    const json = await request.json();
-    parsedBody = accountImportSchema.parse(json);
+    parsedBody = accountImportSchema.parse(await request.json());
   } catch (error) {
     if (error instanceof ZodError) {
-      return NextResponse.json({ error: error.flatten() }, { status: 400 });
+      return NextResponse.json({ error: error.flatten() }, attachRequestId({ status: 400 }, requestId));
     }
-    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    return NextResponse.json({ error: 'Invalid JSON body' }, attachRequestId({ status: 400 }, requestId));
   }
 
-  const { orgId, entityId, userId, accounts } = parsedBody;
+  const guard = await createApiGuard({
+    request,
+    supabase,
+    requestId,
+    orgId: parsedBody.orgId,
+    resource: `gl:accounts:import:${parsedBody.orgId}:${parsedBody.entityId}`,
+    rateLimit: { limit: 30, windowSeconds: 60 },
+  });
+  if (guard.rateLimitResponse) return guard.rateLimitResponse;
+  if (guard.replayResponse) return guard.replayResponse;
 
-  const rows = accounts.map((account) => ({
-    org_id: orgId,
-    entity_id: entityId,
+  const rows = parsedBody.accounts.map((account) => ({
+    org_id: parsedBody.orgId,
+    entity_id: parsedBody.entityId,
     code: account.code,
     name: account.name,
     type: account.type,
@@ -36,17 +47,17 @@ export async function POST(request: Request) {
   });
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return guard.json({ error: error.message }, { status: 500 });
   }
 
   await logActivity(supabase, {
-    orgId,
-    userId,
+    orgId: parsedBody.orgId,
+    userId: parsedBody.userId,
     action: 'GL_ACCOUNTS_IMPORTED',
     entityType: 'LEDGER',
-    entityId,
-    metadata: { count: accounts.length },
+    entityId: parsedBody.entityId,
+    metadata: { count: parsedBody.accounts.length },
   });
 
-  return NextResponse.json({ inserted: accounts.length });
+  return guard.respond({ inserted: parsedBody.accounts.length });
 }

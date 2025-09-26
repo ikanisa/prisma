@@ -3,18 +3,32 @@ import { ZodError } from 'zod';
 import { getServiceSupabaseClient } from '../../../../../lib/supabase-server';
 import { createJournalBatchSchema } from '../../../../../lib/accounting/schemas';
 import { logActivity } from '../../../../../lib/accounting/activity-log';
+import { attachRequestId, getOrCreateRequestId } from '../../../lib/observability';
+import { createApiGuard } from '../../../lib/api-guard';
 
 export async function POST(request: Request) {
+  const requestId = getOrCreateRequestId(request);
   const supabase = getServiceSupabaseClient();
   let payload;
   try {
     payload = createJournalBatchSchema.parse(await request.json());
   } catch (error) {
     if (error instanceof ZodError) {
-      return NextResponse.json({ error: error.flatten() }, { status: 400 });
+      return NextResponse.json({ error: error.flatten() }, attachRequestId({ status: 400 }, requestId));
     }
-    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    return NextResponse.json({ error: 'Invalid JSON body' }, attachRequestId({ status: 400 }, requestId));
   }
+
+  const guard = await createApiGuard({
+    request,
+    supabase,
+    requestId,
+    orgId: payload.orgId,
+    resource: `journal:batch:create:${payload.entityId}`,
+    rateLimit: { limit: 60, windowSeconds: 60 },
+  });
+  if (guard.rateLimitResponse) return guard.rateLimitResponse;
+  if (guard.replayResponse) return guard.replayResponse;
 
   const { data, error } = await supabase
     .from('journal_batches')
@@ -31,7 +45,7 @@ export async function POST(request: Request) {
     .maybeSingle();
 
   if (error || !data) {
-    return NextResponse.json({ error: error?.message ?? 'Failed to create batch' }, { status: 500 });
+    return guard.json({ error: error?.message ?? 'Failed to create batch' }, { status: 500 });
   }
 
   await logActivity(supabase, {
@@ -40,8 +54,8 @@ export async function POST(request: Request) {
     action: 'JE_BATCH_CREATED',
     entityType: 'JOURNAL_BATCH',
     entityId: data.id,
-    metadata: { ref: data.ref ?? undefined },
+    metadata: { ref: data.ref ?? undefined, requestId },
   });
 
-  return NextResponse.json({ batch: data });
+  return guard.respond({ batch: data });
 }
