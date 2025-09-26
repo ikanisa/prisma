@@ -2,27 +2,29 @@ name: CI
 
 on:
   push:
+    branches: [ main ]
   pull_request:
-
-permissions:
-  contents: read
+    branches: [ main ]
 
 jobs:
-  baseline:
-    name: Baseline checks
+  build-test:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Show tree
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install deps
+        run: npm ci
+      - name: Unit tests with coverage (Vitest)
+        run: npm test -- --coverage
+      - name: Policy tests (pgTAP)
+        if: env.DATABASE_URL != ''
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
-          echo "Repo blueprint:"
-          ls -la
-          echo
-          echo "Key folders:"
-          ls -la app packages supabase agent .github docs .changeset || true
-      - name: Verify policy files exist
-        run: |
-          test -f agent/policies/ALLOWLIST.json || (echo "Missing ALLOWLIST.json" && exit 1)
-          echo "ALLOWLIST.json is present ✅"
+          chmod +x scripts/test_policies.sql
+          psql "$DATABASE_URL" -f scripts/test_policies.sql
+      - name: Audit dependencies
+        run: npm audit --omit=dev || true
 

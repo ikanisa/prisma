@@ -58,6 +58,10 @@ function makeBuilder(result: { data: unknown; error: any }) {
     maybeSingle: vi.fn(async () => result),
     insert: vi.fn(() => builder),
     update: vi.fn(() => builder),
+    gte: vi.fn(() => builder),
+    lte: vi.fn(() => builder),
+    in: vi.fn(() => builder),
+    upsert: vi.fn(() => builder),
   };
   builder.then = (resolve: (value: typeof result) => unknown) => resolve(result);
   builder.catch = () => builder;
@@ -73,10 +77,13 @@ describe('telemetry-sync edge function', () => {
     (globalThis as any).Deno = { env: { get: hoisted.envGetMock } };
 
     const tableResults: Record<string, { data: unknown; error: any }> = {
-      activity_log: makeResult(null),
+      organizations: makeResult({ id: 'org-1' }),
+      memberships: makeResult({ role: 'MANAGER' }),
+      engagements: makeResult({ id: 'eng-1', org_id: 'org-1' }),
       telemetry_coverage_metrics: makeResult(null),
       telemetry_service_levels: makeResult(null),
       telemetry_refusal_events: makeResult(null),
+      activity_log: makeResult(null),
     };
 
     const supabaseClient = {
@@ -108,7 +115,8 @@ describe('telemetry-sync edge function', () => {
 
     expect(response.status).toBe(200);
     const body = await response.json();
-    expect(body).toEqual({ processed: true });
+    expect(body.coverage).toHaveLength(2);
+    expect(body.sla).toMatchObject({ module: 'TAX_TREATY_WHT', status: 'ON_TRACK' });
   });
 
   it('returns 401 when Authorization header is missing', async () => {
@@ -122,6 +130,6 @@ describe('telemetry-sync edge function', () => {
 
     expect(response.status).toBe(401);
     const body = await response.json();
-    expect(body).toEqual({ error: 'missing_auth_header' });
+    expect(body).toEqual({ error: 'missing_authorization' });
   });
 });
