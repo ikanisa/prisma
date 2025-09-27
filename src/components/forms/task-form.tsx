@@ -167,7 +167,7 @@ export function TaskForm({ members, engagements, onCreate, onSuccess, onCancel, 
                   </FormControl>
                   <SelectContent>
                     {engagements.length === 0 ? (
-                      <SelectItem value="" disabled>
+                      <SelectItem value="__unavailable__" disabled>
                         No engagements available
                       </SelectItem>
                     ) : (
