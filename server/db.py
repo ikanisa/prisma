@@ -13,6 +13,7 @@ Base = declarative_base()
 class Chunk(Base):
     __tablename__ = "chunks"
     id = Column(Integer, primary_key=True)
+    org_id = Column(Text, nullable=False)
     document_id = Column(Text)
     content = Column(Text, nullable=False)
     embedding = Column(Vector(1536))

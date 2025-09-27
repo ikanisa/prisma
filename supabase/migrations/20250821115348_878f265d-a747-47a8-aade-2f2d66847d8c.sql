@@ -1,8 +1,4 @@
 -- Fix search_path security warnings for all functions
-DROP FUNCTION IF EXISTS public.is_member_of(UUID);
-DROP FUNCTION IF EXISTS public.has_min_role(UUID, public.role_level);
-DROP FUNCTION IF EXISTS public.handle_updated_at();
-DROP FUNCTION IF EXISTS public.handle_new_user();
 
 -- Recreate functions with proper search_path settings
 CREATE OR REPLACE FUNCTION public.is_member_of(org UUID)
@@ -17,7 +13,6 @@ AS $$
     WHERE m.org_id = org AND m.user_id = auth.uid()
   );
 $$;
-
 CREATE OR REPLACE FUNCTION public.has_min_role(org UUID, min public.role_level)
 RETURNS BOOLEAN 
 LANGUAGE SQL 
@@ -41,7 +36,6 @@ AS $$
     false
   );
 $$;
-
 CREATE OR REPLACE FUNCTION public.handle_updated_at()
 RETURNS TRIGGER 
 LANGUAGE plpgsql
@@ -53,7 +47,6 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER 
 LANGUAGE plpgsql 
