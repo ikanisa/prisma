@@ -8,6 +8,12 @@ supabase/.temp/
 .env.*
 *.log
 
+# Build artifacts
+node_modules/
+apps/web/node_modules/
+__pycache__/
+*.pyc
+
 # Misc
 *.swp
 supabase/config.toml.bak
