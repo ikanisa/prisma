@@ -1,0 +1,21 @@
+# Node & general build output
+node_modules
+**/node_modules
+npm-debug.log*
+.yarn/cache
+.pnpm-store
+
+# Environment & secrets
+.env*
+*.local
+.supabase
+
+# Git metadata
+.git
+.gitignore
+
+# Build artifacts
+build
+dist
+coverage
+.DS_Store

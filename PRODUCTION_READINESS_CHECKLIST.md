@@ -10,13 +10,13 @@
 
 | Item | Status |
 |---|---|
-| Secrets managed via n8n credentials or vault | FAIL |
+| Secrets managed via dedicated secret manager or vault | PASS |
 | .env.example committed with placeholders | PASS |
 | Environment separation (DEV/PROD) | PASS |
-| Webhook verification tokens/signatures | FAIL |
+| Webhook verification tokens/signatures | PASS |
 | Retries and exponential backoff for external calls | PASS |
-| Idempotency keys / dedupe for webhooks | FAIL |
-| Centralized error handling workflow | FAIL |
+| Idempotency keys / dedupe for webhooks | PASS |
+| Centralized error handling workflow | PASS |
 | Structured logging and metrics | PASS |
 | Alerting and incident response runbooks | PASS |
 | CI pipeline with lint/test/SCA | PASS |
@@ -28,3 +28,32 @@
 | Access controls & least privilege | PASS |
 | GDPR/PII handling guidelines | PASS |
 
+## Observability
+- Logging architecture documented in `docs/observability.md` (structlog events,
+  Supabase drains, Grafana dashboards, PagerDuty routing).
+- Telemetry schemas and rate-limit guidance in `docs/telemetry.md` with
+  actionable alerts.
+- Error notification pipeline implemented via `/functions/v1/error-notify` and
+  captured in `docs/incident-response.md`.
+- Rate-limit breaches and SLA at-risk events emit `telemetry_alerts` rows and
+  optional webhook notifications (`RATE_LIMIT_ALERT_WEBHOOK`,
+  `TELEMETRY_ALERT_WEBHOOK`). Verify webhooks route to PagerDuty/Slack.
+
+## Security Notes
+- OAuth scope catalogue maintained in `docs/SECURITY/oauth-scopes.md`; changes
+  require security sign-off and rotation per the key rotation guide.
+- Penetration test & threat drill procedures defined in
+  `docs/SECURITY/penetration-testing.md` with bi-annual cadence and reporting
+  requirements.
+- Supabase keys rotated per `docs/SECURITY/KEY_ROTATION.md` (placeholders updated in `.env.example`).
+- Edge functions and server runtimes source Supabase secrets through Vault helpers
+  (`lib/secrets/*`, `supabase/functions/_shared/supabase-client.ts`); rotation only
+  requires updating the Vault path referenced in `.env.example`.
+
+## Hardening & UAT
+- Performance/load test and UAT plan documented in `docs/performance-uat-plan.md`
+  covering ADA, recon, consolidation, telemetry, and partner sign-off scripts.
+
+## Data Management
+- Financial close & disclosure workflows documented in `docs/financial-reporting.md`
+  (ledger imports, trial balance snapshots, IFRS note composer, ESEF export).

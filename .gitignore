@@ -17,3 +17,13 @@ __pycache__/
 # Misc
 *.swp
 supabase/config.toml.bak
+
+# Build & deps
+node_modules/
+**/node_modules/
+dist/
+*.tsbuildinfo
+
+# Next.js (web app)
+apps/web/.next/
+apps/web/public/workbox-*.js
