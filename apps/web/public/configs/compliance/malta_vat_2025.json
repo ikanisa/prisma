@@ -1,0 +1,45 @@
+{
+  "meta": {
+    "key": "malta_vat_2025",
+    "version": "v1.0.0",
+    "title": "Malta VAT 2025"
+  },
+  "rates": {
+    "standard": 0.18,
+    "reduced7": 0.07,
+    "reduced5": 0.05
+  },
+  "inputs": {
+    "partial_exemption_coeff": {
+      "type": "number",
+      "min": 0,
+      "max": 1,
+      "description": "Partial exemption coefficient between 0 and 1"
+    },
+    "turnover_breakdown": {
+      "type": "object",
+      "fields": {
+        "std_taxable_net": { "type": "number", "description": "Standard rate taxable net" },
+        "red7_taxable_net": { "type": "number", "description": "7% reduced rate taxable net" },
+        "red5_taxable_net": { "type": "number", "description": "5% reduced rate taxable net" },
+        "zero_rated": { "type": "number", "description": "Zero rated supplies" },
+        "exempt": { "type": "number", "description": "Exempt supplies" }
+      }
+    },
+    "input_vat_total": {
+      "type": "number",
+      "description": "Total input VAT for the period"
+    }
+  },
+  "calculations": {
+    "output_vat": "turnover_breakdown.std_taxable_net * rates.standard + turnover_breakdown.red7_taxable_net * rates.reduced7 + turnover_breakdown.red5_taxable_net * rates.reduced5",
+    "input_vat_deductible": "input_vat_total * partial_exemption_coeff",
+    "net_payable": "output_vat - input_vat_deductible"
+  },
+  "validations": [
+    {
+      "expression": "partial_exemption_coeff >= 0 && partial_exemption_coeff <= 1",
+      "message": "partial_exemption_coeff must be between 0 and 1"
+    }
+  ]
+}

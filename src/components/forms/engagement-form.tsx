@@ -32,6 +32,7 @@ import { useAppStore, Engagement, EngagementType, EngagementStatus } from "@/sto
 
 const engagementSchema = z.object({
   clientId: z.string().min(1, "Client is required"),
+  title: z.string().min(1, "Engagement title is required"),
   type: z.enum(["ACCOUNTING", "AUDIT", "TAX"]),
   periodStart: z.string().min(1, "Start date is required"),
   periodEnd: z.string().min(1, "End date is required"),
@@ -59,6 +60,7 @@ export function EngagementForm({ open, onOpenChange, engagement }: EngagementFor
     resolver: zodResolver(engagementSchema),
     defaultValues: {
       clientId: engagement?.clientId || "",
+      title: engagement?.title || "",
       type: engagement?.type || "ACCOUNTING",
       periodStart: engagement?.periodStart || "",
       periodEnd: engagement?.periodEnd || "",
@@ -94,6 +96,7 @@ export function EngagementForm({ open, onOpenChange, engagement }: EngagementFor
         id: Math.random().toString(36).substr(2, 9),
         orgId: currentOrg.id,
         clientId: data.clientId,
+        title: data.title,
         type: data.type,
         periodStart: data.periodStart,
         periodEnd: data.periodEnd,
@@ -156,6 +159,19 @@ export function EngagementForm({ open, onOpenChange, engagement }: EngagementFor
                         ))}
                       </SelectContent>
                     </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="title"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Engagement title</FormLabel>
+                    <FormControl>
+                      <Input placeholder="FY24 Audit for Aurora Retail" {...field} />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
