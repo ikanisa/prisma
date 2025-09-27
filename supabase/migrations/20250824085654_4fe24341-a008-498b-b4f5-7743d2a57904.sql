@@ -2,7 +2,6 @@
 INSERT INTO public.organizations (name, slug, brand_primary, brand_secondary)
 VALUES ('Aurora Advisors', 'aurora', '#6366f1', '#8b5cf6')
 ON CONFLICT (slug) DO NOTHING;
-
 -- Create sample clients
 INSERT INTO public.clients (org_id, name, contact_name, email, phone, country, industry, fiscal_year_end) 
 SELECT 

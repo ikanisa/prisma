@@ -201,7 +201,8 @@ export default function AuditSpecialistsPage() {
         setExpertForm({
           id: expert.id,
           area: expert.area ?? '',
-          specialistName: expert.specialistName ?? (expert as unknown as { specialist_name?: string }).specialist_name ?? '',
+          specialistName:
+            expert.specialistName ?? (expert as unknown as { specialist_name?: string }).specialist_name ?? '',
           specialistFirm:
             expert.specialistFirm ?? (expert as unknown as { specialist_firm?: string }).specialist_firm ?? '',
           scopeOfWork:
@@ -220,7 +221,7 @@ export default function AuditSpecialistsPage() {
             expert.resultsSummary ?? (expert as unknown as { results_summary?: string }).results_summary ?? '',
           conclusion: expert.conclusion ?? '',
           status: (expert.status as SpecialistStatus | null) ?? 'draft',
-          standardRefs: expert.standardRefs ?? expert.standard_refs ?? [BASE_STANDARDS.expert],
+          standardRefs: expert.standardRefs ?? (expert as any).standard_refs ?? [BASE_STANDARDS.expert],
         });
         setExpertEvidence(expert.evidence ?? []);
       } else {
@@ -271,7 +272,7 @@ export default function AuditSpecialistsPage() {
             internal.riskAssessment ?? (internal as unknown as { risk_assessment?: string }).risk_assessment ?? '',
           conclusion: internal.conclusion ?? '',
           status: (internal.status as SpecialistStatus | null) ?? 'draft',
-          standardRefs: internal.standardRefs ?? internal.standard_refs ?? [BASE_STANDARDS.internal],
+          standardRefs: internal.standardRefs ?? (internal as any).standard_refs ?? [BASE_STANDARDS.internal],
         });
         setInternalEvidence(internal.evidence ?? []);
       } else {
@@ -368,53 +369,53 @@ export default function AuditSpecialistsPage() {
         throw new Error(message.error ?? 'Failed to persist expert evaluation');
       }
 
-      const result = (await response.json()) as EvaluationResponse<ExpertEvaluationForm & {
-        evidence?: EvidenceRecord[];
-      }>;
+      const result = (await response.json()) as EvaluationResponse<
+        ExpertEvaluationForm & { evidence?: EvidenceRecord[] }
+      >;
 
       if (result.expert) {
         setExpertForm({
           id: result.expert.id ?? expertForm.id,
-          area: (result.expert as unknown as { area?: string }).area ?? expertForm.area,
+          area: (result.expert as any).area ?? expertForm.area,
           specialistName:
-            (result.expert as unknown as { specialist_name?: string }).specialist_name ??
-            result.expert.specialistName ??
+            (result.expert as any).specialist_name ??
+            (result.expert as any).specialistName ??
             expertForm.specialistName,
           specialistFirm:
-            (result.expert as unknown as { specialist_firm?: string }).specialist_firm ??
-            result.expert.specialistFirm ??
+            (result.expert as any).specialist_firm ??
+            (result.expert as any).specialistFirm ??
             expertForm.specialistFirm,
           scopeOfWork:
-            (result.expert as unknown as { scope_of_work?: string }).scope_of_work ??
-            result.expert.scopeOfWork ??
+            (result.expert as any).scope_of_work ??
+            (result.expert as any).scopeOfWork ??
             expertForm.scopeOfWork,
           competenceAssessment:
-            (result.expert as unknown as { competence_assessment?: string }).competence_assessment ??
-            result.expert.competenceAssessment ??
+            (result.expert as any).competence_assessment ??
+            (result.expert as any).competenceAssessment ??
             expertForm.competenceAssessment,
           objectivityAssessment:
-            (result.expert as unknown as { objectivity_assessment?: string }).objectivity_assessment ??
-            result.expert.objectivityAssessment ??
+            (result.expert as any).objectivity_assessment ??
+            (result.expert as any).objectivityAssessment ??
             expertForm.objectivityAssessment,
           workPerformed:
-            (result.expert as unknown as { work_performed?: string }).work_performed ??
-            result.expert.workPerformed ??
+            (result.expert as any).work_performed ??
+            (result.expert as any).workPerformed ??
             expertForm.workPerformed,
           resultsSummary:
-            (result.expert as unknown as { results_summary?: string }).results_summary ??
-            result.expert.resultsSummary ??
+            (result.expert as any).results_summary ??
+            (result.expert as any).resultsSummary ??
             expertForm.resultsSummary,
           conclusion:
-            (result.expert as unknown as { conclusion?: string }).conclusion ??
-            result.expert.conclusion ??
+            (result.expert as any).conclusion ??
+            (result.expert as any).conclusion ??
             expertForm.conclusion,
           status:
-            ((result.expert as unknown as { status?: SpecialistStatus }).status ??
+            ((result.expert as any).status ??
               (result.expert.status as SpecialistStatus | undefined) ??
               expertForm.status) as SpecialistStatus,
           standardRefs:
-            (result.expert as unknown as { standard_refs?: string[] }).standard_refs ??
-            result.expert.standardRefs ??
+            (result.expert as any).standard_refs ??
+            (result.expert as any).standardRefs ??
             expertForm.standardRefs,
         });
       }
@@ -491,44 +492,44 @@ export default function AuditSpecialistsPage() {
         setInternalForm({
           id: result.internal.id ?? internalForm.id,
           relianceArea:
-            (result.internal as unknown as { reliance_area?: string }).reliance_area ??
-            result.internal.relianceArea ??
+            (result.internal as any).reliance_area ??
+            (result.internal as any).relianceArea ??
             internalForm.relianceArea,
           internalAuditLead:
-            (result.internal as unknown as { internal_audit_lead?: string }).internal_audit_lead ??
-            result.internal.internalAuditLead ??
+            (result.internal as any).internal_audit_lead ??
+            (result.internal as any).internalAuditLead ??
             internalForm.internalAuditLead,
           scopeOfReliance:
-            (result.internal as unknown as { scope_of_reliance?: string }).scope_of_reliance ??
-            result.internal.scopeOfReliance ??
+            (result.internal as any).scope_of_reliance ??
+            (result.internal as any).scopeOfReliance ??
             internalForm.scopeOfReliance,
           competenceEvaluation:
-            (result.internal as unknown as { competence_evaluation?: string }).competence_evaluation ??
-            result.internal.competenceEvaluation ??
+            (result.internal as any).competence_evaluation ??
+            (result.internal as any).competenceEvaluation ??
             internalForm.competenceEvaluation,
           objectivityEvaluation:
-            (result.internal as unknown as { objectivity_evaluation?: string }).objectivity_evaluation ??
-            result.internal.objectivityEvaluation ??
+            (result.internal as any).objectivity_evaluation ??
+            (result.internal as any).objectivityEvaluation ??
             internalForm.objectivityEvaluation,
           workEvaluation:
-            (result.internal as unknown as { work_evaluation?: string }).work_evaluation ??
-            result.internal.workEvaluation ??
+            (result.internal as any).work_evaluation ??
+            (result.internal as any).workEvaluation ??
             internalForm.workEvaluation,
           riskAssessment:
-            (result.internal as unknown as { risk_assessment?: string }).risk_assessment ??
-            result.internal.riskAssessment ??
+            (result.internal as any).risk_assessment ??
+            (result.internal as any).riskAssessment ??
             internalForm.riskAssessment,
           conclusion:
-            (result.internal as unknown as { conclusion?: string }).conclusion ??
-            result.internal.conclusion ??
+            (result.internal as any).conclusion ??
+            (result.internal as any).conclusion ??
             internalForm.conclusion,
           status:
-            ((result.internal as unknown as { status?: SpecialistStatus }).status ??
+            ((result.internal as any).status ??
               (result.internal.status as SpecialistStatus | undefined) ??
               internalForm.status) as SpecialistStatus,
           standardRefs:
-            (result.internal as unknown as { standard_refs?: string[] }).standard_refs ??
-            result.internal.standardRefs ??
+            (result.internal as any).standard_refs ??
+            (result.internal as any).standardRefs ??
             internalForm.standardRefs,
         });
       }

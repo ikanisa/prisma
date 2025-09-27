@@ -1,25 +1,27 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import type { Database } from '../../../../src/integrations/supabase/types';
+import type { Database } from '@/integrations/supabase/types';
 
 type DatabaseClient = SupabaseClient<Database>;
 
 let cachedClient: DatabaseClient | null = null;
 
-function getEnv(name: string): string {
+function requireEnv(name: string): string {
   const value = process.env[name];
   if (!value) {
-    throw new Error(`${name} must be defined for specialist endpoints`);
+    throw new Error(`${name} must be defined for Supabase server client`);
   }
   return value;
 }
 
+/**
+ * Lazily instantiate a Supabase Service Role client (server-side only).
+ * Reuses a single cached instance across calls.
+ */
 export function getSupabaseServiceClient(): DatabaseClient {
-  if (cachedClient) {
-    return cachedClient;
-  }
+  if (cachedClient) return cachedClient;
 
-  const url = getEnv('SUPABASE_URL');
-  const serviceRoleKey = getEnv('SUPABASE_SERVICE_ROLE_KEY');
+  const url = requireEnv('SUPABASE_URL');
+  const serviceRoleKey = requireEnv('SUPABASE_SERVICE_ROLE_KEY');
 
   cachedClient = createClient<Database>(url, serviceRoleKey, {
     auth: {
@@ -31,4 +33,12 @@ export function getSupabaseServiceClient(): DatabaseClient {
   return cachedClient;
 }
 
+/**
+ * Backward-compatible alias for main branch usage.
+ */
+export function getSupabaseServerClient(): DatabaseClient {
+  return getSupabaseServiceClient();
+}
+
 export type { Database };
+export type SupabaseServerClient = ReturnType<typeof getSupabaseServerClient>;
