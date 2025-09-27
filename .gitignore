@@ -2,13 +2,25 @@
 .supabase/
 supabase/.branches/
 supabase/.temp/
+supabase/config.toml.bak
 
 # Env & logs
 .env
 .env.*
 *.log
 
+# Build & deps
+**/node_modules/
+dist/
+*.tsbuildinfo
+
+# Python
+__pycache__/
+*.pyc
+
+# Next.js (web app)
+apps/web/.next/
+apps/web/public/workbox-*.js
+
 # Misc
 *.swp
-supabase/config.toml.bak
-node_modules/

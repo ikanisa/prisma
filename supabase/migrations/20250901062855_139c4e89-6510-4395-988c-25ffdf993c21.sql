@@ -8,14 +8,12 @@ CREATE TABLE IF NOT EXISTS chart_of_accounts(
   parent_id uuid REFERENCES chart_of_accounts(id) ON DELETE SET NULL,
   UNIQUE(org_id, code)
 );
-
 CREATE TABLE IF NOT EXISTS categories(
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   org_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
   name text NOT NULL, 
   description text
 );
-
 CREATE TABLE IF NOT EXISTS vendors(
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   org_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
@@ -24,7 +22,6 @@ CREATE TABLE IF NOT EXISTS vendors(
   country text, 
   extra jsonb NOT NULL DEFAULT '{}'::jsonb
 );
-
 CREATE TABLE IF NOT EXISTS vendor_category_mappings(
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   org_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
@@ -36,7 +33,6 @@ CREATE TABLE IF NOT EXISTS vendor_category_mappings(
   updated_at timestamptz NOT NULL DEFAULT now(), 
   UNIQUE(org_id, vendor_id)
 );
-
 CREATE TABLE IF NOT EXISTS transactions(
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   org_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
@@ -51,7 +47,6 @@ CREATE TABLE IF NOT EXISTS transactions(
   source_ref text,
   created_at timestamptz NOT NULL DEFAULT now()
 );
-
 CREATE TABLE IF NOT EXISTS vat_rules(
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   org_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
@@ -61,7 +56,6 @@ CREATE TABLE IF NOT EXISTS vat_rules(
   effective_from date, 
   effective_to date
 );
-
 CREATE TABLE IF NOT EXISTS engagements(
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   org_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
@@ -74,7 +68,6 @@ CREATE TABLE IF NOT EXISTS engagements(
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
-
 CREATE TABLE IF NOT EXISTS materiality_sets(
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   org_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
@@ -86,7 +79,6 @@ CREATE TABLE IF NOT EXISTS materiality_sets(
   rationale text,
   created_at timestamptz NOT NULL DEFAULT now()
 );
-
 CREATE TABLE IF NOT EXISTS independence_checks(
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   org_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
@@ -96,7 +88,6 @@ CREATE TABLE IF NOT EXISTS independence_checks(
   conclusion text, 
   created_at timestamptz NOT NULL DEFAULT now()
 );
-
 CREATE TABLE IF NOT EXISTS risks(
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   org_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
@@ -109,7 +100,6 @@ CREATE TABLE IF NOT EXISTS risks(
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
-
 CREATE TABLE IF NOT EXISTS documents(
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   org_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
@@ -123,7 +113,6 @@ CREATE TABLE IF NOT EXISTS documents(
   version text,
   created_at timestamptz NOT NULL DEFAULT now()
 );
-
 CREATE TABLE IF NOT EXISTS chunks(
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   org_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
@@ -136,7 +125,6 @@ CREATE TABLE IF NOT EXISTS chunks(
   last_embedded_at timestamptz,
   UNIQUE (org_id, content_hash)
 );
-
 -- Enable RLS on all tables
 ALTER TABLE chart_of_accounts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE categories ENABLE ROW LEVEL SECURITY;

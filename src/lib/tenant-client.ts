@@ -1,4 +1,4 @@
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, isSupabaseConfigured } from '@/integrations/supabase/client';
 
 const ORG_SCOPED_TABLES = [
   'clients',
@@ -11,6 +11,48 @@ const ORG_SCOPED_TABLES = [
   'notifications',
   'tasks',
   'activity_log',
+  'kam_candidates',
+  'kam_drafts',
+  'audit_planned_procedures',
+  'audit_evidence',
+  'audit_plans',
+  'materiality_sets',
+  'plan_change_log',
+  'audit_risks',
+  'audit_risk_signals',
+  'audit_risk_activity',
+  'audit_responses',
+  'audit_response_checks',
+  'fraud_plans',
+  'fraud_plan_actions',
+  'journal_entry_strategies',
+  'tax_entities',
+  'tax_accounts',
+  'cit_computations',
+  'participation_exemptions',
+  'return_files',
+  'estimate_register',
+  'going_concern_worksheets',
+  'controls',
+  'control_walkthroughs',
+  'control_tests',
+  'itgc_groups',
+  'deficiencies',
+  'client_background_checks',
+  'independence_assessments',
+  'acceptance_decisions',
+  'approval_queue',
+  'audit_report_drafts',
+  'tcwg_packs',
+  'engagement_archives',
+  'pbc_requests',
+  'pbc_deliveries',
+  'agent_profiles',
+  'knowledge_corpora',
+  'knowledge_sources',
+  'learning_runs',
+  'knowledge_events',
+  'agent_feedback',
 ] as const;
 
 export type OrgScopedTable = (typeof ORG_SCOPED_TABLES)[number];
@@ -48,5 +90,15 @@ export class TenantClient {
 }
 
 export function createTenantClient(orgId: string) {
+  if (!isSupabaseConfigured) {
+    return {
+      select: async () => ({ data: [], error: new Error('Supabase is not configured'), status: 400 }),
+      selectSingle: async () => ({ data: null, error: new Error('Supabase is not configured'), status: 400 }),
+      insert: async () => ({ data: null, error: new Error('Supabase is not configured'), status: 400 }),
+      update: async () => ({ data: null, error: new Error('Supabase is not configured'), status: 400 }),
+      delete: async () => ({ data: null, error: new Error('Supabase is not configured'), status: 400 }),
+    } as unknown as TenantClient;
+  }
+
   return new TenantClient(orgId);
 }
