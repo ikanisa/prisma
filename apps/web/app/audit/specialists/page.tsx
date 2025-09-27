@@ -1,520 +1,1390 @@
 'use client';
 
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import type { ChangeEvent, FormEvent } from 'react';
 
-type SpecialistKind = 'EXTERNAL_SPECIALIST' | 'INTERNAL_AUDIT';
-type SpecialistConclusion = 'RELIED' | 'PARTIAL' | 'NOT_RELIED' | 'PENDING';
+type SpecialistStatus = 'draft' | 'in_review' | 'final';
+type TargetType = 'expert' | 'internal';
 
-type SpecialistAssessment = {
+interface EvidenceRecord {
   id: string;
-  org_id: string;
-  engagement_id: string;
-  specialist_kind: SpecialistKind | string;
-  name: string;
-  firm: string | null;
-  scope: string | null;
-  competence_rationale: string | null;
-  objectivity_rationale: string | null;
-  work_performed: string | null;
-  conclusion: SpecialistConclusion | string;
-  conclusion_notes: string | null;
-  memo_document_id: string | null;
-  prepared_by_user_id: string | null;
-  prepared_at: string | null;
-  reviewed_by_user_id: string | null;
-  reviewed_at: string | null;
-};
+  description: string | null;
+  document_id: string | null;
+  evidence_url: string | null;
+  notes: string | null;
+  standard_refs: string[];
+  uploaded_at: string | null;
+  uploaded_by: string | null;
+}
 
-type AssessmentForm = {
-  assessmentId?: string;
-  specialistKind: SpecialistKind;
-  name: string;
-  firm: string;
-  scope: string;
-  competenceRationale: string;
-  objectivityRationale: string;
+interface ExpertEvaluationForm {
+  id: string | null;
+  area: string;
+  specialistName: string;
+  specialistFirm: string;
+  scopeOfWork: string;
+  competenceAssessment: string;
+  objectivityAssessment: string;
   workPerformed: string;
-  conclusion: SpecialistConclusion;
-  conclusionNotes: string;
-  memoDocumentId: string;
-};
+  resultsSummary: string;
+  conclusion: string;
+  status: SpecialistStatus;
+  standardRefs: string[];
+}
 
-const demoAssessments: SpecialistAssessment[] = [
-  {
-    id: 'exp-demo-1',
-    org_id: 'demo-org',
-    engagement_id: 'demo-engagement',
-    specialist_kind: 'EXTERNAL_SPECIALIST',
-    name: 'Valuation expert',
-    firm: 'ValuCo Ltd',
-    scope: 'Impairment model review',
-    competence_rationale: 'IFRS valuation credentials, industry experience.',
-    objectivity_rationale: 'Independent from client, no conflicts identified.',
-    work_performed: 'Reviewed cash flow model assumptions and recalculated discount rates.',
-    conclusion: 'PARTIAL',
-    conclusion_notes: 'Adequate for key assumptions; management to provide additional evidence over terminal growth.',
-    memo_document_id: null,
-    prepared_by_user_id: 'demo-user',
-    prepared_at: new Date().toISOString(),
-    reviewed_by_user_id: null,
-    reviewed_at: null,
-  },
-  {
-    id: 'exp-demo-2',
-    org_id: 'demo-org',
-    engagement_id: 'demo-engagement',
-    specialist_kind: 'INTERNAL_AUDIT',
-    name: 'Internal audit function',
-    firm: null,
-    scope: 'Procurement cycle testing',
-    competence_rationale: 'Team includes CIA and ACCA qualified staff.',
-    objectivity_rationale: 'Reports to audit committee; charter reviewed.',
-    work_performed: 'Walkthroughs and sample testing of purchase orders.',
-    conclusion: 'RELIED',
-    conclusion_notes: 'Results leveraged for procurement controls; limited re-performance required.',
-    memo_document_id: null,
-    prepared_by_user_id: 'demo-user',
-    prepared_at: new Date().toISOString(),
-    reviewed_by_user_id: 'manager-demo',
-    reviewed_at: new Date().toISOString(),
-  },
+interface InternalEvaluationForm {
+  id: string | null;
+  relianceArea: string;
+  internalAuditLead: string;
+  scopeOfReliance: string;
+  competenceEvaluation: string;
+  objectivityEvaluation: string;
+  workEvaluation: string;
+  riskAssessment: string;
+  conclusion: string;
+  status: SpecialistStatus;
+  standardRefs: string[];
+}
+
+interface EvaluationResponse<T> {
+  expert?: T;
+  internal?: T;
+  evidence?: T;
+}
+
+const STATUS_OPTIONS: Array<{ value: SpecialistStatus; label: string }> = [
+  { value: 'draft', label: 'Draft' },
+  { value: 'in_review', label: 'In review' },
+  { value: 'final', label: 'Final' },
 ];
 
-export default function SpecialistsWorkspace() {
-  const [mode, setMode] = useState<'demo' | 'live'>('demo');
-  const [orgId, setOrgId] = useState('demo-org');
-  const [engagementId, setEngagementId] = useState('demo-engagement');
-  const [userId, setUserId] = useState('demo-user');
+const BASE_STANDARDS: Record<TargetType, string> = {
+  expert: 'ISA 620',
+  internal: 'ISA 610',
+};
 
-  const [assessments, setAssessments] = useState<SpecialistAssessment[]>(demoAssessments);
-  const [selectedId, setSelectedId] = useState<string>(demoAssessments[0]?.id ?? '');
-  const [statusMessage, setStatusMessage] = useState<string | null>('Showing deterministic demo data.');
-  const [statusTone, setStatusTone] = useState<'info' | 'success' | 'error'>('info');
+interface EvidenceFormInputs {
+  description: string;
+  documentId: string;
+  evidenceUrl: string;
+  notes: string;
+  standards: string;
+}
+
+const DEFAULT_EVIDENCE_FORM: EvidenceFormInputs = {
+  description: '',
+  documentId: '',
+  evidenceUrl: '',
+  notes: '',
+  standards: '',
+};
+
+function parseStandards(input: string, targetType: TargetType): string[] {
+  const base = BASE_STANDARDS[targetType];
+  const additional = input
+    .split(',')
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0 && value !== base);
+  return Array.from(new Set([base, ...additional]));
+}
+
+export default function AuditSpecialistsPage() {
+  const [userId, setUserId] = useState('');
+  const [orgId, setOrgId] = useState('');
+  const [engagementId, setEngagementId] = useState('');
   const [loading, setLoading] = useState(false);
-  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const [formState, setFormState] = useState<AssessmentForm>({
-    specialistKind: 'EXTERNAL_SPECIALIST',
-    name: '',
-    firm: '',
-    scope: '',
-    competenceRationale: '',
-    objectivityRationale: '',
+  const [expertForm, setExpertForm] = useState<ExpertEvaluationForm>({
+    id: null,
+    area: '',
+    specialistName: '',
+    specialistFirm: '',
+    scopeOfWork: '',
+    competenceAssessment: '',
+    objectivityAssessment: '',
     workPerformed: '',
-    conclusion: 'PENDING',
-    conclusionNotes: '',
-    memoDocumentId: '',
+    resultsSummary: '',
+    conclusion: '',
+    status: 'draft',
+    standardRefs: [BASE_STANDARDS.expert],
   });
 
-  const selectedAssessment = useMemo(
-    () => assessments.find((assessment) => assessment.id === selectedId) ?? null,
-    [assessments, selectedId],
+  const [internalForm, setInternalForm] = useState<InternalEvaluationForm>({
+    id: null,
+    relianceArea: '',
+    internalAuditLead: '',
+    scopeOfReliance: '',
+    competenceEvaluation: '',
+    objectivityEvaluation: '',
+    workEvaluation: '',
+    riskAssessment: '',
+    conclusion: '',
+    status: 'draft',
+    standardRefs: [BASE_STANDARDS.internal],
+  });
+
+  const [expertEvidence, setExpertEvidence] = useState<EvidenceRecord[]>([]);
+  const [internalEvidence, setInternalEvidence] = useState<EvidenceRecord[]>([]);
+  const [newEvidenceForms, setNewEvidenceForms] = useState<Record<TargetType, EvidenceFormInputs>>({
+    expert: { ...DEFAULT_EVIDENCE_FORM },
+    internal: { ...DEFAULT_EVIDENCE_FORM },
+  });
+
+  const [editingEvidenceId, setEditingEvidenceId] = useState<string | null>(null);
+  const [editingEvidenceType, setEditingEvidenceType] = useState<TargetType | null>(null);
+  const [editingEvidenceForm, setEditingEvidenceForm] = useState<EvidenceFormInputs>({
+    ...DEFAULT_EVIDENCE_FORM,
+  });
+
+  const expertStandardInput = useMemo(
+    () => expertForm.standardRefs.join(', '),
+    [expertForm.standardRefs],
+  );
+  const internalStandardInput = useMemo(
+    () => internalForm.standardRefs.join(', '),
+    [internalForm.standardRefs],
   );
 
   useEffect(() => {
-    if (mode === 'demo') {
-      setAssessments(demoAssessments);
-      setSelectedId(demoAssessments[0]?.id ?? '');
-      setStatusMessage('Showing deterministic demo data. Switch to live mode to pull assessments from Supabase.');
-      setStatusTone('info');
-      return;
+    setFeedback(null);
+    setError(null);
+  }, [orgId, engagementId, userId]);
+
+  const handleExpertChange = (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value } = event.target;
+    setExpertForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleInternalChange = (
+    event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,
+  ) => {
+    const { name, value } = event.target;
+    setInternalForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const updateStandardRefs = (targetType: TargetType, input: string) => {
+    if (targetType === 'expert') {
+      setExpertForm((prev) => ({ ...prev, standardRefs: parseStandards(input, 'expert') }));
+    } else {
+      setInternalForm((prev) => ({ ...prev, standardRefs: parseStandards(input, 'internal') }));
     }
+  };
+
+  const handleLoad = async () => {
+    setFeedback(null);
+    setError(null);
 
     if (!orgId || !engagementId) {
-      setStatusMessage('Provide organisation and engagement identifiers to load live data.');
-      setStatusTone('info');
+      setError('Provide an organisation ID and engagement ID to load evaluations.');
       return;
     }
 
-    const controller = new AbortController();
-    const fetchData = async () => {
-      setLoading(true);
-      setFetchError(null);
-      try {
-        const params = new URLSearchParams({ orgId, engagementId });
-        const response = await fetch(`/api/exp/assessments?${params}`, { signal: controller.signal, cache: 'no-store' });
-        if (!response.ok) {
-          const body = (await response.json().catch(() => ({}))) as { error?: string };
-          throw new Error(body.error ?? 'Failed to load assessments');
-        }
-        const body = (await response.json()) as { assessments: SpecialistAssessment[] };
-        const normalised = normalizeAssessment(body.assessments ?? []);
-        setAssessments(normalised);
-        setSelectedId((prev) => (normalised.some((assessment) => assessment.id === prev) ? prev : normalised[0]?.id ?? ''));
-        setStatusMessage(normalised.length ? 'Specialist assessments loaded.' : 'No specialist assessments recorded yet.');
-        setStatusTone(normalised.length ? 'success' : 'info');
-      } catch (error) {
-        if (controller.signal.aborted) return;
-        const message = error instanceof Error ? error.message : 'Unable to fetch assessments';
-        setFetchError(message);
-        setStatusMessage('Fell back to last known data.');
-        setStatusTone('error');
-      } finally {
-        setLoading(false);
+    setLoading(true);
+    try {
+      const response = await fetch(
+        `/api/specialists?orgId=${encodeURIComponent(orgId)}&engagementId=${encodeURIComponent(engagementId)}`,
+      );
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload.error ?? 'Failed to load specialist assessments');
       }
+
+      const payload = (await response.json()) as {
+        experts: Array<ExpertEvaluationForm & { evidence: EvidenceRecord[] }>;
+        internal: Array<InternalEvaluationForm & { evidence: EvidenceRecord[] }>;
+      };
+
+      const [expert] = payload.experts;
+      if (expert) {
+        setExpertForm({
+          id: expert.id,
+          area: expert.area ?? '',
+          specialistName:
+            expert.specialistName ?? (expert as unknown as { specialist_name?: string }).specialist_name ?? '',
+          specialistFirm:
+            expert.specialistFirm ?? (expert as unknown as { specialist_firm?: string }).specialist_firm ?? '',
+          scopeOfWork:
+            expert.scopeOfWork ?? (expert as unknown as { scope_of_work?: string }).scope_of_work ?? '',
+          competenceAssessment:
+            expert.competenceAssessment ??
+            (expert as unknown as { competence_assessment?: string }).competence_assessment ??
+            '',
+          objectivityAssessment:
+            expert.objectivityAssessment ??
+            (expert as unknown as { objectivity_assessment?: string }).objectivity_assessment ??
+            '',
+          workPerformed:
+            expert.workPerformed ?? (expert as unknown as { work_performed?: string }).work_performed ?? '',
+          resultsSummary:
+            expert.resultsSummary ?? (expert as unknown as { results_summary?: string }).results_summary ?? '',
+          conclusion: expert.conclusion ?? '',
+          status: (expert.status as SpecialistStatus | null) ?? 'draft',
+          standardRefs: expert.standardRefs ?? (expert as any).standard_refs ?? [BASE_STANDARDS.expert],
+        });
+        setExpertEvidence(expert.evidence ?? []);
+      } else {
+        setExpertForm({
+          id: null,
+          area: '',
+          specialistName: '',
+          specialistFirm: '',
+          scopeOfWork: '',
+          competenceAssessment: '',
+          objectivityAssessment: '',
+          workPerformed: '',
+          resultsSummary: '',
+          conclusion: '',
+          status: 'draft',
+          standardRefs: [BASE_STANDARDS.expert],
+        });
+        setExpertEvidence([]);
+      }
+
+      const [internal] = payload.internal;
+      if (internal) {
+        setInternalForm({
+          id: internal.id,
+          relianceArea:
+            internal.relianceArea ?? (internal as unknown as { reliance_area?: string }).reliance_area ?? '',
+          internalAuditLead:
+            internal.internalAuditLead ??
+            (internal as unknown as { internal_audit_lead?: string }).internal_audit_lead ??
+            '',
+          scopeOfReliance:
+            internal.scopeOfReliance ??
+            (internal as unknown as { scope_of_reliance?: string }).scope_of_reliance ??
+            '',
+          competenceEvaluation:
+            internal.competenceEvaluation ??
+            (internal as unknown as { competence_evaluation?: string }).competence_evaluation ??
+            '',
+          objectivityEvaluation:
+            internal.objectivityEvaluation ??
+            (internal as unknown as { objectivity_evaluation?: string }).objectivity_evaluation ??
+            '',
+          workEvaluation:
+            internal.workEvaluation ??
+            (internal as unknown as { work_evaluation?: string }).work_evaluation ??
+            '',
+          riskAssessment:
+            internal.riskAssessment ?? (internal as unknown as { risk_assessment?: string }).risk_assessment ?? '',
+          conclusion: internal.conclusion ?? '',
+          status: (internal.status as SpecialistStatus | null) ?? 'draft',
+          standardRefs: internal.standardRefs ?? (internal as any).standard_refs ?? [BASE_STANDARDS.internal],
+        });
+        setInternalEvidence(internal.evidence ?? []);
+      } else {
+        setInternalForm({
+          id: null,
+          relianceArea: '',
+          internalAuditLead: '',
+          scopeOfReliance: '',
+          competenceEvaluation: '',
+          objectivityEvaluation: '',
+          workEvaluation: '',
+          riskAssessment: '',
+          conclusion: '',
+          status: 'draft',
+          standardRefs: [BASE_STANDARDS.internal],
+        });
+        setInternalEvidence([]);
+      }
+
+      setFeedback('Latest specialist evaluations retrieved successfully.');
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const ensureHeaders = () => {
+    if (!userId) {
+      throw new Error('Provide an acting user ID via the x-user-id header field.');
+    }
+    if (!orgId || !engagementId) {
+      throw new Error('Organisation and engagement identifiers are required.');
+    }
+  };
+
+  const handleExpertSave = async (conclude = false) => {
+    setFeedback(null);
+    setError(null);
+    try {
+      ensureHeaders();
+    } catch (err) {
+      setError((err as Error).message);
+      return;
+    }
+
+    const isCreate = !expertForm.id;
+    const url = isCreate ? '/api/specialists/experts' : `/api/specialists/experts/${expertForm.id}`;
+    const method = isCreate ? 'POST' : 'PUT';
+
+    const payload = isCreate
+      ? {
+          orgId,
+          engagementId,
+          area: expertForm.area,
+          specialistName: expertForm.specialistName,
+          specialistFirm: expertForm.specialistFirm,
+          scopeOfWork: expertForm.scopeOfWork,
+          competenceAssessment: expertForm.competenceAssessment,
+          objectivityAssessment: expertForm.objectivityAssessment,
+          workPerformed: expertForm.workPerformed,
+          resultsSummary: expertForm.resultsSummary,
+          conclusion: expertForm.conclusion,
+          status: expertForm.status,
+          standardRefs: expertForm.standardRefs,
+        }
+      : {
+          area: expertForm.area,
+          specialistName: expertForm.specialistName,
+          specialistFirm: expertForm.specialistFirm,
+          scopeOfWork: expertForm.scopeOfWork,
+          competenceAssessment: expertForm.competenceAssessment,
+          objectivityAssessment: expertForm.objectivityAssessment,
+          workPerformed: expertForm.workPerformed,
+          resultsSummary: expertForm.resultsSummary,
+          conclusion: expertForm.conclusion,
+          status: expertForm.status,
+          standardRefs: expertForm.standardRefs,
+          conclude,
+        };
+
+    try {
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': userId,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const message = await response.json().catch(() => ({}));
+        throw new Error(message.error ?? 'Failed to persist expert evaluation');
+      }
+
+      const result = (await response.json()) as EvaluationResponse<
+        ExpertEvaluationForm & { evidence?: EvidenceRecord[] }
+      >;
+
+      if (result.expert) {
+        setExpertForm({
+          id: result.expert.id ?? expertForm.id,
+          area: (result.expert as any).area ?? expertForm.area,
+          specialistName:
+            (result.expert as any).specialist_name ??
+            (result.expert as any).specialistName ??
+            expertForm.specialistName,
+          specialistFirm:
+            (result.expert as any).specialist_firm ??
+            (result.expert as any).specialistFirm ??
+            expertForm.specialistFirm,
+          scopeOfWork:
+            (result.expert as any).scope_of_work ??
+            (result.expert as any).scopeOfWork ??
+            expertForm.scopeOfWork,
+          competenceAssessment:
+            (result.expert as any).competence_assessment ??
+            (result.expert as any).competenceAssessment ??
+            expertForm.competenceAssessment,
+          objectivityAssessment:
+            (result.expert as any).objectivity_assessment ??
+            (result.expert as any).objectivityAssessment ??
+            expertForm.objectivityAssessment,
+          workPerformed:
+            (result.expert as any).work_performed ??
+            (result.expert as any).workPerformed ??
+            expertForm.workPerformed,
+          resultsSummary:
+            (result.expert as any).results_summary ??
+            (result.expert as any).resultsSummary ??
+            expertForm.resultsSummary,
+          conclusion:
+            (result.expert as any).conclusion ??
+            (result.expert as any).conclusion ??
+            expertForm.conclusion,
+          status:
+            ((result.expert as any).status ??
+              (result.expert.status as SpecialistStatus | undefined) ??
+              expertForm.status) as SpecialistStatus,
+          standardRefs:
+            (result.expert as any).standard_refs ??
+            (result.expert as any).standardRefs ??
+            expertForm.standardRefs,
+        });
+      }
+
+      setFeedback(conclude ? 'Expert conclusion recorded.' : 'Expert evaluation saved.');
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  };
+
+  const handleInternalSave = async (conclude = false) => {
+    setFeedback(null);
+    setError(null);
+    try {
+      ensureHeaders();
+    } catch (err) {
+      setError((err as Error).message);
+      return;
+    }
+
+    const isCreate = !internalForm.id;
+    const url = isCreate
+      ? '/api/specialists/internal'
+      : `/api/specialists/internal/${internalForm.id}`;
+    const method = isCreate ? 'POST' : 'PUT';
+
+    const payload = isCreate
+      ? {
+          orgId,
+          engagementId,
+          relianceArea: internalForm.relianceArea,
+          internalAuditLead: internalForm.internalAuditLead,
+          scopeOfReliance: internalForm.scopeOfReliance,
+          competenceEvaluation: internalForm.competenceEvaluation,
+          objectivityEvaluation: internalForm.objectivityEvaluation,
+          workEvaluation: internalForm.workEvaluation,
+          riskAssessment: internalForm.riskAssessment,
+          conclusion: internalForm.conclusion,
+          status: internalForm.status,
+          standardRefs: internalForm.standardRefs,
+        }
+      : {
+          relianceArea: internalForm.relianceArea,
+          internalAuditLead: internalForm.internalAuditLead,
+          scopeOfReliance: internalForm.scopeOfReliance,
+          competenceEvaluation: internalForm.competenceEvaluation,
+          objectivityEvaluation: internalForm.objectivityEvaluation,
+          workEvaluation: internalForm.workEvaluation,
+          riskAssessment: internalForm.riskAssessment,
+          conclusion: internalForm.conclusion,
+          status: internalForm.status,
+          standardRefs: internalForm.standardRefs,
+          conclude,
+        };
+
+    try {
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': userId,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const message = await response.json().catch(() => ({}));
+        throw new Error(message.error ?? 'Failed to persist internal audit evaluation');
+      }
+
+      const result = (await response.json()) as EvaluationResponse<InternalEvaluationForm>;
+
+      if (result.internal) {
+        setInternalForm({
+          id: result.internal.id ?? internalForm.id,
+          relianceArea:
+            (result.internal as any).reliance_area ??
+            (result.internal as any).relianceArea ??
+            internalForm.relianceArea,
+          internalAuditLead:
+            (result.internal as any).internal_audit_lead ??
+            (result.internal as any).internalAuditLead ??
+            internalForm.internalAuditLead,
+          scopeOfReliance:
+            (result.internal as any).scope_of_reliance ??
+            (result.internal as any).scopeOfReliance ??
+            internalForm.scopeOfReliance,
+          competenceEvaluation:
+            (result.internal as any).competence_evaluation ??
+            (result.internal as any).competenceEvaluation ??
+            internalForm.competenceEvaluation,
+          objectivityEvaluation:
+            (result.internal as any).objectivity_evaluation ??
+            (result.internal as any).objectivityEvaluation ??
+            internalForm.objectivityEvaluation,
+          workEvaluation:
+            (result.internal as any).work_evaluation ??
+            (result.internal as any).workEvaluation ??
+            internalForm.workEvaluation,
+          riskAssessment:
+            (result.internal as any).risk_assessment ??
+            (result.internal as any).riskAssessment ??
+            internalForm.riskAssessment,
+          conclusion:
+            (result.internal as any).conclusion ??
+            (result.internal as any).conclusion ??
+            internalForm.conclusion,
+          status:
+            ((result.internal as any).status ??
+              (result.internal.status as SpecialistStatus | undefined) ??
+              internalForm.status) as SpecialistStatus,
+          standardRefs:
+            (result.internal as any).standard_refs ??
+            (result.internal as any).standardRefs ??
+            internalForm.standardRefs,
+        });
+      }
+
+      setFeedback(conclude ? 'Internal reliance conclusion saved.' : 'Internal audit evaluation saved.');
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  };
+
+  const handleEvidenceInputChange = (
+    type: TargetType,
+    event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) => {
+    const { name, value } = event.target;
+    setNewEvidenceForms((prev) => ({
+      ...prev,
+      [type]: { ...prev[type], [name]: value },
+    }));
+  };
+
+  const handleEvidenceCreate = async (type: TargetType) => {
+    setFeedback(null);
+    setError(null);
+
+    try {
+      ensureHeaders();
+    } catch (err) {
+      setError((err as Error).message);
+      return;
+    }
+
+    const evaluationId = type === 'expert' ? expertForm.id : internalForm.id;
+    if (!evaluationId) {
+      setError('Save the evaluation before attaching evidence.');
+      return;
+    }
+
+    const form = newEvidenceForms[type];
+    if (!form.documentId && !form.evidenceUrl) {
+      setError('Provide either a document identifier or an evidence URL.');
+      return;
+    }
+
+    const payload = {
+      orgId,
+      engagementId,
+      targetType: type,
+      targetId: evaluationId,
+      documentId: form.documentId || null,
+      evidenceUrl: form.evidenceUrl || null,
+      description: form.description || null,
+      notes: form.notes || null,
+      standardRefs: parseStandards(form.standards, type),
     };
 
-    void fetchData();
-    return () => controller.abort();
-  }, [mode, orgId, engagementId]);
-
-  const showStatus = (message: string, tone: 'info' | 'success' | 'error' = 'info') => {
-    setStatusMessage(message);
-    setStatusTone(tone);
-  };
-  const resetStatus = () => setStatusMessage(null);
-
-  const handleSaveAssessment = async (event: FormEvent) => {
-    event.preventDefault();
-    if (mode !== 'live') {
-      showStatus('Switch to live mode to record assessments.', 'error');
-      return;
-    }
-    if (!orgId || !engagementId || !userId) {
-      showStatus('Provide organisation, engagement, and user identifiers.', 'error');
-      return;
-    }
-    if (!formState.name) {
-      showStatus('Provide the specialist name.', 'error');
-      return;
-    }
     try {
-      setLoading(true);
-      resetStatus();
-      const response = await fetch('/api/exp/assessments', {
+      const response = await fetch('/api/specialists/evidence', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          orgId,
-          engagementId,
-          userId,
-          assessmentId: formState.assessmentId,
-          specialistKind: formState.specialistKind,
-          name: formState.name,
-          firm: formState.firm || undefined,
-          scope: formState.scope || undefined,
-          competenceRationale: formState.competenceRationale || undefined,
-          objectivityRationale: formState.objectivityRationale || undefined,
-          workPerformed: formState.workPerformed || undefined,
-          conclusion: formState.conclusion,
-          conclusionNotes: formState.conclusionNotes || undefined,
-          memoDocumentId: formState.memoDocumentId || undefined,
-        }),
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': userId,
+        },
+        body: JSON.stringify(payload),
       });
-      const body = (await response.json().catch(() => ({}))) as { error?: string; assessmentId?: string };
+
       if (!response.ok) {
-        throw new Error(body.error ?? 'Failed to record assessment');
+        const message = await response.json().catch(() => ({}));
+        throw new Error(message.error ?? 'Unable to attach evidence');
       }
-      await refreshAssessments();
-      showStatus('Assessment saved.', 'success');
-      setFormState({ specialistKind: 'EXTERNAL_SPECIALIST', name: '', firm: '', scope: '', competenceRationale: '', objectivityRationale: '', workPerformed: '', conclusion: 'PENDING', conclusionNotes: '', memoDocumentId: '' });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unable to record assessment';
-      showStatus(message, 'error');
-    } finally {
-      setLoading(false);
+
+      const result = (await response.json()) as { evidence: EvidenceRecord };
+      if (type === 'expert') {
+        setExpertEvidence((prev) => [...prev, result.evidence]);
+      } else {
+        setInternalEvidence((prev) => [...prev, result.evidence]);
+      }
+
+      setNewEvidenceForms((prev) => ({
+        ...prev,
+        [type]: { ...DEFAULT_EVIDENCE_FORM },
+      }));
+      setFeedback('Evidence attachment captured.');
+    } catch (err) {
+      setError((err as Error).message);
     }
   };
 
-  const handleConclude = async (event: FormEvent) => {
-    event.preventDefault();
-    if (mode !== 'live') {
-      showStatus('Switch to live mode to conclude reliance.', 'error');
+  const startEditingEvidence = (record: EvidenceRecord, type: TargetType) => {
+    setEditingEvidenceId(record.id);
+    setEditingEvidenceType(type);
+    setEditingEvidenceForm({
+      description: record.description ?? '',
+      documentId: record.document_id ?? '',
+      evidenceUrl: record.evidence_url ?? '',
+      notes: record.notes ?? '',
+      standards: record.standard_refs?.join(', ') ?? BASE_STANDARDS[type],
+    });
+  };
+
+  const cancelEvidenceEdit = () => {
+    setEditingEvidenceId(null);
+    setEditingEvidenceType(null);
+    setEditingEvidenceForm({ ...DEFAULT_EVIDENCE_FORM });
+  };
+
+  const handleEvidenceEditChange = (
+    event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) => {
+    const { name, value } = event.target;
+    setEditingEvidenceForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const saveEvidenceEdit = async () => {
+    if (!editingEvidenceId || !editingEvidenceType) {
       return;
     }
-    if (!selectedAssessment) {
-      showStatus('Select an assessment first.', 'error');
-      return;
-    }
+
     try {
-      setLoading(true);
-      resetStatus();
-      const response = await fetch('/api/exp/assessments/conclude', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          orgId,
-          engagementId,
-          assessmentId: selectedAssessment.id,
-          conclusion: formState.conclusion,
-          conclusionNotes: formState.conclusionNotes || undefined,
-          memoDocumentId: formState.memoDocumentId || undefined,
-          userId,
-        }),
-      });
-      const body = (await response.json().catch(() => ({}))) as { error?: string };
-      if (!response.ok) {
-        throw new Error(body.error ?? 'Failed to conclude assessment');
-      }
-      await refreshAssessments();
-      showStatus('Conclusion queued for approval.', 'success');
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unable to conclude assessment';
-      showStatus(message, 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const refreshAssessments = async () => {
-    if (mode !== 'live') {
-      setAssessments(demoAssessments);
-      setSelectedId(demoAssessments[0]?.id ?? '');
+      ensureHeaders();
+    } catch (err) {
+      setError((err as Error).message);
       return;
     }
-    const params = new URLSearchParams({ orgId, engagementId });
-    const response = await fetch(`/api/exp/assessments?${params}`, { cache: 'no-store' });
-    if (!response.ok) {
-      const body = (await response.json().catch(() => ({}))) as { error?: string };
-      throw new Error(body.error ?? 'Failed to load assessments');
+
+    const payload = {
+      description: editingEvidenceForm.description || null,
+      documentId: editingEvidenceForm.documentId || null,
+      evidenceUrl: editingEvidenceForm.evidenceUrl || null,
+      notes: editingEvidenceForm.notes || null,
+      standardRefs: parseStandards(editingEvidenceForm.standards, editingEvidenceType),
+    };
+
+    try {
+      const response = await fetch(`/api/specialists/evidence/${editingEvidenceId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': userId,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const message = await response.json().catch(() => ({}));
+        throw new Error(message.error ?? 'Failed to update evidence');
+      }
+
+      const result = (await response.json()) as { evidence: EvidenceRecord };
+      if (editingEvidenceType === 'expert') {
+        setExpertEvidence((prev) => prev.map((item) => (item.id === result.evidence.id ? result.evidence : item)));
+      } else {
+        setInternalEvidence((prev) => prev.map((item) => (item.id === result.evidence.id ? result.evidence : item)));
+      }
+
+      setFeedback('Evidence record updated.');
+      cancelEvidenceEdit();
+    } catch (err) {
+      setError((err as Error).message);
     }
-    const body = (await response.json()) as { assessments: SpecialistAssessment[] };
-    const normalised = normalizeAssessment(body.assessments ?? []);
-    setAssessments(normalised);
-    setSelectedId((prev) => (normalised.some((assessment) => assessment.id === prev) ? prev : normalised[0]?.id ?? ''));
   };
 
-  return (
-    <section className="space-y-6">
-      <header className="space-y-2">
-        <h2 className="text-2xl font-semibold text-slate-900">Specialists & internal audit</h2>
-        <p className="text-sm text-slate-600">Document reliance assessments, evidence, and approvals for external specialists and the internal audit function.</p>
-      </header>
+  const exportMemo = (type: TargetType) => {
+    const evaluation = type === 'expert' ? expertForm : internalForm;
+    const evidenceList = type === 'expert' ? expertEvidence : internalEvidence;
+    const title = type === 'expert' ? 'Expert Use Evaluation' : 'Internal Audit Reliance Evaluation';
 
-      <div className="grid gap-4 rounded-lg border bg-white p-4 shadow-sm">
-        <div className="flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            className={`rounded-md px-3 py-2 text-sm font-medium ${mode === 'demo' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700'}`}
-            onClick={() => setMode('demo')}
-          >
-            Demo data
-          </button>
-          <button
-            type="button"
-            className={`rounded-md px-3 py-2 text-sm font-medium ${mode === 'live' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700'}`}
-            onClick={() => setMode('live')}
-          >
-            Live Supabase
-          </button>
-          {fetchError && <span className="text-xs text-destructive">{fetchError}</span>}
-        </div>
+    const lines = [
+      `# ${title}`,
+      '',
+      `*Organisation:* ${orgId || 'N/A'}`,
+      `*Engagement:* ${engagementId || 'N/A'}`,
+      `*Status:* ${evaluation.status}`,
+      `*Standards:* ${(evaluation.standardRefs || []).join(', ')}`,
+      '',
+    ];
 
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-          <label className="flex flex-col text-xs text-slate-600">
-            Organisation ID
-            <input className="mt-1 rounded border px-2 py-1" value={orgId} onChange={(event) => setOrgId(event.target.value)} />
-          </label>
-          <label className="flex flex-col text-xs text-slate-600">
-            Engagement ID
-            <input className="mt-1 rounded border px-2 py-1" value={engagementId} onChange={(event) => setEngagementId(event.target.value)} />
-          </label>
-          <label className="flex flex-col text-xs text-slate-600">
-            User ID
-            <input className="mt-1 rounded border px-2 py-1" value={userId} onChange={(event) => setUserId(event.target.value)} />
-          </label>
-        </div>
-      </div>
+    if (type === 'expert') {
+      lines.push(
+        `## Specialist details`,
+        `- Area: ${evaluation.area || '—'}`,
+        `- Specialist: ${evaluation.specialistName || '—'}`,
+        `- Firm: ${evaluation.specialistFirm || '—'}`,
+        '',
+        `## Evaluation`,
+        `- Scope of work: ${evaluation.scopeOfWork || '—'}`,
+        `- Competence: ${evaluation.competenceAssessment || '—'}`,
+        `- Objectivity: ${evaluation.objectivityAssessment || '—'}`,
+        `- Work performed: ${evaluation.workPerformed || '—'}`,
+        `- Results: ${evaluation.resultsSummary || '—'}`,
+      );
+    } else {
+      lines.push(
+        `## Internal audit profile`,
+        `- Reliance area: ${evaluation.relianceArea || '—'}`,
+        `- Internal audit lead: ${evaluation.internalAuditLead || '—'}`,
+        '',
+        `## Evaluation`,
+        `- Scope of reliance: ${evaluation.scopeOfReliance || '—'}`,
+        `- Competence: ${evaluation.competenceEvaluation || '—'}`,
+        `- Objectivity: ${evaluation.objectivityEvaluation || '—'}`,
+        `- Work evaluation: ${evaluation.workEvaluation || '—'}`,
+        `- Risk assessment: ${evaluation.riskAssessment || '—'}`,
+      );
+    }
 
-      {statusMessage && (
-        <div
-          className={`rounded-md border px-3 py-2 text-sm ${
-            statusTone === 'success'
-              ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-              : statusTone === 'error'
-              ? 'border-red-200 bg-red-50 text-red-700'
-              : 'border-slate-200 bg-slate-50 text-slate-600'
-          }`}
-        >
-          {statusMessage}
-        </div>
-      )}
+    lines.push('', `## Conclusion`, evaluation.conclusion || '—', '', '## Evidence');
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <aside className="space-y-4 lg:col-span-1">
-          <div className="rounded-lg border bg-white p-4 shadow-sm">
-            <h3 className="text-sm font-semibold text-slate-900">Record assessment</h3>
-            <form className="mt-3 space-y-3" onSubmit={handleSaveAssessment}>
-              <label className="flex flex-col text-xs text-slate-600">
-                Specialist
-                <select
-                  className="mt-1 rounded border px-2 py-1"
-                  value={formState.specialistKind}
-                  onChange={(event) => setFormState((prev) => ({ ...prev, specialistKind: event.target.value as SpecialistKind }))}
-                >
-                  <option value="EXTERNAL_SPECIALIST">External specialist</option>
-                  <option value="INTERNAL_AUDIT">Internal audit</option>
-                </select>
-              </label>
-              <label className="flex flex-col text-xs text-slate-600">
-                Name
-                <input
-                  className="mt-1 rounded border px-2 py-1"
-                  value={formState.name}
-                  onChange={(event) => setFormState((prev) => ({ ...prev, name: event.target.value }))}
-                />
-              </label>
-              <label className="flex flex-col text-xs text-slate-600">
-                Firm
-                <input
-                  className="mt-1 rounded border px-2 py-1"
-                  value={formState.firm}
-                  onChange={(event) => setFormState((prev) => ({ ...prev, firm: event.target.value }))}
-                  placeholder="n/a for internal audit"
-                />
-              </label>
-              <label className="flex flex-col text-xs text-slate-600">
-                Scope
-                <textarea
-                  rows={2}
-                  className="mt-1 rounded border px-2 py-1"
-                  value={formState.scope}
-                  onChange={(event) => setFormState((prev) => ({ ...prev, scope: event.target.value }))}
-                />
-              </label>
-              <label className="flex flex-col text-xs text-slate-600">
-                Competence rationale
-                <textarea
-                  rows={2}
-                  className="mt-1 rounded border px-2 py-1"
-                  value={formState.competenceRationale}
-                  onChange={(event) => setFormState((prev) => ({ ...prev, competenceRationale: event.target.value }))}
-                />
-              </label>
-              <label className="flex flex-col text-xs text-slate-600">
-                Objectivity rationale
-                <textarea
-                  rows={2}
-                  className="mt-1 rounded border px-2 py-1"
-                  value={formState.objectivityRationale}
-                  onChange={(event) => setFormState((prev) => ({ ...prev, objectivityRationale: event.target.value }))}
-                />
-              </label>
-              <label className="flex flex-col text-xs text-slate-600">
-                Work performed
-                <textarea
-                  rows={2}
-                  className="mt-1 rounded border px-2 py-1"
-                  value={formState.workPerformed}
-                  onChange={(event) => setFormState((prev) => ({ ...prev, workPerformed: event.target.value }))}
-                />
-              </label>
-              <button
-                type="submit"
-                className="w-full rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-60"
-                disabled={loading}
+    if (evidenceList.length === 0) {
+      lines.push('No evidence captured.');
+    } else {
+      evidenceList.forEach((item, index) => {
+        lines.push(
+          `### Evidence ${index + 1}`,
+          `- Description: ${item.description ?? '—'}`,
+          `- Document ID: ${item.document_id ?? '—'}`,
+          `- URL: ${item.evidence_url ?? '—'}`,
+          `- Notes: ${item.notes ?? '—'}`,
+          `- Standards: ${(item.standard_refs ?? []).join(', ') || '—'}`,
+          '',
+        );
+      });
+    }
+
+    const blob = new Blob([lines.join('\n')], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `${type}-specialist-memo-${engagementId || 'draft'}.md`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const renderEvidenceList = (records: EvidenceRecord[], type: TargetType) => (
+    <div className="space-y-3" aria-live="polite">
+      {records.length === 0 && <p className="text-sm text-muted-foreground">No evidence captured yet.</p>}
+      {records.map((record) => {
+        const isEditing = editingEvidenceId === record.id && editingEvidenceType === type;
+        return (
+          <div key={record.id} className="rounded border border-border p-3">
+            {isEditing ? (
+              <form
+                className="space-y-2"
+                onSubmit={(event: FormEvent<HTMLFormElement>) => {
+                  event.preventDefault();
+                  void saveEvidenceEdit();
+                }}
               >
-                {loading ? 'Working…' : 'Save assessment'}
-              </button>
-            </form>
-          </div>
-
-          <div className="rounded-lg border bg-white p-4 shadow-sm">
-            <h3 className="text-sm font-semibold text-slate-900">Finalise conclusion</h3>
-            {selectedAssessment ? (
-              <form className="mt-3 space-y-3" onSubmit={handleConclude}>
-                <label className="flex flex-col text-xs text-slate-600">
-                  Conclusion
-                  <select
-                    className="mt-1 rounded border px-2 py-1"
-                    value={formState.conclusion}
-                    onChange={(event) => setFormState((prev) => ({ ...prev, conclusion: event.target.value as SpecialistConclusion }))}
-                  >
-                    <option value="RELIED">Relied</option>
-                    <option value="PARTIAL">Partial reliance</option>
-                    <option value="NOT_RELIED">Not relied upon</option>
-                    <option value="PENDING">Pending</option>
-                  </select>
-                </label>
-                <label className="flex flex-col text-xs text-slate-600">
-                  Conclusion notes
-                  <textarea
-                    rows={2}
-                    className="mt-1 rounded border px-2 py-1"
-                    value={formState.conclusionNotes}
-                    onChange={(event) => setFormState((prev) => ({ ...prev, conclusionNotes: event.target.value }))}
-                  />
-                </label>
-                <label className="flex flex-col text-xs text-slate-600">
-                  Memo document ID
+                <div className="flex flex-col gap-1">
+                  <label className="text-sm font-medium" htmlFor={`edit-description-${record.id}`}>
+                    Description
+                  </label>
                   <input
-                    className="mt-1 rounded border px-2 py-1"
-                    value={formState.memoDocumentId}
-                    onChange={(event) => setFormState((prev) => ({ ...prev, memoDocumentId: event.target.value }))}
-                    placeholder="Optional"
+                    id={`edit-description-${record.id}`}
+                    name="description"
+                    value={editingEvidenceForm.description}
+                    onChange={handleEvidenceEditChange}
+                    className="rounded border border-border px-3 py-2 text-sm"
                   />
-                </label>
-                <button
-                  type="submit"
-                  className="w-full rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-60"
-                  disabled={loading}
-                >
-                  {loading ? 'Working…' : 'Submit conclusion'}
-                </button>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-sm font-medium" htmlFor={`edit-document-${record.id}`}>
+                    Document ID
+                  </label>
+                  <input
+                    id={`edit-document-${record.id}`}
+                    name="documentId"
+                    value={editingEvidenceForm.documentId}
+                    onChange={handleEvidenceEditChange}
+                    className="rounded border border-border px-3 py-2 text-sm"
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-sm font-medium" htmlFor={`edit-url-${record.id}`}>
+                    Evidence URL
+                  </label>
+                  <input
+                    id={`edit-url-${record.id}`}
+                    name="evidenceUrl"
+                    value={editingEvidenceForm.evidenceUrl}
+                    onChange={handleEvidenceEditChange}
+                    className="rounded border border-border px-3 py-2 text-sm"
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-sm font-medium" htmlFor={`edit-notes-${record.id}`}>
+                    Notes
+                  </label>
+                  <textarea
+                    id={`edit-notes-${record.id}`}
+                    name="notes"
+                    value={editingEvidenceForm.notes}
+                    onChange={handleEvidenceEditChange}
+                    className="min-h-[80px] rounded border border-border px-3 py-2 text-sm"
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-sm font-medium" htmlFor={`edit-standards-${record.id}`}>
+                    Standards (comma separated)
+                  </label>
+                  <input
+                    id={`edit-standards-${record.id}`}
+                    name="standards"
+                    value={editingEvidenceForm.standards}
+                    onChange={handleEvidenceEditChange}
+                    className="rounded border border-border px-3 py-2 text-sm"
+                  />
+                </div>
+                <div className="flex flex-wrap gap-2 pt-1">
+                  <button
+                    type="submit"
+                    className="rounded bg-blue-600 px-3 py-1 text-sm font-medium text-white hover:bg-blue-700"
+                  >
+                    Save
+                  </button>
+                  <button
+                    type="button"
+                    onClick={cancelEvidenceEdit}
+                    className="rounded border border-border px-3 py-1 text-sm"
+                  >
+                    Cancel
+                  </button>
+                </div>
               </form>
             ) : (
-              <p className="mt-2 text-xs text-slate-500">Select an assessment to finalise the conclusion.</p>
+              <div className="space-y-1 text-sm">
+                <div className="flex items-center justify-between">
+                  <p className="font-medium">{record.description ?? 'Untitled evidence'}</p>
+                  <button
+                    type="button"
+                    onClick={() => startEditingEvidence(record, type)}
+                    className="text-xs font-medium text-blue-600 hover:underline"
+                  >
+                    Edit
+                  </button>
+                </div>
+                <p>
+                  <span className="font-medium">Document ID:</span> {record.document_id ?? '—'}
+                </p>
+                <p>
+                  <span className="font-medium">Evidence URL:</span> {record.evidence_url ?? '—'}
+                </p>
+                <p>
+                  <span className="font-medium">Notes:</span> {record.notes ?? '—'}
+                </p>
+                <p>
+                  <span className="font-medium">Standards:</span>{' '}
+                  {(record.standard_refs ?? []).join(', ') || '—'}
+                </p>
+              </div>
             )}
           </div>
-        </aside>
+        );
+      })}
+    </div>
+  );
 
-        <div className="lg:col-span-2 space-y-4">
-          <div className="rounded-lg border bg-white p-4 shadow-sm">
-            <h3 className="text-sm font-semibold text-slate-900">Assessments</h3>
-            <div className="mt-3 grid grid-cols-1 gap-3">
-              {assessments.map((assessment) => (
-                <button
-                  key={assessment.id}
-                  type="button"
-                  onClick={() => {
-                    setSelectedId(assessment.id);
-                    setFormState((prev) => ({
-                      ...prev,
-                      assessmentId: assessment.id,
-                      specialistKind: assessment.specialist_kind as SpecialistKind,
-                      name: assessment.name,
-                      firm: assessment.firm ?? '',
-                      scope: assessment.scope ?? '',
-                      competenceRationale: assessment.competence_rationale ?? '',
-                      objectivityRationale: assessment.objectivity_rationale ?? '',
-                      workPerformed: assessment.work_performed ?? '',
-                      conclusion: assessment.conclusion as SpecialistConclusion,
-                      conclusionNotes: assessment.conclusion_notes ?? '',
-                      memoDocumentId: assessment.memo_document_id ?? '',
-                    }));
-                  }}
-                  className={`rounded border px-3 py-2 text-left transition hover:border-slate-400 ${
-                    selectedId === assessment.id ? 'border-slate-900 bg-slate-50' : 'border-slate-200 bg-white'
-                  }`}
-                >
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="font-medium text-slate-900">{assessment.name}</span>
-                    <span className="text-xs uppercase text-slate-500">{assessment.specialist_kind}</span>
-                  </div>
-                  <div className="mt-1 text-xs text-slate-500">Conclusion: {assessment.conclusion}</div>
-                </button>
-              ))}
-              {assessments.length === 0 && <p className="text-sm text-slate-500">No assessments recorded.</p>}
+  return (
+    <main className="mx-auto flex max-w-6xl flex-col gap-6 p-6" aria-labelledby="audit-specialists-heading">
+      <header className="space-y-2">
+        <h1 id="audit-specialists-heading" className="text-2xl font-semibold">
+          Audit specialists workflow
+        </h1>
+        <p className="text-sm text-muted-foreground">
+          Capture ISA 620 expert considerations and ISA 610 internal audit reliance assessments, attach supporting evidence, and export memo-ready summaries for your file.
+        </p>
+      </header>
+
+      <section className="rounded border border-border p-4">
+        <h2 className="text-lg font-medium">Engagement context</h2>
+        <div className="mt-3 grid gap-4 md:grid-cols-2">
+          <label className="flex flex-col gap-1 text-sm font-medium">
+            Acting user ID
+            <input
+              value={userId}
+              onChange={(event) => setUserId(event.target.value)}
+              className="rounded border border-border px-3 py-2 text-sm"
+              placeholder="Supabase auth user identifier"
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-sm font-medium">
+            Organisation ID
+            <input
+              value={orgId}
+              onChange={(event) => setOrgId(event.target.value)}
+              className="rounded border border-border px-3 py-2 text-sm"
+              placeholder="org-uuid"
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-sm font-medium">
+            Engagement ID
+            <input
+              value={engagementId}
+              onChange={(event) => setEngagementId(event.target.value)}
+              className="rounded border border-border px-3 py-2 text-sm"
+              placeholder="engagement-uuid"
+            />
+          </label>
+        </div>
+        <button
+          type="button"
+          onClick={() => void handleLoad()}
+          disabled={loading}
+          className="mt-4 inline-flex items-center justify-center rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+        >
+          {loading ? 'Loading…' : 'Load evaluations'}
+        </button>
+        {(feedback || error) && (
+          <p className={`mt-3 text-sm ${error ? 'text-red-600' : 'text-green-700'}`} aria-live="polite">
+            {error ?? feedback}
+          </p>
+        )}
+      </section>
+
+      <section className="grid gap-6 md:grid-cols-2" aria-label="Specialist evaluations">
+        <article className="flex flex-col gap-4 rounded border border-border p-4" aria-label="Expert use">
+          <header className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold">External expert (ISA 620)</h2>
+              <p className="text-xs text-muted-foreground">
+                Assess the competence, objectivity, and work of the specialist engaged by the firm.
+              </p>
             </div>
+            <button
+              type="button"
+              onClick={() => exportMemo('expert')}
+              className="rounded border border-border px-3 py-1 text-xs font-medium hover:bg-muted"
+            >
+              Export memo
+            </button>
+          </header>
+
+          <div className="space-y-3">
+            <label className="flex flex-col gap-1 text-sm font-medium">
+              Area addressed
+              <input
+                name="area"
+                value={expertForm.area}
+                onChange={handleExpertChange}
+                className="rounded border border-border px-3 py-2 text-sm"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm font-medium">
+              Specialist name
+              <input
+                name="specialistName"
+                value={expertForm.specialistName}
+                onChange={handleExpertChange}
+                className="rounded border border-border px-3 py-2 text-sm"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm font-medium">
+              Specialist firm
+              <input
+                name="specialistFirm"
+                value={expertForm.specialistFirm}
+                onChange={handleExpertChange}
+                className="rounded border border-border px-3 py-2 text-sm"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm font-medium">
+              Scope of work
+              <textarea
+                name="scopeOfWork"
+                value={expertForm.scopeOfWork}
+                onChange={handleExpertChange}
+                className="min-h-[80px] rounded border border-border px-3 py-2 text-sm"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm font-medium">
+              Competence evaluation
+              <textarea
+                name="competenceAssessment"
+                value={expertForm.competenceAssessment}
+                onChange={handleExpertChange}
+                className="min-h-[80px] rounded border border-border px-3 py-2 text-sm"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm font-medium">
+              Objectivity assessment
+              <textarea
+                name="objectivityAssessment"
+                value={expertForm.objectivityAssessment}
+                onChange={handleExpertChange}
+                className="min-h-[80px] rounded border border-border px-3 py-2 text-sm"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm font-medium">
+              Work performed
+              <textarea
+                name="workPerformed"
+                value={expertForm.workPerformed}
+                onChange={handleExpertChange}
+                className="min-h-[80px] rounded border border-border px-3 py-2 text-sm"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm font-medium">
+              Results summary
+              <textarea
+                name="resultsSummary"
+                value={expertForm.resultsSummary}
+                onChange={handleExpertChange}
+                className="min-h-[80px] rounded border border-border px-3 py-2 text-sm"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm font-medium">
+              Conclusion
+              <textarea
+                name="conclusion"
+                value={expertForm.conclusion}
+                onChange={handleExpertChange}
+                className="min-h-[80px] rounded border border-border px-3 py-2 text-sm"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm font-medium">
+              Status
+              <select
+                name="status"
+                value={expertForm.status}
+                onChange={handleExpertChange}
+                className="rounded border border-border px-3 py-2 text-sm"
+              >
+                {STATUS_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex flex-col gap-1 text-sm font-medium">
+              Standards (comma separated)
+              <input
+                value={expertStandardInput}
+                onChange={(event) => updateStandardRefs('expert', event.target.value)}
+                className="rounded border border-border px-3 py-2 text-sm"
+              />
+            </label>
           </div>
 
-          {selectedAssessment && (
-            <div className="rounded-lg border bg-white p-4 shadow-sm space-y-3">
-              <h4 className="text-lg font-semibold text-slate-900">{selectedAssessment.name}</h4>
-              <p className="text-xs text-slate-600">Scope: {selectedAssessment.scope ?? 'n/a'}</p>
-              <p className="text-xs text-slate-600">Firm: {selectedAssessment.firm ?? 'n/a'}</p>
-              <p className="text-xs text-slate-600">Competence: {selectedAssessment.competence_rationale ?? 'n/a'}</p>
-              <p className="text-xs text-slate-600">Objectivity: {selectedAssessment.objectivity_rationale ?? 'n/a'}</p>
-              <p className="text-xs text-slate-600">Work performed: {selectedAssessment.work_performed ?? 'n/a'}</p>
-              <p className="text-xs text-slate-600">Conclusion: {selectedAssessment.conclusion} {selectedAssessment.conclusion_notes ? `– ${selectedAssessment.conclusion_notes}` : ''}</p>
-            </div>
-          )}
-        </div>
-      </div>
-    </section>
-  );
-}
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => void handleExpertSave(false)}
+              className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            >
+              Save expert evaluation
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleExpertSave(true)}
+              className="rounded border border-blue-600 px-4 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50"
+            >
+              Mark concluded
+            </button>
+          </div>
 
-function normalizeAssessment(records: any[]): SpecialistAssessment[] {
-  return (records ?? []).map((record) => ({ ...record }));
+          <section aria-label="Expert evidence" className="space-y-4">
+            <h3 className="text-sm font-semibold">Evidence attachments</h3>
+            {renderEvidenceList(expertEvidence, 'expert')}
+            <form
+              className="space-y-2 rounded border border-dashed border-border p-3"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void handleEvidenceCreate('expert');
+              }}
+            >
+              <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Add new evidence
+              </h4>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium" htmlFor="expert-evidence-description">
+                  Description
+                </label>
+                <input
+                  id="expert-evidence-description"
+                  name="description"
+                  value={newEvidenceForms.expert.description}
+                  onChange={(event) => handleEvidenceInputChange('expert', event)}
+                  className="rounded border border-border px-3 py-2 text-sm"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium" htmlFor="expert-evidence-document">
+                  Document ID
+                </label>
+                <input
+                  id="expert-evidence-document"
+                  name="documentId"
+                  value={newEvidenceForms.expert.documentId}
+                  onChange={(event) => handleEvidenceInputChange('expert', event)}
+                  className="rounded border border-border px-3 py-2 text-sm"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium" htmlFor="expert-evidence-url">
+                  Evidence URL
+                </label>
+                <input
+                  id="expert-evidence-url"
+                  name="evidenceUrl"
+                  value={newEvidenceForms.expert.evidenceUrl}
+                  onChange={(event) => handleEvidenceInputChange('expert', event)}
+                  className="rounded border border-border px-3 py-2 text-sm"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium" htmlFor="expert-evidence-notes">
+                  Notes
+                </label>
+                <textarea
+                  id="expert-evidence-notes"
+                  name="notes"
+                  value={newEvidenceForms.expert.notes}
+                  onChange={(event) => handleEvidenceInputChange('expert', event)}
+                  className="min-h-[60px] rounded border border-border px-3 py-2 text-sm"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium" htmlFor="expert-evidence-standards">
+                  Standards (comma separated)
+                </label>
+                <input
+                  id="expert-evidence-standards"
+                  name="standards"
+                  value={newEvidenceForms.expert.standards}
+                  onChange={(event) => handleEvidenceInputChange('expert', event)}
+                  className="rounded border border-border px-3 py-2 text-sm"
+                />
+              </div>
+              <button
+                type="submit"
+                className="rounded bg-blue-600 px-3 py-1 text-sm font-medium text-white hover:bg-blue-700"
+              >
+                Attach evidence
+              </button>
+            </form>
+          </section>
+        </article>
+
+        <article className="flex flex-col gap-4 rounded border border-border p-4" aria-label="Internal audit">
+          <header className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold">Internal audit reliance (ISA 610)</h2>
+              <p className="text-xs text-muted-foreground">
+                Document the reliance strategy on the internal audit function and conclude on sufficiency.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => exportMemo('internal')}
+              className="rounded border border-border px-3 py-1 text-xs font-medium hover:bg-muted"
+            >
+              Export memo
+            </button>
+          </header>
+
+          <div className="space-y-3">
+            <label className="flex flex-col gap-1 text-sm font-medium">
+              Reliance area
+              <input
+                name="relianceArea"
+                value={internalForm.relianceArea}
+                onChange={handleInternalChange}
+                className="rounded border border-border px-3 py-2 text-sm"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm font-medium">
+              Internal audit lead
+              <input
+                name="internalAuditLead"
+                value={internalForm.internalAuditLead}
+                onChange={handleInternalChange}
+                className="rounded border border-border px-3 py-2 text-sm"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm font-medium">
+              Scope of reliance
+              <textarea
+                name="scopeOfReliance"
+                value={internalForm.scopeOfReliance}
+                onChange={handleInternalChange}
+                className="min-h-[80px] rounded border border-border px-3 py-2 text-sm"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm font-medium">
+              Competence evaluation
+              <textarea
+                name="competenceEvaluation"
+                value={internalForm.competenceEvaluation}
+                onChange={handleInternalChange}
+                className="min-h-[80px] rounded border border-border px-3 py-2 text-sm"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm font-medium">
+              Objectivity evaluation
+              <textarea
+                name="objectivityEvaluation"
+                value={internalForm.objectivityEvaluation}
+                onChange={handleInternalChange}
+                className="min-h-[80px] rounded border border-border px-3 py-2 text-sm"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm font-medium">
+              Work evaluation
+              <textarea
+                name="workEvaluation"
+                value={internalForm.workEvaluation}
+                onChange={handleInternalChange}
+                className="min-h-[80px] rounded border border-border px-3 py-2 text-sm"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm font-medium">
+              Risk assessment
+              <textarea
+                name="riskAssessment"
+                value={internalForm.riskAssessment}
+                onChange={handleInternalChange}
+                className="min-h-[80px] rounded border border-border px-3 py-2 text-sm"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm font-medium">
+              Conclusion
+              <textarea
+                name="conclusion"
+                value={internalForm.conclusion}
+                onChange={handleInternalChange}
+                className="min-h-[80px] rounded border border-border px-3 py-2 text-sm"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm font-medium">
+              Status
+              <select
+                name="status"
+                value={internalForm.status}
+                onChange={handleInternalChange}
+                className="rounded border border-border px-3 py-2 text-sm"
+              >
+                {STATUS_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex flex-col gap-1 text-sm font-medium">
+              Standards (comma separated)
+              <input
+                value={internalStandardInput}
+                onChange={(event) => updateStandardRefs('internal', event.target.value)}
+                className="rounded border border-border px-3 py-2 text-sm"
+              />
+            </label>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => void handleInternalSave(false)}
+              className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            >
+              Save internal audit evaluation
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleInternalSave(true)}
+              className="rounded border border-blue-600 px-4 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50"
+            >
+              Mark concluded
+            </button>
+          </div>
+
+          <section aria-label="Internal audit evidence" className="space-y-4">
+            <h3 className="text-sm font-semibold">Evidence attachments</h3>
+            {renderEvidenceList(internalEvidence, 'internal')}
+            <form
+              className="space-y-2 rounded border border-dashed border-border p-3"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void handleEvidenceCreate('internal');
+              }}
+            >
+              <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Add new evidence
+              </h4>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium" htmlFor="internal-evidence-description">
+                  Description
+                </label>
+                <input
+                  id="internal-evidence-description"
+                  name="description"
+                  value={newEvidenceForms.internal.description}
+                  onChange={(event) => handleEvidenceInputChange('internal', event)}
+                  className="rounded border border-border px-3 py-2 text-sm"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium" htmlFor="internal-evidence-document">
+                  Document ID
+                </label>
+                <input
+                  id="internal-evidence-document"
+                  name="documentId"
+                  value={newEvidenceForms.internal.documentId}
+                  onChange={(event) => handleEvidenceInputChange('internal', event)}
+                  className="rounded border border-border px-3 py-2 text-sm"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium" htmlFor="internal-evidence-url">
+                  Evidence URL
+                </label>
+                <input
+                  id="internal-evidence-url"
+                  name="evidenceUrl"
+                  value={newEvidenceForms.internal.evidenceUrl}
+                  onChange={(event) => handleEvidenceInputChange('internal', event)}
+                  className="rounded border border-border px-3 py-2 text-sm"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium" htmlFor="internal-evidence-notes">
+                  Notes
+                </label>
+                <textarea
+                  id="internal-evidence-notes"
+                  name="notes"
+                  value={newEvidenceForms.internal.notes}
+                  onChange={(event) => handleEvidenceInputChange('internal', event)}
+                  className="min-h-[60px] rounded border border-border px-3 py-2 text-sm"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium" htmlFor="internal-evidence-standards">
+                  Standards (comma separated)
+                </label>
+                <input
+                  id="internal-evidence-standards"
+                  name="standards"
+                  value={newEvidenceForms.internal.standards}
+                  onChange={(event) => handleEvidenceInputChange('internal', event)}
+                  className="rounded border border-border px-3 py-2 text-sm"
+                />
+              </div>
+              <button
+                type="submit"
+                className="rounded bg-blue-600 px-3 py-1 text-sm font-medium text-white hover:bg-blue-700"
+              >
+                Attach evidence
+              </button>
+            </form>
+          </section>
+        </article>
+      </section>
+    </main>
+  );
 }
