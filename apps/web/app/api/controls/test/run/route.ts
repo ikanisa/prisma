@@ -3,11 +3,23 @@ import { ZodError } from 'zod';
 import { getServiceSupabaseClient } from '../../../../../lib/supabase-server';
 import { runControlTestSchema } from '../../../../../lib/audit/schemas';
 import { logAuditActivity } from '../../../../../lib/audit/activity-log';
-import { getSamplingClient } from '../../../../../lib/audit/sampling-client';
+import { getSamplingClient as baseGetSamplingClient } from '../../../../../lib/audit/sampling-client';
 import { ensureAuditRecordApprovalStage, upsertAuditModuleRecord } from '../../../../../lib/audit/module-records';
 import { buildEvidenceManifest } from '../../../../../lib/audit/evidence';
 import { attachRequestId, getOrCreateRequestId } from '../../../../lib/observability';
 import { createApiGuard } from '../../../../lib/api-guard';
+
+/** 
+ * Testability: allow tests to inject a fake Sampling client.
+ * Defaults to the real client from lib/audit/sampling-client.
+ */
+type SamplingClient = ReturnType<typeof baseGetSamplingClient>;
+let samplingClientFactory: () => SamplingClient = () => baseGetSamplingClient();
+
+/** Optional: used by tests to override the sampling client */
+export function setSamplingClientFactory(factory: (() => SamplingClient) | null) {
+  samplingClientFactory = factory ?? (() => baseGetSamplingClient());
+}
 
 export async function POST(request: Request) {
   const requestId = getOrCreateRequestId(request);
@@ -18,9 +30,15 @@ export async function POST(request: Request) {
     payload = runControlTestSchema.parse(await request.json());
   } catch (error) {
     if (error instanceof ZodError) {
-      return NextResponse.json({ error: error.flatten() }, attachRequestId({ status: 400 }, requestId));
+      return NextResponse.json(
+        { error: error.flatten() },
+        attachRequestId({ status: 400 }, requestId),
+      );
     }
-    return NextResponse.json({ error: 'Invalid JSON payload.' }, attachRequestId({ status: 400 }, requestId));
+    return NextResponse.json(
+      { error: 'Invalid JSON payload.' },
+      attachRequestId({ status: 400 }, requestId),
+    );
   }
 
   const {
@@ -56,12 +74,12 @@ export async function POST(request: Request) {
   if (controlError) {
     return guard.json({ error: controlError.message }, { status: 500 });
   }
-
   if (!control) {
     return guard.json({ error: 'Control not found for sampling.' }, { status: 404 });
   }
 
-  const samplingClient = getSamplingClient();
+  // Use the (possibly injected) sampling client
+  const samplingClient = samplingClientFactory();
   const samplingPlan = await samplingClient.requestPlan({
     orgId,
     engagementId,
@@ -117,7 +135,7 @@ export async function POST(request: Request) {
     },
   });
 
-  let deficiency = null;
+  let deficiency = null as unknown as Record<string, unknown> | null;
   if (result === 'EXCEPTIONS') {
     const severity = deficiencySeverity ?? 'MEDIUM';
     const { data, error } = await supabase
@@ -181,7 +199,7 @@ export async function POST(request: Request) {
 
     if (deficiency) {
       metadata.deficiencyId = deficiency.id;
-      metadata.deficiencySeverity = deficiency.severity;
+      metadata.deficiencySeverity = (deficiency as any).severity;
     }
 
     await upsertAuditModuleRecord(supabase, {
@@ -212,7 +230,10 @@ export async function POST(request: Request) {
       userId,
     });
   } catch (moduleError) {
-    const message = moduleError instanceof Error ? moduleError.message : 'Failed to flag audit module record for review.';
+    const message =
+      moduleError instanceof Error
+        ? moduleError.message
+        : 'Failed to flag audit module record for review.';
     return guard.json({ error: message }, { status: 500 });
   }
 
