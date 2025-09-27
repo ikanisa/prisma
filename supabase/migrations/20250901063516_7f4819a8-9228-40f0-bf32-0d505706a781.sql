@@ -1,10 +1,9 @@
 -- Fix the organizations table to match the expected schema
 ALTER TABLE organizations ADD COLUMN IF NOT EXISTS plan text;
-
 -- Now apply the demo seed data with the corrected structure
 DO $$
 DECLARE
-  v_org uuid; v_user uuid; v_eng uuid; v_mat uuid;
+  v_org uuid; v_user uuid; v_eng uuid; v_mat uuid; v_client uuid;
   v_vendor_mt uuid; v_vendor_eu uuid; v_vendor_local uuid;
   v_cat_sw uuid; v_cat_prof uuid; v_cat_travel uuid;
   v_coa_cash uuid; v_coa_ap uuid; v_coa_revenue uuid; v_coa_vat_pay uuid; v_coa_expense uuid;
@@ -12,6 +11,11 @@ BEGIN
   SELECT id INTO v_org FROM organizations WHERE slug='demo';
   IF v_org IS NULL THEN
     INSERT INTO organizations(slug,name,plan) VALUES ('demo','Demo Org','dev') RETURNING id INTO v_org;
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM categories WHERE org_id = v_org AND name = 'Software Subscriptions') THEN
+    RAISE NOTICE 'Demo seed already present. Skipping duplicate block.';
+    RETURN;
   END IF;
 
   -- COA
@@ -30,14 +34,16 @@ BEGIN
   INSERT INTO categories(id,org_id,name,description) VALUES
     (v_cat_sw,v_org,'Software Subscriptions','SaaS & cloud tools'),
     (v_cat_prof,v_org,'Professional Fees','Consulting, audit & legal'),
-    (v_cat_travel,v_org,'Travel','Flights, hotels, taxis');
+    (v_cat_travel,v_org,'Travel','Flights, hotels, taxis')
+  ON CONFLICT (org_id,name) DO NOTHING;
 
   -- Vendors
   v_vendor_mt := gen_random_uuid(); v_vendor_eu := gen_random_uuid(); v_vendor_local := gen_random_uuid();
   INSERT INTO vendors(id,org_id,name,vat_number,country,extra) VALUES
     (v_vendor_mt,v_org,'Malta Telecom Ltd','MT12345678','MT','{}'),
     (v_vendor_eu,v_org,'EU Cloud GmbH','DE123456789','DE','{}'),
-    (v_vendor_local,v_org,'Local Stationery','MT87654321','MT','{}');
+    (v_vendor_local,v_org,'Local Stationery','MT87654321','MT','{}')
+  ON CONFLICT (org_id,name) DO NOTHING;
 
   INSERT INTO vendor_category_mappings(id,org_id,vendor_id,category_id,vat_code,confidence,examples) VALUES
     (gen_random_uuid(),v_org,v_vendor_mt,v_cat_prof,'MT_STD_18',0.9,'[]'::jsonb),
@@ -64,8 +70,16 @@ BEGIN
 
   -- Engagement + materiality
   v_eng := gen_random_uuid();
-  INSERT INTO engagements(id,org_id,client_id,year,status,frf,eqr_required)
-  VALUES (v_eng,v_org,'ACME LTD',extract(year from now())::int,'planned','IFRS',false);
+  SELECT id INTO v_client FROM clients WHERE org_id = v_org AND name = 'ACME LTD';
+  IF v_client IS NULL THEN
+    INSERT INTO clients (org_id, name, contact_name, email, phone, country, industry, fiscal_year_end)
+    VALUES (v_org, 'ACME LTD', 'Alex Turner', 'finance@acme.example', '+356000000', 'MT', 'Manufacturing', 'December 31')
+    RETURNING id INTO v_client;
+  END IF;
+
+  INSERT INTO engagements(id,org_id,client_id,title,description,status,start_date,end_date,year,frf,eqr_required)
+  VALUES (v_eng,v_org,v_client,'ACME Group - FY'||extract(year from now())::int,'Demo engagement seed','planned',current_date-30,current_date+335,extract(year from now())::int,'IFRS',false)
+  ON CONFLICT (id) DO NOTHING;
 
   v_mat := gen_random_uuid();
   INSERT INTO materiality_sets(id,org_id,engagement_id,basis,basis_amount,pm,te_threshold,rationale)

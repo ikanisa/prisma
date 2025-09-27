@@ -1,19 +1,21 @@
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink, useLocation, useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  LayoutDashboard, 
-  Users, 
-  Briefcase, 
-  CheckSquare, 
-  FileText, 
-  Bell, 
-  Activity, 
+import {
+  LayoutDashboard,
+  Users,
+  Briefcase,
+  CheckSquare,
+  FileText,
+  Bell,
+  Activity,
   Settings,
   Menu,
-  Sparkles
+  Sparkles,
+  BookOpen,
+  Bot
 } from 'lucide-react';
 import { Button } from '@/components/enhanced-button';
-import { useAppStore } from '@/stores/mock-data';
+import { useOrganizations } from '@/hooks/use-organizations';
 import { cn } from '@/lib/utils';
 
 interface SidebarProps {
@@ -21,21 +23,51 @@ interface SidebarProps {
   onToggle: () => void;
 }
 
-const navigation = [
+type Role = 'EMPLOYEE' | 'MANAGER' | 'SYSTEM_ADMIN';
+
+type NavigationItem = {
+  name: string;
+  href: string;
+  icon: typeof LayoutDashboard;
+  minRole?: Role;
+};
+
+const navigation: NavigationItem[] = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Clients', href: '/clients', icon: Users },
   { name: 'Engagements', href: '/engagements', icon: Briefcase },
   { name: 'Tasks', href: '/tasks', icon: CheckSquare },
   { name: 'Documents', href: '/documents', icon: FileText },
+  { name: 'Knowledge', href: '/knowledge/repositories', icon: BookOpen, minRole: 'MANAGER' },
+  { name: 'Agent Learning', href: '/agents/learning', icon: Bot, minRole: 'MANAGER' },
+  { name: 'Tax (Malta CIT)', href: '/tax/malta-cit', icon: FileText, minRole: 'MANAGER' },
+  { name: 'Tax (VAT & OSS)', href: '/tax/vat-oss', icon: FileText, minRole: 'MANAGER' },
+  { name: 'Tax (DAC6)', href: '/tax/dac6', icon: FileText, minRole: 'MANAGER' },
+  { name: 'Tax (Pillar Two)', href: '/tax/pillar-two', icon: FileText, minRole: 'MANAGER' },
+  { name: 'Tax (Treaty & WHT)', href: '/tax/treaty-wht', icon: FileText, minRole: 'MANAGER' },
+  { name: 'Telemetry', href: '/telemetry', icon: Activity, minRole: 'MANAGER' },
   { name: 'Notifications', href: '/notifications', icon: Bell },
   { name: 'Activity', href: '/activity', icon: Activity },
-  { name: 'Settings', href: '/settings', icon: Settings },
+  { name: 'Settings', href: '/settings', icon: Settings, minRole: 'MANAGER' },
 ];
 
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const location = useLocation();
-  const { currentOrg, getCurrentUserRole } = useAppStore();
-  const userRole = getCurrentUserRole();
+  const { orgSlug } = useParams();
+  const { currentOrg, memberships } = useOrganizations();
+  const currentMembership = currentOrg
+    ? memberships.find((membership) => membership.org_id === currentOrg.id)
+    : null;
+  const userRole = currentMembership?.role ?? null;
+
+  const roleHierarchy: Record<Role, number> = { EMPLOYEE: 1, MANAGER: 2, SYSTEM_ADMIN: 3 };
+
+  const userRoleLevel = userRole ? roleHierarchy[userRole as Role] ?? 0 : 0;
+
+  const filteredNavigation = navigation.filter((item) => {
+    if (!item.minRole) return true;
+    return userRoleLevel >= roleHierarchy[item.minRole];
+  });
 
   const isActive = (href: string) => {
     const path = location.pathname;
@@ -122,9 +154,10 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
       {/* Navigation */}
       <nav className="flex-1 p-4 space-y-2">
-        {navigation.map((item, index) => {
+        {filteredNavigation.map((item, index) => {
           const active = isActive(item.href);
-          const href = `/${currentOrg?.slug}${item.href}`;
+          const baseSlug = currentOrg?.slug ?? orgSlug ?? '';
+          const href = baseSlug ? `/${baseSlug}${item.href}` : item.href;
           
           return (
             <motion.div

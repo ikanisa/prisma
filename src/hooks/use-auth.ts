@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, isSupabaseConfigured } from '@/integrations/supabase/client';
 import { User, Session } from '@supabase/supabase-js';
 import { useToast } from '@/hooks/use-toast';
 
@@ -20,17 +20,43 @@ export function useAuth(): AuthState {
   const { toast } = useToast();
 
   useEffect(() => {
-    // Set up auth state listener FIRST
+    if (!isSupabaseConfigured) {
+      console.log('[AUTH] Supabase not configured, enabling demo auth');
+      const demoUser = {
+        id: '1',
+        email: 'demo@aurora.test',
+        email_confirmed_at: new Date().toISOString(),
+        phone: '',
+        last_sign_in_at: new Date().toISOString(),
+        app_metadata: { provider: 'local-demo' },
+        user_metadata: { name: 'Demo User' },
+        identities: [],
+        factors: [],
+        aud: 'authenticated',
+        created_at: new Date().toISOString(),
+        role: 'authenticated',
+        updated_at: new Date().toISOString(),
+        confirmed_at: new Date().toISOString(),
+      } as unknown as User;
+
+      setUser(demoUser);
+      setSession(null);
+      setLoading(false);
+      return;
+    }
+
+    console.log('[AUTH] Setting up auth listener...');
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
+        console.log('[AUTH] State change event:', event, 'Session:', session?.user?.email);
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
       }
     );
 
-    // THEN check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log('[AUTH] Initial session check:', session?.user?.email);
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
@@ -40,17 +66,40 @@ export function useAuth(): AuthState {
   }, []);
 
   const signIn = async (email: string, password: string) => {
+    if (!isSupabaseConfigured) {
+      setUser((prev) =>
+        prev ?? ({
+          id: '1',
+          email,
+          email_confirmed_at: new Date().toISOString(),
+          last_sign_in_at: new Date().toISOString(),
+          app_metadata: { provider: 'local-demo' },
+          user_metadata: { name: email.split('@')[0] ?? 'Demo User' },
+          aud: 'authenticated',
+          role: 'authenticated',
+          identities: [],
+          factors: [],
+          created_at: new Date().toISOString(),
+          phone: '',
+          updated_at: new Date().toISOString(),
+          confirmed_at: new Date().toISOString(),
+        } as unknown as User),
+      );
+      setLoading(false);
+      return {};
+    }
+
     setLoading(true);
     try {
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
-      
+
       if (error) {
         throw error;
       }
-      
+
       return {};
     } catch (error: any) {
       return { error: error.message };
@@ -60,10 +109,15 @@ export function useAuth(): AuthState {
   };
 
   const signUp = async (email: string, password: string, name: string) => {
+    if (!isSupabaseConfigured) {
+      setLoading(false);
+      return { error: 'Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY.' };
+    }
+
     setLoading(true);
     try {
       const redirectUrl = `${window.location.origin}/`;
-      
+
       const { error } = await supabase.auth.signUp({
         email,
         password,
@@ -74,11 +128,11 @@ export function useAuth(): AuthState {
           }
         }
       });
-      
+
       if (error) {
         throw error;
       }
-      
+
       return {};
     } catch (error: any) {
       return { error: error.message };
@@ -88,27 +142,37 @@ export function useAuth(): AuthState {
   };
 
   const signOut = async () => {
+    if (!isSupabaseConfigured) {
+      setUser(null);
+      setSession(null);
+      return;
+    }
+
     setLoading(true);
     await supabase.auth.signOut();
     setLoading(false);
   };
 
   const sendMagicLink = async (email: string) => {
+    if (!isSupabaseConfigured) {
+      return { error: 'Supabase magic links require server configuration.' };
+    }
+
     setLoading(true);
     try {
       const redirectUrl = `${window.location.origin}/`;
-      
+
       const { error } = await supabase.auth.signInWithOtp({
         email,
         options: {
           emailRedirectTo: redirectUrl
         }
       });
-      
+
       if (error) {
         throw error;
       }
-      
+
       return {};
     } catch (error: any) {
       return { error: error.message };
