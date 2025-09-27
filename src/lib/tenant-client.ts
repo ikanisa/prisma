@@ -1,58 +1,75 @@
 import { supabase, isSupabaseConfigured } from '@/integrations/supabase/client';
 
+/**
+ * IMPORTANT:
+ * - Include only tables that have an `org_id` column.
+ * - Tables like `soc1_reports`, `soc1_cuecs`, `soc1_residual_risk_notes`, `knowledge_sources`
+ *   do NOT have `org_id` and are intentionally excluded from this org-scoped registry.
+ */
 const ORG_SCOPED_TABLES = [
+  // Core domain
   'clients',
   'documents',
   'engagements',
+  'controls',
+  'materiality_sets',
+  'risks',
+  'kams',
+
+  // Reconciliation / group audit (with org_id)
   'group_components',
   'group_instructions',
   'component_workpapers',
   'component_reviews',
-  'notifications',
+
+  // Ops & workflow
   'tasks',
-  'activity_log',
-  'kam_candidates',
-  'kam_drafts',
-  'audit_planned_procedures',
-  'audit_evidence',
-  'audit_plans',
-  'materiality_sets',
-  'plan_change_log',
-  'audit_risks',
-  'audit_risk_signals',
-  'audit_risk_activity',
-  'audit_responses',
-  'audit_response_checks',
-  'fraud_plans',
-  'fraud_plan_actions',
-  'journal_entry_strategies',
-  'tax_entities',
-  'tax_accounts',
-  'cit_computations',
-  'participation_exemptions',
-  'return_files',
-  'estimate_register',
-  'going_concern_worksheets',
-  'controls',
-  'control_walkthroughs',
-  'control_tests',
-  'itgc_groups',
-  'deficiencies',
-  'client_background_checks',
-  'independence_assessments',
-  'acceptance_decisions',
-  'approval_queue',
-  'audit_report_drafts',
-  'tcwg_packs',
-  'engagement_archives',
+  'notifications',
   'pbc_requests',
-  'pbc_deliveries',
+  'pbc_items',
+  'policies',
+  'portal_sessions',
+  'errors',
+  'idempotency_keys',
+  'ingest_jobs',
+
+  // Ledger & accounting
+  'accounting',
+  'journal_entries',
+  'journal_lines',
+  'chart_of_accounts',
+  'transactions',
+  'vendors',
+  'vendor_category_mappings',
+  'tax',
+  'vat_rules',
+  'vat_returns',
+  'vies_checks',
+
+  // Agents & knowledge (only those with org_id)
   'agent_profiles',
-  'knowledge_corpora',
-  'knowledge_sources',
-  'learning_runs',
-  'knowledge_events',
   'agent_feedback',
+  'agent_logs',
+  'agent_sessions',
+  'knowledge_corpora',
+  'knowledge_events',
+  'learning_runs',
+
+  // Misc tables with org_id
+  'activity_log',
+  'categories',
+  'chunks',
+  'cit_computations',
+  'independence_checks',
+  'members',
+  'memberships',
+  'misstatements',
+  'samples',
+  'tests',
+  'workpapers',
+
+  // Service org registry (has org_id)
+  'service_orgs',
 ] as const;
 
 export type OrgScopedTable = (typeof ORG_SCOPED_TABLES)[number];
@@ -64,7 +81,6 @@ export class TenantClient {
     if (!ORG_SCOPED_TABLES.includes(table)) {
       throw new Error(`Table ${table as string} is not registered as org-scoped.`);
     }
-
     return supabase.from(table as any) as any;
   }
 
