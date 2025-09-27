@@ -1,7 +1,11 @@
 import crypto from 'crypto'
 
+function isHeadersLike(value: unknown): value is Headers {
+  return typeof value === 'object' && value !== null && typeof (value as Headers).get === 'function'
+}
+
 function getHeader(headers: Headers | Record<string, string | undefined>, name: string): string | undefined {
-  if (headers instanceof Headers) {
+  if (isHeadersLike(headers)) {
     return headers.get(name.toLowerCase()) ?? headers.get(name) ?? undefined
   }
   const key = Object.keys(headers).find(k => k.toLowerCase() === name.toLowerCase())

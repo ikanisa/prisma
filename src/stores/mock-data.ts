@@ -48,6 +48,7 @@ export interface Engagement {
   id: string;
   orgId: string;
   clientId: string;
+  title: string;
   type: EngagementType;
   periodStart: string;
   periodEnd: string;
@@ -217,6 +218,7 @@ export const mockEngagements: Engagement[] = [
     id: '1',
     orgId: '1',
     clientId: '1',
+    title: 'Aurora Retail FY24 Audit',
     type: 'AUDIT',
     periodStart: '2024-01-01',
     periodEnd: '2024-12-31',
@@ -228,6 +230,7 @@ export const mockEngagements: Engagement[] = [
     id: '2',
     orgId: '1',
     clientId: '2',
+    title: 'Northwind 2023/24 Tax Engagement',
     type: 'TAX',
     periodStart: '2023-07-01',
     periodEnd: '2024-06-30',
@@ -239,6 +242,7 @@ export const mockEngagements: Engagement[] = [
     id: '3',
     orgId: '1',
     clientId: '3',
+    title: 'FinEdge Q1 2024 Close',
     type: 'ACCOUNTING',
     periodStart: '2024-01-01',
     periodEnd: '2024-03-31',
@@ -250,6 +254,7 @@ export const mockEngagements: Engagement[] = [
     id: '4',
     orgId: '1',
     clientId: '4',
+    title: 'HealthPlus FY24 Audit Planning',
     type: 'AUDIT',
     periodStart: '2024-01-01',
     periodEnd: '2024-12-31',
@@ -261,6 +266,7 @@ export const mockEngagements: Engagement[] = [
     id: '5',
     orgId: '1',
     clientId: '5',
+    title: 'GreenBuild Compliance Review',
     type: 'TAX',
     periodStart: '2023-07-01',
     periodEnd: '2024-06-30',
@@ -272,6 +278,7 @@ export const mockEngagements: Engagement[] = [
     id: '6',
     orgId: '1',
     clientId: '6',
+    title: 'EduTech Managed Close FY24',
     type: 'ACCOUNTING',
     periodStart: '2023-09-01',
     periodEnd: '2024-08-31',
