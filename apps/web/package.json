@@ -29,7 +29,7 @@
     "@types/node": "^20.12.7",
     "@types/react": "^18.2.45",
     "autoprefixer": "^10.4.16",
-    "eslint": "^8.44.0",
+    "eslint": "^9.36.0",
     "eslint-config-next": "14.2.14",
     "postcss": "^8.4.31",
     "prisma": "^5.19.1",
