@@ -1,5 +1,4 @@
-import { Bell, Search, Settings, User, LogOut, Command } from "lucide-react";
-import { SidebarTrigger } from "@/components/ui/sidebar";
+import { Bell, Search, Settings, User, LogOut, Command, Menu } from "lucide-react";
 import { Button } from "@/components/enhanced-button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -16,9 +15,10 @@ import { useNavigate } from "react-router-dom";
 
 interface HeaderProps {
   onOpenCommandPalette?: () => void;
+  onToggleSidebar?: () => void;
 }
 
-export function Header({ onOpenCommandPalette }: HeaderProps) {
+export function Header({ onOpenCommandPalette, onToggleSidebar }: HeaderProps) {
   const { user, signOut } = useAuth();
   const { isSystemAdmin } = useOrganizations();
   const navigate = useNavigate();
@@ -34,7 +34,15 @@ export function Header({ onOpenCommandPalette }: HeaderProps) {
 
   return (
     <header className="h-16 bg-card/50 backdrop-blur-sm border-b border-border/50 flex items-center px-6 gap-4">
-      <SidebarTrigger />
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={onToggleSidebar}
+        className="h-7 w-7"
+      >
+        <Menu className="h-4 w-4" />
+        <span className="sr-only">Toggle sidebar</span>
+      </Button>
       
       {/* Organization Switcher */}
       <OrganizationSwitcher />

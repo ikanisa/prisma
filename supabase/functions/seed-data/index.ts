@@ -1,12 +1,9 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { getServiceSupabaseClient } from '../_shared/supabase-client.ts'
 
 Deno.serve(async (req) => {
   try {
     // Create admin client using service role key
-    const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    )
+    const supabaseAdmin = await getServiceSupabaseClient()
 
     console.log('Starting seed process...')
 

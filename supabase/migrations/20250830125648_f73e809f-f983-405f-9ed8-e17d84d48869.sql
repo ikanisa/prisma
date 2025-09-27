@@ -1,10 +1,8 @@
 -- Create the app schema first
 CREATE SCHEMA IF NOT EXISTS app;
-
 -- Create helper functions that don't depend on the touch_updated_at function yet
 CREATE OR REPLACE FUNCTION app.current_user_id()
 RETURNS uuid LANGUAGE sql STABLE AS $$ SELECT auth.uid(); $$;
-
 CREATE OR REPLACE FUNCTION app.role_rank(role_in org_role)
 RETURNS int LANGUAGE sql IMMUTABLE AS $$
   SELECT CASE role_in 
@@ -15,7 +13,6 @@ RETURNS int LANGUAGE sql IMMUTABLE AS $$
     ELSE 0 
   END;
 $$;
-
 CREATE OR REPLACE FUNCTION app.is_org_member(p_org uuid, p_min_role org_role DEFAULT 'staff')
 RETURNS boolean LANGUAGE sql STABLE AS $$
   SELECT EXISTS (
@@ -25,7 +22,6 @@ RETURNS boolean LANGUAGE sql STABLE AS $$
       AND app.role_rank(m.role) >= app.role_rank(p_min_role)
   );
 $$;
-
 CREATE OR REPLACE FUNCTION app.is_org_admin(p_org uuid)
 RETURNS boolean LANGUAGE sql STABLE AS $$ 
   SELECT app.is_org_member(p_org, 'admin'::org_role); 
