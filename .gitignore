@@ -8,6 +8,22 @@ supabase/.temp/
 .env.*
 *.log
 
+# Build artifacts
+node_modules/
+apps/web/node_modules/
+__pycache__/
+*.pyc
+
 # Misc
 *.swp
 supabase/config.toml.bak
+
+# Build & deps
+node_modules/
+**/node_modules/
+dist/
+*.tsbuildinfo
+
+# Next.js (web app)
+apps/web/.next/
+apps/web/public/workbox-*.js

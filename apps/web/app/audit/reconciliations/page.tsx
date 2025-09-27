@@ -1,7 +1,44 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { ChangeEvent, FormEvent } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ChangeEvent,
+  type FormEvent,
+} from 'react';
+
+// Read once at build-time for client code (must be NEXT_PUBLIC_)
+const RUNTIME_MODE =
+  (process.env.NEXT_PUBLIC_RECONCILIATION_MODE ?? 'db').toLowerCase() as
+    | 'memory'
+    | 'db';
+
+/* -------------------------------------------------------------------
+   MODE ROUTER
+   ------------------------------------------------------------------- */
+
+export default function ReconciliationPage() {
+  return RUNTIME_MODE === 'memory' ? (
+    <ReconciliationWorkbench />
+  ) : (
+    <ReconciliationsWorkspace />
+  );
+}
+
+/* ===================================================================
+   MEMORY MODE (Codex branch): Audit Reconciliation Workbench
+   Endpoints expected:
+     - GET  /api/recon
+     - POST /api/recon
+     - GET  /api/recon/:id
+     - POST /api/recon/:id/statements
+     - POST /api/recon/:id/match
+     - POST /api/recon/items/:itemId/resolve
+     - POST /api/recon/:id/close
+   =================================================================== */
+
 import type {
   MatchStrategy,
   ReconItem,
@@ -90,7 +127,7 @@ const INITIAL_CLOSE_FORM: CloseFormState = {
   controlReference: '',
 };
 
-function formatCurrency(amount: number, currency: string) {
+function formatCurrencyGeneric(amount: number, currency: string) {
   try {
     return new Intl.NumberFormat('en', {
       style: 'currency',
@@ -170,17 +207,18 @@ function scheduleFor(snapshot: ReconciliationSnapshot): string {
   } else {
     lines.push('Date | Description | Amount | Status');
     for (const item of rows) {
-      const statusLabel = item.status === 'OUTSTANDING' ? 'Outstanding' : item.isMisstatement ? 'Misstatement' : 'Resolved';
+      const statusLabel =
+        item.status === 'OUTSTANDING' ? 'Outstanding' : item.isMisstatement ? 'Misstatement' : 'Resolved';
       const dateLabel = item.followUpDate ?? 'TBD';
       lines.push(
-        `${dateLabel} | ${item.reason} | ${formatCurrency(item.amount, snapshot.currency)} | ${statusLabel}`,
+        `${dateLabel} | ${item.reason} | ${formatCurrencyGeneric(item.amount, snapshot.currency)} | ${statusLabel}`,
       );
     }
   }
   return lines.join('\n');
 }
 
-export default function ReconciliationWorkbench() {
+function ReconciliationWorkbench() {
   const [summaries, setSummaries] = useState<ReconciliationSummary[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [reconciliation, setReconciliation] = useState<ReconciliationSnapshot | null>(null);
@@ -189,12 +227,10 @@ export default function ReconciliationWorkbench() {
   const [resolutionForm, setResolutionForm] = useState<ResolutionFormState>(INITIAL_RESOLUTION_FORM);
   const [closeForm, setCloseForm] = useState<CloseFormState>(INITIAL_CLOSE_FORM);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
-  const [matchStrategies, setMatchStrategies] = useState<{ amountAndDate: boolean; amountOnly: boolean }>(
-    {
-      amountAndDate: true,
-      amountOnly: true,
-    },
-  );
+  const [matchStrategies, setMatchStrategies] = useState<{ amountAndDate: boolean; amountOnly: boolean }>({
+    amountAndDate: true,
+    amountOnly: true,
+  });
   const [listLoading, setListLoading] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
   const [importLoading, setImportLoading] = useState(false);
@@ -204,10 +240,10 @@ export default function ReconciliationWorkbench() {
   const [error, setError] = useState<string | null>(null);
   const [scheduleExport, setScheduleExport] = useState<string>('');
 
-  const outstandingItems = useMemo(() => {
-    return reconciliation?.items.filter((item) => item.status === 'OUTSTANDING') ?? [];
-  }, [reconciliation]);
-
+  const outstandingItems = useMemo(
+    () => reconciliation?.items.filter((item) => item.status === 'OUTSTANDING') ?? [],
+    [reconciliation],
+  );
   const matchGroups = useMemo(() => reconciliation?.matches ?? [], [reconciliation]);
 
   const updateSummariesWithSnapshot = useCallback((snapshot: ReconciliationSnapshot) => {
@@ -224,9 +260,7 @@ export default function ReconciliationWorkbench() {
       setError(null);
       try {
         const response = await fetch(`/api/recon/${id}`);
-        if (!response.ok) {
-          throw new Error('Failed to load reconciliation details');
-        }
+        if (!response.ok) throw new Error('Failed to load reconciliation details');
         const payload = (await response.json()) as { reconciliation: ReconciliationSnapshot };
         setSelectedId(id);
         setReconciliation(payload.reconciliation);
@@ -245,9 +279,7 @@ export default function ReconciliationWorkbench() {
     setError(null);
     try {
       const response = await fetch('/api/recon');
-      if (!response.ok) {
-        throw new Error('Failed to load reconciliations');
-      }
+      if (!response.ok) throw new Error('Failed to load reconciliations');
       const payload = (await response.json()) as { reconciliations: ReconciliationSummary[] };
       setSummaries(payload.reconciliations ?? []);
       if (selectedId && payload.reconciliations.some((item) => item.id === selectedId)) {
@@ -272,9 +304,7 @@ export default function ReconciliationWorkbench() {
       setSelectedItemId(null);
       return;
     }
-    if (selectedItemId && reconciliation.items.some((item) => item.id === selectedItemId)) {
-      return;
-    }
+    if (selectedItemId && reconciliation.items.some((item) => item.id === selectedItemId)) return;
     const outstanding = reconciliation.items.filter((item) => item.status === 'OUTSTANDING');
     setSelectedItemId(outstanding[0]?.id ?? null);
   }, [reconciliation, selectedItemId]);
@@ -284,7 +314,9 @@ export default function ReconciliationWorkbench() {
     setCreateForm((current) => ({ ...current, [name]: value }));
   };
 
-  const handleStatementChange = (event: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+  const handleStatementChange = (
+    event: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>,
+  ) => {
     const { name, value } = event.target;
     setStatementForm((current) => ({ ...current, [name]: value }));
   };
@@ -327,7 +359,7 @@ export default function ReconciliationWorkbench() {
       });
       if (!response.ok) {
         const payload = await response.json().catch(() => ({}));
-        throw new Error(payload.error || 'Failed to create reconciliation');
+        throw new Error((payload as any).error || 'Failed to create reconciliation');
       }
       const payload = (await response.json()) as { reconciliation: ReconciliationSnapshot };
       setCreateForm(INITIAL_CREATE_FORM);
@@ -370,7 +402,7 @@ export default function ReconciliationWorkbench() {
       });
       if (!response.ok) {
         const payload = await response.json().catch(() => ({}));
-        throw new Error(payload.error || 'Failed to import statement');
+        throw new Error((payload as any).error || 'Failed to import statement');
       }
       const payload = (await response.json()) as { statement: ReconStatement; reconciliation: ReconciliationSnapshot };
       setReconciliation(payload.reconciliation);
@@ -390,12 +422,8 @@ export default function ReconciliationWorkbench() {
       return;
     }
     const strategies: MatchStrategy[] = [];
-    if (matchStrategies.amountAndDate) {
-      strategies.push('AMOUNT_AND_DATE');
-    }
-    if (matchStrategies.amountOnly) {
-      strategies.push('AMOUNT_ONLY');
-    }
+    if (matchStrategies.amountAndDate) strategies.push('AMOUNT_AND_DATE');
+    if (matchStrategies.amountOnly) strategies.push('AMOUNT_ONLY');
 
     setDetailLoading(true);
     setError(null);
@@ -408,7 +436,7 @@ export default function ReconciliationWorkbench() {
       const response = await fetch(`/api/recon/${selectedId}/match`, init);
       if (!response.ok) {
         const payload = await response.json().catch(() => ({}));
-        throw new Error(payload.error || 'Failed to run matching');
+        throw new Error((payload as any).error || 'Failed to run matching');
       }
       const payload = (await response.json()) as {
         matches: ReconMatchGroup[];
@@ -417,9 +445,7 @@ export default function ReconciliationWorkbench() {
       };
       setReconciliation(payload.reconciliation);
       updateSummariesWithSnapshot(payload.reconciliation);
-      setStatusMessage(
-        `Matched ${payload.matches.length} items with ${payload.outstanding.length} remaining outstanding`,
-      );
+      setStatusMessage(`Matched ${payload.matches.length} items with ${payload.outstanding.length} remaining outstanding`);
     } catch (err) {
       setError((err as Error).message || 'Unable to run deterministic matching');
     } finally {
@@ -451,12 +477,9 @@ export default function ReconciliationWorkbench() {
       });
       if (!response.ok) {
         const payload = await response.json().catch(() => ({}));
-        throw new Error(payload.error || 'Failed to resolve item');
+        throw new Error((payload as any).error || 'Failed to resolve item');
       }
-      const payload = (await response.json()) as {
-        item: ReconItem;
-        reconciliation: ReconciliationSnapshot;
-      };
+      const payload = (await response.json()) as { item: ReconItem; reconciliation: ReconciliationSnapshot };
       setReconciliation(payload.reconciliation);
       updateSummariesWithSnapshot(payload.reconciliation);
       setResolutionForm(INITIAL_RESOLUTION_FORM);
@@ -490,7 +513,7 @@ export default function ReconciliationWorkbench() {
       });
       if (!response.ok) {
         const payload = await response.json().catch(() => ({}));
-        throw new Error(payload.error || 'Failed to close reconciliation');
+        throw new Error((payload as any).error || 'Failed to close reconciliation');
       }
       const payload = (await response.json()) as { reconciliation: ReconciliationSnapshot };
       setReconciliation(payload.reconciliation);
@@ -507,22 +530,20 @@ export default function ReconciliationWorkbench() {
   const handleScheduleExport = async () => {
     if (!reconciliation) {
       setError('Nothing to export yet');
-      return;
-    }
-    const text = scheduleFor(reconciliation);
-    setScheduleExport(text);
-    try {
-      await navigator.clipboard.writeText(text);
-      setStatusMessage('Schedule copied to clipboard');
-    } catch {
-      setError('Unable to copy schedule to clipboard');
+    } else {
+      const text = scheduleFor(reconciliation);
+      setScheduleExport(text);
+      try {
+        await navigator.clipboard.writeText(text);
+        setStatusMessage('Schedule copied to clipboard');
+      } catch {
+        setError('Unable to copy schedule to clipboard');
+      }
     }
   };
 
   const renderStatements = (side: StatementSide) => {
-    if (!reconciliation) {
-      return <p className="text-sm text-muted-foreground">No data imported yet.</p>;
-    }
+    if (!reconciliation) return <p className="text-sm text-muted-foreground">No data imported yet.</p>;
     const statements = reconciliation.statements.filter((statement) => statement.side === side);
     if (!statements.length) {
       return <p className="text-sm text-muted-foreground">No {side.toLowerCase()} statements imported.</p>;
@@ -540,14 +561,14 @@ export default function ReconciliationWorkbench() {
             </tr>
           </thead>
           <tbody>
-            {statements.map((statement) =>
+            {statements.flatMap((statement) =>
               statement.lines.map((line) => (
                 <tr key={line.id} className="odd:bg-background even:bg-muted/30">
                   <td className="px-3 py-2 whitespace-nowrap">{line.date ?? '—'}</td>
                   <td className="px-3 py-2">{line.description}</td>
                   <td className="px-3 py-2">{line.reference ?? '—'}</td>
                   <td className="px-3 py-2 text-right font-mono">
-                    {formatCurrency(line.amount, reconciliation.currency)}
+                    {formatCurrencyGeneric(line.amount, reconciliation.currency)}
                   </td>
                   <td className="px-3 py-2 text-center">{line.matchGroupId ? '✔︎' : ''}</td>
                 </tr>
@@ -566,10 +587,15 @@ export default function ReconciliationWorkbench() {
         <p className="mt-1 text-sm text-muted-foreground">
           Import statements, run deterministic matching, manage reconciling items, and generate audit evidence ready for ISA 500 review.
         </p>
+        <div className="mt-2 text-xs text-amber-700">
+          Mode: <strong>memory</strong> (set NEXT_PUBLIC_RECONCILIATION_MODE to "db" for live view)
+        </div>
       </header>
 
       {error ? <div className="rounded border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div> : null}
-      {statusMessage ? <div className="rounded border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">{statusMessage}</div> : null}
+      {statusMessage ? (
+        <div className="rounded border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">{statusMessage}</div>
+      ) : null}
 
       <section className="grid gap-6 lg:grid-cols-[280px,1fr]">
         <aside className="space-y-4">
@@ -863,10 +889,7 @@ export default function ReconciliationWorkbench() {
                 {matchGroups.length ? (
                   <div className="mt-3 space-y-2">
                     {matchGroups.map((match) => (
-                      <div
-                        key={match.id}
-                        className="rounded border border-dashed px-3 py-2 text-sm"
-                      >
+                      <div key={match.id} className="rounded border border-dashed px-3 py-2 text-sm">
                         <div className="flex items-center justify-between">
                           <span className="font-medium">{match.strategy.replace('_', ' ')}</span>
                           <span className="text-xs text-muted-foreground">{match.createdAt}</span>
@@ -878,7 +901,9 @@ export default function ReconciliationWorkbench() {
                     ))}
                   </div>
                 ) : (
-                  <p className="mt-2 text-sm text-muted-foreground">No matches yet. Import statements and run the matcher.</p>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    No matches yet. Import statements and run the matcher.
+                  </p>
                 )}
               </section>
 
@@ -894,14 +919,12 @@ export default function ReconciliationWorkbench() {
                             item.id === selectedItemId ? 'border-primary bg-primary/10' : 'border-border'
                           }`}
                         >
-                          <button
-                            type="button"
-                            className="w-full text-left"
-                            onClick={() => setSelectedItemId(item.id)}
-                          >
+                          <button type="button" className="w-full text-left" onClick={() => setSelectedItemId(item.id)}>
                             <div className="flex items-center justify-between">
                               <span className="font-medium">{item.reason}</span>
-                              <span className="font-mono">{formatCurrency(item.amount, reconciliation.currency)}</span>
+                              <span className="font-mono">
+                                {formatCurrencyGeneric(item.amount, reconciliation.currency)}
+                              </span>
                             </div>
                             <div className="text-xs text-muted-foreground">
                               Side: {item.side.toLowerCase()} · Created {item.createdAt}
@@ -922,12 +945,7 @@ export default function ReconciliationWorkbench() {
                   </div>
                   <div className="space-y-2">
                     <label className="flex items-center gap-2 text-sm">
-                      <input
-                        type="checkbox"
-                        name="cleared"
-                        checked={resolutionForm.cleared}
-                        onChange={handleResolutionChange}
-                      />
+                      <input type="checkbox" name="cleared" checked={resolutionForm.cleared} onChange={handleResolutionChange} />
                       Cleared through subsequent statements
                     </label>
                     <label className="flex items-center gap-2 text-sm">
@@ -1015,7 +1033,7 @@ export default function ReconciliationWorkbench() {
                     <input
                       id="closedBy"
                       name="closedBy"
-                      type="text"
+                      type="text'
                       required
                       value={closeForm.closedBy}
                       onChange={handleCloseFormChange}
@@ -1073,7 +1091,7 @@ export default function ReconciliationWorkbench() {
 
                 <div className="space-y-3 rounded border bg-card p-5 shadow-sm">
                   <h3 className="text-base font-semibold">Evidence & activity</h3>
-                  {reconciliation.evidence.length ? (
+                  {reconciliation?.evidence.length ? (
                     <ul className="space-y-2 text-sm">
                       {reconciliation.evidence.map((entry) => (
                         <li key={entry.id} className="rounded border border-dashed px-3 py-2">
@@ -1125,5 +1143,650 @@ export default function ReconciliationWorkbench() {
         </div>
       </section>
     </div>
+  );
+}
+
+/* ===================================================================
+   DB MODE (main branch): Live Supabase Workspace
+   Endpoints expected:
+     - GET  /api/recon?orgId=&entityId=&periodId=
+     - POST /api/recon/create
+     - POST /api/recon/add-item
+     - POST /api/recon/close
+   =================================================================== */
+
+type AuditReconciliationStatus = 'DRAFT' | 'IN_PROGRESS' | 'CLOSED' | 'READY_FOR_REVIEW';
+
+type AuditReconciliation = {
+  id: string;
+  org_id: string;
+  entity_id: string;
+  period_id: string;
+  type: string;
+  control_account_id: string | null;
+  gl_balance: number;
+  external_balance: number;
+  difference: number;
+  status: AuditReconciliationStatus | string;
+  prepared_by_user_id: string | null;
+  reviewed_by_user_id: string | null;
+  closed_at: string | null;
+  schedule_document_id: string | null;
+  created_at: string;
+  updated_at: string;
+  items: Array<{
+    id: string;
+    category: string;
+    amount: number;
+    reference: string | null;
+    note: string | null;
+    resolved: boolean;
+  }>;
+};
+
+const demoReconcilations: AuditReconciliation[] = [
+  {
+    id: 'rec-demo-1',
+    org_id: 'demo-org',
+    entity_id: 'demo-entity',
+    period_id: 'demo-period',
+    type: 'BANK',
+    gl_balance: 125_000,
+    external_balance: 124_500,
+    difference: 500,
+    status: 'IN_PROGRESS',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    prepared_by_user_id: 'demo-user',
+    reviewed_by_user_id: null,
+    control_account_id: null,
+    closed_at: null,
+    schedule_document_id: null,
+    items: [
+      { id: 'item-demo-1', category: 'OUTSTANDING_CHECKS', amount: 300, reference: 'CHK-445', note: 'Payroll run 28 Feb', resolved: false },
+      { id: 'item-demo-2', category: 'DEPOSITS_IN_TRANSIT', amount: 200, reference: 'DEP-221', note: 'Card settlements 1 Mar', resolved: false },
+    ],
+  },
+  {
+    id: 'rec-demo-2',
+    org_id: 'demo-org',
+    entity_id: 'demo-entity',
+    period_id: 'demo-period',
+    type: 'AR',
+    gl_balance: 82_340,
+    external_balance: 82_340,
+    difference: 0,
+    status: 'CLOSED',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    prepared_by_user_id: 'demo-user',
+    reviewed_by_user_id: 'manager-demo',
+    control_account_id: null,
+    closed_at: new Date().toISOString(),
+    schedule_document_id: null,
+    items: [],
+  },
+];
+
+type CreateState = { type: string; externalBalance: string; controlAccountId: string };
+type ItemState = { category: string; amount: string; reference: string; note: string };
+
+function normalizeReconciliations(records: any[]): AuditReconciliation[] {
+  return (records ?? []).map((rec) => ({
+    ...rec,
+    gl_balance: Number(rec?.gl_balance ?? 0),
+    external_balance: Number(rec?.external_balance ?? 0),
+    difference: Number(rec?.difference ?? 0),
+    items: (rec?.items ?? []).map((item: any) => ({
+      ...item,
+      amount: Number(item?.amount ?? 0),
+      resolved: Boolean(item?.resolved),
+    })),
+  }));
+}
+
+const reconciliationTypes = ['BANK', 'AR', 'AP', 'GRNI', 'PAYROLL', 'OTHER'];
+const itemCategories = ['OUTSTANDING_CHECKS', 'DEPOSITS_IN_TRANSIT', 'UNIDENTIFIED', 'OTHER'];
+
+function formatCurrencyUSD(value: number) {
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value ?? 0);
+}
+
+function ReconciliationsWorkspace() {
+  const [mode, setMode] = useState<'demo' | 'live'>('live'); // default to live in db mode
+  const [orgId, setOrgId] = useState('demo-org');
+  const [engagementId, setEngagementId] = useState('demo-engagement');
+  const [entityId, setEntityId] = useState('demo-entity');
+  const [periodId, setPeriodId] = useState('demo-period');
+  const [userId, setUserId] = useState('demo-user');
+
+  const [reconciliations, setReconciliations] = useState<AuditReconciliation[]>([]);
+  const [selectedId, setSelectedId] = useState<string>('');
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [statusTone, setStatusTone] = useState<'info' | 'success' | 'error' | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+
+  const [createState, setCreateState] = useState<CreateState>({
+    type: 'BANK',
+    externalBalance: '0',
+    controlAccountId: '',
+  });
+  const [itemState, setItemState] = useState<ItemState>({
+    category: 'OUTSTANDING_CHECKS',
+    amount: '0',
+    reference: '',
+    note: '',
+  });
+  const [closingDocId, setClosingDocId] = useState('');
+
+  const selectedReconciliation = useMemo(
+    () => reconciliations.find((rec) => rec.id === selectedId) ?? null,
+    [reconciliations, selectedId],
+  );
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    const primeDemo = () => {
+      setReconciliations(demoReconcilations);
+      setSelectedId(demoReconcilations[0]?.id ?? '');
+      setStatusMessage('Showing deterministic demo data. Switch to live mode to pull reconciliations from Supabase.');
+      setStatusTone('info');
+    };
+
+    const fetchLive = async () => {
+      if (!orgId || !engagementId || !entityId || !periodId) {
+        setStatusMessage('Provide organisation, engagement, entity, and period identifiers to load live reconciliations.');
+        setStatusTone('info');
+        return;
+      }
+      setLoading(true);
+      setFetchError(null);
+      try {
+        const params = new URLSearchParams({ orgId, entityId, periodId });
+        const response = await fetch(`/api/recon?${params}`, { signal: controller.signal, cache: 'no-store' });
+        if (!response.ok) {
+          const body = (await response.json().catch(() => ({}))) as { error?: string };
+          throw new Error(body.error ?? 'Failed to load reconciliations');
+        }
+        const body = (await response.json()) as { reconciliations: AuditReconciliation[] };
+        const normalised = normalizeReconciliations(body.reconciliations ?? []);
+        setReconciliations(normalised);
+        setSelectedId((prev) => (normalised?.some((rec) => rec.id === prev) ? prev : normalised?.[0]?.id ?? ''));
+        setStatusMessage(normalised?.length ? 'Reconciliations loaded from Supabase.' : 'No reconciliations recorded for this period.');
+        setStatusTone(normalised?.length ? 'success' : 'info');
+      } catch (error) {
+        if (!controller.signal.aborted) {
+          const message = error instanceof Error ? error.message : 'Unable to fetch reconciliations';
+          setFetchError(message);
+          setStatusMessage('Fell back to last known data.');
+          setStatusTone('error');
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (mode === 'demo') {
+      primeDemo();
+    } else {
+      void fetchLive();
+    }
+
+    return () => controller.abort();
+  }, [mode, orgId, engagementId, entityId, periodId]);
+
+  const showStatus = (message: string, tone: 'info' | 'success' | 'error' = 'info') => {
+    setStatusMessage(message);
+    setStatusTone(tone);
+  };
+
+  const resetStatus = () => {
+    setStatusMessage(null);
+    setStatusTone(null);
+  };
+
+  const refreshReconciliations = async () => {
+    if (mode !== 'live') {
+      setReconciliations(demoReconcilations);
+      setSelectedId(demoReconcilations[0]?.id ?? '');
+      return;
+    }
+    if (!orgId || !entityId || !periodId) return;
+    const params = new URLSearchParams({ orgId, entityId, periodId });
+    const response = await fetch(`/api/recon?${params.toString()}`, { cache: 'no-store' });
+    if (!response.ok) {
+      const body = (await response.json().catch(() => ({}))) as { error?: string };
+      throw new Error(body.error ?? 'Failed to load reconciliations');
+    }
+    const body = (await response.json()) as { reconciliations: AuditReconciliation[] };
+    const normalised = normalizeReconciliations(body.reconciliations ?? []);
+    setReconciliations(normalised);
+    setSelectedId((prev) => (normalised?.some((rec) => rec.id === prev) ? prev : normalised?.[0]?.id ?? ''));
+  };
+
+  const handleCreate = async (event: FormEvent) => {
+    event.preventDefault();
+    if (mode !== 'live') {
+      showStatus('Switch to live mode to create reconciliations.', 'error');
+      return;
+    }
+    if (!orgId || !engagementId || !entityId || !periodId || !userId) {
+      showStatus('Provide organisation, engagement, entity, period, and user identifiers.', 'error');
+      return;
+    }
+    try {
+      setLoading(true);
+      resetStatus();
+      const response = await fetch('/api/recon/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orgId,
+          engagementId,
+          entityId,
+          periodId,
+          type: createState.type,
+          controlAccountId: createState.controlAccountId || null,
+          externalBalance: Number(createState.externalBalance ?? 0),
+          preparedByUserId: userId,
+        }),
+      });
+      const body = (await response.json().catch(() => ({}))) as { reconciliation?: { id: string }; error?: string };
+      if (!response.ok) throw new Error(body.error ?? 'Failed to create reconciliation');
+      await refreshReconciliations();
+      showStatus('Reconciliation created.', 'success');
+      if (body.reconciliation?.id) setSelectedId(body.reconciliation.id);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to create reconciliation';
+      showStatus(message, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddItem = async (event: FormEvent) => {
+    event.preventDefault();
+    if (mode !== 'live') {
+      showStatus('Switch to live mode to add items.', 'error');
+      return;
+    }
+    if (!selectedReconciliation) {
+      showStatus('Select a reconciliation first.', 'error');
+      return;
+    }
+    try {
+      setLoading(true);
+      resetStatus();
+      const response = await fetch('/api/recon/add-item', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orgId,
+          reconciliationId: selectedReconciliation.id,
+          item: {
+            category: itemState.category,
+            amount: Number(itemState.amount ?? 0),
+            reference: itemState.reference || null,
+            note: itemState.note || null,
+            resolved: false,
+          },
+        }),
+      });
+      const body = (await response.json().catch(() => ({}))) as { error?: string };
+      if (!response.ok) throw new Error(body.error ?? 'Failed to add reconciliation item');
+      await refreshReconciliations();
+      showStatus('Item added.', 'success');
+      setItemState({ category: 'OUTSTANDING_CHECKS', amount: '0', reference: '', note: '' });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to add item';
+      showStatus(message, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleClose = async () => {
+    if (mode !== 'live') {
+      showStatus('Switch to live mode to close reconciliations.', 'error');
+      return;
+    }
+    if (!selectedReconciliation) {
+      showStatus('Select a reconciliation first.', 'error');
+      return;
+    }
+    try {
+      setLoading(true);
+      resetStatus();
+      const response = await fetch('/api/recon/close', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orgId,
+          reconciliationId: selectedReconciliation.id,
+          userId,
+          scheduleDocumentId: closingDocId || null,
+        }),
+      });
+      const body = (await response.json().catch(() => ({}))) as { error?: string };
+      if (!response.ok) throw new Error(body.error ?? 'Failed to close reconciliation');
+      await refreshReconciliations();
+      showStatus('Reconciliation closed.', 'success');
+      setClosingDocId('');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to close reconciliation';
+      showStatus(message, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const totalOutstanding = useMemo(() => {
+    if (!selectedReconciliation) return 0;
+    return selectedReconciliation.items
+      .filter((item) => !item.resolved)
+      .reduce((sum, item) => sum + Number(item.amount ?? 0), 0);
+  }, [selectedReconciliation]);
+
+  const differenceClass = (value: number) => {
+    if (Math.abs(value) < 0.01) return 'text-emerald-600';
+    if (value > 0) return 'text-amber-600';
+    return 'text-destructive';
+  };
+
+  return (
+    <section className="space-y-6 p-6">
+      <header className="space-y-2">
+        <h2 className="text-2xl font-semibold text-slate-900">Reconciliation workbench</h2>
+        <p className="text-sm text-slate-600">
+          Capture supporting schedules for bank, AR/AP, and other reconciliations. Outstanding items roll forward to the
+          misstatement evaluation workflow when differences remain.
+        </p>
+        <div className="text-xs text-amber-700">
+          Mode: <strong>db</strong> (toggle below to demo)
+        </div>
+      </header>
+
+      <div className="grid gap-4 rounded-lg border bg-white p-4 shadow-sm">
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            className={`rounded-md px-3 py-2 text-sm font-medium ${
+              mode === 'demo' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700'
+            }`}
+            onClick={() => setMode('demo')}
+          >
+            Demo data
+          </button>
+          <button
+            type="button"
+            className={`rounded-md px-3 py-2 text-sm font-medium ${
+              mode === 'live' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700'
+            }`}
+            onClick={() => setMode('live')}
+          >
+            Live Supabase
+          </button>
+          {fetchError && <span className="text-xs text-destructive">{fetchError}</span>}
+        </div>
+
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
+          <label className="flex flex-col text-xs text-slate-600">
+            Organisation ID
+            <input className="mt-1 rounded border px-2 py-1" value={orgId} onChange={(e) => setOrgId(e.target.value)} placeholder="org UUID" />
+          </label>
+          <label className="flex flex-col text-xs text-slate-600">
+            Engagement ID
+            <input className="mt-1 rounded border px-2 py-1" value={engagementId} onChange={(e) => setEngagementId(e.target.value)} placeholder="engagement UUID" />
+          </label>
+          <label className="flex flex-col text-xs text-slate-600">
+            Entity ID
+            <input className="mt-1 rounded border px-2 py-1" value={entityId} onChange={(e) => setEntityId(e.target.value)} placeholder="client/entity UUID" />
+          </label>
+          <label className="flex flex-col text-xs text-slate-600">
+            Period ID
+            <input className="mt-1 rounded border px-2 py-1" value={periodId} onChange={(e) => setPeriodId(e.target.value)} placeholder="close period UUID" />
+          </label>
+          <label className="flex flex-col text-xs text-slate-600">
+            User ID
+            <input className="mt-1 rounded border px-2 py-1" value={userId} onChange={(e) => setUserId(e.target.value)} placeholder="prepared by user UUID" />
+          </label>
+        </div>
+      </div>
+
+      {statusMessage && (
+        <div
+          className={`rounded-md border px-3 py-2 text-sm ${
+            statusTone === 'success'
+              ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+              : statusTone === 'error'
+              ? 'border-red-200 bg-red-50 text-red-700'
+              : 'border-slate-200 bg-slate-50 text-slate-600'
+          }`}
+        >
+          {statusMessage}
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <aside className="space-y-4 lg:col-span-1">
+          <div className="rounded-lg border bg-white p-4 shadow-sm">
+            <h3 className="text-sm font-semibold text-slate-900">Create reconciliation</h3>
+            <p className="mt-1 text-xs text-slate-500">
+              Specify control area and balances. GL balance is fetched automatically when a control account is provided.
+            </p>
+            <form className="mt-3 space-y-3" onSubmit={handleCreate}>
+              <label className="flex flex-col text-xs text-slate-600">
+                Type
+                <select
+                  className="mt-1 rounded border px-2 py-1"
+                  value={createState.type}
+                  onChange={(e) => setCreateState((prev) => ({ ...prev, type: e.target.value }))}
+                >
+                  {reconciliationTypes.map((type) => (
+                    <option key={type} value={type}>
+                      {type}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="flex flex-col text-xs text-slate-600">
+                Control account ID (optional)
+                <input
+                  className="mt-1 rounded border px-2 py-1"
+                  value={createState.controlAccountId}
+                  onChange={(e) => setCreateState((prev) => ({ ...prev, controlAccountId: e.target.value }))}
+                  placeholder="ledger account UUID"
+                />
+              </label>
+              <label className="flex flex-col text-xs text-slate-600">
+                External balance
+                <input
+                  className="mt-1 rounded border px-2 py-1"
+                  value={createState.externalBalance}
+                  onChange={(e) => setCreateState((prev) => ({ ...prev, externalBalance: e.target.value }))}
+                  type="number"
+                  step="0.01"
+                />
+              </label>
+              <button type="submit" className="w-full rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-60" disabled={loading}>
+                {loading ? 'Working…' : 'Create reconciliation'}
+              </button>
+            </form>
+          </div>
+
+          <div className="rounded-lg border bg-white p-4 shadow-sm">
+            <h3 className="text-sm font-semibold text-slate-900">Add outstanding item</h3>
+            {selectedReconciliation ? (
+              <form className="mt-3 space-y-3" onSubmit={handleAddItem}>
+                <label className="flex flex-col text-xs text-slate-600">
+                  Category
+                  <select
+                    className="mt-1 rounded border px-2 py-1"
+                    value={itemState.category}
+                    onChange={(e) => setItemState((prev) => ({ ...prev, category: e.target.value }))}
+                  >
+                    {itemCategories.map((category) => (
+                      <option key={category} value={category}>
+                        {category}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="flex flex-col text-xs text-slate-600">
+                  Amount
+                  <input
+                    className="mt-1 rounded border px-2 py-1"
+                    value={itemState.amount}
+                    onChange={(e) => setItemState((prev) => ({ ...prev, amount: e.target.value }))}
+                    type="number"
+                    step="0.01"
+                  />
+                </label>
+                <label className="flex flex-col text-xs text-slate-600">
+                  Reference
+                  <input
+                    className="mt-1 rounded border px-2 py-1"
+                    value={itemState.reference}
+                    onChange={(e) => setItemState((prev) => ({ ...prev, reference: e.target.value }))}
+                    placeholder="e.g. CHK-123"
+                  />
+                </label>
+                <label className="flex flex-col text-xs text-slate-600">
+                  Note
+                  <textarea
+                    className="mt-1 rounded border px-2 py-1"
+                    rows={2}
+                    value={itemState.note}
+                    onChange={(e) => setItemState((prev) => ({ ...prev, note: e.target.value }))}
+                  />
+                </label>
+                <button type="submit" className="w-full rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-60" disabled={loading}>
+                  {loading ? 'Working…' : 'Add item'}
+                </button>
+              </form>
+            ) : (
+              <p className="mt-2 text-xs text-slate-500">Select a reconciliation to add items.</p>
+            )}
+          </div>
+        </aside>
+
+        <div className="lg:col-span-2 space-y-4">
+          <div className="rounded-lg border bg-white p-4 shadow-sm">
+            <h3 className="text-sm font-semibold text-slate-900">Reconciliation register</h3>
+            <div className="mt-3 grid grid-cols-1 gap-3">
+              {reconciliations.map((rec) => (
+                <button
+                  key={rec.id}
+                  type="button"
+                  onClick={() => setSelectedId(rec.id)}
+                  className={`rounded border px-3 py-2 text-left transition hover:border-slate-400 ${
+                    selectedId === rec.id ? 'border-slate-900 bg-slate-50' : 'border-slate-200 bg-white'
+                  }`}
+                >
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="font-medium text-slate-900">{rec.type}</span>
+                    <span className={`text-xs uppercase ${differenceClass(rec.difference)}`}>{rec.status}</span>
+                  </div>
+                  <div className="mt-1 text-xs text-slate-500">
+                    GL {formatCurrencyUSD(rec.gl_balance)} vs external {formatCurrencyUSD(rec.external_balance)}
+                  </div>
+                  <div className={`mt-1 text-xs font-medium ${differenceClass(rec.difference)}`}>
+                    Difference {formatCurrencyUSD(rec.difference)} • Outstanding items{` `}
+                    {rec.items.filter((item) => !item.resolved).length}
+                  </div>
+                </button>
+              ))}
+              {reconciliations.length === 0 && <p className="text-sm text-slate-500">No reconciliations yet.</p>}
+            </div>
+          </div>
+
+          {selectedReconciliation && (
+            <div className="rounded-lg border bg-white p-4 shadow-sm space-y-4">
+              <header className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h4 className="text-lg font-semibold text-slate-900">{selectedReconciliation.type} reconciliation</h4>
+                  <p className="text-xs text-slate-500">
+                    Prepared by {selectedReconciliation.prepared_by_user_id ?? 'n/a'} · Difference
+                    <span className={`ml-1 font-semibold ${differenceClass(selectedReconciliation.difference)}`}>
+                      {formatCurrencyUSD(selectedReconciliation.difference)}
+                    </span>
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    className="w-48 rounded border px-2 py-1 text-xs"
+                    placeholder="Schedule document ID (optional)"
+                    value={closingDocId}
+                    onChange={(e) => setClosingDocId(e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    className="rounded-md bg-emerald-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-60"
+                    onClick={handleClose}
+                    disabled={loading || Math.abs(selectedReconciliation.difference) > 0.01}
+                  >
+                    {loading ? 'Closing…' : 'Close reconciliation'}
+                  </button>
+                </div>
+              </header>
+
+              <div className="grid grid-cols-2 gap-4 text-xs text-slate-600">
+                <div className="rounded border bg-slate-50 p-3">
+                  <div className="font-semibold text-slate-800">GL balance</div>
+                  <div className="text-slate-900">{formatCurrencyUSD(selectedReconciliation.gl_balance)}</div>
+                </div>
+                <div className="rounded border bg-slate-50 p-3">
+                  <div className="font-semibold text-slate-800">External balance</div>
+                  <div className="text-slate-900">{formatCurrencyUSD(selectedReconciliation.external_balance)}</div>
+                </div>
+                <div className="rounded border bg-slate-50 p-3">
+                  <div className="font-semibold text-slate-800">Outstanding difference</div>
+                  <div className={`font-semibold ${differenceClass(selectedReconciliation.difference)}`}>
+                    {formatCurrencyUSD(selectedReconciliation.difference)}
+                  </div>
+                </div>
+                <div className="rounded border bg-slate-50 p-3">
+                  <div className="font-semibold text-slate-800">Open adjustments</div>
+                  <div className={`font-semibold ${differenceClass(totalOutstanding)}`}>{formatCurrencyUSD(totalOutstanding)}</div>
+                </div>
+              </div>
+
+              <div>
+                <h5 className="text-sm font-semibold text-slate-900">Reconciling items</h5>
+                <table className="mt-2 w-full text-xs">
+                  <thead className="text-slate-500">
+                    <tr className="border-b">
+                      <th className="py-1 text-left">Category</th>
+                      <th className="py-1 text-left">Amount</th>
+                      <th className="py-1 text-left">Reference</th>
+                      <th className="py-1 text-left">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selectedReconciliation.items.map((item) => (
+                      <tr key={item.id} className="border-b last:border-0">
+                        <td className="py-1">{item.category}</td>
+                        <td className={`py-1 ${differenceClass(item.amount)}`}>{formatCurrencyUSD(item.amount)}</td>
+                        <td className="py-1 text-slate-500">{item.reference ?? '—'}</td>
+                        <td className="py-1 text-slate-500">{item.resolved ? 'Resolved' : 'Open'}</td>
+                      </tr>
+                    ))}
+                    {selectedReconciliation.items.length === 0 && (
+                      <tr>
+                        <td colSpan={4} className="py-2 text-center text-slate-500">
+                          No adjustments captured yet.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
   );
 }

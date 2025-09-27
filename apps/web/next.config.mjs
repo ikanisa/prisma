@@ -6,8 +6,5 @@ const withPWA = nextPWA({
 });
 
 export default withPWA({
-  reactStrictMode: true,
-  experimental: {
-    appDir: true
-  }
+  reactStrictMode: true
 });

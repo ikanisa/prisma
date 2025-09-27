@@ -1,10 +1,7 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getToken } from '../token-vault.ts'
+import { getServiceSupabaseClient } from '../../_shared/supabase-client.ts'
 
-const supabase = createClient(
-  Deno.env.get('SUPABASE_URL') ?? '',
-  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-)
+const supabasePromise = getServiceSupabaseClient()
 
 Deno.serve(async (req) => {
   const url = new URL(req.url)
@@ -12,7 +9,19 @@ Deno.serve(async (req) => {
   const orgId = url.searchParams.get('org_id') ?? 'org-demo'
 
   const token = await getToken(provider, orgId)
+  if (!token) {
+    return new Response(
+      JSON.stringify({ success: false, error: 'connector_token_missing', provider, orgId }),
+      {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' },
+      },
+    )
+  }
+
   console.log(`Using token ${token} for provider ${provider}`)
+
+  const supabase = await supabasePromise
 
   const externalTransactions = [
     {
