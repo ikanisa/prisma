@@ -1,14 +1,38 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import crypto from 'crypto'
 import { verifySignature } from '../verifySignature'
-import { hashEvent, seenBefore, _clearSeen } from '../idempotency'
+import {
+  hashEvent,
+  seenBefore,
+  configureIdempotencyStore,
+  createInMemoryIdempotencyStore,
+  resetIdempotencyStore,
+  type IdempotencyStore,
+} from '../idempotency'
+import { handleWebhook } from '../webhook'
 
 const secret = 'topsecret'
 const payloadObj = { foo: 'bar' }
 const payload = JSON.stringify(payloadObj)
 
+let memoryStore: IdempotencyStore
+
+function buildRequest(): Request {
+  return new Request('https://example.com/webhook', {
+    method: 'POST',
+    body: payload,
+    headers: { 'x-webhook-token': secret },
+  })
+}
+
 beforeEach(() => {
-  _clearSeen()
+  memoryStore = createInMemoryIdempotencyStore()
+  configureIdempotencyStore(memoryStore)
+})
+
+afterEach(() => {
+  memoryStore.clear?.()
+  resetIdempotencyStore()
 })
 
 describe('verifySignature', () => {
@@ -40,6 +64,37 @@ describe('idempotency', () => {
   })
 })
 
-// Webhook handler integration tests would go here. The core utilities are
-// tested directly above.
+describe('handleWebhook', () => {
+  it('processes the payload when signature is valid', async () => {
+    const request = buildRequest()
+
+    expect(request.headers.get('x-webhook-token')).toBe(secret)
+    expect(typeof (request.headers as Headers).get).toBe('function')
+    expect(verifySignature(payload, request.headers, secret)).toBe(true)
+
+    const response = await handleWebhook(request, secret, async (body) => new Response(body, { status: 200 }))
+
+    expect(response.status).toBe(200)
+    expect(await response.text()).toEqual(payload)
+  })
+
+  it('returns 202 for duplicate deliveries', async () => {
+    const firstRequest = buildRequest()
+    const secondRequest = buildRequest()
+
+    expect(firstRequest.headers.get('x-webhook-token')).toBe(secret)
+    expect(secondRequest.headers.get('x-webhook-token')).toBe(secret)
+    expect(typeof (firstRequest.headers as Headers).get).toBe('function')
+    expect(typeof (secondRequest.headers as Headers).get).toBe('function')
+    expect(verifySignature(payload, firstRequest.headers, secret)).toBe(true)
+    expect(verifySignature(payload, secondRequest.headers, secret)).toBe(true)
+
+    const first = await handleWebhook(firstRequest, secret, async () => new Response('ok', { status: 200 }))
+    const second = await handleWebhook(secondRequest, secret, async () => new Response('should not run', { status: 200 }))
+
+    expect(first.status).toBe(200)
+    expect(second.status).toBe(202)
+    expect(await second.text()).toBe('Duplicate event')
+  })
+})
 

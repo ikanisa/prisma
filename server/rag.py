@@ -65,8 +65,15 @@ async def embed_chunks(chunks: List[str]) -> List[List[float]]:
         embeddings.append(res.data[0].embedding)
     return embeddings
 
-async def store_chunks(document_id: str, chunks: List[str], embeds: List[List[float]]):
+async def store_chunks(document_id: str, org_id: str, chunks: List[str], embeds: List[List[float]]):
     async with AsyncSessionLocal() as session:
         for content, emb in zip(chunks, embeds):
-            session.add(Chunk(document_id=document_id, content=content, embedding=emb))
+            session.add(
+                Chunk(
+                    org_id=org_id,
+                    document_id=document_id,
+                    content=content,
+                    embedding=emb,
+                )
+            )
         await session.commit()

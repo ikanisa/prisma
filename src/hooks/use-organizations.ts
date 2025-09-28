@@ -1,6 +1,8 @@
-import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { supabase, isSupabaseConfigured } from '@/integrations/supabase/client';
 import { useAuth } from './use-auth';
+import { createTenantClient, TenantClient } from '@/lib/tenant-client';
+import { useAppStore, mockMemberships } from '@/stores/mock-data';
 
 export interface Organization {
   id: string;
@@ -23,76 +25,161 @@ export function useOrganizations() {
   const { user } = useAuth();
   const [memberships, setMemberships] = useState<Membership[]>([]);
   const [currentOrgId, setCurrentOrgId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  const currentOrg = memberships.find(m => m.org_id === currentOrgId)?.organization || null;
+  const currentOrg = memberships.find((m) => m.org_id === currentOrgId)?.organization || null;
+  const tenantClient = useMemo<TenantClient | null>(() => {
+    if (!currentOrg) return null;
+    return createTenantClient(currentOrg.id);
+  }, [currentOrg]);
 
-  useEffect(() => {
-    if (user) {
-      fetchMemberships();
-    } else {
-      setMemberships([]);
-      setCurrentOrgId(null);
+  const fetchMemberships = useCallback(async () => {
+    if (!user) {
+      console.log('[ORG] No user, skipping membership fetch');
+      return;
+    }
+    if (!isSupabaseConfigured) {
+      return;
+    }
+
+    console.log('[ORG] Fetching memberships for user:', user.email);
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('memberships')
+        .select(
+          `
+          *,
+          organization:organizations(*)
+        `,
+        )
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      console.log('[ORG] Memberships fetched:', data?.length || 0, 'memberships');
+      setMemberships(data || []);
+    } catch (error) {
+      console.error('[ORG] Error fetching memberships:', error);
+    } finally {
+      setLoading(false);
     }
   }, [user]);
 
   useEffect(() => {
-    // Set current org from localStorage on mount
+    if (!isSupabaseConfigured) {
+      // Demo mode: hydrate from mock data and match the demo user
+      const appStore = useAppStore.getState();
+      const orgMap = new Map(appStore.organizations.map((org) => [org.id, org]));
+      const targetUserId = '1';
+
+      let normalized = mockMemberships
+        .filter((membership) => membership.userId === targetUserId)
+        .map((membership) => {
+          const org = orgMap.get(membership.orgId) ?? {
+            id: membership.orgId,
+            name: 'Aurora Advisors',
+            slug: 'aurora',
+            brandPrimary: '#00bcd4',
+            brandSecondary: '#9c27b0',
+            createdAt: new Date().toISOString(),
+          };
+          return {
+            id: membership.id,
+            org_id: membership.orgId,
+            user_id: membership.userId,
+            role: membership.role as Membership['role'],
+            organization: {
+              id: org.id,
+              name: org.name,
+              slug: org.slug,
+              brand_primary: org.brandPrimary,
+              brand_secondary: org.brandSecondary,
+              created_at: org.createdAt,
+            },
+          } satisfies Membership;
+        });
+
+      if (normalized.length === 0 && mockMemberships.length > 0) {
+        normalized = mockMemberships.slice(0, 1).map((membership) => {
+          const org = orgMap.get(membership.orgId) ?? {
+            id: membership.orgId,
+            name: 'Aurora Advisors',
+            slug: 'aurora',
+            brandPrimary: '#00bcd4',
+            brandSecondary: '#9c27b0',
+            createdAt: new Date().toISOString(),
+          };
+          return {
+            id: membership.id,
+            org_id: membership.orgId,
+            user_id: membership.userId,
+            role: membership.role as Membership['role'],
+            organization: {
+              id: org.id,
+              name: org.name,
+              slug: org.slug,
+              brand_primary: org.brandPrimary,
+              brand_secondary: org.brandSecondary,
+              created_at: org.createdAt,
+            },
+          } satisfies Membership;
+        });
+      }
+
+      setMemberships(normalized);
+      setLoading(false);
+      if (normalized.length > 0) {
+        setCurrentOrgId((prev) => prev ?? normalized[0].org_id);
+      }
+      return;
+    }
+
+    if (user) {
+      void fetchMemberships();
+    } else {
+      setMemberships([]);
+      setCurrentOrgId(null);
+      setLoading(false);
+    }
+  }, [user, fetchMemberships]);
+
+  useEffect(() => {
     const savedOrgId = localStorage.getItem('currentOrgId');
-    if (savedOrgId && memberships.some(m => m.org_id === savedOrgId)) {
+    console.log('[ORG] Setting current org. Saved:', savedOrgId, 'Memberships:', memberships.length);
+    if (savedOrgId && memberships.some((m) => m.org_id === savedOrgId)) {
+      console.log('[ORG] Using saved org:', savedOrgId);
       setCurrentOrgId(savedOrgId);
     } else if (memberships.length > 0) {
+      console.log('[ORG] Using first membership:', memberships[0].org_id);
       setCurrentOrgId(memberships[0].org_id);
+    } else if (memberships.length === 0) {
+      console.log('[ORG] No memberships found!');
     }
   }, [memberships]);
 
   useEffect(() => {
-    // Save current org to localStorage when it changes
     if (currentOrgId) {
       localStorage.setItem('currentOrgId', currentOrgId);
     }
   }, [currentOrgId]);
 
-  const fetchMemberships = async () => {
-    if (!user) return;
-    
-    setLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('memberships')
-        .select(`
-          *,
-          organization:organizations(*)
-        `)
-        .eq('user_id', user.id);
 
-      if (error) throw error;
-
-      setMemberships(data || []);
-    } catch (error) {
-      console.error('Error fetching memberships:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const switchOrganization = (orgId: string) => {
+  const switchOrganization = useCallback((orgId: string) => {
     setCurrentOrgId(orgId);
-  };
+  }, []);
 
   const hasRole = (minRole: 'EMPLOYEE' | 'MANAGER' | 'SYSTEM_ADMIN') => {
     if (!currentOrg) return false;
-    
-    const membership = memberships.find(m => m.org_id === currentOrgId);
+
+    const membership = memberships.find((m) => m.org_id === currentOrgId);
     if (!membership) return false;
 
-    const roleHierarchy = { 'EMPLOYEE': 1, 'MANAGER': 2, 'SYSTEM_ADMIN': 3 };
+    const roleHierarchy = { EMPLOYEE: 1, MANAGER: 2, SYSTEM_ADMIN: 3 };
     return roleHierarchy[membership.role] >= roleHierarchy[minRole];
   };
 
-  const isSystemAdmin = () => {
-    return memberships.some(m => m.role === 'SYSTEM_ADMIN');
-  };
+  const isSystemAdmin = () => memberships.some((m) => m.role === 'SYSTEM_ADMIN');
 
   return {
     memberships,
@@ -102,6 +189,7 @@ export function useOrganizations() {
     switchOrganization,
     hasRole,
     isSystemAdmin,
-    refetch: fetchMemberships
+    refetch: fetchMemberships,
+    tenantClient,
   };
 }
