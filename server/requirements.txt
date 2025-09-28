@@ -15,3 +15,5 @@ sentry-sdk
 python-multipart
 google-cloud-documentai
 structlog
+PyJWT
+httpx
