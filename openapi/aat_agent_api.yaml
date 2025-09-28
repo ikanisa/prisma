@@ -1,0 +1,120 @@
+openapi: 3.0.3
+info:
+  title: AAT Agent API
+  version: '1.0.0'
+  description: API specification for serverless AAT agent endpoints.
+servers:
+  - url: https://example.supabase.co/functions
+paths:
+  /v1/create-demo-users:
+    post:
+      summary: Create demo users
+      description: Creates a predefined set of demo users and memberships.
+      responses:
+        '200':
+          description: Demo users processed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateDemoUsersResponse'
+        '500':
+          description: Error creating demo users
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /v1/seed-data:
+    post:
+      summary: Seed database with initial data
+      description: Seeds the database with an organization, users, clients, engagements, and tasks.
+      responses:
+        '200':
+          description: Seed data created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SeedDataResponse'
+        '500':
+          description: Error seeding data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+components:
+  schemas:
+    CreateDemoUserResult:
+      type: object
+      required:
+        - email
+        - status
+      properties:
+        email:
+          type: string
+          format: email
+        status:
+          type: string
+          enum: [created, already_exists, membership_error, error]
+        role:
+          type: string
+          nullable: true
+          enum: [SYSTEM_ADMIN, MANAGER, EMPLOYEE]
+        error:
+          type: string
+          nullable: true
+    CreateDemoUsersResponse:
+      type: object
+      required:
+        - success
+        - message
+        - results
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/CreateDemoUserResult'
+    Organization:
+      type: object
+      required:
+        - id
+        - name
+        - slug
+        - brand_primary
+        - brand_secondary
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        slug:
+          type: string
+        brand_primary:
+          type: string
+        brand_secondary:
+          type: string
+    SeedDataResponse:
+      type: object
+      required:
+        - success
+        - message
+        - organization
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        organization:
+          $ref: '#/components/schemas/Organization'
+    ErrorResponse:
+      type: object
+      required:
+        - success
+        - error
+      properties:
+        success:
+          type: boolean
+        error:
+          type: string

@@ -4,7 +4,6 @@
 
 -- Drop the problematic policy
 DROP POLICY IF EXISTS "users_admin_read" ON public.users;
-
 -- Create a simple, non-recursive policy for admin access to users
 -- Only allow reading other users if the current user is marked as system admin
 CREATE POLICY "users_admin_read" 

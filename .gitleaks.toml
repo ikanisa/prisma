@@ -1,0 +1,28 @@
+title = "gitleaks config"
+
+# Extend default gitleaks rules
+extends = ["https://raw.githubusercontent.com/gitleaks/gitleaks/master/config/gitleaks.toml"]
+
+[[rules]]
+id = "supabase-key"
+description = "Supabase API key"
+regex = '''sbp_[0-9a-f]{40,}'''
+tags = ["supabase", "key"]
+
+[[rules]]
+id = "generic-jwt"
+description = "JSON Web Token"
+regex = '''eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}'''
+tags = ["jwt", "token"]
+
+[[rules]]
+id = "generic-bearer"
+description = "Bearer token"
+regex = '''Bearer\s+[A-Za-z0-9\-\._~\+\/]+=*'''
+tags = ["bearer", "token"]
+
+[allowlist]
+description = "Allow committed Supabase client stubs"
+paths = [
+    '''src/integrations/supabase/client.ts'''
+]
