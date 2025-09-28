@@ -1,115 +1,162 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Bell, Check, X, Clock, User, FileText, Calendar, AlertCircle } from 'lucide-react';
+import { Bell, Check, X, Clock, User, FileText, Calendar, AlertCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/enhanced-button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useOrganizations } from '@/hooks/use-organizations';
+import { useToast } from '@/hooks/use-toast';
+import { authorizedFetch } from '@/lib/api';
+import { markNotificationRead, markAllNotificationsRead } from '@/lib/notifications';
 
-interface Notification {
+interface NotificationRecord {
   id: string;
   type: 'task' | 'document' | 'engagement' | 'system';
   title: string;
-  message: string;
-  timestamp: string;
+  body?: string;
+  created_at: string;
   read: boolean;
-  urgent: boolean;
+  urgent?: boolean;
   from?: string;
 }
-
-const mockNotifications: Notification[] = [
-  {
-    id: '1',
-    type: 'task',
-    title: 'Task Assignment',
-    message: 'You have been assigned to "Review Q4 Financial Reports"',
-    timestamp: '2024-01-15T10:30:00Z',
-    read: false,
-    urgent: true,
-    from: 'Sarah Mitchell'
-  },
-  {
-    id: '2',
-    type: 'document',
-    title: 'Document Updated',
-    message: 'Annual Compliance Report has been updated',
-    timestamp: '2024-01-15T09:15:00Z',
-    read: false,
-    urgent: false,
-    from: 'System'
-  },
-  {
-    id: '3',
-    type: 'engagement',
-    title: 'Engagement Milestone',
-    message: 'Project Alpha has reached 75% completion',
-    timestamp: '2024-01-14T16:45:00Z',
-    read: true,
-    urgent: false,
-    from: 'Project System'
-  },
-  {
-    id: '4',
-    type: 'system',
-    title: 'Maintenance Scheduled',
-    message: 'System maintenance scheduled for tonight at 11 PM',
-    timestamp: '2024-01-14T14:20:00Z',
-    read: true,
-    urgent: false,
-    from: 'System Admin'
-  }
-];
 
 const notificationIcons = {
   task: Calendar,
   document: FileText,
   engagement: User,
-  system: AlertCircle
+  system: AlertCircle,
 };
 
 const notificationColors = {
   task: 'bg-blue-100 text-blue-800',
   document: 'bg-green-100 text-green-800',
   engagement: 'bg-purple-100 text-purple-800',
-  system: 'bg-orange-100 text-orange-800'
+  system: 'bg-orange-100 text-orange-800',
 };
 
+async function fetchNotifications(orgSlug: string, page: number, pageSize: number) {
+  const offset = (page - 1) * pageSize;
+  const response = await authorizedFetch(
+    `/v1/notifications?orgSlug=${encodeURIComponent(orgSlug)}&limit=${pageSize}&offset=${offset}`,
+    { method: 'GET' },
+  );
+  const payload = await response.json();
+  if (!response.ok) {
+    throw new Error(payload.error ?? 'Failed to load notifications');
+  }
+  return payload.notifications as NotificationRecord[];
+}
+
 export function Notifications() {
-  const [notifications, setNotifications] = useState<Notification[]>(mockNotifications);
+  const { currentOrg } = useOrganizations();
+  const { toast } = useToast();
+  const [notifications, setNotifications] = useState<NotificationRecord[]>([]);
   const [filter, setFilter] = useState<'all' | 'unread' | 'urgent'>('all');
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
 
-  const filteredNotifications = notifications.filter(notification => {
-    if (filter === 'unread') return !notification.read;
-    if (filter === 'urgent') return notification.urgent;
-    return true;
-  });
+  const orgSlug = currentOrg?.slug ?? null;
 
-  const unreadCount = notifications.filter(n => !n.read).length;
-  const urgentCount = notifications.filter(n => n.urgent).length;
+  useEffect(() => {
+    setPage(1);
+    setNotifications([]);
+    setHasMore(true);
+  }, [orgSlug]);
 
-  const markAsRead = (id: string) => {
-    setNotifications(prev => 
-      prev.map(n => n.id === id ? { ...n, read: true } : n)
-    );
+  useEffect(() => {
+    if (!orgSlug) {
+      setNotifications([]);
+      return;
+    }
+
+    const load = async () => {
+      setLoading(true);
+      try {
+        const data = await fetchNotifications(orgSlug, page, 20);
+        if (page === 1) {
+          setNotifications(data);
+        } else {
+          setNotifications((prev) => [...prev, ...data]);
+        }
+        setHasMore(data.length === 20);
+      } catch (error) {
+        toast({
+          title: 'Unable to load notifications',
+          description: (error as Error).message,
+          variant: 'destructive',
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    void load();
+  }, [orgSlug, page, toast]);
+
+  const filteredNotifications = useMemo(() => {
+    return notifications.filter((n) => {
+      if (filter === 'unread') return !n.read;
+      if (filter === 'urgent') return Boolean(n.urgent);
+      return true;
+    });
+  }, [notifications, filter]);
+
+  const unreadCount = notifications.filter((n) => !n.read).length;
+  const urgentCount = notifications.filter((n) => n.urgent).length;
+
+  const markAsRead = async (id: string) => {
+    try {
+      await markNotificationRead(id);
+      setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
+    } catch (error) {
+      toast({
+        title: 'Failed to mark notification',
+        description: (error as Error).message,
+        variant: 'destructive',
+      });
+    }
   };
 
-  const markAllAsRead = () => {
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+  const markAllAsRead = async () => {
+    if (!orgSlug) return;
+    try {
+      await markAllNotificationsRead(orgSlug);
+      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    } catch (error) {
+      toast({
+        title: 'Failed to mark notifications',
+        description: (error as Error).message,
+        variant: 'destructive',
+      });
+    }
   };
 
   const deleteNotification = (id: string) => {
-    setNotifications(prev => prev.filter(n => n.id !== id));
+    setNotifications((prev) => prev.filter((n) => n.id !== id));
   };
 
   const formatTimestamp = (timestamp: string) => {
     const date = new Date(timestamp);
     const now = new Date();
     const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
-    
+
     if (diffInHours < 1) return 'Just now';
     if (diffInHours < 24) return `${diffInHours}h ago`;
     return date.toLocaleDateString();
   };
+
+  if (!currentOrg) {
+    return (
+      <div className="p-6">
+        <h1 className="text-2xl font-semibold">Notifications</h1>
+        <p className="mt-2 text-muted-foreground">
+          Join or select an organization to view notifications.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <motion.div
@@ -122,7 +169,7 @@ export function Notifications() {
           <h1 className="text-3xl font-bold gradient-text">Notifications</h1>
           <p className="text-muted-foreground">Stay updated with important alerts</p>
         </div>
-        
+
         <div className="flex items-center space-x-2">
           {unreadCount > 0 && (
             <Button variant="outline" onClick={markAllAsRead}>
@@ -152,7 +199,7 @@ export function Notifications() {
                 {filter === 'all' ? 'No notifications' : `No ${filter} notifications`}
               </h3>
               <p className="text-muted-foreground">
-                {filter === 'all' ? 'You\'re all caught up!' : 'Check back later for updates'}
+                {filter === 'all' ? "You're all caught up!" : 'Check back later for updates'}
               </p>
             </div>
           ) : (
@@ -181,16 +228,14 @@ export function Notifications() {
                                     Urgent
                                   </Badge>
                                 )}
-                                {!notification.read && (
-                                  <div className="w-2 h-2 bg-primary rounded-full" />
-                                )}
+                                {!notification.read && <div className="w-2 h-2 bg-primary rounded-full" />}
                               </div>
                               <p className="text-sm text-muted-foreground mt-1">
-                                {notification.message}
+                                {notification.body ?? notification.title}
                               </p>
                             </div>
                           </div>
-                          
+
                           <div className="flex items-center space-x-1">
                             {!notification.read && (
                               <Button
@@ -205,7 +250,7 @@ export function Notifications() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                              className="h-8 w-8"
                               onClick={() => deleteNotification(notification.id)}
                             >
                               <X className="h-4 w-4" />
@@ -213,19 +258,17 @@ export function Notifications() {
                           </div>
                         </CardTitle>
                       </CardHeader>
-                      <CardContent className="pt-0">
-                        <div className="flex items-center justify-between text-sm text-muted-foreground">
-                          <div className="flex items-center space-x-1">
-                            <Clock className="w-3 h-3" />
-                            <span>{formatTimestamp(notification.timestamp)}</span>
-                          </div>
-                          {notification.from && (
-                            <div className="flex items-center space-x-1">
-                              <User className="w-3 h-3" />
-                              <span>From: {notification.from}</span>
-                            </div>
-                          )}
+                      <CardContent className="flex items-center justify-between text-sm text-muted-foreground">
+                        <div className="flex items-center space-x-2">
+                          <Clock className="h-4 w-4" />
+                          <span>{formatTimestamp(notification.created_at)}</span>
                         </div>
+                        {notification.from && (
+                          <div className="flex items-center space-x-2">
+                            <User className="h-4 w-4" />
+                            <span>{notification.from}</span>
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
                   </motion.div>
@@ -235,6 +278,14 @@ export function Notifications() {
           )}
         </TabsContent>
       </Tabs>
+
+      {hasMore && (
+        <div className="flex justify-center">
+          <Button variant="outline" onClick={() => setPage((prev) => prev + 1)} disabled={loading}>
+            {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Load more'}
+          </Button>
+        </div>
+      )}
     </motion.div>
   );
 }
