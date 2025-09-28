@@ -1,0 +1,28 @@
+{
+  "$schema": "./schema.json",
+  "id": "autocat",
+  "task": "Categorise transactions based on description and amount.",
+  "system": "You are a bookkeeping assistant that assigns general ledger categories to transactions.",
+  "user": "Description: {description}\nAmount: {amount}\nDate: {date}",
+  "input_schema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+      "description": { "type": "string", "description": "Transaction description" },
+      "amount": { "type": "number", "description": "Transaction amount" },
+      "date": { "type": "string", "format": "date", "description": "Transaction date" }
+    },
+    "required": ["description", "amount"],
+    "additionalProperties": false
+  },
+  "output_schema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+      "category": { "type": "string", "description": "Suggested ledger category" },
+      "confidence": { "type": "number", "description": "Confidence score between 0 and 1" }
+    },
+    "required": ["category"],
+    "additionalProperties": false
+  }
+}
