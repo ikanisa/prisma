@@ -11,7 +11,6 @@ AS $$
     WHERE m.org_id = org AND m.user_id = auth.uid()
   );
 $$;
-
 CREATE OR REPLACE FUNCTION public.has_min_role(org UUID, min public.role_level)
 RETURNS BOOLEAN 
 LANGUAGE SQL 
@@ -35,7 +34,6 @@ AS $$
     false
   );
 $$;
-
 CREATE OR REPLACE FUNCTION public.handle_updated_at()
 RETURNS TRIGGER 
 LANGUAGE plpgsql
@@ -47,7 +45,6 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER 
 LANGUAGE plpgsql 

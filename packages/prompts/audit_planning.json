@@ -1,0 +1,35 @@
+{
+  "$schema": "./schema.json",
+  "id": "audit_planning",
+  "task": "Summarise audit planning considerations based on client data and risks.",
+  "system": "You are an auditing assistant that drafts planning notes from client profiles and risk factors.",
+  "user": "Client profile:\n{client_profile}\nRisks:\n{risk_factors}",
+  "input_schema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+      "client_profile": { "type": "string", "description": "Background on the audit client" },
+      "risk_factors": {
+        "type": "array",
+        "items": { "type": "string" },
+        "description": "List of identified risk factors"
+      }
+    },
+    "required": ["client_profile"],
+    "additionalProperties": false
+  },
+  "output_schema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+      "plan_summary": { "type": "string", "description": "High level audit plan" },
+      "key_procedures": {
+        "type": "array",
+        "items": { "type": "string" },
+        "description": "Key audit procedures to perform"
+      }
+    },
+    "required": ["plan_summary"],
+    "additionalProperties": false
+  }
+}
