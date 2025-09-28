@@ -1,7 +1,7 @@
 -- Apply the demo seed data (0002_aat_seed_demo.sql)
 DO $$
 DECLARE
-  v_org uuid; v_user uuid; v_eng uuid; v_mat uuid;
+  v_org uuid; v_user uuid; v_eng uuid; v_mat uuid; v_client uuid;
   v_vendor_mt uuid; v_vendor_eu uuid; v_vendor_local uuid;
   v_cat_sw uuid; v_cat_prof uuid; v_cat_travel uuid;
   v_coa_cash uuid; v_coa_ap uuid; v_coa_revenue uuid; v_coa_vat_pay uuid; v_coa_expense uuid;
@@ -33,7 +33,15 @@ BEGIN
     (v_coa_expense,v_org,'5100','Operating Expenses','expense')
   ON CONFLICT (org_id,code) DO NOTHING;
 
-  -- Categories
+    -- Ensure demo client exists
+  SELECT id INTO v_client FROM clients WHERE org_id = v_org AND name = 'ACME LTD';
+  IF v_client IS NULL THEN
+    INSERT INTO clients (org_id, name, contact_name, email, phone, country, industry, fiscal_year_end)
+    VALUES (v_org, 'ACME LTD', 'Alex Turner', 'finance@acme.example', '+356000000', 'MT', 'Manufacturing', 'December 31')
+    RETURNING id INTO v_client;
+  END IF;
+
+-- Categories
   v_cat_sw := gen_random_uuid(); v_cat_prof := gen_random_uuid(); v_cat_travel := gen_random_uuid();
   INSERT INTO categories(id,org_id,name,description) VALUES
     (v_cat_sw,v_org,'Software Subscriptions','SaaS & cloud tools'),
@@ -77,8 +85,9 @@ BEGIN
 
   -- Engagement + materiality + risks
   v_eng := gen_random_uuid();
-  INSERT INTO engagements(id,org_id,client_id,year,status,frf,eqr_required)
-  VALUES (v_eng,v_org,'ACME LTD',extract(year from now())::int,'planned','IFRS',false);
+  INSERT INTO engagements(id,org_id,client_id,title,description,status,start_date,end_date,year,frf,eqr_required)
+  VALUES (v_eng,v_org,v_client,'ACME Group - FY'||extract(year from now())::int, 'Demo engagement seed', 'planned', current_date - 30, current_date + 335, extract(year from now())::int, 'IFRS', false)
+  ON CONFLICT (id) DO NOTHING;
 
   v_mat := gen_random_uuid();
   INSERT INTO materiality_sets(id,org_id,engagement_id,basis,basis_amount,pm,te_threshold,rationale)
@@ -119,7 +128,6 @@ BEGIN
 
   RAISE NOTICE 'AAT seed complete for org demo (%).', v_org;
 END $$;
-
 -- Sanity checks
 SELECT 'orgs' as t, count(*) FROM organizations WHERE slug='demo';
 SELECT 'coa'  as t, count(*) FROM chart_of_accounts WHERE org_id=(SELECT id FROM organizations WHERE slug='demo');
