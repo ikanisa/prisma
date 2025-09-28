@@ -1,7 +1,9 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Plus, Edit } from 'lucide-react';
 import { Button } from '@/components/enhanced-button';
+import { Button as UIButton } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { EngagementForm } from '@/components/forms/engagement-form';
@@ -89,6 +91,58 @@ export function Engagements() {
               <CardContent>
                 <div className="text-sm text-muted-foreground">
                   <p>Period: {engagement.periodStart} - {engagement.periodEnd}</p>
+                  <div className="mt-3 flex gap-2">
+                    <UIButton variant="default" size="sm" asChild>
+                      <Link to={`/${currentOrg?.slug}/engagements/${engagement.id}/acceptance`}>
+                        Acceptance & independence
+                      </Link>
+                    </UIButton>
+                    <UIButton variant="outline" size="sm" asChild>
+                      <Link to={`/${currentOrg?.slug}/engagements/${engagement.id}/reporting/kam`}>
+                        Open KAM Module
+                      </Link>
+                    </UIButton>
+                    <UIButton variant="outline" size="sm" asChild>
+                      <Link to={`/${currentOrg?.slug}/engagements/${engagement.id}/reporting/report`}>
+                        Open Report Builder
+                      </Link>
+                    </UIButton>
+                    <UIButton variant="outline" size="sm" asChild>
+                      <Link to={`/${currentOrg?.slug}/engagements/${engagement.id}/reporting/tcwg`}>
+                        Open TCWG Pack
+                      </Link>
+                    </UIButton>
+                    <UIButton variant="outline" size="sm" asChild>
+                      <Link to={`/${currentOrg?.slug}/engagements/${engagement.id}/reporting/pbc`}>
+                        Open PBC Manager
+                      </Link>
+                    </UIButton>
+                    <UIButton variant="outline" size="sm" asChild>
+                      <Link to={`/${currentOrg?.slug}/engagements/${engagement.id}/planning/audit-plan`}>
+                        Audit Plan
+                      </Link>
+                    </UIButton>
+                    <UIButton variant="outline" size="sm" asChild>
+                      <Link to={`/${currentOrg?.slug}/engagements/${engagement.id}/planning/risk-register`}>
+                        Risk Register
+                      </Link>
+                    </UIButton>
+                    <UIButton variant="outline" size="sm" asChild>
+                      <Link to={`/${currentOrg?.slug}/engagements/${engagement.id}/planning/responses`}>
+                        Responses Matrix
+                      </Link>
+                    </UIButton>
+                    <UIButton variant="outline" size="sm" asChild>
+                      <Link to={`/${currentOrg?.slug}/engagements/${engagement.id}/planning/fraud-plan`}>
+                        Fraud Plan
+                      </Link>
+                    </UIButton>
+                    <UIButton variant="outline" size="sm" asChild>
+                      <Link to={`/${currentOrg?.slug}/engagements/${engagement.id}/reporting/controls`}>
+                        Open Controls
+                      </Link>
+                    </UIButton>
+                  </div>
                 </div>
               </CardContent>
             </Card>
