@@ -17,7 +17,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: actions/setup-node@v5
         with:
@@ -64,7 +64,7 @@ jobs:
       DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/postgres
       SKIP_HEALTHCHECK_DB: 'true'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: actions/setup-node@v5
         with:
@@ -101,7 +101,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build-test, next-web]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: actions/setup-node@v5
         with:
@@ -130,7 +130,7 @@ jobs:
     if: ${{ hashFiles('requirements.txt') != '' }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: actions/setup-python@v5
         with:
@@ -164,7 +164,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build-test]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
