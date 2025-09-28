@@ -1,0 +1,24 @@
+templates:
+  default:
+    - area: BANK
+      title: Obtain period-end bank statements and confirmations
+      dueDays: 2
+    - area: AR
+      title: Reconcile aged receivables ledger to GL
+      dueDays: 3
+    - area: AP
+      title: Perform unrecorded liabilities search
+      dueDays: 3
+    - area: GRNI
+      title: Clear goods received not invoiced balances
+      dueDays: 4
+    - area: PAYROLL
+      title: Verify payroll accrual and statutory filings
+      dueDays: 5
+  accelerated:
+    - area: BANK
+      title: Bank proof of cash review
+      dueDays: 1
+    - area: OTHER
+      title: Review management representation letter draft
+      dueDays: 6
