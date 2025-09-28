@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
-# Run gitleaks to scan for secrets before commit
+# Secret scan wrapper (gitleaks)
 set -euo pipefail
 
-CONFIG_FILE="$(dirname "$0")/../.gitleaks.toml"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+CONFIG_FILE="${CONFIG_FILE:-"$ROOT_DIR/.gitleaks.toml"}"
 
 if ! command -v gitleaks >/dev/null 2>&1; then
-  echo "gitleaks not installed" >&2
-  exit 1
+  echo "Error: gitleaks not installed" >&2
+  exit 127
 fi
 
-gitleaks detect --source . --config "$CONFIG_FILE" --no-git --no-banner
+# Pass any extra flags through with "$@"
+exec gitleaks detect --source "$ROOT_DIR" --config "$CONFIG_FILE" --no-git --no-banner "$@"

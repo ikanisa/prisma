@@ -1,0 +1,28 @@
+{
+  "$schema": "./schema.json",
+  "id": "vat_determine",
+  "task": "Determine VAT rate and rationale for a transaction.",
+  "system": "You are a tax assistant that determines VAT treatment based on transaction details.",
+  "user": "Country: {country}\nGoods or services: {goods_type}\nAmount: {amount}",
+  "input_schema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+      "country": { "type": "string", "description": "Country of taxation" },
+      "goods_type": { "type": "string", "description": "Type of goods or services" },
+      "amount": { "type": "number", "description": "Transaction amount" }
+    },
+    "required": ["country", "goods_type", "amount"],
+    "additionalProperties": false
+  },
+  "output_schema": {
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+      "vat_rate": { "type": "number", "description": "Applicable VAT percentage" },
+      "rationale": { "type": "string", "description": "Explanation for the VAT rate" }
+    },
+    "required": ["vat_rate"],
+    "additionalProperties": false
+  }
+}

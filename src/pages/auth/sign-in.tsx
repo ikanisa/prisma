@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/hooks/use-auth';
 import { useOrganizations } from '@/hooks/use-organizations';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 export function SignIn() {
   const [email, setEmail] = useState('');
@@ -20,8 +21,9 @@ export function SignIn() {
   
   const navigate = useNavigate();
   const { user, signIn, signUp, sendMagicLink, loading } = useAuth();
-  const { currentOrg, memberships } = useOrganizations();
+  const { memberships } = useOrganizations();
   const { toast } = useToast();
+  const enableDemoLogin = import.meta.env.VITE_ENABLE_DEMO_LOGIN === 'true';
 
   // Redirect authenticated users to their organization
   useEffect(() => {
@@ -87,12 +89,6 @@ export function SignIn() {
         description: "Check your email for the sign-in link",
       });
     }
-  };
-
-  const quickLogin = (userEmail: string) => {
-    setEmail(userEmail);
-    setPassword('lovable123');
-    setActiveTab('signin');
   };
 
   return (
@@ -278,36 +274,75 @@ export function SignIn() {
             </CardContent>
           </Card>
 
-          {/* Demo Users */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.3 }}
-            className="mt-6"
-          >
-            <p className="text-sm text-muted-foreground text-center mb-3">Demo Users (password: lovable123)</p>
-            <div className="grid gap-2">
-              {[
-                { email: 'sophia@aurora.test', name: 'Sophia System', role: 'System Admin' },
-                { email: 'mark@aurora.test', name: 'Mark Manager', role: 'Manager' },
-                { email: 'eli@aurora.test', name: 'Eli Employee', role: 'Employee' },
-              ].map((user, index) => (
-                <motion.button
-                  key={user.email}
-                  onClick={() => quickLogin(user.email)}
-                  className="text-left p-3 rounded-lg bg-card/50 hover:bg-card border border-border/50 hover:border-border transition-all duration-200"
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.4 + index * 0.1 }}
+          {enableDemoLogin && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.3 }}
+              className="mt-6"
+            >
+              <p className="text-sm text-muted-foreground text-center mb-3">
+                Demo user logins are available for evaluation.
+              </p>
+              <div className="grid gap-2">
+                {[
+                  { email: 'sophia@aurora.test', name: 'Sophia System', role: 'System Admin' },
+                  { email: 'mark@aurora.test', name: 'Mark Manager', role: 'Manager' },
+                  { email: 'eli@aurora.test', name: 'Eli Employee', role: 'Employee' },
+                ].map((user, index) => (
+                  <motion.button
+                    key={user.email}
+                    onClick={() => {
+                      setEmail(user.email);
+                      setPassword('');
+                      setActiveTab('signin');
+                    }}
+                    className="text-left p-3 rounded-lg bg-card/50 hover:bg-card border border-border/50 hover:border-border transition-all duration-200"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.4 + index * 0.1 }}
+                  >
+                    <div className="font-medium text-sm">{user.name}</div>
+                    <div className="text-xs text-muted-foreground">{user.role} • {user.email}</div>
+                  </motion.button>
+                ))}
+              </div>
+              <div className="mt-3 text-center">
+                <button
+                  onClick={async () => {
+                    try {
+                      const { data, error } = await supabase.functions.invoke('create-demo-users');
+                      if (error || !data?.success) {
+                        toast({
+                          variant: 'destructive',
+                          title: 'Failed to create demo users',
+                          description: error?.message ?? data?.error ?? 'Unknown error',
+                        });
+                        return;
+                      }
+
+                      toast({
+                        title: 'Demo users created!',
+                        description: 'Invitees will receive email-based access instructions.',
+                      });
+                    } catch (error) {
+                      console.error('create-demo-users failed', error);
+                      toast({
+                        variant: 'destructive',
+                        title: 'Network error',
+                        description: 'Could not connect to create demo users',
+                      });
+                    }
+                  }}
+                  className="text-xs text-muted-foreground hover:text-foreground transition-colors underline"
                 >
-                  <div className="font-medium text-sm">{user.name}</div>
-                  <div className="text-xs text-muted-foreground">{user.role} • {user.email}</div>
-                </motion.button>
-              ))}
-            </div>
-          </motion.div>
+                  Create demo users if not available
+                </button>
+              </div>
+            </motion.div>
+          )}
 
           <div className="mt-6 text-center">
             <Link to="/" className="text-sm text-muted-foreground hover:text-foreground transition-colors">

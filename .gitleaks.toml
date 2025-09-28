@@ -1,20 +1,41 @@
-[extend]
-useDefault = true
+title = "gitleaks config"
+
+# Start from Gitleaks' default rule set
+extends = ["https://raw.githubusercontent.com/gitleaks/gitleaks/master/config/gitleaks.toml"]
+
+# ───────────────────────────────────────────────────────────
+# Custom rules
+# ───────────────────────────────────────────────────────────
 
 [[rules]]
-id = "supabase-key"
-description = "Supabase URL"
-regex = '''https://[a-zA-Z0-9]{20}\.supabase\.co'''
-tags = ["supabase"]
+id = "supabase-url"
+description = "Supabase project URL"
+regex = '''https://[A-Za-z0-9]{20}\.supabase\.co'''
+tags = ["supabase", "url"]
 
 [[rules]]
-id = "jwt-token"
+id = "supabase-api-key"
+description = "Supabase API key"
+regex = '''sbp_[0-9a-f]{40,}'''
+tags = ["supabase", "key"]
+
+[[rules]]
+id = "generic-jwt"
 description = "JSON Web Token"
-regex = '''eyJ[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}'''
-tags = ["jwt"]
+regex = '''eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}'''
+tags = ["jwt", "token"]
 
 [[rules]]
-id = "bearer-token"
-description = "Generic Bearer Token"
-regex = '''Bearer\s+[A-Za-z0-9\-\._]{20,}'''
-tags = ["token"]
+id = "generic-bearer"
+description = "Bearer token"
+regex = '''Bearer\s+[A-Za-z0-9._~+\-\/]+=*'''
+tags = ["bearer", "token"]
+
+# ───────────────────────────────────────────────────────────
+# Allowlist (paths/lines you expect to contain false-positives)
+# ───────────────────────────────────────────────────────────
+[allowlist]
+description = "Allow committed Supabase client stubs"
+paths = [
+  '''src/integrations/supabase/client.ts'''
+]

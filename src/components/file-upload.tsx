@@ -3,55 +3,50 @@ import { Upload, X, File, Image } from 'lucide-react';
 import { Button } from '@/components/enhanced-button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { useFileUpload, UploadedFile } from '@/hooks/use-file-upload';
 
 interface FileUploadProps {
-  onFilesUploaded: (files: UploadedFile[]) => void;
+  onUpload: (files: File[]) => Promise<void>;
   accept?: string;
   multiple?: boolean;
   maxSize?: number; // in MB
 }
 
-export function FileUpload({ 
-  onFilesUploaded, 
-  accept = "*/*", 
-  multiple = true,
-  maxSize = 10 
-}: FileUploadProps) {
-  const { uploading, progress, uploadMultipleFiles } = useFileUpload();
+export function FileUpload({ onUpload, accept = '*/*', multiple = true, maxSize = 10 }: FileUploadProps) {
   const [dragActive, setDragActive] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState(0);
 
   const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (e.type === "dragenter" || e.type === "dragover") {
+    if (e.type === 'dragenter' || e.type === 'dragover') {
       setDragActive(true);
-    } else if (e.type === "dragleave") {
+    } else if (e.type === 'dragleave') {
       setDragActive(false);
     }
   }, []);
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
-    
-    const files = Array.from(e.dataTransfer.files);
-    handleFiles(files);
-  }, []);
-  
-  const handleFiles = (files: File[]) => {
-    const validFiles = files.filter(file => {
+  const handleFiles = useCallback((files: File[]) => {
+    const validFiles = files.filter((file) => {
       if (file.size > maxSize * 1024 * 1024) {
         console.warn(`File ${file.name} exceeds ${maxSize}MB limit`);
         return false;
       }
       return true;
     });
-    
+
     setSelectedFiles(validFiles);
-  };
+  }, [maxSize]);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+
+    const files = Array.from(e.dataTransfer.files);
+    handleFiles(files);
+  }, [handleFiles]);
 
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -61,18 +56,23 @@ export function FileUpload({
 
   const handleUpload = async () => {
     if (selectedFiles.length === 0) return;
-    
+
+    setUploading(true);
+    setProgress(0);
     try {
-      const uploadedFiles = await uploadMultipleFiles(selectedFiles as any);
-      onFilesUploaded(uploadedFiles);
+      await onUpload(selectedFiles);
+      setProgress(100);
       setSelectedFiles([]);
     } catch (error) {
       console.error('Upload failed:', error);
+    } finally {
+      setUploading(false);
+      setProgress(0);
     }
   };
 
   const removeFile = (index: number) => {
-    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
   const formatFileSize = (bytes: number) => {
@@ -87,9 +87,7 @@ export function FileUpload({
     <div className="space-y-4">
       <Card
         className={`transition-colors border-2 border-dashed ${
-          dragActive 
-            ? 'border-primary bg-primary/5' 
-            : 'border-muted-foreground/25 hover:border-primary/50'
+          dragActive ? 'border-primary bg-primary/5' : 'border-muted-foreground/25 hover:border-primary/50'
         }`}
         onDragEnter={handleDrag}
         onDragLeave={handleDrag}
@@ -124,7 +122,7 @@ export function FileUpload({
         <div className="space-y-2">
           <h4 className="font-medium">Selected Files:</h4>
           {selectedFiles.map((file, index) => (
-            <Card key={index} className="p-3">
+            <Card key={file.name + index} className="p-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
                   {file.type.startsWith('image/') ? (
@@ -150,7 +148,7 @@ export function FileUpload({
               </div>
             </Card>
           ))}
-          
+
           {uploading && (
             <div className="space-y-2">
               <Progress value={progress} className="w-full" />
@@ -159,9 +157,9 @@ export function FileUpload({
               </p>
             </div>
           )}
-          
-          <Button 
-            onClick={handleUpload} 
+
+          <Button
+            onClick={handleUpload}
             disabled={uploading || selectedFiles.length === 0}
             className="w-full"
           >
