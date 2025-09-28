@@ -4,13 +4,14 @@
 1. Log in to the Supabase dashboard.
 2. Select your project and open **Project Settings > API**.
 3. Record the current key for rollback.
-4. Generate a new service or anon key.
-5. Update secret storage (.env, CI, etc.) with the new key.
-6. Redeploy any services using the key.
-7. Invalidate or revoke the old key in the dashboard.
-8. Remove cached credentials and restart clients.
-9. Verify new key works across all environments.
-10. Document the rotation and schedule the next review.
+4. Generate new anon and service role keys.
+5. Update secret storage (.env, CI, Terraform) with the rotated values (see `.env.example` for placeholders) and push the new values to Vault (`${SUPABASE_VAULT_PATH}` fields `service_role_key` and `jwt_secret`).
+   The Supabase Edge Functions automatically consume these secrets via `supabase/functions/_shared/supabase-client.ts`, so no per-function env overrides are needed once Vault is updated.
+6. Redeploy services/edge functions consuming the keys.
+7. Revoke the previous keys in the Supabase dashboard.
+8. Clear caches/session stores and restart long-lived workers.
+9. Validate access (CLI + application login).
+10. Record the rotation (date, actor, scope) in the security change log and schedule the next review.
 
 ## OpenAI
 1. Sign in to your OpenAI account.

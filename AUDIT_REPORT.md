@@ -11,38 +11,38 @@
 
 | Pillar | Score (0-5) | Notes |
 |---|---|---|
-| Security | 1 | Hard-coded Supabase keys, lack of secret management, no authentication around n8n workflows |
-| Reliability | 1 | No retry/idempotency patterns, no error handling workflows |
-| Observability | 0 | No logging, tracing, or alerting framework |
-| Performance | 2 | Small front-end app; no server load testing or rate limiting |
-| Maintainability | 2 | Large number of lint errors, no tests, no CI |
-| DevEx | 2 | Minimal documentation, no local scripts for n8n flows |
-| Compliance | 0 | No data retention, backup, or GDPR controls |
+| Security | 3 | Env-driven Supabase config, RLS enforced across new treaty/US overlay tables, policy packs published; secrets still require managed vault rollout |
+| Reliability | 2 | Retry/idempotency patterns live in edge functions, but centralised error workflow pending |
+| Observability | 2 | Activity catalog, telemetry tables, and governance packs provide traceability; alerting hooks still manual |
+| Performance | 2 | Core calculators deterministic; no load testing yet |
+| Maintainability | 3 | Vitest coverage for tax calculators, modular service layer, governance docs; UI integration tests outstanding |
+| DevEx | 3 | Comprehensive policy packs, approvals matrix, and documentation for treaty/US overlays improve onboarding |
+| Compliance | 3 | Treaty & US overlays mapped to regulatory anchors, ActivityLog evidence in place; independence monitoring automation pending |
 
 Overall the project is in prototype stage and requires substantial work before production deployment.
 
 ## Top 10 Risks
 | Title | Impact | Likelihood | Severity | Evidence | Fix |
 |---|---|---|---|---|---|
-| Hard-coded Supabase credentials | High | High | Critical | `.env` and `src/integrations/supabase/client.ts` (redacted) | Move to env vars & rotate keys |
-| Missing n8n workflow exports | Medium | High | High | Repository lacks workflow JSON exports | Establish workflow export & version control |
-| No webhook verification | High | High | Critical | No code handling signatures or tokens | Implement verification in n8n and web layer |
-| Lack of retries/backoff for external calls | Medium | High | High | No retry logic in code | Use n8n retry nodes / custom logic |
-| No centralized error handling | Medium | High | High | No error workflow or logging | Build global error workflow with alerts |
-| Unbounded Google Sheets operations | Medium | Medium | Medium | No batching/backoff | Use Sheets API batch updates and quotas |
-| Inadequate RLS coverage for Supabase tables | High | Medium | High | Review migrations for policies | Audit policies, enforce least privilege |
-| Absence of tests and CI | Medium | High | High | `npm test` missing | Add tests and CI pipeline |
-| Dependency vulnerabilities | Medium | High | High | `npm audit` shows esbuild/vite vuln | Upgrade dependencies, run SCA in CI |
-| No .env hygiene or secret rotation policy | Medium | High | High | Only `.env` committed, no example | Add `.env.example`, use secret manager |
+| Centralised error handling absent | Medium | High | High | No global error workflow post-n8n removal | Implement Supabase function / queue based error notifier |
+| Vault-backed secrets require monitoring | Low | Low | Low | Hashicorp integration via `lib/secrets/*`, `.env.example` vault config | Automate rotation job + vault audit log review |
+| Treaty & US overlay approvals bypassable | Medium | Medium | Medium | Policy packs published but enforcement automation pending | Wire approval queue enforcement to new modules |
+| Load/perf testing missing | Medium | Medium | Medium | No baseline for calculators / edge functions | Add k6 tests per Phase 4 plan |
+| Dependabot backlog | Medium | Medium | Medium | Pending dependency review | Re-enable update cadence + CI verification |
+| Client storage PII guardrails undefined | Medium | Low | Medium | Evidence manifests store metadata without retention policy | Extend retention/PII redaction policy |
+| Background job observability limited | Low | High | Medium | Telemetry tables exist but ingestion automation missing | Ship cron jobs to populate telemetry + dashboards |
+| Snapshot/backup SOPs draft | Medium | Medium | Medium | Checklist references but runbook absent | Document & rehearse backup/restore for Supabase |
+| Manual MAP/APA workflow gating | Medium | Medium | Medium | No enforced reviewer thresholds | Enforce reviewer roles in UI/API |
+| Remaining legacy configs | Low | High | Medium | Supabase config in repo still references demo defaults | Document env overrides + secrets rotation |
 
 ## Architecture Map
 ```mermaid
 flowchart TD
   A[React Web UI] -->|Supabase JS| B[(Supabase DB)]
-  A -->|n8n Webhooks| C[n8n Cloud]
-  C -->|OpenAI API| D[OpenAI]
-  C -->|Google Sheets API| E[(Google Sheets)]
-  C -->|Error Notifications| F[Ops/Alerts]
+  A -->|Edge Functions| D[Supabase Functions]
+  D -->|OpenAI API| E[OpenAI]
+  D -->|Google Sheets API| F[(Google Sheets)]
+  D -->|Notifications| G[Ops/Alerts]
 ```
 
 ## Threat Model
@@ -50,10 +50,9 @@ flowchart TD
 
 | STRIDE | Threat | Mitigation |
 |---|---|---|
-| Spoofing | Unverified webhooks could be called by attackers | Add webhook secret verification and auth tokens |
+| Spoofing | Unverified webhooks could be called by attackers | Enforce shared-secret HMAC + idempotency via `handleWebhook` |
 | Tampering | Lack of input validation for Sheet/AI data | Validate all inputs, use schemas |
-| Repudiation | No audit logs beyond basic activity table | Enable n8n and Supabase logs |
+| Repudiation | No audit logs beyond basic activity table | Enable Supabase logs and telemetry |
 | Information Disclosure | Hard-coded keys and PII exposure | Use secret manager and data minimization |
 | Denial of Service | No rate limiting on webhooks or Sheets ops | Implement rate limiting and backoff |
 | Elevation of Privilege | Weak RLS policies or missing auth checks | Review policies, enforce least privilege |
-
