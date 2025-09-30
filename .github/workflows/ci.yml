@@ -23,6 +23,13 @@ jobs:
           TARGET_FUNCTIONS: 45
           TARGET_LINES: 45
         run: npm run coverage
+      - name: Build web bundle
+        run: npm run build
+      - name: Enforce bundle budgets
+        env:
+          BUNDLE_MAX_MAIN_GZ_KB: 300
+          BUNDLE_MAX_CHUNK_GZ_KB: 250
+        run: npm run check:bundle
       - name: Policy tests (pgTAP)
         env:
           DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}

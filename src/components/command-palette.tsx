@@ -22,6 +22,10 @@ import {
   BarChart3,
   Plus,
   Search,
+  ShieldCheck,
+  Calculator,
+  ClipboardCheck,
+  AlarmClock,
 } from "lucide-react";
 import { useAppStore } from "@/stores/mock-data";
 
@@ -71,6 +75,31 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
       name: "Engagements",
       icon: Briefcase,
       action: () => navigate(`/${orgSlug}/engagements`),
+    },
+    {
+      name: "Audit Workspace",
+      icon: ShieldCheck,
+      action: () => navigate(`/${orgSlug}/audit/controls`),
+    },
+    {
+      name: "Accounting Close",
+      icon: Calculator,
+      action: () => navigate(`/${orgSlug}/accounting`),
+    },
+    {
+      name: "Onboarding Checklist",
+      icon: ClipboardCheck,
+      action: () => navigate(`/${orgSlug}/onboarding`),
+    },
+    {
+      name: "Autopilot",
+      icon: AlarmClock,
+      action: () => navigate(`/${orgSlug}/autopilot`),
+    },
+    {
+      name: "Agent Configuration",
+      icon: ShieldCheck,
+      action: () => navigate(`/${orgSlug}/agents/configuration`),
     },
     {
       name: "Tasks",

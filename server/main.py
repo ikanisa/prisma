@@ -1,13 +1,25 @@
+import asyncio
 import os
 import time
-from typing import Any, Dict, List
+import contextlib
+import copy
+import json
+from collections import defaultdict
+from contextvars import ContextVar
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
+import mimetypes
+import secrets
 
 import jwt
 import redis
 import sentry_sdk
 import structlog
-from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, UploadFile, status
+import structlog.contextvars
+from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, UploadFile, status, Query, Path, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from fastapi.responses import JSONResponse
 import httpx
 from pydantic import BaseModel, Field
 from opentelemetry import trace
@@ -17,11 +29,85 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 from rq import Queue
 from sqlalchemy import text
+from datetime import datetime, timezone, timedelta
+import uuid
+import hashlib
+import os.path
 
+from openai import AsyncOpenAI
+
+from services.analytics.jobs import anomaly_scan_job, policy_check_job, reembed_job
+
+from .autopilot_handlers import handle_extract_documents
 from .db import AsyncSessionLocal, Chunk, init_db
 from .rag import chunk_text, embed_chunks, extract_text, store_chunks
+from .health import build_readiness_report
+from .security import build_csp_header, normalise_allowed_origins
 
 app = FastAPI()
+
+PERMISSION_CONFIG_PATH = Path(__file__).resolve().parents[1] / "POLICY" / "permissions.json"
+PERMISSION_MAP: Dict[str, str] = {}
+CLIENT_ALLOWED_DOCUMENT_REPOS: List[str] = [
+    "03_Accounting/PBC",
+    "02_Tax/PBC",
+    "04_Audit/PBC",
+]
+DEFAULT_IMPERSONATION_EXPIRY_HOURS = 8
+RESERVED_ORG_SETTINGS_FIELDS = {"default_role", "impersonation_breakglass_emails"}
+
+TRUSTED_HOSTS = os.getenv("ALLOWED_HOSTS", "").strip()
+if TRUSTED_HOSTS:
+    allowed_hosts = [host.strip() for host in TRUSTED_HOSTS.split(",") if host.strip()]
+    if allowed_hosts:
+        app.add_middleware(TrustedHostMiddleware, allowed_hosts=allowed_hosts)
+
+BASE_SECURITY_HEADERS: Dict[str, str] = {
+    "Strict-Transport-Security": "max-age=63072000; includeSubDomains; preload",
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "no-referrer",
+    "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+}
+
+SECURITY_HEADERS: Dict[str, str] = dict(BASE_SECURITY_HEADERS)
+
+REQUEST_ID_HEADER = "X-Request-ID"
+_request_id_ctx: ContextVar[Optional[str]] = ContextVar("request_id", default=None)
+
+
+def get_current_request_id() -> Optional[str]:
+    return _request_id_ctx.get()
+
+
+@app.middleware("http")
+async def add_request_id(request: Request, call_next):
+    incoming = request.headers.get(REQUEST_ID_HEADER) or request.headers.get(REQUEST_ID_HEADER.lower())
+    request_id = (incoming or "").strip() or str(uuid.uuid4())
+
+    token = _request_id_ctx.set(request_id)
+    structlog.contextvars.clear_contextvars()
+    structlog.contextvars.bind_contextvars(request_id=request_id)
+    with sentry_sdk.configure_scope() as scope:
+        scope.set_tag("request_id", request_id)
+
+    try:
+        response = await call_next(request)
+    finally:
+        structlog.contextvars.unbind_contextvars("request_id")
+        _request_id_ctx.reset(token)
+
+    response.headers.setdefault(REQUEST_ID_HEADER, request_id)
+    return response
+
+
+@app.middleware("http")
+async def apply_security_headers(request, call_next):
+    response = await call_next(request)
+    for header, value in SECURITY_HEADERS.items():
+        if header not in response.headers:
+            response.headers[header] = value
+    return response
 
 # OTEL setup
 provider = TracerProvider()
@@ -32,14 +118,45 @@ if otlp_endpoint:
 FastAPIInstrumentor.instrument_app(app, tracer_provider=provider)
 
 # Sentry stub
-sentry_sdk.init(dsn=os.getenv("SENTRY_DSN"), traces_sample_rate=1.0)
+SENTRY_RELEASE = os.getenv("SENTRY_RELEASE")
+SENTRY_ENVIRONMENT = os.getenv("SENTRY_ENVIRONMENT", os.getenv("ENVIRONMENT", "development"))
+sentry_sdk.init(
+    dsn=os.getenv("SENTRY_DSN"),
+    traces_sample_rate=1.0,
+    release=SENTRY_RELEASE,
+    environment=SENTRY_ENVIRONMENT,
+)
 
-structlog.configure(processors=[structlog.processors.TimeStamper(fmt="iso"), structlog.processors.JSONRenderer()])
+structlog.configure(
+    processors=[
+        structlog.contextvars.merge_contextvars,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.JSONRenderer(),
+    ]
+)
 logger = structlog.get_logger()
+
+
+def _load_permission_map() -> Dict[str, str]:
+    try:
+        with PERMISSION_CONFIG_PATH.open("r", encoding="utf-8") as handle:
+            data = json.load(handle)
+            if isinstance(data, dict):
+                return {str(key): str(value).upper() for key, value in data.items()}
+    except FileNotFoundError:
+        logger.warning("permissions.config_missing", path=str(PERMISSION_CONFIG_PATH))
+    except Exception as exc:  # pragma: no cover - defensive logging
+        logger.error("permissions.config_error", error=str(exc), path=str(PERMISSION_CONFIG_PATH))
+    return {}
+
+
+PERMISSION_MAP = _load_permission_map()
+
+ALLOWED_ORIGINS = normalise_allowed_origins(os.getenv("API_ALLOWED_ORIGINS"))
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=os.getenv("API_ALLOWED_ORIGINS", "*").split(","),
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -65,6 +182,67 @@ SUPABASE_HEADERS = {
     "apikey": SUPABASE_SERVICE_ROLE_KEY,
     "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
     "Accept": "application/json",
+}
+
+SUPABASE_STORAGE_URL = SUPABASE_URL.rstrip("/") + "/storage/v1"
+DOCUMENTS_BUCKET = os.getenv("SUPABASE_DOCUMENTS_BUCKET", "documents")
+MAX_UPLOAD_BYTES = int(os.getenv("DOCUMENT_MAX_UPLOAD_BYTES", str(50 * 1024 * 1024)))
+
+extra_connect = [origin.strip() for origin in os.getenv("CSP_ADDITIONAL_CONNECT_SRC", "").split(",") if origin.strip()]
+extra_img = [origin.strip() for origin in os.getenv("CSP_ADDITIONAL_IMG_SRC", "").split(",") if origin.strip()]
+
+SECURITY_HEADERS["Content-Security-Policy"] = build_csp_header(
+    SUPABASE_URL,
+    SUPABASE_STORAGE_URL,
+    extra_connect=extra_connect,
+    extra_img=extra_img,
+)
+
+TASK_STATUS_VALUES = {"TODO", "IN_PROGRESS", "REVIEW", "COMPLETED"}
+TASK_PRIORITY_VALUES = {"LOW", "MEDIUM", "HIGH", "URGENT"}
+NOTIFICATION_KIND_TO_FRONTEND = {
+    "TASK": "task",
+    "DOC": "document",
+    "APPROVAL": "engagement",
+    "SYSTEM": "system",
+}
+
+assistant_client = AsyncOpenAI()
+
+KNOWLEDGE_ALLOWED_DOMAINS = {"IAS", "IFRS", "ISA", "TAX", "ORG"}
+DRIVE_PLACEHOLDER_LABEL = os.getenv("DRIVE_PLACEHOLDER_LABEL", "Google Drive (configuration pending)")
+DRIVE_PLACEHOLDER_FOLDER = os.getenv("DRIVE_PLACEHOLDER_FOLDER", "drive-folder-placeholder")
+DRIVE_PLACEHOLDER_SCOPE = os.getenv("DRIVE_PLACEHOLDER_SCOPE", "https://www.googleapis.com/auth/drive.readonly")
+
+ASSISTANT_RATE_LIMIT = int(os.getenv("ASSISTANT_RATE_LIMIT", "20"))
+ASSISTANT_RATE_WINDOW = int(os.getenv("ASSISTANT_RATE_WINDOW_SECONDS", "60"))
+DOCUMENT_UPLOAD_RATE_LIMIT = int(os.getenv("DOCUMENT_UPLOAD_RATE_LIMIT", "12"))
+DOCUMENT_UPLOAD_RATE_WINDOW = int(os.getenv("DOCUMENT_UPLOAD_RATE_WINDOW_SECONDS", "300"))
+KNOWLEDGE_RUN_RATE_LIMIT = int(os.getenv("KNOWLEDGE_RUN_RATE_LIMIT", "6"))
+KNOWLEDGE_RUN_RATE_WINDOW = int(os.getenv("KNOWLEDGE_RUN_RATE_WINDOW_SECONDS", "900"))
+KNOWLEDGE_PREVIEW_RATE_LIMIT = int(os.getenv("KNOWLEDGE_PREVIEW_RATE_LIMIT", "30"))
+KNOWLEDGE_PREVIEW_RATE_WINDOW = int(os.getenv("KNOWLEDGE_PREVIEW_RATE_WINDOW_SECONDS", "300"))
+RAG_INGEST_RATE_LIMIT = int(os.getenv("RAG_INGEST_RATE_LIMIT", "5"))
+RAG_INGEST_RATE_WINDOW = int(os.getenv("RAG_INGEST_RATE_WINDOW_SECONDS", "600"))
+RAG_REEMBED_RATE_LIMIT = int(os.getenv("RAG_REEMBED_RATE_LIMIT", "5"))
+RAG_REEMBED_RATE_WINDOW = int(os.getenv("RAG_REEMBED_RATE_WINDOW_SECONDS", "600"))
+RAG_SEARCH_RATE_LIMIT = int(os.getenv("RAG_SEARCH_RATE_LIMIT", "40"))
+RAG_SEARCH_RATE_WINDOW = int(os.getenv("RAG_SEARCH_RATE_WINDOW_SECONDS", "60"))
+AUTOPILOT_SCHEDULE_RATE_LIMIT = int(os.getenv("AUTOPILOT_SCHEDULE_RATE_LIMIT", "10"))
+AUTOPILOT_SCHEDULE_RATE_WINDOW = int(os.getenv("AUTOPILOT_SCHEDULE_RATE_WINDOW_SECONDS", "600"))
+AUTOPILOT_JOB_RATE_LIMIT = int(os.getenv("AUTOPILOT_JOB_RATE_LIMIT", "20"))
+AUTOPILOT_JOB_RATE_WINDOW = int(os.getenv("AUTOPILOT_JOB_RATE_WINDOW_SECONDS", "600"))
+ALLOWED_DOCUMENT_MIME_TYPES = {
+    "application/pdf",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/vnd.ms-powerpoint",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    "text/plain",
+    "image/jpeg",
+    "image/png",
 }
 
 if not JWT_SECRET:
@@ -95,6 +273,59 @@ api_rate_limiter = UserRateLimiter(
 )
 
 
+class ScopedRateLimiter:
+    def __init__(self, redis_client: Optional[redis.Redis]):
+        self.redis = redis_client
+        self.local_buckets: Dict[str, List[float]] = defaultdict(list)
+
+    def check(self, scope: str, key: str, limit: int, window: int) -> Tuple[bool, Optional[int]]:
+        if limit <= 0:
+            return True, None
+
+        if self.redis is not None:
+            redis_key = f"rl:{scope}:{key}"
+            try:
+                with self.redis.pipeline() as pipe:
+                    pipe.incr(redis_key, 1)
+                    pipe.expire(redis_key, window, nx=True)
+                    current, _ = pipe.execute()
+                ttl = self.redis.ttl(redis_key)
+                if ttl < 0:
+                    self.redis.expire(redis_key, window)
+                    ttl = window
+                if current > limit:
+                    retry_after = ttl if ttl > 0 else window
+                    return False, int(retry_after)
+                return True, None
+            except redis.RedisError:
+                pass
+
+        now = time.time()
+        window_start = now - window
+        bucket_key = f"{scope}:{key}"
+        timestamps = [ts for ts in self.local_buckets[bucket_key] if ts > window_start]
+        if len(timestamps) >= limit:
+            retry_after = int(window - (now - min(timestamps)))
+            return False, max(retry_after, 1)
+        timestamps.append(now)
+        self.local_buckets[bucket_key] = timestamps
+        return True, None
+
+
+scoped_rate_limiter = ScopedRateLimiter(redis_conn if redis_conn else None)
+
+
+async def enforce_rate_limit(scope: str, user_id: str, *, limit: int, window: int) -> None:
+    allowed, retry_after = scoped_rate_limiter.check(scope, user_id, limit, window)
+    if not allowed:
+        headers = {"Retry-After": str(retry_after)} if retry_after else None
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"{scope} rate limit exceeded",
+            headers=headers,
+        )
+
+
 def verify_supabase_jwt(token: str) -> Dict[str, Any]:
     try:
         return jwt.decode(token, JWT_SECRET, algorithms=["HS256"], audience=JWT_AUDIENCE)
@@ -119,8 +350,245 @@ async def require_auth(authorization: str = Header(...)) -> Dict[str, Any]:
     return payload
 
 
+ROLE_RANK = {
+    "SERVICE_ACCOUNT": 10,
+    "READONLY": 20,
+    "CLIENT": 30,
+    "EMPLOYEE": 40,
+    "MANAGER": 70,
+    "EQR": 80,
+    "PARTNER": 90,
+    "SYSTEM_ADMIN": 100,
+}
+
+
+def normalise_role(value: Optional[str]) -> str:
+    return (value or "").upper()
+
+
+def ensure_min_role(role: Optional[str], minimum: str) -> None:
+    current_rank = ROLE_RANK.get(normalise_role(role), 0)
+    required_rank = ROLE_RANK.get(normalise_role(minimum), ROLE_RANK["EMPLOYEE"])
+    if current_rank < required_rank:
+        raise HTTPException(status_code=403, detail="insufficient role")
+
+
 def has_manager_privileges(role: str) -> bool:
-    return role in {"MANAGER", "SYSTEM_ADMIN"}
+    return ROLE_RANK.get(normalise_role(role), 0) >= ROLE_RANK["MANAGER"]
+
+
+def get_required_role_for_permission(permission: str) -> Optional[str]:
+    required = PERMISSION_MAP.get(permission)
+    return normalise_role(required) if isinstance(required, str) else None
+
+
+def has_permission(role: Optional[str], permission: str) -> bool:
+    required = get_required_role_for_permission(permission)
+    if not required:
+        return True
+    return ROLE_RANK.get(normalise_role(role), 0) >= ROLE_RANK.get(required, 0)
+
+
+def ensure_permission_for_role(role: Optional[str], permission: str) -> None:
+    if not has_permission(role, permission):
+        raise HTTPException(status_code=403, detail="insufficient_permission")
+
+
+def _normalise_email_domains(domains: Optional[Iterable[str]]) -> List[str]:
+    if not domains:
+        return []
+    normalised: List[str] = []
+    for entry in domains:
+        if not entry:
+            continue
+        value = entry.strip().lower()
+        if not value:
+            continue
+        if "@" in value:
+            value = value.split("@", 1)[1]
+        if value and value not in normalised:
+            normalised.append(value)
+    return normalised
+
+
+def _normalise_emails(values: Optional[Iterable[str]]) -> List[str]:
+    if not values:
+        return []
+    result: List[str] = []
+    for value in values:
+        if not value:
+            continue
+        candidate = value.strip().lower()
+        if candidate and candidate not in result:
+            result.append(candidate)
+    return result
+
+
+ORG_ROLE_VALUES = set(ROLE_RANK.keys())
+MANAGERIAL_ROLES = {"MANAGER", "PARTNER", "SYSTEM_ADMIN", "EQR"}
+TEAM_ROLE_VALUES = {"LEAD", "MEMBER", "VIEWER"}
+
+
+async def is_system_admin_user(user_id: str) -> bool:
+    response = await supabase_table_request("GET", "users", params={"id": f"eq.{user_id}", "select": "is_system_admin", "limit": "1"})
+    if response.status_code != 200:
+        logger.error("supabase.users_admin_check_failed", status=response.status_code, body=response.text)
+        raise HTTPException(status_code=502, detail="user lookup failed")
+    rows = response.json()
+    return bool(rows and rows[0].get("is_system_admin"))
+
+
+async def log_activity_event(
+    *,
+    org_id: str,
+    actor_id: str,
+    action: str,
+    entity_type: Optional[str] = None,
+    entity_id: Optional[str] = None,
+    metadata: Optional[Dict[str, Any]] = None,
+) -> None:
+    payload = {
+        "org_id": org_id,
+        "user_id": actor_id,
+        "action": action,
+        "entity_type": entity_type,
+        "entity_id": entity_id,
+        "metadata": metadata or {},
+        "module": "IAM",
+    }
+    response = await supabase_table_request("POST", "activity_log", json=payload, headers={"Prefer": "return=minimal"})
+    if response.status_code not in (200, 201, 204):
+        logger.error("activity.log_failed", status=response.status_code, body=response.text)
+
+
+async def fetch_user_profile(user_id: str) -> Optional[Dict[str, Any]]:
+    response = await supabase_table_request("GET", "user_profiles", params={"id": f"eq.{user_id}", "limit": "1"})
+    if response.status_code != 200:
+        logger.error("supabase.user_profile_fetch_failed", status=response.status_code, body=response.text)
+        raise HTTPException(status_code=502, detail="profile lookup failed")
+    rows = response.json()
+    return rows[0] if rows else None
+
+
+async def upsert_user_profile(user_id: str, updates: Dict[str, Any]) -> Dict[str, Any]:
+    payload = {"id": user_id}
+    payload.update(updates)
+    response = await supabase_table_request("POST", "user_profiles", json=payload, headers={"Prefer": "resolution=merge-duplicates,return=representation"})
+    if response.status_code not in (200, 201):
+        logger.error("supabase.user_profile_upsert_failed", status=response.status_code, body=response.text)
+        raise HTTPException(status_code=502, detail="profile update failed")
+    rows = response.json()
+    return rows[0] if rows else payload
+
+
+async def fetch_membership(org_id: str, user_id: str) -> Optional[Dict[str, Any]]:
+    response = await supabase_table_request("GET", "memberships", params={"org_id": f"eq.{org_id}", "user_id": f"eq.{user_id}", "limit": "1"})
+    if response.status_code != 200:
+        logger.error("supabase.membership_fetch_failed", status=response.status_code, body=response.text)
+        raise HTTPException(status_code=502, detail="membership lookup failed")
+    rows = response.json()
+    return rows[0] if rows else None
+
+
+async def count_managerial_members(org_id: str) -> int:
+    response = await supabase_table_request("GET", "memberships", params={"org_id": f"eq.{org_id}", "role": "in.(MANAGER,PARTNER,SYSTEM_ADMIN,EQR)", "select": "id"})
+    if response.status_code != 200:
+        logger.error("supabase.membership_count_failed", status=response.status_code, body=response.text)
+        raise HTTPException(status_code=502, detail="membership lookup failed")
+    return len(response.json())
+
+
+def validate_org_role(role: str) -> str:
+    value = normalise_role(role)
+    if value not in ORG_ROLE_VALUES:
+        raise HTTPException(status_code=400, detail="invalid role")
+    return value
+
+
+def validate_team_role(role: Optional[str]) -> str:
+    value = (role or "MEMBER").upper()
+    if value not in TEAM_ROLE_VALUES:
+        raise HTTPException(status_code=400, detail="invalid team role")
+    return value
+
+
+def ensure_role_not_below_manager(role: str) -> None:
+    if ROLE_RANK.get(normalise_role(role), 0) < ROLE_RANK["MANAGER"]:
+        raise HTTPException(status_code=403, detail="manager privileges required")
+
+
+async def guard_actor_manager(org_id: str, actor_id: str) -> str:
+    actor_membership = await fetch_membership(org_id, actor_id)
+    if actor_membership:
+        ensure_min_role(actor_membership.get("role"), "MANAGER")
+        return normalise_role(actor_membership.get("role"))
+    if await is_system_admin_user(actor_id):
+        return "SYSTEM_ADMIN"
+    raise HTTPException(status_code=403, detail="manager privileges required")
+
+
+async def guard_system_admin(actor_id: str) -> None:
+    if not await is_system_admin_user(actor_id):
+        raise HTTPException(status_code=403, detail="system admin required")
+
+
+async def fetch_org_settings(org_id: str) -> Dict[str, Any]:
+    response = await supabase_table_request(
+        "GET",
+        "organizations",
+        params={
+            "id": f"eq.{org_id}",
+            "select": "id,allowed_email_domains,default_role,require_mfa_for_sensitive,impersonation_breakglass_emails",
+            "limit": "1",
+        },
+    )
+    if response.status_code != 200:
+        logger.error("org.settings_fetch_failed", status=response.status_code, body=response.text)
+        raise HTTPException(status_code=502, detail="organization lookup failed")
+    rows = response.json()
+    if not rows:
+        raise HTTPException(status_code=404, detail="organization not found")
+    return rows[0]
+
+
+async def require_recent_whatsapp_mfa(org_id: str, user_id: str, *, within_seconds: int = 86400) -> None:
+    params = {
+        "org_id": f"eq.{org_id}",
+        "user_id": f"eq.{user_id}",
+        "channel": "eq.WHATSAPP",
+        "consumed": "eq.true",
+        "order": "created_at.desc",
+        "limit": "1",
+    }
+    response = await supabase_table_request("GET", "mfa_challenges", params=params)
+    if response.status_code != 200:
+        logger.error(
+            "mfa.challenge_lookup_failed",
+            status=response.status_code,
+            body=response.text,
+            org_id=org_id,
+            user_id=user_id,
+        )
+        raise HTTPException(status_code=502, detail="mfa_lookup_failed")
+
+    rows = response.json()
+    if not rows:
+        raise HTTPException(status_code=403, detail="mfa_required")
+
+    created_at_value = rows[0].get("created_at")
+    if not created_at_value:
+        raise HTTPException(status_code=403, detail="mfa_required")
+
+    try:
+        created_at = datetime.fromisoformat(created_at_value.replace("Z", "+00:00"))
+    except ValueError:
+        raise HTTPException(status_code=403, detail="mfa_required")
+
+    if created_at.tzinfo is None:
+        created_at = created_at.replace(tzinfo=timezone.utc)
+
+    if datetime.now(timezone.utc) - created_at > timedelta(seconds=within_seconds):
+        raise HTTPException(status_code=403, detail="mfa_required")
 
 
 async def resolve_org_context(user_id: str, org_slug: str) -> Dict[str, str]:
@@ -173,6 +641,1234 @@ async def resolve_org_context(user_id: str, org_slug: str) -> Dict[str, str]:
         return {"org_id": org["id"], "role": "SYSTEM_ADMIN"}
 
 
+async def ensure_org_access_by_id(user_id: str, org_id: str) -> str:
+    async with httpx.AsyncClient(timeout=5.0) as client:
+        membership_resp = await client.get(
+            f"{SUPABASE_REST_URL}/memberships",
+            params={"org_id": f"eq.{org_id}", "user_id": f"eq.{user_id}", "select": "role", "limit": "1"},
+            headers=SUPABASE_HEADERS,
+        )
+        if membership_resp.status_code != 200:
+            logger.error(
+                "supabase.membership_lookup_failed",
+                status=membership_resp.status_code,
+                body=membership_resp.text,
+            )
+            raise HTTPException(status_code=502, detail="membership lookup failed")
+        membership_rows = membership_resp.json()
+        if membership_rows:
+            return membership_rows[0].get("role") or "EMPLOYEE"
+
+        user_resp = await client.get(
+            f"{SUPABASE_REST_URL}/users",
+            params={"id": f"eq.{user_id}", "select": "is_system_admin", "limit": "1"},
+            headers=SUPABASE_HEADERS,
+        )
+        if user_resp.status_code != 200:
+            logger.error("supabase.user_lookup_failed", status=user_resp.status_code, body=user_resp.text)
+            raise HTTPException(status_code=502, detail="user lookup failed")
+        user_rows = user_resp.json()
+        if user_rows and user_rows[0].get("is_system_admin"):
+            return "SYSTEM_ADMIN"
+
+    raise HTTPException(status_code=403, detail="forbidden")
+
+
+async def supabase_request(
+    method: str,
+    url: str,
+    *,
+    params: Optional[Dict[str, Any]] = None,
+    json: Optional[Any] = None,
+    data: Optional[Any] = None,
+    content: Optional[bytes] = None,
+    headers: Optional[Dict[str, str]] = None,
+) -> httpx.Response:
+    request_headers = dict(SUPABASE_HEADERS)
+    if headers:
+        request_headers.update(headers)
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        response = await client.request(
+            method,
+            url,
+            params=params,
+            json=json,
+            data=data,
+            content=content,
+            headers=request_headers,
+        )
+    return response
+
+
+async def supabase_table_request(
+    method: str,
+    table: str,
+    *,
+    params: Optional[Dict[str, Any]] = None,
+    json: Optional[Any] = None,
+    headers: Optional[Dict[str, str]] = None,
+) -> httpx.Response:
+    return await supabase_request(method, f"{SUPABASE_REST_URL}/{table}", params=params, json=json, headers=headers)
+
+
+async def fetch_single_record(table: str, record_id: str, select: str = "*") -> Optional[Dict[str, Any]]:
+    params = {"id": f"eq.{record_id}", "select": select, "limit": "1"}
+    response = await supabase_table_request("GET", table, params=params)
+    if response.status_code != 200:
+        logger.error("supabase.fetch_single_failed", table=table, status=response.status_code, body=response.text)
+        raise HTTPException(status_code=502, detail="upstream fetch failed")
+    rows = response.json()
+    return rows[0] if rows else None
+
+
+def sanitize_filename(filename: str) -> str:
+    base = os.path.basename(filename or "document")
+    safe = "".join(ch if ch.isalnum() or ch in {".", "_", "-"} else "_" for ch in base)
+    return safe or "document"
+
+
+def iso_now() -> str:
+    return datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
+
+
+def map_task_response(row: Dict[str, Any]) -> Dict[str, Any]:
+    return {
+        "id": row.get("id"),
+        "org_id": row.get("org_id"),
+        "engagement_id": row.get("engagement_id"),
+        "title": row.get("title"),
+        "description": row.get("description"),
+        "status": row.get("status"),
+        "priority": row.get("priority"),
+        "due_date": row.get("due_date"),
+        "assigned_to": row.get("assigned_to"),
+        "created_by": row.get("created_by"),
+        "created_at": row.get("created_at"),
+        "updated_at": row.get("updated_at"),
+    }
+
+
+async def insert_task_record(
+    *,
+    org_id: str,
+    creator_id: str,
+    payload: Dict[str, Any],
+) -> Dict[str, Any]:
+    status_value = (payload.get("status") or "TODO").upper()
+    priority_value = (payload.get("priority") or "MEDIUM").upper()
+
+    if status_value not in TASK_STATUS_VALUES:
+        raise HTTPException(status_code=400, detail="invalid task status")
+    if priority_value not in TASK_PRIORITY_VALUES:
+        raise HTTPException(status_code=400, detail="invalid task priority")
+
+    supabase_payload = {
+        "org_id": org_id,
+        "title": (payload.get("title") or "Untitled Task").strip(),
+        "description": payload.get("description"),
+        "status": status_value,
+        "priority": priority_value,
+        "engagement_id": payload.get("engagement_id") or payload.get("engagementId"),
+        "assigned_to": payload.get("assigned_to") or payload.get("assigneeId"),
+        "due_date": payload.get("due_date") or payload.get("dueDate"),
+        "created_by": creator_id,
+        "updated_at": iso_now(),
+    }
+
+    response = await supabase_table_request(
+        "POST",
+        "tasks",
+        json=supabase_payload,
+        headers={"Prefer": "return=representation"},
+    )
+
+    if response.status_code not in (200, 201):
+        logger.error("tasks.insert_failed", status=response.status_code, body=response.text)
+        raise HTTPException(status_code=502, detail="failed to create task")
+
+    rows = response.json()
+    if not rows:
+        raise HTTPException(status_code=502, detail="task creation returned no rows")
+
+    return rows[0]
+
+
+def map_document_response(row: Dict[str, Any]) -> Dict[str, Any]:
+    return {
+        "id": row.get("id"),
+        "org_id": row.get("org_id"),
+        "engagement_id": row.get("entity_id"),
+        "name": row.get("name"),
+        "file_path": row.get("storage_path"),
+        "file_size": row.get("file_size"),
+        "file_type": row.get("mime_type"),
+        "uploaded_by": row.get("uploaded_by"),
+        "created_at": row.get("created_at"),
+        "repo_folder": row.get("repo_folder"),
+        "classification": row.get("classification"),
+        "deleted": row.get("deleted", False),
+    }
+
+
+async def create_notification(
+    *,
+    org_id: str,
+    user_id: Optional[str],
+    kind: str,
+    title: str,
+    body: Optional[str] = None,
+    link: Optional[str] = None,
+    urgent: bool = False,
+) -> None:
+    if not user_id:
+        return
+
+    payload = {
+        "org_id": org_id,
+        "user_id": user_id,
+        "kind": kind,
+        "title": title,
+        "body": body,
+        "link": link,
+        "urgent": urgent,
+    }
+
+    try:
+        await supabase_table_request(
+            "POST",
+            "notifications",
+            json=payload,
+            headers={"Prefer": "return=minimal"},
+        )
+    except Exception as exc:  # pragma: no cover - best effort
+        logger.warning("notifications.create_failed", error=str(exc))
+
+
+async def record_agent_trace(
+    *,
+    org_id: str,
+    user_id: Optional[str],
+    tool: str,
+    inputs: Dict[str, Any],
+    outputs: Dict[str, Any],
+    document_ids: Optional[List[str]] = None,
+) -> None:
+    payload = {
+        "org_id": org_id,
+        "user_id": user_id,
+        "tool": tool,
+        "input": inputs,
+        "output": outputs,
+        "document_ids": document_ids or [],
+    }
+
+    try:
+        await supabase_table_request(
+            "POST",
+            "agent_trace",
+            json=payload,
+            headers={"Prefer": "return=minimal"},
+        )
+    except Exception as exc:  # pragma: no cover - trace logging failures should not interrupt flow
+        logger.warning("agent_trace.record_failed", error=str(exc), tool=tool)
+
+
+def _json_coerce(value: Any) -> Any:
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    if isinstance(value, dict):
+        return {str(key): _json_coerce(val) for key, val in value.items()}
+    if isinstance(value, (list, tuple, set)):
+        return [_json_coerce(item) for item in value]
+    return str(value)
+
+
+async def _fetch_pending_autopilot_jobs(limit: int) -> List[Dict[str, Any]]:
+    params = {
+        "select": "id,org_id,kind,payload,status,scheduled_at,attempts,started_at",
+        "status": "eq.PENDING",
+        "attempts": f"lt.{AUTOPILOT_MAX_ATTEMPTS}",
+        "order": "scheduled_at.asc",
+        "limit": str(limit),
+    }
+    response = await supabase_table_request("GET", "jobs", params=params)
+    if response.status_code != 200:
+        logger.error(
+            "autopilot.fetch_jobs_failed",
+            status=response.status_code,
+            body=response.text,
+        )
+        return []
+    return response.json()
+
+
+async def _claim_autopilot_job(job: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    attempts = (job.get("attempts") or 0) + 1
+    params = {
+        "id": f"eq.{job['id']}",
+        "status": "eq.PENDING",
+    }
+    payload = {
+        "status": "RUNNING",
+        "attempts": attempts,
+        "started_at": iso_now(),
+    }
+    response = await supabase_table_request(
+        "PATCH",
+        "jobs",
+        params=params,
+        json=payload,
+        headers={"Prefer": "return=representation"},
+    )
+    if response.status_code not in (200, 204):
+        logger.error(
+            "autopilot.claim_failed",
+            status=response.status_code,
+            job_id=job.get("id"),
+            body=response.text,
+        )
+        return None
+    rows = response.json() if response.content else []
+    if not rows:
+        return None
+    claimed = rows[0]
+    claimed.setdefault("attempts", attempts)
+    return claimed
+
+
+async def _record_autopilot_trace(
+    job: Dict[str, Any],
+    *,
+    status: str,
+    result: Optional[Dict[str, Any]] = None,
+    error: Optional[str] = None,
+) -> None:
+    org_id = job.get("org_id")
+    if not org_id:
+        return
+
+    outputs: Dict[str, Any] = {"status": status.lower()}
+    if result:
+        cleaned = {k: _json_coerce(v) for k, v in result.items() if k != "document_ids"}
+        if cleaned:
+            outputs["result"] = cleaned
+    if error:
+        outputs["error"] = error
+
+    document_ids = []
+    if result and isinstance(result.get("document_ids"), list):
+        document_ids = [str(item) for item in result["document_ids"]]
+
+    inputs = {
+        "jobId": job.get("id"),
+        "payload": _json_coerce(job.get("payload")),
+    }
+
+    await record_agent_trace(
+        org_id=org_id,
+        user_id=None,
+        tool=f"autopilot.{job.get('kind', 'unknown')}",
+        inputs=inputs,
+        outputs=outputs,
+        document_ids=document_ids,
+    )
+
+
+async def _finalise_autopilot_job(
+    job: Dict[str, Any],
+    *,
+    status: str,
+    result: Optional[Dict[str, Any]] = None,
+    error: Optional[str] = None,
+) -> None:
+    await _record_autopilot_trace(job, status=status, result=result, error=error)
+
+    payload_copy = job.get("payload")
+    if isinstance(payload_copy, dict):
+        payload_copy = copy.deepcopy(payload_copy)
+    else:
+        payload_copy = {}
+
+    run_entry: Dict[str, Any] = {
+        "status": status.lower(),
+        "finishedAt": iso_now(),
+    }
+    if result:
+        run_entry["result"] = _json_coerce(result)
+    if error:
+        run_entry["error"] = _json_coerce(error)
+    payload_copy["lastRun"] = run_entry
+
+    response = await supabase_table_request(
+        "PATCH",
+        "jobs",
+        params={"id": f"eq.{job['id']}"},
+        json={
+            "status": status,
+            "finished_at": run_entry["finishedAt"],
+            "payload": payload_copy,
+        },
+        headers={"Prefer": "return=minimal"},
+    )
+    if response.status_code not in (200, 204):
+        logger.error(
+            "autopilot.finalise_failed",
+            job_id=job.get("id"),
+            status=response.status_code,
+            body=response.text,
+        )
+
+
+async def _handle_autopilot_extract_documents(job: Dict[str, Any]) -> Dict[str, Any]:
+    return await handle_extract_documents(
+        job,
+        supabase_table_request=supabase_table_request,
+        iso_now=iso_now,
+        logger=logger,
+        batch_limit=AUTOPILOT_BATCH_LIMIT,
+    )
+
+
+async def _handle_autopilot_remind_pbc(job: Dict[str, Any]) -> Dict[str, Any]:
+    org_id = job.get("org_id")
+    if not org_id:
+        return {"pending": 0, "message": "Missing organisation context"}
+
+    params = {
+        "select": "id,label,status",
+        "org_id": f"eq.{org_id}",
+        "status": "neq.COMPLETED",
+        "limit": "100",
+    }
+    response = await supabase_table_request("GET", "pbc_items", params=params)
+    if response.status_code != 200:
+        logger.error(
+            "autopilot.remind_pbc_failed",
+            status=response.status_code,
+            body=response.text,
+        )
+        return {"pending": 0, "message": "Failed to read outstanding PBC items"}
+
+    pending_items = response.json()
+    return {
+        "pending": len(pending_items),
+        "message": "Evaluated outstanding PBC items",
+    }
+
+
+async def _handle_autopilot_refresh_analytics(job: Dict[str, Any]) -> Dict[str, Any]:
+    await reembed_job()
+    await anomaly_scan_job()
+    await policy_check_job()
+    return {"refreshed": True, "message": "Analytics jobs executed"}
+
+
+AUTOPILOT_JOB_HANDLERS = {
+    "extract_documents": _handle_autopilot_extract_documents,
+    "remind_pbc": _handle_autopilot_remind_pbc,
+    "refresh_analytics": _handle_autopilot_refresh_analytics,
+}
+
+
+async def _run_autopilot_job(job: Dict[str, Any]) -> None:
+    kind = job.get("kind")
+    handler = AUTOPILOT_JOB_HANDLERS.get(kind)
+    if handler is None:
+        raise ValueError(f"unsupported autopilot job kind: {kind}")
+
+    logger.info("autopilot.job_started", job_id=job.get("id"), kind=kind, org_id=job.get("org_id"))
+    try:
+        result = await handler(job)
+    except Exception as exc:
+        error_message = str(exc)
+        await _finalise_autopilot_job(job, status="FAILED", error=error_message)
+        logger.error(
+            "autopilot.job_failed",
+            job_id=job.get("id"),
+            kind=kind,
+            error=error_message,
+        )
+        return
+
+    await _finalise_autopilot_job(job, status="DONE", result=result)
+    logger.info(
+        "autopilot.job_completed",
+        job_id=job.get("id"),
+        kind=kind,
+        result=_json_coerce(result),
+    )
+
+
+async def _autopilot_worker_loop() -> None:
+    logger.info(
+        "autopilot.worker_started",
+        poll_interval=AUTOPILOT_POLL_INTERVAL,
+        batch_limit=AUTOPILOT_BATCH_LIMIT,
+    )
+    try:
+        while True:
+            try:
+                jobs = await _fetch_pending_autopilot_jobs(AUTOPILOT_BATCH_LIMIT)
+                if not jobs:
+                    await asyncio.sleep(AUTOPILOT_POLL_INTERVAL)
+                    continue
+
+                for job in jobs:
+                    claimed = await _claim_autopilot_job(job)
+                    if not claimed:
+                        continue
+                    await _run_autopilot_job(claimed)
+
+                await asyncio.sleep(AUTOPILOT_ACTIVE_INTERVAL)
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:  # pragma: no cover - defensive logging
+                logger.exception("autopilot.worker_iteration_failed", error=str(exc))
+                await asyncio.sleep(AUTOPILOT_POLL_INTERVAL)
+    except asyncio.CancelledError:
+        logger.info("autopilot.worker_cancelled")
+        raise
+async def fetch_open_tasks(org_id: str, limit: int = 5) -> List[Dict[str, Any]]:
+    response = await supabase_table_request(
+        "GET",
+        "tasks",
+        params={
+            "select": "id,title,status,priority,due_date,assigned_to,created_at",
+            "org_id": f"eq.{org_id}",
+            "status": "neq.COMPLETED",
+            "order": "due_date.asc",
+            "limit": str(limit),
+        },
+    )
+    if response.status_code != 200:
+        logger.warning("assistant.fetch_tasks_failed", status=response.status_code, body=response.text)
+        return []
+    return response.json()
+
+
+async def fetch_recent_documents(org_id: str, limit: int = 5) -> List[Dict[str, Any]]:
+    response = await supabase_table_request(
+        "GET",
+        "documents",
+        params={
+            "select": "id,name,repo_folder,classification,created_at",
+            "org_id": f"eq.{org_id}",
+            "deleted": "eq.false",
+            "order": "created_at.desc",
+            "limit": str(limit),
+        },
+    )
+    if response.status_code != 200:
+        logger.warning("assistant.fetch_documents_failed", status=response.status_code, body=response.text)
+        return []
+    return response.json()
+
+
+async def fetch_agent_profile(org_id: str) -> Optional[Dict[str, Any]]:
+    response = await supabase_table_request(
+        "GET",
+        "agent_profiles",
+        params={
+            "select": "id,kind,certifications,jurisdictions,style,created_at",
+            "org_id": f"eq.{org_id}",
+            "order": "created_at.desc",
+            "limit": "1",
+        },
+    )
+    if response.status_code != 200:
+        logger.warning(
+            "assistant.fetch_profile_failed",
+            status=response.status_code,
+            body=response.text,
+        )
+        return None
+
+    rows = response.json() or []
+    if not rows:
+        return None
+
+    profile = rows[0]
+    style = profile.get("style") or {}
+    if not isinstance(style, dict):
+        style = {}
+
+    return {
+        "id": profile.get("id"),
+        "kind": profile.get("kind") or "AUDIT",
+        "certifications": profile.get("certifications") or [],
+        "jurisdictions": profile.get("jurisdictions") or [],
+        "style": style,
+        "created_at": profile.get("created_at"),
+    }
+
+
+def summarise_autopilot_run(job: Dict[str, Any]) -> str:
+    payload = job.get("payload") or {}
+    last_run: Dict[str, Any] = {}
+    if isinstance(payload, dict):
+        candidate = payload.get("lastRun")
+        if isinstance(candidate, dict):
+            last_run = candidate
+
+    if last_run.get("error"):
+        return str(last_run["error"])
+
+    result = last_run.get("result")
+    if isinstance(result, dict):
+        if isinstance(result.get("message"), str) and result["message"]:
+            return str(result["message"])
+        if isinstance(result.get("summary"), str) and result["summary"]:
+            return str(result["summary"])
+        for key, value in result.items():
+            if isinstance(value, (str, int, float)):
+                return f"{key}: {value}"
+
+    if isinstance(last_run.get("status"), str):
+        return f"Run {last_run['status']}"
+
+    if isinstance(job.get("status"), str):
+        return f"Run {job['status'].lower()}"
+
+    return "Run completed"
+
+
+async def fetch_autopilot_summary(org_id: str, limit: int = 6) -> Dict[str, Any]:
+    response = await supabase_table_request(
+        "GET",
+        "jobs",
+        params={
+            "select": "id,kind,status,scheduled_at,started_at,finished_at,payload",
+            "org_id": f"eq.{org_id}",
+            "order": "scheduled_at.desc",
+            "limit": str(limit),
+        },
+    )
+    if response.status_code != 200:
+        logger.warning(
+            "assistant.fetch_autopilot_failed",
+            status=response.status_code,
+            body=response.text,
+        )
+        return {"metrics": {"total": 0, "running": 0, "failed": 0, "pending": 0}, "recent": [], "running": [], "failed": [], "next": None}
+
+    jobs = response.json() or []
+
+    def serialize(job: Dict[str, Any]) -> Dict[str, Any]:
+        return {
+            "id": job.get("id"),
+            "kind": job.get("kind"),
+            "status": job.get("status"),
+            "scheduledAt": job.get("scheduled_at"),
+            "startedAt": job.get("started_at"),
+            "finishedAt": job.get("finished_at"),
+            "summary": summarise_autopilot_run(job),
+        }
+
+    def parse_timestamp(value: Optional[str]) -> datetime:
+        if not value or not isinstance(value, str):
+            return datetime.max.replace(tzinfo=timezone.utc)
+        try:
+            return datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            return datetime.max.replace(tzinfo=timezone.utc)
+
+    running = [serialize(job) for job in jobs if job.get("status") == "RUNNING"]
+    failed = [serialize(job) for job in jobs if job.get("status") == "FAILED"]
+    pending = [serialize(job) for job in jobs if job.get("status") == "PENDING"]
+    recent = [serialize(job) for job in jobs[:limit]]
+
+    next_pending = None
+    if pending:
+        next_pending = min(pending, key=lambda job: parse_timestamp(job.get("scheduledAt")))
+
+    metrics = {
+        "total": len(jobs),
+        "running": len(running),
+        "failed": len(failed),
+        "pending": len(pending),
+    }
+
+    return {
+        "metrics": metrics,
+        "recent": recent,
+        "running": running,
+        "failed": failed,
+        "next": next_pending,
+    }
+
+
+DEFAULT_ASSISTANT_ACTIONS = [
+    {
+        "label": "Create a task",
+        "tool": "create_task",
+        "description": "Draft a task and assign it to a teammate.",
+    },
+    {
+        "label": "Request documents",
+        "tool": "request_upload",
+        "description": "Send an upload request with the repository tree.",
+    },
+    {
+        "label": "List recent documents",
+        "tool": "list_documents",
+        "description": "Review the latest files that were uploaded.",
+    },
+    {
+        "label": "Start onboarding",
+        "tool": "start_onboarding",
+        "description": "Launch the zero-typing company onboarding checklist.",
+    },
+]
+
+
+ONBOARDING_TEMPLATE = [
+    {"category": "Legal", "label": "Certificate of incorporation"},
+    {"category": "Legal", "label": "Memorandum & articles"},
+    {"category": "Legal", "label": "Share register / cap table"},
+    {"category": "Legal", "label": "Director & UBO KYC"},
+    {"category": "Tax", "label": "Income tax registration / TIN"},
+    {"category": "Tax", "label": "VAT registration certificate"},
+    {"category": "Tax", "label": "Latest assessments / rulings"},
+    {"category": "Accounting", "label": "Prior-year financial statements"},
+    {"category": "Accounting", "label": "Opening trial balance"},
+    {"category": "Banking", "label": "Bank mandates"},
+    {"category": "Banking", "label": "Last 3 months statements"},
+    {"category": "Payroll", "label": "Employer registration"},
+    {"category": "Payroll", "label": "Current payroll summary"},
+]
+
+
+REPOSITORY_FOLDERS = [
+    "01_Legal",
+    "02_Tax",
+    "03_Accounting",
+    "04_Banking",
+    "05_Payroll",
+    "06_Contracts",
+    "07_Audit",
+    "99_Other",
+]
+
+
+AUTOPILOT_JOB_KINDS = {
+    "extract_documents": "Ingest new documents and run extraction",
+    "remind_pbc": "Send reminders for outstanding PBC items",
+    "refresh_analytics": "Refresh analytics dashboards",
+}
+
+AUTOPILOT_WORKER_DISABLED = os.getenv("AUTOPILOT_WORKER_DISABLED", "").lower() in {"1", "true", "yes", "on"}
+AUTOPILOT_POLL_INTERVAL = max(5, int(os.getenv("AUTOPILOT_POLL_INTERVAL_SECONDS", "60")))
+AUTOPILOT_ACTIVE_INTERVAL = max(1, int(os.getenv("AUTOPILOT_ACTIVE_INTERVAL_SECONDS", "5")))
+AUTOPILOT_MAX_ATTEMPTS = max(1, int(os.getenv("AUTOPILOT_MAX_ATTEMPTS", "3")))
+AUTOPILOT_BATCH_LIMIT = max(1, int(os.getenv("AUTOPILOT_BATCH_LIMIT", "5")))
+
+autopilot_worker_task: Optional[asyncio.Task] = None
+
+
+async def tool_create_task(context: Dict[str, str], user_id: str, args: Dict[str, Any]) -> Dict[str, Any]:
+    title = (args.get("title") or "").strip()
+    if not title:
+        return {
+            "message": "I need a task title before I can create it.",
+            "needs": {"fields": ["title"]},
+            "data": {},
+            "citations": [],
+            "document_ids": [],
+        }
+
+    task_row = await insert_task_record(
+        org_id=context["org_id"],
+        creator_id=user_id,
+        payload={
+            "title": title,
+            "description": args.get("description"),
+            "status": args.get("status"),
+            "priority": args.get("priority"),
+            "engagement_id": args.get("engagementId"),
+            "assigned_to": args.get("assigneeId"),
+            "due_date": args.get("dueDate"),
+        },
+    )
+
+    assignee_id = args.get("assigneeId")
+    if assignee_id and assignee_id != user_id:
+        await create_notification(
+            org_id=context["org_id"],
+            user_id=assignee_id,
+            kind="TASK",
+            title=f"New task assigned: {title}",
+            body=args.get("description"),
+        )
+
+    return {
+        "message": f"Created task “{title}”.",
+        "data": {"task": map_task_response(task_row)},
+        "citations": [],
+        "document_ids": [],
+    }
+
+
+async def tool_list_documents(context: Dict[str, str], user_id: str, args: Dict[str, Any]) -> Dict[str, Any]:
+    documents = await fetch_recent_documents(context["org_id"], limit=int(args.get("limit", 5)))
+    if not documents:
+        message = "No documents found yet. You can request uploads to get started."
+    else:
+        message = "Here are the latest documents I can see."
+
+    citations = [
+        {
+            "documentId": doc.get("id"),
+            "name": doc.get("name"),
+            "repo": doc.get("repo_folder"),
+        }
+        for doc in documents
+    ]
+
+    return {
+        "message": message,
+        "data": {"documents": documents},
+        "citations": citations,
+        "document_ids": [doc.get("id") for doc in documents if doc.get("id")],
+    }
+
+
+async def tool_request_upload(context: Dict[str, str], user_id: str, args: Dict[str, Any]) -> Dict[str, Any]:
+    repository_tree = [
+        "01_Legal",
+        "02_Tax",
+        "03_Accounting",
+        "04_Banking",
+        "05_Payroll",
+        "06_Contracts",
+        "07_Audit",
+        "99_Other",
+    ]
+
+    return {
+        "message": "I prepared the standard repository layout. Share this with your client so they know where each file goes.",
+        "data": {"repositories": repository_tree},
+        "citations": [],
+        "document_ids": [],
+    }
+
+
+async def tool_start_onboarding(context: Dict[str, str], user_id: str, args: Dict[str, Any]) -> Dict[str, Any]:
+    industry = args.get("industry", "general")
+    country = args.get("country", "MT")
+
+    checklist = {
+        "industry": industry,
+        "country": country,
+        "items": [
+            {"category": "Legal", "label": "Certificate of incorporation"},
+            {"category": "Tax", "label": "VAT registration certificate"},
+            {"category": "Accounting", "label": "Opening trial balance"},
+            {"category": "Banking", "label": "Mandates & IBAN confirmations"},
+            {"category": "Payroll", "label": "Employer registration"},
+        ],
+    }
+
+    return {
+        "message": "Onboarding sequence primed. Drag and drop the requested documents and I’ll extract the key facts automatically.",
+        "data": {"checklist": checklist},
+        "citations": [],
+        "document_ids": [],
+    }
+
+
+async def tool_extract_from_doc(context: Dict[str, str], user_id: str, args: Dict[str, Any]) -> Dict[str, Any]:
+    document_id = args.get("documentId")
+    if not document_id:
+        return {
+            "message": "Tell me which document to analyse.",
+            "needs": {"fields": ["documentId"]},
+            "data": {},
+            "citations": [],
+            "document_ids": [],
+        }
+
+    document = await fetch_single_record(
+        "documents",
+        document_id,
+        select="id,name,classification,repo_folder,uploaded_by,org_id,created_at",
+    )
+    if not document or document.get("org_id") != context["org_id"] or document.get("deleted"):
+        return {
+            "message": "I couldn’t find that document. Make sure it’s uploaded and you have access.",
+            "data": {},
+            "citations": [],
+            "document_ids": [],
+        }
+
+    index_response = await supabase_table_request(
+        "GET",
+        "document_index",
+        params={
+            "select": "id,document_id,extracted_meta",
+            "document_id": f"eq.{document_id}",
+            "limit": "1",
+        },
+    )
+    extracted_meta: Dict[str, Any] = {}
+    if index_response.status_code == 200:
+        rows = index_response.json()
+        if rows:
+            extracted_meta = rows[0].get("extracted_meta") or {}
+    else:
+        logger.warning(
+            "assistant.extract_meta_failed",
+            status=index_response.status_code,
+            body=index_response.text,
+            document_id=document_id,
+        )
+
+    message = "Here’s what I pulled from the document."
+    if not extracted_meta:
+        message = "I don’t have structured data for that document yet, but I’ll index it after OCR completes."
+
+    return {
+        "message": message,
+        "data": {"document": document, "extracted": extracted_meta},
+        "citations": [
+            {
+                "documentId": document_id,
+                "name": document.get("name"),
+                "repo": document.get("repo_folder"),
+            }
+        ],
+        "document_ids": [document_id],
+    }
+
+
+TOOL_REGISTRY = {
+    "create_task": tool_create_task,
+    "list_documents": tool_list_documents,
+    "request_upload": tool_request_upload,
+    "start_onboarding": tool_start_onboarding,
+    "extract_from_doc": tool_extract_from_doc,
+}
+
+
+async def invoke_tool(context: Dict[str, str], user_id: str, tool_name: str, args: Dict[str, Any]) -> Dict[str, Any]:
+    handler = TOOL_REGISTRY.get(tool_name)
+    if not handler:
+        raise HTTPException(status_code=400, detail="unknown tool")
+
+    result = await handler(context, user_id, args)
+    await record_agent_trace(
+        org_id=context["org_id"],
+        user_id=user_id,
+        tool=tool_name,
+        inputs=args,
+        outputs=result.get("data", {}),
+        document_ids=result.get("document_ids"),
+    )
+    return result
+
+
+async def generate_assistant_reply(context: Dict[str, str], user_id: str, message: Optional[str]) -> Dict[str, Any]:
+    normalized = (message or "").strip().lower()
+    actions = DEFAULT_ASSISTANT_ACTIONS
+    data: Dict[str, Any] = {}
+    citations: List[Dict[str, Any]] = []
+    profile = await fetch_agent_profile(context["org_id"])
+
+    def persona_tagline() -> str:
+        if not profile:
+            return "your audit and automation copilot"
+        kind = str(profile.get("kind") or "AUDIT").upper()
+        certifications = profile.get("certifications") or []
+        jurisdictions = profile.get("jurisdictions") or []
+        if kind == "TAX" and jurisdictions:
+            return f"your tax automation partner covering {', '.join(jurisdictions[:3])}"
+        if kind == "FINANCE":
+            return "your finance close companion"
+        if certifications:
+            return f"your audit copilot ({', '.join(certifications[:2])})"
+        return "your audit and automation copilot"
+
+    if not normalized:
+        tasks_future = asyncio.create_task(fetch_open_tasks(context["org_id"], limit=3))
+        autopilot_future = asyncio.create_task(fetch_autopilot_summary(context["org_id"], limit=6))
+        documents_future = asyncio.create_task(fetch_recent_documents(context["org_id"], limit=3))
+
+        tasks, autopilot_snapshot, documents = await asyncio.gather(tasks_future, autopilot_future, documents_future)
+
+        data["autopilot"] = autopilot_snapshot
+        if tasks:
+            data["tasks"] = tasks
+        if documents:
+            data["documents"] = documents
+
+        intro = f"Hi! I’m your Glow Agent — {persona_tagline()}."
+        highlights: List[str] = []
+        metrics = autopilot_snapshot.get("metrics", {})
+        if metrics.get("running"):
+            highlights.append(f"{metrics['running']} run(s) executing right now")
+        if metrics.get("failed"):
+            highlights.append(f"{metrics['failed']} run(s) need attention")
+        if tasks:
+            titles = ", ".join(task.get("title") for task in tasks[:3] if task.get("title"))
+            if titles:
+                highlights.append(f"Top tasks: {titles}")
+        if not highlights:
+            highlights.append("Everything is calm — ready when you are")
+
+        reply = intro + "\n" + "\n".join(f"• {item}" for item in highlights)
+        reply += "\nAsk me for a status summary, to draft tasks, or to activate a workflow."
+        return {"message": reply, "actions": actions, "data": data, "citations": citations}
+
+    if "what should i do next" in normalized or "next" in normalized:
+        tasks = await fetch_open_tasks(context["org_id"], limit=5)
+        if tasks:
+            highlights = []
+            for task in tasks:
+                due = task.get("due_date")
+                due_text = "no due date"
+                if due:
+                    due_text = datetime.fromisoformat(due.replace("Z", "+00:00")).strftime("%d %b")
+                highlights.append(f"• {task.get('title')} (due {due_text})")
+            reply = "Here are the top items on your radar:\n" + "\n".join(highlights)
+            data["tasks"] = tasks
+        else:
+            reply = "There are no open tasks yet. Try creating an onboarding checklist or requesting documents."
+        return {"message": reply, "actions": actions, "data": data, "citations": citations}
+
+    if any(keyword in normalized for keyword in ["autopilot", "automation", "bot", "runs", "job history"]):
+        autopilot_snapshot = await fetch_autopilot_summary(context["org_id"], limit=8)
+        data["autopilot"] = autopilot_snapshot
+        metrics = autopilot_snapshot.get("metrics", {})
+        running = metrics.get("running", 0)
+        failed = metrics.get("failed", 0)
+        total = metrics.get("total", 0)
+        next_job = autopilot_snapshot.get("next")
+        parts = [
+            f"Autopilot has {total} tracked run{'s' if total != 1 else ''}.",
+            f"{running} active" if running else "No jobs are currently running",
+        ]
+        if failed:
+            parts.append(f"{failed} need attention — tap a run for details.")
+        if next_job and next_job.get("scheduledAt"):
+            parts.append(
+                "Next scheduled run: "
+                + next_job.get("kind", "unknown job").replace("_", " ")
+                + f" at {next_job['scheduledAt']}"
+            )
+        reply = " ".join(parts)
+        reply += "\nYou can rerun jobs or open the operations console for the full timeline."
+        return {"message": reply, "actions": actions, "data": data, "citations": citations}
+
+    if any(keyword in normalized for keyword in ["status", "summary", "overview", "update"]):
+        tasks_future = asyncio.create_task(fetch_open_tasks(context["org_id"], limit=5))
+        autopilot_future = asyncio.create_task(fetch_autopilot_summary(context["org_id"], limit=6))
+        documents_future = asyncio.create_task(fetch_recent_documents(context["org_id"], limit=3))
+        tasks, autopilot_snapshot, documents = await asyncio.gather(tasks_future, autopilot_future, documents_future)
+
+        data["autopilot"] = autopilot_snapshot
+        if tasks:
+            data["tasks"] = tasks
+        if documents:
+            data["documents"] = documents
+
+        lines: List[str] = []
+        lines.append(f"Automation: {autopilot_snapshot.get('metrics', {}).get('running', 0)} running, {autopilot_snapshot.get('metrics', {}).get('failed', 0)} flagged.")
+        if tasks:
+            top_task = tasks[0]
+            lines.append(f"Top task: {top_task.get('title')} (due {top_task.get('due_date', 'unscheduled')}).")
+        if documents:
+            top_doc = documents[0]
+            lines.append(f"Latest document: {top_doc.get('name')} in {top_doc.get('repo_folder') or 'root'}.")
+
+        reply = "Here’s your current status:\n" + "\n".join(lines)
+        reply += "\nAsk for more detail on tasks, documents, or automation if you need it."
+        return {"message": reply, "actions": actions, "data": data, "citations": citations}
+
+    if any(keyword in normalized for keyword in ["who are you", "about you", "what are you"]):
+        reply = (
+            f"I’m your Glow Agent — {persona_tagline()}."
+            " I keep tabs on tasks, documents, and autopilot so you can focus on client decisions."
+        )
+        if profile:
+            jurisdictions = profile.get("jurisdictions") or []
+            if jurisdictions:
+                reply += f" I’m calibrated for {', '.join(jurisdictions[:3])}."
+        reply += " Ask for a status summary whenever you need a briefing."
+        return {"message": reply, "actions": actions, "data": data, "citations": citations}
+
+    if "document" in normalized and "list" in normalized:
+        docs = await fetch_recent_documents(context["org_id"], limit=5)
+        data["documents"] = docs
+        if docs:
+            reply = "Here are the latest documents."
+            citations = [
+                {"documentId": doc.get("id"), "name": doc.get("name"), "repo": doc.get("repo_folder")}
+                for doc in docs
+            ]
+        else:
+            reply = "I couldn’t find any documents yet. You can request uploads to populate the workspace."
+        return {"message": reply, "actions": actions, "data": data, "citations": citations}
+
+    reply = "I’m ready to help. You can ask me to create tasks, summarise documents, or kick off onboarding."
+    return {"message": reply, "actions": actions, "data": data, "citations": citations}
+
+
+def generate_temp_entity_id() -> str:
+    return f"tmp-{uuid.uuid4().hex[:10]}"
+
+
+def build_onboarding_items(checklist_id: str) -> List[Dict[str, Any]]:
+    now = iso_now()
+    return [
+        {
+            "checklist_id": checklist_id,
+            "category": item["category"],
+            "label": item["label"],
+            "status": "PENDING",
+            "created_at": now,
+            "updated_at": now,
+        }
+        for item in ONBOARDING_TEMPLATE
+    ]
+
+
+async def fetch_checklist_with_items(checklist_id: str) -> Dict[str, Any]:
+    checklist = await fetch_single_record(
+        "onboarding_checklists",
+        checklist_id,
+        select="id, org_id, temp_entity_id, industry, country, status",
+    )
+    if not checklist:
+        raise HTTPException(status_code=404, detail="checklist not found")
+
+    response = await supabase_table_request(
+        "GET",
+        "onboarding_checklist_items",
+        params={
+            "checklist_id": f"eq.{checklist_id}",
+            "order": "created_at.asc",
+            "select": "id, checklist_id, category, label, status, document_id, notes, updated_at",
+        },
+    )
+    if response.status_code != 200:
+        logger.error("onboarding.fetch_items_failed", status=response.status_code, body=response.text)
+        raise HTTPException(status_code=502, detail="failed to fetch checklist items")
+
+    checklist["items"] = response.json()
+    return checklist
+
+
+def build_drive_preview_documents() -> List[Dict[str, Any]]:
+    now = datetime.utcnow()
+    return [
+        {
+            "id": f"placeholder-doc-{index}",
+            "name": title,
+            "mimeType": mime,
+            "modifiedTime": (now.replace(microsecond=0)).isoformat() + "Z",
+            "downloadUrl": f"https://drive.example.com/{index}",
+        }
+        for index, (title, mime) in enumerate(
+            [
+                ("Client Trial Balance.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
+                ("Revenue Policy.pdf", "application/pdf"),
+                ("Audit Planning Checklist.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"),
+            ]
+        )
+    ]
+
+
+class CreateOrgRequest(BaseModel):
+    name: str = Field(..., min_length=2, max_length=120)
+    slug: str = Field(..., min_length=2, max_length=120)
+    autopilotLevel: int = Field(default=0, ge=0, le=5)
+
+
+class InviteMemberRequest(BaseModel):
+    orgId: str
+    emailOrPhone: str = Field(..., min_length=3)
+    role: str
+    expiresAt: Optional[str] = None
+
+
+class AcceptInviteRequest(BaseModel):
+    token: str = Field(..., min_length=8)
+    userId: str
+    displayName: str = Field(..., min_length=2, max_length=120)
+    email: Optional[str] = None
+    phoneE164: Optional[str] = None
+    whatsappE164: Optional[str] = None
+    locale: Optional[str] = None
+    timezone: Optional[str] = None
+
+
+class UpdateRoleRequest(BaseModel):
+    orgId: str
+    userId: str
+    role: str
+
+
+class ProfileUpdateRequest(BaseModel):
+    displayName: Optional[str] = None
+    phoneE164: Optional[str] = None
+    whatsappE164: Optional[str] = None
+    avatarUrl: Optional[str] = None
+    locale: Optional[str] = None
+    timezone: Optional[str] = None
+    orgId: Optional[str] = None
+    theme: Optional[str] = None
+    notifications: Optional[Dict[str, Any]] = None
+
+
+class TeamCreateRequest(BaseModel):
+    orgId: str
+    name: str = Field(..., min_length=2, max_length=120)
+    description: Optional[str] = None
+
+
+class TeamMemberAddRequest(BaseModel):
+    orgId: str
+    teamId: str
+    userId: str
+    role: Optional[str] = None
+
+
+class TeamMemberRemoveRequest(BaseModel):
+    orgId: str
+    teamId: str
+    userId: str
+
+
+class RevokeInviteRequest(BaseModel):
+    orgId: str
+    inviteId: str
+
+
+class AdminOrgSettingsUpdateRequest(BaseModel):
+    orgId: str
+    allowedEmailDomains: Optional[List[str]] = None
+    defaultRole: Optional[str] = None
+    requireMfaForSensitive: Optional[bool] = None
+    impersonationBreakglassEmails: Optional[List[str]] = None
+
+
+class ImpersonationRequestBody(BaseModel):
+    orgId: str
+    targetUserId: str
+    reason: Optional[str] = None
+    expiresAt: Optional[str] = None
+
+
+class ImpersonationApproveBody(BaseModel):
+    orgId: str
+    grantId: str
+    expiresAt: Optional[str] = None
+
+
+class ImpersonationRevokeBody(BaseModel):
+    orgId: str
+    grantId: str
+
+
 class SearchRequest(BaseModel):
     query: str = Field(..., min_length=1)
     k: int = Field(5, ge=1, le=20)
@@ -184,9 +1880,1045 @@ class ReembedRequest(BaseModel):
     org_slug: str = Field(..., min_length=1)
 
 
+class TaskCreateRequest(BaseModel):
+    orgSlug: str = Field(..., min_length=1)
+    title: str = Field(..., min_length=1, max_length=500)
+    description: Optional[str] = Field(default=None)
+    status: Optional[str] = Field(default="TODO")
+    priority: Optional[str] = Field(default="MEDIUM")
+    engagementId: Optional[str] = Field(default=None)
+    assigneeId: Optional[str] = Field(default=None)
+    dueDate: Optional[str] = Field(default=None)
+
+
+class TaskUpdateRequest(BaseModel):
+    title: Optional[str] = Field(default=None, min_length=1, max_length=500)
+    description: Optional[str] = None
+    status: Optional[str] = None
+    priority: Optional[str] = None
+    engagementId: Optional[str] = None
+    assigneeId: Optional[str] = None
+    dueDate: Optional[str] = None
+
+
+class TaskCommentRequest(BaseModel):
+    body: str = Field(..., min_length=1)
+
+
+class TaskAttachmentRequest(BaseModel):
+    documentId: str = Field(..., min_length=1)
+    note: Optional[str] = None
+
+
+class DocumentSignRequest(BaseModel):
+    documentId: str = Field(..., min_length=1)
+    ttlSeconds: Optional[int] = Field(default=900, ge=60, le=86400)
+
+
+class NotificationsMarkAllRequest(BaseModel):
+    orgSlug: str = Field(..., min_length=1)
+
+
+class NotificationUpdateRequest(BaseModel):
+    read: Optional[bool] = None
+
+
+class AssistantMessageRequest(BaseModel):
+    orgSlug: str = Field(..., min_length=1)
+    message: Optional[str] = None
+    tool: Optional[str] = None
+    args: Dict[str, Any] = Field(default_factory=dict)
+
+
+class OnboardingStartRequest(BaseModel):
+    orgSlug: str = Field(..., min_length=1)
+    industry: str = Field(..., min_length=1)
+    country: str = Field(..., min_length=2)
+
+
+class OnboardingLinkDocRequest(BaseModel):
+    checklistId: str = Field(..., min_length=1)
+    itemId: str = Field(..., min_length=1)
+    documentId: str = Field(..., min_length=1)
+
+
+class OnboardingCommitRequest(BaseModel):
+    checklistId: str = Field(..., min_length=1)
+    profile: Dict[str, Any] = Field(default_factory=dict)
+
+
+class DocumentExtractionUpdateRequest(BaseModel):
+    extractionId: Optional[str] = None
+    extractorName: Optional[str] = None
+    extractorVersion: Optional[str] = None
+    status: str = Field(..., min_length=1)
+    fields: Optional[Dict[str, Any]] = None
+    confidence: Optional[float] = Field(default=None, ge=0.0, le=1.0)
+    provenance: Optional[List[Dict[str, Any]]] = None
+
+
+class JobScheduleRequest(BaseModel):
+    orgSlug: str = Field(..., min_length=1)
+    kind: str = Field(..., min_length=1)
+    cronExpression: str = Field(..., min_length=1)
+    active: bool = True
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+
+class JobRunRequest(BaseModel):
+    orgSlug: str = Field(..., min_length=1)
+    kind: str = Field(..., min_length=1)
+    payload: Dict[str, Any] = Field(default_factory=dict)
+
+
+class KnowledgeCorpusRequest(BaseModel):
+    orgSlug: str = Field(..., min_length=1)
+    name: str = Field(..., min_length=1)
+    domain: str = Field(..., min_length=1)
+    jurisdictions: List[str] = Field(default_factory=list)
+    retention: Optional[str] = None
+    isDefault: bool = False
+
+
+class KnowledgeSourceRequest(BaseModel):
+    orgSlug: str = Field(..., min_length=1)
+    corpusId: str = Field(..., min_length=1)
+    provider: str = Field(..., min_length=1)
+    sourceUri: str = Field(..., min_length=1)
+
+
+class LearningRunRequest(BaseModel):
+    orgSlug: str = Field(..., min_length=1)
+    sourceId: str = Field(..., min_length=1)
+    agentKind: str = Field(..., min_length=1)
+    mode: str = Field(..., min_length=1)
+
+
+class WebHarvestRequest(BaseModel):
+    orgSlug: str = Field(..., min_length=1)
+    webSourceId: str = Field(..., min_length=1)
+    agentKind: str = Field(..., min_length=1)
+
+
 @app.on_event("startup")
 async def startup() -> None:
     await init_db()
+    global autopilot_worker_task
+    if AUTOPILOT_WORKER_DISABLED:
+        logger.info("autopilot.worker_disabled")
+        return
+    if autopilot_worker_task is None or autopilot_worker_task.done():
+        autopilot_worker_task = asyncio.create_task(_autopilot_worker_loop())
+
+
+@app.on_event("shutdown")
+async def shutdown() -> None:
+    global autopilot_worker_task
+    if autopilot_worker_task is None:
+        return
+    autopilot_worker_task.cancel()
+    with contextlib.suppress(asyncio.CancelledError):
+        await autopilot_worker_task
+    autopilot_worker_task = None
+
+
+@app.post("/api/iam/org/create")
+async def create_organization(payload: CreateOrgRequest, auth: Dict[str, Any] = Depends(require_auth)):
+    actor_id = auth.get("sub")
+    if not actor_id:
+        raise HTTPException(status_code=401, detail="unauthenticated")
+    await guard_system_admin(actor_id)
+
+    slug = payload.slug.strip().lower()
+    org_body = {
+        "name": payload.name.strip(),
+        "slug": slug,
+        "autopilot_level": payload.autopilotLevel,
+    }
+
+    response = await supabase_table_request(
+        "POST",
+        "organizations",
+        json=org_body,
+        headers={"Prefer": "return=representation"},
+    )
+    if response.status_code == 409:
+        raise HTTPException(status_code=409, detail="organization slug already exists")
+    if response.status_code not in (200, 201):
+        logger.error("iam.create_org_failed", status=response.status_code, body=response.text)
+        raise HTTPException(status_code=502, detail="failed to create organization")
+
+    rows = response.json()
+    if not rows:
+        raise HTTPException(status_code=502, detail="organization creation returned no rows")
+
+    org = rows[0]
+    membership_payload = {
+        "org_id": org["id"],
+        "user_id": actor_id,
+        "role": "SYSTEM_ADMIN",
+        "invited_by": actor_id,
+    }
+    membership_response = await supabase_table_request(
+        "POST",
+        "memberships",
+        json=membership_payload,
+        headers={"Prefer": "resolution=merge-duplicates"},
+    )
+    if membership_response.status_code not in (200, 201, 204):
+        logger.warning(
+            "iam.seed_system_admin_membership_failed",
+            status=membership_response.status_code,
+            body=membership_response.text,
+        )
+
+    await log_activity_event(
+        org_id=org["id"],
+        actor_id=actor_id,
+        action="ORG_CREATED",
+        metadata={"slug": org.get("slug"), "autopilot_level": org.get("autopilot_level")},
+    )
+
+    return {
+        "orgId": org["id"],
+        "slug": org.get("slug"),
+        "autopilotLevel": org.get("autopilot_level", 0),
+    }
+
+
+@app.get("/api/iam/members/list")
+async def list_members(org: str = Query(..., alias="orgId", min_length=1), auth: Dict[str, Any] = Depends(require_auth)):
+    actor_id = auth.get("sub")
+    if not actor_id:
+        raise HTTPException(status_code=401, detail="unauthenticated")
+    actor_role = await guard_actor_manager(org, actor_id)
+
+    member_resp = await supabase_table_request(
+        "GET",
+        "memberships",
+        params={
+            "org_id": f"eq.{org}",
+            "select": "id,user_id,role,invited_by,created_at,updated_at,user_profile:user_profiles(display_name,email,locale,timezone,avatar_url,phone_e164,whatsapp_e164)",
+            "order": "created_at.asc",
+        },
+    )
+    if member_resp.status_code != 200:
+        logger.error("iam.members_list_failed", status=member_resp.status_code, body=member_resp.text)
+        raise HTTPException(status_code=502, detail="failed to load members")
+
+    team_resp = await supabase_table_request(
+        "GET",
+        "teams",
+        params={
+            "org_id": f"eq.{org}",
+            "select": "id,name,description,created_at,team_members:team_memberships(user_id,role,created_at)",
+            "order": "created_at.asc",
+        },
+    )
+    if team_resp.status_code != 200:
+        logger.error("iam.teams_list_failed", status=team_resp.status_code, body=team_resp.text)
+        raise HTTPException(status_code=502, detail="failed to load teams")
+
+    invite_resp = await supabase_table_request(
+        "GET",
+        "invites",
+        params={
+            "org_id": f"eq.{org}",
+            "select": "id,email_or_phone,role,status,expires_at,created_at",
+            "order": "created_at.desc",
+        },
+    )
+    if invite_resp.status_code != 200:
+        logger.error("iam.invites_list_failed", status=invite_resp.status_code, body=invite_resp.text)
+        raise HTTPException(status_code=502, detail="failed to load invites")
+
+    return {
+        "orgId": org,
+        "actorRole": actor_role,
+        "members": member_resp.json(),
+        "teams": team_resp.json(),
+        "invites": invite_resp.json(),
+    }
+
+
+@app.post("/api/iam/members/invite")
+async def invite_member(payload: InviteMemberRequest, auth: Dict[str, Any] = Depends(require_auth)):
+    actor_id = auth.get("sub")
+    if not actor_id:
+        raise HTTPException(status_code=401, detail="unauthenticated")
+    actor_role = await guard_actor_manager(payload.orgId, actor_id)
+    ensure_permission_for_role(actor_role, "admin.members.invite")
+
+    target_role = validate_org_role(payload.role)
+    if target_role == "SYSTEM_ADMIN" and normalise_role(actor_role) != "SYSTEM_ADMIN":
+        raise HTTPException(status_code=403, detail="system admin required to grant SYSTEM_ADMIN")
+
+    expires_at_value = payload.expiresAt
+    if not expires_at_value:
+        expires_at_value = (datetime.utcnow() + timedelta(days=14)).replace(microsecond=0).isoformat() + "Z"
+
+    token = secrets.token_urlsafe(32)
+    token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+    invite_body = {
+        "org_id": payload.orgId,
+        "email_or_phone": payload.emailOrPhone.strip(),
+        "role": target_role,
+        "invited_by_user_id": actor_id,
+        "status": "PENDING",
+        "token_hash": token_hash,
+        "expires_at": expires_at_value,
+    }
+
+    response = await supabase_table_request(
+        "POST",
+        "invites",
+        json=invite_body,
+        headers={"Prefer": "return=representation"},
+    )
+    if response.status_code not in (200, 201):
+        logger.error("iam.invite_create_failed", status=response.status_code, body=response.text)
+        raise HTTPException(status_code=502, detail="failed to create invite")
+
+    rows = response.json()
+    invite = rows[0] if rows else None
+
+    await log_activity_event(
+        org_id=payload.orgId,
+        actor_id=actor_id,
+        action="INVITE_SENT",
+        metadata={
+            "invite_id": invite.get("id") if invite else None,
+            "role": target_role,
+            "email_or_phone": payload.emailOrPhone.strip(),
+        },
+    )
+
+    return {
+        "inviteId": invite.get("id") if invite else None,
+        "role": target_role,
+        "expiresAt": expires_at_value,
+        "token": token,
+    }
+
+
+@app.post("/api/iam/members/accept")
+async def accept_invite(payload: AcceptInviteRequest):
+    hashed_token = hashlib.sha256(payload.token.encode("utf-8")).hexdigest()
+
+    response = await supabase_table_request(
+        "GET",
+        "invites",
+        params={
+            "token_hash": f"eq.{hashed_token}",
+            "select": "id,org_id,role,status,expires_at,email_or_phone,invited_by_user_id",
+            "limit": "1",
+        },
+    )
+    if response.status_code != 200:
+        logger.error("iam.invite_lookup_failed", status=response.status_code, body=response.text)
+        raise HTTPException(status_code=502, detail="failed to verify invite")
+
+    rows = response.json()
+    if not rows:
+        raise HTTPException(status_code=404, detail="invite not found")
+
+    invite = rows[0]
+    if invite.get("status") != "PENDING":
+        raise HTTPException(status_code=409, detail="invite already processed")
+
+    expires_at_str = invite.get("expires_at")
+    if expires_at_str:
+        expires_at = expires_at_str.replace("Z", "+00:00")
+        try:
+            expires_dt = datetime.fromisoformat(expires_at)
+            if expires_dt.tzinfo is None:
+                expires_dt = expires_dt.replace(tzinfo=timezone.utc)
+        except ValueError as exc:
+            logger.warning("iam.invite_expiry_parse_failed", value=expires_at_str, error=str(exc))
+        else:
+            if expires_dt < datetime.now(timezone.utc):
+                raise HTTPException(status_code=410, detail="invite expired")
+
+    email_value = payload.email
+    if not email_value and invite.get("email_or_phone") and "@" in invite["email_or_phone"]:
+        email_value = invite["email_or_phone"].strip()
+    if not email_value:
+        raise HTTPException(status_code=400, detail="email is required to accept invite")
+
+    profile_payload = {
+        "display_name": payload.displayName.strip(),
+        "email": email_value.lower(),
+    }
+    if payload.phoneE164:
+        profile_payload["phone_e164"] = payload.phoneE164
+    if payload.whatsappE164:
+        profile_payload["whatsapp_e164"] = payload.whatsappE164
+    if payload.locale:
+        profile_payload["locale"] = payload.locale
+    if payload.timezone:
+        profile_payload["timezone"] = payload.timezone
+
+    profile = await upsert_user_profile(payload.userId, profile_payload)
+
+    membership_body = {
+        "org_id": invite["org_id"],
+        "user_id": payload.userId,
+        "role": invite["role"],
+        "invited_by": invite.get("invited_by_user_id"),
+        "created_at": iso_now(),
+        "updated_at": iso_now(),
+    }
+    membership_resp = await supabase_table_request(
+        "POST",
+        "memberships",
+        json=membership_body,
+        headers={"Prefer": "resolution=merge-duplicates,return=representation"},
+    )
+    if membership_resp.status_code not in (200, 201):
+        logger.error("iam.membership_create_failed", status=membership_resp.status_code, body=membership_resp.text)
+        raise HTTPException(status_code=502, detail="failed to create membership")
+
+    membership_rows = membership_resp.json()
+    membership = membership_rows[0] if membership_rows else membership_body
+
+    update_resp = await supabase_table_request(
+        "PATCH",
+        "invites",
+        params={"id": f"eq.{invite['id']}"},
+        json={"status": "ACCEPTED"},
+        headers={"Prefer": "return=minimal"},
+    )
+    if update_resp.status_code not in (200, 204):
+        logger.warning("iam.invite_status_update_failed", status=update_resp.status_code, body=update_resp.text)
+
+    await log_activity_event(
+        org_id=invite["org_id"],
+        actor_id=payload.userId,
+        action="INVITE_ACCEPTED",
+        metadata={
+            "invite_id": invite["id"],
+            "role": invite["role"],
+            "profile_display_name": profile.get("display_name"),
+        },
+    )
+
+    return {
+        "orgId": invite["org_id"],
+        "role": invite["role"],
+        "membership": membership,
+    }
+
+
+@app.post("/api/iam/members/revoke-invite")
+async def revoke_invite(payload: RevokeInviteRequest, auth: Dict[str, Any] = Depends(require_auth)):
+    actor_id = auth.get("sub")
+    if not actor_id:
+        raise HTTPException(status_code=401, detail="unauthenticated")
+    actor_role = await guard_actor_manager(payload.orgId, actor_id)
+    ensure_permission_for_role(actor_role, "admin.invites.revoke")
+
+    invite_lookup = await supabase_table_request(
+        "GET",
+        "invites",
+        params={"id": f"eq.{payload.inviteId}", "org_id": f"eq.{payload.orgId}", "limit": "1"},
+    )
+    if invite_lookup.status_code != 200:
+        logger.error("iam.invite_fetch_failed", status=invite_lookup.status_code, body=invite_lookup.text)
+        raise HTTPException(status_code=502, detail="failed to load invite")
+    rows = invite_lookup.json()
+    if not rows:
+        raise HTTPException(status_code=404, detail="invite not found")
+    invite = rows[0]
+    if invite.get("status") in {"ACCEPTED", "EXPIRED"}:
+        raise HTTPException(status_code=409, detail="invite already processed")
+
+    revoke_resp = await supabase_table_request(
+        "PATCH",
+        "invites",
+        params={"id": f"eq.{payload.inviteId}"},
+        json={"status": "REVOKED"},
+        headers={"Prefer": "return=minimal"},
+    )
+    if revoke_resp.status_code not in (200, 204):
+        logger.error("iam.invite_revoke_failed", status=revoke_resp.status_code, body=revoke_resp.text)
+        raise HTTPException(status_code=502, detail="failed to revoke invite")
+
+    await log_activity_event(
+        org_id=payload.orgId,
+        actor_id=actor_id,
+        action="INVITE_REVOKED",
+        metadata={"invite_id": payload.inviteId},
+    )
+
+    return {"inviteId": payload.inviteId, "status": "REVOKED"}
+
+
+@app.get("/api/admin/org/settings")
+async def get_admin_org_settings(
+    org_id: str = Query(..., alias="orgId"),
+    auth: Dict[str, Any] = Depends(require_auth),
+):
+    role = await ensure_org_access_by_id(auth["sub"], org_id)
+    ensure_permission_for_role(role, "admin.org.settings")
+
+    org_row = await fetch_org_settings(org_id)
+
+    settings = {
+        "allowedEmailDomains": org_row.get("allowed_email_domains") or [],
+        "defaultRole": org_row.get("default_role"),
+        "requireMfaForSensitive": bool(org_row.get("require_mfa_for_sensitive")),
+        "impersonationBreakglassEmails": org_row.get("impersonation_breakglass_emails") or [],
+    }
+
+    impersonation_response = await supabase_table_request(
+        "GET",
+        "impersonation_grants",
+        params={
+            "org_id": f"eq.{org_id}",
+            "order": "created_at.desc",
+            "limit": "50",
+        },
+    )
+    if impersonation_response.status_code != 200:
+        logger.error(
+            "impersonation.list_failed",
+            status=impersonation_response.status_code,
+            body=impersonation_response.text,
+        )
+        raise HTTPException(status_code=502, detail="impersonation_lookup_failed")
+
+    return {
+        "settings": settings,
+        "impersonationGrants": impersonation_response.json(),
+    }
+
+
+@app.post("/api/admin/org/settings")
+async def update_admin_org_settings(payload: AdminOrgSettingsUpdateRequest, auth: Dict[str, Any] = Depends(require_auth)):
+    role = await ensure_org_access_by_id(auth["sub"], payload.orgId)
+    ensure_permission_for_role(role, "admin.org.settings")
+
+    updates: Dict[str, Any] = {}
+
+    if payload.allowedEmailDomains is not None:
+        updates["allowed_email_domains"] = _normalise_email_domains(payload.allowedEmailDomains)
+
+    if payload.requireMfaForSensitive is not None:
+        updates["require_mfa_for_sensitive"] = bool(payload.requireMfaForSensitive)
+
+    if payload.defaultRole is not None:
+        ensure_permission_for_role(role, "admin.org.settings.reserved")
+        updates["default_role"] = validate_org_role(payload.defaultRole)
+
+    if payload.impersonationBreakglassEmails is not None:
+        ensure_permission_for_role(role, "admin.org.settings.reserved")
+        updates["impersonation_breakglass_emails"] = _normalise_emails(payload.impersonationBreakglassEmails)
+
+    if updates:
+        response = await supabase_table_request(
+            "PATCH",
+            "organizations",
+            params={"id": f"eq.{payload.orgId}"},
+            json=updates,
+            headers={"Prefer": "return=representation"},
+        )
+        if response.status_code not in (200, 204):
+            logger.error("org.settings_update_failed", status=response.status_code, body=response.text)
+            raise HTTPException(status_code=502, detail="organization_update_failed")
+
+        await log_activity_event(
+            org_id=payload.orgId,
+            actor_id=auth["sub"],
+            action="ORG_SETTINGS_UPDATED",
+            entity_type="IAM",
+            entity_id=payload.orgId,
+            metadata={"fields": sorted(updates.keys())},
+        )
+
+    org_row = await fetch_org_settings(payload.orgId)
+    return {
+        "settings": {
+            "allowedEmailDomains": org_row.get("allowed_email_domains") or [],
+            "defaultRole": org_row.get("default_role"),
+            "requireMfaForSensitive": bool(org_row.get("require_mfa_for_sensitive")),
+            "impersonationBreakglassEmails": org_row.get("impersonation_breakglass_emails") or [],
+        }
+    }
+
+
+@app.get("/api/admin/auditlog/list")
+async def list_admin_audit_log(
+    org_id: str = Query(..., alias="orgId"),
+    limit: int = Query(50, ge=1, le=200),
+    after: Optional[str] = Query(default=None),
+    module: Optional[str] = Query(default=None),
+    auth: Dict[str, Any] = Depends(require_auth),
+):
+    role = await ensure_org_access_by_id(auth["sub"], org_id)
+    ensure_permission_for_role(role, "admin.auditlog.view")
+
+    params: Dict[str, Any] = {
+        "org_id": f"eq.{org_id}",
+        "order": "created_at.desc",
+        "limit": str(limit),
+    }
+    if after:
+        params["created_at"] = f"lt.{after}"
+    if module:
+        params["module"] = f"eq.{module}"
+
+    response = await supabase_table_request("GET", "activity_log", params=params)
+    if response.status_code != 200:
+        logger.error("activity_log.fetch_failed", status=response.status_code, body=response.text)
+        raise HTTPException(status_code=502, detail="auditlog_fetch_failed")
+
+    return {"entries": response.json()}
+
+
+@app.get("/api/admin/impersonation/list")
+async def list_impersonation_grants(
+    org_id: str = Query(..., alias="orgId"),
+    auth: Dict[str, Any] = Depends(require_auth),
+):
+    role = await ensure_org_access_by_id(auth["sub"], org_id)
+    ensure_permission_for_role(role, "admin.impersonation.request")
+
+    response = await supabase_table_request(
+        "GET",
+        "impersonation_grants",
+        params={
+            "org_id": f"eq.{org_id}",
+            "order": "created_at.desc",
+        },
+    )
+    if response.status_code != 200:
+        logger.error("impersonation.list_failed", status=response.status_code, body=response.text)
+        raise HTTPException(status_code=502, detail="impersonation_lookup_failed")
+
+    return {"grants": response.json()}
+
+
+@app.post("/api/admin/impersonation/request")
+async def request_impersonation(payload: ImpersonationRequestBody, auth: Dict[str, Any] = Depends(require_auth)):
+    role = await ensure_org_access_by_id(auth["sub"], payload.orgId)
+    ensure_permission_for_role(role, "admin.impersonation.request")
+
+    if payload.targetUserId == auth["sub"]:
+        raise HTTPException(status_code=400, detail="cannot_impersonate_self")
+
+    target = await fetch_membership(payload.orgId, payload.targetUserId)
+    if not target:
+        raise HTTPException(status_code=404, detail="target_not_found")
+
+    expires_at = payload.expiresAt or (datetime.utcnow() + timedelta(hours=DEFAULT_IMPERSONATION_EXPIRY_HOURS)).isoformat() + "Z"
+
+    response = await supabase_table_request(
+        "POST",
+        "impersonation_grants",
+        json={
+            "org_id": payload.orgId,
+            "granted_by_user_id": auth["sub"],
+            "target_user_id": payload.targetUserId,
+            "reason": payload.reason,
+            "expires_at": expires_at,
+            "active": False,
+        },
+        headers={"Prefer": "return=representation"},
+    )
+    if response.status_code not in (200, 201):
+        logger.error("impersonation.request_failed", status=response.status_code, body=response.text)
+        raise HTTPException(status_code=502, detail="impersonation_request_failed")
+
+    grant = response.json()[0]
+
+    await log_activity_event(
+        org_id=payload.orgId,
+        actor_id=auth["sub"],
+        action="IMPERSONATION_REQUESTED",
+        entity_type="IAM",
+        entity_id=grant.get("id"),
+        metadata={
+            "target_user_id": payload.targetUserId,
+            "expires_at": expires_at,
+        },
+    )
+
+    return {"grant": grant}
+
+
+@app.post("/api/admin/impersonation/approve")
+async def approve_impersonation(payload: ImpersonationApproveBody, auth: Dict[str, Any] = Depends(require_auth)):
+    role = await ensure_org_access_by_id(auth["sub"], payload.orgId)
+    ensure_permission_for_role(role, "admin.impersonation.approve")
+
+    response = await supabase_table_request(
+        "GET",
+        "impersonation_grants",
+        params={
+            "id": f"eq.{payload.grantId}",
+            "org_id": f"eq.{payload.orgId}",
+            "select": "id,granted_by_user_id,target_user_id,approved_by_user_id,active,expires_at",
+            "limit": "1",
+        },
+    )
+    if response.status_code != 200:
+        logger.error("impersonation.grant_fetch_failed", status=response.status_code, body=response.text)
+        raise HTTPException(status_code=502, detail="impersonation_lookup_failed")
+    rows = response.json()
+    if not rows:
+        raise HTTPException(status_code=404, detail="grant_not_found")
+    grant = rows[0]
+
+    if grant.get("granted_by_user_id") == auth["sub"]:
+        raise HTTPException(status_code=409, detail="second_approver_required")
+    if grant.get("active"):
+        raise HTTPException(status_code=409, detail="grant_already_active")
+
+    expires_at = payload.expiresAt or grant.get("expires_at") or (datetime.utcnow() + timedelta(hours=DEFAULT_IMPERSONATION_EXPIRY_HOURS)).isoformat() + "Z"
+
+    update_response = await supabase_table_request(
+        "PATCH",
+        "impersonation_grants",
+        params={"id": f"eq.{payload.grantId}"},
+        json={
+            "approved_by_user_id": auth["sub"],
+            "active": True,
+            "expires_at": expires_at,
+        },
+        headers={"Prefer": "return=representation"},
+    )
+    if update_response.status_code not in (200, 204):
+        logger.error("impersonation.approve_failed", status=update_response.status_code, body=update_response.text)
+        raise HTTPException(status_code=502, detail="impersonation_approve_failed")
+
+    await log_activity_event(
+        org_id=payload.orgId,
+        actor_id=auth["sub"],
+        action="IMPERSONATION_GRANTED",
+        entity_type="IAM",
+        entity_id=payload.grantId,
+        metadata={
+            "target_user_id": grant.get("target_user_id"),
+            "expires_at": expires_at,
+        },
+    )
+
+    return {"grantId": payload.grantId, "status": "ACTIVE", "expiresAt": expires_at}
+
+
+@app.post("/api/admin/impersonation/revoke")
+async def revoke_impersonation(payload: ImpersonationRevokeBody, auth: Dict[str, Any] = Depends(require_auth)):
+    role = await ensure_org_access_by_id(auth["sub"], payload.orgId)
+    ensure_permission_for_role(role, "admin.impersonation.revoke")
+
+    response = await supabase_table_request(
+        "PATCH",
+        "impersonation_grants",
+        params={"id": f"eq.{payload.grantId}"},
+        json={"active": False},
+        headers={"Prefer": "return=representation"},
+    )
+    if response.status_code not in (200, 204):
+        logger.error("impersonation.revoke_failed", status=response.status_code, body=response.text)
+        raise HTTPException(status_code=502, detail="impersonation_revoke_failed")
+
+    await log_activity_event(
+        org_id=payload.orgId,
+        actor_id=auth["sub"],
+        action="IMPERSONATION_REVOKED",
+        entity_type="IAM",
+        entity_id=payload.grantId,
+    )
+
+    return {"grantId": payload.grantId, "status": "REVOKED"}
+
+
+@app.post("/api/iam/members/update-role")
+async def update_member_role(payload: UpdateRoleRequest, auth: Dict[str, Any] = Depends(require_auth)):
+    actor_id = auth.get("sub")
+    if not actor_id:
+        raise HTTPException(status_code=401, detail="unauthenticated")
+
+    actor_role = await guard_actor_manager(payload.orgId, actor_id)
+    ensure_permission_for_role(actor_role, "admin.members.update_role")
+    new_role = validate_org_role(payload.role)
+
+    membership = await fetch_membership(payload.orgId, payload.userId)
+    if not membership:
+        raise HTTPException(status_code=404, detail="membership not found")
+
+    current_role = normalise_role(membership.get("role"))
+    if current_role == new_role:
+        return {"orgId": payload.orgId, "userId": payload.userId, "role": current_role}
+
+    if new_role == "SYSTEM_ADMIN" and normalise_role(actor_role) != "SYSTEM_ADMIN":
+        raise HTTPException(status_code=403, detail="system admin required to grant SYSTEM_ADMIN")
+
+    if current_role in MANAGERIAL_ROLES and ROLE_RANK.get(new_role, 0) < ROLE_RANK["MANAGER"]:
+        remaining = await count_managerial_members(payload.orgId)
+        if remaining <= 1:
+            raise HTTPException(status_code=409, detail="cannot demote last manager or partner")
+
+    update_resp = await supabase_table_request(
+        "PATCH",
+        "memberships",
+        params={"id": f"eq.{membership['id']}"},
+        json={"role": new_role, "updated_at": iso_now()},
+        headers={"Prefer": "return=representation"},
+    )
+    if update_resp.status_code not in (200, 204):
+        logger.error("iam.role_update_failed", status=update_resp.status_code, body=update_resp.text)
+        raise HTTPException(status_code=502, detail="failed to update role")
+
+    rows = update_resp.json() if update_resp.content else []
+    updated = rows[0] if rows else {**membership, "role": new_role}
+
+    await log_activity_event(
+        org_id=payload.orgId,
+        actor_id=actor_id,
+        action="MEMBERSHIP_ROLE_CHANGED",
+        metadata={
+            "target_user_id": payload.userId,
+            "previous_role": current_role,
+            "new_role": new_role,
+        },
+    )
+
+    return {
+        "orgId": payload.orgId,
+        "userId": payload.userId,
+        "role": new_role,
+        "membership": updated,
+    }
+
+
+@app.get("/api/iam/profile/get")
+async def get_profile(org: Optional[str] = Query(default=None, alias="orgId"), auth: Dict[str, Any] = Depends(require_auth)):
+    user_id = auth.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="unauthenticated")
+
+    profile = await fetch_user_profile(user_id)
+    if not profile:
+        raise HTTPException(status_code=404, detail="profile not found")
+
+    preferences = None
+    if org:
+        pref_resp = await supabase_table_request(
+            "GET",
+            "user_preferences",
+            params={
+                "user_id": f"eq.{user_id}",
+                "org_id": f"eq.{org}",
+                "limit": "1",
+            },
+        )
+        if pref_resp.status_code != 200:
+            logger.error("iam.preferences_fetch_failed", status=pref_resp.status_code, body=pref_resp.text)
+            raise HTTPException(status_code=502, detail="failed to load preferences")
+        pref_rows = pref_resp.json()
+        preferences = pref_rows[0] if pref_rows else None
+
+    return {"profile": profile, "preferences": preferences}
+
+
+@app.post("/api/iam/profile/update")
+async def update_profile(payload: ProfileUpdateRequest, auth: Dict[str, Any] = Depends(require_auth)):
+    user_id = auth.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="unauthenticated")
+
+    target_org_id = payload.orgId
+    if target_org_id:
+        membership_check = await fetch_membership(target_org_id, user_id)
+        if not membership_check and not await is_system_admin_user(user_id):
+            raise HTTPException(status_code=403, detail="forbidden for target organization")
+    else:
+        membership_resp = await supabase_table_request(
+            "GET",
+            "memberships",
+            params={"user_id": f"eq.{user_id}", "select": "org_id", "limit": "1"},
+        )
+        if membership_resp.status_code != 200:
+            logger.error("iam.profile_membership_lookup_failed", status=membership_resp.status_code, body=membership_resp.text)
+            raise HTTPException(status_code=502, detail="failed to resolve organization")
+        membership_rows = membership_resp.json()
+        if membership_rows:
+            target_org_id = membership_rows[0].get("org_id")
+    if not target_org_id:
+        raise HTTPException(status_code=400, detail="orgId required for profile update")
+
+    profile_updates: Dict[str, Any] = {}
+    if payload.displayName:
+        profile_updates["display_name"] = payload.displayName.strip()
+    if payload.phoneE164 is not None:
+        profile_updates["phone_e164"] = payload.phoneE164
+    if payload.whatsappE164 is not None:
+        profile_updates["whatsapp_e164"] = payload.whatsappE164
+    if payload.avatarUrl is not None:
+        profile_updates["avatar_url"] = payload.avatarUrl
+    if payload.locale is not None:
+        profile_updates["locale"] = payload.locale
+    if payload.timezone is not None:
+        profile_updates["timezone"] = payload.timezone
+
+    updated_profile = None
+    if profile_updates:
+        updated_profile = await upsert_user_profile(user_id, profile_updates)
+
+    updated_preferences = None
+    if payload.theme is not None or payload.notifications is not None:
+        pref_body: Dict[str, Any] = {"user_id": user_id, "org_id": target_org_id}
+        if payload.theme is not None:
+            theme_value = payload.theme.upper()
+            if theme_value not in {"SYSTEM", "LIGHT", "DARK"}:
+                raise HTTPException(status_code=400, detail="invalid theme preference")
+            pref_body["theme"] = theme_value
+        if payload.notifications is not None:
+            pref_body["notifications"] = payload.notifications
+        pref_resp = await supabase_table_request(
+            "POST",
+            "user_preferences",
+            json=pref_body,
+            headers={"Prefer": "resolution=merge-duplicates,return=representation"},
+        )
+        if pref_resp.status_code not in (200, 201):
+            logger.error("iam.preferences_upsert_failed", status=pref_resp.status_code, body=pref_resp.text)
+            raise HTTPException(status_code=502, detail="failed to update preferences")
+        pref_rows = pref_resp.json()
+        updated_preferences = pref_rows[0] if pref_rows else pref_body
+
+    await log_activity_event(
+        org_id=target_org_id,
+        actor_id=user_id,
+        action="PROFILE_UPDATED",
+        metadata={
+            "profile_changes": list(profile_updates.keys()),
+            "preferences_updated": bool(updated_preferences),
+        },
+    )
+
+    return {
+        "profile": updated_profile,
+        "preferences": updated_preferences,
+    }
+
+
+
+@app.post("/api/iam/teams/create")
+async def create_team(payload: TeamCreateRequest, auth: Dict[str, Any] = Depends(require_auth)):
+    actor_id = auth.get("sub")
+    if not actor_id:
+        raise HTTPException(status_code=401, detail="unauthenticated")
+    actor_role = await guard_actor_manager(payload.orgId, actor_id)
+    ensure_permission_for_role(actor_role, "admin.teams.manage")
+
+    team_body = {
+        "org_id": payload.orgId,
+        "name": payload.name.strip(),
+        "description": payload.description,
+    }
+    response = await supabase_table_request(
+        "POST",
+        "teams",
+        json=team_body,
+        headers={"Prefer": "return=representation"},
+    )
+    if response.status_code not in (200, 201):
+        logger.error("iam.team_create_failed", status=response.status_code, body=response.text)
+        raise HTTPException(status_code=502, detail="failed to create team")
+    rows = response.json()
+    team = rows[0] if rows else team_body
+
+    await log_activity_event(
+        org_id=payload.orgId,
+        actor_id=actor_id,
+        action="TEAM_CREATED",
+        metadata={"team_id": team.get("id"), "name": team_body["name"]},
+    )
+
+    return {"team": team}
+
+
+@app.post("/api/iam/teams/add-member")
+async def add_team_member(payload: TeamMemberAddRequest, auth: Dict[str, Any] = Depends(require_auth)):
+    actor_id = auth.get("sub")
+    if not actor_id:
+        raise HTTPException(status_code=401, detail="unauthenticated")
+    actor_role = await guard_actor_manager(payload.orgId, actor_id)
+    ensure_permission_for_role(actor_role, "admin.teams.manage")
+
+    team = await fetch_single_record("teams", payload.teamId, select="id,org_id,name")
+    if not team or team.get("org_id") != payload.orgId:
+        raise HTTPException(status_code=404, detail="team not found")
+
+    role_value = validate_team_role(payload.role)
+
+    membership_body = {
+        "team_id": payload.teamId,
+        "user_id": payload.userId,
+        "role": role_value,
+    }
+    response = await supabase_table_request(
+        "POST",
+        "team_memberships",
+        json=membership_body,
+        headers={"Prefer": "resolution=merge-duplicates,return=representation"},
+    )
+    if response.status_code not in (200, 201):
+        logger.error("iam.team_member_add_failed", status=response.status_code, body=response.text)
+        raise HTTPException(status_code=502, detail="failed to add team member")
+    rows = response.json()
+    membership = rows[0] if rows else membership_body
+
+    await log_activity_event(
+        org_id=payload.orgId,
+        actor_id=actor_id,
+        action="TEAM_MEMBER_ADDED",
+        metadata={
+            "team_id": payload.teamId,
+            "user_id": payload.userId,
+            "role": role_value,
+        },
+    )
+
+    return {"team": team, "membership": membership}
+
+
+@app.post("/api/iam/teams/remove-member")
+async def remove_team_member(payload: TeamMemberRemoveRequest, auth: Dict[str, Any] = Depends(require_auth)):
+    actor_id = auth.get("sub")
+    if not actor_id:
+        raise HTTPException(status_code=401, detail="unauthenticated")
+    actor_role = await guard_actor_manager(payload.orgId, actor_id)
+    ensure_permission_for_role(actor_role, "admin.teams.manage")
+
+    team = await fetch_single_record("teams", payload.teamId, select="id,org_id,name")
+    if not team or team.get("org_id") != payload.orgId:
+        raise HTTPException(status_code=404, detail="team not found")
+
+    response = await supabase_table_request(
+        "DELETE",
+        "team_memberships",
+        params={"team_id": f"eq.{payload.teamId}", "user_id": f"eq.{payload.userId}"},
+        headers={"Prefer": "return=minimal"},
+    )
+    if response.status_code not in (200, 204):
+        logger.error("iam.team_member_remove_failed", status=response.status_code, body=response.text)
+        raise HTTPException(status_code=502, detail="failed to remove team member")
+
+    await log_activity_event(
+        org_id=payload.orgId,
+        actor_id=actor_id,
+        action="TEAM_MEMBER_REMOVED",
+        metadata={
+            "team_id": payload.teamId,
+            "user_id": payload.userId,
+        },
+    )
+
+    return {"teamId": payload.teamId, "userId": payload.userId}
 
 
 @app.post("/v1/rag/ingest")
@@ -202,6 +2934,13 @@ async def ingest(
     user_id = auth.get("sub")
     if not user_id:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="missing subject claim")
+
+    await enforce_rate_limit(
+        "rag:ingest",
+        user_id,
+        limit=RAG_INGEST_RATE_LIMIT,
+        window=RAG_INGEST_RATE_WINDOW,
+    )
 
     org_context = await resolve_org_context(user_id, org_slug)
 
@@ -228,6 +2967,13 @@ async def search(request: SearchRequest, auth: Dict[str, Any] = Depends(require_
     user_id = auth.get("sub")
     if not user_id:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="missing subject claim")
+
+    await enforce_rate_limit(
+        "rag:search",
+        user_id,
+        limit=RAG_SEARCH_RATE_LIMIT,
+        window=RAG_SEARCH_RATE_WINDOW,
+    )
 
     org_context = await resolve_org_context(user_id, request.org_slug)
     limit = max(1, min(20, request.k))
@@ -270,6 +3016,13 @@ async def reembed(request: ReembedRequest, auth: Dict[str, Any] = Depends(requir
     if not user_id:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="missing subject claim")
 
+    await enforce_rate_limit(
+        "rag:reembed",
+        user_id,
+        limit=RAG_REEMBED_RATE_LIMIT,
+        window=RAG_REEMBED_RATE_WINDOW,
+    )
+
     org_context = await resolve_org_context(user_id, request.org_slug)
     if not has_manager_privileges(org_context["role"]):
         raise HTTPException(status_code=403, detail="manager role required")
@@ -289,3 +3042,1370 @@ async def reembed(request: ReembedRequest, auth: Dict[str, Any] = Depends(requir
         org_id=org_context["org_id"],
     )
     return {"enqueued": len(request.chunks)}
+
+
+@app.get("/v1/tasks")
+async def list_tasks(
+    org_slug: str = Query(..., alias="orgSlug"),
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    status: Optional[str] = Query(default=None),
+    assignee: Optional[str] = Query(default=None),
+    engagement: Optional[str] = Query(default=None, alias="engagementId"),
+    auth: Dict[str, Any] = Depends(require_auth),
+) -> Dict[str, Any]:
+    context = await resolve_org_context(auth["sub"], org_slug)
+
+    if status and status not in TASK_STATUS_VALUES and status != "all":
+        raise HTTPException(status_code=400, detail="invalid status filter")
+
+    params: Dict[str, Any] = {
+        "select": "id,org_id,engagement_id,title,description,status,priority,due_date,assigned_to,created_by,created_at,updated_at",
+        "org_id": f"eq.{context['org_id']}",
+        "order": "created_at.desc",
+        "limit": str(limit),
+        "offset": str(offset),
+    }
+
+    if status and status != "all":
+        params["status"] = f"eq.{status}"
+    if assignee:
+        params["assigned_to"] = f"eq.{assignee}"
+    if engagement:
+        params["engagement_id"] = f"eq.{engagement}"
+
+    response = await supabase_table_request("GET", "tasks", params=params)
+    if response.status_code != 200:
+        logger.error("tasks.list_failed", status=response.status_code, body=response.text)
+        raise HTTPException(status_code=502, detail="failed to fetch tasks")
+
+    rows = response.json()
+    return {"tasks": [map_task_response(row) for row in rows]}
+
+
+@app.post("/v1/tasks")
+async def create_task(payload: TaskCreateRequest, auth: Dict[str, Any] = Depends(require_auth)) -> Dict[str, Any]:
+    context = await resolve_org_context(auth["sub"], payload.orgSlug)
+    task_row = await insert_task_record(
+        org_id=context["org_id"],
+        creator_id=auth["sub"],
+        payload={
+            "title": payload.title,
+            "description": payload.description,
+            "status": payload.status,
+            "priority": payload.priority,
+            "engagement_id": payload.engagementId,
+            "assigned_to": payload.assigneeId,
+            "due_date": payload.dueDate,
+        },
+    )
+
+    if payload.assigneeId and payload.assigneeId != auth["sub"]:
+        await create_notification(
+            org_id=context["org_id"],
+            user_id=payload.assigneeId,
+            kind="TASK",
+            title=f"New task assigned: {payload.title}",
+            body=payload.description,
+        )
+
+    return {"task": map_task_response(task_row)}
+
+
+@app.patch("/v1/tasks/{task_id}")
+async def update_task(
+    task_id: str,
+    payload: TaskUpdateRequest,
+    auth: Dict[str, Any] = Depends(require_auth),
+) -> Dict[str, Any]:
+    task_row = await fetch_single_record("tasks", task_id)
+    if not task_row:
+        raise HTTPException(status_code=404, detail="task not found")
+
+    role = await ensure_org_access_by_id(auth["sub"], task_row["org_id"])
+    if not has_manager_privileges(role) and task_row.get("created_by") != auth["sub"]:
+        # allow basic edits if user created the task or has elevated role
+        pass
+
+    updates: Dict[str, Any] = {}
+
+    if payload.title is not None:
+        updates["title"] = payload.title.strip()
+    if payload.description is not None:
+        updates["description"] = payload.description
+    if payload.status is not None:
+        status_value = payload.status.upper()
+        if status_value not in TASK_STATUS_VALUES:
+            raise HTTPException(status_code=400, detail="invalid task status")
+        updates["status"] = status_value
+    if payload.priority is not None:
+        priority_value = payload.priority.upper()
+        if priority_value not in TASK_PRIORITY_VALUES:
+            raise HTTPException(status_code=400, detail="invalid task priority")
+        updates["priority"] = priority_value
+    if payload.engagementId is not None:
+        updates["engagement_id"] = payload.engagementId
+    if payload.assigneeId is not None:
+        updates["assigned_to"] = payload.assigneeId
+    if payload.dueDate is not None:
+        updates["due_date"] = payload.dueDate
+
+    if not updates:
+        return {"task": map_task_response(task_row)}
+
+    updates["updated_at"] = iso_now()
+
+    response = await supabase_table_request(
+        "PATCH",
+        "tasks",
+        params={"id": f"eq.{task_id}"},
+        json=updates,
+        headers={"Prefer": "return=representation"},
+    )
+
+    if response.status_code not in (200, 204):
+        logger.error("tasks.update_failed", status=response.status_code, body=response.text)
+        raise HTTPException(status_code=502, detail="failed to update task")
+
+    rows = response.json() if response.status_code != 204 else []
+    updated_row = rows[0] if rows else await fetch_single_record("tasks", task_id)
+    if not updated_row:
+        raise HTTPException(status_code=404, detail="task not found")
+
+    if payload.assigneeId and payload.assigneeId != task_row.get("assigned_to") and payload.assigneeId != auth.get("sub"):
+        await create_notification(
+            org_id=task_row["org_id"],
+            user_id=payload.assigneeId,
+            kind="TASK",
+            title=f"Task updated: {updated_row.get('title')}",
+            body=updated_row.get("description"),
+        )
+
+    return {"task": map_task_response(updated_row)}
+
+
+@app.get("/v1/tasks/{task_id}/comments")
+async def list_task_comments(
+    task_id: str,
+    auth: Dict[str, Any] = Depends(require_auth),
+) -> Dict[str, Any]:
+    task_row = await fetch_single_record("tasks", task_id, select="id, org_id")
+    if not task_row:
+        raise HTTPException(status_code=404, detail="task not found")
+
+    await ensure_org_access_by_id(auth["sub"], task_row["org_id"])
+
+    response = await supabase_table_request(
+        "GET",
+        "task_comments",
+        params={
+            "task_id": f"eq.{task_id}",
+            "order": "created_at.desc",
+            "select": "id, task_id, org_id, user_id, body, created_at",
+        },
+    )
+
+    if response.status_code != 200:
+        logger.error("tasks.comments_list_failed", status=response.status_code, body=response.text)
+        raise HTTPException(status_code=502, detail="failed to fetch comments")
+
+    return {"comments": response.json()}
+
+
+@app.post("/v1/tasks/{task_id}/comments")
+async def create_task_comment(
+    task_id: str,
+    payload: TaskCommentRequest,
+    auth: Dict[str, Any] = Depends(require_auth),
+) -> Dict[str, Any]:
+    task_row = await fetch_single_record("tasks", task_id)
+    if not task_row:
+        raise HTTPException(status_code=404, detail="task not found")
+
+    await ensure_org_access_by_id(auth["sub"], task_row["org_id"])
+
+    supabase_payload = {
+        "task_id": task_id,
+        "org_id": task_row["org_id"],
+        "user_id": auth["sub"],
+        "body": payload.body.strip(),
+    }
+
+    response = await supabase_table_request(
+        "POST",
+        "task_comments",
+        json=supabase_payload,
+        headers={"Prefer": "return=representation"},
+    )
+
+    if response.status_code not in (200, 201):
+        logger.error("tasks.comment_create_failed", status=response.status_code, body=response.text)
+        raise HTTPException(status_code=502, detail="failed to add comment")
+
+    rows = response.json()
+    return {"comment": rows[0] if rows else supabase_payload}
+
+
+@app.post("/v1/tasks/{task_id}/attachments")
+async def attach_document_to_task(
+    task_id: str,
+    payload: TaskAttachmentRequest,
+    auth: Dict[str, Any] = Depends(require_auth),
+) -> Dict[str, Any]:
+    task_row = await fetch_single_record("tasks", task_id)
+    if not task_row:
+        raise HTTPException(status_code=404, detail="task not found")
+
+    await ensure_org_access_by_id(auth["sub"], task_row["org_id"])
+
+    document = await fetch_single_record("documents", payload.documentId)
+    if not document or document.get("org_id") != task_row["org_id"] or document.get("deleted"):
+        raise HTTPException(status_code=404, detail="document not found")
+
+    supabase_payload = {
+        "task_id": task_id,
+        "org_id": task_row["org_id"],
+        "document_id": payload.documentId,
+        "note": payload.note,
+    }
+
+    response = await supabase_table_request(
+        "POST",
+        "task_attachments",
+        json=supabase_payload,
+        headers={"Prefer": "return=representation"},
+    )
+
+    if response.status_code not in (200, 201):
+        logger.error("tasks.attachment_create_failed", status=response.status_code, body=response.text)
+        raise HTTPException(status_code=502, detail="failed to attach document")
+
+    rows = response.json()
+    await create_notification(
+        org_id=task_row["org_id"],
+        user_id=task_row.get("assigned_to"),
+        kind="TASK",
+        title=f"New attachment on task: {task_row.get('title')}",
+        body=payload.note,
+    )
+
+    return {"attachment": rows[0] if rows else supabase_payload}
+
+
+@app.get("/v1/storage/documents")
+async def list_documents_endpoint(
+    org_slug: str = Query(..., alias="orgSlug"),
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    repo: Optional[str] = Query(default=None),
+    state: str = Query("active", alias="state"),
+    auth: Dict[str, Any] = Depends(require_auth),
+) -> Dict[str, Any]:
+    context = await resolve_org_context(auth["sub"], org_slug)
+    role = normalise_role(context.get("role"))
+
+    state_normalized = (state or "active").lower()
+    if state_normalized not in {"active", "archived", "all"}:
+        raise HTTPException(status_code=400, detail="invalid state filter")
+
+    params: Dict[str, Any] = {
+        "select": "id,org_id,entity_id,repo_folder,name,filename,mime_type,file_size,storage_path,uploaded_by,classification,deleted,created_at",
+        "org_id": f"eq.{context['org_id']}",
+        "order": "created_at.desc",
+        "limit": str(limit),
+        "offset": str(offset),
+    }
+
+    if state_normalized == "archived":
+        params["deleted"] = "eq.true"
+    elif state_normalized == "active":
+        params["deleted"] = "eq.false"
+
+    repo_value = (repo or "").strip() or None
+    if role == "CLIENT":
+        ensure_permission_for_role(role, "documents.pbc.list")
+        allowed_repos = CLIENT_ALLOWED_DOCUMENT_REPOS
+        if repo_value and repo_value not in allowed_repos:
+            raise HTTPException(status_code=403, detail="forbidden")
+        scoped_repos = allowed_repos if repo_value is None else [repo_value]
+        if len(scoped_repos) == 1:
+            params["repo_folder"] = f"eq.{scoped_repos[0]}"
+        else:
+            params["repo_folder"] = f"in.({','.join(scoped_repos)})"
+    else:
+        ensure_permission_for_role(role, "documents.internal.list")
+        if repo_value:
+            params["repo_folder"] = f"eq.{repo_value}"
+
+    response = await supabase_table_request("GET", "documents", params=params)
+    if response.status_code != 200:
+        logger.error("documents.list_failed", status=response.status_code, body=response.text)
+        raise HTTPException(status_code=502, detail="failed to fetch documents")
+
+    rows = response.json()
+    return {"documents": [map_document_response(row) for row in rows]}
+
+
+@app.post("/v1/storage/documents")
+async def upload_document_endpoint(
+    file: UploadFile = File(...),
+    org_slug: str = Form(...),
+    auth: Dict[str, Any] = Depends(require_auth),
+    entity_id: Optional[str] = Form(None, alias="entityId"),
+    repo_folder: Optional[str] = Form(None, alias="repoFolder"),
+    name_override: Optional[str] = Form(None, alias="name"),
+) -> Dict[str, Any]:
+    context = await resolve_org_context(auth["sub"], org_slug)
+    role = normalise_role(context.get("role"))
+
+    await enforce_rate_limit(
+        "storage:upload",
+        auth["sub"],
+        limit=DOCUMENT_UPLOAD_RATE_LIMIT,
+        window=DOCUMENT_UPLOAD_RATE_WINDOW,
+    )
+
+    payload = await file.read()
+    if not payload:
+        raise HTTPException(status_code=400, detail="empty file upload")
+    if len(payload) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail="file too large")
+
+    mime_type = file.content_type or mimetypes.guess_type(file.filename or "")[0] or "application/octet-stream"
+    if mime_type not in ALLOWED_DOCUMENT_MIME_TYPES:
+        raise HTTPException(status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, detail="unsupported document type")
+
+    if role == "CLIENT":
+        target_repo = (repo_folder or CLIENT_ALLOWED_DOCUMENT_REPOS[0]).strip() or CLIENT_ALLOWED_DOCUMENT_REPOS[0]
+        if target_repo not in CLIENT_ALLOWED_DOCUMENT_REPOS:
+            raise HTTPException(status_code=403, detail="forbidden")
+        ensure_permission_for_role(role, "documents.pbc.upload")
+        repo_value = target_repo
+    else:
+        ensure_permission_for_role(role, "documents.internal.upload")
+        repo_value = (repo_folder or "99_Other").strip() or "99_Other"
+    repo_value = repo_value.replace(" ", "_")
+    entity_segment = (entity_id or "general").strip() or "general"
+    timestamp = datetime.utcnow().strftime("%Y%m%dT%H%M%S")
+    display_name = (name_override or file.filename or "document").strip()
+    sanitized_name = sanitize_filename(display_name)
+    storage_path = f"org-{context['org_id']}/docs/{entity_segment}/{repo_value}/{timestamp}_{sanitized_name}"
+
+    upload_headers = {
+        "Content-Type": mime_type,
+        "x-upsert": "false",
+    }
+
+    upload_response = await supabase_request(
+        "POST",
+        f"{SUPABASE_STORAGE_URL}/object/{DOCUMENTS_BUCKET}/{storage_path}",
+        content=payload,
+        headers=upload_headers,
+    )
+
+    if upload_response.status_code not in (200, 201):
+        logger.error("documents.upload_failed", status=upload_response.status_code, body=upload_response.text)
+        raise HTTPException(status_code=502, detail="failed to store document")
+
+    checksum = hashlib.sha256(payload).hexdigest()
+
+    document_payload = {
+        "org_id": context["org_id"],
+        "entity_id": entity_id,
+        "repo_folder": repo_value,
+        "name": display_name,
+        "filename": sanitized_name,
+        "mime_type": mime_type,
+        "file_size": len(payload),
+        "storage_path": storage_path,
+        "uploaded_by": auth["sub"],
+        "checksum": checksum,
+    }
+
+    response = await supabase_table_request(
+        "POST",
+        "documents",
+        json=document_payload,
+        headers={"Prefer": "return=representation"},
+    )
+
+    if response.status_code not in (200, 201):
+        logger.error("documents.record_create_failed", status=response.status_code, body=response.text)
+        raise HTTPException(status_code=502, detail="failed to record document")
+
+    rows = response.json()
+    document_row = rows[0] if rows else document_payload
+
+    await create_notification(
+        org_id=context["org_id"],
+        user_id=auth["sub"],
+        kind="DOC",
+        title=f"Uploaded document: {display_name}",
+        body=f"Stored in {repo_value}",
+    )
+
+    try:
+        await supabase_table_request(
+            "POST",
+            "document_extractions",
+            json={
+                "document_id": document_row.get("id"),
+                "extractor_name": "baseline_pipeline",
+                "extractor_version": "v1",
+                "status": "PENDING",
+            },
+            headers={"Prefer": "return=minimal"},
+        )
+    except Exception as exc:  # pragma: no cover
+        logger.warning("documents.extraction_seed_failed", error=str(exc))
+
+    return {"document": map_document_response(document_row)}
+
+
+@app.delete("/v1/storage/documents/{document_id}")
+async def delete_document_endpoint(
+    document_id: str,
+    auth: Dict[str, Any] = Depends(require_auth),
+) -> Dict[str, str]:
+    document = await fetch_single_record("documents", document_id)
+    if not document or document.get("deleted"):
+        raise HTTPException(status_code=404, detail="document not found")
+
+    role = normalise_role(await ensure_org_access_by_id(auth["sub"], document["org_id"]))
+    ensure_permission_for_role(role, "documents.internal.archive")
+
+    response = await supabase_table_request(
+        "PATCH",
+        "documents",
+        params={"id": f"eq.{document_id}"},
+        json={"deleted": True, "updated_at": iso_now()},
+        headers={"Prefer": "return=minimal"},
+    )
+
+    if response.status_code not in (200, 204):
+        logger.error("documents.delete_failed", status=response.status_code, body=response.text)
+        raise HTTPException(status_code=502, detail="failed to delete document")
+
+    await create_notification(
+        org_id=document["org_id"],
+        user_id=document.get("uploaded_by"),
+        kind="DOC",
+        title=f"Document archived: {document.get('name')}",
+        body="Marked as deleted",
+    )
+
+    return {"status": "ok"}
+
+
+@app.post("/v1/storage/documents/{document_id}/restore")
+async def restore_document_endpoint(
+    document_id: str,
+    auth: Dict[str, Any] = Depends(require_auth),
+) -> Dict[str, str]:
+    document = await fetch_single_record("documents", document_id)
+    if not document or not document.get("deleted"):
+        raise HTTPException(status_code=404, detail="archived document not found")
+
+    role = normalise_role(await ensure_org_access_by_id(auth["sub"], document["org_id"]))
+    ensure_permission_for_role(role, "documents.internal.restore")
+
+    response = await supabase_table_request(
+        "PATCH",
+        "documents",
+        params={"id": f"eq.{document_id}"},
+        json={"deleted": False, "updated_at": iso_now()},
+        headers={"Prefer": "return=minimal"},
+    )
+
+    if response.status_code not in (200, 204):
+        logger.error("documents.restore_failed", status=response.status_code, body=response.text)
+        raise HTTPException(status_code=502, detail="failed to restore document")
+
+    await create_notification(
+        org_id=document["org_id"],
+        user_id=document.get("uploaded_by"),
+        kind="DOC",
+        title=f"Document restored: {document.get('name')}",
+        body="Marked as active",
+    )
+
+    return {"status": "ok"}
+
+
+@app.post("/v1/storage/sign")
+async def sign_document_endpoint(
+    payload: DocumentSignRequest,
+    auth: Dict[str, Any] = Depends(require_auth),
+) -> Dict[str, str]:
+    document = await fetch_single_record("documents", payload.documentId)
+    if not document or document.get("deleted"):
+        raise HTTPException(status_code=404, detail="document not found")
+
+    role = normalise_role(await ensure_org_access_by_id(auth["sub"], document["org_id"]))
+    repo_folder = document.get("repo_folder")
+    if role == "CLIENT":
+        if repo_folder not in CLIENT_ALLOWED_DOCUMENT_REPOS:
+            raise HTTPException(status_code=403, detail="forbidden")
+        ensure_permission_for_role(role, "documents.pbc.link")
+    else:
+        ensure_permission_for_role(role, "documents.internal.link")
+
+    sign_response = await supabase_request(
+        "POST",
+        f"{SUPABASE_STORAGE_URL}/object/sign/{DOCUMENTS_BUCKET}/{document['storage_path']}",
+        json={"expiresIn": payload.ttlSeconds or 900},
+    )
+
+    if sign_response.status_code != 200:
+        logger.error("documents.sign_failed", status=sign_response.status_code, body=sign_response.text)
+        raise HTTPException(status_code=502, detail="failed to create signed URL")
+
+    body = sign_response.json()
+    signed = body.get("signedURL") or body.get("signedUrl")
+    if not signed:
+        raise HTTPException(status_code=502, detail="invalid storage response")
+
+    if signed.startswith("http"):
+        url = signed
+    else:
+        url = SUPABASE_URL.rstrip("/") + signed
+
+    return {"url": url}
+
+
+@app.post("/v1/documents/{document_id}/extraction")
+async def document_extraction_update(
+    document_id: str,
+    payload: DocumentExtractionUpdateRequest,
+    auth: Dict[str, Any] = Depends(require_auth),
+) -> Dict[str, Any]:
+    document = await fetch_single_record(
+        "documents",
+        document_id,
+        select="id, org_id, ocr_status, parse_status, deleted",
+    )
+    if not document or document.get("deleted"):
+        raise HTTPException(status_code=404, detail="document not found")
+
+    role = normalise_role(await ensure_org_access_by_id(auth["sub"], document["org_id"]))
+    ensure_permission_for_role(role, "documents.internal.upload")
+
+    extractor_name = payload.extractorName or "baseline_pipeline"
+    extractor_version = payload.extractorVersion or "v1"
+
+    record_payload = {
+        "document_id": document_id,
+        "extractor_name": extractor_name,
+        "extractor_version": extractor_version,
+        "status": payload.status,
+        "fields": payload.fields,
+        "confidence": payload.confidence,
+        "provenance": payload.provenance,
+        "updated_at": iso_now(),
+    }
+
+    if payload.extractionId:
+        response = await supabase_table_request(
+            "PATCH",
+            "document_extractions",
+            params={"id": f"eq.{payload.extractionId}"},
+            json=record_payload,
+            headers={"Prefer": "return=representation"},
+        )
+    else:
+        response = await supabase_table_request(
+            "POST",
+            "document_extractions",
+            json=record_payload,
+            headers={"Prefer": "return=representation"},
+        )
+
+    if response.status_code not in (200, 201):
+        logger.error("documents.extraction_update_failed", status=response.status_code, body=response.text)
+        raise HTTPException(status_code=502, detail="failed to update extraction")
+
+    extraction_rows = response.json()
+    extraction = extraction_rows[0] if extraction_rows else None
+
+    doc_update: Dict[str, Any] = {"updated_at": iso_now()}
+    if payload.status.upper() == "DONE":
+        doc_update["parse_status"] = "DONE"
+        doc_update["ocr_status"] = document.get("ocr_status") or "DONE"
+    elif payload.status.upper() == "FAILED":
+        doc_update["parse_status"] = "FAILED"
+
+    if len(doc_update) > 1:
+        await supabase_table_request(
+            "PATCH",
+            "documents",
+            params={"id": f"eq.{document_id}"},
+            json=doc_update,
+            headers={"Prefer": "return=minimal"},
+        )
+
+    return {"extraction": extraction}
+
+
+@app.get("/v1/notifications")
+async def list_notifications(
+    org_slug: str = Query(..., alias="orgSlug"),
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    unread_only: Optional[bool] = Query(default=False, alias="unreadOnly"),
+    auth: Dict[str, Any] = Depends(require_auth),
+) -> Dict[str, Any]:
+    context = await resolve_org_context(auth["sub"], org_slug)
+
+    params: Dict[str, Any] = {
+        "select": "id,org_id,user_id,kind,title,body,link,urgent,read,created_at",
+        "org_id": f"eq.{context['org_id']}",
+        "user_id": f"eq.{auth['sub']}",
+        "order": "created_at.desc",
+        "limit": str(limit),
+        "offset": str(offset),
+    }
+
+    if unread_only:
+        params["read"] = "eq.false"
+
+    response = await supabase_table_request("GET", "notifications", params=params)
+    if response.status_code != 200:
+        logger.error("notifications.list_failed", status=response.status_code, body=response.text)
+        raise HTTPException(status_code=502, detail="failed to fetch notifications")
+
+    rows = response.json()
+    notifications = [
+        {
+            "id": row.get("id"),
+            "type": NOTIFICATION_KIND_TO_FRONTEND.get(row.get("kind", "SYSTEM"), "system"),
+            "title": row.get("title"),
+            "body": row.get("body"),
+            "link": row.get("link"),
+            "urgent": row.get("urgent", False),
+            "read": row.get("read", False),
+            "created_at": row.get("created_at"),
+        }
+        for row in rows
+    ]
+    return {"notifications": notifications}
+
+
+@app.patch("/v1/notifications/{notification_id}")
+async def update_notification(
+    notification_id: str,
+    payload: NotificationUpdateRequest,
+    auth: Dict[str, Any] = Depends(require_auth),
+) -> Dict[str, Any]:
+    notification = await fetch_single_record("notifications", notification_id)
+    if not notification or notification.get("user_id") != auth["sub"]:
+        raise HTTPException(status_code=404, detail="notification not found")
+
+    updates: Dict[str, Any] = {}
+    if payload.read is not None:
+        updates["read"] = payload.read
+
+    if not updates:
+        return {"notification": {
+            "id": notification_id,
+            "read": notification.get("read", False),
+        }}
+
+    response = await supabase_table_request(
+        "PATCH",
+        "notifications",
+        params={"id": f"eq.{notification_id}"},
+        json=updates,
+        headers={"Prefer": "return=representation"},
+    )
+
+    if response.status_code not in (200, 204):
+        logger.error("notifications.update_failed", status=response.status_code, body=response.text)
+        raise HTTPException(status_code=502, detail="failed to update notification")
+
+    rows = response.json() if response.status_code != 204 else []
+    updated = rows[0] if rows else await fetch_single_record("notifications", notification_id)
+    if not updated:
+        raise HTTPException(status_code=404, detail="notification not found")
+
+    return {"notification": {
+        "id": updated.get("id"),
+        "read": updated.get("read", False),
+    }}
+
+
+@app.post("/v1/notifications/mark-all")
+async def mark_all_notifications(
+    payload: NotificationsMarkAllRequest,
+    auth: Dict[str, Any] = Depends(require_auth),
+) -> Dict[str, str]:
+    context = await resolve_org_context(auth["sub"], payload.orgSlug)
+
+    response = await supabase_table_request(
+        "PATCH",
+        "notifications",
+        params={
+            "org_id": f"eq.{context['org_id']}",
+            "user_id": f"eq.{auth['sub']}",
+            "read": "eq.false",
+        },
+        json={"read": True},
+        headers={"Prefer": "return=minimal"},
+    )
+
+    if response.status_code not in (200, 204):
+        logger.error("notifications.mark_all_failed", status=response.status_code, body=response.text)
+        raise HTTPException(status_code=502, detail="failed to mark notifications")
+
+    return {"status": "ok"}
+
+
+@app.post("/v1/onboarding/start")
+async def onboarding_start(
+    payload: OnboardingStartRequest,
+    auth: Dict[str, Any] = Depends(require_auth),
+) -> Dict[str, Any]:
+    context = await resolve_org_context(auth["sub"], payload.orgSlug)
+    if not has_manager_privileges(context["role"]):
+        raise HTTPException(status_code=403, detail="manager role required")
+
+    temp_entity_id = generate_temp_entity_id()
+    checklist_payload = {
+        "org_id": context["org_id"],
+        "temp_entity_id": temp_entity_id,
+        "industry": payload.industry,
+        "country": payload.country,
+        "status": "ACTIVE",
+        "updated_at": iso_now(),
+    }
+
+    checklist_response = await supabase_table_request(
+        "POST",
+        "onboarding_checklists",
+        json=checklist_payload,
+        headers={"Prefer": "return=representation"},
+    )
+
+    if checklist_response.status_code not in (200, 201):
+        logger.error("onboarding.start_failed", status=checklist_response.status_code, body=checklist_response.text)
+        raise HTTPException(status_code=502, detail="failed to start onboarding")
+
+    checklist_row = checklist_response.json()[0]
+
+    items_payload = build_onboarding_items(checklist_row["id"])
+    items_response = await supabase_table_request(
+        "POST",
+        "onboarding_checklist_items",
+        json=items_payload,
+        headers={"Prefer": "return=minimal"},
+    )
+    if items_response.status_code not in (200, 201, 204):
+        logger.error("onboarding.items_insert_failed", status=items_response.status_code, body=items_response.text)
+        raise HTTPException(status_code=502, detail="failed to create checklist items")
+
+    draft_response = await supabase_table_request(
+        "POST",
+        "company_profile_drafts",
+        json={
+            "org_id": context["org_id"],
+            "checklist_id": checklist_row["id"],
+            "extracted": {
+                "industry": payload.industry,
+                "country": payload.country,
+            },
+        },
+        headers={"Prefer": "return=representation"},
+    )
+    draft_row = draft_response.json()[0] if draft_response.status_code in (200, 201) else None
+
+    checklist = await fetch_checklist_with_items(checklist_row["id"])
+
+    return {"checklist": checklist, "draft": draft_row}
+
+
+@app.post("/v1/onboarding/link-doc")
+async def onboarding_link_document(
+    payload: OnboardingLinkDocRequest,
+    auth: Dict[str, Any] = Depends(require_auth),
+) -> Dict[str, Any]:
+    item = await fetch_single_record(
+        "onboarding_checklist_items",
+        payload.itemId,
+        select="id, checklist_id, document_id, status",
+    )
+    if not item:
+        raise HTTPException(status_code=404, detail="checklist item not found")
+
+    checklist = await fetch_single_record(
+        "onboarding_checklists",
+        item["checklist_id"],
+        select="id, org_id, status",
+    )
+    if not checklist:
+        raise HTTPException(status_code=404, detail="checklist not found")
+
+    await ensure_org_access_by_id(auth["sub"], checklist["org_id"])
+
+    document = await fetch_single_record(
+        "documents",
+        payload.documentId,
+        select="id, org_id, deleted",
+    )
+    if not document or document.get("deleted") or document.get("org_id") != checklist["org_id"]:
+        raise HTTPException(status_code=404, detail="document not found")
+
+    update_response = await supabase_table_request(
+        "PATCH",
+        "onboarding_checklist_items",
+        params={"id": f"eq.{payload.itemId}"},
+        json={
+            "document_id": payload.documentId,
+            "status": "REVIEW",
+            "updated_at": iso_now(),
+        },
+        headers={"Prefer": "return=minimal"},
+    )
+    if update_response.status_code not in (200, 204):
+        logger.error("onboarding.link_doc_failed", status=update_response.status_code, body=update_response.text)
+        raise HTTPException(status_code=502, detail="failed to link document")
+
+    checklist_with_items = await fetch_checklist_with_items(item["checklist_id"])
+    return {"checklist": checklist_with_items}
+
+
+@app.post("/v1/onboarding/commit")
+async def onboarding_commit(
+    payload: OnboardingCommitRequest,
+    auth: Dict[str, Any] = Depends(require_auth),
+) -> Dict[str, Any]:
+    checklist = await fetch_checklist_with_items(payload.checklistId)
+    await ensure_org_access_by_id(auth["sub"], checklist["org_id"])
+
+    items: List[Dict[str, Any]] = checklist.get("items", [])
+    missing = [item for item in items if not item.get("document_id")]
+    if missing:
+        raise HTTPException(status_code=400, detail="attach documents for all checklist items before committing")
+
+    draft_payload = {
+        "extracted": payload.profile,
+        "updated_at": iso_now(),
+    }
+
+    draft_update = await supabase_table_request(
+        "PATCH",
+        "company_profile_drafts",
+        params={"checklist_id": f"eq.{payload.checklistId}"},
+        json=draft_payload,
+        headers={"Prefer": "return=representation"},
+    )
+
+    if draft_update.status_code not in (200, 204):
+        logger.error("onboarding.draft_update_failed", status=draft_update.status_code, body=draft_update.text)
+        raise HTTPException(status_code=502, detail="failed to update profile draft")
+
+    await supabase_table_request(
+        "PATCH",
+        "onboarding_checklists",
+        params={"id": f"eq.{payload.checklistId}"},
+        json={"status": "COMPLETED", "updated_at": iso_now()},
+        headers={"Prefer": "return=minimal"},
+    )
+
+    checklist["status"] = "COMPLETED"
+    draft_row = None
+    if draft_update.status_code == 200:
+        draft_rows = draft_update.json()
+        draft_row = draft_rows[0] if draft_rows else None
+    else:
+        draft_fetch = await supabase_table_request(
+            "GET",
+            "company_profile_drafts",
+            params={
+                "checklist_id": f"eq.{payload.checklistId}",
+                "limit": "1",
+            },
+        )
+        if draft_fetch.status_code == 200:
+            rows = draft_fetch.json()
+            draft_row = rows[0] if rows else None
+    return {"checklist": checklist, "draft": draft_row}
+
+
+@app.get("/v1/knowledge/drive/metadata")
+async def knowledge_drive_metadata(
+    org_slug: str = Query(..., alias="orgSlug"),
+    auth: Dict[str, Any] = Depends(require_auth),
+) -> Dict[str, Any]:
+    context = await resolve_org_context(auth["sub"], org_slug)
+    ensure_min_role(context["role"], "MANAGER")
+    await enforce_rate_limit(
+        "knowledge:metadata",
+        auth["sub"],
+        limit=KNOWLEDGE_PREVIEW_RATE_LIMIT,
+        window=KNOWLEDGE_PREVIEW_RATE_WINDOW,
+    )
+    connector = {
+        "label": DRIVE_PLACEHOLDER_LABEL,
+        "folderId": DRIVE_PLACEHOLDER_FOLDER,
+        "scopeNotes": f"Enable Google Drive API scope {DRIVE_PLACEHOLDER_SCOPE} and provide folder mapping to activate ingestion.",
+    }
+    return {"connector": connector}
+
+
+@app.get("/v1/knowledge/web-sources")
+async def knowledge_web_sources(
+    org_slug: str = Query(..., alias="orgSlug"),
+    auth: Dict[str, Any] = Depends(require_auth),
+) -> Dict[str, Any]:
+    context = await resolve_org_context(auth["sub"], org_slug)
+    ensure_min_role(context["role"], "MANAGER")
+    await enforce_rate_limit(
+        "knowledge:web_sources",
+        auth["sub"],
+        limit=KNOWLEDGE_PREVIEW_RATE_LIMIT,
+        window=KNOWLEDGE_PREVIEW_RATE_WINDOW,
+    )
+    response = await supabase_table_request(
+        "GET",
+        "web_knowledge_sources",
+        params={"order": "priority.asc"},
+    )
+    if response.status_code != 200:
+        logger.error("knowledge.web_sources_failed", status=response.status_code, body=response.text)
+        raise HTTPException(status_code=502, detail="failed to load web sources")
+    return {"sources": response.json()}
+
+
+@app.post("/v1/knowledge/corpora")
+async def knowledge_create_corpus(
+    payload: KnowledgeCorpusRequest,
+    auth: Dict[str, Any] = Depends(require_auth),
+) -> Dict[str, Any]:
+    context = await resolve_org_context(auth["sub"], payload.orgSlug)
+    ensure_min_role(context["role"], "MANAGER")
+    await enforce_rate_limit(
+        "knowledge:corpus",
+        auth["sub"],
+        limit=KNOWLEDGE_RUN_RATE_LIMIT,
+        window=KNOWLEDGE_RUN_RATE_WINDOW,
+    )
+
+    domain_value = payload.domain.upper()
+    if domain_value not in KNOWLEDGE_ALLOWED_DOMAINS:
+        raise HTTPException(status_code=400, detail="invalid domain")
+
+    corpus_payload = {
+        "org_id": context["org_id"],
+        "name": payload.name.strip(),
+        "domain": domain_value,
+        "jurisdiction": payload.jurisdictions,
+        "retention": payload.retention,
+        "is_default": payload.isDefault,
+    }
+
+    response = await supabase_table_request(
+        "POST",
+        "knowledge_corpora",
+        json=corpus_payload,
+        headers={"Prefer": "return=representation"},
+    )
+    if response.status_code not in (200, 201):
+        logger.error("knowledge.create_corpus_failed", status=response.status_code, body=response.text)
+        raise HTTPException(status_code=502, detail="failed to create corpus")
+
+    return {"corpus": response.json()[0]}
+
+
+@app.post("/v1/knowledge/sources")
+async def knowledge_create_source(
+    payload: KnowledgeSourceRequest,
+    auth: Dict[str, Any] = Depends(require_auth),
+) -> Dict[str, Any]:
+    context = await resolve_org_context(auth["sub"], payload.orgSlug)
+    ensure_min_role(context["role"], "MANAGER")
+    await enforce_rate_limit(
+        "knowledge:source",
+        auth["sub"],
+        limit=KNOWLEDGE_RUN_RATE_LIMIT,
+        window=KNOWLEDGE_RUN_RATE_WINDOW,
+    )
+
+    corpus = await fetch_single_record("knowledge_corpora", payload.corpusId, select="id, org_id")
+    if not corpus or corpus.get("org_id") != context["org_id"]:
+        raise HTTPException(status_code=404, detail="corpus not found")
+
+    provider = payload.provider.lower()
+    if provider not in {"google_drive", "upload", "url", "web_catalog"}:
+        raise HTTPException(status_code=400, detail="invalid provider")
+
+    source_uri = payload.sourceUri
+    state: Dict[str, Any] = {}
+
+    if provider == "web_catalog":
+        web_source = await fetch_single_record(
+            "web_knowledge_sources",
+            payload.sourceUri,
+            select="id, url, title, tags",
+        )
+        if not web_source:
+            raise HTTPException(status_code=404, detail="web source not found")
+        source_uri = web_source.get("url")
+        state = {
+            "catalog_id": web_source.get("id"),
+            "title": web_source.get("title"),
+            "tags": web_source.get("tags"),
+        }
+
+    source_payload = {
+        "corpus_id": payload.corpusId,
+        "provider": provider,
+        "source_uri": source_uri,
+        "state": state,
+    }
+
+    response = await supabase_table_request(
+        "POST",
+        "knowledge_sources",
+        json=source_payload,
+        headers={"Prefer": "return=representation"},
+    )
+    if response.status_code not in (200, 201):
+        logger.error("knowledge.create_source_failed", status=response.status_code, body=response.text)
+        raise HTTPException(status_code=502, detail="failed to create knowledge source")
+
+    return {"source": response.json()[0]}
+
+
+@app.get("/v1/knowledge/sources/{source_id}/preview")
+async def knowledge_preview_source(
+    source_id: str,
+    org_slug: str = Query(..., alias="orgSlug"),
+    auth: Dict[str, Any] = Depends(require_auth),
+) -> Dict[str, Any]:
+    context = await resolve_org_context(auth["sub"], org_slug)
+    ensure_min_role(context["role"], "MANAGER")
+    await enforce_rate_limit(
+        "knowledge:preview",
+        auth["sub"],
+        limit=KNOWLEDGE_PREVIEW_RATE_LIMIT,
+        window=KNOWLEDGE_PREVIEW_RATE_WINDOW,
+    )
+    documents = build_drive_preview_documents()
+    return {"documents": documents, "placeholder": True}
+
+
+@app.post("/v1/knowledge/runs")
+async def knowledge_schedule_run(
+    payload: LearningRunRequest,
+    auth: Dict[str, Any] = Depends(require_auth),
+) -> Dict[str, Any]:
+    context = await resolve_org_context(auth["sub"], payload.orgSlug)
+    ensure_min_role(context["role"], "MANAGER")
+    await enforce_rate_limit(
+        "knowledge:run",
+        auth["sub"],
+        limit=KNOWLEDGE_RUN_RATE_LIMIT,
+        window=KNOWLEDGE_RUN_RATE_WINDOW,
+    )
+
+    source = await fetch_single_record(
+        "knowledge_sources",
+        payload.sourceId,
+        select="id, corpus_id, created_at",
+    )
+    if not source:
+        raise HTTPException(status_code=404, detail="knowledge source not found")
+
+    corpus = await fetch_single_record(
+        "knowledge_corpora",
+        source["corpus_id"],
+        select="id, org_id",
+    )
+    if not corpus or corpus.get("org_id") != context["org_id"]:
+        raise HTTPException(status_code=403, detail="forbidden")
+
+    run_payload = {
+        "org_id": context["org_id"],
+        "agent_kind": payload.agentKind.upper(),
+        "mode": payload.mode.upper(),
+        "status": "pending",
+        "stats": {"source_id": payload.sourceId},
+        "started_at": iso_now(),
+    }
+
+    response = await supabase_table_request(
+        "POST",
+        "learning_runs",
+        json=run_payload,
+        headers={"Prefer": "return=representation"},
+    )
+    if response.status_code not in (200, 201):
+        logger.error("knowledge.schedule_run_failed", status=response.status_code, body=response.text)
+        raise HTTPException(status_code=502, detail="failed to queue learning run")
+
+    run = response.json()[0]
+    return {"run": run}
+
+
+@app.post("/v1/knowledge/web-harvest")
+async def knowledge_schedule_web_harvest(
+    payload: WebHarvestRequest,
+    auth: Dict[str, Any] = Depends(require_auth),
+) -> Dict[str, Any]:
+    context = await resolve_org_context(auth["sub"], payload.orgSlug)
+    ensure_min_role(context["role"], "MANAGER")
+    await enforce_rate_limit(
+        "knowledge:web_harvest",
+        auth["sub"],
+        limit=KNOWLEDGE_RUN_RATE_LIMIT,
+        window=KNOWLEDGE_RUN_RATE_WINDOW,
+    )
+
+    web_source = await fetch_single_record(
+        "web_knowledge_sources",
+        payload.webSourceId,
+        select="id, title, url",
+    )
+    if not web_source:
+        raise HTTPException(status_code=404, detail="web source not found")
+
+    run_payload = {
+        "org_id": context["org_id"],
+        "agent_kind": payload.agentKind.upper(),
+        "mode": "INITIAL",
+        "status": "pending",
+        "stats": {
+            "web_source_id": payload.webSourceId,
+            "title": web_source.get("title"),
+            "url": web_source.get("url"),
+        },
+        "started_at": iso_now(),
+    }
+
+    response = await supabase_table_request(
+        "POST",
+        "learning_runs",
+        json=run_payload,
+        headers={"Prefer": "return=representation"},
+    )
+    if response.status_code not in (200, 201):
+        logger.error("knowledge.web_harvest_failed", status=response.status_code, body=response.text)
+        raise HTTPException(status_code=502, detail="failed to queue web harvest")
+
+    return {"run": response.json()[0]}
+
+
+
+@app.post("/v1/assistant/message")
+async def assistant_message(
+    payload: AssistantMessageRequest,
+    auth: Dict[str, Any] = Depends(require_auth),
+) -> Dict[str, Any]:
+    context = await resolve_org_context(auth["sub"], payload.orgSlug)
+    user_id = auth["sub"]
+
+    await enforce_rate_limit(
+        "assistant:message",
+        user_id,
+        limit=ASSISTANT_RATE_LIMIT,
+        window=ASSISTANT_RATE_WINDOW,
+    )
+
+    if payload.tool:
+        result = await invoke_tool(context, user_id, payload.tool, payload.args or {})
+        response_message = result.get("message", "Done.")
+        actions = DEFAULT_ASSISTANT_ACTIONS
+        return {
+            "messages": [{"role": "assistant", "content": response_message}],
+            "actions": actions,
+            "data": result.get("data", {}),
+            "citations": result.get("citations", []),
+            "tool": payload.tool,
+            "needs": result.get("needs"),
+        }
+
+    result = await generate_assistant_reply(context, user_id, payload.message)
+    await record_agent_trace(
+        org_id=context["org_id"],
+        user_id=user_id,
+        tool="assistant_chat",
+        inputs={"message": payload.message},
+        outputs=result.get("data", {}),
+        document_ids=[citation.get("documentId") for citation in result.get("citations", []) if citation.get("documentId")],
+    )
+
+    return {
+        "messages": [{"role": "assistant", "content": result.get("message", "") }],
+        "actions": result.get("actions", DEFAULT_ASSISTANT_ACTIONS),
+        "data": result.get("data", {}),
+        "citations": result.get("citations", []),
+    }
+
+
+@app.get("/v1/autopilot/schedules")
+async def list_job_schedules(
+    org_slug: str = Query(..., alias="orgSlug"),
+    auth: Dict[str, Any] = Depends(require_auth),
+) -> Dict[str, Any]:
+    context = await resolve_org_context(auth["sub"], org_slug)
+    if not has_manager_privileges(context["role"]):
+        raise HTTPException(status_code=403, detail="manager role required")
+
+    response = await supabase_table_request(
+        "GET",
+        "job_schedules",
+        params={
+            "org_id": f"eq.{context['org_id']}",
+            "order": "created_at.desc",
+        },
+    )
+    if response.status_code != 200:
+        logger.error("autopilot.list_schedules_failed", status=response.status_code, body=response.text)
+        raise HTTPException(status_code=502, detail="failed to fetch schedules")
+
+    return {"schedules": response.json()}
+
+
+@app.post("/v1/autopilot/schedules")
+async def create_job_schedule(
+    payload: JobScheduleRequest,
+    auth: Dict[str, Any] = Depends(require_auth),
+) -> Dict[str, Any]:
+    context = await resolve_org_context(auth["sub"], payload.orgSlug)
+    ensure_min_role(context["role"], "MANAGER")
+    await enforce_rate_limit(
+        "autopilot:schedule",
+        auth["sub"],
+        limit=AUTOPILOT_SCHEDULE_RATE_LIMIT,
+        window=AUTOPILOT_SCHEDULE_RATE_WINDOW,
+    )
+
+    if payload.kind not in AUTOPILOT_JOB_KINDS:
+        raise HTTPException(status_code=400, detail="unknown job kind")
+
+    schedule_payload = {
+        "org_id": context["org_id"],
+        "kind": payload.kind,
+        "cron_expression": payload.cronExpression,
+        "active": payload.active,
+        "metadata": payload.metadata,
+        "updated_at": iso_now(),
+    }
+
+    response = await supabase_table_request(
+        "POST",
+        "job_schedules",
+        json=schedule_payload,
+        headers={"Prefer": "return=representation"},
+    )
+    if response.status_code not in (200, 201):
+        logger.error("autopilot.schedule_create_failed", status=response.status_code, body=response.text)
+        raise HTTPException(status_code=502, detail="failed to create schedule")
+
+    return {"schedule": response.json()[0]}
+
+
+@app.get("/v1/autopilot/jobs")
+async def list_jobs(
+    org_slug: str = Query(..., alias="orgSlug"),
+    status: Optional[str] = Query(default=None),
+    auth: Dict[str, Any] = Depends(require_auth),
+) -> Dict[str, Any]:
+    context = await resolve_org_context(auth["sub"], org_slug)
+    if not has_manager_privileges(context["role"]):
+        raise HTTPException(status_code=403, detail="manager role required")
+
+    params: Dict[str, Any] = {
+        "org_id": f"eq.{context['org_id']}",
+        "order": "scheduled_at.desc",
+        "limit": "50",
+    }
+    if status:
+        params["status"] = f"eq.{status.upper()}"
+
+    response = await supabase_table_request(
+        "GET",
+        "jobs",
+        params=params,
+    )
+    if response.status_code != 200:
+        logger.error("autopilot.list_jobs_failed", status=response.status_code, body=response.text)
+        raise HTTPException(status_code=502, detail="failed to fetch jobs")
+
+    return {"jobs": response.json()}
+
+
+@app.post("/v1/autopilot/jobs/run")
+async def enqueue_job(
+    payload: JobRunRequest,
+    auth: Dict[str, Any] = Depends(require_auth),
+) -> Dict[str, Any]:
+    context = await resolve_org_context(auth["sub"], payload.orgSlug)
+    ensure_min_role(context["role"], "MANAGER")
+    await enforce_rate_limit(
+        "autopilot:job",
+        auth["sub"],
+        limit=AUTOPILOT_JOB_RATE_LIMIT,
+        window=AUTOPILOT_JOB_RATE_WINDOW,
+    )
+
+    if payload.kind not in AUTOPILOT_JOB_KINDS:
+        raise HTTPException(status_code=400, detail="unknown job kind")
+
+    job_payload = {
+        "org_id": context["org_id"],
+        "kind": payload.kind,
+        "payload": payload.payload,
+        "status": "PENDING",
+        "scheduled_at": iso_now(),
+    }
+
+    response = await supabase_table_request(
+        "POST",
+        "jobs",
+        json=job_payload,
+        headers={"Prefer": "return=representation"},
+    )
+    if response.status_code not in (200, 201):
+        logger.error("autopilot.enqueue_failed", status=response.status_code, body=response.text)
+        raise HTTPException(status_code=502, detail="failed to create job")
+
+    return {"job": response.json()[0]}
+
+
+@app.post("/v1/observability/dry-run", tags=["observability"])
+async def sentry_dry_run(
+    authorization: str = Header(...),
+    request: Request = None,
+):
+    """Intentionally raises a server error to validate Sentry/alerts.
+
+    Guarded by `ALLOW_SENTRY_DRY_RUN` env var. Requires a valid Bearer token.
+    Call with a unique `X-Request-ID` for traceability.
+    """
+    allow = os.getenv("ALLOW_SENTRY_DRY_RUN", "false").lower() == "true"
+    if not allow:
+        raise HTTPException(status_code=404, detail="not found")
+
+    # Authenticate request (rate limit is handled in require_auth)
+    _ = await require_auth(authorization)  # noqa: F841
+
+    rid = request.headers.get(REQUEST_ID_HEADER) if request else None
+    # Raise uncaught exception to exercise Sentry/alerting pipeline
+    raise RuntimeError(f"sentry_dry_run_triggered request_id={rid}")
+
+
+@app.get("/health", tags=["observability"])
+async def health():
+    return {"status": "ok"}
+
+
+@app.get("/healthz", tags=["observability"])
+async def healthz():
+    return {"status": "ok"}
+
+
+@app.get("/readiness", tags=["observability"])
+async def readiness_probe():
+    report = await build_readiness_report(AsyncSessionLocal, redis_conn)
+    status_code = status.HTTP_200_OK if report["status"] == "ok" else status.HTTP_503_SERVICE_UNAVAILABLE
+    return JSONResponse(report, status_code=status_code)

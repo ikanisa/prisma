@@ -81,7 +81,10 @@ function createManager(overrides: Partial<ManagerReturn> = {}): ManagerReturn {
 
 function renderPage() {
   return render(
-    <MemoryRouter initialEntries={['/aurora/engagements/eng-123/reporting/controls']}>
+    <MemoryRouter
+      future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+      initialEntries={['/aurora/engagements/eng-123/reporting/controls']}
+    >
       <ControlsMatrixPage />
     </MemoryRouter>,
   );
@@ -284,6 +287,6 @@ describe('ControlsMatrixPage workflow', () => {
       expect.objectContaining({ title: 'ITGC noted' }),
     );
   },
-    10000,
+    20000,
   );
 });

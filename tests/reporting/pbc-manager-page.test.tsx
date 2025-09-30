@@ -75,7 +75,10 @@ function createManager(overrides: Partial<ManagerReturn> = {}): ManagerReturn {
 
 function renderPage() {
   return render(
-    <MemoryRouter initialEntries={['/aurora/engagements/eng-123/reporting/pbc']}>
+    <MemoryRouter
+      future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+      initialEntries={['/aurora/engagements/eng-123/reporting/pbc']}
+    >
       <PbcManagerPage />
     </MemoryRouter>,
   );

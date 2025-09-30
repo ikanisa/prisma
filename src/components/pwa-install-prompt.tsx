@@ -3,6 +3,8 @@ import { Download, X } from 'lucide-react';
 import { Button } from '@/components/enhanced-button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { motion, AnimatePresence } from 'framer-motion';
+import { recordClientEvent } from '@/lib/client-events';
+import { useI18n } from '@/hooks/use-i18n';
 
 interface BeforeInstallPromptEvent extends Event {
   readonly platforms: string[];
@@ -17,6 +19,7 @@ export function PWAInstallPrompt() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [showPrompt, setShowPrompt] = useState(false);
   const [isInstalled, setIsInstalled] = useState(false);
+  const { t } = useI18n();
 
   useEffect(() => {
     // Check if already installed
@@ -31,10 +34,11 @@ export function PWAInstallPrompt() {
     const handleBeforeInstall = (e: BeforeInstallPromptEvent) => {
       e.preventDefault();
       setDeferredPrompt(e);
-      
+
       // Show prompt after a delay to not interrupt user flow
       setTimeout(() => {
         setShowPrompt(true);
+        recordClientEvent({ name: 'pwa:promptDisplayed' });
       }, 30000); // 30 seconds delay
     };
 
@@ -42,6 +46,7 @@ export function PWAInstallPrompt() {
       setIsInstalled(true);
       setShowPrompt(false);
       setDeferredPrompt(null);
+      recordClientEvent({ name: 'pwa:installed' });
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstall as EventListener);
@@ -58,10 +63,11 @@ export function PWAInstallPrompt() {
 
     deferredPrompt.prompt();
     const result = await deferredPrompt.userChoice;
-    
-    if (result.outcome === 'accepted') {
-      console.log('PWA installed');
-    }
+
+    recordClientEvent({
+      name: 'pwa:installPromptResult',
+      data: { outcome: result.outcome },
+    });
     
     setDeferredPrompt(null);
     setShowPrompt(false);
@@ -69,6 +75,7 @@ export function PWAInstallPrompt() {
 
   const handleDismiss = () => {
     setShowPrompt(false);
+    recordClientEvent({ name: 'pwa:promptDismissed' });
     // Don't show again for this session
     localStorage.setItem('pwa-dismissed', Date.now().toString());
   };
@@ -99,7 +106,7 @@ export function PWAInstallPrompt() {
                 <div className="w-8 h-8 bg-gradient-aurora rounded-lg flex items-center justify-center">
                   <Download className="w-4 h-4 text-white" />
                 </div>
-                <CardTitle className="text-sm">Install Aurora Advisors</CardTitle>
+                <CardTitle className="text-sm">{t('pwa.install.title')}</CardTitle>
               </div>
               <Button
                 variant="ghost"
@@ -113,7 +120,7 @@ export function PWAInstallPrompt() {
           </CardHeader>
           <CardContent className="pt-0">
             <CardDescription className="text-xs mb-3">
-              Install our app for faster access and offline functionality. Works just like a native app!
+              {t('pwa.install.description')}
             </CardDescription>
             <div className="flex gap-2">
               <Button
@@ -121,7 +128,7 @@ export function PWAInstallPrompt() {
                 size="sm"
                 className="flex-1 text-xs h-8"
               >
-                Install
+                {t('pwa.install.button')}
               </Button>
               <Button
                 variant="outline"
@@ -129,7 +136,7 @@ export function PWAInstallPrompt() {
                 size="sm"
                 className="text-xs h-8"
               >
-                Later
+                {t('pwa.install.later')}
               </Button>
             </div>
           </CardContent>

@@ -140,7 +140,7 @@ export default function MaltaCitPage() {
     if (!taxEntityId && currentOrg) {
       setTaxEntityId(currentOrg.id);
     }
-  }, [currentOrg]);
+  }, [currentOrg, taxEntityId]);
 
   useEffect(() => {
     if (!canExecute || !currentOrg?.slug || !taxEntityId) {

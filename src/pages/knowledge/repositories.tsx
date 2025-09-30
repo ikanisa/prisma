@@ -8,13 +8,14 @@ import {
   useKnowledgeCorpora,
   usePreviewKnowledgeSource,
   useDriveConnectorMetadata,
+  useDriveConnectorStatus,
   useWebSources,
   useScheduleWebHarvest,
   useCreateCorpus,
   useCreateKnowledgeSource,
 } from '@/hooks/use-knowledge';
-import { Loader2, RefreshCw, ExternalLink, Bot } from 'lucide-react';
-import { format } from 'date-fns';
+import { Loader2, RefreshCw, ExternalLink, Bot, AlertTriangle } from 'lucide-react';
+import { format, formatDistanceToNow } from 'date-fns';
 import { Link, useParams } from 'react-router-dom';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
@@ -25,6 +26,7 @@ import { Switch } from '@/components/ui/switch';
 export default function KnowledgeRepositoriesPage() {
   const corporaQuery = useKnowledgeCorpora();
   const metadataQuery = useDriveConnectorMetadata();
+  const statusQuery = useDriveConnectorStatus();
   const previewMutation = usePreviewKnowledgeSource();
   const webSourcesQuery = useWebSources();
   const scheduleWebHarvest = useScheduleWebHarvest();
@@ -46,6 +48,8 @@ export default function KnowledgeRepositoriesPage() {
 
   const corpora = corporaQuery.data ?? [];
   const connectorMetadata = metadataQuery.data;
+  const connectorStatus = statusQuery.data;
+  const connectorReady = Boolean(connectorStatus?.connector);
   const { orgSlug } = useParams();
   const runsHref = orgSlug ? `/${orgSlug}/knowledge/runs` : '#';
 
@@ -86,8 +90,7 @@ export default function KnowledgeRepositoriesPage() {
         <div>
           <h1 className="text-3xl font-semibold tracking-tight">Knowledge Repositories</h1>
           <p className="text-muted-foreground mt-1">
-            Review the corpora powering agent learning. Google Drive ingestion runs in placeholder mode
-            until credentials are connected.
+            Review the corpora powering agent learning. Google Drive ingestion is {connectorReady ? 'active—monitor queue depth and blocked entries below.' : 'waiting for final credential setup.'}
           </p>
         </div>
         <Button asChild variant="outline" disabled={!orgSlug}>
@@ -102,20 +105,85 @@ export default function KnowledgeRepositoriesPage() {
         </div>
       )}
 
-      {connectorMetadata && (
+      {(metadataQuery.isLoading || statusQuery.isLoading) && !connectorMetadata && !connectorStatus && (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" /> Loading Drive connector…
+        </div>
+      )}
+
+      {(connectorMetadata || connectorStatus) && (
         <Card className="bg-muted/40">
           <CardHeader>
             <CardTitle>Google Drive Connector</CardTitle>
-            <CardDescription>Pending configuration</CardDescription>
+            <CardDescription>
+              {connectorReady ? 'Active — monitoring ingestion health' : 'Configuration pending'}
+            </CardDescription>
           </CardHeader>
-          <CardContent className="text-sm space-y-2">
-            <p>
-              <span className="font-medium">Label:</span> {connectorMetadata.label}
-            </p>
-            <p>
-              <span className="font-medium">Folder ID placeholder:</span> {connectorMetadata.folderId}
-            </p>
-            {connectorMetadata.scopeNotes && <p className="text-muted-foreground">{connectorMetadata.scopeNotes}</p>}
+          <CardContent className="text-sm space-y-3">
+            <div className="grid gap-3 md:grid-cols-2">
+              <div>
+                <p className="font-medium text-muted-foreground">Folder / Shared Drive</p>
+                <p>{connectorMetadata?.folderId ?? '—'}</p>
+                {connectorMetadata?.sharedDriveId && (
+                  <p className="text-muted-foreground">Shared drive: {connectorMetadata.sharedDriveId}</p>
+                )}
+              </div>
+              <div>
+                <p className="font-medium text-muted-foreground">Service account email</p>
+                <p>{connectorMetadata?.serviceAccountEmail ?? '—'}</p>
+              </div>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-3">
+              <div>
+                <p className="font-medium text-muted-foreground">Last sync</p>
+                <p>
+                  {connectorStatus?.connector?.lastSyncAt
+                    ? formatDistanceToNow(new Date(connectorStatus.connector.lastSyncAt), { addSuffix: true })
+                    : 'Never'}
+                </p>
+              </div>
+              <div>
+                <p className="font-medium text-muted-foreground">Pending queue</p>
+                <p>{connectorStatus?.queue.pending ?? 0}</p>
+              </div>
+              <div>
+                <p className="font-medium text-muted-foreground">Blocked by allowlist</p>
+                <p>{connectorStatus?.metadata.blocked ?? 0}</p>
+              </div>
+            </div>
+
+            {connectorStatus?.connector?.watchExpiresAt && (
+              <div className="text-sm text-muted-foreground">
+                Watch channel expires{' '}
+                {formatDistanceToNow(new Date(connectorStatus.connector.watchExpiresAt), { addSuffix: true })}.
+              </div>
+            )}
+
+            {connectorStatus?.queue.failed24h && connectorStatus.queue.failed24h > 0 && (
+              <div className="flex items-center gap-2 text-sm text-amber-600 dark:text-amber-400">
+                <AlertTriangle className="h-4 w-4" />
+                {connectorStatus.queue.failed24h} failures in the last 24 hours — review recent errors below.
+              </div>
+            )}
+
+            {connectorStatus?.queue.recentErrors?.length ? (
+              <div className="space-y-2">
+                <p className="font-medium text-muted-foreground">Recent errors</p>
+                <ul className="space-y-1 text-sm text-muted-foreground">
+                  {connectorStatus.queue.recentErrors.map((item, index) => (
+                    <li key={`${item.fileId ?? 'unknown'}-${index}`}>
+                      <span className="font-medium">{item.fileId ?? 'unknown'}:</span> {item.error ?? 'Unknown error'}
+                      {item.processedAt && (
+                        <span className="ml-2">
+                          ({formatDistanceToNow(new Date(item.processedAt), { addSuffix: true })})
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
           </CardContent>
         </Card>
       )}

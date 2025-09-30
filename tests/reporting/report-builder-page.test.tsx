@@ -83,7 +83,10 @@ function createReportBuilder(overrides: Partial<ReportBuilderHook> = {}): Report
 
 function renderWithRouter() {
   return render(
-    <MemoryRouter initialEntries={['/aurora/engagements/eng-123/reporting/report']}>
+    <MemoryRouter
+      future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+      initialEntries={['/aurora/engagements/eng-123/reporting/report']}
+    >
       <ReportBuilderPage />
     </MemoryRouter>,
   );

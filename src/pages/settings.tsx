@@ -13,6 +13,7 @@ import { Separator } from '@/components/ui/separator';
 import { useTheme } from 'next-themes';
 import { useAppStore } from '@/stores/mock-data';
 import { toast } from '@/hooks/use-toast';
+import { WhatsappMfaCard } from '@/components/settings/whatsapp-mfa-card';
 
 export function Settings() {
   const { theme, setTheme } = useTheme();
@@ -125,6 +126,8 @@ export function Settings() {
               <Button variant="outline">Update Password</Button>
             </CardContent>
           </Card>
+
+          <WhatsappMfaCard />
         </TabsContent>
 
         <TabsContent value="notifications" className="space-y-6 mt-6">

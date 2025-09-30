@@ -5,6 +5,8 @@ import { CommandPalette } from "@/components/command-palette";
 import { Navigate, Outlet, useParams } from "react-router-dom";
 import { useAuth } from "@/hooks/use-auth";
 import { useOrganizations } from "@/hooks/use-organizations";
+import { AssistantDock } from "@/components/assistant";
+import { NpsPrompt } from "@/components/nps/nps-prompt";
 
 export function AppShell() {
   const { user, loading: authLoading } = useAuth();
@@ -69,6 +71,8 @@ export function AppShell() {
         open={commandPaletteOpen} 
         onOpenChange={setCommandPaletteOpen} 
       />
+      <AssistantDock />
+      <NpsPrompt />
     </div>
   );
 }

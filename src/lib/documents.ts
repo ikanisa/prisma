@@ -10,12 +10,17 @@ export interface DocumentRecord {
   file_type: string | null;
   uploaded_by: string;
   created_at: string;
+  repo_folder?: string | null;
+  classification?: string | null;
+  deleted?: boolean;
 }
 
 export interface UploadDocumentParams {
   orgSlug: string;
   engagementId?: string;
   name?: string;
+  repoFolder?: string;
+  entityId?: string;
 }
 
 export async function uploadDocument(file: File, params: UploadDocumentParams): Promise<DocumentRecord> {
@@ -28,6 +33,12 @@ export async function uploadDocument(file: File, params: UploadDocumentParams): 
   }
   if (params.name) {
     formData.append('name', params.name);
+  }
+  if (params.repoFolder) {
+    formData.append('repoFolder', params.repoFolder);
+  }
+  if (params.entityId) {
+    formData.append('entityId', params.entityId);
   }
 
   const response = await authorizedFetch('/v1/storage/documents', {
@@ -47,12 +58,19 @@ export interface ListDocumentsParams {
   orgSlug: string;
   page?: number;
   pageSize?: number;
+  state?: 'active' | 'archived' | 'all';
 }
 
-export async function listDocuments({ orgSlug, page = 1, pageSize = 20 }: ListDocumentsParams): Promise<DocumentRecord[]> {
+export async function listDocuments({
+  orgSlug,
+  page = 1,
+  pageSize = 20,
+  state = 'active',
+}: ListDocumentsParams): Promise<DocumentRecord[]> {
   const offset = (page - 1) * pageSize;
+  const stateParam = encodeURIComponent(state);
   const response = await authorizedFetch(
-    `/v1/storage/documents?orgSlug=${encodeURIComponent(orgSlug)}&limit=${pageSize}&offset=${offset}`,
+    `/v1/storage/documents?orgSlug=${encodeURIComponent(orgSlug)}&state=${stateParam}&limit=${pageSize}&offset=${offset}`,
   );
   const payload = await response.json();
   if (!response.ok) {
@@ -81,5 +99,16 @@ export async function deleteDocument(documentId: string): Promise<void> {
   if (!response.ok) {
     const payload = await response.json().catch(() => ({ error: 'delete failed' }));
     throw new Error(payload.error ?? 'delete failed');
+  }
+}
+
+export async function restoreDocument(documentId: string): Promise<void> {
+  const response = await authorizedFetch(`/v1/storage/documents/${documentId}/restore`, {
+    method: 'POST',
+  });
+
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({ error: 'restore failed' }));
+    throw new Error(payload.error ?? 'restore failed');
   }
 }

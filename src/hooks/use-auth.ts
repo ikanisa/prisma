@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase, isSupabaseConfigured } from '@/integrations/supabase/client';
 import { User, Session } from '@supabase/supabase-js';
 import { useToast } from '@/hooks/use-toast';
+import { recordClientEvent } from '@/lib/client-events';
 
 export interface AuthState {
   user: User | null;
@@ -21,7 +22,7 @@ export function useAuth(): AuthState {
 
   useEffect(() => {
     if (!isSupabaseConfigured) {
-      console.log('[AUTH] Supabase not configured, enabling demo auth');
+      recordClientEvent({ name: 'auth:demoModeActivated' });
       const demoUser = {
         id: '1',
         email: 'demo@aurora.test',
@@ -45,10 +46,10 @@ export function useAuth(): AuthState {
       return;
     }
 
-    console.log('[AUTH] Setting up auth listener...');
+    recordClientEvent({ name: 'auth:listenerRegistered' });
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        console.log('[AUTH] State change event:', event, 'Session:', session?.user?.email);
+        recordClientEvent({ name: 'auth:stateChange', data: { event, userPresent: Boolean(session?.user) } });
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
@@ -56,7 +57,7 @@ export function useAuth(): AuthState {
     );
 
     supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log('[AUTH] Initial session check:', session?.user?.email);
+      recordClientEvent({ name: 'auth:initialSessionResolved', data: { userPresent: Boolean(session?.user) } });
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);

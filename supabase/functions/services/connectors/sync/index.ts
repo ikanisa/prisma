@@ -1,5 +1,5 @@
 import { getToken } from '../token-vault.ts'
-import { getServiceSupabaseClient } from '../../_shared/supabase-client.ts'
+import { getServiceSupabaseClient } from '../../../_shared/supabase-client.ts'
 
 const supabasePromise = getServiceSupabaseClient()
 

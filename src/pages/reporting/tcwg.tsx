@@ -42,15 +42,17 @@ export default function TcwgPage() {
   const [deficiencies, setDeficiencies] = useState<DeficiencyRow[]>([]);
   const [shareLink, setShareLink] = useState<string | null>(null);
 
+  const pack = tcwg.pack;
+
   useEffect(() => {
-    if (tcwg.pack) {
-      setIndependence(tcwg.pack.independence_statement ?? '');
-      setScope(tcwg.pack.scope_summary ?? '');
-      setFindings(tcwg.pack.significant_findings ?? '');
-      setDifficulties(tcwg.pack.significant_difficulties ?? '');
-      setOtherMatters(tcwg.pack.other_matters ?? '');
+    if (pack) {
+      setIndependence(pack.independence_statement ?? '');
+      setScope(pack.scope_summary ?? '');
+      setFindings(pack.significant_findings ?? '');
+      setDifficulties(pack.significant_difficulties ?? '');
+      setOtherMatters(pack.other_matters ?? '');
       setDeficiencies(
-        (Array.isArray(tcwg.pack.deficiencies) ? tcwg.pack.deficiencies : []).map((item: any) => ({
+        (Array.isArray(pack.deficiencies) ? pack.deficiencies : []).map((item: any) => ({
           control: item.control ?? '',
           impact: item.impact ?? item.risk ?? '',
           recommendation: item.recommendation ?? '',
@@ -58,7 +60,7 @@ export default function TcwgPage() {
         })),
       );
     }
-  }, [tcwg.pack?.id]);
+  }, [pack]);
 
   const approvalsTimeline = useMemo(() => {
     const order: Record<string, number> = { MANAGER: 1, PARTNER: 2, EQR: 3 };

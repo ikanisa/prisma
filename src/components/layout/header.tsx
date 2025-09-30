@@ -11,6 +11,8 @@ import {
 import { OrganizationSwitcher } from "@/components/organization-switcher";
 import { useAuth } from "@/hooks/use-auth";
 import { useOrganizations } from "@/hooks/use-organizations";
+import { LocaleSwitcher } from "@/components/locale-switcher";
+import { useI18n } from "@/hooks/use-i18n";
 import { useNavigate } from "react-router-dom";
 
 interface HeaderProps {
@@ -22,6 +24,7 @@ export function Header({ onOpenCommandPalette, onToggleSidebar }: HeaderProps) {
   const { user, signOut } = useAuth();
   const { isSystemAdmin } = useOrganizations();
   const navigate = useNavigate();
+  const { t } = useI18n();
 
   const handleLogout = async () => {
     await signOut();
@@ -55,7 +58,7 @@ export function Header({ onOpenCommandPalette, onToggleSidebar }: HeaderProps) {
           className="w-full justify-start bg-muted/50 hover:bg-muted border border-border"
         >
           <Search className="w-4 h-4 mr-2 text-muted-foreground" />
-          <span className="text-muted-foreground">Search clients, engagements, tasks...</span>
+          <span className="text-muted-foreground">{t('header.searchPlaceholder')}</span>
           <div className="ml-auto flex items-center gap-1">
             <kbd className="pointer-events-none h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium opacity-100 hidden sm:inline-flex">
               <Command className="h-3 w-3" />K
@@ -66,6 +69,7 @@ export function Header({ onOpenCommandPalette, onToggleSidebar }: HeaderProps) {
 
       {/* Actions */}
       <div className="flex items-center gap-2">
+        <LocaleSwitcher />
         <Button variant="ghost" size="icon">
           <Bell className="w-4 h-4" />
         </Button>

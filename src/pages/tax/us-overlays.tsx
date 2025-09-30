@@ -42,7 +42,7 @@ const overlayOptions = [
 
 type OverlayOption = (typeof overlayOptions)[number]['value'];
 
-const sanitizeNumeric = (value: string) => value.replace(/[^0-9.\-]/g, '');
+const sanitizeNumeric = (value: string) => value.replace(/[^\d.-]/g, '');
 
 const defaultGilti = {
   testedIncome: '500000',

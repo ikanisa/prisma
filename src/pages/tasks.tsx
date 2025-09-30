@@ -6,11 +6,13 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useOrganizations } from '@/hooks/use-organizations';
 import { useToast } from '@/hooks/use-toast';
 import { createTask, listTasks, TaskRecord, updateTask } from '@/lib/tasks';
 import { TaskForm, EngagementOption, MemberOption } from '@/components/forms/task-form';
 import { supabase } from '@/integrations/supabase/client';
+import { useI18n } from '@/hooks/use-i18n';
 
 const statusColors: Record<TaskRecord['status'], string> = {
   TODO: 'bg-gray-100 text-gray-800',
@@ -29,6 +31,7 @@ const priorityColors: Record<TaskRecord['priority'], string> = {
 export function Tasks() {
   const { currentOrg } = useOrganizations();
   const { toast } = useToast();
+  const { t } = useI18n();
   const [tasks, setTasks] = useState<TaskRecord[]>([]);
   const [filter, setFilter] = useState<'all' | TaskRecord['status']>('all');
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
@@ -52,7 +55,7 @@ export function Tasks() {
         setTasks(result);
       } catch (error) {
         toast({
-          title: 'Failed to load tasks',
+          title: t('tasks.error.loadTitle'),
           description: (error as Error).message,
           variant: 'destructive',
         });
@@ -62,7 +65,7 @@ export function Tasks() {
     };
 
     void load();
-  }, [orgSlug, toast]);
+  }, [orgSlug, toast, t]);
 
   useEffect(() => {
     if (!currentOrg) {
@@ -120,7 +123,7 @@ export function Tasks() {
       setTasks((prev) => prev.map((task) => (task.id === taskId ? updated : task)));
     } catch (error) {
       toast({
-        title: 'Failed to update task',
+        title: t('tasks.error.updateTitle'),
         description: (error as Error).message,
         variant: 'destructive',
       });
@@ -152,15 +155,15 @@ export function Tasks() {
   };
 
   const getDueDate = (dueDate: string | null) => {
-    if (!dueDate) return 'No due date';
+    if (!dueDate) return t('tasks.noDueDate');
     return new Date(dueDate).toLocaleDateString();
   };
 
   if (!currentOrg) {
     return (
       <div className="p-6">
-        <h1 className="text-2xl font-semibold">Tasks</h1>
-        <p className="mt-2 text-muted-foreground">Join or select an organization to manage tasks.</p>
+        <h1 className="text-2xl font-semibold">{t('tasks.title')}</h1>
+        <p className="mt-2 text-muted-foreground">{t('tasks.empty')}</p>
       </div>
     );
   }
@@ -173,8 +176,8 @@ export function Tasks() {
     >
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold gradient-text">Tasks</h1>
-          <p className="text-muted-foreground">Manage and track your work items</p>
+          <h1 className="text-3xl font-bold gradient-text">{t('tasks.title')}</h1>
+          <p className="text-muted-foreground">{t('tasks.subtitle')}</p>
         </div>
 
         <div className="flex items-center space-x-4">
@@ -216,7 +219,32 @@ export function Tasks() {
       </div>
 
       <div className="grid gap-4">
-        {filteredTasks.map((task, index) => (
+        {loading
+          ? Array.from({ length: 3 }).map((_, index) => (
+              <Card key={`tasks-skeleton-${index}`} className="border-dashed border-border/70 bg-muted/30">
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-2">
+                      <Skeleton className="h-5 w-56" />
+                      <Skeleton className="h-4 w-80" />
+                    </div>
+                    <div className="flex gap-2">
+                      <Skeleton className="h-6 w-16 rounded-full" />
+                      <Skeleton className="h-9 w-32 rounded-md" />
+                      <Skeleton className="h-9 w-9 rounded-md" />
+                      <Skeleton className="h-9 w-9 rounded-md" />
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center justify-between">
+                    <Skeleton className="h-4 w-40" />
+                    <Skeleton className="h-4 w-24" />
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          : filteredTasks.map((task, index) => (
           <motion.div
             key={task.id}
             initial={{ opacity: 0, y: 20 }}

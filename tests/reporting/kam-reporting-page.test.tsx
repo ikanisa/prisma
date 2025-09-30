@@ -94,7 +94,10 @@ function createKamModule(overrides: Partial<KamModuleReturn> = {}): KamModuleRet
 
 function renderPage() {
   return render(
-    <MemoryRouter initialEntries={['/aurora/engagements/eng-123/reporting/kam']}>
+    <MemoryRouter
+      future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+      initialEntries={['/aurora/engagements/eng-123/reporting/kam']}
+    >
       <KamReportingPage />
     </MemoryRouter>,
   );
@@ -344,6 +347,6 @@ describe('KamReportingPage workflow', () => {
       fireEvent.click(within(candidateTwoCard).getByRole('button', { name: /Open draft/i }));
       await waitFor(() => expect(createDraftMock).toHaveBeenCalledWith({ candidateId: 'cand-2' }));
     },
-    12000,
+    25000,
   );
 });

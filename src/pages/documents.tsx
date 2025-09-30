@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Upload, FileText, Download, Search, Eye, Loader2, Trash2 } from 'lucide-react';
+import { Upload, FileText, Download, Search, Eye, Loader2, Trash2, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/enhanced-button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -22,7 +22,13 @@ import {
   DocumentRecord,
   listDocuments,
   uploadDocument,
+  restoreDocument,
 } from '@/lib/documents';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useI18n } from '@/hooks/use-i18n';
+
+const CLIENT_DEFAULT_REPO = '03_Accounting/PBC';
+const CLIENT_ALLOWED_REPOS = ['03_Accounting/PBC', '02_Tax/PBC', '04_Audit/PBC'];
 
 function formatFileSize(bytes?: number | null): string {
   if (!bytes) return '—';
@@ -34,7 +40,8 @@ function formatFileSize(bytes?: number | null): string {
 
 export function Documents() {
   const { toast } = useToast();
-  const { currentOrg } = useOrganizations();
+  const { currentOrg, currentRole, hasRole } = useOrganizations();
+  const { t } = useI18n();
   const [documents, setDocuments] = useState<DocumentRecord[]>([]);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
@@ -43,28 +50,31 @@ export function Documents() {
   const [loading, setLoading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewDocument, setPreviewDocument] = useState<DocumentRecord | null>(null);
+  const [view, setView] = useState<'active' | 'archived'>('active');
+
+  const isClient = currentRole === 'CLIENT';
+  const canArchive = hasRole('MANAGER');
+  const uploadRepo = isClient ? CLIENT_DEFAULT_REPO : undefined;
 
   const orgSlug = currentOrg?.slug ?? null;
 
   useEffect(() => {
     if (!orgSlug) {
       setDocuments([]);
+      setHasMore(false);
       return;
     }
 
-    const load = async () => {
+    const loadInitial = async () => {
       setLoading(true);
       try {
-        const docs = await listDocuments({ orgSlug, page });
-        if (page === 1) {
-          setDocuments(docs);
-        } else {
-          setDocuments((prev) => [...prev, ...docs]);
-        }
+        const docs = await listDocuments({ orgSlug, page: 1, state: view });
+        setDocuments(docs);
         setHasMore(docs.length === 20);
+        setPage(1);
       } catch (error) {
         toast({
-          title: 'Unable to load documents',
+          title: t('documents.error.loadTitle'),
           description: (error as Error).message,
           variant: 'destructive',
         });
@@ -73,12 +83,33 @@ export function Documents() {
       }
     };
 
-    void load();
-  }, [orgSlug, page, toast]);
+    void loadInitial();
+  }, [orgSlug, view, toast, t]);
 
   useEffect(() => {
-    setPage(1);
-  }, [orgSlug]);
+    if (!orgSlug || page === 1) {
+      return;
+    }
+
+    const loadMore = async () => {
+      setLoading(true);
+      try {
+        const docs = await listDocuments({ orgSlug, page, state: view });
+        setDocuments((prev) => [...prev, ...docs]);
+        setHasMore(docs.length === 20);
+      } catch (error) {
+        toast({
+          title: t('documents.error.loadTitle'),
+          description: (error as Error).message,
+          variant: 'destructive',
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    void loadMore();
+  }, [orgSlug, page, view, toast, t]);
 
   const filteredDocuments = useMemo(() => {
     return documents.filter((doc) => doc.name.toLowerCase().includes(searchQuery.toLowerCase()));
@@ -87,8 +118,8 @@ export function Documents() {
   const handleUpload = async (files: File[]) => {
     if (!orgSlug) {
       toast({
-        title: 'No organization selected',
-        description: 'Choose an organization before uploading documents.',
+        title: t('documents.error.noOrgTitle'),
+        description: t('documents.error.noOrgDescription'),
         variant: 'destructive',
       });
       return;
@@ -96,17 +127,19 @@ export function Documents() {
 
     try {
       for (const file of files) {
-        const document = await uploadDocument(file, { orgSlug });
-        setDocuments((prev) => [document, ...prev]);
+        const document = await uploadDocument(file, { orgSlug, ...(uploadRepo ? { repoFolder: uploadRepo } : {}) });
+        if (view === 'active') {
+          setDocuments((prev) => [document, ...prev]);
+        }
         toast({
-          title: 'Document uploaded',
-          description: `${document.name} is ready.`,
+          title: t('documents.toast.uploadedTitle'),
+          description: t('documents.toast.uploadedDescription', { name: document.name }),
         });
       }
       setUploadOpen(false);
     } catch (error) {
       toast({
-        title: 'Upload failed',
+        title: t('documents.error.uploadTitle'),
         description: (error as Error).message,
         variant: 'destructive',
       });
@@ -119,7 +152,7 @@ export function Documents() {
       return url;
     } catch (error) {
       toast({
-        title: 'Unable to generate link',
+        title: t('documents.error.linkTitle'),
         description: (error as Error).message,
         variant: 'destructive',
       });
@@ -146,21 +179,42 @@ export function Documents() {
     }
   };
 
-  const handleDelete = async (document: DocumentRecord) => {
-    if (!confirm('Delete this document? This cannot be undone.')) {
+  const handleArchive = async (document: DocumentRecord) => {
+    if (!canArchive) {
+      toast({ title: 'Insufficient permissions', description: 'Requires Manager or above.', variant: 'destructive' });
+      return;
+    }
+
+    if (!confirm('Archive this document? You can restore it later from the Archived tab.')) {
       return;
     }
 
     try {
       await deleteDocument(document.id);
       setDocuments((prev) => prev.filter((entry) => entry.id !== document.id));
-      toast({
-        title: 'Document deleted',
-        description: `${document.name} has been removed.`,
-      });
+      toast({ title: t('documents.toast.archivedTitle'), description: t('documents.toast.archivedDescription', { name: document.name }) });
     } catch (error) {
       toast({
-        title: 'Delete failed',
+        title: t('documents.error.archiveTitle'),
+        description: (error as Error).message,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleRestore = async (document: DocumentRecord) => {
+    if (!canArchive) {
+      toast({ title: 'Insufficient permissions', description: 'Requires Manager or above.', variant: 'destructive' });
+      return;
+    }
+
+    try {
+      await restoreDocument(document.id);
+      setDocuments((prev) => prev.filter((entry) => entry.id !== document.id));
+      toast({ title: t('documents.toast.restoredTitle'), description: t('documents.toast.restoredDescription', { name: document.name }) });
+    } catch (error) {
+      toast({
+        title: t('documents.error.restoreTitle'),
         description: (error as Error).message,
         variant: 'destructive',
       });
@@ -170,10 +224,8 @@ export function Documents() {
   if (!currentOrg) {
     return (
       <div className="p-6">
-        <h1 className="text-2xl font-semibold">Documents</h1>
-        <p className="mt-2 text-muted-foreground">
-          Join or select an organization to manage documents.
-        </p>
+        <h1 className="text-2xl font-semibold">{t('documents.title')}</h1>
+        <p className="mt-2 text-muted-foreground">{t('documents.empty')}</p>
       </div>
     );
   }
@@ -186,35 +238,42 @@ export function Documents() {
     >
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold gradient-text">Documents</h1>
-          <p className="text-muted-foreground">
-            Upload, organize, and preview files for {currentOrg.name}
-          </p>
+          <h1 className="text-3xl font-bold gradient-text">{t('documents.title')}</h1>
+          <p className="text-muted-foreground">{t('documents.subtitle')}</p>
         </div>
 
         <Dialog open={uploadOpen} onOpenChange={setUploadOpen}>
           <DialogTrigger asChild>
-            <Button variant="gradient">
+            <Button variant="gradient" title={isClient ? `Uploads limited to ${CLIENT_ALLOWED_REPOS.join(', ')}` : undefined}>
               <Upload className="w-4 h-4 mr-2" />
-              Upload Files
+              {isClient ? 'Upload PBC Files' : 'Upload Files'}
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-lg">
             <DialogHeader>
               <DialogTitle>Upload Documents</DialogTitle>
               <DialogDescription>
-                Select files to upload to your document library.
+                {isClient
+                  ? `Files are stored in the permitted client repositories (${CLIENT_ALLOWED_REPOS.join(', ')}).`
+                  : 'Select files to upload to your document library.'}
               </DialogDescription>
             </DialogHeader>
             <FileUpload
               onUpload={handleUpload}
-              accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.jpg,.jpeg,.png"
+              accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.jpg,.jpeg,.png"
               multiple
               maxSize={20}
             />
           </DialogContent>
         </Dialog>
       </div>
+
+      <Tabs value={view} onValueChange={(value) => setView(value as 'active' | 'archived')}>
+        <TabsList>
+          <TabsTrigger value="active">Active</TabsTrigger>
+          <TabsTrigger value="archived">Archived</TabsTrigger>
+        </TabsList>
+      </Tabs>
 
       <div className="relative max-w-md">
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
@@ -240,48 +299,67 @@ export function Documents() {
               transition={{ delay: index * 0.1 }}
             >
               <Card className="hover-lift glass">
-                <CardHeader className="pb-3">
-                  <CardTitle className="flex items-center justify-between text-sm">
-                    <div className="flex items-center space-x-2">
+                <CardHeader className="pb-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center gap-2 text-sm">
                       <FileText className="w-4 h-4" />
                       <span className="truncate">{document.name}</span>
+                    </CardTitle>
+                    <div className="flex items-center gap-1">
+                      {document.repo_folder ? (
+                        <Badge variant="outline" className="uppercase">
+                          {document.repo_folder}
+                        </Badge>
+                      ) : null}
+                      {document.classification ? (
+                        <Badge variant="secondary">{document.classification}</Badge>
+                      ) : null}
+                      {document.deleted ? <Badge variant="destructive">Archived</Badge> : null}
                     </div>
-                    <div className="flex items-center space-x-1">
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button variant="outline" size="sm" onClick={() => handlePreview(document)}>
+                      <Eye className="w-4 h-4 mr-2" /> Preview
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => handleDownload(document)}>
+                      <Download className="w-4 h-4 mr-2" /> Download
+                    </Button>
+                    {view === 'active' ? (
                       <Button
                         variant="ghost"
-                        size="icon"
-                        className="h-6 w-6"
-                        onClick={() => void handlePreview(document)}
+                        size="sm"
+                        className="text-destructive"
+                        onClick={() => handleArchive(document)}
+                        disabled={!canArchive}
+                        title={!canArchive ? 'Requires Manager or above' : undefined}
                       >
-                        <Eye className="h-3 w-3" />
+                        <Trash2 className="w-4 h-4 mr-2" /> Archive
                       </Button>
+                    ) : (
                       <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6"
-                        onClick={() => void handleDownload(document)}
-                        title="Download"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleRestore(document)}
+                        disabled={!canArchive}
+                        title={!canArchive ? 'Requires Manager or above' : undefined}
                       >
-                        <Download className="h-3 w-3" />
+                        <RotateCcw className="w-4 h-4 mr-2" /> Restore
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 text-destructive hover:text-destructive"
-                        onClick={() => void handleDelete(document)}
-                        title="Delete"
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  </CardTitle>
+                    )}
+                  </div>
                 </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    <Badge variant="secondary">{document.file_type?.toUpperCase() ?? 'FILE'}</Badge>
-                    <p className="text-xs text-muted-foreground">
-                      {formatFileSize(document.file_size)} • {new Date(document.created_at).toLocaleString()}
-                    </p>
+                <CardContent className="space-y-2 text-xs text-muted-foreground">
+                  <div className="flex items-center justify-between">
+                    <span>Uploaded</span>
+                    <span>{new Date(document.created_at).toLocaleString()}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>Size</span>
+                    <span>{formatFileSize(document.file_size)}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>Type</span>
+                    <span>{document.file_type ?? 'Unknown'}</span>
                   </div>
                 </CardContent>
               </Card>
@@ -297,9 +375,13 @@ export function Documents() {
           <p className="text-muted-foreground mb-4">
             Upload your first document to get started
           </p>
-          <Button variant="outline" onClick={() => setUploadOpen(true)}>
+          <Button
+            variant="outline"
+            onClick={() => setUploadOpen(true)}
+            title={isClient ? `Uploads limited to ${CLIENT_ALLOWED_REPOS.join(', ')}` : undefined}
+          >
             <Upload className="w-4 h-4 mr-2" />
-            Upload Files
+            {isClient ? 'Upload PBC Files' : 'Upload Files'}
           </Button>
         </div>
       )}

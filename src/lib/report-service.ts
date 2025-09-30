@@ -6,6 +6,8 @@ export interface AuditReportDraft {
   id: string;
   org_id: string;
   engagement_id: string;
+  title?: string | null;
+  period_id?: string | null;
   opinion: 'UNMODIFIED' | 'QUALIFIED' | 'ADVERSE' | 'DISCLAIMER';
   basis_for_opinion?: string | null;
   include_eom: boolean;
