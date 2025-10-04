@@ -91,10 +91,10 @@ export function useOrganizations() {
         .map((membership) => {
           const org = orgMap.get(membership.orgId) ?? {
             id: membership.orgId,
-            name: 'Aurora Advisors',
-            slug: 'aurora',
-            brandPrimary: '#00bcd4',
-            brandSecondary: '#9c27b0',
+            name: 'Prisma Glow',
+            slug: 'prisma-glow',
+            brandPrimary: '#2563eb',
+            brandSecondary: '#7c3aed',
             createdAt: new Date().toISOString(),
           };
           return {
@@ -117,10 +117,10 @@ export function useOrganizations() {
         normalized = mockMemberships.slice(0, 1).map((membership) => {
           const org = orgMap.get(membership.orgId) ?? {
             id: membership.orgId,
-            name: 'Aurora Advisors',
-            slug: 'aurora',
-            brandPrimary: '#00bcd4',
-            brandSecondary: '#9c27b0',
+            name: 'Prisma Glow',
+            slug: 'prisma-glow',
+            brandPrimary: '#2563eb',
+            brandSecondary: '#7c3aed',
             createdAt: new Date().toISOString(),
           };
           return {

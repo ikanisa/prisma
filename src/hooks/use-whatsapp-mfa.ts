@@ -3,6 +3,7 @@ import { supabase, isSupabaseConfigured } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
 import { useOrganizations } from '@/hooks/use-organizations';
 import { sendWhatsappOtp, verifyWhatsappOtp } from '@/lib/mfa';
+import { logger } from '@/lib/logger';
 
 export interface WhatsappMfaState {
   phone: string;
@@ -54,7 +55,7 @@ export function useWhatsappMfa() {
         loading: false,
       });
     } catch (error) {
-      console.error('mfa.refresh_failed', error);
+      logger.error('mfa.refresh_failed', error);
       setState((prev) => ({ ...prev, loading: false }));
     }
   }, [currentOrg, user]);

@@ -1,7 +1,7 @@
 # Audit Governance Policy Pack (AP-GOV-1)
 
 ## Purpose
-Define firmwide governance guardrails for audit planning, execution, and reporting streams so that ISA 220 (Revised) leadership responsibilities, ISQM 1 quality objectives, and IESBA Code independence safeguards are consistently enforced within the Aurora platform.
+Define firmwide governance guardrails for audit planning, execution, and reporting streams so that ISA 220 (Revised) leadership responsibilities, ISQM 1 quality objectives, and IESBA Code independence safeguards are consistently enforced within the Prisma Glow platform.
 
 ## Standards anchors
 - ISA 220 (Revised) – paras. 12-39 (leadership and direction of engagements)

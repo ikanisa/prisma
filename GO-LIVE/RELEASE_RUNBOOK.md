@@ -1,4 +1,4 @@
-# Release Runbook (Aurora / prisma-glow-15)
+# Release Runbook (Prisma Glow / prisma-glow-15)
 
 > Non-destructive only. All commands listed are suggestions; run from a clean workspace on a release branch.
 

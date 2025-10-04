@@ -1,12 +1,12 @@
 {
-  "name": "Aurora Advisors",
-  "short_name": "Aurora",
+  "name": "Prisma Glow",
+  "short_name": "PrismaGlow",
   "description": "Professional services platform for accounting, audit, and tax services",
   "start_url": "/?source=pwa",
   "scope": "/",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#00bcd4",
+  "theme_color": "#2563eb",
   "orientation": "portrait-primary",
   "prefer_related_applications": false,
   "icons": [

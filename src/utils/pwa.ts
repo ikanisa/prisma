@@ -1,6 +1,7 @@
-// PWA utilities for Aurora Advisors
+// PWA utilities for Prisma Glow
 
 import { recordClientError, recordClientEvent } from '@/lib/client-events';
+import { logger } from '@/lib/logger';
 
 declare const __ENABLE_PWA__: boolean;
 
@@ -37,7 +38,7 @@ export function registerServiceWorker() {
       });
     })
     .catch((error) => {
-      console.error('[PWA] service worker registration failed', error);
+      logger.error('pwa.service_worker_registration_failed', error);
       recordClientError({ name: 'pwa:serviceWorkerRegistrationFailed', error });
     });
 }
@@ -115,7 +116,7 @@ export function processQueuedActions() {
       // For now, just simulate success
       processed.push(item.id);
     } catch (error) {
-      console.error('Failed to process queued action:', error);
+      logger.error('pwa.process_queued_action_failed', error);
       recordClientError({ name: 'pwa:queuedActionFailed', error, data: { action: item.action } });
       
       // Retry logic

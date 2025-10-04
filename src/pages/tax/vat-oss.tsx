@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { useAppStore } from '@/stores/mock-data';
 import { isSupabaseConfigured } from '@/integrations/supabase/client';
 import { computeVatReturn, listVatFilings, type VatFiling } from '@/lib/tax-mt-service';
+import { logger } from '@/lib/logger';
 
 type VatFormState = {
   outputsStandard: string;
@@ -67,7 +68,7 @@ export default function VatOssPage() {
           setHistory(Array.isArray(response.data) ? response.data : []);
         }
       } catch (error) {
-        console.error('vat-history-load', error);
+        logger.error('vat_oss.history_load_failed', error);
       }
     };
 
@@ -113,7 +114,7 @@ export default function VatOssPage() {
       setHistory((prev) => [response.computation, ...prev]);
       toast({ title: 'VAT return computed', description: 'Return stored with activity log.' });
     } catch (error) {
-      console.error('vat-compute', error);
+      logger.error('vat_oss.compute_failed', error);
       toast({
         variant: 'destructive',
         title: 'Failed to compute VAT return',

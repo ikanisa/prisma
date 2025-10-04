@@ -7,7 +7,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { useI18n } from '@/hooks/use-i18n';
 
-const STORAGE_KEY = 'aurora-nps-dismissed';
+const STORAGE_KEY = 'prismaglow-nps-dismissed';
 
 interface NpsDraft {
   score: number | null;

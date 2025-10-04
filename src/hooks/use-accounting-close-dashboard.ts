@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { Database } from '@/integrations/supabase/types';
 import { useOrganizations } from '@/hooks/use-organizations';
+import { logger } from '@/lib/logger';
 
 type ClosePeriodRow = Database['public']['Tables']['close_periods']['Row'];
 type PbcItemRow = Database['public']['Tables']['close_pbc_items']['Row'];
@@ -23,7 +24,7 @@ function normaliseMetadata(metadata: ActivityRow['metadata']): Record<string, an
       }
     }
   } catch (error) {
-    console.warn('activity.metadata_parse_failed', { error });
+    logger.warn('accounting_close.metadata_parse_failed', error);
   }
   return {};
 }

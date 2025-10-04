@@ -80,7 +80,7 @@ export default {
 			},
 			backgroundImage: {
 				'gradient-primary': 'var(--gradient-primary)',
-				'gradient-aurora': 'var(--gradient-aurora)',
+				'gradient-glow': 'var(--gradient-glow)',
 				'gradient-glass': 'var(--gradient-glass)',
 				'gradient-subtle': 'var(--gradient-subtle)'
 			},

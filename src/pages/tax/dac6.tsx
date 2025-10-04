@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useAppStore } from '@/stores/mock-data';
 import { isSupabaseConfigured } from '@/integrations/supabase/client';
 import { createDac6Arrangement, listDac6Arrangements, type Dac6Arrangement } from '@/lib/tax-mt-service';
+import { logger } from '@/lib/logger';
 
 type ParticipantInput = {
   id: string;
@@ -81,7 +82,7 @@ export default function Dac6Page() {
           setHistory(Array.isArray(response.data) ? response.data : []);
         }
       } catch (error) {
-        console.error('dac6-history', error);
+        logger.error('dac6.history_load_failed', error);
       }
     };
 
@@ -158,7 +159,7 @@ export default function Dac6Page() {
       setParticipants([defaultParticipant()]);
       setNotes('');
     } catch (error) {
-      console.error('dac6-create', error);
+      logger.error('dac6.create_failed', error);
       toast({
         variant: 'destructive',
         title: 'Unable to create DAC6 arrangement',

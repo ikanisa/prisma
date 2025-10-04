@@ -3,6 +3,7 @@ import { Upload, X, File, Image } from 'lucide-react';
 import { Button } from '@/components/enhanced-button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
+import { logger } from '@/lib/logger';
 
 interface FileUploadProps {
   onUpload: (files: File[]) => Promise<void>;
@@ -30,7 +31,7 @@ export function FileUpload({ onUpload, accept = '*/*', multiple = true, maxSize 
   const handleFiles = useCallback((files: File[]) => {
     const validFiles = files.filter((file) => {
       if (file.size > maxSize * 1024 * 1024) {
-        console.warn(`File ${file.name} exceeds ${maxSize}MB limit`);
+        logger.warn('file-upload.too-large', { name: file.name, size: file.size, maxSizeMb: maxSize });
         return false;
       }
       return true;
@@ -64,7 +65,7 @@ export function FileUpload({ onUpload, accept = '*/*', multiple = true, maxSize 
       setProgress(100);
       setSelectedFiles([]);
     } catch (error) {
-      console.error('Upload failed:', error);
+      logger.error('file-upload.failed', error);
     } finally {
       setUploading(false);
       setProgress(0);
@@ -142,6 +143,8 @@ export function FileUpload({ onUpload, accept = '*/*', multiple = true, maxSize 
                   size="icon"
                   onClick={() => removeFile(index)}
                   className="h-6 w-6"
+                  aria-label={`Remove ${file.name}`}
+                  type="button"
                 >
                   <X className="h-3 w-3" />
                 </Button>

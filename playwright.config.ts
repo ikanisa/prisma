@@ -1,6 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
-const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3000';
+const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? 'http://127.0.0.1:5173';
+const shouldStartWebServer = process.env.PLAYWRIGHT_START_WEB_SERVER === 'true';
 
 export default defineConfig({
   testDir: './tests/playwright',
@@ -21,4 +22,18 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
   ],
+  webServer: shouldStartWebServer
+    ? {
+        command: 'npm run dev -- --host 127.0.0.1 --port 5173',
+        url: baseURL,
+        reuseExistingServer: true,
+        stdout: 'pipe',
+        stderr: 'pipe',
+        env: {
+          VITE_TRACKING_ENABLED: 'true',
+          VITE_SUPABASE_URL: 'REPLACE_WITH_SUPABASE_URL',
+          VITE_SUPABASE_PUBLISHABLE_KEY: 'REPLACE_WITH_SUPABASE_KEY',
+        },
+      }
+    : undefined,
 });

@@ -57,24 +57,24 @@ Deno.serve(async (req) => {
 
     console.log('Creating demo users...')
 
-    // Get Aurora Advisors organization
+    // Get Prisma Glow organization
     const { data: org, error: orgError } = await supabaseAdmin
       .from('organizations')
       .select('id')
-      .eq('slug', 'aurora')
+      .eq('slug', 'prisma-glow')
       .single()
 
     if (orgError || !org) {
-      throw new Error('Aurora organization not found')
+      throw new Error('Prisma Glow organization not found')
     }
 
     console.log('Found organization:', org.id)
 
     // Demo users to create
     const demoUsers = [
-      { email: 'sophia@aurora.test', name: 'Sophia System', role: 'SYSTEM_ADMIN' as const },
-      { email: 'mark@aurora.test', name: 'Mark Manager', role: 'MANAGER' as const },
-      { email: 'eli@aurora.test', name: 'Eli Employee', role: 'EMPLOYEE' as const }
+      { email: 'sophia@prismaglow.test', name: 'Sophia Systems', role: 'SYSTEM_ADMIN' as const },
+      { email: 'mark@prismaglow.test', name: 'Mark Manager', role: 'MANAGER' as const },
+      { email: 'eli@prismaglow.test', name: 'Eli Employee', role: 'EMPLOYEE' as const }
     ]
 
     const { data: callerProfile } = await supabaseAdmin

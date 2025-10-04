@@ -43,7 +43,7 @@ vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
   return {
     ...actual,
-    useParams: () => ({ orgSlug: 'aurora', engagementId: 'eng-123' }),
+    useParams: () => ({ orgSlug: 'prisma-glow', engagementId: 'eng-123' }),
   };
 });
 
@@ -83,7 +83,7 @@ function renderPage() {
   return render(
     <MemoryRouter
       future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
-      initialEntries={['/aurora/engagements/eng-123/reporting/controls']}
+      initialEntries={['/prisma-glow/engagements/eng-123/reporting/controls']}
     >
       <ControlsMatrixPage />
     </MemoryRouter>,
@@ -97,7 +97,7 @@ beforeEach(() => {
   hoisted.useControlsManagerMock.mockReset();
   hoisted.queryResults.clear();
 
-  hoisted.useOrganizationsMock.mockReturnValue({ currentOrg: { id: 'org-1', slug: 'aurora' } });
+  hoisted.useOrganizationsMock.mockReturnValue({ currentOrg: { id: 'org-1', slug: 'prisma-glow' } });
 });
 
 afterEach(() => {
@@ -118,7 +118,7 @@ describe('ControlsMatrixPage acceptance gating', () => {
     expect(screen.getByText('Engagement acceptance pending')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Go to acceptance workflow/i })).toHaveAttribute(
       'href',
-      '/aurora/engagements/eng-123/acceptance',
+      '/prisma-glow/engagements/eng-123/acceptance',
     );
   });
 });
@@ -137,7 +137,7 @@ describe('ControlsMatrixPage workflow', () => {
     });
 
     hoisted.queryResults.set(
-      getKey(['controls-procedures', 'aurora', 'eng-123']),
+      getKey(['controls-procedures', 'prisma-glow', 'eng-123']),
       {
         data: [
           { id: 'proc-1', title: 'Revenue contract walkthrough', objective: 'Assess revenue recognition' },
@@ -208,7 +208,7 @@ describe('ControlsMatrixPage workflow', () => {
 
     await waitFor(() => expect(createControlMock).toHaveBeenCalledTimes(1));
     expect(createControlMock).toHaveBeenCalledWith({
-      orgSlug: 'aurora',
+      orgSlug: 'prisma-glow',
       engagementId: 'eng-123',
       cycle: 'Treasury',
       objective: 'Treasury reconciliations are reviewed timely.',
@@ -233,7 +233,7 @@ describe('ControlsMatrixPage workflow', () => {
 
     await waitFor(() => expect(logWalkthroughMock).toHaveBeenCalledTimes(1));
     expect(logWalkthroughMock).toHaveBeenCalledWith({
-      orgSlug: 'aurora',
+      orgSlug: 'prisma-glow',
       controlId: 'ctrl-1',
       date: expect.any(String),
       notes: 'Walkthrough performed with controller, design effective.',
@@ -255,7 +255,7 @@ describe('ControlsMatrixPage workflow', () => {
 
     await waitFor(() => expect(runTestMock).toHaveBeenCalledTimes(1));
     expect(runTestMock).toHaveBeenCalledWith({
-      orgSlug: 'aurora',
+      orgSlug: 'prisma-glow',
       controlId: 'ctrl-1',
       attributes: { sampleSize: 30 },
       samplePlanRef: 'SAM-001',
@@ -276,7 +276,7 @@ describe('ControlsMatrixPage workflow', () => {
 
     await waitFor(() => expect(upsertItgcMock).toHaveBeenCalledTimes(1));
     expect(upsertItgcMock).toHaveBeenCalledWith({
-      orgSlug: 'aurora',
+      orgSlug: 'prisma-glow',
       engagementId: 'eng-123',
       type: 'ACCESS',
       scope: 'ERP access provisioning',

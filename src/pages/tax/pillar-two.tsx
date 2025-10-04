@@ -17,6 +17,7 @@ import {
   type PillarTwoSummary,
 } from '@/lib/tax-mt-service';
 import { calculatePillarTwo } from '@/lib/tax/calculators';
+import { logger } from '@/lib/logger';
 
 const numberFormatter = new Intl.NumberFormat(undefined, {
   style: 'currency',
@@ -174,7 +175,7 @@ export default function PillarTwoPage() {
           const historyResponse = await listPillarTwoComputations({ orgSlug: currentOrg.slug });
           historyRows = Array.isArray(historyResponse.data) ? historyResponse.data : [];
         } catch (error) {
-          console.error('pillar-two-history-load', error);
+        logger.error('pillar_two.history_load_failed', error);
         }
 
         const relationshipsQuery = supabase.from('tax_entity_relationships') as any;
@@ -199,7 +200,7 @@ export default function PillarTwoPage() {
         }
       } catch (error) {
         if (!controller.signal.aborted) {
-          console.error('pillar-two-load', error);
+        logger.error('pillar_two.load_failed', error);
         }
       } finally {
         if (!controller.signal.aborted) {
@@ -304,7 +305,7 @@ export default function PillarTwoPage() {
       setRelationshipForm({ parent: '', child: '', ownership: '1', effectiveDate: '', notes: '' });
     } catch (error) {
       if (isMissingRelationshipTableError(error)) {
-        console.warn('tax_entity_relationships table unavailable, caching relationship locally.');
+        logger.warn('pillar_two.relationship_table_missing_cache');
         setRelationships((prev) => [newRelationship, ...prev]);
         toast({
           title: 'Relationship cached locally',
@@ -312,7 +313,7 @@ export default function PillarTwoPage() {
         });
         setRelationshipForm({ parent: '', child: '', ownership: '1', effectiveDate: '', notes: '' });
       } else {
-        console.error('relationship-add', error);
+        logger.error('pillar_two.relationship_add_failed', error);
         toast({
           variant: 'destructive',
           title: 'Unable to add relationship',
@@ -342,14 +343,14 @@ export default function PillarTwoPage() {
       toast({ title: 'Relationship removed' });
     } catch (error) {
       if (isMissingRelationshipTableError(error)) {
-        console.warn('tax_entity_relationships table unavailable, removing relationship locally.');
+        logger.warn('pillar_two.relationship_table_missing_remove');
         setRelationships((prev) => prev.filter((item) => item.id !== id));
         toast({
           title: 'Relationship removed locally',
           description: 'Supabase table is not provisioned yet. Removal applied to local cache only.',
         });
       } else {
-        console.error('relationship-delete', error);
+        logger.error('pillar_two.relationship_delete_failed', error);
         toast({
           variant: 'destructive',
           title: 'Unable to remove relationship',
@@ -441,7 +442,7 @@ export default function PillarTwoPage() {
       setHistory((prev) => [response.computation, ...prev]);
       toast({ title: 'Pillar Two computation stored', description: `Reference ${response.computation.gir_reference ?? ''}` });
     } catch (error) {
-      console.error('pillar-two-compute', error);
+      logger.error('pillar_two.compute_failed', error);
       toast({
         variant: 'destructive',
         title: 'Unable to compute Pillar Two',

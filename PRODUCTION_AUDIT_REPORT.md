@@ -1,5 +1,5 @@
 # Production Readiness Audit Report
-**Project**: Aurora Audit Management System  
+**Project**: Prisma Glow Audit Management System  
 **Date**: 2025-10-03  
 **Environment**: Supabase + React + TypeScript
 

@@ -11,6 +11,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useOrganizations } from '@/hooks/use-organizations';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { logger } from '@/lib/logger';
 
 export function SignIn() {
   const [email, setEmail] = useState('');
@@ -94,7 +95,7 @@ export function SignIn() {
   return (
     <div className="min-h-screen bg-background flex items-center justify-center relative overflow-hidden">
       {/* Animated background */}
-      <div className="absolute inset-0 bg-gradient-aurora opacity-20 animate-pulse" />
+      <div className="absolute inset-0 bg-gradient-glow opacity-20 animate-pulse" />
       <div className="absolute inset-0 bg-gradient-subtle" />
       
       {/* Floating elements */}
@@ -124,13 +125,13 @@ export function SignIn() {
           {/* Logo */}
           <div className="text-center mb-8">
             <motion.div 
-              className="inline-flex items-center justify-center w-16 h-16 bg-gradient-aurora rounded-2xl mb-4 shadow-primary"
+              className="inline-flex items-center justify-center w-16 h-16 bg-gradient-glow rounded-2xl mb-4 shadow-primary"
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
             >
               <Sparkles className="w-8 h-8 text-white" />
             </motion.div>
-            <h1 className="text-3xl font-bold gradient-text">Aurora Advisors</h1>
+            <h1 className="text-3xl font-bold gradient-text">Prisma Glow</h1>
             <p className="text-muted-foreground mt-2">Professional services platform</p>
           </div>
 
@@ -286,9 +287,9 @@ export function SignIn() {
               </p>
               <div className="grid gap-2">
                 {[
-                  { email: 'sophia@aurora.test', name: 'Sophia System', role: 'System Admin' },
-                  { email: 'mark@aurora.test', name: 'Mark Manager', role: 'Manager' },
-                  { email: 'eli@aurora.test', name: 'Eli Employee', role: 'Employee' },
+                  { email: 'sophia@prismaglow.test', name: 'Sophia Systems', role: 'System Admin' },
+                  { email: 'mark@prismaglow.test', name: 'Mark Manager', role: 'Manager' },
+                  { email: 'eli@prismaglow.test', name: 'Eli Employee', role: 'Employee' },
                 ].map((user, index) => (
                   <motion.button
                     key={user.email}
@@ -328,7 +329,7 @@ export function SignIn() {
                         description: 'Invitees will receive email-based access instructions.',
                       });
                     } catch (error) {
-                      console.error('create-demo-users failed', error);
+                      logger.error('auth.create_demo_users_failed', error);
                       toast({
                         variant: 'destructive',
                         title: 'Network error',

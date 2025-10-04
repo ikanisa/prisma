@@ -6,7 +6,7 @@ export interface ClientEvent {
   data?: Record<string, unknown>;
 }
 
-const EVENT_BUFFER_KEY = '__aurora_client_events__';
+const EVENT_BUFFER_KEY = '__prismaglow_client_events__';
 const DEFAULT_LEVEL: ClientEventLevel = 'info';
 
 function pushToBuffer(event: ClientEvent & { timestamp: number }) {
@@ -15,7 +15,7 @@ function pushToBuffer(event: ClientEvent & { timestamp: number }) {
   const buffer = Array.isArray(existing) ? existing.slice(-49) : [];
   buffer.push(event);
   (window as any)[EVENT_BUFFER_KEY] = buffer;
-  window.dispatchEvent(new CustomEvent('aurora:client-event', { detail: event }));
+  window.dispatchEvent(new CustomEvent('prismaglow:client-event', { detail: event }));
 }
 
 export function recordClientEvent(event: ClientEvent) {

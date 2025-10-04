@@ -140,7 +140,7 @@ describe('telemetry-sync edge function', () => {
       new Request('https://example.com', {
         method: 'POST',
         headers: { Authorization: 'Bearer session-token' },
-        body: JSON.stringify({ orgSlug: 'aurora', periodStart: '2025-01-01', periodEnd: '2025-01-31' }),
+        body: JSON.stringify({ orgSlug: 'prisma-glow', periodStart: '2025-01-01', periodEnd: '2025-01-31' }),
       }),
     );
 
@@ -166,7 +166,7 @@ describe('telemetry-sync edge function', () => {
       new Request('https://example.com', {
         method: 'POST',
         headers: { Authorization: 'Bearer token' },
-        body: JSON.stringify({ orgSlug: 'aurora' }),
+        body: JSON.stringify({ orgSlug: 'prisma-glow' }),
       }),
     );
 
@@ -188,7 +188,7 @@ describe('telemetry-sync edge function', () => {
       new Request('https://example.com', {
         method: 'POST',
         headers: { Authorization: 'Bearer token' },
-        body: JSON.stringify({ orgSlug: 'aurora' }),
+        body: JSON.stringify({ orgSlug: 'prisma-glow' }),
       }),
     );
 
@@ -200,7 +200,7 @@ describe('telemetry-sync edge function', () => {
       module: 'TELEMETRY_SYNC',
       message: 'fail_upsert',
       orgId: 'org-1',
-      orgSlug: 'aurora',
+      orgSlug: 'prisma-glow',
       context: expect.objectContaining({ periodStart: undefined, periodEnd: undefined }),
     });
   });

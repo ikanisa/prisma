@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { logger } from '@/lib/logger';
 
 const STORAGE_KEY = 'cookieConsent';
 
@@ -17,7 +18,7 @@ export function useConsent() {
         setConsent(null);
       }
     } catch (error) {
-      console.warn('cookie_consent_read_failed', error);
+      logger.warn('cookie_consent.read_failed', error);
       setConsent(null);
     }
   }, []);
@@ -26,7 +27,7 @@ export function useConsent() {
     try {
       localStorage.setItem(STORAGE_KEY, 'accepted');
     } catch (error) {
-      console.warn('cookie_consent_write_failed', error);
+      logger.warn('cookie_consent.write_failed', error);
     }
     setConsent('accepted');
   };
@@ -35,7 +36,7 @@ export function useConsent() {
     try {
       localStorage.setItem(STORAGE_KEY, 'rejected');
     } catch (error) {
-      console.warn('cookie_consent_write_failed', error);
+      logger.warn('cookie_consent.write_failed', error);
     }
     setConsent('rejected');
   };

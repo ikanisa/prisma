@@ -1,7 +1,7 @@
 # ISA 701 Key Audit Matters Policy
 
 ## Purpose
-Key Audit Matters (KAMs) communicate the most significant matters arising from the audit of financial statements. This policy aligns the Aurora Advisors platform with ISA 701, ISA 260, ISA 230, ISA 315, and ISA 330 requirements.
+Key Audit Matters (KAMs) communicate the most significant matters arising from the audit of financial statements. This policy aligns the Prisma Glow platform with ISA 701, ISA 260, ISA 230, ISA 315, and ISA 330 requirements.
 
 ## Scope
 - Applies to all assurance engagements classified as audit within the platform.

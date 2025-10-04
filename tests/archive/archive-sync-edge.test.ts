@@ -189,7 +189,7 @@ const defaultRequest = () =>
   new Request('https://example.com', {
     method: 'POST',
     headers: { Authorization: 'Bearer token' },
-    body: JSON.stringify({ orgSlug: 'aurora', engagementId: 'eng-123' }),
+    body: JSON.stringify({ orgSlug: 'prisma-glow', engagementId: 'eng-123' }),
   });
 
 describe('archive-sync edge function', () => {

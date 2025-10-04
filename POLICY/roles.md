@@ -1,4 +1,4 @@
-# Aurora IAM Role Hierarchy
+# Prisma Glow IAM Role Hierarchy
 
 | Role | Precedence | Description |
 | --- | --- | --- |

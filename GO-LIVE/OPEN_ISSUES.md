@@ -5,7 +5,7 @@
 | P0 | [GO-LIVE][P0][frontend] Resolve Pillar Two merge conflict blocking build | Frontend Lead | frontend | _pending_ | ✅ Implemented (pending review) |
 | P0 | [GO-LIVE][P0][security] Add CSP middleware to FastAPI gateway | Security Engineering | security | _pending_ | ✅ Implemented (pending review) |
 | P0 | [GO-LIVE][P0][security] Enforce explicit CORS allow-list for API | Security Engineering | security | _pending_ | ✅ Implemented (pending review) |
-| P1 | [GO-LIVE][P1][pwa] Ship installable PWA baseline for Aurora web | Frontend Lead | pwa | _pending_ | ✅ Implemented (Lighthouse run pending) |
+| P1 | [GO-LIVE][P1][pwa] Ship installable PWA baseline for Prisma Glow web | Frontend Lead | pwa | _pending_ | ✅ Implemented (Lighthouse run pending) |
 | P1 | [GO-LIVE][P1][observability] Add correlation IDs & structured logging | DevOps | observability | _pending_ | ✅ Implemented (pending review) |
 | P1 | [GO-LIVE][P1][api] Add smoke suite for tasks/documents/notifications | Backend QA | api | _pending_ | ✅ Implemented (pending review) |
 | P1 | [GO-LIVE][P1][security] Define storage policies for documents bucket | Security Engineering | rls | _pending_ | ✅ Implemented (pending review) |
@@ -32,7 +32,7 @@
 - **Acceptance:** Startup fails in prod mode without allow-list; tests covering success/denial; documentation updated.
 - **Evidence:** Updated `server/main.py:80-85`, tests, config docs.
 
-### [GO-LIVE][P1][pwa] Ship installable PWA baseline for Aurora web
+### [GO-LIVE][P1][pwa] Ship installable PWA baseline for Prisma Glow web
 - **Impact:** PWA requirements (manifest, icons, offline strategy) unmet; Lighthouse score cannot reach ≥90.
 - **Fix approach:** Add 192×192 & 512×512 icons, adjust manifest metadata, enable service worker by default, audit offline caching. Run Lighthouse + axe; document results.
 - **Acceptance:** Lighthouse PWA ≥90 screenshot attached; install prompt works on staging; manifest validated.

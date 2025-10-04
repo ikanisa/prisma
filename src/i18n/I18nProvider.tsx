@@ -8,7 +8,7 @@ interface I18nContextValue {
   availableLocales: typeof AVAILABLE_LOCALES;
 }
 
-const I18N_STORAGE_KEY = 'aurora-locale';
+const I18N_STORAGE_KEY = 'prismaglow-locale';
 
 const I18nContext = createContext<I18nContextValue | undefined>(undefined);
 

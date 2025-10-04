@@ -275,10 +275,22 @@ export function Tasks() {
                         <SelectItem value="COMPLETED">Completed</SelectItem>
                       </SelectContent>
                     </Select>
-                    <Button variant="ghost" size="icon" className="h-8 w-8" disabled>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      disabled
+                      aria-label="Edit task"
+                    >
                       <Edit className="h-3 w-3" />
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8" disabled>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      disabled
+                      aria-label="Delete task"
+                    >
                       <Trash2 className="h-3 w-3" />
                     </Button>
                   </div>

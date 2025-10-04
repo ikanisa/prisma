@@ -124,7 +124,7 @@ Deno.serve(async (req) => {
     console.error('mfa.profile_update_failed', profileError);
   }
 
-  await sendWhatsAppMessage(whatsapp, `Your Aurora verification code is ${otpCode}. It expires in 5 minutes.`);
+  await sendWhatsAppMessage(whatsapp, `Your Prisma Glow verification code is ${otpCode}. It expires in 5 minutes.`);
 
   const { error: activityError } = await supabase.from('activity_log').insert({
     org_id: orgId,

@@ -22,6 +22,7 @@ import {
   type TreatyWhtSummary,
 } from '@/lib/tax-mt-service';
 import { calculateTreatyWht } from '@/lib/tax/calculators';
+import { logger } from '@/lib/logger';
 
 const numberFormatter = new Intl.NumberFormat(undefined, {
   style: 'currency',
@@ -115,7 +116,7 @@ export default function TreatyWhtPage() {
           setCases(Array.isArray(casesResponse.data) ? casesResponse.data : []);
         }
       } catch (error) {
-        console.error('treaty-wht-load', error);
+        logger.error('treaty_wht.history_load_failed', error);
       }
     };
 
@@ -143,7 +144,7 @@ export default function TreatyWhtPage() {
           setCaseEvents(Array.isArray(response.data) ? response.data : []);
         }
       } catch (error) {
-        console.error('treaty-wht-events', error);
+        logger.error('treaty_wht.events_load_failed', error);
       }
     };
 
@@ -220,7 +221,7 @@ export default function TreatyWhtPage() {
       setWhtHistory(prev => [response.calculation, ...prev.filter(item => item.id !== response.calculation.id)]);
       toast({ title: 'Treaty withholding computed' });
     } catch (error) {
-      console.error('treaty-wht-compute', error);
+      logger.error('treaty_wht.compute_failed', error);
       toast({
         variant: 'destructive',
         title: 'Unable to compute withholding',
@@ -289,7 +290,7 @@ export default function TreatyWhtPage() {
       setSelectedCaseId(response.case.id);
       toast({ title: 'Dispute case saved' });
     } catch (error) {
-      console.error('treaty-wht-case', error);
+      logger.error('treaty_wht.case_save_failed', error);
       toast({
         variant: 'destructive',
         title: 'Unable to save case',
@@ -336,7 +337,7 @@ export default function TreatyWhtPage() {
       setCaseEvents(prev => [response.event, ...prev]);
       toast({ title: 'Event logged' });
     } catch (error) {
-      console.error('treaty-wht-event', error);
+      logger.error('treaty_wht.event_record_failed', error);
       toast({
         variant: 'destructive',
         title: 'Unable to log event',

@@ -20,7 +20,7 @@ function createWrapper(children: React.ReactNode) {
 
 describe('AnalyticsOverviewPage', () => {
   it('renders charts when data resolves', async () => {
-    (useOrganizations as unknown as vi.Mock).mockReturnValue({ currentOrg: { id: 'org-1', slug: 'aurora' } });
+    (useOrganizations as unknown as vi.Mock).mockReturnValue({ currentOrg: { id: 'org-1', slug: 'prisma-glow' } });
 
     vi.spyOn(global, 'fetch').mockResolvedValueOnce(
       new Response(

@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
+import { logger } from '@/lib/logger';
 
 type ExtendedDatabase = Database & {
   public: Database['public'] & {
@@ -133,9 +134,7 @@ if (!isSupabaseConfigured) {
   }
 
   if (typeof window !== 'undefined') {
-    console.warn(
-      '[Aurora] Supabase environment keys are missing. Running in demo mode with local data only.',
-    );
+    logger.warn('supabase.config_missing_demo_mode');
   }
 }
 

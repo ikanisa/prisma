@@ -1083,7 +1083,7 @@ async function processWebHarvest(options: {
 
     const response = await fetch(webSource.url, {
       headers: {
-        'User-Agent': 'Aurora-AI-Agent/1.0 (+https://example.com)',
+        'User-Agent': 'PrismaGlow-AI-Agent/1.0 (+https://example.com)',
       },
     });
 

@@ -15,34 +15,32 @@ export interface AuthState {
 }
 
 export function useAuth(): AuthState {
-  const [user, setUser] = useState<User | null>(null);
+  const createDemoUser = (overrides?: Partial<User>): User => ({
+    id: '1',
+    email: 'demo@prismaglow.test',
+    email_confirmed_at: new Date().toISOString(),
+    last_sign_in_at: new Date().toISOString(),
+    app_metadata: { provider: 'local-demo' },
+    user_metadata: { name: 'Demo User' },
+    aud: 'authenticated',
+    role: 'authenticated',
+    identities: [],
+    factors: [],
+    created_at: new Date().toISOString(),
+    phone: '',
+    updated_at: new Date().toISOString(),
+    confirmed_at: new Date().toISOString(),
+    ...overrides,
+  } as unknown as User);
+
+  const [user, setUser] = useState<User | null>(!isSupabaseConfigured ? createDemoUser() : null);
   const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(isSupabaseConfigured);
   const { toast } = useToast();
 
   useEffect(() => {
     if (!isSupabaseConfigured) {
       recordClientEvent({ name: 'auth:demoModeActivated' });
-      const demoUser = {
-        id: '1',
-        email: 'demo@aurora.test',
-        email_confirmed_at: new Date().toISOString(),
-        phone: '',
-        last_sign_in_at: new Date().toISOString(),
-        app_metadata: { provider: 'local-demo' },
-        user_metadata: { name: 'Demo User' },
-        identities: [],
-        factors: [],
-        aud: 'authenticated',
-        created_at: new Date().toISOString(),
-        role: 'authenticated',
-        updated_at: new Date().toISOString(),
-        confirmed_at: new Date().toISOString(),
-      } as unknown as User;
-
-      setUser(demoUser);
-      setSession(null);
-      setLoading(false);
       return;
     }
 
@@ -68,24 +66,10 @@ export function useAuth(): AuthState {
 
   const signIn = async (email: string, password: string) => {
     if (!isSupabaseConfigured) {
-      setUser((prev) =>
-        prev ?? ({
-          id: '1',
-          email,
-          email_confirmed_at: new Date().toISOString(),
-          last_sign_in_at: new Date().toISOString(),
-          app_metadata: { provider: 'local-demo' },
-          user_metadata: { name: email.split('@')[0] ?? 'Demo User' },
-          aud: 'authenticated',
-          role: 'authenticated',
-          identities: [],
-          factors: [],
-          created_at: new Date().toISOString(),
-          phone: '',
-          updated_at: new Date().toISOString(),
-          confirmed_at: new Date().toISOString(),
-        } as unknown as User),
-      );
+      setUser((prev) => prev ?? createDemoUser({
+        email,
+        user_metadata: { name: email.split('@')[0] ?? 'Demo User' },
+      }));
       setLoading(false);
       return {};
     }
@@ -144,7 +128,7 @@ export function useAuth(): AuthState {
 
   const signOut = async () => {
     if (!isSupabaseConfigured) {
-      setUser(null);
+      setUser(createDemoUser());
       setSession(null);
       return;
     }

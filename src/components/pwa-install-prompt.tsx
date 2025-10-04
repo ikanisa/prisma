@@ -103,7 +103,7 @@ export function PWAInstallPrompt() {
           <CardHeader className="pb-3">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-gradient-aurora rounded-lg flex items-center justify-center">
+                <div className="w-8 h-8 bg-gradient-glow rounded-lg flex items-center justify-center">
                   <Download className="w-4 h-4 text-white" />
                 </div>
                 <CardTitle className="text-sm">{t('pwa.install.title')}</CardTitle>

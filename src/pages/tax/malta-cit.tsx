@@ -29,6 +29,7 @@ import {
   type FiscalUnityComputation,
 } from '@/lib/tax-mt-service';
 import { isSupabaseConfigured } from '@/integrations/supabase/client';
+import { logger } from '@/lib/logger';
 
 const REFUND_OPTIONS = [
   { value: 'NONE', label: 'None' },
@@ -169,7 +170,7 @@ export default function MaltaCitPage() {
           setFiscalHistory(Array.isArray(fiscalResponse.data) ? fiscalResponse.data : []);
         }
       } catch (error) {
-        console.error('tax-adjustments-load', error);
+        logger.error('malta_cit.adjustments_load_failed', error);
       }
     };
 
@@ -233,7 +234,7 @@ export default function MaltaCitPage() {
       setNidHistory((prev) => [response.computation, ...prev]);
       toast({ title: 'NID computed', description: 'Deduction recorded and ready to apply.' });
     } catch (error) {
-      console.error('nid-compute', error);
+      logger.error('malta_cit.nid_compute_failed', error);
       toast({
         variant: 'destructive',
         title: 'Failed to compute NID',
@@ -290,7 +291,7 @@ export default function MaltaCitPage() {
       setPatentHistory((prev) => [response.computation, ...prev]);
       toast({ title: 'Patent box deduction computed', description: 'Deduction recorded and ready to apply.' });
     } catch (error) {
-      console.error('patent-box-compute', error);
+      logger.error('malta_cit.patent_box_compute_failed', error);
       toast({
         variant: 'destructive',
         title: 'Failed to compute patent box deduction',
@@ -342,7 +343,7 @@ export default function MaltaCitPage() {
       setInterestHistory((prev) => [response.computation, ...prev]);
       toast({ title: 'Interest limitation computed', description: 'Disallowed interest ready for adjustment.' });
     } catch (error) {
-      console.error('ilr-compute', error);
+      logger.error('malta_cit.ilr_compute_failed', error);
       toast({
         variant: 'destructive',
         title: 'Failed to compute ATAD interest limitation',
@@ -396,7 +397,7 @@ export default function MaltaCitPage() {
       setCfcHistory((prev) => [response.computation, ...prev]);
       toast({ title: 'CFC inclusion computed', description: 'Inclusion amount ready for adjustment.' });
     } catch (error) {
-      console.error('cfc-compute', error);
+      logger.error('malta_cit.cfc_compute_failed', error);
       toast({
         variant: 'destructive',
         title: 'Failed to compute CFC inclusion',
@@ -468,7 +469,7 @@ export default function MaltaCitPage() {
       setFiscalHistory((prev) => [response.computation, ...prev]);
       toast({ title: 'Fiscal unity computed', description: 'Group tax consolidation stored.' });
     } catch (error) {
-      console.error('fiscal-unity-compute', error);
+      logger.error('malta_cit.fiscal_unity_compute_failed', error);
       toast({
         variant: 'destructive',
         title: 'Failed to compute fiscal unity',
@@ -512,7 +513,7 @@ export default function MaltaCitPage() {
       setResult(payload);
       toast({ title: 'CIT computed', description: `Chargeable income ${payload.chargeableIncome.toFixed(2)}.` });
     } catch (error) {
-      console.error('cit-compute', error);
+      logger.error('malta_cit.compute_failed', error);
       toast({
         variant: 'destructive',
         title: 'Computation failed',
@@ -539,7 +540,7 @@ export default function MaltaCitPage() {
       );
       toast({ title: 'Return prepared', description: 'Schedules generated for review.' });
     } catch (error) {
-      console.error('cit-return', error);
+      logger.error('malta_cit.return_generation_failed', error);
       toast({
         variant: 'destructive',
         title: 'Unable to prepare return',
@@ -569,7 +570,7 @@ export default function MaltaCitPage() {
         description: 'Partner review queued (Malta Income Tax Act full imputation).',
       });
     } catch (error) {
-      console.error('cit-submit', error);
+      logger.error('malta_cit.submit_failed', error);
       toast({
         variant: 'destructive',
         title: 'Submission failed',
@@ -597,7 +598,7 @@ export default function MaltaCitPage() {
       });
       toast({ title: 'Return approved', description: 'CIT computation locked and ready for filing.' });
     } catch (error) {
-      console.error('cit-approve', error);
+      logger.error('malta_cit.approve_failed', error);
       toast({
         variant: 'destructive',
         title: 'Approval failed',

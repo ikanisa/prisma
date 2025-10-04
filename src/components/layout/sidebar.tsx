@@ -115,7 +115,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
             className="flex items-center gap-3"
             layout
           >
-            <div className="w-8 h-8 bg-gradient-aurora rounded-lg flex items-center justify-center">
+            <div className="w-8 h-8 bg-gradient-glow rounded-lg flex items-center justify-center">
               <Sparkles className="w-5 h-5 text-white" />
             </div>
             <AnimatePresence mode="wait">
@@ -140,8 +140,11 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
             size="icon"
             onClick={onToggle}
             className="shrink-0"
+            aria-label={collapsed ? 'Expand navigation' : 'Collapse navigation'}
+            type="button"
           >
             <Menu className="w-4 h-4" />
+            <span className="sr-only">{collapsed ? 'Expand navigation' : 'Collapse navigation'}</span>
           </Button>
         </div>
         
@@ -167,7 +170,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
       <nav className="flex-1 p-4 space-y-2">
         {filteredNavigation.map((item, index) => {
           const active = isActive(item.href);
-          const baseSlug = currentOrg?.slug ?? orgSlug ?? '';
+          const baseSlug = currentOrg?.slug ?? orgSlug ?? 'prisma-glow';
           const href = baseSlug ? `/${baseSlug}${item.href}` : item.href;
           
           return (

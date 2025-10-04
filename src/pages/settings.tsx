@@ -285,7 +285,7 @@ export function Settings() {
               
               <div className="space-y-2">
                 <Label htmlFor="orgDomain">Domain</Label>
-                <Input id="orgDomain" defaultValue="aurora-advisors.com" />
+                <Input id="orgDomain" defaultValue="prismaglow.com" />
               </div>
               
               <div className="space-y-2">

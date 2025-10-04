@@ -22,6 +22,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
+import { logger } from '@/lib/logger';
 
 export default function KnowledgeRepositoriesPage() {
   const corporaQuery = useKnowledgeCorpora();
@@ -60,7 +61,7 @@ export default function KnowledgeRepositoriesPage() {
       setPreviewDocs(response.documents ?? []);
       setPreviewOpen(true);
     } catch (error) {
-      console.error(error);
+      logger.error('knowledge.preview_failed', error);
     }
   };
 

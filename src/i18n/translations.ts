@@ -8,7 +8,7 @@ export const AVAILABLE_LOCALES: Array<{ code: LocaleCode; label: string }> = [
 ];
 
 const en: TranslationRecord = {
-  'app.dashboard.welcome': 'Welcome back to Aurora Advisors',
+  'app.dashboard.welcome': 'Welcome back to Prisma Glow',
   'assistant.title': 'Assistant',
   'assistant.inputPlaceholder': 'Ask the assistant…',
   'assistant.quickPrompt.status': 'What should we focus on today?',
@@ -35,7 +35,7 @@ const en: TranslationRecord = {
   'onboarding.title': 'Zero-Typing Onboarding',
   'onboarding.subtitle': 'Drop the core legal, tax, banking, and payroll documents. The assistant extracts the facts automatically.',
   'onboarding.start': 'Start onboarding',
-  'pwa.install.title': 'Install Aurora Advisors',
+  'pwa.install.title': 'Install Prisma Glow',
   'pwa.install.description': 'Install our app for faster access and offline functionality. Works just like a native app!',
   'pwa.install.button': 'Install',
   'pwa.install.later': 'Later',
@@ -57,8 +57,8 @@ const en: TranslationRecord = {
   'telemetry.experience.topDrivers': 'Top drivers',
   'telemetry.experience.noDrivers': 'No drivers captured yet.',
   'dashboard.title': 'Dashboard',
-  'nps.prompt.title': 'Help us improve Aurora',
-  'nps.prompt.subtitle': 'How likely are you to recommend Aurora Advisors to a colleague?',
+  'nps.prompt.title': 'Help us improve Prisma Glow',
+  'nps.prompt.subtitle': 'How likely are you to recommend Prisma Glow to a colleague?',
   'nps.prompt.followup': 'What best explains your score?',
   'nps.prompt.submit': 'Send feedback',
   'nps.prompt.skip': 'Maybe later',
@@ -67,7 +67,7 @@ const en: TranslationRecord = {
 };
 
 const fr: TranslationRecord = {
-  'app.dashboard.welcome': 'Bienvenue sur Aurora Advisors',
+  'app.dashboard.welcome': 'Bienvenue sur Prisma Glow',
   'assistant.title': 'Assistant',
   'assistant.inputPlaceholder': 'Posez une question à l’assistant…',
   'assistant.quickPrompt.status': 'Quelles sont les priorités du jour ?',
@@ -94,7 +94,7 @@ const fr: TranslationRecord = {
   'onboarding.title': 'Onboarding sans saisie',
   'onboarding.subtitle': 'Déposez les documents juridiques, fiscaux, bancaires et RH. L’assistant extrait automatiquement les informations clés.',
   'onboarding.start': 'Démarrer l’onboarding',
-  'pwa.install.title': 'Installer Aurora Advisors',
+  'pwa.install.title': 'Installer Prisma Glow',
   'pwa.install.description': 'Installez l’application pour un accès rapide et un mode hors ligne. Comme une application native !',
   'pwa.install.button': 'Installer',
   'pwa.install.later': 'Plus tard',
@@ -116,8 +116,8 @@ const fr: TranslationRecord = {
   'telemetry.experience.topDrivers': 'Principaux motifs',
   'telemetry.experience.noDrivers': 'Aucun motif enregistré pour le moment.',
   'dashboard.title': 'Tableau de bord',
-  'nps.prompt.title': 'Aidez-nous à améliorer Aurora',
-  'nps.prompt.subtitle': 'Quelle est la probabilité de recommander Aurora Advisors à un collègue ?',
+  'nps.prompt.title': 'Aidez-nous à améliorer Prisma Glow',
+  'nps.prompt.subtitle': 'Quelle est la probabilité de recommander Prisma Glow à un collègue ?',
   'nps.prompt.followup': 'Qu’est-ce qui explique le mieux votre note ?',
   'nps.prompt.submit': 'Envoyer',
   'nps.prompt.skip': 'Plus tard',

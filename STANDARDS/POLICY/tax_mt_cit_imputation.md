@@ -7,7 +7,7 @@
 - **EU ATAD** considerations for interest limitation and CFC (handled in later phases, noted for context).
 
 ## Scope
-Applies to every Malta tax entity configured in Aurora. Computes corporate income tax (CIT), maintains tax account rollforward, and manages approval/release workflow.
+Applies to every Malta tax entity configured in Prisma Glow. Computes corporate income tax (CIT), maintains tax account rollforward, and manages approval/release workflow.
 
 ## Workflow summary
 1. **Data capture (Employee role)**

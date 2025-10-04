@@ -22,7 +22,7 @@ interface HeaderProps {
 
 export function Header({ onOpenCommandPalette, onToggleSidebar }: HeaderProps) {
   const { user, signOut } = useAuth();
-  const { isSystemAdmin } = useOrganizations();
+  const { isSystemAdmin, currentOrg } = useOrganizations();
   const navigate = useNavigate();
   const { t } = useI18n();
 
@@ -70,13 +70,14 @@ export function Header({ onOpenCommandPalette, onToggleSidebar }: HeaderProps) {
       {/* Actions */}
       <div className="flex items-center gap-2">
         <LocaleSwitcher />
-        <Button variant="ghost" size="icon">
+        <Button variant="ghost" size="icon" aria-label="View notifications" type="button">
           <Bell className="w-4 h-4" />
+          <span className="sr-only">View notifications</span>
         </Button>
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon">
+            <Button variant="ghost" size="icon" aria-label="Open account menu" type="button">
               <Avatar className="h-8 w-8">
                 <AvatarImage src={user?.user_metadata?.avatar_url} />
                 <AvatarFallback>
@@ -84,8 +85,9 @@ export function Header({ onOpenCommandPalette, onToggleSidebar }: HeaderProps) {
                     ? user.user_metadata.name.split(' ').map((n: string) => n[0]).join('').toUpperCase()
                     : user?.email?.substring(0, 2).toUpperCase()
                   }
-                </AvatarFallback>
+              </AvatarFallback>
               </Avatar>
+              <span className="sr-only">Open account menu</span>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
@@ -94,11 +96,11 @@ export function Header({ onOpenCommandPalette, onToggleSidebar }: HeaderProps) {
               <p className="text-sm text-muted-foreground">{user?.email}</p>
             </div>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => navigate('/aurora/settings')}>
+            <DropdownMenuItem onClick={() => navigate(`/${currentOrg?.slug ?? 'prisma-glow'}/settings`)}>
               <User className="mr-2 h-4 w-4" />
               Profile
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => navigate('/aurora/settings')}>
+            <DropdownMenuItem onClick={() => navigate(`/${currentOrg?.slug ?? 'prisma-glow'}/settings`)}>
               <Settings className="mr-2 h-4 w-4" />
               Settings
             </DropdownMenuItem>

@@ -22,7 +22,7 @@ Both functions rely on the caller’s Supabase JWT; the service role key is only
 ## Message Format
 
 ```
-Your Aurora verification code is {CODE}. It expires in 5 minutes.
+Your Prisma Glow verification code is {CODE}. It expires in 5 minutes.
 ```
 
 Modify this template in `supabase/functions/services/whatsapp/otp-send/index.ts` if the provider mandates a specific format.
