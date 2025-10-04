@@ -1,0 +1,355 @@
+meta:
+  name: "Autonomous Finance Suite"
+  version: "1.0.0"
+  owner: "ikanisa"
+  generated_by: "GPT-5 Pro"
+  principles:
+    - "Document-first, zero typing: the agent extracts before it asks."
+    - "Deterministic math for numbers; LLMs for orchestration, drafting, guidance."
+    - "Pinpoint citations for every conclusion that depends on a source."
+    - "Human-in-the-loop for client-visible and irreversible actions."
+    - "RLS/RBAC enforced at every boundary."
+
+ui:
+  shell:
+    assistant_dock: true
+    assistant_position: "bottom-right"
+    style:
+      theme: "modern-gradient"
+      motion: "subtle"
+      pwa_enabled: true
+      mobile_first: true
+    entry_points:
+      - page: "Dashboard"
+        chips: ["Add company", "What’s next?", "Upload PBC", "Explain this page", "Create a task"]
+      - page: "Onboarding"
+        chips: ["Show required docs", "Scan uploaded files", "Accept extracted data", "Commit entity"]
+      - page: "Documents"
+        chips: ["Summarize document", "Extract key fields", "Find similar", "Link to task"]
+      - page: "Accounting Close"
+        chips: ["Run bank rec", "Propose JE", "Explain variance", "Lock period"]
+      - page: "Audit"
+        chips: ["Create audit plan", "Run sampling", "Draft KAM", "Assemble report"]
+      - page: "Tax"
+        chips: ["Compute CIT", "Build VAT return", "Check DAC6", "Pillar Two scope"]
+  empty_states:
+    tasks: "No tasks yet — try 'Add onboarding checklist'."
+    documents: "Drop files here. I’ll read them and extract what’s needed."
+    notifications: "You’re all caught up."
+
+autonomy:
+  levels:
+    L0: "Manual: user triggers everything"
+    L1: "Suggest: agent proposes actions; user approves"
+    L2: "Auto-prepare: agent drafts & stages; user approves to submit/file"
+    L3: "Autopilot: agent executes within policy; asks only if evidence is missing"
+  default_level: "L2"
+
+rbac:
+  roles:
+    - SYSTEM_ADMIN
+    - PARTNER
+    - MANAGER
+    - EMPLOYEE
+    - CLIENT
+    - READONLY
+    - SERVICE_ACCOUNT
+    - EQR
+  permissions:
+    tasks.create:            EMPLOYEE
+    tasks.update:            EMPLOYEE
+    tasks.assign:            MANAGER
+    documents.upload:        EMPLOYEE
+    documents.view_internal: EMPLOYEE
+    documents.view_client:   CLIENT
+    onboarding.start:        EMPLOYEE
+    onboarding.commit:       MANAGER
+    journals.post:           MANAGER
+    close.lock:              PARTNER
+    audit.plan.freeze:       PARTNER
+    audit.report.release:    PARTNER
+    audit.eqr.signoff:       EQR
+    tax.return.submit:       MANAGER
+    policy.pack.edit:        SYSTEM_ADMIN
+  client_portal_scope:
+    allowed_repos: ["02_Tax/PBC", "03_Accounting/PBC", "05_Payroll/PBC"]
+    denied_actions: ["documents.view_internal", "close.lock", "audit.plan.freeze", "audit.report.release"]
+
+data_sources:
+  supabase:
+    project_url: "${SUPABASE_URL}"
+    anon_key_ref: "SUPABASE_ANON_KEY"
+    rls: true
+  google_drive:
+    enabled: true
+    oauth_required_scopes:
+      - "https://www.googleapis.com/auth/drive.readonly"
+      - "https://www.googleapis.com/auth/drive.metadata.readonly"
+    folder_mapping_pattern: "org-{orgId}/entity-{entityId}/{repoFolder}"
+    mirror_to_storage: true
+  url_sources:
+    allowed_domains: ["*"]
+    fetch_policy:
+      obey_robots: true
+      max_depth: 1
+      cache_ttl_minutes: 1440
+  email_ingest:
+    enabled: false
+
+repositories:
+  - "01_Legal"
+  - "02_Tax"
+  - "03_Accounting"
+  - "04_Banking"
+  - "05_Payroll"
+  - "06_Contracts"
+  - "07_Audit"
+  - "99_Other"
+  pbc_subfolders:
+    - "02_Tax/PBC"
+    - "03_Accounting/PBC"
+    - "05_Payroll/PBC"
+
+knowledge:
+  vector_indexes:
+    - name: "finance_docs_v1"
+      backend: "pgvector"
+      embedding_model: "text-embedding-3-large"
+      scope_filters: ["orgId", "entityId", "repoFolder", "docType"]
+      chunking:
+        size: 1200
+        overlap: 150
+    - name: "standards_v1"
+      backend: "pgvector"
+      embedding_model: "text-embedding-3-large"
+      seed_sets:
+        - "IFRS/IAS primary texts"
+        - "ISAs/ISQM/IESBA excerpts (permitted excerpts; do not store full proprietary texts)"
+        - "EU directives & ESEF manual (public)"
+        - "Malta GAPSME (public summaries)"
+        - "Local regulator FAQs (public)"
+  retrieval:
+    reranker: "mini-lm-re-ranker-v2"
+    top_k: 8
+    min_citation_confidence: 0.60
+    policy:
+      before_asking_user: ["documents", "google_drive", "url_sources"]
+      require_citation: true
+
+policies:
+  evidence:
+    require_provenance: true
+    refuse_if_missing: true
+  approvals:
+    report_release: PARTNER
+    eqr_required: true
+    lock_period: PARTNER
+    filings_submit: MANAGER
+  privacy:
+    store_pii_minimum: true
+    redact_on_export: true
+  rate_limits:
+    otp_attempts_max: 3
+    otp_cooldown_minutes: 10
+
+search:
+  semantic:
+    index: "finance_docs_v1"
+    filters_by_default: ["orgId", "entityId"]
+    allow_cross_entity: false
+  keyword:
+    fallback_on_empty_semantic: true
+  web_search:
+    enabled: true
+    tool: "safe_web_fetcher"
+    whitelist_policy: "url_sources.allowed_domains"
+
+document_ai:
+  pipeline:
+    steps: [ocr, classify, extract, index]
+    classifiers:
+      types: ["INCORP_CERT","MEMORANDUM","ARTICLES","SHARE_REGISTER","VAT_CERT","TIN_CERT","TB","FS","BANK_STMT","PAYROLL_SUMMARY","CONTRACT","SOC1","OTHER"]
+    extractors:
+      INCORP_CERT: ["company_name","reg_no","inc_date","registered_address","directors[]","shareholders[]","share_capital"]
+      VAT_CERT:    ["vat_number","effective_date"]
+      TB:          ["period_start","period_end","currency","total_debits","total_credits"]
+      FS:          ["basis_of_prep","fy_start","fy_end","auditor","opinion"]
+      BANK_STMT:   ["iban","bank_name","period_start","period_end","opening_balance","closing_balance"]
+      PAYROLL_SUMMARY: ["employer_reg_no","period","gross_pay","tax_withheld","ssc"]
+    provenance: true
+    error_handling: "quarantine_and_notify"
+
+integrations:
+  whatsapp_mfa:
+    enabled: true
+    provider: "meta|twilio"
+    env_keys: ["WA_PROVIDER_TOKEN","WA_PHONE_NUMBER_ID"]
+    mfa_required_actions: ["close.lock","audit.report.release","audit.plan.freeze","eqr.signoff"]
+  notifications:
+    channels: ["in_app","email","push"]
+    digests: ["daily","weekly"]
+  telemetry:
+    sentry_enabled: true
+    correlation_id_header: "x-request-id"
+
+agents:
+  - id: "onboarding_agent"
+    title: "Onboarding Orchestrator"
+    persona:
+      summary: "Proactive company setup concierge; requests documents instead of form fields."
+      voice: "Warm, exact, checklist-driven; avoids jargon; always cites extracted sources."
+    default_autonomy: "L2"
+    tools:
+      - "documents.list"
+      - "documents.request_upload"
+      - "doc_ai.extract"
+      - "entity.create_draft"
+      - "entity.commit"
+      - "tasks.create"
+      - "notifications.send"
+      - "google_drive.search"
+      - "web_fetcher.search"
+    playbooks:
+      - name: "add_company_zero_typing"
+        steps:
+          - "show_required_docs_by_industry"
+          - "watch_dropzones_and_ingest"
+          - "run_extraction_and_preview"
+          - "ask_accept_or_correct"
+          - "create_entity_and_repos"
+          - "seed_initial_tasks_and_calendar"
+    learning:
+      memories:
+        - "company_profile_drafts"
+        - "common_extraction_patterns"
+      update_policy: "continuous_on_accept"
+
+  - id: "accountant_agent"
+    title: "Senior Accountant (IFRS/GAPSME)"
+    persona:
+      summary: "Runs the close, reconciliations, journals, and drafts financials; never guesses numbers."
+      voice: "Analytical, explains rationale, attaches schedules."
+    default_autonomy: "L2"
+    tools:
+      - "close.snapshot_tb"
+      - "recon.bank"
+      - "journals.propose"
+      - "journals.post"
+      - "variance.analyze"
+      - "cashflow.build_indirect"
+      - "documents.link_evidence"
+    actions:
+      - "run_monthly_close"
+      - "explain_variance"
+      - "prepare_lock"
+    approvals_required:
+      - "journals.post"
+      - "close.lock"
+    learning:
+      memories: ["variance_explanations","rec_patterns"]
+      update_policy: "post_approval"
+
+  - id: "audit_partner_agent"
+    title: "Audit Partner (ISAs)"
+    persona:
+      summary: "Plans audits, links risks to procedures and evidence, drafts KAMs, assembles reports."
+      voice: "Skeptical, standard-cited, concise."
+    default_autonomy: "L1"
+    tools:
+      - "audit.plan"
+      - "sampling.design"
+      - "confirmations.manage"
+      - "estimates.evaluate"
+      - "gc.assess"
+      - "se.review"
+      - "kam.draft"
+      - "report.assemble"
+      - "tcwg.pack"
+    approvals_required: ["audit.plan.freeze","audit.report.release","eqr.signoff"]
+    learning:
+      memories: ["risk_response_pairs","kam_library"]
+      update_policy: "partner_review_only"
+
+  - id: "tax_partner_agent"
+    title: "Tax Partner (Malta/EU/US)"
+    persona:
+      summary: "Computes CIT, VAT, DAC6, Pillar Two; drafts memos with pinpoint citations."
+      voice: "Pragmatic, risk-aware, cites law/guidance."
+    default_autonomy: "L1"
+    tools:
+      - "mt.cit.compute"
+      - "mt.nid.compute"
+      - "eu.ilr.compute"
+      - "mt.vat.prepare"
+      - "dac6.classify"
+      - "p2.compute"
+      - "treaty.resolve"
+    learning:
+      memories: ["positions_history","treaty_outcomes"]
+      update_policy: "after_filing"
+
+  - id: "corp_services_agent"
+    title: "Corporate Services"
+    persona:
+      summary: "Maintains statutory registers, filings calendar, and board packs; requests only documents needed."
+      voice: "Formal, checklist-first."
+    default_autonomy: "L2"
+    tools:
+      - "calendar.manage"
+      - "statutory.registers"
+      - "documents.request_upload"
+      - "google_drive.search"
+    learning:
+      memories: ["filing_calendars","templates"]
+      update_policy: "continuous"
+
+  - id: "document_ai_agent"
+    title: "Document Intelligence"
+    persona:
+      summary: "OCR, classify, extract; returns structured fields with provenance; never fabricates."
+    default_autonomy: "L3"
+    tools: ["ocr", "classify", "extract", "index"]
+    policies:
+      refuse_if_low_confidence: true
+
+  - id: "reconciliations_agent"
+    title: "Reconciliations"
+    default_autonomy: "L2"
+    tools: ["recon.bank","recon.ar","recon.ap","documents.link_evidence"]
+
+  - id: "je_testing_agent"
+    title: "Journal Entry Analytics"
+    default_autonomy: "L2"
+    tools: ["je.analytics","sampling.design","tasks.create"]
+    policies:
+      require_pm_link: true
+
+  - id: "consolidation_agent"
+    title: "Group Consolidation (IFRS 10/11/12)"
+    default_aut autonomy: "L1"
+    tools: ["scope.components","eliminate.ic","equity.method","ias21.translate","notes.ifrs12"]
+
+  - id: "vat_agent"
+    title: "EU VAT/OSS/IOSS"
+    default_autonomy: "L2"
+    tools: ["vat.ledger.analyze","vat.return.prepare","ecsales.build","intrastat.build"]
+
+  - id: "pillar_two_agent"
+    title: "Pillar Two (GloBE)"
+    default_autonomy: "L1"
+    tools: ["p2.scope","p2.compute","p2.gir.build"]
+
+  - id: "reporting_agent"
+    title: "ESEF/iXBRL"
+    default_autonomy: "L1"
+    tools: ["esef.tag","esef.validate","esef.package"]
+    approvals_required: ["filings_submit"]
+
+assistant_policies:
+  refusal_rules:
+    - "If a required document or authoritative source is missing, explain what is needed and why; do not guess."
+  citation_rules:
+    - "Attach source doc links (docId/page) or URL for each regulated conclusion."
+  style_rules:
+    - "Always offer the next two suggested actions with buttons."
+    - 

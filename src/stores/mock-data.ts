@@ -370,6 +370,7 @@ interface AppStore {
   setClients: (clients: Client[]) => void;
   setEngagements: (engagements: Engagement[]) => void;
   setTasks: (tasks: Task[]) => void;
+  addDocument: (document: Document) => void;
 }
 
 export const useAppStore = create<AppStore>((set, get) => ({
@@ -420,4 +421,5 @@ export const useAppStore = create<AppStore>((set, get) => ({
   setClients: (clients) => set({ clients }),
   setEngagements: (engagements) => set({ engagements }),
   setTasks: (tasks) => set({ tasks }),
+  addDocument: (document) => set((state) => ({ documents: [...state.documents, document] })),
 }));
