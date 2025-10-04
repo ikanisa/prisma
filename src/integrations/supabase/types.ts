@@ -12,31 +12,6 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "13.0.4"
   }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       accounting: {
@@ -208,6 +183,60 @@ export type Database = {
           },
         ]
       }
+      agent_learning_jobs: {
+        Row: {
+          created_at: string
+          id: string
+          kind: Database["public"]["Enums"]["learning_job_kind"]
+          org_id: string
+          payload: Json | null
+          policy_version_id: string | null
+          processed_at: string | null
+          result: Json | null
+          status: Database["public"]["Enums"]["learning_job_status"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          kind: Database["public"]["Enums"]["learning_job_kind"]
+          org_id: string
+          payload?: Json | null
+          policy_version_id?: string | null
+          processed_at?: string | null
+          result?: Json | null
+          status?: Database["public"]["Enums"]["learning_job_status"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          kind?: Database["public"]["Enums"]["learning_job_kind"]
+          org_id?: string
+          payload?: Json | null
+          policy_version_id?: string | null
+          processed_at?: string | null
+          result?: Json | null
+          status?: Database["public"]["Enums"]["learning_job_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_learning_jobs_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_learning_jobs_policy_version_id_fkey"
+            columns: ["policy_version_id"]
+            isOneToOne: false
+            referencedRelation: "agent_policy_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agent_logs: {
         Row: {
           answer_preview: string | null
@@ -270,6 +299,56 @@ export type Database = {
             columns: ["session_id"]
             isOneToOne: false
             referencedRelation: "agent_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_policy_versions: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          diff: Json | null
+          id: string
+          org_id: string
+          rolled_back_at: string | null
+          status: string
+          summary: string | null
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          diff?: Json | null
+          id?: string
+          org_id: string
+          rolled_back_at?: string | null
+          status: string
+          summary?: string | null
+          updated_at?: string
+          version: number
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          diff?: Json | null
+          id?: string
+          org_id?: string
+          rolled_back_at?: string | null
+          status?: string
+          summary?: string | null
+          updated_at?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_policy_versions_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -1201,6 +1280,51 @@ export type Database = {
           },
         ]
       }
+      citation_canonicalizer: {
+        Row: {
+          activated_at: string
+          id: string
+          jurisdiction: string | null
+          org_id: string | null
+          pattern: string
+          policy_version_id: string | null
+          replacement: string
+        }
+        Insert: {
+          activated_at?: string
+          id?: string
+          jurisdiction?: string | null
+          org_id?: string | null
+          pattern: string
+          policy_version_id?: string | null
+          replacement: string
+        }
+        Update: {
+          activated_at?: string
+          id?: string
+          jurisdiction?: string | null
+          org_id?: string | null
+          pattern?: string
+          policy_version_id?: string | null
+          replacement?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "citation_canonicalizer_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "citation_canonicalizer_policy_version_id_fkey"
+            columns: ["policy_version_id"]
+            isOneToOne: false
+            referencedRelation: "agent_policy_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clients: {
         Row: {
           contact_name: string | null
@@ -1705,6 +1829,57 @@ export type Database = {
             columns: ["arrangement_id"]
             isOneToOne: false
             referencedRelation: "dac6_arrangements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      denylist_deboost: {
+        Row: {
+          action: Database["public"]["Enums"]["denylist_action"]
+          activated_at: string
+          id: string
+          juris_code: string | null
+          org_id: string | null
+          pattern: string
+          policy_version_id: string | null
+          reason: string | null
+          weight: number | null
+        }
+        Insert: {
+          action?: Database["public"]["Enums"]["denylist_action"]
+          activated_at?: string
+          id?: string
+          juris_code?: string | null
+          org_id?: string | null
+          pattern: string
+          policy_version_id?: string | null
+          reason?: string | null
+          weight?: number | null
+        }
+        Update: {
+          action?: Database["public"]["Enums"]["denylist_action"]
+          activated_at?: string
+          id?: string
+          juris_code?: string | null
+          org_id?: string | null
+          pattern?: string
+          policy_version_id?: string | null
+          reason?: string | null
+          weight?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "denylist_deboost_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "denylist_deboost_policy_version_id_fkey"
+            columns: ["policy_version_id"]
+            isOneToOne: false
+            referencedRelation: "agent_policy_versions"
             referencedColumns: ["id"]
           },
         ]
@@ -2269,6 +2444,234 @@ export type Database = {
             columns: ["parent_id"]
             isOneToOne: false
             referencedRelation: "fs_lines"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gdrive_change_queue: {
+        Row: {
+          change_type: string
+          connector_id: string
+          created_at: string
+          error: string | null
+          file_id: string
+          file_name: string | null
+          id: string
+          mime_type: string | null
+          org_id: string
+          processed_at: string | null
+          raw_payload: Json | null
+        }
+        Insert: {
+          change_type: string
+          connector_id: string
+          created_at?: string
+          error?: string | null
+          file_id: string
+          file_name?: string | null
+          id?: string
+          mime_type?: string | null
+          org_id: string
+          processed_at?: string | null
+          raw_payload?: Json | null
+        }
+        Update: {
+          change_type?: string
+          connector_id?: string
+          created_at?: string
+          error?: string | null
+          file_id?: string
+          file_name?: string | null
+          id?: string
+          mime_type?: string | null
+          org_id?: string
+          processed_at?: string | null
+          raw_payload?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gdrive_change_queue_connector_id_fkey"
+            columns: ["connector_id"]
+            isOneToOne: false
+            referencedRelation: "gdrive_connectors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gdrive_change_queue_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gdrive_connectors: {
+        Row: {
+          created_at: string
+          cursor_page_token: string | null
+          folder_id: string
+          id: string
+          knowledge_source_id: string | null
+          last_backfill_at: string | null
+          last_error: string | null
+          last_sync_at: string | null
+          org_id: string
+          service_account_email: string
+          shared_drive_id: string | null
+          start_page_token: string | null
+          updated_at: string
+          watch_channel_id: string | null
+          watch_expires_at: string | null
+          watch_resource_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          cursor_page_token?: string | null
+          folder_id: string
+          id?: string
+          knowledge_source_id?: string | null
+          last_backfill_at?: string | null
+          last_error?: string | null
+          last_sync_at?: string | null
+          org_id: string
+          service_account_email: string
+          shared_drive_id?: string | null
+          start_page_token?: string | null
+          updated_at?: string
+          watch_channel_id?: string | null
+          watch_expires_at?: string | null
+          watch_resource_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          cursor_page_token?: string | null
+          folder_id?: string
+          id?: string
+          knowledge_source_id?: string | null
+          last_backfill_at?: string | null
+          last_error?: string | null
+          last_sync_at?: string | null
+          org_id?: string
+          service_account_email?: string
+          shared_drive_id?: string | null
+          start_page_token?: string | null
+          updated_at?: string
+          watch_channel_id?: string | null
+          watch_expires_at?: string | null
+          watch_resource_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gdrive_connectors_knowledge_source_id_fkey"
+            columns: ["knowledge_source_id"]
+            isOneToOne: false
+            referencedRelation: "knowledge_sources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gdrive_connectors_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gdrive_documents: {
+        Row: {
+          checksum: string | null
+          connector_id: string
+          created_at: string | null
+          document_id: string
+          file_id: string
+          last_synced_at: string | null
+          metadata: Json | null
+          mime_type: string | null
+          org_id: string
+          size_bytes: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          checksum?: string | null
+          connector_id: string
+          created_at?: string | null
+          document_id: string
+          file_id: string
+          last_synced_at?: string | null
+          metadata?: Json | null
+          mime_type?: string | null
+          org_id: string
+          size_bytes?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          checksum?: string | null
+          connector_id?: string
+          created_at?: string | null
+          document_id?: string
+          file_id?: string
+          last_synced_at?: string | null
+          metadata?: Json | null
+          mime_type?: string | null
+          org_id?: string
+          size_bytes?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gdrive_documents_connector_id_fkey"
+            columns: ["connector_id"]
+            isOneToOne: false
+            referencedRelation: "gdrive_connectors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gdrive_documents_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gdrive_documents_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gdrive_file_metadata: {
+        Row: {
+          allowlisted_domain: boolean | null
+          created_at: string | null
+          file_id: string
+          metadata: Json
+          org_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          allowlisted_domain?: boolean | null
+          created_at?: string | null
+          file_id: string
+          metadata: Json
+          org_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          allowlisted_domain?: boolean | null
+          created_at?: string | null
+          file_id?: string
+          metadata?: Json
+          org_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gdrive_file_metadata_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -3016,6 +3419,44 @@ export type Database = {
           },
         ]
       }
+      learning_metrics: {
+        Row: {
+          computed_at: string
+          dims: Json | null
+          id: string
+          metric: string
+          org_id: string
+          value: number
+          window_name: string
+        }
+        Insert: {
+          computed_at?: string
+          dims?: Json | null
+          id?: string
+          metric: string
+          org_id: string
+          value: number
+          window_name: string
+        }
+        Update: {
+          computed_at?: string
+          dims?: Json | null
+          id?: string
+          metric?: string
+          org_id?: string
+          value?: number
+          window_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "learning_metrics_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       learning_runs: {
         Row: {
           agent_kind: string
@@ -3050,6 +3491,44 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "learning_runs_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      learning_signals: {
+        Row: {
+          created_at: string
+          id: string
+          kind: string
+          org_id: string
+          payload: Json | null
+          run_id: string | null
+          source: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          kind: string
+          org_id: string
+          payload?: Json | null
+          run_id?: string | null
+          source: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          kind?: string
+          org_id?: string
+          payload?: Json | null
+          run_id?: string | null
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "learning_signals_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -3492,6 +3971,41 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "notifications_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      nps_responses: {
+        Row: {
+          feedback: string | null
+          id: string
+          org_id: string
+          score: number
+          submitted_at: string
+          user_id: string | null
+        }
+        Insert: {
+          feedback?: string | null
+          id?: string
+          org_id: string
+          score: number
+          submitted_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          feedback?: string | null
+          id?: string
+          org_id?: string
+          score?: number
+          submitted_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nps_responses_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
@@ -4051,6 +4565,57 @@ export type Database = {
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      query_hints: {
+        Row: {
+          activated_at: string
+          hint_type: string
+          id: string
+          juris_code: string | null
+          org_id: string | null
+          phrase: string
+          policy_version_id: string | null
+          topic: string | null
+          weight: number | null
+        }
+        Insert: {
+          activated_at?: string
+          hint_type: string
+          id?: string
+          juris_code?: string | null
+          org_id?: string | null
+          phrase: string
+          policy_version_id?: string | null
+          topic?: string | null
+          weight?: number | null
+        }
+        Update: {
+          activated_at?: string
+          hint_type?: string
+          id?: string
+          juris_code?: string | null
+          org_id?: string | null
+          phrase?: string
+          policy_version_id?: string | null
+          topic?: string | null
+          weight?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "query_hints_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "query_hints_policy_version_id_fkey"
+            columns: ["policy_version_id"]
+            isOneToOne: false
+            referencedRelation: "agent_policy_versions"
             referencedColumns: ["id"]
           },
         ]
@@ -5813,10 +6378,6 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      binary_quantize: {
-        Args: { "": string } | { "": unknown }
-        Returns: unknown
-      }
       enforce_rate_limit: {
         Args: {
           p_limit: number
@@ -5829,133 +6390,13 @@ export type Database = {
           request_count: number
         }[]
       }
-      gtrgm_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gtrgm_decompress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gtrgm_in: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gtrgm_options: {
-        Args: { "": unknown }
-        Returns: undefined
-      }
-      gtrgm_out: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      halfvec_avg: {
-        Args: { "": number[] }
-        Returns: unknown
-      }
-      halfvec_out: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      halfvec_send: {
-        Args: { "": unknown }
-        Returns: string
-      }
-      halfvec_typmod_in: {
-        Args: { "": unknown[] }
-        Returns: number
-      }
       has_min_role: {
         Args: { min: Database["public"]["Enums"]["role_level"]; org: string }
         Returns: boolean
       }
-      hnsw_bit_support: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      hnsw_halfvec_support: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      hnsw_sparsevec_support: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      hnswhandler: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
       is_member_of: {
         Args: { org: string }
         Returns: boolean
-      }
-      ivfflat_bit_support: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      ivfflat_halfvec_support: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      ivfflathandler: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      l2_norm: {
-        Args: { "": unknown } | { "": unknown }
-        Returns: number
-      }
-      l2_normalize: {
-        Args: { "": string } | { "": unknown } | { "": unknown }
-        Returns: string
-      }
-      set_limit: {
-        Args: { "": number }
-        Returns: number
-      }
-      show_limit: {
-        Args: Record<PropertyKey, never>
-        Returns: number
-      }
-      show_trgm: {
-        Args: { "": string }
-        Returns: string[]
-      }
-      sparsevec_out: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      sparsevec_send: {
-        Args: { "": unknown }
-        Returns: string
-      }
-      sparsevec_typmod_in: {
-        Args: { "": unknown[] }
-        Returns: number
-      }
-      vector_avg: {
-        Args: { "": number[] }
-        Returns: string
-      }
-      vector_dims: {
-        Args: { "": string } | { "": unknown }
-        Returns: number
-      }
-      vector_norm: {
-        Args: { "": string }
-        Returns: number
-      }
-      vector_out: {
-        Args: { "": string }
-        Returns: unknown
-      }
-      vector_send: {
-        Args: { "": string }
-        Returns: string
-      }
-      vector_typmod_in: {
-        Args: { "": unknown[] }
-        Returns: number
       }
     }
     Enums: {
@@ -5980,6 +6421,7 @@ export type Database = {
         | "READY_FOR_SUBMISSION"
         | "SUBMITTED"
         | "REJECTED"
+      denylist_action: "deny" | "deboost"
       engagement_status: "planned" | "active" | "completed" | "archived"
       fraud_plan_status: "DRAFT" | "READY_FOR_APPROVAL" | "LOCKED"
       je_control_rule:
@@ -5989,6 +6431,19 @@ export type Database = {
         | "MANUAL_TO_SENSITIVE"
         | "MISSING_ATTACHMENT"
       je_control_severity: "LOW" | "MEDIUM" | "HIGH"
+      learning_job_kind:
+        | "query_hint_add"
+        | "guardrail_tune"
+        | "canonicalizer_update"
+        | "denylist_update"
+        | "rollback_policy"
+      learning_job_status:
+        | "PENDING"
+        | "READY"
+        | "IN_PROGRESS"
+        | "APPLIED"
+        | "FAILED"
+        | "ROLLED_BACK"
       ledger_account_type:
         | "ASSET"
         | "LIABILITY"
@@ -6149,9 +6604,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       audit_risk_category: [
@@ -6178,6 +6630,7 @@ export const Constants = {
         "SUBMITTED",
         "REJECTED",
       ],
+      denylist_action: ["deny", "deboost"],
       engagement_status: ["planned", "active", "completed", "archived"],
       fraud_plan_status: ["DRAFT", "READY_FOR_APPROVAL", "LOCKED"],
       je_control_rule: [
@@ -6188,6 +6641,21 @@ export const Constants = {
         "MISSING_ATTACHMENT",
       ],
       je_control_severity: ["LOW", "MEDIUM", "HIGH"],
+      learning_job_kind: [
+        "query_hint_add",
+        "guardrail_tune",
+        "canonicalizer_update",
+        "denylist_update",
+        "rollback_policy",
+      ],
+      learning_job_status: [
+        "PENDING",
+        "READY",
+        "IN_PROGRESS",
+        "APPLIED",
+        "FAILED",
+        "ROLLED_BACK",
+      ],
       ledger_account_type: [
         "ASSET",
         "LIABILITY",
