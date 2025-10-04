@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -108,9 +108,11 @@ export default function AnalyticsOverviewPage() {
   const loading = analyticsQuery.isLoading;
   const error = analyticsQuery.isError ? (analyticsQuery.error as Error) : null;
 
-  if (error) {
-    toast({ title: 'Analytics unavailable', description: error.message, variant: 'destructive' });
-  }
+  useEffect(() => {
+    if (error) {
+      toast({ title: 'Analytics unavailable', description: error.message, variant: 'destructive' });
+    }
+  }, [error, toast]);
 
   return (
     <div className="space-y-6">
