@@ -15,6 +15,8 @@ import { cn } from '@/lib/utils';
 import { useI18n } from '@/hooks/use-i18n';
 import { recordClientEvent } from '@/lib/client-events';
 import { AssistantChip } from '@/components/ui/assistant-chip';
+import { useAssistantChips } from '@/lib/system-config';
+import { useLocation } from 'react-router-dom';
 
 interface AssistantAction {
   label: string;
@@ -299,25 +301,26 @@ export function AssistantDock() {
     [runTool, taskDraft, toast],
   );
 
+  const location = useLocation();
+  const configuredChips = useAssistantChips(location.pathname);
   const assistantOffline = useMemo(() => !orgSlug, [orgSlug]);
 
-  const quickPrompts = useMemo(
+  const defaultChips = useMemo(
     () => [
-      {
-        label: 'Daily briefing',
-        prompt: `Give me today's high-risk audit and tax priorities${currentOrg?.name ? ` for ${currentOrg.name}` : ''}.`,
-      },
-      {
-        label: 'Prep my meeting',
-        prompt: 'Summarise open engagement issues I should cover in the next client meeting.',
-      },
-      {
-        label: 'Suggest next actions',
-        prompt: 'Review our latest evidence uploads and tell me what I should do next.',
-      },
+      'Daily briefing',
+      'Prep my meeting',
+      'Suggest next actions',
     ],
-    [currentOrg?.name],
+    [],
   );
+
+  const quickPrompts = useMemo(() => {
+    const chipsToUse = configuredChips.length ? configuredChips : defaultChips;
+    return chipsToUse.map((chip) => ({
+      label: chip,
+      prompt: currentOrg?.name ? `${chip} for ${currentOrg.name}` : chip,
+    }));
+  }, [configuredChips, currentOrg?.name, defaultChips]);
 
   const lastAssistantMessage = useMemo(
     () => [...messages].reverse().find((message) => message.role === 'assistant') ?? null,

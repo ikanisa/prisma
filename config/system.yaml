@@ -97,14 +97,15 @@ data_sources:
     enabled: false
 
 repositories:
-  - "01_Legal"
-  - "02_Tax"
-  - "03_Accounting"
-  - "04_Banking"
-  - "05_Payroll"
-  - "06_Contracts"
-  - "07_Audit"
-  - "99_Other"
+  folders:
+    - "01_Legal"
+    - "02_Tax"
+    - "03_Accounting"
+    - "04_Banking"
+    - "05_Payroll"
+    - "06_Contracts"
+    - "07_Audit"
+    - "99_Other"
   pbc_subfolders:
     - "02_Tax/PBC"
     - "03_Accounting/PBC"
