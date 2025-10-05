@@ -14,9 +14,13 @@ class Chunk(Base):
     __tablename__ = "chunks"
     id = Column(Integer, primary_key=True)
     org_id = Column(Text, nullable=False)
-    document_id = Column(Text)
+    document_id = Column(Text, nullable=False)
+    chunk_index = Column(Integer, nullable=False, default=0)
     content = Column(Text, nullable=False)
     embedding = Column(Vector(1536))
+    embed_model = Column(Text)
+    index_name = Column(Text, nullable=False, default="finance_docs_v1")
+    content_hash = Column(Text, nullable=False)
 
 async def init_db():
     async with engine.begin() as conn:

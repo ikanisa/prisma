@@ -7,7 +7,7 @@ import json
 from collections import defaultdict
 from contextvars import ContextVar
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Set, Iterable, Mapping
 import mimetypes
 import secrets
 
@@ -16,12 +16,12 @@ import redis
 import sentry_sdk
 import structlog
 import structlog.contextvars
-from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, UploadFile, status, Query, Path, Request
+from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, UploadFile, status, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
 import httpx
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from opentelemetry import trace
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.sdk.trace import TracerProvider
@@ -40,21 +40,111 @@ from services.analytics.jobs import anomaly_scan_job, policy_check_job, reembed_
 
 from .autopilot_handlers import handle_extract_documents
 from .db import AsyncSessionLocal, Chunk, init_db
-from .rag import chunk_text, embed_chunks, extract_text, store_chunks
+from .rag import (
+    chunk_text,
+    embed_chunks,
+    extract_text,
+    store_chunks,
+    perform_semantic_search,
+    get_primary_index_config,
+    get_retrieval_config,
+)
 from .health import build_readiness_report
 from .security import build_csp_header, normalise_allowed_origins
+from .config_loader import (
+    get_autonomy_job_allowances,
+    get_autonomy_levels,
+    get_client_portal_scope,
+    get_config_permission_map,
+    get_default_autonomy_level,
+    get_before_asking_user_sequence,
+    get_email_ingest_settings,
+    get_google_drive_settings,
+    get_tool_policies,
+    get_agent_registry,
+    get_workflow_definitions,
+    get_url_source_settings,
+    get_release_control_settings,
+)
+from .release_controls import evaluate_release_controls
+from .workflow_orchestrator import (
+    ensure_workflow_run,
+    complete_workflow_step,
+    get_workflow_suggestions,
+)
 
 app = FastAPI()
 
 PERMISSION_CONFIG_PATH = Path(__file__).resolve().parents[1] / "POLICY" / "permissions.json"
 PERMISSION_MAP: Dict[str, str] = {}
-CLIENT_ALLOWED_DOCUMENT_REPOS: List[str] = [
-    "03_Accounting/PBC",
-    "02_Tax/PBC",
-    "04_Audit/PBC",
-]
+CLIENT_SCOPE = get_client_portal_scope()
+CLIENT_ALLOWED_DOCUMENT_REPOS: List[str] = CLIENT_SCOPE.get("allowed_repos", [])
+ROLE_DENY_ACTIONS: Dict[str, Set[str]] = {
+    "CLIENT": set(CLIENT_SCOPE.get("denied_actions", []))
+}
+GOOGLE_DRIVE_SETTINGS = get_google_drive_settings()
+URL_SOURCE_SETTINGS = get_url_source_settings()
+EMAIL_INGEST_SETTINGS = get_email_ingest_settings()
+BEFORE_ASKING_SEQUENCE = get_before_asking_user_sequence()
+AUTONOMY_LEVELS = get_autonomy_levels()
+DEFAULT_AUTONOMY_LEVEL_VALUE = get_default_autonomy_level()
+AUTONOMY_JOB_ALLOWANCES = get_autonomy_job_allowances()
+AUTONOMY_LEVEL_RANK = {"L0": 0, "L1": 1, "L2": 2, "L3": 3}
+LEGACY_AUTONOMY_NUMERIC_MAP = {0: "L0", 1: "L1", 2: "L2", 3: "L3", 4: "L3", 5: "L3"}
 DEFAULT_IMPERSONATION_EXPIRY_HOURS = 8
 RESERVED_ORG_SETTINGS_FIELDS = {"default_role", "impersonation_breakglass_emails"}
+TOOL_POLICIES = get_tool_policies()
+AGENT_REGISTRY = get_agent_registry()
+WORKFLOW_DEFINITIONS = get_workflow_definitions()
+RELEASE_CONTROL_SETTINGS = get_release_control_settings()
+
+
+def resolve_agent_for_tool(tool_name: str) -> Optional[str]:
+    normalised = tool_name.strip().lower()
+    if not normalised:
+        return None
+    for agent_id, definition in AGENT_REGISTRY.items():
+        tools = definition.get("tools") if isinstance(definition, Mapping) else None
+        if not isinstance(tools, list):
+            continue
+        for entry in tools:
+            if isinstance(entry, str) and entry.strip().lower() == normalised:
+                return agent_id
+    return None
+
+
+async def build_assistant_actions(org_id: str, autonomy_level: Optional[str] = None) -> List[Dict[str, Any]]:
+    suggestions = await get_workflow_suggestions(
+        org_id,
+        supabase_table_request=supabase_table_request,
+        autonomy_level=autonomy_level,
+    )
+    actions: List[Dict[str, Any]] = []
+    for suggestion in suggestions:
+        workflow = suggestion.get("workflow")
+        step_index = suggestion.get("step_index")
+        if workflow is None or step_index is None:
+            continue
+        actions.append(
+            {
+                "label": suggestion.get("label") or str(workflow),
+                "tool": "workflows.run_step",
+                "description": suggestion.get("description"),
+                "args": {"workflow": workflow, "step": step_index},
+            }
+        )
+        if len(actions) >= 2:
+            break
+
+    for fallback in FALLBACK_ASSISTANT_ACTIONS:
+        if len(actions) >= 2:
+            break
+        if not any(action["tool"] == fallback["tool"] for action in actions):
+            actions.append(dict(fallback))
+
+    if len(actions) < 2:
+        return [dict(entry) for entry in FALLBACK_ASSISTANT_ACTIONS[:2]]
+    return actions
 
 TRUSTED_HOSTS = os.getenv("ALLOWED_HOSTS", "").strip()
 if TRUSTED_HOSTS:
@@ -138,16 +228,25 @@ logger = structlog.get_logger()
 
 
 def _load_permission_map() -> Dict[str, str]:
+    merged: Dict[str, str] = {}
     try:
         with PERMISSION_CONFIG_PATH.open("r", encoding="utf-8") as handle:
             data = json.load(handle)
             if isinstance(data, dict):
-                return {str(key): str(value).upper() for key, value in data.items()}
+                for key, value in data.items():
+                    if key is None or value is None:
+                        continue
+                    merged[str(key)] = str(value).upper()
     except FileNotFoundError:
         logger.warning("permissions.config_missing", path=str(PERMISSION_CONFIG_PATH))
     except Exception as exc:  # pragma: no cover - defensive logging
         logger.error("permissions.config_error", error=str(exc), path=str(PERMISSION_CONFIG_PATH))
-    return {}
+
+    config_permissions = get_config_permission_map()
+    for key, value in config_permissions.items():
+        merged[str(key)] = str(value).upper()
+
+    return merged
 
 
 PERMISSION_MAP = _load_permission_map()
@@ -210,9 +309,6 @@ NOTIFICATION_KIND_TO_FRONTEND = {
 assistant_client = AsyncOpenAI()
 
 KNOWLEDGE_ALLOWED_DOMAINS = {"IAS", "IFRS", "ISA", "TAX", "ORG"}
-DRIVE_PLACEHOLDER_LABEL = os.getenv("DRIVE_PLACEHOLDER_LABEL", "Google Drive (configuration pending)")
-DRIVE_PLACEHOLDER_FOLDER = os.getenv("DRIVE_PLACEHOLDER_FOLDER", "drive-folder-placeholder")
-DRIVE_PLACEHOLDER_SCOPE = os.getenv("DRIVE_PLACEHOLDER_SCOPE", "https://www.googleapis.com/auth/drive.readonly")
 
 ASSISTANT_RATE_LIMIT = int(os.getenv("ASSISTANT_RATE_LIMIT", "20"))
 ASSISTANT_RATE_WINDOW = int(os.getenv("ASSISTANT_RATE_WINDOW_SECONDS", "60"))
@@ -366,6 +462,27 @@ def normalise_role(value: Optional[str]) -> str:
     return (value or "").upper()
 
 
+def normalise_autonomy_level(value: Optional[str]) -> str:
+    if isinstance(value, str):
+        candidate = value.strip().upper()
+        if candidate in AUTONOMY_LEVEL_RANK:
+            return candidate
+    return DEFAULT_AUTONOMY_LEVEL_VALUE
+
+
+def is_autopilot_job_allowed(level: str, job_kind: str) -> bool:
+    normalized_level = normalise_autonomy_level(level)
+    allowed = AUTONOMY_JOB_ALLOWANCES.get(normalized_level)
+    if allowed is None:
+        allowed = AUTONOMY_JOB_ALLOWANCES.get(DEFAULT_AUTONOMY_LEVEL_VALUE, [])
+    return job_kind.lower() in {entry.lower() for entry in allowed}
+
+
+def requires_policy_escalation(level: str) -> bool:
+    normalized_level = normalise_autonomy_level(level)
+    return AUTONOMY_LEVEL_RANK.get(normalized_level, 0) >= AUTONOMY_LEVEL_RANK.get("L2", 2)
+
+
 def ensure_min_role(role: Optional[str], minimum: str) -> None:
     current_rank = ROLE_RANK.get(normalise_role(role), 0)
     required_rank = ROLE_RANK.get(normalise_role(minimum), ROLE_RANK["EMPLOYEE"])
@@ -383,14 +500,23 @@ def get_required_role_for_permission(permission: str) -> Optional[str]:
 
 
 def has_permission(role: Optional[str], permission: str) -> bool:
+    normalized_role = normalise_role(role)
     required = get_required_role_for_permission(permission)
     if not required:
         return True
-    return ROLE_RANK.get(normalise_role(role), 0) >= ROLE_RANK.get(required, 0)
+    return ROLE_RANK.get(normalized_role, 0) >= ROLE_RANK.get(required, 0)
+
+
+def is_action_denied_for_role(role: str, permission: str) -> bool:
+    denied = ROLE_DENY_ACTIONS.get(role)
+    return permission in denied if denied else False
 
 
 def ensure_permission_for_role(role: Optional[str], permission: str) -> None:
-    if not has_permission(role, permission):
+    normalized_role = normalise_role(role)
+    if is_action_denied_for_role(normalized_role, permission):
+        raise HTTPException(status_code=403, detail="action_denied_for_role")
+    if not has_permission(normalized_role, permission):
         raise HTTPException(status_code=403, detail="insufficient_permission")
 
 
@@ -599,7 +725,7 @@ async def resolve_org_context(user_id: str, org_slug: str) -> Dict[str, str]:
     async with httpx.AsyncClient(timeout=5.0) as client:
         org_resp = await client.get(
             f"{SUPABASE_REST_URL}/organizations",
-            params={"slug": f"eq.{slug}", "select": "id,slug"},
+            params={"slug": f"eq.{slug}", "select": "id,slug,autonomy_level"},
             headers=SUPABASE_HEADERS,
         )
         if org_resp.status_code != 200:
@@ -620,9 +746,11 @@ async def resolve_org_context(user_id: str, org_slug: str) -> Dict[str, str]:
             raise HTTPException(status_code=502, detail="membership lookup failed")
         membership_rows = membership_resp.json()
 
+        autonomy_level = normalise_autonomy_level(org.get("autonomy_level"))
+
         if membership_rows:
             role = membership_rows[0].get("role") or "EMPLOYEE"
-            return {"org_id": org["id"], "role": role}
+            return {"org_id": org["id"], "role": role, "autonomy_level": autonomy_level}
 
         user_resp = await client.get(
             f"{SUPABASE_REST_URL}/users",
@@ -638,7 +766,7 @@ async def resolve_org_context(user_id: str, org_slug: str) -> Dict[str, str]:
         if not is_system_admin:
             raise HTTPException(status_code=403, detail="forbidden")
 
-        return {"org_id": org["id"], "role": "SYSTEM_ADMIN"}
+        return {"org_id": org["id"], "role": "SYSTEM_ADMIN", "autonomy_level": autonomy_level}
 
 
 async def ensure_org_access_by_id(user_id: str, org_id: str) -> str:
@@ -711,6 +839,22 @@ async def supabase_table_request(
     return await supabase_request(method, f"{SUPABASE_REST_URL}/{table}", params=params, json=json, headers=headers)
 
 
+def extract_total_count(response: httpx.Response) -> int:
+    content_range = response.headers.get("content-range")
+    if content_range and "/" in content_range:
+        try:
+            return int(content_range.split("/")[-1])
+        except (ValueError, TypeError):
+            pass
+    try:
+        payload = response.json()
+    except ValueError:
+        return 0
+    if isinstance(payload, list):
+        return len(payload)
+    return 0
+
+
 async def fetch_single_record(table: str, record_id: str, select: str = "*") -> Optional[Dict[str, Any]]:
     params = {"id": f"eq.{record_id}", "select": select, "limit": "1"}
     response = await supabase_table_request("GET", table, params=params)
@@ -719,6 +863,86 @@ async def fetch_single_record(table: str, record_id: str, select: str = "*") -> 
         raise HTTPException(status_code=502, detail="upstream fetch failed")
     rows = response.json()
     return rows[0] if rows else None
+
+
+async def count_table_rows(table: str, params: Dict[str, Any]) -> int:
+    response = await supabase_table_request(
+        "GET",
+        table,
+        params={**params, "select": "id"},
+        headers={"Prefer": "count=exact"},
+    )
+    if response.status_code != 200:
+        logger.warning("supabase.count_failed", table=table, status=response.status_code, body=response.text)
+        return 0
+    return extract_total_count(response)
+
+
+async def gather_before_asking_sequence(org_id: str) -> List[Dict[str, Any]]:
+    sequence_results: List[Dict[str, Any]] = []
+    for source in BEFORE_ASKING_SEQUENCE:
+        if source == "documents":
+            count = await count_table_rows("documents", {"org_id": f"eq.{org_id}"})
+        elif source == "google_drive":
+            count = await count_table_rows("gdrive_documents", {"org_id": f"eq.{org_id}"})
+        elif source == "url_sources":
+            count = await count_table_rows("web_fetch_cache", {})
+        else:
+            count = 0
+        sequence_results.append({"source": source, "count": count, "available": count > 0})
+    return sequence_results
+
+
+def summarise_before_asking_sequence(sequence_results: List[Dict[str, Any]]) -> List[str]:
+    labels = {
+        "documents": "Internal workspace documents",
+        "google_drive": "Google Drive mirror",
+        "url_sources": "Curated web sources",
+    }
+    lines: List[str] = []
+    for entry in sequence_results:
+        label = labels.get(entry.get("source"), str(entry.get("source")))
+        count = entry.get("count", 0) or 0
+        available = bool(entry.get("available"))
+        if available:
+            plural = "s" if count != 1 else ""
+            lines.append(f"• {label}: {count} item{plural} ready")
+        else:
+            lines.append(f"• {label}: none available yet")
+    return lines
+
+
+async def log_before_asking_sequence(org_id: str, user_id: str, reason: str) -> List[Dict[str, Any]]:
+    sequence_results = await gather_before_asking_sequence(org_id)
+
+    logger.info(
+        "assistant.before_asking_user_exhausted",
+        org_id=org_id,
+        user_id=user_id,
+        reason=reason,
+        sequence=sequence_results,
+    )
+    return sequence_results
+
+
+async def fetch_org_autonomy_level(org_id: str) -> str:
+    response = await supabase_table_request(
+        "GET",
+        "organizations",
+        params={"id": f"eq.{org_id}", "select": "autonomy_level", "limit": "1"},
+    )
+    if response.status_code != 200:
+        logger.error(
+            "supabase.org_autonomy_fetch_failed",
+            status=response.status_code,
+            body=response.text,
+            org_id=org_id,
+        )
+        return DEFAULT_AUTONOMY_LEVEL_VALUE
+    rows = response.json()
+    if not rows:
+        return DEFAULT_AUTONOMY_LEVEL_VALUE
+    return normalise_autonomy_level(rows[0].get("autonomy_level"))
 
 
 def sanitize_filename(filename: str) -> str:
@@ -794,6 +1018,24 @@ async def insert_task_record(
 
 
 def map_document_response(row: Dict[str, Any]) -> Dict[str, Any]:
+    extraction_rows = row.get("document_extractions")
+    latest_extraction = extraction_rows[0] if isinstance(extraction_rows, list) and extraction_rows else None
+    extraction_payload = None
+    if latest_extraction:
+        extraction_payload = {
+            "status": latest_extraction.get("status"),
+            "fields": latest_extraction.get("fields") or {},
+            "confidence": latest_extraction.get("confidence"),
+            "updated_at": latest_extraction.get("updated_at"),
+            "provenance": latest_extraction.get("provenance") or [],
+            "extractor_name": latest_extraction.get("extractor_name"),
+            "document_type": latest_extraction.get("document_type"),
+        }
+
+    quarantine_rows = row.get("document_quarantine")
+    quarantine_entry = quarantine_rows[0] if isinstance(quarantine_rows, list) and quarantine_rows else None
+    quarantined = bool(quarantine_entry and (quarantine_entry.get("status") or "").upper() == "PENDING")
+
     return {
         "id": row.get("id"),
         "org_id": row.get("org_id"),
@@ -807,6 +1049,11 @@ def map_document_response(row: Dict[str, Any]) -> Dict[str, Any]:
         "repo_folder": row.get("repo_folder"),
         "classification": row.get("classification"),
         "deleted": row.get("deleted", False),
+        "ocr_status": row.get("ocr_status"),
+        "parse_status": row.get("parse_status"),
+        "portal_visible": bool(row.get("portal_visible")),
+        "extraction": extraction_payload,
+        "quarantined": quarantined,
     }
 
 
@@ -1071,12 +1318,29 @@ AUTOPILOT_JOB_HANDLERS = {
 
 
 async def _run_autopilot_job(job: Dict[str, Any]) -> None:
-    kind = job.get("kind")
+    raw_kind = job.get("kind")
+    kind = (raw_kind or "").lower()
     handler = AUTOPILOT_JOB_HANDLERS.get(kind)
     if handler is None:
-        raise ValueError(f"unsupported autopilot job kind: {kind}")
+        raise ValueError(f"unsupported autopilot job kind: {raw_kind}")
 
-    logger.info("autopilot.job_started", job_id=job.get("id"), kind=kind, org_id=job.get("org_id"))
+    org_id = job.get("org_id")
+    autonomy_level = DEFAULT_AUTONOMY_LEVEL_VALUE
+    if org_id:
+        autonomy_level = await fetch_org_autonomy_level(org_id)
+    if not is_autopilot_job_allowed(autonomy_level, kind):
+        message = f"Autonomy level {autonomy_level} does not permit job {kind}"
+        logger.info(
+            "autonomy.worker_blocked",
+            job_id=job.get("id"),
+            kind=kind,
+            autonomy_level=autonomy_level,
+            org_id=org_id,
+        )
+        await _finalise_autopilot_job(job, status="FAILED", error=message)
+        return
+
+    logger.info("autopilot.job_started", job_id=job.get("id"), kind=kind, org_id=org_id)
     try:
         result = await handler(job)
     except Exception as exc:
@@ -1297,26 +1561,24 @@ async def fetch_autopilot_summary(org_id: str, limit: int = 6) -> Dict[str, Any]
     }
 
 
-DEFAULT_ASSISTANT_ACTIONS = [
+FALLBACK_ASSISTANT_ACTIONS = [
     {
         "label": "Create a task",
-        "tool": "create_task",
+        "tool": "tasks.create",
         "description": "Draft a task and assign it to a teammate.",
+        "args": {},
     },
     {
         "label": "Request documents",
-        "tool": "request_upload",
+        "tool": "documents.request_upload",
         "description": "Send an upload request with the repository tree.",
+        "args": {},
     },
     {
         "label": "List recent documents",
-        "tool": "list_documents",
+        "tool": "documents.list",
         "description": "Review the latest files that were uploaded.",
-    },
-    {
-        "label": "Start onboarding",
-        "tool": "start_onboarding",
-        "description": "Launch the zero-typing company onboarding checklist.",
+        "args": {"limit": 5},
     },
 ]
 
@@ -1540,26 +1802,186 @@ async def tool_extract_from_doc(context: Dict[str, str], user_id: str, args: Dic
     }
 
 
+async def tool_workflow_run_step(context: Dict[str, str], user_id: str, args: Dict[str, Any]) -> Dict[str, Any]:
+    workflow_key = str(args.get("workflow") or "").strip()
+    if not workflow_key:
+        return {
+            "message": "Specify which workflow to advance.",
+            "needs": {"fields": ["workflow"]},
+            "data": {},
+            "citations": [],
+            "document_ids": [],
+        }
+
+    definitions = WORKFLOW_DEFINITIONS or get_workflow_definitions()
+    definition = definitions.get(workflow_key)
+    if not definition:
+        return {
+            "message": "I don't recognise that workflow in the configuration.",
+            "data": {},
+            "citations": [],
+            "document_ids": [],
+        }
+
+    autonomy_level = normalise_autonomy_level(context.get("autonomy_level"))
+    required_autonomy = normalise_autonomy_level(definition.get("minimum_autonomy"))
+    if AUTONOMY_LEVEL_RANK.get(autonomy_level, 0) < AUTONOMY_LEVEL_RANK.get(required_autonomy, 0):
+        workflow_name = workflow_key.replace("_", " ").title()
+        return {
+            "message": (
+                f"{workflow_name} requires autonomy level {required_autonomy}, but the organisation is set to {autonomy_level}."
+                " Ask a manager to raise autonomy or run the steps manually."
+            ),
+            "data": {
+                "requiredAutonomy": required_autonomy,
+                "currentAutonomy": autonomy_level,
+            },
+            "citations": [],
+            "document_ids": [],
+        }
+
+    def friendly_tool(tool_name: str) -> str:
+        if not tool_name:
+            return "workflow step"
+        base = tool_name.replace(".", " ").replace("_", " ")
+        return base.capitalize()
+
+    run = await ensure_workflow_run(
+        context["org_id"],
+        workflow_key,
+        triggered_by=user_id,
+        supabase_table_request=supabase_table_request,
+        iso_now=iso_now,
+    )
+    if not run:
+        return {
+            "message": "Unable to start the workflow right now.",
+            "data": {},
+            "citations": [],
+            "document_ids": [],
+        }
+
+    steps = definition.get("steps") if isinstance(definition, dict) else []
+    steps = steps if isinstance(steps, list) else []
+    if not steps:
+        return {
+            "message": "This workflow does not have any configured steps yet.",
+            "data": {"run": run},
+            "citations": [],
+            "document_ids": [],
+        }
+
+    provided_step = args.get("step")
+    step_index: Optional[int]
+    try:
+        step_index = int(provided_step) if provided_step is not None else None
+    except (TypeError, ValueError):
+        step_index = None
+
+    if step_index is None:
+        try:
+            step_index = int(run.get("current_step_index") or 0)
+        except (TypeError, ValueError):
+            step_index = 0
+
+    if step_index < 0 or step_index >= len(steps):
+        return {
+            "message": "That step is out of range for this workflow.",
+            "data": {"run": run, "totalSteps": len(steps)},
+            "citations": [],
+            "document_ids": [],
+        }
+
+    step_entry = steps[step_index]
+    agent_id = step_entry.get("agent_id")
+    tool_name = step_entry.get("tool")
+
+    updated_run = await complete_workflow_step(
+        run,
+        workflow_key,
+        step_index=step_index,
+        args=args,
+        result={"completed": True},
+        supabase_table_request=supabase_table_request,
+        iso_now=iso_now,
+        actor_id=user_id,
+    )
+    if not updated_run:
+        updated_run = run
+
+    next_index = 0
+    try:
+        next_index = int(updated_run.get("current_step_index") or 0)
+    except (TypeError, ValueError):
+        next_index = step_index + 1
+
+    workflow_name = workflow_key.replace("_", " ").title()
+    current_label = friendly_tool(str(tool_name))
+    message = f"Marked {workflow_name} → {current_label} as complete."
+
+    if next_index >= len(steps):
+        message += " Workflow finished!"
+    else:
+        next_step = steps[next_index]
+        next_label = friendly_tool(str(next_step.get("tool") or ""))
+        next_agent = resolve_agent_for_tool(str(next_step.get("tool") or "")) or next_step.get("agent_id")
+        message += f" Next: {next_label} led by {next_agent or 'the assigned agent'}."
+
+    return {
+        "message": message,
+        "data": {"run": updated_run, "completedStep": {"index": step_index, "agentId": agent_id, "tool": tool_name}},
+        "citations": [],
+        "document_ids": [],
+    }
+
+
 TOOL_REGISTRY = {
-    "create_task": tool_create_task,
-    "list_documents": tool_list_documents,
-    "request_upload": tool_request_upload,
-    "start_onboarding": tool_start_onboarding,
-    "extract_from_doc": tool_extract_from_doc,
+    "tasks.create": tool_create_task,
+    "documents.list": tool_list_documents,
+    "documents.request_upload": tool_request_upload,
+    "doc_ai.extract": tool_extract_from_doc,
+    "workflows.run_step": tool_workflow_run_step,
 }
 
 
 async def invoke_tool(context: Dict[str, str], user_id: str, tool_name: str, args: Dict[str, Any]) -> Dict[str, Any]:
     handler = TOOL_REGISTRY.get(tool_name)
-    if not handler:
+    if handler is None:
         raise HTTPException(status_code=400, detail="unknown tool")
 
+    policy = TOOL_POLICIES.get(tool_name, {})
+    required_permission = policy.get("required_permission") if isinstance(policy, Mapping) else None
+    if isinstance(required_permission, str) and required_permission.strip():
+        ensure_permission_for_role(context.get("role"), required_permission.strip())
+
+    limit = None
+    window = None
+    if isinstance(policy, Mapping):
+        limit = policy.get("rate_limit_per_minute")
+        window = policy.get("rate_limit_window_seconds")
+    if isinstance(limit, int) and limit > 0:
+        window_value = window if isinstance(window, int) and window > 0 else ASSISTANT_RATE_WINDOW
+        await enforce_rate_limit(f"assistant-tool:{tool_name}", user_id, limit=limit, window=window_value)
+
     result = await handler(context, user_id, args)
+    agent_id = resolve_agent_for_tool(tool_name)
+    if agent_id is None and tool_name == "workflows.run_step":
+        data_section = result.get("data") if isinstance(result, Mapping) else None
+        if isinstance(data_section, Mapping):
+            completed_step = data_section.get("completedStep")
+            if isinstance(completed_step, Mapping):
+                candidate = completed_step.get("agentId")
+                if isinstance(candidate, str) and candidate.strip():
+                    agent_id = candidate.strip()
+    trace_inputs = dict(args)
+    if agent_id and "agentId" not in trace_inputs:
+        trace_inputs["agentId"] = agent_id
+
     await record_agent_trace(
         org_id=context["org_id"],
         user_id=user_id,
         tool=tool_name,
-        inputs=args,
+        inputs=trace_inputs,
         outputs=result.get("data", {}),
         document_ids=result.get("document_ids"),
     )
@@ -1568,7 +1990,7 @@ async def invoke_tool(context: Dict[str, str], user_id: str, tool_name: str, arg
 
 async def generate_assistant_reply(context: Dict[str, str], user_id: str, message: Optional[str]) -> Dict[str, Any]:
     normalized = (message or "").strip().lower()
-    actions = DEFAULT_ASSISTANT_ACTIONS
+    actions = await build_assistant_actions(context["org_id"], context.get("autonomy_level"))
     data: Dict[str, Any] = {}
     citations: List[Dict[str, Any]] = []
     profile = await fetch_agent_profile(context["org_id"])
@@ -1616,6 +2038,57 @@ async def generate_assistant_reply(context: Dict[str, str], user_id: str, messag
 
         reply = intro + "\n" + "\n".join(f"• {item}" for item in highlights)
         reply += "\nAsk me for a status summary, to draft tasks, or to activate a workflow."
+        return {"message": reply, "actions": actions, "data": data, "citations": citations}
+
+    knowledge_triggers = [
+        "explain",
+        "what is",
+        "guidance",
+        "standard",
+        "ias",
+        "ifrs",
+        "policy",
+        "tax law",
+    ]
+
+    if any(trigger in normalized for trigger in knowledge_triggers):
+        search_payload = await perform_semantic_search(context["org_id"], message or "", 3)
+        knowledge_results = search_payload.get("results", [])
+        data["knowledge"] = knowledge_results
+
+        confident = [entry for entry in knowledge_results if entry.get("meetsThreshold")]
+        if confident:
+            top_entries = confident[:2]
+            citations = [
+                {
+                    "documentId": entry.get("documentId"),
+                    "name": entry.get("documentName"),
+                    "repo": entry.get("repo"),
+                    "chunkIndex": entry.get("chunkIndex"),
+                }
+                for entry in top_entries
+            ]
+
+            snippets: List[str] = []
+            for entry in top_entries:
+                snippet = str(entry.get("content") or "").strip().replace("\n", " ")
+                if len(snippet) > 320:
+                    snippet = snippet[:317] + "..."
+                label = entry.get("documentName") or "Supporting document"
+                snippets.append(f"{label}: {snippet}")
+
+            reply = "Here’s what I found:\n" + "\n\n".join(snippets)
+            reply += "\n\nEach reference links back to the source. Let me know if you need more detail."
+            return {"message": reply, "actions": actions, "data": data, "citations": citations}
+
+        sequence_results = await log_before_asking_sequence(context["org_id"], user_id, "knowledge_low_confidence")
+        detail_lines = summarise_before_asking_sequence(sequence_results)
+        reply = (
+            "I searched the knowledge base but couldn’t find a confident match with the required citations yet. "
+            "Upload the relevant source or point me to the document so I can cite it directly."
+        )
+        if detail_lines:
+            reply += "\n\nI checked our sources in this order:\n" + "\n".join(detail_lines)
         return {"message": reply, "actions": actions, "data": data, "citations": citations}
 
     if "what should i do next" in normalized or "next" in normalized:
@@ -1705,7 +2178,11 @@ async def generate_assistant_reply(context: Dict[str, str], user_id: str, messag
                 for doc in docs
             ]
         else:
+            sequence_results = await log_before_asking_sequence(context["org_id"], user_id, "documents_unavailable")
+            detail_lines = summarise_before_asking_sequence(sequence_results)
             reply = "I couldn’t find any documents yet. You can request uploads to populate the workspace."
+            if detail_lines:
+                reply += "\n\nI checked our sources in this order:\n" + "\n".join(detail_lines)
         return {"message": reply, "actions": actions, "data": data, "citations": citations}
 
     reply = "I’m ready to help. You can ask me to create tasks, summarise documents, or kick off onboarding."
@@ -1780,7 +2257,10 @@ def build_drive_preview_documents() -> List[Dict[str, Any]]:
 class CreateOrgRequest(BaseModel):
     name: str = Field(..., min_length=2, max_length=120)
     slug: str = Field(..., min_length=2, max_length=120)
-    autopilotLevel: int = Field(default=0, ge=0, le=5)
+    autonomyLevel: Optional[str] = Field(default=None, alias="autonomyLevel")
+    legacyAutopilotLevel: Optional[int] = Field(default=None, ge=0, le=5, alias="autopilotLevel")
+
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class InviteMemberRequest(BaseModel):
@@ -1849,6 +2329,13 @@ class AdminOrgSettingsUpdateRequest(BaseModel):
     defaultRole: Optional[str] = None
     requireMfaForSensitive: Optional[bool] = None
     impersonationBreakglassEmails: Optional[List[str]] = None
+
+
+class PolicyPackUpdateRequest(BaseModel):
+    orgSlug: str
+    policyPackId: str
+    summary: Optional[str] = None
+    diff: Optional[Dict[str, Any]] = None
 
 
 class ImpersonationRequestBody(BaseModel):
@@ -1955,6 +2442,7 @@ class DocumentExtractionUpdateRequest(BaseModel):
     fields: Optional[Dict[str, Any]] = None
     confidence: Optional[float] = Field(default=None, ge=0.0, le=1.0)
     provenance: Optional[List[Dict[str, Any]]] = None
+    documentType: Optional[str] = None
 
 
 class JobScheduleRequest(BaseModel):
@@ -2030,10 +2518,15 @@ async def create_organization(payload: CreateOrgRequest, auth: Dict[str, Any] = 
     await guard_system_admin(actor_id)
 
     slug = payload.slug.strip().lower()
+    level_input: Optional[str] = payload.autonomyLevel
+    if level_input is None and payload.legacyAutopilotLevel is not None:
+        level_input = LEGACY_AUTONOMY_NUMERIC_MAP.get(payload.legacyAutopilotLevel)
+    autonomy_level = normalise_autonomy_level(level_input)
+
     org_body = {
         "name": payload.name.strip(),
         "slug": slug,
-        "autopilot_level": payload.autopilotLevel,
+        "autonomy_level": autonomy_level,
     }
 
     response = await supabase_table_request(
@@ -2076,13 +2569,17 @@ async def create_organization(payload: CreateOrgRequest, auth: Dict[str, Any] = 
         org_id=org["id"],
         actor_id=actor_id,
         action="ORG_CREATED",
-        metadata={"slug": org.get("slug"), "autopilot_level": org.get("autopilot_level")},
+        metadata={
+            "slug": org.get("slug"),
+            "autonomy_level": autonomy_level,
+        },
     )
 
     return {
         "orgId": org["id"],
         "slug": org.get("slug"),
-        "autopilotLevel": org.get("autopilot_level", 0),
+        "autonomyLevel": autonomy_level,
+        "autopilotLevel": AUTONOMY_LEVEL_RANK.get(autonomy_level, 0),
     }
 
 
@@ -2199,6 +2696,47 @@ async def invite_member(payload: InviteMemberRequest, auth: Dict[str, Any] = Dep
         "role": target_role,
         "expiresAt": expires_at_value,
         "token": token,
+    }
+
+
+@app.post("/api/release-controls/check")
+async def check_release_controls(payload: Dict[str, Any], auth: Dict[str, Any] = Depends(require_auth)) -> Dict[str, Any]:
+    user_id = auth.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="unauthenticated")
+
+    org_slug_raw = payload.get("orgSlug") or payload.get("org_slug")
+    org_slug = org_slug_raw.strip() if isinstance(org_slug_raw, str) else ""
+    if not org_slug:
+        raise HTTPException(status_code=400, detail="orgSlug is required")
+
+    context = await resolve_org_context(user_id, org_slug)
+    ensure_min_role(context.get("role"), "MANAGER")
+
+    engagement_input = payload.get("engagementId")
+    engagement_id = (
+        engagement_input.strip()
+        if isinstance(engagement_input, str) and engagement_input.strip()
+        else None
+    )
+
+    requirements = RELEASE_CONTROL_SETTINGS
+    archive_settings = requirements.get("archive", {}) if isinstance(requirements, Mapping) else {}
+
+    status = await evaluate_release_controls(
+        context["org_id"],
+        supabase_table_request=supabase_table_request,
+        required_actions=requirements.get("approvals_required") if isinstance(requirements, Mapping) else None,
+        engagement_id=engagement_id,
+        manifest_hash_algorithm=archive_settings.get("manifest_hash", "sha256")
+        if isinstance(archive_settings, Mapping)
+        else "sha256",
+        include_docs=archive_settings.get("include_docs") if isinstance(archive_settings, Mapping) else None,
+    )
+
+    return {
+        "requirements": requirements,
+        "status": status,
     }
 
 
@@ -2924,7 +3462,7 @@ async def remove_team_member(payload: TeamMemberRemoveRequest, auth: Dict[str, A
 @app.post("/v1/rag/ingest")
 async def ingest(
     file: UploadFile = File(...),
-    org_slug: str = Form(...),
+    org_slug_form: str = Form(..., alias="orgSlug"),
     document_id: str = Form(None),
     auth: Dict[str, Any] = Depends(require_auth),
 ) -> Dict[str, int]:
@@ -2945,21 +3483,33 @@ async def ingest(
     org_context = await resolve_org_context(user_id, org_slug)
 
     text = await extract_text(file)
-    chunks = chunk_text(text, max_tokens=1200, overlap=200)
-    embeds = await embed_chunks(chunks)
-    await store_chunks(document_id or file.filename, org_context["org_id"], chunks, embeds)
+    index_config = get_primary_index_config()
+    chunk_size = int(index_config.get("chunk_size") or 1200)
+    chunk_overlap = int(index_config.get("chunk_overlap") or 150)
+    chunks = chunk_text(text, max_tokens=chunk_size, overlap=chunk_overlap)
+    embedding_model = index_config.get("embedding_model") or None
+    embeds = await embed_chunks(chunks, model=embedding_model)
+    await store_chunks(
+        document_id or file.filename,
+        org_context["org_id"],
+        index_config.get("name"),
+        embedding_model,
+        chunks,
+        embeds,
+    )
     logger.info(
         "ingest",
         filename=file.filename,
         chunks=len(chunks),
         user_id=user_id,
         org_id=org_context["org_id"],
+        index=index_config.get("name"),
     )
     return {"chunks": len(chunks)}
 
 
 @app.post("/v1/rag/search")
-async def search(request: SearchRequest, auth: Dict[str, Any] = Depends(require_auth)) -> List[Dict[str, Any]]:
+async def search(request: SearchRequest, auth: Dict[str, Any] = Depends(require_auth)) -> Dict[str, Any]:
     query = request.query.strip()
     if not query:
         raise HTTPException(status_code=400, detail="query is required")
@@ -2978,36 +3528,18 @@ async def search(request: SearchRequest, auth: Dict[str, Any] = Depends(require_
     org_context = await resolve_org_context(user_id, request.org_slug)
     limit = max(1, min(20, request.k))
 
-    qembed = (await embed_chunks([query]))[0]
-    async with AsyncSessionLocal() as session:
-        res = await session.execute(
-            text(
-                """
-            SELECT id, content, 1 - (embedding <=> :vec) AS score
-            FROM chunks
-            WHERE org_id = :org
-            ORDER BY embedding <=> :vec
-            LIMIT :k
-            """
-            ).bindparams(vec=qembed, org=org_context["org_id"], k=limit)
-        )
-        rows = res.fetchall()
-        if not rows:
-            res = await session.execute(
-                text(
-                    "SELECT id, content FROM chunks WHERE org_id = :org AND content ILIKE :q LIMIT :k"
-                ).bindparams(org=org_context["org_id"], q=f"%{query}%", k=limit)
-            )
-            rows = [(r.id, r.content, None) for r in res.fetchall()]
+    result = await perform_semantic_search(org_context["org_id"], query, limit)
 
     logger.info(
         "search",
         query=query,
-        results=len(rows),
+        results=len(result.get("results", [])),
         user_id=user_id,
         org_id=org_context["org_id"],
+        fallback=result.get("meta", {}).get("fallbackUsed"),
+        confident=result.get("meta", {}).get("hasConfidentResult"),
     )
-    return [{"id": r[0], "content": r[1], "score": r[2]} for r in rows]
+    return result
 
 
 @app.post("/v1/rag/reembed")
@@ -3054,7 +3586,7 @@ async def list_tasks(
     engagement: Optional[str] = Query(default=None, alias="engagementId"),
     auth: Dict[str, Any] = Depends(require_auth),
 ) -> Dict[str, Any]:
-    context = await resolve_org_context(auth["sub"], org_slug)
+    context = await resolve_org_context(auth["sub"], org_slug_form)
 
     if status and status not in TASK_STATUS_VALUES and status != "all":
         raise HTTPException(status_code=400, detail="invalid status filter")
@@ -3086,6 +3618,8 @@ async def list_tasks(
 @app.post("/v1/tasks")
 async def create_task(payload: TaskCreateRequest, auth: Dict[str, Any] = Depends(require_auth)) -> Dict[str, Any]:
     context = await resolve_org_context(auth["sub"], payload.orgSlug)
+    role = normalise_role(context.get("role"))
+    ensure_permission_for_role(role, "tasks.create")
     task_row = await insert_task_record(
         org_id=context["org_id"],
         creator_id=auth["sub"],
@@ -3122,7 +3656,8 @@ async def update_task(
     if not task_row:
         raise HTTPException(status_code=404, detail="task not found")
 
-    role = await ensure_org_access_by_id(auth["sub"], task_row["org_id"])
+    role = normalise_role(await ensure_org_access_by_id(auth["sub"], task_row["org_id"]))
+    ensure_permission_for_role(role, "tasks.update")
     if not has_manager_privileges(role) and task_row.get("created_by") != auth["sub"]:
         # allow basic edits if user created the task or has elevated role
         pass
@@ -3146,6 +3681,8 @@ async def update_task(
     if payload.engagementId is not None:
         updates["engagement_id"] = payload.engagementId
     if payload.assigneeId is not None:
+        if payload.assigneeId != task_row.get("assigned_to"):
+            ensure_permission_for_role(role, "tasks.assign")
         updates["assigned_to"] = payload.assigneeId
     if payload.dueDate is not None:
         updates["due_date"] = payload.dueDate
@@ -3309,12 +3846,22 @@ async def list_documents_endpoint(
         raise HTTPException(status_code=400, detail="invalid state filter")
 
     params: Dict[str, Any] = {
-        "select": "id,org_id,entity_id,repo_folder,name,filename,mime_type,file_size,storage_path,uploaded_by,classification,deleted,created_at",
+        "select": (
+            "id,org_id,entity_id,repo_folder,name,filename,mime_type,file_size,storage_path,"
+            "uploaded_by,classification,deleted,created_at,ocr_status,parse_status,portal_visible,"
+            "document_extractions(status,fields,confidence,provenance,updated_at,extractor_name,document_type),"
+            "document_quarantine(status,reason,created_at)"
+        ),
         "org_id": f"eq.{context['org_id']}",
         "order": "created_at.desc",
         "limit": str(limit),
         "offset": str(offset),
     }
+
+    params["document_extractions.order"] = "created_at.desc"
+    params["document_extractions.limit"] = "1"
+    params["document_quarantine.order"] = "created_at.desc"
+    params["document_quarantine.limit"] = "1"
 
     if state_normalized == "archived":
         params["deleted"] = "eq.true"
@@ -3323,8 +3870,8 @@ async def list_documents_endpoint(
 
     repo_value = (repo or "").strip() or None
     if role == "CLIENT":
-        ensure_permission_for_role(role, "documents.pbc.list")
-        allowed_repos = CLIENT_ALLOWED_DOCUMENT_REPOS
+        ensure_permission_for_role(role, "documents.view_client")
+        allowed_repos = CLIENT_ALLOWED_DOCUMENT_REPOS or ["03_Accounting/PBC"]
         if repo_value and repo_value not in allowed_repos:
             raise HTTPException(status_code=403, detail="forbidden")
         scoped_repos = allowed_repos if repo_value is None else [repo_value]
@@ -3332,8 +3879,9 @@ async def list_documents_endpoint(
             params["repo_folder"] = f"eq.{scoped_repos[0]}"
         else:
             params["repo_folder"] = f"in.({','.join(scoped_repos)})"
+        params["portal_visible"] = "eq.true"
     else:
-        ensure_permission_for_role(role, "documents.internal.list")
+        ensure_permission_for_role(role, "documents.view_internal")
         if repo_value:
             params["repo_folder"] = f"eq.{repo_value}"
 
@@ -3349,13 +3897,13 @@ async def list_documents_endpoint(
 @app.post("/v1/storage/documents")
 async def upload_document_endpoint(
     file: UploadFile = File(...),
-    org_slug: str = Form(...),
+    org_slug_form: str = Form(..., alias="orgSlug"),
     auth: Dict[str, Any] = Depends(require_auth),
     entity_id: Optional[str] = Form(None, alias="entityId"),
     repo_folder: Optional[str] = Form(None, alias="repoFolder"),
     name_override: Optional[str] = Form(None, alias="name"),
 ) -> Dict[str, Any]:
-    context = await resolve_org_context(auth["sub"], org_slug)
+    context = await resolve_org_context(auth["sub"], org_slug_form)
     role = normalise_role(context.get("role"))
 
     await enforce_rate_limit(
@@ -3375,14 +3923,15 @@ async def upload_document_endpoint(
     if mime_type not in ALLOWED_DOCUMENT_MIME_TYPES:
         raise HTTPException(status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, detail="unsupported document type")
 
+    ensure_permission_for_role(role, "documents.upload")
+
     if role == "CLIENT":
-        target_repo = (repo_folder or CLIENT_ALLOWED_DOCUMENT_REPOS[0]).strip() or CLIENT_ALLOWED_DOCUMENT_REPOS[0]
+        default_repo = CLIENT_ALLOWED_DOCUMENT_REPOS[0] if CLIENT_ALLOWED_DOCUMENT_REPOS else "03_Accounting/PBC"
+        target_repo = (repo_folder or default_repo).strip() or default_repo
         if target_repo not in CLIENT_ALLOWED_DOCUMENT_REPOS:
             raise HTTPException(status_code=403, detail="forbidden")
-        ensure_permission_for_role(role, "documents.pbc.upload")
         repo_value = target_repo
     else:
-        ensure_permission_for_role(role, "documents.internal.upload")
         repo_value = (repo_folder or "99_Other").strip() or "99_Other"
     repo_value = repo_value.replace(" ", "_")
     entity_segment = (entity_id or "general").strip() or "general"
@@ -3409,6 +3958,8 @@ async def upload_document_endpoint(
 
     checksum = hashlib.sha256(payload).hexdigest()
 
+    portal_visible = repo_value in CLIENT_ALLOWED_DOCUMENT_REPOS
+
     document_payload = {
         "org_id": context["org_id"],
         "entity_id": entity_id,
@@ -3420,6 +3971,7 @@ async def upload_document_endpoint(
         "storage_path": storage_path,
         "uploaded_by": auth["sub"],
         "checksum": checksum,
+        "portal_visible": portal_visible,
     }
 
     response = await supabase_table_request(
@@ -3472,7 +4024,7 @@ async def delete_document_endpoint(
         raise HTTPException(status_code=404, detail="document not found")
 
     role = normalise_role(await ensure_org_access_by_id(auth["sub"], document["org_id"]))
-    ensure_permission_for_role(role, "documents.internal.archive")
+    ensure_permission_for_role(role, "documents.upload")
 
     response = await supabase_table_request(
         "PATCH",
@@ -3507,7 +4059,7 @@ async def restore_document_endpoint(
         raise HTTPException(status_code=404, detail="archived document not found")
 
     role = normalise_role(await ensure_org_access_by_id(auth["sub"], document["org_id"]))
-    ensure_permission_for_role(role, "documents.internal.restore")
+    ensure_permission_for_role(role, "documents.upload")
 
     response = await supabase_table_request(
         "PATCH",
@@ -3544,11 +4096,11 @@ async def sign_document_endpoint(
     role = normalise_role(await ensure_org_access_by_id(auth["sub"], document["org_id"]))
     repo_folder = document.get("repo_folder")
     if role == "CLIENT":
+        ensure_permission_for_role(role, "documents.view_client")
         if repo_folder not in CLIENT_ALLOWED_DOCUMENT_REPOS:
             raise HTTPException(status_code=403, detail="forbidden")
-        ensure_permission_for_role(role, "documents.pbc.link")
     else:
-        ensure_permission_for_role(role, "documents.internal.link")
+        ensure_permission_for_role(role, "documents.view_internal")
 
     sign_response = await supabase_request(
         "POST",
@@ -3588,7 +4140,7 @@ async def document_extraction_update(
         raise HTTPException(status_code=404, detail="document not found")
 
     role = normalise_role(await ensure_org_access_by_id(auth["sub"], document["org_id"]))
-    ensure_permission_for_role(role, "documents.internal.upload")
+    ensure_permission_for_role(role, "documents.upload")
 
     extractor_name = payload.extractorName or "baseline_pipeline"
     extractor_version = payload.extractorVersion or "v1"
@@ -3603,6 +4155,8 @@ async def document_extraction_update(
         "provenance": payload.provenance,
         "updated_at": iso_now(),
     }
+    if payload.documentType:
+        record_payload["document_type"] = payload.documentType
 
     if payload.extractionId:
         response = await supabase_table_request(
@@ -3631,6 +4185,8 @@ async def document_extraction_update(
     if payload.status.upper() == "DONE":
         doc_update["parse_status"] = "DONE"
         doc_update["ocr_status"] = document.get("ocr_status") or "DONE"
+        if payload.documentType:
+            doc_update["classification"] = payload.documentType
     elif payload.status.upper() == "FAILED":
         doc_update["parse_status"] = "FAILED"
 
@@ -3765,8 +4321,8 @@ async def onboarding_start(
     auth: Dict[str, Any] = Depends(require_auth),
 ) -> Dict[str, Any]:
     context = await resolve_org_context(auth["sub"], payload.orgSlug)
-    if not has_manager_privileges(context["role"]):
-        raise HTTPException(status_code=403, detail="manager role required")
+    role = normalise_role(context.get("role"))
+    ensure_permission_for_role(role, "onboarding.start")
 
     temp_entity_id = generate_temp_entity_id()
     checklist_payload = {
@@ -3820,6 +4376,63 @@ async def onboarding_start(
     checklist = await fetch_checklist_with_items(checklist_row["id"])
 
     return {"checklist": checklist, "draft": draft_row}
+
+
+@app.post("/v1/policy-packs/update")
+async def update_policy_pack_endpoint(
+    payload: PolicyPackUpdateRequest,
+    auth: Dict[str, Any] = Depends(require_auth),
+) -> Dict[str, Any]:
+    context = await resolve_org_context(auth["sub"], payload.orgSlug)
+    role = normalise_role(context.get("role"))
+    ensure_permission_for_role(role, "policy.pack.edit")
+    autonomy_level = normalise_autonomy_level(context.get("autonomy_level"))
+    escalate = requires_policy_escalation(autonomy_level)
+
+    updates: Dict[str, Any] = {}
+    if payload.summary is not None:
+        updates["summary"] = payload.summary
+    if payload.diff is not None:
+        updates["diff"] = payload.diff
+    if not updates:
+        raise HTTPException(status_code=400, detail="no updates supplied")
+
+    updates["updated_at"] = iso_now()
+    if escalate:
+        updates["status"] = "pending"
+
+    response = await supabase_table_request(
+        "PATCH",
+        "agent_policy_versions",
+        params={
+            "id": f"eq.{payload.policyPackId}",
+            "org_id": f"eq.{context['org_id']}",
+        },
+        json=updates,
+        headers={"Prefer": "return=representation"},
+    )
+
+    if response.status_code not in (200, 204):
+        logger.error("policy_pack.update_failed", status=response.status_code, body=response.text)
+        raise HTTPException(status_code=502, detail="failed to update policy pack")
+
+    rows = response.json() if response.status_code != 204 else []
+    updated = rows[0] if rows else {**updates, "id": payload.policyPackId}
+
+    if escalate:
+        await log_activity_event(
+            org_id=context["org_id"],
+            actor_id=auth["sub"],
+            action="POLICY_PACK_ESCALATED",
+            entity_type="AGENT_POLICY_VERSION",
+            entity_id=payload.policyPackId,
+            metadata={
+                "autonomy_level": autonomy_level,
+                "status": updated.get("status", "pending"),
+            },
+        )
+
+    return {"policyPack": updated}
 
 
 @app.post("/v1/onboarding/link-doc")
@@ -3878,7 +4491,8 @@ async def onboarding_commit(
     auth: Dict[str, Any] = Depends(require_auth),
 ) -> Dict[str, Any]:
     checklist = await fetch_checklist_with_items(payload.checklistId)
-    await ensure_org_access_by_id(auth["sub"], checklist["org_id"])
+    role = normalise_role(await ensure_org_access_by_id(auth["sub"], checklist["org_id"]))
+    ensure_permission_for_role(role, "onboarding.commit")
 
     items: List[Dict[str, Any]] = checklist.get("items", [])
     missing = [item for item in items if not item.get("document_id")]
@@ -3943,12 +4557,206 @@ async def knowledge_drive_metadata(
         limit=KNOWLEDGE_PREVIEW_RATE_LIMIT,
         window=KNOWLEDGE_PREVIEW_RATE_WINDOW,
     )
-    connector = {
-        "label": DRIVE_PLACEHOLDER_LABEL,
-        "folderId": DRIVE_PLACEHOLDER_FOLDER,
-        "scopeNotes": f"Enable Google Drive API scope {DRIVE_PLACEHOLDER_SCOPE} and provide folder mapping to activate ingestion.",
+    response = await supabase_table_request(
+        "GET",
+        "gdrive_connectors",
+        params={
+            "org_id": f"eq.{context['org_id']}",
+            "order": "created_at.asc",
+            "limit": "1",
+            "select": "id, folder_id, shared_drive_id, service_account_email",
+        },
+    )
+    if response.status_code != 200:
+        logger.error(
+            "knowledge.drive_metadata_failed",
+            status=response.status_code,
+            body=response.text,
+            org_id=context["org_id"],
+        )
+        raise HTTPException(status_code=502, detail="failed to load connector metadata")
+
+    rows = response.json()
+    connector_row = rows[0] if rows else None
+    connector_payload = None
+    if connector_row:
+        connector_payload = {
+            "id": connector_row.get("id"),
+            "folderId": connector_row.get("folder_id"),
+            "sharedDriveId": connector_row.get("shared_drive_id"),
+            "serviceAccountEmail": connector_row.get("service_account_email"),
+        }
+
+    settings = {
+        "enabled": GOOGLE_DRIVE_SETTINGS.get("enabled", False),
+        "oauthScopes": GOOGLE_DRIVE_SETTINGS.get("oauth_scopes", []),
+        "folderMappingPattern": GOOGLE_DRIVE_SETTINGS.get("folder_mapping_pattern"),
+        "mirrorToStorage": GOOGLE_DRIVE_SETTINGS.get("mirror_to_storage", True),
     }
-    return {"connector": connector}
+
+    return {"connector": connector_payload, "settings": settings}
+
+
+@app.get("/v1/knowledge/drive/status")
+async def knowledge_drive_status(
+    org_slug: str = Query(..., alias="orgSlug"),
+    auth: Dict[str, Any] = Depends(require_auth),
+) -> Dict[str, Any]:
+    context = await resolve_org_context(auth["sub"], org_slug)
+    ensure_min_role(context["role"], "MANAGER")
+    await enforce_rate_limit(
+        "knowledge:status",
+        auth["sub"],
+        limit=KNOWLEDGE_PREVIEW_RATE_LIMIT,
+        window=KNOWLEDGE_PREVIEW_RATE_WINDOW,
+    )
+
+    connector_resp = await supabase_table_request(
+        "GET",
+        "gdrive_connectors",
+        params={
+            "org_id": f"eq.{context['org_id']}",
+            "order": "created_at.asc",
+            "limit": "1",
+            "select": "id, folder_id, service_account_email, shared_drive_id, start_page_token, cursor_page_token, last_sync_at, last_backfill_at, last_error, watch_channel_id, watch_expires_at, updated_at, created_at",
+        },
+    )
+    if connector_resp.status_code != 200:
+        logger.error(
+            "knowledge.drive_status_failed",
+            status=connector_resp.status_code,
+            body=connector_resp.text,
+            org_id=context["org_id"],
+        )
+        raise HTTPException(status_code=502, detail="failed to load connector status")
+
+    connector_rows = connector_resp.json()
+    connector_row = connector_rows[0] if connector_rows else None
+    connector_payload = None
+    if connector_row:
+        connector_payload = {
+            "id": connector_row.get("id"),
+            "folderId": connector_row.get("folder_id"),
+            "serviceAccountEmail": connector_row.get("service_account_email"),
+            "sharedDriveId": connector_row.get("shared_drive_id"),
+            "startPageToken": connector_row.get("start_page_token"),
+            "cursorPageToken": connector_row.get("cursor_page_token"),
+            "lastSyncAt": connector_row.get("last_sync_at"),
+            "lastBackfillAt": connector_row.get("last_backfill_at"),
+            "lastError": connector_row.get("last_error"),
+            "watchChannelId": connector_row.get("watch_channel_id"),
+            "watchExpiresAt": connector_row.get("watch_expires_at"),
+            "updatedAt": connector_row.get("updated_at"),
+            "createdAt": connector_row.get("created_at"),
+        }
+
+    pending_resp = await supabase_table_request(
+        "GET",
+        "gdrive_change_queue",
+        params={
+            "org_id": f"eq.{context['org_id']}",
+            "processed_at": "is.null",
+            "select": "id",
+        },
+        headers={"Prefer": "count=exact"},
+    )
+    if pending_resp.status_code != 200:
+        logger.error("knowledge.drive_queue_pending_failed", status=pending_resp.status_code, body=pending_resp.text)
+        raise HTTPException(status_code=502, detail="failed to load drive queue")
+    pending_count = extract_total_count(pending_resp)
+
+    failure_window = (datetime.utcnow() - timedelta(hours=24)).isoformat()
+    failed_resp = await supabase_table_request(
+        "GET",
+        "gdrive_change_queue",
+        params={
+            "org_id": f"eq.{context['org_id']}",
+            "error": "not.is.null",
+            "processed_at": f"gte.{failure_window}",
+            "select": "id",
+        },
+        headers={"Prefer": "count=exact"},
+    )
+    if failed_resp.status_code != 200:
+        logger.error("knowledge.drive_queue_failed_count", status=failed_resp.status_code, body=failed_resp.text)
+        raise HTTPException(status_code=502, detail="failed to load drive failures")
+    failed_count = extract_total_count(failed_resp)
+
+    metadata_resp = await supabase_table_request(
+        "GET",
+        "gdrive_file_metadata",
+        params={
+            "org_id": f"eq.{context['org_id']}",
+            "select": "file_id",
+        },
+        headers={"Prefer": "count=exact"},
+    )
+    if metadata_resp.status_code != 200:
+        logger.error("knowledge.drive_metadata_counts_failed", status=metadata_resp.status_code, body=metadata_resp.text)
+        raise HTTPException(status_code=502, detail="failed to load drive metadata counts")
+    metadata_total = extract_total_count(metadata_resp)
+
+    blocked_resp = await supabase_table_request(
+        "GET",
+        "gdrive_file_metadata",
+        params={
+            "org_id": f"eq.{context['org_id']}",
+            "allowlisted_domain": "eq.false",
+            "select": "file_id",
+        },
+        headers={"Prefer": "count=exact"},
+    )
+    if blocked_resp.status_code != 200:
+        logger.error("knowledge.drive_blocked_metadata_failed", status=blocked_resp.status_code, body=blocked_resp.text)
+        raise HTTPException(status_code=502, detail="failed to load drive metadata blocks")
+    blocked_total = extract_total_count(blocked_resp)
+
+    recent_errors_resp = await supabase_table_request(
+        "GET",
+        "gdrive_change_queue",
+        params={
+            "org_id": f"eq.{context['org_id']}",
+            "not": "error.is.null",
+            "order": "processed_at.desc",
+            "limit": "5",
+            "select": "file_id,error,processed_at",
+        },
+    )
+    recent_errors: List[Dict[str, Any]] = []
+    if recent_errors_resp.status_code == 200:
+        recent_errors = [
+            {
+                "fileId": row.get("file_id"),
+                "error": row.get("error"),
+                "processedAt": row.get("processed_at"),
+            }
+            for row in recent_errors_resp.json()
+        ]
+    else:
+        logger.warning(
+            "knowledge.drive_recent_errors_failed",
+            status=recent_errors_resp.status_code,
+            body=recent_errors_resp.text,
+        )
+
+    return {
+        "config": {
+            "enabled": GOOGLE_DRIVE_SETTINGS.get("enabled", False),
+            "oauthScopes": GOOGLE_DRIVE_SETTINGS.get("oauth_scopes", []),
+            "folderMappingPattern": GOOGLE_DRIVE_SETTINGS.get("folder_mapping_pattern"),
+            "mirrorToStorage": GOOGLE_DRIVE_SETTINGS.get("mirror_to_storage", True),
+        },
+        "connector": connector_payload,
+        "queue": {
+            "pending": pending_count,
+            "failed24h": failed_count,
+            "recentErrors": recent_errors,
+        },
+        "metadata": {
+            "total": metadata_total,
+            "blocked": blocked_total,
+        },
+    }
 
 
 @app.get("/v1/knowledge/web-sources")
@@ -3972,7 +4780,19 @@ async def knowledge_web_sources(
     if response.status_code != 200:
         logger.error("knowledge.web_sources_failed", status=response.status_code, body=response.text)
         raise HTTPException(status_code=502, detail="failed to load web sources")
-    return {"sources": response.json()}
+    sources = response.json()
+    policy = URL_SOURCE_SETTINGS.get("fetch_policy", {}) if isinstance(URL_SOURCE_SETTINGS, Mapping) else {}
+    return {
+        "sources": sources,
+        "settings": {
+            "allowedDomains": URL_SOURCE_SETTINGS.get("allowed_domains", []),
+            "fetchPolicy": {
+                "obeyRobots": policy.get("obey_robots", True),
+                "maxDepth": policy.get("max_depth", 1),
+                "cacheTtlMinutes": policy.get("cache_ttl_minutes", 1440),
+            },
+        },
+    }
 
 
 @app.post("/v1/knowledge/corpora")
@@ -4089,8 +4909,110 @@ async def knowledge_preview_source(
         limit=KNOWLEDGE_PREVIEW_RATE_LIMIT,
         window=KNOWLEDGE_PREVIEW_RATE_WINDOW,
     )
-    documents = build_drive_preview_documents()
-    return {"documents": documents, "placeholder": True}
+    source = await fetch_single_record(
+        "knowledge_sources",
+        source_id,
+        select="id, corpus_id, provider, source_uri",
+    )
+    if not source:
+        raise HTTPException(status_code=404, detail="knowledge source not found")
+
+    corpus = await fetch_single_record("knowledge_corpora", source.get("corpus_id"), select="id, org_id")
+    if not corpus or corpus.get("org_id") != context["org_id"]:
+        raise HTTPException(status_code=403, detail="forbidden")
+
+    provider = (source.get("provider") or "").lower()
+    if provider == "web_catalog":
+        source_uri = source.get("source_uri")
+        if not source_uri:
+            raise HTTPException(status_code=400, detail="web source id missing")
+        web_record = await fetch_single_record(
+            "web_knowledge_sources",
+            source_uri,
+            select="id, title, url, tags",
+        )
+        if not web_record:
+            raise HTTPException(status_code=404, detail="web source not found")
+        return {
+            "placeholder": False,
+            "documents": [
+                {
+                    "id": web_record.get("id"),
+                    "name": web_record.get("title"),
+                    "mimeType": "text/html",
+                    "modifiedTime": datetime.utcnow().isoformat() + "Z",
+                    "downloadUrl": web_record.get("url"),
+                }
+            ],
+            "webSource": web_record,
+        }
+
+    drive_docs_resp = await supabase_table_request(
+        "GET",
+        "gdrive_documents",
+        params={
+            "org_id": f"eq.{context['org_id']}",
+            "select": "file_id, document_id, mime_type, last_synced_at, updated_at",
+            "order": "updated_at.desc",
+            "limit": "20",
+        },
+    )
+    if drive_docs_resp.status_code != 200:
+        logger.error(
+            "knowledge.drive_preview_fetch_failed",
+            status=drive_docs_resp.status_code,
+            body=drive_docs_resp.text,
+        )
+        raise HTTPException(status_code=502, detail="failed to load drive documents")
+
+    drive_rows = drive_docs_resp.json()
+    document_ids = [row.get("document_id") for row in drive_rows if row.get("document_id")]
+    documents_map: Dict[str, Dict[str, Any]] = {}
+    if document_ids:
+        unique_ids = sorted({doc_id for doc_id in document_ids if isinstance(doc_id, str)})
+        if unique_ids:
+            id_filter = ",".join(unique_ids)
+            docs_resp = await supabase_table_request(
+                "GET",
+                "documents",
+                params={
+                    "id": f"in.({id_filter})",
+                    "select": "id,name,file_type,updated_at",
+                },
+            )
+            if docs_resp.status_code == 200:
+                for row in docs_resp.json():
+                    documents_map[row.get("id")] = row
+            else:
+                logger.warning(
+                    "knowledge.drive_preview_documents_lookup_failed",
+                    status=docs_resp.status_code,
+                    body=docs_resp.text,
+                )
+
+    previews: List[Dict[str, Any]] = []
+    for row in drive_rows:
+        file_id = row.get("file_id")
+        if not file_id:
+            continue
+        document_id = row.get("document_id")
+        document_info = documents_map.get(document_id)
+        name = document_info.get("name") if document_info else None
+        mime_type = row.get("mime_type") or (document_info.get("file_type") if document_info else None)
+        modified = row.get("last_synced_at") or row.get("updated_at")
+        if document_info and not modified:
+            modified = document_info.get("updated_at")
+        previews.append(
+            {
+                "id": file_id,
+                "name": name or file_id,
+                "mimeType": mime_type or "application/octet-stream",
+                "modifiedTime": modified,
+                "downloadUrl": document_id and f"/v1/documents/{document_id}/download" or "",
+            }
+        )
+
+    return {"documents": previews, "placeholder": False}
 
 
 @app.post("/v1/knowledge/runs")
@@ -4213,7 +5135,7 @@ async def assistant_message(
     if payload.tool:
         result = await invoke_tool(context, user_id, payload.tool, payload.args or {})
         response_message = result.get("message", "Done.")
-        actions = DEFAULT_ASSISTANT_ACTIONS
+        actions = await build_assistant_actions(context["org_id"], context.get("autonomy_level"))
         return {
             "messages": [{"role": "assistant", "content": response_message}],
             "actions": actions,
@@ -4235,7 +5157,8 @@ async def assistant_message(
 
     return {
         "messages": [{"role": "assistant", "content": result.get("message", "") }],
-        "actions": result.get("actions", DEFAULT_ASSISTANT_ACTIONS),
+        "actions": result.get("actions")
+        or await build_assistant_actions(context["org_id"], context.get("autonomy_level")),
         "data": result.get("data", {}),
         "citations": result.get("citations", []),
     }
@@ -4279,12 +5202,22 @@ async def create_job_schedule(
         window=AUTOPILOT_SCHEDULE_RATE_WINDOW,
     )
 
-    if payload.kind not in AUTOPILOT_JOB_KINDS:
+    job_kind = payload.kind.lower()
+    if job_kind not in AUTOPILOT_JOB_KINDS:
         raise HTTPException(status_code=400, detail="unknown job kind")
+
+    if not is_autopilot_job_allowed(context.get("autonomy_level"), job_kind):
+        logger.info(
+            "autonomy.job_schedule_blocked",
+            org_id=context["org_id"],
+            kind=job_kind,
+            autonomy_level=context.get("autonomy_level"),
+        )
+        raise HTTPException(status_code=403, detail="Autonomy level does not permit scheduling this job")
 
     schedule_payload = {
         "org_id": context["org_id"],
-        "kind": payload.kind,
+        "kind": job_kind,
         "cron_expression": payload.cronExpression,
         "active": payload.active,
         "metadata": payload.metadata,
@@ -4348,12 +5281,22 @@ async def enqueue_job(
         window=AUTOPILOT_JOB_RATE_WINDOW,
     )
 
-    if payload.kind not in AUTOPILOT_JOB_KINDS:
+    job_kind = payload.kind.lower()
+    if job_kind not in AUTOPILOT_JOB_KINDS:
         raise HTTPException(status_code=400, detail="unknown job kind")
+
+    if not is_autopilot_job_allowed(context.get("autonomy_level"), job_kind):
+        logger.info(
+            "autonomy.job_run_blocked",
+            org_id=context["org_id"],
+            kind=job_kind,
+            autonomy_level=context.get("autonomy_level"),
+        )
+        raise HTTPException(status_code=403, detail="Autonomy level does not permit running this job")
 
     job_payload = {
         "org_id": context["org_id"],
-        "kind": payload.kind,
+        "kind": job_kind,
         "payload": payload.payload,
         "status": "PENDING",
         "scheduled_at": iso_now(),

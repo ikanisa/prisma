@@ -4,13 +4,13 @@ This note describes how the IAM-2 permission matrix integrates with the FastAPI 
 
 ## Backend Enforcement
 
-1. **Permission Map Loader** — `server/main.py` loads `POLICY/permissions.json` at startup. Each permission key (e.g. `accounting.close.lock`) maps to the minimum role required.
+1. **Permission Map Loader** — `server/main.py` loads `POLICY/permissions.json` at startup. Each permission key (e.g. `close.lock`) maps to the minimum role required.
 2. **Helper API** — `ensure_permission_for_role` uses the existing role hierarchy to compare the caller’s role against the map. `SYSTEM_ADMIN` is always allowed.
 3. **Endpoint Guards**:
-   - Documents: `/v1/storage/documents` enforces `documents.internal.list` and automatically constrains CLIENT users to the PBC whitelisted repositories.
-   - Upload/delete/restore document routes honour `documents.internal.*` permissions while allowing CLIENT uploads to PBC folders only.
+   - Documents: `/v1/storage/documents` enforces `documents.view_internal` and automatically constrains CLIENT users to the configuration-derived PBC repositories while forcing a `portal_visible=true` filter for client traffic.
+   - Upload/delete/restore document routes honour `documents.upload`; CLIENT roles fail closed per the new permission map and deny-list.
     - IAM administration routes (`/api/iam/*`) now depend on `admin.members.*` and `admin.invites.revoke` permissions.
-    - Signed URL and extraction hooks apply `documents.internal.link` so CLIENT users cannot generate internal links unless scoped to PBC entries.
+    - Signed URL and extraction hooks apply `documents.view_client` / `documents.view_internal` so CLIENT users cannot generate internal links unless scoped to allowed PBC entries.
     - Step-up helper `require_recent_whatsapp_mfa` blocks close period locks and similar privileged actions when no verified code exists within the previous 24 hours.
     - Admin console endpoints (`/api/admin/*`) enforce `admin.org.settings*`, `admin.auditlog.view`, and `admin.impersonation.*` thresholds before touching Supabase tables.
 4. **Shared membership lookup** — `resolve_org_context` (slug-based) and `ensure_org_access_by_id` (ID-based) both surface the caller role which feeds the helper above.
@@ -19,7 +19,7 @@ This note describes how the IAM-2 permission matrix integrates with the FastAPI 
 ## Frontend Enforcement
 
 - `useOrganizations` exposes `currentRole` and a generalized `hasRole` check using the same hierarchy, so components can hide or disable UI affordances.
-- Documents page disables archive/restore for sub-manager roles and routes CLIENT uploads to the whitelisted PBC repository; tooltips communicate “Requires Manager or above” when actions are disabled.
+- Documents page disables archive/restore for sub-manager roles and now reads the client portal scope from `config/system.yaml` so CLIENT uploads are either routed to the configured PBC repositories or blocked entirely when `documents.upload` appears in the deny list. Uploads into approved repositories set `portal_visible=true` so RLS grants matching read access. Tooltips communicate “Requires Manager or above” or policy-driven restrictions when actions are disabled.
 - Admin pages already rely on `ProtectedRoute requiredRole="MANAGER"`; buttons with elevated requirements now reference `hasRole` to gate inline controls.
 
 ## Usage Guidance

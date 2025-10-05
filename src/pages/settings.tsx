@@ -14,6 +14,7 @@ import { useTheme } from 'next-themes';
 import { useAppStore } from '@/stores/mock-data';
 import { toast } from '@/hooks/use-toast';
 import { WhatsappMfaCard } from '@/components/settings/whatsapp-mfa-card';
+import { useEmailIngestSettings } from '@/lib/system-config';
 
 export function Settings() {
   const { theme, setTheme } = useTheme();
@@ -22,6 +23,7 @@ export function Settings() {
   const [pushNotifications, setPushNotifications] = useState(true);
   const [taskReminders, setTaskReminders] = useState(true);
   const [weeklyDigest, setWeeklyDigest] = useState(false);
+  const emailIngest = useEmailIngestSettings();
 
   const handleSaveProfile = () => {
     toast({ title: "Profile updated successfully" });
@@ -297,6 +299,26 @@ export function Settings() {
               </div>
               
               <Button variant="gradient">Save Organization Settings</Button>
+            </CardContent>
+          </Card>
+
+          <Card className="glass">
+            <CardHeader>
+              <CardTitle>Email ingest</CardTitle>
+              <CardDescription>
+                Control whether inbound email ingestion is enabled for this tenant. Defaults to disabled per policy.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex items-center justify-between">
+              <div className="space-y-1 text-sm text-muted-foreground">
+                <p className="font-medium text-foreground">Inbound email processing</p>
+                <p>
+                  {emailIngest.enabled
+                    ? 'Enabled — forwarded emails will be parsed into document intake.'
+                    : 'Disabled — emails are ignored until explicitly enabled in configuration.'}
+                </p>
+              </div>
+              <Switch checked={emailIngest.enabled} disabled aria-readonly className="pointer-events-none" />
             </CardContent>
           </Card>
         </TabsContent>

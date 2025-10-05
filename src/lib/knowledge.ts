@@ -4,9 +4,13 @@ export type AgentKind = 'AUDIT' | 'FINANCE' | 'TAX';
 export type LearningMode = 'INITIAL' | 'CONTINUOUS';
 
 export interface DriveConnectorMetadata {
-  folderId: string;
-  sharedDriveId?: string;
-  serviceAccountEmail: string;
+  folderId: string | null;
+  sharedDriveId?: string | null;
+  serviceAccountEmail: string | null;
+  enabled: boolean;
+  oauthScopes: string[];
+  folderMappingPattern: string;
+  mirrorToStorage: boolean;
 }
 
 export interface DriveRecentError {
@@ -16,7 +20,12 @@ export interface DriveRecentError {
 }
 
 export interface DriveConnectorStatus {
-  config: DriveConnectorMetadata;
+  config: {
+    enabled: boolean;
+    oauthScopes: string[];
+    folderMappingPattern: string;
+    mirrorToStorage: boolean;
+  };
   connector: {
     id: string;
     folderId: string | null;
@@ -62,7 +71,17 @@ export async function fetchDriveConnectorMetadata(orgSlug: string): Promise<Driv
   if (!response.ok) {
     throw new Error(payload.error ?? 'Unable to load connector metadata');
   }
-  return payload.connector as DriveConnectorMetadata;
+  const connector = payload.connector ?? {};
+  const settings = payload.settings ?? {};
+  return {
+    folderId: connector.folderId ?? null,
+    sharedDriveId: connector.sharedDriveId ?? null,
+    serviceAccountEmail: connector.serviceAccountEmail ?? null,
+    enabled: Boolean(settings.enabled),
+    oauthScopes: Array.isArray(settings.oauthScopes) ? settings.oauthScopes : [],
+    folderMappingPattern: typeof settings.folderMappingPattern === 'string' ? settings.folderMappingPattern : '',
+    mirrorToStorage: settings.mirrorToStorage !== undefined ? Boolean(settings.mirrorToStorage) : true,
+  };
 }
 
 export async function fetchDriveConnectorStatus(orgSlug: string): Promise<DriveConnectorStatus> {
@@ -73,7 +92,27 @@ export async function fetchDriveConnectorStatus(orgSlug: string): Promise<DriveC
   if (!response.ok) {
     throw new Error(payload.error ?? 'Unable to load connector status');
   }
-  return payload as DriveConnectorStatus;
+  const config = payload.config ?? {};
+  const queue = payload.queue ?? {};
+  const metadata = payload.metadata ?? {};
+  return {
+    config: {
+      enabled: Boolean(config.enabled),
+      oauthScopes: Array.isArray(config.oauthScopes) ? config.oauthScopes : [],
+      folderMappingPattern: typeof config.folderMappingPattern === 'string' ? config.folderMappingPattern : '',
+      mirrorToStorage: config.mirrorToStorage !== undefined ? Boolean(config.mirrorToStorage) : true,
+    },
+    connector: payload.connector ?? null,
+    queue: {
+      pending: queue.pending ?? 0,
+      failed24h: queue.failed24h ?? 0,
+      recentErrors: Array.isArray(queue.recentErrors) ? queue.recentErrors : [],
+    },
+    metadata: {
+      total: metadata.total ?? 0,
+      blocked: metadata.blocked ?? 0,
+    },
+  } as DriveConnectorStatus;
 }
 
 export interface LearningJob {
@@ -214,7 +253,21 @@ export interface WebSourceRow {
   tags: string[];
 }
 
-export async function fetchWebSources(orgSlug: string): Promise<WebSourceRow[]> {
+export interface WebSourceSettings {
+  allowedDomains: string[];
+  fetchPolicy: {
+    obeyRobots: boolean;
+    maxDepth: number;
+    cacheTtlMinutes: number;
+  };
+}
+
+export interface WebSourcesResponse {
+  sources: WebSourceRow[];
+  settings: WebSourceSettings;
+}
+
+export async function fetchWebSources(orgSlug: string): Promise<WebSourcesResponse> {
   const response = await authorizedFetch(
     `/v1/knowledge/web-sources?orgSlug=${encodeURIComponent(orgSlug)}`,
   );
@@ -222,7 +275,7 @@ export async function fetchWebSources(orgSlug: string): Promise<WebSourceRow[]> 
   if (!response.ok) {
     throw new Error(payload.error ?? 'Unable to fetch web sources');
   }
-  return payload.sources as WebSourceRow[];
+  return payload as WebSourcesResponse;
 }
 
 export async function scheduleWebHarvest(params: { orgSlug: string; webSourceId: string; agentKind: AgentKind }) {

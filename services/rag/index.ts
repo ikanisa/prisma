@@ -30,6 +30,7 @@ import type { DriveSource } from './knowledge/drive';
 import { listWebSources, getWebSource, type WebSourceRow } from './knowledge/web';
 import { getSupabaseJwtSecret, getSupabaseServiceRoleKey } from '../../lib/secrets';
 import { buildReadinessSummary } from './readiness';
+import { getUrlSourceSettings, type UrlSourceSettings } from './system-config';
 
 type AgentPersona = 'AUDIT' | 'FINANCE' | 'TAX';
 type LearningMode = 'INITIAL' | 'CONTINUOUS';
@@ -49,6 +50,186 @@ const WEB_DOMAIN_MAP: Record<string, { corpusDomain: string; agentKind: AgentPer
 
 const WEB_HARVEST_INTERVAL_MS = Number(process.env.WEB_HARVEST_INTERVAL_MS ?? 60 * 60 * 1000);
 let webBootstrapRunning = false;
+
+type RobotsRules = { allow: string[]; disallow: string[] };
+const robotsCache = new Map<string, { rules: RobotsRules; fetchedAt: number }>();
+
+type WebCacheRow = {
+  id: string;
+  url: string;
+  content: string | null;
+  fetched_at: string | null;
+  status: string | null;
+  metadata: Record<string, any> | null;
+};
+
+function normaliseDomain(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+function isDomainAllowed(hostname: string, allowedDomains: string[]): boolean {
+  const host = normaliseDomain(hostname);
+  for (const entry of allowedDomains) {
+    const pattern = normaliseDomain(entry);
+    if (!pattern) continue;
+    if (pattern === '*') return true;
+    if (pattern === host) return true;
+    if (pattern.startsWith('*.') && host.endsWith(pattern.slice(1))) return true;
+  }
+  return false;
+}
+
+function pathMatchesRule(pathname: string, rule: string): boolean {
+  const trimmed = rule.trim();
+  if (!trimmed) return false;
+  if (trimmed === '/') return true;
+  if (trimmed.endsWith('$')) {
+    const exact = trimmed.slice(0, -1);
+    return pathname === exact;
+  }
+  if (trimmed.includes('*')) {
+    const [prefix] = trimmed.split('*');
+    return pathname.startsWith(prefix);
+  }
+  return pathname.startsWith(trimmed);
+}
+
+function isPathAllowedByRobots(pathname: string, rules: RobotsRules): boolean {
+  let longestAllow = '';
+  for (const allow of rules.allow) {
+    if (pathMatchesRule(pathname, allow) && allow.length > longestAllow.length) {
+      longestAllow = allow;
+    }
+  }
+  let longestDisallow = '';
+  for (const disallow of rules.disallow) {
+    if (pathMatchesRule(pathname, disallow) && disallow.length > longestDisallow.length) {
+      longestDisallow = disallow;
+    }
+  }
+  if (!longestDisallow) return true;
+  if (!longestAllow) return false;
+  return longestAllow.length >= longestDisallow.length;
+}
+
+function parseRobots(content: string): RobotsRules {
+  const lines = content.split(/\r?\n/);
+  const allow: string[] = [];
+  const disallow: string[] = [];
+  let applies = false;
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (!line || line.startsWith('#')) continue;
+    const [directive, value = ''] = line.split(/:/, 2).map((part) => part.trim());
+    if (!directive) continue;
+    const lower = directive.toLowerCase();
+    if (lower === 'user-agent') {
+      applies = value === '*' || value.toLowerCase() === 'prismaglow-ai-agent';
+    } else if (applies && lower === 'allow') {
+      allow.push(value);
+    } else if (applies && lower === 'disallow') {
+      disallow.push(value);
+    }
+  }
+  return { allow, disallow };
+}
+
+async function fetchRobotsForOrigin(origin: string, cacheTtlMs: number): Promise<RobotsRules | null> {
+  const cached = robotsCache.get(origin);
+  if (cached && Date.now() - cached.fetchedAt <= cacheTtlMs) {
+    return cached.rules;
+  }
+  try {
+    const response = await fetch(`${origin}/robots.txt`, {
+      headers: { 'User-Agent': 'PrismaGlow-AI-Agent/1.0 (+https://example.com)' },
+    });
+    if (!response.ok) {
+      robotsCache.set(origin, { rules: { allow: [], disallow: [] }, fetchedAt: Date.now() });
+      return null;
+    }
+    const body = await response.text();
+    const rules = parseRobots(body);
+    robotsCache.set(origin, { rules, fetchedAt: Date.now() });
+    return rules;
+  } catch (error) {
+    console.warn(
+      JSON.stringify({
+        level: 'warn',
+        msg: 'web.robots_fetch_failed',
+        origin,
+        error: error instanceof Error ? error.message : String(error),
+      }),
+    );
+    robotsCache.set(origin, { rules: { allow: [], disallow: [] }, fetchedAt: Date.now() });
+    return null;
+  }
+}
+
+async function ensureUrlAllowed(rawUrl: string, settings: UrlSourceSettings): Promise<void> {
+  const parsed = new URL(rawUrl);
+  if (!isDomainAllowed(parsed.hostname, settings.allowedDomains)) {
+    throw new Error('domain_not_allowlisted');
+  }
+  if (settings.fetchPolicy.obeyRobots) {
+    const ttlMs = Math.max(0, settings.fetchPolicy.cacheTtlMinutes) * 60_000;
+    const rules = await fetchRobotsForOrigin(parsed.origin, ttlMs);
+    if (rules && rules.disallow.length && !isPathAllowedByRobots(parsed.pathname, rules)) {
+      throw new Error('robots_disallow');
+    }
+  }
+}
+
+async function getCachedWebContent(url: string): Promise<WebCacheRow | null> {
+  const { data, error, status } = await supabaseService
+    .from('web_fetch_cache')
+    .select('id, url, content, fetched_at, status, metadata')
+    .eq('url', url)
+    .maybeSingle();
+  if (error && status !== 406) {
+    throw error;
+  }
+  return (data as WebCacheRow | null) ?? null;
+}
+
+async function upsertWebCache(url: string, content: string, metadata: Record<string, any>, status = 'fetched') {
+  const payload = {
+    url,
+    content,
+    content_hash: createHash('sha256').update(content).digest('hex'),
+    status,
+    fetched_at: new Date().toISOString(),
+    metadata,
+  };
+  const { error } = await supabaseService.from('web_fetch_cache').upsert(payload, { onConflict: 'url' });
+  if (error) {
+    throw error;
+  }
+}
+
+async function touchWebCache(cache: WebCacheRow, metadataUpdates: Record<string, any>) {
+  const merged = { ...(cache.metadata ?? {}), ...metadataUpdates };
+  const { error } = await supabaseService
+    .from('web_fetch_cache')
+    .update({ metadata: merged })
+    .eq('id', cache.id);
+  if (error) {
+    console.warn(JSON.stringify({ level: 'warn', msg: 'web.cache_touch_failed', url: cache.url, error: error.message }));
+  }
+}
+
+async function fetchWebDocument(url: string, settings: UrlSourceSettings): Promise<string> {
+  await ensureUrlAllowed(url, settings);
+  const response = await fetch(url, {
+    headers: {
+      'User-Agent': 'PrismaGlow-AI-Agent/1.0 (+https://example.com)',
+      Accept: 'text/html,application/xhtml+xml',
+    },
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to fetch URL (status ${response.status})`);
+  }
+  return response.text();
+}
 
 function resolveWebDomainMetadata(domain: string | null | undefined) {
   const key = domain ? domain.toUpperCase() : 'ORG';
@@ -1081,20 +1262,30 @@ async function processWebHarvest(options: {
       .update({ status: 'processing' })
       .eq('id', options.runId);
 
-    const response = await fetch(webSource.url, {
-      headers: {
-        'User-Agent': 'PrismaGlow-AI-Agent/1.0 (+https://example.com)',
-      },
-    });
+    const urlSettings = await getUrlSourceSettings();
+    const cacheTtlMs = Math.max(0, urlSettings.fetchPolicy.cacheTtlMinutes) * 60_000;
+    const cached = await getCachedWebContent(webSource.url);
 
-    if (!response.ok) {
-      throw new Error(`Failed to fetch URL (status ${response.status})`);
+    let cleaned: string | null = null;
+    let usedCache = false;
+    let fetchedFresh = false;
+
+    if (cached?.content) {
+      const fetchedAt = cached.fetched_at ? Date.parse(cached.fetched_at) : Number.NaN;
+      if (!Number.isNaN(fetchedAt) && Date.now() - fetchedAt <= cacheTtlMs) {
+        cleaned = cached.content;
+        usedCache = true;
+        await touchWebCache(cached, { lastUsedAt: new Date().toISOString() });
+      }
     }
 
-    const html = await response.text();
-    const cleaned = normalizeText(stripHtml(html));
     if (!cleaned) {
-      throw new Error('Fetched page produced no readable content');
+      const html = await fetchWebDocument(webSource.url, urlSettings);
+      cleaned = normalizeText(stripHtml(html));
+      if (!cleaned) {
+        throw new Error('Fetched page produced no readable content');
+      }
+      fetchedFresh = true;
     }
 
     const summary = await summariseWebDocument(webSource.url, cleaned);
@@ -1127,7 +1318,19 @@ async function processWebHarvest(options: {
       lastRunId: options.runId,
       lastRunAt: new Date().toISOString(),
       lastSummaryLength: summary.length,
+      lastRunUsedCache: usedCache,
     };
+
+    if (fetchedFresh) {
+      await upsertWebCache(webSource.url, cleaned, {
+        fetchedAt: new Date().toISOString(),
+        fetchedBy: options.initiatedBy,
+        contentLength: cleaned.length,
+        summaryLength: summary.length,
+      });
+    } else if (cached) {
+      await touchWebCache(cached, { summaryLength: summary.length });
+    }
 
     await supabaseService.from('knowledge_events').insert([
       {
@@ -1139,6 +1342,7 @@ async function processWebHarvest(options: {
           title: webSource.title,
           summary,
           initiatedBy: options.initiatedBy,
+          cacheUsed: usedCache,
         },
       },
       {
@@ -1164,6 +1368,7 @@ async function processWebHarvest(options: {
           chunkCount: chunks.length,
           documentId: docId,
           url: webSource.url,
+          cacheUsed: usedCache,
         },
       })
       .eq('id', options.runId);

@@ -1,5 +1,6 @@
 import { drive, type drive_v3 } from '@googleapis/drive';
 import { JWT } from 'google-auth-library';
+import { getGoogleDriveSettings } from '../system-config';
 
 export interface ServiceAccountCredentials {
   clientEmail: string;
@@ -25,22 +26,30 @@ export interface DriveFileSummary {
 }
 
 export class GoogleDriveClient {
-  private constructor(private readonly api: drive_v3.Drive, private readonly config: GoogleDriveConfig) {}
+  private constructor(
+    private readonly api: drive_v3.Drive,
+    private readonly config: GoogleDriveConfig,
+    private readonly scopes: string[],
+  ) {}
 
-  static fromConfig(config: GoogleDriveConfig): GoogleDriveClient {
-    const scopes = ['https://www.googleapis.com/auth/drive.readonly'];
+  static fromConfig(config: GoogleDriveConfig, scopes: string[]): GoogleDriveClient {
+    const requestedScopes = scopes.length ? Array.from(new Set(scopes)) : ['https://www.googleapis.com/auth/drive.readonly'];
     const auth = new JWT({
       email: config.serviceAccount.clientEmail,
       key: config.serviceAccount.privateKey,
-      scopes,
+      scopes: requestedScopes,
     });
 
     const api = drive({ version: 'v3', auth });
-    return new GoogleDriveClient(api, config);
+    return new GoogleDriveClient(api, config, requestedScopes);
   }
 
   getConfiguration(): GoogleDriveConfig {
     return this.config;
+  }
+
+  getAuthorisedScopes(): string[] {
+    return this.scopes;
   }
 
   async getStartPageToken(): Promise<string> {
@@ -209,6 +218,7 @@ export function buildConfigFromEnv(): GoogleDriveConfig {
   };
 }
 
-export function buildClientFromEnv(): GoogleDriveClient {
-  return GoogleDriveClient.fromConfig(buildConfigFromEnv());
+export async function buildClientFromEnv(): Promise<GoogleDriveClient> {
+  const [config, settings] = await Promise.all([Promise.resolve(buildConfigFromEnv()), getGoogleDriveSettings()]);
+  return GoogleDriveClient.fromConfig(config, settings.oauthScopes);
 }

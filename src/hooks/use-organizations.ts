@@ -4,6 +4,7 @@ import { useAuth } from './use-auth';
 import { createTenantClient, TenantClient } from '@/lib/tenant-client';
 import { useAppStore, mockMemberships } from '@/stores/mock-data';
 import { recordClientEvent, recordClientError } from '@/lib/client-events';
+import { getDefaultAutonomyLevel } from '@/lib/system-config';
 
 export interface Organization {
   id: string;
@@ -12,6 +13,7 @@ export interface Organization {
   brand_primary: string;
   brand_secondary: string;
   created_at: string;
+  autonomy_level?: string;
 }
 
 export type OrgRole =
@@ -86,6 +88,8 @@ export function useOrganizations() {
       const orgMap = new Map(appStore.organizations.map((org) => [org.id, org]));
       const targetUserId = '1';
 
+      const defaultAutonomy = getDefaultAutonomyLevel();
+
       let normalized = mockMemberships
         .filter((membership) => membership.userId === targetUserId)
         .map((membership) => {
@@ -109,6 +113,7 @@ export function useOrganizations() {
               brand_primary: org.brandPrimary,
               brand_secondary: org.brandSecondary,
               created_at: org.createdAt,
+              autonomy_level: defaultAutonomy,
             },
           } satisfies Membership;
         });
@@ -135,6 +140,7 @@ export function useOrganizations() {
               brand_primary: org.brandPrimary,
               brand_secondary: org.brandSecondary,
               created_at: org.createdAt,
+              autonomy_level: defaultAutonomy,
             },
           } satisfies Membership;
         });

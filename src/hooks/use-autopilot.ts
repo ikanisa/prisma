@@ -10,6 +10,7 @@ import {
   type AutopilotJob,
   type AutopilotSchedule,
 } from '@/lib/autopilot';
+import { getAllowedAutopilotJobs, getDefaultAutonomyLevel } from '@/lib/system-config';
 
 export function useAutopilotSchedules() {
   const { currentOrg } = useOrganizations();
@@ -35,13 +36,19 @@ export function useCreateAutopilotSchedule() {
   const { currentOrg } = useOrganizations();
   const client = useQueryClient();
   const { toast } = useToast();
+  const defaultAutonomyLevel = getDefaultAutonomyLevel();
+  const orgAutonomyLevel = (currentOrg?.autonomy_level as string | undefined) ?? defaultAutonomyLevel;
+  const allowedJobs = useMemo(() => getAllowedAutopilotJobs(orgAutonomyLevel), [orgAutonomyLevel]);
 
   return useMutation({
     mutationFn: (params: { kind: string; cronExpression: string; active: boolean; metadata: Record<string, unknown> }) => {
       if (!currentOrg?.slug) {
         throw new Error('Organization not selected');
       }
-      return createSchedule({ orgSlug: currentOrg.slug, ...params });
+      if (!allowedJobs.includes(params.kind)) {
+        throw new Error('Current autonomy level does not permit scheduling this job.');
+      }
+      return createSchedule({ orgSlug: currentOrg.slug, ...params, kind: params.kind.toLowerCase() });
     },
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: ['autopilot_schedules', currentOrg?.slug] });
@@ -61,13 +68,19 @@ export function useEnqueueAutopilotJob() {
   const { currentOrg } = useOrganizations();
   const client = useQueryClient();
   const { toast } = useToast();
+  const defaultAutonomyLevel = getDefaultAutonomyLevel();
+  const orgAutonomyLevel = (currentOrg?.autonomy_level as string | undefined) ?? defaultAutonomyLevel;
+  const allowedJobs = useMemo(() => getAllowedAutopilotJobs(orgAutonomyLevel), [orgAutonomyLevel]);
 
   return useMutation({
     mutationFn: (params: { kind: string; payload: Record<string, unknown> }) => {
       if (!currentOrg?.slug) {
         throw new Error('Organization not selected');
       }
-      return enqueueJob({ orgSlug: currentOrg.slug, ...params });
+      if (!allowedJobs.includes(params.kind)) {
+        throw new Error('Current autonomy level does not permit running this job.');
+      }
+      return enqueueJob({ orgSlug: currentOrg.slug, ...params, kind: params.kind.toLowerCase() });
     },
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: ['autopilot_jobs', currentOrg?.slug] });

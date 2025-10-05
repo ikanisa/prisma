@@ -58,9 +58,20 @@ BEGIN
   END IF;
 END $$;
 
--- Ensure organizations table has autopilot_level meta
+-- Autonomy level enum and default column on organizations
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_type t
+    JOIN pg_namespace n ON n.oid = t.typnamespace
+    WHERE n.nspname = 'public' AND t.typname = 'autonomy_level'
+  ) THEN
+    CREATE TYPE public.autonomy_level AS ENUM ('L0', 'L1', 'L2', 'L3');
+  END IF;
+END $$;
+
 ALTER TABLE IF EXISTS public.organizations
-  ADD COLUMN IF NOT EXISTS autopilot_level integer NOT NULL DEFAULT 0;
+  ADD COLUMN IF NOT EXISTS autonomy_level public.autonomy_level NOT NULL DEFAULT 'L2';
 
 -- User profile table storing organisation-agnostic profile data
 CREATE TABLE IF NOT EXISTS public.user_profiles (

@@ -34,7 +34,8 @@ export default function AgentLearningPage() {
   const corpora = useMemo(() => corporaQuery.data ?? [], [corporaQuery.data]);
   const connectorMetadata = metadataQuery.data ?? null;
   const connectorStatus = statusQuery.data ?? null;
-  const connectorReady = Boolean(connectorStatus?.connector);
+  const connectorEnabled = connectorMetadata?.enabled ?? false;
+  const connectorReady = connectorEnabled && Boolean(connectorStatus?.connector);
   const pendingJobs = pendingJobsQuery.data ?? [];
   const policies = policiesQuery.data ?? [];
   const metrics = metricsQuery.data ?? [];
@@ -133,8 +134,8 @@ export default function AgentLearningPage() {
           <AlertTriangle className="h-4 w-4" />
           <AlertTitle>Google Drive configuration pending</AlertTitle>
           <AlertDescription>
-            Provide Drive credentials and folder mapping to enable ingestion. Expected folder ID:{' '}
-            <strong>{connectorMetadata.folderId}</strong>.
+            Provide Drive credentials and folder mapping to enable ingestion. Expected folder pattern:{' '}
+            <strong>{connectorMetadata.folderMappingPattern}</strong>.
           </AlertDescription>
         </Alert>
       ) : null}

@@ -142,6 +142,7 @@ This phase follows the blueprint already supplied (T‑1A to T‑4B). We align e
 > ✅ Inline XBRL (ESEF) exporter (`apps/web/app/api/financials/esef/route.ts`) producing multipart XHTML/resources bundle for regulator filings.
 > ✅ Group consolidation workspace (`apps/web/app/api/financials/consolidation/route.ts`, `src/lib/consolidation-service.ts`, `src/pages/reporting/consolidation.tsx`) aggregating parent/subsidiary ledgers with intercompany elimination guidance.
 > ✅ Documentation captured in `docs/financial-reporting.md` with governance anchors and usage guidance; performance & UAT hardening plan in `docs/performance-uat-plan.md`.
+> ✅ Release control readiness surfaced via `/api/release-controls/check` and the analytics dashboard card, reporting approval queue status, close-period locks, and archive checksum expectations before production launch.
 
 ## Cross-Cutting Deliverables
 - **Documentation**: Update `/docs` per module (user guide, runbooks), extend `/STANDARDS/TRACEABILITY/matrix.md` with ISA/ATT/IAASB and tax references after each sprint.

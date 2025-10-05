@@ -44,6 +44,12 @@ autonomy:
     L2: "Auto-prepare: agent drafts & stages; user approves to submit/file"
     L3: "Autopilot: agent executes within policy; asks only if evidence is missing"
   default_level: "L2"
+  autopilot:
+    allowed_jobs:
+      L0: []
+      L1: ["refresh_analytics"]
+      L2: ["extract_documents", "remind_pbc", "refresh_analytics"]
+      L3: ["extract_documents", "remind_pbc", "refresh_analytics"]
 
 rbac:
   roles:
@@ -97,6 +103,7 @@ data_sources:
     enabled: false
 
 repositories:
+  # Structured filing per entity — read-only labels, user uploads into these
   folders:
     - "01_Legal"
     - "02_Tax"
@@ -167,16 +174,63 @@ search:
 
 document_ai:
   pipeline:
-    steps: [ocr, classify, extract, index]
+    steps:
+      - ocr
+      - classify
+      - extract
+      - index
     classifiers:
-      types: ["INCORP_CERT","MEMORANDUM","ARTICLES","SHARE_REGISTER","VAT_CERT","TIN_CERT","TB","FS","BANK_STMT","PAYROLL_SUMMARY","CONTRACT","SOC1","OTHER"]
+      types:
+        - "INCORP_CERT"
+        - "MEMORANDUM"
+        - "ARTICLES"
+        - "SHARE_REGISTER"
+        - "VAT_CERT"
+        - "TIN_CERT"
+        - "TB"
+        - "FS"
+        - "BANK_STMT"
+        - "PAYROLL_SUMMARY"
+        - "CONTRACT"
+        - "SOC1"
+        - "OTHER"
     extractors:
-      INCORP_CERT: ["company_name","reg_no","inc_date","registered_address","directors[]","shareholders[]","share_capital"]
-      VAT_CERT:    ["vat_number","effective_date"]
-      TB:          ["period_start","period_end","currency","total_debits","total_credits"]
-      FS:          ["basis_of_prep","fy_start","fy_end","auditor","opinion"]
-      BANK_STMT:   ["iban","bank_name","period_start","period_end","opening_balance","closing_balance"]
-      PAYROLL_SUMMARY: ["employer_reg_no","period","gross_pay","tax_withheld","ssc"]
+      INCORP_CERT:
+        - "company_name"
+        - "reg_no"
+        - "inc_date"
+        - "registered_address"
+        - "directors[]"
+        - "shareholders[]"
+        - "share_capital"
+      VAT_CERT:
+        - "vat_number"
+        - "effective_date"
+      TB:
+        - "period_start"
+        - "period_end"
+        - "currency"
+        - "total_debits"
+        - "total_credits"
+      FS:
+        - "basis_of_prep"
+        - "fy_start"
+        - "fy_end"
+        - "auditor"
+        - "opinion"
+      BANK_STMT:
+        - "iban"
+        - "bank_name"
+        - "period_start"
+        - "period_end"
+        - "opening_balance"
+        - "closing_balance"
+      PAYROLL_SUMMARY:
+        - "employer_reg_no"
+        - "period"
+        - "gross_pay"
+        - "tax_withheld"
+        - "ssc"
     provenance: true
     error_handling: "quarantine_and_notify"
 
@@ -184,11 +238,17 @@ integrations:
   whatsapp_mfa:
     enabled: true
     provider: "meta|twilio"
-    env_keys: ["WA_PROVIDER_TOKEN","WA_PHONE_NUMBER_ID"]
-    mfa_required_actions: ["close.lock","audit.report.release","audit.plan.freeze","eqr.signoff"]
+    env_keys:
+      - "WA_PROVIDER_TOKEN"
+      - "WA_PHONE_NUMBER_ID"
+    mfa_required_actions:
+      - "close.lock"
+      - "audit.report.release"
+      - "audit.plan.freeze"
+      - "eqr.signoff"
   notifications:
-    channels: ["in_app","email","push"]
-    digests: ["daily","weekly"]
+    channels: ["in_app", "email", "push"]
+    digests: ["daily", "weekly"]
   telemetry:
     sentry_enabled: true
     correlation_id_header: "x-request-id"
@@ -247,7 +307,9 @@ agents:
       - "journals.post"
       - "close.lock"
     learning:
-      memories: ["variance_explanations","rec_patterns"]
+      memories:
+        - "variance_explanations"
+        - "rec_patterns"
       update_policy: "post_approval"
 
   - id: "audit_partner_agent"
@@ -266,9 +328,14 @@ agents:
       - "kam.draft"
       - "report.assemble"
       - "tcwg.pack"
-    approvals_required: ["audit.plan.freeze","audit.report.release","eqr.signoff"]
+    approvals_required:
+      - "audit.plan.freeze"
+      - "audit.report.release"
+      - "eqr.signoff"
     learning:
-      memories: ["risk_response_pairs","kam_library"]
+      memories:
+        - "risk_response_pairs"
+        - "kam_library"
       update_policy: "partner_review_only"
 
   - id: "tax_partner_agent"
@@ -286,7 +353,9 @@ agents:
       - "p2.compute"
       - "treaty.resolve"
     learning:
-      memories: ["positions_history","treaty_outcomes"]
+      memories:
+        - "positions_history"
+        - "treaty_outcomes"
       update_policy: "after_filing"
 
   - id: "corp_services_agent"
@@ -301,7 +370,9 @@ agents:
       - "documents.request_upload"
       - "google_drive.search"
     learning:
-      memories: ["filing_calendars","templates"]
+      memories:
+        - "filing_calendars"
+        - "templates"
       update_policy: "continuous"
 
   - id: "document_ai_agent"
@@ -309,42 +380,69 @@ agents:
     persona:
       summary: "OCR, classify, extract; returns structured fields with provenance; never fabricates."
     default_autonomy: "L3"
-    tools: ["ocr", "classify", "extract", "index"]
+    tools:
+      - "ocr"
+      - "classify"
+      - "extract"
+      - "index"
     policies:
       refuse_if_low_confidence: true
 
   - id: "reconciliations_agent"
     title: "Reconciliations"
     default_autonomy: "L2"
-    tools: ["recon.bank","recon.ar","recon.ap","documents.link_evidence"]
+    tools:
+      - "recon.bank"
+      - "recon.ar"
+      - "recon.ap"
+      - "documents.link_evidence"
 
   - id: "je_testing_agent"
     title: "Journal Entry Analytics"
     default_autonomy: "L2"
-    tools: ["je.analytics","sampling.design","tasks.create"]
+    tools:
+      - "je.analytics"
+      - "sampling.design"
+      - "tasks.create"
     policies:
       require_pm_link: true
 
   - id: "consolidation_agent"
     title: "Group Consolidation (IFRS 10/11/12)"
-    default_aut autonomy: "L1"
-    tools: ["scope.components","eliminate.ic","equity.method","ias21.translate","notes.ifrs12"]
+    default_autonomy: "L1"
+    tools:
+      - "scope.components"
+      - "eliminate.ic"
+      - "equity.method"
+      - "ias21.translate"
+      - "notes.ifrs12"
 
   - id: "vat_agent"
     title: "EU VAT/OSS/IOSS"
     default_autonomy: "L2"
-    tools: ["vat.ledger.analyze","vat.return.prepare","ecsales.build","intrastat.build"]
+    tools:
+      - "vat.ledger.analyze"
+      - "vat.return.prepare"
+      - "ecsales.build"
+      - "intrastat.build"
 
   - id: "pillar_two_agent"
     title: "Pillar Two (GloBE)"
     default_autonomy: "L1"
-    tools: ["p2.scope","p2.compute","p2.gir.build"]
+    tools:
+      - "p2.scope"
+      - "p2.compute"
+      - "p2.gir.build"
 
   - id: "reporting_agent"
     title: "ESEF/iXBRL"
     default_autonomy: "L1"
-    tools: ["esef.tag","esef.validate","esef.package"]
-    approvals_required: ["filings_submit"]
+    tools:
+      - "esef.tag"
+      - "esef.validate"
+      - "esef.package"
+    approvals_required:
+      - "filings_submit"
 
 assistant_policies:
   refusal_rules:
@@ -353,4 +451,243 @@ assistant_policies:
     - "Attach source doc links (docId/page) or URL for each regulated conclusion."
   style_rules:
     - "Always offer the next two suggested actions with buttons."
-    - 
+    - "Explain briefly; expand on request."
+  ask_user_last:
+    order:
+      - "uploaded_documents"
+      - "google_drive"
+      - "url_sources"
+      - "connected_apis"
+      - "user_prompt"
+
+tools:
+  # Local service adapters (server-side); names = callable tool identifiers
+  - name: "documents.list"
+    required_permission: "documents.view_internal"
+    rate_limit_per_minute: 20
+    rate_limit_window_seconds: 60
+    input:
+      entityId: "uuid?"
+      repoFolder: "string?"
+    output:
+      documents: "[]"
+  - name: "documents.request_upload"
+    required_permission: "documents.upload"
+    rate_limit_per_minute: 6
+    rate_limit_window_seconds: 300
+    input:
+      repoFolder: "string"
+      docTypeHint: "string?"
+    output:
+      signedUrl: "string"
+  - name: "doc_ai.extract"
+    input:
+      documentId: "uuid"
+      extractor: "string?"
+    output:
+      fields: "map"
+      provenance: "map"
+      confidence: "number"
+  - name: "entity.create_draft"
+  - name: "entity.commit"
+  - name: "tasks.create"
+    required_permission: "tasks.create"
+    rate_limit_per_minute: 12
+    rate_limit_window_seconds: 120
+  - name: "notifications.send"
+  - name: "google_drive.search"
+    input:
+      query: "string"
+      folder: "string?"
+  - name: "web_fetcher.search"
+    input:
+      urls: "string[]"
+      query: "string"
+    policy:
+      whitelist: "url_sources.allowed_domains"
+
+  - name: "workflows.run_step"
+    required_permission: "tasks.update"
+    rate_limit_per_minute: 12
+    rate_limit_window_seconds: 120
+
+  # Accounting & Close
+  - name: "close.snapshot_tb"
+  - name: "recon.bank"
+  - name: "recon.ar"
+  - name: "recon.ap"
+  - name: "journals.propose"
+  - name: "journals.post"
+    approval_required: true
+  - name: "variance.analyze"
+  - name: "cashflow.build_indirect"
+
+  # Audit
+  - name: "audit.plan"
+  - name: "sampling.design"
+  - name: "confirmations.manage"
+  - name: "estimates.evaluate"
+  - name: "gc.assess"
+  - name: "se.review"
+  - name: "kam.draft"
+  - name: "report.assemble"
+  - name: "tcwg.pack"
+
+  # Tax
+  - name: "mt.cit.compute"
+  - name: "mt.nid.compute"
+  - name: "eu.ilr.compute"
+  - name: "mt.vat.prepare"
+  - name: "dac6.classify"
+  - name: "p2.scope"
+  - name: "p2.compute"
+  - name: "p2.gir.build"
+  - name: "treaty.resolve"
+
+workflows:
+  onboarding_zero_typing:
+    trigger: "user.clicks:Add company"
+    required_documents:
+      legal:
+        - "INCORP_CERT"
+        - "MEMORANDUM"
+        - "ARTICLES"
+        - "SHARE_REGISTER"
+      tax:
+        - "VAT_CERT"
+        - "TIN_CERT"
+      accounting:
+        - "FS (prior year)"
+        - "TB (opening)"
+      banking:
+        - "BANK_STMT (3 months)"
+    steps:
+      - onboarding_agent: "show_required_docs_by_industry"
+      - document_ai_agent: "extract_all"
+      - onboarding_agent: "preview_and_accept"
+      - onboarding_agent: "create_repos_and_profile"
+      - accountant_agent: "seed_close_tasks"
+    outputs:
+      - "Entity created + repositories"
+      - "Profile fields set from documents with provenance"
+      - "Initial close & compliance tasks"
+
+  monthly_close:
+    trigger: "period.opened"
+    steps:
+      - accountant_agent: "close.snapshot_tb"
+      - reconciliations_agent: "recon.bank"
+      - je_testing_agent: "je.analytics"
+      - accountant_agent: "variance.analyze"
+      - accountant_agent: "cashflow.build_indirect"
+      - accountant_agent: "prepare_lock"
+    approval: "close.lock -> PARTNER"
+
+  external_audit:
+    trigger: "engagement.accepted"
+    steps:
+      - audit_partner_agent: "audit.plan"
+      - audit_partner_agent: "sampling.design"
+      - audit_partner_agent: "confirmations.manage"
+      - audit_partner_agent: "kam.draft"
+      - audit_partner_agent: "report.assemble"
+      - reporting_agent: "esef.tag"
+    approvals:
+      - "audit.plan.freeze"
+      - "audit.report.release"
+      - "eqr.signoff"
+
+  tax_cycle:
+    trigger: "fiscal_year_end"
+    steps:
+      - tax_partner_agent: "mt.cit.compute"
+      - tax_partner_agent: "mt.vat.prepare"
+      - tax_partner_agent: "dac6.classify"
+      - pillar_two_agent: "p2.scope"
+      - pillar_two_agent: "p2.compute"
+    approval: "tax.return.submit -> MANAGER"
+
+user_journeys:
+  - name: "Add a new company (zero typing)"
+    path:
+      1: "Click 'Add company' → agent shows checklist with dropzones"
+      2: "Upload/attach docs (or link Google Drive folders)"
+      3: "Agent extracts and previews fields with citations"
+      4: "Click Accept → entity profile + repositories created"
+      5: "Agent seeds tasks & calendar; suggests next actions"
+  - name: "Month-end close"
+    path:
+      1: "Open Close Dashboard → 'Run close'"
+      2: "Agent runs bank rec, JE analytics, variance"
+      3: "Resolve alerts → 'Lock period' (MFA/approval)"
+  - name: "Audit plan to report"
+    path:
+      1: "Create plan → materiality/risk/responses"
+      2: "Fieldwork tools (sampling, confirms, estimates)"
+      3: "KAMs → report → EQR → release"
+  - name: "Tax compliance"
+    path:
+      1: "Compute CIT/VAT/Pillar Two"
+      2: "Memo with citations → approval → file → archive"
+
+notifications:
+  templates:
+    task_assigned: "You’ve been assigned: {{title}} due {{dueAt}}."
+    doc_missing: "I need {{docType}} to continue {{process}}."
+    approval_request: "Approval required: {{action}} for {{entity}}."
+  digests:
+    daily: true
+    weekly: true
+
+telemetry:
+  dashboards:
+    - id: "assistant_adoption"
+      metrics:
+        - "actions_per_user"
+        - "autonomy_level_usage"
+        - "refusal_reasons"
+    - id: "doc_pipeline"
+      metrics:
+        - "uploads"
+        - "ocr_success_rate"
+        - "extraction_accuracy"
+        - "time_to_accept"
+    - id: "compliance"
+      metrics:
+        - "on_time_filings"
+        - "approvals_sla"
+        - "pbc_completion"
+    - id: "security"
+      metrics:
+        - "mfa_challenges"
+        - "rls_denials"
+        - "permission_denials"
+
+a11y_and_perf:
+  a11y:
+    axe_critical_allowed: 0
+    keyboard_navigation: true
+  pwa:
+    offline_mode: "shell+last_page"
+    install_prompt: true
+  perf_budgets:
+    main_bundle_kb: 300
+    route_code_splitting: true
+    image_lazy_load: true
+
+release_controls:
+  approvals_required:
+    - "plan_freeze"
+    - "filings_submit"
+    - "report_release"
+    - "period_lock"
+  archive:
+    manifest_hash: "sha256"
+    include_docs:
+      - "report_pdf"
+      - "tcwg_pack"
+      - "return_files"
+      - "recon_schedules"
+      - "tb_snapshot"
+
+# ---- End of YAML ----
