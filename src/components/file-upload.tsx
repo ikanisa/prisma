@@ -4,31 +4,49 @@ import { Button } from '@/components/enhanced-button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { logger } from '@/lib/logger';
+import { useEmptyStateCopy } from '@/lib/system-config';
 
 interface FileUploadProps {
   onUpload: (files: File[]) => Promise<void>;
   accept?: string;
   multiple?: boolean;
   maxSize?: number; // in MB
+  disabled?: boolean;
+  disabledReason?: string;
+  helperText?: string;
 }
 
-export function FileUpload({ onUpload, accept = '*/*', multiple = true, maxSize = 10 }: FileUploadProps) {
+export function FileUpload({
+  onUpload,
+  accept = '*/*',
+  multiple = true,
+  maxSize = 10,
+  disabled = false,
+  disabledReason,
+  helperText,
+}: FileUploadProps) {
   const [dragActive, setDragActive] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
+  const documentPromptCopy = useEmptyStateCopy('documents', "Drop files here. I’ll read them and extract what’s needed.");
+  const isDisabled = disabled || uploading;
 
   const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    if (isDisabled) {
+      return;
+    }
     if (e.type === 'dragenter' || e.type === 'dragover') {
       setDragActive(true);
     } else if (e.type === 'dragleave') {
       setDragActive(false);
     }
-  }, []);
+  }, [isDisabled]);
 
   const handleFiles = useCallback((files: File[]) => {
+    if (isDisabled) return;
     const validFiles = files.filter((file) => {
       if (file.size > maxSize * 1024 * 1024) {
         logger.warn('file-upload.too-large', { name: file.name, size: file.size, maxSizeMb: maxSize });
@@ -38,16 +56,19 @@ export function FileUpload({ onUpload, accept = '*/*', multiple = true, maxSize 
     });
 
     setSelectedFiles(validFiles);
-  }, [maxSize]);
+  }, [isDisabled, maxSize]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    if (isDisabled) {
+      return;
+    }
     setDragActive(false);
 
     const files = Array.from(e.dataTransfer.files);
     handleFiles(files);
-  }, [handleFiles]);
+  }, [handleFiles, isDisabled]);
 
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -56,6 +77,7 @@ export function FileUpload({ onUpload, accept = '*/*', multiple = true, maxSize 
   };
 
   const handleUpload = async () => {
+    if (isDisabled) return;
     if (selectedFiles.length === 0) return;
 
     setUploading(true);
@@ -94,14 +116,13 @@ export function FileUpload({ onUpload, accept = '*/*', multiple = true, maxSize 
         onDragLeave={handleDrag}
         onDragOver={handleDrag}
         onDrop={handleDrop}
+        aria-disabled={isDisabled}
       >
         <CardContent className="flex flex-col items-center justify-center p-8 text-center">
           <Upload className="h-10 w-10 text-muted-foreground mb-4" />
-          <p className="text-lg font-medium mb-2">
-            Drop files here or click to browse
-          </p>
-          <p className="text-sm text-muted-foreground mb-4">
-            Max file size: {maxSize}MB
+          <p className="text-lg font-medium mb-2">{documentPromptCopy}</p>
+          <p className={`text-sm mb-4 ${isDisabled ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
+            {isDisabled ? disabledReason ?? 'Uploading is disabled for your role.' : helperText ?? `Max file size: ${maxSize}MB`}
           </p>
           <input
             type="file"
@@ -110,8 +131,9 @@ export function FileUpload({ onUpload, accept = '*/*', multiple = true, maxSize 
             onChange={handleFileInput}
             className="hidden"
             id="file-upload"
+            disabled={isDisabled}
           />
-          <Button variant="outline" asChild>
+          <Button variant="outline" asChild disabled={isDisabled}>
             <label htmlFor="file-upload" className="cursor-pointer">
               Select Files
             </label>
@@ -163,7 +185,7 @@ export function FileUpload({ onUpload, accept = '*/*', multiple = true, maxSize 
 
           <Button
             onClick={handleUpload}
-            disabled={uploading || selectedFiles.length === 0}
+            disabled={uploading || selectedFiles.length === 0 || disabled}
             className="w-full"
           >
             {uploading ? 'Uploading...' : `Upload ${selectedFiles.length} file(s)`}

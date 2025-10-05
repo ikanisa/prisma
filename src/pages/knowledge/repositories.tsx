@@ -23,6 +23,11 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { logger } from '@/lib/logger';
+import {
+  useBeforeAskingUserSequence,
+  useKnowledgeVectorIndexes,
+  useKnowledgeRetrievalSettings,
+} from '@/lib/system-config';
 
 export default function KnowledgeRepositoriesPage() {
   const corporaQuery = useKnowledgeCorpora();
@@ -31,6 +36,9 @@ export default function KnowledgeRepositoriesPage() {
   const previewMutation = usePreviewKnowledgeSource();
   const webSourcesQuery = useWebSources();
   const scheduleWebHarvest = useScheduleWebHarvest();
+  const beforeAskingSequence = useBeforeAskingUserSequence();
+  const vectorIndexes = useKnowledgeVectorIndexes();
+  const retrievalSettings = useKnowledgeRetrievalSettings();
   const [webAgentKind, setWebAgentKind] = useState<'AUDIT' | 'FINANCE' | 'TAX'>('AUDIT');
   const createCorpus = useCreateCorpus();
   const createKnowledgeSource = useCreateKnowledgeSource();
@@ -50,7 +58,11 @@ export default function KnowledgeRepositoriesPage() {
   const corpora = corporaQuery.data ?? [];
   const connectorMetadata = metadataQuery.data;
   const connectorStatus = statusQuery.data;
-  const connectorReady = Boolean(connectorStatus?.connector);
+  const connectorEnabled = connectorMetadata?.enabled ?? false;
+  const connectorReady = connectorEnabled && Boolean(connectorStatus?.connector);
+  const webSourcesData = webSourcesQuery.data;
+  const webSources = webSourcesData?.sources ?? [];
+  const webPolicy = webSourcesData?.settings;
   const { orgSlug } = useParams();
   const runsHref = orgSlug ? `/${orgSlug}/knowledge/runs` : '#';
 
@@ -117,10 +129,31 @@ export default function KnowledgeRepositoriesPage() {
           <CardHeader>
             <CardTitle>Google Drive Connector</CardTitle>
             <CardDescription>
-              {connectorReady ? 'Active — monitoring ingestion health' : 'Configuration pending'}
+              {connectorReady
+                ? 'Active — monitoring ingestion health'
+                : connectorEnabled
+                  ? 'Waiting for first sync from configured folder'
+                  : 'Configuration pending'}
             </CardDescription>
           </CardHeader>
           <CardContent className="text-sm space-y-3">
+            <div className="grid gap-3 md:grid-cols-3">
+              <div>
+                <p className="font-medium text-muted-foreground">Connector enabled</p>
+                <p>{connectorMetadata?.enabled ? 'Yes' : 'No'}</p>
+              </div>
+              <div>
+                <p className="font-medium text-muted-foreground">Mirror to storage</p>
+                <p>{connectorMetadata?.mirrorToStorage ? 'Enabled' : 'Disabled'}</p>
+              </div>
+              <div>
+                <p className="font-medium text-muted-foreground">OAuth scopes</p>
+                <p className="text-muted-foreground">
+                  {(connectorMetadata?.oauthScopes ?? []).join(', ') || '—'}
+                </p>
+              </div>
+            </div>
+
             <div className="grid gap-3 md:grid-cols-2">
               <div>
                 <p className="font-medium text-muted-foreground">Folder / Shared Drive</p>
@@ -133,6 +166,13 @@ export default function KnowledgeRepositoriesPage() {
                 <p className="font-medium text-muted-foreground">Service account email</p>
                 <p>{connectorMetadata?.serviceAccountEmail ?? '—'}</p>
               </div>
+            </div>
+
+            <div>
+              <p className="font-medium text-muted-foreground">Folder mapping pattern</p>
+              <p className="text-muted-foreground break-all">
+                {connectorMetadata?.folderMappingPattern || 'org-{orgId}/entity-{entityId}/{repoFolder}'}
+              </p>
             </div>
 
             <div className="grid gap-3 md:grid-cols-3">
@@ -188,6 +228,68 @@ export default function KnowledgeRepositoriesPage() {
           </CardContent>
         </Card>
       )}
+
+      <Card className="bg-muted/30">
+        <CardHeader>
+          <CardTitle>Retrieval Configuration</CardTitle>
+          <CardDescription>
+            Dual-index search with reranking and citation thresholds applied before assistant responses.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6 text-sm">
+          <div className="grid gap-4 md:grid-cols-3">
+            <div>
+              <p className="font-medium text-muted-foreground">Reranker</p>
+              <p>{retrievalSettings.reranker}</p>
+            </div>
+            <div>
+              <p className="font-medium text-muted-foreground">Top K</p>
+              <p>{retrievalSettings.topK}</p>
+            </div>
+            <div>
+              <p className="font-medium text-muted-foreground">Min citation confidence</p>
+              <p>{Math.round(retrievalSettings.minCitationConfidence * 100)}%</p>
+            </div>
+          </div>
+
+          <div className="text-sm text-muted-foreground">
+            Policy order before prompting users: {beforeAskingSequence.join(' → ')}. Citations required:{' '}
+            {retrievalSettings.requireCitation ? 'Yes' : 'No'}.
+          </div>
+
+          <div className="space-y-3">
+            <p className="font-medium text-muted-foreground">Vector indexes</p>
+            {vectorIndexes.length === 0 ? (
+              <p>No indexes configured.</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Embedding model</TableHead>
+                    <TableHead>Chunk size / overlap</TableHead>
+                    <TableHead>Scope filters</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {vectorIndexes.map((index) => (
+                    <TableRow key={index.name}>
+                      <TableCell className="font-medium">{index.name}</TableCell>
+                      <TableCell>{index.embeddingModel || '—'}</TableCell>
+                      <TableCell>
+                        {index.chunkSize} / {index.chunkOverlap}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {index.scopeFilters.length ? index.scopeFilters.join(', ') : 'orgId, entityId scoped'}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       {corporaQuery.isLoading ? (
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -299,16 +401,19 @@ export default function KnowledgeRepositoriesPage() {
                   <CardHeader>
                     <CardTitle className="text-base">{doc.name}</CardTitle>
                     <CardDescription>
-                      {doc.mimeType} · Modified {format(new Date(doc.modifiedTime), 'PPPp')}
+                      {doc.mimeType} · Modified{' '}
+                      {doc.modifiedTime ? format(new Date(doc.modifiedTime), 'PPPp') : 'Unknown'}
                     </CardDescription>
                   </CardHeader>
-                  <CardContent>
-                    <Button variant="outline" size="sm" asChild>
-                      <a href={doc.downloadUrl} target="_blank" rel="noopener noreferrer">
-                        <RefreshCw className="h-4 w-4 mr-2" /> Placeholder download
-                      </a>
-                    </Button>
-                  </CardContent>
+                  {doc.downloadUrl ? (
+                    <CardContent>
+                      <Button variant="outline" size="sm" asChild>
+                        <a href={doc.downloadUrl} target="_blank" rel="noopener noreferrer">
+                          <RefreshCw className="h-4 w-4 mr-2" /> Open source document
+                        </a>
+                      </Button>
+                    </CardContent>
+                  ) : null}
                 </Card>
               ))}
             </div>
@@ -332,7 +437,7 @@ export default function KnowledgeRepositoriesPage() {
               {webSourcesQuery.isLoading ? (
                 <span className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Loading sources…</span>
               ) : (
-                <span>{webSourcesQuery.data?.length ?? 0} sources available for web harvest.</span>
+                <span>{webSources.length} sources available for web harvest.</span>
               )}
             </div>
             <div className="flex items-center gap-2">
@@ -350,6 +455,14 @@ export default function KnowledgeRepositoriesPage() {
             </div>
           </div>
 
+          {webPolicy && (
+            <div className="text-xs text-muted-foreground">
+              Allowed domains: {webPolicy.allowedDomains.length ? webPolicy.allowedDomains.join(', ') : 'All domains'}.
+              Robots.txt respected: {webPolicy.fetchPolicy.obeyRobots ? 'Yes' : 'No'}; max depth {webPolicy.fetchPolicy.maxDepth};
+              cache TTL {webPolicy.fetchPolicy.cacheTtlMinutes} minutes.
+            </div>
+          )}
+
           {webSourcesQuery.isLoading ? null : (
             <Table>
               <TableHeader>
@@ -362,7 +475,7 @@ export default function KnowledgeRepositoriesPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {(webSourcesQuery.data ?? []).map((source) => (
+                {webSources.map((source) => (
                   <TableRow key={source.id}>
                     <TableCell className="font-medium">{source.title}</TableCell>
                     <TableCell className="text-xs text-blue-600 break-all">
@@ -540,7 +653,7 @@ export default function KnowledgeRepositoriesPage() {
                     <SelectValue placeholder="Select Malta resource" />
                   </SelectTrigger>
                   <SelectContent>
-                    {(webSourcesQuery.data ?? []).map((source) => (
+                    {webSources.map((source) => (
                       <SelectItem key={source.id} value={source.id}>
                         {source.title}
                       </SelectItem>

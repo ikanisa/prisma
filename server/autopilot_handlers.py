@@ -1,6 +1,12 @@
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, List
+from typing import Any, Callable, Dict, List, Optional
+
+from .document_ai import (
+    DocumentAIError,
+    DocumentAIPipeline,
+    create_document_ai_pipeline,
+)
 
 
 async def handle_extract_documents(
@@ -10,6 +16,7 @@ async def handle_extract_documents(
     iso_now: Callable[[], str],
     logger: Any,
     batch_limit: int,
+    pipeline: Optional[DocumentAIPipeline] = None,
 ) -> Dict[str, Any]:
     org_id = job.get("org_id")
     if not org_id:
@@ -22,8 +29,14 @@ async def handle_extract_documents(
     except (TypeError, ValueError):
         limit = batch_limit
 
+    pipeline = pipeline or create_document_ai_pipeline(
+        supabase_table_request=supabase_table_request,
+        logger=logger,
+        iso_now=iso_now,
+    )
+
     params = {
-        "select": "id,document_id,fields,provenance,documents:documents!inner(id,org_id,name)",
+        "select": "id,document_id,fields,provenance,confidence,document_type,documents:documents!inner(id,org_id,name,classification,storage_path,mime_type,ocr_status,parse_status)",
         "documents.org_id": f"eq.{org_id}",
         "status": "eq.PENDING",
         "order": "created_at.asc",
@@ -43,12 +56,27 @@ async def handle_extract_documents(
         return {"processed": 0, "message": "No pending document extractions", "document_ids": []}
 
     processed_documents: List[Dict[str, Any]] = []
+    failed_documents: List[Dict[str, Any]] = []
     document_ids: List[str] = []
     now = iso_now()
 
     for row in rows:
         extraction_id = row.get("id")
         document_ref = row.get("document_id") or row.get("documents", {}).get("id")
+
+        try:
+            context = pipeline.prepare_context(row)
+        except DocumentAIError as exc:
+            logger.error("document_ai.context_failed", extraction_id=extraction_id, error=str(exc))
+            await supabase_table_request(
+                "PATCH",
+                "document_extractions",
+                params={"id": f"eq.{extraction_id}"},
+                json={"status": "FAILED", "updated_at": now},
+                headers={"Prefer": "return=minimal"},
+            )
+            failed_documents.append({"id": document_ref or "unknown", "reason": str(exc)})
+            continue
 
         await supabase_table_request(
             "PATCH",
@@ -58,9 +86,40 @@ async def handle_extract_documents(
             headers={"Prefer": "return=minimal"},
         )
 
-        fields = row.get("fields") if isinstance(row.get("fields"), dict) else {}
-        provenance = row.get("provenance") if isinstance(row.get("provenance"), list) else []
+        try:
+            context, result = await pipeline.process(row, context=context)
+        except DocumentAIError as exc:
+            reason = str(exc)
+            provenance = row.get("provenance") if isinstance(row.get("provenance"), list) else []
+            provenance = list(provenance)
+            provenance.append({"source": "autopilot", "jobId": job.get("id"), "timestamp": now})
+            await supabase_table_request(
+                "PATCH",
+                "document_extractions",
+                params={"id": f"eq.{extraction_id}"},
+                json={
+                    "status": "FAILED",
+                    "updated_at": now,
+                    "provenance": provenance,
+                    "document_type": context.classification,
+                },
+                headers={"Prefer": "return=minimal"},
+            )
+            await supabase_table_request(
+                "PATCH",
+                "documents",
+                params={"id": f"eq.{context.document_id}"},
+                json={"parse_status": "FAILED", "updated_at": now},
+                headers={"Prefer": "return=minimal"},
+            )
+            await pipeline.record_quarantine(context, extraction_id=extraction_id, reason=reason)
+            failed_documents.append({"id": context.document_id, "reason": reason})
+            continue
+
+        provenance = list(result.provenance)
         provenance.append({"source": "autopilot", "jobId": job.get("id"), "timestamp": now})
+        fields = dict(result.fields)
+        fields.setdefault("autopilotProcessedAt", now)
 
         await supabase_table_request(
             "PATCH",
@@ -69,34 +128,51 @@ async def handle_extract_documents(
             json={
                 "status": "DONE",
                 "updated_at": now,
-                "fields": {**fields, "autopilotProcessedAt": now},
+                "fields": fields,
                 "provenance": provenance,
+                "confidence": result.confidence,
+                "document_type": result.classification,
             },
             headers={"Prefer": "return=minimal"},
         )
 
-        if document_ref:
-            await supabase_table_request(
-                "PATCH",
-                "documents",
-                params={"id": f"eq.{document_ref}"},
-                json={
-                    "parse_status": "DONE",
-                    "ocr_status": "DONE",
-                    "updated_at": now,
+        document_update: Dict[str, Any] = {
+            "parse_status": "DONE",
+            "classification": result.classification,
+            "updated_at": now,
+        }
+        if "ocr" in pipeline.steps:
+            document_update["ocr_status"] = "DONE"
+
+        await supabase_table_request(
+            "PATCH",
+            "documents",
+            params={"id": f"eq.{context.document_id}"},
+            json=document_update,
+            headers={"Prefer": "return=minimal"},
+        )
+
+        await pipeline.write_index(context, result)
+
+        document_ids.append(context.document_id)
+        processed_documents.append(
+            {
+                "id": context.document_id,
+                "name": context.name,
+                "extraction": {
+                    "status": "DONE",
+                    "fields": fields,
+                    "confidence": result.confidence,
+                    "provenance": provenance,
+                    "classification": result.classification,
+                    "summary": result.summary,
                 },
-                headers={"Prefer": "return=minimal"},
-            )
-            document_ids.append(str(document_ref))
-            processed_documents.append(
-                {
-                    "id": str(document_ref),
-                    "name": row.get("documents", {}).get("name"),
-                }
-            )
+            }
+        )
 
     return {
         "processed": len(processed_documents),
         "document_ids": document_ids,
         "documents": processed_documents,
+        "failed": failed_documents,
     }

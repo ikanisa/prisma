@@ -1,6 +1,11 @@
 import json
 
+import os
 import pytest
+
+os.environ.setdefault('SUPABASE_URL', 'https://example.supabase.co')
+os.environ.setdefault('SUPABASE_SERVICE_ROLE_KEY', 'service-role')
+os.environ.setdefault('SUPABASE_JWT_SECRET', 'secret')
 
 pytest.importorskip('fastapi')
 from fastapi.testclient import TestClient
@@ -20,6 +25,11 @@ class DummyResponse:
 
 def test_document_sign_endpoint_generates_signed_url(monkeypatch):
     monkeypatch.setenv('SUPABASE_URL', 'https://example.supabase.co')
+    monkeypatch.setenv('SUPABASE_SERVICE_ROLE_KEY', 'service-role')
+    monkeypatch.setenv('SUPABASE_JWT_SECRET', 'secret')
+    monkeypatch.setattr(main, 'SUPABASE_URL', 'https://example.supabase.co', raising=False)
+    monkeypatch.setattr(main, 'SUPABASE_STORAGE_URL', 'https://example.supabase.co/storage/v1', raising=False)
+    monkeypatch.setattr(main, 'SUPABASE_REST_URL', 'https://example.supabase.co/rest/v1', raising=False)
 
     def fake_verify(_: str):
         return {'sub': 'user-123'}

@@ -9,6 +9,7 @@ import { useOrganizations } from '@/hooks/use-organizations';
 import { useToast } from '@/hooks/use-toast';
 import { authorizedFetch } from '@/lib/api';
 import { markNotificationRead, markAllNotificationsRead } from '@/lib/notifications';
+import { useEmptyStateCopy } from '@/lib/system-config';
 
 interface NotificationRecord {
   id: string;
@@ -56,6 +57,7 @@ export function Notifications() {
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
+  const notificationsEmptyCopy = useEmptyStateCopy('notifications', "You're all caught up.");
 
   const orgSlug = currentOrg?.slug ?? null;
 
@@ -199,7 +201,7 @@ export function Notifications() {
                 {filter === 'all' ? 'No notifications' : `No ${filter} notifications`}
               </h3>
               <p className="text-muted-foreground">
-                {filter === 'all' ? "You're all caught up!" : 'Check back later for updates'}
+                {filter === 'all' ? notificationsEmptyCopy : 'Check back later for updates'}
               </p>
             </div>
           ) : (

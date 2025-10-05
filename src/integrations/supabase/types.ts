@@ -1889,6 +1889,7 @@ export type Database = {
           confidence: number | null
           created_at: string
           document_id: string
+          document_type: string | null
           extractor_name: string
           extractor_version: string
           fields: Json
@@ -1901,6 +1902,7 @@ export type Database = {
           confidence?: number | null
           created_at?: string
           document_id: string
+          document_type?: string | null
           extractor_name: string
           extractor_version?: string
           fields?: Json
@@ -1913,6 +1915,7 @@ export type Database = {
           confidence?: number | null
           created_at?: string
           document_id?: string
+          document_type?: string | null
           extractor_name?: string
           extractor_version?: string
           fields?: Json
@@ -6369,6 +6372,126 @@ export type Database = {
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workflow_events: {
+        Row: {
+          actor_id: string | null
+          created_at: string
+          id: string
+          input: Json | null
+          org_id: string
+          output: Json | null
+          run_id: string
+          status: string
+          step_index: number
+        }
+        Insert: {
+          actor_id?: string | null
+          created_at?: string
+          id?: string
+          input?: Json | null
+          org_id: string
+          output?: Json | null
+          run_id: string
+          status?: string
+          step_index: number
+        }
+        Update: {
+          actor_id?: string | null
+          created_at?: string
+          id?: string
+          input?: Json | null
+          org_id?: string
+          output?: Json | null
+          run_id?: string
+          status?: string
+          step_index?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workflow_events_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workflow_events_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "workflow_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workflow_runs: {
+        Row: {
+          approvals: Json | null
+          completed_at: string | null
+          created_at: string
+          current_step_index: number
+          id: string
+          org_id: string
+          outputs: Json | null
+          required_documents: Json | null
+          started_at: string
+          status: string
+          total_steps: number
+          trigger: string | null
+          triggered_by: string | null
+          updated_at: string
+          workflow: string
+        }
+        Insert: {
+          approvals?: Json | null
+          completed_at?: string | null
+          created_at?: string
+          current_step_index?: number
+          id?: string
+          org_id: string
+          outputs?: Json | null
+          required_documents?: Json | null
+          started_at?: string
+          status?: string
+          total_steps?: number
+          trigger?: string | null
+          triggered_by?: string | null
+          updated_at?: string
+          workflow: string
+        }
+        Update: {
+          approvals?: Json | null
+          completed_at?: string | null
+          created_at?: string
+          current_step_index?: number
+          id?: string
+          org_id?: string
+          outputs?: Json | null
+          required_documents?: Json | null
+          started_at?: string
+          status?: string
+          total_steps?: number
+          trigger?: string | null
+          triggered_by?: string | null
+          updated_at?: string
+          workflow?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workflow_runs_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workflow_runs_triggered_by_fkey"
+            columns: ["triggered_by"]
+            isOneToOne: false
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]

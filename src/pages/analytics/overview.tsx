@@ -19,6 +19,7 @@ import {
   Bar,
   Cell,
 } from 'recharts';
+import { getReleaseControlSettings } from '@/lib/system-config';
 
 interface CoverageRow {
   module: string;
@@ -64,9 +65,40 @@ interface AnalyticsOverviewPayload {
   };
 }
 
+type ReleaseControlState = 'satisfied' | 'pending' | 'changes_required' | 'not_applicable' | 'unknown';
+
+interface ReleaseControlActionSummary {
+  state: ReleaseControlState;
+  total: number;
+  approved: number;
+  pending: number;
+  rejected?: number;
+  cancelled?: number;
+  kinds?: string[];
+}
+
+interface ReleaseControlArchiveSummary {
+  state: ReleaseControlState;
+  sha256?: string | null;
+  updatedAt?: string | null;
+  expectedDocuments: string[];
+}
+
+interface ReleaseControlsResponse {
+  requirements: {
+    approvals_required: string[];
+    archive: { manifest_hash: string; include_docs: string[] };
+  };
+  status: {
+    actions: Record<string, ReleaseControlActionSummary>;
+    archive: ReleaseControlArchiveSummary;
+  };
+}
+
 export default function AnalyticsOverviewPage() {
   const { currentOrg } = useOrganizations();
   const { toast } = useToast();
+  const releaseRequirements = useMemo(() => getReleaseControlSettings(), []);
 
   const analyticsQuery = useQuery({
     queryKey: ['analytics-overview', currentOrg?.id],
@@ -81,6 +113,53 @@ export default function AnalyticsOverviewPage() {
       return (await response.json()) as AnalyticsOverviewPayload;
     },
   });
+
+  const releaseControlsQuery = useQuery<ReleaseControlsResponse>({
+    queryKey: ['release-controls', currentOrg?.slug],
+    enabled: Boolean(currentOrg?.slug),
+    queryFn: async () => {
+      if (!currentOrg?.slug) throw new Error('Missing organization context');
+      const response = await fetch('/api/release-controls/check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orgSlug: currentOrg.slug }),
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload.error ?? 'Failed to load release control status');
+      }
+      return (await response.json()) as ReleaseControlsResponse;
+    },
+  });
+
+  const stateLabels: Record<ReleaseControlState, string> = {
+    satisfied: 'Ready',
+    pending: 'Pending',
+    changes_required: 'Needs attention',
+    not_applicable: 'Not applicable',
+    unknown: 'Unknown',
+  };
+
+  const stateStyles: Record<ReleaseControlState, string> = {
+    satisfied: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700',
+    pending: 'border-amber-500/30 bg-amber-500/10 text-amber-700',
+    changes_required: 'border-rose-500/30 bg-rose-500/10 text-rose-700',
+    not_applicable: 'border-muted text-muted-foreground',
+    unknown: 'border-muted text-muted-foreground',
+  };
+
+  const renderStateBadge = (state: ReleaseControlState) => (
+    <Badge variant="outline" className={stateStyles[state] ?? stateStyles.unknown}>
+      {stateLabels[state] ?? state}
+    </Badge>
+  );
+
+  const formatActionLabel = (action: string) =>
+    action
+      .split(/[_\s]+/)
+      .filter(Boolean)
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(' ');
 
   const coverageSeries = useMemo(() => {
     if (!analyticsQuery.data?.coverage) return [];
@@ -107,12 +186,19 @@ export default function AnalyticsOverviewPage() {
 
   const loading = analyticsQuery.isLoading;
   const error = analyticsQuery.isError ? (analyticsQuery.error as Error) : null;
+  const releaseError = releaseControlsQuery.isError ? (releaseControlsQuery.error as Error) : null;
 
   useEffect(() => {
     if (error) {
       toast({ title: 'Analytics unavailable', description: error.message, variant: 'destructive' });
     }
   }, [error, toast]);
+
+  useEffect(() => {
+    if (releaseError) {
+      toast({ title: 'Release controls unavailable', description: releaseError.message, variant: 'destructive' });
+    }
+  }, [releaseError, toast]);
 
   return (
     <div className="space-y-6">
@@ -210,6 +296,72 @@ export default function AnalyticsOverviewPage() {
                 <p className="text-muted-foreground">
                   Total runs analysed: {analyticsQuery.data.jobs.totalRuns}
                 </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Release control readiness</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3 text-sm">
+                {releaseControlsQuery.isLoading ? (
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" /> Checking release gates…
+                  </div>
+                ) : null}
+
+                {releaseControlsQuery.data ? (
+                  <div className="space-y-3">
+                    {Object.entries(releaseControlsQuery.data.status.actions).map(([action, summary]) => (
+                      <div
+                        key={action}
+                        className="flex items-start justify-between gap-3 rounded-md border px-3 py-2"
+                      >
+                        <div>
+                          <p className="font-medium capitalize">{formatActionLabel(action)}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {summary.total > 0
+                              ? `Approved ${summary.approved}/${summary.total}` +
+                                (summary.pending ? ` · Pending ${summary.pending}` : '') +
+                                (summary.rejected ? ` · Rejected ${summary.rejected}` : '')
+                              : 'No approvals queued'}
+                          </p>
+                        </div>
+                        {renderStateBadge(summary.state)}
+                      </div>
+                    ))}
+
+                    <div className="rounded-md border px-3 py-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-medium">Archive manifest</p>
+                          <p className="text-xs text-muted-foreground">
+                            {releaseControlsQuery.data.status.archive.sha256
+                              ? `Digest ${releaseControlsQuery.data.status.archive.sha256.slice(0, 8)}…`
+                              : 'No checksum recorded'}
+                          </p>
+                          {releaseControlsQuery.data.status.archive.expectedDocuments.length ? (
+                            <p className="mt-2 text-xs text-muted-foreground">
+                              Expected docs:{' '}
+                              {releaseControlsQuery.data.status.archive.expectedDocuments.join(', ')}
+                            </p>
+                          ) : releaseRequirements.archive.includeDocs.length ? (
+                            <p className="mt-2 text-xs text-muted-foreground">
+                              Expected docs: {releaseRequirements.archive.includeDocs.join(', ')}
+                            </p>
+                          ) : null}
+                        </div>
+                        {renderStateBadge(releaseControlsQuery.data.status.archive.state)}
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+
+                {!releaseControlsQuery.isLoading && !releaseControlsQuery.data ? (
+                  <p className="text-xs text-muted-foreground">
+                    Release control telemetry is not available for this organisation yet.
+                  </p>
+                ) : null}
               </CardContent>
             </Card>
           </div>

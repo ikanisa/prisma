@@ -36,6 +36,7 @@
   - `curl -H "Authorization: Bearer <jwt>" "$API_BASE_URL/v1/tasks?orgSlug=<slug>&limit=1"`
   - `curl -H "Authorization: Bearer <jwt>" "$API_BASE_URL/v1/storage/documents?orgSlug=<slug>&limit=1"`
   - `curl -H "Authorization: Bearer <jwt>" -X POST "$API_BASE_URL/v1/notifications/mark-all" -d '{"orgSlug":"<slug>"}'`
+  - `curl -H "Authorization: Bearer <jwt>" -H "Content-Type: application/json" -X POST "$API_BASE_URL/api/release-controls/check" -d '{"orgSlug":"<slug>"}'`
 - Health:
   - `curl "$API_BASE_URL/health"`
   - `curl "$API_BASE_URL/readiness"`

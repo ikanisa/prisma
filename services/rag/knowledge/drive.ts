@@ -80,17 +80,18 @@ export function __setDriveClientForTesting(options: {
   cachedConfig = options.config ?? null;
 }
 
-function getClient(): GoogleDriveClient {
+async function getClient(): Promise<GoogleDriveClient> {
   if (!cachedClient) {
-    cachedClient = buildClientFromEnv();
+    cachedClient = await buildClientFromEnv();
     cachedConfig = cachedClient.getConfiguration();
   }
   return cachedClient;
 }
 
-function getConfig(): GoogleDriveConfig {
+async function getConfig(): Promise<GoogleDriveConfig> {
   if (!cachedConfig) {
-    getClient();
+    const client = await getClient();
+    cachedConfig = client.getConfiguration();
   }
   return cachedConfig!;
 }
@@ -100,7 +101,7 @@ export async function ensureConnectorRecord(
   orgId: string,
   knowledgeSourceId?: string | null,
 ): Promise<string> {
-  const config = getConfig();
+  const config = await getConfig();
   const existing = await supabase
     .from('gdrive_connectors')
     .select('id')
@@ -136,8 +137,8 @@ export async function ensureConnectorRecord(
   return inserted.data.id;
 }
 
-export function getDriveConnectorMetadata(): DriveConnectorMetadata {
-  const config = getConfig();
+export async function getDriveConnectorMetadata(): Promise<DriveConnectorMetadata> {
+  const config = await getConfig();
   return {
     folderId: config.folderId,
     sharedDriveId: config.sharedDriveId,
@@ -146,7 +147,7 @@ export function getDriveConnectorMetadata(): DriveConnectorMetadata {
 }
 
 export async function previewDriveDocuments(_source: DriveSource): Promise<DriveFilePreview[]> {
-  const client = getClient();
+  const client = await getClient();
   const files: DriveFilePreview[] = [];
   let pageToken: string | undefined;
 
@@ -168,7 +169,7 @@ export async function queueBackfillJobs(
   orgId: string,
   connectorId: string,
 ): Promise<number> {
-  const client = getClient();
+  const client = await getClient();
   let queued = 0;
   let pageToken: string | undefined;
 
@@ -243,7 +244,7 @@ export async function listChanges(
   connectorId: string,
   pageToken: string,
 ): Promise<{ queued: number; nextPageToken?: string; newStartToken?: string }> {
-  const client = getClient();
+  const client = await getClient();
   const result = await client.listChanges(pageToken);
 
   if (!result.changes.length) {
@@ -428,7 +429,7 @@ export function parseManifestBuffer(buffer: Buffer, mimeType: string): ManifestE
 }
 
 export async function downloadDriveFile(change: DriveChangeQueueRow) {
-  const client = getClient();
+  const client = await getClient();
   const mimeType = resolveChangeMimeType(change);
   if (!mimeType) {
     throw new Error('unknown_mime_type');

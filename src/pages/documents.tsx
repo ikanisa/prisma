@@ -5,6 +5,7 @@ import { Button } from '@/components/enhanced-button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { FileUpload } from '@/components/file-upload';
 import {
   Dialog,
@@ -26,9 +27,7 @@ import {
 } from '@/lib/documents';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useI18n } from '@/hooks/use-i18n';
-
-const CLIENT_DEFAULT_REPO = '03_Accounting/PBC';
-const CLIENT_ALLOWED_REPOS = ['03_Accounting/PBC', '02_Tax/PBC', '04_Audit/PBC'];
+import { useClientPortalScope, useDocumentAIPipelineConfig } from '@/lib/system-config';
 
 function formatFileSize(bytes?: number | null): string {
   if (!bytes) return '—';
@@ -54,9 +53,46 @@ export function Documents() {
 
   const isClient = currentRole === 'CLIENT';
   const canArchive = hasRole('MANAGER');
-  const uploadRepo = isClient ? CLIENT_DEFAULT_REPO : undefined;
+  const clientPortalScope = useClientPortalScope();
+  const documentAIConfig = useDocumentAIPipelineConfig();
+  const clientAllowedRepos = clientPortalScope.allowedRepos;
+  const clientUploadsDenied = clientPortalScope.deniedActions.includes('documents.upload');
+  const uploadRepo = isClient ? clientAllowedRepos[0] : undefined;
+  const clientUploadTooltip = isClient
+    ? clientUploadsDenied
+      ? 'Uploads disabled for client accounts by policy.'
+      : clientAllowedRepos.length > 0
+      ? `Uploads limited to ${clientAllowedRepos.join(', ')}`
+      : 'No client upload repository configured.'
+    : undefined;
+  const clientUploadDescription = isClient
+    ? clientUploadsDenied
+      ? 'Client uploads are currently disabled. Contact your engagement team for assistance.'
+      : clientAllowedRepos.length > 0
+      ? `Files are stored in the permitted client repositories (${clientAllowedRepos.join(', ')}).`
+      : 'No client repositories are configured for uploads.'
+    : 'Select files to upload to your document library.';
 
   const orgSlug = currentOrg?.slug ?? null;
+
+  const previewFieldOrder = useMemo(() => {
+    if (!previewDocument?.extraction) {
+      return [] as string[];
+    }
+    const docType = previewDocument.extraction.documentType ?? previewDocument.classification ?? '';
+    const normalised = docType ? docType.toUpperCase() : '';
+    const configured = documentAIConfig.extractors[normalised] ?? [];
+    const providedFields = Object.keys(previewDocument.extraction.fields ?? {});
+    const merged = [...configured];
+    for (const field of providedFields) {
+      if (!merged.includes(field)) {
+        merged.push(field);
+      }
+    }
+    return merged;
+  }, [previewDocument, documentAIConfig]);
+
+  const previewExtractionFields = (previewDocument?.extraction?.fields ?? {}) as Record<string, unknown>;
 
   useEffect(() => {
     if (!orgSlug) {
@@ -120,6 +156,24 @@ export function Documents() {
       toast({
         title: t('documents.error.noOrgTitle'),
         description: t('documents.error.noOrgDescription'),
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (isClient && clientUploadsDenied) {
+      toast({
+        title: 'Uploads disabled',
+        description: 'Client portal uploads are disabled for your role.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (isClient && !uploadRepo) {
+      toast({
+        title: t('documents.error.uploadTitle'),
+        description: 'No upload repository configured for client users.',
         variant: 'destructive',
       });
       return;
@@ -244,7 +298,11 @@ export function Documents() {
 
         <Dialog open={uploadOpen} onOpenChange={setUploadOpen}>
           <DialogTrigger asChild>
-            <Button variant="gradient" title={isClient ? `Uploads limited to ${CLIENT_ALLOWED_REPOS.join(', ')}` : undefined}>
+            <Button
+              variant="gradient"
+              title={clientUploadTooltip ?? undefined}
+              disabled={isClient && (clientUploadsDenied || clientAllowedRepos.length === 0)}
+            >
               <Upload className="w-4 h-4 mr-2" />
               {isClient ? 'Upload PBC Files' : 'Upload Files'}
             </Button>
@@ -252,17 +310,20 @@ export function Documents() {
           <DialogContent className="max-w-lg">
             <DialogHeader>
               <DialogTitle>Upload Documents</DialogTitle>
-              <DialogDescription>
-                {isClient
-                  ? `Files are stored in the permitted client repositories (${CLIENT_ALLOWED_REPOS.join(', ')}).`
-                  : 'Select files to upload to your document library.'}
-              </DialogDescription>
+              <DialogDescription>{clientUploadDescription}</DialogDescription>
             </DialogHeader>
             <FileUpload
               onUpload={handleUpload}
               accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.jpg,.jpeg,.png"
               multiple
               maxSize={20}
+              disabled={isClient && (clientUploadsDenied || clientAllowedRepos.length === 0)}
+              disabledReason={
+                isClient && (clientUploadsDenied || clientAllowedRepos.length === 0)
+                  ? clientUploadDescription
+                  : undefined
+              }
+              helperText={!isClient || clientUploadsDenied ? undefined : clientUploadDescription}
             />
           </DialogContent>
         </Dialog>
@@ -314,6 +375,12 @@ export function Documents() {
                       {document.classification ? (
                         <Badge variant="secondary">{document.classification}</Badge>
                       ) : null}
+                      {document.extraction?.documentType ? (
+                        <Badge variant="outline" className="uppercase">
+                          {document.extraction.documentType}
+                        </Badge>
+                      ) : null}
+                      {document.quarantined ? <Badge variant="destructive">Quarantined</Badge> : null}
                       {document.deleted ? <Badge variant="destructive">Archived</Badge> : null}
                     </div>
                   </div>
@@ -361,6 +428,26 @@ export function Documents() {
                     <span>Type</span>
                     <span>{document.file_type ?? 'Unknown'}</span>
                   </div>
+                  {document.parse_status ? (
+                    <div className="flex items-center justify-between">
+                      <span>Parse</span>
+                      <span className={document.parse_status === 'FAILED' ? 'text-destructive font-semibold' : ''}>
+                        {document.parse_status}
+                      </span>
+                    </div>
+                  ) : null}
+                  {document.ocr_status ? (
+                    <div className="flex items-center justify-between">
+                      <span>OCR</span>
+                      <span>{document.ocr_status}</span>
+                    </div>
+                  ) : null}
+                  {typeof document.extraction?.confidence === 'number' ? (
+                    <div className="flex items-center justify-between">
+                      <span>Confidence</span>
+                      <span>{Math.round(document.extraction.confidence * 100)}%</span>
+                    </div>
+                  ) : null}
                 </CardContent>
               </Card>
             </motion.div>
@@ -378,7 +465,8 @@ export function Documents() {
           <Button
             variant="outline"
             onClick={() => setUploadOpen(true)}
-            title={isClient ? `Uploads limited to ${CLIENT_ALLOWED_REPOS.join(', ')}` : undefined}
+            title={clientUploadTooltip ?? undefined}
+            disabled={isClient && (clientUploadsDenied || clientAllowedRepos.length === 0)}
           >
             <Upload className="w-4 h-4 mr-2" />
             {isClient ? 'Upload PBC Files' : 'Upload Files'}
@@ -429,6 +517,46 @@ export function Documents() {
               <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Generating preview...
             </div>
           )}
+          {previewDocument?.quarantined ? (
+            <Alert variant="destructive" className="mt-4">
+              <AlertTitle>Extraction quarantined</AlertTitle>
+              <AlertDescription>
+                The latest extraction has been flagged for manual review. Resolve the issue before relying on this data.
+              </AlertDescription>
+            </Alert>
+          ) : null}
+          <div className="mt-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-foreground">Extracted fields</h3>
+              {typeof previewDocument?.extraction?.confidence === 'number' ? (
+                <span className="text-xs text-muted-foreground">
+                  Confidence {Math.round(previewDocument.extraction.confidence * 100)}%
+                </span>
+              ) : null}
+            </div>
+            {previewDocument?.extraction ? (
+              previewFieldOrder.length > 0 ? (
+                <dl className="grid gap-4 sm:grid-cols-2">
+                  {previewFieldOrder.map((field) => {
+                    const raw = previewExtractionFields[field];
+                    const value = raw === null || raw === undefined || raw === '' ? '—' : String(raw);
+                    return (
+                      <div key={field} className="space-y-1">
+                        <dt className="text-xs uppercase tracking-wide text-muted-foreground">
+                          {field.replace(/_/g, ' ')}
+                        </dt>
+                        <dd className="text-sm font-medium text-foreground break-words">{value}</dd>
+                      </div>
+                    );
+                  })}
+                </dl>
+              ) : (
+                <p className="text-sm text-muted-foreground">No extracted fields available yet.</p>
+              )
+            ) : (
+              <p className="text-sm text-muted-foreground">No extraction run has been recorded for this document.</p>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </motion.div>

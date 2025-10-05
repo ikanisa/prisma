@@ -15,13 +15,20 @@ import { cn } from '@/lib/utils';
 import { useI18n } from '@/hooks/use-i18n';
 import { recordClientEvent } from '@/lib/client-events';
 import { AssistantChip } from '@/components/ui/assistant-chip';
-import { useAssistantChips } from '@/lib/system-config';
+import {
+  useAssistantChips,
+  useAssistantDockPlacementClass,
+  useAssistantMotionPreset,
+  useAssistantThemeTokens,
+} from '@/lib/system-config';
 import { useLocation } from 'react-router-dom';
+import { validateAssistantResponseStyle } from '@/lib/assistant-style-policy';
 
 interface AssistantAction {
   label: string;
   tool: string;
   description?: string;
+  args?: Record<string, unknown>;
 }
 
 interface AssistantCitation {
@@ -133,6 +140,7 @@ export function AssistantDock() {
     if (payload.actions) {
       setActions(payload.actions);
     }
+    validateAssistantResponseStyle(payload);
   }, []);
 
   const callAssistant = useCallback(
@@ -239,7 +247,7 @@ export function AssistantDock() {
       }
       const userMessage: AssistantMessage = {
         role: 'user',
-        content: `\u{1F527} ${tool.replace(/_/g, ' ')}`,
+        content: `\u{1F527} ${tool.replace(/[._]/g, ' ')}`,
         timestamp: new Date().toISOString(),
       };
       setMessages(prev => [...prev, userMessage]);
@@ -265,15 +273,15 @@ export function AssistantDock() {
 
   const handleActionClick = useCallback(
     (action: AssistantAction) => {
-      if (action.tool === 'create_task') {
+      if (action.tool === 'tasks.create') {
         setTaskComposerVisible(true);
         return;
       }
-      if (action.tool === 'list_documents') {
-        void runTool(action.tool, { limit: 5 });
+      if (action.tool === 'documents.list') {
+        void runTool(action.tool, (action.args as Record<string, unknown> | undefined) ?? { limit: 5 });
         return;
       }
-      void runTool(action.tool, {});
+      void runTool(action.tool, (action.args as Record<string, unknown> | undefined) ?? {});
     },
     [runTool],
   );
@@ -289,7 +297,7 @@ export function AssistantDock() {
         });
         return;
       }
-      await runTool('create_task', {
+      await runTool('tasks.create', {
         title: taskDraft.title.trim(),
         description: taskDraft.description.trim() || undefined,
         priority: taskDraft.priority,
@@ -304,6 +312,11 @@ export function AssistantDock() {
   const location = useLocation();
   const configuredChips = useAssistantChips(location.pathname);
   const assistantOffline = useMemo(() => !orgSlug, [orgSlug]);
+  const dockPlacementClass = useAssistantDockPlacementClass();
+  const motionPreset = useAssistantMotionPreset();
+  const themeTokens = useAssistantThemeTokens();
+  const shellMotionAttribute =
+    motionPreset.panel.transition?.type ?? (motionPreset.panel.transition ? 'custom' : undefined);
 
   const defaultChips = useMemo(
     () => [
@@ -370,14 +383,15 @@ export function AssistantDock() {
   );
 
   return (
-    <div className="fixed bottom-6 right-6 z-50">
+    <div className={dockPlacementClass} data-shell-motion={shellMotionAttribute}>
       <AnimatePresence>
         {!open ? (
           <motion.div
             key="assistant-toggle"
-            initial={{ opacity: 0, scale: 0.9, y: 12 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.9, y: 12 }}
+            initial={motionPreset.toggle.initial}
+            animate={motionPreset.toggle.animate}
+            exit={motionPreset.toggle.exit}
+            transition={motionPreset.toggle.transition}
           >
             <div
               role="button"
@@ -390,12 +404,19 @@ export function AssistantDock() {
                 }
               }}
               className={cn(
-                'group w-80 max-w-[90vw] cursor-pointer rounded-3xl border border-border/70 bg-background/95 p-4 shadow-2xl backdrop-blur transition duration-200',
+                'group w-80 max-w-[90vw] cursor-pointer rounded-3xl p-4 shadow-2xl backdrop-blur transition duration-200',
+                themeTokens.toggleSurface,
+                themeTokens.toggleBorder,
                 assistantOffline ? 'opacity-70' : 'hover:border-primary/60 hover:shadow-primary/20',
               )}
             >
               <div className="flex items-center gap-3">
-                <div className="relative inline-flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary/70 text-primary-foreground">
+                <div
+                  className={cn(
+                    'relative inline-flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br text-primary-foreground',
+                    themeTokens.accentGradient,
+                  )}
+                >
                   <Sparkles className="h-5 w-5" />
                   <span
                     className={cn(
@@ -436,14 +457,24 @@ export function AssistantDock() {
         ) : (
           <motion.div
             key="assistant-panel"
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            className="w-96 max-w-[90vw] rounded-2xl border border-border bg-card/95 backdrop-blur shadow-2xl"
+            initial={motionPreset.panel.initial}
+            animate={motionPreset.panel.animate}
+            exit={motionPreset.panel.exit}
+            transition={motionPreset.panel.transition}
+            className={cn(
+              'w-96 max-w-[90vw] rounded-2xl backdrop-blur shadow-2xl',
+              themeTokens.panelSurface,
+              themeTokens.panelBorder,
+            )}
           >
             <div className="flex items-center justify-between px-4 py-3 border-b border-border">
               <div className="flex items-center gap-2">
-                <div className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary/70 text-primary-foreground">
+                <div
+                  className={cn(
+                    'inline-flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br text-primary-foreground',
+                    themeTokens.accentGradient,
+                  )}
+                >
                   <MessageCircle className="w-4 h-4" />
                 </div>
                 <div>

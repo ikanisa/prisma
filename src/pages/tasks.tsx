@@ -13,6 +13,7 @@ import { createTask, listTasks, TaskRecord, updateTask } from '@/lib/tasks';
 import { TaskForm, EngagementOption, MemberOption } from '@/components/forms/task-form';
 import { supabase } from '@/integrations/supabase/client';
 import { useI18n } from '@/hooks/use-i18n';
+import { useEmptyStateCopy } from '@/lib/system-config';
 
 const statusColors: Record<TaskRecord['status'], string> = {
   TODO: 'bg-gray-100 text-gray-800',
@@ -38,6 +39,7 @@ export function Tasks() {
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
   const [members, setMembers] = useState<MemberOption[]>([]);
+  const tasksEmptyCopy = useEmptyStateCopy('tasks', "No tasks yet — try 'Add onboarding checklist'.");
   const [engagements, setEngagements] = useState<EngagementOption[]>([]);
 
   const orgSlug = currentOrg?.slug ?? null;
@@ -326,7 +328,7 @@ export function Tasks() {
           </h3>
           <p className="text-muted-foreground mb-4">
             {filter === 'all'
-              ? 'Create your first task to get started'
+              ? tasksEmptyCopy
               : 'Try changing the filter to see other tasks'}
           </p>
           <Button variant="outline" onClick={() => setTaskDialogOpen(true)}>

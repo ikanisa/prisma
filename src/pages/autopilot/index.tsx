@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { formatDistanceToNow } from 'date-fns';
 import {
@@ -31,6 +31,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import type { AutopilotJob } from '@/lib/autopilot';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import {
+  getAllowedAutopilotJobs,
+  getAutonomyLevelDescription,
+  getAutonomyLevels,
+  getDefaultAutonomyLevel,
+} from '@/lib/system-config';
 
 type JobStatusFilter = 'all' | 'PENDING' | 'RUNNING' | 'DONE' | 'FAILED';
 
@@ -126,7 +133,12 @@ export default function AutopilotPage() {
   const createSchedule = useCreateAutopilotSchedule();
   const enqueueJob = useEnqueueAutopilotJob();
   const { toast } = useToast();
-  const [kind, setKind] = useState('extract_documents');
+  const defaultAutonomyLevel = getDefaultAutonomyLevel();
+  const orgAutonomyLevel = (currentOrg?.autonomy_level as string | undefined) ?? defaultAutonomyLevel;
+  const allowedJobs = useMemo(() => getAllowedAutopilotJobs(orgAutonomyLevel), [orgAutonomyLevel]);
+  const autonomyDescription = getAutonomyLevelDescription(orgAutonomyLevel);
+  const autonomyLevels = useMemo(() => getAutonomyLevels(), []);
+  const [kind, setKind] = useState(() => allowedJobs[0] ?? 'extract_documents');
   const [cronExpression, setCronExpression] = useState('0 2 * * *');
   const [metadataText, setMetadataText] = useState(`{
   "notify": true
@@ -159,6 +171,26 @@ export default function AutopilotPage() {
   }, [sortedJobs]);
 
   const preset = useMemo(() => AUTOPILOT_PRESETS.find((item) => item.kind === kind), [kind]);
+  const jobLabels = useMemo(() => new Map(AUTOPILOT_PRESETS.map((item) => [item.kind, item.label])), []);
+  const jobAllowed = allowedJobs.includes(kind);
+  const allowedJobLabels = allowedJobs.map((job) => jobLabels.get(job) ?? job.replace(/_/g, ' ')).join(', ');
+
+  useEffect(() => {
+    if (!allowedJobs.includes(kind) && allowedJobs.length > 0) {
+      const fallbackKind = allowedJobs[0];
+      setKind(fallbackKind);
+      const fallbackPreset = AUTOPILOT_PRESETS.find((item) => item.kind === fallbackKind);
+      if (fallbackPreset) {
+        setCronExpression(fallbackPreset.cron);
+      }
+    }
+  }, [allowedJobs, kind]);
+
+  useEffect(() => {
+    if (preset && preset.cron !== cronExpression) {
+      setCronExpression(preset.cron);
+    }
+  }, [preset]);
 
   if (!autopilotEnabled) {
     return (
@@ -191,6 +223,19 @@ export default function AutopilotPage() {
           <TabsTrigger value="jobs">Job history</TabsTrigger>
         </TabsList>
         <TabsContent value="schedules" className="space-y-4">
+          <Alert className="border-border/60 bg-muted/60">
+            <AlertTitle className="flex items-center gap-2">
+              <AlarmClock className="h-4 w-4 text-primary" /> Autonomy level {orgAutonomyLevel}
+            </AlertTitle>
+            <AlertDescription className="space-y-1 text-sm">
+              <p>{autonomyDescription}</p>
+              {allowedJobs.length > 0 ? (
+                <p>Enabled autopilot jobs: {allowedJobLabels || 'None'}.</p>
+              ) : (
+                <p>Automation is paused until autonomy is raised to Suggest (L1) or above.</p>
+              )}
+            </AlertDescription>
+          </Alert>
           <Card>
             <CardHeader>
               <CardTitle>Create schedule</CardTitle>
@@ -204,16 +249,18 @@ export default function AutopilotPage() {
                   className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm"
                   value={kind}
                   onChange={(event) => setKind(event.target.value)}
+                  disabled={allowedJobs.length === 0}
                 >
                   {AUTOPILOT_PRESETS.map((item) => (
-                    <option key={item.kind} value={item.kind}>
-                      {item.label}
+                    <option key={item.kind} value={item.kind} disabled={!allowedJobs.includes(item.kind)}>
+                      {allowedJobs.includes(item.kind) ? item.label : `${item.label} (locked)`}
                     </option>
                   ))}
-                  <option value="custom">Custom</option>
                 </select>
                 <p className="text-xs text-muted-foreground">
-                  {preset ? preset.description : 'Provide a cron expression to schedule custom automation.'}
+                  {preset
+                    ? preset.description
+                    : 'Select a preset that matches the permitted autonomy scope to enable scheduling.'}
                 </p>
               </div>
               <div className="space-y-2">
@@ -253,7 +300,7 @@ export default function AutopilotPage() {
                       });
                     }
                   }}
-                  disabled={createSchedule.isPending}
+                  disabled={createSchedule.isPending || !jobAllowed}
                 >
                   {createSchedule.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Save schedule
@@ -513,7 +560,7 @@ export default function AutopilotPage() {
                               size="sm"
                               variant="outline"
                               onClick={() => enqueueJob.mutate({ kind: job.kind, payload: job.payload })}
-                              disabled={enqueueJob.isPending}
+                              disabled={enqueueJob.isPending || !allowedJobs.includes(job.kind)}
                             >
                               <PlayCircle className="mr-2 h-4 w-4" /> Run again
                             </Button>
@@ -538,15 +585,15 @@ export default function AutopilotPage() {
             <AlarmClock className="h-5 w-5" /> Autopilot levels
           </CardTitle>
           <CardDescription>
-            Configure autonomy in policy packs. Levels 0–3 map to manual, proposal, auto-prepare, and hands-free
-            modes. Approvals remain required for filings and client communications.
+            Configure autonomy in policy packs. Approvals remain required for filings and client communications.
           </CardDescription>
         </CardHeader>
-        <CardContent className="text-sm text-muted-foreground space-y-2">
-          <p><strong>L0 – Manual:</strong> Assistant suggests actions only.</p>
-          <p><strong>L1 – Proposed:</strong> Assistant drafts tasks and notes pending approval.</p>
-          <p><strong>L2 – Auto-prepare:</strong> Evidence collection and reconciliations run automatically; manager approval required to submit.</p>
-          <p><strong>L3 – Autopilot:</strong> Within policy packs, the assistant executes deliverables and escalates only when evidence is missing.</p>
+        <CardContent className="space-y-2 text-sm text-muted-foreground">
+          {Object.entries(autonomyLevels).map(([level, description]) => (
+            <p key={level}>
+              <strong>{level}:</strong> {description}
+            </p>
+          ))}
         </CardContent>
       </Card>
 

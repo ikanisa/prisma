@@ -1,5 +1,16 @@
 import { authorizedFetch } from '@/lib/api';
 
+export interface DocumentExtractionSummary {
+  status?: string | null;
+  fields: Record<string, unknown>;
+  confidence?: number | null;
+  provenance?: Array<Record<string, unknown>>;
+  extractorName?: string | null;
+  updated_at?: string | null;
+  documentType?: string | null;
+  summary?: string | null;
+}
+
 export interface DocumentRecord {
   id: string;
   org_id: string;
@@ -13,6 +24,11 @@ export interface DocumentRecord {
   repo_folder?: string | null;
   classification?: string | null;
   deleted?: boolean;
+  ocr_status?: string | null;
+  parse_status?: string | null;
+  portal_visible?: boolean;
+  extraction?: DocumentExtractionSummary | null;
+  quarantined?: boolean;
 }
 
 export interface UploadDocumentParams {

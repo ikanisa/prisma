@@ -7,6 +7,8 @@ import { useAuth } from "@/hooks/use-auth";
 import { useOrganizations } from "@/hooks/use-organizations";
 import { AssistantDock } from "@/components/assistant";
 import { NpsPrompt } from "@/components/nps/nps-prompt";
+import { useShellThemeTokens } from "@/lib/system-config";
+import { cn } from "@/lib/utils";
 
 export function AppShell() {
   const { user, loading: authLoading } = useAuth();
@@ -14,6 +16,7 @@ export function AppShell() {
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const { orgSlug } = useParams();
+  const shellTheme = useShellThemeTokens();
   const targetMembership = orgSlug
     ? memberships.find((membership) => membership.organization.slug === orgSlug)
     : undefined;
@@ -50,11 +53,15 @@ export function AppShell() {
   }
 
   return (
-    <div className="min-h-screen flex w-full bg-background">
+    <div
+      className={cn('min-h-screen flex w-full', shellTheme.backgroundClass)}
+      data-shell-theme={shellTheme.id}
+      data-shell-motion={shellTheme.motion}
+    >
       <div className={sidebarCollapsed ? "w-16" : "w-64"} style={{ transition: "width 0.2s ease" }}>
-        <Sidebar 
-          collapsed={sidebarCollapsed} 
-          onToggle={() => setSidebarCollapsed(!sidebarCollapsed)} 
+        <Sidebar
+          collapsed={sidebarCollapsed}
+          onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
         />
       </div>
       <div className="flex-1 flex flex-col">
