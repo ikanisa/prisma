@@ -37,7 +37,7 @@ jobs:
           path: GO-LIVE/artifacts/
       - name: Create PR with artifacts
         id: cpr
-        uses: peter-evans/create-pull-request@v6
+        uses: peter-evans/create-pull-request@v7
         with:
           add-paths: |
             GO-LIVE/artifacts/lighthouse-report.json
