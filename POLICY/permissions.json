@@ -25,5 +25,16 @@
   "admin.impersonation.approve": "MANAGER",
   "admin.impersonation.revoke": "MANAGER",
   "knowledge.ingest": "MANAGER",
-  "autopilot.schedule": "MANAGER"
+  "autopilot.schedule": "MANAGER",
+  "audit.controls.view": "EMPLOYEE",
+  "audit.controls.manage": "MANAGER",
+  "audit.controls.walkthrough": "EMPLOYEE",
+  "audit.controls.test": "MANAGER",
+  "audit.deficiencies.manage": "MANAGER",
+  "audit.analytics.view": "EMPLOYEE",
+  "audit.analytics.run": "MANAGER",
+  "audit.analytics.exceptions": "EMPLOYEE",
+  "audit.reconciliations.view": "EMPLOYEE",
+  "audit.reconciliations.manage": "EMPLOYEE",
+  "audit.reconciliations.close": "MANAGER"
 }

@@ -2,10 +2,28 @@ import asyncio
 import asyncio
 import json
 import os
+import sys
+import types
 from typing import Any, Dict
 
 os.environ.setdefault('SUPABASE_SERVICE_ROLE_KEY', 'service-role')
 os.environ.setdefault('SUPABASE_JWT_SECRET', 'secret')
+
+yaml_mod = sys.modules.get('yaml')
+if yaml_mod is None:
+    yaml_mod = types.SimpleNamespace(
+        safe_load=lambda stream: {},
+        dump=lambda *args, **kwargs: '',
+        YAMLError=Exception,
+    )
+    sys.modules['yaml'] = yaml_mod
+else:
+    if not hasattr(yaml_mod, 'safe_load'):
+        yaml_mod.safe_load = lambda stream: {}
+    if not hasattr(yaml_mod, 'dump'):
+        yaml_mod.dump = lambda *args, **kwargs: ''
+    if not hasattr(yaml_mod, 'YAMLError'):
+        yaml_mod.YAMLError = Exception
 
 import pytest
 
@@ -126,6 +144,32 @@ def test_autonomy_blocks_schedule_when_level_low(monkeypatch):
     response = client.post(
         '/v1/autopilot/schedules',
         json={'orgSlug': 'acme', 'kind': 'extract_documents', 'cronExpression': '0 2 * * *', 'active': True, 'metadata': {}},
+        headers=_auth_headers(),
+    )
+
+    assert response.status_code == 403
+
+
+def test_schedule_blocks_when_membership_ceiling_low(monkeypatch):
+    async def fake_resolve_org_context(_user_id: str, _slug: str):
+        return {
+            'org_id': 'org-1',
+            'role': 'MANAGER',
+            'autonomy_level': 'L2',
+            'autonomy_ceiling': 'L0',
+        }
+
+    async def fail_table_request(*_args, **_kwargs):
+        raise AssertionError('schedule should be blocked by membership ceiling')
+
+    monkeypatch.setattr(main, 'resolve_org_context', fake_resolve_org_context)
+    monkeypatch.setattr(main, 'supabase_table_request', fail_table_request)
+    monkeypatch.setattr(main, 'verify_supabase_jwt', lambda _token: {'sub': 'user-1'})
+
+    client = TestClient(main.app)
+    response = client.post(
+        '/v1/autopilot/schedules',
+        json={'orgSlug': 'acme', 'kind': 'remind_pbc', 'cronExpression': '0 2 * * *', 'active': True, 'metadata': {}},
         headers=_auth_headers(),
     )
 

@@ -1375,6 +1375,375 @@ export type Database = {
           },
         ]
       }
+      control_tests: {
+        Row: {
+          attributes: Json
+          control_id: string
+          id: string
+          org_id: string
+          performed_at: string
+          performed_by: string | null
+          result: Database["public"]["Enums"]["control_test_result"]
+          sample_plan_ref: string | null
+        }
+        Insert: {
+          attributes: Json
+          control_id: string
+          id?: string
+          org_id: string
+          performed_at?: string
+          performed_by?: string | null
+          result: Database["public"]["Enums"]["control_test_result"]
+          sample_plan_ref?: string | null
+        }
+        Update: {
+          attributes?: Json
+          control_id?: string
+          id?: string
+          org_id?: string
+          performed_at?: string
+          performed_by?: string | null
+          result?: Database["public"]["Enums"]["control_test_result"]
+          sample_plan_ref?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "control_tests_control_id_fkey"
+            columns: ["control_id"]
+            isOneToOne: false
+            referencedRelation: "controls"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "control_tests_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      control_walkthroughs: {
+        Row: {
+          control_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          notes: string | null
+          org_id: string
+          result: Database["public"]["Enums"]["control_walkthrough_result"]
+          walkthrough_date: string
+        }
+        Insert: {
+          control_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          org_id: string
+          result: Database["public"]["Enums"]["control_walkthrough_result"]
+          walkthrough_date: string
+        }
+        Update: {
+          control_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          org_id?: string
+          result?: Database["public"]["Enums"]["control_walkthrough_result"]
+          walkthrough_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "control_walkthroughs_control_id_fkey"
+            columns: ["control_id"]
+            isOneToOne: false
+            referencedRelation: "controls"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "control_walkthroughs_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      controls: {
+        Row: {
+          created_at: string
+          description: string
+          engagement_id: string
+          frequency: Database["public"]["Enums"]["control_frequency"]
+          id: string
+          key: boolean
+          objective: string
+          org_id: string
+          owner: string | null
+          cycle: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description: string
+          engagement_id: string
+          frequency?: Database["public"]["Enums"]["control_frequency"]
+          id?: string
+          key?: boolean
+          objective: string
+          org_id: string
+          owner?: string | null
+          cycle: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          engagement_id?: string
+          frequency?: Database["public"]["Enums"]["control_frequency"]
+          id?: string
+          key?: boolean
+          objective?: string
+          org_id?: string
+          owner?: string | null
+          cycle?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "controls_engagement_id_fkey"
+            columns: ["engagement_id"]
+            isOneToOne: false
+            referencedRelation: "engagements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "controls_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      deficiencies: {
+        Row: {
+          control_id: string | null
+          created_at: string
+          engagement_id: string
+          id: string
+          org_id: string
+          recommendation: string
+          severity: Database["public"]["Enums"]["deficiency_severity"]
+          status: Database["public"]["Enums"]["deficiency_status"]
+          updated_at: string
+        }
+        Insert: {
+          control_id?: string | null
+          created_at?: string
+          engagement_id: string
+          id?: string
+          org_id: string
+          recommendation: string
+          severity: Database["public"]["Enums"]["deficiency_severity"]
+          status?: Database["public"]["Enums"]["deficiency_status"]
+          updated_at?: string
+        }
+        Update: {
+          control_id?: string | null
+          created_at?: string
+          engagement_id?: string
+          id?: string
+          org_id?: string
+          recommendation?: string
+          severity?: Database["public"]["Enums"]["deficiency_severity"]
+          status?: Database["public"]["Enums"]["deficiency_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deficiencies_control_id_fkey"
+            columns: ["control_id"]
+            isOneToOne: false
+            referencedRelation: "controls"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deficiencies_engagement_id_fkey"
+            columns: ["engagement_id"]
+            isOneToOne: false
+            referencedRelation: "engagements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deficiencies_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      itgc_groups: {
+        Row: {
+          created_at: string
+          engagement_id: string
+          id: string
+          notes: string | null
+          org_id: string
+          scope: string
+          type: Database["public"]["Enums"]["itgc_group_type"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          engagement_id: string
+          id?: string
+          notes?: string | null
+          org_id: string
+          scope: string
+          type: Database["public"]["Enums"]["itgc_group_type"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          engagement_id?: string
+          id?: string
+          notes?: string | null
+          org_id?: string
+          scope?: string
+          type?: Database["public"]["Enums"]["itgc_group_type"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "itgc_groups_engagement_id_fkey"
+            columns: ["engagement_id"]
+            isOneToOne: false
+            referencedRelation: "engagements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "itgc_groups_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ada_exceptions: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          misstatement_id: string | null
+          note: string | null
+          reason: string
+          run_id: string
+          score: number | null
+          disposition: Database["public"]["Enums"]["ada_exception_disposition"]
+          record_ref: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          misstatement_id?: string | null
+          note?: string | null
+          reason: string
+          run_id: string
+          score?: number | null
+          disposition?: Database["public"]["Enums"]["ada_exception_disposition"]
+          record_ref: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          misstatement_id?: string | null
+          note?: string | null
+          reason?: string
+          run_id?: string
+          score?: number | null
+          disposition?: Database["public"]["Enums"]["ada_exception_disposition"]
+          record_ref?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ada_exceptions_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "ada_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ada_runs: {
+        Row: {
+          created_by: string | null
+          dataset_hash: string
+          dataset_ref: string
+          engagement_id: string
+          finished_at: string | null
+          id: string
+          kind: Database["public"]["Enums"]["ada_run_kind"]
+          org_id: string
+          params: Json
+          started_at: string
+          summary: Json | null
+        }
+        Insert: {
+          created_by?: string | null
+          dataset_hash: string
+          dataset_ref: string
+          engagement_id: string
+          finished_at?: string | null
+          id?: string
+          kind: Database["public"]["Enums"]["ada_run_kind"]
+          org_id: string
+          params: Json
+          started_at?: string
+          summary?: Json | null
+        }
+        Update: {
+          created_by?: string | null
+          dataset_hash?: string
+          dataset_ref?: string
+          engagement_id?: string
+          finished_at?: string | null
+          id?: string
+          kind?: Database["public"]["Enums"]["ada_run_kind"]
+          org_id?: string
+          params?: Json
+          started_at?: string
+          summary?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ada_runs_engagement_id_fkey"
+            columns: ["engagement_id"]
+            isOneToOne: false
+            referencedRelation: "engagements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ada_runs_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       close_pbc_items: {
         Row: {
           area: string
@@ -3772,26 +4141,41 @@ export type Database = {
       }
       memberships: {
         Row: {
+          autonomy_ceiling: Database["public"]["Enums"]["autonomy_level"]
+          autonomy_floor: Database["public"]["Enums"]["autonomy_level"]
+          client_portal_allowed_repos: string[]
+          client_portal_denied_actions: string[]
           created_at: string | null
           id: string
+          is_service_account: boolean
           org_id: string
-          role: Database["public"]["Enums"]["role_level"]
+          role: Database["public"]["Enums"]["org_role"]
           updated_at: string | null
           user_id: string
         }
         Insert: {
+          autonomy_ceiling?: Database["public"]["Enums"]["autonomy_level"]
+          autonomy_floor?: Database["public"]["Enums"]["autonomy_level"]
+          client_portal_allowed_repos?: string[]
+          client_portal_denied_actions?: string[]
           created_at?: string | null
           id?: string
+          is_service_account?: boolean
           org_id: string
-          role?: Database["public"]["Enums"]["role_level"]
+          role?: Database["public"]["Enums"]["org_role"]
           updated_at?: string | null
           user_id: string
         }
         Update: {
+          autonomy_ceiling?: Database["public"]["Enums"]["autonomy_level"]
+          autonomy_floor?: Database["public"]["Enums"]["autonomy_level"]
+          client_portal_allowed_repos?: string[]
+          client_portal_denied_actions?: string[]
           created_at?: string | null
           id?: string
+          is_service_account?: boolean
           org_id?: string
-          role?: Database["public"]["Enums"]["role_level"]
+          role?: Database["public"]["Enums"]["org_role"]
           updated_at?: string | null
           user_id?: string
         }
@@ -6523,6 +6907,8 @@ export type Database = {
       }
     }
     Enums: {
+      ada_exception_disposition: "OPEN" | "INVESTIGATING" | "RESOLVED"
+      ada_run_kind: "JE" | "RATIO" | "VARIANCE" | "DUPLICATE" | "BENFORD"
       audit_risk_category:
         | "FINANCIAL_STATEMENT"
         | "FRAUD"
@@ -6538,6 +6924,13 @@ export type Database = {
         | "SUBSTANTIVE_REVIEW"
         | "READY_TO_LOCK"
         | "LOCKED"
+      control_frequency: "DAILY" | "WEEKLY" | "MONTHLY" | "QUARTERLY" | "ANNUAL" | "EVENT_DRIVEN"
+      control_test_result: "PASS" | "EXCEPTIONS"
+      control_walkthrough_result:
+        | "DESIGNED"
+        | "NOT_DESIGNED"
+        | "IMPLEMENTED"
+        | "NOT_IMPLEMENTED"
       dac6_hallmark_category: "A" | "B" | "C" | "D" | "E"
       dac6_submission_status:
         | "DRAFT"
@@ -6545,6 +6938,8 @@ export type Database = {
         | "SUBMITTED"
         | "REJECTED"
       denylist_action: "deny" | "deboost"
+      deficiency_severity: "LOW" | "MEDIUM" | "HIGH"
+      deficiency_status: "OPEN" | "MONITORING" | "CLOSED"
       engagement_status: "planned" | "active" | "completed" | "archived"
       fraud_plan_status: "DRAFT" | "READY_FOR_APPROVAL" | "LOCKED"
       je_control_rule:
@@ -6575,8 +6970,9 @@ export type Database = {
         | "EXPENSE"
       org_role: "admin" | "manager" | "staff" | "client"
       reconciliation_item_category:
-        | "DIT"
-        | "OC"
+        | "OUTSTANDING_CHECKS"
+        | "DEPOSITS_IN_TRANSIT"
+        | "UNIDENTIFIED"
         | "UNAPPLIED_RECEIPT"
         | "UNAPPLIED_PAYMENT"
         | "TIMING"

@@ -38,6 +38,9 @@
 - Rate-limit breaches and SLA at-risk events emit `telemetry_alerts` rows and
   optional webhook notifications (`RATE_LIMIT_ALERT_WEBHOOK`,
   `TELEMETRY_ALERT_WEBHOOK`). Verify webhooks route to PagerDuty/Slack.
+- `/api/release-controls/check` should report `environment.autonomy/mfa/telemetry`
+  states as `satisfied` before change approval; archive the response JSON in the
+  go-live ticket.
 
 ## Security Notes
 - OAuth scope catalogue maintained in `docs/SECURITY/oauth-scopes.md`; changes
@@ -53,6 +56,9 @@
 ## Hardening & UAT
 - Performance/load test and UAT plan documented in `docs/performance-uat-plan.md`
   covering ADA, recon, consolidation, telemetry, and partner sign-off scripts.
+- Phase D load profiles (`tests/perf/autonomy-burst.js`,
+  `tests/perf/doc-ingestion-spike.js`, `tests/perf/archive-rebuild.js`) executed
+  with summaries stored under `GO-LIVE/artifacts/` alongside release-control evidence.
 
 ## Data Management
 - Financial close & disclosure workflows documented in `docs/financial-reporting.md`

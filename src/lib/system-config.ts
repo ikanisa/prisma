@@ -255,6 +255,21 @@ const DEFAULT_RELEASE_CONTROL_SETTINGS: ReleaseControlSettings = {
     manifestHash: 'sha256',
     includeDocs: [],
   },
+  environment: {
+    autonomy: {
+      minimumLevel: 'L2',
+      requireWorker: true,
+      criticalRoles: ['MANAGER', 'PARTNER'],
+    },
+    mfa: {
+      channel: 'WHATSAPP',
+      withinSeconds: 86400,
+    },
+    telemetry: {
+      maxOpenAlerts: 0,
+      severityThreshold: 'WARNING',
+    },
+  },
 };
 
 export interface GoogleDriveSettings {
@@ -354,12 +369,35 @@ export interface WorkflowDefinition {
   minimumAutonomy: AutonomyLevel;
 }
 
+export interface ReleaseControlAutonomySettings {
+  minimumLevel: AutonomyLevel;
+  requireWorker: boolean;
+  criticalRoles: string[];
+}
+
+export interface ReleaseControlMfaSettings {
+  channel: string;
+  withinSeconds: number;
+}
+
+export interface ReleaseControlTelemetrySettings {
+  maxOpenAlerts: number;
+  severityThreshold: string;
+}
+
+export interface ReleaseControlEnvironmentSettings {
+  autonomy: ReleaseControlAutonomySettings;
+  mfa: ReleaseControlMfaSettings;
+  telemetry: ReleaseControlTelemetrySettings;
+}
+
 export interface ReleaseControlSettings {
   approvalsRequired: string[];
   archive: {
     manifestHash: string;
     includeDocs: string[];
   };
+  environment: ReleaseControlEnvironmentSettings;
 }
 
 function normaliseStringList(value: unknown): string[] {
@@ -648,6 +686,22 @@ export function getReleaseControlSettings(config: SystemConfig = parsedConfig): 
   let approvals = [...DEFAULT_RELEASE_CONTROL_SETTINGS.approvalsRequired];
   let manifestHash = DEFAULT_RELEASE_CONTROL_SETTINGS.archive.manifestHash;
   let includeDocs = [...DEFAULT_RELEASE_CONTROL_SETTINGS.archive.includeDocs];
+  const defaultEnv = DEFAULT_RELEASE_CONTROL_SETTINGS.environment;
+  let environment: ReleaseControlEnvironmentSettings = {
+    autonomy: {
+      minimumLevel: defaultEnv.autonomy.minimumLevel,
+      requireWorker: defaultEnv.autonomy.requireWorker,
+      criticalRoles: [...defaultEnv.autonomy.criticalRoles],
+    },
+    mfa: {
+      channel: defaultEnv.mfa.channel,
+      withinSeconds: defaultEnv.mfa.withinSeconds,
+    },
+    telemetry: {
+      maxOpenAlerts: defaultEnv.telemetry.maxOpenAlerts,
+      severityThreshold: defaultEnv.telemetry.severityThreshold,
+    },
+  };
 
   if (release) {
     const rawApprovals = release['approvals_required'];
@@ -680,6 +734,64 @@ export function getReleaseControlSettings(config: SystemConfig = parsedConfig): 
         includeDocs = docsList;
       }
     }
+
+    const envConfig = release['environment'] as Record<string, unknown> | undefined;
+    if (envConfig) {
+      const autonomyConfig = envConfig['autonomy'] as Record<string, unknown> | undefined;
+      if (autonomyConfig) {
+        const minLevel = coerceAutonomyLevel(autonomyConfig['minimum_level'] ?? autonomyConfig['minimumLevel']);
+        if (minLevel) {
+          environment.autonomy.minimumLevel = minLevel;
+        }
+        const requireWorker = coerceBoolean(autonomyConfig['require_worker'] ?? autonomyConfig['requireWorker']);
+        if (typeof requireWorker === 'boolean') {
+          environment.autonomy.requireWorker = requireWorker;
+        }
+        const rolesValue = autonomyConfig['critical_roles'] ?? autonomyConfig['criticalRoles'];
+        const rolesList = (() => {
+          if (Array.isArray(rolesValue)) return normaliseStringList(rolesValue);
+          if (typeof rolesValue === 'string' && rolesValue.trim().length > 0) {
+            return normaliseStringList(rolesValue.split(','));
+          }
+          return [];
+        })();
+        if (rolesList.length) {
+          environment.autonomy.criticalRoles = rolesList.map((role) => role.toUpperCase());
+        }
+      }
+
+      const mfaConfig = envConfig['mfa'] as Record<string, unknown> | undefined;
+      if (mfaConfig) {
+        const channelValue = typeof mfaConfig['channel'] === 'string' ? (mfaConfig['channel'] as string).trim() : '';
+        if (channelValue) {
+          environment.mfa.channel = channelValue.toUpperCase();
+        }
+        const withinValue = coerceNumber(mfaConfig['within_seconds'] ?? mfaConfig['withinSeconds']);
+        if (typeof withinValue === 'number' && withinValue > 0) {
+          environment.mfa.withinSeconds = Math.floor(withinValue);
+        }
+      }
+
+      const telemetryConfig = envConfig['telemetry'] as Record<string, unknown> | undefined;
+      if (telemetryConfig) {
+        const maxOpenValue = coerceNumber(telemetryConfig['max_open_alerts'] ?? telemetryConfig['maxOpenAlerts']);
+        if (typeof maxOpenValue === 'number' && maxOpenValue >= 0) {
+          environment.telemetry.maxOpenAlerts = Math.floor(maxOpenValue);
+        }
+        const severityValue = (() => {
+          if (typeof telemetryConfig['severity_threshold'] === 'string') {
+            return (telemetryConfig['severity_threshold'] as string).trim();
+          }
+          if (typeof telemetryConfig['severityThreshold'] === 'string') {
+            return (telemetryConfig['severityThreshold'] as string).trim();
+          }
+          return '';
+        })();
+        if (severityValue) {
+          environment.telemetry.severityThreshold = severityValue.toUpperCase();
+        }
+      }
+    }
   }
 
   return {
@@ -688,6 +800,7 @@ export function getReleaseControlSettings(config: SystemConfig = parsedConfig): 
       manifestHash,
       includeDocs,
     },
+    environment,
   };
 }
 

@@ -21,6 +21,10 @@ supporting SaaS systems, and API consumption guardrails.
 - Verification: weekly automated restore rehearsal in staging using the latest
   dump; execute `scripts/test_policies.sql` afterwards to ensure RLS policies
   survived the restore.
+- Before running destructive migrations or restores, set
+  `AUTOPILOT_WORKER_DISABLED=true` to pause background jobs; re-enable and run
+  `/api/release-controls/check` (environment block) once validation completes to
+  confirm autonomy/MFA guardrails are intact.
 - Schema migrations must remain idempotent; track applied migration versions in
   `/supabase/migrations` as part of configuration backups.
 

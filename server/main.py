@@ -8,6 +8,7 @@ from collections import defaultdict
 from contextvars import ContextVar
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Set, Iterable, Mapping
+from enum import Enum
 import mimetypes
 import secrets
 
@@ -30,6 +31,7 @@ from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExport
 from rq import Queue
 from sqlalchemy import text
 from datetime import datetime, timezone, timedelta
+from decimal import Decimal
 import uuid
 import hashlib
 import os.path
@@ -39,6 +41,9 @@ from openai import AsyncOpenAI
 from services.analytics.jobs import anomaly_scan_job, policy_check_job, reembed_job
 
 from .autopilot_handlers import handle_extract_documents
+from .deterministic_contract import build_manifest, validate_manifest
+from .analytics_runner import AnalyticsValidationError, run_analytics
+from .onboarding_mapper import map_document_fields
 from .db import AsyncSessionLocal, Chunk, init_db
 from .rag import (
     chunk_text,
@@ -66,7 +71,7 @@ from .config_loader import (
     get_url_source_settings,
     get_release_control_settings,
 )
-from .release_controls import evaluate_release_controls
+from .release_controls import evaluate_release_controls, summarise_release_environment
 from .workflow_orchestrator import (
     ensure_workflow_run,
     complete_workflow_step,
@@ -299,6 +304,98 @@ SECURITY_HEADERS["Content-Security-Policy"] = build_csp_header(
 
 TASK_STATUS_VALUES = {"TODO", "IN_PROGRESS", "REVIEW", "COMPLETED"}
 TASK_PRIORITY_VALUES = {"LOW", "MEDIUM", "HIGH", "URGENT"}
+CONTROL_FREQUENCY_VALUES = {"DAILY", "WEEKLY", "MONTHLY", "QUARTERLY", "ANNUAL", "EVENT_DRIVEN"}
+CONTROL_TEST_RESULT_VALUES = {"PASS", "EXCEPTIONS"}
+CONTROL_WALKTHROUGH_RESULT_VALUES = {
+    "DESIGNED",
+    "NOT_DESIGNED",
+    "IMPLEMENTED",
+    "NOT_IMPLEMENTED",
+}
+DEFICIENCY_SEVERITY_VALUES = {"LOW", "MEDIUM", "HIGH"}
+ITGC_GROUP_TYPE_VALUES = {"ACCESS", "CHANGE", "OPERATIONS"}
+RECONCILIATION_TYPE_VALUES = {"BANK", "AR", "AP", "GRNI", "PAYROLL", "OTHER"}
+RECONCILIATION_ITEM_CATEGORY_VALUES = {
+    "OUTSTANDING_CHECKS",
+    "DEPOSITS_IN_TRANSIT",
+    "UNIDENTIFIED",
+    "UNAPPLIED_RECEIPT",
+    "UNAPPLIED_PAYMENT",
+    "TIMING",
+    "ERROR",
+    "OTHER",
+}
+
+
+def _validate_control_frequency(value: str) -> str:
+    candidate = (value or "").upper()
+    if candidate not in CONTROL_FREQUENCY_VALUES:
+        raise HTTPException(status_code=400, detail="invalid control frequency")
+    return candidate
+
+
+def _validate_control_walkthrough_result(value: str) -> str:
+    candidate = (value or "").upper()
+    if candidate not in CONTROL_WALKTHROUGH_RESULT_VALUES:
+        raise HTTPException(status_code=400, detail="invalid walkthrough result")
+    return candidate
+
+
+def _validate_control_test_result(value: str) -> str:
+    candidate = (value or "").upper()
+    if candidate not in CONTROL_TEST_RESULT_VALUES:
+        raise HTTPException(status_code=400, detail="invalid test result")
+    return candidate
+
+
+def _validate_deficiency_severity(value: Optional[str]) -> Optional[str]:
+    if value is None:
+        return None
+    candidate = value.upper()
+    if candidate not in DEFICIENCY_SEVERITY_VALUES:
+        raise HTTPException(status_code=400, detail="invalid deficiency severity")
+    return candidate
+
+
+def _validate_itgc_group_type(value: str) -> str:
+    candidate = (value or "").upper()
+    if candidate not in ITGC_GROUP_TYPE_VALUES:
+        raise HTTPException(status_code=400, detail="invalid itgc group type")
+    return candidate
+
+
+def _validate_reconciliation_type(value: str) -> str:
+    candidate = (value or "").upper()
+    if candidate not in RECONCILIATION_TYPE_VALUES:
+        raise HTTPException(status_code=400, detail="invalid reconciliation type")
+    return candidate
+
+
+def _validate_reconciliation_item_category(value: str) -> str:
+    candidate = (value or "").upper()
+    if candidate not in RECONCILIATION_ITEM_CATEGORY_VALUES:
+        raise HTTPException(status_code=400, detail="invalid reconciliation item category")
+    return candidate
+
+
+def _to_decimal(value: Optional[Any]) -> Decimal:
+    if isinstance(value, Decimal):
+        return value
+    if value is None:
+        return Decimal("0")
+    try:
+        return Decimal(str(value))
+    except Exception as exc:  # pragma: no cover - defensive
+        raise HTTPException(status_code=400, detail="invalid numeric value") from exc
+
+
+def _decimal_to_str(value: Decimal) -> str:
+    try:
+        quantised = value.quantize(Decimal('0.01'))
+    except Exception:
+        quantised = value
+    return format(quantised, 'f')
+
 NOTIFICATION_KIND_TO_FRONTEND = {
     "TASK": "task",
     "DOC": "document",
@@ -328,6 +425,12 @@ AUTOPILOT_SCHEDULE_RATE_LIMIT = int(os.getenv("AUTOPILOT_SCHEDULE_RATE_LIMIT", "
 AUTOPILOT_SCHEDULE_RATE_WINDOW = int(os.getenv("AUTOPILOT_SCHEDULE_RATE_WINDOW_SECONDS", "600"))
 AUTOPILOT_JOB_RATE_LIMIT = int(os.getenv("AUTOPILOT_JOB_RATE_LIMIT", "20"))
 AUTOPILOT_JOB_RATE_WINDOW = int(os.getenv("AUTOPILOT_JOB_RATE_WINDOW_SECONDS", "600"))
+ONBOARDING_START_RATE_LIMIT = int(os.getenv("ONBOARDING_START_RATE_LIMIT", "8"))
+ONBOARDING_START_RATE_WINDOW = int(os.getenv("ONBOARDING_START_RATE_WINDOW_SECONDS", "600"))
+ONBOARDING_LINK_RATE_LIMIT = int(os.getenv("ONBOARDING_LINK_RATE_LIMIT", "30"))
+ONBOARDING_LINK_RATE_WINDOW = int(os.getenv("ONBOARDING_LINK_RATE_WINDOW_SECONDS", "300"))
+ONBOARDING_COMMIT_RATE_LIMIT = int(os.getenv("ONBOARDING_COMMIT_RATE_LIMIT", "5"))
+ONBOARDING_COMMIT_RATE_WINDOW = int(os.getenv("ONBOARDING_COMMIT_RATE_WINDOW_SECONDS", "900"))
 ALLOWED_DOCUMENT_MIME_TYPES = {
     "application/pdf",
     "application/msword",
@@ -457,6 +560,17 @@ ROLE_RANK = {
     "SYSTEM_ADMIN": 100,
 }
 
+MEMBERSHIP_AUTONOMY_DEFAULTS = {
+    "SYSTEM_ADMIN": ("L0", "L3"),
+    "PARTNER": ("L1", "L3"),
+    "EQR": ("L1", "L2"),
+    "MANAGER": ("L1", "L2"),
+    "SERVICE_ACCOUNT": ("L0", "L1"),
+    "EMPLOYEE": ("L0", "L1"),
+    "CLIENT": ("L0", "L0"),
+    "READONLY": ("L0", "L0"),
+}
+
 
 def normalise_role(value: Optional[str]) -> str:
     return (value or "").upper()
@@ -470,6 +584,20 @@ def normalise_autonomy_level(value: Optional[str]) -> str:
     return DEFAULT_AUTONOMY_LEVEL_VALUE
 
 
+def membership_settings_for_role(role: str) -> Dict[str, Any]:
+    normalized = normalise_role(role)
+    floor, ceiling = MEMBERSHIP_AUTONOMY_DEFAULTS.get(normalized, ("L0", "L2"))
+    allowed = CLIENT_SCOPE.get("allowed_repos", []) if normalized == "CLIENT" else []
+    denied = CLIENT_SCOPE.get("denied_actions", []) if normalized == "CLIENT" else []
+    return {
+        "autonomy_floor": normalise_autonomy_level(floor),
+        "autonomy_ceiling": normalise_autonomy_level(ceiling),
+        "client_portal_allowed_repos": list(allowed),
+        "client_portal_denied_actions": list(denied),
+        "is_service_account": normalized == "SERVICE_ACCOUNT",
+    }
+
+
 def is_autopilot_job_allowed(level: str, job_kind: str) -> bool:
     normalized_level = normalise_autonomy_level(level)
     allowed = AUTONOMY_JOB_ALLOWANCES.get(normalized_level)
@@ -481,6 +609,20 @@ def is_autopilot_job_allowed(level: str, job_kind: str) -> bool:
 def requires_policy_escalation(level: str) -> bool:
     normalized_level = normalise_autonomy_level(level)
     return AUTONOMY_LEVEL_RANK.get(normalized_level, 0) >= AUTONOMY_LEVEL_RANK.get("L2", 2)
+
+
+def minimum_autonomy_for_job(job_kind: str) -> str:
+    job = (job_kind or "").lower()
+    best_level: Optional[str] = None
+    best_rank: Optional[int] = None
+    for level, jobs in AUTONOMY_JOB_ALLOWANCES.items():
+        job_entries = {entry.lower() for entry in jobs}
+        if job in job_entries:
+            rank = AUTONOMY_LEVEL_RANK.get(level, 0)
+            if best_rank is None or rank < best_rank:
+                best_level = level
+                best_rank = rank
+    return best_level or DEFAULT_AUTONOMY_LEVEL_VALUE
 
 
 def ensure_min_role(role: Optional[str], minimum: str) -> None:
@@ -608,7 +750,16 @@ async def upsert_user_profile(user_id: str, updates: Dict[str, Any]) -> Dict[str
 
 
 async def fetch_membership(org_id: str, user_id: str) -> Optional[Dict[str, Any]]:
-    response = await supabase_table_request("GET", "memberships", params={"org_id": f"eq.{org_id}", "user_id": f"eq.{user_id}", "limit": "1"})
+    response = await supabase_table_request(
+        "GET",
+        "memberships",
+        params={
+            "org_id": f"eq.{org_id}",
+            "user_id": f"eq.{user_id}",
+            "select": "id,role,autonomy_floor,autonomy_ceiling,is_service_account,client_portal_allowed_repos,client_portal_denied_actions",
+            "limit": "1",
+        },
+    )
     if response.status_code != 200:
         logger.error("supabase.membership_fetch_failed", status=response.status_code, body=response.text)
         raise HTTPException(status_code=502, detail="membership lookup failed")
@@ -738,7 +889,11 @@ async def resolve_org_context(user_id: str, org_slug: str) -> Dict[str, str]:
 
         membership_resp = await client.get(
             f"{SUPABASE_REST_URL}/memberships",
-            params={"org_id": f"eq.{org['id']}", "user_id": f"eq.{user_id}", "select": "role"},
+            params={
+                "org_id": f"eq.{org['id']}",
+                "user_id": f"eq.{user_id}",
+                "select": "role,autonomy_floor,autonomy_ceiling,is_service_account,client_portal_allowed_repos,client_portal_denied_actions",
+            },
             headers=SUPABASE_HEADERS,
         )
         if membership_resp.status_code != 200:
@@ -749,8 +904,23 @@ async def resolve_org_context(user_id: str, org_slug: str) -> Dict[str, str]:
         autonomy_level = normalise_autonomy_level(org.get("autonomy_level"))
 
         if membership_rows:
-            role = membership_rows[0].get("role") or "EMPLOYEE"
-            return {"org_id": org["id"], "role": role, "autonomy_level": autonomy_level}
+            record = membership_rows[0]
+            role = record.get("role") or "EMPLOYEE"
+            autonomy_floor = normalise_autonomy_level(record.get("autonomy_floor"))
+            autonomy_ceiling = normalise_autonomy_level(record.get("autonomy_ceiling"))
+            scope = {
+                "allowed_repos": record.get("client_portal_allowed_repos") or [],
+                "denied_actions": record.get("client_portal_denied_actions") or [],
+            }
+            return {
+                "org_id": org["id"],
+                "role": role,
+                "autonomy_level": autonomy_level,
+                "autonomy_floor": autonomy_floor,
+                "autonomy_ceiling": autonomy_ceiling,
+                "is_service_account": bool(record.get("is_service_account")),
+                "client_portal_scope": scope,
+            }
 
         user_resp = await client.get(
             f"{SUPABASE_REST_URL}/users",
@@ -766,7 +936,19 @@ async def resolve_org_context(user_id: str, org_slug: str) -> Dict[str, str]:
         if not is_system_admin:
             raise HTTPException(status_code=403, detail="forbidden")
 
-        return {"org_id": org["id"], "role": "SYSTEM_ADMIN", "autonomy_level": autonomy_level}
+        defaults = membership_settings_for_role("SYSTEM_ADMIN")
+        return {
+            "org_id": org["id"],
+            "role": "SYSTEM_ADMIN",
+            "autonomy_level": autonomy_level,
+            "autonomy_floor": defaults["autonomy_floor"],
+            "autonomy_ceiling": defaults["autonomy_ceiling"],
+            "is_service_account": False,
+            "client_portal_scope": {
+                "allowed_repos": defaults["client_portal_allowed_repos"],
+                "denied_actions": defaults["client_portal_denied_actions"],
+            },
+        }
 
 
 async def ensure_org_access_by_id(user_id: str, org_id: str) -> str:
@@ -1221,6 +1403,49 @@ async def _record_autopilot_trace(
     )
 
 
+async def _emit_manifest_alert(job: Dict[str, Any], reason: str) -> None:
+    org_id = job.get("org_id")
+    if not org_id:
+        return
+    payload = {
+        "org_id": org_id,
+        "alert_type": "DETERMINISTIC_MANIFEST_MISSING",
+        "severity": "CRITICAL",
+        "message": f"Deterministic manifest {reason} for {job.get('kind')}",
+        "context": {
+            "jobId": job.get("id"),
+            "kind": job.get("kind"),
+            "reason": reason,
+        },
+    }
+    try:
+        await supabase_table_request(
+            "POST",
+            "telemetry_alerts",
+            json=payload,
+            headers={"Prefer": "return=minimal"},
+        )
+    except Exception as exc:  # pragma: no cover - defensive logging
+        logger.error(
+            "autopilot.manifest_alert_failed",
+            job_id=job.get("id"),
+            org_id=org_id,
+            reason=reason,
+            error=str(exc),
+        )
+
+
+async def _validate_manifest_for_job(job: Dict[str, Any], result: Optional[Dict[str, Any]]) -> bool:
+    if not isinstance(result, Mapping):
+        await _emit_manifest_alert(job, "missing")
+        return False
+    manifest = result.get("manifest")
+    if isinstance(manifest, Mapping) and validate_manifest(manifest):
+        return True
+    await _emit_manifest_alert(job, "invalid" if isinstance(manifest, Mapping) else "missing")
+    return False
+
+
 async def _finalise_autopilot_job(
     job: Dict[str, Any],
     *,
@@ -1245,6 +1470,9 @@ async def _finalise_autopilot_job(
     if error:
         run_entry["error"] = _json_coerce(error)
     payload_copy["lastRun"] = run_entry
+
+    if status.upper() == "DONE":
+        await _validate_manifest_for_job(job, result)
 
     response = await supabase_table_request(
         "PATCH",
@@ -1310,10 +1538,309 @@ async def _handle_autopilot_refresh_analytics(job: Dict[str, Any]) -> Dict[str, 
     return {"refreshed": True, "message": "Analytics jobs executed"}
 
 
+async def _autopilot_collect_approvals(org_id: str) -> Tuple[int, List[Dict[str, Any]], List[str]]:
+    params = {
+        "org_id": f"eq.{org_id}",
+        "status": "eq.PENDING",
+        "order": "created_at.asc",
+        "limit": "25",
+        "select": "id,kind,stage,created_at",
+    }
+    response = await supabase_table_request(
+        "GET",
+        "approval_queue",
+        params=params,
+        headers={"Prefer": "count=exact"},
+    )
+    if response.status_code != 200:
+        logger.warning(
+            "autopilot.approvals_fetch_failed",
+            status=response.status_code,
+            body=response.text,
+            org_id=org_id,
+        )
+        return 0, [], []
+
+    total = extract_total_count(response)
+    rows = response.json() or []
+    entries: List[Dict[str, Any]] = []
+    evidence: List[str] = []
+    for row in rows:
+        approval_id = row.get("id")
+        if approval_id:
+            evidence.append(str(approval_id))
+        if len(entries) < 5:
+            entries.append(
+                {
+                    "id": approval_id,
+                    "kind": row.get("kind"),
+                    "stage": row.get("stage"),
+                    "createdAt": row.get("created_at"),
+                }
+            )
+    return total, entries, evidence
+
+
+async def _autopilot_collect_alerts(org_id: str, domain: str) -> Tuple[int, List[Dict[str, Any]]]:
+    params = {
+        "org_id": f"eq.{org_id}",
+        "resolved_at": "is.null",
+        "order": "created_at.desc",
+        "limit": "10",
+        "select": "id,alert_type,severity,message,created_at",
+    }
+    domain_filter = (domain or "").strip().upper()
+    if domain_filter:
+        params["alert_type"] = f"ilike.*{domain_filter}*"
+
+    response = await supabase_table_request(
+        "GET",
+        "telemetry_alerts",
+        params=params,
+        headers={"Prefer": "count=exact"},
+    )
+    if response.status_code != 200:
+        logger.warning(
+            "autopilot.alerts_fetch_failed",
+            status=response.status_code,
+            body=response.text,
+            org_id=org_id,
+            domain=domain,
+        )
+        return 0, []
+
+    total = extract_total_count(response)
+    rows = response.json() or []
+    alerts: List[Dict[str, Any]] = []
+    for row in rows[:5]:
+        alerts.append(
+            {
+                "id": row.get("id"),
+                "type": row.get("alert_type"),
+                "severity": row.get("severity"),
+                "message": row.get("message"),
+                "createdAt": row.get("created_at"),
+            }
+        )
+    return total, alerts
+
+
+async def _autopilot_workflow_job(
+    job: Dict[str, Any],
+    *,
+    workflow_key: str,
+    domain: str,
+    domain_label: str,
+    leave_remaining: int = 0,
+) -> Dict[str, Any]:
+    org_id = job.get("org_id")
+    if not org_id:
+        manifest = build_manifest(
+            kind=f"autopilot.{domain}",
+            inputs={"jobId": job.get("id"), "workflow": workflow_key},
+            outputs={"completedSteps": 0, "remainingSteps": 0, "pendingApprovals": 0},
+            evidence=[],
+            metadata={"domainLabel": domain_label},
+        )
+        return {
+            "domain": domain,
+            "domainLabel": domain_label,
+            "workflow": workflow_key,
+            "summary": "Missing organisation context",
+            "run": {"steps": {"total": 0, "completed": 0, "remaining": 0, "staged": 0}},
+            "approvals": {"pending": 0, "expected": []},
+            "telemetry": {"open": 0, "alerts": []},
+            "manifest": manifest,
+        }
+
+    definitions = get_workflow_definitions()
+    workflow_def = definitions.get(workflow_key)
+    if not workflow_def:
+        manifest = build_manifest(
+            kind=f"autopilot.{domain}",
+            inputs={"jobId": job.get("id"), "orgId": org_id, "workflow": workflow_key},
+            outputs={"completedSteps": 0, "remainingSteps": 0, "pendingApprovals": 0},
+            evidence=[str(org_id)],
+            metadata={"domainLabel": domain_label, "error": "workflow_missing"},
+        )
+        return {
+            "domain": domain,
+            "domainLabel": domain_label,
+            "workflow": workflow_key,
+            "summary": "Workflow definition unavailable",
+            "run": {"steps": {"total": 0, "completed": 0, "remaining": 0, "staged": 0}},
+            "approvals": {"pending": 0, "expected": []},
+            "telemetry": {"open": 0, "alerts": []},
+            "manifest": manifest,
+        }
+
+    run = await ensure_workflow_run(
+        org_id,
+        workflow_key,
+        triggered_by="autopilot",
+        supabase_table_request=supabase_table_request,
+        iso_now=iso_now,
+    )
+    if not run:
+        manifest = build_manifest(
+            kind=f"autopilot.{domain}",
+            inputs={"jobId": job.get("id"), "orgId": org_id, "workflow": workflow_key},
+            outputs={"completedSteps": 0, "remainingSteps": 0, "pendingApprovals": 0},
+            evidence=[str(org_id)],
+            metadata={"domainLabel": domain_label, "error": "run_not_created"},
+        )
+        return {
+            "domain": domain,
+            "domainLabel": domain_label,
+            "workflow": workflow_key,
+            "summary": "Could not start workflow run",
+            "run": {"steps": {"total": 0, "completed": 0, "remaining": 0, "staged": 0}},
+            "approvals": {"pending": 0, "expected": workflow_def.get("approvals", [])},
+            "telemetry": {"open": 0, "alerts": []},
+            "manifest": manifest,
+        }
+
+    steps = workflow_def.get("steps") or []
+    total_steps = int(run.get("total_steps") or len(steps))
+    start_index = int(run.get("current_step_index") or 0)
+    staged_steps: List[Dict[str, Any]] = []
+    target_end = max(0, len(steps) - max(leave_remaining, 0))
+    run_state = run
+
+    for step_index in range(start_index, target_end):
+        if step_index >= len(steps):
+            break
+        step = steps[step_index]
+        staged_steps.append(
+            {
+                "index": step_index,
+                "agent": step.get("agent_id"),
+                "tool": step.get("tool"),
+            }
+        )
+        run_state = await complete_workflow_step(
+            run_state,
+            workflow_key,
+            step_index=step_index,
+            args={"trigger": "autopilot", "jobId": job.get("id")},
+            result={
+                "status": "STAGED",
+                "agent": step.get("agent_id"),
+                "tool": step.get("tool"),
+                "domain": domain,
+            },
+            supabase_table_request=supabase_table_request,
+            iso_now=iso_now,
+            actor_id=None,
+        ) or run_state
+
+    final_run = run_state or run
+    completed_total = int(final_run.get("current_step_index") or 0)
+    if total_steps and completed_total > total_steps:
+        completed_total = total_steps
+    remaining_steps = max(total_steps - completed_total, 0)
+
+    pending_approvals, approval_samples, approval_evidence = await _autopilot_collect_approvals(org_id)
+    alert_count, alerts = await _autopilot_collect_alerts(org_id, domain)
+
+    evidence: List[str] = []
+    if final_run.get("id"):
+        evidence.append(str(final_run["id"]))
+    evidence.extend(approval_evidence)
+    if not evidence:
+        evidence = [str(org_id)]
+
+    manifest = build_manifest(
+        kind=f"autopilot.{domain}",
+        inputs={
+            "jobId": job.get("id"),
+            "orgId": org_id,
+            "workflow": workflow_key,
+            "stagedSteps": len(staged_steps),
+        },
+        outputs={
+            "completedSteps": completed_total,
+            "remainingSteps": remaining_steps,
+            "pendingApprovals": pending_approvals,
+            "openAlerts": alert_count,
+        },
+        evidence=evidence,
+        metadata={
+            "domainLabel": domain_label,
+            "expectedApprovals": workflow_def.get("approvals", []),
+        },
+    )
+
+    staged_count = len(staged_steps)
+    summary = (
+        f"{domain_label} autopilot staged {staged_count} step{'s' if staged_count != 1 else ''}; "
+        f"{pending_approvals} approval{'s' if pending_approvals != 1 else ''} pending; "
+        f"{remaining_steps} step{'s' if remaining_steps != 1 else ''} remaining."
+    )
+
+    return {
+        "domain": domain,
+        "domainLabel": domain_label,
+        "workflow": workflow_key,
+        "summary": summary,
+        "run": {
+            "id": final_run.get("id"),
+            "status": final_run.get("status"),
+            "steps": {
+                "total": total_steps,
+                "completed": completed_total,
+                "remaining": remaining_steps,
+                "staged": staged_count,
+            },
+            "stagedSteps": staged_steps[:5],
+        },
+        "approvals": {
+            "pending": pending_approvals,
+            "expected": workflow_def.get("approvals", []),
+            "samples": approval_samples,
+        },
+        "telemetry": {"open": alert_count, "alerts": alerts},
+        "manifest": manifest,
+    }
+
+
+async def _handle_autopilot_close_cycle(job: Dict[str, Any]) -> Dict[str, Any]:
+    return await _autopilot_workflow_job(
+        job,
+        workflow_key="monthly_close",
+        domain="close",
+        domain_label="Accounting Close",
+        leave_remaining=1,
+    )
+
+
+async def _handle_autopilot_audit_fieldwork(job: Dict[str, Any]) -> Dict[str, Any]:
+    return await _autopilot_workflow_job(
+        job,
+        workflow_key="external_audit",
+        domain="audit",
+        domain_label="Audit Fieldwork",
+        leave_remaining=1,
+    )
+
+
+async def _handle_autopilot_tax_cycle(job: Dict[str, Any]) -> Dict[str, Any]:
+    return await _autopilot_workflow_job(
+        job,
+        workflow_key="tax_cycle",
+        domain="tax",
+        domain_label="Tax Cycle",
+        leave_remaining=0,
+    )
+
+
 AUTOPILOT_JOB_HANDLERS = {
     "extract_documents": _handle_autopilot_extract_documents,
     "remind_pbc": _handle_autopilot_remind_pbc,
     "refresh_analytics": _handle_autopilot_refresh_analytics,
+    "close_cycle": _handle_autopilot_close_cycle,
+    "audit_fieldwork": _handle_autopilot_audit_fieldwork,
+    "tax_cycle": _handle_autopilot_tax_cycle,
 }
 
 
@@ -1541,6 +2068,39 @@ async def fetch_autopilot_summary(org_id: str, limit: int = 6) -> Dict[str, Any]
     pending = [serialize(job) for job in jobs if job.get("status") == "PENDING"]
     recent = [serialize(job) for job in jobs[:limit]]
 
+    domain_snapshots: Dict[str, Dict[str, Any]] = {}
+    for job in jobs:
+        payload = job.get("payload") or {}
+        if not isinstance(payload, Mapping):
+            continue
+        last_run = payload.get("lastRun")
+        if not isinstance(last_run, Mapping):
+            continue
+        result = last_run.get("result")
+        if not isinstance(result, Mapping):
+            continue
+        domain = result.get("domain")
+        if not isinstance(domain, str) or not domain:
+            continue
+        domain_key = domain.strip().lower()
+        finished_at = last_run.get("finishedAt") or job.get("finished_at")
+        status = last_run.get("status")
+        candidate = {
+            "domain": domain_key,
+            "label": result.get("domainLabel") or domain.replace("_", " ").title(),
+            "summary": result.get("summary"),
+            "status": status,
+            "finishedAt": finished_at,
+            "approvals": result.get("approvals"),
+            "telemetry": result.get("telemetry"),
+            "run": result.get("run"),
+        }
+        existing = domain_snapshots.get(domain_key)
+        existing_ts = parse_timestamp(existing.get("finishedAt")) if existing else datetime.min.replace(tzinfo=timezone.utc)
+        candidate_ts = parse_timestamp(candidate.get("finishedAt"))
+        if existing is None or candidate_ts > existing_ts:
+            domain_snapshots[domain_key] = candidate
+
     next_pending = None
     if pending:
         next_pending = min(pending, key=lambda job: parse_timestamp(job.get("scheduledAt")))
@@ -1552,12 +2112,15 @@ async def fetch_autopilot_summary(org_id: str, limit: int = 6) -> Dict[str, Any]
         "pending": len(pending),
     }
 
+    domains = sorted(domain_snapshots.values(), key=lambda entry: entry.get("label") or entry.get("domain"))
+
     return {
         "metrics": metrics,
         "recent": recent,
         "running": running,
         "failed": failed,
         "next": next_pending,
+        "domains": domains,
     }
 
 
@@ -1616,6 +2179,9 @@ AUTOPILOT_JOB_KINDS = {
     "extract_documents": "Ingest new documents and run extraction",
     "remind_pbc": "Send reminders for outstanding PBC items",
     "refresh_analytics": "Refresh analytics dashboards",
+    "close_cycle": "Stage the accounting close autopilot run",
+    "audit_fieldwork": "Coordinate audit fieldwork automation",
+    "tax_cycle": "Execute tax cycle computations",
 }
 
 AUTOPILOT_WORKER_DISABLED = os.getenv("AUTOPILOT_WORKER_DISABLED", "").lower() in {"1", "true", "yes", "on"}
@@ -2392,6 +2958,114 @@ class TaskCommentRequest(BaseModel):
     body: str = Field(..., min_length=1)
 
 
+class ControlCreateRequest(BaseModel):
+    orgId: str = Field(..., min_length=1)
+    engagementId: str = Field(..., min_length=1)
+    userId: str = Field(..., min_length=1)
+    cycle: str = Field(..., min_length=1)
+    objective: str = Field(..., min_length=1)
+    description: str = Field(..., min_length=1)
+    frequency: str = Field(default="MONTHLY")
+    owner: Optional[str] = None
+    key: bool = Field(default=True)
+
+
+class ControlWalkthroughRequest(BaseModel):
+    orgId: str = Field(..., min_length=1)
+    controlId: str = Field(..., min_length=1)
+    userId: str = Field(..., min_length=1)
+    date: str = Field(..., min_length=4)
+    result: str = Field(..., min_length=1)
+    notes: Optional[str] = None
+
+
+class ControlTestAttribute(BaseModel):
+    id: str = Field(..., min_length=1)
+    description: Optional[str] = None
+    passed: bool = Field(default=True)
+    note: Optional[str] = None
+    sampleItemId: Optional[str] = None
+    populationRef: Optional[str] = None
+    stratum: Optional[str] = None
+    manualReference: Optional[str] = None
+
+
+class ControlTestRequest(BaseModel):
+    orgId: str = Field(..., min_length=1)
+    engagementId: str = Field(..., min_length=1)
+    controlId: str = Field(..., min_length=1)
+    userId: str = Field(..., min_length=1)
+    attributes: List[ControlTestAttribute]
+    result: str = Field(..., min_length=1)
+    deficiencyRecommendation: Optional[str] = None
+    deficiencySeverity: Optional[str] = None
+
+
+class AdaRunKind(str, Enum):
+    JE = "JE"
+    RATIO = "RATIO"
+    VARIANCE = "VARIANCE"
+    DUPLICATE = "DUPLICATE"
+    BENFORD = "BENFORD"
+
+
+class AdaExceptionDisposition(str, Enum):
+    OPEN = "OPEN"
+    INVESTIGATING = "INVESTIGATING"
+    RESOLVED = "RESOLVED"
+
+
+class AdaRunRequest(BaseModel):
+    orgId: str = Field(..., min_length=1)
+    engagementId: str = Field(..., min_length=1)
+    userId: str = Field(..., min_length=1)
+    datasetRef: str = Field(..., min_length=1)
+    kind: AdaRunKind
+    params: Dict[str, Any] = Field(default_factory=dict)
+
+
+class AdaExceptionUpdateRequest(BaseModel):
+    orgId: str = Field(..., min_length=1)
+    userId: str = Field(..., min_length=1)
+    exceptionId: str = Field(..., min_length=1)
+    disposition: Optional[AdaExceptionDisposition] = None
+    note: Optional[str] = None
+    misstatementId: Optional[str] = None
+
+
+class ReconciliationCreateRequest(BaseModel):
+    orgId: str = Field(..., min_length=1)
+    engagementId: str = Field(..., min_length=1)
+    entityId: str = Field(..., min_length=1)
+    periodId: str = Field(..., min_length=1)
+    type: str = Field(..., min_length=2)
+    externalBalance: Decimal = Field(...)
+    controlAccountId: Optional[str] = None
+    preparedByUserId: Optional[str] = None
+    glBalance: Optional[Decimal] = None
+
+
+class ReconciliationItemPayload(BaseModel):
+    category: str = Field(..., min_length=2)
+    amount: Decimal = Field(...)
+    reference: Optional[str] = None
+    note: Optional[str] = None
+    resolved: bool = Field(default=False)
+
+
+class ReconciliationAddItemRequest(BaseModel):
+    orgId: str = Field(..., min_length=1)
+    reconciliationId: str = Field(..., min_length=1)
+    item: ReconciliationItemPayload
+
+
+class ReconciliationCloseRequest(BaseModel):
+    orgId: str = Field(..., min_length=1)
+    reconciliationId: str = Field(..., min_length=1)
+    userId: str = Field(..., min_length=1)
+    scheduleDocumentId: Optional[str] = None
+
+
 class TaskAttachmentRequest(BaseModel):
     documentId: str = Field(..., min_length=1)
     note: Optional[str] = None
@@ -2552,6 +3226,7 @@ async def create_organization(payload: CreateOrgRequest, auth: Dict[str, Any] = 
         "role": "SYSTEM_ADMIN",
         "invited_by": actor_id,
     }
+    membership_payload.update(membership_settings_for_role("SYSTEM_ADMIN"))
     membership_response = await supabase_table_request(
         "POST",
         "memberships",
@@ -2595,7 +3270,7 @@ async def list_members(org: str = Query(..., alias="orgId", min_length=1), auth:
         "memberships",
         params={
             "org_id": f"eq.{org}",
-            "select": "id,user_id,role,invited_by,created_at,updated_at,user_profile:user_profiles(display_name,email,locale,timezone,avatar_url,phone_e164,whatsapp_e164)",
+            "select": "id,user_id,role,invited_by,created_at,updated_at,autonomy_floor,autonomy_ceiling,is_service_account,client_portal_allowed_repos,client_portal_denied_actions,user_profile:user_profiles(display_name,email,locale,timezone,avatar_url,phone_e164,whatsapp_e164)",
             "order": "created_at.asc",
         },
     )
@@ -2734,9 +3409,21 @@ async def check_release_controls(payload: Dict[str, Any], auth: Dict[str, Any] =
         include_docs=archive_settings.get("include_docs") if isinstance(archive_settings, Mapping) else None,
     )
 
+    environment_summary = await summarise_release_environment(
+        context["org_id"],
+        supabase_table_request=supabase_table_request,
+        org_autonomy_level=context.get("autonomy_level"),
+        settings=requirements.get("environment") if isinstance(requirements, Mapping) else None,
+        autopilot_worker_disabled=AUTOPILOT_WORKER_DISABLED,
+    )
+
+    generated_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
     return {
         "requirements": requirements,
         "status": status,
+        "environment": environment_summary,
+        "generatedAt": generated_at,
     }
 
 
@@ -3576,6 +4263,698 @@ async def reembed(request: ReembedRequest, auth: Dict[str, Any] = Depends(requir
     return {"enqueued": len(request.chunks)}
 
 
+
+async def _update_reconciliation_difference(reconciliation_id: str) -> None:
+    reconciliation = await fetch_single_record("reconciliations", reconciliation_id)
+    if not reconciliation:
+        return
+    items_resp = await supabase_table_request(
+        "GET",
+        "reconciliation_items",
+        params={
+            "reconciliation_id": f"eq.{reconciliation_id}",
+            "select": "amount,resolved",
+        },
+    )
+    if items_resp.status_code != 200:
+        logger.warning(
+            "reconciliations.items_fetch_failed",
+            status=items_resp.status_code,
+            body=items_resp.text,
+            reconciliation_id=reconciliation_id,
+        )
+        return
+    rows = items_resp.json() or []
+    outstanding = sum(
+        _to_decimal(row.get("amount"))
+        for row in rows
+        if not row.get("resolved")
+    )
+    gl_balance = _to_decimal(reconciliation.get("gl_balance"))
+    external_balance = _to_decimal(reconciliation.get("external_balance"))
+    difference = gl_balance - external_balance - outstanding
+    await supabase_table_request(
+        "PATCH",
+        "reconciliations",
+        params={"id": f"eq.{reconciliation_id}"},
+        json={"difference": _decimal_to_str(difference), "updated_at": iso_now()},
+        headers={"Prefer": "return=minimal"},
+    )
+
+
+@app.get("/api/ada/run")
+async def list_ada_runs(
+    org_id: str = Query(..., alias="orgId"),
+    engagement_id: str = Query(..., alias="engagementId"),
+    auth: Dict[str, Any] = Depends(require_auth),
+) -> Dict[str, Any]:
+    role = normalise_role(await ensure_org_access_by_id(auth["sub"], org_id))
+    ensure_permission_for_role(role, "audit.analytics.view")
+
+    response = await supabase_table_request(
+        "GET",
+        "ada_runs",
+        params={
+            "select": "*, ada_exceptions(*)",
+            "org_id": f"eq.{org_id}",
+            "engagement_id": f"eq.{engagement_id}",
+            "order": "started_at.desc",
+        },
+    )
+    if response.status_code != 200:
+        logger.error(
+            "analytics.fetch_runs_failed",
+            status=response.status_code,
+            body=response.text,
+            org_id=org_id,
+            engagement_id=engagement_id,
+        )
+        raise HTTPException(status_code=502, detail="failed to load analytics runs")
+
+    runs = response.json() or []
+    return {"runs": runs}
+
+
+@app.post("/api/ada/run")
+async def create_ada_run(payload: AdaRunRequest, auth: Dict[str, Any] = Depends(require_auth)) -> Dict[str, Any]:
+    role = normalise_role(await ensure_org_access_by_id(auth["sub"], payload.orgId))
+    ensure_permission_for_role(role, "audit.analytics.run")
+
+    try:
+        sanitised_params, dataset_hash, analytics_result = run_analytics(payload.kind.value, payload.params)
+    except AnalyticsValidationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    run_body = {
+        "org_id": payload.orgId,
+        "engagement_id": payload.engagementId,
+        "kind": payload.kind.value,
+        "dataset_ref": payload.datasetRef,
+        "dataset_hash": dataset_hash,
+        "params": sanitised_params,
+        "created_by": payload.userId,
+    }
+
+    insert_response = await supabase_table_request(
+        "POST",
+        "ada_runs",
+        json=run_body,
+        headers={"Prefer": "return=representation"},
+    )
+    if insert_response.status_code not in (200, 201):
+        logger.error(
+            "analytics.run_insert_failed",
+            status=insert_response.status_code,
+            body=insert_response.text,
+            org_id=payload.orgId,
+        )
+        raise HTTPException(status_code=502, detail="failed to record analytics run")
+
+    rows = insert_response.json() or []
+    if not rows:
+        raise HTTPException(status_code=502, detail="analytics run insert returned no rows")
+    run_row = rows[0]
+
+    await log_activity_event(
+        org_id=payload.orgId,
+        actor_id=payload.userId,
+        action="ADA_RUN_STARTED",
+        metadata={
+            "runId": run_row.get("id"),
+            "kind": payload.kind.value,
+            "datasetRef": payload.datasetRef,
+            "datasetHash": dataset_hash,
+        },
+    )
+
+    summary = analytics_result.get("summary") or {}
+    if summary.get("datasetHash") != dataset_hash:
+        logger.error(
+            "analytics.dataset_hash_mismatch",
+            expected=dataset_hash,
+            summary_hash=summary.get("datasetHash"),
+            run_id=run_row.get("id"),
+        )
+        raise HTTPException(status_code=500, detail="dataset hash mismatch detected")
+
+    exception_rows: List[Dict[str, Any]] = []
+    exceptions = analytics_result.get("exceptions") or []
+    if exceptions:
+        exception_payload = [
+            {
+                "run_id": run_row.get("id"),
+                "record_ref": exc.get("recordRef"),
+                "reason": exc.get("reason"),
+                "score": exc.get("score"),
+                "created_by": payload.userId,
+            }
+            for exc in exceptions
+        ]
+        exception_response = await supabase_table_request(
+            "POST",
+            "ada_exceptions",
+            json=exception_payload,
+            headers={"Prefer": "return=representation"},
+        )
+        if exception_response.status_code not in (200, 201):
+            logger.error(
+                "analytics.exceptions_insert_failed",
+                status=exception_response.status_code,
+                body=exception_response.text,
+                run_id=run_row.get("id"),
+            )
+            raise HTTPException(status_code=502, detail="failed to record analytics exceptions")
+        exception_rows = exception_response.json() or []
+
+    finished_at = iso_now()
+    update_response = await supabase_table_request(
+        "PATCH",
+        "ada_runs",
+        params={
+            "id": f"eq.{run_row.get('id')}",
+            "select": "*, ada_exceptions(*)",
+        },
+        json={"summary": summary, "finished_at": finished_at},
+        headers={"Prefer": "return=representation"},
+    )
+    if update_response.status_code not in (200, 201):
+        logger.error(
+            "analytics.run_update_failed",
+            status=update_response.status_code,
+            body=update_response.text,
+            run_id=run_row.get("id"),
+        )
+        raise HTTPException(status_code=502, detail="failed to finalise analytics run")
+
+    updated_rows = update_response.json() or []
+    if not updated_rows:
+        raise HTTPException(status_code=502, detail="analytics run update returned no rows")
+    updated_run = updated_rows[0]
+
+    await log_activity_event(
+        org_id=payload.orgId,
+        actor_id=payload.userId,
+        action="ADA_RUN_COMPLETED",
+        metadata={
+            "runId": run_row.get("id"),
+            "kind": payload.kind.value,
+            "datasetHash": dataset_hash,
+            "exceptions": len(exception_rows),
+            "totals": summary.get("totals"),
+        },
+    )
+
+    manifest = build_manifest(
+        kind=f"analytics.{payload.kind.value.lower()}",
+        inputs={
+            "orgId": payload.orgId,
+            "engagementId": payload.engagementId,
+            "datasetRef": payload.datasetRef,
+            "params": sanitised_params,
+        },
+        outputs={"summary": summary},
+        metadata={"runId": run_row.get("id")},
+    )
+    updated_run["manifest"] = manifest
+
+    return {"run": updated_run}
+
+
+@app.post("/api/ada/exception/update")
+async def update_ada_exception(
+    payload: AdaExceptionUpdateRequest, auth: Dict[str, Any] = Depends(require_auth)
+) -> Dict[str, Any]:
+    role = normalise_role(await ensure_org_access_by_id(auth["sub"], payload.orgId))
+    ensure_permission_for_role(role, "audit.analytics.exceptions")
+
+    exception_response = await supabase_table_request(
+        "GET",
+        "ada_exceptions",
+        params={
+            "id": f"eq.{payload.exceptionId}",
+            "select": "id, run_id, disposition, note, misstatement_id",
+        },
+    )
+    if exception_response.status_code != 200:
+        logger.error(
+            "analytics.exception_lookup_failed",
+            status=exception_response.status_code,
+            body=exception_response.text,
+            exception_id=payload.exceptionId,
+        )
+        raise HTTPException(status_code=502, detail="failed to load analytics exception")
+
+    exception_rows = exception_response.json() or []
+    if not exception_rows:
+        raise HTTPException(status_code=404, detail="analytics exception not found")
+    exception_row = exception_rows[0]
+
+    run_response = await supabase_table_request(
+        "GET",
+        "ada_runs",
+        params={"id": f"eq.{exception_row.get('run_id')}", "select": "id, org_id, engagement_id"},
+    )
+    if run_response.status_code != 200:
+        logger.error(
+            "analytics.exception_run_lookup_failed",
+            status=run_response.status_code,
+            body=run_response.text,
+            run_id=exception_row.get("run_id"),
+        )
+        raise HTTPException(status_code=502, detail="failed to verify analytics run")
+
+    run_rows = run_response.json() or []
+    if not run_rows:
+        raise HTTPException(status_code=404, detail="analytics run not found for exception")
+    run_row = run_rows[0]
+    if str(run_row.get("org_id")) != payload.orgId:
+        raise HTTPException(status_code=403, detail="forbidden for analytics exception update")
+
+    updates: Dict[str, Any] = {"updated_by": payload.userId, "updated_at": iso_now()}
+    fields_set = getattr(payload, "model_fields_set", getattr(payload, "__fields_set__", set()))
+    if "disposition" in fields_set:
+        if payload.disposition is None:
+            raise HTTPException(status_code=400, detail="disposition must be provided when included")
+        updates["disposition"] = payload.disposition.value
+    if "note" in fields_set:
+        updates["note"] = payload.note
+    if "misstatementId" in fields_set:
+        updates["misstatement_id"] = payload.misstatementId
+
+    update_response = await supabase_table_request(
+        "PATCH",
+        "ada_exceptions",
+        params={
+            "id": f"eq.{payload.exceptionId}",
+            "select": "*, ada_runs!inner(org_id, engagement_id)",
+        },
+        json=updates,
+        headers={"Prefer": "return=representation"},
+    )
+    if update_response.status_code not in (200, 201):
+        logger.error(
+            "analytics.exception_update_failed",
+            status=update_response.status_code,
+            body=update_response.text,
+            exception_id=payload.exceptionId,
+        )
+        raise HTTPException(status_code=502, detail="failed to update analytics exception")
+
+    update_rows = update_response.json() or []
+    if not update_rows:
+        raise HTTPException(status_code=502, detail="analytics exception update returned no rows")
+    updated_exception = update_rows[0]
+
+    if updated_exception.get("disposition") == AdaExceptionDisposition.RESOLVED.value:
+        await log_activity_event(
+            org_id=payload.orgId,
+            actor_id=payload.userId,
+            action="ADA_EXCEPTION_RESOLVED",
+            metadata={
+                "runId": run_row.get("id"),
+                "exceptionId": payload.exceptionId,
+                "misstatementId": updated_exception.get("misstatement_id"),
+            },
+        )
+
+    return {"exception": updated_exception}
+
+
+@app.get("/api/controls")
+async def get_controls(
+    org_id: str = Query(..., alias="orgId"),
+    engagement_id: str = Query(..., alias="engagementId"),
+    auth: Dict[str, Any] = Depends(require_auth),
+) -> Dict[str, Any]:
+    role = normalise_role(await ensure_org_access_by_id(auth["sub"], org_id))
+    ensure_permission_for_role(role, "audit.controls.view")
+    controls_resp = await supabase_table_request(
+        "GET",
+        "controls",
+        params={
+            "select": "id,org_id,engagement_id,cycle,objective,description,owner,frequency,key,created_at,updated_at,control_walkthroughs(*),control_tests(*)",
+            "org_id": f"eq.{org_id}",
+            "engagement_id": f"eq.{engagement_id}",
+            "order": "cycle.asc",
+        },
+    )
+    if controls_resp.status_code != 200:
+        logger.error(
+            "controls.fetch_failed",
+            status=controls_resp.status_code,
+            body=controls_resp.text,
+            org_id=org_id,
+        )
+        raise HTTPException(status_code=502, detail="failed to load controls")
+    controls_rows = controls_resp.json() or []
+    itgc_resp = await supabase_table_request(
+        "GET",
+        "itgc_groups",
+        params={
+            "org_id": f"eq.{org_id}",
+            "engagement_id": f"eq.{engagement_id}",
+            "order": "type.asc",
+        },
+    )
+    deficiencies_resp = await supabase_table_request(
+        "GET",
+        "deficiencies",
+        params={
+            "org_id": f"eq.{org_id}",
+            "engagement_id": f"eq.{engagement_id}",
+            "order": "created_at.desc",
+        },
+    )
+    if itgc_resp.status_code != 200 or deficiencies_resp.status_code != 200:
+        logger.error(
+            "controls.related_fetch_failed",
+            itgc_status=itgc_resp.status_code,
+            deficiencies_status=deficiencies_resp.status_code,
+        )
+        raise HTTPException(status_code=502, detail="failed to load controls metadata")
+    return {
+        "controls": controls_rows,
+        "itgcGroups": itgc_resp.json() or [],
+        "deficiencies": deficiencies_resp.json() or [],
+    }
+
+
+@app.post("/api/controls")
+async def create_control(payload: ControlCreateRequest, auth: Dict[str, Any] = Depends(require_auth)) -> Dict[str, Any]:
+    frequency = _validate_control_frequency(payload.frequency)
+    role = normalise_role(await ensure_org_access_by_id(auth["sub"], payload.orgId))
+    ensure_permission_for_role(role, "audit.controls.manage")
+    body = {
+        "org_id": payload.orgId,
+        "engagement_id": payload.engagementId,
+        "cycle": payload.cycle,
+        "objective": payload.objective,
+        "description": payload.description,
+        "frequency": frequency,
+        "owner": payload.owner,
+        "key": bool(payload.key),
+    }
+    response = await supabase_table_request(
+        "POST",
+        "controls",
+        json=body,
+        headers={"Prefer": "return=representation"},
+    )
+    if response.status_code not in (200, 201):
+        logger.error("controls.create_failed", status=response.status_code, body=response.text)
+        raise HTTPException(status_code=502, detail="failed to create control")
+    rows = response.json() or []
+    control_row = rows[0] if rows else {**body, "id": str(uuid.uuid4())}
+    await log_activity_event(
+        org_id=payload.orgId,
+        actor_id=auth["sub"],
+        action="CTRL_ADDED",
+        entity_type="CONTROL",
+        entity_id=control_row.get("id"),
+        metadata={
+            "cycle": control_row.get("cycle"),
+            "objective": control_row.get("objective"),
+            "frequency": control_row.get("frequency"),
+            "key": control_row.get("key"),
+        },
+    )
+    return {"control": control_row}
+
+
+@app.post("/api/controls/walkthrough")
+async def create_control_walkthrough(
+    payload: ControlWalkthroughRequest,
+    auth: Dict[str, Any] = Depends(require_auth),
+) -> Dict[str, Any]:
+    control = await fetch_single_record("controls", payload.controlId)
+    if not control or control.get("org_id") != payload.orgId:
+        raise HTTPException(status_code=404, detail="control not found")
+    result_value = _validate_control_walkthrough_result(payload.result)
+    role = normalise_role(await ensure_org_access_by_id(auth["sub"], payload.orgId))
+    ensure_permission_for_role(role, "audit.controls.walkthrough")
+    body = {
+        "org_id": payload.orgId,
+        "control_id": payload.controlId,
+        "walkthrough_date": payload.date,
+        "notes": payload.notes,
+        "result": result_value,
+        "created_by": payload.userId,
+    }
+    response = await supabase_table_request(
+        "POST",
+        "control_walkthroughs",
+        json=body,
+        headers={"Prefer": "return=representation"},
+    )
+    if response.status_code not in (200, 201):
+        logger.error("controls.walkthrough_failed", status=response.status_code, body=response.text)
+        raise HTTPException(status_code=502, detail="failed to record walkthrough")
+    rows = response.json() or []
+    walkthrough_row = rows[0] if rows else body
+    await log_activity_event(
+        org_id=payload.orgId,
+        actor_id=auth["sub"],
+        action="CTRL_WALKTHROUGH_RECORDED",
+        entity_type="CONTROL",
+        entity_id=payload.controlId,
+        metadata={"result": result_value, "date": payload.date},
+    )
+    return {"walkthrough": walkthrough_row}
+
+
+@app.post("/api/controls/test/run")
+async def run_control_test(
+    payload: ControlTestRequest,
+    auth: Dict[str, Any] = Depends(require_auth),
+) -> Dict[str, Any]:
+    if len(payload.attributes) < 25:
+        raise HTTPException(status_code=400, detail="sample size must be at least 25")
+    result_value = _validate_control_test_result(payload.result)
+    control = await fetch_single_record("controls", payload.controlId)
+    if not control or control.get("org_id") != payload.orgId:
+        raise HTTPException(status_code=404, detail="control not found")
+    if control.get("engagement_id") and control.get("engagement_id") != payload.engagementId:
+        raise HTTPException(status_code=400, detail="control engagement mismatch")
+    role = normalise_role(await ensure_org_access_by_id(auth["sub"], payload.orgId))
+    ensure_permission_for_role(role, "audit.controls.test")
+    attributes_payload = [
+        attribute.model_dump(exclude_none=True, by_alias=True)
+        for attribute in payload.attributes
+    ]
+    performed_at = iso_now()
+    test_body = {
+        "org_id": payload.orgId,
+        "control_id": payload.controlId,
+        "attributes": attributes_payload,
+        "result": result_value,
+        "performed_at": performed_at,
+        "performed_by": payload.userId,
+    }
+    test_response = await supabase_table_request(
+        "POST",
+        "control_tests",
+        json=test_body,
+        headers={"Prefer": "return=representation"},
+    )
+    if test_response.status_code not in (200, 201):
+        logger.error("controls.test_failed", status=test_response.status_code, body=test_response.text)
+        raise HTTPException(status_code=502, detail="failed to record control test")
+    test_rows = test_response.json() or []
+    test_row = test_rows[0] if test_rows else test_body
+    deficiency_row = None
+    if result_value == "EXCEPTIONS":
+        severity = _validate_deficiency_severity(payload.deficiencySeverity) or "MEDIUM"
+        recommendation = (payload.deficiencyRecommendation or "").strip()
+        if not recommendation:
+            raise HTTPException(status_code=400, detail="deficiency recommendation required when exceptions occur")
+        deficiency_body = {
+            "org_id": payload.orgId,
+            "engagement_id": payload.engagementId,
+            "control_id": payload.controlId,
+            "severity": severity,
+            "recommendation": recommendation,
+            "status": "OPEN",
+        }
+        deficiency_response = await supabase_table_request(
+            "POST",
+            "deficiencies",
+            json=deficiency_body,
+            headers={"Prefer": "return=representation"},
+        )
+        if deficiency_response.status_code not in (200, 201):
+            logger.error(
+                "controls.deficiency_create_failed",
+                status=deficiency_response.status_code,
+                body=deficiency_response.text,
+            )
+        else:
+            deficiency_rows = deficiency_response.json() or []
+            deficiency_row = deficiency_rows[0] if deficiency_rows else deficiency_body
+    sampling_plan = {
+        "id": f"fixture-{payload.controlId}-{uuid.uuid4().hex}",
+        "size": len(attributes_payload),
+        "generatedAt": performed_at,
+        "source": "deterministic-fixture",
+        "items": attributes_payload,
+    }
+    await log_activity_event(
+        org_id=payload.orgId,
+        actor_id=auth["sub"],
+        action="CTRL_TEST_RUN",
+        entity_type="CONTROL",
+        entity_id=payload.controlId,
+        metadata={
+            "result": result_value,
+            "sampleSize": len(attributes_payload),
+            "exceptions": sum(1 for attr in attributes_payload if attr.get("passed") is False),
+        },
+    )
+    return {"test": test_row, "deficiency": deficiency_row, "samplingPlan": sampling_plan}
+
+
+@app.get("/api/recon")
+async def list_reconciliations(
+    org_id: str = Query(..., alias="orgId"),
+    entity_id: str = Query(..., alias="entityId"),
+    period_id: str = Query(..., alias="periodId"),
+    auth: Dict[str, Any] = Depends(require_auth),
+) -> Dict[str, Any]:
+    role = normalise_role(await ensure_org_access_by_id(auth["sub"], org_id))
+    ensure_permission_for_role(role, "audit.reconciliations.view")
+    response = await supabase_table_request(
+        "GET",
+        "reconciliations",
+        params={
+            "select": "id,org_id,entity_id,period_id,type,gl_balance,external_balance,difference,status,prepared_by_user_id,reviewed_by_user_id,closed_at,schedule_document_id,created_at,updated_at,reconciliation_items(*)",
+            "org_id": f"eq.{org_id}",
+            "entity_id": f"eq.{entity_id}",
+            "period_id": f"eq.{period_id}",
+            "order": "created_at.asc",
+        },
+    )
+    if response.status_code != 200:
+        logger.error("reconciliations.fetch_failed", status=response.status_code, body=response.text, org_id=org_id)
+        raise HTTPException(status_code=502, detail="failed to load reconciliations")
+    return {"reconciliations": response.json() or []}
+
+
+@app.post("/api/recon/create")
+async def create_reconciliation(
+    payload: ReconciliationCreateRequest,
+    auth: Dict[str, Any] = Depends(require_auth),
+) -> Dict[str, Any]:
+    role = normalise_role(await ensure_org_access_by_id(auth["sub"], payload.orgId))
+    ensure_permission_for_role(role, "audit.reconciliations.manage")
+    recon_type = _validate_reconciliation_type(payload.type)
+    external_balance = _to_decimal(payload.externalBalance)
+    gl_balance_input = payload.glBalance if payload.glBalance is not None else payload.externalBalance
+    gl_balance = _to_decimal(gl_balance_input)
+    difference = gl_balance - external_balance
+    body = {
+        "org_id": payload.orgId,
+        "entity_id": payload.entityId,
+        "period_id": payload.periodId,
+        "type": recon_type,
+        "control_account_id": payload.controlAccountId,
+        "gl_balance": _decimal_to_str(gl_balance),
+        "external_balance": _decimal_to_str(external_balance),
+        "difference": _decimal_to_str(difference),
+        "status": "IN_PROGRESS",
+        "prepared_by_user_id": payload.preparedByUserId,
+    }
+    response = await supabase_table_request(
+        "POST",
+        "reconciliations",
+        json=body,
+        headers={"Prefer": "return=representation"},
+    )
+    if response.status_code not in (200, 201):
+        logger.error("reconciliations.create_failed", status=response.status_code, body=response.text)
+        raise HTTPException(status_code=502, detail="failed to create reconciliation")
+    rows = response.json() or []
+    reconciliation_row = rows[0] if rows else body
+    await log_activity_event(
+        org_id=payload.orgId,
+        actor_id=auth["sub"],
+        action="RECON_CREATED",
+        entity_type="RECONCILIATION",
+        entity_id=reconciliation_row.get("id"),
+        metadata={"type": recon_type, "period": payload.periodId},
+    )
+    return {"reconciliation": reconciliation_row}
+
+
+@app.post("/api/recon/add-item")
+async def add_reconciliation_item(
+    payload: ReconciliationAddItemRequest,
+    auth: Dict[str, Any] = Depends(require_auth),
+) -> Dict[str, Any]:
+    reconciliation = await fetch_single_record("reconciliations", payload.reconciliationId)
+    if not reconciliation or reconciliation.get("org_id") != payload.orgId:
+        raise HTTPException(status_code=404, detail="reconciliation not found")
+    role = normalise_role(await ensure_org_access_by_id(auth["sub"], payload.orgId))
+    ensure_permission_for_role(role, "audit.reconciliations.manage")
+    category = _validate_reconciliation_item_category(payload.item.category)
+    amount = _to_decimal(payload.item.amount)
+    body = {
+        "org_id": payload.orgId,
+        "reconciliation_id": payload.reconciliationId,
+        "category": category,
+        "amount": _decimal_to_str(amount),
+        "reference": payload.item.reference,
+        "note": payload.item.note,
+        "resolved": payload.item.resolved,
+    }
+    response = await supabase_table_request(
+        "POST",
+        "reconciliation_items",
+        json=body,
+        headers={"Prefer": "return=minimal"},
+    )
+    if response.status_code not in (200, 201, 204):
+        logger.error("reconciliations.item_create_failed", status=response.status_code, body=response.text)
+        raise HTTPException(status_code=502, detail="failed to add reconciliation item")
+    await _update_reconciliation_difference(payload.reconciliationId)
+    return {"status": "ok"}
+
+
+@app.post("/api/recon/close")
+async def close_reconciliation(
+    payload: ReconciliationCloseRequest,
+    auth: Dict[str, Any] = Depends(require_auth),
+) -> Dict[str, Any]:
+    reconciliation = await fetch_single_record("reconciliations", payload.reconciliationId)
+    if not reconciliation or reconciliation.get("org_id") != payload.orgId:
+        raise HTTPException(status_code=404, detail="reconciliation not found")
+    role = normalise_role(await ensure_org_access_by_id(auth["sub"], payload.orgId))
+    ensure_permission_for_role(role, "audit.reconciliations.close")
+    update = {
+        "status": "CLOSED",
+        "closed_at": iso_now(),
+        "reviewed_by_user_id": payload.userId,
+    }
+    if payload.scheduleDocumentId is not None:
+        update["schedule_document_id"] = payload.scheduleDocumentId
+    response = await supabase_table_request(
+        "PATCH",
+        "reconciliations",
+        params={"id": f"eq.{payload.reconciliationId}"},
+        json=update,
+        headers={"Prefer": "return=minimal"},
+    )
+    if response.status_code not in (200, 204):
+        logger.error("reconciliations.close_failed", status=response.status_code, body=response.text)
+        raise HTTPException(status_code=502, detail="failed to close reconciliation")
+    await log_activity_event(
+        org_id=payload.orgId,
+        actor_id=auth["sub"],
+        action="RECON_CLOSED",
+        entity_type="RECONCILIATION",
+        entity_id=payload.reconciliationId,
+        metadata={"scheduleDocumentId": payload.scheduleDocumentId},
+    )
+    return {"status": "ok"}
+
 @app.get("/v1/tasks")
 async def list_tasks(
     org_slug: str = Query(..., alias="orgSlug"),
@@ -4323,6 +5702,12 @@ async def onboarding_start(
     context = await resolve_org_context(auth["sub"], payload.orgSlug)
     role = normalise_role(context.get("role"))
     ensure_permission_for_role(role, "onboarding.start")
+    await enforce_rate_limit(
+        "onboarding:start",
+        auth["sub"],
+        limit=ONBOARDING_START_RATE_LIMIT,
+        window=ONBOARDING_START_RATE_WINDOW,
+    )
 
     temp_entity_id = generate_temp_entity_id()
     checklist_payload = {
@@ -4466,6 +5851,13 @@ async def onboarding_link_document(
     if not document or document.get("deleted") or document.get("org_id") != checklist["org_id"]:
         raise HTTPException(status_code=404, detail="document not found")
 
+    await enforce_rate_limit(
+        "onboarding:link-doc",
+        auth["sub"],
+        limit=ONBOARDING_LINK_RATE_LIMIT,
+        window=ONBOARDING_LINK_RATE_WINDOW,
+    )
+
     update_response = await supabase_table_request(
         "PATCH",
         "onboarding_checklist_items",
@@ -4493,14 +5885,69 @@ async def onboarding_commit(
     checklist = await fetch_checklist_with_items(payload.checklistId)
     role = normalise_role(await ensure_org_access_by_id(auth["sub"], checklist["org_id"]))
     ensure_permission_for_role(role, "onboarding.commit")
+    await enforce_rate_limit(
+        "onboarding:commit",
+        auth["sub"],
+        limit=ONBOARDING_COMMIT_RATE_LIMIT,
+        window=ONBOARDING_COMMIT_RATE_WINDOW,
+    )
 
     items: List[Dict[str, Any]] = checklist.get("items", [])
     missing = [item for item in items if not item.get("document_id")]
     if missing:
         raise HTTPException(status_code=400, detail="attach documents for all checklist items before committing")
 
+    aggregated_profile: Dict[str, Any] = {}
+    aggregated_provenance: Dict[str, List[Dict[str, Any]]] = {}
+    task_seeds: List[Dict[str, Any]] = []
+    for item in items:
+        document_id = item.get("document_id")
+        if not document_id:
+            continue
+        extraction_resp = await supabase_table_request(
+            "GET",
+            "document_extractions",
+            params={
+                "document_id": f"eq.{document_id}",
+                "status": "eq.DONE",
+                "order": "updated_at.desc",
+                "limit": "1",
+                "select": "id,fields,document_type",
+            },
+        )
+        if extraction_resp.status_code != 200:
+            logger.warning(
+                "onboarding.commit_extraction_lookup_failed",
+                status=extraction_resp.status_code,
+                body=extraction_resp.text,
+                document_id=document_id,
+            )
+            continue
+        extraction_rows = extraction_resp.json() or []
+        if not extraction_rows:
+            continue
+        extraction_row = extraction_rows[0]
+        fields = extraction_row.get("fields") if isinstance(extraction_row.get("fields"), dict) else {}
+        profile_updates, provenance_updates, doc_tasks = map_document_fields(
+            extraction_row.get("document_type"),
+            fields,
+            document_id=document_id,
+            extraction_id=extraction_row.get("id"),
+        )
+        for key, value in profile_updates.items():
+            if value in (None, ""):
+                continue
+            aggregated_profile[key] = value
+        for field, entries in provenance_updates.items():
+            aggregated_provenance.setdefault(field, []).extend(entries)
+        for task in doc_tasks:
+            task_seeds.append({**task, "documentId": document_id})
+
+    combined_profile = {**aggregated_profile, **(payload.profile or {})}
+
     draft_payload = {
-        "extracted": payload.profile,
+        "extracted": combined_profile,
+        "provenance": aggregated_provenance,
         "updated_at": iso_now(),
     }
 
@@ -4541,7 +5988,188 @@ async def onboarding_commit(
         if draft_fetch.status_code == 200:
             rows = draft_fetch.json()
             draft_row = rows[0] if rows else None
-    return {"checklist": checklist, "draft": draft_row}
+    created_tasks: List[Dict[str, Any]] = []
+    if task_seeds:
+        seen: Set[Tuple[str, str, str]] = set()
+        default_due = (datetime.utcnow() + timedelta(days=3)).replace(microsecond=0).isoformat() + "Z"
+        for task_seed in task_seeds:
+            title = (task_seed.get("title") or "Follow up").strip() or "Follow up"
+            document_id = task_seed.get("documentId") or ""
+            source = task_seed.get("source") or "ONBOARDING"
+            category = task_seed.get("category") or "General"
+            dedupe_key = (title, source, document_id)
+            if dedupe_key in seen:
+                continue
+            seen.add(dedupe_key)
+
+            description_parts = [
+                f"Seeded from onboarding acceptance ({category}).",
+                f"Source: {source}.",
+            ]
+            if document_id:
+                description_parts.append(f"Linked document: {document_id}.")
+            description = " \n".join(description_parts)
+
+            priority = "HIGH" if category.lower().startswith("accounting") else "MEDIUM"
+
+            task_row = await insert_task_record(
+                org_id=checklist["org_id"],
+                creator_id=auth.get("sub", "system"),
+                payload={
+                    "title": title,
+                    "description": description,
+                    "priority": priority,
+                    "status": "TODO",
+                    "due_date": default_due,
+                },
+            )
+            created_tasks.append(map_task_response(task_row))
+
+            await create_notification(
+                org_id=checklist["org_id"],
+                user_id=auth.get("sub"),
+                kind="TASK",
+                title=f"Onboarding follow-up: {title}",
+                body="A follow-up task was created from the onboarding acceptance flow.",
+            )
+
+    return {
+        "checklist": checklist,
+        "draft": draft_row,
+        "profile": combined_profile,
+        "provenance": aggregated_provenance,
+        "taskSeeds": task_seeds,
+        "tasks": created_tasks,
+    }
+
+
+@app.get("/v1/autonomy/status")
+async def autonomy_status(
+    org_slug: str = Query(..., alias="orgSlug"),
+    auth: Dict[str, Any] = Depends(require_auth),
+) -> Dict[str, Any]:
+    context = await resolve_org_context(auth["sub"], org_slug)
+    org_id = context["org_id"]
+    autonomy_level = normalise_autonomy_level(context.get("autonomy_level"))
+    autonomy_floor = normalise_autonomy_level(context.get("autonomy_floor"))
+    autonomy_ceiling = normalise_autonomy_level(context.get("autonomy_ceiling"))
+
+    level_description = AUTONOMY_LEVELS.get(autonomy_level) or AUTONOMY_LEVELS.get(
+        DEFAULT_AUTONOMY_LEVEL_VALUE,
+        autonomy_level,
+    )
+    allowed_jobs = [
+        {"kind": job, "label": job.replace("_", " ").title()}
+        for job in AUTONOMY_JOB_ALLOWANCES.get(autonomy_level, [])
+    ]
+
+    alerts: List[Dict[str, Any]] = []
+    open_alerts = 0
+    alerts_resp = await supabase_table_request(
+        "GET",
+        "telemetry_alerts",
+        params={
+            "org_id": f"eq.{org_id}",
+            "resolved_at": "is.null",
+            "order": "created_at.desc",
+            "limit": "5",
+            "select": "id,alert_type,severity,message,created_at",
+        },
+        headers={"Prefer": "count=exact"},
+    )
+    if alerts_resp.status_code == 200:
+        try:
+            open_alerts = extract_total_count(alerts_resp)
+        except Exception:  # pragma: no cover - defensive fallback
+            open_alerts = 0
+        for row in alerts_resp.json() or []:
+            alerts.append(
+                {
+                    "id": row.get("id"),
+                    "type": row.get("alert_type"),
+                    "severity": row.get("severity"),
+                    "message": row.get("message"),
+                    "createdAt": row.get("created_at"),
+                }
+            )
+    else:  # pragma: no cover - logging only
+        logger.warning(
+            "autonomy.alerts_fetch_failed",
+            status=alerts_resp.status_code,
+            body=alerts_resp.text,
+            org_id=org_id,
+        )
+
+    approvals: List[Dict[str, Any]] = []
+    pending_approvals = 0
+    approvals_resp = await supabase_table_request(
+        "GET",
+        "approval_queue",
+        params={
+            "org_id": f"eq.{org_id}",
+            "status": "eq.PENDING",
+            "order": "created_at.asc",
+            "limit": "5",
+            "select": "id,action,entity_type,created_at,requested_by",
+        },
+        headers={"Prefer": "count=exact"},
+    )
+    if approvals_resp.status_code == 200:
+        try:
+            pending_approvals = extract_total_count(approvals_resp)
+        except Exception:  # pragma: no cover - defensive fallback
+            pending_approvals = 0
+        for row in approvals_resp.json() or []:
+            approvals.append(
+                {
+                    "id": row.get("id"),
+                    "action": row.get("action"),
+                    "entityType": row.get("entity_type"),
+                    "requestedBy": row.get("requested_by"),
+                    "createdAt": row.get("created_at"),
+                }
+            )
+    else:  # pragma: no cover - logging only
+        logger.warning(
+            "autonomy.approvals_fetch_failed",
+            status=approvals_resp.status_code,
+            body=approvals_resp.text,
+            org_id=org_id,
+        )
+
+    autopilot_summary = await fetch_autopilot_summary(org_id, limit=5)
+
+    suggestions = await get_workflow_suggestions(
+        org_id,
+        supabase_table_request=supabase_table_request,
+        autonomy_level=autonomy_level,
+    )
+    suggestion_entries = []
+    for entry in suggestions[:2]:
+        suggestion_entries.append(
+            {
+                "workflow": entry.get("workflow"),
+                "label": entry.get("label"),
+                "description": entry.get("description"),
+                "step": entry.get("step_index"),
+                "minimumAutonomy": entry.get("minimum_autonomy"),
+                "newRun": bool(entry.get("new_run")),
+            }
+        )
+
+    return {
+        "autonomy": {
+            "level": autonomy_level,
+            "description": level_description,
+            "floor": autonomy_floor,
+            "ceiling": autonomy_ceiling,
+            "allowedJobs": allowed_jobs,
+        },
+        "evidence": {"open": open_alerts, "alerts": alerts},
+        "approvals": {"pending": pending_approvals, "items": approvals},
+        "suggestions": suggestion_entries,
+        "autopilot": autopilot_summary,
+    }
 
 
 @app.get("/v1/knowledge/drive/metadata")
@@ -5215,12 +6843,24 @@ async def create_job_schedule(
         )
         raise HTTPException(status_code=403, detail="Autonomy level does not permit scheduling this job")
 
+    required_autonomy = minimum_autonomy_for_job(job_kind)
+    actor_ceiling = context.get("autonomy_ceiling") or DEFAULT_AUTONOMY_LEVEL_VALUE
+    if AUTONOMY_LEVEL_RANK.get(actor_ceiling, 0) < AUTONOMY_LEVEL_RANK.get(required_autonomy, 0):
+        logger.info(
+            "autonomy.member_ceiling_blocked",
+            org_id=context["org_id"],
+            kind=job_kind,
+            member_ceiling=actor_ceiling,
+            required=required_autonomy,
+        )
+        raise HTTPException(status_code=403, detail="Membership autonomy ceiling does not permit scheduling this job")
+
     schedule_payload = {
         "org_id": context["org_id"],
         "kind": job_kind,
         "cron_expression": payload.cronExpression,
         "active": payload.active,
-        "metadata": payload.metadata,
+        "metadata": {**payload.metadata, "autonomyGate": required_autonomy},
         "updated_at": iso_now(),
     }
 
@@ -5293,6 +6933,18 @@ async def enqueue_job(
             autonomy_level=context.get("autonomy_level"),
         )
         raise HTTPException(status_code=403, detail="Autonomy level does not permit running this job")
+
+    required_autonomy = minimum_autonomy_for_job(job_kind)
+    actor_ceiling = context.get("autonomy_ceiling") or DEFAULT_AUTONOMY_LEVEL_VALUE
+    if AUTONOMY_LEVEL_RANK.get(actor_ceiling, 0) < AUTONOMY_LEVEL_RANK.get(required_autonomy, 0):
+        logger.info(
+            "autonomy.member_ceiling_blocked_run",
+            org_id=context["org_id"],
+            kind=job_kind,
+            member_ceiling=actor_ceiling,
+            required=required_autonomy,
+        )
+        raise HTTPException(status_code=403, detail="Membership autonomy ceiling does not permit running this job")
 
     job_payload = {
         "org_id": context["org_id"],

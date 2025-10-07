@@ -48,8 +48,8 @@ autonomy:
     allowed_jobs:
       L0: []
       L1: ["refresh_analytics"]
-      L2: ["extract_documents", "remind_pbc", "refresh_analytics"]
-      L3: ["extract_documents", "remind_pbc", "refresh_analytics"]
+      L2: ["extract_documents", "remind_pbc", "refresh_analytics", "close_cycle", "audit_fieldwork", "tax_cycle"]
+      L3: ["extract_documents", "remind_pbc", "refresh_analytics", "close_cycle", "audit_fieldwork", "tax_cycle"]
 
 rbac:
   roles:
@@ -689,5 +689,18 @@ release_controls:
       - "return_files"
       - "recon_schedules"
       - "tb_snapshot"
+  environment:
+    autonomy:
+      minimum_level: "L2"
+      require_worker: true
+      critical_roles:
+        - "MANAGER"
+        - "PARTNER"
+    mfa:
+      channel: "WHATSAPP"
+      within_seconds: 86400
+    telemetry:
+      max_open_alerts: 0
+      severity_threshold: "WARNING"
 
 # ---- End of YAML ----

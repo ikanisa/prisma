@@ -19,6 +19,11 @@ shared helper functions:
 - `audit_module_records` and `audit_record_approvals` inherit the same pattern:
   members can read module state, while inserts/updates require the appropriate
   minimum role enforced by `has_min_role`.
+- MFA challenges (`public.mfa_challenges`) are scoped to the organisation and
+  user, with select/insert/update policies ensuring only the acting user or
+  system services can view/consume a one-time code. The release controls
+  environment check verifies a recent consumed challenge exists before
+  irreversible actions.
 
 ## Audit workspaces
 
@@ -49,6 +54,11 @@ shared helper functions:
   firmwide rows with `org_id IS NULL`. Inserts/updates require membership; hard
   deletes additionally demand Manager+ privileges to avoid silent loss of audit
   evidence.
+- Autonomy orchestration tables (`public.jobs`, `public.job_schedules`) require
+  Manager-level access for all operations, aligning with the autopilot gate that
+  enforces autonomy ceilings before queueing jobs. Phase D extends the policy
+  test suite so the release controls API can report on autonomy readiness with
+  confidence.
 
 ## Testing
 

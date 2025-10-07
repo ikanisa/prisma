@@ -5,7 +5,7 @@
   2. API smoke tests currently exercise stubs only; execute them against staging with real Supabase data before launch.
   3. New storage RLS migration needs staging deployment and a negative direct-download test.
   4. Sentry release tagging dry run has not been executed; PagerDuty/Slack routing still unverified.
-  5. Autopilot/document extraction smoke profile needs to run against staging Redis and metrics archived.
+  5. Autonomy/document/archival load scripts (Phase D) must run against staging with summaries + release-control environment output attached.
 - Next 72h priorities:
   1. Execute Lighthouse + axe runs via the new `PWA Audit` workflow and merge the PR artifacts.
   2. Run the API smoke suite against staging and capture the output.
@@ -20,7 +20,7 @@
 | Database / Supabase | 🟠 | Documents bucket now gated by storage policies; existing RLS migrations intact. | Apply the new migration in staging and perform a negative download test. | `supabase/migrations/20250927100000_documents_storage_policy.sql`, `tests/test_documents_signing.py`.
 | Auth & RBAC | 🟠 | JWT verification + role hierarchy unchanged; assistant dock respects RBAC. | Remove verbose auth logs & add JWT claim tests (scheduled for P2). | `server/main.py:242-344`, `src/components/auth/protected-route.tsx:16-79`.
 | Security & Privacy | 🟢 | CSP + strict CORS enforced, cookie consent + privacy notice implemented, doc signing verified. | Execute Lighthouse/axe + consent screenshot workflow to capture evidence. | `server/main.py:60-160`, `.env.example`, `SECURITY.md`, `src/components/privacy/CookieConsent.tsx`, `.github/workflows/pwa-audit.yml`.
-| Observability & Ops | 🟠 | Request IDs reach logs/Sentry; runbooks updated with release tagging workflow. | Execute Sentry/PagerDuty dry run and capture evidence. | `server/main.py:60-127`, `docs/observability.md`, `GO-LIVE/RELEASE_RUNBOOK.md`.
+| Observability & Ops | 🟠 | Request IDs reach logs/Sentry; runbooks updated with release tagging workflow and release-control environment checks. | Execute Sentry/PagerDuty dry run and capture evidence. | `server/main.py:60-127`, `docs/observability.md`, `GO-LIVE/RELEASE_RUNBOOK.md`.
 | Quality & Testing | 🟢 | Vitest + pytest suites pass; new Playwright a11y suite and bundle budgets enforced in CI. | Run Lighthouse/axe via `PWA Audit` workflow when needed. | `npm run lint`, `npm run build`, `npm test`, `pytest`, `scripts/check_bundlesize.mjs`, `tests/playwright/a11y.spec.ts`.
 
 **Stop-Ship (P0) list**

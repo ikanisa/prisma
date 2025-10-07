@@ -9,6 +9,7 @@ import { AssistantDock } from "@/components/assistant";
 import { NpsPrompt } from "@/components/nps/nps-prompt";
 import { useShellThemeTokens } from "@/lib/system-config";
 import { cn } from "@/lib/utils";
+import { AutonomyHud } from "@/components/autonomy/autonomy-hud";
 
 export function AppShell() {
   const { user, loading: authLoading } = useAuth();
@@ -70,6 +71,7 @@ export function AppShell() {
           onToggleSidebar={() => setSidebarCollapsed((prev) => !prev)}
         />
         <main className="flex-1 p-6 overflow-auto">
+          <AutonomyHud />
           <Outlet />
         </main>
       </div>

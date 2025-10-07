@@ -6,6 +6,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useOrganizations } from '@/hooks/use-organizations';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, BarChart3 } from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
 import {
   ResponsiveContainer,
   LineChart,
@@ -84,6 +85,39 @@ interface ReleaseControlArchiveSummary {
   expectedDocuments: string[];
 }
 
+interface ReleaseControlEnvironmentAutonomy {
+  state: ReleaseControlState;
+  orgLevel: string;
+  minimumLevel: string;
+  workerEnabled: boolean;
+  criticalRoles: string[];
+  ceilingShortfalls: Array<{ membershipId?: string; role?: string; ceiling?: string }>;
+  flags: string[];
+}
+
+interface ReleaseControlEnvironmentMfa {
+  state: ReleaseControlState | 'stale';
+  channel: string;
+  withinSeconds: number;
+  lastChallengeAt?: string | null;
+  lastChallengeAgeSeconds?: number | null;
+}
+
+interface ReleaseControlEnvironmentTelemetry {
+  state: ReleaseControlState;
+  open: number;
+  maxOpen: number;
+  severityThreshold: string;
+  alerts: Array<{ id?: string; severity?: string; alertType?: string; createdAt?: string }>;
+  severityFilter: string[];
+}
+
+interface ReleaseControlEnvironmentSummary {
+  autonomy: ReleaseControlEnvironmentAutonomy;
+  mfa: ReleaseControlEnvironmentMfa;
+  telemetry: ReleaseControlEnvironmentTelemetry;
+}
+
 interface ReleaseControlsResponse {
   requirements: {
     approvals_required: string[];
@@ -93,6 +127,8 @@ interface ReleaseControlsResponse {
     actions: Record<string, ReleaseControlActionSummary>;
     archive: ReleaseControlArchiveSummary;
   };
+  environment?: ReleaseControlEnvironmentSummary;
+  generatedAt: string;
 }
 
 export default function AnalyticsOverviewPage() {
@@ -153,6 +189,79 @@ export default function AnalyticsOverviewPage() {
       {stateLabels[state] ?? state}
     </Badge>
   );
+
+  const renderEnvironmentSummary = (env: ReleaseControlEnvironmentSummary) => {
+    const shortfalls = env.autonomy.ceilingShortfalls
+      .map((entry) => {
+        if (!entry.role) return null;
+        const ceiling = entry.ceiling ?? 'L0';
+        return `${entry.role}→${ceiling}`;
+      })
+      .filter(Boolean)
+      .join(', ');
+    const mfaTimestamp = env.mfa.lastChallengeAt
+      ? new Date(env.mfa.lastChallengeAt).toLocaleString()
+      : 'No verified challenge';
+    const mfaRelative = env.mfa.lastChallengeAt
+      ? formatDistanceToNow(new Date(env.mfa.lastChallengeAt), { addSuffix: true })
+      : null;
+    const severityFilter = env.telemetry.severityFilter?.join(', ');
+    const mfaState: ReleaseControlState = env.mfa.state === 'stale' ? 'pending' : (env.mfa.state as ReleaseControlState);
+    return (
+      <div className="space-y-3 rounded-md border px-3 py-3">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="font-medium">Autonomy guardrails</p>
+            <p className="text-xs text-muted-foreground">
+              Org level {env.autonomy.orgLevel} · Minimum {env.autonomy.minimumLevel} · Worker{' '}
+              {env.autonomy.workerEnabled ? 'enabled' : 'disabled'}
+            </p>
+            {shortfalls ? (
+              <p className="mt-2 text-xs text-muted-foreground">Shortfalls: {shortfalls}</p>
+            ) : null}
+          </div>
+          {renderStateBadge(env.autonomy.state)}
+        </div>
+
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="font-medium">MFA readiness</p>
+            <p className="text-xs text-muted-foreground">
+              Channel {env.mfa.channel} · Window {Math.round(env.mfa.withinSeconds / 3600)}h
+            </p>
+            <p className="mt-2 text-xs text-muted-foreground">
+              Last challenge: {mfaTimestamp}
+              {mfaRelative ? ` (${mfaRelative})` : ''}
+            </p>
+            {typeof env.mfa.lastChallengeAgeSeconds === 'number' ? (
+              <p className="text-xs text-muted-foreground">
+                Age {Math.round(env.mfa.lastChallengeAgeSeconds / 60)}m of {Math.round(env.mfa.withinSeconds / 60)}m window
+              </p>
+            ) : null}
+          </div>
+          {renderStateBadge(mfaState)}
+        </div>
+
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="font-medium">Telemetry alerts</p>
+            <p className="text-xs text-muted-foreground">
+              {env.telemetry.open} open ≥ {env.telemetry.severityThreshold} (max {env.telemetry.maxOpen})
+            </p>
+            {severityFilter ? (
+              <p className="text-xs text-muted-foreground">Severity filter: {severityFilter}</p>
+            ) : null}
+            {env.telemetry.alerts.length ? (
+              <p className="mt-2 text-xs text-muted-foreground">
+                Recent: {env.telemetry.alerts.slice(0, 2).map((alert) => alert.alertType || alert.id).join(', ')}
+              </p>
+            ) : null}
+          </div>
+          {renderStateBadge(env.telemetry.state)}
+        </div>
+      </div>
+    );
+  };
 
   const formatActionLabel = (action: string) =>
     action
@@ -312,6 +421,11 @@ export default function AnalyticsOverviewPage() {
 
                 {releaseControlsQuery.data ? (
                   <div className="space-y-3">
+                    {releaseControlsQuery.data.generatedAt ? (
+                      <p className="text-xs text-muted-foreground">
+                        Refreshed {formatDistanceToNow(new Date(releaseControlsQuery.data.generatedAt), { addSuffix: true })}
+                      </p>
+                    ) : null}
                     {Object.entries(releaseControlsQuery.data.status.actions).map(([action, summary]) => (
                       <div
                         key={action}
@@ -354,6 +468,10 @@ export default function AnalyticsOverviewPage() {
                         {renderStateBadge(releaseControlsQuery.data.status.archive.state)}
                       </div>
                     </div>
+
+                    {releaseControlsQuery.data.environment
+                      ? renderEnvironmentSummary(releaseControlsQuery.data.environment)
+                      : null}
                   </div>
                 ) : null}
 

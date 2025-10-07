@@ -11,7 +11,7 @@ The following tables are defined in migrations:
 |---|---|---|
 | `users` | `id` (PK, FK auth.users) | Profile for each auth user |
 | `organizations` | `id` (PK) | Tenant organizations |
-| `memberships` | `id` (PK), (`org_id`,`user_id`) unique | Links users to organizations with role |
+| `memberships` | `id` (PK), (`org_id`,`user_id`) unique | Links users to organizations with role, autonomy floor/ceiling, service account flag, and client portal scope |
 | `clients` | `id` (PK), `org_id` FK | Client records |
 | `engagements` | `id` (PK), `org_id`, `client_id` FKs | Projects/engagements per client |
 | `tasks` | `id` (PK), `org_id`, `engagement_id` FKs | Work items assigned to users |
@@ -42,7 +42,7 @@ The following tables are defined in migrations:
 | `journal_entry_strategies` | `id` (PK), `org_id`, `engagement_id` FKs | Journal entry testing scope, filters, thresholds, schedule |
 | `kam_candidates` | `id` (PK), `org_id`, `engagement_id` FKs | Potential KAMs sourced from risks/estimates/GC/other |
 | `kam_drafts` | `id` (PK), `org_id`, `engagement_id`, `candidate_id` FKs | Draft narratives with procedure/evidence references |
-| `approval_queue` | `id` (PK), `org_id`, `engagement_id` FKs | Workflow queue for manager/partner/EQR approvals |
+| `approval_queue` | `id` (PK), `org_id`, `engagement_id` FKs | Workflow queue for manager/partner/EQR approvals with autonomy gate + manifest requirement metadata |
 | `audit_report_drafts` | `id` (PK), `org_id`, `engagement_id` FKs | Opinion assembly with KAM linkage, EOM/OM toggles, approvals |
 | `tcwg_packs` | `id` (PK), `org_id`, `engagement_id` FKs | ISA 260/265 TCWG communication pack with misstatements, deficiencies, approvals |
 | `controls` | `id` (PK), `org_id`, `engagement_id` FKs | Control matrix (cycle, objective, frequency, owner, key) |
@@ -55,6 +55,7 @@ The following tables are defined in migrations:
 | `acceptance_decisions` | `id` (PK), `org_id`, `engagement_id` FKs | Partner acceptance decision, EQR requirement, approval status |
 | `pbc_requests` | `id` (PK), `org_id`, `engagement_id` FKs | Provided-by-client requests with cycle, status, due dates, procedure mapping |
 | `pbc_deliveries` | `id` (PK), `org_id`, `request_id` FKs | Delivered documents/notes linked to requests for evidence ingestion |
+| `company_profile_drafts` | `id` (PK), `org_id`, `checklist_id` FKs | Draft entity profiles captured during onboarding with field-level provenance |
 | `deficiencies` | `id` (PK), `org_id`, `engagement_id` FKs | Control deficiencies with severity/status feeding TCWG |
 | `tax_entities` | `id` (PK), `org_id` FK | Malta tax entity registry (T‑1A) |
 | `tax_entity_relationships` | `id` (PK), `org_id`, `parent_tax_entity_id`, `child_tax_entity_id` FKs | Ownership links between tax entities supporting Pillar Two tree modelling |

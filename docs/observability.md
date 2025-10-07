@@ -37,6 +37,11 @@ prisma-glow-15 so engineers can trace incidents end to end.
     from telemetry, and Supabase function failures.
   - **Tax Workbench**: chart treaty/US overlay coverage ratios and outstanding
     MAP case breaches per organisation.
+  - **Autonomy Readiness**: combine `/v1/autonomy/status` feed, open
+    `telemetry_alerts`, and `/api/release-controls/check` environment fields (now
+    including severity filters, MFA age metrics, and a `generatedAt` timestamp)
+    so operations can spot worker disablement, stale challenges, or manifest
+    breaches before a release window.
 - Refresh each dashboard every minute. Add annotations sourced from
   ActivityLog actions (e.g., deployments, schema migrations) for context.
 
@@ -67,6 +72,10 @@ prisma-glow-15 so engineers can trace incidents end to end.
 - Quarterly, rehearse the observability stack by generating a synthetic
   `EDGE_FUNCTION_ERROR` and confirming it appears in logs, telemetry metrics,
   Grafana panels, and PagerDuty alerts.
+- Phase D adds autonomy/document/archival load profiles: run the new k6 scripts
+  (`tests/perf/autonomy-burst.js`, `tests/perf/doc-ingestion-spike.js`,
+  `tests/perf/archive-rebuild.js`) at least once per quarter and archive the
+  summaries under `GO-LIVE/artifacts/` alongside release-control JSON output.
 
 ## Release Tagging & Sentry Dry Run
 - Populate `SENTRY_RELEASE` (e.g., `export SENTRY_RELEASE=$(git rev-parse --short HEAD)`) and

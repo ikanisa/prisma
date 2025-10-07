@@ -7,6 +7,8 @@ from .document_ai import (
     DocumentAIPipeline,
     create_document_ai_pipeline,
 )
+from .deterministic_contract import build_manifest
+from .onboarding_mapper import map_document_fields
 
 
 async def handle_extract_documents(
@@ -58,6 +60,9 @@ async def handle_extract_documents(
     processed_documents: List[Dict[str, Any]] = []
     failed_documents: List[Dict[str, Any]] = []
     document_ids: List[str] = []
+    aggregate_profile: Dict[str, Any] = {}
+    aggregate_provenance: Dict[str, List[Dict[str, Any]]] = {}
+    aggregate_tasks: List[Dict[str, Any]] = []
     now = iso_now()
 
     for row in rows:
@@ -155,24 +160,74 @@ async def handle_extract_documents(
         await pipeline.write_index(context, result)
 
         document_ids.append(context.document_id)
-        processed_documents.append(
-            {
-                "id": context.document_id,
-                "name": context.name,
-                "extraction": {
-                    "status": "DONE",
-                    "fields": fields,
-                    "confidence": result.confidence,
-                    "provenance": provenance,
-                    "classification": result.classification,
-                    "summary": result.summary,
-                },
-            }
+        profile_updates, profile_provenance, task_seeds = map_document_fields(
+            result.classification,
+            fields,
+            document_id=context.document_id,
+            extraction_id=extraction_id,
         )
+
+        if profile_updates:
+            aggregate_profile.update(profile_updates)
+            processed_documents.append(
+                {
+                    "id": context.document_id,
+                    "name": context.name,
+                    "extraction": {
+                        "status": "DONE",
+                        "fields": fields,
+                        "confidence": result.confidence,
+                        "provenance": provenance,
+                        "classification": result.classification,
+                        "summary": result.summary,
+                        "profileUpdates": profile_updates,
+                    },
+                }
+            )
+        else:
+            processed_documents.append(
+                {
+                    "id": context.document_id,
+                    "name": context.name,
+                    "extraction": {
+                        "status": "DONE",
+                        "fields": fields,
+                        "confidence": result.confidence,
+                        "provenance": provenance,
+                        "classification": result.classification,
+                        "summary": result.summary,
+                    },
+                }
+            )
+
+        for field, entries in profile_provenance.items():
+            aggregate_provenance.setdefault(field, []).extend(entries)
+        for task_seed in task_seeds:
+            aggregate_tasks.append({**task_seed, "documentId": context.document_id})
+
+    manifest = build_manifest(
+        kind="autopilot.extract_documents",
+        inputs={
+            "jobId": job.get("id"),
+            "orgId": org_id,
+            "limit": limit,
+        },
+        outputs={
+            "processed": len(processed_documents),
+            "failed": len(failed_documents),
+            "profileUpdates": aggregate_profile,
+        },
+        evidence=document_ids,
+        metadata={"failedCount": len(failed_documents)} if failed_documents else None,
+    )
 
     return {
         "processed": len(processed_documents),
         "document_ids": document_ids,
         "documents": processed_documents,
         "failed": failed_documents,
+        "profile_updates": aggregate_profile,
+        "provenance": aggregate_provenance,
+        "task_seeds": aggregate_tasks,
+        "manifest": manifest,
     }

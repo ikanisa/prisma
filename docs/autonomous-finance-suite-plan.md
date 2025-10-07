@@ -1,116 +1,105 @@
-# Autonomous Finance Suite – Phased Implementation Plan
+# Autonomous Finance Suite – Delivery Blueprint
 
-## 1. Current System Snapshot
+## 1. Context and Design Drivers
+- The existing programme already hardens Supabase access, CI, logging, and approval guardrails across audit, tax, and accounting domains, giving us a stable baseline for additional automation layers.【F:IMPLEMENTATION_PLAN.md†L6-L146】
+- Current data structures span end-to-end audit, close, and tax records with tenant-aware row-level security, ensuring we can enforce the suite's RBAC/segregation mandates without first redesigning storage primitives.【F:DATA_MODEL.md†L7-L71】
+- Web/API capabilities already expose deterministic analytics, reconciliation, audit governance, and tax computation endpoints we can orchestrate through higher-level “autonomous” playbooks rather than rebuilding primitives.【F:ENDPOINTS_AND_WORKFLOWS.md†L9-L205】
 
-### Configuration consumption
-- The system configuration already exposes the detailed YAML with UI shell, autonomy, RBAC, data, and policy metadata, and the runtime parser currently surfaces entry-point chips for the assistant dock and checks for key policy style rules.【F:config/system.yaml†L1-L168】【F:src/lib/system-config.ts†L5-L74】【F:tests/config/system-config.test.ts†L1-L21】
-- Aside from the chips helper, no runtime code reads `ui.shell.style`, `ui.empty_states`, `autonomy`, or `client_portal_scope`, so the new metadata is not yet applied to the UI, autonomy defaults, or client portal gating.【F:src/lib/system-config.ts†L11-L74】
+**Implication:** We focus early effort on orchestration (agents, workflows, document intelligence) and policy overlays (RLS/RBAC, approvals, evidence tracking) that align with the new zero-typing onboarding, deterministic math, and autonomy level requirements described in the Autonomous Finance Suite brief.
 
-### Assistant dock & UX shell
-- The assistant dock component implements chat, task drafting, action surfaces, and autopilot telemetry but still relies on hard-coded positioning/styling; configuration-driven placement, theming, and motion settings are not wired in yet.【F:src/components/assistant/assistant-dock.tsx†L1-L200】
-- Core empty states (tasks, documents, notifications) use inline strings rather than the configurable copy introduced in the YAML.【F:src/pages/tasks.tsx†L300-L336】【F:src/pages/notifications.tsx†L194-L204】【F:src/components/file-upload.tsx†L95-L112】
+## 2. Gap Assessment
+| Requirement Theme | Existing Capability | Gap | Remediation Focus |
+| --- | --- | --- | --- |
+| Document-first onboarding | Audit/tax document ingestion, PBC pipelines, evidence manifests exist but require manual initiation and back-office handling.【F:IMPLEMENTATION_PLAN.md†L48-L104】【F:ENDPOINTS_AND_WORKFLOWS.md†L129-L205】 | Need guided dropzones, auto-classification, acceptance loop, and repository seeding that aligns with zero-typing playbook. | Extend onboarding workflow, doc AI pipeline, and notifications to cover end-user prompts, provenance, and auto repository creation.
+| Deterministic computations | ADA analytics, reconciliation engines, tax calculators, and telemetry enforce deterministic pipelines with ATT manifests.【F:IMPLEMENTATION_PLAN.md†L64-L145】【F:ENDPOINTS_AND_WORKFLOWS.md†L63-L205】 | Need unifying governance so orchestrated agents consistently store hashes, manifests, and cross-module provenance. | Introduce deterministic computation contracts (hashing, ATT references) across orchestration workflows.
+| RBAC & RLS enforcement | Global RLS templates and approval queues already cover audit/tax modules.【F:IMPLEMENTATION_PLAN.md†L25-L152】【F:DATA_MODEL.md†L45-L71】 | Need expanded matrix for new autonomy levels, client portal scoping, and service accounts per suite spec. | Update policy packs, membership roles, and enforcement tests; ensure portal segregation matches repository whitelist.
+| Autonomy levels & human-in-the-loop | Approval queue + submission endpoints support manual gates.【F:IMPLEMENTATION_PLAN.md†L47-L152】【F:ENDPOINTS_AND_WORKFLOWS.md†L9-L205】 | Need configurable autonomy modes (L0-L3), evidence verification before auto actions, and UX that surfaces suggested actions with user confirmation. | Build autonomy controller, extend approval workflows with autonomy metadata, and expose assistant UX components.
+| Knowledge & retrieval | Knowledge ingestion placeholders exist with environment-driven activation, but orchestration remains manual.【F:README.md†L34-L78】 | Need hybrid retrieval + provenance enforcement per new evidence policy. | Wire knowledge services into agent orchestrations with provenance gating.
 
-### RBAC & client portal scope
-- Backend permission enforcement derives from `POLICY/permissions.json`, which predates the new permission keys and omits `documents.view_internal`, `documents.view_client`, `policy.pack.edit`, and the client portal denial list introduced in the spec.【F:POLICY/permissions.json†L1-L29】
-- Client document access relies on a static `CLIENT_ALLOWED_DOCUMENT_REPOS` constant that still includes `04_Audit/PBC`, diverging from the spec’s restricted PBC folders.【F:server/main.py†L31-L63】【F:config/system.yaml†L74-L76】
+## 3. Phased Implementation Plan
 
-### Autonomy level handling
-- Organization creation and membership APIs continue to treat autonomy as a numeric field spanning 0–5 with no mapping to the named L0–L3 levels or enforcement of the new default; the front-end does not expose the configured default either.【F:server/main.py†L1760-L2088】【F:config/system.yaml†L40-L46】
+### Phase A – Foundation & Governance (Weeks 0-2)
+1. **Autonomy Policy Framework**
+   - Extend role matrix (`memberships`, `approval_queue`) to encode autonomy levels, service accounts, and client-portal scoping; include migration + pgTAP coverage for new constraints.【F:DATA_MODEL.md†L13-L71】
+   - Update security policy packs and approval matrix documentation to reflect new actions and enforced human-in-the-loop checkpoints.【F:IMPLEMENTATION_PLAN.md†L25-L152】
+2. **Deterministic Execution Contract**
+   - Standardise manifest schema (hash, inputs, outputs, evidence doc IDs) for all deterministic jobs (ADA, reconciliations, tax) and publish shared library hooks for agents to invoke.【F:IMPLEMENTATION_PLAN.md†L64-L145】
+   - Instrument telemetry to flag missing manifests and tie alerts into existing monitoring runbooks.【F:IMPLEMENTATION_PLAN.md†L25-L33】【F:IMPLEMENTATION_PLAN.md†L147-L152】
+3. **Document Intelligence Hardening**
+   - Formalise doc AI ingestion pipeline with provenance metadata, mapping extracted fields to entity creation and tasks per onboarding workflow requirements.【F:IMPLEMENTATION_PLAN.md†L48-L104】【F:ENDPOINTS_AND_WORKFLOWS.md†L129-L205】
+   - Expand rate-limit and signed-URL policies to cover new onboarding dropzones and zero-trust ingress paths.【F:IMPLEMENTATION_PLAN.md†L25-L33】【F:IMPLEMENTATION_PLAN.md†L147-L152】
 
-### Knowledge & retrieval services
-- The retrieval stack persists vector chunks through a single pgvector-backed table and embeds content, but there is no orchestration for the dual index strategy, reranker choice, or citation policy described in the spec.【F:server/rag.py†L1-L63】【F:config/system.yaml†L115-L168】
-- Knowledge-source ingestion endpoints still return static Google Drive previews and do not enforce the new fetch policy ordering before asking users.【F:server/main.py†L4034-L4095】【F:config/system.yaml†L133-L139】
+**Exit Criteria:** Updated RBAC tests, telemetry alerts, and doc ingestion flows deployed to staging; policy documentation refreshed; autonomy level toggles exposed for admin testing.
 
-### Document AI pipeline
-- Autopilot extraction jobs currently mark documents as done with placeholder provenance updates and do not perform OCR/classification/extraction or use extractor definitions for supported document types.【F:server/autopilot_handlers.py†L1-L88】【F:config/system.yaml†L169-L236】
+#### Phase A Implementation Status (2025-10-05)
+- Supabase `memberships` now persist autonomy floor/ceiling metadata, service account flags, and client portal scoping arrays with pgTAP coverage to guard migrations. Application handlers hydrate these fields so autopilot scheduling/enqueuing enforces both organisational autonomy and membership ceilings.
+- Deterministic contract helper emits manifests (hash, inputs, outputs, evidence) for autopilot runs; `_finalise_autopilot_job` validates hashes and raises `telemetry_alerts` rows when manifests are missing or malformed.
+- Document AI ingestion aggregates mapped profile fields and provenance into `company_profile_drafts.provenance` while onboarding commit collates tax/close task seeds for follow-on automation. Rate limits and signed URL policies include dedicated onboarding dropzone settings.
 
-### Integrations, telemetry, and release controls
-- WhatsApp MFA helpers exist with unit tests but are not yet invoked by the privileged actions listed in the configuration’s `mfa_required_actions`.【F:server/main.py†L1-L90】【F:tests/test_mfa_enforcement.py†L1-L40】【F:config/system.yaml†L237-L284】
-- Notification templates/digests and telemetry dashboards from the spec are not yet reflected in the runtime notification service or deployment scripts, while the release control metadata now powers the readiness API and analytics dashboard card.【F:config/system.yaml†L379-L720】【F:server/main.py†L1-L120】【F:src/pages/analytics/overview.tsx†L1-L320】
+### Phase B – Workflow Orchestration & UX (Weeks 3-6)
+1. **Onboarding “Zero-Typing” Journey**
+   - Implement assistant-driven checklist UI, dropzones, and progress tracker tied to document ingestion endpoints, automatically mapping accepted extracts to entity creation and repository seeding.【F:IMPLEMENTATION_PLAN.md†L48-L104】【F:ENDPOINTS_AND_WORKFLOWS.md†L129-L205】
+   - Integrate notifications and task seeding so acceptance triggers downstream close and compliance tasks already present in the system.【F:IMPLEMENTATION_PLAN.md†L48-L146】
+2. **Autonomy Controller UI Components**
+   - Surface autonomy state (L0-L3), evidence status, and approval requirements in dashboard shells, reusing audit workspace layout and approvals banner components.【F:IMPLEMENTATION_PLAN.md†L50-L53】【F:IMPLEMENTATION_PLAN.md†L147-L152】
+   - Add “next two suggested actions” capability by orchestrating existing API endpoints into assistant prompts with provenance links.【F:ENDPOINTS_AND_WORKFLOWS.md†L9-L205】
+3. **Agent Tooling Integration**
+   - Wire orchestration agents to deterministic endpoints (recon, analytics, tax) ensuring manifest capture and RBAC checks before job execution.【F:ENDPOINTS_AND_WORKFLOWS.md†L63-L205】
+   - Implement failure handling leveraging existing error notification workflow to maintain human-in-the-loop accountability.【F:IMPLEMENTATION_PLAN.md†L9-L24】
 
-## 2. Outstanding Capability Summary
+**Exit Criteria:** Usability test of onboarding journey, autonomy HUD integrated into dashboards, assistant suggestions producing audited actions with manifests and approval trails.
 
-| Spec Area | Current Coverage | Gaps |
+#### Phase B Implementation Status (2025-10-19)
+- Zero-typing onboarding workspace now pairs the document checklist with a conversational agent, live progress tracking, and follow-up task seeding when managers commit the intake flow.
+- Autonomy HUD surfaces organisation autonomy bands, manifest telemetry, pending approvals, and the next two assistant-triggerable workflow steps directly within the shell.
+- Onboarding commit pipeline provisions downstream tasks, notifications, and manifest-backed provenance so deterministic jobs remain auditable.
+
+### Phase C – Cross-Domain Automation (Weeks 7-11)
+1. **Accounting Close Autopilot**
+   - Orchestrate close snapshot, reconciliations, JE analytics, and variance analyses behind autonomy-aware workflows that queue approvals before postings.【F:IMPLEMENTATION_PLAN.md†L64-L146】【F:ENDPOINTS_AND_WORKFLOWS.md†L177-L205】
+   - Extend telemetry dashboards to display autonomy outcomes (auto-prepared vs manual) and SLA adherence.【F:IMPLEMENTATION_PLAN.md†L147-L152】
+2. **Audit Fieldwork Automation**
+   - Chain controls, analytics, reconciliations, group audit, and TCWG packs into progressive autonomy flows with evidence manifests and approval gating.【F:IMPLEMENTATION_PLAN.md†L55-L104】【F:ENDPOINTS_AND_WORKFLOWS.md†L9-L205】
+   - Embed risk-based triggers (from `audit_risk_signals`) to throttle autonomy when evidence confidence drops, invoking human review.【F:DATA_MODEL.md†L30-L34】
+3. **Tax Cycle Orchestration**
+   - Sequence CIT, VAT, DAC6, Pillar Two, and US overlay computations with deterministic manifest enforcement and approval queue integration per autonomy level.【F:IMPLEMENTATION_PLAN.md†L106-L130】【F:ENDPOINTS_AND_WORKFLOWS.md†L180-L205】
+   - Publish governance pack updates to capture refusal rules and autonomy overrides for filings.【F:IMPLEMENTATION_PLAN.md†L127-L130】
+
+**Exit Criteria:** Cross-domain autopilot demos executed in staging with manifest proofs, autonomy downgrade rules validated, and approvals captured before external outputs.
+
+#### Phase C Implementation Status (2025-10-26)
+- Accounting close autopilot now stages the month-end workflow up to the lock step, generating deterministic manifests, surfacing pending approvals, and capturing telemetry coverage per run.
+- Audit fieldwork automation chains the external audit workflow with autonomy-aware progression and aggregates domain alerts so risk-triggered downgrades can be actioned before partner approvals.
+- Tax cycle orchestration sequences CIT, VAT, DAC6, and Pillar Two computations with manifest evidence and approval queue visibility, exposing the outcomes to the autonomy HUD.
+
+### Phase D – Compliance, Performance & Release (Weeks 12-13)
+1. **Safety Net Expansion**
+   - Extend load/security testing scenarios to cover autonomy-triggered bursts, document ingestion spikes, and archive rebuilds.【F:IMPLEMENTATION_PLAN.md†L135-L146】
+   - Run regression of RLS/RBAC suites and update traceability matrix for new autonomy features.【F:IMPLEMENTATION_PLAN.md†L25-L152】
+2. **Operational Playbooks**
+   - Update observability, backup, and release runbooks with autonomy-specific alerts and rollback guidance.【F:IMPLEMENTATION_PLAN.md†L25-L33】【F:IMPLEMENTATION_PLAN.md†L135-L146】
+   - Deliver training/UAT materials demonstrating autonomy levels, evidence verification, and manual override procedures.【F:IMPLEMENTATION_PLAN.md†L135-L146】
+3. **Go-Live Checklist**
+   - Execute production readiness checklist with focus on autonomy toggles, MFA gating for irreversible actions, and telemetry validation.【F:IMPLEMENTATION_PLAN.md†L135-L146】
+
+**Exit Criteria:** Signed production readiness report, updated runbooks, and autonomy guardrails verified under load and security testing.
+
+#### Phase D Implementation Status (2025-11-09)
+- Release controls now surface autonomy, MFA, and telemetry readiness in a single response, backed by expanded pgTAP coverage for `jobs`, `job_schedules`, and `mfa_challenges` plus pytest assertions that flag worker disablement or stale challenges.
+- Phase D load profiles add autonomy bursts, document-ingestion spikes, and archive rebuilds to the k6 catalogue so staging evidence covers the new guardrails before sign-off.
+- Observability, backup, release, and rollback runbooks reference the autonomy environment check, worker toggles, and new training/UAT materials covering manual overrides and telemetry validation.
+
+## 4. Risk Register
+| Risk | Impact | Mitigation |
 | --- | --- | --- |
-| UI shell & assistant | Assistant dock, autopilot UI, entry-point chips | Configurable theming/positioning, empty-state copy, motion presets, style-rule enforcement |
-| Autonomy & workflows | Autopilot scheduling/run surfaces | No mapping to L0–L3 defaults, autonomy-aware safeguards, workflow activation tied to config |
-| RBAC & client portal | Permission guardrails, role hierarchy utilities | Permission map alignment, client portal deny list, policy pack edit guard |
-| Data sources | Supabase + stubbed Drive preview | OAuth scope management, folder mirroring, URL fetch policy, email ingest toggle |
-| Knowledge & retrieval | Basic chunking/embedding | Dual index orchestration, reranker integration, citation guardrails, before-asking-user order |
-| Document AI | Extraction queue + autopilot handler stub | OCR/classify/extract/index stages, extractor field mapping, provenance enforcement |
-| Integrations & telemetry | WhatsApp MFA helper, telemetry dashboards, notification screens | MFA gating for listed actions, config-driven notification templates/digests, telemetry dashboards per spec, release control manifest automation |
+| Autonomy misconfiguration bypassing approvals | Regulatory breach, client exposure | Enforce autonomy level floor per role in database, block execution when manifests or approvals missing; monitor via telemetry alerts.【F:DATA_MODEL.md†L45-L71】【F:IMPLEMENTATION_PLAN.md†L147-L152】 |
+| Document AI extraction drift | Incorrect onboarding data | Maintain provenance and acceptance workflow requiring user confirmation before commit; expand tests on extraction mappings.【F:IMPLEMENTATION_PLAN.md†L48-L104】 |
+| Telemetry overload from orchestrated runs | Alert fatigue, hidden failures | Aggregate manifests and run status into existing telemetry dashboards with rate-limited notifications.【F:IMPLEMENTATION_PLAN.md†L25-L33】【F:IMPLEMENTATION_PLAN.md†L147-L152】 |
 
-## 3. Phased Delivery Plan
+## 5. Success Metrics
+- **Policy Compliance:** 100% of autonomous actions carry manifest hashes and approval audit trail in telemetry dashboard.【F:IMPLEMENTATION_PLAN.md†L147-L152】
+- **Onboarding Efficiency:** 90% of required documents ingested through zero-typing flow with provenance captured in evidence utilities.【F:IMPLEMENTATION_PLAN.md†L48-L104】
+- **Autonomy Adoption:** ≥70% of recurring close/tax workflows executed at L2 (auto-prepare) with no increase in approval rejections, tracked via activity log analytics.【F:IMPLEMENTATION_PLAN.md†L64-L146】
 
-### Phase 0 – Configuration Wiring & UX Alignment (Week 0–1)
-**Goals:** Honour UI shell settings, empty states, and policy styling from the new system configuration.
-- Extend the `SystemConfig` typings/hooks to expose helper selectors for theme, motion, dock placement, and empty-state text; add regression tests covering fallback behaviour.【F:src/lib/system-config.ts†L5-L74】【F:tests/config/system-config.test.ts†L1-L21】
-- Update assistant dock, layout shell, and empty-state components to consume configuration values (position class, motion variants, copy) and fail closed when settings are absent.【F:src/components/assistant/assistant-dock.tsx†L1-L200】【F:src/pages/tasks.tsx†L300-L336】【F:src/pages/notifications.tsx†L194-L204】
-- Introduce an assistant style-rule validator so responses always include two suggested actions and concise explanations, surfacing errors to telemetry when the orchestration layer violates policy.
-- Acceptance: automated tests assert config-driven rendering; Storybook/visual smoke confirms theming and copy updates.
-
-### Phase 1 – RBAC Harmonisation & Client Portal Guardrails (Week 1–2)
-**Goals:** Align permission maps and client portal scope with the spec.
-- Replace the static permission JSON with entries that match `rbac.permissions`, migrating backend guards to the new keys and adding coverage for `policy.pack.edit` and onboarding actions.【F:config/system.yaml†L48-L76】【F:POLICY/permissions.json†L1-L29】
-- Refactor document endpoints to read allowed repositories and denied actions from configuration, removing the hard-coded audit folder and enforcing deny-list overrides for CLIENT roles.【F:server/main.py†L31-L63】【F:config/system.yaml†L74-L76】
-- Add Supabase RLS/unit tests to confirm CLIENT users cannot invoke denied actions or access restricted repositories.
-- Acceptance: integration tests cover CLIENT vs EMPLOYEE document access and policy-pack edit gating; security review signs off on the new map.
-
-### Phase 2 – Autonomy Levels & Workflow Activation (Week 2–3)
-**Goals:** Map system autonomy defaults to organisational settings and autopilot behaviour.
-- Persist autonomy as the string level (L0–L3) with migrations/backfill, enforcing `autonomy.default_level` on organisation creation and surfacing it in the UI onboarding flows.【F:server/main.py†L1760-L2088】【F:config/system.yaml†L40-L46】
-- Gate autopilot job types and workflow triggers based on configured autonomy level, ensuring human-in-the-loop requirements for irreversible actions remain intact.
-- Instrument policy packs so approvals escalate when autonomy exceeds L1, logging deviations for audit.
-- Acceptance: unit tests cover level mapping; autopilot job scheduling respects autonomy thresholds in integration scenarios.
-- ✅ Workflow suggestions, assistant quick actions, and the `workflows.run_step` tool now enforce each workflow’s minimum autonomy level, returning guardrail messaging and filtering actions when organisations fall below the required threshold.【F:server/config_loader.py†L253-L305】【F:server/workflow_orchestrator.py†L8-L121】【F:server/main.py†L1766-L1906】【F:tests/test_workflows.py†L73-L146】
-
-### Phase 3 – Data Source Connectors & Fetch Policy (Week 3–4)
-**Goals:** Implement the data-source integrations and pre-fetch policy order.
-- Build a Google Drive ingestion service using the configured OAuth scopes and folder mapping, mirroring approved documents into Supabase storage with provenance metadata.【F:config/system.yaml†L78-L108】
-- Implement URL fetchers respecting robots.txt, max depth, and cache TTL; persist fetched content for reuse.
-- Surface email ingest toggles in admin settings, defaulting to disabled per spec.
-- Update orchestration to honour `before_asking_user` ordering, logging when data sources are exhausted before prompting.【F:config/system.yaml†L133-L139】
-- Acceptance: connectors verified via integration tests/mocks; telemetry confirms ordered fetch attempts.
-
-- ✅ Google Drive ingestion now loads OAuth scopes and folder mapping from the shared configuration across the Node orchestrator and FastAPI services, enforces the URL fetch policy (robots.txt, depth, TTL), caches harvested web content in Supabase, and surfaces the policy order plus allowed domains in the knowledge UI and assistant guardrails.【F:services/rag/system-config.ts†L1-L116】【F:services/rag/index.ts†L40-L247】【F:supabase/sql/data_sources_phase3_migration.sql†L1-L33】【F:server/main.py†L872-L920】【F:src/pages/knowledge/repositories.tsx†L33-L204】
-
-### Phase 4 – Document AI Pipeline (Week 4–6)
-**Goals:** Deliver the OCR → classify → extract → index pipeline with per-document extractors.
-- Implement classifier and extractor registries that map configured document types to field sets, persisting provenance (docId, page/span) with every extraction.【F:config/system.yaml†L169-L236】
-- Integrate OCR (Document AI / fallback) and classification services, generating structured payloads for Supabase `document_extractions` rows.【F:server/autopilot_handlers.py†L1-L88】
-- Extend the autopilot handler to run the full pipeline, update document statuses, and queue indexing tasks for knowledge ingestion.
-- Acceptance: end-to-end tests cover INCORP_CERT and BANK_STMT samples; provenance recorded; failure quarantines trigger notifications.
-
-### Phase 5 – Knowledge Retrieval & Search Experience (Week 6–8)
-**Goals:** Operationalise dual indexes, reranker, and citation enforcement.
-- Provision `finance_docs_v1` and `standards_v1` pgvector collections with chunking parameters and retention policies drawn from configuration.【F:config/system.yaml†L115-L168】
-- Integrate the reranker (`mini-lm-re-ranker-v2`) into the retrieval flow, enforcing `top_k` and minimum citation confidence before surfacing answers.
-- Update assistant orchestration to require citations, linking to document IDs/pages and preventing responses when confidence is below threshold.
-- Acceptance: regression tests confirm retrieval falls back to keyword search; assistant replies include mandated citations.
-
-### Phase 6 – Agents, Workflows, and Tooling (Week 8–10)
-**Goals:** Model agents, tool permissions, and workflow automation per spec.
-- Codify agent registry from configuration, aligning each tool invocation with permission checks and rate limits.【F:config/system.yaml†L237-L520】
-- Implement workflow orchestrators for onboarding, monthly close, external audit, and tax cycle using the configured steps and approvals, storing playbook state for audit.
-- Extend autopilot/assistant UI to surface suggested “next two actions” derived from workflow context, satisfying policy style rules.
-- Acceptance: scenario tests walk through onboarding zero-typing and monthly close flows end to end; audit trails capture tool usage.
-
-### Phase 7 – Integrations, Notifications, Telemetry, Release Controls (Week 10–12)
-**Goals:** Close integration gaps and enforce release governance.
-- Wire WhatsApp MFA checks into `close.lock`, audit plan/report approvals, and EQR sign-off endpoints, aligning with `mfa_required_actions` and recording telemetry for attempts.【F:config/system.yaml†L237-L284】
-- Update notification service to use templated copy/digest schedules from config, and ensure Supabase jobs deliver daily/weekly digests.【F:config/system.yaml†L379-L404】
-- Build telemetry dashboards per spec (assistant adoption, doc pipeline, compliance, security) and expose them in the analytics UI.【F:config/system.yaml†L405-L432】
-- Automate release control checks: manifest hashing (sha256), approvals (`plan_freeze`, `filings_submit`, `report_release`, `period_lock`), and archive content packaging.【F:config/system.yaml†L433-L720】
-- Acceptance: end-to-end tests confirm MFA gating; telemetry dashboards populated; release checklist automation passes in staging.
-
-## 4. Cross-Cutting Tasks
-- **Documentation:** Update `/docs` playbooks after each phase, mirroring configuration-driven behaviours and governance requirements.
-- **Testing & Observability:** Expand unit/integration coverage for new connectors and pipelines; emit structured telemetry events for policy and workflow decisions.
-- **Change Management:** Introduce feature toggles where appropriate to roll out high-impact modules (Document AI, new workflows) safely and allow staged validation with human-in-the-loop checkpoints.
-
-## 5. Risk & Mitigation Highlights
-- **Third-party API limits (OpenAI, Google Drive):** Implement exponential backoff and caching; add monitoring to telemetry dashboards to watch quota consumption.
-- **Config drift:** Add validation schema tests ensuring `config/system.yaml` matches runtime expectations, preventing deploys with missing keys.
-- **MFA usability friction:** Provide fallback OTP channels and in-app reminders ahead of privileged actions to minimise lockouts while maintaining security posture.
-
-This phased plan sequences the remaining work so that configuration-driven behaviours land first, followed by compliance-critical RBAC/autonomy, data intelligence pipelines, and finally integrations and release governance.
+---
+This blueprint sequences governance, orchestration, and automation enhancements to deliver the Autonomous Finance Suite while leveraging the robust foundations already present in the codebase.

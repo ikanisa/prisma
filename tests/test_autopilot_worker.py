@@ -17,6 +17,7 @@ from server.document_ai import (
     DocumentAIProvider,
     create_document_ai_pipeline,
 )
+from server.deterministic_contract import validate_manifest
 
 
 @pytest.fixture
@@ -194,6 +195,9 @@ async def test_handle_autopilot_extract_documents_success():
     assert vector_recorder.calls and vector_recorder.calls[0]["document_id"] == "doc-1"
     assert vector_recorder.calls[0]["records"][0].tokens == "prisma labs ltd c12345"
     assert not logger.errors
+    assert result["profile_updates"]["legalName"] == "Prisma Labs Ltd"
+    assert validate_manifest(result["manifest"])
+    assert result["documents"][0]["extraction"].get("profileUpdates", {}).get("legalName") == "Prisma Labs Ltd"
 
 
 @pytest.mark.anyio
@@ -245,3 +249,6 @@ async def test_handle_autopilot_extract_documents_failure_quarantines():
     assert supabase.quarantine_entries and supabase.quarantine_entries[0]["document_id"] == "doc-2"
     assert supabase.notifications and supabase.notifications[0]["user_id"] == "manager-1"
     assert vector_recorder.calls == []
+    assert validate_manifest(result["manifest"])
+    assert result["profile_updates"] == {}
+    assert result["task_seeds"] == []
