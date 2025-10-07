@@ -27,33 +27,43 @@
 | Data retention & deletion policy | PASS |
 | Access controls & least privilege | PASS |
 | GDPR/PII handling guidelines | PASS |
+| Accounting Supabase schemas with RLS | PASS |
+| Accounting API approvals & trace logging | PASS |
+| Accounting workspace job cards implemented | PASS |
+| Policy guides in STANDARDS/POLICY refreshed | PASS |
+| Automated tests for accounting modules | PASS |
+
+## Security
+- OAuth scope catalogue maintained in `docs/SECURITY/oauth-scopes.md`; changes require security sign-off and rotation per the key rotation guide.
+- Penetration test & threat drill procedures defined in `docs/SECURITY/penetration-testing.md` (bi-annual cadence, reporting requirements).
+- Supabase keys rotated per `docs/SECURITY/KEY_ROTATION.md` (placeholders updated in `.env.example`).
+- Edge functions and server runtimes source Supabase secrets through Vault helpers (`lib/secrets/*`, `supabase/functions/_shared/supabase-client.ts`); rotation only requires updating the Vault path referenced in `.env.example`.
+
+## Reliability
+- Retries with exponential backoff on all external integrations; idempotency keys for webhook processing.
+- Graceful degradation paths and circuit breakers for critical downstreams.
+- Runbooks include RTO/RPO targets and escalation paths.
 
 ## Observability
-- Logging architecture documented in `docs/observability.md` (structlog events,
-  Supabase drains, Grafana dashboards, PagerDuty routing).
-- Telemetry schemas and rate-limit guidance in `docs/telemetry.md` with
-  actionable alerts.
-- Error notification pipeline implemented via `/functions/v1/error-notify` and
-  captured in `docs/incident-response.md`.
-- Rate-limit breaches and SLA at-risk events emit `telemetry_alerts` rows and
-  optional webhook notifications (`RATE_LIMIT_ALERT_WEBHOOK`,
-  `TELEMETRY_ALERT_WEBHOOK`). Verify webhooks route to PagerDuty/Slack.
+- Logging architecture documented in `docs/observability.md` (structured events, Supabase drains, Grafana dashboards, PagerDuty routing).
+- Telemetry schemas and rate-limit guidance in `docs/telemetry.md` with actionable alerts.
+- Error notification pipeline implemented via `/functions/v1/error-notify`; process captured in `docs/incident-response.md`.
+- Rate-limit breaches and SLA at-risk events emit `telemetry_alerts` rows and optional webhooks (`RATE_LIMIT_ALERT_WEBHOOK`, `TELEMETRY_ALERT_WEBHOOK`) routing to PagerDuty/Slack.
 
-## Security Notes
-- OAuth scope catalogue maintained in `docs/SECURITY/oauth-scopes.md`; changes
-  require security sign-off and rotation per the key rotation guide.
-- Penetration test & threat drill procedures defined in
-  `docs/SECURITY/penetration-testing.md` with bi-annual cadence and reporting
-  requirements.
-- Supabase keys rotated per `docs/SECURITY/KEY_ROTATION.md` (placeholders updated in `.env.example`).
-- Edge functions and server runtimes source Supabase secrets through Vault helpers
-  (`lib/secrets/*`, `supabase/functions/_shared/supabase-client.ts`); rotation only
-  requires updating the Vault path referenced in `.env.example`.
-
-## Hardening & UAT
-- Performance/load test and UAT plan documented in `docs/performance-uat-plan.md`
-  covering ADA, recon, consolidation, telemetry, and partner sign-off scripts.
+## DevOps
+- CI runs linting, unit/integration tests, SCA, and secret scanning (gitleaks).
+- Versioned infrastructure and environment-specific configs.
+- Blue/green or canary strategy documented where applicable.
 
 ## Data Management
-- Financial close & disclosure workflows documented in `docs/financial-reporting.md`
-  (ledger imports, trial balance snapshots, IFRS note composer, ESEF export).
+- Backup/restore playbooks for Sheets and DB verified.
+- Data retention & deletion policies enforced per regulatory requirements.
+- Financial close & disclosure workflows in `docs/financial-reporting.md` (ledger imports, TB snapshots, IFRS note composer, ESEF export).
+
+## Compliance
+- GDPR/PII handling guidelines documented and enforced.
+- Access controls based on least-privilege; periodic access reviews.
+- Audit trails retained for accounting APIs (approvals & trace logging).
+
+## Hardening & UAT
+- Performance/load test & UAT plan in `docs/performance-uat-plan.md` covering ADA, recon, consolidation, telemetry, and partner sign-off scripts.
