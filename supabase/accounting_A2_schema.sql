@@ -39,7 +39,9 @@ ALTER TABLE public.accounting_consolidation_runs ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "accounting_consolidation_runs_read" ON public.accounting_consolidation_runs
   FOR SELECT USING (public.is_member_of(org_id));
 CREATE POLICY "accounting_consolidation_runs_write" ON public.accounting_consolidation_runs
-  FOR ALL USING (public.has_min_role(org_id, 'MANAGER'));
+  FOR ALL
+    USING (public.has_min_role(org_id, 'MANAGER'))
+    WITH CHECK (public.has_min_role(org_id, 'MANAGER'));
 CREATE TRIGGER set_accounting_consolidation_runs_updated_at
   BEFORE UPDATE ON public.accounting_consolidation_runs
   FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
@@ -64,7 +66,9 @@ ALTER TABLE public.accounting_revenue_contracts ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "accounting_revenue_contracts_read" ON public.accounting_revenue_contracts
   FOR SELECT USING (public.is_member_of(org_id));
 CREATE POLICY "accounting_revenue_contracts_write" ON public.accounting_revenue_contracts
-  FOR ALL USING (public.has_min_role(org_id, 'MANAGER'));
+  FOR ALL
+    USING (public.has_min_role(org_id, 'MANAGER'))
+    WITH CHECK (public.has_min_role(org_id, 'MANAGER'));
 CREATE TRIGGER set_accounting_revenue_contracts_updated_at
   BEFORE UPDATE ON public.accounting_revenue_contracts
   FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
@@ -90,7 +94,9 @@ ALTER TABLE public.accounting_lease_measurements ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "accounting_lease_measurements_read" ON public.accounting_lease_measurements
   FOR SELECT USING (public.is_member_of(org_id));
 CREATE POLICY "accounting_lease_measurements_write" ON public.accounting_lease_measurements
-  FOR ALL USING (public.has_min_role(org_id, 'MANAGER'));
+  FOR ALL
+    USING (public.has_min_role(org_id, 'MANAGER'))
+    WITH CHECK (public.has_min_role(org_id, 'MANAGER'));
 CREATE TRIGGER set_accounting_lease_measurements_updated_at
   BEFORE UPDATE ON public.accounting_lease_measurements
   FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
@@ -116,7 +122,9 @@ ALTER TABLE public.accounting_ecl_runs ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "accounting_ecl_runs_read" ON public.accounting_ecl_runs
   FOR SELECT USING (public.is_member_of(org_id));
 CREATE POLICY "accounting_ecl_runs_write" ON public.accounting_ecl_runs
-  FOR ALL USING (public.has_min_role(org_id, 'MANAGER'));
+  FOR ALL
+    USING (public.has_min_role(org_id, 'MANAGER'))
+    WITH CHECK (public.has_min_role(org_id, 'MANAGER'));
 CREATE TRIGGER set_accounting_ecl_runs_updated_at
   BEFORE UPDATE ON public.accounting_ecl_runs
   FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
@@ -141,7 +149,9 @@ ALTER TABLE public.accounting_impairment_tests ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "accounting_impairment_tests_read" ON public.accounting_impairment_tests
   FOR SELECT USING (public.is_member_of(org_id));
 CREATE POLICY "accounting_impairment_tests_write" ON public.accounting_impairment_tests
-  FOR ALL USING (public.has_min_role(org_id, 'MANAGER'));
+  FOR ALL
+    USING (public.has_min_role(org_id, 'MANAGER'))
+    WITH CHECK (public.has_min_role(org_id, 'MANAGER'));
 CREATE TRIGGER set_accounting_impairment_tests_updated_at
   BEFORE UPDATE ON public.accounting_impairment_tests
   FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
@@ -166,7 +176,9 @@ ALTER TABLE public.accounting_tax_packs ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "accounting_tax_packs_read" ON public.accounting_tax_packs
   FOR SELECT USING (public.is_member_of(org_id));
 CREATE POLICY "accounting_tax_packs_write" ON public.accounting_tax_packs
-  FOR ALL USING (public.has_min_role(org_id, 'MANAGER'));
+  FOR ALL
+    USING (public.has_min_role(org_id, 'MANAGER'))
+    WITH CHECK (public.has_min_role(org_id, 'MANAGER'));
 CREATE TRIGGER set_accounting_tax_packs_updated_at
   BEFORE UPDATE ON public.accounting_tax_packs
   FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
@@ -191,7 +203,9 @@ ALTER TABLE public.accounting_cash_flow_blueprints ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "accounting_cash_flow_blueprints_read" ON public.accounting_cash_flow_blueprints
   FOR SELECT USING (public.is_member_of(org_id));
 CREATE POLICY "accounting_cash_flow_blueprints_write" ON public.accounting_cash_flow_blueprints
-  FOR ALL USING (public.has_min_role(org_id, 'MANAGER'));
+  FOR ALL
+    USING (public.has_min_role(org_id, 'MANAGER'))
+    WITH CHECK (public.has_min_role(org_id, 'MANAGER'));
 CREATE TRIGGER set_accounting_cash_flow_blueprints_updated_at
   BEFORE UPDATE ON public.accounting_cash_flow_blueprints
   FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
@@ -215,7 +229,9 @@ ALTER TABLE public.accounting_disclosure_composer ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "accounting_disclosure_composer_read" ON public.accounting_disclosure_composer
   FOR SELECT USING (public.is_member_of(org_id));
 CREATE POLICY "accounting_disclosure_composer_write" ON public.accounting_disclosure_composer
-  FOR ALL USING (public.has_min_role(org_id, 'MANAGER'));
+  FOR ALL
+    USING (public.has_min_role(org_id, 'MANAGER'))
+    WITH CHECK (public.has_min_role(org_id, 'MANAGER'));
 CREATE TRIGGER set_accounting_disclosure_composer_updated_at
   BEFORE UPDATE ON public.accounting_disclosure_composer
   FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
@@ -239,7 +255,9 @@ ALTER TABLE public.accounting_esef_exports ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "accounting_esef_exports_read" ON public.accounting_esef_exports
   FOR SELECT USING (public.is_member_of(org_id));
 CREATE POLICY "accounting_esef_exports_write" ON public.accounting_esef_exports
-  FOR ALL USING (public.has_min_role(org_id, 'MANAGER'));
+  FOR ALL
+    USING (public.has_min_role(org_id, 'MANAGER'))
+    WITH CHECK (public.has_min_role(org_id, 'MANAGER'));
 CREATE TRIGGER set_accounting_esef_exports_updated_at
   BEFORE UPDATE ON public.accounting_esef_exports
   FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
@@ -264,7 +282,9 @@ ALTER TABLE public.accounting_basis_switches ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "accounting_basis_switches_read" ON public.accounting_basis_switches
   FOR SELECT USING (public.is_member_of(org_id));
 CREATE POLICY "accounting_basis_switches_write" ON public.accounting_basis_switches
-  FOR ALL USING (public.has_min_role(org_id, 'MANAGER'));
+  FOR ALL
+    USING (public.has_min_role(org_id, 'MANAGER'))
+    WITH CHECK (public.has_min_role(org_id, 'MANAGER'));
 CREATE TRIGGER set_accounting_basis_switches_updated_at
   BEFORE UPDATE ON public.accounting_basis_switches
   FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
@@ -286,7 +306,9 @@ ALTER TABLE public.accounting_industry_toggles ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "accounting_industry_toggles_read" ON public.accounting_industry_toggles
   FOR SELECT USING (public.is_member_of(org_id));
 CREATE POLICY "accounting_industry_toggles_write" ON public.accounting_industry_toggles
-  FOR ALL USING (public.has_min_role(org_id, 'MANAGER'));
+  FOR ALL
+    USING (public.has_min_role(org_id, 'MANAGER'))
+    WITH CHECK (public.has_min_role(org_id, 'MANAGER'));
 CREATE TRIGGER set_accounting_industry_toggles_updated_at
   BEFORE UPDATE ON public.accounting_industry_toggles
   FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
@@ -310,7 +332,9 @@ ALTER TABLE public.accounting_specialised_packs ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "accounting_specialised_packs_read" ON public.accounting_specialised_packs
   FOR SELECT USING (public.is_member_of(org_id));
 CREATE POLICY "accounting_specialised_packs_write" ON public.accounting_specialised_packs
-  FOR ALL USING (public.has_min_role(org_id, 'MANAGER'));
+  FOR ALL
+    USING (public.has_min_role(org_id, 'MANAGER'))
+    WITH CHECK (public.has_min_role(org_id, 'MANAGER'));
 CREATE TRIGGER set_accounting_specialised_packs_updated_at
   BEFORE UPDATE ON public.accounting_specialised_packs
   FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
@@ -334,7 +358,9 @@ ALTER TABLE public.accounting_governance_telemetry ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "accounting_governance_telemetry_read" ON public.accounting_governance_telemetry
   FOR SELECT USING (public.is_member_of(org_id));
 CREATE POLICY "accounting_governance_telemetry_write" ON public.accounting_governance_telemetry
-  FOR ALL USING (public.has_min_role(org_id, 'MANAGER'));
+  FOR ALL
+    USING (public.has_min_role(org_id, 'MANAGER'))
+    WITH CHECK (public.has_min_role(org_id, 'MANAGER'));
 CREATE TRIGGER set_accounting_governance_telemetry_updated_at
   BEFORE UPDATE ON public.accounting_governance_telemetry
   FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
