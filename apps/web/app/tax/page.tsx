@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import type { Dispatch, SetStateAction } from 'react';
 import type { CalculatorResult, ModuleKey, TaxActivity } from '../../lib/tax/types';
 import {
   assessFiscalUnity,
@@ -369,7 +370,7 @@ export default function Tax() {
   async function requestCalculation<TMetrics extends Record<string, unknown>>(
     url: string,
     payload: Record<string, unknown>,
-    setState: (value: ModuleState<TMetrics>) => void
+    setState: Dispatch<SetStateAction<ModuleState<TMetrics>>>
   ) {
     setState((previous) => ({ ...previous, loading: true, error: null }));
 
