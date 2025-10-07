@@ -10,6 +10,16 @@ import OpenAI from 'openai';
 import jwt, { type JwtPayload } from 'jsonwebtoken';
 import { randomUUID, createHash } from 'crypto';
 import { AsyncLocalStorage } from 'node:async_hooks';
+import * as Sentry from '@sentry/node';
+import { context, trace, SpanStatusCode } from '@opentelemetry/api';
+import { NodeTracerProvider } from '@opentelemetry/sdk-trace-node';
+import { BatchSpanProcessor } from '@opentelemetry/sdk-trace-base';
+import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
+import { Resource } from '@opentelemetry/resources';
+import { SemanticResourceAttributes } from '@opentelemetry/semantic-conventions';
+import { registerInstrumentations } from '@opentelemetry/instrumentation';
+import { HttpInstrumentation } from '@opentelemetry/instrumentation-http';
+import { ExpressInstrumentation } from '@opentelemetry/instrumentation-express';
 import { createClient } from '@supabase/supabase-js';
 import { getSignedUrlTTL } from '../../lib/security/signed-url-policy';
 import {
@@ -34,6 +44,54 @@ import { getUrlSourceSettings, type UrlSourceSettings } from './system-config';
 
 type AgentPersona = 'AUDIT' | 'FINANCE' | 'TAX';
 type LearningMode = 'INITIAL' | 'CONTINUOUS';
+
+const SERVICE_NAME = process.env.OTEL_SERVICE_NAME ?? 'rag-service';
+const OTLP_ENDPOINT = process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
+let telemetryInitialised = false;
+
+function configureTelemetry(): void {
+  if (telemetryInitialised) {
+    return;
+  }
+
+  const resource = new Resource({
+    [SemanticResourceAttributes.SERVICE_NAME]: SERVICE_NAME,
+  });
+
+  const provider = new NodeTracerProvider({ resource });
+  if (OTLP_ENDPOINT) {
+    provider.addSpanProcessor(
+      new BatchSpanProcessor(
+        new OTLPTraceExporter({ url: OTLP_ENDPOINT }),
+      ),
+    );
+  }
+  provider.register();
+
+  registerInstrumentations({
+    instrumentations: [new HttpInstrumentation(), new ExpressInstrumentation()],
+  });
+
+  telemetryInitialised = true;
+}
+
+configureTelemetry();
+const tracer = trace.getTracer(SERVICE_NAME);
+
+const SENTRY_RELEASE = process.env.SENTRY_RELEASE;
+const SENTRY_ENVIRONMENT =
+  process.env.SENTRY_ENVIRONMENT ?? process.env.ENVIRONMENT ?? 'development';
+const SENTRY_DSN = process.env.SENTRY_DSN;
+const SENTRY_ENABLED = Boolean(SENTRY_DSN);
+
+if (SENTRY_ENABLED) {
+  Sentry.init({
+    dsn: SENTRY_DSN,
+    environment: SENTRY_ENVIRONMENT,
+    release: SENTRY_RELEASE,
+    tracesSampleRate: 1.0,
+  });
+}
 
 const WEB_DOMAIN_MAP: Record<string, { corpusDomain: string; agentKind: AgentPersona }> = {
   IFRS: { corpusDomain: 'IFRS', agentKind: 'FINANCE' },
@@ -387,6 +445,63 @@ async function ensureWebSourceSyncForOrg(options: {
 // Documents are stored in PostgreSQL with pgvector embeddings.
 
 const app = express();
+
+if (SENTRY_ENABLED) {
+  app.use(Sentry.Handlers.requestHandler());
+}
+
+app.use((req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  const span = tracer.startSpan(`${req.method} ${req.path}`, {
+    attributes: {
+      'http.method': req.method,
+      'http.target': req.originalUrl ?? req.url ?? req.path,
+      'http.scheme': req.protocol,
+    },
+  });
+
+  const spanContext = trace.setSpan(context.active(), span);
+  context.with(spanContext, () => {
+    let spanEnded = false;
+    const endSpan = () => {
+      if (spanEnded) {
+        return;
+      }
+      spanEnded = true;
+
+      if (span.isRecording()) {
+        span.setAttribute('http.status_code', res.statusCode);
+        const routePath = req.route?.path ?? req.path;
+        if (routePath) {
+          span.setAttribute('http.route', routePath);
+        }
+        if (req.requestId) {
+          span.setAttribute('prismaglow.request_id', req.requestId);
+        }
+        if (res.statusCode >= 500) {
+          span.setStatus({ code: SpanStatusCode.ERROR });
+        }
+      }
+
+      span.end();
+    };
+
+    res.on('finish', endSpan);
+    res.on('close', endSpan);
+    res.on('error', (err) => {
+      if (span.isRecording()) {
+        span.recordException(err);
+        span.setStatus({
+          code: SpanStatusCode.ERROR,
+          message: err instanceof Error ? err.message : String(err),
+        });
+      }
+      endSpan();
+    });
+
+    next();
+  });
+});
+
 app.use(express.json({ limit: '10mb' }));
 
 const HEADER_REQUEST_ID = 'x-request-id';
@@ -396,6 +511,11 @@ app.use((req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   const requestId = existing && existing.trim().length > 0 ? existing : randomUUID();
   req.requestId = requestId;
   res.set(HEADER_REQUEST_ID, requestId);
+  if (SENTRY_ENABLED) {
+    Sentry.configureScope((scope) => {
+      scope.setTag('request_id', requestId);
+    });
+  }
   requestContext.run({ requestId }, () => next());
 });
 
@@ -460,6 +580,9 @@ function logError(message: string, error: unknown, meta: Record<string, unknown>
       ...enrichMeta(meta),
     })
   );
+  if (SENTRY_ENABLED) {
+    Sentry.captureException(error);
+  }
 }
 
 function allowRequest(userId: string): boolean {
@@ -3570,5 +3693,9 @@ void (async () => {
     }, WEB_HARVEST_INTERVAL_MS).unref();
   }
 })();
+
+if (SENTRY_ENABLED) {
+  app.use(Sentry.Handlers.errorHandler());
+}
 
 export default app;
