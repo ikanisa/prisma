@@ -1,6 +1,9 @@
 import { NextResponse, type NextRequest } from 'next/server';
+import { auth } from '../../../../auth';
 import { getSupabaseServiceClient } from '../../../../lib/supabase/server';
 import { recordSpecialistActivity } from '../../../../lib/supabase/activity';
+
+type ServiceClient = ReturnType<typeof getSupabaseServiceClient>;
 
 const STANDARD_EXPERT = 'ISA 620';
 const ALLOWED_STATUSES = new Set(['draft', 'in_review', 'final']);
@@ -14,9 +17,119 @@ function normalizeStandardRefs(input: unknown): string[] {
   return Array.from(new Set([STANDARD_EXPERT, ...extras]));
 }
 
-function getActorId(request: NextRequest): string | null {
-  const header = request.headers.get('x-user-id');
-  return header && header.trim().length > 0 ? header.trim() : null;
+class HttpError extends Error {
+  constructor(public status: number, message: string) {
+    super(message);
+    this.name = 'HttpError';
+  }
+}
+
+type SessionUser = {
+  id?: string | null;
+  sub?: string | null;
+  email?: string | null;
+  name?: string | null;
+};
+
+async function resolveAuthenticatedUser(client: ServiceClient) {
+  let sessionUser: SessionUser | null = null;
+
+  try {
+    const session = await auth();
+    sessionUser = (session?.user as SessionUser | undefined) ?? null;
+  } catch (error) {
+    console.error('Failed to resolve session for specialist expert request', error);
+    throw new HttpError(500, 'Unable to verify authentication');
+  }
+
+  if (!sessionUser) {
+    throw new HttpError(401, 'Authentication required');
+  }
+
+  const directId = sessionUser.id ?? sessionUser.sub;
+  if (directId && directId.trim().length > 0) {
+    return { userId: directId.trim(), email: sessionUser.email ?? null, name: sessionUser.name ?? null };
+  }
+
+  const email = sessionUser.email?.toLowerCase();
+  if (email) {
+    const { data, error } = await client
+      .from('app_users')
+      .select('user_id, full_name')
+      .eq('email', email)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Failed to resolve user from email for specialist expert request', error);
+      throw new HttpError(500, 'Unable to resolve current user');
+    }
+
+    if (data) {
+      return {
+        userId: data.user_id,
+        email: sessionUser.email ?? null,
+        name: data.full_name ?? sessionUser.name ?? null,
+      };
+    }
+  }
+
+  throw new HttpError(401, 'Authentication required');
+}
+
+async function ensureOrgMembership(client: ServiceClient, orgId: string, userId: string) {
+  const { data: membership, error: membershipError } = await client
+    .from('memberships')
+    .select('role')
+    .eq('org_id', orgId)
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (membershipError) {
+    console.error('Failed to verify organisation membership for specialist expert request', membershipError);
+    throw new HttpError(500, 'Unable to verify organisation membership');
+  }
+
+  if (membership) {
+    return membership.role;
+  }
+
+  const { data: userRow, error: userError } = await client
+    .from('users')
+    .select('is_system_admin')
+    .eq('id', userId)
+    .maybeSingle();
+
+  if (userError) {
+    console.error('Failed to verify user privileges for specialist expert request', userError);
+    throw new HttpError(500, 'Unable to verify user privileges');
+  }
+
+  if (userRow?.is_system_admin) {
+    return 'SYSTEM_ADMIN';
+  }
+
+  throw new HttpError(403, 'You do not have access to this organisation');
+}
+
+async function ensureEngagementBelongsToOrg(client: ServiceClient, orgId: string, engagementId: string) {
+  const { data, error } = await client
+    .from('engagements')
+    .select('org_id')
+    .eq('id', engagementId)
+    .maybeSingle();
+
+  if (error) {
+    console.error('Failed to verify engagement ownership for specialist expert request', error);
+    throw new HttpError(500, 'Unable to verify engagement access');
+  }
+
+  if (!data) {
+    throw new HttpError(404, 'Engagement not found');
+  }
+
+  if (data.org_id !== orgId) {
+    throw new HttpError(403, 'Engagement does not belong to the specified organisation');
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -25,11 +138,6 @@ export async function POST(request: NextRequest) {
     payload = (await request.json()) as Record<string, unknown>;
   } catch (error) {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
-  }
-
-  const actorId = getActorId(request);
-  if (!actorId) {
-    return NextResponse.json({ error: 'x-user-id header required' }, { status: 401 });
   }
 
   const orgId = typeof payload.orgId === 'string' ? payload.orgId.trim() : '';
@@ -51,6 +159,29 @@ export async function POST(request: NextRequest) {
       : 'draft';
 
   const supabase = getSupabaseServiceClient();
+
+  let actorId: string;
+  try {
+    const actor = await resolveAuthenticatedUser(supabase);
+    actorId = actor.userId;
+  } catch (error) {
+    if (error instanceof HttpError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+    console.error('Unexpected error while resolving current user for specialist expert', error);
+    return NextResponse.json({ error: 'Failed to resolve current user' }, { status: 500 });
+  }
+
+  try {
+    await ensureOrgMembership(supabase, orgId, actorId);
+    await ensureEngagementBelongsToOrg(supabase, orgId, engagementId);
+  } catch (error) {
+    if (error instanceof HttpError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+    console.error('Unexpected authorisation error for specialist expert request', error);
+    return NextResponse.json({ error: 'Unable to verify access for this engagement' }, { status: 500 });
+  }
 
   const { data, error } = await supabase
     .from('audit_specialist_experts')
