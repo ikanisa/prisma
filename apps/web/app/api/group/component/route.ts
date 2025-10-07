@@ -5,6 +5,7 @@ import { upsertAuditModuleRecord } from '../../../../../lib/audit/module-records
 import { logAuditActivity } from '../../../../../lib/audit/activity-log';
 import { attachRequestId, getOrCreateRequestId } from '../../../lib/observability';
 import { createApiGuard } from '../../../lib/api-guard';
+import { authenticateGroupRequest } from '../../../lib/group/request';
 
 const createSchema = z.object({
   orgId: z.string().uuid(),
@@ -37,11 +38,26 @@ export async function POST(request: Request) {
     );
   }
 
+  const auth = await authenticateGroupRequest({
+    request,
+    supabase,
+    orgIdCandidate: payload.orgId,
+    userIdCandidate: payload.userId,
+  });
+  if (!auth.ok) {
+    return NextResponse.json(
+      { error: auth.error },
+      attachRequestId({ status: auth.status }, requestId),
+    );
+  }
+
+  const { orgId, userId } = auth;
+
   const guard = await createApiGuard({
     request,
     supabase,
     requestId,
-    orgId: payload.orgId,
+    orgId,
     resource: 'group:component:create',
     rateLimit: { limit: 30, windowSeconds: 60 },
   });
@@ -51,7 +67,7 @@ export async function POST(request: Request) {
   const { data, error } = await supabase
     .from('group_components')
     .insert({
-      org_id: payload.orgId,
+      org_id: orgId,
       engagement_id: payload.engagementId,
       name: payload.name,
       country: payload.country ?? null,
@@ -72,7 +88,7 @@ export async function POST(request: Request) {
 
   try {
     await upsertAuditModuleRecord(supabase, {
-      orgId: payload.orgId,
+      orgId,
       engagementId: payload.engagementId,
       moduleCode: 'GRP1',
       recordRef: data.id,
@@ -80,14 +96,14 @@ export async function POST(request: Request) {
       recordStatus: 'IN_PROGRESS',
       approvalState: 'DRAFT',
       currentStage: 'PREPARER',
-      preparedByUserId: payload.userId,
-      ownerUserId: payload.userId,
+      preparedByUserId: userId,
+      ownerUserId: userId,
       metadata: {
         country: data.country,
         significance: data.significance,
         materiality: data.materiality,
       },
-      userId: payload.userId,
+      userId,
     });
   } catch (moduleError) {
     return guard.json(
@@ -97,8 +113,8 @@ export async function POST(request: Request) {
   }
 
   await logAuditActivity(supabase, {
-    orgId: payload.orgId,
-    userId: payload.userId,
+    orgId,
+    userId,
     action: 'GRP_COMPONENT_CREATED',
     entityType: 'AUDIT_GROUP',
     entityId: data.id,

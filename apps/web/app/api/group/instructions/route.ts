@@ -2,7 +2,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import type { Database } from '../../../../../../src/integrations/supabase/types';
 import { logGroupActivity } from '../../../../lib/group/activity';
-import { getOrgIdFromRequest, isUuid, resolveUserId, toJsonRecord } from '../../../../lib/group/request';
+import { authenticateGroupRequest, isUuid, toJsonRecord } from '../../../../lib/group/request';
 import { getSupabaseServerClient } from '../../../../lib/supabase/server';
 
 type GroupInstructionInsert = Database['public']['Tables']['group_instructions']['Insert'];
@@ -48,10 +48,16 @@ function buildInsertPayload(orgId: string, userId: string, body: Record<string, 
 }
 
 export async function GET(request: NextRequest) {
-  const orgId = getOrgIdFromRequest(request);
-  if (!orgId) {
-    return NextResponse.json({ error: 'orgId is required' }, { status: 400 });
+  const auth = await authenticateGroupRequest({
+    request,
+    supabase,
+    userErrorMessage: 'Authentication required',
+  });
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
   }
+
+  const { orgId } = auth;
 
   const url = new URL(request.url);
   const engagementId = url.searchParams.get('engagementId');
@@ -101,15 +107,17 @@ export async function POST(request: NextRequest) {
   }
 
   const body = payload as Record<string, unknown>;
-  const orgId = getOrgIdFromRequest(request, body.orgId);
-  if (!orgId) {
-    return NextResponse.json({ error: 'orgId is required' }, { status: 400 });
+  const auth = await authenticateGroupRequest({
+    request,
+    supabase,
+    orgIdCandidate: body.orgId,
+    userIdCandidate: body.userId,
+  });
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
   }
 
-  const userId = await resolveUserId(request, body.userId);
-  if (!userId) {
-    return NextResponse.json({ error: 'userId is required for auditing' }, { status: 401 });
-  }
+  const { orgId, userId } = auth;
 
   let insertPayload: GroupInstructionInsert;
   try {
