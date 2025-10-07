@@ -61,7 +61,6 @@ export async function resolveCurrentUser(
   client: SupabaseClient<Database>,
 ): Promise<{ userId: string; email?: string | null; name?: string | null }> {
   const session = await auth();
-  const headerUserId = request.headers.get('x-user-id');
 
   if (session?.user) {
     const maybeId = (session.user as { id?: string }).id;
@@ -89,10 +88,6 @@ export async function resolveCurrentUser(
         };
       }
     }
-  }
-
-  if (headerUserId) {
-    return { userId: headerUserId };
   }
 
   throw new HttpError(401, 'Authentication required');
