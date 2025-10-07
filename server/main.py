@@ -3586,7 +3586,7 @@ async def list_tasks(
     engagement: Optional[str] = Query(default=None, alias="engagementId"),
     auth: Dict[str, Any] = Depends(require_auth),
 ) -> Dict[str, Any]:
-    context = await resolve_org_context(auth["sub"], org_slug_form)
+    context = await resolve_org_context(auth["sub"], org_slug)
 
     if status and status not in TASK_STATUS_VALUES and status != "all":
         raise HTTPException(status_code=400, detail="invalid status filter")
