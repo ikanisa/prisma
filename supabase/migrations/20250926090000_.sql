@@ -1,1 +1,1 @@
-;
+-- noop migration placeholder for production deployment
