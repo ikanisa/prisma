@@ -287,6 +287,7 @@ export class ReconciliationStore {
     }
 
     const retainedItemIds: string[] = [];
+    const resolvedAutoLineIds = new Set<string>();
     for (const itemId of recon.itemIds) {
       const item = this.items.get(itemId);
       if (!item) {
@@ -295,6 +296,11 @@ export class ReconciliationStore {
       if (item.origin === 'AUTOMATCH' && item.status === 'OUTSTANDING') {
         this.items.delete(itemId);
       } else {
+        if (item.origin === 'AUTOMATCH' && Array.isArray(item.sourceLineIds)) {
+          for (const lineId of item.sourceLineIds) {
+            resolvedAutoLineIds.add(lineId);
+          }
+        }
         retainedItemIds.push(itemId);
       }
     }
@@ -407,6 +413,9 @@ export class ReconciliationStore {
       if (!line) {
         return;
       }
+      if (resolvedAutoLineIds.has(line.id)) {
+        return;
+      }
       const itemId = randomUUID();
       const item: InternalItem = {
         id: itemId,
@@ -429,6 +438,9 @@ export class ReconciliationStore {
     unmatchedExternal.forEach((lineId) => {
       const line = externalById.get(lineId);
       if (!line) {
+        return;
+      }
+      if (resolvedAutoLineIds.has(line.id)) {
         return;
       }
       const itemId = randomUUID();
