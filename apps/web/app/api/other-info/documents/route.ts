@@ -2,9 +2,19 @@ import { Buffer } from 'node:buffer';
 import { createHash, randomUUID } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServiceSupabase, logOiAction } from '@/lib/supabase';
+import { ensureOrgAccess, HttpError, resolveCurrentUser } from '../../soc/_common';
 
 function badRequest(message: string, init?: ResponseInit) {
   return NextResponse.json({ error: message }, { status: 400, ...init });
+}
+
+function handleAuthorizationError(error: unknown): NextResponse {
+  if (error instanceof HttpError) {
+    return NextResponse.json({ error: error.message }, { status: error.status });
+  }
+
+  console.error('Failed to authorize other information document request', error);
+  return NextResponse.json({ error: 'Failed to authorize request.' }, { status: 500 });
 }
 
 export async function GET(request: NextRequest) {
@@ -17,6 +27,14 @@ export async function GET(request: NextRequest) {
   }
 
   const supabase = getServiceSupabase();
+
+  try {
+    const { userId } = await resolveCurrentUser(request, supabase);
+    await ensureOrgAccess(supabase, orgId, userId, 'EMPLOYEE');
+  } catch (error) {
+    return handleAuthorizationError(error);
+  }
+
   const { data, error } = await supabase
     .from('other_information_docs')
     .select('*')
@@ -59,10 +77,6 @@ export async function POST(request: NextRequest) {
     return badRequest('engagementId is required.');
   }
 
-  if (typeof actorId !== 'string' || !actorId) {
-    return badRequest('actorId is required.');
-  }
-
   if (!(file instanceof File)) {
     return badRequest('A file upload is required.');
   }
@@ -73,11 +87,32 @@ export async function POST(request: NextRequest) {
   const docId = randomUUID();
   const supabase = getServiceSupabase();
 
+  let userId: string;
+  try {
+    ({ userId } = await resolveCurrentUser(request, supabase));
+    await ensureOrgAccess(supabase, orgId, userId, 'EMPLOYEE');
+  } catch (error) {
+    return handleAuthorizationError(error);
+  }
+
+  const resolvedActorId = typeof actorId === 'string' && actorId.length > 0 ? actorId : null;
+  if (resolvedActorId && resolvedActorId !== userId) {
+    return NextResponse.json({ error: 'actorId does not match the authenticated user.' }, { status: 403 });
+  }
+
+  const uploaderId = resolvedActorId ?? userId;
+
   const title = typeof titleValue === 'string' && titleValue.trim().length > 0 ? titleValue.trim() : file.name;
   const storagePath =
     typeof formData.get('storagePath') === 'string' && formData.get('storagePath')
       ? (formData.get('storagePath') as string)
       : `aat-intake/org/${orgId}/other-information/${docId}/${encodeURIComponent(file.name)}`;
+
+  const [bucket, ...objectParts] = storagePath.split('/');
+  if (!bucket || objectParts.length === 0) {
+    return badRequest('storagePath must include a storage bucket and object key.');
+  }
+  const objectPath = objectParts.join('/');
 
   const metadata = {
     originalName: file.name,
@@ -86,6 +121,18 @@ export async function POST(request: NextRequest) {
     checksum,
     pageCount,
   };
+
+  const { error: uploadError } = await supabase.storage.from(bucket).upload(objectPath, buffer, {
+    contentType: file.type || undefined,
+    upsert: false,
+  });
+
+  if (uploadError) {
+    return NextResponse.json(
+      { error: uploadError.message ?? 'Failed to store uploaded document.' },
+      { status: 500 },
+    );
+  }
 
   const { data, error } = await supabase
     .from('other_information_docs')
@@ -100,18 +147,22 @@ export async function POST(request: NextRequest) {
       file_size: file.size,
       checksum,
       metadata,
-      uploaded_by: actorId,
+      uploaded_by: uploaderId,
     })
     .select()
     .single();
 
   if (error) {
+    const cleanupResult = await supabase.storage.from(bucket).remove([objectPath]);
+    if (cleanupResult.error) {
+      console.error('Failed to clean up uploaded other information object after database error', cleanupResult.error);
+    }
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
   await logOiAction(supabase, {
     orgId,
-    userId: actorId,
+    userId: uploaderId,
     action: 'OI_DOCUMENT_UPLOADED',
     entityId: docId,
     metadata: {
