@@ -3,6 +3,55 @@
 import { recordClientError, recordClientEvent } from '@/lib/client-events';
 import { logger } from '@/lib/logger';
 
+export const OFFLINE_QUEUE_STORAGE_KEY = 'queuedActions';
+export const OFFLINE_QUEUE_UPDATED_EVENT = 'offline-queue:updated';
+
+export interface QueuedOfflineAction {
+  id: string;
+  action: string;
+  data: unknown;
+  timestamp: number;
+  retries: number;
+}
+
+function readOfflineQueue(): QueuedOfflineAction[] {
+  if (typeof window === 'undefined') {
+    return [];
+  }
+
+  try {
+    const raw = window.localStorage.getItem(OFFLINE_QUEUE_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed as QueuedOfflineAction[];
+  } catch (error) {
+    logger.error('pwa.read_offline_queue_failed', error);
+    recordClientError({ name: 'pwa:readOfflineQueueFailed', error });
+    return [];
+  }
+}
+
+function writeOfflineQueue(queue: QueuedOfflineAction[]) {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  window.localStorage.setItem(OFFLINE_QUEUE_STORAGE_KEY, JSON.stringify(queue));
+  dispatchOfflineQueueEvent(queue);
+}
+
+function dispatchOfflineQueueEvent(queue: QueuedOfflineAction[]) {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  const event = new CustomEvent(OFFLINE_QUEUE_UPDATED_EVENT, {
+    detail: { queue, updatedAt: Date.now() },
+  });
+  window.dispatchEvent(event);
+}
+
 declare const __ENABLE_PWA__: boolean;
 
 const PWA_ENABLED = typeof __ENABLE_PWA__ === 'undefined' ? true : __ENABLE_PWA__;
@@ -74,18 +123,22 @@ export function showInstallPrompt() {
 
 // Enhanced background sync for offline actions
 export function queueAction(action: string, data: any) {
+  if (typeof window === 'undefined') {
+    return 0;
+  }
+
+  const queuedActions = readOfflineQueue();
+  const entry: QueuedOfflineAction = {
+    id: crypto.randomUUID(),
+    action,
+    data,
+    timestamp: Date.now(),
+    retries: 0,
+  };
+  queuedActions.push(entry);
+  writeOfflineQueue(queuedActions);
+
   if ('serviceWorker' in navigator) {
-    // Store action in indexedDB or localStorage
-    const queuedActions = JSON.parse(localStorage.getItem('queuedActions') || '[]');
-    queuedActions.push({ 
-      id: crypto.randomUUID(),
-      action, 
-      data, 
-      timestamp: Date.now(),
-      retries: 0 
-    });
-    localStorage.setItem('queuedActions', JSON.stringify(queuedActions));
-    
     // Register for background sync (if supported)
     navigator.serviceWorker.ready
       .then((registration) => {
@@ -99,26 +152,32 @@ export function queueAction(action: string, data: any) {
         recordClientError({ name: 'pwa:backgroundSyncError', error: err });
       });
   }
+
+  return queuedActions.length;
 }
 
 export function processQueuedActions() {
-  const queuedActions = JSON.parse(localStorage.getItem('queuedActions') || '[]');
+  if (typeof window === 'undefined') {
+    return 0;
+  }
+
+  const queuedActions = readOfflineQueue();
   const processed: string[] = [];
-  
+
   // Process each queued action
-  queuedActions.forEach((item: any) => {
+  queuedActions.forEach((item) => {
     try {
       recordClientEvent({ name: 'pwa:processQueuedAction', data: { action: item.action } });
-      
+
       // TODO: Implement actual processing logic here
       // This would integrate with your API calls when Supabase is connected
-      
+
       // For now, just simulate success
       processed.push(item.id);
     } catch (error) {
       logger.error('pwa.process_queued_action_failed', error);
       recordClientError({ name: 'pwa:queuedActionFailed', error, data: { action: item.action } });
-      
+
       // Retry logic
       if (item.retries < 3) {
         item.retries++;
@@ -127,12 +186,16 @@ export function processQueuedActions() {
       }
     }
   });
-  
+
   // Remove processed actions
-  const remaining = queuedActions.filter((item: any) => !processed.includes(item.id));
-  localStorage.setItem('queuedActions', JSON.stringify(remaining));
-  
+  const remaining = queuedActions.filter((item) => !processed.includes(item.id));
+  writeOfflineQueue(remaining);
+
   return processed.length;
+}
+
+export function getOfflineQueueSnapshot(): QueuedOfflineAction[] {
+  return readOfflineQueue();
 }
 
 // Network status monitoring
