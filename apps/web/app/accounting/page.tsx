@@ -1,6 +1,286 @@
-"use client";
+'use client';
 
 import { useMemo, useState, type ReactNode } from 'react';
+
+// Runtime mode: "modules" | "close"
+const ACCOUNTING_MODE =
+  (process.env.NEXT_PUBLIC_ACCOUNTING_MODE ?? 'close').toLowerCase() as
+    | 'modules'
+    | 'close';
+
+/* ========================================================================
+   EXPORTED PAGE
+   ======================================================================== */
+export default function AccountingPage() {
+  return ACCOUNTING_MODE === 'modules' ? (
+    <AccountingModulesWorkspace />
+  ) : (
+    <AccountingCloseWorkspace />
+  );
+}
+
+/* ========================================================================
+   MODE A — Accounting Modules Workspace (from codex/add-new-supabase-schemas-and-apis)
+   ======================================================================== */
+import type {
+  AccountingModule,
+  AccountingModuleDefinition,
+  ModuleExecutionResult,
+} from '../../lib/accounting/types';
+import { ACCOUNTING_MODULES } from '../../lib/accounting/metadata';
+
+type ModuleKey = AccountingModule;
+type ModuleResponseMap = Partial<Record<ModuleKey, ModuleExecutionResult>>;
+type ModulePayloadState = Record<ModuleKey, string>;
+type ModuleBooleanState = Record<ModuleKey, boolean>;
+type ModuleErrorState = Partial<Record<ModuleKey, string>>;
+
+function buildInitialPayloads(modules: AccountingModuleDefinition[]): ModulePayloadState {
+  return modules.reduce((acc, module) => {
+    return {
+      ...acc,
+      [module.key]: JSON.stringify(module.defaultPayload, null, 2),
+    };
+  }, {} as ModulePayloadState);
+}
+function buildInitialBoolean(modules: AccountingModuleDefinition[]): ModuleBooleanState {
+  return modules.reduce((acc, module) => ({ ...acc, [module.key]: false }), {} as ModuleBooleanState);
+}
+
+function AccountingModulesWorkspace() {
+  const modules = useMemo(() => ACCOUNTING_MODULES, []);
+  const [orgId, setOrgId] = useState<string>('org-demo');
+  const [actorId, setActorId] = useState<string>('user-analyst');
+  const [payloads, setPayloads] = useState<ModulePayloadState>(() => buildInitialPayloads(modules));
+  const [responses, setResponses] = useState<ModuleResponseMap>({});
+  const [isSubmitting, setIsSubmitting] = useState<ModuleBooleanState>(() => buildInitialBoolean(modules));
+  const [errors, setErrors] = useState<ModuleErrorState>({});
+  const [globalMessage, setGlobalMessage] = useState<string>('Ready to orchestrate accounting workflows.');
+
+  const handlePayloadChange = (module: ModuleKey, value: string) => {
+    setPayloads((prev) => ({ ...prev, [module]: value }));
+  };
+  const resetMessage = () => setGlobalMessage('');
+
+  const submitModule = async (module: ModuleKey) => {
+    resetMessage();
+    setIsSubmitting((prev) => ({ ...prev, [module]: true }));
+    setErrors((prev) => ({ ...prev, [module]: undefined }));
+
+    let parsedPayload: Record<string, unknown>;
+    try {
+      parsedPayload = JSON.parse(payloads[module]);
+    } catch {
+      setErrors((prev) => ({ ...prev, [module]: 'Payload must be valid JSON.' }));
+      setIsSubmitting((prev) => ({ ...prev, [module]: false }));
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/accounting/${module}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orgId, actorId, payload: parsedPayload }),
+      });
+
+      const body = await response.json();
+      if (!response.ok) {
+        setErrors((prev) => ({ ...prev, [module]: body.error ?? 'Unexpected response from server.' }));
+        setGlobalMessage('One or more modules require attention.');
+        return;
+        }
+      setResponses((prev) => ({ ...prev, [module]: body as ModuleExecutionResult }));
+      setGlobalMessage(`Updated ${module} module at ${new Date().toLocaleTimeString()}.`);
+    } catch (error) {
+      setErrors((prev) => ({
+        ...prev,
+        [module]: error instanceof Error ? error.message : 'Failed to reach API.',
+      }));
+      setGlobalMessage('Could not complete the requested module run.');
+    } finally {
+      setIsSubmitting((prev) => ({ ...prev, [module]: false }));
+    }
+  };
+
+  return (
+    <main className="space-y-8 p-6" aria-labelledby="accounting-workspace-heading">
+      <section className="space-y-2">
+        <h1 id="accounting-workspace-heading" className="text-2xl font-semibold">
+          Accounting Control Workspace
+        </h1>
+        <p className="text-sm text-muted-foreground">
+          Drive group consolidation, IFRS automation, tax orchestration, disclosure drafting and digital reporting packs
+          from a single traceable control room.
+        </p>
+        {globalMessage ? (
+          <p className="rounded-md bg-muted p-3 text-sm" role="status">
+            {globalMessage}
+          </p>
+        ) : null}
+      </section>
+
+      <section aria-labelledby="accounting-context-heading" className="rounded-lg border p-4">
+        <h2 id="accounting-context-heading" className="text-lg font-semibold">
+          Engagement Context
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          Provide organisational identifiers once. Each module inherits the context to ensure traceability and audit-ready payloads.
+        </p>
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
+          <label className="flex flex-col gap-2 text-sm font-medium">
+            Organisation Identifier
+            <input
+              type="text"
+              value={orgId}
+              onChange={(e) => setOrgId(e.target.value)}
+              className="rounded-md border px-3 py-2"
+              placeholder="org-uuid"
+            />
+          </label>
+          <label className="flex flex-col gap-2 text-sm font-medium">
+            Actor Identifier
+            <input
+              type="text"
+              value={actorId}
+              onChange={(e) => setActorId(e.target.value)}
+              className="rounded-md border px-3 py-2"
+              placeholder="user-uuid"
+            />
+          </label>
+        </div>
+      </section>
+
+      <section aria-label="Accounting modules" className="space-y-6">
+        {modules.map((module) => {
+          const response = responses[module.key];
+          const hasError = errors[module.key];
+          return (
+            <article key={module.key} className="rounded-lg border p-4" aria-labelledby={`${module.key}-title`}>
+              <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                <div className="space-y-2">
+                  <h3 id={`${module.key}-title`} className="text-lg font-semibold">
+                    {module.title}
+                  </h3>
+                  <p className="text-sm text-muted-foreground">{module.description}</p>
+                </div>
+                <button
+                  type="button"
+                  className="mt-3 inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:bg-primary/90 md:mt-0"
+                  onClick={() => submitModule(module.key)}
+                  disabled={isSubmitting[module.key]}
+                  aria-busy={isSubmitting[module.key]}
+                >
+                  {isSubmitting[module.key] ? 'Running…' : 'Run Module'}
+                </button>
+              </div>
+
+              <div className="mt-4 grid gap-4 md:grid-cols-2" role="group" aria-labelledby={`${module.key}-payload`}>
+                <div className="space-y-2">
+                  <h4 id={`${module.key}-payload`} className="text-sm font-semibold">
+                    Payload
+                  </h4>
+                  <textarea
+                    value={payloads[module.key]}
+                    onChange={(e) => handlePayloadChange(module.key, e.target.value)}
+                    className="h-48 w-full rounded-md border p-3 font-mono text-xs"
+                    aria-describedby={`${module.key}-payload-help`}
+                  />
+                  <p id={`${module.key}-payload-help`} className="text-xs text-muted-foreground">
+                    Update the JSON payload before submitting. Refer to the acceptance criteria for mandatory data points.
+                  </p>
+                </div>
+                <div className="space-y-3">
+                  <h4 className="text-sm font-semibold">Acceptance Checklist</h4>
+                  <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+                    {module.acceptanceCriteria.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+
+              {hasError ? (
+                <p
+                  role="alert"
+                  className="mt-4 rounded-md border border-destructive bg-destructive/10 p-3 text-sm text-destructive"
+                >
+                  {hasError}
+                </p>
+              ) : null}
+
+              {response ? (
+                <div className="mt-4 space-y-4" aria-live="polite">
+                  <div className="rounded-md border bg-muted/50 p-3">
+                    <p className="text-sm font-medium">Status: {response.status}</p>
+                    <p className="mt-1 text-sm">{response.summary}</p>
+                  </div>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <section aria-label="Metrics" className="rounded-md border p-3">
+                      <h5 className="text-sm font-semibold">Metrics</h5>
+                      <dl className="mt-2 space-y-1 text-sm">
+                        {Object.entries(response.metrics).map(([key, value]) => (
+                          <div key={key} className="flex justify-between gap-3">
+                            <dt className="font-medium capitalize">{key.replace(/([A-Z])/g, ' $1')}</dt>
+                            <dd>{value}</dd>
+                          </div>
+                        ))}
+                      </dl>
+                    </section>
+                    <section aria-label="Approvals" className="rounded-md border p-3">
+                      <h5 className="text-sm font-semibold">Approvals</h5>
+                      {response.approvals.length > 0 ? (
+                        <ul className="mt-2 space-y-2 text-sm">
+                          {response.approvals.map((a) => (
+                            <li
+                              key={`${a.role}-${a.decision}-${a.approverId ?? 'unassigned'}`}
+                              className="rounded border px-2 py-1"
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="font-medium">{a.role}</span>
+                                <span className="text-xs uppercase">{a.decision}</span>
+                              </div>
+                              {a.notes ? <p className="text-xs text-muted-foreground">{a.notes}</p> : null}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="mt-2 text-sm text-muted-foreground">No approvals captured yet.</p>
+                      )}
+                    </section>
+                  </div>
+                  <section aria-label="Traceability" className="rounded-md border p-3 text-sm">
+                    <h5 className="text-sm font-semibold">Trace</h5>
+                    <p>
+                      Trace ID{' '}
+                      <code className="font-mono text-xs">{response.trace.id}</code> created at{' '}
+                      {new Date(response.trace.createdAt).toLocaleString()} by{' '}
+                      <span className="font-medium">{response.trace.actorId}</span>.
+                    </p>
+                    <p className="mt-1 text-muted-foreground">
+                      Action: {response.trace.action}. Metadata entries: {Object.keys(response.trace.metadata ?? {}).length}.
+                    </p>
+                  </section>
+                  <section aria-label="Next steps" className="rounded-md border p-3 text-sm">
+                    <h5 className="text-sm font-semibold">Next Steps</h5>
+                    <ol className="mt-2 list-decimal space-y-1 pl-5">
+                      {response.nextSteps.map((item) => (
+                        <li key={item}>{item}</li>
+                      ))}
+                    </ol>
+                  </section>
+                </div>
+              ) : null}
+            </article>
+          );
+        })}
+      </section>
+    </main>
+  );
+}
+
+/* ========================================================================
+   MODE B — Accounting Close Workspace (from main)
+   ======================================================================== */
 
 type CloseStatus = 'OPEN' | 'SUBSTANTIVE_REVIEW' | 'READY_TO_LOCK' | 'LOCKED';
 type PbcStatus = 'REQUESTED' | 'RECEIVED' | 'APPROVED';
@@ -55,239 +335,118 @@ const pbcFlow: PbcStatus[] = ['REQUESTED', 'RECEIVED', 'APPROVED'];
 const journalFlow: JournalStatus[] = ['DRAFT', 'SUBMITTED', 'APPROVED', 'POSTED'];
 
 const initialPbc: PbcItem[] = [
-  {
-    id: 'pbc-1',
-    area: 'BANK',
-    title: 'Bank statements & reconciliations',
-    due: new Date(Date.now() + 2 * 86400000).toISOString(),
-    owner: 'Alex Rivera',
-    status: 'RECEIVED',
-  },
-  {
-    id: 'pbc-2',
-    area: 'AR',
-    title: 'Accounts receivable ageing',
-    due: new Date(Date.now() + 4 * 86400000).toISOString(),
-    owner: 'Priya Patel',
-    status: 'REQUESTED',
-  },
-  {
-    id: 'pbc-3',
-    area: 'PAYROLL',
-    title: 'Payroll register & approvals',
-    due: new Date(Date.now() + 1 * 86400000).toISOString(),
-    owner: 'Kai Chen',
-    status: 'APPROVED',
-  },
+  { id: 'pbc-1', area: 'BANK', title: 'Bank statements & reconciliations', due: new Date(Date.now() + 2 * 86400000).toISOString(), owner: 'Alex Rivera', status: 'RECEIVED' },
+  { id: 'pbc-2', area: 'AR', title: 'Accounts receivable ageing',        due: new Date(Date.now() + 4 * 86400000).toISOString(), owner: 'Priya Patel', status: 'REQUESTED' },
+  { id: 'pbc-3', area: 'PAYROLL', title: 'Payroll register & approvals',   due: new Date(Date.now() + 1 * 86400000).toISOString(), owner: 'Kai Chen',    status: 'APPROVED' },
 ];
 
 const initialReconciliations: Reconciliation[] = [
-  {
-    id: 'recon-1',
-    type: 'BANK',
-    difference: 0,
-    status: 'CLOSED',
-    owner: 'Alex Rivera',
-  },
-  {
-    id: 'recon-2',
-    type: 'AR',
-    difference: 1523.4,
-    status: 'IN_PROGRESS',
-    owner: 'Priya Patel',
-  },
-  {
-    id: 'recon-3',
-    type: 'AP',
-    difference: 0,
-    status: 'REVIEW',
-    owner: 'Kai Chen',
-  },
+  { id: 'recon-1', type: 'BANK', difference: 0,      status: 'CLOSED',       owner: 'Alex Rivera' },
+  { id: 'recon-2', type: 'AR',   difference: 1523.4, status: 'IN_PROGRESS',  owner: 'Priya Patel' },
+  { id: 'recon-3', type: 'AP',   difference: 0,      status: 'REVIEW',       owner: 'Kai Chen' },
 ];
 
 const initialJournalBatches: JournalBatch[] = [
-  {
-    id: 'journal-1',
-    ref: 'TB-ADJ-002',
-    status: 'APPROVED',
-    alerts: 0,
-    preparer: 'Samira Ahmed',
-  },
-  {
-    id: 'journal-2',
-    ref: 'REV-ACCRUAL',
-    status: 'SUBMITTED',
-    alerts: 1,
-    preparer: 'Luis Gomez',
-  },
-  {
-    id: 'journal-3',
-    ref: 'FX-REMEASURE',
-    status: 'DRAFT',
-    alerts: 0,
-    preparer: 'Alex Rivera',
-  },
+  { id: 'journal-1', ref: 'TB-ADJ-002',  status: 'APPROVED',  alerts: 0, preparer: 'Samira Ahmed' },
+  { id: 'journal-2', ref: 'REV-ACCRUAL', status: 'SUBMITTED', alerts: 1, preparer: 'Luis Gomez' },
+  { id: 'journal-3', ref: 'FX-REMEASURE',status: 'DRAFT',     alerts: 0, preparer: 'Alex Rivera' },
 ];
 
 const initialVariance: VarianceException[] = [
-  {
-    id: 'variance-1',
-    code: 'REV',
-    description: 'Revenue vs PY',
-    current: 1120000,
-    baseline: 950000,
-    deltaAbs: 170000,
-    deltaPct: 17.89,
-    status: 'OPEN',
-  },
-  {
-    id: 'variance-2',
-    code: 'OPEX',
-    description: 'Operating expenses vs budget',
-    current: 480000,
-    baseline: 465000,
-    deltaAbs: 15000,
-    deltaPct: 3.23,
-    status: 'EXPLAINED',
-  },
+  { id: 'variance-1', code: 'REV',  description: 'Revenue vs PY',                current: 1120000, baseline: 950000,  deltaAbs: 170000, deltaPct: 17.89, status: 'OPEN' },
+  { id: 'variance-2', code: 'OPEX', description: 'Operating expenses vs budget', current: 480000,  baseline: 465000,  deltaAbs: 15000,  deltaPct: 3.23,  status: 'EXPLAINED' },
 ];
 
 const formatDate = (value: string) =>
-  new Intl.DateTimeFormat(undefined, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  }).format(new Date(value));
-
+  new Intl.DateTimeFormat(undefined, { year: 'numeric', month: 'short', day: 'numeric' }).format(new Date(value));
 const formatCurrency = (value: number) =>
-  new Intl.NumberFormat(undefined, {
-    style: 'currency',
-    currency: 'EUR',
-    maximumFractionDigits: 0,
-  }).format(value);
+  new Intl.NumberFormat(undefined, { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(value);
+const formatPercent = (value: number) => `${value >= 0 ? '+' : ''}${value.toFixed(1)}%`;
+const generateId = () =>
+  typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : `tmp-${Math.random().toString(36).slice(2, 10)}`;
 
-const formatPercent = (value: number) =>
-  `${value >= 0 ? '+' : ''}${value.toFixed(1)}%`;
-
-const generateId = () => {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID();
-  }
-  return `tmp-${Math.random().toString(36).slice(2, 10)}`;
-};
-
-export default function Accounting() {
+function AccountingCloseWorkspace() {
   const [closeStatus, setCloseStatus] = useState<CloseStatus>('SUBSTANTIVE_REVIEW');
   const [pbcItems, setPbcItems] = useState(initialPbc);
   const [reconciliations, setReconciliations] = useState(initialReconciliations);
   const [journalBatches, setJournalBatches] = useState(initialJournalBatches);
   const [varianceExceptions, setVarianceExceptions] = useState(initialVariance);
   const [activityLog, setActivityLog] = useState<ActivityEntry[]>([
-    {
-      id: 'act-1',
-      timestamp: new Date().toISOString(),
-      message: 'Close initialised for period 2025-M08.',
-    },
+    { id: 'act-1', timestamp: new Date().toISOString(), message: 'Close initialised for period 2025-M08.' },
   ]);
 
   const summary = useMemo(() => {
-    const completedPbc = pbcItems.filter((item) => item.status === 'APPROVED').length;
-    const closedReconciliations = reconciliations.filter((item) => item.status === 'CLOSED').length;
-    const postedJournals = journalBatches.filter((batch) => batch.status === 'POSTED').length;
-    const openVariance = varianceExceptions.filter((item) => item.status === 'OPEN').length;
+    const completedPbc = pbcItems.filter((i) => i.status === 'APPROVED').length;
+    const closedRecons = reconciliations.filter((i) => i.status === 'CLOSED').length;
+    const postedJournals = journalBatches.filter((b) => b.status === 'POSTED').length;
+    const openVar = varianceExceptions.filter((i) => i.status === 'OPEN').length;
 
     return {
       pbcProgress: pbcItems.length === 0 ? 0 : Math.round((completedPbc / pbcItems.length) * 100),
-      reconciliationProgress:
-        reconciliations.length === 0 ? 0 : Math.round((closedReconciliations / reconciliations.length) * 100),
+      reconciliationProgress: reconciliations.length === 0 ? 0 : Math.round((closedRecons / reconciliations.length) * 100),
       pendingJournals: journalBatches.length - postedJournals,
-      openVariance,
+      openVariance: openVar,
     };
   }, [journalBatches, pbcItems, reconciliations, varianceExceptions]);
 
-  const addActivity = (message: string) => {
-    setActivityLog((prev) => [
-      { id: `act-${generateId()}`, timestamp: new Date().toISOString(), message },
-      ...prev,
-    ]);
-  };
+  const addActivity = (message: string) =>
+    setActivityLog((prev) => [{ id: `act-${generateId()}`, timestamp: new Date().toISOString(), message }, ...prev]);
 
   const advanceClose = () => {
-    const currentIndex = closeFlow.indexOf(closeStatus);
-    if (currentIndex >= closeFlow.length - 1) {
-      return;
-    }
-    const nextStatus = closeFlow[currentIndex + 1];
-    setCloseStatus(nextStatus);
-    addActivity(`Close advanced to ${nextStatus.replace(/_/g, ' ')}.`);
+    const i = closeFlow.indexOf(closeStatus);
+    if (i >= closeFlow.length - 1) return;
+    const next = closeFlow[i + 1];
+    setCloseStatus(next);
+    addActivity(`Close advanced to ${next.replace(/_/g, ' ')}.`);
   };
-
   const lockClose = () => {
-    if (closeStatus !== 'READY_TO_LOCK') {
-      return;
-    }
+    if (closeStatus !== 'READY_TO_LOCK') return;
     setCloseStatus('LOCKED');
     addActivity('Period locked. Trial balance snapshot sealed and journal postings disabled.');
   };
-
-  const advancePbc = (id: string) => {
+  const advancePbc = (id: string) =>
     setPbcItems((prev) =>
       prev.map((item) => {
         if (item.id !== id) return item;
-        const currentIndex = pbcFlow.indexOf(item.status);
-        if (currentIndex === pbcFlow.length - 1) {
-          return item;
-        }
-        const nextStatus = pbcFlow[currentIndex + 1];
-        addActivity(`PBC '${item.title}' marked ${nextStatus.toLowerCase()}.`);
-        return { ...item, status: nextStatus };
-      })
+        const idx = pbcFlow.indexOf(item.status);
+        if (idx === pbcFlow.length - 1) return item;
+        const next = pbcFlow[idx + 1];
+        addActivity(`PBC '${item.title}' marked ${next.toLowerCase()}.`);
+        return { ...item, status: next };
+      }),
     );
-  };
-
-  const toggleReconciliation = (id: string) => {
+  const toggleReconciliation = (id: string) =>
     setReconciliations((prev) =>
       prev.map((item) => {
         if (item.id !== id) return item;
-        const nextStatus = item.status === 'CLOSED' ? 'REVIEW' : 'CLOSED';
-        addActivity(`Reconciliation ${item.type} updated to ${nextStatus}.`);
-        return { ...item, status: nextStatus, difference: 0 };
-      })
+        const next = item.status === 'CLOSED' ? 'REVIEW' : 'CLOSED';
+        addActivity(`Reconciliation ${item.type} updated to ${next}.`);
+        return { ...item, status: next, difference: 0 };
+      }),
     );
-  };
-
-  const advanceJournal = (id: string) => {
+  const advanceJournal = (id: string) =>
     setJournalBatches((prev) =>
       prev.map((batch) => {
         if (batch.id !== id) return batch;
-        const currentIndex = journalFlow.indexOf(batch.status);
-        if (currentIndex === journalFlow.length - 1) {
-          return batch;
-        }
-        const nextStatus = journalFlow[currentIndex + 1];
-        addActivity(`Journal ${batch.ref} moved to ${nextStatus}.`);
-        return { ...batch, status: nextStatus, alerts: nextStatus === 'APPROVED' ? 0 : batch.alerts };
-      })
+        const idx = journalFlow.indexOf(batch.status);
+        if (idx === journalFlow.length - 1) return batch;
+        const next = journalFlow[idx + 1];
+        addActivity(`Journal ${batch.ref} moved to ${next}.`);
+        return { ...batch, status: next, alerts: next === 'APPROVED' ? 0 : batch.alerts };
+      }),
     );
-  };
-
-  const clearVariance = (id: string) => {
+  const clearVariance = (id: string) =>
     setVarianceExceptions((prev) =>
       prev.map((item) => {
         if (item.id !== id) return item;
         addActivity(`Variance ${item.code} documented and marked explained.`);
         return { ...item, status: 'EXPLAINED' };
-      })
+      }),
     );
-  };
-
-  const captureTrialBalance = () => {
-    addActivity('Trial balance snapshot captured for period 2025-M08.');
-  };
-
-  const runVarianceAnalytics = () => {
-    addActivity('Variance analytics executed using IFRS baseline rules (IAS 1.25 & 1.134).');
-  };
+  const captureTrialBalance = () => addActivity('Trial balance snapshot captured for period 2025-M08.');
+  const runVarianceAnalytics = () => addActivity('Variance analytics executed using IFRS baseline rules (IAS 1.25 & 1.134).');
 
   return (
     <main className="space-y-8 p-6" aria-labelledby="accounting-heading">
@@ -590,15 +749,11 @@ export default function Accounting() {
   );
 }
 
-function SummaryCard({
-  label,
-  value,
-  helper,
-}: {
-  label: string;
-  value: string;
-  helper: string;
-}) {
+/* ========================================================================
+   Shared UI bits (used by Close workspace)
+   ======================================================================== */
+
+function SummaryCard({ label, value, helper }: { label: string; value: string; helper: string }) {
   return (
     <div role="listitem" className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
       <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</div>
@@ -607,7 +762,6 @@ function SummaryCard({
     </div>
   );
 }
-
 function SectionHeading({ title, description }: { title: string; description: string }) {
   return (
     <div className="mb-2 flex items-start justify-between gap-4">
@@ -618,7 +772,6 @@ function SectionHeading({ title, description }: { title: string; description: st
     </div>
   );
 }
-
 function StatusPill({ tone, children }: { tone: 'success' | 'info' | 'warning' | 'muted'; children: ReactNode }) {
   const toneClasses: Record<'success' | 'info' | 'warning' | 'muted', string> = {
     success: 'bg-emerald-100 text-emerald-700 border-emerald-200',
@@ -626,7 +779,6 @@ function StatusPill({ tone, children }: { tone: 'success' | 'info' | 'warning' |
     warning: 'bg-amber-100 text-amber-700 border-amber-200',
     muted: 'bg-slate-100 text-slate-600 border-slate-200',
   };
-
   return (
     <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold capitalize ${toneClasses[tone]}`}>
       {children}

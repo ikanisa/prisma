@@ -1,4 +1,4 @@
-name: CI
+name: Monorepo CI
 
 on:
   push:
@@ -6,16 +6,30 @@ on:
   pull_request:
     branches: [ main ]
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-test:
+    name: Root lint/test/build (+coverage/policy/audit)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: npm
+
       - name: Install deps
         run: npm ci
+
+      - name: Lint (root)
+        run: npm run lint
+
       - name: Unit tests with coverage (Vitest)
         env:
           TARGET_STATEMENTS: 45
@@ -23,13 +37,16 @@ jobs:
           TARGET_FUNCTIONS: 45
           TARGET_LINES: 45
         run: npm run coverage
+
       - name: Build web bundle
         run: npm run build
+
       - name: Enforce bundle budgets
         env:
           BUNDLE_MAX_MAIN_GZ_KB: 300
           BUNDLE_MAX_CHUNK_GZ_KB: 250
         run: npm run check:bundle
+
       - name: Policy tests (pgTAP)
         env:
           DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
@@ -39,21 +56,69 @@ jobs:
             exit 1
           fi
           psql "$DATABASE_URL" -f scripts/test_policies.sql
+
       - name: Audit dependencies
         run: npm audit --omit=dev || true
 
-  ui-smoke:
-    needs: build-test
+  next-web:
+    name: Next.js + Prisma
     runs-on: ubuntu-latest
+    needs: build-test
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/postgres
+      DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/postgres
+      SKIP_HEALTHCHECK_DB: 'true'
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: Install dependencies (Next.js app)
+        run: npm ci
+        working-directory: apps/web
+
+      - name: Prisma validate
+        run: npx prisma validate
+        working-directory: apps/web
+
+      - name: Prisma generate
+        run: npm run prisma:generate
+        working-directory: apps/web
+
+      - name: Prisma migration diff (dry-run)
+        run: npx prisma migrate diff --from-empty --to-schema-datamodel ./prisma/schema.prisma --script
+        working-directory: apps/web
+
+      - name: Lint (Next.js)
+        run: npm run lint
+        working-directory: apps/web
+
+      - name: Build (Next.js)
+        run: npm run build
+        working-directory: apps/web
+
+  ui-smoke:
+    name: UI smoke (Playwright)
+    runs-on: ubuntu-latest
+    needs: [build-test, next-web]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
       - name: Install deps
         run: npm ci
+
       - name: Install Playwright browsers
         run: npx playwright install --with-deps
+
       - name: Smoke tests (Playwright)
         env:
           PLAYWRIGHT_BASE_URL: ${{ secrets.PLAYWRIGHT_BASE_URL }}

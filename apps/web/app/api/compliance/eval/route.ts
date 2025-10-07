@@ -11,28 +11,45 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-const webhookSecret = process.env.AUTOMATION_WEBHOOK_SECRET ?? process.env.N8N_WEBHOOK_SECRET ?? '';
+const webhookSecret =
+  process.env.AUTOMATION_WEBHOOK_SECRET ?? process.env.N8N_WEBHOOK_SECRET ?? '';
 
-async function processPayload(rawPayload: string, requestId: string, orgId: string): Promise<Response> {
+async function processPayload(
+  rawPayload: string,
+  requestId: string,
+  orgId: string
+): Promise<Response> {
   let payload: unknown;
   try {
     payload = JSON.parse(rawPayload);
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON body' }, attachRequestId({ status: 400 }, requestId));
+    return NextResponse.json(
+      { error: 'Invalid JSON body' },
+      attachRequestId({ status: 400 }, requestId)
+    );
   }
 
   if (!isRecord(payload)) {
-    return NextResponse.json({ error: 'Request body must be an object' }, attachRequestId({ status: 400 }, requestId));
+    return NextResponse.json(
+      { error: 'Request body must be an object' },
+      attachRequestId({ status: 400 }, requestId)
+    );
   }
 
-  const { packKey, values } = payload;
+  const { packKey, values } = payload as Record<string, unknown>;
 
   if (typeof packKey !== 'string' || !packKey.trim()) {
-    return NextResponse.json({ error: 'packKey is required' }, attachRequestId({ status: 400 }, requestId));
+    return NextResponse.json(
+      { error: 'packKey is required' },
+      attachRequestId({ status: 400 }, requestId)
+    );
   }
 
   if (!isRecord(values)) {
-    return NextResponse.json({ error: 'values must be an object' }, attachRequestId({ status: 400 }, requestId));
+    return NextResponse.json(
+      { error: 'values must be an object' },
+      attachRequestId({ status: 400 }, requestId)
+    );
   }
 
   try {
@@ -45,16 +62,18 @@ async function processPayload(rawPayload: string, requestId: string, orgId: stri
         errors: result.errors,
         provenance: result.provenance,
       },
-      attachRequestId({ status: 200 }, requestId),
+      attachRequestId({ status: 200 }, requestId)
     );
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-      return NextResponse.json({ error: 'Pack not found' }, attachRequestId({ status: 404 }, requestId));
+      return NextResponse.json(
+        { error: 'Pack not found' },
+        attachRequestId({ status: 404 }, requestId)
+      );
     }
-
     return NextResponse.json(
       { error: (error as Error).message },
-      attachRequestId({ status: 400 }, requestId),
+      attachRequestId({ status: 400 }, requestId)
     );
   }
 }
@@ -80,11 +99,15 @@ export async function POST(request: NextRequest) {
   });
   if (guard.rateLimitResponse) return guard.rateLimitResponse;
 
-  const response = await handleWebhook(new Request(request.url, {
-    method: request.method,
-    headers: request.headers,
-    body: payloadText,
-  }), webhookSecret, (payload) => processPayload(payload, requestId, orgId));
+  const response = await handleWebhook(
+    new Request(request.url, {
+      method: request.method,
+      headers: request.headers,
+      body: payloadText,
+    }),
+    webhookSecret,
+    (payload) => processPayload(payload, requestId, orgId)
+  );
 
   const headers = new Headers(response.headers);
   headers.set('x-request-id', requestId);

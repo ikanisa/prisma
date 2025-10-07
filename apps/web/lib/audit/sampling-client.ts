@@ -1,6 +1,14 @@
 import 'server-only';
-
 import crypto from 'node:crypto';
+
+export class SamplingServiceError extends Error {
+  readonly statusCode?: number;
+  constructor(message: string, statusCode?: number) {
+    super(message);
+    this.name = 'SamplingServiceError';
+    this.statusCode = statusCode;
+  }
+}
 
 interface SamplingClientOptions {
   baseUrl?: string;
@@ -45,6 +53,7 @@ export class SamplingClient {
 
   async requestPlan(request: SamplingPlanRequest): Promise<SamplingPlan> {
     if (!this.baseUrl) {
+      // No remote configured → deterministic fixture
       return this.generateDeterministicPlan(request);
     }
 
@@ -72,7 +81,10 @@ export class SamplingClient {
       clearTimeout(timer);
 
       if (!response.ok) {
-        throw new Error(`Sampling service responded with status ${response.status}`);
+        throw new SamplingServiceError(
+          `Sampling service responded with status ${response.status}`,
+          response.status
+        );
       }
 
       const body = (await response.json()) as {
@@ -83,9 +95,10 @@ export class SamplingClient {
       };
 
       if (!body?.id || !body.sampleSize) {
-        throw new Error('Sampling service response missing id or sampleSize');
+        throw new SamplingServiceError('Sampling service response missing id or sampleSize');
       }
 
+      // Ensure we always return the requested number of items (pad deterministically if needed)
       const items = (body.items ?? []).slice(0, request.requestedSampleSize);
       if (items.length < request.requestedSampleSize) {
         const padding = this.generateDeterministicPlan(request).items;
@@ -98,7 +111,7 @@ export class SamplingClient {
         generatedAt: body.generatedAt ?? new Date().toISOString(),
         items,
         source: 'service',
-      } satisfies SamplingPlan;
+      };
     } catch (error) {
       console.warn('Sampling service unavailable, falling back to deterministic fixture.', error);
       return this.generateDeterministicPlan(request);
@@ -110,12 +123,15 @@ export class SamplingClient {
     const hash = crypto.createHash('sha256').update(seed).digest('hex').slice(0, 12);
     const planId = `fixture-${hash}`;
 
-    const items: SamplingPlanItem[] = Array.from({ length: request.requestedSampleSize }, (_, index) => ({
-      id: `${planId}-item-${index + 1}`,
-      populationRef: `POP-${((index + 37) % 997) + 1}`,
-      description: `Deterministic fixture item ${index + 1}`,
-      stratum: index % 2 === 0 ? 'Primary' : 'Secondary',
-    }));
+    const items: SamplingPlanItem[] = Array.from(
+      { length: request.requestedSampleSize },
+      (_, index) => ({
+        id: `${planId}-item-${index + 1}`,
+        populationRef: `POP-${((index + 37) % 997) + 1}`,
+        description: `Deterministic fixture item ${index + 1}`,
+        stratum: index % 2 === 0 ? 'Primary' : 'Secondary',
+      })
+    );
 
     return {
       id: planId,
@@ -123,7 +139,7 @@ export class SamplingClient {
       generatedAt: new Date().toISOString(),
       items,
       source: 'deterministic-fixture',
-    } satisfies SamplingPlan;
+    };
   }
 }
 
