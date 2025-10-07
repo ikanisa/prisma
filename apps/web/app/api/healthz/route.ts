@@ -1,7 +1,5 @@
 import { NextResponse } from 'next/server';
 
-import prisma from '@/lib/prisma';
-
 const shouldBypassDatabaseCheck = () => {
   if (process.env.SKIP_HEALTHCHECK_DB === 'true') {
     return true;
@@ -22,6 +20,7 @@ export async function GET() {
   }
 
   try {
+    const { default: prisma } = await import('@/lib/prisma');
     await prisma.$queryRaw`SELECT 1`;
 
     return NextResponse.json({
