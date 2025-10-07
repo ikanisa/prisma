@@ -383,6 +383,101 @@ type KnowledgeSourceRow = {
   state: Record<string, any> | null;
 };
 
+type NonAuditService = {
+  service: string;
+  prohibited: boolean;
+  description?: string | null;
+};
+
+type IndependenceAssessmentResult =
+  | {
+      ok: true;
+      conclusion: 'OK' | 'OVERRIDE';
+      checked: boolean;
+      note: string | null;
+      services: NonAuditService[];
+      prohibitedCount: number;
+      needsApproval: boolean;
+    }
+  | {
+      ok: false;
+      error: 'independence_check_required' | 'prohibited_nas';
+      prohibitedCount?: number;
+    };
+
+function sanitizeNonAuditServices(input: unknown): NonAuditService[] {
+  if (!Array.isArray(input)) return [];
+  const services: NonAuditService[] = [];
+  for (const item of input) {
+    if (!item || typeof item !== 'object') continue;
+    const record = item as Record<string, unknown>;
+    const name = typeof record.service === 'string' ? record.service.trim() : '';
+    if (!name) continue;
+    const prohibited = Boolean(record.prohibited);
+    const description = typeof record.description === 'string' ? record.description : null;
+    services.push({ service: name, prohibited, description });
+    if (services.length >= 100) break;
+  }
+  return services;
+}
+
+function assessIndependence({
+  isAuditClient,
+  independenceChecked,
+  services,
+  overrideNote,
+}: {
+  isAuditClient: boolean;
+  independenceChecked: boolean;
+  services: NonAuditService[];
+  overrideNote?: string | null;
+}): IndependenceAssessmentResult {
+  const checked = isAuditClient ? independenceChecked : false;
+  if (!isAuditClient) {
+    return {
+      ok: true,
+      conclusion: 'OK',
+      checked,
+      note: null,
+      services,
+      prohibitedCount: services.filter((svc) => svc.prohibited).length,
+      needsApproval: false,
+    };
+  }
+
+  if (!independenceChecked) {
+    return { ok: false, error: 'independence_check_required' };
+  }
+
+  const prohibitedCount = services.filter((svc) => svc.prohibited).length;
+  if (prohibitedCount === 0) {
+    return {
+      ok: true,
+      conclusion: 'OK',
+      checked: true,
+      note: null,
+      services,
+      prohibitedCount,
+      needsApproval: false,
+    };
+  }
+
+  const normalizedNote = typeof overrideNote === 'string' ? overrideNote.trim() : '';
+  if (normalizedNote.length === 0) {
+    return { ok: false, error: 'prohibited_nas', prohibitedCount };
+  }
+
+  return {
+    ok: true,
+    conclusion: 'OVERRIDE',
+    checked: true,
+    note: normalizedNote,
+    services,
+    prohibitedCount,
+    needsApproval: true,
+  };
+}
+
 async function ensureWebSourceSyncForOrg(options: {
   orgId: string;
   webSource: WebSourceRow;
@@ -703,6 +798,80 @@ async function ensureDocumentsBucket() {
 }
 
 await ensureDocumentsBucket();
+
+async function ensureIndependenceOverrideApproval({
+  orgId,
+  engagementId,
+  userId,
+  note,
+  services,
+  isAuditClient,
+}: {
+  orgId: string;
+  engagementId: string;
+  userId: string;
+  note: string;
+  services: NonAuditService[];
+  isAuditClient: boolean;
+}): Promise<string> {
+  const { data: existing, error: existingError } = await supabaseService
+    .from('approval_queue')
+    .select('id, status')
+    .eq('org_id', orgId)
+    .eq('kind', 'INDEPENDENCE_OVERRIDE')
+    .eq('context_json->>engagementId', engagementId)
+    .order('requested_at', { ascending: false })
+    .limit(1);
+
+  if (existingError) throw existingError;
+  const pending = existing?.[0];
+  if (pending && pending.status === 'PENDING') {
+    return pending.id as string;
+  }
+
+  const context = {
+    engagementId,
+    isAuditClient,
+    nonAuditServices: services,
+    note,
+  };
+
+  const { data, error } = await supabaseService
+    .from('approval_queue')
+    .insert({
+      org_id: orgId,
+      kind: 'INDEPENDENCE_OVERRIDE',
+      status: 'PENDING',
+      requested_by_user_id: userId,
+      context_json: context,
+    })
+    .select('id')
+    .single();
+
+  if (error || !data) {
+    throw error ?? new Error('independence_override_approval_failed');
+  }
+
+  return data.id as string;
+}
+
+async function hasApprovedIndependenceOverride(orgId: string, engagementId: string): Promise<boolean> {
+  const { data, error } = await supabaseService
+    .from('approval_queue')
+    .select('id')
+    .eq('org_id', orgId)
+    .eq('kind', 'INDEPENDENCE_OVERRIDE')
+    .eq('context_json->>engagementId', engagementId)
+    .eq('status', 'APPROVED')
+    .order('decision_at', { ascending: false })
+    .limit(1);
+
+  if (error) {
+    throw error;
+  }
+
+  return Array.isArray(data) && data.length > 0;
+}
 
 app.get(['/health', '/healthz'], (_req, res) => {
   res.json({ status: 'ok' });
@@ -2572,6 +2741,250 @@ app.get('/v1/tasks', async (req: AuthenticatedRequest, res) => {
   } catch (err) {
     logError('tasks.list_failed', err, { userId: req.user?.sub });
     return res.status(500).json({ error: 'list failed' });
+  }
+});
+
+app.patch('/v1/engagements/:id', async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = req.user?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: 'invalid session' });
+    }
+
+    const engagementId = req.params.id;
+    const orgSlug = req.query.orgSlug as string | undefined;
+    if (!orgSlug) {
+      return res.status(400).json({ error: 'orgSlug is required' });
+    }
+
+    let orgContext;
+    try {
+      orgContext = await resolveOrgForUser(userId, orgSlug);
+    } catch (err) {
+      if ((err as Error).message === 'organization_not_found') {
+        return res.status(404).json({ error: 'organization not found' });
+      }
+      if ((err as Error).message === 'not_a_member') {
+        return res.status(403).json({ error: 'forbidden' });
+      }
+      throw err;
+    }
+
+    if (!hasManagerPrivileges(orgContext.role)) {
+      return res.status(403).json({ error: 'manager role required' });
+    }
+
+    const { data: existing, error: fetchError } = await supabaseService
+      .from('engagements')
+      .select('*')
+      .eq('id', engagementId)
+      .maybeSingle();
+
+    if (fetchError || !existing || existing.org_id !== orgContext.orgId) {
+      return res.status(404).json({ error: 'engagement not found' });
+    }
+
+    const {
+      clientId,
+      title,
+      description,
+      status,
+      startDate,
+      endDate,
+      budget,
+      isAuditClient,
+      requiresEqr,
+      nonAuditServices,
+      independenceChecked,
+      overrideNote,
+    } = req.body as {
+      clientId?: string;
+      title?: string;
+      description?: string | null;
+      status?: string | null;
+      startDate?: string | null;
+      endDate?: string | null;
+      budget?: number | null;
+      isAuditClient?: boolean;
+      requiresEqr?: boolean;
+      nonAuditServices?: unknown;
+      independenceChecked?: boolean;
+      overrideNote?: string | null;
+    };
+
+    const updatePayload: Record<string, unknown> = {};
+
+    if (typeof clientId === 'string') {
+      const { data: clientRow, error: clientError } = await supabaseService
+        .from('clients')
+        .select('org_id')
+        .eq('id', clientId)
+        .maybeSingle();
+
+      if (clientError || !clientRow || clientRow.org_id !== orgContext.orgId) {
+        return res.status(400).json({ error: 'client does not belong to organization' });
+      }
+      updatePayload.client_id = clientId;
+    }
+
+    if (typeof title === 'string') updatePayload.title = title;
+    if (typeof description !== 'undefined') updatePayload.description = description ?? null;
+    if (typeof status === 'string') updatePayload.status = status.toUpperCase();
+    if (typeof startDate !== 'undefined') updatePayload.start_date = startDate ?? null;
+    if (typeof endDate !== 'undefined') updatePayload.end_date = endDate ?? null;
+    if (typeof budget !== 'undefined') updatePayload.budget = budget ?? null;
+
+    const independenceFieldsProvided =
+      typeof isAuditClient === 'boolean' ||
+      typeof requiresEqr === 'boolean' ||
+      typeof nonAuditServices !== 'undefined' ||
+      typeof independenceChecked === 'boolean' ||
+      typeof overrideNote !== 'undefined';
+
+    const targetIsAuditClient = Boolean(
+      typeof isAuditClient === 'boolean' ? isAuditClient : existing.is_audit_client,
+    );
+    const targetRequiresEqr = Boolean(
+      typeof requiresEqr === 'boolean' ? requiresEqr : existing.requires_eqr,
+    );
+    let targetServices =
+      typeof nonAuditServices !== 'undefined'
+        ? sanitizeNonAuditServices(nonAuditServices)
+        : sanitizeNonAuditServices(existing.non_audit_services);
+    let targetIndependenceChecked =
+      typeof independenceChecked === 'boolean'
+        ? independenceChecked
+        : Boolean(existing.independence_checked);
+    let targetOverrideNote =
+      typeof overrideNote === 'undefined'
+        ? existing.independence_conclusion_note ?? null
+        : overrideNote ?? null;
+
+    let independenceAssessment: IndependenceAssessmentResult | null = null;
+    let overrideApprovalId: string | null = null;
+
+    if (independenceFieldsProvided) {
+      independenceAssessment = assessIndependence({
+        isAuditClient: targetIsAuditClient,
+        independenceChecked: targetIndependenceChecked,
+        services: targetServices,
+        overrideNote: targetOverrideNote,
+      });
+
+      if (!independenceAssessment.ok) {
+        if (independenceAssessment.error === 'independence_check_required') {
+          return res.status(400).json({ error: 'independence_check_required' });
+        }
+        if (independenceAssessment.error === 'prohibited_nas') {
+          return res.status(409).json({ error: 'prohibited_non_audit_services' });
+        }
+      } else {
+        targetIndependenceChecked = independenceAssessment.checked;
+        targetOverrideNote = independenceAssessment.note;
+        targetServices = independenceAssessment.services;
+
+        updatePayload.independence_checked = independenceAssessment.checked;
+        updatePayload.independence_conclusion = independenceAssessment.conclusion;
+        updatePayload.independence_conclusion_note = independenceAssessment.note;
+        updatePayload.non_audit_services = targetServices.length > 0 ? targetServices : null;
+        updatePayload.is_audit_client = targetIsAuditClient;
+        updatePayload.requires_eqr = targetRequiresEqr;
+
+        if (independenceAssessment.needsApproval) {
+          overrideApprovalId = await ensureIndependenceOverrideApproval({
+            orgId: orgContext.orgId,
+            engagementId,
+            userId,
+            note: independenceAssessment.note ?? '',
+            services: targetServices,
+            isAuditClient: targetIsAuditClient,
+          });
+        }
+      }
+    }
+
+    const currentStatus = (existing.status ?? 'PLANNING').toUpperCase();
+    const nextStatus = typeof status === 'string' ? status.toUpperCase() : currentStatus;
+
+    const finalConclusion = (updatePayload.independence_conclusion as string | undefined)
+      ?? (existing.independence_conclusion as string | undefined)
+      ?? 'OK';
+    const finalIndependenceChecked = Boolean(
+      Object.prototype.hasOwnProperty.call(updatePayload, 'independence_checked')
+        ? updatePayload.independence_checked
+        : existing.independence_checked,
+    );
+
+    const activating = currentStatus === 'PLANNING' && nextStatus !== 'PLANNING';
+
+    if (activating && targetIsAuditClient) {
+      if (!finalIndependenceChecked) {
+        return res.status(400).json({ error: 'independence_check_required' });
+      }
+      if (finalConclusion === 'OK') {
+        // no-op
+      } else if (finalConclusion === 'OVERRIDE') {
+        const overrideApproved = await hasApprovedIndependenceOverride(orgContext.orgId, engagementId);
+        if (!overrideApproved) {
+          return res.status(403).json({ error: 'independence_override_pending' });
+        }
+      } else {
+        return res.status(409).json({ error: 'prohibited_non_audit_services' });
+      }
+    }
+
+    if (Object.keys(updatePayload).length === 0) {
+      return res.status(400).json({ error: 'no updates provided' });
+    }
+
+    const { data: engagement, error: updateError } = await supabaseService
+      .from('engagements')
+      .update(updatePayload)
+      .eq('id', engagementId)
+      .eq('org_id', orgContext.orgId)
+      .select(
+        'id, org_id, client_id, title, description, status, start_date, end_date, budget, created_at, updated_at, is_audit_client, requires_eqr, non_audit_services, independence_checked, independence_conclusion, independence_conclusion_note',
+      )
+      .single();
+
+    if (updateError || !engagement) {
+      throw updateError ?? new Error('engagement_not_updated');
+    }
+
+    await supabaseService.from('activity_log').insert({
+      org_id: orgContext.orgId,
+      user_id: userId,
+      action: 'UPDATE_ENGAGEMENT',
+      entity_type: 'engagement',
+      entity_id: engagement.id,
+      metadata: {
+        title: engagement.title,
+        updates: updatePayload,
+        independence: {
+          conclusion: engagement.independence_conclusion,
+          ...(overrideApprovalId ? { overrideApprovalId } : {}),
+        },
+      },
+    });
+
+    const normalizedEngagement = {
+      ...engagement,
+      non_audit_services: sanitizeNonAuditServices(engagement.non_audit_services),
+      is_audit_client: Boolean(engagement.is_audit_client),
+      requires_eqr: Boolean(engagement.requires_eqr),
+      independence_checked: Boolean(engagement.independence_checked),
+      independence_conclusion:
+        typeof engagement.independence_conclusion === 'string'
+          ? engagement.independence_conclusion
+          : 'OK',
+      independence_conclusion_note: engagement.independence_conclusion_note ?? null,
+    };
+
+    logInfo('engagements.updated', { userId, engagementId: engagement.id, orgId: orgContext.orgId });
+    return res.json({ engagement: normalizedEngagement });
+  } catch (err) {
+    logError('engagements.update_failed', err, { userId: req.user?.sub });
+    return res.status(500).json({ error: 'update failed' });
   }
 });
 
