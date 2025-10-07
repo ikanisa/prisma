@@ -1,66 +1,579 @@
 'use client';
 
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type FormEvent,
+} from 'react';
 
-const demoComponents: GroupComponent[] = [
-  {
-    id: 'grp-demo-1',
-    org_id: 'demo-org',
-    engagement_id: 'demo-engagement',
-    name: 'Subsidiary A',
-    country: 'MT',
-    significance: 'SIGNIFICANT',
-    materiality: 450000,
-    assigned_firm: 'Local CPA Malta',
-    notes: 'Focus on revenue recognition and IT controls.',
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-    instructions: [
-      {
-        id: 'inst-demo-1',
-        org_id: 'demo-org',
-        engagement_id: 'demo-engagement',
-        component_id: 'grp-demo-1',
-        title: 'Perform walkthroughs over order-to-cash',
-        status: 'SENT',
-        sent_at: new Date().toISOString(),
-        acknowledged_at: null,
-        due_at: null,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      },
-    ],
-    workpapers: [
-      {
-        id: 'wp-demo-1',
-        org_id: 'demo-org',
-        engagement_id: 'demo-engagement',
-        component_id: 'grp-demo-1',
-        instruction_id: 'inst-demo-1',
-        document_id: null,
-        title: 'Inventory observation memo',
-        uploaded_by_user_id: 'demo-user',
-        uploaded_at: new Date().toISOString(),
-        notes: 'Shared via Teams – attach final when ready.',
-      },
-    ],
-    reviews: [
-      {
-        id: 'rev-demo-1',
-        org_id: 'demo-org',
-        engagement_id: 'demo-engagement',
-        component_id: 'grp-demo-1',
-        reviewer_user_id: 'manager-demo',
-        status: 'IN_PROGRESS',
-        started_at: new Date().toISOString(),
-        completed_at: null,
-        notes: 'Awaiting testing completion.',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      },
-    ],
-  },
-];
+// Read once at build-time for client code
+const GROUP_MODE =
+  (process.env.NEXT_PUBLIC_GROUP_AUDIT_MODE ?? 'workspace').toLowerCase() as
+    | 'dashboard'
+    | 'workspace';
+
+export default function GroupAuditPage() {
+  return GROUP_MODE === 'dashboard' ? <GroupAuditDashboard /> : <GroupAuditWorkspace />;
+}
+
+/* =============================================================================
+   MODE A: GroupAuditDashboard  (from codex/implement-audit-group-features-and-endpoints)
+   ============================================================================= */
+
+import type { Database } from '../../../../../src/integrations/supabase/types';
+
+type ComponentRow = Database['public']['Tables']['group_components']['Row'];
+type InstructionRow = Database['public']['Tables']['group_instructions']['Row'];
+type WorkpaperRow = Database['public']['Tables']['component_workpapers']['Row'];
+type ReviewRow = Database['public']['Tables']['component_reviews']['Row'];
+
+type Component = {
+  id: string;
+  name: string;
+  code: string | null;
+  status: string | null;
+  riskLevel: string | null;
+  jurisdiction: string | null;
+  leadAuditorId: string | null;
+};
+
+type Instruction = {
+  id: string;
+  componentId: string;
+  title: string;
+  body: string | null;
+  status: string | null;
+  dueAt: string | null;
+  sentAt: string | null;
+  acknowledgedAt: string | null;
+  acknowledgedBy: string | null;
+};
+
+type Workpaper = {
+  id: string;
+  componentId: string;
+  engagementId: string;
+  instructionId: string | null;
+  documentId: string | null;
+  title: string;
+  status: string | null;
+  ingestedAt: string | null;
+};
+
+type Review = {
+  id: string;
+  componentId: string;
+  engagementId: string;
+  workpaperId: string | null;
+  reviewerId: string | null;
+  status: string | null;
+  reviewNotes: string | null;
+  assignedAt: string | null;
+  dueAt: string | null;
+  signedOffAt: string | null;
+};
+
+const DEFAULT_ORG_ID = process.env.NEXT_PUBLIC_DEMO_ORG_ID ?? '';
+const DEFAULT_ENGAGEMENT_ID = process.env.NEXT_PUBLIC_DEMO_ENGAGEMENT_ID ?? '';
+
+const STATUS_CLASS_MAP: Record<string, string> = {
+  planned: 'bg-slate-100 text-slate-900',
+  in_progress: 'bg-blue-100 text-blue-900',
+  responding: 'bg-amber-100 text-amber-900',
+  submitted: 'bg-indigo-100 text-indigo-900',
+  acknowledged: 'bg-emerald-100 text-emerald-900',
+  complete: 'bg-emerald-100 text-emerald-900',
+  signed_off: 'bg-emerald-100 text-emerald-900',
+  blocked: 'bg-rose-100 text-rose-900',
+  pending: 'bg-amber-100 text-amber-900',
+};
+
+function normaliseKey(value: string | null | undefined, fallback: string) {
+  return (value ?? fallback).toLowerCase().replace(/\s+/g, '_');
+}
+
+function formatLabel(value: string | null | undefined, fallback = 'Unknown') {
+  if (!value) return fallback;
+  return value
+    .toLowerCase()
+    .split(/[_\s-]+/g)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+function formatDate(value: string | null | undefined) {
+  if (!value) return '—';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat('en', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date);
+}
+
+function StatusBadge({ status }: { status: string | null | undefined }) {
+  const key = normaliseKey(status, 'unknown');
+  const className = STATUS_CLASS_MAP[key] ?? 'bg-slate-100 text-slate-900';
+  return (
+    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${className}`}>
+      {formatLabel(status)}
+    </span>
+  );
+}
+
+function mapComponent(row: ComponentRow): Component {
+  return {
+    id: row.id,
+    name: row.component_name,
+    code: row.component_code ?? null,
+    status: row.status ?? null,
+    riskLevel: row.risk_level ?? null,
+    jurisdiction: row.jurisdiction ?? null,
+    leadAuditorId: row.lead_auditor ?? null,
+  };
+}
+
+function mapInstruction(row: InstructionRow): Instruction {
+  return {
+    id: row.id,
+    componentId: row.component_id,
+    title: row.instruction_title,
+    body: row.instruction_body ?? null,
+    status: row.status ?? null,
+    dueAt: row.due_at ?? null,
+    sentAt: row.sent_at ?? null,
+    acknowledgedAt: row.acknowledged_at ?? null,
+    acknowledgedBy: row.acknowledged_by ?? null,
+  };
+}
+
+function mapWorkpaper(row: WorkpaperRow): Workpaper {
+  return {
+    id: row.id,
+    componentId: row.component_id,
+    engagementId: row.engagement_id,
+    instructionId: row.instruction_id ?? null,
+    documentId: row.document_id ?? null,
+    title: row.title,
+    status: row.status ?? null,
+    ingestedAt: row.ingested_at ?? null,
+  };
+}
+
+function mapReview(row: ReviewRow): Review {
+  return {
+    id: row.id,
+    componentId: row.component_id,
+    engagementId: row.engagement_id,
+    workpaperId: row.workpaper_id ?? null,
+    reviewerId: row.reviewer_id ?? null,
+    status: row.status ?? null,
+    reviewNotes: row.review_notes ?? null,
+    assignedAt: row.assigned_at ?? null,
+    dueAt: row.due_at ?? null,
+    signedOffAt: row.signed_off_at ?? null,
+  };
+}
+
+function buildUploadLink(componentId: string, workpaperId?: string | null) {
+  const params = new URLSearchParams({ componentId });
+  if (workpaperId) params.append('workpaperId', workpaperId);
+  return `/client-portal?${params.toString()}`;
+}
+
+function GroupAuditDashboard() {
+  const [orgId, setOrgId] = useState<string>(DEFAULT_ORG_ID);
+  const [engagementId, setEngagementId] = useState<string>(DEFAULT_ENGAGEMENT_ID);
+  const [components, setComponents] = useState<Component[]>([]);
+  const [instructions, setInstructions] = useState<Instruction[]>([]);
+  const [workpapers, setWorkpapers] = useState<Workpaper[]>([]);
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<string | null>(null);
+
+  const componentLookup = useMemo(
+    () => new Map(components.map((component) => [component.id, component])),
+    [components],
+  );
+  const workpaperLookup = useMemo(
+    () => new Map(workpapers.map((workpaper) => [workpaper.id, workpaper])),
+    [workpapers],
+  );
+
+  const riskLevels = useMemo(() => {
+    const defaults = ['low', 'moderate', 'high', 'critical'];
+    const seen = new Set(defaults);
+    const dynamic: string[] = [];
+    components.forEach((component) => {
+      const key = normaliseKey(component.riskLevel, 'moderate');
+      if (!seen.has(key)) {
+        seen.add(key);
+        dynamic.push(key);
+      }
+    });
+    return [...defaults, ...dynamic];
+  }, [components]);
+
+  const statusColumns = useMemo(() => {
+    const defaults = ['planned', 'in_progress', 'responding', 'submitted', 'complete', 'blocked'];
+    const seen = new Set(defaults);
+    const dynamic: string[] = [];
+    components.forEach((component) => {
+      const key = normaliseKey(component.status, 'planned');
+      if (!seen.has(key)) {
+        seen.add(key);
+        dynamic.push(key);
+      }
+    });
+    return [...defaults, ...dynamic];
+  }, [components]);
+
+  const heatmapMatrix = useMemo(() => {
+    const matrix = new Map<string, Map<string, Component[]>>();
+    riskLevels.forEach((risk) => {
+      matrix.set(risk, new Map(statusColumns.map((status) => [status, [] as Component[]])));
+    });
+    components.forEach((component) => {
+      const riskKey = normaliseKey(component.riskLevel, 'moderate');
+      const statusKey = normaliseKey(component.status, 'planned');
+      if (!matrix.has(riskKey)) {
+        matrix.set(riskKey, new Map(statusColumns.map((status) => [status, [] as Component[]])));
+      }
+      const row = matrix.get(riskKey)!;
+      if (!row.has(statusKey)) row.set(statusKey, []);
+      row.get(statusKey)!.push(component);
+    });
+    return matrix;
+  }, [components, riskLevels, statusColumns]);
+
+  const fetchData = useCallback(async () => {
+    if (!orgId) {
+      setComponents([]);
+      setInstructions([]);
+      setWorkpapers([]);
+      setReviews([]);
+      setError('Provide an organization ID to load group audit data.');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    const params = new URLSearchParams({ orgId });
+    if (engagementId) params.append('engagementId', engagementId);
+
+    try {
+      const [componentsRes, instructionsRes, workpapersRes, reviewsRes] = await Promise.all([
+        fetch(`/api/group/components?${params.toString()}`, { cache: 'no-store' }),
+        fetch(`/api/group/instructions?${params.toString()}`, { cache: 'no-store' }),
+        fetch(`/api/group/workpapers?${params.toString()}`, { cache: 'no-store' }),
+        fetch(`/api/group/reviews?${params.toString()}`, { cache: 'no-store' }),
+      ]);
+
+      const parsePayload = async <T,>(response: Response) => {
+        if (!response.ok) {
+          const payload = await response.json().catch(() => ({}));
+          throw new Error((payload as { error?: string }).error ?? 'Unable to load data');
+        }
+        return (await response.json()) as T;
+      };
+
+      const componentsPayload = await parsePayload<{ components: ComponentRow[] }>(componentsRes);
+      const instructionsPayload = await parsePayload<{ instructions: InstructionRow[] }>(instructionsRes);
+      const workpapersPayload = await parsePayload<{ workpapers: WorkpaperRow[] }>(workpapersRes);
+      const reviewsPayload = await parsePayload<{ reviews: ReviewRow[] }>(reviewsRes);
+
+      setComponents(componentsPayload.components.map(mapComponent));
+      setInstructions(instructionsPayload.instructions.map(mapInstruction));
+      setWorkpapers(workpapersPayload.workpapers.map(mapWorkpaper));
+      setReviews(reviewsPayload.reviews.map(mapReview));
+      setLastUpdated(new Date().toISOString());
+    } catch (err) {
+      setError((err as Error).message ?? 'Failed to load group audit data');
+    } finally {
+      setLoading(false);
+    }
+  }, [engagementId, orgId]);
+
+  useEffect(() => {
+    void fetchData();
+  }, [fetchData]);
+
+  const outstandingInstructions = useMemo(
+    () => instructions.filter((instruction) => !instruction.acknowledgedAt),
+    [instructions],
+  );
+  const outstandingReviews = useMemo(
+    () => reviews.filter((review) => normaliseKey(review.status, 'pending') !== 'signed_off'),
+    [reviews],
+  );
+
+  return (
+    <main className="flex flex-col gap-6 p-6" aria-labelledby="group-audit-heading">
+      <div>
+        <h1 id="group-audit-heading" className="text-2xl font-semibold">
+          Group Audit Control Center
+        </h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Monitor component execution, instruction acknowledgements, and review sign-offs across your group engagement.
+        </p>
+      </div>
+
+      <section className="rounded border border-border bg-white p-4 shadow-sm" aria-labelledby="group-context">
+        <div className="flex flex-wrap items-end gap-4">
+          <div className="flex min-w-[240px] flex-col gap-1">
+            <label htmlFor="org-id" className="text-sm font-medium">Organization ID</label>
+            <input
+              id="org-id"
+              value={orgId}
+              onChange={(e) => setOrgId(e.target.value)}
+              placeholder="UUID for the organization"
+              className="w-full rounded border border-border bg-background px-3 py-2 text-sm"
+            />
+          </div>
+          <div className="flex min-w-[240px] flex-col gap-1">
+            <label htmlFor="engagement-id" className="text-sm font-medium">Engagement ID</label>
+            <input
+              id="engagement-id"
+              value={engagementId}
+              onChange={(e) => setEngagementId(e.target.value)}
+              placeholder="Optional engagement UUID"
+              className="w-full rounded border border-border bg-background px-3 py-2 text-sm"
+            />
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => fetchData()}
+              className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              disabled={loading}
+            >
+              {loading ? 'Refreshing…' : 'Refresh dashboard'}
+            </button>
+            <Link
+              href="/client-portal"
+              className="rounded border border-blue-600 px-4 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              Go to document upload portal
+            </Link>
+          </div>
+        </div>
+        <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+          {lastUpdated && <span>Last updated {formatDate(lastUpdated)}</span>}
+          {outstandingInstructions.length > 0 && (
+            <span>{outstandingInstructions.length} instruction(s) awaiting acknowledgement</span>
+          )}
+          {outstandingReviews.length > 0 && <span>{outstandingReviews.length} review(s) pending sign-off</span>}
+        </div>
+        {error && (
+          <p role="alert" className="mt-3 rounded border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">
+            {error}
+          </p>
+        )}
+      </section>
+
+      <section className="rounded border border-border bg-white p-4 shadow-sm" aria-labelledby="component-heatmap">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h2 id="component-heatmap" className="text-lg font-semibold">Component heatmap</h2>
+            <p className="text-sm text-muted-foreground">
+              Visualise component coverage by risk and delivery status. Select a tile to review linked components and upload supporting workpapers.
+            </p>
+          </div>
+        </div>
+        <div className="mt-4 overflow-x-auto">
+          <table className="min-w-full border border-border text-left text-sm">
+            <thead className="bg-muted/50">
+              <tr>
+                <th className="px-3 py-2 font-medium">Risk level</th>
+                {statusColumns.map((status) => (
+                  <th key={status} className="px-3 py-2 font-medium">{formatLabel(status)}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {Array.from(heatmapMatrix.entries()).map(([riskKey, statusMap]) => (
+                <tr key={riskKey} className="border-t border-border">
+                  <th scope="row" className="whitespace-nowrap px-3 py-2 font-medium">
+                    {formatLabel(riskKey, 'Moderate')}
+                  </th>
+                  {statusColumns.map((statusKey) => {
+                    const items = statusMap.get(statusKey) ?? [];
+                    const count = items.length;
+                    const intensity =
+                      count === 0 ? 'bg-white' : count < 2 ? 'bg-emerald-50' : count < 4 ? 'bg-amber-50' : 'bg-rose-50';
+                    return (
+                      <td key={statusKey} className={`align-top px-3 py-2 ${intensity}`}>
+                        <div className="text-sm font-semibold">{count}</div>
+                        <div className="mt-1 flex flex-col gap-1">
+                          {items.map((component) => (
+                            <Link
+                              key={component.id}
+                              href={buildUploadLink(component.id)}
+                              className="group flex items-center justify-between gap-2 rounded border border-transparent px-2 py-1 text-xs transition hover:border-blue-200 hover:bg-blue-50"
+                            >
+                              <span className="font-medium text-slate-700 group-hover:text-blue-700">{component.name}</span>
+                              <StatusBadge status={component.status} />
+                            </Link>
+                          ))}
+                        </div>
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="rounded border border-border bg-white p-4 shadow-sm" aria-labelledby="instruction-tracker">
+        <h2 id="instruction-tracker" className="text-lg font-semibold">Instruction tracker</h2>
+        <p className="text-sm text-muted-foreground">
+          Track group instructions sent to component auditors and highlight acknowledgements and due dates.
+        </p>
+        <div className="mt-4 overflow-x-auto">
+          <table className="min-w-full border border-border text-left text-sm">
+            <thead className="bg-muted/50">
+              <tr>
+                <th className="px-3 py-2 font-medium">Instruction</th>
+                <th className="px-3 py-2 font-medium">Component</th>
+                <th className="px-3 py-2 font-medium">Due date</th>
+                <th className="px-3 py-2 font-medium">Status</th>
+                <th className="px-3 py-2 font-medium">Acknowledgement</th>
+                <th className="px-3 py-2 font-medium">Upload link</th>
+              </tr>
+            </thead>
+            <tbody>
+              {instructions.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-3 py-4 text-center text-sm text-muted-foreground">
+                    No instructions found for the selected context.
+                  </td>
+                </tr>
+              ) : (
+                instructions.map((instruction) => {
+                  const component = componentLookup.get(instruction.componentId);
+                  const overdue =
+                    instruction.dueAt &&
+                    !instruction.acknowledgedAt &&
+                    new Date(instruction.dueAt).getTime() < Date.now();
+                  return (
+                    <tr key={instruction.id} className="border-t border-border">
+                      <td className="max-w-[240px] px-3 py-2 align-top">
+                        <div className="font-medium text-slate-800">{instruction.title}</div>
+                        {instruction.body && <div className="mt-1 text-xs text-muted-foreground">{instruction.body}</div>}
+                      </td>
+                      <td className="px-3 py-2 align-top">{component ? component.name : 'Unknown component'}</td>
+                      <td className={`px-3 py-2 align-top ${overdue ? 'text-rose-600 font-medium' : ''}`}>
+                        {formatDate(instruction.dueAt)}
+                      </td>
+                      <td className="px-3 py-2 align-top"><StatusBadge status={instruction.status} /></td>
+                      <td className="px-3 py-2 align-top text-sm">
+                        {instruction.acknowledgedAt ? (
+                          <span className="text-emerald-700">Acknowledged {formatDate(instruction.acknowledgedAt)}</span>
+                        ) : (
+                          <span className="text-amber-700">Awaiting acknowledgement</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 align-top">
+                        <Link
+                          href={buildUploadLink(instruction.componentId)}
+                          className="text-sm font-medium text-blue-600 hover:underline"
+                        >
+                          Upload workpaper
+                        </Link>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="rounded border border-border bg-white p-4 shadow-sm" aria-labelledby="review-queue">
+        <h2 id="review-queue" className="text-lg font-semibold">Review queue</h2>
+        <p className="text-sm text-muted-foreground">
+          Monitor component review assignments and sign-offs. Each row links to the client portal to attach supporting documents.
+        </p>
+        <div className="mt-4 overflow-x-auto">
+          <table className="min-w-full border border-border text-left text-sm">
+            <thead className="bg-muted/50">
+              <tr>
+                <th className="px-3 py-2 font-medium">Component</th>
+                <th className="px-3 py-2 font-medium">Workpaper</th>
+                <th className="px-3 py-2 font-medium">Reviewer</th>
+                <th className="px-3 py-2 font-medium">Status</th>
+                <th className="px-3 py-2 font-medium">Due / Signed off</th>
+                <th className="px-3 py-2 font-medium">Upload link</th>
+              </tr>
+            </thead>
+            <tbody>
+              {reviews.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-3 py-4 text-center text-sm text-muted-foreground">
+                    No reviews found for the selected context.
+                  </td>
+                </tr>
+              ) : (
+                reviews.map((review) => {
+                  const component = componentLookup.get(review.componentId);
+                  const workpaper = review.workpaperId ? workpaperLookup.get(review.workpaperId) : null;
+                  const pending = normaliseKey(review.status, 'pending') !== 'signed_off';
+                  return (
+                    <tr key={review.id} className="border-t border-border">
+                      <td className="px-3 py-2 align-top">{component ? component.name : 'Unknown component'}</td>
+                      <td className="px-3 py-2 align-top">
+                        {workpaper ? (
+                          <div>
+                            <div className="font-medium text-slate-800">{workpaper.title}</div>
+                            {workpaper.status && <StatusBadge status={workpaper.status} />}
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground">No linked workpaper</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 align-top">{review.reviewerId ?? 'Unassigned'}</td>
+                      <td className="px-3 py-2 align-top"><StatusBadge status={review.status} /></td>
+                      <td className="px-3 py-2 align-top text-sm">
+                        {pending ? (
+                          <span className="text-amber-700">Due {formatDate(review.dueAt)}</span>
+                        ) : (
+                          <span className="text-emerald-700">Signed off {formatDate(review.signedOffAt)}</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 align-top">
+                        <Link
+                          href={buildUploadLink(review.componentId, review.workpaperId)}
+                          className="text-sm font-medium text-blue-600 hover:underline"
+                        >
+                          Upload / view docs
+                        </Link>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  );
+}
+
+/* =============================================================================
+   MODE B: GroupAuditWorkspace (from main)
+   ============================================================================= */
 
 type GroupInstructionStatus = 'DRAFT' | 'SENT' | 'ACKNOWLEDGED' | 'COMPLETE';
 type GroupReviewStatus = 'PENDING' | 'IN_PROGRESS' | 'COMPLETE';
@@ -124,11 +637,71 @@ type GroupComponent = {
   reviews: GroupReview[];
 };
 
+const demoComponents: GroupComponent[] = [
+  {
+    id: 'grp-demo-1',
+    org_id: 'demo-org',
+    engagement_id: 'demo-engagement',
+    name: 'Subsidiary A',
+    country: 'MT',
+    significance: 'SIGNIFICANT',
+    materiality: 450000,
+    assigned_firm: 'Local CPA Malta',
+    notes: 'Focus on revenue recognition and IT controls.',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    instructions: [
+      {
+        id: 'inst-demo-1',
+        org_id: 'demo-org',
+        engagement_id: 'demo-engagement',
+        component_id: 'grp-demo-1',
+        title: 'Perform walkthroughs over order-to-cash',
+        status: 'SENT',
+        sent_at: new Date().toISOString(),
+        acknowledged_at: null,
+        due_at: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+    ],
+    workpapers: [
+      {
+        id: 'wp-demo-1',
+        org_id: 'demo-org',
+        engagement_id: 'demo-engagement',
+        component_id: 'grp-demo-1',
+        instruction_id: 'inst-demo-1',
+        document_id: null,
+        title: 'Inventory observation memo',
+        uploaded_by_user_id: 'demo-user',
+        uploaded_at: new Date().toISOString(),
+        notes: 'Shared via Teams – attach final when ready.',
+      },
+    ],
+    reviews: [
+      {
+        id: 'rev-demo-1',
+        org_id: 'demo-org',
+        engagement_id: 'demo-engagement',
+        component_id: 'grp-demo-1',
+        reviewer_user_id: 'manager-demo',
+        status: 'IN_PROGRESS',
+        started_at: new Date().toISOString(),
+        completed_at: null,
+        notes: 'Awaiting testing completion.',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+    ],
+  },
+];
+
 const significanceOptions: GroupSignificance[] = ['INSIGNIFICANT', 'SIGNIFICANT', 'KEY'];
 const instructionStatusOptions: GroupInstructionStatus[] = ['DRAFT', 'SENT', 'ACKNOWLEDGED', 'COMPLETE'];
 const reviewStatusOptions: GroupReviewStatus[] = ['PENDING', 'IN_PROGRESS', 'COMPLETE'];
 
-export default function GroupAuditWorkspace() {
+function GroupAuditWorkspace() {
   const [mode, setMode] = useState<'demo' | 'live'>('demo');
   const [orgId, setOrgId] = useState('demo-org');
   const [engagementId, setEngagementId] = useState('demo-engagement');
@@ -204,12 +777,12 @@ export default function GroupAuditWorkspace() {
         const body = (await response.json()) as { components: GroupComponent[] };
         const normalised = normalizeComponents(body.components ?? []);
         setComponents(normalised);
-        setSelectedComponentId((prev) => (normalised.some((component) => component.id === prev) ? prev : normalised[0]?.id ?? ''));
+        setSelectedComponentId((prev) => (normalised.some((c) => c.id === prev) ? prev : normalised[0]?.id ?? ''));
         setStatusMessage(normalised.length ? 'Group components loaded from Supabase.' : 'No group components defined yet.');
         setStatusTone(normalised.length ? 'success' : 'info');
-      } catch (error) {
+      } catch (err) {
         if (controller.signal.aborted) return;
-        const message = error instanceof Error ? error.message : 'Unable to fetch group audit data';
+        const message = err instanceof Error ? err.message : 'Unable to fetch group audit data';
         setFetchError(message);
         setStatusMessage('Fell back to last known data.');
         setStatusTone('error');
@@ -227,8 +800,25 @@ export default function GroupAuditWorkspace() {
     setStatusTone(tone);
   };
 
-  const resetStatus = () => {
-    setStatusMessage(null);
+  const resetStatus = () => setStatusMessage(null);
+
+  const refreshComponents = async () => {
+    if (mode !== 'live') {
+      setComponents(demoComponents);
+      setSelectedComponentId(demoComponents[0]?.id ?? '');
+      return;
+    }
+    if (!orgId || !engagementId) return;
+    const params = new URLSearchParams({ orgId, engagementId });
+    const response = await fetch(`/api/group?${params.toString()}`, { cache: 'no-store' });
+    if (!response.ok) {
+      const body = (await response.json().catch(() => ({}))) as { error?: string };
+      throw new Error(body.error ?? 'Failed to load group components');
+    }
+    const body = (await response.json()) as { components: GroupComponent[] };
+    const normalised = normalizeComponents(body.components ?? []);
+    setComponents(normalised);
+    setSelectedComponentId((prev) => (normalised.some((c) => c.id === prev) ? prev : normalised[0]?.id ?? ''));
   };
 
   const handleCreateComponent = async (event: FormEvent) => {
@@ -260,15 +850,13 @@ export default function GroupAuditWorkspace() {
         }),
       });
       const body = (await response.json().catch(() => ({}))) as { component?: GroupComponent; error?: string };
-      if (!response.ok) {
-        throw new Error(body.error ?? 'Failed to create component');
-      }
+      if (!response.ok) throw new Error(body.error ?? 'Failed to create component');
       await refreshComponents();
       showStatus('Group component created.', 'success');
       if (body.component?.id) setSelectedComponentId(body.component.id);
       setComponentForm({ name: '', country: '', significance: 'INSIGNIFICANT', materiality: '', assignedFirm: '', notes: '' });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unable to create component';
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unable to create component';
       showStatus(message, 'error');
     } finally {
       setLoading(false);
@@ -302,14 +890,12 @@ export default function GroupAuditWorkspace() {
         }),
       });
       const body = (await response.json().catch(() => ({}))) as { error?: string };
-      if (!response.ok) {
-        throw new Error(body.error ?? 'Failed to send instruction');
-      }
+      if (!response.ok) throw new Error(body.error ?? 'Failed to send instruction');
       setInstructionForm({ title: '', status: 'DRAFT', dueAt: '' });
       await refreshComponents();
       showStatus('Instruction recorded.', 'success');
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unable to send instruction';
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unable to send instruction';
       showStatus(message, 'error');
     } finally {
       setLoading(false);
@@ -343,13 +929,11 @@ export default function GroupAuditWorkspace() {
         }),
       });
       const body = (await response.json().catch(() => ({}))) as { error?: string };
-      if (!response.ok) {
-        throw new Error(body.error ?? 'Failed to update review');
-      }
+      if (!response.ok) throw new Error(body.error ?? 'Failed to update review');
       await refreshComponents();
       showStatus('Review updated.', 'success');
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unable to update review';
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unable to update review';
       showStatus(message, 'error');
     } finally {
       setLoading(false);
@@ -389,37 +973,16 @@ export default function GroupAuditWorkspace() {
         }),
       });
       const body = (await response.json().catch(() => ({}))) as { workpaper?: unknown; error?: string };
-      if (!response.ok) {
-        throw new Error(body.error ?? 'Failed to register workpaper');
-      }
+      if (!response.ok) throw new Error(body.error ?? 'Failed to register workpaper');
       setWorkpaperForm({ bucket: 'group-workpapers', path: '', name: '', note: '', instructionId: '' });
       await refreshComponents();
       showStatus('Workpaper logged.', 'success');
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unable to log workpaper';
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unable to log workpaper';
       showStatus(message, 'error');
     } finally {
       setLoading(false);
     }
-  };
-
-  const refreshComponents = async () => {
-    if (mode !== 'live') {
-      setComponents(demoComponents);
-      setSelectedComponentId(demoComponents[0]?.id ?? '');
-      return;
-    }
-    if (!orgId || !engagementId) return;
-    const params = new URLSearchParams({ orgId, engagementId });
-    const response = await fetch(`/api/group?${params.toString()}`, { cache: 'no-store' });
-    if (!response.ok) {
-      const body = (await response.json().catch(() => ({}))) as { error?: string };
-      throw new Error(body.error ?? 'Failed to load group components');
-    }
-    const body = (await response.json()) as { components: GroupComponent[] };
-    const normalised = normalizeComponents(body.components ?? []);
-    setComponents(normalised);
-    setSelectedComponentId((prev) => (normalised.some((component) => component.id === prev) ? prev : normalised[0]?.id ?? ''));
   };
 
   return (
@@ -440,7 +1003,7 @@ export default function GroupAuditWorkspace() {
           >
             Demo data
           </button>
-          <button
+        <button
             type="button"
             className={`rounded-md px-3 py-2 text-sm font-medium ${mode === 'live' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700'}`}
             onClick={() => setMode('live')}
@@ -453,27 +1016,15 @@ export default function GroupAuditWorkspace() {
         <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
           <label className="flex flex-col text-xs text-slate-600">
             Organisation ID
-            <input
-              className="mt-1 rounded border px-2 py-1"
-              value={orgId}
-              onChange={(event) => setOrgId(event.target.value)}
-            />
+            <input className="mt-1 rounded border px-2 py-1" value={orgId} onChange={(e) => setOrgId(e.target.value)} />
           </label>
           <label className="flex flex-col text-xs text-slate-600">
             Engagement ID
-            <input
-              className="mt-1 rounded border px-2 py-1"
-              value={engagementId}
-              onChange={(event) => setEngagementId(event.target.value)}
-            />
+            <input className="mt-1 rounded border px-2 py-1" value={engagementId} onChange={(e) => setEngagementId(e.target.value)} />
           </label>
           <label className="flex flex-col text-xs text-slate-600">
             User ID
-            <input
-              className="mt-1 rounded border px-2 py-1"
-              value={userId}
-              onChange={(event) => setUserId(event.target.value)}
-            />
+            <input className="mt-1 rounded border px-2 py-1" value={userId} onChange={(e) => setUserId(e.target.value)} />
           </label>
         </div>
       </div>
@@ -499,71 +1050,31 @@ export default function GroupAuditWorkspace() {
             <form className="mt-3 space-y-3" onSubmit={handleCreateComponent}>
               <label className="flex flex-col text-xs text-slate-600">
                 Name
-                <input
-                  className="mt-1 rounded border px-2 py-1"
-                  value={componentForm.name}
-                  onChange={(event) => setComponentForm((prev) => ({ ...prev, name: event.target.value }))}
-                />
+                <input className="mt-1 rounded border px-2 py-1" value={componentForm.name} onChange={(e) => setComponentForm((p) => ({ ...p, name: e.target.value }))} />
               </label>
               <label className="flex flex-col text-xs text-slate-600">
                 Country
-                <input
-                  className="mt-1 rounded border px-2 py-1"
-                  value={componentForm.country}
-                  onChange={(event) => setComponentForm((prev) => ({ ...prev, country: event.target.value }))}
-                  placeholder="ISO country"
-                />
+                <input className="mt-1 rounded border px-2 py-1" value={componentForm.country} onChange={(e) => setComponentForm((p) => ({ ...p, country: e.target.value }))} placeholder="ISO country" />
               </label>
               <label className="flex flex-col text-xs text-slate-600">
                 Significance
-                <select
-                  className="mt-1 rounded border px-2 py-1"
-                  value={componentForm.significance}
-                  onChange={(event) =>
-                    setComponentForm((prev) => ({ ...prev, significance: event.target.value as GroupSignificance }))
-                  }
-                >
-                  {significanceOptions.map((option) => (
-                    <option key={option} value={option}>
-                      {option}
-                    </option>
-                  ))}
+                <select className="mt-1 rounded border px-2 py-1" value={componentForm.significance} onChange={(e) => setComponentForm((p) => ({ ...p, significance: e.target.value as GroupSignificance }))}>
+                  {significanceOptions.map((option) => (<option key={option} value={option}>{option}</option>))}
                 </select>
               </label>
               <label className="flex flex-col text-xs text-slate-600">
                 Materiality
-                <input
-                  type="number"
-                  step="0.01"
-                  className="mt-1 rounded border px-2 py-1"
-                  value={componentForm.materiality}
-                  onChange={(event) => setComponentForm((prev) => ({ ...prev, materiality: event.target.value }))}
-                  placeholder="Optional"
-                />
+                <input type="number" step="0.01" className="mt-1 rounded border px-2 py-1" value={componentForm.materiality} onChange={(e) => setComponentForm((p) => ({ ...p, materiality: e.target.value }))} placeholder="Optional" />
               </label>
               <label className="flex flex-col text-xs text-slate-600">
                 Assigned firm
-                <input
-                  className="mt-1 rounded border px-2 py-1"
-                  value={componentForm.assignedFirm}
-                  onChange={(event) => setComponentForm((prev) => ({ ...prev, assignedFirm: event.target.value }))}
-                  placeholder="Component auditor"
-                />
+                <input className="mt-1 rounded border px-2 py-1" value={componentForm.assignedFirm} onChange={(e) => setComponentForm((p) => ({ ...p, assignedFirm: e.target.value }))} placeholder="Component auditor" />
               </label>
               <label className="flex flex-col text-xs text-slate-600">
                 Notes
-                <textarea
-                  rows={2}
-                  className="mt-1 rounded border px-2 py-1"
-                  value={componentForm.notes}
-                  onChange={(event) => setComponentForm((prev) => ({ ...prev, notes: event.target.value }))}
-                />
+                <textarea rows={2} className="mt-1 rounded border px-2 py-1" value={componentForm.notes} onChange={(e) => setComponentForm((p) => ({ ...p, notes: e.target.value }))} />
               </label>
-              <button
-                type="submit"
-                className="w-full rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-60"
-                disabled={loading || !componentForm.name}
-              >
+              <button type="submit" className="w-full rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-60" disabled={loading || !componentForm.name}>
                 {loading ? 'Working…' : 'Add component'}
               </button>
             </form>
@@ -575,41 +1086,19 @@ export default function GroupAuditWorkspace() {
               <form className="mt-3 space-y-3" onSubmit={handleSendInstruction}>
                 <label className="flex flex-col text-xs text-slate-600">
                   Instruction
-                  <textarea
-                    rows={2}
-                    className="mt-1 rounded border px-2 py-1"
-                    value={instructionForm.title}
-                    onChange={(event) => setInstructionForm((prev) => ({ ...prev, title: event.target.value }))}
-                  />
+                  <textarea rows={2} className="mt-1 rounded border px-2 py-1" value={instructionForm.title} onChange={(e) => setInstructionForm((p) => ({ ...p, title: e.target.value }))} />
                 </label>
                 <label className="flex flex-col text-xs text-slate-600">
                   Status
-                  <select
-                    className="mt-1 rounded border px-2 py-1"
-                    value={instructionForm.status}
-                    onChange={(event) => setInstructionForm((prev) => ({ ...prev, status: event.target.value as GroupInstructionStatus }))}
-                  >
-                    {instructionStatusOptions.map((option) => (
-                      <option key={option} value={option}>
-                        {option}
-                      </option>
-                    ))}
+                  <select className="mt-1 rounded border px-2 py-1" value={instructionForm.status} onChange={(e) => setInstructionForm((p) => ({ ...p, status: e.target.value as GroupInstructionStatus }))}>
+                    {instructionStatusOptions.map((opt) => (<option key={opt} value={opt}>{opt}</option>))}
                   </select>
                 </label>
                 <label className="flex flex-col text-xs text-slate-600">
                   Due date
-                  <input
-                    type="datetime-local"
-                    className="mt-1 rounded border px-2 py-1"
-                    value={instructionForm.dueAt}
-                    onChange={(event) => setInstructionForm((prev) => ({ ...prev, dueAt: event.target.value }))}
-                  />
+                  <input type="datetime-local" className="mt-1 rounded border px-2 py-1" value={instructionForm.dueAt} onChange={(e) => setInstructionForm((p) => ({ ...p, dueAt: e.target.value }))} />
                 </label>
-                <button
-                  type="submit"
-                  className="w-full rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-60"
-                  disabled={loading || !instructionForm.title}
-                >
+                <button type="submit" className="w-full rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-60" disabled={loading || !instructionForm.title}>
                   {loading ? 'Working…' : 'Send instruction'}
                 </button>
               </form>
@@ -624,40 +1113,19 @@ export default function GroupAuditWorkspace() {
               <form className="mt-3 space-y-3" onSubmit={handleUpdateReview}>
                 <label className="flex flex-col text-xs text-slate-600">
                   Reviewer user ID
-                  <input
-                    className="mt-1 rounded border px-2 py-1"
-                    value={reviewForm.reviewerUserId}
-                    onChange={(event) => setReviewForm((prev) => ({ ...prev, reviewerUserId: event.target.value }))}
-                  />
+                  <input className="mt-1 rounded border px-2 py-1" value={reviewForm.reviewerUserId} onChange={(e) => setReviewForm((p) => ({ ...p, reviewerUserId: e.target.value }))} />
                 </label>
                 <label className="flex flex-col text-xs text-slate-600">
                   Review status
-                  <select
-                    className="mt-1 rounded border px-2 py-1"
-                    value={reviewForm.status}
-                    onChange={(event) => setReviewForm((prev) => ({ ...prev, status: event.target.value as GroupReviewStatus }))}
-                  >
-                    {reviewStatusOptions.map((option) => (
-                      <option key={option} value={option}>
-                        {option}
-                      </option>
-                    ))}
+                  <select className="mt-1 rounded border px-2 py-1" value={reviewForm.status} onChange={(e) => setReviewForm((p) => ({ ...p, status: e.target.value as GroupReviewStatus }))}>
+                    {reviewStatusOptions.map((opt) => (<option key={opt} value={opt}>{opt}</option>))}
                   </select>
                 </label>
                 <label className="flex flex-col text-xs text-slate-600">
                   Notes
-                  <textarea
-                    rows={2}
-                    className="mt-1 rounded border px-2 py-1"
-                    value={reviewForm.notes}
-                    onChange={(event) => setReviewForm((prev) => ({ ...prev, notes: event.target.value }))}
-                  />
+                  <textarea rows={2} className="mt-1 rounded border px-2 py-1" value={reviewForm.notes} onChange={(e) => setReviewForm((p) => ({ ...p, notes: e.target.value }))} />
                 </label>
-                <button
-                  type="submit"
-                  className="w-full rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-60"
-                  disabled={loading || !reviewForm.reviewerUserId}
-                >
+                <button type="submit" className="w-full rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-60" disabled={loading || !reviewForm.reviewerUserId}>
                   {loading ? 'Working…' : 'Save review'}
                 </button>
               </form>
@@ -672,58 +1140,30 @@ export default function GroupAuditWorkspace() {
               <form className="mt-3 space-y-3" onSubmit={handleUploadWorkpaper}>
                 <label className="flex flex-col text-xs text-slate-600">
                   Storage bucket
-                  <input
-                    className="mt-1 rounded border px-2 py-1"
-                    value={workpaperForm.bucket}
-                    onChange={(event) => setWorkpaperForm((prev) => ({ ...prev, bucket: event.target.value }))}
-                  />
+                  <input className="mt-1 rounded border px-2 py-1" value={workpaperForm.bucket} onChange={(e) => setWorkpaperForm((p) => ({ ...p, bucket: e.target.value }))} />
                 </label>
                 <label className="flex flex-col text-xs text-slate-600">
                   Object path
-                  <input
-                    className="mt-1 rounded border px-2 py-1"
-                    value={workpaperForm.path}
-                    onChange={(event) => setWorkpaperForm((prev) => ({ ...prev, path: event.target.value }))}
-                    placeholder="workpapers/filename.pdf"
-                  />
+                  <input className="mt-1 rounded border px-2 py-1" value={workpaperForm.path} onChange={(e) => setWorkpaperForm((p) => ({ ...p, path: e.target.value }))} placeholder="workpapers/filename.pdf" />
                 </label>
                 <label className="flex flex-col text-xs text-slate-600">
                   Workpaper title
-                  <input
-                    className="mt-1 rounded border px-2 py-1"
-                    value={workpaperForm.name}
-                    onChange={(event) => setWorkpaperForm((prev) => ({ ...prev, name: event.target.value }))}
-                  />
+                  <input className="mt-1 rounded border px-2 py-1" value={workpaperForm.name} onChange={(e) => setWorkpaperForm((p) => ({ ...p, name: e.target.value }))} />
                 </label>
                 <label className="flex flex-col text-xs text-slate-600">
                   Link instruction (optional)
-                  <select
-                    className="mt-1 rounded border px-2 py-1"
-                    value={workpaperForm.instructionId}
-                    onChange={(event) => setWorkpaperForm((prev) => ({ ...prev, instructionId: event.target.value }))}
-                  >
+                  <select className="mt-1 rounded border px-2 py-1" value={workpaperForm.instructionId} onChange={(e) => setWorkpaperForm((p) => ({ ...p, instructionId: e.target.value }))}>
                     <option value="">Not linked</option>
                     {selectedComponent.instructions.map((instruction) => (
-                      <option key={instruction.id} value={instruction.id}>
-                        {instruction.title}
-                      </option>
+                      <option key={instruction.id} value={instruction.id}>{instruction.title}</option>
                     ))}
                   </select>
                 </label>
                 <label className="flex flex-col text-xs text-slate-600">
                   Notes
-                  <textarea
-                    rows={2}
-                    className="mt-1 rounded border px-2 py-1"
-                    value={workpaperForm.note}
-                    onChange={(event) => setWorkpaperForm((prev) => ({ ...prev, note: event.target.value }))}
-                  />
+                  <textarea rows={2} className="mt-1 rounded border px-2 py-1" value={workpaperForm.note} onChange={(e) => setWorkpaperForm((p) => ({ ...p, note: e.target.value }))} />
                 </label>
-                <button
-                  type="submit"
-                  className="w-full rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-60"
-                  disabled={loading || !workpaperForm.path || !workpaperForm.name}
-                >
+                <button type="submit" className="w-full rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-60" disabled={loading || !workpaperForm.path || !workpaperForm.name}>
                   {loading ? 'Working…' : 'Log workpaper'}
                 </button>
               </form>
@@ -751,7 +1191,7 @@ export default function GroupAuditWorkspace() {
                     <span className="text-xs uppercase text-slate-500">{component.significance}</span>
                   </div>
                   <div className="mt-1 text-xs text-slate-500">
-                    {component.country ?? 'Country n/a'} • Materiality {formatCurrency(component.materiality ?? 0)} • Workpapers {component.workpapers.length}
+                    {component.country ?? 'Country n/a'} • Materiality {formatCurrencyUSD(component.materiality ?? 0)} • Workpapers {component.workpapers.length}
                   </div>
                 </button>
               ))}
@@ -767,7 +1207,7 @@ export default function GroupAuditWorkspace() {
                     <h4 className="text-lg font-semibold text-slate-900">{selectedComponent.name}</h4>
                     <p className="text-xs text-slate-500">
                       {selectedComponent.country ?? 'Country n/a'} • Assigned firm {selectedComponent.assigned_firm ?? 'n/a'} • Materiality
-                      <span className="ml-1 font-semibold text-slate-700">{formatCurrency(selectedComponent.materiality ?? 0)}</span>
+                      <span className="ml-1 font-semibold text-slate-700">{formatCurrencyUSD(selectedComponent.materiality ?? 0)}</span>
                     </p>
                   </div>
                 </header>
@@ -789,16 +1229,12 @@ export default function GroupAuditWorkspace() {
                       <tr key={instruction.id} className="border-b last:border-0">
                         <td className="py-1">{instruction.title}</td>
                         <td className="py-1 text-slate-500">{instruction.status}</td>
-                        <td className="py-1 text-slate-500">
-                          {instruction.due_at ? new Date(instruction.due_at).toLocaleDateString() : '—'}
-                        </td>
+                        <td className="py-1 text-slate-500">{instruction.due_at ? new Date(instruction.due_at).toLocaleDateString() : '—'}</td>
                       </tr>
                     ))}
                     {selectedComponent.instructions.length === 0 && (
                       <tr>
-                        <td colSpan={3} className="py-2 text-center text-slate-500">
-                          No instructions sent yet.
-                        </td>
+                        <td colSpan={3} className="py-2 text-center text-slate-500">No instructions sent yet.</td>
                       </tr>
                     )}
                   </tbody>
@@ -825,9 +1261,7 @@ export default function GroupAuditWorkspace() {
                     ))}
                     {selectedComponent.workpapers.length === 0 && (
                       <tr>
-                        <td colSpan={3} className="py-2 text-center text-slate-500">
-                          No workpapers logged.
-                        </td>
+                        <td colSpan={3} className="py-2 text-center text-slate-500">No workpapers logged.</td>
                       </tr>
                     )}
                   </tbody>
@@ -849,16 +1283,12 @@ export default function GroupAuditWorkspace() {
                       <tr key={review.id} className="border-b last:border-0">
                         <td className="py-1">{review.reviewer_user_id ?? 'n/a'}</td>
                         <td className="py-1 text-slate-500">{review.status}</td>
-                        <td className="py-1 text-slate-500">
-                          {review.updated_at ? new Date(review.updated_at).toLocaleString() : '—'}
-                        </td>
+                        <td className="py-1 text-slate-500">{review.updated_at ? new Date(review.updated_at).toLocaleString() : '—'}</td>
                       </tr>
                     ))}
                     {selectedComponent.reviews.length === 0 && (
                       <tr>
-                        <td colSpan={3} className="py-2 text-center text-slate-500">
-                          No review activity recorded.
-                        </td>
+                        <td colSpan={3} className="py-2 text-center text-slate-500">No review activity recorded.</td>
                       </tr>
                     )}
                   </tbody>
@@ -884,12 +1314,10 @@ function normalizeComponents(records: any[]): GroupComponent[] {
       ...workpaper,
       uploaded_at: workpaper.uploaded_at ?? new Date().toISOString(),
     })),
-    reviews: (record.reviews ?? []).map((review: any) => ({
-      ...review,
-    })),
+    reviews: (record.reviews ?? []).map((review: any) => ({ ...review })),
   }));
 }
 
-function formatCurrency(value: number) {
+function formatCurrencyUSD(value: number) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value ?? 0);
 }
