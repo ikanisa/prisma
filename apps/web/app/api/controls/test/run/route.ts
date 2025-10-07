@@ -23,7 +23,7 @@ export async function POST(request: Request) {
 
   const { data: control, error: controlError } = await supabase
     .from('controls')
-    .select('cycle, objective')
+    .select('cycle, objective, engagement_id')
     .eq('id', controlId)
     .eq('org_id', orgId)
     .maybeSingle();
@@ -36,10 +36,20 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Control not found for sampling.' }, { status: 404 });
   }
 
+  if (!control.engagement_id) {
+    return NextResponse.json({ error: 'Control engagement is not configured.' }, { status: 400 });
+  }
+
+  if (engagementId && engagementId !== control.engagement_id) {
+    return NextResponse.json({ error: 'Control does not belong to the specified engagement.' }, { status: 400 });
+  }
+
+  const controlEngagementId = control.engagement_id;
+
   const samplingClient = getSamplingClient();
   const samplingPlan = await samplingClient.requestPlan({
     orgId,
-    engagementId,
+    engagementId: controlEngagementId,
     controlId,
     requestedSampleSize: attributes.length,
     cycle: control.cycle,
@@ -98,7 +108,7 @@ export async function POST(request: Request) {
       .from('deficiencies')
       .insert({
         org_id: orgId,
-        engagement_id: engagementId,
+        engagement_id: controlEngagementId,
         control_id: controlId,
         recommendation: deficiencyRecommendation!,
         severity,
