@@ -145,7 +145,11 @@ export class SamplingClient {
 
 let cachedClient: SamplingClient | null = null;
 
-export function getSamplingClient(): SamplingClient {
+export function getSamplingClient(options?: SamplingClientOptions): SamplingClient {
+  if (options) {
+    return new SamplingClient(options);
+  }
+
   if (!cachedClient) {
     cachedClient = new SamplingClient({
       baseUrl: process.env.SAMPLING_C1_BASE_URL,
