@@ -6,6 +6,7 @@ import { upsertAuditModuleRecord } from '../../../../../lib/audit/module-records
 import { logAuditActivity } from '../../../../../lib/audit/activity-log';
 import { attachRequestId, getOrCreateRequestId } from '../../../lib/observability';
 import { createApiGuard } from '../../../lib/api-guard';
+import { authenticateGroupRequest } from '../../../lib/group/request';
 
 const workpaperSchema = z.object({
   orgId: z.string().uuid(),
@@ -38,11 +39,26 @@ export async function POST(request: Request) {
     );
   }
 
+  const auth = await authenticateGroupRequest({
+    request,
+    supabase,
+    orgIdCandidate: payload.orgId,
+    userIdCandidate: payload.userId,
+  });
+  if (!auth.ok) {
+    return NextResponse.json(
+      { error: auth.error },
+      attachRequestId({ status: auth.status }, requestId),
+    );
+  }
+
+  const { orgId, userId } = auth;
+
   const guard = await createApiGuard({
     request,
     supabase,
     requestId,
-    orgId: payload.orgId,
+    orgId,
     resource: `group:workpaper:${payload.componentId}`,
     rateLimit: { limit: 120, windowSeconds: 60 },
   });
@@ -55,9 +71,9 @@ export async function POST(request: Request) {
   try {
     const ensured = await ensureEvidenceDocument({
       client: supabase,
-      orgId: payload.orgId,
+      orgId,
       engagementId: payload.engagementId,
-      userId: payload.userId,
+      userId,
       bucket: payload.documentBucket,
       objectPath: payload.documentPath,
       documentName: payload.documentName,
@@ -74,13 +90,13 @@ export async function POST(request: Request) {
   const { data, error } = await supabase
     .from('group_workpapers')
     .insert({
-      org_id: payload.orgId,
+      org_id: orgId,
       engagement_id: payload.engagementId,
       component_id: payload.componentId,
       instruction_id: payload.instructionId ?? null,
       document_id: documentId,
       title: payload.documentName,
-      uploaded_by_user_id: payload.userId,
+      uploaded_by_user_id: userId,
       notes: payload.note ?? null,
     })
     .select()
@@ -95,7 +111,7 @@ export async function POST(request: Request) {
 
   try {
     await upsertAuditModuleRecord(supabase, {
-      orgId: payload.orgId,
+      orgId,
       engagementId: payload.engagementId,
       moduleCode: 'GRP1',
       recordRef: payload.componentId,
@@ -106,7 +122,7 @@ export async function POST(request: Request) {
         signedUrl,
         note: payload.note,
       },
-      updatedByUserId: payload.userId,
+      updatedByUserId: userId,
     });
   } catch (moduleError) {
     return guard.json(
@@ -116,8 +132,8 @@ export async function POST(request: Request) {
   }
 
   await logAuditActivity(supabase, {
-    orgId: payload.orgId,
-    userId: payload.userId,
+    orgId,
+    userId,
     action: 'GRP_WORKPAPER_RECEIVED',
     entityType: 'AUDIT_GROUP',
     entityId: data.id,

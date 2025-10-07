@@ -5,6 +5,7 @@ import { ensureAuditRecordApprovalStage, upsertAuditModuleRecord } from '../../.
 import { logAuditActivity } from '../../../../../lib/audit/activity-log';
 import { attachRequestId, getOrCreateRequestId } from '../../../lib/observability';
 import { createApiGuard } from '../../../lib/api-guard';
+import { authenticateGroupRequest } from '../../../lib/group/request';
 
 const instructionSchema = z.object({
   orgId: z.string().uuid(),
@@ -35,11 +36,26 @@ export async function POST(request: Request) {
     );
   }
 
+  const auth = await authenticateGroupRequest({
+    request,
+    supabase,
+    orgIdCandidate: payload.orgId,
+    userIdCandidate: payload.userId,
+  });
+  if (!auth.ok) {
+    return NextResponse.json(
+      { error: auth.error },
+      attachRequestId({ status: auth.status }, requestId),
+    );
+  }
+
+  const { orgId, userId } = auth;
+
   const guard = await createApiGuard({
     request,
     supabase,
     requestId,
-    orgId: payload.orgId,
+    orgId,
     resource: `group:instruction:${payload.componentId}`,
     rateLimit: { limit: 60, windowSeconds: 60 },
   });
@@ -50,7 +66,7 @@ export async function POST(request: Request) {
     .from('group_components')
     .select('id')
     .eq('id', payload.componentId)
-    .eq('org_id', payload.orgId)
+    .eq('org_id', orgId)
     .maybeSingle();
   if (componentError) {
     return guard.json(
@@ -65,7 +81,7 @@ export async function POST(request: Request) {
   const { data, error } = await supabase
     .from('group_instructions')
     .insert({
-      org_id: payload.orgId,
+      org_id: orgId,
       engagement_id: payload.engagementId,
       component_id: payload.componentId,
       title: payload.title,
@@ -84,7 +100,7 @@ export async function POST(request: Request) {
 
   try {
     await upsertAuditModuleRecord(supabase, {
-      orgId: payload.orgId,
+      orgId,
       engagementId: payload.engagementId,
       moduleCode: 'GRP1',
       recordRef: payload.componentId,
@@ -92,25 +108,25 @@ export async function POST(request: Request) {
       recordStatus: payload.status === 'COMPLETE' ? 'READY_FOR_REVIEW' : 'IN_PROGRESS',
       approvalState: 'DRAFT',
       currentStage: 'PREPARER',
-      preparedByUserId: payload.userId,
+      preparedByUserId: userId,
       metadata: {
         instructionId: data.id,
         instructionStatus: data.status,
         dueAt: data.due_at,
       },
-      updatedByUserId: payload.userId,
+      updatedByUserId: userId,
     });
 
     if (payload.status === 'COMPLETE') {
       await ensureAuditRecordApprovalStage(supabase, {
-        orgId: payload.orgId,
+        orgId,
         engagementId: payload.engagementId,
         moduleCode: 'GRP1',
         recordRef: payload.componentId,
         stage: 'MANAGER',
         decision: 'PENDING',
         metadata: { instructionId: data.id },
-        userId: payload.userId,
+        userId,
       });
     }
   } catch (moduleError) {
@@ -131,8 +147,8 @@ export async function POST(request: Request) {
 
   if (statusAction) {
     await logAuditActivity(supabase, {
-      orgId: payload.orgId,
-      userId: payload.userId,
+      orgId,
+      userId,
       action: statusAction,
       entityType: 'AUDIT_GROUP',
       entityId: data.id,

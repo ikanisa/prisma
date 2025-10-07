@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { logGroupActivity } from '../../../../../../lib/group/activity';
-import { getOrgIdFromRequest, isUuid, resolveUserId } from '../../../../../../lib/group/request';
+import { authenticateGroupRequest, isUuid } from '../../../../../../lib/group/request';
 import { getSupabaseServerClient } from '../../../../../../lib/supabase/server';
 
 type RouteContext = {
@@ -25,15 +25,17 @@ export async function POST(request: NextRequest, context: RouteContext) {
   }
 
   const body = payload as Record<string, unknown>;
-  const orgId = getOrgIdFromRequest(request, body.orgId);
-  if (!orgId) {
-    return NextResponse.json({ error: 'orgId is required' }, { status: 400 });
+  const auth = await authenticateGroupRequest({
+    request,
+    supabase,
+    orgIdCandidate: body.orgId,
+    userIdCandidate: body.userId,
+  });
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
   }
 
-  const userId = await resolveUserId(request, body.userId);
-  if (!userId) {
-    return NextResponse.json({ error: 'userId is required for auditing' }, { status: 401 });
-  }
+  const { orgId, userId } = auth;
 
   const { id } = context.params;
   if (!isUuid(id)) {

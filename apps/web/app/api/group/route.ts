@@ -1,14 +1,14 @@
 import { NextResponse } from 'next/server';
 import { getServiceSupabaseClient } from '../../../../lib/supabase-server';
 import { attachRequestId, getOrCreateRequestId } from '../../lib/observability';
+import { authenticateGroupRequest } from '../../lib/group/request';
 
 export async function GET(request: Request) {
   const requestId = getOrCreateRequestId(request);
   const { searchParams } = new URL(request.url);
-  const orgId = searchParams.get('orgId');
   const engagementId = searchParams.get('engagementId');
 
-  if (!orgId || !engagementId) {
+  if (!engagementId) {
     return NextResponse.json(
       { error: 'orgId and engagementId query parameters are required.' },
       attachRequestId({ status: 400 }, requestId),
@@ -16,6 +16,18 @@ export async function GET(request: Request) {
   }
 
   const supabase = await getServiceSupabaseClient();
+
+  const auth = await authenticateGroupRequest({
+    request,
+    supabase,
+    orgIdCandidate: searchParams.get('orgId'),
+    userErrorMessage: 'Authentication required',
+  });
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, attachRequestId({ status: auth.status }, requestId));
+  }
+
+  const { orgId } = auth;
 
   const { data, error } = await supabase
     .from('group_components')
