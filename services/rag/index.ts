@@ -3672,6 +3672,63 @@ app.patch('/v1/engagements/:id', async (req: AuthenticatedRequest, res) => {
     if (typeof endDate !== 'undefined') updatePayload.end_date = endDate ?? null;
     if (typeof budget !== 'undefined') updatePayload.budget = budget ?? null;
 
+    const independenceFieldsProvided =
+      typeof isAuditClient === 'boolean' ||
+      typeof requiresEqr === 'boolean' ||
+      typeof nonAuditServices !== 'undefined' ||
+      typeof independenceChecked === 'boolean' ||
+      typeof overrideNote !== 'undefined';
+
+    const targetIsAuditClient = Boolean(
+      typeof isAuditClient === 'boolean' ? isAuditClient : existing.is_audit_client,
+    );
+    const targetRequiresEqr = Boolean(
+      typeof requiresEqr === 'boolean' ? requiresEqr : existing.requires_eqr,
+    );
+    let targetServices =
+      typeof nonAuditServices !== 'undefined'
+        ? sanitizeNonAuditServices(nonAuditServices)
+        : sanitizeNonAuditServices(existing.non_audit_services);
+    let targetIndependenceChecked =
+      typeof independenceChecked === 'boolean'
+        ? independenceChecked
+        : Boolean(existing.independence_checked);
+    let targetOverrideNote =
+      typeof overrideNote === 'undefined'
+        ? existing.independence_conclusion_note ?? null
+        : overrideNote ?? null;
+
+    let independenceAssessment: IndependenceAssessmentResult | null = null;
+
+    if (independenceFieldsProvided) {
+      independenceAssessment = assessIndependence({
+        isAuditClient: targetIsAuditClient,
+        independenceChecked: targetIndependenceChecked,
+        services: targetServices,
+        overrideNote: targetOverrideNote,
+      });
+
+      if (!independenceAssessment.ok) {
+        if (independenceAssessment.error === 'independence_check_required') {
+          return res.status(400).json({ error: 'independence_check_required' });
+        }
+        if (independenceAssessment.error === 'prohibited_nas') {
+          return res.status(409).json({ error: 'prohibited_non_audit_services' });
+        }
+      } else {
+        targetIndependenceChecked = independenceAssessment.checked;
+        targetOverrideNote = independenceAssessment.note;
+        targetServices = independenceAssessment.services;
+
+        updatePayload.independence_checked = independenceAssessment.checked;
+        updatePayload.independence_conclusion = independenceAssessment.conclusion;
+        updatePayload.independence_conclusion_note = independenceAssessment.note;
+        updatePayload.non_audit_services = targetServices.length > 0 ? targetServices : null;
+        updatePayload.is_audit_client = targetIsAuditClient;
+        updatePayload.requires_eqr = targetRequiresEqr;
+      }
+    }
+
     const currentStatus = (existing.status ?? 'PLANNING').toUpperCase();
     const nextStatus = typeof status === 'string' ? status.toUpperCase() : currentStatus;
 
