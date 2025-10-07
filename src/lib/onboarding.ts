@@ -1,4 +1,5 @@
 import { authorizedFetch } from '@/lib/api';
+import type { TaskRecord } from '@/lib/tasks';
 
 export interface OnboardingChecklistItem {
   id: string;
@@ -18,6 +19,22 @@ export interface OnboardingChecklist {
   country: string;
   status: 'ACTIVE' | 'COMPLETED' | 'ARCHIVED';
   items: OnboardingChecklistItem[];
+}
+
+export interface OnboardingTaskSeed {
+  title: string;
+  category?: string;
+  source?: string;
+  documentId?: string;
+}
+
+export interface OnboardingCommitResult {
+  checklist: OnboardingChecklist;
+  draft: Record<string, unknown> | null;
+  profile?: Record<string, unknown> | null;
+  provenance?: Record<string, unknown> | null;
+  taskSeeds: OnboardingTaskSeed[];
+  tasks: TaskRecord[];
 }
 
 export async function startOnboarding(orgSlug: string, industry: string, country: string): Promise<{
@@ -54,7 +71,7 @@ export async function linkChecklistDocument(params: {
 export async function commitOnboarding(params: {
   checklistId: string;
   profile: Record<string, unknown>;
-}): Promise<{ checklist: OnboardingChecklist; draft: Record<string, unknown> | null }> {
+}): Promise<OnboardingCommitResult> {
   const response = await authorizedFetch('/v1/onboarding/commit', {
     method: 'POST',
     body: JSON.stringify(params),
@@ -63,5 +80,16 @@ export async function commitOnboarding(params: {
   if (!response.ok) {
     throw new Error(payload?.detail ?? 'Failed to commit onboarding');
   }
-  return payload as { checklist: OnboardingChecklist; draft: Record<string, unknown> | null };
+  const taskSeeds = Array.isArray(payload?.taskSeeds)
+    ? (payload.taskSeeds as OnboardingTaskSeed[])
+    : [];
+  const tasks = Array.isArray(payload?.tasks) ? (payload.tasks as TaskRecord[]) : [];
+  return {
+    checklist: payload.checklist as OnboardingChecklist,
+    draft: (payload?.draft ?? null) as Record<string, unknown> | null,
+    profile: payload?.profile ?? null,
+    provenance: payload?.provenance ?? null,
+    taskSeeds,
+    tasks,
+  };
 }

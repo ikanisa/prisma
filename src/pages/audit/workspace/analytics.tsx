@@ -1,4 +1,5 @@
 import { FormEvent, useMemo, useState } from "react";
+import { authorizedFetch } from "@/lib/api";
 import { AuditWorkspaceLayout } from "./layout";
 
 type AnalyticsKind = "JE" | "RATIO" | "VARIANCE" | "DUPLICATE" | "BENFORD";
@@ -340,7 +341,7 @@ export default function AnalyticsWorkspace() {
     setLoading(true);
     setStatus(null);
     try {
-      const response = await fetch(
+      const response = await authorizedFetch(
         `/api/ada/run?orgId=${encodeURIComponent(orgId)}&engagementId=${encodeURIComponent(engagementId)}`,
       );
       if (!response.ok) {
@@ -459,9 +460,8 @@ export default function AnalyticsWorkspace() {
         params = { figures: benfordSample };
       }
 
-      const response = await fetch("/api/ada/run", {
+      const response = await authorizedFetch("/api/ada/run", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           kind,
           orgId,
@@ -524,9 +524,8 @@ export default function AnalyticsWorkspace() {
     }
 
     try {
-      const response = await fetch("/api/ada/exception/update", {
+      const response = await authorizedFetch("/api/ada/exception/update", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ orgId, userId, exceptionId, disposition }),
       });
       if (!response.ok) {

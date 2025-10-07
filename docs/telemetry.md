@@ -26,6 +26,14 @@ curl -X POST \
 
 This populates `telemetry_coverage_metrics` with treaty/US overlay coverage and updates `telemetry_service_levels` for MAP case response SLAs. Use `src/lib/telemetry-service.ts` or the dashboard sync button to invoke the same logic from the front-end.
 
+The Phase D release controls endpoint `/api/release-controls/check` reuses these
+tables, filtering `telemetry_alerts` for `WARNING+` severities and exposing both
+the open count and the exact severity filter applied in its
+`environment.telemetry` block so go-live sign-off fails fast if SLAs are at
+risk. The same payload surfaces the timestamp of the last consumed MFA
+challenge and its age versus the configured window so operations can prove MFA
+readiness alongside telemetry hygiene.
+
 ### Logging runtime errors
 
 Use `/functions/v1/error-notify` to log structured errors (e.g., edge-function failures) into `telemetry_refusal_events` and optionally relay them to an external webhook:

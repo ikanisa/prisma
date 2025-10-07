@@ -38,6 +38,21 @@ _DEFAULT_ARCHIVE_SETTINGS = {
     "manifest_hash": "sha256",
     "include_docs": [],
 }
+_DEFAULT_RELEASE_ENVIRONMENT = {
+    "autonomy": {
+        "minimum_level": "L2",
+        "require_worker": True,
+        "critical_roles": ["MANAGER", "PARTNER"],
+    },
+    "mfa": {
+        "channel": "WHATSAPP",
+        "within_seconds": 86400,
+    },
+    "telemetry": {
+        "max_open_alerts": 0,
+        "severity_threshold": "WARNING",
+    },
+}
 
 _SYSTEM_CONFIG_PATH = Path(__file__).resolve().parents[1] / "config" / "system.yaml"
 _DEFAULT_AUTONOMY_LEVEL = "L2"
@@ -51,8 +66,22 @@ _DEFAULT_AUTONOMY_LABELS = {
 _DEFAULT_AUTOPILOT_ALLOWANCES = {
     "L0": [],
     "L1": ["refresh_analytics"],
-    "L2": ["extract_documents", "remind_pbc", "refresh_analytics"],
-    "L3": ["extract_documents", "remind_pbc", "refresh_analytics"],
+    "L2": [
+        "extract_documents",
+        "remind_pbc",
+        "refresh_analytics",
+        "close_cycle",
+        "audit_fieldwork",
+        "tax_cycle",
+    ],
+    "L3": [
+        "extract_documents",
+        "remind_pbc",
+        "refresh_analytics",
+        "close_cycle",
+        "audit_fieldwork",
+        "tax_cycle",
+    ],
 }
 
 
@@ -459,6 +488,21 @@ def get_release_control_settings() -> Dict[str, Any]:
     approvals = list(_DEFAULT_RELEASE_APPROVALS)
     manifest_hash = _DEFAULT_ARCHIVE_SETTINGS.get("manifest_hash", "sha256")
     include_docs = list(_DEFAULT_ARCHIVE_SETTINGS.get("include_docs", []))
+    environment = {
+        "autonomy": {
+            "minimum_level": _DEFAULT_RELEASE_ENVIRONMENT["autonomy"].get("minimum_level", "L2"),
+            "require_worker": bool(_DEFAULT_RELEASE_ENVIRONMENT["autonomy"].get("require_worker", True)),
+            "critical_roles": list(_DEFAULT_RELEASE_ENVIRONMENT["autonomy"].get("critical_roles", [])),
+        },
+        "mfa": {
+            "channel": _DEFAULT_RELEASE_ENVIRONMENT["mfa"].get("channel", "WHATSAPP"),
+            "within_seconds": int(_DEFAULT_RELEASE_ENVIRONMENT["mfa"].get("within_seconds", 86400)),
+        },
+        "telemetry": {
+            "max_open_alerts": int(_DEFAULT_RELEASE_ENVIRONMENT["telemetry"].get("max_open_alerts", 0)),
+            "severity_threshold": _DEFAULT_RELEASE_ENVIRONMENT["telemetry"].get("severity_threshold", "WARNING"),
+        },
+    }
 
     if isinstance(release, Mapping):
         configured_approvals = _normalise_list(release.get("approvals_required", []))
@@ -474,12 +518,45 @@ def get_release_control_settings() -> Dict[str, Any]:
             if docs:
                 include_docs = docs
 
+        env_config = release.get("environment")
+        if isinstance(env_config, Mapping):
+            autonomy_cfg = env_config.get("autonomy")
+            if isinstance(autonomy_cfg, Mapping):
+                minimum = _coerce_autonomy_level(autonomy_cfg.get("minimum_level"))
+                if minimum:
+                    environment["autonomy"]["minimum_level"] = minimum
+                require_worker = _coerce_bool(autonomy_cfg.get("require_worker"))
+                if require_worker is not None:
+                    environment["autonomy"]["require_worker"] = require_worker
+                critical_roles = _normalise_list(autonomy_cfg.get("critical_roles", []))
+                if critical_roles:
+                    environment["autonomy"]["critical_roles"] = critical_roles
+
+            mfa_cfg = env_config.get("mfa")
+            if isinstance(mfa_cfg, Mapping):
+                channel_value = mfa_cfg.get("channel")
+                if isinstance(channel_value, str) and channel_value.strip():
+                    environment["mfa"]["channel"] = channel_value.strip().upper()
+                within = _coerce_int(mfa_cfg.get("within_seconds"))
+                if within is not None and within > 0:
+                    environment["mfa"]["within_seconds"] = within
+
+            telemetry_cfg = env_config.get("telemetry")
+            if isinstance(telemetry_cfg, Mapping):
+                max_open = _coerce_int(telemetry_cfg.get("max_open_alerts"))
+                if max_open is not None and max_open >= 0:
+                    environment["telemetry"]["max_open_alerts"] = max_open
+                severity_value = telemetry_cfg.get("severity_threshold")
+                if isinstance(severity_value, str) and severity_value.strip():
+                    environment["telemetry"]["severity_threshold"] = severity_value.strip().upper()
+
     return {
         "approvals_required": approvals,
         "archive": {
             "manifest_hash": manifest_hash,
             "include_docs": include_docs,
         },
+        "environment": environment,
     }
 
 

@@ -17,6 +17,9 @@
 5. `npm run test:playwright`
 6. Capture artifacts (coverage, screenshots) under `/GO-LIVE/artifacts/<release-tag>/`.
 7. Run Lighthouse + axe locally against staging bundle (record scores).
+8. Execute Phase D load tests where required (`tests/perf/autonomy-burst.js`,
+   `tests/perf/doc-ingestion-spike.js`, `tests/perf/archive-rebuild.js`) and
+   archive the JSON summaries alongside release-control outputs.
 
 ## 3. Database / Supabase migrations
 - Apply migrations in chronological order using `supabase db push` or the CI workflow:
@@ -37,6 +40,7 @@
   - `curl -H "Authorization: Bearer <jwt>" "$API_BASE_URL/v1/storage/documents?orgSlug=<slug>&limit=1"`
   - `curl -H "Authorization: Bearer <jwt>" -X POST "$API_BASE_URL/v1/notifications/mark-all" -d '{"orgSlug":"<slug>"}'`
   - `curl -H "Authorization: Bearer <jwt>" -H "Content-Type: application/json" -X POST "$API_BASE_URL/api/release-controls/check" -d '{"orgSlug":"<slug>"}'`
+    - Confirm `environment.autonomy.state == "satisfied"`, `environment.mfa.state == "satisfied"`, and `environment.telemetry.open <= maxOpen`.
 - Health:
   - `curl "$API_BASE_URL/health"`
   - `curl "$API_BASE_URL/readiness"`

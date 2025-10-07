@@ -31,6 +31,11 @@ export interface Membership {
   org_id: string;
   user_id: string;
   role: OrgRole;
+  autonomy_floor?: string;
+  autonomy_ceiling?: string;
+  is_service_account?: boolean;
+  client_portal_allowed_repos?: string[];
+  client_portal_denied_actions?: string[];
   organization: Organization;
 }
 

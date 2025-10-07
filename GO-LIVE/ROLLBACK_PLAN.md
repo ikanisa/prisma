@@ -28,6 +28,7 @@
 ## Autopilot & Background Jobs
 1. Cancel running RQ jobs via Redis queue if new release misbehaves (`rq requeue/cancel`).
 2. Disable worker (`AUTOPILOT_WORKER_DISABLED=true`) and redeploy; re-enable after fix verified.
+3. Once stabilised, run `/api/release-controls/check` to confirm `environment.autonomy.state` returns to `satisfied` before restoring automation.
 
 ## Observability & Alerts
 1. If correlation-ID middleware causes failures, toggle feature flag to bypass while patching (leave trace of change).
@@ -35,5 +36,6 @@
 
 ## Post-Rollback Verification
 - Execute the same smoke suite as post-deploy (`GO-LIVE/RELEASE_RUNBOOK.md`).
+- Capture the release controls response to ensure the `environment` block (autonomy, MFA, telemetry) is healthy post-rollback.
 - Update `GO-LIVE/GO-LIVE_SCORECARD.md` to reflect rollback and outstanding actions.
 - Notify stakeholders with summary + next steps.

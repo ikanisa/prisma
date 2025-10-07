@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { authorizedFetch } from "@/lib/api";
 import { AuditWorkspaceLayout } from "./layout";
 
 type Frequency =
@@ -450,7 +451,7 @@ export default function ControlsWorkspace() {
     resetStatus();
 
     try {
-      const response = await fetch(
+      const response = await authorizedFetch(
         `/api/controls?orgId=${encodeURIComponent(orgId)}&engagementId=${encodeURIComponent(engagementId)}`,
         { cache: "no-store" },
       );
@@ -527,9 +528,8 @@ export default function ControlsWorkspace() {
           throw new Error("Provide organisation, engagement, and user identifiers to add controls in live mode.");
         }
 
-        const response = await fetch("/api/controls", {
+        const response = await authorizedFetch("/api/controls", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             orgId,
             engagementId,
@@ -594,9 +594,8 @@ export default function ControlsWorkspace() {
           throw new Error("Provide organisation and user identifiers to record walkthroughs in live mode.");
         }
 
-        const response = await fetch("/api/controls/walkthrough", {
+        const response = await authorizedFetch("/api/controls/walkthrough", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             orgId,
             controlId: selectedControl.id,
@@ -691,9 +690,8 @@ export default function ControlsWorkspace() {
           throw new Error("Provide organisation, engagement, and user identifiers to run testing in live mode.");
         }
 
-        const response = await fetch("/api/controls/test/run", {
+        const response = await authorizedFetch("/api/controls/test/run", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             orgId,
             engagementId,

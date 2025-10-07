@@ -48,6 +48,32 @@ k6 run tests/perf/autopilot-smoke.js \
   -e AUTOPILOT_VUS=5 \
   -e AUTOPILOT_DURATION=1m
 
+# Autonomy burst (Phase D)
+k6 run tests/perf/autonomy-burst.js \
+  -e AUTONOMY_BURST_BASE_URL="https://staging.example.com" \
+  -e AUTONOMY_BURST_ACCESS_TOKEN="$TOKEN" \
+  -e AUTONOMY_BURST_ORG_SLUG="acme" \
+  -e AUTONOMY_BURST_VUS=12 \
+  -e AUTONOMY_BURST_DURATION=3m \
+  -e AUTONOMY_BURST_JOBS="extract_documents,refresh_analytics,close_cycle"
+
+# Document ingestion spike (Phase D)
+k6 run tests/perf/doc-ingestion-spike.js \
+  -e DOC_INGESTION_BASE_URL="https://staging.example.com" \
+  -e DOC_INGESTION_ACCESS_TOKEN="$TOKEN" \
+  -e DOC_INGESTION_ORG_SLUG="acme" \
+  -e DOC_INGESTION_ENTITY_ID="$ENTITY_ID" \
+  -e DOC_INGESTION_REPO="03_Accounting/PBC" \
+  -e DOC_INGESTION_VUS=8 \
+  -e DOC_INGESTION_DURATION=2m
+
+# Archive rebuild (Phase D)
+k6 run tests/perf/archive-rebuild.js \
+  -e ARCHIVE_FUNCTION_URL="https://<project>.supabase.co/functions/v1/archive-sync" \
+  -e ARCHIVE_REBUILD_ACCESS_TOKEN="$SERVICE_TOKEN" \
+  -e ARCHIVE_REBUILD_ORG_SLUG="acme" \
+  -e ARCHIVE_REBUILD_ENGAGEMENT_ID="$ENGAGEMENT_ID"
+
 # Telemetry sync
 k6 run tests/perf/telemetry-sync.js \
   -e TELEMETRY_FUNCTION_URL="https://<project>.supabase.co/functions/v1/telemetry-sync" \

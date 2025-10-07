@@ -1,6 +1,7 @@
 """Utilities for evaluating release control readiness."""
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Mapping, Optional
 
 from fastapi import HTTPException
@@ -17,6 +18,45 @@ APPROVAL_KIND_MAP: Mapping[str, List[str]] = {
         "US_OVERLAY_APPROVAL",
     ],
 }
+
+
+_AUTONOMY_RANK: Mapping[str, int] = {"L0": 0, "L1": 1, "L2": 2, "L3": 3}
+_SEVERITY_RANK: Mapping[str, int] = {
+    "INFO": 0,
+    "NOTICE": 0,
+    "WARNING": 1,
+    "WARN": 1,
+    "ERROR": 2,
+    "CRITICAL": 3,
+}
+
+
+def _normalise_autonomy(value: Any) -> str:
+    if isinstance(value, str):
+        candidate = value.strip().upper()
+        if candidate in _AUTONOMY_RANK:
+            return candidate
+    return "L0"
+
+
+def _normalise_role(value: Any) -> str:
+    if isinstance(value, str):
+        candidate = value.strip().upper()
+        if candidate:
+            return candidate
+    return ""
+
+
+def _parse_timestamp(value: Any) -> Optional[datetime]:
+    if not isinstance(value, str) or not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
 
 
 def _ensure_response_ok(table: str, response: Any) -> None:
@@ -202,4 +242,181 @@ async def evaluate_release_controls(
     return {
         "actions": actions,
         "archive": archive_summary,
+    }
+
+
+async def summarise_release_environment(
+    org_id: str,
+    *,
+    supabase_table_request,
+    org_autonomy_level: Optional[str],
+    settings: Optional[Mapping[str, Any]] = None,
+    autopilot_worker_disabled: bool = False,
+) -> Dict[str, Any]:
+    settings = settings or {}
+    autonomy_settings = settings.get("autonomy") if isinstance(settings, Mapping) else None
+    mfa_settings = settings.get("mfa") if isinstance(settings, Mapping) else None
+    telemetry_settings = settings.get("telemetry") if isinstance(settings, Mapping) else None
+
+    minimum_level = _normalise_autonomy(
+        autonomy_settings.get("minimum_level") if isinstance(autonomy_settings, Mapping) else None
+    )
+    require_worker = True
+    if isinstance(autonomy_settings, Mapping):
+        worker_flag = autonomy_settings.get("require_worker")
+        if isinstance(worker_flag, bool):
+            require_worker = worker_flag
+    critical_roles: List[str] = []
+    if isinstance(autonomy_settings, Mapping):
+        roles = autonomy_settings.get("critical_roles")
+        if isinstance(roles, (list, tuple)):
+            critical_roles = [_normalise_role(role) for role in roles if _normalise_role(role)]
+    if not critical_roles:
+        critical_roles = ["MANAGER", "PARTNER"]
+
+    org_level = _normalise_autonomy(org_autonomy_level)
+    ceiling_shortfalls: List[Dict[str, Any]] = []
+    membership_rows = await _fetch_rows(
+        "memberships",
+        params={
+            "org_id": f"eq.{org_id}",
+            "select": "id,role,autonomy_ceiling",
+        },
+        supabase_table_request=supabase_table_request,
+    )
+    for row in membership_rows:
+        role = _normalise_role(row.get("role"))
+        if role and role in critical_roles:
+            ceiling = _normalise_autonomy(row.get("autonomy_ceiling"))
+            if _AUTONOMY_RANK.get(ceiling, 0) < _AUTONOMY_RANK.get(minimum_level, 0):
+                ceiling_shortfalls.append(
+                    {
+                        "membershipId": row.get("id"),
+                        "role": role,
+                        "ceiling": ceiling,
+                    }
+                )
+
+    autonomy_flags: List[str] = []
+    if require_worker and autopilot_worker_disabled:
+        autonomy_flags.append("worker_disabled")
+    if _AUTONOMY_RANK.get(org_level, 0) < _AUTONOMY_RANK.get(minimum_level, 0):
+        autonomy_flags.append("org_level_below_minimum")
+    if ceiling_shortfalls:
+        autonomy_flags.append("membership_ceiling_shortfall")
+
+    autonomy_state = "satisfied" if not autonomy_flags else "pending"
+    autonomy_summary = {
+        "state": autonomy_state,
+        "orgLevel": org_level,
+        "minimumLevel": minimum_level,
+        "workerEnabled": (not autopilot_worker_disabled) or not require_worker,
+        "criticalRoles": critical_roles,
+        "ceilingShortfalls": ceiling_shortfalls,
+        "flags": autonomy_flags,
+    }
+
+    channel = "WHATSAPP"
+    window_seconds = 86400
+    if isinstance(mfa_settings, Mapping):
+        candidate_channel = mfa_settings.get("channel")
+        if isinstance(candidate_channel, str) and candidate_channel.strip():
+            channel = candidate_channel.strip().upper()
+        candidate_window = mfa_settings.get("within_seconds")
+        if isinstance(candidate_window, int) and candidate_window > 0:
+            window_seconds = candidate_window
+        elif isinstance(candidate_window, str) and candidate_window.strip().isdigit():
+            parsed_window = int(candidate_window.strip())
+            if parsed_window > 0:
+                window_seconds = parsed_window
+
+    challenge_rows = await _fetch_rows(
+        "mfa_challenges",
+        params={
+            "org_id": f"eq.{org_id}",
+            "channel": f"eq.{channel}",
+            "consumed": "eq.true",
+            "order": "created_at.desc",
+            "limit": "1",
+        },
+        supabase_table_request=supabase_table_request,
+    )
+    last_challenge = challenge_rows[0] if challenge_rows else None
+    last_challenge_at = _parse_timestamp(last_challenge.get("created_at")) if last_challenge else None
+    last_challenge_age_seconds: Optional[int] = None
+    mfa_state = "pending"
+    if last_challenge_at is not None:
+        age_seconds = (datetime.now(timezone.utc) - last_challenge_at).total_seconds()
+        last_challenge_age_seconds = int(age_seconds)
+        if age_seconds <= window_seconds:
+            mfa_state = "satisfied"
+        else:
+            mfa_state = "stale"
+
+    mfa_summary = {
+        "state": mfa_state,
+        "channel": channel,
+        "withinSeconds": window_seconds,
+        "lastChallengeAt": last_challenge_at.isoformat() if last_challenge_at else None,
+        "lastChallengeAgeSeconds": last_challenge_age_seconds,
+    }
+
+    severity_threshold = "WARNING"
+    if isinstance(telemetry_settings, Mapping):
+        candidate_threshold = telemetry_settings.get("severity_threshold")
+        if isinstance(candidate_threshold, str) and candidate_threshold.strip():
+            severity_threshold = candidate_threshold.strip().upper()
+    threshold_rank = _SEVERITY_RANK.get(severity_threshold, 1)
+    severity_values = [
+        level for level, rank in _SEVERITY_RANK.items() if rank >= threshold_rank
+    ]
+    if not severity_values:
+        severity_values = [severity_threshold]
+
+    max_open_alerts = 0
+    if isinstance(telemetry_settings, Mapping):
+        candidate_max = telemetry_settings.get("max_open_alerts")
+        if isinstance(candidate_max, int) and candidate_max >= 0:
+            max_open_alerts = candidate_max
+        elif isinstance(candidate_max, str) and candidate_max.strip().isdigit():
+            parsed_max = int(candidate_max.strip())
+            if parsed_max >= 0:
+                max_open_alerts = parsed_max
+
+    params = {
+        "org_id": f"eq.{org_id}",
+        "resolved_at": "is.null",
+        "order": "created_at.desc",
+        "limit": "25",
+    }
+    params["severity"] = f"in.({','.join(severity_values)})"
+
+    alert_rows = await _fetch_rows(
+        "telemetry_alerts",
+        params=params,
+        supabase_table_request=supabase_table_request,
+    )
+    open_count = len(alert_rows)
+    telemetry_state = "satisfied" if open_count <= max_open_alerts else "pending"
+    telemetry_summary = {
+        "state": telemetry_state,
+        "open": open_count,
+        "maxOpen": max_open_alerts,
+        "severityThreshold": severity_threshold,
+        "severityFilter": severity_values,
+        "alerts": [
+            {
+                "id": row.get("id"),
+                "severity": row.get("severity"),
+                "alertType": row.get("alert_type"),
+                "createdAt": row.get("created_at"),
+            }
+            for row in alert_rows[:5]
+        ],
+    }
+
+    return {
+        "autonomy": autonomy_summary,
+        "mfa": mfa_summary,
+        "telemetry": telemetry_summary,
     }

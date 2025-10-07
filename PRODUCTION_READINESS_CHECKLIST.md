@@ -7,6 +7,7 @@
 - [DevOps](#devops)
 - [Data Management](#data-management)
 - [Compliance](#compliance)
+- [Hardening & UAT](#hardening--uat)
 
 | Item | Status |
 |---|---|
@@ -34,7 +35,7 @@
 | Automated tests for accounting modules | PASS |
 
 ## Security
-- OAuth scope catalogue maintained in `docs/SECURITY/oauth-scopes.md`; changes require security sign-off and rotation per the key rotation guide.
+- OAuth scope catalogue maintained in `docs/SECURITY/oauth-scopes.md`; changes require security sign-off and rotation per the key-rotation guide.
 - Penetration test & threat drill procedures defined in `docs/SECURITY/penetration-testing.md` (bi-annual cadence, reporting requirements).
 - Supabase keys rotated per `docs/SECURITY/KEY_ROTATION.md` (placeholders updated in `.env.example`).
 - Edge functions and server runtimes source Supabase secrets through Vault helpers (`lib/secrets/*`, `supabase/functions/_shared/supabase-client.ts`); rotation only requires updating the Vault path referenced in `.env.example`.
@@ -49,6 +50,7 @@
 - Telemetry schemas and rate-limit guidance in `docs/telemetry.md` with actionable alerts.
 - Error notification pipeline implemented via `/functions/v1/error-notify`; process captured in `docs/incident-response.md`.
 - Rate-limit breaches and SLA at-risk events emit `telemetry_alerts` rows and optional webhooks (`RATE_LIMIT_ALERT_WEBHOOK`, `TELEMETRY_ALERT_WEBHOOK`) routing to PagerDuty/Slack.
+- `/api/release-controls/check` reports `environment.autonomy/mfa/telemetry` states as `satisfied` before change approval; archive the response JSON in the go-live ticket.
 
 ## DevOps
 - CI runs linting, unit/integration tests, SCA, and secret scanning (gitleaks).
@@ -67,3 +69,4 @@
 
 ## Hardening & UAT
 - Performance/load test & UAT plan in `docs/performance-uat-plan.md` covering ADA, recon, consolidation, telemetry, and partner sign-off scripts.
+- Phase D load profiles (`tests/perf/autonomy-burst.js`, `tests/perf/doc-ingestion-spike.js`, `tests/perf/archive-rebuild.js`) executed with summaries stored under `GO-LIVE/artifacts/` alongside release-control evidence.
