@@ -59,14 +59,17 @@ export const useOfflineSupport = () => {
     
     if (!isOnline && validation.isValid) {
       // Queue for later processing
-      addToOfflineQueue({
-        type: 'qr',
+      const queuedAction = {
+        type: 'qr' as const,
         data: {
           qrCode,
           validation,
           timestamp: Date.now()
         }
-      });
+      };
+
+      addToOfflineQueue(queuedAction);
+      setOfflineQueue((currentQueue) => [...currentQueue, queuedAction]);
     }
     
     return validation;
