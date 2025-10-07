@@ -57,10 +57,13 @@ const ORG_SCOPED_TABLES = [
 
   // Misc tables with org_id
   'activity_log',
+  'acceptance_decisions',
   'categories',
   'chunks',
+  'client_background_checks',
   'cit_computations',
-  'independence_checks',
+  'independence_assessments',
+  'approval_queue',
   'members',
   'memberships',
   'misstatements',

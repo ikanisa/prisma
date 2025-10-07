@@ -1734,40 +1734,316 @@ export type Database = {
           },
         ]
       }
-      independence_checks: {
+      acceptance_decisions: {
         Row: {
-          client_id: string
-          conclusion: string | null
+          approved_at: string | null
+          approved_by_user_id: string | null
           created_at: string
+          created_by_user_id: string | null
+          decision: Database["public"]["Enums"]["acceptance_decision"]
+          engagement_id: string
+          eqr_required: boolean
           id: string
           org_id: string
-          safeguards: Json
-          threats: Json
+          rationale: string | null
+          status: Database["public"]["Enums"]["acceptance_status"]
+          updated_at: string
+          updated_by_user_id: string | null
         }
         Insert: {
-          client_id: string
-          conclusion?: string | null
+          approved_at?: string | null
+          approved_by_user_id?: string | null
           created_at?: string
+          created_by_user_id?: string | null
+          decision?: Database["public"]["Enums"]["acceptance_decision"]
+          engagement_id: string
+          eqr_required?: boolean
           id?: string
           org_id: string
-          safeguards?: Json
-          threats?: Json
+          rationale?: string | null
+          status?: Database["public"]["Enums"]["acceptance_status"]
+          updated_at?: string
+          updated_by_user_id?: string | null
         }
         Update: {
-          client_id?: string
-          conclusion?: string | null
+          approved_at?: string | null
+          approved_by_user_id?: string | null
           created_at?: string
+          created_by_user_id?: string | null
+          decision?: Database["public"]["Enums"]["acceptance_decision"]
+          engagement_id?: string
+          eqr_required?: boolean
           id?: string
           org_id?: string
-          safeguards?: Json
-          threats?: Json
+          rationale?: string | null
+          status?: Database["public"]["Enums"]["acceptance_status"]
+          updated_at?: string
+          updated_by_user_id?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "independence_checks_org_id_fkey"
+            foreignKeyName: "acceptance_decisions_approved_by_user_id_fkey"
+            columns: ["approved_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "acceptance_decisions_created_by_user_id_fkey"
+            columns: ["created_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "acceptance_decisions_engagement_id_fkey"
+            columns: ["engagement_id"]
+            isOneToOne: true
+            referencedRelation: "engagements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "acceptance_decisions_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "acceptance_decisions_updated_by_user_id_fkey"
+            columns: ["updated_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      approval_queue: {
+        Row: {
+          assignee_user_id: string | null
+          candidate_id: string | null
+          created_at: string
+          created_by_user_id: string | null
+          draft_id: string | null
+          engagement_id: string
+          id: string
+          kind: string
+          org_id: string
+          payload: Json
+          resolved_at: string | null
+          resolved_by_user_id: string | null
+          resolution_note: string | null
+          stage: Database["public"]["Enums"]["approval_stage"]
+          status: Database["public"]["Enums"]["approval_status"]
+          updated_at: string
+          updated_by_user_id: string | null
+        }
+        Insert: {
+          assignee_user_id?: string | null
+          candidate_id?: string | null
+          created_at?: string
+          created_by_user_id?: string | null
+          draft_id?: string | null
+          engagement_id: string
+          id?: string
+          kind: string
+          org_id: string
+          payload?: Json
+          resolved_at?: string | null
+          resolved_by_user_id?: string | null
+          resolution_note?: string | null
+          stage: Database["public"]["Enums"]["approval_stage"]
+          status?: Database["public"]["Enums"]["approval_status"]
+          updated_at?: string
+          updated_by_user_id?: string | null
+        }
+        Update: {
+          assignee_user_id?: string | null
+          candidate_id?: string | null
+          created_at?: string
+          created_by_user_id?: string | null
+          draft_id?: string | null
+          engagement_id?: string
+          id?: string
+          kind?: string
+          org_id?: string
+          payload?: Json
+          resolved_at?: string | null
+          resolved_by_user_id?: string | null
+          resolution_note?: string | null
+          stage?: Database["public"]["Enums"]["approval_stage"]
+          status?: Database["public"]["Enums"]["approval_status"]
+          updated_at?: string
+          updated_by_user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "approval_queue_assignee_user_id_fkey"
+            columns: ["assignee_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "approval_queue_candidate_id_fkey"
+            columns: ["candidate_id"]
+            isOneToOne: false
+            referencedRelation: "kam_candidates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "approval_queue_created_by_user_id_fkey"
+            columns: ["created_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "approval_queue_draft_id_fkey"
+            columns: ["draft_id"]
+            isOneToOne: false
+            referencedRelation: "kam_drafts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "approval_queue_engagement_id_fkey"
+            columns: ["engagement_id"]
+            isOneToOne: false
+            referencedRelation: "engagements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "approval_queue_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "approval_queue_resolved_by_user_id_fkey"
+            columns: ["resolved_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "approval_queue_updated_by_user_id_fkey"
+            columns: ["updated_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      client_background_checks: {
+        Row: {
+          client_id: string
+          created_at: string
+          created_by_user_id: string | null
+          id: string
+          notes: string | null
+          org_id: string
+          risk_rating: Database["public"]["Enums"]["background_risk_rating"]
+          screenings: Json
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          created_by_user_id?: string | null
+          id?: string
+          notes?: string | null
+          org_id: string
+          risk_rating?: Database["public"]["Enums"]["background_risk_rating"]
+          screenings?: Json
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          created_by_user_id?: string | null
+          id?: string
+          notes?: string | null
+          org_id?: string
+          risk_rating?: Database["public"]["Enums"]["background_risk_rating"]
+          screenings?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_background_checks_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_background_checks_created_by_user_id_fkey"
+            columns: ["created_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_background_checks_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      independence_assessments: {
+        Row: {
+          client_id: string
+          conclusion: Database["public"]["Enums"]["independence_conclusion"]
+          id: string
+          org_id: string
+          prepared_at: string
+          prepared_by_user_id: string | null
+          safeguards: Json
+          threats: Json
+          updated_at: string
+        }
+        Insert: {
+          client_id: string
+          conclusion?: Database["public"]["Enums"]["independence_conclusion"]
+          id?: string
+          org_id: string
+          prepared_at?: string
+          prepared_by_user_id?: string | null
+          safeguards?: Json
+          threats?: Json
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string
+          conclusion?: Database["public"]["Enums"]["independence_conclusion"]
+          id?: string
+          org_id?: string
+          prepared_at?: string
+          prepared_by_user_id?: string | null
+          safeguards?: Json
+          threats?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "independence_assessments_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "independence_assessments_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "independence_assessments_prepared_by_user_id_fkey"
+            columns: ["prepared_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]
@@ -4911,6 +5187,10 @@ export type Database = {
       }
     }
     Enums: {
+      acceptance_decision: "ACCEPT" | "DECLINE"
+      acceptance_status: "DRAFT" | "APPROVED" | "REJECTED"
+      approval_stage: "MANAGER" | "PARTNER" | "EQR"
+      approval_status: "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED"
       audit_risk_category:
         | "FINANCIAL_STATEMENT"
         | "FRAUD"
@@ -4920,6 +5200,7 @@ export type Database = {
         | "COMPLIANCE"
         | "ESTIMATE"
         | "OTHER"
+      background_risk_rating: "LOW" | "MEDIUM" | "HIGH" | "UNKNOWN"
       cit_refund_profile: "6_7" | "5_7" | "2_3" | "NONE"
       close_period_status:
         | "OPEN"
@@ -4928,6 +5209,7 @@ export type Database = {
         | "LOCKED"
       engagement_status: "planned" | "active" | "completed" | "archived"
       fraud_plan_status: "DRAFT" | "READY_FOR_APPROVAL" | "LOCKED"
+      independence_conclusion: "OK" | "SAFEGUARDS_REQUIRED" | "PROHIBITED"
       je_control_rule:
         | "LATE_POSTING"
         | "WEEKEND_USER"
