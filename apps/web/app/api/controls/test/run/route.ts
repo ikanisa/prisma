@@ -14,11 +14,30 @@ import { createApiGuard } from '../../../../lib/api-guard';
  * Defaults to the real client from lib/audit/sampling-client.
  */
 type SamplingClient = ReturnType<typeof baseGetSamplingClient>;
-let samplingClientFactory: () => SamplingClient = () => baseGetSamplingClient();
+
+let cachedEnvSamplingClient: SamplingClient | null = null;
+
+function buildSamplingClientFromEnv(): SamplingClient {
+  if (!cachedEnvSamplingClient) {
+    cachedEnvSamplingClient = baseGetSamplingClient({
+      baseUrl: process.env.SAMPLING_C1_BASE_URL,
+      apiKey: process.env.SAMPLING_C1_API_KEY,
+    });
+  }
+  return cachedEnvSamplingClient;
+}
+
+let samplingClientFactory: () => SamplingClient = () => buildSamplingClientFromEnv();
 
 /** Optional: used by tests to override the sampling client */
 export function setSamplingClientFactory(factory: (() => SamplingClient) | null) {
-  samplingClientFactory = factory ?? (() => baseGetSamplingClient());
+  if (factory) {
+    samplingClientFactory = factory;
+    return;
+  }
+
+  cachedEnvSamplingClient = null;
+  samplingClientFactory = () => buildSamplingClientFromEnv();
 }
 
 export async function POST(request: Request) {
