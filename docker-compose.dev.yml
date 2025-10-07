@@ -34,6 +34,14 @@ services:
       SENTRY_DB_PASSWORD: postgres
       SENTRY_DB_HOST: postgres
       SENTRY_REDIS_HOST: redis
+  jaeger:
+    image: jaegertracing/all-in-one:1.60
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "16686:16686"
+      - "4317:4317"
+      - "4318:4318"
   gateway:
     build:
       context: .
@@ -42,6 +50,10 @@ services:
     depends_on:
       - postgres
       - redis
+      - jaeger
+    environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318/v1/traces
+      OTEL_SERVICE_NAME: gateway
   rag:
     build:
       context: .
@@ -50,6 +62,10 @@ services:
     depends_on:
       - postgres
       - redis
+      - jaeger
+    environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318/v1/traces
+      OTEL_SERVICE_NAME: rag
   agent:
     build:
       context: .
@@ -58,6 +74,10 @@ services:
     depends_on:
       - postgres
       - redis
+      - jaeger
+    environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318/v1/traces
+      OTEL_SERVICE_NAME: agent
   analytics:
     build:
       context: .
@@ -66,6 +86,10 @@ services:
     depends_on:
       - postgres
       - redis
+      - jaeger
+    environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318/v1/traces
+      OTEL_SERVICE_NAME: analytics
   ui:
     build:
       context: .

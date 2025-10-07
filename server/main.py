@@ -25,9 +25,11 @@ import httpx
 from pydantic import BaseModel, Field, ConfigDict
 from opentelemetry import trace
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
-from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from opentelemetry.trace import Status, StatusCode
 from rq import Queue
 from sqlalchemy import text
 from datetime import datetime, timezone, timedelta
@@ -79,6 +81,48 @@ from .workflow_orchestrator import (
 )
 
 app = FastAPI()
+
+SERVICE_NAME = os.getenv("OTEL_SERVICE_NAME", "gateway")
+_OTEL_CONFIGURED = False
+
+
+def _configure_tracing(target_app: FastAPI) -> trace.Tracer:
+    global _OTEL_CONFIGURED
+
+    if not _OTEL_CONFIGURED:
+        resource = Resource.create({"service.name": SERVICE_NAME})
+        provider = TracerProvider(resource=resource)
+        otlp_endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
+        if otlp_endpoint:
+            provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter(endpoint=otlp_endpoint)))
+        trace.set_tracer_provider(provider)
+        _OTEL_CONFIGURED = True
+
+    provider = trace.get_tracer_provider()
+    if not getattr(target_app.state, "_otel_instrumented", False):
+        if isinstance(provider, TracerProvider):
+            FastAPIInstrumentor.instrument_app(target_app, tracer_provider=provider)
+        else:  # pragma: no cover - defensive fallback
+            FastAPIInstrumentor.instrument_app(target_app)
+        target_app.state._otel_instrumented = True
+
+    return trace.get_tracer(SERVICE_NAME)
+
+
+tracer = _configure_tracing(app)
+
+SENTRY_RELEASE = os.getenv("SENTRY_RELEASE")
+SENTRY_ENVIRONMENT = os.getenv("SENTRY_ENVIRONMENT", os.getenv("ENVIRONMENT", "development"))
+SENTRY_DSN = os.getenv("SENTRY_DSN")
+SENTRY_ENABLED = bool(SENTRY_DSN)
+
+if SENTRY_ENABLED:
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        traces_sample_rate=1.0,
+        release=SENTRY_RELEASE,
+        environment=SENTRY_ENVIRONMENT,
+    )
 
 PERMISSION_CONFIG_PATH = Path(__file__).resolve().parents[1] / "POLICY" / "permissions.json"
 PERMISSION_MAP: Dict[str, str] = {}
@@ -176,6 +220,27 @@ def get_current_request_id() -> Optional[str]:
 
 
 @app.middleware("http")
+async def trace_requests(request: Request, call_next):
+    span_name = f"{request.method} {request.url.path}"
+    with tracer.start_as_current_span(span_name) as span:
+        span.set_attribute("http.method", request.method)
+        span.set_attribute("http.route", request.url.path)
+        span.set_attribute("http.scheme", request.url.scheme)
+        try:
+            response = await call_next(request)
+        except Exception as exc:  # pragma: no cover - defensive logging
+            span.record_exception(exc)
+            span.set_status(Status(StatusCode.ERROR, str(exc)))
+            raise
+
+        span.set_attribute("http.status_code", response.status_code)
+        request_id = getattr(request.state, "request_id", None)
+        if request_id:
+            span.set_attribute("prismaglow.request_id", request_id)
+        return response
+
+
+@app.middleware("http")
 async def add_request_id(request: Request, call_next):
     incoming = request.headers.get(REQUEST_ID_HEADER) or request.headers.get(REQUEST_ID_HEADER.lower())
     request_id = (incoming or "").strip() or str(uuid.uuid4())
@@ -183,8 +248,10 @@ async def add_request_id(request: Request, call_next):
     token = _request_id_ctx.set(request_id)
     structlog.contextvars.clear_contextvars()
     structlog.contextvars.bind_contextvars(request_id=request_id)
-    with sentry_sdk.configure_scope() as scope:
-        scope.set_tag("request_id", request_id)
+    request.state.request_id = request_id
+    if SENTRY_ENABLED:
+        with sentry_sdk.configure_scope() as scope:
+            scope.set_tag("request_id", request_id)
 
     try:
         response = await call_next(request)
@@ -203,24 +270,6 @@ async def apply_security_headers(request, call_next):
         if header not in response.headers:
             response.headers[header] = value
     return response
-
-# OTEL setup
-provider = TracerProvider()
-trace.set_tracer_provider(provider)
-otlp_endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
-if otlp_endpoint:
-    provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter(endpoint=otlp_endpoint)))
-FastAPIInstrumentor.instrument_app(app, tracer_provider=provider)
-
-# Sentry stub
-SENTRY_RELEASE = os.getenv("SENTRY_RELEASE")
-SENTRY_ENVIRONMENT = os.getenv("SENTRY_ENVIRONMENT", os.getenv("ENVIRONMENT", "development"))
-sentry_sdk.init(
-    dsn=os.getenv("SENTRY_DSN"),
-    traces_sample_rate=1.0,
-    release=SENTRY_RELEASE,
-    environment=SENTRY_ENVIRONMENT,
-)
 
 structlog.configure(
     processors=[
