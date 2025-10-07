@@ -1,6 +1,6 @@
--- Create Aurora Advisors organization
+-- Create Prisma Glow organization
 INSERT INTO public.organizations (name, slug, brand_primary, brand_secondary)
-VALUES ('Aurora Advisors', 'aurora', '#6366f1', '#8b5cf6')
+VALUES ('Prisma Glow', 'prisma-glow', '#2563eb', '#7c3aed')
 ON CONFLICT (slug) DO NOTHING;
 
 -- Create sample clients
@@ -19,5 +19,5 @@ FROM public.organizations o,
     ('TechCorp Inc.', 'John Smith', 'john@techcorp.com', '+1234567890', 'United States', 'Technology', 'December 31'),
     ('Global Manufacturing Ltd.', 'Sarah Johnson', 'sarah@globalmanuf.com', '+1987654321', 'Canada', 'Manufacturing', 'March 31')
 ) AS c(name, contact_name, email, phone, country, industry, fiscal_year_end)
-WHERE o.slug = 'aurora'
+WHERE o.slug = 'prisma-glow'
 ON CONFLICT DO NOTHING;;

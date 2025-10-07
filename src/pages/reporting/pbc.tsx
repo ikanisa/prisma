@@ -7,6 +7,7 @@ import { useOrganizations } from '@/hooks/use-organizations';
 import { usePbcManager, type PbcRequest, type PbcRequestStatus } from '@/hooks/use-pbc';
 import { useAcceptanceStatus } from '@/hooks/use-acceptance-status';
 import { supabase } from '@/integrations/supabase/client';
+import type { PostgrestError } from '@supabase/supabase-js';
 import { useToast } from '@/hooks/use-toast';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -138,13 +139,21 @@ export default function PbcManagerPage() {
   const documentsQuery = useQuery<DocumentRow[]>({
     queryKey: ['pbc-documents', currentOrg?.id, engagementId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('documents')
+      const documentsTable = supabase.from('documents') as any;
+      const response = await documentsTable
         .select('id, name, created_at')
         .eq('org_id', currentOrg!.id)
         .eq('engagement_id', engagementId!);
+      const { data, error } = response as {
+        data: Array<{ id: string; name: string; created_at: string | null }> | null;
+        error: PostgrestError | null;
+      };
       if (error) throw new Error(error.message);
-      return data ?? [];
+      return (data ?? []).map(({ id, name, created_at }) => ({
+        id,
+        name,
+        created_at: created_at ?? new Date().toISOString(),
+      }));
     },
     enabled: Boolean(currentOrg?.id && engagementId),
     staleTime: 60_000,

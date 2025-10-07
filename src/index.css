@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Aurora Advisors Design System - Professional gradients with playful touches */
+/* Prisma Glow Design System - Professional gradients with playful touches */
 
 @layer base {
   :root {
@@ -20,15 +20,15 @@
     --popover: 0 0% 100%;
     --popover-foreground: 220 20% 10%;
 
-    /* Aurora gradient system - teal to violet */
-    --primary: 186 100% 40%; /* Teal base */
+    /* Prisma Glow gradient system - luminous blue to violet */
+    --primary: 186 100% 32%; /* Darkened for WCAG contrast */
     --primary-foreground: 0 0% 100%;
-    --primary-light: 186 100% 60%;
-    --primary-dark: 186 100% 30%;
+    --primary-light: 186 100% 48%;
+    --primary-dark: 186 100% 24%;
 
     /* Secondary gradient - blue to purple */
-    --secondary: 220 100% 96%;
-    --secondary-foreground: 220 20% 20%;
+    --secondary: 220 100% 95%;
+    --secondary-foreground: 220 30% 22%;
     --secondary-accent: 240 100% 70%;
 
     /* Tertiary - violet accents */
@@ -37,7 +37,7 @@
 
     /* Muted system */
     --muted: 220 20% 96%;
-    --muted-foreground: 220 10% 50%;
+    --muted-foreground: 220 15% 32%;
 
     /* Accent system */
     --accent: 220 20% 96%;
@@ -58,7 +58,7 @@
 
     /* Gradient definitions */
     --gradient-primary: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--secondary-accent)));
-    --gradient-aurora: linear-gradient(135deg, hsl(186 100% 40%), hsl(220 100% 70%), hsl(270 100% 70%));
+    --gradient-glow: linear-gradient(135deg, hsl(186 100% 40%), hsl(220 100% 70%), hsl(270 100% 70%));
     --gradient-glass: linear-gradient(135deg, hsl(0 0% 100% / 0.1), hsl(0 0% 100% / 0.05));
     --gradient-subtle: linear-gradient(180deg, hsl(var(--background)), hsl(220 20% 98%));
 
@@ -88,7 +88,7 @@
   }
 
   .dark {
-    /* Dark mode - deep space with aurora accents */
+    /* Dark mode - deep space with Prisma Glow accents */
     --background: 220 30% 6%;
     --foreground: 220 20% 95%;
 
@@ -101,7 +101,7 @@
     --popover: 220 30% 8%;
     --popover-foreground: 220 20% 95%;
 
-    /* Aurora in dark mode - more vibrant */
+    /* Prisma Glow in dark mode - more vibrant */
     --primary: 186 100% 50%;
     --primary-foreground: 220 30% 6%;
     --primary-light: 186 100% 70%;
@@ -134,7 +134,7 @@
 
     /* Dark gradients - more vibrant */
     --gradient-primary: linear-gradient(135deg, hsl(186 100% 50%), hsl(240 100% 80%));
-    --gradient-aurora: linear-gradient(135deg, hsl(186 100% 50%), hsl(220 100% 80%), hsl(270 100% 80%));
+    --gradient-glow: linear-gradient(135deg, hsl(186 100% 50%), hsl(220 100% 80%), hsl(270 100% 80%));
     --gradient-glass: linear-gradient(135deg, hsl(220 30% 15% / 0.2), hsl(220 30% 10% / 0.1));
     --gradient-subtle: linear-gradient(180deg, hsl(var(--background)), hsl(220 30% 8%));
 
@@ -196,9 +196,9 @@
     background: var(--gradient-primary);
   }
 
-  .gradient-aurora {
-    background: var(--gradient-aurora);
-  }
+.gradient-glow, .bg-gradient-glow {
+  background: var(--gradient-glow);
+}
 
   .gradient-text {
     background: var(--gradient-primary);

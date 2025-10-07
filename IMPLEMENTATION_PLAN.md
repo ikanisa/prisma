@@ -15,7 +15,7 @@ This plan sequences the work needed to deliver the audit evidence, analytics, ta
 |---|---|---|---|---|---|
 | Implement webhook verification | Prevent spoofing | Dev | 3d | Rejected invalid signature tests | ✅ Completed |
 | Add retry & idempotency | Improve reliability | Dev | 5d | Replayed events processed once | ✅ Completed |
-| Add unit and integration tests | Improve quality | Dev | 5d | Coverage >30% & CI runs tests | ⏳ Pending |
+| Add unit and integration tests | Improve quality | Dev | 5d | Coverage >30% & CI runs tests | ✅ Completed |
 > 🔐 Vault-backed secret manager added (`lib/secrets/*`, `apps/web/lib/supabase-server.ts`, `supabase/functions/_shared/supabase-client.ts`) covering Supabase service role + JWT secrets with Vitest coverage.
 > 🧪 Expanded Vitest suite for telemetry/error notification helpers (`tests/telemetry-service.test.ts`, `tests/error-notify.test.ts`) covering auth, error, and success flows (`npm test`).
 > 🧪 Added tenant-aware client coverage (`tests/audit/tenant-client.test.ts`) validating org scoping, insert/update/delete chaining, and Supabase-offline stubs.
@@ -142,6 +142,7 @@ This phase follows the blueprint already supplied (T‑1A to T‑4B). We align e
 > ✅ Inline XBRL (ESEF) exporter (`apps/web/app/api/financials/esef/route.ts`) producing multipart XHTML/resources bundle for regulator filings.
 > ✅ Group consolidation workspace (`apps/web/app/api/financials/consolidation/route.ts`, `src/lib/consolidation-service.ts`, `src/pages/reporting/consolidation.tsx`) aggregating parent/subsidiary ledgers with intercompany elimination guidance.
 > ✅ Documentation captured in `docs/financial-reporting.md` with governance anchors and usage guidance; performance & UAT hardening plan in `docs/performance-uat-plan.md`.
+> ✅ Release control readiness surfaced via `/api/release-controls/check` and the analytics dashboard card, reporting approval queue status, close-period locks, and archive checksum expectations before production launch.
 
 ## Cross-Cutting Deliverables
 - **Documentation**: Update `/docs` per module (user guide, runbooks), extend `/STANDARDS/TRACEABILITY/matrix.md` with ISA/ATT/IAASB and tax references after each sprint.

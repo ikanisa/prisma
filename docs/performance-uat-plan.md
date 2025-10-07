@@ -26,6 +26,7 @@
 3. After each load test, run `npm run coverage` and `psql "$DATABASE_URL" -f scripts/test_policies.sql` to ensure no regressions.
 4. Capture screenshots of key dashboards and attach k6 summaries from `docs/PERF/<timestamp>/`.
 5. Record UAT evidence in `docs/UAT/` (day-by-day scripts stored in `docs/UAT/day-*.md` with sign-off forms).
+6. Call `POST /api/release-controls/check` (see Release Runbook) to capture approval, lock, and archive readiness before sign-off.
 
 ## UAT & Training Plan
 

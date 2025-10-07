@@ -1,7 +1,7 @@
 # Tax Governance Policy Pack (T-GOV-1)
 
 ## Purpose
-Provide an approvals and control framework for Malta and international tax workflows embedded in Aurora so that obligations under the Malta Income Tax Act, EU directives, and IESBA independence rules are satisfied before filings or opinions are released.
+Provide an approvals and control framework for Malta and international tax workflows embedded in Prisma Glow so that obligations under the Malta Income Tax Act, EU directives, and IESBA independence rules are satisfied before filings or opinions are released.
 
 ## Standards anchors
 - Malta Income Tax Act (Cap.123) – computation, refund, and filing requirements

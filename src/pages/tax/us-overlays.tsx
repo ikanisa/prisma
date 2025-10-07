@@ -21,6 +21,7 @@ import {
   calculateExcise4501,
   calculateUsOverlay,
 } from '@/lib/tax/calculators';
+import { logger } from '@/lib/logger';
 
 const numberFormatter = new Intl.NumberFormat(undefined, {
   style: 'currency',
@@ -42,7 +43,7 @@ const overlayOptions = [
 
 type OverlayOption = (typeof overlayOptions)[number]['value'];
 
-const sanitizeNumeric = (value: string) => value.replace(/[^0-9.\-]/g, '');
+const sanitizeNumeric = (value: string) => value.replace(/[^\d.-]/g, '');
 
 const defaultGilti = {
   testedIncome: '500000',
@@ -119,7 +120,7 @@ export default function UsOverlaysPage() {
           setHistory(Array.isArray(response.data) ? response.data : []);
         }
       } catch (error) {
-        console.error('us-overlays-load', error);
+        logger.error('us_overlays.history_load_failed', error);
       }
     };
 
@@ -206,7 +207,7 @@ export default function UsOverlaysPage() {
       setHistory(prev => [response.calculation, ...prev.filter(item => item.id !== response.calculation.id)]);
       toast({ title: 'Overlay computation stored' });
     } catch (error) {
-      console.error('us-overlays-compute', error);
+      logger.error('us_overlays.compute_failed', error);
       toast({
         variant: 'destructive',
         title: 'Unable to compute overlay',

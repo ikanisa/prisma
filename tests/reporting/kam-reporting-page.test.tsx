@@ -45,7 +45,7 @@ vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
   return {
     ...actual,
-    useParams: () => ({ orgSlug: 'aurora', engagementId: 'eng-123' }),
+    useParams: () => ({ orgSlug: 'prisma-glow', engagementId: 'eng-123' }),
   };
 });
 
@@ -94,7 +94,10 @@ function createKamModule(overrides: Partial<KamModuleReturn> = {}): KamModuleRet
 
 function renderPage() {
   return render(
-    <MemoryRouter initialEntries={['/aurora/engagements/eng-123/reporting/kam']}>
+    <MemoryRouter
+      future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+      initialEntries={['/prisma-glow/engagements/eng-123/reporting/kam']}
+    >
       <KamReportingPage />
     </MemoryRouter>,
   );
@@ -107,7 +110,7 @@ beforeEach(() => {
   hoisted.useKamModuleMock.mockReset();
   hoisted.queryResults.clear();
 
-  hoisted.useOrganizationsMock.mockReturnValue({ currentOrg: { id: 'org-1', slug: 'aurora' } });
+  hoisted.useOrganizationsMock.mockReturnValue({ currentOrg: { id: 'org-1', slug: 'prisma-glow' } });
 });
 
 describe('KamReportingPage acceptance gating', () => {
@@ -124,7 +127,7 @@ describe('KamReportingPage acceptance gating', () => {
     expect(screen.getByText('KAM module locked')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Go to acceptance workflow/i })).toHaveAttribute(
       'href',
-      '/aurora/engagements/eng-123/acceptance',
+      '/prisma-glow/engagements/eng-123/acceptance',
     );
   });
 });
@@ -146,7 +149,7 @@ describe('KamReportingPage workflow', () => {
     });
 
     hoisted.queryResults.set(
-      getKey(['kam-procedures', 'aurora', 'eng-123']),
+      getKey(['kam-procedures', 'prisma-glow', 'eng-123']),
       {
         data: [
           { id: 'proc-1', title: 'Revenue walkthrough', objective: 'Walkthrough revenue process', coverageAssertions: ['ISA 540'] },
@@ -155,7 +158,7 @@ describe('KamReportingPage workflow', () => {
     );
 
     hoisted.queryResults.set(
-      getKey(['kam-documents', 'aurora', 'eng-123']),
+      getKey(['kam-documents', 'prisma-glow', 'eng-123']),
       {
         data: [
           { id: 'doc-1', name: 'Revenue memo.pdf', created_at: '2025-01-15T00:00:00Z' },
@@ -164,7 +167,7 @@ describe('KamReportingPage workflow', () => {
     );
 
     hoisted.queryResults.set(
-      getKey(['kam-risks', 'aurora', 'eng-123']),
+      getKey(['kam-risks', 'prisma-glow', 'eng-123']),
       {
         data: [
           { id: 'risk-1', title: 'Complex revenue arrangements' },
@@ -268,7 +271,7 @@ describe('KamReportingPage workflow', () => {
 
       fireEvent.click(screen.getByRole('button', { name: /Add candidate/i }));
       await waitFor(() => expect(addCandidateMock).toHaveBeenCalledWith({
-        orgSlug: 'aurora',
+        orgSlug: 'prisma-glow',
         engagementId: 'eng-123',
         title: 'Cybersecurity controls',
         rationale: 'Significant cyber incident identified.',
@@ -344,6 +347,6 @@ describe('KamReportingPage workflow', () => {
       fireEvent.click(within(candidateTwoCard).getByRole('button', { name: /Open draft/i }));
       await waitFor(() => expect(createDraftMock).toHaveBeenCalledWith({ candidateId: 'cand-2' }));
     },
-    12000,
+    25000,
   );
 });

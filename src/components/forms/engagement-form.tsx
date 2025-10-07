@@ -170,7 +170,7 @@ export function EngagementForm({ open, onOpenChange, engagement }: EngagementFor
                   <FormItem>
                     <FormLabel>Engagement title</FormLabel>
                     <FormControl>
-                      <Input placeholder="FY24 Audit for Aurora Retail" {...field} />
+                      <Input placeholder="FY24 Audit for Prisma Glow Retail" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

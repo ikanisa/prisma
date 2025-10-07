@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase, isSupabaseConfigured } from '@/integrations/supabase/client';
 import { User, Session } from '@supabase/supabase-js';
 import { useToast } from '@/hooks/use-toast';
+import { recordClientEvent } from '@/lib/client-events';
 
 export interface AuthState {
   user: User | null;
@@ -14,41 +15,39 @@ export interface AuthState {
 }
 
 export function useAuth(): AuthState {
-  const [user, setUser] = useState<User | null>(null);
+  const createDemoUser = (overrides?: Partial<User>): User => ({
+    id: '1',
+    email: 'demo@prismaglow.test',
+    email_confirmed_at: new Date().toISOString(),
+    last_sign_in_at: new Date().toISOString(),
+    app_metadata: { provider: 'local-demo' },
+    user_metadata: { name: 'Demo User' },
+    aud: 'authenticated',
+    role: 'authenticated',
+    identities: [],
+    factors: [],
+    created_at: new Date().toISOString(),
+    phone: '',
+    updated_at: new Date().toISOString(),
+    confirmed_at: new Date().toISOString(),
+    ...overrides,
+  } as unknown as User);
+
+  const [user, setUser] = useState<User | null>(!isSupabaseConfigured ? createDemoUser() : null);
   const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(isSupabaseConfigured);
   const { toast } = useToast();
 
   useEffect(() => {
     if (!isSupabaseConfigured) {
-      console.log('[AUTH] Supabase not configured, enabling demo auth');
-      const demoUser = {
-        id: '1',
-        email: 'demo@aurora.test',
-        email_confirmed_at: new Date().toISOString(),
-        phone: '',
-        last_sign_in_at: new Date().toISOString(),
-        app_metadata: { provider: 'local-demo' },
-        user_metadata: { name: 'Demo User' },
-        identities: [],
-        factors: [],
-        aud: 'authenticated',
-        created_at: new Date().toISOString(),
-        role: 'authenticated',
-        updated_at: new Date().toISOString(),
-        confirmed_at: new Date().toISOString(),
-      } as unknown as User;
-
-      setUser(demoUser);
-      setSession(null);
-      setLoading(false);
+      recordClientEvent({ name: 'auth:demoModeActivated' });
       return;
     }
 
-    console.log('[AUTH] Setting up auth listener...');
+    recordClientEvent({ name: 'auth:listenerRegistered' });
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        console.log('[AUTH] State change event:', event, 'Session:', session?.user?.email);
+        recordClientEvent({ name: 'auth:stateChange', data: { event, userPresent: Boolean(session?.user) } });
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
@@ -56,7 +55,7 @@ export function useAuth(): AuthState {
     );
 
     supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log('[AUTH] Initial session check:', session?.user?.email);
+      recordClientEvent({ name: 'auth:initialSessionResolved', data: { userPresent: Boolean(session?.user) } });
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
@@ -67,24 +66,10 @@ export function useAuth(): AuthState {
 
   const signIn = async (email: string, password: string) => {
     if (!isSupabaseConfigured) {
-      setUser((prev) =>
-        prev ?? ({
-          id: '1',
-          email,
-          email_confirmed_at: new Date().toISOString(),
-          last_sign_in_at: new Date().toISOString(),
-          app_metadata: { provider: 'local-demo' },
-          user_metadata: { name: email.split('@')[0] ?? 'Demo User' },
-          aud: 'authenticated',
-          role: 'authenticated',
-          identities: [],
-          factors: [],
-          created_at: new Date().toISOString(),
-          phone: '',
-          updated_at: new Date().toISOString(),
-          confirmed_at: new Date().toISOString(),
-        } as unknown as User),
-      );
+      setUser((prev) => prev ?? createDemoUser({
+        email,
+        user_metadata: { name: email.split('@')[0] ?? 'Demo User' },
+      }));
       setLoading(false);
       return {};
     }
@@ -143,7 +128,7 @@ export function useAuth(): AuthState {
 
   const signOut = async () => {
     if (!isSupabaseConfigured) {
-      setUser(null);
+      setUser(createDemoUser());
       setSession(null);
       return;
     }

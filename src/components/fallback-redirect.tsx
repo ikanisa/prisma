@@ -1,13 +1,21 @@
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/use-auth';
 import { useOrganizations } from '@/hooks/use-organizations';
+import { recordClientEvent } from '@/lib/client-events';
 
 export function FallbackRedirect() {
   const { user, loading: authLoading } = useAuth();
   const { memberships, loading: orgLoading } = useOrganizations();
 
-  console.log('[FALLBACK_REDIRECT] Auth loading:', authLoading, 'Org loading:', orgLoading);
-  console.log('[FALLBACK_REDIRECT] User:', user?.email, 'Memberships:', memberships.length);
+  recordClientEvent({
+    name: 'fallbackRedirect:init',
+    data: {
+      authLoading,
+      orgLoading,
+      membershipCount: memberships.length,
+      userPresent: Boolean(user),
+    },
+  });
 
   // Show loading while checking authentication
   if (authLoading || orgLoading) {
@@ -20,19 +28,19 @@ export function FallbackRedirect() {
 
   // If not authenticated, redirect to sign-in
   if (!user) {
-    console.log('[FALLBACK_REDIRECT] No user, redirecting to sign in');
+    recordClientEvent({ name: 'fallbackRedirect:redirectSignIn' });
     return <Navigate to="/auth/sign-in" replace />;
   }
 
   // If user has memberships, redirect to first organization
   if (memberships.length > 0) {
     const firstOrg = memberships[0].organization;
-    console.log('[FALLBACK_REDIRECT] Redirecting to first org:', firstOrg.slug);
+    recordClientEvent({ name: 'fallbackRedirect:redirect', data: { orgSlug: firstOrg.slug } });
     return <Navigate to={`/${firstOrg.slug}/dashboard`} replace />;
   }
 
   // No memberships - show error
-  console.log('[FALLBACK_REDIRECT] No memberships found');
+  recordClientEvent({ name: 'fallbackRedirect:noMemberships', level: 'warn' });
   return (
     <div className="flex items-center justify-center min-h-screen">
       <div className="text-center">

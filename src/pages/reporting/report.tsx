@@ -58,28 +58,44 @@ export default function ReportBuilderPage() {
   const [notes, setNotes] = useState<Awaited<ReturnType<typeof fetchFinancialNotes>> | null>(null);
   const [noteBasis, setNoteBasis] = useState<'IFRS_EU' | 'GAPSME'>('IFRS_EU');
 
+  const reportData = report.report;
+
   useEffect(() => {
-    if (report.report) {
+    if (reportData) {
       setFormState({
-        opinion: report.report.opinion,
-        basis: report.report.basis_for_opinion ?? '',
-        includeEOM: report.report.include_eom,
-        eomText: report.report.eom_text ?? '',
-        includeOM: report.report.include_om,
-        omText: report.report.om_text ?? '',
-        incorporateKAMs: report.report.incorporate_kams,
-        kamIds: report.report.kam_ids ?? [],
-        gcDisclosure: report.report.gc_disclosure_required,
+        opinion: reportData.opinion,
+        basis: reportData.basis_for_opinion ?? '',
+        includeEOM: reportData.include_eom,
+        eomText: reportData.eom_text ?? '',
+        includeOM: reportData.include_om,
+        omText: reportData.om_text ?? '',
+        incorporateKAMs: reportData.incorporate_kams,
+        kamIds: reportData.kam_ids ?? [],
+        gcDisclosure: reportData.gc_disclosure_required,
+      });
+    } else {
+      setFormState({
+        opinion: 'UNMODIFIED',
+        basis: '',
+        includeEOM: false,
+        eomText: '',
+        includeOM: false,
+        omText: '',
+        incorporateKAMs: true,
+        kamIds: [],
+        gcDisclosure: false,
       });
     }
-  }, [report.report?.id]);
+  }, [reportData]);
+
+  const approvals = report.approvals;
 
   const approvalsGrouped = useMemo(() => {
-    return report.approvals.reduce<Record<string, typeof report.approvals>>((acc, item) => {
+    return approvals.reduce<Record<string, typeof approvals>>((acc, item) => {
       acc[item.stage] = acc[item.stage] ? [...acc[item.stage], item] : [item];
       return acc;
     }, {});
-  }, [report.approvals]);
+  }, [approvals]);
 
   const handleSave = async () => {
     if (!report.report) return;
@@ -152,7 +168,7 @@ export default function ReportBuilderPage() {
 
   const handleFetchNotes = async () => {
     if (!currentOrg || !engagementId) return;
-    const periodId = report.report?.id ?? '';
+    const periodId = report.report?.period_id ?? '';
     if (!periodId) {
       toast({
         title: 'Period required',
@@ -184,7 +200,7 @@ export default function ReportBuilderPage() {
 
   const handleDownloadEsef = async () => {
     if (!currentOrg || !engagementId) return;
-    const periodId = report.report?.id ?? '';
+    const periodId = report.report?.period_id ?? '';
     if (!periodId) {
       toast({
         title: 'Period required',

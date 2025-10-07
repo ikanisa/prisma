@@ -17,3 +17,5 @@ google-cloud-documentai
 structlog
 PyJWT
 httpx
+PyYAML
+sentence-transformers

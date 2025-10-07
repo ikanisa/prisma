@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type KeyboardEvent } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { AlertCircle, CheckCircle2, FileJson, FileText, Loader2, Plus, Send, ShieldCheck } from 'lucide-react';
@@ -7,6 +7,7 @@ import { useOrganizations } from '@/hooks/use-organizations';
 import { useKamModule, findDraftByCandidate, candidateStatusLabel } from '@/hooks/use-kam-module';
 import { useAcceptanceStatus } from '@/hooks/use-acceptance-status';
 import { supabase } from '@/integrations/supabase/client';
+import type { PostgrestError } from '@supabase/supabase-js';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -152,9 +153,9 @@ export function KamReportingPage() {
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
   const [draftState, setDraftState] = useState<DraftFormState>(emptyDraftState);
 
-  const candidates = kam.data?.candidates ?? [];
-  const drafts = kam.data?.drafts ?? [];
-  const approvals = kam.data?.approvals ?? [];
+  const candidates = useMemo(() => kam.data?.candidates ?? [], [kam.data]);
+  const drafts = useMemo(() => kam.data?.drafts ?? [], [kam.data]);
+  const approvals = useMemo(() => kam.data?.approvals ?? [], [kam.data]);
   const userRole = kam.data?.role ?? null;
 
   const selectedCandidate = useMemo(
@@ -188,11 +189,15 @@ export function KamReportingPage() {
   const documentsQuery = useQuery<DocumentRow[]>({
     queryKey: ['kam-documents', currentOrg?.slug, engagementId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('documents')
+      const documentsTable = supabase.from('documents') as any;
+      const response = await documentsTable
         .select('id, name, created_at')
         .eq('org_id', currentOrg!.id)
         .eq('engagement_id', engagementId!);
+      const { data, error } = response as {
+        data: Array<{ id: string; name: string; created_at: string | null }> | null;
+        error: PostgrestError | null;
+      };
       if (error) throw new Error(error.message);
       return (data ?? []).map(({ id, name, created_at }) => ({
         id,
@@ -259,9 +264,9 @@ export function KamReportingPage() {
       procedures: procedureSelections,
       evidence: evidenceSelections,
     });
-  }, [selectedDraft?.id]);
+  }, [selectedDraft]);
 
-  const isDraftEditable = selectedDraft && selectedDraft.status !== 'APPROVED';
+  const isDraftEditable = Boolean(selectedDraft && selectedDraft.status !== 'APPROVED');
 
   const linkedEvidenceEntries = useMemo(
     () => Object.entries(draftState.evidence).filter(([key]) => key.startsWith('evidence:')),
@@ -624,11 +629,22 @@ export function KamReportingPage() {
                   )}
                   {candidates.map((candidate) => {
                     const isSelected = candidate.id === selectedCandidateId;
+                    const activateCandidate = () => setSelectedCandidateId(candidate.id);
+                    const handleCandidateKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        activateCandidate();
+                      }
+                    };
+
                     return (
-                      <button
+                      <div
                         key={candidate.id}
-                        onClick={() => setSelectedCandidateId(candidate.id)}
-                        className={`w-full text-left border rounded-lg p-3 transition ${
+                        role="button"
+                        tabIndex={0}
+                        onClick={activateCandidate}
+                        onKeyDown={handleCandidateKeyDown}
+                        className={`w-full text-left border rounded-lg p-3 transition focus:outline-none focus:ring-2 focus:ring-primary/40 ${
                           isSelected ? 'border-primary bg-primary/10' : 'border-border hover:border-primary/40'
                         }`}
                       >
@@ -680,7 +696,7 @@ export function KamReportingPage() {
                             </Button>
                           )}
                         </div>
-                      </button>
+                      </div>
                     );
                   })}
                 </div>

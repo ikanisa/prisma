@@ -1,8 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
 
-// Legacy API functions - now using Supabase client directly
-// These functions are kept for compatibility but internally use Supabase
-
 export async function getAccessToken(): Promise<string> {
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token;
@@ -12,18 +9,33 @@ export async function getAccessToken(): Promise<string> {
   return token;
 }
 
-// Note: This function is deprecated in favor of using Supabase client directly
-// It's maintained for backward compatibility only
+const DEFAULT_API_BASE = import.meta.env.VITE_API_BASE_URL;
+
 export async function authorizedFetch(path: string, options: RequestInit = {}): Promise<Response> {
-  console.warn('authorizedFetch is deprecated. Use Supabase client directly instead.');
-  
-  // For now, return a mock response to prevent errors
-  // TODO: Replace all usages with proper Supabase client calls
-  return new Response(JSON.stringify({ error: 'API endpoint not implemented' }), {
-    status: 501,
-    headers: { 'Content-Type': 'application/json' }
-  });
+  const accessToken = await getAccessToken();
+
+  const target = (() => {
+    if (/^https?:/i.test(path)) {
+      return path;
+    }
+    if (DEFAULT_API_BASE) {
+      const base = DEFAULT_API_BASE.replace(/\/$/, '');
+      return path.startsWith('/') ? `${base}${path}` : `${base}/${path}`;
+    }
+    return path;
+  })();
+
+  const headers = new Headers(options.headers ?? {});
+  if (!headers.has('Authorization')) {
+    headers.set('Authorization', `Bearer ${accessToken}`);
+  }
+
+  const hasBody = options.body !== undefined && !(options.body instanceof FormData);
+  if (hasBody && !headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json');
+  }
+
+  return fetch(target, { ...options, headers });
 }
 
-// Deprecated: Use Supabase functions URL directly if needed
-export const API_BASE_URL = "https://xzwowkxzgqigfuefmaji.supabase.co/functions/v1";
+export const API_BASE_URL = DEFAULT_API_BASE ?? '';

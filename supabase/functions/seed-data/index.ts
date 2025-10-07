@@ -11,10 +11,10 @@ Deno.serve(async (req) => {
     const { data: org, error: orgError } = await supabaseAdmin
       .from('organizations')
       .insert({
-        name: 'Aurora Advisors',
-        slug: 'aurora',
-        brand_primary: '#6366f1',
-        brand_secondary: '#8b5cf6'
+        name: 'Prisma Glow',
+        slug: 'prisma-glow',
+        brand_primary: '#2563eb',
+        brand_secondary: '#7c3aed'
       })
       .select()
       .single()
@@ -28,9 +28,9 @@ Deno.serve(async (req) => {
 
     // Create users using admin auth API
     const users = [
-      { email: 'sophia@aurora.test', password: 'lovable123', name: 'Sophia System', role: 'SYSTEM_ADMIN' as const },
-      { email: 'mark@aurora.test', password: 'lovable123', name: 'Mark Manager', role: 'MANAGER' as const },
-      { email: 'eli@aurora.test', password: 'lovable123', name: 'Eli Employee', role: 'EMPLOYEE' as const }
+      { email: 'sophia@prismaglow.test', password: 'lovable123', name: 'Sophia Systems', role: 'SYSTEM_ADMIN' as const },
+      { email: 'mark@prismaglow.test', password: 'lovable123', name: 'Mark Manager', role: 'MANAGER' as const },
+      { email: 'eli@prismaglow.test', password: 'lovable123', name: 'Eli Employee', role: 'EMPLOYEE' as const }
     ]
 
     for (const userData of users) {

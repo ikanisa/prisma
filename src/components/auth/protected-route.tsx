@@ -1,10 +1,11 @@
 import { Navigate, useParams, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/use-auth';
-import { useOrganizations } from '@/hooks/use-organizations';
+import { useOrganizations, type OrgRole } from '@/hooks/use-organizations';
+import { recordClientEvent } from '@/lib/client-events';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
-  requiredRole?: 'EMPLOYEE' | 'MANAGER' | 'SYSTEM_ADMIN';
+  requiredRole?: OrgRole;
 }
 
 export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) {
@@ -13,13 +14,19 @@ export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) 
   const { orgSlug } = useParams<{ orgSlug: string }>();
   const location = useLocation();
 
-  console.log('[PROTECTED_ROUTE] Auth loading:', authLoading, 'Org loading:', orgLoading);
-  console.log('[PROTECTED_ROUTE] User:', user?.email, 'Current org:', currentOrg?.slug, 'Target slug:', orgSlug);
-  console.log('[PROTECTED_ROUTE] Memberships count:', memberships.length);
+  recordClientEvent({
+    name: 'protectedRoute:init',
+    data: {
+      authLoading,
+      orgLoading,
+      orgSlug,
+      membershipCount: memberships.length,
+    },
+  });
 
   // Show loading while checking authentication and organizations
   if (authLoading || orgLoading) {
-    console.log('[PROTECTED_ROUTE] Showing loading...');
+    recordClientEvent({ name: 'protectedRoute:loading', data: { orgSlug } });
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
@@ -29,13 +36,13 @@ export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) 
 
   // Not authenticated - redirect to sign in
   if (!user) {
-    console.log('[PROTECTED_ROUTE] No user, redirecting to sign in');
+    recordClientEvent({ name: 'protectedRoute:redirectSignIn', data: { from: location.pathname } });
     return <Navigate to="/auth/sign-in" state={{ from: location }} replace />;
   }
 
   // No memberships at all - show error or create default membership
   if (memberships.length === 0) {
-    console.log('[PROTECTED_ROUTE] No memberships found');
+    recordClientEvent({ name: 'protectedRoute:noMemberships', level: 'warn' });
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
@@ -51,19 +58,36 @@ export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) 
   if (orgSlug) {
     const targetOrg = memberships.find(m => m.organization.slug === orgSlug);
     if (!targetOrg) {
-      console.log('[PROTECTED_ROUTE] No access to org:', orgSlug, 'redirecting to first org');
+      recordClientEvent({
+        name: 'protectedRoute:redirectFirstOrg',
+        level: 'warn',
+        data: { requestedSlug: orgSlug, fallbackSlug: memberships[0]?.organization.slug },
+      });
       const firstOrg = memberships[0].organization;
       return <Navigate to={`/${firstOrg.slug}/dashboard`} replace />;
     }
 
     // Check role requirements
     if (requiredRole) {
-      const roleHierarchy = { EMPLOYEE: 1, MANAGER: 2, SYSTEM_ADMIN: 3 };
+      const roleHierarchy: Record<OrgRole, number> = {
+        SERVICE_ACCOUNT: 10,
+        READONLY: 20,
+        CLIENT: 30,
+        EMPLOYEE: 40,
+        MANAGER: 70,
+        EQR: 80,
+        PARTNER: 90,
+        SYSTEM_ADMIN: 100,
+      };
       const userRole = targetOrg.role;
       const hasRequiredRole = roleHierarchy[userRole] >= roleHierarchy[requiredRole];
       
       if (!hasRequiredRole) {
-        console.log('[PROTECTED_ROUTE] Insufficient role:', userRole, 'required:', requiredRole);
+        recordClientEvent({
+          name: 'protectedRoute:insufficientRole',
+          level: 'warn',
+          data: { requiredRole, userRole, orgSlug },
+        });
         return (
           <div className="flex items-center justify-center min-h-screen">
             <div className="text-center">
@@ -76,6 +100,6 @@ export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) 
     }
   }
 
-  console.log('[PROTECTED_ROUTE] Access granted, rendering children');
+  recordClientEvent({ name: 'protectedRoute:granted', data: { orgSlug: orgSlug ?? currentOrg?.slug } });
   return <>{children}</>;
 }

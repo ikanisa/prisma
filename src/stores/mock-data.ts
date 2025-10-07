@@ -1,4 +1,4 @@
-// Mock data for Aurora Advisors platform
+// Mock data for Prisma Glow platform
 import { create } from 'zustand';
 
 export type Role = 'SYSTEM_ADMIN' | 'MANAGER' | 'EMPLOYEE';
@@ -106,10 +106,10 @@ export interface ActivityLog {
 export const mockOrganizations: Organization[] = [
   {
     id: '1',
-    name: 'Aurora Advisors',
-    slug: 'aurora',
-    brandPrimary: '#00bcd4',
-    brandSecondary: '#9c27b0',
+    name: 'Prisma Glow',
+    slug: 'prisma-glow',
+    brandPrimary: '#2563eb',
+    brandSecondary: '#7c3aed',
     createdAt: '2024-01-01T00:00:00Z'
   }
 ];
@@ -117,22 +117,22 @@ export const mockOrganizations: Organization[] = [
 export const mockUsers: User[] = [
   {
     id: '1',
-    name: 'Sophia System',
-    email: 'sophia@aurora.test',
+    name: 'Sophia Systems',
+    email: 'sophia@prismaglow.test',
     avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Sophia',
     createdAt: '2024-01-01T00:00:00Z'
   },
   {
     id: '2',
     name: 'Mark Manager',
-    email: 'mark@aurora.test',
+    email: 'mark@prismaglow.test',
     avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Mark',
     createdAt: '2024-01-01T00:00:00Z'
   },
   {
     id: '3',
     name: 'Eli Employee',
-    email: 'eli@aurora.test',
+    email: 'eli@prismaglow.test',
     avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Eli',
     createdAt: '2024-01-01T00:00:00Z'
   }
@@ -218,7 +218,7 @@ export const mockEngagements: Engagement[] = [
     id: '1',
     orgId: '1',
     clientId: '1',
-    title: 'Aurora Retail FY24 Audit',
+    title: 'Prisma Glow Retail FY24 Audit',
     type: 'AUDIT',
     periodStart: '2024-01-01',
     periodEnd: '2024-12-31',
@@ -370,6 +370,7 @@ interface AppStore {
   setClients: (clients: Client[]) => void;
   setEngagements: (engagements: Engagement[]) => void;
   setTasks: (tasks: Task[]) => void;
+  addDocument: (document: Document) => void;
 }
 
 export const useAppStore = create<AppStore>((set, get) => ({
@@ -420,4 +421,5 @@ export const useAppStore = create<AppStore>((set, get) => ({
   setClients: (clients) => set({ clients }),
   setEngagements: (engagements) => set({ engagements }),
   setTasks: (tasks) => set({ tasks }),
+  addDocument: (document) => set((state) => ({ documents: [...state.documents, document] })),
 }));

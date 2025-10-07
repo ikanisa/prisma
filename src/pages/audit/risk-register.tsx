@@ -21,6 +21,7 @@ import {
   type AuditRiskActivityRecord,
 } from '@/lib/audit-risk-service';
 import { isSupabaseConfigured } from '@/integrations/supabase/client';
+import { logger } from '@/lib/logger';
 
 const CATEGORY_OPTIONS = [
   { value: 'FINANCIAL_STATEMENT', label: 'Financial Statement' },
@@ -105,7 +106,7 @@ export function AuditRiskRegisterPage() {
         setSelectedRiskId(data.risks[0].id);
       }
     } catch (error) {
-      console.error('risk-register-load', error);
+      logger.error('risk_register.load_failed', error);
       toast({
         variant: 'destructive',
         title: 'Unable to load risk register',
@@ -180,7 +181,7 @@ export function AuditRiskRegisterPage() {
       await loadRegister();
       resetForm();
     } catch (error) {
-      console.error('risk-register-save', error);
+      logger.error('risk_register.save_failed', error);
       toast({
         variant: 'destructive',
         title: 'Unable to save risk',
@@ -204,7 +205,7 @@ export function AuditRiskRegisterPage() {
       toast({ title: 'Status updated', description: `Risk marked as ${status}.` });
       await loadRegister();
     } catch (error) {
-      console.error('risk-status-update', error);
+      logger.error('risk_register.status_update_failed', error);
       toast({
         variant: 'destructive',
         title: 'Unable to update status',
@@ -228,7 +229,7 @@ export function AuditRiskRegisterPage() {
       toast({ title: 'Signal recorded', description: 'Analytics signal stored for this risk.' });
       await loadRegister();
     } catch (error) {
-      console.error('risk-signal-record', error);
+      logger.error('risk_register.signal_record_failed', error);
       toast({
         variant: 'destructive',
         title: 'Unable to record signal',
@@ -249,7 +250,7 @@ export function AuditRiskRegisterPage() {
       });
       await loadRegister();
     } catch (error) {
-      console.error('risk-activity-add', error);
+      logger.error('risk_register.activity_add_failed', error);
       toast({
         variant: 'destructive',
         title: 'Unable to add note',

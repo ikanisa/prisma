@@ -22,6 +22,7 @@ import {
   type JournalEntryStrategyRecord,
 } from '@/lib/fraud-plan-service';
 import { isSupabaseConfigured } from '@/integrations/supabase/client';
+import { logger } from '@/lib/logger';
 import { format } from 'date-fns';
 
 interface PlanState {
@@ -117,7 +118,7 @@ export default function FraudPlanPage() {
         setJeState(DEFAULT_JE_STATE);
       }
     } catch (error) {
-      console.error('fraud-plan-load', error);
+      logger.error('fraud_plan.load_failed', error);
       toast({
         variant: 'destructive',
         title: 'Unable to load fraud plan',
@@ -156,7 +157,7 @@ export default function FraudPlanPage() {
       toast({ title: 'Fraud plan saved', description: 'ISA 240 planning bundle updated.' });
       await loadData();
     } catch (error) {
-      console.error('fraud-plan-save', error);
+      logger.error('fraud_plan.save_failed', error);
       toast({
         variant: 'destructive',
         title: 'Unable to save fraud plan',
@@ -175,7 +176,7 @@ export default function FraudPlanPage() {
       toast({ title: 'Fraud plan submitted', description: 'Partner approval requested.' });
       await loadData();
     } catch (error) {
-      console.error('fraud-plan-submit', error);
+      logger.error('fraud_plan.submit_failed', error);
       toast({
         variant: 'destructive',
         title: 'Unable to submit fraud plan',
@@ -206,7 +207,7 @@ export default function FraudPlanPage() {
       });
       await loadData();
     } catch (error) {
-      console.error('fraud-plan-decide', error);
+      logger.error('fraud_plan.decision_failed', error);
       toast({
         variant: 'destructive',
         title: 'Unable to record decision',
@@ -234,7 +235,7 @@ export default function FraudPlanPage() {
       toast({ title: 'JE strategy saved', description: 'Journal entry filters and schedule updated.' });
       await loadData();
     } catch (error) {
-      console.error('je-strategy-save', error);
+      logger.error('fraud_plan.je_strategy_save_failed', error);
       toast({
         variant: 'destructive',
         title: 'Unable to save strategy',
@@ -257,7 +258,7 @@ export default function FraudPlanPage() {
       setActionNote('');
       await loadData();
     } catch (error) {
-      console.error('fraud-plan-action', error);
+      logger.error('fraud_plan.action_failed', error);
       toast({
         variant: 'destructive',
         title: 'Unable to add note',
@@ -499,7 +500,7 @@ function safeJsonParse<T>(value: string, fallback: T): T {
   try {
     return JSON.parse(value) as T;
   } catch (error) {
-    console.warn('fraud-plan-json-parse', error);
+    logger.warn('fraud_plan.json_parse_failed', error);
     return fallback;
   }
 }

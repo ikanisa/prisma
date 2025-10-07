@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
+import { logger } from '@/lib/logger';
 import {
   fetchRiskRegister,
   type AuditRiskRecord,
@@ -120,7 +121,7 @@ export default function AuditResponsesPage() {
         setSelectedRiskId(riskData.risks[0].id);
       }
     } catch (error) {
-      console.error('responses-load', error);
+      logger.error('responses.load_failed', error);
       toast({
         variant: 'destructive',
         title: 'Unable to load responses matrix',
@@ -198,7 +199,7 @@ export default function AuditResponsesPage() {
       await loadData();
       setFormState((prev) => ({ ...DEFAULT_FORM, riskId: prev.riskId }));
     } catch (error) {
-      console.error('response-save', error);
+      logger.error('responses.save_failed', error);
       toast({
         variant: 'destructive',
         title: 'Unable to save response',
@@ -216,7 +217,7 @@ export default function AuditResponsesPage() {
       toast({ title: 'Status updated', description: `Response marked ${status}.` });
       await loadData();
     } catch (error) {
-      console.error('response-status', error);
+      logger.error('responses.status_failed', error);
       toast({
         variant: 'destructive',
         title: 'Unable to update status',
@@ -245,7 +246,7 @@ export default function AuditResponsesPage() {
       setCheckNote('');
       setCompleteness(false);
     } catch (error) {
-      console.error('response-check', error);
+      logger.error('responses.check_failed', error);
       toast({
         variant: 'destructive',
         title: 'Unable to record check',
@@ -545,7 +546,7 @@ function safeJsonParse(value: string) {
   try {
     return JSON.parse(value);
   } catch (error) {
-    console.warn('responses-json-parse', error);
+    logger.warn('responses.json_parse_failed', error);
     return {};
   }
 }

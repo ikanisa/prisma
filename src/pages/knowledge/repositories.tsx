@@ -8,26 +8,37 @@ import {
   useKnowledgeCorpora,
   usePreviewKnowledgeSource,
   useDriveConnectorMetadata,
+  useDriveConnectorStatus,
   useWebSources,
   useScheduleWebHarvest,
   useCreateCorpus,
   useCreateKnowledgeSource,
 } from '@/hooks/use-knowledge';
-import { Loader2, RefreshCw, ExternalLink, Bot } from 'lucide-react';
-import { format } from 'date-fns';
+import { Loader2, RefreshCw, ExternalLink, Bot, AlertTriangle } from 'lucide-react';
+import { format, formatDistanceToNow } from 'date-fns';
 import { Link, useParams } from 'react-router-dom';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
+import { logger } from '@/lib/logger';
+import {
+  useBeforeAskingUserSequence,
+  useKnowledgeVectorIndexes,
+  useKnowledgeRetrievalSettings,
+} from '@/lib/system-config';
 
 export default function KnowledgeRepositoriesPage() {
   const corporaQuery = useKnowledgeCorpora();
   const metadataQuery = useDriveConnectorMetadata();
+  const statusQuery = useDriveConnectorStatus();
   const previewMutation = usePreviewKnowledgeSource();
   const webSourcesQuery = useWebSources();
   const scheduleWebHarvest = useScheduleWebHarvest();
+  const beforeAskingSequence = useBeforeAskingUserSequence();
+  const vectorIndexes = useKnowledgeVectorIndexes();
+  const retrievalSettings = useKnowledgeRetrievalSettings();
   const [webAgentKind, setWebAgentKind] = useState<'AUDIT' | 'FINANCE' | 'TAX'>('AUDIT');
   const createCorpus = useCreateCorpus();
   const createKnowledgeSource = useCreateKnowledgeSource();
@@ -46,6 +57,12 @@ export default function KnowledgeRepositoriesPage() {
 
   const corpora = corporaQuery.data ?? [];
   const connectorMetadata = metadataQuery.data;
+  const connectorStatus = statusQuery.data;
+  const connectorEnabled = connectorMetadata?.enabled ?? false;
+  const connectorReady = connectorEnabled && Boolean(connectorStatus?.connector);
+  const webSourcesData = webSourcesQuery.data;
+  const webSources = webSourcesData?.sources ?? [];
+  const webPolicy = webSourcesData?.settings;
   const { orgSlug } = useParams();
   const runsHref = orgSlug ? `/${orgSlug}/knowledge/runs` : '#';
 
@@ -56,7 +73,7 @@ export default function KnowledgeRepositoriesPage() {
       setPreviewDocs(response.documents ?? []);
       setPreviewOpen(true);
     } catch (error) {
-      console.error(error);
+      logger.error('knowledge.preview_failed', error);
     }
   };
 
@@ -86,8 +103,7 @@ export default function KnowledgeRepositoriesPage() {
         <div>
           <h1 className="text-3xl font-semibold tracking-tight">Knowledge Repositories</h1>
           <p className="text-muted-foreground mt-1">
-            Review the corpora powering agent learning. Google Drive ingestion runs in placeholder mode
-            until credentials are connected.
+            Review the corpora powering agent learning. Google Drive ingestion is {connectorReady ? 'active—monitor queue depth and blocked entries below.' : 'waiting for final credential setup.'}
           </p>
         </div>
         <Button asChild variant="outline" disabled={!orgSlug}>
@@ -102,23 +118,178 @@ export default function KnowledgeRepositoriesPage() {
         </div>
       )}
 
-      {connectorMetadata && (
+      {(metadataQuery.isLoading || statusQuery.isLoading) && !connectorMetadata && !connectorStatus && (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" /> Loading Drive connector…
+        </div>
+      )}
+
+      {(connectorMetadata || connectorStatus) && (
         <Card className="bg-muted/40">
           <CardHeader>
             <CardTitle>Google Drive Connector</CardTitle>
-            <CardDescription>Pending configuration</CardDescription>
+            <CardDescription>
+              {connectorReady
+                ? 'Active — monitoring ingestion health'
+                : connectorEnabled
+                  ? 'Waiting for first sync from configured folder'
+                  : 'Configuration pending'}
+            </CardDescription>
           </CardHeader>
-          <CardContent className="text-sm space-y-2">
-            <p>
-              <span className="font-medium">Label:</span> {connectorMetadata.label}
-            </p>
-            <p>
-              <span className="font-medium">Folder ID placeholder:</span> {connectorMetadata.folderId}
-            </p>
-            {connectorMetadata.scopeNotes && <p className="text-muted-foreground">{connectorMetadata.scopeNotes}</p>}
+          <CardContent className="text-sm space-y-3">
+            <div className="grid gap-3 md:grid-cols-3">
+              <div>
+                <p className="font-medium text-muted-foreground">Connector enabled</p>
+                <p>{connectorMetadata?.enabled ? 'Yes' : 'No'}</p>
+              </div>
+              <div>
+                <p className="font-medium text-muted-foreground">Mirror to storage</p>
+                <p>{connectorMetadata?.mirrorToStorage ? 'Enabled' : 'Disabled'}</p>
+              </div>
+              <div>
+                <p className="font-medium text-muted-foreground">OAuth scopes</p>
+                <p className="text-muted-foreground">
+                  {(connectorMetadata?.oauthScopes ?? []).join(', ') || '—'}
+                </p>
+              </div>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-2">
+              <div>
+                <p className="font-medium text-muted-foreground">Folder / Shared Drive</p>
+                <p>{connectorMetadata?.folderId ?? '—'}</p>
+                {connectorMetadata?.sharedDriveId && (
+                  <p className="text-muted-foreground">Shared drive: {connectorMetadata.sharedDriveId}</p>
+                )}
+              </div>
+              <div>
+                <p className="font-medium text-muted-foreground">Service account email</p>
+                <p>{connectorMetadata?.serviceAccountEmail ?? '—'}</p>
+              </div>
+            </div>
+
+            <div>
+              <p className="font-medium text-muted-foreground">Folder mapping pattern</p>
+              <p className="text-muted-foreground break-all">
+                {connectorMetadata?.folderMappingPattern || 'org-{orgId}/entity-{entityId}/{repoFolder}'}
+              </p>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-3">
+              <div>
+                <p className="font-medium text-muted-foreground">Last sync</p>
+                <p>
+                  {connectorStatus?.connector?.lastSyncAt
+                    ? formatDistanceToNow(new Date(connectorStatus.connector.lastSyncAt), { addSuffix: true })
+                    : 'Never'}
+                </p>
+              </div>
+              <div>
+                <p className="font-medium text-muted-foreground">Pending queue</p>
+                <p>{connectorStatus?.queue.pending ?? 0}</p>
+              </div>
+              <div>
+                <p className="font-medium text-muted-foreground">Blocked by allowlist</p>
+                <p>{connectorStatus?.metadata.blocked ?? 0}</p>
+              </div>
+            </div>
+
+            {connectorStatus?.connector?.watchExpiresAt && (
+              <div className="text-sm text-muted-foreground">
+                Watch channel expires{' '}
+                {formatDistanceToNow(new Date(connectorStatus.connector.watchExpiresAt), { addSuffix: true })}.
+              </div>
+            )}
+
+            {connectorStatus?.queue.failed24h && connectorStatus.queue.failed24h > 0 && (
+              <div className="flex items-center gap-2 text-sm text-amber-600 dark:text-amber-400">
+                <AlertTriangle className="h-4 w-4" />
+                {connectorStatus.queue.failed24h} failures in the last 24 hours — review recent errors below.
+              </div>
+            )}
+
+            {connectorStatus?.queue.recentErrors?.length ? (
+              <div className="space-y-2">
+                <p className="font-medium text-muted-foreground">Recent errors</p>
+                <ul className="space-y-1 text-sm text-muted-foreground">
+                  {connectorStatus.queue.recentErrors.map((item, index) => (
+                    <li key={`${item.fileId ?? 'unknown'}-${index}`}>
+                      <span className="font-medium">{item.fileId ?? 'unknown'}:</span> {item.error ?? 'Unknown error'}
+                      {item.processedAt && (
+                        <span className="ml-2">
+                          ({formatDistanceToNow(new Date(item.processedAt), { addSuffix: true })})
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
           </CardContent>
         </Card>
       )}
+
+      <Card className="bg-muted/30">
+        <CardHeader>
+          <CardTitle>Retrieval Configuration</CardTitle>
+          <CardDescription>
+            Dual-index search with reranking and citation thresholds applied before assistant responses.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6 text-sm">
+          <div className="grid gap-4 md:grid-cols-3">
+            <div>
+              <p className="font-medium text-muted-foreground">Reranker</p>
+              <p>{retrievalSettings.reranker}</p>
+            </div>
+            <div>
+              <p className="font-medium text-muted-foreground">Top K</p>
+              <p>{retrievalSettings.topK}</p>
+            </div>
+            <div>
+              <p className="font-medium text-muted-foreground">Min citation confidence</p>
+              <p>{Math.round(retrievalSettings.minCitationConfidence * 100)}%</p>
+            </div>
+          </div>
+
+          <div className="text-sm text-muted-foreground">
+            Policy order before prompting users: {beforeAskingSequence.join(' → ')}. Citations required:{' '}
+            {retrievalSettings.requireCitation ? 'Yes' : 'No'}.
+          </div>
+
+          <div className="space-y-3">
+            <p className="font-medium text-muted-foreground">Vector indexes</p>
+            {vectorIndexes.length === 0 ? (
+              <p>No indexes configured.</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Embedding model</TableHead>
+                    <TableHead>Chunk size / overlap</TableHead>
+                    <TableHead>Scope filters</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {vectorIndexes.map((index) => (
+                    <TableRow key={index.name}>
+                      <TableCell className="font-medium">{index.name}</TableCell>
+                      <TableCell>{index.embeddingModel || '—'}</TableCell>
+                      <TableCell>
+                        {index.chunkSize} / {index.chunkOverlap}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {index.scopeFilters.length ? index.scopeFilters.join(', ') : 'orgId, entityId scoped'}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       {corporaQuery.isLoading ? (
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -230,16 +401,19 @@ export default function KnowledgeRepositoriesPage() {
                   <CardHeader>
                     <CardTitle className="text-base">{doc.name}</CardTitle>
                     <CardDescription>
-                      {doc.mimeType} · Modified {format(new Date(doc.modifiedTime), 'PPPp')}
+                      {doc.mimeType} · Modified{' '}
+                      {doc.modifiedTime ? format(new Date(doc.modifiedTime), 'PPPp') : 'Unknown'}
                     </CardDescription>
                   </CardHeader>
-                  <CardContent>
-                    <Button variant="outline" size="sm" asChild>
-                      <a href={doc.downloadUrl} target="_blank" rel="noopener noreferrer">
-                        <RefreshCw className="h-4 w-4 mr-2" /> Placeholder download
-                      </a>
-                    </Button>
-                  </CardContent>
+                  {doc.downloadUrl ? (
+                    <CardContent>
+                      <Button variant="outline" size="sm" asChild>
+                        <a href={doc.downloadUrl} target="_blank" rel="noopener noreferrer">
+                          <RefreshCw className="h-4 w-4 mr-2" /> Open source document
+                        </a>
+                      </Button>
+                    </CardContent>
+                  ) : null}
                 </Card>
               ))}
             </div>
@@ -263,7 +437,7 @@ export default function KnowledgeRepositoriesPage() {
               {webSourcesQuery.isLoading ? (
                 <span className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Loading sources…</span>
               ) : (
-                <span>{webSourcesQuery.data?.length ?? 0} sources available for web harvest.</span>
+                <span>{webSources.length} sources available for web harvest.</span>
               )}
             </div>
             <div className="flex items-center gap-2">
@@ -281,6 +455,14 @@ export default function KnowledgeRepositoriesPage() {
             </div>
           </div>
 
+          {webPolicy && (
+            <div className="text-xs text-muted-foreground">
+              Allowed domains: {webPolicy.allowedDomains.length ? webPolicy.allowedDomains.join(', ') : 'All domains'}.
+              Robots.txt respected: {webPolicy.fetchPolicy.obeyRobots ? 'Yes' : 'No'}; max depth {webPolicy.fetchPolicy.maxDepth};
+              cache TTL {webPolicy.fetchPolicy.cacheTtlMinutes} minutes.
+            </div>
+          )}
+
           {webSourcesQuery.isLoading ? null : (
             <Table>
               <TableHeader>
@@ -293,7 +475,7 @@ export default function KnowledgeRepositoriesPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {(webSourcesQuery.data ?? []).map((source) => (
+                {webSources.map((source) => (
                   <TableRow key={source.id}>
                     <TableCell className="font-medium">{source.title}</TableCell>
                     <TableCell className="text-xs text-blue-600 break-all">
@@ -471,7 +653,7 @@ export default function KnowledgeRepositoriesPage() {
                     <SelectValue placeholder="Select Malta resource" />
                   </SelectTrigger>
                   <SelectContent>
-                    {(webSourcesQuery.data ?? []).map((source) => (
+                    {webSources.map((source) => (
                       <SelectItem key={source.id} value={source.id}>
                         {source.title}
                       </SelectItem>

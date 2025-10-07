@@ -8,7 +8,7 @@ import { vector } from 'pgvector';
 import NodeCache from 'node-cache';
 import OpenAI from 'openai';
 import jwt, { type JwtPayload } from 'jsonwebtoken';
-import { randomUUID } from 'crypto';
+import { randomUUID, createHash } from 'crypto';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { createClient } from '@supabase/supabase-js';
 import { getSignedUrlTTL } from '../../lib/security/signed-url-policy';
@@ -16,10 +16,21 @@ import {
   scheduleLearningRun,
   getDriveConnectorMetadata,
   previewDriveDocuments,
+  processDriveChanges,
+  getConnectorIdForOrg,
+  triggerDriveBackfill,
+  downloadDriveFile,
+  isSupportedDriveMime,
+  isManifestFile,
+  parseManifestBuffer,
+  type DriveChangeQueueRow,
+  type ManifestEntry,
 } from './knowledge/ingestion';
 import type { DriveSource } from './knowledge/drive';
 import { listWebSources, getWebSource, type WebSourceRow } from './knowledge/web';
 import { getSupabaseJwtSecret, getSupabaseServiceRoleKey } from '../../lib/secrets';
+import { buildReadinessSummary } from './readiness';
+import { getUrlSourceSettings, type UrlSourceSettings } from './system-config';
 
 type AgentPersona = 'AUDIT' | 'FINANCE' | 'TAX';
 type LearningMode = 'INITIAL' | 'CONTINUOUS';
@@ -39,6 +50,186 @@ const WEB_DOMAIN_MAP: Record<string, { corpusDomain: string; agentKind: AgentPer
 
 const WEB_HARVEST_INTERVAL_MS = Number(process.env.WEB_HARVEST_INTERVAL_MS ?? 60 * 60 * 1000);
 let webBootstrapRunning = false;
+
+type RobotsRules = { allow: string[]; disallow: string[] };
+const robotsCache = new Map<string, { rules: RobotsRules; fetchedAt: number }>();
+
+type WebCacheRow = {
+  id: string;
+  url: string;
+  content: string | null;
+  fetched_at: string | null;
+  status: string | null;
+  metadata: Record<string, any> | null;
+};
+
+function normaliseDomain(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+function isDomainAllowed(hostname: string, allowedDomains: string[]): boolean {
+  const host = normaliseDomain(hostname);
+  for (const entry of allowedDomains) {
+    const pattern = normaliseDomain(entry);
+    if (!pattern) continue;
+    if (pattern === '*') return true;
+    if (pattern === host) return true;
+    if (pattern.startsWith('*.') && host.endsWith(pattern.slice(1))) return true;
+  }
+  return false;
+}
+
+function pathMatchesRule(pathname: string, rule: string): boolean {
+  const trimmed = rule.trim();
+  if (!trimmed) return false;
+  if (trimmed === '/') return true;
+  if (trimmed.endsWith('$')) {
+    const exact = trimmed.slice(0, -1);
+    return pathname === exact;
+  }
+  if (trimmed.includes('*')) {
+    const [prefix] = trimmed.split('*');
+    return pathname.startsWith(prefix);
+  }
+  return pathname.startsWith(trimmed);
+}
+
+function isPathAllowedByRobots(pathname: string, rules: RobotsRules): boolean {
+  let longestAllow = '';
+  for (const allow of rules.allow) {
+    if (pathMatchesRule(pathname, allow) && allow.length > longestAllow.length) {
+      longestAllow = allow;
+    }
+  }
+  let longestDisallow = '';
+  for (const disallow of rules.disallow) {
+    if (pathMatchesRule(pathname, disallow) && disallow.length > longestDisallow.length) {
+      longestDisallow = disallow;
+    }
+  }
+  if (!longestDisallow) return true;
+  if (!longestAllow) return false;
+  return longestAllow.length >= longestDisallow.length;
+}
+
+function parseRobots(content: string): RobotsRules {
+  const lines = content.split(/\r?\n/);
+  const allow: string[] = [];
+  const disallow: string[] = [];
+  let applies = false;
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (!line || line.startsWith('#')) continue;
+    const [directive, value = ''] = line.split(/:/, 2).map((part) => part.trim());
+    if (!directive) continue;
+    const lower = directive.toLowerCase();
+    if (lower === 'user-agent') {
+      applies = value === '*' || value.toLowerCase() === 'prismaglow-ai-agent';
+    } else if (applies && lower === 'allow') {
+      allow.push(value);
+    } else if (applies && lower === 'disallow') {
+      disallow.push(value);
+    }
+  }
+  return { allow, disallow };
+}
+
+async function fetchRobotsForOrigin(origin: string, cacheTtlMs: number): Promise<RobotsRules | null> {
+  const cached = robotsCache.get(origin);
+  if (cached && Date.now() - cached.fetchedAt <= cacheTtlMs) {
+    return cached.rules;
+  }
+  try {
+    const response = await fetch(`${origin}/robots.txt`, {
+      headers: { 'User-Agent': 'PrismaGlow-AI-Agent/1.0 (+https://example.com)' },
+    });
+    if (!response.ok) {
+      robotsCache.set(origin, { rules: { allow: [], disallow: [] }, fetchedAt: Date.now() });
+      return null;
+    }
+    const body = await response.text();
+    const rules = parseRobots(body);
+    robotsCache.set(origin, { rules, fetchedAt: Date.now() });
+    return rules;
+  } catch (error) {
+    console.warn(
+      JSON.stringify({
+        level: 'warn',
+        msg: 'web.robots_fetch_failed',
+        origin,
+        error: error instanceof Error ? error.message : String(error),
+      }),
+    );
+    robotsCache.set(origin, { rules: { allow: [], disallow: [] }, fetchedAt: Date.now() });
+    return null;
+  }
+}
+
+async function ensureUrlAllowed(rawUrl: string, settings: UrlSourceSettings): Promise<void> {
+  const parsed = new URL(rawUrl);
+  if (!isDomainAllowed(parsed.hostname, settings.allowedDomains)) {
+    throw new Error('domain_not_allowlisted');
+  }
+  if (settings.fetchPolicy.obeyRobots) {
+    const ttlMs = Math.max(0, settings.fetchPolicy.cacheTtlMinutes) * 60_000;
+    const rules = await fetchRobotsForOrigin(parsed.origin, ttlMs);
+    if (rules && rules.disallow.length && !isPathAllowedByRobots(parsed.pathname, rules)) {
+      throw new Error('robots_disallow');
+    }
+  }
+}
+
+async function getCachedWebContent(url: string): Promise<WebCacheRow | null> {
+  const { data, error, status } = await supabaseService
+    .from('web_fetch_cache')
+    .select('id, url, content, fetched_at, status, metadata')
+    .eq('url', url)
+    .maybeSingle();
+  if (error && status !== 406) {
+    throw error;
+  }
+  return (data as WebCacheRow | null) ?? null;
+}
+
+async function upsertWebCache(url: string, content: string, metadata: Record<string, any>, status = 'fetched') {
+  const payload = {
+    url,
+    content,
+    content_hash: createHash('sha256').update(content).digest('hex'),
+    status,
+    fetched_at: new Date().toISOString(),
+    metadata,
+  };
+  const { error } = await supabaseService.from('web_fetch_cache').upsert(payload, { onConflict: 'url' });
+  if (error) {
+    throw error;
+  }
+}
+
+async function touchWebCache(cache: WebCacheRow, metadataUpdates: Record<string, any>) {
+  const merged = { ...(cache.metadata ?? {}), ...metadataUpdates };
+  const { error } = await supabaseService
+    .from('web_fetch_cache')
+    .update({ metadata: merged })
+    .eq('id', cache.id);
+  if (error) {
+    console.warn(JSON.stringify({ level: 'warn', msg: 'web.cache_touch_failed', url: cache.url, error: error.message }));
+  }
+}
+
+async function fetchWebDocument(url: string, settings: UrlSourceSettings): Promise<string> {
+  await ensureUrlAllowed(url, settings);
+  const response = await fetch(url, {
+    headers: {
+      'User-Agent': 'PrismaGlow-AI-Agent/1.0 (+https://example.com)',
+      Accept: 'text/html,application/xhtml+xml',
+    },
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to fetch URL (status ${response.status})`);
+  }
+  return response.text();
+}
 
 function resolveWebDomainMetadata(domain: string | null | undefined) {
   const key = domain ? domain.toUpperCase() : 'ORG';
@@ -225,6 +416,23 @@ const requestBuckets = new Map<string, number[]>();
 
 const requestContext = new AsyncLocalStorage<{ requestId: string }>();
 
+const GDRIVE_QUEUE_PROCESS_LIMIT = Number(process.env.GDRIVE_PROCESS_BATCH_LIMIT ?? '10');
+const driveUploaderCache = new Map<string, string>();
+type DriveFileMetadata = { metadata: Record<string, unknown>; allowlisted_domain: boolean };
+
+type LearningJob = {
+  id: string;
+  org_id: string;
+  kind: string;
+  status: string;
+  payload: Record<string, unknown> | null;
+  result: Record<string, unknown> | null;
+  policy_version_id: string | null;
+  created_at: string;
+  updated_at: string;
+  processed_at: string | null;
+};
+
 interface AuthenticatedRequest extends Request {
   user?: JwtPayload & { sub?: string };
   requestId?: string;
@@ -313,8 +521,6 @@ function authenticate(req: AuthenticatedRequest, res: Response, next: NextFuncti
   }
 }
 
-app.use(authenticate);
-
 // Database and OpenAI clients
 const db = new Client({ connectionString: process.env.DATABASE_URL });
 await db.connect();
@@ -375,6 +581,23 @@ async function ensureDocumentsBucket() {
 
 await ensureDocumentsBucket();
 
+app.get(['/health', '/healthz'], (_req, res) => {
+  res.json({ status: 'ok' });
+});
+
+app.get(['/ready', '/readiness'], async (_req, res) => {
+  const summary = await buildReadinessSummary({
+    db,
+    supabaseUrl: SUPABASE_URL,
+    supabaseServiceRoleKey: SUPABASE_SERVICE_ROLE_KEY,
+    openAIApiKey: process.env.OPENAI_API_KEY,
+  });
+
+  res.status(summary.status === 'ok' ? 200 : 503).json(summary);
+});
+
+app.use(authenticate);
+
 async function resolveOrgForUser(userId: string, orgSlug: string) {
   const { data: org, error: orgError } = await supabaseService
     .from('organizations')
@@ -408,6 +631,16 @@ async function extractText(buffer: Buffer, mimetype: string): Promise<string> {
   if (mimetype === 'application/pdf') {
     const data = await pdfParse(buffer);
     return data.text;
+  }
+  if (mimetype === 'text/html') {
+    const html = buffer.toString('utf-8');
+    return stripHtml(html);
+  }
+  if (mimetype.startsWith('text/')) {
+    return buffer.toString('utf-8');
+  }
+  if (mimetype === 'application/json' || mimetype === 'application/xml') {
+    return buffer.toString('utf-8');
   }
   const result = await Tesseract.recognize(buffer, 'eng');
   return result.data.text;
@@ -448,6 +681,471 @@ function stripHtml(html: string): string {
     .replace(/&#39;/gi, "'")
     .replace(/&lt;/gi, '<')
     .replace(/&gt;/gi, '>');
+}
+
+function normalizeDrivePayload(raw: unknown): Record<string, unknown> | null {
+  if (!raw) return null;
+  if (typeof raw === 'string') {
+    try {
+      return JSON.parse(raw) as Record<string, unknown>;
+    } catch (error) {
+      console.warn(
+        JSON.stringify({
+          level: 'warn',
+          msg: 'gdrive.raw_payload_parse_failed',
+          error: error instanceof Error ? error.message : String(error),
+        }),
+      );
+      return null;
+    }
+  }
+  if (typeof raw === 'object') {
+    return raw as Record<string, unknown>;
+  }
+  return null;
+}
+
+async function fetchDriveMetadataMap(orgId: string, fileIds: string[]): Promise<Map<string, DriveFileMetadata>> {
+  const map = new Map<string, DriveFileMetadata>();
+  if (!fileIds.length) {
+    return map;
+  }
+
+  const uniqueIds = Array.from(new Set(fileIds));
+  const { data, error } = await supabaseService
+    .from('gdrive_file_metadata')
+    .select('file_id, metadata, allowlisted_domain')
+    .eq('org_id', orgId)
+    .in('file_id', uniqueIds);
+
+  if (error) {
+    throw error;
+  }
+
+  for (const row of data ?? []) {
+    map.set(row.file_id, {
+      metadata: (row.metadata ?? {}) as Record<string, unknown>,
+      allowlisted_domain: row.allowlisted_domain ?? true,
+    });
+  }
+
+  return map;
+}
+
+async function upsertManifestEntries(orgId: string, entries: ManifestEntry[]) {
+  if (!entries.length) {
+    return;
+  }
+
+  const now = new Date().toISOString();
+  const payload = entries.map((entry) => ({
+    org_id: orgId,
+    file_id: entry.fileId,
+    metadata: entry.metadata,
+    allowlisted_domain: entry.allowlistedDomain,
+    updated_at: now,
+  }));
+
+  const { error } = await supabaseService
+    .from('gdrive_file_metadata')
+    .upsert(payload, { onConflict: 'org_id,file_id' });
+
+  if (error) {
+    throw error;
+  }
+}
+
+async function deleteMetadataForFile(orgId: string, fileId: string) {
+  const { error } = await supabaseService
+    .from('gdrive_file_metadata')
+    .delete()
+    .eq('org_id', orgId)
+    .eq('file_id', fileId);
+
+  if (error) {
+    throw error;
+  }
+}
+
+async function deletePolicyArtifacts(orgId: string, policyVersionId: string) {
+  const tables: Array<{ table: string; filterOrg: boolean }> = [
+    { table: 'query_hints', filterOrg: true },
+    { table: 'citation_canonicalizer', filterOrg: true },
+    { table: 'denylist_deboost', filterOrg: true },
+  ];
+
+  for (const entry of tables) {
+    const base = supabaseService.from(entry.table).delete().eq('policy_version_id', policyVersionId);
+    const { error } = entry.filterOrg ? await base.eq('org_id', orgId) : await base;
+    if (error) {
+      throw error;
+    }
+  }
+}
+
+async function rollbackPolicyVersion(orgId: string, policyVersionId: string, note?: string) {
+  const now = new Date().toISOString();
+  await deletePolicyArtifacts(orgId, policyVersionId);
+
+  const { error: updateError } = await supabaseService
+    .from('agent_policy_versions')
+    .update({
+      status: 'rolled_back',
+      rolled_back_at: now,
+      updated_at: now,
+      summary: note ?? undefined,
+    })
+    .eq('id', policyVersionId)
+    .eq('org_id', orgId);
+
+  if (updateError) {
+    throw updateError;
+  }
+
+  await supabaseService.from('learning_signals').insert({
+    org_id: orgId,
+    run_id: null,
+    source: 'api.rollback',
+    kind: 'policy_rolled_back',
+    payload: { policy_version_id: policyVersionId, note: note ?? null },
+  });
+}
+
+async function fetchLearningJob(jobId: string): Promise<LearningJob | null> {
+  const { data, error } = await supabaseService
+    .from('agent_learning_jobs')
+    .select('id, org_id, kind, status, payload, result, policy_version_id, created_at, updated_at, processed_at')
+    .eq('id', jobId)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  return (data as LearningJob) ?? null;
+}
+
+async function resolveDriveUploaderId(orgId: string): Promise<string> {
+  if (driveUploaderCache.has(orgId)) {
+    return driveUploaderCache.get(orgId)!;
+  }
+
+  const { data, error } = await supabaseService
+    .from('memberships')
+    .select('user_id, role')
+    .eq('org_id', orgId);
+
+  if (error) {
+    throw error;
+  }
+
+  const members = data ?? [];
+  if (members.length === 0) {
+    throw new Error('no_memberships_for_org');
+  }
+
+  const rolePriority: Record<string, number> = {
+    SYSTEM_ADMIN: 3,
+    MANAGER: 2,
+    EMPLOYEE: 1,
+  };
+
+  members.sort((a, b) => (rolePriority[b.role ?? ''] ?? 0) - (rolePriority[a.role ?? ''] ?? 0));
+  const uploader = members[0]?.user_id;
+  if (!uploader) {
+    throw new Error('no_uploader_for_org');
+  }
+
+  driveUploaderCache.set(orgId, uploader);
+  return uploader;
+}
+
+async function markDriveChangeProcessed(changeId: string, errorMessage: string | null) {
+  const truncated = errorMessage ? errorMessage.slice(0, 512) : null;
+  await supabaseService
+    .from('gdrive_change_queue')
+    .update({ processed_at: new Date().toISOString(), error: truncated })
+    .eq('id', changeId);
+}
+
+async function deleteDriveDocument(change: DriveChangeQueueRow): Promise<'deleted' | 'skipped'> {
+  const { data: mapping, error } = await supabaseService
+    .from('gdrive_documents')
+    .select('document_id')
+    .eq('org_id', change.org_id)
+    .eq('file_id', change.file_id)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  const documentId = mapping?.document_id;
+  if (!documentId) {
+    return 'skipped';
+  }
+
+  await db.query('BEGIN');
+  try {
+    await db.query('DELETE FROM document_chunks WHERE doc_id = $1', [documentId]);
+    await db.query('DELETE FROM documents WHERE id = $1', [documentId]);
+    await db.query('COMMIT');
+  } catch (err) {
+    await db.query('ROLLBACK');
+    throw err;
+  }
+
+  const { error: deleteMappingError } = await supabaseService
+    .from('gdrive_documents')
+    .delete()
+    .eq('org_id', change.org_id)
+    .eq('file_id', change.file_id);
+
+  if (deleteMappingError) {
+    throw deleteMappingError;
+  }
+
+  await deleteMetadataForFile(change.org_id, change.file_id);
+
+  return 'deleted';
+}
+
+async function upsertDriveDocument(
+  change: DriveChangeQueueRow,
+  metadataInfo: DriveFileMetadata | null,
+): Promise<{ status: 'processed' | 'skipped'; reason?: string }> {
+  const enrichedChange: DriveChangeQueueRow = {
+    ...change,
+    raw_payload: normalizeDrivePayload(change.raw_payload),
+  } as DriveChangeQueueRow;
+
+  const download = await downloadDriveFile(enrichedChange);
+  const checksum = createHash('sha256').update(download.buffer).digest('hex');
+  const fileSize = download.buffer.length;
+
+  const { data: mapping, error: mappingError } = await supabaseService
+    .from('gdrive_documents')
+    .select('document_id, checksum, metadata')
+    .eq('org_id', change.org_id)
+    .eq('file_id', change.file_id)
+    .maybeSingle();
+
+  if (mappingError) {
+    throw mappingError;
+  }
+
+  if (mapping?.checksum && mapping.checksum === checksum) {
+    const now = new Date().toISOString();
+    await supabaseService
+      .from('gdrive_documents')
+      .update({
+        size_bytes: fileSize,
+        mime_type: download.mimeType,
+        metadata: metadataInfo?.metadata ?? mapping.metadata ?? {},
+        last_synced_at: now,
+        updated_at: now,
+      })
+      .eq('org_id', change.org_id)
+      .eq('file_id', change.file_id);
+    return { status: 'skipped', reason: 'checksum_unchanged' };
+  }
+
+  const text = await extractText(download.buffer, download.mimeType);
+  const trimmed = text.trim();
+  if (!trimmed) {
+    return { status: 'skipped', reason: 'empty_text_content' };
+  }
+
+  const chunks = chunkText(trimmed);
+  if (!chunks.length) {
+    return { status: 'skipped', reason: 'no_chunks_generated' };
+  }
+
+  const embeddings = await embed(chunks);
+  const uploaderId = await resolveDriveUploaderId(change.org_id);
+  const filePath = `gdrive:${change.file_id}`;
+  const fileName = download.fileName;
+
+  let documentId = mapping?.document_id ?? null;
+
+  await db.query('BEGIN');
+  try {
+    if (!documentId) {
+      const inserted = await db.query(
+        'INSERT INTO documents(org_id, engagement_id, task_id, name, file_path, file_size, file_type, uploaded_by, created_at) VALUES ($1, NULL, NULL, $2, $3, $4, $5, $6, now()) RETURNING id',
+        [change.org_id, fileName, filePath, fileSize, download.mimeType, uploaderId],
+      );
+      documentId = inserted.rows[0].id as string;
+    } else {
+      await db.query(
+        'UPDATE documents SET name = $1, file_path = $2, file_size = $3, file_type = $4, uploaded_by = $5 WHERE id = $6',
+        [fileName, filePath, fileSize, download.mimeType, uploaderId, documentId],
+      );
+      await db.query('DELETE FROM document_chunks WHERE doc_id = $1', [documentId]);
+    }
+
+    const insertChunkSql =
+      'INSERT INTO document_chunks(org_id, doc_id, chunk_index, content, embedding, last_embedded_at) VALUES ($1, $2, $3, $4, $5, now())';
+    for (let i = 0; i < chunks.length; i += 1) {
+      await db.query(insertChunkSql, [change.org_id, documentId, i, chunks[i], vector(embeddings[i])]);
+    }
+
+    await db.query('COMMIT');
+  } catch (err) {
+    await db.query('ROLLBACK');
+    throw err;
+  }
+
+  const now = new Date().toISOString();
+  if (mapping?.document_id) {
+    await supabaseService
+      .from('gdrive_documents')
+      .update({
+        document_id: documentId,
+        checksum,
+        size_bytes: fileSize,
+        mime_type: download.mimeType,
+        metadata: metadataInfo?.metadata ?? {},
+        last_synced_at: now,
+        updated_at: now,
+      })
+      .eq('org_id', change.org_id)
+      .eq('file_id', change.file_id);
+  } else {
+    await supabaseService.from('gdrive_documents').insert({
+      file_id: change.file_id,
+      org_id: change.org_id,
+      connector_id: change.connector_id,
+      document_id,
+      checksum,
+      size_bytes: fileSize,
+      mime_type: download.mimeType,
+      metadata: metadataInfo?.metadata ?? {},
+      last_synced_at: now,
+      updated_at: now,
+    });
+  }
+
+  return { status: 'processed' };
+}
+
+async function handleDriveQueueChange(
+  change: DriveChangeQueueRow,
+  metadataCache: Map<string, DriveFileMetadata>,
+): Promise<{ status: 'processed' | 'skipped' | 'deleted'; reason?: string }> {
+  if (isManifestFile(change)) {
+    if (change.change_type === 'DELETE') {
+      await deleteMetadataForFile(change.org_id, change.file_id);
+      return { status: 'skipped', reason: 'manifest_deleted' };
+    }
+
+    const download = await downloadDriveFile(change);
+    const entries = parseManifestBuffer(download.buffer, download.mimeType);
+    if (!entries.length) {
+      return { status: 'skipped', reason: 'manifest_empty' };
+    }
+
+    await upsertManifestEntries(change.org_id, entries);
+    for (const entry of entries) {
+      metadataCache.set(entry.fileId, {
+        metadata: entry.metadata,
+        allowlisted_domain: entry.allowlistedDomain,
+      });
+    }
+
+    return { status: 'processed', reason: `manifest_entries:${entries.length}` };
+  }
+
+  if (change.change_type === 'DELETE') {
+    const outcome = await deleteDriveDocument(change);
+    return { status: outcome };
+  }
+
+  if (!isSupportedDriveMime(change)) {
+    return { status: 'skipped', reason: 'unsupported_mime_type' };
+  }
+
+  const metadataInfo = metadataCache.get(change.file_id) ?? null;
+  if (metadataInfo && metadataInfo.allowlisted_domain === false) {
+    return { status: 'skipped', reason: 'allowlisted_domain_false' };
+  }
+
+  const result = await upsertDriveDocument(change, metadataInfo ?? null);
+  return { status: result.status === 'processed' ? 'processed' : 'skipped', reason: result.reason };
+}
+
+async function processDriveQueueEntries(orgId: string, connectorId: string, limit: number) {
+  const { data: queue, error } = await supabaseService
+    .from('gdrive_change_queue')
+    .select('id, org_id, connector_id, file_id, file_name, mime_type, change_type, raw_payload')
+    .eq('org_id', orgId)
+    .eq('connector_id', connectorId)
+    .is('processed_at', null)
+    .order('created_at', { ascending: true })
+    .limit(limit);
+
+  if (error) {
+    throw error;
+  }
+
+  const items = queue ?? [];
+  const nonManifestIds = items
+    .filter((item) => !isManifestFile(item as DriveChangeQueueRow) && item.change_type !== 'DELETE')
+    .map((item) => item.file_id);
+
+  const metadataCache = await fetchDriveMetadataMap(orgId, nonManifestIds);
+  let processedCount = 0;
+  let skippedCount = 0;
+  let failedCount = 0;
+
+  for (const item of items) {
+    const change: DriveChangeQueueRow = {
+      ...item,
+      raw_payload: normalizeDrivePayload(item.raw_payload),
+    } as DriveChangeQueueRow;
+
+    try {
+      const result = await handleDriveQueueChange(change, metadataCache);
+      const reason = result.reason ?? null;
+      await markDriveChangeProcessed(change.id, result.status === 'processed' || result.status === 'deleted' ? null : reason);
+
+      if (result.status === 'processed' || result.status === 'deleted') {
+        processedCount += 1;
+        logInfo('gdrive.queue_processed', {
+          orgId,
+          connectorId,
+          fileId: change.file_id,
+          status: result.status,
+          reason,
+        });
+      } else {
+        skippedCount += 1;
+        logInfo('gdrive.queue_skipped', {
+          orgId,
+          connectorId,
+          fileId: change.file_id,
+          reason,
+          metadataPresent: metadataCache.has(change.file_id),
+        });
+      }
+    } catch (err) {
+      failedCount += 1;
+      const message = err instanceof Error ? err.message : String(err);
+      await markDriveChangeProcessed(change.id, message);
+      logError('gdrive.queue_failed', err, {
+        orgId,
+        connectorId,
+        fileId: change.file_id,
+      });
+    }
+  }
+
+  return {
+    total: items.length,
+    processed: processedCount,
+    skipped: skippedCount,
+    failed: failedCount,
+  };
 }
 
 function normalizeText(text: string, maxChars = 20000): string {
@@ -564,20 +1262,30 @@ async function processWebHarvest(options: {
       .update({ status: 'processing' })
       .eq('id', options.runId);
 
-    const response = await fetch(webSource.url, {
-      headers: {
-        'User-Agent': 'Aurora-AI-Agent/1.0 (+https://example.com)',
-      },
-    });
+    const urlSettings = await getUrlSourceSettings();
+    const cacheTtlMs = Math.max(0, urlSettings.fetchPolicy.cacheTtlMinutes) * 60_000;
+    const cached = await getCachedWebContent(webSource.url);
 
-    if (!response.ok) {
-      throw new Error(`Failed to fetch URL (status ${response.status})`);
+    let cleaned: string | null = null;
+    let usedCache = false;
+    let fetchedFresh = false;
+
+    if (cached?.content) {
+      const fetchedAt = cached.fetched_at ? Date.parse(cached.fetched_at) : Number.NaN;
+      if (!Number.isNaN(fetchedAt) && Date.now() - fetchedAt <= cacheTtlMs) {
+        cleaned = cached.content;
+        usedCache = true;
+        await touchWebCache(cached, { lastUsedAt: new Date().toISOString() });
+      }
     }
 
-    const html = await response.text();
-    const cleaned = normalizeText(stripHtml(html));
     if (!cleaned) {
-      throw new Error('Fetched page produced no readable content');
+      const html = await fetchWebDocument(webSource.url, urlSettings);
+      cleaned = normalizeText(stripHtml(html));
+      if (!cleaned) {
+        throw new Error('Fetched page produced no readable content');
+      }
+      fetchedFresh = true;
     }
 
     const summary = await summariseWebDocument(webSource.url, cleaned);
@@ -610,7 +1318,19 @@ async function processWebHarvest(options: {
       lastRunId: options.runId,
       lastRunAt: new Date().toISOString(),
       lastSummaryLength: summary.length,
+      lastRunUsedCache: usedCache,
     };
+
+    if (fetchedFresh) {
+      await upsertWebCache(webSource.url, cleaned, {
+        fetchedAt: new Date().toISOString(),
+        fetchedBy: options.initiatedBy,
+        contentLength: cleaned.length,
+        summaryLength: summary.length,
+      });
+    } else if (cached) {
+      await touchWebCache(cached, { summaryLength: summary.length });
+    }
 
     await supabaseService.from('knowledge_events').insert([
       {
@@ -622,6 +1342,7 @@ async function processWebHarvest(options: {
           title: webSource.title,
           summary,
           initiatedBy: options.initiatedBy,
+          cacheUsed: usedCache,
         },
       },
       {
@@ -647,6 +1368,7 @@ async function processWebHarvest(options: {
           chunkCount: chunks.length,
           documentId: docId,
           url: webSource.url,
+          cacheUsed: usedCache,
         },
       })
       .eq('id', options.runId);
@@ -1904,16 +2626,371 @@ app.patch('/v1/tasks/:id', async (req: AuthenticatedRequest, res) => {
   }
 });
 
-app.get('/v1/knowledge/drive/metadata', async (_req, res) => {
-  const connector = await getDriveConnectorMetadata();
-  return res.json({ connector });
+app.get('/v1/knowledge/drive/metadata', async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = req.user?.sub;
+    const orgSlug = typeof req.query.orgSlug === 'string' ? req.query.orgSlug : undefined;
+    if (!userId || !orgSlug) {
+      return res.status(400).json({ error: 'orgSlug required' });
+    }
+
+    const { role } = await resolveOrgForUser(userId, orgSlug);
+    if (!hasManagerPrivileges(role)) {
+      return res.status(403).json({ error: 'insufficient_role' });
+    }
+
+    const connector = await getDriveConnectorMetadata();
+    return res.json({ connector });
+  } catch (err) {
+    logError('knowledge.drive_metadata_failed', err, { userId: req.user?.sub });
+    return res.status(500).json({ error: 'fetch failed' });
+  }
+});
+
+app.get('/v1/knowledge/drive/status', async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = req.user?.sub;
+    const orgSlug = typeof req.query.orgSlug === 'string' ? req.query.orgSlug : undefined;
+    if (!userId || !orgSlug) {
+      return res.status(400).json({ error: 'orgSlug required' });
+    }
+
+    const { orgId, role } = await resolveOrgForUser(userId, orgSlug);
+    if (!hasManagerPrivileges(role)) {
+      return res.status(403).json({ error: 'insufficient_role' });
+    }
+
+    const connectorMetadata = await getDriveConnectorMetadata();
+
+    const { data: connectorRows, error: connectorError } = await supabaseService
+      .from('gdrive_connectors')
+      .select(
+        'id, org_id, folder_id, service_account_email, shared_drive_id, start_page_token, cursor_page_token, last_sync_at, last_backfill_at, last_error, watch_channel_id, watch_expires_at, updated_at, created_at',
+      )
+      .eq('org_id', orgId)
+      .order('created_at', { ascending: true })
+      .limit(1);
+
+    if (connectorError) {
+      throw connectorError;
+    }
+
+    const connectorRow = connectorRows?.[0] ?? null;
+
+    const pendingQueue = await supabaseService
+      .from('gdrive_change_queue')
+      .select('id', { count: 'exact', head: true })
+      .eq('org_id', orgId)
+      .is('processed_at', null);
+
+    if (pendingQueue.error) {
+      throw pendingQueue.error;
+    }
+
+    const failureWindow = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const failedQueue = await supabaseService
+      .from('gdrive_change_queue')
+      .select('id', { count: 'exact', head: true })
+      .eq('org_id', orgId)
+      .not('error', 'is', null)
+      .not('processed_at', 'is', null)
+      .gte('processed_at', failureWindow);
+
+    if (failedQueue.error) {
+      throw failedQueue.error;
+    }
+
+    const metadataCounts = await supabaseService
+      .from('gdrive_file_metadata')
+      .select('file_id', { count: 'exact', head: true })
+      .eq('org_id', orgId);
+
+    if (metadataCounts.error) {
+      throw metadataCounts.error;
+    }
+
+    const blockedCounts = await supabaseService
+      .from('gdrive_file_metadata')
+      .select('file_id', { count: 'exact', head: true })
+      .eq('org_id', orgId)
+      .eq('allowlisted_domain', false);
+
+    if (blockedCounts.error) {
+      throw blockedCounts.error;
+    }
+
+    const recentErrorsResp = await supabaseService
+      .from('gdrive_change_queue')
+      .select('file_id, error, processed_at')
+      .eq('org_id', orgId)
+      .not('error', 'is', null)
+      .not('processed_at', 'is', null)
+      .order('processed_at', { ascending: false })
+      .limit(5);
+
+    if (recentErrorsResp.error) {
+      throw recentErrorsResp.error;
+    }
+
+    const connectorStatus = connectorRow
+      ? {
+          id: connectorRow.id,
+          folderId: connectorRow.folder_id,
+          serviceAccountEmail: connectorRow.service_account_email,
+          sharedDriveId: connectorRow.shared_drive_id,
+          startPageToken: connectorRow.start_page_token,
+          cursorPageToken: connectorRow.cursor_page_token,
+          lastSyncAt: connectorRow.last_sync_at,
+          lastBackfillAt: connectorRow.last_backfill_at,
+          lastError: connectorRow.last_error,
+          watchChannelId: connectorRow.watch_channel_id,
+          watchExpiresAt: connectorRow.watch_expires_at,
+          updatedAt: connectorRow.updated_at,
+          createdAt: connectorRow.created_at,
+        }
+      : null;
+
+    const recentErrors = (recentErrorsResp.data ?? []).map((row) => ({
+      fileId: row.file_id,
+      error: row.error,
+      processedAt: row.processed_at,
+    }));
+
+    return res.json({
+      config: connectorMetadata,
+      connector: connectorStatus,
+      queue: {
+        pending: pendingQueue.count ?? 0,
+        failed24h: failedQueue.count ?? 0,
+        recentErrors,
+      },
+      metadata: {
+        total: metadataCounts.count ?? 0,
+        blocked: blockedCounts.count ?? 0,
+      },
+    });
+  } catch (err) {
+    logError('knowledge.drive_status_failed', err, { userId: req.user?.sub });
+    return res.status(500).json({ error: 'fetch failed' });
+  }
+});
+
+app.get('/api/learning/jobs', async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = req.user?.sub;
+    const orgSlug = typeof req.query.orgSlug === 'string' ? req.query.orgSlug : undefined;
+    const statusFilter = typeof req.query.status === 'string' ? req.query.status : undefined;
+    if (!userId || !orgSlug) {
+      return res.status(400).json({ error: 'orgSlug required' });
+    }
+
+    const { orgId, role } = await resolveOrgForUser(userId, orgSlug);
+    if (!hasManagerPrivileges(role)) {
+      return res.status(403).json({ error: 'insufficient_role' });
+    }
+
+    let query = supabaseService
+      .from('agent_learning_jobs')
+      .select('id, org_id, kind, status, payload, result, policy_version_id, created_at, updated_at, processed_at')
+      .eq('org_id', orgId)
+      .order('created_at', { ascending: false });
+
+    if (statusFilter) {
+      query = query.eq('status', statusFilter);
+    }
+
+    const { data, error } = await query;
+    if (error) {
+      throw error;
+    }
+
+    return res.json({ jobs: data ?? [] });
+  } catch (err) {
+    logError('learning.jobs_failed', err, { userId: req.user?.sub });
+    return res.status(500).json({ error: 'fetch failed' });
+  }
+});
+
+app.post('/api/learning/approve', async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = req.user?.sub;
+    const { orgSlug, jobId, note } = (await req.json()) as {
+      orgSlug?: string;
+      jobId?: string;
+      note?: string;
+    };
+
+    if (!userId || !orgSlug || !jobId) {
+      return res.status(400).json({ error: 'orgSlug and jobId required' });
+    }
+
+    const { orgId, role } = await resolveOrgForUser(userId, orgSlug);
+    if (!hasManagerPrivileges(role)) {
+      return res.status(403).json({ error: 'insufficient_role' });
+    }
+
+    const job = await fetchLearningJob(jobId);
+    if (!job || job.org_id !== orgId) {
+      return res.status(404).json({ error: 'job not found' });
+    }
+
+    if (job.status !== 'PENDING') {
+      return res.status(409).json({ error: 'job_not_pending' });
+    }
+
+    const approvalInfo = {
+      approved_by: userId,
+      approved_at: new Date().toISOString(),
+      note: note ?? null,
+    };
+
+    const { error: updateError } = await supabaseService
+      .from('agent_learning_jobs')
+      .update({
+        status: 'READY',
+        updated_at: approvalInfo.approved_at,
+        result: { ...(job.result ?? {}), approval: approvalInfo },
+      })
+      .eq('id', jobId)
+      .eq('org_id', orgId);
+
+    if (updateError) {
+      throw updateError;
+    }
+
+    await supabaseService.from('learning_signals').insert({
+      org_id: orgId,
+      run_id: null,
+      source: 'api.approve',
+      kind: `job_approved:${job.kind}`,
+      payload: { job_id: jobId, approval: approvalInfo },
+    });
+
+    return res.json({ status: 'READY', jobId });
+  } catch (err) {
+    logError('learning.job_approve_failed', err, { userId: req.user?.sub });
+    return res.status(500).json({ error: 'approve failed' });
+  }
+});
+
+app.get('/api/learning/policies', async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = req.user?.sub;
+    const orgSlug = typeof req.query.orgSlug === 'string' ? req.query.orgSlug : undefined;
+    if (!userId || !orgSlug) {
+      return res.status(400).json({ error: 'orgSlug required' });
+    }
+
+    const { orgId, role } = await resolveOrgForUser(userId, orgSlug);
+    if (!hasManagerPrivileges(role)) {
+      return res.status(403).json({ error: 'insufficient_role' });
+    }
+
+    const { data, error } = await supabaseService
+      .from('agent_policy_versions')
+      .select('id, version, status, summary, diff, approved_by, approved_at, rolled_back_at, created_at, updated_at')
+      .eq('org_id', orgId)
+      .order('version', { ascending: false });
+
+    if (error) {
+      throw error;
+    }
+
+    return res.json({ policies: data ?? [] });
+  } catch (err) {
+    logError('learning.policies_failed', err, { userId: req.user?.sub });
+    return res.status(500).json({ error: 'fetch failed' });
+  }
+});
+
+app.get('/api/learning/metrics', async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = req.user?.sub;
+    const orgSlug = typeof req.query.orgSlug === 'string' ? req.query.orgSlug : undefined;
+    const metric = typeof req.query.metric === 'string' ? req.query.metric : undefined;
+    const limit = Math.max(1, Math.min(200, Number(req.query.limit ?? '50')));
+    if (!userId || !orgSlug) {
+      return res.status(400).json({ error: 'orgSlug required' });
+    }
+
+    const { orgId, role } = await resolveOrgForUser(userId, orgSlug);
+    if (!hasManagerPrivileges(role)) {
+      return res.status(403).json({ error: 'insufficient_role' });
+    }
+
+    let query = supabaseService
+      .from('learning_metrics')
+      .select('id, window:window_name, metric, value, dims, computed_at')
+      .eq('org_id', orgId)
+      .order('computed_at', { ascending: false })
+      .limit(limit);
+
+    if (metric) {
+      query = query.eq('metric', metric);
+    }
+
+    const { data, error } = await query;
+    if (error) {
+      throw error;
+    }
+
+    return res.json({ metrics: data ?? [] });
+  } catch (err) {
+    logError('learning.metrics_failed', err, { userId: req.user?.sub });
+    return res.status(500).json({ error: 'fetch failed' });
+  }
+});
+
+app.post('/api/learning/rollback', async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = req.user?.sub;
+    const { orgSlug, policyVersionId, note } = (await req.json()) as {
+      orgSlug?: string;
+      policyVersionId?: string;
+      note?: string;
+    };
+
+    if (!userId || !orgSlug || !policyVersionId) {
+      return res.status(400).json({ error: 'orgSlug and policyVersionId required' });
+    }
+
+    const { orgId, role } = await resolveOrgForUser(userId, orgSlug);
+    if (!hasManagerPrivileges(role)) {
+      return res.status(403).json({ error: 'insufficient_role' });
+    }
+
+    const { data: policy, error: policyError } = await supabaseService
+      .from('agent_policy_versions')
+      .select('id, status')
+      .eq('id', policyVersionId)
+      .eq('org_id', orgId)
+      .maybeSingle();
+
+    if (policyError) {
+      throw policyError;
+    }
+    if (!policy) {
+      return res.status(404).json({ error: 'policy_not_found' });
+    }
+    if (policy.status === 'rolled_back') {
+      return res.status(409).json({ error: 'policy_already_rolled_back' });
+    }
+
+    await rollbackPolicyVersion(orgId, policyVersionId, note);
+
+    return res.json({ status: 'rolled_back', policyVersionId });
+  } catch (err) {
+    logError('learning.rollback_failed', err, { userId: req.user?.sub });
+    return res.status(500).json({ error: 'rollback failed' });
+  }
 });
 
 app.get('/v1/knowledge/sources/:id/preview', async (req: AuthenticatedRequest, res) => {
   try {
     const userId = req.user?.sub;
-    if (!userId) {
-      return res.status(401).json({ error: 'invalid session' });
+    const orgSlugQuery = typeof req.query.orgSlug === 'string' ? req.query.orgSlug : undefined;
+    if (!userId || !orgSlugQuery) {
+      return res.status(400).json({ error: 'orgSlug required' });
     }
 
     const sourceId = req.params.id;
@@ -1947,7 +3024,14 @@ app.get('/v1/knowledge/sources/:id/preview', async (req: AuthenticatedRequest, r
       return res.status(404).json({ error: 'organization not found' });
     }
 
-    await resolveOrgForUser(userId, orgRow.slug);
+    if (orgRow.slug !== orgSlugQuery) {
+      return res.status(403).json({ error: 'forbidden' });
+    }
+
+    const { role } = await resolveOrgForUser(userId, orgSlugQuery);
+    if (!hasManagerPrivileges(role)) {
+      return res.status(403).json({ error: 'insufficient_role' });
+    }
 
     if (source.provider === 'web_catalog') {
       if (!source.source_uri) {
@@ -1973,10 +3057,11 @@ app.get('/v1/knowledge/sources/:id/preview', async (req: AuthenticatedRequest, r
       id: source.id,
       corpusId: source.corpus_id,
       sourceUri: source.source_uri ?? '',
+      orgId: corpus.org_id,
     };
 
     const documents = await previewDriveDocuments(driveSource);
-    return res.json({ documents, placeholder: true });
+    return res.json({ documents, placeholder: false });
   } catch (err) {
     logError('knowledge.preview_failed', err, { userId: req.user?.sub, sourceId: req.params.id });
     return res.status(500).json({ error: 'preview failed' });
@@ -2055,12 +3140,23 @@ app.post('/v1/knowledge/runs', async (req: AuthenticatedRequest, res) => {
   }
 });
 
-app.get('/v1/knowledge/web-sources', async (_req: AuthenticatedRequest, res) => {
+app.get('/v1/knowledge/web-sources', async (req: AuthenticatedRequest, res) => {
   try {
+    const userId = req.user?.sub;
+    const orgSlug = typeof req.query.orgSlug === 'string' ? req.query.orgSlug : undefined;
+    if (!userId || !orgSlug) {
+      return res.status(400).json({ error: 'orgSlug required' });
+    }
+
+    const { role } = await resolveOrgForUser(userId, orgSlug);
+    if (!hasManagerPrivileges(role)) {
+      return res.status(403).json({ error: 'insufficient_role' });
+    }
+
     const sources = await listWebSources();
     return res.json({ sources });
   } catch (err) {
-    logError('knowledge.web_sources_failed', err, {});
+    logError('knowledge.web_sources_failed', err, { userId: req.user?.sub });
     return res.status(500).json({ error: 'fetch failed' });
   }
 });
@@ -2104,6 +3200,104 @@ app.post('/v1/knowledge/web-harvest', async (req: AuthenticatedRequest, res) => 
   } catch (err) {
     logError('knowledge.web_harvest_failed', err, { userId: req.user?.sub });
     return res.status(500).json({ error: 'schedule failed' });
+  }
+});
+
+app.post('/api/gdrive/backfill', async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = req.user?.sub;
+    const { orgSlug, sourceId } = req.body as { orgSlug?: string; sourceId?: string };
+
+    if (!userId || !orgSlug) {
+      return res.status(400).json({ error: 'orgSlug required' });
+    }
+
+    const { orgId, role } = await resolveOrgForUser(userId, orgSlug);
+    if (!hasManagerPrivileges(role)) {
+      return res.status(403).json({ error: 'insufficient_role' });
+    }
+
+    if (sourceId) {
+      const { data: source, error: sourceError } = await supabaseService
+        .from('knowledge_sources')
+        .select('id, corpus_id')
+        .eq('id', sourceId)
+        .maybeSingle();
+
+      if (sourceError || !source) {
+        return res.status(404).json({ error: 'knowledge source not found' });
+      }
+
+      const { data: corpus, error: corpusError } = await supabaseService
+        .from('knowledge_corpora')
+        .select('org_id')
+        .eq('id', source.corpus_id)
+        .maybeSingle();
+
+      if (corpusError || !corpus || corpus.org_id !== orgId) {
+        return res.status(403).json({ error: 'source not in organization' });
+      }
+    }
+
+    const batchLimit = Math.max(
+      1,
+      Math.min(100, Number((req.body as Record<string, unknown>)?.limit ?? GDRIVE_QUEUE_PROCESS_LIMIT)),
+    );
+
+    const { connectorId, queued } = await triggerDriveBackfill({ orgId, sourceId: sourceId ?? null });
+    const queueOutcome = await processDriveQueueEntries(orgId, connectorId, batchLimit);
+    const remaining = Math.max(queued - (queueOutcome.processed + queueOutcome.skipped + queueOutcome.failed), 0);
+
+    return res.json({ connectorId, queued, remaining, ...queueOutcome });
+  } catch (err) {
+    logError('gdrive.backfill_failed', err, { userId: req.user?.sub });
+    return res.status(500).json({ error: 'backfill failed' });
+  }
+});
+
+app.post('/api/gdrive/process-changes', async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = req.user?.sub;
+    const { orgSlug, connectorId: connectorIdInput, pageToken, sourceId, limit } = req.body as {
+      orgSlug?: string;
+      connectorId?: string;
+      pageToken?: string;
+      sourceId?: string;
+      limit?: number;
+    };
+
+    if (!userId || !orgSlug) {
+      return res.status(400).json({ error: 'orgSlug required' });
+    }
+
+    const { orgId, role } = await resolveOrgForUser(userId, orgSlug);
+    if (!hasManagerPrivileges(role)) {
+      return res.status(403).json({ error: 'insufficient_role' });
+    }
+
+    let connectorId = connectorIdInput ?? null;
+    if (!connectorId) {
+      connectorId = await getConnectorIdForOrg(orgId, sourceId ?? null);
+    }
+
+    if (!connectorId) {
+      return res.status(404).json({ error: 'connector not found' });
+    }
+
+    const changeResult = await processDriveChanges({ orgId, connectorId, pageToken });
+    const batchLimit = Math.max(1, Math.min(100, Number(limit ?? GDRIVE_QUEUE_PROCESS_LIMIT)));
+    const queueOutcome = await processDriveQueueEntries(orgId, connectorId, batchLimit);
+
+    return res.json({ connectorId, ...changeResult, ...queueOutcome });
+  } catch (err) {
+    logError('gdrive.process_changes_failed', err, { userId: req.user?.sub });
+    if ((err as Error).message === 'missing_page_token') {
+      return res.status(409).json({ error: 'missing_page_token' });
+    }
+    if ((err as Error).message === 'connector_not_found') {
+      return res.status(404).json({ error: 'connector not found' });
+    }
+    return res.status(500).json({ error: 'process changes failed' });
   }
 });
 

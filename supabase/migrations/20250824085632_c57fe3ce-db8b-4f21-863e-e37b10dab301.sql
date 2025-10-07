@@ -1,8 +1,8 @@
--- Create Aurora Advisors organization
+-- Create Prisma Glow organization
 INSERT INTO public.organizations (name, slug, brand_primary, brand_secondary)
-VALUES ('Aurora Advisors', 'aurora', '#6366f1', '#8b5cf6')
+VALUES ('Prisma Glow', 'prisma-glow', '#2563eb', '#7c3aed')
 ON CONFLICT (slug) DO NOTHING;
--- Get the organization ID for Aurora Advisors
+-- Get the organization ID for Prisma Glow
 DO $$
 DECLARE
     org_uuid uuid;
@@ -12,15 +12,15 @@ DECLARE
     zero_instance uuid := '00000000-0000-0000-0000-000000000000';
 BEGIN
     -- Get organization ID
-    SELECT id INTO org_uuid FROM public.organizations WHERE slug = 'aurora';
+    SELECT id INTO org_uuid FROM public.organizations WHERE slug = 'prisma-glow';
 
     IF org_uuid IS NULL THEN
-        RAISE NOTICE 'Aurora Advisors organization not found; skipping demo user seed.';
+        RAISE NOTICE 'Prisma Glow organization not found; skipping demo user seed.';
         RETURN;
     END IF;
 
     -- Ensure Sophia (system admin)
-    SELECT id INTO sophia_uuid FROM auth.users WHERE email = 'sophia@aurora.test';
+    SELECT id INTO sophia_uuid FROM auth.users WHERE email = 'sophia@prismaglow.test';
     IF sophia_uuid IS NULL THEN
         sophia_uuid := gen_random_uuid();
         INSERT INTO auth.users (
@@ -28,11 +28,11 @@ BEGIN
             email_confirmed_at, raw_app_meta_data, raw_user_meta_data,
             created_at, updated_at
         ) VALUES (
-            zero_instance, sophia_uuid, 'authenticated', 'authenticated', 'sophia@aurora.test',
+            zero_instance, sophia_uuid, 'authenticated', 'authenticated', 'sophia@prismaglow.test',
             crypt('lovable123', gen_salt('bf')),
             now(),
             jsonb_build_object('provider', 'email', 'providers', jsonb_build_array('email')),
-            jsonb_build_object('name', 'Sophia System', 'email', 'sophia@aurora.test', 'email_verified', true),
+            jsonb_build_object('name', 'Sophia Systems', 'email', 'sophia@prismaglow.test', 'email_verified', true),
             now(), now()
         );
     END IF;
@@ -41,7 +41,7 @@ BEGIN
     VALUES (
         sophia_uuid::text,
         sophia_uuid,
-        jsonb_build_object('sub', sophia_uuid::text, 'email', 'sophia@aurora.test', 'email_verified', true),
+        jsonb_build_object('sub', sophia_uuid::text, 'email', 'sophia@prismaglow.test', 'email_verified', true),
         'email',
         now(),
         now()
@@ -51,13 +51,13 @@ BEGIN
           updated_at = EXCLUDED.updated_at;
 
     INSERT INTO public.users (id, email, name)
-    VALUES (sophia_uuid, 'sophia@aurora.test', 'Sophia System')
+    VALUES (sophia_uuid, 'sophia@prismaglow.test', 'Sophia Systems')
     ON CONFLICT (id) DO UPDATE
       SET email = EXCLUDED.email,
           name = EXCLUDED.name;
 
     -- Ensure Mark (manager)
-    SELECT id INTO mark_uuid FROM auth.users WHERE email = 'mark@aurora.test';
+    SELECT id INTO mark_uuid FROM auth.users WHERE email = 'mark@prismaglow.test';
     IF mark_uuid IS NULL THEN
         mark_uuid := gen_random_uuid();
         INSERT INTO auth.users (
@@ -65,11 +65,11 @@ BEGIN
             email_confirmed_at, raw_app_meta_data, raw_user_meta_data,
             created_at, updated_at
         ) VALUES (
-            zero_instance, mark_uuid, 'authenticated', 'authenticated', 'mark@aurora.test',
+            zero_instance, mark_uuid, 'authenticated', 'authenticated', 'mark@prismaglow.test',
             crypt('lovable123', gen_salt('bf')),
             now(),
             jsonb_build_object('provider', 'email', 'providers', jsonb_build_array('email')),
-            jsonb_build_object('name', 'Mark Manager', 'email', 'mark@aurora.test', 'email_verified', true),
+            jsonb_build_object('name', 'Mark Manager', 'email', 'mark@prismaglow.test', 'email_verified', true),
             now(), now()
         );
     END IF;
@@ -78,7 +78,7 @@ BEGIN
     VALUES (
         mark_uuid::text,
         mark_uuid,
-        jsonb_build_object('sub', mark_uuid::text, 'email', 'mark@aurora.test', 'email_verified', true),
+        jsonb_build_object('sub', mark_uuid::text, 'email', 'mark@prismaglow.test', 'email_verified', true),
         'email',
         now(),
         now()
@@ -88,13 +88,13 @@ BEGIN
           updated_at = EXCLUDED.updated_at;
 
     INSERT INTO public.users (id, email, name)
-    VALUES (mark_uuid, 'mark@aurora.test', 'Mark Manager')
+    VALUES (mark_uuid, 'mark@prismaglow.test', 'Mark Manager')
     ON CONFLICT (id) DO UPDATE
       SET email = EXCLUDED.email,
           name = EXCLUDED.name;
 
     -- Ensure Eli (employee)
-    SELECT id INTO eli_uuid FROM auth.users WHERE email = 'eli@aurora.test';
+    SELECT id INTO eli_uuid FROM auth.users WHERE email = 'eli@prismaglow.test';
     IF eli_uuid IS NULL THEN
         eli_uuid := gen_random_uuid();
         INSERT INTO auth.users (
@@ -102,11 +102,11 @@ BEGIN
             email_confirmed_at, raw_app_meta_data, raw_user_meta_data,
             created_at, updated_at
         ) VALUES (
-            zero_instance, eli_uuid, 'authenticated', 'authenticated', 'eli@aurora.test',
+            zero_instance, eli_uuid, 'authenticated', 'authenticated', 'eli@prismaglow.test',
             crypt('lovable123', gen_salt('bf')),
             now(),
             jsonb_build_object('provider', 'email', 'providers', jsonb_build_array('email')),
-            jsonb_build_object('name', 'Eli Employee', 'email', 'eli@aurora.test', 'email_verified', true),
+            jsonb_build_object('name', 'Eli Employee', 'email', 'eli@prismaglow.test', 'email_verified', true),
             now(), now()
         );
     END IF;
@@ -115,7 +115,7 @@ BEGIN
     VALUES (
         eli_uuid::text,
         eli_uuid,
-        jsonb_build_object('sub', eli_uuid::text, 'email', 'eli@aurora.test', 'email_verified', true),
+        jsonb_build_object('sub', eli_uuid::text, 'email', 'eli@prismaglow.test', 'email_verified', true),
         'email',
         now(),
         now()
@@ -125,7 +125,7 @@ BEGIN
           updated_at = EXCLUDED.updated_at;
 
     INSERT INTO public.users (id, email, name)
-    VALUES (eli_uuid, 'eli@aurora.test', 'Eli Employee')
+    VALUES (eli_uuid, 'eli@prismaglow.test', 'Eli Employee')
     ON CONFLICT (id) DO UPDATE
       SET email = EXCLUDED.email,
           name = EXCLUDED.name;

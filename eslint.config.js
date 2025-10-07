@@ -27,6 +27,13 @@ export default tseslint.config(
       "@typescript-eslint/no-explicit-any": "off",
       "@typescript-eslint/no-empty-object-type": "off",
       "@typescript-eslint/no-require-imports": "off",
+      "no-console": ["error", { allow: ["warn", "error"] }],
+    },
+  },
+  {
+    files: ["services/**/*.{ts,tsx}", "supabase/functions/**/*.{ts,tsx}"],
+    rules: {
+      "no-console": "off",
     },
   }
 );

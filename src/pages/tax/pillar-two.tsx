@@ -8,6 +8,8 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { useAppStore } from '@/stores/mock-data';
 import { isSupabaseConfigured, supabase } from '@/integrations/supabase/client';
+import type { Database } from '@/integrations/supabase/types';
+import type { PostgrestError } from '@supabase/supabase-js';
 import {
   computePillarTwo,
   listPillarTwoComputations,
@@ -15,6 +17,7 @@ import {
   type PillarTwoSummary,
 } from '@/lib/tax-mt-service';
 import { calculatePillarTwo } from '@/lib/tax/calculators';
+import { logger } from '@/lib/logger';
 
 const numberFormatter = new Intl.NumberFormat(undefined, {
   style: 'currency',
@@ -29,7 +32,6 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
 
 type TaxEntityRelationship = {
   id: string;
-  org_id?: string;
   parent_tax_entity_id: string;
   child_tax_entity_id: string;
   ownership_percentage: number;
@@ -37,6 +39,40 @@ type TaxEntityRelationship = {
   notes: string | null;
   created_at: string;
 };
+
+type TaxEntityRelationshipRow = Database['public']['Tables']['tax_entity_relationships']['Row'];
+
+function mapRelationship(row: TaxEntityRelationshipRow): TaxEntityRelationship {
+  return {
+    id: row.id,
+    parent_tax_entity_id: row.parent_tax_entity_id,
+    child_tax_entity_id: row.child_tax_entity_id,
+    ownership_percentage: row.ownership_percentage ?? 0,
+    effective_date: row.effective_date,
+    notes: row.notes,
+    created_at: row.created_at,
+  };
+}
+
+function isMissingRelationshipTableError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+
+  const candidate = error as Partial<PostgrestError> & { message?: string };
+  if (typeof candidate.code === 'string' && candidate.code.trim().toUpperCase() === '42P01') {
+    return true;
+  }
+
+  const message = candidate.message ?? (error instanceof Error ? error.message : undefined);
+  if (!message) {
+    return false;
+  }
+
+  const normalised = message.toLowerCase();
+  return normalised.includes('tax_entity_relationships') &&
+    (normalised.includes('does not exist') || normalised.includes('missing') || normalised.includes('undefined table'));
+}
 
 type JurisdictionRow = {
   id: string;
@@ -113,47 +149,67 @@ export default function PillarTwoPage() {
       return;
     }
 
-    if (canExecute) {
-      const controller = new AbortController();
+    if (!canExecute) {
+      setHistory([]);
+      setRelationships([
+        {
+          id: 'demo-relationship-1',
+          parent_tax_entity_id: 'org-parent',
+          child_tax_entity_id: 'org-subsidiary-1',
+          ownership_percentage: 1,
+          effective_date: '2025-01-01',
+          notes: 'Demo relationship for offline mode.',
+          created_at: new Date().toISOString(),
+        },
+      ]);
+      return;
+    }
 
-      const load = async () => {
+    const controller = new AbortController();
+    setRelationshipsLoading(true);
+
+    (async () => {
+      try {
+        let historyRows: PillarTwoComputation[] = [];
         try {
-          const [historyResponse, relationshipsResponse] = await Promise.all([
-            listPillarTwoComputations({ orgSlug: currentOrg.slug }).catch(() => ({ data: [] })),
-            Promise.resolve([] as TaxEntityRelationship[]), // Table not available yet
-          ]);
-
-          if (!controller.signal.aborted) {
-            setHistory(Array.isArray(historyResponse.data) ? historyResponse.data : []);
-            setRelationships(Array.isArray(relationshipsResponse) ? relationshipsResponse : []);
-          }
+          const historyResponse = await listPillarTwoComputations({ orgSlug: currentOrg.slug });
+          historyRows = Array.isArray(historyResponse.data) ? historyResponse.data : [];
         } catch (error) {
-          console.error('pillar-two-load', error);
+        logger.error('pillar_two.history_load_failed', error);
         }
-      };
 
-      setRelationshipsLoading(true);
-      load().finally(() => {
+        const relationshipsQuery = supabase.from('tax_entity_relationships') as any;
+        const response = await relationshipsQuery
+          .select('*')
+          .eq('org_id', currentOrg.id)
+          .order('created_at', { ascending: false });
+
+        const { data: relationshipRows, error } = response as {
+          data: TaxEntityRelationshipRow[] | null;
+          error: PostgrestError | null;
+        };
+
+        if (error) {
+          throw new Error(error.message);
+        }
+
+        if (!controller.signal.aborted) {
+          setHistory(historyRows);
+          const mapped = (relationshipRows ?? []).map(mapRelationship);
+          setRelationships(mapped);
+        }
+      } catch (error) {
+        if (!controller.signal.aborted) {
+        logger.error('pillar_two.load_failed', error);
+        }
+      } finally {
         if (!controller.signal.aborted) {
           setRelationshipsLoading(false);
         }
-      });
+      }
+    })();
 
-      return () => controller.abort();
-    }
-
-    // Demo mode placeholder relationships
-    setRelationships([
-      {
-        id: 'demo-relationship-1',
-        parent_tax_entity_id: 'org-parent',
-        child_tax_entity_id: 'org-subsidiary-1',
-        ownership_percentage: 1,
-        effective_date: '2025-01-01',
-        notes: 'Demo relationship for offline mode.',
-        created_at: new Date().toISOString(),
-      },
-    ]);
+    return () => controller.abort();
   }, [canExecute, currentOrg?.id, currentOrg?.slug]);
 
   const handleJurisdictionChange = (id: string, field: keyof JurisdictionRow, value: string) => {
@@ -222,29 +278,48 @@ export default function PillarTwoPage() {
 
     try {
       setRelationshipsLoading(true);
-      // Table not available yet - simulate success
-      const data = { 
-        ...newRelationship, 
-        id: `temp-${Date.now()}`, 
-        created_at: new Date().toISOString(),
-        org_id: currentOrg.id 
+      const insertQuery = supabase.from('tax_entity_relationships') as any;
+      const response = await insertQuery
+        .insert({
+          org_id: currentOrg.id,
+          parent_tax_entity_id: newRelationship.parent_tax_entity_id,
+          child_tax_entity_id: newRelationship.child_tax_entity_id,
+          ownership_percentage: newRelationship.ownership_percentage,
+          effective_date: newRelationship.effective_date,
+          notes: newRelationship.notes,
+        })
+        .select('*')
+        .maybeSingle();
+
+      const { data, error } = (response ?? {}) as {
+        data?: TaxEntityRelationshipRow | null;
+        error?: PostgrestError | null;
       };
-      const error = null;
 
       if (error || !data) {
-        throw new Error(error?.message ?? 'Failed to add relationship');
+        throw error ?? new Error('Failed to add relationship');
       }
 
-      setRelationships((prev) => [data as TaxEntityRelationship, ...prev]);
+      setRelationships((prev) => [mapRelationship(data), ...prev]);
       toast({ title: 'Relationship added' });
       setRelationshipForm({ parent: '', child: '', ownership: '1', effectiveDate: '', notes: '' });
     } catch (error) {
-      console.error('relationship-add', error);
-      toast({
-        variant: 'destructive',
-        title: 'Unable to add relationship',
-        description: error instanceof Error ? error.message : 'Unknown error',
-      });
+      if (isMissingRelationshipTableError(error)) {
+        logger.warn('pillar_two.relationship_table_missing_cache');
+        setRelationships((prev) => [newRelationship, ...prev]);
+        toast({
+          title: 'Relationship cached locally',
+          description: 'Supabase table is not provisioned yet. Data stored in session until sync is available.',
+        });
+        setRelationshipForm({ parent: '', child: '', ownership: '1', effectiveDate: '', notes: '' });
+      } else {
+        logger.error('pillar_two.relationship_add_failed', error);
+        toast({
+          variant: 'destructive',
+          title: 'Unable to add relationship',
+          description: error instanceof Error ? error.message : 'Unknown error',
+        });
+      }
     } finally {
       setRelationshipsLoading(false);
     }
@@ -258,18 +333,30 @@ export default function PillarTwoPage() {
 
     try {
       setRelationshipsLoading(true);
-      // Table not available yet - simulate success
-      const error = null;
+      const deleteQuery = supabase.from('tax_entity_relationships') as any;
+      const { error } = await deleteQuery
+        .delete()
+        .eq('org_id', currentOrg.id)
+        .eq('id', id);
       if (error) throw error;
       setRelationships((prev) => prev.filter((item) => item.id !== id));
       toast({ title: 'Relationship removed' });
     } catch (error) {
-      console.error('relationship-delete', error);
-      toast({
-        variant: 'destructive',
-        title: 'Unable to remove relationship',
-        description: error instanceof Error ? error.message : 'Unknown error',
-      });
+      if (isMissingRelationshipTableError(error)) {
+        logger.warn('pillar_two.relationship_table_missing_remove');
+        setRelationships((prev) => prev.filter((item) => item.id !== id));
+        toast({
+          title: 'Relationship removed locally',
+          description: 'Supabase table is not provisioned yet. Removal applied to local cache only.',
+        });
+      } else {
+        logger.error('pillar_two.relationship_delete_failed', error);
+        toast({
+          variant: 'destructive',
+          title: 'Unable to remove relationship',
+          description: error instanceof Error ? error.message : 'Unknown error',
+        });
+      }
     } finally {
       setRelationshipsLoading(false);
     }
@@ -355,7 +442,7 @@ export default function PillarTwoPage() {
       setHistory((prev) => [response.computation, ...prev]);
       toast({ title: 'Pillar Two computation stored', description: `Reference ${response.computation.gir_reference ?? ''}` });
     } catch (error) {
-      console.error('pillar-two-compute', error);
+      logger.error('pillar_two.compute_failed', error);
       toast({
         variant: 'destructive',
         title: 'Unable to compute Pillar Two',

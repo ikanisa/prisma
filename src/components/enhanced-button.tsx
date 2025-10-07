@@ -17,7 +17,7 @@ const buttonVariants = cva(
         link: "text-primary underline-offset-4 hover:underline",
         // Enhanced variants using our design system
         gradient: "bg-gradient-primary text-primary-foreground hover:opacity-90 hover:scale-105 transition-all duration-200",
-        aurora: "bg-gradient-aurora text-white hover:opacity-90 hover:scale-105 transition-all duration-200 shadow-primary",
+        glow: "bg-gradient-glow text-white hover:opacity-90 hover:scale-105 transition-all duration-200 shadow-primary",
         glass: "glass text-foreground hover:bg-white/20 backdrop-blur-md border-white/20",
         success: "bg-success text-success-foreground hover:bg-success/90",
         warning: "bg-warning text-warning-foreground hover:bg-warning/90",
@@ -61,7 +61,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       <motion.button
         className={cn(buttonVariants({ variant, size, className }))}
         ref={ref}
-        whileHover={{ scale: variant?.includes('gradient') || variant?.includes('aurora') || variant === 'floating' ? 1.02 : 1 }}
+        whileHover={{ scale: variant?.includes('gradient') || variant?.includes('glow') || variant === 'floating' ? 1.02 : 1 }}
         whileTap={{ scale: 0.98 }}
         transition={{ type: "spring", stiffness: 400, damping: 17 }}
         disabled={loading}

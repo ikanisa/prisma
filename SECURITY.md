@@ -39,3 +39,21 @@
 - Services should validate user roles as documented in `docs/access-control.md`.
 - Detailed table-by-table policies are catalogued in `docs/SECURITY/rls-policies.md` and
   validated via `scripts/test_policies.sql`.
+
+### Storage Buckets (Documents)
+- The `documents` storage bucket is private and enforced via RLS on `storage.objects`.
+- Only the service role may write to `documents`; authenticated users may read objects
+  only when they belong to the owning organisation (bucket path prefix `org-<org_id>`).
+- See migration `supabase/migrations/20250927100000_documents_storage_policy.sql` for
+  the policy definitions, and prefer signed URLs for any download flows.
+
+## HTTP Security Headers
+- The FastAPI gateway injects strict security headers, including a `Content-Security-Policy`
+  that blocks `unsafe-*` directives and restricts connections to the API origin plus the
+  configured Supabase project. Adjustments can be supplied through
+  `CSP_ADDITIONAL_CONNECT_SRC` / `CSP_ADDITIONAL_IMG_SRC` environment variables when external
+  services are required.
+- Cross-origin requests are limited to the values provided through `API_ALLOWED_ORIGINS`.
+  Set this list explicitly in production (for example `https://app.example.com`) and define
+  `ENVIRONMENT=production` to prevent fallback behaviour. Development/test environments fall
+  back to localhost origins for convenience.

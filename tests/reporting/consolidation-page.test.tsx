@@ -62,7 +62,7 @@ describe('ConsolidationPage', () => {
   });
 
   it('runs the consolidation workflow and renders the result', async () => {
-    useOrganizationsMock.mockReturnValue({ currentOrg: { id: 'org-1', slug: 'aurora-advisors' } });
+    useOrganizationsMock.mockReturnValue({ currentOrg: { id: 'org-1', slug: 'prisma-glow-advisors' } });
     useParamsMock.mockReturnValue({ engagementId: 'eng-42' });
 
     const response = {

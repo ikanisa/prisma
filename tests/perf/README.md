@@ -40,6 +40,14 @@ k6 run tests/perf/disclosure-sync.js \
   -e ENTITY_ID="$ENTITY_ID" \
   -e PERIOD_ID="$PERIOD_ID"
 
+# Autopilot & document extraction smoke
+k6 run tests/perf/autopilot-smoke.js \
+  -e AUTOPILOT_BASE_URL="https://staging.example.com" \
+  -e AUTOPILOT_ACCESS_TOKEN="$TOKEN" \
+  -e AUTOPILOT_ORG_SLUG="acme" \
+  -e AUTOPILOT_VUS=5 \
+  -e AUTOPILOT_DURATION=1m
+
 # Telemetry sync
 k6 run tests/perf/telemetry-sync.js \
   -e TELEMETRY_FUNCTION_URL="https://<project>.supabase.co/functions/v1/telemetry-sync" \
@@ -49,3 +57,6 @@ k6 run tests/perf/telemetry-sync.js \
 
 Store k6 summary outputs in `docs/PERF/<date>-<scenario>.json` for review and attach the
 results to the UAT/performance evidence pack.
+
+The helper script `scripts/k6-autopilot-smoke.sh` wraps the Autopilot scenario and exports a
+JSON summary straight into `GO-LIVE/artifacts/autopilot-smoke-summary.json`.

@@ -3,32 +3,57 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { useKnowledgeCorpora, useScheduleLearningRun, useDriveConnectorMetadata } from '@/hooks/use-knowledge';
+import {
+  useKnowledgeCorpora,
+  useScheduleLearningRun,
+  useDriveConnectorMetadata,
+  useDriveConnectorStatus,
+  useLearningJobs,
+  useApproveLearningJob,
+  useLearningPolicies,
+  useLearningMetrics,
+} from '@/hooks/use-knowledge';
 import type { AgentKind, LearningMode } from '@/lib/knowledge';
 import { useOrganizations } from '@/hooks/use-organizations';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { AlertTriangle, BrainCircuit, BookOpen, RefreshCw } from 'lucide-react';
+import { AlertTriangle, BrainCircuit, BookOpen, RefreshCw, Loader2 } from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
 
 export default function AgentLearningPage() {
   const { currentOrg } = useOrganizations();
   const corporaQuery = useKnowledgeCorpora();
   const metadataQuery = useDriveConnectorMetadata();
+  const statusQuery = useDriveConnectorStatus();
   const scheduleRun = useScheduleLearningRun();
+  const pendingJobsQuery = useLearningJobs('PENDING');
+  const approveJob = useApproveLearningJob();
+  const policiesQuery = useLearningPolicies();
+  const metricsQuery = useLearningMetrics('run_success_rate', 10);
 
-  const corpora = corporaQuery.data ?? [];
-  const allSources = useMemo(() =>
-    corpora.flatMap((corpus: any) =>
-      (corpus.knowledge_sources ?? []).map((source: any) => ({
-        id: source.id,
-        label: `${corpus.name} · ${source.provider}`,
-        corpusId: corpus.id,
-        corpusName: corpus.name,
-        domain: corpus.domain,
-        provider: source.provider,
-      }))
-    ),
-  [corpora]);
+  const corpora = useMemo(() => corporaQuery.data ?? [], [corporaQuery.data]);
+  const connectorMetadata = metadataQuery.data ?? null;
+  const connectorStatus = statusQuery.data ?? null;
+  const connectorEnabled = connectorMetadata?.enabled ?? false;
+  const connectorReady = connectorEnabled && Boolean(connectorStatus?.connector);
+  const pendingJobs = pendingJobsQuery.data ?? [];
+  const policies = policiesQuery.data ?? [];
+  const metrics = metricsQuery.data ?? [];
+  const latestMetric = metrics.length ? metrics[0] : null;
+  const allSources = useMemo(
+    () =>
+      corpora.flatMap((corpus: any) =>
+        (corpus.knowledge_sources ?? []).map((source: any) => ({
+          id: source.id,
+          label: `${corpus.name} · ${source.provider}`,
+          corpusId: corpus.id,
+          corpusName: corpus.name,
+          domain: corpus.domain,
+          provider: source.provider,
+        }))
+      ),
+    [corpora],
+  );
 
   const [selectedSource, setSelectedSource] = useState<string>('');
   const [agentKind, setAgentKind] = useState<AgentKind>('AUDIT');
@@ -54,8 +79,7 @@ export default function AgentLearningPage() {
           <BrainCircuit className="h-8 w-8" /> Agent Initial Learning
         </h1>
         <p className="text-muted-foreground">
-          Configure corpora and queue learning runs. All ingestion currently operates in placeholder mode
-          until Google Drive credentials are supplied.
+          Configure corpora and queue learning runs. Google Drive ingestion is {connectorReady ? 'active—monitor queue depth and policy approvals below.' : 'waiting for final credential setup.'}
         </p>
       </div>
 
@@ -92,15 +116,29 @@ export default function AgentLearningPage() {
         </Card>
       </div>
 
-      {metadataQuery.data && (
+      {connectorReady ? (
+        <Alert className="bg-muted/40 border-emerald-200 text-emerald-800 dark:border-emerald-900 dark:text-emerald-300">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Google Drive connector active</AlertTitle>
+          <AlertDescription>
+            Last sync{' '}
+            {connectorStatus?.connector?.lastSyncAt
+              ? formatDistanceToNow(new Date(connectorStatus.connector.lastSyncAt), { addSuffix: true })
+              : 'not yet run'}
+            . Pending queue: <strong>{connectorStatus?.queue.pending ?? 0}</strong>. Blocked entries:{' '}
+            <strong>{connectorStatus?.metadata.blocked ?? 0}</strong>.
+          </AlertDescription>
+        </Alert>
+      ) : connectorMetadata ? (
         <Alert className="bg-muted/40">
           <AlertTriangle className="h-4 w-4" />
           <AlertTitle>Google Drive configuration pending</AlertTitle>
           <AlertDescription>
-            Provide Drive credentials and folder mapping to replace placeholder ingestion. Current connector placeholder: <strong>{metadataQuery.data.folderId}</strong>.
+            Provide Drive credentials and folder mapping to enable ingestion. Expected folder pattern:{' '}
+            <strong>{connectorMetadata.folderMappingPattern}</strong>.
           </AlertDescription>
         </Alert>
-      )}
+      ) : null}
 
       <Card>
         <CardHeader>
@@ -189,6 +227,99 @@ export default function AgentLearningPage() {
           </form>
         </CardContent>
       </Card>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Pending learning jobs</CardTitle>
+            <CardDescription>
+              Jobs generated by the diagnoser awaiting manual approval before the applier executes them.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            {pendingJobsQuery.isLoading ? (
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" /> Loading jobs…
+              </div>
+            ) : pendingJobs.length === 0 ? (
+              <p className="text-muted-foreground">No pending jobs 🎉</p>
+            ) : (
+              <div className="space-y-3">
+                {pendingJobs.map((job) => (
+                  <div key={job.id} className="rounded-md border p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <div>
+                        <p className="font-medium capitalize">{job.kind.replace(/_/g, ' ')}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Created {formatDistanceToNow(new Date(job.created_at), { addSuffix: true })}
+                        </p>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        disabled={approveJob.isPending}
+                        onClick={() => approveJob.mutate({ jobId: job.id })}
+                      >
+                        {approveJob.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Approve'}
+                      </Button>
+                    </div>
+                    {job.payload && (
+                      <pre className="mt-2 max-h-48 overflow-auto rounded bg-muted/70 p-2 text-xs">
+                        {JSON.stringify(job.payload, null, 2)}
+                      </pre>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Policy versions & metrics</CardTitle>
+            <CardDescription>Review active policy versions and the latest run success rate.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            {policiesQuery.isLoading ? (
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" /> Loading policies…
+              </div>
+            ) : policies.length === 0 ? (
+              <p className="text-muted-foreground">No policy versions yet.</p>
+            ) : (
+              <ul className="space-y-2">
+                {policies.slice(0, 4).map((policy) => (
+                  <li key={policy.id} className="rounded-md border p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <div>
+                        <p className="font-medium">Version {policy.version}</p>
+                        <p className="text-xs text-muted-foreground">Status: {policy.status}</p>
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        {formatDistanceToNow(new Date(policy.created_at), { addSuffix: true })}
+                      </span>
+                    </div>
+                    {policy.summary && <p className="mt-2 text-sm text-muted-foreground">{policy.summary}</p>}
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {latestMetric && (
+              <div className="rounded-md border border-dashed p-3">
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">Run success rate</p>
+                <p className="text-2xl font-semibold">
+                  {Math.round((latestMetric.value ?? 0) * 100)}%
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Computed {formatDistanceToNow(new Date(latestMetric.computed_at), { addSuffix: true })}
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
       <Card>
         <CardHeader>

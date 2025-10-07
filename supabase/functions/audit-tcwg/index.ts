@@ -887,7 +887,7 @@ Deno.serve(async (req) => {
 
   const client = await createSupabaseClient(authHeader);
 
-  let orgId: string | null = null;
+  const orgId: string | null = null;
   let orgSlug: string | null = null;
   let engagementId: string | null = null;
   let contextInfo: Record<string, unknown> = {};

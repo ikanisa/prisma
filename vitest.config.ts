@@ -10,6 +10,12 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
     css: true,
+    include: [
+      'src/**/*.{test,spec}.{js,ts,jsx,tsx}',
+      'lib/**/*.{test,spec}.{js,ts}',
+      'tests/**/*.{test,spec}.{js,ts,jsx,tsx}',
+    ],
+    exclude: ['tests/playwright/**', 'node_modules/**', 'node_modules/.pnpm/**'],
     testTimeout: 120000,
     hookTimeout: 60000,
     coverage: {

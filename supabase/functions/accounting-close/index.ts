@@ -9,14 +9,19 @@ const corsHeaders = {
 };
 
 type TypedClient = SupabaseClient<Database>;
-type RoleLevel = Database['public']['Enums']['role_level'];
+type RoleLevel = Database['public']['Enums']['org_role'];
 
 type SupabaseUser = { id: string; email?: string | null };
 
 const roleRank: Record<RoleLevel, number> = {
-  EMPLOYEE: 1,
-  MANAGER: 2,
-  SYSTEM_ADMIN: 3,
+  SERVICE_ACCOUNT: 10,
+  READONLY: 20,
+  CLIENT: 30,
+  EMPLOYEE: 40,
+  MANAGER: 70,
+  EQR: 80,
+  PARTNER: 90,
+  SYSTEM_ADMIN: 100,
 };
 
 class HttpError extends Error {
@@ -69,6 +74,36 @@ async function getOrgContext(client: TypedClient, orgSlug: string | null, userId
 function requireRole(current: RoleLevel, min: RoleLevel) {
   if (roleRank[current] < roleRank[min]) {
     throw new HttpError(403, 'insufficient_role');
+  }
+}
+
+async function requireRecentMfa(client: TypedClient, orgId: string, userId: string, withinSeconds = 86_400) {
+  const { data, error } = await client
+    .from('mfa_challenges')
+    .select('created_at')
+    .eq('org_id', orgId)
+    .eq('user_id', userId)
+    .eq('channel', 'WHATSAPP')
+    .eq('consumed', true)
+    .order('created_at', { ascending: false })
+    .limit(1);
+  if (error) {
+    console.error('mfa.challenge_fetch_failed', error);
+    throw new HttpError(502, 'mfa_lookup_failed');
+  }
+  if (!data?.length) {
+    throw new HttpError(403, 'mfa_required');
+  }
+  const createdAtRaw = data[0].created_at as string | null;
+  if (!createdAtRaw) {
+    throw new HttpError(403, 'mfa_required');
+  }
+  const createdAt = new Date(createdAtRaw);
+  if (Number.isNaN(createdAt.getTime())) {
+    throw new HttpError(403, 'mfa_required');
+  }
+  if (Date.now() - createdAt.getTime() > withinSeconds * 1000) {
+    throw new HttpError(403, 'mfa_required');
   }
 }
 
@@ -701,6 +736,7 @@ async function handleCloseAdvance(client: TypedClient, user: SupabaseUser, body:
 async function handleCloseLock(client: TypedClient, user: SupabaseUser, body: any) {
   const { orgId, role } = await getOrgContext(client, body.orgSlug ?? null, user.id);
   requireRole(role, 'PARTNER');
+  await requireRecentMfa(client, orgId, user.id);
 
   const closeId = body.closePeriodId as string | undefined;
   if (!closeId) throw new HttpError(400, 'close_period_id_required');

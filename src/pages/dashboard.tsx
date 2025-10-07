@@ -53,7 +53,7 @@ export function Dashboard() {
     >
       <div>
         <h1 className="text-3xl font-bold gradient-text">Dashboard</h1>
-        <p className="text-muted-foreground">Welcome back to Aurora Advisors</p>
+        <p className="text-muted-foreground">Welcome back to Prisma Glow</p>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">

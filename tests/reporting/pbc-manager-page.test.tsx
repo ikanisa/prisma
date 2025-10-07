@@ -43,7 +43,7 @@ vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
   return {
     ...actual,
-    useParams: () => ({ orgSlug: 'aurora', engagementId: 'eng-123' }),
+    useParams: () => ({ orgSlug: 'prisma-glow', engagementId: 'eng-123' }),
   };
 });
 
@@ -75,7 +75,10 @@ function createManager(overrides: Partial<ManagerReturn> = {}): ManagerReturn {
 
 function renderPage() {
   return render(
-    <MemoryRouter initialEntries={['/aurora/engagements/eng-123/reporting/pbc']}>
+    <MemoryRouter
+      future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+      initialEntries={['/prisma-glow/engagements/eng-123/reporting/pbc']}
+    >
       <PbcManagerPage />
     </MemoryRouter>,
   );
@@ -88,7 +91,7 @@ beforeEach(() => {
   hoisted.usePbcManagerMock.mockReset();
   hoisted.queryResults.clear();
 
-  hoisted.useOrganizationsMock.mockReturnValue({ currentOrg: { id: 'org-1', slug: 'aurora' } });
+  hoisted.useOrganizationsMock.mockReturnValue({ currentOrg: { id: 'org-1', slug: 'prisma-glow' } });
 });
 
 afterEach(() => {
@@ -109,7 +112,7 @@ describe('PbcManagerPage acceptance gating', () => {
     expect(screen.getByText('Engagement acceptance pending')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Go to acceptance workflow/i })).toHaveAttribute(
       'href',
-      '/aurora/engagements/eng-123/acceptance',
+      '/prisma-glow/engagements/eng-123/acceptance',
     );
   });
 });
@@ -122,7 +125,7 @@ describe('PbcManagerPage workflow', () => {
     });
 
     hoisted.queryResults.set(
-      getKey(['pbc-procedures', 'aurora', 'eng-123']),
+      getKey(['pbc-procedures', 'prisma-glow', 'eng-123']),
       {
         data: [
           { id: 'proc-1', title: 'Bank reconciliation review', objective: 'Verify bank balances' },
@@ -164,7 +167,7 @@ describe('PbcManagerPage workflow', () => {
     await waitFor(() => expect(instantiateMock).toHaveBeenCalledTimes(1));
 
     const payload = instantiateMock.mock.calls[0][0] as any;
-    expect(payload.orgSlug).toBe('aurora');
+    expect(payload.orgSlug).toBe('prisma-glow');
     expect(payload.engagementId).toBe('eng-123');
     expect(payload.cycle).toBe('Revenue');
 

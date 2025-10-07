@@ -109,7 +109,7 @@ describe('error-notify edge function', () => {
       new Request('https://example.com/error-notify', {
         method: 'POST',
         headers: { Authorization: 'Bearer token' },
-        body: JSON.stringify({ orgSlug: 'aurora' }),
+        body: JSON.stringify({ orgSlug: 'prisma-glow' }),
       }),
     );
 
@@ -150,7 +150,7 @@ describe('error-notify edge function', () => {
       new Request('https://example.com/error-notify', {
         method: 'POST',
         headers: { Authorization: 'Bearer session-token' },
-        body: JSON.stringify({ orgSlug: 'aurora', module: 'REPORT', error: 'PDF failed', context: { retry: true } }),
+        body: JSON.stringify({ orgSlug: 'prisma-glow', module: 'REPORT', error: 'PDF failed', context: { retry: true } }),
       }),
     );
 

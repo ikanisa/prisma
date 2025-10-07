@@ -19,6 +19,7 @@ import {
   type AuditPlanStatus,
 } from '@/lib/audit-plan-service';
 import { isSupabaseConfigured } from '@/integrations/supabase/client';
+import { logger } from '@/lib/logger';
 
 interface StrategyState {
   basisFramework: string;
@@ -116,7 +117,7 @@ export function AuditPlanPage() {
       const pending = data.approvals.find((item) => item.status === 'PENDING');
       setPendingApprovalId(pending?.id ?? null);
     } catch (error) {
-      console.error('audit-plan-load', error);
+      logger.error('audit_plan.load_failed', error);
       toast({
         variant: 'destructive',
         title: 'Unable to load audit plan',
@@ -165,7 +166,7 @@ export function AuditPlanPage() {
       toast({ title: 'Strategy saved', description: 'Overall strategy updated (ISA 300).' });
       await loadSnapshot();
     } catch (error) {
-      console.error('plan-strategy-save', error);
+      logger.error('audit_plan.strategy_save_failed', error);
       toast({
         variant: 'destructive',
         title: 'Unable to save strategy',
@@ -200,7 +201,7 @@ export function AuditPlanPage() {
       });
       await loadSnapshot();
     } catch (error) {
-      console.error('plan-materiality-save', error);
+      logger.error('audit_plan.materiality_save_failed', error);
       toast({
         variant: 'destructive',
         title: 'Unable to save materiality',
@@ -227,7 +228,7 @@ export function AuditPlanPage() {
       });
       await loadSnapshot();
     } catch (error) {
-      console.error('plan-submit', error);
+      logger.error('audit_plan.submit_failed', error);
       toast({
         variant: 'destructive',
         title: 'Unable to submit plan',
@@ -260,7 +261,7 @@ export function AuditPlanPage() {
       });
       await loadSnapshot();
     } catch (error) {
-      console.error('plan-approve', error);
+      logger.error('audit_plan.approve_failed', error);
       toast({
         variant: 'destructive',
         title: 'Unable to approve plan',

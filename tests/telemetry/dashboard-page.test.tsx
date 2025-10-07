@@ -100,7 +100,7 @@ beforeEach(() => {
   useOrganizationsMock.mockReset();
   syncTelemetryMock.mockReset();
   fetchMock.mockReset();
-  useOrganizationsMock.mockReturnValue({ currentOrg: { id: 'org-1', slug: 'aurora' } });
+  useOrganizationsMock.mockReturnValue({ currentOrg: { id: 'org-1', slug: 'prisma-glow' } });
   vi.stubGlobal('fetch', fetchMock);
 });
 
@@ -159,7 +159,7 @@ describe('TelemetryDashboardPage', () => {
     fireEvent.click(button);
 
     await waitFor(() =>
-      expect(syncTelemetryMock).toHaveBeenCalledWith({ orgSlug: 'aurora', periodStart: undefined, periodEnd: undefined }),
+      expect(syncTelemetryMock).toHaveBeenCalledWith({ orgSlug: 'prisma-glow', periodStart: undefined, periodEnd: undefined }),
     );
     expect(button).toBeDisabled();
 

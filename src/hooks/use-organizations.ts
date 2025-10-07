@@ -3,6 +3,8 @@ import { supabase, isSupabaseConfigured } from '@/integrations/supabase/client';
 import { useAuth } from './use-auth';
 import { createTenantClient, TenantClient } from '@/lib/tenant-client';
 import { useAppStore, mockMemberships } from '@/stores/mock-data';
+import { recordClientEvent, recordClientError } from '@/lib/client-events';
+import { getDefaultAutonomyLevel } from '@/lib/system-config';
 
 export interface Organization {
   id: string;
@@ -11,13 +13,24 @@ export interface Organization {
   brand_primary: string;
   brand_secondary: string;
   created_at: string;
+  autonomy_level?: string;
 }
+
+export type OrgRole =
+  | 'SERVICE_ACCOUNT'
+  | 'READONLY'
+  | 'CLIENT'
+  | 'EMPLOYEE'
+  | 'MANAGER'
+  | 'EQR'
+  | 'PARTNER'
+  | 'SYSTEM_ADMIN';
 
 export interface Membership {
   id: string;
   org_id: string;
   user_id: string;
-  role: 'EMPLOYEE' | 'MANAGER' | 'SYSTEM_ADMIN';
+  role: OrgRole;
   organization: Organization;
 }
 
@@ -28,6 +41,8 @@ export function useOrganizations() {
   const [loading, setLoading] = useState(true);
 
   const currentOrg = memberships.find((m) => m.org_id === currentOrgId)?.organization || null;
+  const currentMembership = memberships.find((m) => m.org_id === currentOrgId) || null;
+  const currentRole = currentMembership?.role ?? null;
   const tenantClient = useMemo<TenantClient | null>(() => {
     if (!currentOrg) return null;
     return createTenantClient(currentOrg.id);
@@ -35,14 +50,14 @@ export function useOrganizations() {
 
   const fetchMemberships = useCallback(async () => {
     if (!user) {
-      console.log('[ORG] No user, skipping membership fetch');
+      recordClientEvent({ name: 'organizations:skipFetchNoUser' });
       return;
     }
     if (!isSupabaseConfigured) {
       return;
     }
 
-    console.log('[ORG] Fetching memberships for user:', user.email);
+    recordClientEvent({ name: 'organizations:fetchRequested' });
     setLoading(true);
     try {
       const { data, error } = await supabase
@@ -57,10 +72,10 @@ export function useOrganizations() {
 
       if (error) throw error;
 
-      console.log('[ORG] Memberships fetched:', data?.length || 0, 'memberships');
+      recordClientEvent({ name: 'organizations:fetched', data: { count: data?.length ?? 0 } });
       setMemberships(data || []);
     } catch (error) {
-      console.error('[ORG] Error fetching memberships:', error);
+      recordClientError({ name: 'organizations:fetchError', error });
     } finally {
       setLoading(false);
     }
@@ -73,15 +88,17 @@ export function useOrganizations() {
       const orgMap = new Map(appStore.organizations.map((org) => [org.id, org]));
       const targetUserId = '1';
 
+      const defaultAutonomy = getDefaultAutonomyLevel();
+
       let normalized = mockMemberships
         .filter((membership) => membership.userId === targetUserId)
         .map((membership) => {
           const org = orgMap.get(membership.orgId) ?? {
             id: membership.orgId,
-            name: 'Aurora Advisors',
-            slug: 'aurora',
-            brandPrimary: '#00bcd4',
-            brandSecondary: '#9c27b0',
+            name: 'Prisma Glow',
+            slug: 'prisma-glow',
+            brandPrimary: '#2563eb',
+            brandSecondary: '#7c3aed',
             createdAt: new Date().toISOString(),
           };
           return {
@@ -96,6 +113,7 @@ export function useOrganizations() {
               brand_primary: org.brandPrimary,
               brand_secondary: org.brandSecondary,
               created_at: org.createdAt,
+              autonomy_level: defaultAutonomy,
             },
           } satisfies Membership;
         });
@@ -104,10 +122,10 @@ export function useOrganizations() {
         normalized = mockMemberships.slice(0, 1).map((membership) => {
           const org = orgMap.get(membership.orgId) ?? {
             id: membership.orgId,
-            name: 'Aurora Advisors',
-            slug: 'aurora',
-            brandPrimary: '#00bcd4',
-            brandSecondary: '#9c27b0',
+            name: 'Prisma Glow',
+            slug: 'prisma-glow',
+            brandPrimary: '#2563eb',
+            brandSecondary: '#7c3aed',
             createdAt: new Date().toISOString(),
           };
           return {
@@ -122,6 +140,7 @@ export function useOrganizations() {
               brand_primary: org.brandPrimary,
               brand_secondary: org.brandSecondary,
               created_at: org.createdAt,
+              autonomy_level: defaultAutonomy,
             },
           } satisfies Membership;
         });
@@ -146,15 +165,14 @@ export function useOrganizations() {
 
   useEffect(() => {
     const savedOrgId = localStorage.getItem('currentOrgId');
-    console.log('[ORG] Setting current org. Saved:', savedOrgId, 'Memberships:', memberships.length);
     if (savedOrgId && memberships.some((m) => m.org_id === savedOrgId)) {
-      console.log('[ORG] Using saved org:', savedOrgId);
+      recordClientEvent({ name: 'organizations:setCurrentFromStorage', data: { orgId: savedOrgId } });
       setCurrentOrgId(savedOrgId);
     } else if (memberships.length > 0) {
-      console.log('[ORG] Using first membership:', memberships[0].org_id);
+      recordClientEvent({ name: 'organizations:setCurrentFromFirstMembership', data: { orgId: memberships[0].org_id } });
       setCurrentOrgId(memberships[0].org_id);
     } else if (memberships.length === 0) {
-      console.log('[ORG] No memberships found!');
+      recordClientEvent({ name: 'organizations:noMembershipsDetected', level: 'warn' });
     }
   }, [memberships]);
 
@@ -169,14 +187,22 @@ export function useOrganizations() {
     setCurrentOrgId(orgId);
   }, []);
 
-  const hasRole = (minRole: 'EMPLOYEE' | 'MANAGER' | 'SYSTEM_ADMIN') => {
+  const roleHierarchy: Record<OrgRole, number> = {
+    SERVICE_ACCOUNT: 10,
+    READONLY: 20,
+    CLIENT: 30,
+    EMPLOYEE: 40,
+    MANAGER: 70,
+    EQR: 80,
+    PARTNER: 90,
+    SYSTEM_ADMIN: 100,
+  };
+
+  const hasRole = (minRole: OrgRole) => {
     if (!currentOrg) return false;
+    if (!currentMembership) return false;
 
-    const membership = memberships.find((m) => m.org_id === currentOrgId);
-    if (!membership) return false;
-
-    const roleHierarchy = { EMPLOYEE: 1, MANAGER: 2, SYSTEM_ADMIN: 3 };
-    return roleHierarchy[membership.role] >= roleHierarchy[minRole];
+    return roleHierarchy[currentMembership.role] >= roleHierarchy[minRole];
   };
 
   const isSystemAdmin = () => memberships.some((m) => m.role === 'SYSTEM_ADMIN');
@@ -186,6 +212,7 @@ export function useOrganizations() {
     currentOrg,
     currentOrgId,
     loading,
+    currentRole,
     switchOrganization,
     hasRole,
     isSystemAdmin,

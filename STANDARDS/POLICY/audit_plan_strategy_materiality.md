@@ -8,7 +8,7 @@ Define the overall audit strategy and materiality thresholds in accordance with:
 - **ISA 220 (Revised)** (Quality Management for an Audit of Financial Statements)
 
 ## Scope
-This policy applies to every assurance engagement created in Aurora. The plan must be complete and approved **before** substantive fieldwork begins. Updates are allowed but must go through change control and logging.
+This policy applies to every assurance engagement created in Prisma Glow. The plan must be complete and approved **before** substantive fieldwork begins. Updates are allowed but must go through change control and logging.
 
 ## Required Artifacts
 1. **AP‑001 Overall Audit Strategy**: basis framework, scope, reliance decisions, timetable, specialists, EQR requirement.

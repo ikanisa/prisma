@@ -1,23 +1,46 @@
-// PWA utilities for Aurora Advisors
+// PWA utilities for Prisma Glow
 
-import { registerSW } from 'virtual:pwa-register';
+import { recordClientError, recordClientEvent } from '@/lib/client-events';
+import { logger } from '@/lib/logger';
 
-let updateSw: ReturnType<typeof registerSW> | undefined;
+declare const __ENABLE_PWA__: boolean;
+
+const PWA_ENABLED = typeof __ENABLE_PWA__ === 'undefined' ? true : __ENABLE_PWA__;
 
 export function registerServiceWorker() {
-  if ('serviceWorker' in navigator) {
-    updateSw = registerSW({
-      immediate: true,
-      onNeedRefresh() {
-        if (confirm('New version available! Refresh to update?')) {
-          window.location.reload();
-        }
-      },
-      onOfflineReady() {
-        console.log('App ready to work offline');
-      },
-    });
+  if (!PWA_ENABLED || !('serviceWorker' in navigator)) {
+    return;
   }
+
+  navigator.serviceWorker
+    .register('/service-worker.js', { scope: '/' })
+    .then((registration) => {
+      recordClientEvent({ name: 'pwa:serviceWorkerRegistered', data: { scope: registration.scope } });
+
+      registration.addEventListener('updatefound', () => {
+        const installingWorker = registration.installing;
+        if (!installingWorker) return;
+
+        installingWorker.addEventListener('statechange', () => {
+          if (installingWorker.state === 'installed' && registration.waiting) {
+            const shouldRefresh = confirm('A new version is available. Reload to update?');
+            if (shouldRefresh) {
+              registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+            }
+            recordClientEvent({ name: 'pwa:updateAvailable', data: { accepted: shouldRefresh } });
+          }
+        });
+      });
+
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        recordClientEvent({ name: 'pwa:controllerChanged' });
+        window.location.reload();
+      });
+    })
+    .catch((error) => {
+      logger.error('pwa.service_worker_registration_failed', error);
+      recordClientError({ name: 'pwa:serviceWorkerRegistrationFailed', error });
+    });
 }
 
 export function showInstallPrompt() {
@@ -29,7 +52,7 @@ export function showInstallPrompt() {
     // Stash the event so it can be triggered later.
     deferredPrompt = e;
     
-    console.log('PWA install prompt available');
+      recordClientEvent({ name: 'pwa:installPromptAvailable' });
   });
 
   return {
@@ -38,9 +61,9 @@ export function showInstallPrompt() {
         deferredPrompt.prompt();
         deferredPrompt.userChoice.then((choiceResult: any) => {
           if (choiceResult.outcome === 'accepted') {
-            console.log('User accepted the A2HS prompt');
+            recordClientEvent({ name: 'pwa:promptAccepted', data: { platform: deferredPrompt.platforms?.[0] } });
           } else {
-            console.log('User dismissed the A2HS prompt');
+            recordClientEvent({ name: 'pwa:promptDismissedByUser', data: { platform: deferredPrompt.platforms?.[0] } });
           }
           deferredPrompt = null;
         });
@@ -64,11 +87,17 @@ export function queueAction(action: string, data: any) {
     localStorage.setItem('queuedActions', JSON.stringify(queuedActions));
     
     // Register for background sync (if supported)
-    navigator.serviceWorker.ready.then((registration) => {
-      if ('sync' in registration) {
-        return (registration as any).sync.register('background-sync');
-      }
-    }).catch(err => console.log('Background sync not supported', err));
+    navigator.serviceWorker.ready
+      .then((registration) => {
+        if ('sync' in registration) {
+          return (registration as any).sync.register('background-sync');
+        }
+        recordClientEvent({ name: 'pwa:backgroundSyncUnavailable', level: 'warn' });
+        return null;
+      })
+      .catch((err) => {
+        recordClientError({ name: 'pwa:backgroundSyncError', error: err });
+      });
   }
 }
 
@@ -79,7 +108,7 @@ export function processQueuedActions() {
   // Process each queued action
   queuedActions.forEach((item: any) => {
     try {
-      console.log(`Processing queued action: ${item.action}`, item.data);
+      recordClientEvent({ name: 'pwa:processQueuedAction', data: { action: item.action } });
       
       // TODO: Implement actual processing logic here
       // This would integrate with your API calls when Supabase is connected
@@ -87,7 +116,8 @@ export function processQueuedActions() {
       // For now, just simulate success
       processed.push(item.id);
     } catch (error) {
-      console.error('Failed to process queued action:', error);
+      logger.error('pwa.process_queued_action_failed', error);
+      recordClientError({ name: 'pwa:queuedActionFailed', error, data: { action: item.action } });
       
       // Retry logic
       if (item.retries < 3) {

@@ -4,13 +4,20 @@ import { supabase } from '@/integrations/supabase/client';
 import { useOrganizations } from '@/hooks/use-organizations';
 import {
   fetchDriveConnectorMetadata,
+  fetchDriveConnectorStatus,
   previewKnowledgeSource,
   scheduleLearningRunRequest,
+  fetchLearningJobs,
+  approveLearningJob,
+  fetchLearningPolicies,
+  fetchLearningMetrics,
+  rollbackLearningPolicy,
   fetchWebSources,
   scheduleWebHarvest,
   type AgentKind,
   type LearningMode,
   type WebSourceRow,
+  type DriveConnectorStatus,
 } from '@/lib/knowledge';
 import { useToast } from '@/hooks/use-toast';
 import { authorizedFetch } from '@/lib/api';
@@ -69,22 +76,130 @@ export function useLearningRuns() {
 }
 
 export function useDriveConnectorMetadata() {
+  const { currentOrg } = useOrganizations();
+  const orgSlug = currentOrg?.slug;
+
   return useQuery({
-    queryKey: ['drive_connector_metadata'],
-    queryFn: fetchDriveConnectorMetadata,
+    queryKey: ['drive_connector_metadata', orgSlug],
+    enabled: Boolean(orgSlug),
+    queryFn: () => fetchDriveConnectorMetadata(orgSlug!),
+  });
+}
+
+export function useDriveConnectorStatus() {
+  const { currentOrg } = useOrganizations();
+  const orgSlug = currentOrg?.slug;
+
+  return useQuery<DriveConnectorStatus>({
+    queryKey: ['drive_connector_status', orgSlug],
+    enabled: Boolean(orgSlug),
+    queryFn: () => fetchDriveConnectorStatus(orgSlug!),
+    refetchInterval: 60_000,
+  });
+}
+
+export function useLearningJobs(status?: string) {
+  const { currentOrg } = useOrganizations();
+  const orgSlug = currentOrg?.slug;
+
+  return useQuery({
+    queryKey: ['learning_jobs', orgSlug, status],
+    enabled: Boolean(orgSlug),
+    queryFn: () => fetchLearningJobs(orgSlug!, status),
+    refetchInterval: 60_000,
+  });
+}
+
+export function useApproveLearningJob() {
+  const { currentOrg } = useOrganizations();
+  const queryClient = useQueryClient();
+  const orgSlug = currentOrg?.slug;
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async (params: { jobId: string; note?: string }) => {
+      if (!orgSlug) {
+        throw new Error('Organization not selected');
+      }
+      return approveLearningJob(orgSlug, params.jobId, params.note);
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['learning_jobs', orgSlug] });
+      toast({ title: 'Job approved', description: 'Job moved to READY and will be applied shortly.' });
+    },
+    onError: (error: any) => {
+      toast({ title: 'Unable to approve job', description: error.message ?? 'Unknown error', variant: 'destructive' });
+    },
+  });
+}
+
+export function useLearningPolicies() {
+  const { currentOrg } = useOrganizations();
+  const orgSlug = currentOrg?.slug;
+
+  return useQuery({
+    queryKey: ['learning_policies', orgSlug],
+    enabled: Boolean(orgSlug),
+    queryFn: () => fetchLearningPolicies(orgSlug!),
+  });
+}
+
+export function useLearningMetrics(metric?: string, limit?: number) {
+  const { currentOrg } = useOrganizations();
+  const orgSlug = currentOrg?.slug;
+
+  return useQuery({
+    queryKey: ['learning_metrics', orgSlug, metric, limit],
+    enabled: Boolean(orgSlug),
+    queryFn: () => fetchLearningMetrics(orgSlug!, metric, limit),
+    refetchInterval: 120_000,
+  });
+}
+
+export function useRollbackLearningPolicy() {
+  const { currentOrg } = useOrganizations();
+  const queryClient = useQueryClient();
+  const orgSlug = currentOrg?.slug;
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async (params: { policyVersionId: string; note?: string }) => {
+      if (!orgSlug) {
+        throw new Error('Organization not selected');
+      }
+      return rollbackLearningPolicy(orgSlug, params.policyVersionId, params.note);
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['learning_policies', orgSlug] });
+      toast({ title: 'Policy rolled back', description: 'The learning policy was reverted successfully.' });
+    },
+    onError: (error: any) => {
+      toast({ title: 'Unable to rollback policy', description: error.message ?? 'Unknown error', variant: 'destructive' });
+    },
   });
 }
 
 export function usePreviewKnowledgeSource() {
+  const { currentOrg } = useOrganizations();
+
   return useMutation({
-    mutationFn: previewKnowledgeSource,
+    mutationFn: async (sourceId: string) => {
+      if (!currentOrg?.slug) {
+        throw new Error('Organization not selected');
+      }
+      return previewKnowledgeSource({ sourceId, orgSlug: currentOrg.slug });
+    },
   });
 }
 
 export function useWebSources() {
+  const { currentOrg } = useOrganizations();
+  const orgSlug = currentOrg?.slug;
+
   return useQuery({
-    queryKey: ['web_sources'],
-    queryFn: fetchWebSources,
+    queryKey: ['web_sources', orgSlug],
+    enabled: Boolean(orgSlug),
+    queryFn: () => fetchWebSources(orgSlug!),
   });
 }
 

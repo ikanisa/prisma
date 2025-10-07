@@ -83,7 +83,10 @@ function createReportBuilder(overrides: Partial<ReportBuilderHook> = {}): Report
 
 function renderWithRouter() {
   return render(
-    <MemoryRouter initialEntries={['/aurora/engagements/eng-123/reporting/report']}>
+    <MemoryRouter
+      future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+      initialEntries={['/prisma-glow/engagements/eng-123/reporting/report']}
+    >
       <ReportBuilderPage />
     </MemoryRouter>,
   );
@@ -99,8 +102,8 @@ beforeEach(() => {
   hoisted.requestEsefExportMock.mockReset();
   hoisted.useParamsMock.mockReset();
 
-  hoisted.useParamsMock.mockReturnValue({ engagementId: 'eng-123', orgSlug: 'aurora' });
-  hoisted.useOrganizationsMock.mockReturnValue({ currentOrg: { id: 'org-1', slug: 'aurora' } });
+  hoisted.useParamsMock.mockReturnValue({ engagementId: 'eng-123', orgSlug: 'prisma-glow' });
+  hoisted.useOrganizationsMock.mockReturnValue({ currentOrg: { id: 'org-1', slug: 'prisma-glow' } });
   hoisted.useKamModuleMock.mockReturnValue({ data: { drafts: [] }, isLoading: false });
 });
 
