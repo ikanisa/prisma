@@ -2,12 +2,22 @@ import { randomUUID } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { FLAG_SEVERITIES, FLAG_STATUSES } from '@/lib/other-info';
 import { getServiceSupabase, logOiAction } from '@/lib/supabase';
+import { ensureOrgAccess, HttpError, resolveCurrentUser } from '../../soc/_common';
 
 const VALID_SEVERITIES = new Set<string>(FLAG_SEVERITIES);
 const VALID_STATUSES = new Set<string>(FLAG_STATUSES);
 
 function badRequest(message: string) {
   return NextResponse.json({ error: message }, { status: 400 });
+}
+
+function handleAuthorizationError(error: unknown): NextResponse {
+  if (error instanceof HttpError) {
+    return NextResponse.json({ error: error.message }, { status: error.status });
+  }
+
+  console.error('Failed to authorize other information flag request', error);
+  return NextResponse.json({ error: 'Failed to authorize request.' }, { status: 500 });
 }
 
 export async function GET(request: NextRequest) {
@@ -20,6 +30,14 @@ export async function GET(request: NextRequest) {
   }
 
   const supabase = getServiceSupabase();
+
+  try {
+    const { userId } = await resolveCurrentUser(request, supabase);
+    await ensureOrgAccess(supabase, orgId, userId, 'EMPLOYEE');
+  } catch (error) {
+    return handleAuthorizationError(error);
+  }
+
   const { data, error } = await supabase
     .from('oi_flags')
     .select('*')
@@ -55,16 +73,13 @@ export async function POST(request: NextRequest) {
     return badRequest('Invalid JSON body.');
   }
 
-  const { orgId, engagementId, actorId, description, category } = payload;
+  const { orgId, engagementId, description, category } = payload;
 
   if (!orgId) {
     return badRequest('orgId is required.');
   }
   if (!engagementId) {
     return badRequest('engagementId is required.');
-  }
-  if (!actorId) {
-    return badRequest('actorId is required.');
   }
   if (!description) {
     return badRequest('description is required.');
@@ -77,6 +92,19 @@ export async function POST(request: NextRequest) {
   const status = payload.status && VALID_STATUSES.has(payload.status) ? payload.status : 'open';
 
   const supabase = getServiceSupabase();
+  let userId: string;
+  try {
+    ({ userId } = await resolveCurrentUser(request, supabase));
+    await ensureOrgAccess(supabase, orgId, userId, 'EMPLOYEE');
+  } catch (error) {
+    return handleAuthorizationError(error);
+  }
+
+  const actorId = payload.actorId ?? userId;
+  if (payload.actorId && payload.actorId !== userId) {
+    return NextResponse.json({ error: 'actorId does not match the authenticated user.' }, { status: 403 });
+  }
+
   const flagId = randomUUID();
   const { data, error } = await supabase
     .from('oi_flags')
@@ -131,15 +159,26 @@ export async function PATCH(request: NextRequest) {
     return badRequest('Invalid JSON body.');
   }
 
-  const { orgId, actorId, flagId } = payload;
+  const { orgId, flagId } = payload;
   if (!orgId) {
     return badRequest('orgId is required.');
   }
-  if (!actorId) {
-    return badRequest('actorId is required.');
-  }
   if (!flagId) {
     return badRequest('flagId is required.');
+  }
+
+  const supabase = getServiceSupabase();
+  let userId: string;
+  try {
+    ({ userId } = await resolveCurrentUser(request, supabase));
+    await ensureOrgAccess(supabase, orgId, userId, 'EMPLOYEE');
+  } catch (error) {
+    return handleAuthorizationError(error);
+  }
+
+  const actorId = payload.actorId ?? userId;
+  if (payload.actorId && payload.actorId !== userId) {
+    return NextResponse.json({ error: 'actorId does not match the authenticated user.' }, { status: 403 });
   }
 
   const updates: Record<string, unknown> = {};
@@ -169,7 +208,6 @@ export async function PATCH(request: NextRequest) {
     return badRequest('No updates provided.');
   }
 
-  const supabase = getServiceSupabase();
   const { data, error } = await supabase
     .from('oi_flags')
     .update(updates)
