@@ -704,80 +704,6 @@ async function ensureDocumentsBucket() {
 
 await ensureDocumentsBucket();
 
-async function ensureIndependenceOverrideApproval({
-  orgId,
-  engagementId,
-  userId,
-  note,
-  services,
-  isAuditClient,
-}: {
-  orgId: string;
-  engagementId: string;
-  userId: string;
-  note: string;
-  services: NonAuditService[];
-  isAuditClient: boolean;
-}): Promise<string> {
-  const { data: existing, error: existingError } = await supabaseService
-    .from('approval_queue')
-    .select('id, status')
-    .eq('org_id', orgId)
-    .eq('kind', 'INDEPENDENCE_OVERRIDE')
-    .eq('context_json->>engagementId', engagementId)
-    .order('requested_at', { ascending: false })
-    .limit(1);
-
-  if (existingError) throw existingError;
-  const pending = existing?.[0];
-  if (pending && pending.status === 'PENDING') {
-    return pending.id as string;
-  }
-
-  const context = {
-    engagementId,
-    isAuditClient,
-    nonAuditServices: services,
-    note,
-  };
-
-  const { data, error } = await supabaseService
-    .from('approval_queue')
-    .insert({
-      org_id: orgId,
-      kind: 'INDEPENDENCE_OVERRIDE',
-      status: 'PENDING',
-      requested_by_user_id: userId,
-      context_json: context,
-    })
-    .select('id')
-    .single();
-
-  if (error || !data) {
-    throw error ?? new Error('independence_override_approval_failed');
-  }
-
-  return data.id as string;
-}
-
-async function hasApprovedIndependenceOverride(orgId: string, engagementId: string): Promise<boolean> {
-  const { data, error } = await supabaseService
-    .from('approval_queue')
-    .select('id')
-    .eq('org_id', orgId)
-    .eq('kind', 'INDEPENDENCE_OVERRIDE')
-    .eq('context_json->>engagementId', engagementId)
-    .eq('status', 'APPROVED')
-    .order('decision_at', { ascending: false })
-    .limit(1);
-
-  if (error) {
-    throw error;
-  }
-
-  return Array.isArray(data) && data.length > 0;
-}
-
 app.get(['/health', '/healthz'], (_req, res) => {
   res.json({ status: 'ok' });
 });
@@ -4349,7 +4275,7 @@ app.post('/v1/engagements', authenticate, async (req: AuthenticatedRequest, res)
       status?: string | null;
       startDate?: string | null;
       endDate?: string | null;
-      budget?: number | null;
+      budget?: number | string | null;
       isAuditClient?: boolean;
       requiresEqr?: boolean;
       nonAuditServices?: unknown;
@@ -4375,12 +4301,16 @@ app.post('/v1/engagements', authenticate, async (req: AuthenticatedRequest, res)
       return res.status(400).json({ error: 'client does not belong to organization' });
     }
 
+    const normalizedStatus = typeof status === 'string' ? status.trim().toUpperCase() : 'PLANNING';
+    const normalizedBudget = typeof budget === 'string' ? Number(budget) : budget;
     const sanitizedServices = sanitizeNonAuditServices(nonAuditServices);
+    const sanitizedOverrideNote = toNullableString(overrideNote);
+
     const independenceAssessment = assessIndependence({
       isAuditClient: Boolean(isAuditClient),
       independenceChecked: Boolean(independenceChecked),
       services: sanitizedServices,
-      overrideNote,
+      overrideNote: sanitizedOverrideNote,
     });
 
     if (!independenceAssessment.ok) {
@@ -4397,10 +4327,15 @@ app.post('/v1/engagements', authenticate, async (req: AuthenticatedRequest, res)
       client_id: clientId,
       title,
       description: description ?? null,
-      status: (status ?? 'PLANNING').toUpperCase(),
+      status: normalizedStatus.length > 0 ? normalizedStatus : 'PLANNING',
       start_date: startDate ?? null,
       end_date: endDate ?? null,
-      budget: budget ?? null,
+      budget:
+        normalizedBudget === null
+          ? null
+          : typeof normalizedBudget === 'number' && Number.isFinite(normalizedBudget)
+          ? normalizedBudget
+          : null,
       is_audit_client: Boolean(isAuditClient),
       requires_eqr: Boolean(requiresEqr),
       non_audit_services: sanitizedServices.length > 0 ? sanitizedServices : null,
@@ -4466,21 +4401,9 @@ app.patch('/v1/engagements/:id', authenticate, async (req: AuthenticatedRequest,
     }
 
     const engagementId = req.params.id;
-    const {
-      orgSlug,
-      clientId,
-      title,
-      description,
-      status,
-      startDate,
-      endDate,
-      budget,
-      isAuditClient,
-      requiresEqr,
-      nonAuditServices,
-      independenceChecked,
-      overrideNote,
-    } = req.body as {
+    const orgSlugFromQuery = typeof req.query.orgSlug === 'string' ? (req.query.orgSlug as string) : undefined;
+
+    const bodyPayload = req.body as {
       orgSlug?: string;
       clientId?: string;
       title?: string;
@@ -4488,7 +4411,7 @@ app.patch('/v1/engagements/:id', authenticate, async (req: AuthenticatedRequest,
       status?: string | null;
       startDate?: string | null;
       endDate?: string | null;
-      budget?: number | null;
+      budget?: number | string | null;
       isAuditClient?: boolean;
       requiresEqr?: boolean;
       nonAuditServices?: unknown;
@@ -4496,6 +4419,7 @@ app.patch('/v1/engagements/:id', authenticate, async (req: AuthenticatedRequest,
       overrideNote?: string | null;
     };
 
+    const orgSlug = orgSlugFromQuery ?? bodyPayload.orgSlug;
     if (!orgSlug) {
       return res.status(400).json({ error: 'orgSlug is required' });
     }
@@ -4518,44 +4442,86 @@ app.patch('/v1/engagements/:id', authenticate, async (req: AuthenticatedRequest,
     }
 
     const updatePayload: Record<string, unknown> = {};
-    if (typeof clientId === 'string') updatePayload.client_id = clientId;
-    if (typeof title === 'string') updatePayload.title = title;
-    if (typeof description !== 'undefined') updatePayload.description = description ?? null;
-    if (typeof status === 'string') updatePayload.status = status.toUpperCase();
-    if (typeof startDate !== 'undefined') updatePayload.start_date = startDate ?? null;
-    if (typeof endDate !== 'undefined') updatePayload.end_date = endDate ?? null;
-    if (typeof budget !== 'undefined') updatePayload.budget = budget ?? null;
+
+    if (typeof bodyPayload.clientId === 'string') {
+      if (bodyPayload.clientId !== existing.client_id) {
+        const { data: clientRow, error: clientError } = await supabaseService
+          .from('clients')
+          .select('org_id')
+          .eq('id', bodyPayload.clientId)
+          .maybeSingle();
+
+        if (clientError || !clientRow || clientRow.org_id !== orgContext.orgId) {
+          return res.status(400).json({ error: 'client does not belong to organization' });
+        }
+      }
+      updatePayload.client_id = bodyPayload.clientId;
+    }
+
+    if (typeof bodyPayload.title === 'string') updatePayload.title = bodyPayload.title;
+    if (typeof bodyPayload.description !== 'undefined') {
+      updatePayload.description = bodyPayload.description ?? null;
+    }
+
+    const normalizedStatus = typeof bodyPayload.status === 'string'
+      ? bodyPayload.status.trim().toUpperCase()
+      : undefined;
+    if (normalizedStatus && normalizedStatus.length > 0) {
+      updatePayload.status = normalizedStatus;
+    }
+
+    if (typeof bodyPayload.startDate !== 'undefined') {
+      updatePayload.start_date = bodyPayload.startDate ?? null;
+    }
+    if (typeof bodyPayload.endDate !== 'undefined') {
+      updatePayload.end_date = bodyPayload.endDate ?? null;
+    }
+
+    if (typeof bodyPayload.budget !== 'undefined') {
+      if (bodyPayload.budget === null) {
+        updatePayload.budget = null;
+      } else if (typeof bodyPayload.budget === 'number') {
+        updatePayload.budget = Number.isFinite(bodyPayload.budget) ? bodyPayload.budget : null;
+      } else if (typeof bodyPayload.budget === 'string') {
+        const parsed = Number(bodyPayload.budget);
+        updatePayload.budget = Number.isFinite(parsed) ? parsed : null;
+      }
+    }
 
     const independenceFieldsProvided =
-      typeof isAuditClient === 'boolean' ||
-      typeof requiresEqr === 'boolean' ||
-      typeof nonAuditServices !== 'undefined' ||
-      typeof independenceChecked === 'boolean' ||
-      typeof overrideNote !== 'undefined';
+      typeof bodyPayload.isAuditClient === 'boolean' ||
+      typeof bodyPayload.requiresEqr === 'boolean' ||
+      typeof bodyPayload.nonAuditServices !== 'undefined' ||
+      typeof bodyPayload.independenceChecked === 'boolean' ||
+      typeof bodyPayload.overrideNote !== 'undefined';
 
     const targetIsAuditClient = Boolean(
-      typeof isAuditClient === 'boolean' ? isAuditClient : existing.is_audit_client,
+      typeof bodyPayload.isAuditClient === 'boolean' ? bodyPayload.isAuditClient : existing.is_audit_client,
     );
     const targetRequiresEqr = Boolean(
-      typeof requiresEqr === 'boolean' ? requiresEqr : existing.requires_eqr,
+      typeof bodyPayload.requiresEqr === 'boolean' ? bodyPayload.requiresEqr : existing.requires_eqr,
     );
-    let targetServices =
-      typeof nonAuditServices !== 'undefined'
-        ? sanitizeNonAuditServices(nonAuditServices)
-        : sanitizeNonAuditServices(existing.non_audit_services);
-    let targetIndependenceChecked =
-      typeof independenceChecked === 'boolean'
-        ? independenceChecked
-        : Boolean(existing.independence_checked);
-    let targetOverrideNote =
-      typeof overrideNote === 'undefined'
-        ? existing.independence_conclusion_note ?? null
-        : overrideNote ?? null;
 
+    let targetServices =
+      typeof bodyPayload.nonAuditServices !== 'undefined'
+        ? sanitizeNonAuditServices(bodyPayload.nonAuditServices)
+        : sanitizeNonAuditServices(existing.non_audit_services);
+
+    let targetIndependenceChecked =
+      typeof bodyPayload.independenceChecked === 'boolean'
+        ? bodyPayload.independenceChecked
+        : Boolean(existing.independence_checked);
+
+    let targetOverrideNote =
+      typeof bodyPayload.overrideNote === 'undefined'
+        ? toNullableString(existing.independence_conclusion_note)
+        : toNullableString(bodyPayload.overrideNote);
+
+    let independenceAssessment: IndependenceAssessmentResult | null = null;
     let overrideApprovalId: string | null = null;
 
     if (independenceFieldsProvided) {
-      const independenceAssessment = assessIndependence({
+      independenceAssessment = assessIndependence({
         isAuditClient: targetIsAuditClient,
         independenceChecked: targetIndependenceChecked,
         services: targetServices,
@@ -4581,20 +4547,62 @@ app.patch('/v1/engagements/:id', authenticate, async (req: AuthenticatedRequest,
         updatePayload.is_audit_client = targetIsAuditClient;
         updatePayload.requires_eqr = targetRequiresEqr;
 
-        if (independenceAssessment.needsApproval) {
+        if (independenceAssessment.needsApproval && targetOverrideNote) {
           overrideApprovalId = await ensureIndependenceOverrideApproval({
             orgId: orgContext.orgId,
             engagementId,
             userId,
-            note: independenceAssessment.note ?? '',
+            note: targetOverrideNote,
             services: targetServices,
             isAuditClient: targetIsAuditClient,
           });
         }
       }
+    } else {
+      if (typeof bodyPayload.isAuditClient === 'boolean') {
+        updatePayload.is_audit_client = targetIsAuditClient;
+      }
+      if (typeof bodyPayload.requiresEqr === 'boolean') {
+        updatePayload.requires_eqr = targetRequiresEqr;
+      }
     }
 
-    const { data: updated, error } = await supabaseService
+    if (Object.keys(updatePayload).length === 0) {
+      return res.status(400).json({ error: 'no updates provided' });
+    }
+
+    const currentStatus = (existing.status ?? 'PLANNING').toUpperCase();
+    const nextStatus = normalizedStatus && normalizedStatus.length > 0 ? normalizedStatus : currentStatus;
+
+    const finalConclusion =
+      independenceAssessment && independenceAssessment.ok
+        ? independenceAssessment.conclusion
+        : typeof existing.independence_conclusion === 'string'
+        ? existing.independence_conclusion
+        : 'OK';
+
+    const finalIndependenceChecked =
+      independenceAssessment && independenceAssessment.ok
+        ? independenceAssessment.checked
+        : Boolean(existing.independence_checked);
+
+    const activating = currentStatus === 'PLANNING' && nextStatus !== 'PLANNING';
+
+    if (activating && targetIsAuditClient) {
+      if (!finalIndependenceChecked) {
+        return res.status(400).json({ error: 'independence_check_required' });
+      }
+      if (finalConclusion === 'OVERRIDE') {
+        const overrideApproved = await hasApprovedIndependenceOverride(orgContext.orgId, engagementId);
+        if (!overrideApproved) {
+          return res.status(409).json({ error: 'independence_override_pending' });
+        }
+      } else if (finalConclusion !== 'OK') {
+        return res.status(409).json({ error: 'independence_blocked' });
+      }
+    }
+
+    const { data: updated, error: updateError } = await supabaseService
       .from('engagements')
       .update(updatePayload)
       .eq('id', engagementId)
@@ -4603,8 +4611,8 @@ app.patch('/v1/engagements/:id', authenticate, async (req: AuthenticatedRequest,
       )
       .single();
 
-    if (error || !updated) {
-      throw error ?? new Error('engagement_not_updated');
+    if (updateError || !updated) {
+      throw updateError ?? new Error('engagement_not_updated');
     }
 
     await supabaseService.from('activity_log').insert({
