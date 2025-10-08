@@ -32,16 +32,7 @@ export function FileUpload({
     }
   }, []);
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
-    
-    const files = Array.from(e.dataTransfer.files);
-    handleFiles(files);
-  }, []);
-  
-  const handleFiles = (files: File[]) => {
+  const handleFiles = useCallback((files: File[]) => {
     const validFiles = files.filter(file => {
       if (file.size > maxSize * 1024 * 1024) {
         console.warn(`File ${file.name} exceeds ${maxSize}MB limit`);
@@ -49,15 +40,24 @@ export function FileUpload({
       }
       return true;
     });
-    
-    setSelectedFiles(validFiles);
-  };
 
-  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSelectedFiles(validFiles);
+  }, [maxSize]);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+
+    const files = Array.from(e.dataTransfer.files);
+    handleFiles(files);
+  }, [handleFiles]);
+
+  const handleFileInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       handleFiles(Array.from(e.target.files));
     }
-  };
+  }, [handleFiles]);
 
   const handleUpload = async () => {
     if (selectedFiles.length === 0) return;

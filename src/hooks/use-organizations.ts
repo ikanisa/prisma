@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './use-auth';
 
@@ -27,35 +27,9 @@ export function useOrganizations() {
 
   const currentOrg = memberships.find(m => m.org_id === currentOrgId)?.organization || null;
 
-  useEffect(() => {
-    if (user) {
-      fetchMemberships();
-    } else {
-      setMemberships([]);
-      setCurrentOrgId(null);
-    }
-  }, [user]);
-
-  useEffect(() => {
-    // Set current org from localStorage on mount
-    const savedOrgId = localStorage.getItem('currentOrgId');
-    if (savedOrgId && memberships.some(m => m.org_id === savedOrgId)) {
-      setCurrentOrgId(savedOrgId);
-    } else if (memberships.length > 0) {
-      setCurrentOrgId(memberships[0].org_id);
-    }
-  }, [memberships]);
-
-  useEffect(() => {
-    // Save current org to localStorage when it changes
-    if (currentOrgId) {
-      localStorage.setItem('currentOrgId', currentOrgId);
-    }
-  }, [currentOrgId]);
-
-  const fetchMemberships = async () => {
+  const fetchMemberships = useCallback(async () => {
     if (!user) return;
-    
+
     setLoading(true);
     try {
       const { data, error } = await supabase
@@ -74,7 +48,33 @@ export function useOrganizations() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
+
+  useEffect(() => {
+    if (user) {
+      fetchMemberships();
+    } else {
+      setMemberships([]);
+      setCurrentOrgId(null);
+    }
+  }, [user, fetchMemberships]);
+
+  useEffect(() => {
+    // Set current org from localStorage on mount
+    const savedOrgId = localStorage.getItem('currentOrgId');
+    if (savedOrgId && memberships.some(m => m.org_id === savedOrgId)) {
+      setCurrentOrgId(savedOrgId);
+    } else if (memberships.length > 0) {
+      setCurrentOrgId(memberships[0].org_id);
+    }
+  }, [memberships]);
+
+  useEffect(() => {
+    // Save current org to localStorage when it changes
+    if (currentOrgId) {
+      localStorage.setItem('currentOrgId', currentOrgId);
+    }
+  }, [currentOrgId]);
 
   const switchOrganization = (orgId: string) => {
     setCurrentOrgId(orgId);
