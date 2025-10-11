@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { Loader2 } from 'lucide-react';
 import { Suspense, type ReactNode } from 'react';
 

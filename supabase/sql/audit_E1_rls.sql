@@ -96,6 +96,52 @@ create policy kam_drafts_update on public.kam_drafts
 create policy kam_drafts_delete on public.kam_drafts
   for delete using (public.has_min_role(org_id, 'MANAGER'));
 
+-- Agent workflow policies -------------------------------------------------
+alter table public.agent_runs enable row level security;
+create policy agent_runs_select on public.agent_runs
+  for select using (public.is_member_of(org_id));
+create policy agent_runs_insert on public.agent_runs
+  for insert with check (public.has_min_role(org_id, 'EMPLOYEE'));
+create policy agent_runs_update on public.agent_runs
+  for update using (public.has_min_role(org_id, 'EMPLOYEE'))
+  with check (public.has_min_role(org_id, 'EMPLOYEE'));
+create policy agent_runs_delete on public.agent_runs
+  for delete using (public.has_min_role(org_id, 'MANAGER'));
+
+alter table public.agent_actions enable row level security;
+create policy agent_actions_select on public.agent_actions
+  for select using (public.is_member_of(org_id));
+create policy agent_actions_insert on public.agent_actions
+  for insert with check (public.has_min_role(org_id, 'EMPLOYEE'));
+create policy agent_actions_update on public.agent_actions
+  for update using (public.has_min_role(org_id, 'EMPLOYEE'))
+  with check (public.has_min_role(org_id, 'EMPLOYEE'));
+create policy agent_actions_delete on public.agent_actions
+  for delete using (public.has_min_role(org_id, 'MANAGER'));
+
+alter table public.agent_traces enable row level security;
+create policy agent_traces_select on public.agent_traces
+  for select using (public.is_member_of(org_id));
+create policy agent_traces_insert on public.agent_traces
+  for insert with check (public.has_min_role(org_id, 'EMPLOYEE'));
+create policy agent_traces_delete on public.agent_traces
+  for delete using (public.has_min_role(org_id, 'MANAGER'));
+
+alter table public.tool_registry enable row level security;
+create policy tool_registry_select on public.tool_registry
+  for select using (org_id is null or public.is_member_of(org_id));
+create policy tool_registry_write on public.tool_registry
+  for all using (org_id is null or public.has_min_role(org_id, 'MANAGER'))
+  with check (org_id is null or public.has_min_role(org_id, 'MANAGER'));
+
+alter table public.openai_debug_events enable row level security;
+create policy openai_debug_events_select on public.openai_debug_events
+  for select using (public.has_min_role(org_id, 'SYSTEM_ADMIN') or org_id is null);
+create policy openai_debug_events_insert on public.openai_debug_events
+  for insert with check (public.has_min_role(org_id, 'SYSTEM_ADMIN') or org_id is null);
+create policy openai_debug_events_delete on public.openai_debug_events
+  for delete using (public.has_min_role(org_id, 'SYSTEM_ADMIN'));
+
 -- Approval queue policies -------------------------------------------------
 alter table public.approval_queue enable row level security;
 

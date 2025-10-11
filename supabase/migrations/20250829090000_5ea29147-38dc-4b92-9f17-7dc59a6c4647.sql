@@ -26,7 +26,7 @@ BEGIN
       FOR INSERT WITH CHECK (public.is_member_of(org_id));
 
     CREATE POLICY "transactions_update" ON public.transactions
-      FOR UPDATE USING (public.has_min_role(org_id, 'MANAGER'));
+      FOR UPDATE USING (public.has_min_role(org_id, 'MANAGER'::public.role_level));
 
     CREATE POLICY "transactions_delete" ON public.transactions
       FOR DELETE USING (

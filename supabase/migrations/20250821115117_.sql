@@ -194,13 +194,13 @@ CREATE POLICY "org_write" ON public.organizations
 CREATE POLICY "memberships_read" ON public.memberships 
   FOR SELECT USING (
     user_id = auth.uid() OR
-    public.has_min_role(org_id, 'MANAGER') OR
+    public.has_min_role(org_id, 'MANAGER'::public.role_level) OR
     EXISTS (SELECT 1 FROM public.users u WHERE u.id = auth.uid() AND u.is_system_admin = true)
   );
 
 CREATE POLICY "memberships_write" ON public.memberships 
   FOR ALL USING (
-    public.has_min_role(org_id, 'MANAGER') OR
+    public.has_min_role(org_id, 'MANAGER'::public.role_level) OR
     EXISTS (SELECT 1 FROM public.users u WHERE u.id = auth.uid() AND u.is_system_admin = true)
   );
 
@@ -209,10 +209,10 @@ CREATE POLICY "clients_read" ON public.clients
   FOR SELECT USING (public.is_member_of(org_id));
 
 CREATE POLICY "clients_insert" ON public.clients 
-  FOR INSERT WITH CHECK (public.has_min_role(org_id, 'MANAGER'));
+  FOR INSERT WITH CHECK (public.has_min_role(org_id, 'MANAGER'::public.role_level));
 
 CREATE POLICY "clients_update" ON public.clients 
-  FOR UPDATE USING (public.has_min_role(org_id, 'MANAGER'));
+  FOR UPDATE USING (public.has_min_role(org_id, 'MANAGER'::public.role_level));
 
 CREATE POLICY "clients_delete" ON public.clients 
   FOR DELETE USING (
@@ -224,10 +224,10 @@ CREATE POLICY "engagements_read" ON public.engagements
   FOR SELECT USING (public.is_member_of(org_id));
 
 CREATE POLICY "engagements_insert" ON public.engagements 
-  FOR INSERT WITH CHECK (public.has_min_role(org_id, 'MANAGER'));
+  FOR INSERT WITH CHECK (public.has_min_role(org_id, 'MANAGER'::public.role_level));
 
 CREATE POLICY "engagements_update" ON public.engagements 
-  FOR UPDATE USING (public.has_min_role(org_id, 'MANAGER'));
+  FOR UPDATE USING (public.has_min_role(org_id, 'MANAGER'::public.role_level));
 
 CREATE POLICY "engagements_delete" ON public.engagements 
   FOR DELETE USING (
@@ -244,11 +244,11 @@ CREATE POLICY "tasks_insert" ON public.tasks
 CREATE POLICY "tasks_update" ON public.tasks 
   FOR UPDATE USING (
     public.is_member_of(org_id) AND 
-    (assigned_to = auth.uid() OR public.has_min_role(org_id, 'MANAGER'))
+    (assigned_to = auth.uid() OR public.has_min_role(org_id, 'MANAGER'::public.role_level))
   );
 
 CREATE POLICY "tasks_delete" ON public.tasks 
-  FOR DELETE USING (public.has_min_role(org_id, 'MANAGER'));
+  FOR DELETE USING (public.has_min_role(org_id, 'MANAGER'::public.role_level));
 
 -- RLS Policies for documents table
 CREATE POLICY "documents_read" ON public.documents 
@@ -260,13 +260,13 @@ CREATE POLICY "documents_insert" ON public.documents
 CREATE POLICY "documents_update" ON public.documents 
   FOR UPDATE USING (
     public.is_member_of(org_id) AND 
-    (uploaded_by = auth.uid() OR public.has_min_role(org_id, 'MANAGER'))
+    (uploaded_by = auth.uid() OR public.has_min_role(org_id, 'MANAGER'::public.role_level))
   );
 
 CREATE POLICY "documents_delete" ON public.documents 
   FOR DELETE USING (
     public.is_member_of(org_id) AND 
-    (uploaded_by = auth.uid() OR public.has_min_role(org_id, 'MANAGER'))
+    (uploaded_by = auth.uid() OR public.has_min_role(org_id, 'MANAGER'::public.role_level))
   );
 
 -- RLS Policies for notifications table

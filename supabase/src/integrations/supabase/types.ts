@@ -274,6 +274,288 @@ export type Database = {
           },
         ]
       }
+      agent_manifests: {
+        Row: {
+          agent_key: string
+          created_at: string
+          default_role: string
+          id: string
+          metadata: Json
+          persona: string
+          prompt_template: string
+          safety_level: string
+          tool_ids: string[]
+          updated_at: string
+          version: string
+        }
+        Insert: {
+          agent_key: string
+          created_at?: string
+          default_role?: string
+          id?: string
+          metadata?: Json
+          persona: string
+          prompt_template: string
+          safety_level?: string
+          tool_ids?: string[]
+          updated_at?: string
+          version: string
+        }
+        Update: {
+          agent_key?: string
+          created_at?: string
+          default_role?: string
+          id?: string
+          metadata?: Json
+          persona?: string
+          prompt_template?: string
+          safety_level?: string
+          tool_ids?: string[]
+          updated_at?: string
+          version?: string
+        }
+        Relationships: []
+      }
+      agent_mcp_tools: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          metadata: Json
+          name: string
+          provider: string
+          schema_json: Json
+          tool_key: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          metadata?: Json
+          name: string
+          provider: string
+          schema_json?: Json
+          tool_key?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          metadata?: Json
+          name?: string
+          provider?: string
+          schema_json?: Json
+          tool_key?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      chatkit_sessions: {
+        Row: {
+          agent_session_id: string
+          chatkit_session_id: string
+          created_at: string
+          id: string
+          metadata: Json
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          agent_session_id: string
+          chatkit_session_id: string
+          created_at?: string
+          id?: string
+          metadata?: Json
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          agent_session_id?: string
+          chatkit_session_id?: string
+          created_at?: string
+          id?: string
+          metadata?: Json
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chatkit_sessions_agent_session_id_fkey"
+            columns: ["agent_session_id"]
+            isOneToOne: true
+            referencedRelation: "agent_sessions"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      chatkit_session_transcripts: {
+        Row: {
+          chatkit_session_id: string
+          created_at: string
+          id: string
+          metadata: Json
+          role: string
+          transcript: string
+        }
+        Insert: {
+          chatkit_session_id: string
+          created_at?: string
+          id?: string
+          metadata?: Json
+          role: string
+          transcript: string
+        }
+        Update: {
+          chatkit_session_id?: string
+          created_at?: string
+          id?: string
+          metadata?: Json
+          role?: string
+          transcript?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chatkit_session_transcripts_chatkit_session_id_fkey"
+            columns: ["chatkit_session_id"]
+            isOneToOne: false
+            referencedRelation: "chatkit_sessions"
+            referencedColumns: ["chatkit_session_id"]
+          }
+        ]
+      }
+      agent_orchestration_sessions: {
+        Row: {
+          created_at: string
+          created_by_user_id: string | null
+          director_agent_id: string | null
+          id: string
+          metadata: Json
+          objective: string
+          org_id: string
+          safety_agent_id: string | null
+          status: Database["public"]["Enums"]["agent_orchestration_status"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by_user_id?: string | null
+          director_agent_id?: string | null
+          id?: string
+          metadata?: Json
+          objective: string
+          org_id: string
+          safety_agent_id?: string | null
+          status?: Database["public"]["Enums"]["agent_orchestration_status"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by_user_id?: string | null
+          director_agent_id?: string | null
+          id?: string
+          metadata?: Json
+          objective?: string
+          org_id?: string
+          safety_agent_id?: string | null
+          status?: Database["public"]["Enums"]["agent_orchestration_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_orchestration_sessions_director_agent_id_fkey"
+            columns: ["director_agent_id"]
+            isOneToOne: false
+            referencedRelation: "agent_manifests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_orchestration_sessions_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_orchestration_sessions_safety_agent_id_fkey"
+            columns: ["safety_agent_id"]
+            isOneToOne: false
+            referencedRelation: "agent_manifests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_orchestration_sessions_created_by_user_id_fkey"
+            columns: ["created_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_orchestration_tasks: {
+        Row: {
+          agent_manifest_id: string | null
+          completed_at: string | null
+          created_at: string
+          depends_on: string[]
+          id: string
+          input: Json
+          metadata: Json
+          output: Json | null
+          session_id: string
+          started_at: string | null
+          status: Database["public"]["Enums"]["agent_task_status"]
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          agent_manifest_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          depends_on?: string[]
+          id?: string
+          input?: Json
+          metadata?: Json
+          output?: Json | null
+          session_id: string
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["agent_task_status"]
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          agent_manifest_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          depends_on?: string[]
+          id?: string
+          input?: Json
+          metadata?: Json
+          output?: Json | null
+          session_id?: string
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["agent_task_status"]
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_orchestration_tasks_agent_manifest_id_fkey"
+            columns: ["agent_manifest_id"]
+            isOneToOne: false
+            referencedRelation: "agent_manifests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_orchestration_tasks_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "agent_orchestration_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agent_profiles: {
         Row: {
           certifications: Json | null
@@ -321,6 +603,8 @@ export type Database = {
           id: string
           kind: string | null
           org_id: string
+          openai_agent_id: string | null
+          openai_thread_id: string | null
           started_at: string
           user_id: string | null
         }
@@ -329,6 +613,8 @@ export type Database = {
           id?: string
           kind?: string | null
           org_id: string
+          openai_agent_id?: string | null
+          openai_thread_id?: string | null
           started_at?: string
           user_id?: string | null
         }
@@ -337,6 +623,8 @@ export type Database = {
           id?: string
           kind?: string | null
           org_id?: string
+          openai_agent_id?: string | null
+          openai_thread_id?: string | null
           started_at?: string
           user_id?: string | null
         }
@@ -354,6 +642,357 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "app_users"
             referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      agent_actions: {
+        Row: {
+          action_type: string
+          approved_at: string | null
+          approved_by_user_id: string | null
+          created_at: string
+          id: string
+          input_json: Json
+          org_id: string
+          output_json: Json | null
+          requested_at: string
+          requested_by_user_id: string | null
+          run_id: string | null
+          sensitive: boolean
+          session_id: string
+          status: Database["public"]["Enums"]["agent_action_status"]
+          tool_key: string
+          updated_at: string
+        }
+        Insert: {
+          action_type?: string
+          approved_at?: string | null
+          approved_by_user_id?: string | null
+          created_at?: string
+          id?: string
+          input_json?: Json
+          org_id: string
+          output_json?: Json | null
+          requested_at?: string
+          requested_by_user_id?: string | null
+          run_id?: string | null
+          sensitive?: boolean
+          session_id: string
+          status?: Database["public"]["Enums"]["agent_action_status"]
+          tool_key: string
+          updated_at?: string
+        }
+        Update: {
+          action_type?: string
+          approved_at?: string | null
+          approved_by_user_id?: string | null
+          created_at?: string
+          id?: string
+          input_json?: Json
+          org_id?: string
+          output_json?: Json | null
+          requested_at?: string
+          requested_by_user_id?: string | null
+          run_id?: string | null
+          sensitive?: boolean
+          session_id?: string
+          status?: Database["public"]["Enums"]["agent_action_status"]
+          tool_key?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_actions_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_actions_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "agent_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_actions_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "agent_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_actions_approved_by_user_id_fkey"
+            columns: ["approved_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_actions_requested_by_user_id_fkey"
+            columns: ["requested_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_runs: {
+        Row: {
+          created_at: string
+          id: string
+          org_id: string
+          openai_response_id: string | null
+          openai_run_id: string | null
+          session_id: string
+          state: Database["public"]["Enums"]["agent_run_state"]
+          step_index: number
+          summary: Json
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          org_id: string
+          openai_response_id?: string | null
+          openai_run_id?: string | null
+          session_id: string
+          state?: Database["public"]["Enums"]["agent_run_state"]
+          step_index: number
+          summary?: Json
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          org_id?: string
+          openai_response_id?: string | null
+          openai_run_id?: string | null
+          session_id?: string
+          state?: Database["public"]["Enums"]["agent_run_state"]
+          step_index?: number
+          summary?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_runs_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_runs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "agent_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_safety_events: {
+        Row: {
+          created_at: string
+          details: Json
+          id: string
+          rule_code: string
+          session_id: string
+          severity: string
+          task_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          details?: Json
+          id?: string
+          rule_code: string
+          session_id: string
+          severity: string
+          task_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          details?: Json
+          id?: string
+          rule_code?: string
+          session_id?: string
+          severity?: string
+          task_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_safety_events_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "agent_orchestration_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_safety_events_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "agent_orchestration_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      openai_debug_events: {
+        Row: {
+          created_at: string
+          debug: Json | null
+          endpoint: string
+          id: string
+          metadata: Json
+          model: string | null
+          org_id: string | null
+          request_id: string
+          status_code: number | null
+        }
+        Insert: {
+          created_at?: string
+          debug?: Json | null
+          endpoint: string
+          id?: string
+          metadata?: Json
+          model?: string | null
+          org_id?: string | null
+          request_id: string
+          status_code?: number | null
+        }
+        Update: {
+          created_at?: string
+          debug?: Json | null
+          endpoint?: string
+          id?: string
+          metadata?: Json
+          model?: string | null
+          org_id?: string | null
+          request_id?: string
+          status_code?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "openai_debug_events_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_traces: {
+        Row: {
+          created_at: string
+          id: string
+          org_id: string
+          payload: Json
+          run_id: string | null
+          session_id: string | null
+          trace_type: Database["public"]["Enums"]["agent_trace_type"]
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          org_id: string
+          payload?: Json
+          run_id?: string | null
+          session_id?: string | null
+          trace_type?: Database["public"]["Enums"]["agent_trace_type"]
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          org_id?: string
+          payload?: Json
+          run_id?: string | null
+          session_id?: string | null
+          trace_type?: Database["public"]["Enums"]["agent_trace_type"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_traces_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_traces_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "agent_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_traces_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "agent_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tool_registry: {
+        Row: {
+          created_at: string
+          description: string | null
+          enabled: boolean
+          id: string
+          key: string
+          label: string | null
+          metadata: Json
+          min_role: "EMPLOYEE" | "MANAGER" | "SYSTEM_ADMIN"
+          org_id: string | null
+          sensitive: boolean
+          standards_refs: string[]
+          updated_at: string
+          updated_by_user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          enabled?: boolean
+          id?: string
+          key: string
+          label?: string | null
+          metadata?: Json
+          min_role?: "EMPLOYEE" | "MANAGER" | "SYSTEM_ADMIN"
+          org_id?: string | null
+          sensitive?: boolean
+          standards_refs?: string[]
+          updated_at?: string
+          updated_by_user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          enabled?: boolean
+          id?: string
+          key?: string
+          label?: string | null
+          metadata?: Json
+          min_role?: "EMPLOYEE" | "MANAGER" | "SYSTEM_ADMIN"
+          org_id?: string | null
+          sensitive?: boolean
+          standards_refs?: string[]
+          updated_at?: string
+          updated_by_user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tool_registry_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tool_registry_updated_by_user_id_fkey"
+            columns: ["updated_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -1820,63 +2459,98 @@ export type Database = {
       }
       approval_queue: {
         Row: {
+          action_id: string | null
+          approved_by_user_id: string | null
           assignee_user_id: string | null
           candidate_id: string | null
+          context_json: Json
           created_at: string
           created_by_user_id: string | null
+          decision_at: string | null
+          decision_comment: string | null
           draft_id: string | null
-          engagement_id: string
+          engagement_id: string | null
           id: string
           kind: string
           org_id: string
-          payload: Json
+          requested_at: string
+          requested_by_user_id: string | null
           resolved_at: string | null
           resolved_by_user_id: string | null
           resolution_note: string | null
+          session_id: string | null
           stage: Database["public"]["Enums"]["approval_stage"]
           status: Database["public"]["Enums"]["approval_status"]
           updated_at: string
           updated_by_user_id: string | null
         }
         Insert: {
+          action_id?: string | null
+          approved_by_user_id?: string | null
           assignee_user_id?: string | null
           candidate_id?: string | null
+          context_json?: Json
           created_at?: string
           created_by_user_id?: string | null
+          decision_at?: string | null
+          decision_comment?: string | null
           draft_id?: string | null
-          engagement_id: string
+          engagement_id?: string | null
           id?: string
           kind: string
           org_id: string
-          payload?: Json
+          requested_at?: string
+          requested_by_user_id?: string | null
           resolved_at?: string | null
           resolved_by_user_id?: string | null
           resolution_note?: string | null
-          stage: Database["public"]["Enums"]["approval_stage"]
+          session_id?: string | null
+          stage?: Database["public"]["Enums"]["approval_stage"]
           status?: Database["public"]["Enums"]["approval_status"]
           updated_at?: string
           updated_by_user_id?: string | null
         }
         Update: {
+          action_id?: string | null
+          approved_by_user_id?: string | null
           assignee_user_id?: string | null
           candidate_id?: string | null
+          context_json?: Json
           created_at?: string
           created_by_user_id?: string | null
+          decision_at?: string | null
+          decision_comment?: string | null
           draft_id?: string | null
-          engagement_id?: string
+          engagement_id?: string | null
           id?: string
           kind?: string
           org_id?: string
-          payload?: Json
+          requested_at?: string
+          requested_by_user_id?: string | null
           resolved_at?: string | null
           resolved_by_user_id?: string | null
           resolution_note?: string | null
+          session_id?: string | null
           stage?: Database["public"]["Enums"]["approval_stage"]
           status?: Database["public"]["Enums"]["approval_status"]
           updated_at?: string
           updated_by_user_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "approval_queue_action_id_fkey"
+            columns: ["action_id"]
+            isOneToOne: false
+            referencedRelation: "agent_actions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "approval_queue_approved_by_user_id_fkey"
+            columns: ["approved_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "approval_queue_assignee_user_id_fkey"
             columns: ["assignee_user_id"]
@@ -1920,10 +2594,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "approval_queue_requested_by_user_id_fkey"
+            columns: ["requested_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "approval_queue_resolved_by_user_id_fkey"
             columns: ["resolved_by_user_id"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "approval_queue_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "agent_sessions"
             referencedColumns: ["id"]
           },
           {
@@ -1935,6 +2623,7 @@ export type Database = {
           },
         ]
       }
+
       client_background_checks: {
         Row: {
           client_id: string
@@ -5190,7 +5879,28 @@ export type Database = {
       acceptance_decision: "ACCEPT" | "DECLINE"
       acceptance_status: "DRAFT" | "APPROVED" | "REJECTED"
       approval_stage: "MANAGER" | "PARTNER" | "EQR"
-      approval_status: "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED"
+      approval_status:
+        | "PENDING"
+        | "APPROVED"
+        | "CHANGES_REQUESTED"
+        | "REJECTED"
+        | "CANCELLED"
+      agent_action_status: "PENDING" | "SUCCESS" | "ERROR" | "BLOCKED"
+      agent_run_state: "PLANNING" | "EXECUTING" | "DONE" | "ERROR"
+      agent_trace_type: "INFO" | "TOOL" | "ERROR"
+      agent_orchestration_status:
+        | "PENDING"
+        | "RUNNING"
+        | "WAITING_APPROVAL"
+        | "COMPLETED"
+        | "FAILED"
+      agent_task_status:
+        | "PENDING"
+        | "ASSIGNED"
+        | "IN_PROGRESS"
+        | "AWAITING_APPROVAL"
+        | "COMPLETED"
+        | "FAILED"
       audit_risk_category:
         | "FINANCIAL_STATEMENT"
         | "FRAUD"
@@ -5377,6 +6087,24 @@ export const Constants = {
   },
   public: {
     Enums: {
+      agent_action_status: ["PENDING", "SUCCESS", "ERROR", "BLOCKED"],
+      agent_orchestration_status: [
+        "PENDING",
+        "RUNNING",
+        "WAITING_APPROVAL",
+        "COMPLETED",
+        "FAILED",
+      ],
+      agent_run_state: ["PLANNING", "EXECUTING", "DONE", "ERROR"],
+      agent_task_status: [
+        "PENDING",
+        "ASSIGNED",
+        "IN_PROGRESS",
+        "AWAITING_APPROVAL",
+        "COMPLETED",
+        "FAILED",
+      ],
+      agent_trace_type: ["INFO", "TOOL", "ERROR"],
       audit_risk_category: [
         "FINANCIAL_STATEMENT",
         "FRAUD",

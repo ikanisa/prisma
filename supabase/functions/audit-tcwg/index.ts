@@ -268,7 +268,8 @@ async function ensureApprovalStages(
         draft_id: params.packId,
         created_by_user_id: params.createdBy,
         updated_by_user_id: params.createdBy,
-        payload: { packId: params.packId, stage },
+        requested_by_user_id: params.createdBy,
+        context_json: { packId: params.packId, stage },
       });
       if (insertError) throw new HttpError(500, 'approval_queue_create_failed');
     }

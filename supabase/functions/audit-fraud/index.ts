@@ -123,7 +123,7 @@ async function upsertApprovalQueue(
     .eq('org_id', params.orgId)
     .eq('engagement_id', params.engagementId)
     .eq('kind', 'FRAUD_PLAN_APPROVAL')
-    .eq('payload->>fraudPlanId', params.fraudPlanId)
+    .eq('context_json->>fraudPlanId', params.fraudPlanId)
     .maybeSingle();
   if (error) throw new HttpError(500, 'fraud_plan_approval_lookup_failed');
 
@@ -138,9 +138,10 @@ async function upsertApprovalQueue(
       kind: 'FRAUD_PLAN_APPROVAL',
       stage: 'PARTNER',
       status: 'PENDING',
-      payload,
+      context_json: payload,
       created_by_user_id: params.createdBy,
       updated_by_user_id: params.createdBy,
+      requested_by_user_id: params.createdBy,
     })
     .select('id')
     .single();

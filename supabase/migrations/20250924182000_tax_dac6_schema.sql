@@ -2,13 +2,29 @@
 
 BEGIN;
 
-CREATE TYPE IF NOT EXISTS public.dac6_hallmark_category AS ENUM (
-  'A', 'B', 'C', 'D', 'E'
-);
+DO $$
+BEGIN
+  CREATE TYPE public.dac6_hallmark_category AS ENUM (
 
-CREATE TYPE IF NOT EXISTS public.dac6_submission_status AS ENUM (
+  'A', 'B', 'C', 'D', 'E'
+  );
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END;
+$$;
+
+
+DO $$
+BEGIN
+  CREATE TYPE public.dac6_submission_status AS ENUM (
+
   'DRAFT', 'READY_FOR_SUBMISSION', 'SUBMITTED', 'REJECTED'
-);
+  );
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END;
+$$;
+
 
 CREATE TABLE IF NOT EXISTS public.dac6_arrangements (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

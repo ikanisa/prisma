@@ -1,0 +1,17 @@
+{
+  "name": "@prisma-glow/system-config",
+  "version": "0.0.1",
+  "type": "module",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "description": "Shared helpers for loading and normalising system.yaml configuration.",
+  "private": true,
+  "keywords": [
+    "system-config",
+    "yaml",
+    "prisma-glow"
+  ],
+  "dependencies": {
+    "yaml": "^2.8.1"
+  }
+}

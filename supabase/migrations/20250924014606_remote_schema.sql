@@ -2277,8 +2277,6 @@ drop index if exists "public"."chunks_content_hash_key";
 
 drop index if exists "public"."activity_log_org_created_at_idx";
 
-alter table "public"."chunks" alter column "content_hash" set default encode(extensions.digest(COALESCE(content, ''::text), 'sha256'::text), 'hex'::text);
-
 alter table "public"."chunks" alter column "last_embedded_at" drop default;
 
 alter table "public"."chunks" alter column "last_embedded_at" drop not null;

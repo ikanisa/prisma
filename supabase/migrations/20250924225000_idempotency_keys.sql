@@ -1,3 +1,5 @@
+drop table if exists public.idempotency_keys cascade;
+
 create table if not exists public.idempotency_keys (
   id uuid primary key default gen_random_uuid(),
   org_id uuid not null,

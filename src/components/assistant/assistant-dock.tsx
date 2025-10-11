@@ -268,7 +268,7 @@ export function AssistantDock() {
         setLoading(false);
       }
     },
-    [callAssistant, pushAssistantMessage, toast],
+    [callAssistant, initialised, pushAssistantMessage, toast],
   );
 
   const handleActionClick = useCallback(

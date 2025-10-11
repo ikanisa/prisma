@@ -147,11 +147,11 @@ async function fetchApprovalQueue(
 ) {
   const { data, error } = await client
     .from('approval_queue')
-    .select('id, stage, status, payload, created_at, resolved_at, resolved_by_user_id')
+    .select('id, stage, status, context_json, created_at, resolved_at, resolved_by_user_id')
     .eq('org_id', params.orgId)
     .eq('engagement_id', params.engagementId)
     .eq('kind', 'AUDIT_PLAN_FREEZE')
-    .eq('payload->>planId', params.planId)
+    .eq('context_json->>planId', params.planId)
     .order('created_at', { ascending: false });
   if (error) throw new HttpError(500, 'approval_lookup_failed');
   return data ?? [];
@@ -368,7 +368,7 @@ async function upsertApprovalQueue(
     .eq('org_id', params.orgId)
     .eq('engagement_id', params.engagementId)
     .eq('kind', 'AUDIT_PLAN_FREEZE')
-    .eq('payload->>planId', params.planId)
+    .eq('context_json->>planId', params.planId)
     .maybeSingle();
   if (error) throw new HttpError(500, 'approval_lookup_failed');
 
@@ -384,9 +384,10 @@ async function upsertApprovalQueue(
       engagement_id: params.engagementId,
       kind: 'AUDIT_PLAN_FREEZE',
       stage: 'PARTNER',
-      payload,
+      context_json: payload,
       created_by_user_id: params.createdBy,
       updated_by_user_id: params.createdBy,
+      requested_by_user_id: params.createdBy,
     })
     .select('id')
     .single();

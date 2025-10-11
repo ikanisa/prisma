@@ -25,15 +25,15 @@ create policy entities_select on public.entities
 
 drop policy if exists entities_insert on public.entities;
 create policy entities_insert on public.entities
-  for insert with check (public.is_member_of(org_id) and public.has_min_role(org_id, 'MANAGER'));
+  for insert with check (public.is_member_of(org_id) and public.has_min_role(org_id, 'MANAGER'::public.role_level));
 
 drop policy if exists entities_update on public.entities;
 create policy entities_update on public.entities
-  for update using (public.is_member_of(org_id) and public.has_min_role(org_id, 'MANAGER'));
+  for update using (public.is_member_of(org_id) and public.has_min_role(org_id, 'MANAGER'::public.role_level));
 
 drop policy if exists entities_delete on public.entities;
 create policy entities_delete on public.entities
-  for delete using (public.is_member_of(org_id) and public.has_min_role(org_id, 'MANAGER'));
+  for delete using (public.is_member_of(org_id) and public.has_min_role(org_id, 'MANAGER'::public.role_level));
 
 create table if not exists public.tasks (
   id uuid primary key default gen_random_uuid(),
@@ -61,15 +61,15 @@ create policy tasks_select on public.tasks
 
 drop policy if exists tasks_insert on public.tasks;
 create policy tasks_insert on public.tasks
-  for insert with check (public.is_member_of(org_id) and public.has_min_role(org_id, 'EMPLOYEE'));
+  for insert with check (public.is_member_of(org_id) and public.has_min_role(org_id, 'EMPLOYEE'::public.role_level));
 
 drop policy if exists tasks_update on public.tasks;
 create policy tasks_update on public.tasks
-  for update using (public.is_member_of(org_id) and public.has_min_role(org_id, 'EMPLOYEE'));
+  for update using (public.is_member_of(org_id) and public.has_min_role(org_id, 'EMPLOYEE'::public.role_level));
 
 drop policy if exists tasks_delete on public.tasks;
 create policy tasks_delete on public.tasks
-  for delete using (public.is_member_of(org_id) and public.has_min_role(org_id, 'MANAGER'));
+  for delete using (public.is_member_of(org_id) and public.has_min_role(org_id, 'MANAGER'::public.role_level));
 
 
 create table if not exists public.task_comments (
@@ -91,7 +91,7 @@ create policy task_comments_select on public.task_comments
 
 drop policy if exists task_comments_insert on public.task_comments;
 create policy task_comments_insert on public.task_comments
-  for insert with check (public.is_member_of(org_id) and public.has_min_role(org_id, 'EMPLOYEE'));
+  for insert with check (public.is_member_of(org_id) and public.has_min_role(org_id, 'EMPLOYEE'::public.role_level));
 
 
 create table if not exists public.documents (
@@ -115,6 +115,59 @@ create table if not exists public.documents (
   updated_at timestamptz not null default now()
 );
 
+alter table public.documents
+  add column if not exists entity_id uuid references public.entities(id) on delete set null,
+  add column if not exists repo_folder text not null default '99_Other',
+  add column if not exists name text not null default 'Legacy Document',
+  add column if not exists filename text not null default 'legacy.bin',
+  add column if not exists mime_type text,
+  add column if not exists file_size bigint default 0,
+  add column if not exists storage_path text not null default concat('legacy/', gen_random_uuid()),
+  add column if not exists uploaded_by uuid references auth.users(id) on delete set null,
+  add column if not exists source text not null default 'USER' check (source in ('USER','API','EMAIL')),
+  add column if not exists classification text not null default 'OTHER',
+  add column if not exists ocr_status text not null default 'PENDING' check (ocr_status in ('PENDING','DONE','FAILED')),
+  add column if not exists parse_status text not null default 'PENDING' check (parse_status in ('PENDING','DONE','FAILED')),
+  add column if not exists deleted boolean not null default false,
+  add column if not exists updated_at timestamptz not null default now();
+
+do $$
+begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'documents'
+      and column_name = 'mime'
+  ) then
+    execute 'update public.documents set mime_type = mime where mime_type is null and mime is not null';
+  end if;
+
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'documents'
+      and column_name = 'bytes'
+  ) then
+    execute 'update public.documents set file_size = bytes where file_size = 0 and bytes is not null';
+  end if;
+
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'documents'
+      and column_name = 'source_name'
+  ) then
+    execute 'update public.documents set name = coalesce(source_name, name), filename = coalesce(source_name, filename) where source_name is not null';
+  end if;
+end;
+$$;
+
+update public.documents
+set storage_path = concat('legacy/', id::text)
+where storage_path is null or storage_path = '';
+
+create unique index if not exists documents_storage_path_key on public.documents (storage_path);
+
 create index if not exists documents_org_repo_idx on public.documents (org_id, repo_folder, created_at desc) where deleted = false;
 create index if not exists documents_entity_idx on public.documents (entity_id) where deleted = false;
 
@@ -126,11 +179,11 @@ create policy documents_select on public.documents
 
 drop policy if exists documents_insert on public.documents;
 create policy documents_insert on public.documents
-  for insert with check (public.is_member_of(org_id) and public.has_min_role(org_id, 'EMPLOYEE'));
+  for insert with check (public.is_member_of(org_id) and public.has_min_role(org_id, 'EMPLOYEE'::public.role_level));
 
 drop policy if exists documents_update on public.documents;
 create policy documents_update on public.documents
-  for update using (public.is_member_of(org_id) and (uploaded_by = auth.uid() or public.has_min_role(org_id, 'MANAGER')));
+  for update using (public.is_member_of(org_id) and (uploaded_by = auth.uid() or public.has_min_role(org_id, 'MANAGER'::public.role_level)));
 
 
 create table if not exists public.document_index (
@@ -169,7 +222,7 @@ create policy task_attachments_select on public.task_attachments
 
 drop policy if exists task_attachments_insert on public.task_attachments;
 create policy task_attachments_insert on public.task_attachments
-  for insert with check (public.is_member_of(org_id) and public.has_min_role(org_id, 'EMPLOYEE'));
+  for insert with check (public.is_member_of(org_id) and public.has_min_role(org_id, 'EMPLOYEE'::public.role_level));
 
 
 create table if not exists public.notifications (
@@ -220,7 +273,7 @@ alter table public.agent_trace enable row level security;
 
 drop policy if exists agent_trace_select on public.agent_trace;
 create policy agent_trace_select on public.agent_trace
-  for select using (public.is_member_of(org_id) and public.has_min_role(org_id, 'MANAGER'));
+  for select using (public.is_member_of(org_id) and public.has_min_role(org_id, 'MANAGER'::public.role_level));
 
 drop policy if exists agent_trace_insert on public.agent_trace;
 create policy agent_trace_insert on public.agent_trace
@@ -278,11 +331,11 @@ create policy onboarding_checklists_select on public.onboarding_checklists
 
 drop policy if exists onboarding_checklists_insert on public.onboarding_checklists;
 create policy onboarding_checklists_insert on public.onboarding_checklists
-  for insert with check (public.is_member_of(org_id) and public.has_min_role(org_id, 'MANAGER'));
+  for insert with check (public.is_member_of(org_id) and public.has_min_role(org_id, 'MANAGER'::public.role_level));
 
 drop policy if exists onboarding_checklists_update on public.onboarding_checklists;
 create policy onboarding_checklists_update on public.onboarding_checklists
-  for update using (public.is_member_of(org_id) and public.has_min_role(org_id, 'MANAGER'));
+  for update using (public.is_member_of(org_id) and public.has_min_role(org_id, 'MANAGER'::public.role_level));
 
 
 create table if not exists public.onboarding_checklist_items (
@@ -333,11 +386,11 @@ create policy company_profile_drafts_select on public.company_profile_drafts
 
 drop policy if exists company_profile_drafts_insert on public.company_profile_drafts;
 create policy company_profile_drafts_insert on public.company_profile_drafts
-  for insert with check (public.is_member_of(org_id) and public.has_min_role(org_id, 'MANAGER'));
+  for insert with check (public.is_member_of(org_id) and public.has_min_role(org_id, 'MANAGER'::public.role_level));
 
 drop policy if exists company_profile_drafts_update on public.company_profile_drafts;
 create policy company_profile_drafts_update on public.company_profile_drafts
-  for update using (public.is_member_of(org_id) and public.has_min_role(org_id, 'MANAGER'));
+  for update using (public.is_member_of(org_id) and public.has_min_role(org_id, 'MANAGER'::public.role_level));
 
 
 create table if not exists public.jobs (
@@ -359,15 +412,15 @@ alter table public.jobs enable row level security;
 
 drop policy if exists jobs_select on public.jobs;
 create policy jobs_select on public.jobs
-  for select using (public.is_member_of(org_id) and public.has_min_role(org_id, 'MANAGER'));
+  for select using (public.is_member_of(org_id) and public.has_min_role(org_id, 'MANAGER'::public.role_level));
 
 drop policy if exists jobs_insert on public.jobs;
 create policy jobs_insert on public.jobs
-  for insert with check (public.is_member_of(org_id) and public.has_min_role(org_id, 'MANAGER'));
+  for insert with check (public.is_member_of(org_id) and public.has_min_role(org_id, 'MANAGER'::public.role_level));
 
 drop policy if exists jobs_update on public.jobs;
 create policy jobs_update on public.jobs
-  for update using (public.is_member_of(org_id) and public.has_min_role(org_id, 'MANAGER'));
+  for update using (public.is_member_of(org_id) and public.has_min_role(org_id, 'MANAGER'::public.role_level));
 
 
 create table if not exists public.job_schedules (
@@ -387,15 +440,15 @@ alter table public.job_schedules enable row level security;
 
 drop policy if exists job_schedules_select on public.job_schedules;
 create policy job_schedules_select on public.job_schedules
-  for select using (public.is_member_of(org_id) and public.has_min_role(org_id, 'MANAGER'));
+  for select using (public.is_member_of(org_id) and public.has_min_role(org_id, 'MANAGER'::public.role_level));
 
 drop policy if exists job_schedules_insert on public.job_schedules;
 create policy job_schedules_insert on public.job_schedules
-  for insert with check (public.is_member_of(org_id) and public.has_min_role(org_id, 'MANAGER'));
+  for insert with check (public.is_member_of(org_id) and public.has_min_role(org_id, 'MANAGER'::public.role_level));
 
 drop policy if exists job_schedules_update on public.job_schedules;
 create policy job_schedules_update on public.job_schedules
-  for update using (public.is_member_of(org_id) and public.has_min_role(org_id, 'MANAGER'));
+  for update using (public.is_member_of(org_id) and public.has_min_role(org_id, 'MANAGER'::public.role_level));
 
 
 insert into storage.buckets (id, name, public)

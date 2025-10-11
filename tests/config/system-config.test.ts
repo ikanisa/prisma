@@ -203,7 +203,7 @@ describe('system-config', () => {
     const onboarding = getWorkflowDefinition('onboarding_zero_typing');
     expect(onboarding?.steps[0].agentId).toBe('onboarding_agent');
     expect(onboarding?.steps[0].tool).toBe('show_required_docs_by_industry');
-    expect(onboarding?.minimumAutonomy).toBe('L2');
+    expect(onboarding?.minimumAutonomy).toBe('L3');
     expect(onboarding?.steps[0].requiredAutonomy).toBe('L2');
     const monthlyClose = getWorkflowDefinition('monthly_close');
     expect(monthlyClose?.steps[0].tool).toBe('close.snapshot_tb');

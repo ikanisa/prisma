@@ -374,7 +374,8 @@ async function handleSubmit(client: TypedClient, user: SupabaseUser, body: any) 
       engagement_id: body.engagementId ?? null,
       kind: 'MT_CIT_APPROVAL',
       stage: 'PARTNER',
-      payload: { taxEntityId: taxEntity.id, period },
+      requested_by_user_id: user.id,
+      context_json: { taxEntityId: taxEntity.id, period },
       created_by_user_id: user.id,
       updated_by_user_id: user.id,
     })

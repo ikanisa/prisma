@@ -6,5 +6,6 @@ const withPWA = nextPWA({
 });
 
 export default withPWA({
-  reactStrictMode: true
+  reactStrictMode: true,
+  output: 'standalone'
 });

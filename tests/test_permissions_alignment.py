@@ -14,5 +14,7 @@ import server.main as main
 
 def test_permission_map_matches_system_config():
     config_map = get_config_permission_map()
+    main.clear_permission_map_cache()
+    permission_map = main.get_permission_map_snapshot()
     for key, role in config_map.items():
-        assert main.PERMISSION_MAP.get(key) == role
+        assert permission_map.get(key) == role

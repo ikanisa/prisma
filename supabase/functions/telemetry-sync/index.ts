@@ -95,7 +95,7 @@ const getCount = async (
   return count ?? 0;
 };
 
-serve(async request => {
+export async function handler(request: Request): Promise<Response> {
   const preflight = handleOptions(request);
   if (preflight) return preflight;
 
@@ -262,4 +262,6 @@ serve(async request => {
       headers: { 'Content-Type': 'application/json', ...corsHeaders },
     });
   }
-});
+}
+
+serve(handler);

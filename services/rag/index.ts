@@ -6,7 +6,6 @@ import Tesseract from 'tesseract.js';
 import { Client } from 'pg';
 import { vector } from 'pgvector';
 import NodeCache from 'node-cache';
-import OpenAI from 'openai';
 import jwt, { type JwtPayload } from 'jsonwebtoken';
 import { randomUUID, createHash } from 'crypto';
 import { AsyncLocalStorage } from 'node:async_hooks';
@@ -39,15 +38,70 @@ import {
 import type { DriveSource } from './knowledge/drive';
 import { listWebSources, getWebSource, type WebSourceRow } from './knowledge/web';
 import { getSupabaseJwtSecret, getSupabaseServiceRoleKey } from '../../lib/secrets';
+import { generateAgentPlan } from '../../lib/agents/runtime';
+import {
+  roleFromString,
+  ROLE_PRIORITY,
+  type AgentRequestContext,
+  type AgentRole,
+} from '../../lib/agents/types';
+import {
+  upsertChatkitSession,
+  cancelChatkitSession,
+  resumeChatkitSession,
+  fetchChatkitSession,
+  recordChatkitTranscript,
+  listChatkitTranscripts,
+} from './chatkit-session-service';
 import { buildReadinessSummary } from './readiness';
 import { getUrlSourceSettings, type UrlSourceSettings } from './system-config';
+import {
+  APPROVAL_ACTION_LABELS,
+  createAgentActionApproval as supabaseCreateAgentActionApproval,
+  insertAgentAction as supabaseInsertAgentAction,
+  normalizeApprovalAction as externalNormalizeApprovalAction,
+  reshapeApprovalRow as externalReshapeApprovalRow,
+  type AgentActionStatus,
+  type ApprovalAction,
+  type ApprovalDecision,
+  type ApprovalEvidence,
+} from './approval-service';
+import { createOpenAiDebugLogger } from './openai-debug';
+import { getOpenAIClient } from '../../lib/openai/client';
+import { readOpenAiWorkloadEnv } from '../../lib/openai/workloads';
+import {
+  syncAgentToolsFromRegistry,
+  isAgentPlatformEnabled,
+  getOpenAiAgentId,
+  createAgentThread,
+  createAgentRun,
+} from './openai-agent-service';
+import { streamOpenAiResponse } from './openai-stream';
+import { createRealtimeSession, getRealtimeTurnServers } from './openai-realtime';
+import { generateSoraVideo } from './openai-media';
+import { transcribeAudioBuffer, synthesizeSpeech } from './openai-audio';
+import { directorAgent as legacyDirectorAgent } from '../agents/director';
+import { DOMAIN_AGENT_LIST } from '../agents/domain-agents';
+import type { OrchestratorContext } from '../agents/types';
+import { AuditExecutionAgent } from '../agents/audit-execution';
+import type { Database } from '../../supabase/src/integrations/supabase/types';
+import type { OrchestrationTaskInput } from './mcp/types';
+import { initialiseMcpInfrastructure } from './mcp/bootstrap';
+import { createDirectorAgent as createMcpDirectorAgent } from './mcp/director';
+import { createSafetyAgent as createMcpSafetyAgent } from './mcp/safety';
+import { executeTaskWithExecutor } from './mcp/executors';
 
 type AgentPersona = 'AUDIT' | 'FINANCE' | 'TAX';
 type LearningMode = 'INITIAL' | 'CONTINUOUS';
 
+type OrchestrationStatus = Database['public']['Enums']['agent_orchestration_status'];
+type OrchestrationTaskStatus = Database['public']['Enums']['agent_task_status'];
+
 const SERVICE_NAME = process.env.OTEL_SERVICE_NAME ?? 'rag-service';
 const OTLP_ENDPOINT = process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
 let telemetryInitialised = false;
+const RUNTIME_ENVIRONMENT = process.env.ENVIRONMENT ?? process.env.NODE_ENV ?? 'development';
+const SERVICE_VERSION = process.env.SERVICE_VERSION ?? process.env.SENTRY_RELEASE ?? 'dev';
 
 function configureTelemetry(): void {
   if (telemetryInitialised) {
@@ -56,6 +110,9 @@ function configureTelemetry(): void {
 
   const resource = new Resource({
     [SemanticResourceAttributes.SERVICE_NAME]: SERVICE_NAME,
+    'service.namespace': 'prisma-glow',
+    'deployment.environment': RUNTIME_ENVIRONMENT,
+    'service.version': SERVICE_VERSION,
   });
 
   const provider = new NodeTracerProvider({ resource });
@@ -79,8 +136,7 @@ configureTelemetry();
 const tracer = trace.getTracer(SERVICE_NAME);
 
 const SENTRY_RELEASE = process.env.SENTRY_RELEASE;
-const SENTRY_ENVIRONMENT =
-  process.env.SENTRY_ENVIRONMENT ?? process.env.ENVIRONMENT ?? 'development';
+const SENTRY_ENVIRONMENT = process.env.SENTRY_ENVIRONMENT ?? RUNTIME_ENVIRONMENT;
 const SENTRY_DSN = process.env.SENTRY_DSN;
 const SENTRY_ENABLED = Boolean(SENTRY_DSN);
 
@@ -111,6 +167,41 @@ let webBootstrapRunning = false;
 
 type RobotsRules = { allow: string[]; disallow: string[] };
 const robotsCache = new Map<string, { rules: RobotsRules; fetchedAt: number }>();
+
+const AUDIO_EXTENSION_MAP: Record<string, string> = {
+  'audio/webm': 'webm',
+  'audio/ogg': 'ogg',
+  'audio/mpeg': 'mp3',
+  'audio/mp3': 'mp3',
+  'audio/wav': 'wav',
+  'audio/x-wav': 'wav',
+  'audio/flac': 'flac',
+  'audio/mp4': 'mp4',
+  'audio/m4a': 'm4a',
+  'audio/aac': 'aac',
+  'audio/opus': 'opus',
+};
+
+function inferAudioFileName(mimeType?: string): string {
+  const extension = mimeType ? AUDIO_EXTENSION_MAP[mimeType.toLowerCase()] : undefined;
+  const suffix = extension ?? 'wav';
+  return `audio-${Date.now()}.${suffix}`;
+}
+
+function decodeBase64Audio(value: string): Buffer {
+  if (!value || typeof value !== 'string') {
+    throw new Error('Audio payload is required.');
+  }
+  try {
+    const buffer = Buffer.from(value, 'base64');
+    if (buffer.length === 0) {
+      throw new Error('Decoded audio buffer is empty.');
+    }
+    return buffer;
+  } catch (error) {
+    throw new Error('Invalid base64 audio payload.');
+  }
+}
 
 type WebCacheRow = {
   id: string;
@@ -505,6 +596,7 @@ app.use((req: AuthenticatedRequest, res: Response, next: NextFunction) => {
 app.use(express.json({ limit: '10mb' }));
 
 const HEADER_REQUEST_ID = 'x-request-id';
+const requestContext = new AsyncLocalStorage<{ requestId: string }>();
 
 app.use((req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   const existing = req.header(HEADER_REQUEST_ID);
@@ -529,16 +621,90 @@ if (!JWT_SECRET) {
 
 const upload = multer();
 const cache = new NodeCache({ stdTTL: 60 });
+const idempotencyCache = new NodeCache();
+
+type IdempotencyCacheEntry = {
+  status: number;
+  body: unknown;
+};
+
+function applyExpressIdempotency(options: {
+  keyBuilder: (req: AuthenticatedRequest) => string | null | undefined;
+  ttlSeconds?: number;
+}) {
+  const ttl = options.ttlSeconds ?? 300;
+
+  return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    let key: string | null | undefined;
+    try {
+      key = options.keyBuilder(req);
+    } catch (error) {
+      logError('idempotency.key_builder_failed', error, { path: req.path });
+      return next();
+    }
+
+    if (!key || key.length === 0) {
+      return next();
+    }
+
+    const cached = idempotencyCache.get<IdempotencyCacheEntry>(key);
+    if (cached) {
+      res.setHeader('X-Idempotency-Key', key);
+      res.setHeader('X-Idempotency-Cache', 'HIT');
+      return res.status(cached.status).json(cached.body);
+    }
+
+    res.setHeader('X-Idempotency-Key', key);
+    res.setHeader('X-Idempotency-Cache', 'MISS');
+
+    let responseBody: unknown | undefined;
+    const originalJson = res.json.bind(res);
+
+    res.json = (body: unknown) => {
+      responseBody = body;
+      return originalJson(body);
+    };
+
+    res.on('finish', () => {
+      if (!responseBody) return;
+      if (res.statusCode >= 200 && res.statusCode < 300) {
+        idempotencyCache.set(key as string, { status: res.statusCode, body: responseBody }, ttl);
+      }
+    });
+
+    return next();
+  };
+}
 
 const RATE_LIMIT = Number(process.env.API_RATE_LIMIT ?? '60');
 const RATE_WINDOW_MS = Number(process.env.API_RATE_WINDOW_SECONDS ?? '60') * 1000;
 const requestBuckets = new Map<string, number[]>();
 
-const requestContext = new AsyncLocalStorage<{ requestId: string }>();
-
 const GDRIVE_QUEUE_PROCESS_LIMIT = Number(process.env.GDRIVE_PROCESS_BATCH_LIMIT ?? '10');
 const driveUploaderCache = new Map<string, string>();
 type DriveFileMetadata = { metadata: Record<string, unknown>; allowlisted_domain: boolean };
+
+type AgentTypeKey = 'CLOSE' | 'TAX' | 'AUDIT' | 'ADVISORY' | 'CLIENT';
+
+const ENFORCE_CITATIONS = getFeatureFlag('FEATURE_ENFORCE_CITATIONS', true);
+const SUPPORTED_AGENT_TYPES = new Set<AgentTypeKey>(['CLOSE', 'TAX', 'AUDIT', 'ADVISORY', 'CLIENT']);
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function formatDateKey(date: Date): string {
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(date.getUTCDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function buildLastNDaysKeys(days: number, end: Date): string[] {
+  const keys: string[] = [];
+  for (let i = days - 1; i >= 0; i -= 1) {
+    const bucket = new Date(end.getTime() - i * DAY_MS);
+    keys.push(formatDateKey(bucket));
+  }
+  return keys;
+}
 
 type LearningJob = {
   id: string;
@@ -552,6 +718,1115 @@ type LearningJob = {
   updated_at: string;
   processed_at: string | null;
 };
+
+type ToolExecutionContext = {
+  orgId: string;
+  engagementId?: string | null;
+  userId: string;
+  sessionId: string;
+  runId: string;
+};
+
+type ToolHandler = (input: unknown, context: ToolExecutionContext) => Promise<unknown>;
+
+type ToolDefinition = {
+  label?: string;
+  minRole: AgentRole;
+  sensitive?: boolean;
+  standards_refs?: string[];
+  enabled?: boolean;
+};
+
+type AgentToolExecutionResult = {
+  toolKey: string;
+  status: 'SUCCESS' | 'ERROR' | 'BLOCKED' | 'PENDING';
+  output?: unknown;
+  error?: string;
+  approvalId?: string;
+};
+
+const REQUIRE_MANAGER_APPROVAL = getFeatureFlag('FEATURE_REQUIRE_MANAGER_APPROVAL', true);
+const BLOCK_EXTERNAL_FILING = getFeatureFlag('FEATURE_BLOCK_EXTERNAL_FILING', true);
+const QMS_MONITORING_ENABLED = getFeatureFlag('FEATURE_QMS_MONITORING_ENABLED', true);
+
+
+const ROLE_HIERARCHY: Record<AgentRole, number> = {
+  EMPLOYEE: ROLE_PRIORITY.EMPLOYEE,
+  MANAGER: ROLE_PRIORITY.MANAGER,
+  SYSTEM_ADMIN: ROLE_PRIORITY.SYSTEM_ADMIN,
+};
+
+const LOCAL_TOOL_DEFINITIONS: Record<string, ToolDefinition> = {
+  'rag.search': {
+    label: 'Knowledge base search',
+    minRole: 'EMPLOYEE',
+  },
+  'trial_balance.get': {
+    label: 'Trial balance snapshot',
+    minRole: 'EMPLOYEE',
+  },
+  'docs.sign_url': {
+    label: 'Generate document signing URL',
+    minRole: 'MANAGER',
+    sensitive: true,
+  },
+  'notify.user': {
+    label: 'Notify user',
+    minRole: 'EMPLOYEE',
+  },
+};
+
+const toolHandlers: Record<string, ToolHandler> = {
+  'rag.search': async (input, context) => {
+    const payload = (input && typeof input === 'object' ? input : {}) as Record<string, unknown>;
+    const query = typeof payload.query === 'string' && payload.query.trim().length > 0
+      ? payload.query.trim()
+      : typeof payload.prompt === 'string' && payload.prompt.trim().length > 0
+      ? payload.prompt.trim()
+      : null;
+    const rawTopK = payload.topK ?? payload.top_k ?? payload.limit;
+    const topK = Number.isFinite(rawTopK as number) ? Number(rawTopK) : 6;
+
+    if (!query) {
+      return { output: 'rag.search requires a query input.' };
+    }
+
+    const result = await performRagSearch(context.orgId, query, Math.max(1, Math.min(12, topK)));
+    try {
+      return {
+        output: result.output,
+        citations: result.citations,
+      };
+    } catch {
+      return { output: result.output };
+    }
+  },
+  'trial_balance.get': async () => {
+    return {
+      balances: [],
+      generatedAt: new Date().toISOString(),
+    };
+  },
+  'docs.sign_url': async (input) => {
+    const payload = (input && typeof input === 'object' ? input : {}) as Record<string, unknown>;
+    const documentId = typeof payload.documentId === 'string' ? payload.documentId : null;
+    return {
+      documentId,
+      signedUrl: 'https://example.com/sign-url-placeholder',
+      expiresInSeconds: Number(process.env.DOCUMENT_SIGN_TTL ?? '120'),
+    };
+  },
+  'notify.user': async (input) => {
+    const payload = (input && typeof input === 'object' ? input : {}) as Record<string, unknown>;
+    return {
+      notified: true,
+      message: typeof payload.message === 'string' ? payload.message : 'Notification queued.',
+      recipients: Array.isArray(payload.recipients) ? payload.recipients : [],
+      sentAt: new Date().toISOString(),
+    };
+  },
+};
+
+let toolRegistryAvailabilityChecked = false;
+let toolRegistryAvailable = true;
+
+async function resolveToolDefinition(toolKey: string): Promise<ToolDefinition | null> {
+  if (!toolRegistryAvailable && toolRegistryAvailabilityChecked) {
+    return LOCAL_TOOL_DEFINITIONS[toolKey] ?? null;
+  }
+
+  try {
+    const { data, error } = await supabaseService
+      .from('tool_registry')
+      .select('key, label, min_role, sensitive, standards_refs, enabled')
+      .eq('key', toolKey)
+      .maybeSingle();
+
+    toolRegistryAvailabilityChecked = true;
+
+    if (error) {
+      if (error.code === '42P01') {
+        toolRegistryAvailable = false;
+        logInfo('tool_registry.unavailable', { toolKey });
+      } else {
+        logError('tool_registry.fetch_failed', error, { toolKey });
+      }
+      return LOCAL_TOOL_DEFINITIONS[toolKey] ?? null;
+    }
+
+    if (!data) {
+      return LOCAL_TOOL_DEFINITIONS[toolKey] ?? null;
+    }
+
+    return {
+      label: typeof data.label === 'string' ? data.label : undefined,
+      minRole: roleFromString(data.min_role) ?? 'EMPLOYEE',
+      sensitive: Boolean(data.sensitive),
+      standards_refs: Array.isArray(data.standards_refs) ? data.standards_refs : undefined,
+      enabled: data.enabled ?? true,
+    };
+  } catch (err) {
+    const error = err instanceof Error ? err : new Error(String(err));
+    toolRegistryAvailabilityChecked = true;
+    toolRegistryAvailable = false;
+    logError('tool_registry.unexpected_error', error, { toolKey });
+    return LOCAL_TOOL_DEFINITIONS[toolKey] ?? null;
+  }
+}
+
+const hashPayload = (value: unknown) =>
+  createHash('sha256').update(JSON.stringify(value ?? null)).digest('hex');
+
+function parsePlanSummary(summary: unknown): any {
+  if (!summary) return { steps: [] };
+  if (typeof summary === 'string') {
+    try {
+      return JSON.parse(summary);
+    } catch {
+      return { steps: [] };
+    }
+  }
+  if (typeof summary === 'object') {
+    return summary;
+  }
+  return { steps: [] };
+}
+
+function ensurePlanSteps(planDocument: any): any[] {
+  if (!Array.isArray(planDocument.steps)) {
+    planDocument.steps = [];
+  }
+  return planDocument.steps;
+}
+
+function updatePlanStepResults(planDocument: any, stepIndex: number, results: AgentToolExecutionResult[]) {
+  const steps = ensurePlanSteps(planDocument);
+  const existingIndex = steps.findIndex((step: any) => step?.stepIndex === stepIndex);
+  if (existingIndex >= 0) {
+    const current = steps[existingIndex] ?? {};
+    steps[existingIndex] = { ...current, stepIndex, results };
+  } else {
+    steps.push({ stepIndex, results });
+  }
+}
+
+function deriveRunState(results: AgentToolExecutionResult[]): 'DONE' | 'EXECUTING' | 'ERROR' {
+  if (results.some((result) => result.status === 'ERROR')) {
+    return 'ERROR';
+  }
+  if (results.some((result) => result.status === 'BLOCKED' || result.status === 'PENDING')) {
+    return 'EXECUTING';
+  }
+  return 'DONE';
+}
+
+function normaliseOrchestrationTaskInput(raw: unknown): OrchestrationTaskInput | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const title = (raw as Record<string, unknown>).title;
+  if (typeof title !== 'string' || title.trim().length === 0) {
+    return null;
+  }
+
+  const task: OrchestrationTaskInput = {
+    title: title.trim(),
+  };
+
+  const agentKey = (raw as Record<string, unknown>).agentKey;
+  if (typeof agentKey === 'string' && agentKey.trim().length > 0) {
+    task.agentKey = agentKey.trim();
+  }
+
+  const input = (raw as Record<string, unknown>).input;
+  if (input && typeof input === 'object' && !Array.isArray(input)) {
+    task.input = input as Record<string, unknown>;
+  }
+
+  const dependsOn = (raw as Record<string, unknown>).dependsOn;
+  if (Array.isArray(dependsOn)) {
+    const deps = dependsOn
+      .filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+      .map((value) => value.trim());
+    if (deps.length) {
+      task.dependsOn = deps;
+    }
+  }
+
+  const metadata = (raw as Record<string, unknown>).metadata;
+  if (metadata && typeof metadata === 'object' && !Array.isArray(metadata)) {
+    task.metadata = metadata as Record<string, unknown>;
+  }
+
+  const executor = (raw as Record<string, unknown>).executor;
+  if (typeof executor === 'string' && executor.trim().length > 0) {
+    task.metadata = {
+      ...(task.metadata ?? {}),
+      executor: executor.trim(),
+    };
+  }
+
+  if (!task.metadata?.executor && task.agentKey === 'audit.execution') {
+    task.metadata = {
+      ...(task.metadata ?? {}),
+      executor: 'audit-risk-summary',
+    };
+  }
+
+  return task;
+}
+
+function buildDefaultTasksForObjective(params: {
+  orgId: string;
+  objective?: string;
+  engagementId: string | null;
+}): OrchestrationTaskInput[] {
+  const lowerObjective = (params.objective ?? '').toLowerCase();
+  const tasks: OrchestrationTaskInput[] = [];
+
+  if (params.engagementId && lowerObjective.includes('audit')) {
+    const baseInput = { orgId: params.orgId, engagementId: params.engagementId };
+    tasks.push({
+      agentKey: 'audit.execution',
+      title: 'Summarise audit risk register',
+      input: baseInput,
+      metadata: { executor: 'audit-risk-summary' },
+    });
+    tasks.push({
+      agentKey: 'audit.execution',
+      title: 'Summarise audit evidence status',
+      input: baseInput,
+      metadata: { executor: 'audit-evidence-summary' },
+    });
+  }
+
+  if (params.engagementId && (lowerObjective.includes('close') || lowerObjective.includes('finance'))) {
+    const baseInput = { orgId: params.orgId, engagementId: params.engagementId };
+    tasks.push({
+      agentKey: 'accounting.close',
+      title: 'Summarise accounting reconciliations',
+      input: baseInput,
+      metadata: { executor: 'accounting-reconciliation-summary' },
+    });
+    tasks.push({
+      agentKey: 'accounting.close',
+      title: 'Summarise journal entries queue',
+      input: baseInput,
+      metadata: { executor: 'accounting-journal-summary' },
+    });
+    tasks.push({
+      agentKey: 'accounting.close',
+      title: 'Report period close status',
+      input: baseInput,
+      metadata: { executor: 'accounting-close-summary' },
+    });
+  }
+
+  return tasks;
+}
+
+async function recomputeOrchestrationSessionStatus(sessionId: string): Promise<OrchestrationStatus | null> {
+  try {
+    const [{ data: sessionRow, error: sessionError }, { data: tasks, error: tasksError }] = await Promise.all([
+      supabaseService
+        .from('agent_orchestration_sessions')
+        .select('id, status')
+        .eq('id', sessionId)
+        .maybeSingle(),
+      supabaseService
+        .from('agent_orchestration_tasks')
+        .select('status')
+        .eq('session_id', sessionId),
+    ]);
+
+    if (sessionError) throw sessionError;
+    if (!sessionRow) return null;
+    if (tasksError) throw tasksError;
+
+    const statuses = (tasks ?? []).map((row) => row.status as OrchestrationTaskStatus);
+
+    let nextStatus: OrchestrationStatus = sessionRow.status;
+
+    if (statuses.some((status) => status === 'FAILED')) {
+      nextStatus = 'FAILED';
+    } else if (statuses.some((status) => status === 'AWAITING_APPROVAL')) {
+      nextStatus = 'WAITING_APPROVAL';
+    } else if (statuses.length > 0 && statuses.every((status) => status === 'COMPLETED')) {
+      nextStatus = 'COMPLETED';
+    } else if (statuses.some((status) => status === 'ASSIGNED' || status === 'IN_PROGRESS')) {
+      nextStatus = 'RUNNING';
+    } else if (statuses.length === 0) {
+      nextStatus = 'PENDING';
+    } else {
+      nextStatus = 'PENDING';
+    }
+
+    if (nextStatus !== sessionRow.status) {
+      await supabaseService
+        .from('agent_orchestration_sessions')
+        .update({ status: nextStatus })
+        .eq('id', sessionId);
+    }
+
+    return nextStatus;
+  } catch (error) {
+    logError('mcp.session_status_update_failed', error, { sessionId });
+    return null;
+  }
+}
+
+async function evaluateTaskSafety(params: {
+  task: { id: string; session_id: string; metadata: Record<string, unknown> | undefined };
+  result: TaskExecutorResult;
+}): Promise<{
+  status: OrchestrationTaskStatus;
+  metadata: Record<string, unknown>;
+  safetyEvent?: {
+    severity: 'INFO' | 'WARN' | 'BLOCKED';
+    ruleCode: string;
+    details?: Record<string, unknown>;
+  };
+}> {
+  const executor = params.result.metadata?.executor;
+  const baseMetadata: Record<string, unknown> = {
+    ...(params.task.metadata ?? {}),
+    ...(params.result.metadata ?? {}),
+  };
+
+  if (!executor) {
+    return { status: 'COMPLETED', metadata: baseMetadata };
+  }
+
+  const safetyEvent = (severity: 'INFO' | 'WARN' | 'BLOCKED', ruleCode: string, details?: Record<string, unknown>) => ({
+    severity,
+    ruleCode,
+    details,
+  });
+
+  switch (executor) {
+    case 'audit-risk-summary': {
+      const highResidual = Number(params.result.metadata?.highResidualCount ?? 0);
+      const unresolved = Number(params.result.metadata?.unresolvedResponseCount ?? 0);
+      if (highResidual > 0 || unresolved > 0) {
+        return {
+          status: 'AWAITING_APPROVAL',
+          metadata: { ...baseMetadata, autonomyFlag: 'audit-risk' },
+          safetyEvent: safetyEvent('WARN', 'AUDIT:RISK_OPEN', {
+            highResidual,
+            unresolved,
+          }),
+        };
+      }
+      break;
+    }
+    case 'audit-evidence-summary': {
+      const missing = Number(params.result.metadata?.evidenceMissingDocuments ?? 0);
+      if (missing > 0) {
+        return {
+          status: 'AWAITING_APPROVAL',
+          metadata: { ...baseMetadata, autonomyFlag: 'audit-evidence' },
+          safetyEvent: safetyEvent('WARN', 'AUDIT:EVIDENCE_MISSING', {
+            missingDocuments: missing,
+          }),
+        };
+      }
+      break;
+    }
+    case 'accounting-reconciliation-summary': {
+      const open = Number(params.result.metadata?.openReconciliations ?? 0);
+      const totalDifference = Number(params.result.metadata?.totalDifference ?? 0);
+      if (open > 0 || Math.abs(totalDifference) > 0.01) {
+        return {
+          status: 'AWAITING_APPROVAL',
+          metadata: { ...baseMetadata, autonomyFlag: 'accounting-reconciliation' },
+          safetyEvent: safetyEvent('WARN', 'ACCOUNTING:RECONCILIATION_OPEN', {
+            open,
+            totalDifference,
+          }),
+        };
+      }
+      break;
+    }
+    case 'accounting-journal-summary': {
+      const pending = Number(params.result.metadata?.pendingJournals ?? 0);
+      if (pending > 0) {
+        return {
+          status: 'AWAITING_APPROVAL',
+          metadata: { ...baseMetadata, autonomyFlag: 'accounting-journal' },
+          safetyEvent: safetyEvent('WARN', 'ACCOUNTING:JOURNAL_PENDING', {
+            pending,
+          }),
+        };
+      }
+      break;
+    }
+    case 'accounting-close-summary': {
+      const currentStatus = String(params.result.metadata?.currentStatus ?? 'OPEN');
+      if (currentStatus !== 'LOCKED') {
+        return {
+          status: 'AWAITING_APPROVAL',
+          metadata: { ...baseMetadata, autonomyFlag: 'accounting-close' },
+          safetyEvent: safetyEvent('INFO', 'ACCOUNTING:CLOSE_STATUS', {
+            currentStatus,
+          }),
+        };
+      }
+      break;
+    }
+    default:
+      break;
+  }
+
+  if (params.result.status === 'error') {
+    return {
+      status: 'FAILED',
+      metadata: { ...baseMetadata, autonomyFlag: 'executor-error' },
+      safetyEvent: safetyEvent('WARN', 'TASK:EXECUTOR_ERROR', {
+        executor,
+      }),
+    };
+  }
+
+  return { status: 'COMPLETED', metadata: baseMetadata };
+}
+
+async function areDependenciesCompleted(dependencyIds: string[]): Promise<boolean> {
+  if (!dependencyIds || dependencyIds.length === 0) return true;
+
+  const { data, error } = await supabaseService
+    .from('agent_orchestration_tasks')
+    .select('id, status')
+    .in('id', dependencyIds)
+    .eq('status', 'COMPLETED');
+
+  if (error) {
+    logError('mcp.dependencies_lookup_failed', error, { dependencyIds });
+    return false;
+  }
+
+  return (data ?? []).length === dependencyIds.length;
+}
+
+async function processPendingOrchestrationTasks() {
+  if (!OPENAI_ORCHESTRATOR_ENABLED) return;
+  try {
+    const { data: pendingTasks, error } = await supabaseService
+      .from('agent_orchestration_tasks')
+      .select('id, session_id, depends_on')
+      .eq('status', 'PENDING')
+      .limit(10);
+
+    if (error) throw error;
+    if (!pendingTasks || pendingTasks.length === 0) return;
+
+    const assignable: string[] = [];
+    for (const task of pendingTasks) {
+      const dependencies = Array.isArray(task.depends_on) ? task.depends_on : [];
+      const ready = await areDependenciesCompleted(dependencies);
+      if (ready) {
+        assignable.push(task.id);
+      }
+    }
+
+    if (assignable.length === 0) return;
+
+    const { data: updatedTasks, error: updateError } = await supabaseService
+      .from('agent_orchestration_tasks')
+      .update({ status: 'ASSIGNED' })
+      .in('id', assignable)
+      .eq('status', 'PENDING')
+      .select('id, session_id');
+
+    if (updateError) throw updateError;
+
+    for (const task of updatedTasks ?? []) {
+      logInfo('mcp.scheduler_assigned', { taskId: task.id, sessionId: task.session_id });
+      await recomputeOrchestrationSessionStatus(task.session_id);
+    }
+  } catch (error) {
+    logError('mcp.scheduler_failed', error, {});
+  }
+}
+
+async function executeAssignedOrchestrationTasks() {
+  if (!OPENAI_ORCHESTRATOR_ENABLED) return;
+  try {
+    const { data: assignedTasks, error } = await supabaseService
+      .from('agent_orchestration_tasks')
+      .select('id, session_id, metadata, input')
+      .eq('status', 'ASSIGNED')
+      .limit(5);
+
+    if (error) throw error;
+    if (!assignedTasks || assignedTasks.length === 0) return;
+
+    for (const task of assignedTasks) {
+      try {
+        const existingMetadata =
+          (task.metadata && typeof task.metadata === 'object' && !Array.isArray(task.metadata)
+            ? (task.metadata as Record<string, unknown>)
+            : {}) ?? {};
+        const executorKey =
+          typeof existingMetadata.executor === 'string' && existingMetadata.executor.trim().length > 0
+            ? existingMetadata.executor
+            : undefined;
+        const taskInput =
+          task.input && typeof task.input === 'object' && !Array.isArray(task.input)
+            ? (task.input as Record<string, unknown>)
+            : undefined;
+
+        const progressMetadata: Record<string, unknown> = {
+          ...existingMetadata,
+          startedAt: new Date().toISOString(),
+          lastExecutor: executorKey ?? existingMetadata.lastExecutor,
+        };
+
+        await mcpDirector.updateTaskStatus({
+          taskId: task.id,
+          status: 'IN_PROGRESS',
+          metadata: progressMetadata,
+        });
+
+        const result = await executeTaskWithExecutor({
+          executorKey,
+          input: taskInput,
+          sessionId: task.session_id,
+          taskId: task.id,
+          context: {
+            supabase: supabaseService,
+            logInfo,
+            logError,
+          },
+        });
+
+        const safetyDecision = await evaluateTaskSafety({
+          task: {
+            id: task.id,
+            session_id: task.session_id,
+            metadata: progressMetadata,
+          },
+          result,
+        });
+
+        if (safetyDecision.safetyEvent) {
+          await mcpSafety.recordEvent({
+            sessionId: task.session_id,
+            taskId: task.id,
+            severity: safetyDecision.safetyEvent.severity,
+            ruleCode: safetyDecision.safetyEvent.ruleCode,
+            details: safetyDecision.safetyEvent.details,
+          });
+        }
+
+        await mcpDirector.updateTaskStatus({
+          taskId: task.id,
+          status: safetyDecision.status,
+          output: result.output ?? {
+            note: 'Executor completed without output payload.',
+          },
+          metadata: {
+            ...safetyDecision.metadata,
+            completedAt: new Date().toISOString(),
+            executorStatus: result.status,
+          },
+        });
+
+        await recomputeOrchestrationSessionStatus(task.session_id);
+        logInfo('mcp.task_executor_completed', {
+          taskId: task.id,
+          sessionId: task.session_id,
+          executorKey: executorKey ?? 'none',
+          status: safetyDecision.status,
+        });
+      } catch (taskError) {
+        logError('mcp.task_executor_failed', taskError, { taskId: task.id, sessionId: task.session_id });
+        const failureMetadata = {
+          ...existingMetadata,
+          error: taskError instanceof Error ? taskError.message : String(taskError),
+          lastExecutor: executorKey ?? existingMetadata.lastExecutor,
+        };
+
+        await mcpDirector.updateTaskStatus({
+          taskId: task.id,
+          status: 'FAILED',
+          metadata: failureMetadata,
+        });
+
+        await mcpSafety.recordEvent({
+          sessionId: task.session_id,
+          taskId: task.id,
+          severity: 'WARN',
+          ruleCode: 'TASK:EXECUTOR_EXCEPTION',
+          details: {
+            executor: executorKey ?? 'unknown',
+          },
+        });
+
+        await recomputeOrchestrationSessionStatus(task.session_id);
+      }
+    }
+  } catch (error) {
+    logError('mcp.task_execution_failed', error, {});
+  }
+}
+
+function buildAgentPlanInstructions(params: {
+  sessionId: string;
+  orgSlug: string;
+  requestContext?: AgentRequestContext;
+  plan: any;
+}) {
+  const lines: string[] = [];
+  lines.push(`Session ID: ${params.sessionId}`);
+  lines.push(`Organisation: ${params.orgSlug}`);
+  if (params.requestContext?.description) {
+    lines.push(`Request: ${params.requestContext.description}`);
+  }
+  const flags = params.requestContext?.flags ?? {};
+  if (Object.keys(flags).length > 0) {
+    lines.push(`Flags: ${JSON.stringify(flags)}`);
+  }
+  lines.push('Plan JSON:');
+  lines.push(JSON.stringify(params.plan));
+  return lines.join('\n');
+}
+
+async function insertAgentAction(
+  params: Omit<Parameters<typeof supabaseInsertAgentAction>[0], 'supabase'>,
+): Promise<string> {
+  return supabaseInsertAgentAction({ supabase: supabaseService, ...params });
+}
+
+async function createAgentActionApproval(
+  params: Omit<Parameters<typeof supabaseCreateAgentActionApproval>[0], 'supabase'>,
+): Promise<string> {
+  return supabaseCreateAgentActionApproval({ supabase: supabaseService, ...params });
+}
+
+function normalizeApprovalAction(kind: string): ApprovalAction {
+  return externalNormalizeApprovalAction(kind);
+}
+
+function reshapeApprovalRow(row: Record<string, any>, orgSlug: string) {
+  return externalReshapeApprovalRow(row, orgSlug);
+}
+
+async function enforceApprovalGate(
+  req: AuthenticatedRequest,
+  res: Response,
+  action: ApprovalAction,
+): Promise<Response | void> {
+  const userId = req.user?.sub;
+  if (!userId) {
+    return res.status(401).json({ error: 'invalid session' });
+  }
+
+  const orgSlug =
+    typeof req.body?.orgSlug === 'string'
+      ? (req.body.orgSlug as string)
+      : typeof req.query?.orgSlug === 'string'
+      ? (req.query.orgSlug as string)
+      : undefined;
+
+  if (!orgSlug) {
+    return res.status(400).json({ error: 'orgSlug is required' });
+  }
+
+  let orgContext;
+  try {
+    orgContext = await resolveOrgForUser(userId, orgSlug);
+  } catch (err) {
+    if ((err as Error).message === 'organization_not_found') {
+      return res.status(404).json({ error: 'organization not found' });
+    }
+    if ((err as Error).message === 'not_a_member') {
+      return res.status(403).json({ error: 'forbidden' });
+    }
+    throw err;
+  }
+
+  if (!REQUIRE_MANAGER_APPROVAL) {
+    return res.json({ status: 'allowed', action });
+  }
+
+  if (!hasManagerPrivileges(orgContext.role)) {
+    return res.status(403).json({ error: 'manager_approval_required', action });
+  }
+
+  if (action === 'CLIENT_SEND' && BLOCK_EXTERNAL_FILING) {
+    return res.status(409).json({ error: 'external_filing_blocked', action });
+  }
+
+  const context = {
+    orgSlug,
+    path: req.path,
+    method: req.method,
+    body: req.body ?? null,
+    query: req.query ?? null,
+    requestedBy: userId,
+    action,
+  };
+
+  const { data, error } = await supabaseService
+    .from('approval_queue')
+    .insert({
+      org_id: orgContext.orgId,
+      kind: action,
+      status: 'PENDING',
+      requested_by_user_id: userId,
+      context_json: context,
+    })
+    .select('id')
+    .single();
+
+  if (error || !data) {
+    throw error ?? new Error('approval_queue_insert_failed');
+  }
+
+  const approvalId = data.id as string;
+
+  logInfo('approval.queued', {
+    userId,
+    action,
+    orgSlug,
+    approvalId,
+  });
+
+  return res.status(202).json({
+    status: 'approval_required',
+    action,
+    approvalId,
+    message: 'Awaiting manager review.',
+    citationsRequired: ENFORCE_CITATIONS,
+    monitoringEnabled: QMS_MONITORING_ENABLED,
+  });
+}
+
+async function updateRunSummaryWithResult({
+  run,
+  toolKey,
+  result,
+}: {
+  run: { id: string; step_index: number; summary: unknown };
+  toolKey: string;
+  result: { status: AgentToolExecutionResult['status']; output?: unknown; error?: string };
+}): Promise<{ state: 'DONE' | 'EXECUTING' | 'ERROR'; planDocument: any }> {
+  const planDocument = parsePlanSummary(run.summary);
+  const steps = ensurePlanSteps(planDocument);
+  let targetStep = steps.find((step: any) => step?.stepIndex === run.step_index);
+
+  if (!targetStep) {
+    targetStep = { stepIndex: run.step_index, results: [] };
+    steps.push(targetStep);
+  }
+
+  if (!Array.isArray(targetStep.results)) {
+    targetStep.results = [];
+  }
+
+  const payload: AgentToolExecutionResult = {
+    toolKey,
+    status: result.status,
+  };
+
+  if (result.output !== undefined) {
+    payload.output = result.output;
+  }
+  if (typeof result.error === 'string') {
+    payload.error = result.error;
+  }
+
+  const existingIndex = targetStep.results.findIndex((entry: any) => entry?.toolKey === toolKey);
+  if (existingIndex >= 0) {
+    targetStep.results[existingIndex] = payload;
+  } else {
+    targetStep.results.push(payload);
+  }
+
+  const allResults: AgentToolExecutionResult[] = steps.flatMap((step: any) =>
+    Array.isArray(step.results) ? (step.results as AgentToolExecutionResult[]) : []
+  );
+
+  const state = deriveRunState(allResults);
+
+  await supabaseService
+    .from('agent_runs')
+    .update({
+      summary: JSON.stringify(planDocument),
+      state,
+    })
+    .eq('id', run.id);
+
+  return { state, planDocument };
+}
+
+async function resumeApprovedAction({
+  approvalId,
+  context,
+  orgContext,
+  approverId,
+}: {
+  approvalId: string;
+  context: Record<string, unknown>;
+  orgContext: { orgId: string; orgSlug: string; role: AgentRole };
+  approverId: string;
+}): Promise<{ output: unknown; runState: 'DONE' | 'EXECUTING' | 'ERROR' }> {
+  const sessionId = typeof context.sessionId === 'string' ? context.sessionId : undefined;
+  const actionId = typeof context.actionId === 'string' ? context.actionId : undefined;
+  const runId = typeof context.runId === 'string' ? context.runId : undefined;
+  const toolKey = typeof context.toolKey === 'string' ? context.toolKey : undefined;
+
+  if (!sessionId || !actionId || !runId || !toolKey) {
+    throw new Error('approval_context_incomplete');
+  }
+
+  const [{ data: action, error: actionError }, { data: session, error: sessionError }, { data: run, error: runError }] =
+    await Promise.all([
+      supabaseService
+        .from('agent_actions')
+        .select('id, session_id, run_id, status, tool_key, input_json')
+        .eq('id', actionId)
+        .maybeSingle(),
+      supabaseService
+        .from('agent_sessions')
+        .select('id, org_id, engagement_id, status')
+        .eq('id', sessionId)
+        .maybeSingle(),
+      supabaseService
+        .from('agent_runs')
+        .select('id, step_index, summary')
+        .eq('id', runId)
+        .maybeSingle(),
+    ]);
+
+  if (actionError || !action) {
+    throw actionError ?? new Error('action_not_found');
+  }
+  if (sessionError || !session) {
+    throw sessionError ?? new Error('session_not_found');
+  }
+  if (runError || !run) {
+    throw runError ?? new Error('run_not_found');
+  }
+
+  const handler = toolHandlers[toolKey];
+  if (!handler) {
+    throw new Error('handler_not_implemented');
+  }
+
+  await supabaseService
+    .from('agent_sessions')
+    .update({ status: 'RUNNING' })
+    .eq('id', sessionId);
+
+  await supabaseService
+    .from('agent_actions')
+    .update({ status: 'PENDING' })
+    .eq('id', actionId);
+
+  const executionInput =
+    context.input && typeof context.input === 'object'
+      ? (context.input as Record<string, unknown>)
+      : (action.input_json as Record<string, unknown> | null) ?? {};
+
+  try {
+    const output = await handler(executionInput, {
+      orgId: orgContext.orgId,
+      engagementId: session.engagement_id ?? null,
+      userId: approverId,
+      sessionId,
+      runId,
+    });
+
+    await supabaseService
+      .from('agent_actions')
+      .update({ status: 'SUCCESS', output_json: output ?? {} })
+      .eq('id', actionId);
+
+    const { state: runState } = await updateRunSummaryWithResult({
+      run,
+      toolKey,
+      result: { status: 'SUCCESS', output },
+    });
+
+    await supabaseService.from('agent_traces').insert({
+      org_id: orgContext.orgId,
+      session_id: sessionId,
+      run_id: runId,
+      trace_type: 'TOOL',
+      payload: {
+        toolKey,
+        input: executionInput,
+        output,
+        status: 'SUCCESS',
+        resumedFromApproval: true,
+        approvalId,
+        runState,
+      },
+    });
+
+    await supabaseService.from('activity_log').insert({
+      org_id: orgContext.orgId,
+      user_id: approverId,
+      action: 'AGENT_TOOL_CALL',
+      entity_type: 'agent_session',
+      entity_id: sessionId,
+      metadata: {
+        toolKey,
+        status: 'SUCCESS',
+        resumedFromApproval: true,
+        approvalId,
+        inputHash: hashPayload(executionInput),
+        outputHash: hashPayload(output),
+        runState,
+      },
+    });
+
+    return { output, runState };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error ?? 'execution_failed_after_approval');
+
+    await supabaseService
+      .from('agent_actions')
+      .update({ status: 'ERROR', output_json: { error: message } })
+      .eq('id', actionId);
+
+    const { state: runState } = await updateRunSummaryWithResult({
+      run,
+      toolKey,
+      result: { status: 'ERROR', error: message },
+    });
+
+    await supabaseService.from('agent_traces').insert({
+      org_id: orgContext.orgId,
+      session_id: sessionId,
+      run_id: runId,
+      trace_type: 'ERROR',
+      payload: {
+        toolKey,
+        input: executionInput,
+        error: message,
+        resumedFromApproval: true,
+        approvalId,
+        runState,
+      },
+    });
+
+    await supabaseService.from('activity_log').insert({
+      org_id: orgContext.orgId,
+      user_id: approverId,
+      action: 'AGENT_TOOL_CALL',
+      entity_type: 'agent_session',
+      entity_id: sessionId,
+      metadata: {
+        toolKey,
+        status: 'ERROR',
+        resumedFromApproval: true,
+        approvalId,
+        error: message,
+        inputHash: hashPayload(executionInput),
+        runState,
+      },
+    });
+
+    if (runState === 'ERROR') {
+      await supabaseService
+        .from('agent_sessions')
+        .update({ status: 'FAILED' })
+        .eq('id', sessionId);
+    }
+
+    throw error;
+  }
+}
+
+async function rejectBlockedAction({
+  approvalId,
+  context,
+  orgContext,
+  approverId,
+  comment,
+}: {
+  approvalId: string;
+  context: Record<string, unknown>;
+  orgContext: { orgId: string; orgSlug: string; role: AgentRole };
+  approverId: string;
+  comment?: string;
+}): Promise<void> {
+  const sessionId = typeof context.sessionId === 'string' ? context.sessionId : undefined;
+  const actionId = typeof context.actionId === 'string' ? context.actionId : undefined;
+  const runId = typeof context.runId === 'string' ? context.runId : undefined;
+  const toolKey = typeof context.toolKey === 'string' ? context.toolKey : undefined;
+
+  if (!sessionId || !actionId || !runId || !toolKey) {
+    throw new Error('approval_context_incomplete');
+  }
+
+  const [{ data: action, error: actionError }, { data: run, error: runError }] = await Promise.all([
+    supabaseService
+      .from('agent_actions')
+      .select('id, input_json')
+      .eq('id', actionId)
+      .maybeSingle(),
+    supabaseService
+      .from('agent_runs')
+      .select('id, step_index, summary')
+      .eq('id', runId)
+      .maybeSingle(),
+  ]);
+
+  if (actionError || !action) {
+    throw actionError ?? new Error('action_not_found');
+  }
+  if (runError || !run) {
+    throw runError ?? new Error('run_not_found');
+  }
+
+  await supabaseService
+    .from('agent_actions')
+    .update({ status: 'ERROR', output_json: { error: 'approval_rejected', comment: comment ?? null } })
+    .eq('id', actionId);
+
+  const { state: runState } = await updateRunSummaryWithResult({
+    run,
+    toolKey,
+    result: { status: 'ERROR', error: comment ?? 'approval_rejected' },
+  });
+
+  await supabaseService
+    .from('agent_sessions')
+    .update({ status: 'FAILED' })
+    .eq('id', sessionId);
+
+  await supabaseService.from('agent_traces').insert({
+    org_id: orgContext.orgId,
+    session_id: sessionId,
+    run_id: runId,
+    trace_type: 'ERROR',
+    payload: {
+      toolKey,
+      status: 'ERROR',
+      approvalRejected: true,
+      approvalId,
+      comment: comment ?? null,
+      runState,
+    },
+  });
+
+  await supabaseService.from('activity_log').insert({
+    org_id: orgContext.orgId,
+    user_id: approverId,
+    action: 'AGENT_TOOL_CALL',
+    entity_type: 'agent_session',
+    entity_id: sessionId,
+    metadata: {
+      toolKey,
+      status: 'ERROR',
+      approvalRejected: true,
+      approvalId,
+      comment: comment ?? null,
+      runState,
+    },
+  });
+}
 
 interface AuthenticatedRequest extends Request {
   user?: JwtPayload & { sub?: string };
@@ -583,6 +1858,104 @@ function logError(message: string, error: unknown, meta: Record<string, unknown>
   if (SENTRY_ENABLED) {
     Sentry.captureException(error);
   }
+}
+
+function getFeatureFlag(name: string, fallback = true) {
+  const value = process.env[name];
+  if (value === undefined) return fallback;
+  return value !== 'false' && value !== '0';
+}
+
+function parseBooleanFlag(value: unknown): boolean | undefined {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (['true', '1', 'yes', 'y'].includes(normalized)) return true;
+    if (['false', '0', 'no', 'n'].includes(normalized)) return false;
+  }
+  return undefined;
+}
+
+function asArray<T = unknown>(value: unknown): T[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  return value as T[];
+}
+
+function parseAgentRequestContext(raw: unknown): AgentRequestContext | undefined {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    return undefined;
+  }
+
+  const source = raw as Record<string, unknown>;
+  const context: AgentRequestContext = {};
+
+  if (typeof source.description === 'string' && source.description.trim().length > 0) {
+    context.description = source.description.trim();
+  }
+
+  const flagsPayload =
+    typeof source.flags === 'object' && source.flags !== null && !Array.isArray(source.flags)
+      ? (source.flags as Record<string, unknown>)
+      : undefined;
+
+  const flags: AgentRequestContext['flags'] = {};
+  const externalFiling = parseBooleanFlag(source.externalFiling ?? flagsPayload?.externalFiling);
+  if (externalFiling !== undefined) {
+    flags.externalFiling = externalFiling;
+  }
+  const calculatorOverride = parseBooleanFlag(source.calculatorOverride ?? flagsPayload?.calculatorOverride);
+  if (calculatorOverride !== undefined) {
+    flags.calculatorOverride = calculatorOverride;
+  }
+  if (Object.keys(flags).length > 0) {
+    context.flags = flags;
+  }
+
+  const minRoleRaw = source.minRoleRequired ?? source.minRole ?? flagsPayload?.minRoleRequired;
+  const minRole = roleFromString(minRoleRaw);
+  if (minRole) {
+    context.minRoleRequired = minRole;
+  }
+
+  const requestedToolsSource = asArray(source.requestedTools) ?? asArray(source.tools);
+  if (requestedToolsSource) {
+    const requestedTools = requestedToolsSource
+      .map((tool) => {
+        if (!tool || typeof tool !== 'object') return null;
+        const record = tool as Record<string, unknown>;
+        const toolKey =
+          typeof record.toolKey === 'string'
+            ? record.toolKey
+            : typeof record.key === 'string'
+            ? record.key
+            : undefined;
+        if (!toolKey) return null;
+        const minRoleForTool = roleFromString(record.minRole ?? record.min_role);
+        return {
+          toolKey,
+          minRole: minRoleForTool ?? undefined,
+        };
+      })
+      .filter(
+        (entry): entry is { toolKey: string; minRole?: AgentRole } => Boolean(entry)
+      );
+
+    if (requestedTools.length > 0) {
+      context.requestedTools = requestedTools;
+    }
+  }
+
+  return Object.keys(context).length > 0 ? context : undefined;
+}
+
+function normaliseAgentType(value: unknown): AgentTypeKey {
+  if (typeof value === 'string') {
+    const upper = value.trim().toUpperCase();
+    if (SUPPORTED_AGENT_TYPES.has(upper as AgentTypeKey)) {
+      return upper as AgentTypeKey;
+    }
+  }
+  return 'CLOSE';
 }
 
 function allowRequest(userId: string): boolean {
@@ -648,7 +2021,7 @@ function authenticate(req: AuthenticatedRequest, res: Response, next: NextFuncti
 const db = new Client({ connectionString: process.env.DATABASE_URL });
 await db.connect();
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const openai = getOpenAIClient();
 
 const OPENAI_WEB_SEARCH_ENABLED =
   (process.env.OPENAI_WEB_SEARCH_ENABLED ?? 'false').toLowerCase() === 'true';
@@ -662,8 +2035,46 @@ if (!SUPABASE_URL) {
 
 const SUPABASE_SERVICE_ROLE_KEY = await getSupabaseServiceRoleKey();
 
-const supabaseService = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+const supabaseService = createClient<Database>(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
   auth: { persistSession: false },
+});
+
+const OPENAI_DEBUG_LOGGING = (process.env.OPENAI_DEBUG_LOGGING ?? 'false').toLowerCase() === 'true';
+const OPENAI_DEBUG_FETCH_DETAILS =
+  (process.env.OPENAI_DEBUG_FETCH_DETAILS ?? 'false').toLowerCase() === 'true';
+const defaultOpenAiWorkload = readOpenAiWorkloadEnv('default');
+const OPENAI_REQUEST_TAGS = defaultOpenAiWorkload.requestTags;
+const OPENAI_DEBUG_DEFAULT_TAGS = Array.from(
+  new Set([
+    `service:${SERVICE_NAME}`,
+    `env:${RUNTIME_ENVIRONMENT}`,
+    ...OPENAI_REQUEST_TAGS,
+  ]),
+);
+const OPENAI_REQUEST_QUOTA_TAG = defaultOpenAiWorkload.quotaTag ?? null;
+const OPENAI_STREAMING_ENABLED = (process.env.OPENAI_STREAMING_ENABLED ?? 'false').toLowerCase() === 'true';
+const OPENAI_REALTIME_ENABLED = (process.env.OPENAI_REALTIME_ENABLED ?? 'false').toLowerCase() === 'true';
+const OPENAI_STREAMING_TOOL_ENABLED = (process.env.OPENAI_STREAMING_TOOL_ENABLED ?? 'false').toLowerCase() === 'true';
+const OPENAI_SORA_ENABLED = (process.env.OPENAI_SORA_ENABLED ?? 'false').toLowerCase() === 'true';
+const OPENAI_ORCHESTRATOR_ENABLED = (process.env.OPENAI_ORCHESTRATOR_ENABLED ?? 'false').toLowerCase() === 'true';
+const ORCHESTRATION_POLL_INTERVAL_MS = Number(process.env.ORCHESTRATION_POLL_INTERVAL_MS ?? '15000');
+
+const auditExecutionAgent = new AuditExecutionAgent({
+  supabase: supabaseService,
+  openai,
+  logInfo,
+  logError,
+});
+
+const logOpenAIDebugEvent = createOpenAiDebugLogger({
+  supabase: supabaseService,
+  apiKey: process.env.OPENAI_API_KEY,
+  enabled: OPENAI_DEBUG_LOGGING,
+  fetchDetails: OPENAI_DEBUG_FETCH_DETAILS,
+  logError,
+  logInfo,
+  defaultTags: OPENAI_DEBUG_DEFAULT_TAGS,
+  quotaTag: OPENAI_REQUEST_QUOTA_TAG,
 });
 
 async function notifyRateLimitBreach(meta: { userId: string; path: string; orgSlug?: string | null; requestId?: string }) {
@@ -704,6 +2115,91 @@ async function ensureDocumentsBucket() {
 
 await ensureDocumentsBucket();
 
+await initialiseMcpInfrastructure({
+  supabase: supabaseService,
+  logInfo,
+  logError,
+});
+
+async function resolveOpenAiAgentIdForType(agentType: AgentTypeKey): Promise<string | null> {
+  const envOverride = process.env[`OPENAI_AGENT_ID_${agentType}`]?.trim();
+  if (envOverride) {
+    return envOverride;
+  }
+
+  try {
+    const { data, error } = await supabaseService
+      .from('agent_manifests')
+      .select('metadata')
+      .eq('metadata->>legacyAgentType', agentType)
+      .order('updated_at', { ascending: false })
+      .limit(1);
+
+    if (error) {
+      throw error;
+    }
+
+    const metadata = (data?.[0]?.metadata ?? null) as Record<string, unknown> | null;
+    const idCandidate =
+      typeof metadata?.openaiAgentId === 'string'
+        ? metadata.openaiAgentId
+        : typeof metadata?.openai_agent_id === 'string'
+        ? (metadata.openai_agent_id as string)
+        : null;
+
+    return idCandidate?.trim() ?? null;
+  } catch (error) {
+    logError('openai.agent_id_lookup_failed', error, { agentType });
+    return null;
+  }
+}
+
+const mcpDirector = createMcpDirectorAgent({
+  supabase: supabaseService,
+  logInfo,
+  logError,
+});
+const mcpSafety = createMcpSafetyAgent({
+  supabase: supabaseService,
+  logInfo,
+  logError,
+});
+
+app.locals.mcp = {
+  director: mcpDirector,
+  safety: mcpSafety,
+};
+
+await mcpDirector.initialiseManifests();
+
+if (ORCHESTRATION_POLL_INTERVAL_MS > 0) {
+  const scheduler = setInterval(() => {
+    void processPendingOrchestrationTasks();
+    void executeAssignedOrchestrationTasks();
+  }, ORCHESTRATION_POLL_INTERVAL_MS);
+  scheduler.unref?.();
+  void processPendingOrchestrationTasks();
+  void executeAssignedOrchestrationTasks();
+}
+
+async function syncAgentToolsWithLogging(source: string) {
+  try {
+    await syncAgentToolsFromRegistry({
+      supabase: supabaseService,
+      openAiApiKey: process.env.OPENAI_API_KEY,
+      logError,
+      logInfo,
+      retryCount: 3,
+    });
+  } catch (error) {
+    logError('openai.agent_tool_sync_unhandled', error, { source });
+  }
+}
+
+if (isAgentPlatformEnabled()) {
+  void syncAgentToolsWithLogging('startup');
+}
+
 app.get(['/health', '/healthz'], (_req, res) => {
   res.json({ status: 'ok' });
 });
@@ -717,6 +2213,14 @@ app.get(['/ready', '/readiness'], async (_req, res) => {
   });
 
   res.status(summary.status === 'ok' ? 200 : 503).json(summary);
+});
+
+// Observability dry run to exercise Sentry/alerting
+app.post(['/v1/observability/dry-run'], (req, res) => {
+  const allow = String(process.env.ALLOW_SENTRY_DRY_RUN || 'false').toLowerCase() === 'true';
+  if (!allow) return res.status(404).json({ error: 'not_found' });
+  const rid = req.headers['x-request-id'] || null;
+  throw new Error(`sentry_dry_run_triggered request_id=${rid}`);
 });
 
 app.use(authenticate);
@@ -743,10 +2247,63 @@ async function resolveOrgForUser(userId: string, orgSlug: string) {
     throw new Error('not_a_member');
   }
 
-  return { orgId: org.id, role: membership.role as 'EMPLOYEE' | 'MANAGER' | 'SYSTEM_ADMIN' };
+  return {
+    orgId: org.id,
+    orgSlug: org.slug,
+    role: membership.role as AgentRole,
+  };
 }
 
-function hasManagerPrivileges(role: 'EMPLOYEE' | 'MANAGER' | 'SYSTEM_ADMIN') {
+async function loadAgentSessionForUser(userId: string, sessionId: string) {
+  const { data, error } = await supabaseService
+    .from('agent_sessions')
+    .select('id, org_id, user_id, started_by_user_id')
+    .eq('id', sessionId)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+  if (!data) {
+    const notFound = new Error('agent_session_not_found');
+    (notFound as any).status = 404;
+    throw notFound;
+  }
+
+  await resolveOrgByIdForUser(userId, data.org_id);
+  return data as { id: string; org_id: string; user_id?: string | null; started_by_user_id?: string | null };
+}
+
+async function resolveOrgByIdForUser(userId: string, orgId: string) {
+  const { data: org, error: orgError } = await supabaseService
+    .from('organizations')
+    .select('id, slug')
+    .eq('id', orgId)
+    .maybeSingle();
+
+  if (orgError || !org) {
+    throw orgError ?? new Error('organization_not_found');
+  }
+
+  const { data: membership, error: membershipError } = await supabaseService
+    .from('memberships')
+    .select('role')
+    .eq('org_id', org.id)
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (membershipError || !membership) {
+    throw membershipError ?? new Error('not_a_member');
+  }
+
+  return {
+    orgId: org.id,
+    orgSlug: org.slug,
+    role: membership.role as AgentRole,
+  };
+}
+
+function hasManagerPrivileges(role: AgentRole) {
   return role === 'MANAGER' || role === 'SYSTEM_ADMIN';
 }
 
@@ -1052,6 +2609,11 @@ async function embed(texts: string[]): Promise<number[][]> {
   const res = await openai.embeddings.create({
     model: 'text-embedding-3-small',
     input: texts,
+  });
+  await logOpenAIDebugEvent({
+    endpoint: 'embeddings.create',
+    response: res as any,
+    requestPayload: { size: texts.length, model: 'text-embedding-3-small' },
   });
   return res.data.map((d) => d.embedding);
 }
@@ -1586,6 +3148,12 @@ async function summariseWebDocument(url: string, text: string): Promise<string> 
         tools: [{ type: 'web_search' }],
         temperature: 0.2,
       });
+      await logOpenAIDebugEvent({
+        endpoint: 'responses.create',
+        response: response as any,
+        requestPayload: { url, model: OPENAI_WEB_SEARCH_MODEL, mode: 'web_search' },
+        metadata: { source: 'web_summary' },
+      });
       const summary = extractResponseText(response)?.trim();
       if (summary) {
         return summary;
@@ -1610,6 +3178,12 @@ async function summariseWebDocument(url: string, text: string): Promise<string> 
           content: `Source URL: ${url}\n\nExtracted Content (truncated):\n${text}\n\nProvide a bullet summary (<= 8 items) covering key accounting, auditing, and tax takeaways for Malta.`,
         },
       ],
+    });
+    await logOpenAIDebugEvent({
+      endpoint: 'chat.completions.create',
+      response: chat as any,
+      requestPayload: { url, model: OPENAI_SUMMARY_MODEL },
+      metadata: { source: 'web_summary' },
     });
     const summary = chat.choices[0]?.message?.content?.trim();
     if (summary) {
@@ -1925,6 +3499,12 @@ async function performPolicyCheck(statement: string, domain?: string) {
         },
       ],
     });
+    await logOpenAIDebugEvent({
+      endpoint: 'chat.completions.create',
+      response: completion as any,
+      requestPayload: { model: OPENAI_SUMMARY_MODEL, domain: domain ?? 'general' },
+      metadata: { scope: 'policy_check' },
+    });
     const answer = completion.choices[0]?.message?.content ?? 'Policy review unavailable.';
     return { output: answer };
   } catch (err) {
@@ -1994,6 +3574,1824 @@ async function executeToolCall(orgId: string, call: any) {
   return { output: `Tool ${name} is not implemented.` };
 }
 
+app.post('/api/agent/start', applyExpressIdempotency({
+  keyBuilder: (req) => `agent:start:${req.user?.sub}:${req.body?.orgSlug ?? ''}:${req.body?.engagementId ?? ''}:${req.body?.agentType ?? ''}`,
+  ttlSeconds: 300,
+}), async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = req.user?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: 'invalid session' });
+    }
+
+    const { orgSlug, engagementId, agentType } = req.body as {
+      orgSlug?: string;
+      engagementId?: string | null;
+      agentType?: string;
+    };
+
+    if (!orgSlug) {
+      return res.status(400).json({ error: 'orgSlug is required' });
+    }
+    if (!agentType) {
+      return res.status(400).json({ error: 'agentType is required' });
+    }
+
+    const normalizedType = normaliseAgentType(agentType);
+    const orgContext = await resolveOrgForUser(userId, orgSlug);
+
+    let openaiThreadId: string | null = null;
+    let resolvedAgentId: string | null = null;
+    if (isAgentPlatformEnabled()) {
+      resolvedAgentId = await resolveOpenAiAgentIdForType(normalizedType);
+    }
+    const openaiAgentId = resolvedAgentId ?? getOpenAiAgentId();
+    if (isAgentPlatformEnabled() && openaiAgentId) {
+      openaiThreadId = await createAgentThread({
+        openAiApiKey: process.env.OPENAI_API_KEY,
+        logError,
+      });
+    }
+
+    const sessionInsert: Record<string, unknown> = {
+      org_id: orgContext.orgId,
+      engagement_id: engagementId ?? null,
+      agent_type: normalizedType,
+      started_by_user_id: userId,
+      status: 'RUNNING',
+    };
+
+    if (isAgentPlatformEnabled() && openaiAgentId) {
+      sessionInsert.openai_agent_id = openaiAgentId;
+    }
+    if (openaiThreadId) {
+      sessionInsert.openai_thread_id = openaiThreadId;
+    }
+
+    const { data: session, error: sessionError } = await supabaseService
+      .from('agent_sessions')
+      .insert(sessionInsert)
+      .select('id, openai_thread_id')
+      .single();
+
+    if (sessionError || !session) {
+      throw sessionError ?? new Error('session_not_created');
+    }
+
+    const { error: runError } = await supabaseService.from('agent_runs').insert({
+      org_id: orgContext.orgId,
+      session_id: session.id,
+      step_index: 0,
+      state: 'PLANNING',
+      summary: 'Session initialised; awaiting plan.',
+    });
+
+    if (runError) {
+      logError('agent.run_bootstrap_failed', runError, { sessionId: session.id, orgId: orgContext.orgId });
+    }
+
+    logInfo('agent.session_started', {
+      sessionId: session.id,
+      orgId: orgContext.orgId,
+      agentType: normalizedType,
+      userId,
+      openaiThreadId: session.openai_thread_id ?? openaiThreadId ?? null,
+    });
+
+    return res.status(201).json({ sessionId: session.id });
+  } catch (err) {
+    logError('agent.session_start_failed', err, { userId: req.user?.sub });
+    return res.status(500).json({ error: 'failed to start session' });
+  }
+});
+
+app.get('/api/agent/stream', async (req: AuthenticatedRequest, res) => {
+  if (!OPENAI_STREAMING_ENABLED) {
+    return res.status(404).json({ error: 'streaming_disabled' });
+  }
+  try {
+    const userId = req.user?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: 'invalid session' });
+    }
+
+    const orgSlug = typeof req.query.orgSlug === 'string' ? (req.query.orgSlug as string) : undefined;
+    const question = typeof req.query.question === 'string' ? (req.query.question as string) : undefined;
+    const agentTypeRaw = typeof req.query.agentType === 'string' ? (req.query.agentType as string) : 'AUDIT';
+    const context = typeof req.query.context === 'string' ? (req.query.context as string) : undefined;
+
+    if (!orgSlug) {
+      return res.status(400).json({ error: 'orgSlug query param required' });
+    }
+    if (!question || question.trim().length === 0) {
+      return res.status(400).json({ error: 'question query param required' });
+    }
+
+    const normalizedType = normaliseAgentType(agentTypeRaw);
+    const orgContext = await resolveOrgForUser(userId, orgSlug);
+
+    const messages = [
+      { role: 'system', content: AGENT_SYSTEM_PROMPTS[normalizedType] },
+      { role: 'user', content: context ? `${question}\n\nContext:\n${context}` : question },
+    ];
+
+    try {
+      await streamOpenAiResponse({
+        res,
+        openai,
+        payload: {
+          model: AGENT_MODEL,
+          input: messages,
+        },
+        endpoint: 'responses.stream',
+        debugLogger: async (event) => {
+          await logOpenAIDebugEvent({
+            endpoint: event.endpoint,
+            response: event.response,
+            requestPayload: event.requestPayload,
+            metadata: { ...(event.metadata ?? {}), scope: 'agent_stream', orgSlug },
+            orgId: orgContext.orgId,
+          });
+        },
+      });
+    } catch (err) {
+      logError('agent.stream_failed', err, { orgId: orgContext.orgId });
+    }
+  } catch (err) {
+    logError('agent.stream_initialisation_failed', err, { userId: req.user?.sub });
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'failed to start stream' });
+    }
+  }
+});
+
+app.get('/api/agent/stream/execute', async (req: AuthenticatedRequest, res) => {
+  if (!OPENAI_STREAMING_TOOL_ENABLED) {
+    return res.status(404).json({ error: 'streaming_tools_disabled' });
+  }
+
+  const writeSse = (event: Record<string, unknown>) => {
+    res.write(`data: ${JSON.stringify(event)}\n\n`);
+  };
+
+  try {
+    const userId = req.user?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: 'invalid session' });
+    }
+
+    const orgSlug = typeof req.query.orgSlug === 'string' ? (req.query.orgSlug as string) : undefined;
+    const question = typeof req.query.question === 'string' ? (req.query.question as string) : undefined;
+    const agentTypeRaw = typeof req.query.agentType === 'string' ? (req.query.agentType as string) : 'AUDIT';
+    const context = typeof req.query.context === 'string' ? (req.query.context as string) : undefined;
+
+    if (!orgSlug) {
+      return res.status(400).json({ error: 'orgSlug query param required' });
+    }
+    if (!question || question.trim().length === 0) {
+      return res.status(400).json({ error: 'question query param required' });
+    }
+
+    const normalizedType = normaliseAgentType(agentTypeRaw);
+    const orgContext = await resolveOrgForUser(userId, orgSlug);
+
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders?.();
+
+    let closed = false;
+    req.on('close', () => {
+      closed = true;
+    });
+
+    const tools = buildToolDefinitions();
+    const messages = [
+      { role: 'system', content: AGENT_SYSTEM_PROMPTS[normalizedType] },
+      { role: 'user', content: context ? `${question}\n\nContext:\n${context}` : question },
+    ];
+
+    writeSse({ type: 'started', data: { question, context, agentType: normalizedType } });
+
+    let response = await openai.responses.create({
+      model: AGENT_MODEL,
+      input: messages,
+      tools,
+    });
+
+    await logOpenAIDebugEvent({
+      endpoint: 'responses.create',
+      response: response as any,
+      requestPayload: { model: AGENT_MODEL, messages, tools },
+      metadata: { scope: 'agent_stream_tools', stage: 'initial' },
+      orgId: orgContext.orgId,
+    });
+
+    while (response.output?.some((item: any) => item.type === 'tool_call')) {
+      if (closed) break;
+      const toolOutputs: any[] = [];
+      for (const item of response.output ?? []) {
+        if (item.type !== 'tool_call') continue;
+        const call = item;
+        const toolKey = call.function?.name ?? 'unknown';
+        writeSse({ type: 'tool-start', data: { toolKey, callId: call.id } });
+        try {
+          const result = await executeToolCall(orgContext.orgId, call);
+          writeSse({ type: 'tool-result', data: { toolKey, callId: call.id, output: result.output, citations: result.citations ?? [] } });
+          toolOutputs.push({ tool_call_id: call.id, output: result.output });
+        } catch (error) {
+          writeSse({ type: 'tool-error', data: { toolKey, callId: call.id, message: error instanceof Error ? error.message : String(error) } });
+          toolOutputs.push({ tool_call_id: call.id, output: `Tool ${toolKey} failed: ${error instanceof Error ? error.message : String(error)}` });
+        }
+      }
+
+      if (toolOutputs.length === 0) {
+        break;
+      }
+
+      response = await openai.responses.create({
+        model: AGENT_MODEL,
+        response_id: response.id,
+        tool_outputs: toolOutputs,
+      });
+
+      await logOpenAIDebugEvent({
+        endpoint: 'responses.create',
+        response: response as any,
+        requestPayload: { model: AGENT_MODEL, response_id: response.id, tool_outputs: toolOutputs },
+        metadata: { scope: 'agent_stream_tools', stage: 'followup' },
+        orgId: orgContext.orgId,
+      });
+    }
+
+    if (!closed) {
+      const answer = extractResponseText(response) || 'No answer generated.';
+      writeSse({ type: 'text-final', data: answer });
+      if (response.usage) {
+        writeSse({ type: 'usage', data: response.usage });
+      }
+      writeSse({ type: 'completed', data: { responseId: response.id } });
+      writeSse({ type: 'done' });
+      res.write('data: [DONE]\n\n');
+      res.end();
+    }
+  } catch (err) {
+    logError('agent.stream_execute_failed', err, {});
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'failed to stream execution' });
+    } else {
+      res.write(`data: ${JSON.stringify({ type: 'error', data: { message: err instanceof Error ? err.message : String(err) } })}\n\n`);
+      res.end();
+    }
+  }
+});
+
+app.post('/api/agent/realtime/session', async (req: AuthenticatedRequest, res) => {
+  if (!OPENAI_REALTIME_ENABLED) {
+    return res.status(404).json({ error: 'realtime_disabled' });
+  }
+  try {
+    const userId = req.user?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: 'invalid session' });
+    }
+
+    const { orgSlug, agentSessionId, voice } = req.body as { orgSlug?: string; agentSessionId?: string; voice?: string };
+    if (!orgSlug) {
+      return res.status(400).json({ error: 'orgSlug is required' });
+    }
+
+    const orgContext = await resolveOrgForUser(userId, orgSlug);
+    if (!agentSessionId) {
+      return res.status(400).json({ error: 'agentSessionId is required' });
+    }
+
+    const agentSession = await loadAgentSessionForUser(userId, agentSessionId);
+
+    const turnServers = getRealtimeTurnServers();
+
+    const session = await createRealtimeSession({
+      openAiApiKey: process.env.OPENAI_API_KEY,
+      voice,
+      sessionMetadata: {
+        agentSessionId,
+        orgId: orgContext.orgId,
+        userId,
+      },
+      turnServers,
+      logError,
+      logInfo,
+    });
+
+    const resolvedSessionId = session.id ?? randomUUID();
+
+    await upsertChatkitSession({
+      supabase: supabaseService,
+      agentSessionId: agentSession.id,
+      chatkitSessionId: resolvedSessionId,
+      metadata: {
+        clientSecret: session.client_secret?.value ?? null,
+        expiresAt: session.expires_at ?? null,
+        voice: voice ?? null,
+        turnServers,
+      },
+    });
+
+    return res.json({
+      clientSecret: session.client_secret?.value,
+      sessionId: resolvedSessionId,
+      expiresAt: session.expires_at ?? null,
+      turnServers,
+    });
+  } catch (err) {
+    logError('agent.realtime_session_failed', err, { userId: req.user?.sub });
+    return res.status(500).json({ error: 'failed_to_create_realtime_session' });
+  }
+});
+
+app.post('/api/agent/chatkit/session', async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = req.user?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: 'invalid session' });
+    }
+
+    const { agentSessionId, chatkitSessionId, metadata } = req.body as {
+      agentSessionId?: string;
+      chatkitSessionId?: string;
+      metadata?: Record<string, unknown>;
+    };
+
+    if (!agentSessionId || !chatkitSessionId) {
+      return res.status(400).json({ error: 'agentSessionId and chatkitSessionId are required' });
+    }
+
+    await loadAgentSessionForUser(userId, agentSessionId);
+    const session = await upsertChatkitSession({
+      supabase: supabaseService,
+      agentSessionId,
+      chatkitSessionId,
+      metadata,
+    });
+
+    return res.status(201).json({ session });
+  } catch (error) {
+    logError('chatkit.session_create_failed', error, { userId: req.user?.sub });
+    const status = (error as any)?.status ?? 500;
+    return res.status(status).json({ error: 'failed_to_create_chatkit_session' });
+  }
+});
+
+app.get('/api/agent/chatkit/session/:id', async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = req.user?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: 'invalid session' });
+    }
+
+    const chatkitSessionId = req.params.id;
+    if (!chatkitSessionId) {
+      return res.status(400).json({ error: 'chatkit_session_id_required' });
+    }
+
+    const existing = await fetchChatkitSession(supabaseService, chatkitSessionId);
+    if (!existing) {
+      return res.status(404).json({ error: 'chatkit_session_not_found' });
+    }
+
+    await loadAgentSessionForUser(userId, existing.agent_session_id);
+    return res.json({ session: existing });
+  } catch (error) {
+    logError('chatkit.session_load_failed', error, { userId: req.user?.sub, chatkitSessionId: req.params.id });
+    const status = (error as any)?.status ?? 500;
+    return res.status(status).json({ error: 'failed_to_load_chatkit_session' });
+  }
+});
+
+app.post('/api/agent/chatkit/session/:id/cancel', async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = req.user?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: 'invalid session' });
+    }
+
+    const chatkitSessionId = req.params.id;
+    const existing = await fetchChatkitSession(supabaseService, chatkitSessionId);
+    if (!existing) {
+      return res.status(404).json({ error: 'chatkit_session_not_found' });
+    }
+
+    await loadAgentSessionForUser(userId, existing.agent_session_id);
+    const session = await cancelChatkitSession({ supabase: supabaseService, chatkitSessionId });
+    return res.json({ session });
+  } catch (error) {
+    logError('chatkit.session_cancel_failed', error, { userId: req.user?.sub, chatkitSessionId: req.params.id });
+    const status = (error as any)?.status ?? 500;
+    return res.status(status).json({ error: 'failed_to_cancel_chatkit_session' });
+  }
+});
+
+app.post('/api/agent/chatkit/session/:id/resume', async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = req.user?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: 'invalid session' });
+    }
+
+    const chatkitSessionId = req.params.id;
+    const { metadata } = req.body as { metadata?: Record<string, unknown> };
+
+    const existing = await fetchChatkitSession(supabaseService, chatkitSessionId);
+    if (!existing) {
+      return res.status(404).json({ error: 'chatkit_session_not_found' });
+    }
+
+    await loadAgentSessionForUser(userId, existing.agent_session_id);
+    const session = await resumeChatkitSession({
+      supabase: supabaseService,
+      agentSessionId: existing.agent_session_id,
+      chatkitSessionId,
+      metadata,
+    });
+    return res.json({ session });
+  } catch (error) {
+    logError('chatkit.session_resume_failed', error, { userId: req.user?.sub, chatkitSessionId: req.params.id });
+    const status = (error as any)?.status ?? 500;
+    return res.status(status).json({ error: 'failed_to_resume_chatkit_session' });
+  }
+});
+
+app.post('/api/agent/chatkit/session/:id/transcribe', async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = req.user?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: 'invalid session' });
+    }
+
+    const chatkitSessionId = req.params.id;
+    const body = req.body as {
+      audio?: string;
+      mimeType?: string;
+      language?: string;
+      model?: string;
+      instructions?: string;
+      metadata?: Record<string, unknown>;
+    };
+
+    if (typeof body?.audio !== 'string' || body.audio.trim().length === 0) {
+      return res.status(400).json({ error: 'audio (base64) is required' });
+    }
+
+    const existing = await fetchChatkitSession(supabaseService, chatkitSessionId);
+    if (!existing) {
+      return res.status(404).json({ error: 'chatkit_session_not_found' });
+    }
+
+    await loadAgentSessionForUser(userId, existing.agent_session_id);
+
+    let audioBuffer: Buffer;
+    try {
+      audioBuffer = decodeBase64Audio(body.audio.trim());
+    } catch (error) {
+      return res.status(400).json({ error: error instanceof Error ? error.message : 'invalid_audio_payload' });
+    }
+
+    const transcription = await transcribeAudioBuffer({
+      audio: audioBuffer,
+      mimeType: typeof body.mimeType === 'string' ? body.mimeType : undefined,
+      fileName: inferAudioFileName(body.mimeType),
+      model: typeof body.model === 'string' ? body.model : undefined,
+      language: typeof body.language === 'string' ? body.language : undefined,
+      logInfo,
+      logError,
+    });
+
+    await recordChatkitTranscript({
+      supabase: supabaseService,
+      chatkitSessionId,
+      role: 'user',
+      transcript: transcription.text,
+      metadata: {
+        source: 'speech-to-text',
+        mimeType: body.mimeType ?? null,
+        model: transcription.model,
+        language: transcription.language ?? body.language ?? null,
+        duration: transcription.duration ?? null,
+        audioBytes: audioBuffer.byteLength,
+        ...(body.metadata && typeof body.metadata === 'object' && !Array.isArray(body.metadata) ? body.metadata : {}),
+      },
+    });
+
+    return res.json({
+      transcript: transcription.text,
+      model: transcription.model,
+      language: transcription.language ?? null,
+      duration: transcription.duration ?? null,
+      usage: transcription.usage ?? null,
+    });
+  } catch (error) {
+    logError('chatkit.session_transcribe_failed', error, { userId: req.user?.sub, chatkitSessionId: req.params.id });
+    const status = (error as any)?.status ?? 500;
+    return res.status(status).json({ error: 'failed_to_transcribe_audio' });
+  }
+});
+
+app.post('/api/agent/chatkit/session/:id/tts', async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = req.user?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: 'invalid session' });
+    }
+
+    const chatkitSessionId = req.params.id;
+    const body = req.body as {
+      text?: string;
+      voice?: string;
+      model?: string;
+      format?: string;
+      metadata?: Record<string, unknown>;
+    };
+
+    const text = typeof body?.text === 'string' ? body.text.trim() : '';
+    if (!text) {
+      return res.status(400).json({ error: 'text is required for TTS' });
+    }
+
+    const existing = await fetchChatkitSession(supabaseService, chatkitSessionId);
+    if (!existing) {
+      return res.status(404).json({ error: 'chatkit_session_not_found' });
+    }
+
+    await loadAgentSessionForUser(userId, existing.agent_session_id);
+
+    const speech = await synthesizeSpeech({
+      text,
+      voice: typeof body.voice === 'string' ? body.voice : undefined,
+      model: typeof body.model === 'string' ? body.model : undefined,
+      format: typeof body.format === 'string' ? (body.format as any) : undefined,
+      logInfo,
+      logError,
+    });
+
+    const audioBase64 = speech.audio.toString('base64');
+
+    await recordChatkitTranscript({
+      supabase: supabaseService,
+      chatkitSessionId,
+      role: 'assistant',
+      transcript: text,
+      metadata: {
+        source: 'text-to-speech',
+        voice: speech.voice,
+        model: speech.model,
+        format: speech.format,
+        audioBytes: speech.audio.byteLength,
+        ...(body.metadata && typeof body.metadata === 'object' && !Array.isArray(body.metadata) ? body.metadata : {}),
+      },
+    });
+
+    return res.json({
+      audio: audioBase64,
+      format: speech.format,
+      model: speech.model,
+      voice: speech.voice,
+    });
+  } catch (error) {
+    logError('chatkit.session_tts_failed', error, { userId: req.user?.sub, chatkitSessionId: req.params.id });
+    const status = (error as any)?.status ?? 500;
+    return res.status(status).json({ error: 'failed_to_generate_speech' });
+  }
+});
+
+app.get('/api/agent/chatkit/session/:id/transcripts', async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = req.user?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: 'invalid session' });
+    }
+
+    const chatkitSessionId = req.params.id;
+    const existing = await fetchChatkitSession(supabaseService, chatkitSessionId);
+    if (!existing) {
+      return res.status(404).json({ error: 'chatkit_session_not_found' });
+    }
+
+    await loadAgentSessionForUser(userId, existing.agent_session_id);
+
+    const limitCandidate = typeof req.query.limit === 'string' ? Number(req.query.limit) : Number.NaN;
+    const limit = Number.isFinite(limitCandidate) ? Math.min(500, Math.max(1, Math.floor(limitCandidate))) : 200;
+
+    const rows = await listChatkitTranscripts(supabaseService, chatkitSessionId, limit);
+    const transcripts = rows.map((row) => ({
+      id: row.id,
+      chatkitSessionId: row.chatkit_session_id,
+      role: row.role,
+      transcript: row.transcript,
+      metadata: row.metadata ?? {},
+      createdAt: row.created_at,
+    }));
+
+    return res.json({ transcripts });
+  } catch (error) {
+    logError('chatkit.session_transcripts_fetch_failed', error, { userId: req.user?.sub, chatkitSessionId: req.params.id });
+    const status = (error as any)?.status ?? 500;
+    return res.status(status).json({ error: 'failed_to_fetch_transcripts' });
+  }
+});
+
+app.post('/api/agent/media/video', async (req: AuthenticatedRequest, res) => {
+  if (!OPENAI_SORA_ENABLED) {
+    return res.status(404).json({ error: 'sora_disabled' });
+  }
+
+  try {
+    const userId = req.user?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: 'invalid session' });
+    }
+
+    const { orgSlug, prompt, aspectRatio } = req.body as { orgSlug?: string; prompt?: string; aspectRatio?: string };
+    if (!orgSlug) {
+      return res.status(400).json({ error: 'orgSlug is required' });
+    }
+    if (!prompt || prompt.trim().length === 0) {
+      return res.status(400).json({ error: 'prompt is required' });
+    }
+
+    await resolveOrgForUser(userId, orgSlug); // ensures membership
+
+    const job = await generateSoraVideo({
+      prompt: prompt.trim(),
+      aspectRatio: aspectRatio?.trim(),
+      openAiApiKey: process.env.OPENAI_API_KEY,
+      logError,
+      logInfo,
+    });
+
+    return res.status(202).json({ job });
+  } catch (err) {
+    logError('agent.sora_video_failed', err, { userId: req.user?.sub });
+    return res.status(500).json({ error: 'video_generation_failed' });
+  }
+});
+
+app.get('/api/agent/orchestrator/agents', (req: AuthenticatedRequest, res) => {
+  if (!OPENAI_ORCHESTRATOR_ENABLED) {
+    return res.status(404).json({ error: 'orchestrator_disabled' });
+  }
+  return res.json({ agents: DOMAIN_AGENT_LIST });
+});
+
+app.post('/api/agent/tools/sync', async (req: AuthenticatedRequest, res) => {
+  if (!isAgentPlatformEnabled()) {
+    return res.status(404).json({ error: 'agent_platform_disabled' });
+  }
+  try {
+    await syncAgentToolsWithLogging('manual');
+    return res.json({ success: true });
+  } catch (error) {
+    logError('agent_tool_sync.manual_failed', error, { userId: req.user?.sub });
+    return res.status(500).json({ error: 'failed_to_sync_tools' });
+  }
+});
+
+app.post('/api/agent/orchestrator/session', async (req: AuthenticatedRequest, res) => {
+  if (!OPENAI_ORCHESTRATOR_ENABLED) {
+    return res.status(404).json({ error: 'orchestrator_disabled' });
+  }
+
+  try {
+    const userId = req.user?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: 'invalid session' });
+    }
+
+    const body = req.body as {
+      orgSlug?: string;
+      objective?: string;
+      engagementId?: string;
+      metadata?: Record<string, unknown>;
+      directorAgentKey?: string;
+      safetyAgentKey?: string;
+      tasks?: unknown;
+    };
+
+    if (!body.orgSlug || body.orgSlug.trim().length === 0) {
+      return res.status(400).json({ error: 'orgSlug is required' });
+    }
+    if (!body.objective || body.objective.trim().length === 0) {
+      return res.status(400).json({ error: 'objective is required' });
+    }
+
+    const orgContext = await resolveOrgForUser(userId, body.orgSlug);
+
+    const engagementId = typeof body.engagementId === 'string' && body.engagementId.trim().length > 0
+      ? body.engagementId.trim()
+      : null;
+
+    const sessionMetadata: Record<string, unknown> = {};
+    if (body.metadata && typeof body.metadata === 'object' && !Array.isArray(body.metadata)) {
+      Object.assign(sessionMetadata, body.metadata);
+    }
+    if (engagementId) {
+      sessionMetadata.engagementId = engagementId;
+    }
+
+    const session = await mcpDirector.createSession({
+      orgId: orgContext.orgId,
+      createdByUserId: userId,
+      objective: body.objective.trim(),
+      metadata: Object.keys(sessionMetadata).length > 0 ? sessionMetadata : undefined,
+      directorAgentKey: typeof body.directorAgentKey === 'string' ? body.directorAgentKey : undefined,
+      safetyAgentKey: typeof body.safetyAgentKey === 'string' ? body.safetyAgentKey : undefined,
+    });
+
+    const tasksInput = Array.isArray(body.tasks)
+      ? body.tasks
+          .map((task) => normaliseOrchestrationTaskInput(task))
+          .filter((task): task is OrchestrationTaskInput => Boolean(task))
+      : [];
+
+    let finalTasks = tasksInput;
+    if (finalTasks.length === 0) {
+      finalTasks = buildDefaultTasksForObjective({
+        orgId: orgContext.orgId,
+        objective: body.objective,
+        engagementId,
+      });
+    }
+
+    if (finalTasks.length) {
+      await mcpDirector.createTasks(session.id, finalTasks);
+    }
+
+    await recomputeOrchestrationSessionStatus(session.id);
+
+    const board = await mcpDirector.getSessionBoard(session.id);
+    return res.status(201).json(board);
+  } catch (error) {
+    logError('mcp.session_create_route_failed', error, { userId: req.user?.sub });
+    return res.status(500).json({ error: 'failed_to_create_orchestrator_session' });
+  }
+});
+
+app.get('/api/agent/orchestrator/sessions', async (req: AuthenticatedRequest, res) => {
+  if (!OPENAI_ORCHESTRATOR_ENABLED) {
+    return res.status(404).json({ error: 'orchestrator_disabled' });
+  }
+
+  try {
+    const userId = req.user?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: 'invalid session' });
+    }
+
+    const orgSlug = typeof req.query.orgSlug === 'string' ? req.query.orgSlug : undefined;
+    if (!orgSlug) {
+      return res.status(400).json({ error: 'orgSlug query param required' });
+    }
+
+    const limit = Math.min(50, Math.max(1, Number(req.query.limit ?? 20)));
+
+    const orgContext = await resolveOrgForUser(userId, orgSlug);
+
+    const { data, error } = await supabaseService
+      .from('agent_orchestration_sessions')
+      .select('id, org_id, objective, status, metadata, created_at, updated_at')
+      .eq('org_id', orgContext.orgId)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (error) throw error;
+
+    const sessions = (data ?? []).map((row) => ({
+      id: row.id,
+      orgId: row.org_id,
+      objective: row.objective,
+      status: row.status,
+      metadata: row.metadata ?? {},
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    }));
+
+    return res.json({ sessions });
+  } catch (error) {
+    logError('mcp.sessions_list_failed', error, { userId: req.user?.sub });
+    return res.status(500).json({ error: 'failed_to_list_orchestrator_sessions' });
+  }
+});
+
+app.get('/api/agent/orchestrator/session/:id', async (req: AuthenticatedRequest, res) => {
+  if (!OPENAI_ORCHESTRATOR_ENABLED) {
+    return res.status(404).json({ error: 'orchestrator_disabled' });
+  }
+
+  try {
+    const userId = req.user?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: 'invalid session' });
+    }
+
+    const sessionId = req.params.id;
+    if (!sessionId) {
+      return res.status(400).json({ error: 'sessionId is required' });
+    }
+
+    const board = await mcpDirector.getSessionBoard(sessionId);
+    if (!board.session) {
+      return res.status(404).json({ error: 'session_not_found' });
+    }
+
+    await resolveOrgByIdForUser(userId, board.session.orgId);
+
+    return res.json(board);
+  } catch (error) {
+    logError('mcp.session_fetch_route_failed', error, { sessionId: req.params.id, userId: req.user?.sub });
+    return res.status(500).json({ error: 'failed_to_fetch_orchestrator_session' });
+  }
+});
+
+app.post('/api/agent/orchestrator/tasks/:id/complete', async (req: AuthenticatedRequest, res) => {
+  if (!OPENAI_ORCHESTRATOR_ENABLED) {
+    return res.status(404).json({ error: 'orchestrator_disabled' });
+  }
+
+  try {
+    const userId = req.user?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: 'invalid session' });
+    }
+
+    const taskId = req.params.id;
+    if (!taskId) {
+      return res.status(400).json({ error: 'taskId is required' });
+    }
+
+    const body = req.body as {
+      status?: string;
+      output?: Record<string, unknown>;
+      metadata?: Record<string, unknown>;
+      safetyEvent?: {
+        severity?: string;
+        ruleCode?: string;
+        details?: Record<string, unknown>;
+      };
+    };
+
+    const status = typeof body.status === 'string' ? body.status : '';
+    const allowedStatuses = ['IN_PROGRESS', 'AWAITING_APPROVAL', 'COMPLETED', 'FAILED', 'ASSIGNED'];
+    if (!allowedStatuses.includes(status)) {
+      return res.status(400).json({ error: 'invalid status' });
+    }
+
+    const { data: taskRow, error: taskError } = await supabaseService
+      .from('agent_orchestration_tasks')
+      .select('id, session_id')
+      .eq('id', taskId)
+      .maybeSingle();
+
+    if (taskError) throw taskError;
+    if (!taskRow) {
+      return res.status(404).json({ error: 'task_not_found' });
+    }
+
+    const { data: sessionRow, error: sessionError } = await supabaseService
+      .from('agent_orchestration_sessions')
+      .select('org_id')
+      .eq('id', taskRow.session_id)
+      .maybeSingle();
+
+    if (sessionError) throw sessionError;
+    if (!sessionRow) {
+      return res.status(404).json({ error: 'session_not_found' });
+    }
+
+    const orgContext = await resolveOrgByIdForUser(userId, sessionRow.org_id);
+
+    const metadata = body.metadata && typeof body.metadata === 'object' && !Array.isArray(body.metadata)
+      ? (body.metadata as Record<string, unknown>)
+      : undefined;
+    const output = body.output && typeof body.output === 'object' && !Array.isArray(body.output)
+      ? (body.output as Record<string, unknown>)
+      : undefined;
+
+    const updatedTask = await mcpDirector.updateTaskStatus({
+      taskId,
+      status: status as OrchestrationTaskStatus,
+      output,
+      metadata,
+    });
+
+    const sessionStatus = await recomputeOrchestrationSessionStatus(taskRow.session_id);
+
+    const safetyEvent = body.safetyEvent;
+    if (safetyEvent && typeof safetyEvent === 'object' && !Array.isArray(safetyEvent) && typeof safetyEvent.ruleCode === 'string') {
+      await mcpSafety.recordEvent({
+        sessionId: taskRow.session_id,
+        taskId,
+        ruleCode: safetyEvent.ruleCode,
+        severity: typeof safetyEvent.severity === 'string' ? safetyEvent.severity.toUpperCase() : 'INFO',
+        details:
+          safetyEvent.details && typeof safetyEvent.details === 'object' && !Array.isArray(safetyEvent.details)
+            ? (safetyEvent.details as Record<string, unknown>)
+            : {},
+      });
+    }
+
+    const board = await mcpDirector.getSessionBoard(taskRow.session_id);
+
+    return res.json({
+      session: board.session,
+      tasks: board.tasks,
+      task: updatedTask,
+      status: sessionStatus,
+      orgSlug: orgContext.orgSlug,
+    });
+  } catch (error) {
+    logError('mcp.task_complete_route_failed', error, { taskId: req.params.id, userId: req.user?.sub });
+    return res.status(500).json({ error: 'failed_to_update_task' });
+  }
+});
+
+app.post('/api/agent/orchestrator/plan', async (req: AuthenticatedRequest, res) => {
+  if (!OPENAI_ORCHESTRATOR_ENABLED) {
+    return res.status(404).json({ error: 'orchestrator_disabled' });
+  }
+  try {
+    const userId = req.user?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: 'invalid session' });
+    }
+
+    const { orgSlug, objective, priority, constraints } = req.body as {
+      orgSlug?: string;
+      objective?: string;
+      priority?: 'LOW' | 'MEDIUM' | 'HIGH';
+      constraints?: string[];
+    };
+
+    if (!orgSlug) {
+      return res.status(400).json({ error: 'orgSlug is required' });
+    }
+    if (!objective || objective.trim().length === 0) {
+      return res.status(400).json({ error: 'objective is required' });
+    }
+
+    const orgContext = await resolveOrgForUser(userId, orgSlug);
+
+    const orchestratorContext: OrchestratorContext = {
+      orgId: orgContext.orgId,
+      orgSlug,
+      userId,
+      objective: objective.trim(),
+      priority,
+      constraints,
+    };
+
+    const plan = legacyDirectorAgent.generatePlan(orchestratorContext);
+
+    return res.json({ plan });
+  } catch (err) {
+    logError('agent.orchestrator_plan_failed', err, { userId: req.user?.sub });
+    return res.status(500).json({ error: 'failed_to_generate_plan' });
+  }
+});
+
+app.post('/api/agent/plan', applyExpressIdempotency({
+  keyBuilder: (req) => {
+    const sessionId = typeof req.body?.sessionId === 'string' ? req.body.sessionId : 'missing';
+    return `agent:plan:${sessionId}`;
+  },
+  ttlSeconds: 300,
+}), async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = req.user?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: 'invalid session' });
+    }
+
+    const { sessionId, request } = req.body as { sessionId?: string; request?: unknown };
+    if (!sessionId) {
+      return res.status(400).json({ error: 'sessionId is required' });
+    }
+
+    const { data: sessionRow, error: sessionError } = await supabaseService
+      .from('agent_sessions')
+      .select('id, org_id, agent_type, status, openai_thread_id, openai_agent_id')
+      .eq('id', sessionId)
+      .maybeSingle();
+
+    if (sessionError || !sessionRow) {
+      return res.status(404).json({ error: 'session not found' });
+    }
+
+    const orgContext = await resolveOrgByIdForUser(userId, sessionRow.org_id as string);
+    const agentType = normaliseAgentType(sessionRow.agent_type);
+    const requestContext = parseAgentRequestContext(request);
+
+    const planResult = await generateAgentPlan({
+      agentType,
+      supabase: supabaseService,
+      openai,
+      userRole: orgContext.role,
+      requestContext,
+      enforceCitations: ENFORCE_CITATIONS,
+      debugLogger: async (event) => {
+        await logOpenAIDebugEvent({
+          endpoint: event.endpoint,
+          response: event.response,
+          requestPayload: event.requestPayload,
+          metadata: { ...(event.metadata ?? {}), scope: 'agent_planner', sessionId },
+          orgId: orgContext.orgId,
+        });
+      },
+    });
+
+    if (planResult.status === 'refused') {
+      const summary = JSON.stringify(
+        {
+          status: 'refused',
+          refusal: planResult.refusal,
+          personaVersion: planResult.personaVersion,
+          policyPackVersion: planResult.policyPackVersion,
+          requestContext,
+        },
+        null,
+        2,
+      );
+
+      const { error: updateError } = await supabaseService
+        .from('agent_runs')
+        .update({ summary, state: 'ERROR' })
+        .eq('session_id', sessionId)
+        .eq('step_index', 0);
+
+      if (updateError) {
+        logError('agent.plan_summary_update_failed', updateError, { sessionId });
+      }
+
+      logInfo('agent.plan_refused', {
+        sessionId,
+        orgId: orgContext.orgId,
+        reason: planResult.refusal.reason,
+      });
+
+      return res.status(403).json({
+        refusal: planResult.refusal,
+        personaVersion: planResult.personaVersion,
+        policyPackVersion: planResult.policyPackVersion,
+      });
+    }
+
+    const prettyPlan = JSON.stringify(planResult.plan, null, 2);
+
+    let openaiRunInfo: { runId: string; responseId?: string } | null = null;
+    let effectiveAgentId = sessionRow.openai_agent_id ?? null;
+    if (!effectiveAgentId && isAgentPlatformEnabled()) {
+      effectiveAgentId = await resolveOpenAiAgentIdForType(normalizedType);
+    }
+    if (isAgentPlatformEnabled() && effectiveAgentId && sessionRow.openai_thread_id) {
+      const instructions = buildAgentPlanInstructions({
+        sessionId,
+        orgSlug: orgContext.orgSlug,
+        requestContext,
+        plan: planResult.plan,
+      });
+      openaiRunInfo = await createAgentRun({
+        agentId: effectiveAgentId,
+        threadId: sessionRow.openai_thread_id,
+        instructions,
+        metadata: { sessionId, userId },
+        openAiApiKey: process.env.OPENAI_API_KEY,
+        logError,
+        logInfo,
+      });
+    }
+
+    const runUpdatePayload: Record<string, unknown> = { summary: prettyPlan, state: 'PLANNING' };
+    if (openaiRunInfo) {
+      runUpdatePayload.openai_run_id = openaiRunInfo.runId;
+      if (openaiRunInfo.responseId) {
+        runUpdatePayload.openai_response_id = openaiRunInfo.responseId;
+      }
+    }
+
+    const { error: runUpdateError } = await supabaseService
+      .from('agent_runs')
+      .update(runUpdatePayload)
+      .eq('session_id', sessionId)
+      .eq('step_index', 0);
+
+    if (runUpdateError) {
+      logError('agent.plan_summary_store_failed', runUpdateError, { sessionId });
+    }
+
+    try {
+      await supabaseService.from('agent_traces').insert({
+        org_id: orgContext.orgId,
+        session_id: sessionId,
+        trace_type: 'PLAN',
+        payload: {
+          plan: planResult.plan,
+          personaVersion: planResult.personaVersion,
+          policyPackVersion: planResult.policyPackVersion,
+          model: planResult.model,
+          usage: planResult.usage ?? null,
+          isFallback: planResult.isFallback,
+        },
+      });
+    } catch (traceError) {
+      logError('agent.plan_trace_failed', traceError, { sessionId });
+    }
+
+    logInfo('agent.plan_generated', {
+      sessionId,
+      orgId: orgContext.orgId,
+      agentType,
+      model: planResult.model,
+      isFallback: planResult.isFallback,
+      openaiRunId: openaiRunInfo?.runId ?? null,
+    });
+
+    return res.json({
+      plan: planResult.plan,
+      personaVersion: planResult.personaVersion,
+      policyPackVersion: planResult.policyPackVersion,
+      model: planResult.model,
+      usage: planResult.usage,
+      costUsd: planResult.costUsd,
+      isFallback: planResult.isFallback,
+    });
+  } catch (err) {
+    logError('agent.plan_failed', err, { userId: req.user?.sub });
+    return res.status(500).json({ error: 'failed to generate plan' });
+  }
+});
+
+app.post('/api/agent/execute', async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = req.user?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: 'invalid session' });
+    }
+
+    const { sessionId, stepIndex } = req.body as { sessionId?: string; stepIndex?: number };
+    if (!sessionId || typeof stepIndex !== 'number') {
+      return res.status(400).json({ error: 'sessionId and stepIndex are required' });
+    }
+
+    const { data: sessionRow, error: sessionError } = await supabaseService
+      .from('agent_sessions')
+      .select('id, org_id, agent_type, engagement_id, status')
+      .eq('id', sessionId)
+      .maybeSingle();
+
+    if (sessionError || !sessionRow) {
+      return res.status(404).json({ error: 'session not found' });
+    }
+
+    const orgContext = await resolveOrgByIdForUser(userId, sessionRow.org_id as string);
+
+    const { data: runRow, error: runError } = await supabaseService
+      .from('agent_runs')
+      .select('id, summary, state')
+      .eq('session_id', sessionId)
+      .eq('step_index', stepIndex)
+      .maybeSingle();
+
+    if (runError || !runRow) {
+      return res.status(404).json({ error: 'run not found' });
+    }
+
+    const planDocument = parsePlanSummary(runRow.summary);
+    const steps = ensurePlanSteps(planDocument);
+    const planStep = steps.find((step: any) => step?.stepIndex === stepIndex);
+
+    if (!planStep) {
+      return res.status(400).json({ error: 'plan step not found for execution' });
+    }
+
+    let normalizedTools: Array<{ key: string; input: Record<string, unknown> }> = [];
+
+    if (Array.isArray(planStep.toolIntents)) {
+      normalizedTools = planStep.toolIntents
+        .map((intent: any) => {
+          const toolKey = typeof intent?.toolKey === 'string' ? intent.toolKey : intent?.key;
+          if (typeof toolKey !== 'string' || toolKey.length === 0) {
+            return null;
+          }
+          const inputs = intent?.inputs && typeof intent.inputs === 'object' && !Array.isArray(intent.inputs)
+            ? (intent.inputs as Record<string, unknown>)
+            : {};
+          return { key: toolKey, input: inputs };
+        })
+        .filter((intent): intent is { key: string; input: Record<string, unknown> } => Boolean(intent));
+    } else if (Array.isArray(planStep.tools)) {
+      normalizedTools = planStep.tools
+        .map((tool: any) => {
+          if (typeof tool === 'string') {
+            return { key: tool, input: {} };
+          }
+          const key = typeof tool?.key === 'string' ? tool.key : undefined;
+          if (!key) return null;
+          const input = tool?.input && typeof tool.input === 'object' && !Array.isArray(tool.input)
+            ? (tool.input as Record<string, unknown>)
+            : {};
+          return { key, input };
+        })
+        .filter((intent): intent is { key: string; input: Record<string, unknown> } => Boolean(intent));
+    }
+
+    if (normalizedTools.length === 0) {
+      return res.status(400).json({ error: 'no tools defined for this step' });
+    }
+
+    const results: AgentToolExecutionResult[] = [];
+    const userRoleLevel = ROLE_HIERARCHY[orgContext.role];
+    const managerLevel = ROLE_HIERARCHY.MANAGER;
+
+    for (const tool of normalizedTools) {
+      const toolKey = tool.key;
+      const handler = toolHandlers[toolKey];
+      const definition = await resolveToolDefinition(toolKey);
+
+      if (!definition || definition.enabled === false) {
+        results.push({ toolKey, status: 'ERROR', error: 'tool_not_available' });
+        continue;
+      }
+
+      const requiredRole = definition.minRole ?? 'EMPLOYEE';
+      const requiredLevel = ROLE_HIERARCHY[requiredRole];
+
+      if (userRoleLevel < requiredLevel) {
+        results.push({ toolKey, status: 'ERROR', error: 'insufficient_role' });
+        continue;
+      }
+
+      const requiresManagerApproval = definition.sensitive && userRoleLevel < managerLevel;
+      const initialStatus: AgentActionStatus = requiresManagerApproval ? 'BLOCKED' : 'PENDING';
+
+      let actionId: string;
+      try {
+        actionId = await insertAgentAction({
+          orgId: orgContext.orgId,
+          sessionId,
+          runId: runRow.id,
+          userId,
+          toolKey,
+          input: tool.input,
+          status: initialStatus,
+          sensitive: Boolean(definition.sensitive),
+        });
+      } catch (actionError) {
+        logError('agent.action_insert_failed', actionError, { toolKey, sessionId });
+        results.push({ toolKey, status: 'ERROR', error: 'agent_action_insert_failed' });
+        continue;
+      }
+
+      if (requiresManagerApproval) {
+        try {
+          const approvalId = await createAgentActionApproval({
+            orgId: orgContext.orgId,
+            orgSlug: orgContext.orgSlug,
+            sessionId,
+            runId: runRow.id,
+            actionId,
+            userId,
+            toolKey,
+            input: tool.input,
+            standards: definition.standards_refs ?? [],
+          });
+
+          logInfo('agent.tool_blocked_for_approval', {
+            toolKey,
+            sessionId,
+            approvalId,
+            orgSlug: orgContext.orgSlug,
+          });
+
+          results.push({ toolKey, status: 'BLOCKED', approvalId });
+        } catch (approvalError) {
+          logError('agent.approval_queue_failed', approvalError, { toolKey, sessionId });
+          await supabaseService
+            .from('agent_actions')
+            .update({ status: 'ERROR', output_json: { error: 'approval_queue_failed' } })
+            .eq('id', actionId);
+
+          results.push({ toolKey, status: 'ERROR', error: 'approval_queue_failed' });
+        }
+        continue;
+      }
+
+      if (!handler) {
+        results.push({ toolKey, status: 'ERROR', error: 'handler_not_implemented' });
+        continue;
+      }
+
+      try {
+        const output = await handler(tool.input, {
+          orgId: orgContext.orgId,
+          engagementId: sessionRow.engagement_id ?? null,
+          userId,
+          sessionId,
+          runId: runRow.id,
+        });
+        await supabaseService
+          .from('agent_actions')
+          .update({ status: 'SUCCESS', output_json: output ?? {} })
+          .eq('id', actionId);
+        results.push({ toolKey, status: 'SUCCESS', output });
+      } catch (executionError) {
+        const message = executionError instanceof Error ? executionError.message : String(executionError);
+        await supabaseService
+          .from('agent_actions')
+          .update({ status: 'ERROR', output_json: { error: message } })
+          .eq('id', actionId);
+        results.push({
+          toolKey,
+          status: 'ERROR',
+          error: message,
+        });
+        logError('agent.tool_execution_failed', executionError, { toolKey, sessionId, runId: runRow.id });
+      }
+    }
+
+    updatePlanStepResults(planDocument, stepIndex, results);
+    const runState = deriveRunState(results);
+
+    const { error: runUpdateError } = await supabaseService
+      .from('agent_runs')
+      .update({ state: runState, summary: JSON.stringify(planDocument) })
+      .eq('id', runRow.id);
+
+    if (runUpdateError) {
+      logError('agent.execute_summary_update_failed', runUpdateError, { runId: runRow.id });
+    }
+
+    try {
+      await supabaseService.from('agent_traces').insert({
+        org_id: orgContext.orgId,
+        session_id: sessionId,
+        run_id: runRow.id,
+        trace_type: 'EXECUTION',
+        payload: {
+          stepIndex,
+          results,
+        },
+      });
+    } catch (traceError) {
+      logError('agent.execute_trace_failed', traceError, { runId: runRow.id });
+    }
+
+    logInfo('agent.execute_completed', {
+      sessionId,
+      runId: runRow.id,
+      stepIndex,
+      state: runState,
+    });
+
+    return res.json({ stepIndex, results, state: runState });
+  } catch (err) {
+    logError('agent.execute_failed', err, { userId: req.user?.sub });
+    return res.status(500).json({ error: 'failed to execute tools' });
+  }
+});
+
+app.post('/api/agent/approve', async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = req.user?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: 'invalid session' });
+    }
+
+    const { approvalId, decision, comment } = req.body as {
+      approvalId?: string;
+      decision?: 'APPROVED' | 'CHANGES_REQUESTED';
+      comment?: string;
+    };
+
+    if (!approvalId || !decision || !['APPROVED', 'CHANGES_REQUESTED'].includes(decision)) {
+      return res.status(400).json({ error: 'approvalId and valid decision are required' });
+    }
+
+    const { data: queueItem, error: queueError } = await supabaseService
+      .from('approval_queue')
+      .select('id, org_id, status, kind, context_json')
+      .eq('id', approvalId)
+      .maybeSingle();
+
+    if (queueError || !queueItem) {
+      return res.status(404).json({ error: 'approval not found' });
+    }
+
+    if (queueItem.status && queueItem.status !== 'PENDING') {
+      return res.status(409).json({ error: 'approval already decided' });
+    }
+
+    const orgContext = await resolveOrgByIdForUser(userId, queueItem.org_id as string);
+    if (!hasManagerPrivileges(orgContext.role)) {
+      return res.status(403).json({ error: 'manager role required' });
+    }
+
+    const context = (queueItem.context_json as Record<string, unknown> | null) ?? {};
+    let updatedContext: Record<string, unknown> = { ...context };
+
+    if (decision === 'APPROVED') {
+      const resumeOutcome = await resumeApprovedAction({
+        approvalId,
+        context,
+        orgContext,
+        approverId: userId,
+      });
+
+      updatedContext = {
+        ...updatedContext,
+        resumeOutcome,
+        decision: 'APPROVED',
+        decisionComment: comment ?? null,
+      };
+    } else {
+      await rejectBlockedAction({
+        approvalId,
+        context,
+        orgContext,
+        approverId: userId,
+        comment,
+      });
+
+      updatedContext = {
+        ...updatedContext,
+        decision: 'CHANGES_REQUESTED',
+        decisionComment: comment ?? null,
+      };
+    }
+
+    const now = new Date().toISOString();
+
+    const { data: updated, error: updateError } = await supabaseService
+      .from('approval_queue')
+      .update({
+        status: decision,
+        approved_by_user_id: userId,
+        decision_at: now,
+        context_json: updatedContext,
+      })
+      .eq('id', approvalId)
+      .select('*')
+      .single();
+
+    if (updateError || !updated) {
+      throw updateError ?? new Error('approval_update_failed');
+    }
+
+    await supabaseService.from('activity_log').insert({
+      org_id: queueItem.org_id,
+      user_id: userId,
+      action: decision === 'APPROVED' ? 'APPROVAL_GRANTED' : 'APPROVAL_REJECTED',
+      entity_type: 'approval_queue',
+      entity_id: approvalId,
+      metadata: {
+        decision,
+        comment: comment ?? null,
+        kind: queueItem.kind,
+      },
+    });
+
+    logInfo('agent.approval_decision_recorded', {
+      approvalId,
+      decision,
+      userId,
+      orgId: orgContext.orgId,
+    });
+
+    return res.json({ approval: updated });
+  } catch (err) {
+    logError('agent.approval_decision_failed', err, { userId: req.user?.sub });
+    return res.status(500).json({ error: 'failed to record decision' });
+  }
+});
+
+app.get('/api/agent/telemetry', async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = req.user?.sub;
+    const orgSlug = typeof req.query.orgSlug === 'string' ? (req.query.orgSlug as string) : undefined;
+
+    if (!userId) {
+      return res.status(401).json({ error: 'invalid session' });
+    }
+    if (!orgSlug) {
+      return res.status(400).json({ error: 'orgSlug query param required' });
+    }
+
+    const orgContext = await resolveOrgForUser(userId, orgSlug);
+
+    const now = new Date();
+    const sevenDaysAgo = new Date(now.getTime() - 7 * DAY_MS);
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * DAY_MS);
+
+    const [
+      { data: sessionsData, error: sessionsError },
+      { data: approvalsData, error: approvalsError },
+      { data: errorTracesData, error: errorTracesError },
+      { data: recentTracesData, error: recentTracesError },
+    ] = await Promise.all([
+      supabaseService
+        .from('agent_sessions')
+        .select('id, status, created_at')
+        .eq('org_id', orgContext.orgId)
+        .gte('created_at', thirtyDaysAgo.toISOString()),
+      supabaseService
+        .from('approval_queue')
+        .select('id, requested_at')
+        .eq('org_id', orgContext.orgId)
+        .eq('status', 'PENDING'),
+      supabaseService
+        .from('agent_traces')
+        .select('payload, created_at')
+        .eq('org_id', orgContext.orgId)
+        .eq('trace_type', 'ERROR')
+        .gte('created_at', thirtyDaysAgo.toISOString()),
+      supabaseService
+        .from('agent_traces')
+        .select('id, session_id, trace_type, payload, created_at')
+        .eq('org_id', orgContext.orgId)
+        .order('created_at', { ascending: false })
+        .limit(20),
+    ]);
+
+    if (sessionsError) throw sessionsError;
+    if (approvalsError) throw approvalsError;
+    if (errorTracesError) throw errorTracesError;
+    if (recentTracesError) throw recentTracesError;
+
+    const sessionsByStatus: Record<string, number> = {
+      RUNNING: 0,
+      WAITING_APPROVAL: 0,
+      COMPLETED: 0,
+      FAILED: 0,
+    };
+
+    const trendBuckets: Record<string, number> = {};
+    const trendKeys = buildLastNDaysKeys(7, now);
+
+    for (const row of sessionsData ?? []) {
+      const status = typeof row.status === 'string' ? row.status : null;
+      if (status) {
+        sessionsByStatus[status] = (sessionsByStatus[status] ?? 0) + 1;
+      }
+
+      const createdAtRaw = (row as Record<string, unknown>).created_at as string | undefined;
+      if (createdAtRaw) {
+        const createdKey = formatDateKey(new Date(createdAtRaw));
+        trendBuckets[createdKey] = (trendBuckets[createdKey] ?? 0) + 1;
+      }
+    }
+
+    const sessionsTrend = trendKeys.map((key) => ({ date: key, count: trendBuckets[key] ?? 0 }));
+
+    let totalPendingAgeMs = 0;
+    for (const item of approvalsData ?? []) {
+      const requestedAt = (item as Record<string, unknown>).requested_at as string | undefined;
+      if (!requestedAt) continue;
+      const requested = Date.parse(requestedAt);
+      if (!Number.isNaN(requested)) {
+        totalPendingAgeMs += now.getTime() - requested;
+      }
+    }
+    const pendingCount = approvalsData?.length ?? 0;
+    const averagePendingHours = pendingCount > 0
+      ? Math.round((totalPendingAgeMs / pendingCount / (60 * 60 * 1000)) * 100) / 100
+      : 0;
+
+    const toolFailureCounts: Record<string, number> = {};
+    for (const trace of errorTracesData ?? []) {
+      const payload = (trace as Record<string, unknown>).payload as Record<string, unknown> | undefined;
+      if (!payload) continue;
+      const toolKey =
+        typeof payload.toolKey === 'string'
+          ? (payload.toolKey as string)
+          : typeof payload.tool_key === 'string'
+          ? (payload.tool_key as string)
+          : 'unknown';
+      toolFailureCounts[toolKey] = (toolFailureCounts[toolKey] ?? 0) + 1;
+    }
+
+    const totalErrors = errorTracesData?.length ?? 0;
+    const topErrorTools = Object.entries(toolFailureCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([toolKey, count]) => ({ toolKey, count }));
+
+    const recentTraces = (recentTracesData ?? []).map((row) => {
+      const record = row as Record<string, unknown>;
+      const payload = (record.payload ?? {}) as Record<string, unknown>;
+      const statusCandidate = typeof payload.status === 'string' ? payload.status : undefined;
+      const errorMessage = typeof payload.error === 'string' ? payload.error : undefined;
+      return {
+        id: record.id,
+        sessionId: record.session_id ?? null,
+        createdAt: record.created_at,
+        traceType: record.trace_type,
+        status: statusCandidate ?? (errorMessage ? 'ERROR' : undefined) ?? null,
+        summary: errorMessage ?? (typeof payload.message === 'string' ? payload.message : null),
+      };
+    });
+
+    return res.json({
+      sessions: {
+        byStatus: sessionsByStatus,
+        trend: sessionsTrend,
+      },
+      approvals: {
+        pendingCount,
+        averagePendingHours,
+      },
+      errors: {
+        total: totalErrors,
+        topTools: topErrorTools,
+      },
+      traces: {
+        items: recentTraces,
+      },
+    });
+  } catch (err) {
+    logError('agent.telemetry_failed', err, { userId: req.user?.sub });
+    return res.status(500).json({ error: 'telemetry_failed' });
+  }
+});
+
+app.get('/v1/approvals', async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = req.user?.sub;
+    const orgSlug = typeof req.query.orgSlug === 'string' ? (req.query.orgSlug as string) : undefined;
+
+    if (!userId) {
+      return res.status(401).json({ error: 'invalid session' });
+    }
+    if (!orgSlug) {
+      return res.status(400).json({ error: 'orgSlug query param required' });
+    }
+
+    const orgContext = await resolveOrgForUser(userId, orgSlug);
+    if (!hasManagerPrivileges(orgContext.role)) {
+      return res.status(403).json({ error: 'manager role required' });
+    }
+
+    const { data, error } = await supabaseService
+      .from('approval_queue')
+      .select(
+        'id, kind, status, requested_at, requested_by_user_id, approved_by_user_id, decision_at, decision_comment, context_json'
+      )
+      .eq('org_id', orgContext.orgId)
+      .order('requested_at', { ascending: false })
+      .limit(100);
+
+    if (error) {
+      throw error;
+    }
+
+    const rows = data ?? [];
+    const approvals = rows.map((row) => reshapeApprovalRow(row, orgSlug));
+    const pending = approvals.filter((item) => item.status === 'PENDING');
+    const history = approvals.filter((item) => item.status !== 'PENDING');
+
+    return res.json({ pending, history });
+  } catch (err) {
+    logError('approvals.list_failed', err, { userId: req.user?.sub });
+    return res.status(500).json({ error: 'failed to list approvals' });
+  }
+});
+
+app.post('/v1/approvals/:id/decision', async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = req.user?.sub;
+    const approvalId = req.params.id;
+    const { decision, comment, evidence, orgSlug } = req.body as {
+      decision?: ApprovalDecision;
+      comment?: string;
+      evidence?: ApprovalEvidence[];
+      orgSlug?: string;
+    };
+
+    if (!userId) {
+      return res.status(401).json({ error: 'invalid session' });
+    }
+    if (!approvalId || !decision) {
+      return res.status(400).json({ error: 'approvalId and decision are required' });
+    }
+    if (!orgSlug) {
+      return res.status(400).json({ error: 'orgSlug is required' });
+    }
+
+    const orgContext = await resolveOrgForUser(userId, orgSlug);
+    if (!hasManagerPrivileges(orgContext.role)) {
+      return res.status(403).json({ error: 'manager role required' });
+    }
+    const { data: approvalRow, error: fetchError } = await supabaseService
+      .from('approval_queue')
+      .select(
+        'id, org_id, status, kind, context_json, requested_at, requested_by_user_id, approved_by_user_id, decision_at, decision_comment'
+      )
+      .eq('id', approvalId)
+      .maybeSingle();
+
+    if (fetchError || !approvalRow) {
+      return res.status(404).json({ error: 'approval not found' });
+    }
+    if (approvalRow.org_id !== orgContext.orgId) {
+      return res.status(403).json({ error: 'forbidden' });
+    }
+    if ((approvalRow.status ?? 'PENDING') !== 'PENDING') {
+      return res.status(409).json({ error: 'approval already decided' });
+    }
+
+    const context = (approvalRow.context_json ?? {}) as Record<string, unknown>;
+    let updatedContext: Record<string, unknown> = { ...context };
+
+    if (Array.isArray(evidence) && evidence.length > 0) {
+      const existing = Array.isArray(context.evidenceRefs) ? (context.evidenceRefs as ApprovalEvidence[]) : [];
+      const merged = [...existing];
+      for (const item of evidence) {
+        if (!merged.find((existingItem) => existingItem.id === item.id)) {
+          merged.push(item);
+        }
+      }
+      updatedContext = { ...updatedContext, evidenceRefs: merged };
+    }
+
+    if (decision === 'APPROVED') {
+      const resumeOutcome = await resumeApprovedAction({
+        approvalId,
+        context,
+        orgContext,
+        approverId: userId,
+      });
+      updatedContext = {
+        ...updatedContext,
+        resumeOutcome,
+        decisionComment: comment ?? null,
+      };
+    } else {
+      await rejectBlockedAction({
+        approvalId,
+        context,
+        orgContext,
+        approverId: userId,
+        comment,
+      });
+      updatedContext = {
+        ...updatedContext,
+        rejection: {
+          comment: comment ?? null,
+        },
+      };
+    }
+
+    const now = new Date().toISOString();
+    const { data: updated, error: updateError } = await supabaseService
+      .from('approval_queue')
+      .update({
+        status: decision,
+        approved_by_user_id: userId,
+        decision_at: now,
+        decision_comment: comment ?? null,
+        context_json: updatedContext,
+      })
+      .eq('id', approvalId)
+      .select('*')
+      .single();
+
+    if (updateError || !updated) {
+      throw updateError ?? new Error('approval_update_failed');
+    }
+
+    await supabaseService.from('activity_log').insert({
+      org_id: orgContext.orgId,
+      user_id: userId,
+      action: decision === 'APPROVED' ? 'APPROVAL_GRANTED' : 'APPROVAL_REJECTED',
+      entity_type: 'approval_queue',
+      entity_id: approvalId,
+      metadata: {
+        decision,
+        comment: comment ?? null,
+        kind: approvalRow.kind,
+      },
+    });
+
+    const reshaped = reshapeApprovalRow(updated, orgSlug);
+    return res.json({ approval: reshaped });
+  } catch (err) {
+    logError('approvals.decision_failed', err, { userId: req.user?.sub });
+    return res.status(500).json({ error: 'failed to process decision' });
+  }
+});
+
+app.post('/v1/journal/entries', (req: AuthenticatedRequest, res) => enforceApprovalGate(req, res, 'JOURNAL_POST'));
+app.post('/v1/periods/:periodId/lock', (req: AuthenticatedRequest, res) => enforceApprovalGate(req, res, 'PERIOD_LOCK'));
+app.post('/v1/handoff/:engagementId/send', (req: AuthenticatedRequest, res) => enforceApprovalGate(req, res, 'HANDOFF_SEND'));
+app.post('/v1/archive/build', (req: AuthenticatedRequest, res) => enforceApprovalGate(req, res, 'ARCHIVE_BUILD'));
+app.post('/v1/clients/:id/send', (req: AuthenticatedRequest, res) => enforceApprovalGate(req, res, 'CLIENT_SEND'));
+
 async function runAgentConversation(options: {
   orgId: string;
   agentKind: 'AUDIT' | 'FINANCE' | 'TAX';
@@ -2017,6 +5415,13 @@ async function runAgentConversation(options: {
     model: AGENT_MODEL,
     input: messages,
     tools,
+  });
+  await logOpenAIDebugEvent({
+    endpoint: 'responses.create',
+    response: response as any,
+    requestPayload: { model: AGENT_MODEL, messages },
+    metadata: { scope: 'agent_conversation', step: 'initial' },
+    orgId: options.orgId,
   });
 
   while (response.output?.some((item: any) => item.type === 'tool_call')) {
@@ -2050,6 +5455,13 @@ async function runAgentConversation(options: {
       model: AGENT_MODEL,
       response_id: response.id,
       tool_outputs: toolOutputs,
+    });
+    await logOpenAIDebugEvent({
+      endpoint: 'responses.create',
+      response: response as any,
+      requestPayload: { model: AGENT_MODEL, tool_outputs: toolOutputs },
+      metadata: { scope: 'agent_conversation', step: 'tool-followup' },
+      orgId: options.orgId,
     });
   }
 

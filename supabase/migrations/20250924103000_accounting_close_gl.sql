@@ -1,30 +1,57 @@
 BEGIN;
 
-CREATE TYPE IF NOT EXISTS public.ledger_account_type AS ENUM (
+DO $$
+BEGIN
+  CREATE TYPE public.ledger_account_type AS ENUM (
+
   'ASSET',
   'LIABILITY',
   'EQUITY',
   'REVENUE',
   'EXPENSE'
-);
+  );
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END;
+$$;
 
-CREATE TYPE IF NOT EXISTS public.close_period_status AS ENUM (
+
+DO $$
+BEGIN
+  CREATE TYPE public.close_period_status AS ENUM (
+
   'OPEN',
   'SUBSTANTIVE_REVIEW',
   'READY_TO_LOCK',
   'LOCKED'
-);
+  );
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END;
+$$;
 
-CREATE TYPE IF NOT EXISTS public.reconciliation_type AS ENUM (
+
+DO $$
+BEGIN
+  CREATE TYPE public.reconciliation_type AS ENUM (
+
   'BANK',
   'AR',
   'AP',
   'GRNI',
   'PAYROLL',
   'OTHER'
-);
+  );
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END;
+$$;
 
-CREATE TYPE IF NOT EXISTS public.reconciliation_item_category AS ENUM (
+
+DO $$
+BEGIN
+  CREATE TYPE public.reconciliation_item_category AS ENUM (
+
   'DIT',
   'OC',
   'UNAPPLIED_RECEIPT',
@@ -32,21 +59,42 @@ CREATE TYPE IF NOT EXISTS public.reconciliation_item_category AS ENUM (
   'TIMING',
   'ERROR',
   'OTHER'
-);
+  );
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END;
+$$;
 
-CREATE TYPE IF NOT EXISTS public.je_control_rule AS ENUM (
+
+DO $$
+BEGIN
+  CREATE TYPE public.je_control_rule AS ENUM (
+
   'LATE_POSTING',
   'WEEKEND_USER',
   'ROUND_AMOUNT',
   'MANUAL_TO_SENSITIVE',
   'MISSING_ATTACHMENT'
-);
+  );
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END;
+$$;
 
-CREATE TYPE IF NOT EXISTS public.je_control_severity AS ENUM (
+
+DO $$
+BEGIN
+  CREATE TYPE public.je_control_severity AS ENUM (
+
   'LOW',
   'MEDIUM',
   'HIGH'
-);
+  );
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END;
+$$;
+
 
 CREATE TABLE IF NOT EXISTS public.ledger_accounts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

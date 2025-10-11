@@ -34,6 +34,28 @@ export function AutonomyHud() {
   const { currentOrg } = useOrganizations();
   const statusQuery = useAutonomyStatus(currentOrg?.slug);
 
+  const autonomyData = statusQuery.data?.autonomy;
+  const approvalsData = statusQuery.data?.approvals;
+  const evidenceData = statusQuery.data?.evidence;
+  const suggestionsData = statusQuery.data?.suggestions;
+  const autopilotData = statusQuery.data?.autopilot;
+
+  const allowedJobLabels = useMemo(() => {
+    const jobs = autonomyData?.allowedJobs ?? [];
+    if (jobs.length === 0) {
+      return ['Manual supervision required for all autopilot runs'];
+    }
+    return jobs.map((entry) => entry.label || entry.kind);
+  }, [autonomyData?.allowedJobs]);
+
+  const domainSnapshots = useMemo(() => {
+    const domains = (autopilotData as Record<string, unknown> | undefined)?.domains;
+    if (!Array.isArray(domains)) {
+      return [] as Array<Record<string, unknown>>;
+    }
+    return domains as Array<Record<string, unknown>>;
+  }, [autopilotData]);
+
   if (!currentOrg) {
     return null;
   }
@@ -42,7 +64,7 @@ export function AutonomyHud() {
     return <AutonomySkeleton />;
   }
 
-  if (statusQuery.isError || !statusQuery.data) {
+  if (statusQuery.isError || !statusQuery.data || !autonomyData || !approvalsData || !evidenceData || !suggestionsData) {
     return (
       <div className="mb-6">
         <Alert variant="destructive">
@@ -54,25 +76,17 @@ export function AutonomyHud() {
     );
   }
 
-  const { autonomy, evidence, approvals, suggestions, autopilot } = statusQuery.data;
-
-  const allowedJobLabels = useMemo(() => {
-    if (!autonomy.allowedJobs?.length) {
-      return ['Manual supervision required for all autopilot runs'];
-    }
-    return autonomy.allowedJobs.map((entry) => entry.label || entry.kind);
-  }, [autonomy.allowedJobs]);
+  const { autonomy, evidence, approvals, suggestions, autopilot } = {
+    autonomy: autonomyData,
+    evidence: evidenceData,
+    approvals: approvalsData,
+    suggestions: suggestionsData,
+    autopilot: autopilotData,
+  };
 
   const evidenceHealthy = evidence.open === 0;
   const pendingApprovals = approvals.pending ?? 0;
   const nextAutopilot = autopilot?.next as Record<string, unknown> | null;
-  const domainSnapshots = useMemo(() => {
-    const domains = (autopilot as Record<string, unknown> | undefined)?.domains;
-    if (!Array.isArray(domains)) {
-      return [] as Array<Record<string, unknown>>;
-    }
-    return domains as Array<Record<string, unknown>>;
-  }, [autopilot]);
 
   return (
     <div className="mb-6 grid gap-4 lg:grid-cols-3" aria-label="Autonomy controller status">

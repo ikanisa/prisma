@@ -136,6 +136,7 @@ This phase follows the blueprint already supplied (T‑1A to T‑4B). We align e
 | Security review | Validate RLS, approvals, secrets | Pen-test endpoints, verify signed URLs expiry, review audit logs for completeness. | 3d | Report with zero critical findings; mitigations tracked. |
 | UAT & training | Enable partner review | Scripted UAT for each module, capture feedback, update documentation. | 2d | UAT sign-off; docs published in `/docs`. |
 | Production launch checklist | Governance | Run PRODUCTION_READINESS_CHECKLIST.md, confirm telemetry & alerting. | 1d | Checklist signed by Partner + DevOps. |
+> 📘 Phase 4 artefacts: use `docs/PHASE4/performance-runbook.md` for load-test execution, `docs/PHASE4/security-review-checklist.md` for the security sweep, and `docs/PHASE4/uat-signoff-template.md` to capture partner approval alongside the existing day-by-day UAT scripts. Complete the final launch gating via `docs/PHASE4/release-readiness-checklist.md` before running `PRODUCTION_READINESS_CHECKLIST.md`.
 
 > ✅ Close engine delivered (`supabase/functions/accounting-close`, `src/lib/accounting-close-service.ts`, `apps/web/app/api/recon/*`) with ledger imports, journal lifecycle, reconciliations, trial balance snapshots, and close period controls.
 > ✅ Disclosure composer & IFRS note pack (`apps/web/app/api/financials/notes/route.ts`, `src/lib/financial-report-service.ts`, `src/pages/reporting/report.tsx`) generating IFRS 15/16/9, IAS 36/12/19/7, IFRS 13/8 narratives.
@@ -143,6 +144,15 @@ This phase follows the blueprint already supplied (T‑1A to T‑4B). We align e
 > ✅ Group consolidation workspace (`apps/web/app/api/financials/consolidation/route.ts`, `src/lib/consolidation-service.ts`, `src/pages/reporting/consolidation.tsx`) aggregating parent/subsidiary ledgers with intercompany elimination guidance.
 > ✅ Documentation captured in `docs/financial-reporting.md` with governance anchors and usage guidance; performance & UAT hardening plan in `docs/performance-uat-plan.md`.
 > ✅ Release control readiness surfaced via `/api/release-controls/check` and the analytics dashboard card, reporting approval queue status, close-period locks, and archive checksum expectations before production launch.
+
+## Phase 5 – Production Operations & Continuous Improvement (Post-launch)
+| Task | Goal | Activities | Owner | Est. | Acceptance |
+|---|---|---|---|---|---|
+| Establish operations cadence | Sustain daily/weekly/monthly routines | Implement on-call rotation, daily telemetry checks, weekly backlog review per `docs/PHASE5/production-operations-runbook.md`. | DevOps Lead | 3d | Two consecutive weeks of completed check-ins logged in `/docs/OPERATIONS/`. |
+| Incident response readiness | Ensure teams can respond rapidly | Run tabletop drill, verify alert routing, refresh incident documentation. | Security Lead | 2d | Post-mortem template exercised; roster sign-off archived. |
+| Compliance & traceability upkeep | Keep audit evidence current | Update `STANDARDS/TRACEABILITY/matrix.md`, archive Phase 4 artefacts, schedule quarterly reviews. | Audit Partner | 1d | Matrix revised; evidence stored under `/docs/SECURITY/evidence/`. |
+| Continuous improvement backlog | Feed ongoing enhancements | Create OPS/Jira queue for observability, automation, cost actions; review weekly. | Eng Manager | 0.5d | Backlog populated with owners, SLAs, and next review date. |
+> 🛠️ Phase 5 relies on `docs/PHASE5/production-operations-runbook.md` as the living reference for steady-state operations. Update it whenever cadence, tooling, or ownership changes.
 
 ## Cross-Cutting Deliverables
 - **Documentation**: Update `/docs` per module (user guide, runbooks), extend `/STANDARDS/TRACEABILITY/matrix.md` with ISA/ATT/IAASB and tax references after each sprint.

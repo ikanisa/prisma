@@ -1,4 +1,7 @@
 FROM node:20-alpine AS builder
+ARG SERVICE_VERSION=dev
+ENV SERVICE_VERSION=${SERVICE_VERSION}
+LABEL org.opencontainers.image.revision=${SERVICE_VERSION}
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci

@@ -80,9 +80,13 @@ export function registerAgentRoutes(app, { agentServiceUrl, agentServiceApiKey, 
         reader.cancel().catch(() => {});
       });
 
-      while (true) { // eslint-disable-line no-constant-condition
+      let finished = false;
+      while (!finished) {
         const { done, value } = await reader.read();
-        if (done) break;
+        if (done) {
+          finished = true;
+          break;
+        }
         if (value) {
           res.write(Buffer.from(value));
         }

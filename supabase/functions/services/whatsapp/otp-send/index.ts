@@ -32,7 +32,7 @@ function jsonResponse(status: number, body: Record<string, unknown>) {
   });
 }
 
-Deno.serve(async (req) => {
+export async function handler(req: Request): Promise<Response> {
   if (req.method !== 'POST') {
     return jsonResponse(405, { error: 'method_not_allowed' });
   }
@@ -139,4 +139,6 @@ Deno.serve(async (req) => {
   }
 
   return jsonResponse(200, { success: true, challengeId: inserted?.[0]?.id ?? null });
-});
+}
+
+Deno.serve(handler);

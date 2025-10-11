@@ -1,7 +1,10 @@
 -- Audit risk register & analytics harness schema (AP-PLAN-2)
 BEGIN;
 
-CREATE TYPE IF NOT EXISTS public.audit_risk_category AS ENUM (
+DO $$
+BEGIN
+  CREATE TYPE public.audit_risk_category AS ENUM (
+
   'FINANCIAL_STATEMENT',
   'FRAUD',
   'CONTROL',
@@ -10,10 +13,33 @@ CREATE TYPE IF NOT EXISTS public.audit_risk_category AS ENUM (
   'COMPLIANCE',
   'ESTIMATE',
   'OTHER'
-);
+  );
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END;
+$$;
 
-CREATE TYPE IF NOT EXISTS public.risk_rating AS ENUM ('LOW', 'MODERATE', 'HIGH', 'SIGNIFICANT');
-CREATE TYPE IF NOT EXISTS public.risk_status AS ENUM ('OPEN', 'MONITORED', 'CLOSED');
+
+DO $$
+BEGIN
+  CREATE TYPE public.risk_rating AS ENUM (
+'LOW', 'MODERATE', 'HIGH', 'SIGNIFICANT'
+  );
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END;
+$$;
+
+DO $$
+BEGIN
+  CREATE TYPE public.risk_status AS ENUM (
+'OPEN', 'MONITORED', 'CLOSED'
+  );
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END;
+$$;
+
 
 CREATE TABLE IF NOT EXISTS public.audit_risks (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

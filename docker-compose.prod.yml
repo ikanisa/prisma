@@ -44,6 +44,9 @@ services:
     environment:
       OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318/v1/traces
       OTEL_SERVICE_NAME: gateway
+      OTEL_TRACES_SAMPLER: ${OTEL_TRACES_SAMPLER}
+      OTEL_TRACES_SAMPLER_ARG: ${OTEL_TRACES_SAMPLER_ARG}
+      SERVICE_VERSION: ${SERVICE_VERSION}
   rag:
     image: ${RAG_IMAGE}
     depends_on:
@@ -53,6 +56,9 @@ services:
     environment:
       OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318/v1/traces
       OTEL_SERVICE_NAME: rag
+      OTEL_TRACES_SAMPLER: ${OTEL_TRACES_SAMPLER}
+      OTEL_TRACES_SAMPLER_ARG: ${OTEL_TRACES_SAMPLER_ARG}
+      SERVICE_VERSION: ${SERVICE_VERSION}
   agent:
     image: ${AGENT_IMAGE}
     depends_on:
@@ -62,6 +68,9 @@ services:
     environment:
       OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318/v1/traces
       OTEL_SERVICE_NAME: agent
+      OTEL_TRACES_SAMPLER: ${OTEL_TRACES_SAMPLER}
+      OTEL_TRACES_SAMPLER_ARG: ${OTEL_TRACES_SAMPLER_ARG}
+      SERVICE_VERSION: ${SERVICE_VERSION}
   analytics:
     image: ${ANALYTICS_IMAGE}
     depends_on:
@@ -71,8 +80,19 @@ services:
     environment:
       OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318/v1/traces
       OTEL_SERVICE_NAME: analytics
+      OTEL_TRACES_SAMPLER: ${OTEL_TRACES_SAMPLER}
+      OTEL_TRACES_SAMPLER_ARG: ${OTEL_TRACES_SAMPLER_ARG}
+      SERVICE_VERSION: ${SERVICE_VERSION}
   ui:
+    profiles: ["ui"]
     image: ${UI_IMAGE}
+    depends_on:
+      - gateway
+    ports:
+      - "3000:3000"
+  web:
+    profiles: ["web"]
+    image: ${WEB_IMAGE}
     depends_on:
       - gateway
     ports:

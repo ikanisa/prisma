@@ -29,3 +29,6 @@ Object.defineProperty(window, 'matchMedia', {
     dispatchEvent: vi.fn(),
   })),
 })
+// Provide fallback Supabase env vars so tests default to demo client
+process.env.VITE_SUPABASE_URL = process.env.VITE_SUPABASE_URL ?? 'https://demo.invalid.supabase.co';
+process.env.VITE_SUPABASE_PUBLISHABLE_KEY = process.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? 'public-anon-demo-key';

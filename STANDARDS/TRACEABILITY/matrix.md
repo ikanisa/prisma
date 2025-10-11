@@ -73,3 +73,12 @@ The matrix aligns statutory requirements with the new database schemas, API rout
 | ISA 500 / ISA 520 | 6-12, 5-7 | Deterministic analytics with lineage, parameters, exceptions. | `public.ada_runs`, `public.ada_exceptions`; analytics runner (`server/analytics_runner.py`); APIs (`/api/ada/*`); workspace `src/pages/audit/workspace/analytics.tsx`. | ActivityLog (`ADA_RUN_STARTED`,`ADA_RUN_COMPLETED`,`ADA_EXCEPTION_ADDED`); dataset hash & parameters stored; exception dispositions recorded (`ADA_EXCEPTION_RESOLVED`). |
 
 > Evidence references assume archive hooks (A-1 scope) capture document ids and ActivityLog entries upon completion.
+
+## Agent HITL Governance (AGT-GOV-1)
+| Standard / Regulation | Clause reference | Control / Requirement | Implementation (code or schema) | Evidence captured |
+| --- | --- | --- | --- | --- |
+| ISQM 1 | 32-33 | Require managerial review before issuing outputs that could impact client deliverables or financial reporting. | Sensitive tool gating via `tool_registry` and `agent_actions.status='BLOCKED'` when caller below `MANAGER`; approval queue rows `kind='AGENT_ACTION'`. | `tool_registry` records, `agent_actions` row, `approval_queue` entry with `requested_by_user_id`. |
+| ISA 220 (Revised) | 26, 35 | Document partner/manager oversight of automated procedures and evidence. | `/v1/approvals` + `/v1/approvals/:id/decision` endpoints; `services/rag/index.ts` `resumeApprovedAction` + `rejectBlockedAction`; ActivityLog `AGENT_TOOL_CALL`. | `approval_queue` decision metadata (`approved_by_user_id`, `decision_at`), `agent_traces` with `resumedFromApproval`, ActivityLog payload hashes. |
+| ISQM 1 | 48-52 | Monitor approval backlog, refusals, and telemetry for escalation. | Analytics endpoint aggregating `agent_sessions`, `agent_traces`, `approval_queue`; dashboard card “Agent HITL”. | `/analytics/agent` JSON snapshot, Grafana panel export, weekly backlog report. |
+| GDPR Art. 30 (Records of processing) | n/a | Maintain evidence of human decisions in AI-assisted workflows. | `context_json.evidenceRefs` stores reviewer-supplied artefacts, `agent_actions.output_json` retains decision outcome. | Supabase row history, evidence attachments referenced in release ticket. |
+| ISQM 1 Monitoring | 48-52 | Capture model-level diagnostics for quality management reviews. | `openai_debug_events` table persisted via Debugging Requests API; optional detailed payload fetch. | Debug dashboards referencing request IDs, Supabase exports for QA investigations. |

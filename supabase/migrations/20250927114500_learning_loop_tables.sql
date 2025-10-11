@@ -21,7 +21,7 @@ CREATE POLICY learning_signals_read ON public.learning_signals
 
 DROP POLICY IF EXISTS learning_signals_write ON public.learning_signals;
 CREATE POLICY learning_signals_write ON public.learning_signals
-  FOR ALL USING (public.has_min_role(org_id, 'MANAGER'));
+  FOR ALL USING (public.has_min_role(org_id, 'MANAGER'::public.role_level));
 
 CREATE TABLE IF NOT EXISTS public.learning_metrics (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -44,7 +44,7 @@ CREATE POLICY learning_metrics_read ON public.learning_metrics
 
 DROP POLICY IF EXISTS learning_metrics_write ON public.learning_metrics;
 CREATE POLICY learning_metrics_write ON public.learning_metrics
-  FOR ALL USING (public.has_min_role(org_id, 'MANAGER'));
+  FOR ALL USING (public.has_min_role(org_id, 'MANAGER'::public.role_level));
 
 CREATE TYPE public.learning_job_status AS ENUM ('PENDING', 'READY', 'IN_PROGRESS', 'APPLIED', 'FAILED', 'ROLLED_BACK');
 CREATE TYPE public.learning_job_kind AS ENUM ('query_hint_add', 'guardrail_tune', 'canonicalizer_update', 'denylist_update', 'rollback_policy');
@@ -75,7 +75,7 @@ CREATE POLICY agent_policy_versions_read ON public.agent_policy_versions
 
 DROP POLICY IF EXISTS agent_policy_versions_write ON public.agent_policy_versions;
 CREATE POLICY agent_policy_versions_write ON public.agent_policy_versions
-  FOR ALL USING (public.has_min_role(org_id, 'MANAGER'));
+  FOR ALL USING (public.has_min_role(org_id, 'MANAGER'::public.role_level));
 
 CREATE TABLE IF NOT EXISTS public.agent_learning_jobs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -101,7 +101,7 @@ CREATE POLICY agent_learning_jobs_read ON public.agent_learning_jobs
 
 DROP POLICY IF EXISTS agent_learning_jobs_write ON public.agent_learning_jobs;
 CREATE POLICY agent_learning_jobs_write ON public.agent_learning_jobs
-  FOR ALL USING (public.has_min_role(org_id, 'MANAGER'));
+  FOR ALL USING (public.has_min_role(org_id, 'MANAGER'::public.role_level));
 
 CREATE TABLE IF NOT EXISTS public.query_hints (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -126,7 +126,7 @@ CREATE POLICY query_hints_read ON public.query_hints
 
 DROP POLICY IF EXISTS query_hints_write ON public.query_hints;
 CREATE POLICY query_hints_write ON public.query_hints
-  FOR ALL USING (org_id IS NULL OR public.has_min_role(org_id, 'MANAGER'));
+  FOR ALL USING (org_id IS NULL OR public.has_min_role(org_id, 'MANAGER'::public.role_level));
 
 CREATE TABLE IF NOT EXISTS public.citation_canonicalizer (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -149,7 +149,7 @@ CREATE POLICY citation_canonicalizer_read ON public.citation_canonicalizer
 
 DROP POLICY IF EXISTS citation_canonicalizer_write ON public.citation_canonicalizer;
 CREATE POLICY citation_canonicalizer_write ON public.citation_canonicalizer
-  FOR ALL USING (org_id IS NULL OR public.has_min_role(org_id, 'MANAGER'));
+  FOR ALL USING (org_id IS NULL OR public.has_min_role(org_id, 'MANAGER'::public.role_level));
 
 CREATE TABLE IF NOT EXISTS public.denylist_deboost (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -171,7 +171,7 @@ CREATE POLICY denylist_deboost_read ON public.denylist_deboost
 
 DROP POLICY IF EXISTS denylist_deboost_write ON public.denylist_deboost;
 CREATE POLICY denylist_deboost_write ON public.denylist_deboost
-  FOR ALL USING (org_id IS NULL OR public.has_min_role(org_id, 'MANAGER'));
+  FOR ALL USING (org_id IS NULL OR public.has_min_role(org_id, 'MANAGER'::public.role_level));
 
 GRANT USAGE ON TYPE public.learning_job_status TO anon, authenticated, service_role;
 GRANT USAGE ON TYPE public.learning_job_kind TO anon, authenticated, service_role;

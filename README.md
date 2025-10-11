@@ -79,6 +79,184 @@ and deployment environments (values may remain blank until Google Drive access i
 > available. Swap the environment variables above with live credentials when the Drive workspace and
 > web search access are connected.
 
+### OpenAI agent platform & streaming toggles
+
+The HITL agent rollout introduces additional OpenAI flags. Enable them progressively alongside the
+phase guides (`docs/openai-phase0.md` → `docs/openai-phase4.md`):
+
+- `OPENAI_AGENT_PLATFORM_ENABLED`, `OPENAI_AGENT_ID` – synchronise the Supabase tool registry with
+  an OpenAI Agent when Platform access is granted (Phase 1).
+- `OPENAI_DEBUG_LOGGING`, `OPENAI_DEBUG_FETCH_DETAILS` – persist OpenAI request metadata to
+  `openai_debug_events` and optionally call the Debugging Requests API for enriched payloads
+  (Phase 0 observability).
+- `OPENAI_STREAMING_ENABLED` – unlocks `/api/agent/stream` and the streaming playground in
+  `/agent-chat` (Phase 2).
+- `OPENAI_STREAMING_TOOL_ENABLED` – emits tool start/result events alongside text deltas (Phase 4
+  preview; requires the base streaming flag).
+- `OPENAI_REALTIME_ENABLED`, `OPENAI_REALTIME_MODEL`, `OPENAI_REALTIME_VOICE`, `OPENAI_REALTIME_TURN_SERVERS` – allow
+  `/api/agent/realtime/session` to issue ephemeral secrets for Realtime experiments (Phase 3).
+- `OPENAI_TRANSCRIPTION_MODEL`, `OPENAI_TTS_MODEL`, `OPENAI_TTS_VOICE`, `OPENAI_TTS_FORMAT` – configure speech-to-text and text-to-speech loops for ChatKit sessions.
+- `OPENAI_SORA_ENABLED`, `OPENAI_SORA_MODEL`, `OPENAI_SORA_ASPECT_RATIO` – enable the Sora preview
+  route (`/api/agent/media/video`) when video access is available (Phase 4 optional).
+- `OPENAI_ORCHESTRATOR_ENABLED` – exposes multi-agent planning routes
+  (`/api/agent/orchestrator/*`).
+- `ORCHESTRATION_POLL_INTERVAL_MS` – controls how frequently the MCP scheduler assigns pending
+  tasks (default 15000ms); set to `0` to disable background polling.
+
+### System configuration overrides
+
+Backend services read `config/system.yaml` for autonomy, RLS, and agent policy defaults. Set
+`SYSTEM_CONFIG_PATH` to point to an alternate file or directory containing `system.yaml` whenever
+you need to test or run with a customised configuration bundle.
+
+### Backend development environment
+
+The FastAPI/RQ services depend on the packages listed in `server/requirements.txt`. To run `pytest`
+or start the API locally, create a virtualenv and install them once:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r server/requirements.txt
+```
+
+The repository ships with `pytest.ini` so running `pytest` from the repo root works without extra
+`PYTHONPATH` tweaks. Install the requirements before invoking the tests to avoid import errors
+(e.g. missing `fastapi`).
+
+#### Shared system configuration loader
+
+Node services load `config/system.yaml` through the shared helpers in
+`packages/system-config/`. Import `getGoogleDriveSettings`, `getUrlSourceSettings`, or
+`getBeforeAskingSequence` to access normalised settings. The helpers honour `SYSTEM_CONFIG_PATH`
+and cache results for 60 seconds.
+
+> Optional: AI features (RAG reranker) attempt to load `sentence-transformers`. Install it alongside
+> PyTorch if you need reranking locally; otherwise the code will fall back gracefully.
+
+### Node workspace layout
+
+The repository now uses a pnpm workspace (see `pnpm-workspace.yaml`). Packages live under:
+
+- `apps/gateway` – Express edge service (depends on `@prisma-glow/system-config`)
+- `apps/web` – Front-end (Vite/React)
+- `services/rag` – Node agent/RAG runtime
+- `packages/system-config` – Shared configuration helper for system.yaml
+- `packages/api-client` – Typed client generated from FastAPI OpenAPI
+- `packages/ui` – Minimal shared UI components for reuse across apps
+
+Install dependencies with `pnpm install` (or continue using npm for the front-end if preferred).
+Workspace packages expose `build` scripts that rely on the top-level TypeScript toolchain.
+
+### Observability
+
+All services support OpenTelemetry and Sentry. Recommended environment variables:
+
+- `OTEL_SERVICE_NAME` (e.g. `gateway`, `rag-service`, `fastapi-api`)
+- `OTEL_EXPORTER_OTLP_ENDPOINT` (e.g. `https://otel-collector:4318/v1/traces`)
+- `OTEL_TRACES_SAMPLER` (e.g. `parentbased_always_on`, `parentbased_traceidratio`)
+- `OTEL_TRACES_SAMPLER_ARG` (e.g. `0.1` when using ratio sampler)
+- `SENTRY_DSN`, `SENTRY_ENVIRONMENT`, `SENTRY_RELEASE`
+- Resource attributes are standardised across services: `service.name`, `service.namespace=prisma-glow`, `deployment.environment`, `service.version`.
+
+User agent and correlation:
+
+- Gateway forwards `Authorization`, `X-Request-ID`, `X-Trace-ID`, and W3C `traceparent`/`tracestate` headers to FastAPI.
+- Gateway sets a service user agent on upstream requests: `prisma-glow-gateway/<SERVICE_VERSION>`.
+- Ensure `SERVICE_VERSION` is set in runtime (CI uses the commit SHA). For Vercel, set it as an environment variable so traces include `service.version`.
+
+Versioning for trace correlation:
+
+- `SERVICE_VERSION` is included in emitted traces as `service.version`.
+- In CI, it is set to the commit SHA. In Docker builds, it is passed as a build arg and baked as an OCI label.
+- For local/dev, set `SERVICE_VERSION=$(git rev-parse --short HEAD)` or leave it unset to default to `dev`.
+
+### Local Docker (compose)
+
+Use the provided Makefile targets to run the local stack with version metadata:
+
+- `make print-version` — prints derived `SERVICE_VERSION` (short git SHA or `dev`).
+- `make compose-dev-up` — builds and starts the dev stack with `SERVICE_VERSION` propagated to images.
+- `make compose-dev-down` — stops and removes the dev stack.
+- `make compose-dev-logs` — tails logs for gateway, rag, agent, analytics.
+
+You can override the version explicitly: `SERVICE_VERSION=feature123 make compose-dev-up`.
+
+Frontend selection with profiles:
+
+- Legacy Vite UI (default previously): `docker compose --profile ui up -d`
+- New Next.js web app: `docker compose --profile web up -d`
+
+Only one of `ui` or `web` should be active at a time since both bind to port 3000.
+The compose files mark these services under distinct profiles so you can choose during `up`.
+
+### Production Compose
+
+Use the provided `docker-compose.prod.yml` with an env file describing image tags and version:
+
+1) Prepare `.env.compose` from `.env.compose.example` and set image refs (e.g., GHCR):
+
+```
+cp .env.compose.example .env.compose
+# edit to set ghcr.io/<owner>/<repo>/<service>:<tag>
+```
+
+2) Launch with your chosen frontend profile (`web` for Next.js, `ui` for legacy Vite):
+
+```
+docker compose --env-file .env.compose --profile web -f docker-compose.prod.yml up -d
+```
+
+3) To switch frontends, stop the current profile and start the other:
+
+```
+docker compose --env-file .env.compose --profile web -f docker-compose.prod.yml down
+docker compose --env-file .env.compose --profile ui  -f docker-compose.prod.yml up -d
+```
+
+Compose Deploy via GitHub Actions (optional)
+
+- Create repository secrets:
+  - `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_SSH_KEY` (private key for SSH), and `COMPOSE_ENV` (contents of your `.env.compose`).
+- Trigger the workflow "Compose Deploy (SSH)" manually and select `profile` (web/ui) and `deploy_path`.
+- The workflow uploads `docker-compose.prod.yml` and the env to the remote host and runs `docker compose pull && up -d`.
+
+Rollback support: provide `rollback_tag` (commit SHA or tag) when triggering the workflow to update all image tags in the remote env file before deploy. Locally, use:
+
+```
+make compose-prod-rollback ROLLBACK_TAG=<sha> FRONTEND_PROFILE=web
+```
+
+
+Gateway → FastAPI proxying uses `FASTAPI_BASE_URL` (or `API_BASE_URL`) to target the Python API.
+
+Gateway exposes `/health` and `/readiness`; the RAG service and FastAPI expose the same. CI includes
+synthetic checks that will hit these endpoints when `SYNTHETIC_*_URL` secrets are provided.
+
+Sentry dry-run endpoints (guarded by `ALLOW_SENTRY_DRY_RUN=true`):
+
+- Gateway: `POST /v1/observability/dry-run`
+- RAG: `POST /v1/observability/dry-run`
+- FastAPI: `POST /v1/observability/dry-run`
+
+### API Contracts (OpenAPI → TS Types)
+
+- FastAPI OpenAPI is exported to `openapi/fastapi.json` using `server/export_openapi.py`.
+- TypeScript types for the API client are generated into `packages/api-client/types.ts` via `openapi-typescript`.
+- CI enforces that OpenAPI export and generated types are drift-free. If either changes, the job fails so PR authors can commit the updates.
+- Gateway consumes the typed client for core proxies (autonomy, release-controls, tasks, files, knowledge) and forwards auth + trace headers end-to-end.
+
+The Agent Approvals UI (`/agent/approvals`) surfaces pending tool reviews and tool registry toggles.
+Governance details live in `STANDARDS/POLICY/agent_hitl.md`, with execution guidance captured in
+`CHECKLISTS/AGENT/agent_hitl_acceptance.md` and the validation steps under
+`TEST_PLAN.md#agent-hitl-hitl-1`.
+
+### Idempotency and Retries
+
+- Gateway enforces idempotency for POST/PUT/PATCH when clients send `X-Idempotency-Key`.
+- Upstream calls from gateway to FastAPI include a small, bounded retry with backoff for transient statuses (429/502/503/504).
+- See `apps/gateway/src/middleware/idempotency.ts` and `packages/api-client/index.ts` for behavior.
+
 ### Deploying Supabase credentials to Lovable
 
 Add the same values to your Lovable deployment under **Project → Settings → Environment** so the

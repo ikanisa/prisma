@@ -33,7 +33,8 @@ $$;
 
 alter table public.rate_limits enable row level security;
 
-create policy if not exists "Service role rate limits"
+drop policy if exists "Service role rate limits" on public.rate_limits;
+create policy "Service role rate limits"
   on public.rate_limits
   for all
   using (auth.role() = 'service_role')

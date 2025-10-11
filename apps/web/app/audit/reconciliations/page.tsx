@@ -1033,7 +1033,7 @@ function ReconciliationWorkbench() {
                     <input
                       id="closedBy"
                       name="closedBy"
-                      type="text'
+                      type="text"
                       required
                       value={closeForm.closedBy}
                       onChange={handleCloseFormChange}

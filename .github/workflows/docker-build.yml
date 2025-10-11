@@ -1,0 +1,97 @@
+name: Docker Build & Push
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*.*.*' ]
+
+concurrency:
+  group: docker-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-push:
+    name: Build and push images (GHCR)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    env:
+      IMAGE_REGISTRY: ghcr.io/${{ github.repository }}
+      SERVICE_VERSION: ${{ github.sha }}
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - name: gateway
+            dockerfile: gateway/Dockerfile
+          - name: rag
+            dockerfile: rag/Dockerfile
+          - name: agent
+            dockerfile: agent/Dockerfile
+          - name: analytics
+            dockerfile: analytics/Dockerfile
+          - name: ui
+            dockerfile: ui/Dockerfile
+          - name: web
+            dockerfile: apps/web/Dockerfile
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Log in to Docker Hub
+        if: ${{ secrets.DOCKERHUB_USERNAME != '' }}
+        uses: docker/login-action@v3
+        with:
+          registry: docker.io
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Compute tags
+        id: meta
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_NAMESPACE: ${{ secrets.DOCKERHUB_NAMESPACE }}
+        run: |
+          NAME="${{ matrix.service.name }}"
+          GHCR_IMAGE="${IMAGE_REGISTRY}/${NAME}"
+          TAGS=("${GHCR_IMAGE}:${{ github.sha }}")
+          if [[ "${GITHUB_REF}" == "refs/heads/main" ]]; then
+            TAGS+=("${GHCR_IMAGE}:latest")
+          fi
+          # Optional Docker Hub tags if credentials provided
+          if [[ -n "${DOCKERHUB_USERNAME}" ]]; then
+            NS="${DOCKERHUB_NAMESPACE:-${DOCKERHUB_USERNAME}}"
+            DH_IMAGE="docker.io/${NS}/${{ github.event.repository.name }}-${NAME}"
+            TAGS+=("${DH_IMAGE}:${{ github.sha }}")
+            if [[ "${GITHUB_REF}" == "refs/heads/main" ]]; then
+              TAGS+=("${DH_IMAGE}:latest")
+            fi
+          fi
+          echo "tags=$(IFS=,; echo "${TAGS[*]}")" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push ${{ matrix.service.name }}
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.service.dockerfile }}
+          push: true
+          build-args: |
+            SERVICE_VERSION=${{ env.SERVICE_VERSION }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: |
+            org.opencontainers.image.revision=${{ env.SERVICE_VERSION }}
+          cache-from: type=registry,ref=${{ env.IMAGE_REGISTRY }}/${{ matrix.service.name }}:buildcache
+          cache-to: type=registry,ref=${{ env.IMAGE_REGISTRY }}/${{ matrix.service.name }}:buildcache,mode=max

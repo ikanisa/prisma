@@ -487,7 +487,8 @@ async function ensureApprovalStages(
         draft_id: params.draftId,
         created_by_user_id: params.createdBy,
         updated_by_user_id: params.createdBy,
-        payload: {
+        requested_by_user_id: params.createdBy,
+        context_json: {
           draftId: params.draftId,
           candidateId: params.candidateId,
           stage,

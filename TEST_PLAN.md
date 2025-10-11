@@ -41,7 +41,8 @@ psql "$DATABASE_URL" -f scripts/test_policies.sql
 npm test -- tests/financials/consolidation-service.test.ts
 
 # targeted group audit API + helpers
-npm test -- --run "tests/api/group-*.test.ts" "tests/audit/module-records.test.ts" "tests/audit/approvals.test.ts" "tests/audit/evidence.test.ts" "tests/audit/idempotency.test.ts"
+# targeted group audit API + helpers + agent approvals
+npm test -- --run "tests/api/group-*.test.ts" "tests/audit/module-records.test.ts" "tests/audit/approvals.test.ts" "tests/audit/evidence.test.ts" "tests/audit/idempotency.test.ts" "tests/approval-service.test.ts"
 
 # load/performance baseline (k6)
 k6 run tests/perf/k6-group-audit.js
@@ -82,6 +83,44 @@ k6 run tests/perf/k6-group-audit.js
 4. Approve decision via `/functions/v1/audit-acceptance/decision/decide` or UI action; acceptance status updates to `APPROVED`, engagement `eqr_required` reflects flag, approvals timeline updates.
 5. Attempt to access KAM/Report/TCWG tabs before approval (should be blocked); retry after approval (should unlock).
 6. Confirm ActivityLog records `ACC_SCREEN_RUN`, `ACC_INDEP_ASSESSED`, `ACC_DECISION_SUBMITTED`, and `ACC_DECISION_APPROVED/REJECTED`.
+
+### Agent HITL (HITL-1)
+1. Start an agent session as an `EMPLOYEE` (`POST /api/agent/start`) and confirm `agent_sessions.status='RUNNING'`, `agent_runs.state='PLANNING'`.
+2. Generate a plan (`POST /api/agent/plan`) with fallback disabled to ensure OpenAI response recorded; verify summary stored in `agent_runs.summary`.
+3. Execute a non-sensitive tool (`rag.search`) and confirm `agent_actions.status='SUCCESS'` with no approval queue entry.
+4. Execute a sensitive tool (`docs.sign_url`) as `EMPLOYEE`; verify response `status='BLOCKED'`, `approval_queue.kind='AGENT_ACTION'`, and session state `WAITING_APPROVAL`.
+5. Review `/api/agent/approvals?orgId=...` as `MANAGER` (or the direct `/v1/approvals?orgSlug=...` fallback); ensure pending items surface action labels, standards, evidence placeholders, and session references.
+6. Approve the item via `/api/agent/approvals/{id}/decision` supplying evidence/comment. Confirm the proxy forwards auth headers, the underlying `/v1/approvals/{id}/decision` succeeds, `agent_actions.status='SUCCESS'`, `agent_traces` record `resumedFromApproval=true`, and ActivityLog captures input/output hashes.
+7. Re-run with rejection (`decision='CHANGES_REQUESTED'`) through the same proxy; ensure sessions flip to `FAILED`, `agent_actions.output_json.error='approval_rejected'`, and telemetry reflects the failure state.
+8. Toggle `tool_registry.enabled=false` for `docs.sign_url` and rerun; verify execution fails with `tool_not_available` and endpoint surfaces a friendly error.
+9. Execute `scripts/test_policies.sql` focusing on assertions for `agent_runs/agent_actions/agent_traces/tool_registry/approval_queue`.
+10. Capture screenshots / JSON payloads and attach to the [Agent HITL checklist](CHECKLISTS/AGENT/agent_hitl_acceptance.md) for release evidence.
+11. When `OPENAI_DEBUG_LOGGING=true`, confirm `openai_debug_events` receives a record for the sampled agent plan/run and that debug fetches succeed (or raise a logged warning if the API rejects the request).
+
+### MCP Orchestrator (Phase A)
+1. Ensure `OPENAI_ORCHESTRATOR_ENABLED=true` and `ORCHESTRATION_POLL_INTERVAL_MS` set to desired cadence.
+2. POST `/api/agent/orchestrator/session` with an objective and sample tasks; verify response includes `session` + `tasks` arrays.
+3. Poll `/api/agent/orchestrator/session/{id}` to confirm status transitions (`PENDING` → `RUNNING` when scheduler assigns tasks).
+4. POST `/api/agent/orchestrator/tasks/{id}/complete` with `status='COMPLETED'` and sample output metadata; confirm response includes updated board and Supabase rows (`agent_orchestration_tasks`, `agent_orchestration_sessions`).
+5. Trigger a safety event payload in the same request and ensure `agent_safety_events` captures severity/rule code.
+6. Disable the orchestrator flag and confirm the endpoints return `404 orchestrator_disabled` to prevent accidental usage in environments that are not ready.
+7. Seed a session with default `audit.execution` tasks (no manual metadata) and observe the scheduler auto-completing them with an `audit-risk-summary` output payload.
+
+### Streaming Playground (Phase S-1)
+1. Flip `OPENAI_STREAMING_ENABLED=true` and authenticate as a valid user.
+2. Navigate to `/agent-chat`; provide an org slug and question, then start the stream.
+3. Verify incremental `text-delta` events arrive and final `completed` event closes the stream.
+4. Check browser dev tools for SSE payloads and ensure no network errors occur when stopping the stream manually.
+5. Query `openai_debug_events` to confirm the streaming request was recorded with `metadata.streaming=true`.
+6. If `OPENAI_REALTIME_ENABLED=true`, call `POST /api/agent/realtime/session` via the playground button and validate the returned client secret can establish a WebRTC session using OpenAI’s SDK.
+7. When `OPENAI_STREAMING_TOOL_ENABLED=true`, use “Start tool stream” to observe `tool-start` / `tool-result` events for RAG lookups and confirm the final response still arrives.
+8. Capture a sample SSE log (including tool events) and attach to the release ticket for audit trail.
+
+### Sora Video (Phase V-1)
+1. Toggle `OPENAI_SORA_ENABLED=true` and ensure API key has videos scope.
+2. POST `/api/agent/media/video` with `{ orgSlug, prompt }`; expect HTTP 202 and a job payload.
+3. If access is restricted, verify the route returns an informative error captured in logs (`openai.sora_video_failed`).
+4. Document job IDs and follow-up steps for manual polling (pending full integration).
 
 ### PBC Manager (Job PBC-1)
 1. After acceptance approval, open `/[org]/engagements/[engagementId]/reporting/pbc`; confirm gating message hidden.

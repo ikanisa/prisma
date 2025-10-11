@@ -215,10 +215,119 @@ create trigger trg_kam_drafts_touch
   before update on public.kam_drafts
   for each row execute function app.touch_updated_at();
 
+-- Agent workflow ---------------------------------------------------------
+create type if not exists public.agent_run_state as enum ('PLANNING', 'EXECUTING', 'DONE', 'ERROR');
+create type if not exists public.agent_action_status as enum ('PENDING', 'SUCCESS', 'ERROR', 'BLOCKED');
+create type if not exists public.agent_trace_type as enum ('INFO', 'TOOL', 'ERROR');
+
+create table if not exists public.agent_runs (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null references public.organizations(id) on delete cascade,
+  session_id uuid not null references public.agent_sessions(id) on delete cascade,
+  step_index integer not null,
+  state public.agent_run_state not null default 'PLANNING',
+  summary jsonb not null default '{}'::jsonb,
+  openai_run_id text,
+  openai_response_id text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create unique index if not exists idx_agent_runs_session_step on public.agent_runs(session_id, step_index);
+create index if not exists idx_agent_runs_org_created on public.agent_runs(org_id, created_at desc);
+create index if not exists idx_agent_runs_openai_run on public.agent_runs(openai_run_id);
+
+create trigger trg_agent_runs_touch
+  before update on public.agent_runs
+  for each row execute function app.touch_updated_at();
+
+create table if not exists public.agent_actions (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null references public.organizations(id) on delete cascade,
+  session_id uuid not null references public.agent_sessions(id) on delete cascade,
+  run_id uuid references public.agent_runs(id) on delete cascade,
+  action_type text not null default 'TOOL',
+  tool_key text not null,
+  input_json jsonb not null default '{}'::jsonb,
+  output_json jsonb,
+  status public.agent_action_status not null default 'PENDING',
+  requested_by_user_id uuid references auth.users(id) on delete set null,
+  requested_at timestamptz not null default now(),
+  approved_by_user_id uuid references auth.users(id) on delete set null,
+  approved_at timestamptz,
+  sensitive boolean not null default false,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists idx_agent_actions_org_status on public.agent_actions(org_id, status, requested_at desc);
+create index if not exists idx_agent_actions_session on public.agent_actions(session_id);
+create index if not exists idx_agent_actions_run on public.agent_actions(run_id);
+
+create trigger trg_agent_actions_touch
+  before update on public.agent_actions
+  for each row execute function app.touch_updated_at();
+
+create table if not exists public.agent_traces (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null references public.organizations(id) on delete cascade,
+  session_id uuid references public.agent_sessions(id) on delete set null,
+  run_id uuid references public.agent_runs(id) on delete set null,
+  trace_type public.agent_trace_type not null default 'INFO',
+  payload jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_agent_traces_org_created on public.agent_traces(org_id, created_at desc);
+create index if not exists idx_agent_traces_session on public.agent_traces(session_id);
+create index if not exists idx_agent_traces_run on public.agent_traces(run_id);
+
+create table if not exists public.tool_registry (
+  id uuid primary key default gen_random_uuid(),
+  key text not null,
+  label text,
+  description text,
+  min_role text not null default 'EMPLOYEE',
+  sensitive boolean not null default false,
+  standards_refs text[] not null default array[]::text[],
+  enabled boolean not null default true,
+  metadata jsonb not null default '{}'::jsonb,
+  org_id uuid references public.organizations(id) on delete cascade,
+  updated_by_user_id uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint tool_registry_min_role_check check (min_role in ('EMPLOYEE', 'MANAGER', 'SYSTEM_ADMIN'))
+);
+
+create unique index if not exists uq_tool_registry_key_org on public.tool_registry(key, org_id);
+create unique index if not exists uq_tool_registry_key_global on public.tool_registry(key) where org_id is null;
+create index if not exists idx_tool_registry_enabled on public.tool_registry(enabled) where enabled = true;
+
+create trigger trg_tool_registry_touch
+  before update on public.tool_registry
+  for each row execute function app.touch_updated_at();
+
+create index if not exists idx_agent_sessions_openai_thread on public.agent_sessions(openai_thread_id);
+
+create table if not exists public.openai_debug_events (
+  id uuid primary key default gen_random_uuid(),
+  request_id text not null,
+  model text,
+  endpoint text not null,
+  status_code integer,
+  org_id uuid references public.organizations(id) on delete set null,
+  metadata jsonb not null default '{}'::jsonb,
+  debug jsonb,
+  created_at timestamptz not null default now()
+);
+
+create unique index if not exists uq_openai_debug_request_id on public.openai_debug_events(request_id);
+
 -- Approval queue ----------------------------------------------------------
 create type if not exists public.approval_status as enum (
   'PENDING',
   'APPROVED',
+  'CHANGES_REQUESTED',
   'REJECTED',
   'CANCELLED'
 );
@@ -232,16 +341,23 @@ create type if not exists public.approval_stage as enum (
 create table if not exists public.approval_queue (
   id uuid primary key default gen_random_uuid(),
   org_id uuid not null references public.organizations(id) on delete cascade,
-  engagement_id uuid not null references public.engagements(id) on delete cascade,
+  engagement_id uuid references public.engagements(id) on delete set null,
   kind text not null,
-  stage public.approval_stage not null,
+  stage public.approval_stage not null default 'MANAGER',
   status public.approval_status not null default 'PENDING',
   candidate_id uuid references public.kam_candidates(id) on delete cascade,
   draft_id uuid references public.kam_drafts(id) on delete cascade,
   assignee_user_id uuid references auth.users(id) on delete set null,
-  payload jsonb not null default '{}'::jsonb,
-  created_by_user_id uuid not null references auth.users(id) on delete restrict,
+  requested_at timestamptz not null default now(),
+  requested_by_user_id uuid references auth.users(id) on delete set null,
+  approved_by_user_id uuid references auth.users(id) on delete set null,
+  decision_at timestamptz,
+  decision_comment text,
+  context_json jsonb not null default '{}'::jsonb,
+  created_by_user_id uuid references auth.users(id) on delete restrict,
   updated_by_user_id uuid references auth.users(id) on delete set null,
+  session_id uuid references public.agent_sessions(id) on delete set null,
+  action_id uuid references public.agent_actions(id) on delete set null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   resolved_at timestamptz,
@@ -254,8 +370,11 @@ create table if not exists public.approval_queue (
 );
 
 create index if not exists idx_approval_queue_org_status on public.approval_queue(org_id, status);
+create index if not exists idx_approval_queue_requested_at on public.approval_queue(org_id, requested_at desc);
+create index if not exists idx_approval_queue_kind_status on public.approval_queue(org_id, kind, status);
 create index if not exists idx_approval_queue_engagement on public.approval_queue(engagement_id);
 create index if not exists idx_approval_queue_stage on public.approval_queue(stage);
+create index if not exists idx_approval_queue_session on public.approval_queue(session_id);
 
 create trigger trg_approval_queue_touch
   before update on public.approval_queue

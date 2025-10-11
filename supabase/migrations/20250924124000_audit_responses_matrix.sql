@@ -1,8 +1,26 @@
 -- Audit responses matrix schema (AP-PLAN-3)
 BEGIN;
 
-CREATE TYPE IF NOT EXISTS public.response_type AS ENUM ('CONTROL', 'SUBSTANTIVE', 'ANALYTICS', 'SAMPLING', 'OTHER');
-CREATE TYPE IF NOT EXISTS public.response_status AS ENUM ('PLANNED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED');
+DO $$
+BEGIN
+  CREATE TYPE public.response_type AS ENUM (
+'CONTROL', 'SUBSTANTIVE', 'ANALYTICS', 'SAMPLING', 'OTHER'
+  );
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END;
+$$;
+
+DO $$
+BEGIN
+  CREATE TYPE public.response_status AS ENUM (
+'PLANNED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'
+  );
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END;
+$$;
+
 
 CREATE TABLE IF NOT EXISTS public.audit_responses (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

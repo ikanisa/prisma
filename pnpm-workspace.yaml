@@ -1,0 +1,6 @@
+# Temporary workspace scaffold; individual packages will be migrated gradually.
+packages:
+  - apps/gateway
+  - apps/web
+  - services/**
+  - packages/**

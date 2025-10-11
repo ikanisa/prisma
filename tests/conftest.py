@@ -1,4 +1,5 @@
 import json
+import os
 from pathlib import Path
 import pytest
 
@@ -24,3 +25,16 @@ def isa_qa():
 @pytest.fixture(scope="session")
 def ledger_snippets():
     return _load_json("ledger_snippets.json")
+
+
+# Set default environment values for tests to avoid import-time crashes
+def _set_default_env() -> None:
+    os.environ.setdefault("SUPABASE_URL", "http://localhost:9999")
+    os.environ.setdefault("SUPABASE_SERVICE_ROLE_KEY", "local-service-role-key")
+    os.environ.setdefault("SUPABASE_JWT_SECRET", "local-jwt-secret")
+    os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
+    os.environ.setdefault("DATABASE_URL", "postgresql+psycopg://postgres:postgres@localhost:5432/postgres")
+    os.environ.setdefault("OTEL_SERVICE_NAME", "backend-api-test")
+
+
+_set_default_env()

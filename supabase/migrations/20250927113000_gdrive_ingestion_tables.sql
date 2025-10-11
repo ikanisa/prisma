@@ -28,11 +28,11 @@ DROP POLICY IF EXISTS gdrive_connectors_rw ON public.gdrive_connectors;
 CREATE POLICY gdrive_connectors_rw ON public.gdrive_connectors
   FOR ALL USING (
     public.is_member_of(gdrive_connectors.org_id)
-    AND public.has_min_role(gdrive_connectors.org_id, 'MANAGER')
+    AND public.has_min_role(gdrive_connectors.org_id, 'MANAGER'::public.role_level)
   )
   WITH CHECK (
     public.is_member_of(gdrive_connectors.org_id)
-    AND public.has_min_role(gdrive_connectors.org_id, 'MANAGER')
+    AND public.has_min_role(gdrive_connectors.org_id, 'MANAGER'::public.role_level)
   );
 
 CREATE TABLE IF NOT EXISTS public.gdrive_change_queue (
@@ -58,11 +58,11 @@ DROP POLICY IF EXISTS gdrive_change_queue_rw ON public.gdrive_change_queue;
 CREATE POLICY gdrive_change_queue_rw ON public.gdrive_change_queue
   FOR ALL USING (
     public.is_member_of(gdrive_change_queue.org_id)
-    AND public.has_min_role(gdrive_change_queue.org_id, 'MANAGER')
+    AND public.has_min_role(gdrive_change_queue.org_id, 'MANAGER'::public.role_level)
   )
   WITH CHECK (
     public.is_member_of(gdrive_change_queue.org_id)
-    AND public.has_min_role(gdrive_change_queue.org_id, 'MANAGER')
+    AND public.has_min_role(gdrive_change_queue.org_id, 'MANAGER'::public.role_level)
   );
 
 CREATE TABLE IF NOT EXISTS public.gdrive_documents (
@@ -88,11 +88,11 @@ DROP POLICY IF EXISTS gdrive_documents_rw ON public.gdrive_documents;
 CREATE POLICY gdrive_documents_rw ON public.gdrive_documents
   FOR ALL USING (
     public.is_member_of(gdrive_documents.org_id)
-    AND public.has_min_role(gdrive_documents.org_id, 'MANAGER')
+    AND public.has_min_role(gdrive_documents.org_id, 'MANAGER'::public.role_level)
   )
   WITH CHECK (
     public.is_member_of(gdrive_documents.org_id)
-    AND public.has_min_role(gdrive_documents.org_id, 'MANAGER')
+    AND public.has_min_role(gdrive_documents.org_id, 'MANAGER'::public.role_level)
   );
 
 CREATE TABLE IF NOT EXISTS public.gdrive_file_metadata (
@@ -114,9 +114,9 @@ DROP POLICY IF EXISTS gdrive_file_metadata_rw ON public.gdrive_file_metadata;
 CREATE POLICY gdrive_file_metadata_rw ON public.gdrive_file_metadata
   FOR ALL USING (
     public.is_member_of(gdrive_file_metadata.org_id)
-    AND public.has_min_role(gdrive_file_metadata.org_id, 'MANAGER')
+    AND public.has_min_role(gdrive_file_metadata.org_id, 'MANAGER'::public.role_level)
   )
   WITH CHECK (
     public.is_member_of(gdrive_file_metadata.org_id)
-    AND public.has_min_role(gdrive_file_metadata.org_id, 'MANAGER')
+    AND public.has_min_role(gdrive_file_metadata.org_id, 'MANAGER'::public.role_level)
   );

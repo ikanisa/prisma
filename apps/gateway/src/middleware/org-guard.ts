@@ -1,7 +1,6 @@
 import type { RequestHandler } from 'express';
+import { DEFAULT_ROLE_HIERARCHY, getRoleHierarchy } from '../../../../packages/system-config/index.js';
 import { bindOrgContext } from '../utils/request-context';
-
-const DEFAULT_ROLE_HIERARCHY = ['STAFF', 'MANAGER', 'PARTNER', 'SYSTEM_ADMIN'];
 
 export type OrgGuardOptions = {
   minimumRole?: string;
@@ -69,8 +68,21 @@ declare module 'express-serve-static-core' {
   }
 }
 
+const FALLBACK_ROLE_HIERARCHY = [...DEFAULT_ROLE_HIERARCHY];
+let cachedRoleHierarchy = [...DEFAULT_ROLE_HIERARCHY];
+
+getRoleHierarchy()
+  .then((roles) => {
+    if (Array.isArray(roles) && roles.length > 0) {
+      cachedRoleHierarchy = roles.map((role) => role.toUpperCase());
+    }
+  })
+  .catch(() => {
+    cachedRoleHierarchy = [...FALLBACK_ROLE_HIERARCHY];
+  });
+
 export function createOrgGuard(options: OrgGuardOptions = {}): RequestHandler {
-  const hierarchy = options.roleHierarchy ?? DEFAULT_ROLE_HIERARCHY;
+  const hierarchy = options.roleHierarchy ?? cachedRoleHierarchy;
   return (req, res, next) => {
     const orgId = resolveOrgId(req);
     if (!orgId) {

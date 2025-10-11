@@ -23,6 +23,7 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
 import httpx
 from pydantic import BaseModel, Field, ConfigDict
+from functools import lru_cache
 from opentelemetry import trace
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.sdk.resources import Resource
@@ -38,7 +39,6 @@ import uuid
 import hashlib
 import os.path
 
-from openai import AsyncOpenAI
 
 from services.analytics.jobs import anomaly_scan_job, policy_check_job, reembed_job
 
@@ -72,6 +72,8 @@ from .config_loader import (
     get_workflow_definitions,
     get_url_source_settings,
     get_release_control_settings,
+    get_role_rank_map,
+    get_managerial_roles,
 )
 from .release_controls import evaluate_release_controls, summarise_release_environment
 from .workflow_orchestrator import (
@@ -79,10 +81,13 @@ from .workflow_orchestrator import (
     complete_workflow_step,
     get_workflow_suggestions,
 )
+from .openai_client import get_openai_client
 
 app = FastAPI()
 
-SERVICE_NAME = os.getenv("OTEL_SERVICE_NAME", "gateway")
+# OpenTelemetry service identity and environment
+SERVICE_NAME = os.getenv("OTEL_SERVICE_NAME", "backend-api")
+RUNTIME_ENVIRONMENT = os.getenv("SENTRY_ENVIRONMENT", os.getenv("ENVIRONMENT", "development"))
 _OTEL_CONFIGURED = False
 
 
@@ -90,7 +95,13 @@ def _configure_tracing(target_app: FastAPI) -> trace.Tracer:
     global _OTEL_CONFIGURED
 
     if not _OTEL_CONFIGURED:
-        resource = Resource.create({"service.name": SERVICE_NAME})
+        service_version = os.getenv("SERVICE_VERSION") or os.getenv("SENTRY_RELEASE") or "dev"
+        resource = Resource.create({
+            "service.name": SERVICE_NAME,
+            "service.namespace": "prisma-glow",
+            "deployment.environment": RUNTIME_ENVIRONMENT,
+            "service.version": service_version,
+        })
         provider = TracerProvider(resource=resource)
         otlp_endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
         if otlp_endpoint:
@@ -125,34 +136,18 @@ if SENTRY_ENABLED:
     )
 
 PERMISSION_CONFIG_PATH = Path(__file__).resolve().parents[1] / "POLICY" / "permissions.json"
-PERMISSION_MAP: Dict[str, str] = {}
-CLIENT_SCOPE = get_client_portal_scope()
-CLIENT_ALLOWED_DOCUMENT_REPOS: List[str] = CLIENT_SCOPE.get("allowed_repos", [])
-ROLE_DENY_ACTIONS: Dict[str, Set[str]] = {
-    "CLIENT": set(CLIENT_SCOPE.get("denied_actions", []))
-}
-GOOGLE_DRIVE_SETTINGS = get_google_drive_settings()
-URL_SOURCE_SETTINGS = get_url_source_settings()
-EMAIL_INGEST_SETTINGS = get_email_ingest_settings()
-BEFORE_ASKING_SEQUENCE = get_before_asking_user_sequence()
-AUTONOMY_LEVELS = get_autonomy_levels()
-DEFAULT_AUTONOMY_LEVEL_VALUE = get_default_autonomy_level()
-AUTONOMY_JOB_ALLOWANCES = get_autonomy_job_allowances()
 AUTONOMY_LEVEL_RANK = {"L0": 0, "L1": 1, "L2": 2, "L3": 3}
 LEGACY_AUTONOMY_NUMERIC_MAP = {0: "L0", 1: "L1", 2: "L2", 3: "L3", 4: "L3", 5: "L3"}
 DEFAULT_IMPERSONATION_EXPIRY_HOURS = 8
 RESERVED_ORG_SETTINGS_FIELDS = {"default_role", "impersonation_breakglass_emails"}
-TOOL_POLICIES = get_tool_policies()
-AGENT_REGISTRY = get_agent_registry()
-WORKFLOW_DEFINITIONS = get_workflow_definitions()
-RELEASE_CONTROL_SETTINGS = get_release_control_settings()
 
 
 def resolve_agent_for_tool(tool_name: str) -> Optional[str]:
     normalised = tool_name.strip().lower()
     if not normalised:
         return None
-    for agent_id, definition in AGENT_REGISTRY.items():
+    registry = get_agent_registry_config()
+    for agent_id, definition in registry.items():
         tools = definition.get("tools") if isinstance(definition, Mapping) else None
         if not isinstance(tools, list):
             continue
@@ -303,8 +298,6 @@ def _load_permission_map() -> Dict[str, str]:
     return merged
 
 
-PERMISSION_MAP = _load_permission_map()
-
 ALLOWED_ORIGINS = normalise_allowed_origins(os.getenv("API_ALLOWED_ORIGINS"))
 
 app.add_middleware(
@@ -452,7 +445,7 @@ NOTIFICATION_KIND_TO_FRONTEND = {
     "SYSTEM": "system",
 }
 
-assistant_client = AsyncOpenAI()
+assistant_client = get_openai_client()
 
 KNOWLEDGE_ALLOWED_DOMAINS = {"IAS", "IFRS", "ISA", "TAX", "ORG"}
 
@@ -598,17 +591,6 @@ async def require_auth(authorization: str = Header(...)) -> Dict[str, Any]:
     return payload
 
 
-ROLE_RANK = {
-    "SERVICE_ACCOUNT": 10,
-    "READONLY": 20,
-    "CLIENT": 30,
-    "EMPLOYEE": 40,
-    "MANAGER": 70,
-    "EQR": 80,
-    "PARTNER": 90,
-    "SYSTEM_ADMIN": 100,
-}
-
 MEMBERSHIP_AUTONOMY_DEFAULTS = {
     "SYSTEM_ADMIN": ("L0", "L3"),
     "PARTNER": ("L1", "L3"),
@@ -626,18 +608,20 @@ def normalise_role(value: Optional[str]) -> str:
 
 
 def normalise_autonomy_level(value: Optional[str]) -> str:
+    default_level = get_default_autonomy_level_value()
     if isinstance(value, str):
         candidate = value.strip().upper()
         if candidate in AUTONOMY_LEVEL_RANK:
             return candidate
-    return DEFAULT_AUTONOMY_LEVEL_VALUE
+    return default_level
 
 
 def membership_settings_for_role(role: str) -> Dict[str, Any]:
     normalized = normalise_role(role)
     floor, ceiling = MEMBERSHIP_AUTONOMY_DEFAULTS.get(normalized, ("L0", "L2"))
-    allowed = CLIENT_SCOPE.get("allowed_repos", []) if normalized == "CLIENT" else []
-    denied = CLIENT_SCOPE.get("denied_actions", []) if normalized == "CLIENT" else []
+    scope = _client_scope_settings()
+    allowed = scope.get("allowed_repos", []) if normalized == "CLIENT" else []
+    denied = scope.get("denied_actions", []) if normalized == "CLIENT" else []
     return {
         "autonomy_floor": normalise_autonomy_level(floor),
         "autonomy_ceiling": normalise_autonomy_level(ceiling),
@@ -649,9 +633,11 @@ def membership_settings_for_role(role: str) -> Dict[str, Any]:
 
 def is_autopilot_job_allowed(level: str, job_kind: str) -> bool:
     normalized_level = normalise_autonomy_level(level)
-    allowed = AUTONOMY_JOB_ALLOWANCES.get(normalized_level)
+    allowances = get_autonomy_job_allowances_config()
+    allowed = allowances.get(normalized_level)
     if allowed is None:
-        allowed = AUTONOMY_JOB_ALLOWANCES.get(DEFAULT_AUTONOMY_LEVEL_VALUE, [])
+        default_level = get_default_autonomy_level_value()
+        allowed = allowances.get(default_level, [])
     return job_kind.lower() in {entry.lower() for entry in allowed}
 
 
@@ -664,29 +650,33 @@ def minimum_autonomy_for_job(job_kind: str) -> str:
     job = (job_kind or "").lower()
     best_level: Optional[str] = None
     best_rank: Optional[int] = None
-    for level, jobs in AUTONOMY_JOB_ALLOWANCES.items():
+    allowances = get_autonomy_job_allowances_config()
+    for level, jobs in allowances.items():
         job_entries = {entry.lower() for entry in jobs}
         if job in job_entries:
             rank = AUTONOMY_LEVEL_RANK.get(level, 0)
             if best_rank is None or rank < best_rank:
                 best_level = level
                 best_rank = rank
-    return best_level or DEFAULT_AUTONOMY_LEVEL_VALUE
+    return best_level or get_default_autonomy_level_value()
 
 
 def ensure_min_role(role: Optional[str], minimum: str) -> None:
-    current_rank = ROLE_RANK.get(normalise_role(role), 0)
-    required_rank = ROLE_RANK.get(normalise_role(minimum), ROLE_RANK["EMPLOYEE"])
+    ranks = get_role_rank_map_config()
+    current_rank = ranks.get(normalise_role(role), 0)
+    required_rank = ranks.get(normalise_role(minimum), ranks.get("EMPLOYEE", 0))
     if current_rank < required_rank:
         raise HTTPException(status_code=403, detail="insufficient role")
 
 
 def has_manager_privileges(role: str) -> bool:
-    return ROLE_RANK.get(normalise_role(role), 0) >= ROLE_RANK["MANAGER"]
+    ranks = get_role_rank_map_config()
+    return ranks.get(normalise_role(role), 0) >= ranks.get("MANAGER", 0)
 
 
 def get_required_role_for_permission(permission: str) -> Optional[str]:
-    required = PERMISSION_MAP.get(permission)
+    permission_map = get_permission_map_snapshot()
+    required = permission_map.get(permission)
     return normalise_role(required) if isinstance(required, str) else None
 
 
@@ -695,11 +685,13 @@ def has_permission(role: Optional[str], permission: str) -> bool:
     required = get_required_role_for_permission(permission)
     if not required:
         return True
-    return ROLE_RANK.get(normalized_role, 0) >= ROLE_RANK.get(required, 0)
+    ranks = get_role_rank_map_config()
+    return ranks.get(normalized_role, 0) >= ranks.get(required, 0)
 
 
 def is_action_denied_for_role(role: str, permission: str) -> bool:
-    denied = ROLE_DENY_ACTIONS.get(role)
+    deny_map = get_role_deny_actions()
+    denied = deny_map.get(role)
     return permission in denied if denied else False
 
 
@@ -741,8 +733,6 @@ def _normalise_emails(values: Optional[Iterable[str]]) -> List[str]:
     return result
 
 
-ORG_ROLE_VALUES = set(ROLE_RANK.keys())
-MANAGERIAL_ROLES = {"MANAGER", "PARTNER", "SYSTEM_ADMIN", "EQR"}
 TEAM_ROLE_VALUES = {"LEAD", "MEMBER", "VIEWER"}
 
 
@@ -826,7 +816,7 @@ async def count_managerial_members(org_id: str) -> int:
 
 def validate_org_role(role: str) -> str:
     value = normalise_role(role)
-    if value not in ORG_ROLE_VALUES:
+    if value not in get_org_role_values():
         raise HTTPException(status_code=400, detail="invalid role")
     return value
 
@@ -839,7 +829,8 @@ def validate_team_role(role: Optional[str]) -> str:
 
 
 def ensure_role_not_below_manager(role: str) -> None:
-    if ROLE_RANK.get(normalise_role(role), 0) < ROLE_RANK["MANAGER"]:
+    ranks = get_role_rank_map_config()
+    if ranks.get(normalise_role(role), 0) < ranks.get("MANAGER", 0):
         raise HTTPException(status_code=403, detail="manager privileges required")
 
 
@@ -1111,7 +1102,7 @@ async def count_table_rows(table: str, params: Dict[str, Any]) -> int:
 
 async def gather_before_asking_sequence(org_id: str) -> List[Dict[str, Any]]:
     sequence_results: List[Dict[str, Any]] = []
-    for source in BEFORE_ASKING_SEQUENCE:
+    for source in get_before_asking_sequence_config():
         if source == "documents":
             count = await count_table_rows("documents", {"org_id": f"eq.{org_id}"})
         elif source == "google_drive":
@@ -1169,10 +1160,10 @@ async def fetch_org_autonomy_level(org_id: str) -> str:
             body=response.text,
             org_id=org_id,
         )
-        return DEFAULT_AUTONOMY_LEVEL_VALUE
+        return get_default_autonomy_level_value()
     rows = response.json()
     if not rows:
-        return DEFAULT_AUTONOMY_LEVEL_VALUE
+        return get_default_autonomy_level_value()
     return normalise_autonomy_level(rows[0].get("autonomy_level"))
 
 
@@ -1901,7 +1892,7 @@ async def _run_autopilot_job(job: Dict[str, Any]) -> None:
         raise ValueError(f"unsupported autopilot job kind: {raw_kind}")
 
     org_id = job.get("org_id")
-    autonomy_level = DEFAULT_AUTONOMY_LEVEL_VALUE
+    autonomy_level = get_default_autonomy_level_value()
     if org_id:
         autonomy_level = await fetch_org_autonomy_level(org_id)
     if not is_autopilot_job_allowed(autonomy_level, kind):
@@ -2428,7 +2419,7 @@ async def tool_workflow_run_step(context: Dict[str, str], user_id: str, args: Di
             "document_ids": [],
         }
 
-    definitions = WORKFLOW_DEFINITIONS or get_workflow_definitions()
+    definitions = get_workflow_definitions_config()
     definition = definitions.get(workflow_key)
     if not definition:
         return {
@@ -2564,7 +2555,8 @@ async def invoke_tool(context: Dict[str, str], user_id: str, tool_name: str, arg
     if handler is None:
         raise HTTPException(status_code=400, detail="unknown tool")
 
-    policy = TOOL_POLICIES.get(tool_name, {})
+    tool_policies = get_tool_policies_config()
+    policy = tool_policies.get(tool_name, {})
     required_permission = policy.get("required_permission") if isinstance(policy, Mapping) else None
     if isinstance(required_permission, str) and required_permission.strip():
         ensure_permission_for_role(context.get("role"), required_permission.strip())
@@ -3444,7 +3436,7 @@ async def check_release_controls(payload: Dict[str, Any], auth: Dict[str, Any] =
         else None
     )
 
-    requirements = RELEASE_CONTROL_SETTINGS
+    requirements = get_release_control_settings_config()
     archive_settings = requirements.get("archive", {}) if isinstance(requirements, Mapping) else {}
 
     status = await evaluate_release_controls(
@@ -3929,7 +3921,9 @@ async def update_member_role(payload: UpdateRoleRequest, auth: Dict[str, Any] = 
     if new_role == "SYSTEM_ADMIN" and normalise_role(actor_role) != "SYSTEM_ADMIN":
         raise HTTPException(status_code=403, detail="system admin required to grant SYSTEM_ADMIN")
 
-    if current_role in MANAGERIAL_ROLES and ROLE_RANK.get(new_role, 0) < ROLE_RANK["MANAGER"]:
+    managerial_roles = get_managerial_roles_config()
+    ranks = get_role_rank_map_config()
+    if current_role in managerial_roles and ranks.get(new_role, 0) < ranks.get("MANAGER", 0):
         remaining = await count_managerial_members(payload.orgId)
         if remaining <= 1:
             raise HTTPException(status_code=409, detail="cannot demote last manager or partner")
@@ -5299,7 +5293,7 @@ async def list_documents_endpoint(
     repo_value = (repo or "").strip() or None
     if role == "CLIENT":
         ensure_permission_for_role(role, "documents.view_client")
-        allowed_repos = CLIENT_ALLOWED_DOCUMENT_REPOS or ["03_Accounting/PBC"]
+        allowed_repos = get_client_allowed_document_repos() or ["03_Accounting/PBC"]
         if repo_value and repo_value not in allowed_repos:
             raise HTTPException(status_code=403, detail="forbidden")
         scoped_repos = allowed_repos if repo_value is None else [repo_value]
@@ -5354,9 +5348,10 @@ async def upload_document_endpoint(
     ensure_permission_for_role(role, "documents.upload")
 
     if role == "CLIENT":
-        default_repo = CLIENT_ALLOWED_DOCUMENT_REPOS[0] if CLIENT_ALLOWED_DOCUMENT_REPOS else "03_Accounting/PBC"
+        allowed_repos = get_client_allowed_document_repos()
+        default_repo = allowed_repos[0] if allowed_repos else "03_Accounting/PBC"
         target_repo = (repo_folder or default_repo).strip() or default_repo
-        if target_repo not in CLIENT_ALLOWED_DOCUMENT_REPOS:
+        if target_repo not in allowed_repos:
             raise HTTPException(status_code=403, detail="forbidden")
         repo_value = target_repo
     else:
@@ -5386,7 +5381,7 @@ async def upload_document_endpoint(
 
     checksum = hashlib.sha256(payload).hexdigest()
 
-    portal_visible = repo_value in CLIENT_ALLOWED_DOCUMENT_REPOS
+    portal_visible = repo_value in get_client_allowed_document_repos()
 
     document_payload = {
         "org_id": context["org_id"],
@@ -5525,7 +5520,7 @@ async def sign_document_endpoint(
     repo_folder = document.get("repo_folder")
     if role == "CLIENT":
         ensure_permission_for_role(role, "documents.view_client")
-        if repo_folder not in CLIENT_ALLOWED_DOCUMENT_REPOS:
+        if repo_folder not in get_client_allowed_document_repos():
             raise HTTPException(status_code=403, detail="forbidden")
     else:
         ensure_permission_for_role(role, "documents.view_internal")
@@ -6103,13 +6098,16 @@ async def autonomy_status(
     autonomy_floor = normalise_autonomy_level(context.get("autonomy_floor"))
     autonomy_ceiling = normalise_autonomy_level(context.get("autonomy_ceiling"))
 
-    level_description = AUTONOMY_LEVELS.get(autonomy_level) or AUTONOMY_LEVELS.get(
-        DEFAULT_AUTONOMY_LEVEL_VALUE,
+    autonomy_levels_map = get_autonomy_levels_config()
+    default_level = get_default_autonomy_level_value()
+    level_description = autonomy_levels_map.get(autonomy_level) or autonomy_levels_map.get(
+        default_level,
         autonomy_level,
     )
+    allowances = get_autonomy_job_allowances_config()
     allowed_jobs = [
         {"kind": job, "label": job.replace("_", " ").title()}
-        for job in AUTONOMY_JOB_ALLOWANCES.get(autonomy_level, [])
+        for job in allowances.get(autonomy_level, [])
     ]
 
     alerts: List[Dict[str, Any]] = []
@@ -6264,11 +6262,12 @@ async def knowledge_drive_metadata(
             "serviceAccountEmail": connector_row.get("service_account_email"),
         }
 
+    drive_settings = get_google_drive_config()
     settings = {
-        "enabled": GOOGLE_DRIVE_SETTINGS.get("enabled", False),
-        "oauthScopes": GOOGLE_DRIVE_SETTINGS.get("oauth_scopes", []),
-        "folderMappingPattern": GOOGLE_DRIVE_SETTINGS.get("folder_mapping_pattern"),
-        "mirrorToStorage": GOOGLE_DRIVE_SETTINGS.get("mirror_to_storage", True),
+        "enabled": drive_settings.get("enabled", False),
+        "oauthScopes": drive_settings.get("oauth_scopes", []),
+        "folderMappingPattern": drive_settings.get("folder_mapping_pattern"),
+        "mirrorToStorage": drive_settings.get("mirror_to_storage", True),
     }
 
     return {"connector": connector_payload, "settings": settings}
@@ -6416,12 +6415,13 @@ async def knowledge_drive_status(
             body=recent_errors_resp.text,
         )
 
+    drive_settings = get_google_drive_config()
     return {
         "config": {
-            "enabled": GOOGLE_DRIVE_SETTINGS.get("enabled", False),
-            "oauthScopes": GOOGLE_DRIVE_SETTINGS.get("oauth_scopes", []),
-            "folderMappingPattern": GOOGLE_DRIVE_SETTINGS.get("folder_mapping_pattern"),
-            "mirrorToStorage": GOOGLE_DRIVE_SETTINGS.get("mirror_to_storage", True),
+            "enabled": drive_settings.get("enabled", False),
+            "oauthScopes": drive_settings.get("oauth_scopes", []),
+            "folderMappingPattern": drive_settings.get("folder_mapping_pattern"),
+            "mirrorToStorage": drive_settings.get("mirror_to_storage", True),
         },
         "connector": connector_payload,
         "queue": {
@@ -6458,11 +6458,12 @@ async def knowledge_web_sources(
         logger.error("knowledge.web_sources_failed", status=response.status_code, body=response.text)
         raise HTTPException(status_code=502, detail="failed to load web sources")
     sources = response.json()
-    policy = URL_SOURCE_SETTINGS.get("fetch_policy", {}) if isinstance(URL_SOURCE_SETTINGS, Mapping) else {}
+    url_settings = get_url_source_config()
+    policy = url_settings.get("fetch_policy", {}) if isinstance(url_settings, Mapping) else {}
     return {
         "sources": sources,
         "settings": {
-            "allowedDomains": URL_SOURCE_SETTINGS.get("allowed_domains", []),
+            "allowedDomains": url_settings.get("allowed_domains", []),
             "fetchPolicy": {
                 "obeyRobots": policy.get("obey_robots", True),
                 "maxDepth": policy.get("max_depth", 1),
@@ -6893,7 +6894,7 @@ async def create_job_schedule(
         raise HTTPException(status_code=403, detail="Autonomy level does not permit scheduling this job")
 
     required_autonomy = minimum_autonomy_for_job(job_kind)
-    actor_ceiling = context.get("autonomy_ceiling") or DEFAULT_AUTONOMY_LEVEL_VALUE
+    actor_ceiling = context.get("autonomy_ceiling") or get_default_autonomy_level_value()
     if AUTONOMY_LEVEL_RANK.get(actor_ceiling, 0) < AUTONOMY_LEVEL_RANK.get(required_autonomy, 0):
         logger.info(
             "autonomy.member_ceiling_blocked",
@@ -6984,7 +6985,7 @@ async def enqueue_job(
         raise HTTPException(status_code=403, detail="Autonomy level does not permit running this job")
 
     required_autonomy = minimum_autonomy_for_job(job_kind)
-    actor_ceiling = context.get("autonomy_ceiling") or DEFAULT_AUTONOMY_LEVEL_VALUE
+    actor_ceiling = context.get("autonomy_ceiling") or get_default_autonomy_level_value()
     if AUTONOMY_LEVEL_RANK.get(actor_ceiling, 0) < AUTONOMY_LEVEL_RANK.get(required_autonomy, 0):
         logger.info(
             "autonomy.member_ceiling_blocked_run",
@@ -7053,3 +7054,104 @@ async def readiness_probe():
     report = await build_readiness_report(AsyncSessionLocal, redis_conn)
     status_code = status.HTTP_200_OK if report["status"] == "ok" else status.HTTP_503_SERVICE_UNAVAILABLE
     return JSONResponse(report, status_code=status_code)
+def _client_scope_settings() -> Mapping[str, Any]:
+    scope = get_client_portal_scope()
+    return scope if isinstance(scope, Mapping) else {}
+
+
+def get_client_allowed_document_repos() -> List[str]:
+    scope = _client_scope_settings()
+    allowed = scope.get("allowed_repos")
+    if isinstance(allowed, Iterable) and not isinstance(allowed, (str, bytes)):
+        return [str(entry) for entry in allowed if entry]
+    return []
+
+
+def get_role_deny_actions() -> Dict[str, Set[str]]:
+    scope = _client_scope_settings()
+    denied = scope.get("denied_actions")
+    result: Dict[str, Set[str]] = {}
+    if isinstance(denied, Mapping):
+        for role, entries in denied.items():
+            if not role:
+                continue
+            role_key = str(role).upper()
+            if isinstance(entries, Iterable) and not isinstance(entries, (str, bytes)):
+                result[role_key] = {str(item) for item in entries if item}
+            else:
+                result[role_key] = set()
+    elif isinstance(denied, Iterable) and not isinstance(denied, (str, bytes)):
+        result["CLIENT"] = {str(item) for item in denied if item}
+    if "CLIENT" not in result:
+        result["CLIENT"] = set()
+    return result
+
+
+def get_google_drive_config() -> Dict[str, Any]:
+    return get_google_drive_settings()
+
+
+def get_url_source_config() -> Dict[str, Any]:
+    return get_url_source_settings()
+
+
+def get_email_ingest_config() -> Dict[str, Any]:
+    return get_email_ingest_settings()
+
+
+def get_before_asking_sequence_config() -> List[str]:
+    sequence = get_before_asking_user_sequence()
+    return sequence if isinstance(sequence, list) else list(sequence)
+
+
+def get_autonomy_levels_config() -> Dict[str, str]:
+    return get_autonomy_levels()
+
+
+def get_default_autonomy_level_value() -> str:
+    return get_default_autonomy_level()
+
+
+def get_autonomy_job_allowances_config() -> Dict[str, List[str]]:
+    return get_autonomy_job_allowances()
+
+
+def get_tool_policies_config() -> Dict[str, Dict[str, Any]]:
+    return get_tool_policies()
+
+
+def get_agent_registry_config() -> Dict[str, Dict[str, Any]]:
+    return get_agent_registry()
+
+
+def get_workflow_definitions_config() -> Dict[str, Dict[str, Any]]:
+    return get_workflow_definitions()
+
+
+def get_release_control_settings_config() -> Dict[str, Any]:
+    return get_release_control_settings()
+
+
+def get_role_rank_map_config() -> Dict[str, int]:
+    return get_role_rank_map()
+
+
+def get_managerial_roles_config() -> Set[str]:
+    return get_managerial_roles()
+
+
+@lru_cache(maxsize=1)
+def _permission_map_snapshot() -> Dict[str, str]:
+    return _load_permission_map()
+
+
+def get_permission_map_snapshot() -> Dict[str, str]:
+    return dict(_permission_map_snapshot())
+
+
+def clear_permission_map_cache() -> None:
+    _permission_map_snapshot.cache_clear()
+
+
+def get_org_role_values() -> Set[str]:
+    return set(get_role_rank_map_config().keys())

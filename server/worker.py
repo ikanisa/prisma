@@ -1,13 +1,13 @@
 import os
-from rq import Connection, Worker
+
 import redis
-from openai import AsyncOpenAI
+from rq import Connection, Worker
+
 from .db import AsyncSessionLocal, Chunk
 from .rag import embed_chunks
 
 redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 conn = redis.from_url(redis_url)
-client = AsyncOpenAI()
 
 def reembed_chunk(chunk_id: int):
     async def _run():

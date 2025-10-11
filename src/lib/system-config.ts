@@ -1,6 +1,15 @@
 import { useMemo } from 'react';
 import { parse } from 'yaml';
 import rawSystemConfig from '../../config/system.yaml?raw';
+import {
+  AUTONOMY_LEVEL_ORDER,
+  DEFAULT_AUTONOMY_LABELS,
+  DEFAULT_AUTONOMY_LEVEL,
+  cloneDefaultAutopilotAllowances,
+  type AutonomyLevel,
+} from './config/constants';
+
+export type { AutonomyLevel } from './config/constants';
 
 export interface SystemConfig {
   meta?: {
@@ -212,21 +221,6 @@ const DEFAULT_ASSISTANT_POSITION = 'bottom-right';
 const DEFAULT_MOTION_PRESET = 'subtle';
 const DEFAULT_THEME_PRESET = 'modern-gradient';
 const DEFAULT_CLIENT_ALLOWED_REPOS = ['02_Tax/PBC', '03_Accounting/PBC', '05_Payroll/PBC'];
-const DEFAULT_AUTONOMY_LEVEL = 'L2';
-const AUTONOMY_LEVEL_ORDER: Record<string, number> = { L0: 0, L1: 1, L2: 2, L3: 3 };
-export type AutonomyLevel = keyof typeof AUTONOMY_LEVEL_ORDER;
-const DEFAULT_AUTONOMY_LABELS: Record<AutonomyLevel, string> = {
-  L0: 'Manual: user triggers everything',
-  L1: 'Suggest: agent proposes actions; user approves',
-  L2: 'Auto-prepare: agent drafts & stages; user approves to submit/file',
-  L3: 'Autopilot: agent executes within policy; asks only if evidence is missing',
-};
-const DEFAULT_AUTOPILOT_ALLOWANCES: Record<string, string[]> = {
-  L0: [],
-  L1: ['refresh_analytics'],
-  L2: ['extract_documents', 'remind_pbc', 'refresh_analytics'],
-  L3: ['extract_documents', 'remind_pbc', 'refresh_analytics'],
-};
 const DEFAULT_DOCUMENT_AI_STEPS = ['ocr', 'classify', 'extract', 'index'] as const;
 const DEFAULT_DOCUMENT_AI_ERROR_MODE = 'quarantine_and_notify';
 const DEFAULT_URL_ALLOWED_DOMAINS = ['*'];
@@ -257,7 +251,7 @@ const DEFAULT_RELEASE_CONTROL_SETTINGS: ReleaseControlSettings = {
   },
   environment: {
     autonomy: {
-      minimumLevel: 'L2',
+      minimumLevel: DEFAULT_AUTONOMY_LEVEL,
       requireWorker: true,
       criticalRoles: ['MANAGER', 'PARTNER'],
     },
@@ -687,7 +681,7 @@ export function getReleaseControlSettings(config: SystemConfig = parsedConfig): 
   let manifestHash = DEFAULT_RELEASE_CONTROL_SETTINGS.archive.manifestHash;
   let includeDocs = [...DEFAULT_RELEASE_CONTROL_SETTINGS.archive.includeDocs];
   const defaultEnv = DEFAULT_RELEASE_CONTROL_SETTINGS.environment;
-  let environment: ReleaseControlEnvironmentSettings = {
+  const environment: ReleaseControlEnvironmentSettings = {
     autonomy: {
       minimumLevel: defaultEnv.autonomy.minimumLevel,
       requireWorker: defaultEnv.autonomy.requireWorker,
@@ -1005,12 +999,7 @@ function resolveAutonomyDefaultLevel(config: SystemConfig): AutonomyLevel {
 }
 
 function resolveAutonomyJobAllowances(config: SystemConfig): Record<AutonomyLevel, string[]> {
-  const allowances: Record<AutonomyLevel, string[]> = {
-    L0: [...DEFAULT_AUTOPILOT_ALLOWANCES.L0],
-    L1: [...DEFAULT_AUTOPILOT_ALLOWANCES.L1],
-    L2: [...DEFAULT_AUTOPILOT_ALLOWANCES.L2],
-    L3: [...DEFAULT_AUTOPILOT_ALLOWANCES.L3],
-  };
+  const allowances = cloneDefaultAutopilotAllowances();
   const configured = config.autonomy?.autopilot?.allowed_jobs;
   if (configured && typeof configured === 'object') {
     for (const [key, rawValue] of Object.entries(configured)) {

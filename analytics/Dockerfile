@@ -1,4 +1,7 @@
 FROM node:20-alpine
+ARG SERVICE_VERSION=dev
+ENV SERVICE_VERSION=${SERVICE_VERSION}
+LABEL org.opencontainers.image.revision=${SERVICE_VERSION}
 WORKDIR /app
 COPY . .
 RUN if [ -f package.json ]; then npm ci --omit=dev; fi

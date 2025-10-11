@@ -1,20 +1,42 @@
 -- Malta CIT & tax accounts schema (T-1A)
 BEGIN;
 
-CREATE TYPE IF NOT EXISTS public.tax_account_type AS ENUM (
-  'MTA',
-  'FIA',
-  'IPA',
-  'FTA',
-  'UA'
-);
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_type t
+    WHERE t.typname = 'tax_account_type'
+      AND t.typnamespace = 'public'::regnamespace
+  ) THEN
+    CREATE TYPE public.tax_account_type AS ENUM (
+      'MTA',
+      'FIA',
+      'IPA',
+      'FTA',
+      'UA'
+    );
+  END IF;
+END;
+$$;
 
-CREATE TYPE IF NOT EXISTS public.cit_refund_profile AS ENUM (
-  '6_7',
-  '5_7',
-  '2_3',
-  'NONE'
-);
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_type t
+    WHERE t.typname = 'cit_refund_profile'
+      AND t.typnamespace = 'public'::regnamespace
+  ) THEN
+    CREATE TYPE public.cit_refund_profile AS ENUM (
+      '6_7',
+      '5_7',
+      '2_3',
+      'NONE'
+    );
+  END IF;
+END;
+$$;
 
 CREATE TABLE IF NOT EXISTS public.tax_entities (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -42,6 +64,8 @@ CREATE TABLE IF NOT EXISTS public.tax_accounts (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   CONSTRAINT tax_accounts_unique UNIQUE (org_id, tax_entity_id, account_type)
 );
+
+DROP TABLE IF EXISTS public.cit_computations CASCADE;
 
 CREATE TABLE IF NOT EXISTS public.cit_computations (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

@@ -42,7 +42,19 @@ The following tables are defined in migrations:
 | `journal_entry_strategies` | `id` (PK), `org_id`, `engagement_id` FKs | Journal entry testing scope, filters, thresholds, schedule |
 | `kam_candidates` | `id` (PK), `org_id`, `engagement_id` FKs | Potential KAMs sourced from risks/estimates/GC/other |
 | `kam_drafts` | `id` (PK), `org_id`, `engagement_id`, `candidate_id` FKs | Draft narratives with procedure/evidence references |
-| `approval_queue` | `id` (PK), `org_id`, `engagement_id` FKs | Workflow queue for manager/partner/EQR approvals with autonomy gate + manifest requirement metadata |
+| `agent_sessions` | `id` (PK), `org_id`, `engagement_id`, `started_by_user_id` FKs | Conversation instances for agents including agent type, status (`RUNNING/WAITING_APPROVAL/FAILED/DONE`), autonomy metadata, and optional Agent Platform identifiers (`openai_agent_id`, `openai_thread_id`) |
+| `agent_runs` | `id` (PK), `org_id`, `session_id` FKs | Planner step execution summary (step index, JSON plan snapshot, run state) plus optional Agent Platform references (`openai_run_id`, `openai_response_id`) |
+| `chatkit_sessions` | `id` (PK), `agent_session_id` FK | Stores ChatKit/OpenAI realtime session identifiers, status, and metadata for cancel/resume workflows |
+| `agent_actions` | `id` (PK), `org_id`, `session_id`, `run_id` FKs | Individual tool invocation attempts capturing input/output JSON, sensitivity flag, requester, approval linkage |
+| `agent_traces` | `id` (PK), `org_id`, `session_id`, `run_id` FKs | Structured telemetry per agent execution (`INFO/TOOL/ERROR`) with hashes, evidence, approval resumes |
+| `agent_mcp_tools` | `id` (PK), `provider`, `tool_key` unique pair | MCP tool catalogue with JSON schema & metadata aligning local/external capabilities |
+| `agent_manifests` | `id` (PK), `agent_key`, `version` unique pair | Manifest prompts, tool bindings, and safety metadata per agent persona |
+| `agent_orchestration_sessions` | `id` (PK), `org_id` FK | Supabase-backed orchestration board linking Director/Safety agents to session objectives |
+| `agent_orchestration_tasks` | `id` (PK), `session_id` FK | Task DAG for orchestrated workflows (domain agent assignment, inputs, outputs, status) |
+| `agent_safety_events` | `id` (PK), `session_id` FK | Safety agent telemetry (rule triggers, escalations, HITL blocks) tied to sessions/tasks |
+| `openai_debug_events` | `id` (PK), `request_id` unique, `org_id` FK | OpenAI Responses/Chat/Embedding debug metadata, captured for observability and troubleshooting |
+| `tool_registry` | `id` (PK), `key` unique per `org_id` (nullable) | Catalogue of agent tools with label, description, minimum role, sensitivity, standards references, enabled flag |
+| `approval_queue` | `id` (PK), `org_id`, `engagement_id` FKs | Unified approval queue (KAM/report/TCWG/tax/agent) storing stage, status, requester/approver, context JSON, agent session/action linkage, manifest/autonomy flags |
 | `audit_report_drafts` | `id` (PK), `org_id`, `engagement_id` FKs | Opinion assembly with KAM linkage, EOM/OM toggles, approvals |
 | `tcwg_packs` | `id` (PK), `org_id`, `engagement_id` FKs | ISA 260/265 TCWG communication pack with misstatements, deficiencies, approvals |
 | `controls` | `id` (PK), `org_id`, `engagement_id` FKs | Control matrix (cycle, objective, frequency, owner, key) |

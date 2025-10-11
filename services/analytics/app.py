@@ -29,7 +29,14 @@ def _configure_tracing(app: FastAPI, service_name: str) -> trace.Tracer:
     global _TRACING_CONFIGURED
 
     if not _TRACING_CONFIGURED:
-        resource = Resource.create({"service.name": service_name})
+        environment = os.getenv("SENTRY_ENVIRONMENT", os.getenv("ENVIRONMENT", "development"))
+        service_version = os.getenv("SERVICE_VERSION") or os.getenv("SENTRY_RELEASE") or "dev"
+        resource = Resource.create({
+            "service.name": service_name,
+            "service.namespace": "prisma-glow",
+            "deployment.environment": environment,
+            "service.version": service_version,
+        })
         provider = TracerProvider(resource=resource)
         otlp_endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
         if otlp_endpoint:

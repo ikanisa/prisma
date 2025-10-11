@@ -190,7 +190,7 @@ export default function AutopilotPage() {
     if (preset && preset.cron !== cronExpression) {
       setCronExpression(preset.cron);
     }
-  }, [preset]);
+  }, [preset, cronExpression]);
 
   if (!autopilotEnabled) {
     return (

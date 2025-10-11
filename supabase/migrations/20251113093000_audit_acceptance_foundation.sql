@@ -205,11 +205,11 @@ CREATE POLICY background_checks_select ON public.client_background_checks
   FOR SELECT USING (public.is_member_of(org_id));
 DROP POLICY IF EXISTS background_checks_write ON public.client_background_checks;
 CREATE POLICY background_checks_write ON public.client_background_checks
-  FOR INSERT WITH CHECK (public.has_min_role(org_id, 'EMPLOYEE'));
+  FOR INSERT WITH CHECK (public.has_min_role(org_id, 'EMPLOYEE'::public.role_level));
 DROP POLICY IF EXISTS background_checks_update ON public.client_background_checks;
 CREATE POLICY background_checks_update ON public.client_background_checks
-  FOR UPDATE USING (public.has_min_role(org_id, 'EMPLOYEE'))
-  WITH CHECK (public.has_min_role(org_id, 'EMPLOYEE'));
+  FOR UPDATE USING (public.has_min_role(org_id, 'EMPLOYEE'::public.role_level))
+  WITH CHECK (public.has_min_role(org_id, 'EMPLOYEE'::public.role_level));
 
 ALTER TABLE public.independence_assessments ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS independence_select ON public.independence_assessments;
@@ -217,11 +217,11 @@ CREATE POLICY independence_select ON public.independence_assessments
   FOR SELECT USING (public.is_member_of(org_id));
 DROP POLICY IF EXISTS independence_write ON public.independence_assessments;
 CREATE POLICY independence_write ON public.independence_assessments
-  FOR INSERT WITH CHECK (public.has_min_role(org_id, 'EMPLOYEE'));
+  FOR INSERT WITH CHECK (public.has_min_role(org_id, 'EMPLOYEE'::public.role_level));
 DROP POLICY IF EXISTS independence_update ON public.independence_assessments;
 CREATE POLICY independence_update ON public.independence_assessments
-  FOR UPDATE USING (public.has_min_role(org_id, 'EMPLOYEE'))
-  WITH CHECK (public.has_min_role(org_id, 'EMPLOYEE'));
+  FOR UPDATE USING (public.has_min_role(org_id, 'EMPLOYEE'::public.role_level))
+  WITH CHECK (public.has_min_role(org_id, 'EMPLOYEE'::public.role_level));
 
 ALTER TABLE public.acceptance_decisions ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS acceptance_select ON public.acceptance_decisions;
@@ -229,14 +229,14 @@ CREATE POLICY acceptance_select ON public.acceptance_decisions
   FOR SELECT USING (public.is_member_of(org_id));
 DROP POLICY IF EXISTS acceptance_insert ON public.acceptance_decisions;
 CREATE POLICY acceptance_insert ON public.acceptance_decisions
-  FOR INSERT WITH CHECK (public.has_min_role(org_id, 'EMPLOYEE'));
+  FOR INSERT WITH CHECK (public.has_min_role(org_id, 'EMPLOYEE'::public.role_level));
 DROP POLICY IF EXISTS acceptance_update ON public.acceptance_decisions;
 CREATE POLICY acceptance_update ON public.acceptance_decisions
-  FOR UPDATE USING (public.has_min_role(org_id, 'EMPLOYEE'))
-  WITH CHECK (public.has_min_role(org_id, 'EMPLOYEE'));
+  FOR UPDATE USING (public.has_min_role(org_id, 'EMPLOYEE'::public.role_level))
+  WITH CHECK (public.has_min_role(org_id, 'EMPLOYEE'::public.role_level));
 DROP POLICY IF EXISTS acceptance_delete ON public.acceptance_decisions;
 CREATE POLICY acceptance_delete ON public.acceptance_decisions
-  FOR DELETE USING (public.has_min_role(org_id, 'MANAGER'));
+  FOR DELETE USING (public.has_min_role(org_id, 'MANAGER'::public.role_level));
 
 ALTER TABLE public.approval_queue ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS approval_queue_select ON public.approval_queue;
@@ -244,11 +244,11 @@ CREATE POLICY approval_queue_select ON public.approval_queue
   FOR SELECT USING (public.is_member_of(org_id));
 DROP POLICY IF EXISTS approval_queue_write ON public.approval_queue;
 CREATE POLICY approval_queue_write ON public.approval_queue
-  FOR INSERT WITH CHECK (public.has_min_role(org_id, 'EMPLOYEE'));
+  FOR INSERT WITH CHECK (public.has_min_role(org_id, 'EMPLOYEE'::public.role_level));
 DROP POLICY IF EXISTS approval_queue_update ON public.approval_queue;
 CREATE POLICY approval_queue_update ON public.approval_queue
-  FOR UPDATE USING (public.has_min_role(org_id, 'EMPLOYEE'))
-  WITH CHECK (public.has_min_role(org_id, 'EMPLOYEE'));
+  FOR UPDATE USING (public.has_min_role(org_id, 'EMPLOYEE'::public.role_level))
+  WITH CHECK (public.has_min_role(org_id, 'EMPLOYEE'::public.role_level));
 DROP POLICY IF EXISTS approval_queue_delete ON public.approval_queue;
 CREATE POLICY approval_queue_delete ON public.approval_queue
-  FOR DELETE USING (public.has_min_role(org_id, 'MANAGER'));
+  FOR DELETE USING (public.has_min_role(org_id, 'MANAGER'::public.role_level));

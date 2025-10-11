@@ -1,4 +1,5 @@
 import { beforeAll, afterEach, describe, expect, it, vi } from 'vitest';
+import { createSupabaseStub } from '../stubs/supabase-client';
 
 vi.mock('pdf-parse', () => ({
   default: async () => ({ text: '' }),
@@ -302,29 +303,7 @@ class TableOperation {
   }
 }
 
-const supabaseStub = {
-  from(table: string) {
-    return new TableOperation(table);
-  },
-  storage: {
-    async getBucket() {
-      return { data: { id: 'documents' }, error: null };
-    },
-    async createBucket() {
-      return { data: null, error: null };
-    },
-  },
-  channel() {
-    const channelObj: any = {
-      on: () => channelObj,
-      subscribe: (handler?: (status: string) => void) => {
-        handler?.('SUBSCRIBED');
-        return { unsubscribe() {} };
-      },
-    };
-    return channelObj;
-  },
-};
+const supabaseStub = createSupabaseStub(dataStore);
 
 vi.mock('@supabase/supabase-js', () => ({
   createClient: vi.fn(() => supabaseStub),

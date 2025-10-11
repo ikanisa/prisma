@@ -18,7 +18,7 @@ CREATE POLICY "agent_sessions_read" ON public.agent_sessions
   FOR SELECT USING (public.is_member_of(org_id));
 DROP POLICY IF EXISTS "agent_sessions_write" ON public.agent_sessions;
 CREATE POLICY "agent_sessions_write" ON public.agent_sessions
-  FOR ALL USING (public.has_min_role(org_id, 'MANAGER'));
+  FOR ALL USING (public.has_min_role(org_id, 'MANAGER'::public.role_level));
 DROP TRIGGER IF EXISTS set_agent_sessions_updated_at ON public.agent_sessions;
 CREATE TRIGGER set_agent_sessions_updated_at
   BEFORE UPDATE ON public.agent_sessions
@@ -59,7 +59,7 @@ CREATE POLICY "accounting_read" ON public.accounting
   FOR SELECT USING (public.is_member_of(org_id));
 DROP POLICY IF EXISTS "accounting_write" ON public.accounting;
 CREATE POLICY "accounting_write" ON public.accounting
-  FOR ALL USING (public.has_min_role(org_id, 'MANAGER'));
+  FOR ALL USING (public.has_min_role(org_id, 'MANAGER'::public.role_level));
 DROP TRIGGER IF EXISTS set_accounting_updated_at ON public.accounting;
 CREATE TRIGGER set_accounting_updated_at
   BEFORE UPDATE ON public.accounting
@@ -80,7 +80,7 @@ CREATE POLICY "tax_read" ON public.tax
   FOR SELECT USING (org_id IS NULL OR public.is_member_of(org_id));
 DROP POLICY IF EXISTS "tax_write" ON public.tax;
 CREATE POLICY "tax_write" ON public.tax
-  FOR ALL USING (public.has_min_role(org_id, 'MANAGER'));
+  FOR ALL USING (public.has_min_role(org_id, 'MANAGER'::public.role_level));
 -- Ensure indexes exist now that tables are in place
 DO $$
 BEGIN

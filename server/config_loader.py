@@ -1,9 +1,10 @@
 """Helpers for loading system configuration for the backend."""
 from __future__ import annotations
 
+import os
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Mapping
+from typing import Any, Dict, Iterable, List, Mapping, Set
 
 import yaml
 
@@ -54,6 +55,7 @@ _DEFAULT_RELEASE_ENVIRONMENT = {
     },
 }
 
+_CONFIG_PATH_ENV_VAR = "SYSTEM_CONFIG_PATH"
 _SYSTEM_CONFIG_PATH = Path(__file__).resolve().parents[1] / "config" / "system.yaml"
 _DEFAULT_AUTONOMY_LEVEL = "L2"
 _AUTONOMY_LEVEL_ORDER = {"L0": 0, "L1": 1, "L2": 2, "L3": 3}
@@ -63,6 +65,27 @@ _DEFAULT_AUTONOMY_LABELS = {
     "L2": "Auto-prepare: agent drafts & stages; user approves to submit/file",
     "L3": "Autopilot: agent executes within policy; asks only if evidence is missing",
 }
+_DEFAULT_ROLE_ORDER = [
+    "SERVICE_ACCOUNT",
+    "READONLY",
+    "CLIENT",
+    "EMPLOYEE",
+    "MANAGER",
+    "EQR",
+    "PARTNER",
+    "SYSTEM_ADMIN",
+]
+_DEFAULT_ROLE_RANK = {
+    "SERVICE_ACCOUNT": 10,
+    "READONLY": 20,
+    "CLIENT": 30,
+    "EMPLOYEE": 40,
+    "MANAGER": 70,
+    "EQR": 80,
+    "PARTNER": 90,
+    "SYSTEM_ADMIN": 100,
+}
+
 _DEFAULT_AUTOPILOT_ALLOWANCES = {
     "L0": [],
     "L1": ["refresh_analytics"],
@@ -84,11 +107,21 @@ _DEFAULT_AUTOPILOT_ALLOWANCES = {
     ],
 }
 
+def _resolve_config_path() -> Path:
+    env_value = os.getenv(_CONFIG_PATH_ENV_VAR)
+    if env_value:
+        candidate = Path(env_value).expanduser()
+        if candidate.is_dir():
+            candidate = candidate / "system.yaml"
+        return candidate
+    return _SYSTEM_CONFIG_PATH
+
 
 @lru_cache(maxsize=1)
 def load_system_config() -> Mapping[str, Any]:
     try:
-        with _SYSTEM_CONFIG_PATH.open("r", encoding="utf-8") as handle:
+        path = _resolve_config_path()
+        with path.open("r", encoding="utf-8") as handle:
             data = yaml.safe_load(handle) or {}
             if isinstance(data, Mapping):
                 return data
@@ -250,6 +283,56 @@ def get_autonomy_job_allowances() -> Dict[str, List[str]]:
             result[level] = normalised
     return result
 
+
+
+
+@lru_cache(maxsize=1)
+def get_org_roles() -> List[str]:
+    config = load_system_config()
+    rbac = config.get("rbac") if isinstance(config, Mapping) else None
+    roles = None
+    if isinstance(rbac, Mapping):
+        raw_roles = rbac.get("roles")
+        if isinstance(raw_roles, Iterable):
+            roles = _normalise_list(raw_roles)
+    normalised = [role.upper() for role in roles or []]
+    if not normalised:
+        normalised = list(_DEFAULT_ROLE_ORDER)
+    else:
+        seen: Set[str] = set()
+        ordered: List[str] = []
+        for role in normalised:
+            upper = role.upper()
+            if upper and upper not in seen:
+                seen.add(upper)
+                ordered.append(upper)
+        for role in _DEFAULT_ROLE_ORDER:
+            if role not in seen:
+                ordered.append(role)
+        normalised = ordered
+    return normalised
+
+
+@lru_cache(maxsize=1)
+def get_role_rank_map() -> Dict[str, int]:
+    roles = get_org_roles()
+    rank_map: Dict[str, int] = {}
+    next_rank = 10
+    for role in roles:
+        if role in _DEFAULT_ROLE_RANK:
+            rank = _DEFAULT_ROLE_RANK[role]
+        else:
+            rank = next_rank
+        rank_map[role] = rank
+        next_rank = max(next_rank + 10, rank + 10)
+    return rank_map
+
+
+@lru_cache(maxsize=1)
+def get_managerial_roles() -> Set[str]:
+    rank_map = get_role_rank_map()
+    manager_rank = rank_map.get("MANAGER", 70)
+    return {role for role, value in rank_map.items() if value >= manager_rank}
 
 @lru_cache(maxsize=1)
 def get_tool_policies() -> Dict[str, Dict[str, Any]]:

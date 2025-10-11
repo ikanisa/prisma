@@ -1,4 +1,4 @@
-Deno.serve((req) => {
+export function handler(req: Request): Response {
   const url = new URL(req.url);
   const provider = url.searchParams.get('provider') ?? 'mock';
   const state = crypto.randomUUID();
@@ -7,4 +7,6 @@ Deno.serve((req) => {
   return new Response(JSON.stringify({ url: oauthUrl }), {
     headers: { 'Content-Type': 'application/json' },
   });
-});
+}
+
+Deno.serve(handler);

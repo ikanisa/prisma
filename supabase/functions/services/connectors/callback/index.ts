@@ -1,6 +1,6 @@
-import { storeToken } from '../token-vault.ts'
+import { storeToken } from '../../token-vault.ts'
 
-Deno.serve(async (req) => {
+export async function handler(req: Request): Promise<Response> {
   const url = new URL(req.url)
   const code = url.searchParams.get('code')
   const provider = url.searchParams.get('provider') ?? 'mock'
@@ -19,4 +19,6 @@ Deno.serve(async (req) => {
   return new Response(JSON.stringify({ success: true }), {
     headers: { 'Content-Type': 'application/json' },
   })
-})
+}
+
+Deno.serve(handler)

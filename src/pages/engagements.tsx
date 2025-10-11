@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -172,7 +172,7 @@ export function Engagements() {
 
   const independenceInfo = buildIndependencePayload(form.getValues(), selectedNas);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     if (!orgSlug) return;
     setLoading(true);
     try {
@@ -191,11 +191,11 @@ export function Engagements() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [orgSlug, toast]);
 
   useEffect(() => {
     void loadData();
-  }, [orgSlug]);
+  }, [loadData]);
 
   const openCreateDialog = () => {
     setEditingEngagement(null);

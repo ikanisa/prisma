@@ -4,21 +4,81 @@
 BEGIN;
 
 -- CTRL-1: Controls, walkthroughs, testing, ITGC groupings, deficiencies
-CREATE TYPE IF NOT EXISTS public.control_frequency AS ENUM (
+DO $$
+BEGIN
+  CREATE TYPE public.control_frequency AS ENUM (
+
   'DAILY','WEEKLY','MONTHLY','QUARTERLY','ANNUAL','EVENT_DRIVEN'
-);
+  );
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END;
+$$;
 
-CREATE TYPE IF NOT EXISTS public.control_walkthrough_result AS ENUM (
+
+DO $$
+BEGIN
+  CREATE TYPE public.control_walkthrough_result AS ENUM (
+
   'DESIGNED','NOT_DESIGNED','IMPLEMENTED','NOT_IMPLEMENTED'
-);
+  );
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END;
+$$;
 
-CREATE TYPE IF NOT EXISTS public.control_test_result AS ENUM ('PASS','EXCEPTIONS');
 
-CREATE TYPE IF NOT EXISTS public.itgc_group_type AS ENUM ('ACCESS','CHANGE','OPERATIONS');
+DO $$
+BEGIN
+  CREATE TYPE public.control_test_result AS ENUM (
+'PASS','EXCEPTIONS'
+  );
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END;
+$$;
 
-CREATE TYPE IF NOT EXISTS public.deficiency_severity AS ENUM ('LOW','MEDIUM','HIGH');
 
-CREATE TYPE IF NOT EXISTS public.deficiency_status AS ENUM ('OPEN','MONITORING','CLOSED');
+DO $$
+BEGIN
+  CREATE TYPE public.itgc_group_type AS ENUM (
+'ACCESS','CHANGE','OPERATIONS'
+  );
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END;
+$$;
+
+
+DO $$
+BEGIN
+  CREATE TYPE public.deficiency_severity AS ENUM (
+'LOW','MEDIUM','HIGH'
+  );
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END;
+$$;
+
+
+DO $$
+BEGIN
+  CREATE TYPE public.deficiency_status AS ENUM (
+'OPEN','MONITORING','CLOSED'
+  );
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END;
+$$;
+
+DROP TABLE IF EXISTS public.samples CASCADE;
+DROP TABLE IF EXISTS public.tests CASCADE;
+DROP TABLE IF EXISTS public.control_walkthroughs CASCADE;
+DROP TABLE IF EXISTS public.control_tests CASCADE;
+DROP TABLE IF EXISTS public.itgc_groups CASCADE;
+DROP TABLE IF EXISTS public.deficiencies CASCADE;
+DROP TABLE IF EXISTS public.controls CASCADE;
+
 
 CREATE TABLE IF NOT EXISTS public.controls (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -101,74 +161,90 @@ CREATE POLICY "controls_select" ON public.controls
   FOR SELECT USING (public.is_member_of(org_id));
 DROP POLICY IF EXISTS "controls_insert" ON public.controls;
 CREATE POLICY "controls_insert" ON public.controls
-  FOR INSERT WITH CHECK (public.has_min_role(org_id, 'MANAGER'));
+  FOR INSERT WITH CHECK (public.has_min_role(org_id, 'MANAGER'::public.role_level));
 DROP POLICY IF EXISTS "controls_update" ON public.controls;
 CREATE POLICY "controls_update" ON public.controls
-  FOR UPDATE USING (public.has_min_role(org_id, 'MANAGER'));
+  FOR UPDATE USING (public.has_min_role(org_id, 'MANAGER'::public.role_level));
 DROP POLICY IF EXISTS "controls_delete" ON public.controls;
 CREATE POLICY "controls_delete" ON public.controls
-  FOR DELETE USING (public.has_min_role(org_id, 'PARTNER'));
+  FOR DELETE USING (public.has_min_role(org_id, 'SYSTEM_ADMIN'::public.role_level));
 
 DROP POLICY IF EXISTS "control_walkthroughs_select" ON public.control_walkthroughs;
 CREATE POLICY "control_walkthroughs_select" ON public.control_walkthroughs
   FOR SELECT USING (public.is_member_of(org_id));
 DROP POLICY IF EXISTS "control_walkthroughs_insert" ON public.control_walkthroughs;
 CREATE POLICY "control_walkthroughs_insert" ON public.control_walkthroughs
-  FOR INSERT WITH CHECK (public.has_min_role(org_id, 'EMPLOYEE'));
+  FOR INSERT WITH CHECK (public.has_min_role(org_id, 'EMPLOYEE'::public.role_level));
 DROP POLICY IF EXISTS "control_walkthroughs_update" ON public.control_walkthroughs;
 CREATE POLICY "control_walkthroughs_update" ON public.control_walkthroughs
-  FOR UPDATE USING (public.has_min_role(org_id, 'MANAGER'));
+  FOR UPDATE USING (public.has_min_role(org_id, 'MANAGER'::public.role_level));
 DROP POLICY IF EXISTS "control_walkthroughs_delete" ON public.control_walkthroughs;
 CREATE POLICY "control_walkthroughs_delete" ON public.control_walkthroughs
-  FOR DELETE USING (public.has_min_role(org_id, 'MANAGER'));
+  FOR DELETE USING (public.has_min_role(org_id, 'MANAGER'::public.role_level));
 
 DROP POLICY IF EXISTS "control_tests_select" ON public.control_tests;
 CREATE POLICY "control_tests_select" ON public.control_tests
   FOR SELECT USING (public.is_member_of(org_id));
 DROP POLICY IF EXISTS "control_tests_insert" ON public.control_tests;
 CREATE POLICY "control_tests_insert" ON public.control_tests
-  FOR INSERT WITH CHECK (public.has_min_role(org_id, 'EMPLOYEE'));
+  FOR INSERT WITH CHECK (public.has_min_role(org_id, 'EMPLOYEE'::public.role_level));
 DROP POLICY IF EXISTS "control_tests_update" ON public.control_tests;
 CREATE POLICY "control_tests_update" ON public.control_tests
-  FOR UPDATE USING (public.has_min_role(org_id, 'MANAGER'));
+  FOR UPDATE USING (public.has_min_role(org_id, 'MANAGER'::public.role_level));
 DROP POLICY IF EXISTS "control_tests_delete" ON public.control_tests;
 CREATE POLICY "control_tests_delete" ON public.control_tests
-  FOR DELETE USING (public.has_min_role(org_id, 'MANAGER'));
+  FOR DELETE USING (public.has_min_role(org_id, 'MANAGER'::public.role_level));
 
 DROP POLICY IF EXISTS "itgc_groups_select" ON public.itgc_groups;
 CREATE POLICY "itgc_groups_select" ON public.itgc_groups
   FOR SELECT USING (public.is_member_of(org_id));
 DROP POLICY IF EXISTS "itgc_groups_insert" ON public.itgc_groups;
 CREATE POLICY "itgc_groups_insert" ON public.itgc_groups
-  FOR INSERT WITH CHECK (public.has_min_role(org_id, 'MANAGER'));
+  FOR INSERT WITH CHECK (public.has_min_role(org_id, 'MANAGER'::public.role_level));
 DROP POLICY IF EXISTS "itgc_groups_update" ON public.itgc_groups;
 CREATE POLICY "itgc_groups_update" ON public.itgc_groups
-  FOR UPDATE USING (public.has_min_role(org_id, 'MANAGER'));
+  FOR UPDATE USING (public.has_min_role(org_id, 'MANAGER'::public.role_level));
 DROP POLICY IF EXISTS "itgc_groups_delete" ON public.itgc_groups;
 CREATE POLICY "itgc_groups_delete" ON public.itgc_groups
-  FOR DELETE USING (public.has_min_role(org_id, 'PARTNER'));
+  FOR DELETE USING (public.has_min_role(org_id, 'SYSTEM_ADMIN'::public.role_level));
 
 DROP POLICY IF EXISTS "deficiencies_select" ON public.deficiencies;
 CREATE POLICY "deficiencies_select" ON public.deficiencies
   FOR SELECT USING (public.is_member_of(org_id));
 DROP POLICY IF EXISTS "deficiencies_insert" ON public.deficiencies;
 CREATE POLICY "deficiencies_insert" ON public.deficiencies
-  FOR INSERT WITH CHECK (public.has_min_role(org_id, 'MANAGER'));
+  FOR INSERT WITH CHECK (public.has_min_role(org_id, 'MANAGER'::public.role_level));
 DROP POLICY IF EXISTS "deficiencies_update" ON public.deficiencies;
 CREATE POLICY "deficiencies_update" ON public.deficiencies
-  FOR UPDATE USING (public.has_min_role(org_id, 'MANAGER'));
+  FOR UPDATE USING (public.has_min_role(org_id, 'MANAGER'::public.role_level));
 DROP POLICY IF EXISTS "deficiencies_delete" ON public.deficiencies;
 CREATE POLICY "deficiencies_delete" ON public.deficiencies
-  FOR DELETE USING (public.has_min_role(org_id, 'PARTNER'));
+  FOR DELETE USING (public.has_min_role(org_id, 'SYSTEM_ADMIN'::public.role_level));
 
 -- ADA-1: Deterministic analytics kernel
-CREATE TYPE IF NOT EXISTS public.ada_run_kind AS ENUM (
-  'JE','RATIO','VARIANCE','DUPLICATE','BENFORD'
-);
+DO $$
+BEGIN
+  CREATE TYPE public.ada_run_kind AS ENUM (
 
-CREATE TYPE IF NOT EXISTS public.ada_exception_disposition AS ENUM (
+  'JE','RATIO','VARIANCE','DUPLICATE','BENFORD'
+  );
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END;
+$$;
+
+
+DO $$
+BEGIN
+  CREATE TYPE public.ada_exception_disposition AS ENUM (
+
   'OPEN','INVESTIGATING','RESOLVED'
-);
+  );
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END;
+$$;
+
 
 CREATE TABLE IF NOT EXISTS public.ada_runs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -213,13 +289,13 @@ CREATE POLICY "ada_runs_select" ON public.ada_runs
   FOR SELECT USING (public.is_member_of(org_id));
 DROP POLICY IF EXISTS "ada_runs_insert" ON public.ada_runs;
 CREATE POLICY "ada_runs_insert" ON public.ada_runs
-  FOR INSERT WITH CHECK (public.has_min_role(org_id, 'EMPLOYEE'));
+  FOR INSERT WITH CHECK (public.has_min_role(org_id, 'EMPLOYEE'::public.role_level));
 DROP POLICY IF EXISTS "ada_runs_update" ON public.ada_runs;
 CREATE POLICY "ada_runs_update" ON public.ada_runs
-  FOR UPDATE USING (public.has_min_role(org_id, 'MANAGER'));
+  FOR UPDATE USING (public.has_min_role(org_id, 'MANAGER'::public.role_level));
 DROP POLICY IF EXISTS "ada_runs_delete" ON public.ada_runs;
 CREATE POLICY "ada_runs_delete" ON public.ada_runs
-  FOR DELETE USING (public.has_min_role(org_id, 'MANAGER'));
+  FOR DELETE USING (public.has_min_role(org_id, 'MANAGER'::public.role_level));
 
 DROP POLICY IF EXISTS "ada_exceptions_select" ON public.ada_exceptions;
 CREATE POLICY "ada_exceptions_select" ON public.ada_exceptions
@@ -238,7 +314,7 @@ CREATE POLICY "ada_exceptions_insert" ON public.ada_exceptions
       SELECT 1
       FROM public.ada_runs r
       WHERE r.id = ada_exceptions.run_id
-        AND public.has_min_role(r.org_id, 'EMPLOYEE')
+        AND public.has_min_role(r.org_id, 'EMPLOYEE'::public.role_level)
     )
   );
 DROP POLICY IF EXISTS "ada_exceptions_update" ON public.ada_exceptions;
@@ -248,7 +324,7 @@ CREATE POLICY "ada_exceptions_update" ON public.ada_exceptions
       SELECT 1
       FROM public.ada_runs r
       WHERE r.id = ada_exceptions.run_id
-        AND public.has_min_role(r.org_id, 'EMPLOYEE')
+        AND public.has_min_role(r.org_id, 'EMPLOYEE'::public.role_level)
     )
   );
 DROP POLICY IF EXISTS "ada_exceptions_delete" ON public.ada_exceptions;
@@ -258,14 +334,35 @@ CREATE POLICY "ada_exceptions_delete" ON public.ada_exceptions
       SELECT 1
       FROM public.ada_runs r
       WHERE r.id = ada_exceptions.run_id
-        AND public.has_min_role(r.org_id, 'MANAGER')
+        AND public.has_min_role(r.org_id, 'MANAGER'::public.role_level)
     )
   );
 
 -- REC-1: Reconciliation workbench
-CREATE TYPE IF NOT EXISTS public.reconciliation_type AS ENUM ('BANK','AR','AP','GRNI','PAYROLL','OTHER');
-CREATE TYPE IF NOT EXISTS public.reconciliation_status AS ENUM ('DRAFT','IN_PROGRESS','READY_FOR_REVIEW','CLOSED');
-CREATE TYPE IF NOT EXISTS public.reconciliation_item_category AS ENUM (
+DO $$
+BEGIN
+  CREATE TYPE public.reconciliation_type AS ENUM (
+'BANK','AR','AP','GRNI','PAYROLL','OTHER'
+  );
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END;
+$$;
+
+DO $$
+BEGIN
+  CREATE TYPE public.reconciliation_status AS ENUM (
+'DRAFT','IN_PROGRESS','READY_FOR_REVIEW','CLOSED'
+  );
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END;
+$$;
+
+DO $$
+BEGIN
+  CREATE TYPE public.reconciliation_item_category AS ENUM (
+
   'OUTSTANDING_CHECKS',
   'DEPOSITS_IN_TRANSIT',
   'UNIDENTIFIED',
@@ -274,7 +371,12 @@ CREATE TYPE IF NOT EXISTS public.reconciliation_item_category AS ENUM (
   'TIMING',
   'ERROR',
   'OTHER'
-);
+  );
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END;
+$$;
+
 
 CREATE TABLE IF NOT EXISTS public.reconciliations (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -328,13 +430,13 @@ CREATE POLICY "reconciliations_select" ON public.reconciliations
   FOR SELECT USING (public.is_member_of(org_id));
 DROP POLICY IF EXISTS "reconciliations_insert" ON public.reconciliations;
 CREATE POLICY "reconciliations_insert" ON public.reconciliations
-  FOR INSERT WITH CHECK (public.has_min_role(org_id, 'EMPLOYEE'));
+  FOR INSERT WITH CHECK (public.has_min_role(org_id, 'EMPLOYEE'::public.role_level));
 DROP POLICY IF EXISTS "reconciliations_update" ON public.reconciliations;
 CREATE POLICY "reconciliations_update" ON public.reconciliations
-  FOR UPDATE USING (public.has_min_role(org_id, 'MANAGER'));
+  FOR UPDATE USING (public.has_min_role(org_id, 'MANAGER'::public.role_level));
 DROP POLICY IF EXISTS "reconciliations_delete" ON public.reconciliations;
 CREATE POLICY "reconciliations_delete" ON public.reconciliations
-  FOR DELETE USING (public.has_min_role(org_id, 'MANAGER'));
+  FOR DELETE USING (public.has_min_role(org_id, 'MANAGER'::public.role_level));
 
 DROP POLICY IF EXISTS "reconciliation_items_select" ON public.reconciliation_items;
 CREATE POLICY "reconciliation_items_select" ON public.reconciliation_items
@@ -351,7 +453,7 @@ CREATE POLICY "reconciliation_items_insert" ON public.reconciliation_items
     EXISTS (
       SELECT 1 FROM public.reconciliations r
       WHERE r.id = reconciliation_items.reconciliation_id
-        AND public.has_min_role(r.org_id, 'EMPLOYEE')
+        AND public.has_min_role(r.org_id, 'EMPLOYEE'::public.role_level)
     )
   );
 DROP POLICY IF EXISTS "reconciliation_items_update" ON public.reconciliation_items;
@@ -360,7 +462,7 @@ CREATE POLICY "reconciliation_items_update" ON public.reconciliation_items
     EXISTS (
       SELECT 1 FROM public.reconciliations r
       WHERE r.id = reconciliation_items.reconciliation_id
-        AND public.has_min_role(r.org_id, 'MANAGER')
+        AND public.has_min_role(r.org_id, 'MANAGER'::public.role_level)
     )
   );
 DROP POLICY IF EXISTS "reconciliation_items_delete" ON public.reconciliation_items;
@@ -369,7 +471,7 @@ CREATE POLICY "reconciliation_items_delete" ON public.reconciliation_items
     EXISTS (
       SELECT 1 FROM public.reconciliations r
       WHERE r.id = reconciliation_items.reconciliation_id
-        AND public.has_min_role(r.org_id, 'MANAGER')
+        AND public.has_min_role(r.org_id, 'MANAGER'::public.role_level)
     )
   );
 

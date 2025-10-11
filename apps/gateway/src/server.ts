@@ -1,4 +1,5 @@
 import express from 'express';
+import { initTracing } from './otel';
 import type { ErrorRequestHandler } from 'express';
 import { pathToFileURL } from 'url';
 import { traceMiddleware } from './middleware/trace';
@@ -8,6 +9,7 @@ import { scrubPii } from './utils/pii';
 import { getRequestContext } from './utils/request-context';
 
 export function createGatewayServer() {
+  initTracing();
   const app = express();
 
   app.disable('x-powered-by');
@@ -17,6 +19,22 @@ export function createGatewayServer() {
 
   app.get('/health', (_req, res) => {
     const context = getRequestContext();
+    res.json({ status: 'ok', requestId: context?.requestId ?? null, traceId: context?.traceId ?? null });
+  });
+
+  app.get('/readiness', (_req, res) => {
+    // Minimal readiness: gateway is stateless. Optionally, verify required envs.
+    const requiredEnvs = ['OTEL_SERVICE_NAME'];
+    const missing = requiredEnvs.filter((key) => !process.env[key] || String(process.env[key]).trim().length === 0);
+    const context = getRequestContext();
+    if (missing.length) {
+      return res.status(503).json({
+        status: 'degraded',
+        missing,
+        requestId: context?.requestId ?? null,
+        traceId: context?.traceId ?? null,
+      });
+    }
     res.json({ status: 'ok', requestId: context?.requestId ?? null, traceId: context?.traceId ?? null });
   });
 
@@ -45,6 +63,6 @@ if (isEntrypoint) {
   const app = createGatewayServer();
   const port = Number(process.env.PORT ?? 3000);
   app.listen(port, () => {
-    console.log(`Gateway listening on port ${port}`);
+    console.warn(`Gateway listening on port ${port}`);
   });
 }

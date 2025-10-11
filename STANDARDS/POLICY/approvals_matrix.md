@@ -5,6 +5,7 @@ This matrix summarises mandatory reviewers/approvers across audit, tax, and acco
 | Module | Workflow | Preparer | Reviewer | Approver | Secondary Reviewer | Archive Owner | Standards |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | Audit planning | Strategy & materiality | Employee | Manager | Partner | EQR (High risk) | System Admin | ISA 220R, ISA 300/320 |
+| Agent operations | Sensitive agent tool execution (`AGENT_ACTION`) | Employee (agent) | Manager | Manager | System Admin (escalation) | ISA 220R, ISQM 1 §§32-33; [AGT-GOV-1](./agent_hitl.md) |
 | Audit risk register | Risk identification & rating | Employee | Manager | Partner | EQR (High risk) | System Admin | ISA 315R, ISA 330 |
 | Audit responses | Controls, analytics, fraud | Employee | Manager | Partner | EQR (High risk) | System Admin | ISA 240/330/530 |
 | TCWG communications | Issuance | Employee | Manager | Partner | EQR (Listed) | System Admin | ISA 260, ISA 230 |
@@ -16,5 +17,9 @@ This matrix summarises mandatory reviewers/approvers across audit, tax, and acco
 | Accounting close | Journal batches | Preparer | Reviewer | Approver | Quality Reviewer (High risk) | System Admin | IAS 1/8, ISQM 1 |
 | Accounting close | Reconciliations | Preparer | Reviewer | Approver | Quality Reviewer (High risk) | System Admin | IAS 7, IAS 21 |
 | Close lock | Period closure | Preparer | Reviewer | Approver | Quality Reviewer (Listed) | System Admin | IAS 10, ISQM 1 |
+
+> Agent HITL tooling routes through Next.js proxies (`/api/agent/approvals`, `/api/agent/tool-registry`,
+> `/api/agent/approvals/:id/decision`) which enforce the same reviewer matrix before delegating to the
+> core `/v1/approvals` service.
 
 Use the policy pack codes when logging ActivityLog events or configuring approval routing to ensure telemetry alignment.

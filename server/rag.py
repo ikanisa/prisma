@@ -17,12 +17,13 @@ except Exception:  # pragma: no cover - optional
 
 from pypdf import PdfReader
 import tiktoken
-from openai import AsyncOpenAI
 
 from sqlalchemy import text
 
 from .db import Chunk, AsyncSessionLocal
 from .rate_limit import RateLimiter
+from .openai_client import get_openai_client
+from .openai_debug import log_openai_debug_event
 
 try:  # pragma: no cover - optional dependency for high-quality reranking
     from sentence_transformers import CrossEncoder  # type: ignore
@@ -35,7 +36,7 @@ from .config_loader import (
 )
 
 MODEL = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
-client = AsyncOpenAI()
+client = get_openai_client()
 rate_limiter = RateLimiter(int(os.getenv("OPENAI_RPM", "60")))
 logger = structlog.get_logger(__name__)
 
@@ -143,6 +144,17 @@ async def embed_chunks(chunks: List[str], model: str | None = None) -> List[List
         if not rate_limiter.allow(time.time()):
             raise HTTPException(status_code=429, detail="OpenAI rate limit exceeded")
         res = await client.embeddings.create(model=target_model, input=ch)
+        if hasattr(res, "model_dump"):
+            response_dict = res.model_dump()
+        elif hasattr(res, "to_dict"):
+            response_dict = res.to_dict()
+        else:
+            response_dict = {"id": getattr(res, "id", None), "model": getattr(res, "model", None)}
+        await log_openai_debug_event(
+            endpoint="embeddings.create",
+            response=response_dict,
+            request_payload={"model": target_model, "input_length": len(ch)},
+        )
         embeddings.append(res.data[0].embedding)
     return embeddings
 

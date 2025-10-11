@@ -79,6 +79,32 @@ Map the same variable names into Supabase Secrets for server-side functions/task
 - **Deploy chain:** PR → Vercel preview (auto). Merge to `main` → CI + Supabase preview migration → Vercel production deploy.
 - **Additional checks:** optional Supabase CLI diff, Python service lint/tests, or gitleaks scanning can be appended to `.github/workflows/ci.yml` if needed.
 
+## F1) Container Images (Compose Deployments)
+
+When deploying via Docker Compose instead of Vercel, provision container images per service and reference them through environment variables consumed by `docker-compose.prod.yml`:
+
+Required envs for images (see `.env.compose.example`):
+
+- `GATEWAY_IMAGE` – e.g., `ghcr.io/<owner>/<repo>/gateway:latest`
+- `RAG_IMAGE` – e.g., `ghcr.io/<owner>/<repo>/rag:latest`
+- `AGENT_IMAGE` – e.g., `ghcr.io/<owner>/<repo>/agent:latest`
+- `ANALYTICS_IMAGE` – e.g., `ghcr.io/<owner>/<repo>/analytics:latest`
+- `UI_IMAGE` – legacy Vite UI image
+- `WEB_IMAGE` – Next.js app image
+- `SERVICE_VERSION` – optional version string propagated to containers for trace correlation
+
+Front-end selection uses Compose profiles:
+
+- `--profile web` runs the Next.js app (`apps/web`)
+- `--profile ui` runs the legacy Vite UI (`ui/`)
+
+Example:
+
+```
+cp .env.compose.example .env.compose
+docker compose --env-file .env.compose --profile web -f docker-compose.prod.yml up -d
+```
+
 ## G) Verification Procedures
 
 1. **Automated:** After deploy, call `/api/healthz` (returns JSON + DB latency) via monitoring or GitHub Actions smoke test.

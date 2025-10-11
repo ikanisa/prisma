@@ -1,7 +1,16 @@
 -- Fraud plan & journal entry strategy schema (AP-PLAN-4)
 BEGIN;
 
-CREATE TYPE IF NOT EXISTS public.fraud_plan_status AS ENUM ('DRAFT', 'READY_FOR_APPROVAL', 'LOCKED');
+DO $$
+BEGIN
+  CREATE TYPE public.fraud_plan_status AS ENUM (
+'DRAFT', 'READY_FOR_APPROVAL', 'LOCKED'
+  );
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END;
+$$;
+
 
 CREATE TABLE IF NOT EXISTS public.fraud_plans (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
