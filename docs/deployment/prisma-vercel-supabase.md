@@ -118,6 +118,19 @@ docker compose --env-file .env.compose --profile web -f docker-compose.prod.yml 
    - Supabase project reference.
    - CI run URL for migrations.
 
+### G1) Healthz Smoke Workflow
+
+- Trigger the workflow `Healthz Smoke` from the Actions tab with input:
+  - `app_url`: e.g., `https://app.example.com/api/healthz`
+- The job validates HTTP 200 and JSON `{ status: "ok" }`.
+- Optionally set `PRODUCTION_HEALTH_URL` in `.env.production.example` for reference.
+
+### G2) Trigger Prisma Migrate (Production)
+
+- Ensure GitHub environment `production` has secrets `DATABASE_URL` (and optional `DIRECT_URL`).
+- From the Actions tab, run `Supabase Prisma Deploy` with `environment=production` (workflow_dispatch).
+- The workflow first resolves baseline (`npx prisma migrate resolve --applied 0001_init`) then runs `prisma migrate deploy`.
+
 ## H) Rollback Strategy
 
 1. **Application:** Use Vercel's "Promote previous" to instant-rollback. Document offending deployment ID in incident channel.
