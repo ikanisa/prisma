@@ -37,6 +37,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
         working-directory: apps/web
+      - name: Mark Prisma baseline as applied (idempotent)
+        run: |
+          npx prisma migrate resolve --applied 0001_init || true
+        working-directory: apps/web
       - name: Prisma migrate deploy (preview)
         run: npm run prisma:migrate:deploy
         working-directory: apps/web
@@ -58,6 +62,10 @@ jobs:
           cache-dependency-path: apps/web/package-lock.json
       - name: Install dependencies
         run: npm ci
+        working-directory: apps/web
+      - name: Mark Prisma baseline as applied (idempotent)
+        run: |
+          npx prisma migrate resolve --applied 0001_init || true
         working-directory: apps/web
       - name: Prisma migrate deploy (production)
         run: npm run prisma:migrate:deploy
