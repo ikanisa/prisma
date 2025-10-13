@@ -858,19 +858,22 @@ async function ensureIndependenceOverrideApproval({
 async function hasApprovedIndependenceOverride(orgId: string, engagementId: string): Promise<boolean> {
   const { data, error } = await supabaseService
     .from('approval_queue')
-    .select('id')
+    .select('status, requested_at')
     .eq('org_id', orgId)
     .eq('kind', 'INDEPENDENCE_OVERRIDE')
     .eq('context_json->>engagementId', engagementId)
-    .eq('status', 'APPROVED')
-    .order('decision_at', { ascending: false })
+    .order('requested_at', { ascending: false })
     .limit(1);
 
   if (error) {
     throw error;
   }
 
-  return Array.isArray(data) && data.length > 0;
+  if (!Array.isArray(data) || data.length === 0) {
+    return false;
+  }
+
+  return data[0]?.status === 'APPROVED';
 }
 
 app.get(['/health', '/healthz'], (_req, res) => {
