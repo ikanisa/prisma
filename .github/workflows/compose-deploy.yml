@@ -49,7 +49,7 @@ jobs:
           target: ${{ inputs.deploy_path }}
 
       - name: Run docker compose on remote
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@v1.2.2
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
