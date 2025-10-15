@@ -10,7 +10,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@prisma-glow/system-config": "workspace:*",
+    "@prisma-glow/system-config": "file:../../packages/system-config",
     "express": "^4.19.2"
   },
   "devDependencies": {

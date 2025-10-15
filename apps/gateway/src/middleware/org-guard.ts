@@ -1,5 +1,5 @@
 import type { RequestHandler } from 'express';
-import { DEFAULT_ROLE_HIERARCHY, getRoleHierarchy } from '../../../../packages/system-config/index.js';
+import { DEFAULT_ROLE_HIERARCHY, getRoleHierarchy } from '@prisma-glow/system-config';
 import { bindOrgContext } from '../utils/request-context';
 
 export type OrgGuardOptions = {
