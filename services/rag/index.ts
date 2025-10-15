@@ -3699,6 +3699,7 @@ app.patch('/v1/engagements/:id', async (req: AuthenticatedRequest, res) => {
         : overrideNote ?? null;
 
     let independenceAssessment: IndependenceAssessmentResult | null = null;
+    let overrideApprovalId: string | null = null;
 
     if (independenceFieldsProvided) {
       independenceAssessment = assessIndependence({
@@ -3726,6 +3727,17 @@ app.patch('/v1/engagements/:id', async (req: AuthenticatedRequest, res) => {
         updatePayload.non_audit_services = targetServices.length > 0 ? targetServices : null;
         updatePayload.is_audit_client = targetIsAuditClient;
         updatePayload.requires_eqr = targetRequiresEqr;
+
+        if (independenceAssessment.needsApproval) {
+          overrideApprovalId = await ensureIndependenceOverrideApproval({
+            orgId: orgContext.orgId,
+            engagementId,
+            userId,
+            note: independenceAssessment.note ?? '',
+            services: targetServices,
+            isAuditClient: targetIsAuditClient,
+          });
+        }
       }
     }
 
@@ -3791,6 +3803,7 @@ app.patch('/v1/engagements/:id', async (req: AuthenticatedRequest, res) => {
         updates: updatePayload,
         independence: {
           conclusion: engagement.independence_conclusion,
+          ...(overrideApprovalId ? { overrideApprovalId } : {}),
         },
       },
     });
