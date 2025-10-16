@@ -1,3 +1,67 @@
+# Standards Traceability Matrix
+
+| Trace ID | Standard / Framework | Control / Requirement | Implementation | Evidence |
+| --- | --- | --- | --- | --- |
+| TM-001 | ISQM 1 §25-32 | Establish quality objectives for assurance engagements. | Governance policy packs in `STANDARDS/POLICY` with approval routing via `approval_queue`. | Policy acknowledgement events in `activity_log` and governance acceptance tests. |
+| TM-002 | ISQM 1 §32-33 | Enforce segregation of duties across organizations. | Supabase IAM schema (`supabase/sql/iam_IAM1_schema.sql`) with RLS and `/api/iam/*` endpoints. | IAM integration tests and audit trail entries in `activity_log`. |
+| TM-003 | ISQM 1 §33-35 | Require step-up MFA for privileged workflows. | WhatsApp OTP edge functions `whatsapp_otp_send` / `whatsapp_otp_verify`. | OTP verification records and Playwright MFA coverage. |
+| TM-004 | ISQM 1 §48-52 | Monitor service-level breaches and refusals. | Telemetry aggregations in `services/rag/index.ts` + Grafana dashboards. | `telemetry_service_levels` snapshots with automated alerts. |
+| TM-005 | ISA 220 (Revised) §24-30 | Capture partner approval prior to plan release. | Approval queue `AUDIT_PLAN_FREEZE` handled in `apps/web/app/api/approvals`. | Approval decision payloads and Vitest plan approval tests. |
+| TM-006 | ISA 220 (Revised) §13-39 | Maintain evidence of engagement leadership. | `audit_module_records` and `audit_record_approvals` tables. | Activity log entries `PLAN_SUBMITTED`/`PLAN_APPROVED` and archive manifests. |
+| TM-007 | ISA 230 §8-11 | Preserve immutable audit documentation. | Archive sync function `/functions/v1/archive-sync`. | Manifest hash stored in `engagement_archives` plus regression test exports. |
+| TM-008 | ISA 240 §15-32 | Document fraud planning and journal entry strategy. | `public.fraud_plans` + JE strategy schema with UI planner. | Fraud plan approvals logged and fixtures under `tests/audit/test_fraud_plan.py`. |
+| TM-009 | ISA 260 §15-17 | Track communications with TCWG. | Communications stored in `public.tcw_communications` with `/api/audit/tcwg/*`. | Meeting minutes uploaded as evidence with ActivityLog `TCWG_COMM_RECORDED`. |
+| TM-010 | ISA 265 §7-11 | Escalate control deficiencies with severity. | `public.deficiencies` schema and notifications via `/api/controls/deficiency`. | Deficiency lifecycle tests and audit trail `CTRL_DEFICIENCY_RAISED`. |
+| TM-011 | ISA 300 §7-12 | Version engagement strategy before fieldwork. | Audit plan workspace `apps/web/app/audit/planning/page.tsx`. | Plan history timeline and unit tests for plan publish flow. |
+| TM-012 | ISA 315 (Revised) §19-32 | Register risks linked to analytics. | `public.audit_risks` and `public.audit_risk_signals` migrations. | Risk linkage validations and analytics snapshots stored in Supabase. |
+| TM-013 | ISA 315 (Revised) §26-29 | Maintain controls register tied to engagements. | Controls API `/api/controls/*` and UI `src/pages/audit/workspace/controls.tsx`. | Controls acceptance tests and ActivityLog `CTRL_ADDED`. |
+| TM-014 | ISA 320 §10-14 | Capture materiality thresholds with rationale. | Materiality form under `apps/web/app/audit/materiality/page.tsx`. | Stored thresholds with ActivityLog `MATERIALITY_SET`. |
+| TM-015 | ISA 330 §7-29 | Link risks to responses and substantive tests. | `public.audit_responses` schema with planner UI integrations. | Response completeness checks and test fixtures verifying risk links. |
+| TM-016 | ISA 402 §9-21 | Evaluate service organization controls. | SOC workspace `apps/web/app/audit/service-orgs/page.tsx`. | SOC review approvals and evidence manifests referencing SOC reports. |
+| TM-017 | ISA 500 §6-9 | Maintain evidence lineage for balances. | Evidence manifest utilities in `apps/web/lib/audit/evidence.ts`. | Archive exports include dataset hashes captured in tests. |
+| TM-018 | ISA 520 §5-7 | Document analytic procedures parameters. | Analytics runner `server/analytics_runner.py` and `/api/ada/*`. | ADA run logs with parameter JSON persisted in Supabase. |
+| TM-019 | ISA 530 §6-9 | Apply sampling methodology for tests of controls. | Sampling client integrated in controls UI with minimum sample size enforcement. | Sample selection stored in `control_tests` with QA tests covering thresholds. |
+| TM-020 | ISA 540 (Revised) §17-31 | Evaluate accounting estimates with risk factors. | Estimate review templates in `apps/web/app/audit/estimates/page.tsx`. | Review memo exports and approvals stored in `estimate_reviews`. |
+| TM-021 | ISA 600 (Revised) §19-49 | Manage group engagement components. | Group oversight schema `/api/group/*` and component workspace. | Component auditor oversight tracked in ActivityLog `GRP_COMPONENT_UPDATED`. |
+| TM-022 | ISA 610 §15-24 | Assess internal audit reliance. | `public.internal_audit_assessments` table with UI review. | Assessment approvals captured with EQR sign-off. |
+| TM-023 | ISA 620 §9-21 | Govern use of specialists. | Specialists workspace referencing `public.specialist_requests`. | Engagement file stores specialist credentials and review outcomes. |
+| TM-024 | ISA 700 §10-41 | Enforce report approval workflow. | Audit report builder `/api/audit/report/*` with approval queue `AUDIT_REPORT_RELEASE`. | Final report PDF plus ActivityLog `REPORT_RELEASED`. |
+| TM-025 | ISA 705 §7-12 | Document modifications to opinion. | Opinion module with change reasons stored in `opinion_changes`. | Modified opinion approvals and evidentiary attachments. |
+| TM-026 | ISA 706 §6-11 | Track emphasis-of-matter and other paragraphs. | Report builder UI section storing paragraph metadata. | Paragraph history table `report_highlights` with reviewer sign-off. |
+| TM-027 | ISA 720 (Revised) §12-24 | Resolve other information inconsistencies. | Other information workspace `apps/web/app/audit/other-information/page.tsx`. | OI manifest statuses and reviewer approvals. |
+| TM-028 | IESBA Code §400 | Safeguard independence for audit clients. | NAS selection guardrails in `src/pages/engagements.tsx`. | NAS review summary saved with override notes. |
+| TM-029 | IESBA Code §601 | Evaluate long association threats. | Rotation scheduler `apps/web/app/audit/independence/page.tsx`. | Tenure dashboard exports and rotation approval records. |
+| TM-030 | IESBA Code §604 | Manage fees and compensation conflicts. | Billing policy enforcement via `public.engagement_fee_alerts`. | Alerts logged and reviewed through finance approvals. |
+| TM-031 | GDPR Art. 30 | Maintain processing activity records. | `context_json.evidenceRefs` fields in agent actions. | Supabase row history and privacy assessments. |
+| TM-032 | GDPR Art. 32 | Protect personal data in storage and transit. | S3 signed URL policy `lib/security/signed-url-policy.ts`. | Automated tests verifying TTL and encryption flags. |
+| TM-033 | OECD Pillar Two | Calculate top-up tax obligations. | Pillar Two calculator `/api/p2/compute` and schema `eu_pillar_two_monitoring`. | Calculator tests `tests/tax/test_calculators.py::test_pillar_two_top_up`. |
+| TM-034 | EU ATAD ILR | Enforce interest limitation rules. | `mt_atad_ilr_evaluations` schema and decision engine. | Unit tests verifying refusal gates and approvals. |
+| TM-035 | EU DAC6 | Capture reportable arrangements. | `/api/dac6/scan` ingestion and `eu_dac6_assessments` table. | DAC6 flagging tests with reviewer workflow evidence. |
+| TM-036 | EU VAT Directive | Manage VAT/OSS filings. | VAT preparation endpoint `/api/vat/period/prepare`. | VAT workflow tests and reconciliation exports. |
+| TM-037 | Malta CIT | Automate CIT calculation with approvals. | `mt_cit_calculations` table and `/api/tax/mt/cit/compute`. | ActivityLog `MT_CIT_APPROVAL_SUBMITTED` + CIT calculator tests. |
+| TM-038 | Malta NID | Track notional interest deductions. | `mt_nid_positions` schema with client computation. | NID cap validation tests and override approvals. |
+| TM-039 | Malta Fiscal Unity | Review pooling benefits. | `mt_fiscal_unity_reviews` workflow. | Review decision logs and refusal reason storage. |
+| TM-040 | US IRC §951A | Compute GILTI exposure. | `us_overlay_gilti_runs` and `/api/us/gilti/compute`. | GILTI calculator regression tests. |
+| TM-041 | US IRC §163(j) | Apply interest deduction limits. | `us_overlay_163j_runs` service within tax overlay module. | Test coverage ensuring EBITDA threshold handling. |
+| TM-042 | US IRC §59(k) | Manage CAMT computations. | CAMT module in `tax/camt` service with Supabase table `us_overlay_camt_runs`. | Scenario-based tests verifying exemptions. |
+| TM-043 | US IRC §4501 | Track stock repurchase excise tax. | `/api/us/stock-buyback/compute` pipeline with `us_overlay_4501_runs`. | Evidence includes calculation worksheets stored in Supabase. |
+| TM-044 | IFRS 15 | Recognize revenue performance obligations. | Revenue module `apps/web/app/finance/revenue/page.tsx`. | Revenue recognition testing dataset and approvals. |
+| TM-045 | IFRS 16 | Manage lease accounting schedules. | Lease engine `apps/web/app/finance/leases/page.tsx` with amortization calculations. | Lease register exports and reconciliations. |
+| TM-046 | IFRS 9 | Monitor expected credit losses. | ECL analytics pipeline `analytics/ecl` with Supabase storage. | Analytics run logs and review sign-off. |
+| TM-047 | IFRS 13 | Maintain fair value hierarchy disclosures. | Fair value register `apps/web/app/finance/fair-value/page.tsx`. | Disclosure templates with reviewer approvals. |
+| TM-048 | IAS 1 | Align chart of accounts to presentation lines. | Ledger schema `ledger_accounts` and FS mapping UI. | TB snapshots with ActivityLog `FS_MAPPING_APPLIED`. |
+| TM-049 | IAS 7 | Reconcile cash balances prior to statement preparation. | Reconciliation API `/api/recon/*` and UI workspace. | Closed reconciliation evidence and approval metadata. |
+| TM-050 | IAS 8 | Control journal entry adjustments. | Journal API workflow with batch approvals. | ActivityLog `JE_POSTED` plus audit assertions. |
+| TM-051 | IAS 10 | Monitor subsequent events. | Subsequent events module `apps/web/app/audit/subsequent-events/page.tsx`. | Event logs and approval queue `SUBSEQUENT_EVENT`. |
+| TM-052 | IAS 21 | Handle foreign currency remeasurement. | FX remeasure endpoint `/api/fx/remeasure`. | FX preview logs and reviewer sign-off. |
+| TM-053 | IAS 24 | Track related party disclosures. | Related party register `apps/web/app/finance/related-parties/page.tsx`. | Disclosure confirmations stored with attachments. |
+| TM-054 | IAS 36 | Record impairment assessments. | Impairment module capturing cash-generating unit testing. | Assessment memos linked through evidence manifests. |
+| TM-055 | IAS 37 | Manage provisions and contingencies. | Provision tracker `apps/web/app/finance/provisions/page.tsx`. | Provision approval workflows with supporting documents. |
+| TM-056 | COSO Principle 10 | Design control activities with technology. | Controls workspace integrates automated tests via `analytics_runner`. | Control automation logs and review checklists. |
+| TM-057 | COSO Principle 16 | Conduct ongoing evaluations. | Monitoring dashboard `apps/web/app/analytics/monitoring/page.tsx`. | SLA breach alerts and remediation tickets. |
+| TM-058 | NIST SP 800-53 AU-6 | Review audit logs for anomalies. | Log review job in `services/rag/index.ts` streaming to telemetry. | Log review attestations stored in `audit_log_reviews`. |
+| TM-059 | ISO 27001 A.12.7 | Preserve integrity of application software. | Release gate `/api/release-controls/check` with telemetry gating. | Release control snapshots and k6 performance artefacts. |
+
 # Tax Module Traceability Matrix
 
 The matrix aligns statutory requirements with the new database schemas, API routes, UI workspaces, and automated tests.
