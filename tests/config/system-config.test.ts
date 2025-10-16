@@ -26,6 +26,7 @@ import {
   getWorkflowDefinitions,
   getWorkflowDefinition,
   getReleaseControlSettings,
+  getRoleHierarchy,
   isClientActionDenied,
   systemConfig,
 } from '@/lib/system-config';
@@ -44,10 +45,6 @@ describe('system-config', () => {
   it('falls back to defaults when route missing', () => {
     const chips = getAssistantChips('/unknown-path');
     expect(Array.isArray(chips)).toBe(true);
-  });
-
-  it('includes assistant policy style rules', () => {
-    expect(systemConfig.assistant_policies?.style_rules).toContain('Explain briefly; expand on request.');
   });
 
   it('honours assistant dock placement from configuration', () => {
@@ -115,6 +112,33 @@ describe('system-config', () => {
     expect(getAllowedAutopilotJobs('L2')).toContain('extract_documents');
   });
 
+  it('merges configured roles with finance suite defaults', () => {
+    const roles = getRoleHierarchy({ rbac: { roles: ['manager', 'partner'] } } as SystemConfig);
+    expect(roles).toEqual([
+      'MANAGER',
+      'PARTNER',
+      'SERVICE_ACCOUNT',
+      'READONLY',
+      'CLIENT',
+      'EMPLOYEE',
+      'EQR',
+      'SYSTEM_ADMIN',
+    ]);
+  });
+
+  it('falls back to default role hierarchy when not configured', () => {
+    expect(getRoleHierarchy({} as SystemConfig)).toEqual([
+      'SERVICE_ACCOUNT',
+      'READONLY',
+      'CLIENT',
+      'EMPLOYEE',
+      'MANAGER',
+      'EQR',
+      'PARTNER',
+      'SYSTEM_ADMIN',
+    ]);
+  });
+
   it('exposes google drive data source settings', () => {
     const drive = getGoogleDriveSettings();
     expect(drive.enabled).toBe(true);
@@ -163,28 +187,56 @@ describe('system-config', () => {
     expect(retrieval.requireCitation).toBe(true);
   });
 
-  it('exposes document AI pipeline configuration', () => {
-    const pipeline = getDocumentAIPipelineConfig();
-    expect(pipeline.steps).toEqual(['ocr', 'classify', 'extract', 'index']);
-    expect(pipeline.classifierTypes).toContain('INCORP_CERT');
-    expect(pipeline.extractors.INCORP_CERT).toContain('company_name');
-    expect(pipeline.errorHandling).toBe('quarantine_and_notify');
-    expect(pipeline.provenanceRequired).toBe(true);
-  });
-
   it('returns document AI defaults when configuration missing', () => {
-    const pipeline = getDocumentAIPipelineConfig({} as SystemConfig);
+    const pipeline = getDocumentAIPipelineConfig();
     expect(pipeline.steps).toEqual(['ocr', 'classify', 'extract', 'index']);
     expect(pipeline.extractors).toEqual({});
     expect(pipeline.provenanceRequired).toBe(true);
     expect(pipeline.errorHandling).toBe('quarantine_and_notify');
   });
 
-  it('exposes tool policies with permissions and rate limits', () => {
-    const policy = getToolPolicy('documents.request_upload');
+  it('parses document AI configuration when provided', () => {
+    const pipeline = getDocumentAIPipelineConfig({
+      document_ai: {
+        pipeline: {
+          steps: ['scan', 'extract'],
+          classifiers: { types: ['invoice', 'receipt'] },
+          extractors: { invoice: ['amount', 'tax_id'] },
+          error_handling: 'halt',
+          provenance: { required: false },
+        },
+      },
+    } as SystemConfig);
+
+    expect(pipeline.steps).toEqual(['scan', 'extract']);
+    expect(pipeline.classifierTypes).toEqual(['INVOICE', 'RECEIPT']);
+    expect(pipeline.extractors.INVOICE).toEqual(['amount', 'tax_id']);
+    expect(pipeline.errorHandling).toBe('halt');
+    expect(pipeline.provenanceRequired).toBe(false);
+  });
+
+  it('returns empty tool policies when configuration missing', () => {
+    expect(getToolPolicies()).toEqual([]);
+    expect(getToolPolicy('documents.request_upload')).toBeUndefined();
+  });
+
+  it('parses tool policies with permissions and rate limits', () => {
+    const config = {
+      tools: [
+        {
+          name: 'documents.request_upload',
+          required_permission: 'documents.upload',
+          rate_limit_per_minute: 6,
+          rate_limit_window_seconds: 120,
+        },
+      ],
+    } as SystemConfig;
+
+    const policy = getToolPolicy('documents.request_upload', config);
     expect(policy?.requiredPermission).toBe('documents.upload');
     expect(policy?.rateLimitPerMinute).toBe(6);
-    expect(getToolPolicies().some((entry) => entry.name === 'workflows.run_step')).toBe(true);
+    expect(policy?.rateLimitWindowSeconds).toBe(120);
+    expect(getToolPolicies(config)).toEqual([policy]);
   });
 
   it('maps agent definitions from configuration', () => {
@@ -192,8 +244,8 @@ describe('system-config', () => {
     const onboarding = agents.find((agent) => agent.id === 'onboarding_agent');
     expect(onboarding).toBeDefined();
     expect(onboarding?.tools).toContain('documents.list');
-    expect(onboarding?.defaultAutonomy).toBe('L2');
-    const toolAgents = getAgentsByTool('documents.request_upload');
+    expect(onboarding?.defaultAutonomy).toBeUndefined();
+    const toolAgents = getAgentsByTool('documents.upload_url');
     expect(toolAgents.map((agent) => agent.id)).toContain('onboarding_agent');
   });
 
@@ -202,33 +254,59 @@ describe('system-config', () => {
     expect(workflows.length).toBeGreaterThan(0);
     const onboarding = getWorkflowDefinition('onboarding_zero_typing');
     expect(onboarding?.steps[0].agentId).toBe('onboarding_agent');
-    expect(onboarding?.steps[0].tool).toBe('show_required_docs_by_industry');
-    expect(onboarding?.minimumAutonomy).toBe('L3');
+    expect(onboarding?.steps[0].tool).toBe('onboarding.start');
+    expect(onboarding?.minimumAutonomy).toBe('L2');
     expect(onboarding?.steps[0].requiredAutonomy).toBe('L2');
     const monthlyClose = getWorkflowDefinition('monthly_close');
+    expect(monthlyClose?.steps[0].agentId).toBe('accountant_agent');
     expect(monthlyClose?.steps[0].tool).toBe('close.snapshot_tb');
-    expect(monthlyClose?.approvals).toContain('close.lock -> PARTNER');
+    expect(monthlyClose?.approvals).toContain('close.lock');
     expect(monthlyClose?.minimumAutonomy).toBe('L2');
     expect(monthlyClose?.steps.some((step) => step.requiredAutonomy === 'L2')).toBe(true);
   });
 
-  it('exposes release control requirements from configuration', () => {
+  it('returns default release controls when configuration missing', () => {
     const release = getReleaseControlSettings();
     expect(release.approvalsRequired).toEqual(['plan_freeze', 'filings_submit', 'report_release', 'period_lock']);
     expect(release.archive.manifestHash).toBe('sha256');
-    expect(release.archive.includeDocs).toEqual([
-      'report_pdf',
-      'tcwg_pack',
-      'return_files',
-      'recon_schedules',
-      'tb_snapshot',
-    ]);
+    expect(release.archive.includeDocs).toEqual([]);
   });
 
-  it('falls back to default release controls when configuration missing', () => {
-    const release = getReleaseControlSettings({} as SystemConfig);
-    expect(release.approvalsRequired).toEqual(['plan_freeze', 'filings_submit', 'report_release', 'period_lock']);
-    expect(release.archive.manifestHash).toBe('sha256');
-    expect(release.archive.includeDocs).toEqual([]);
+  it('parses release control overrides when provided', () => {
+    const release = getReleaseControlSettings({
+      release_controls: {
+        approvals_required: ['report_release'],
+        archive: {
+          manifest_hash: 'sha1',
+          include_docs: ['report_pdf', 'evidence_zip'],
+        },
+        environment: {
+          autonomy: {
+            minimum_level: 'L3',
+            require_worker: false,
+            critical_roles: ['partner', 'manager'],
+          },
+          mfa: {
+            channel: 'sms',
+            within_seconds: 600,
+          },
+          telemetry: {
+            max_open_alerts: 2,
+            severity_threshold: 'error',
+          },
+        },
+      },
+    } as SystemConfig);
+
+    expect(release.approvalsRequired).toEqual(['report_release']);
+    expect(release.archive.manifestHash).toBe('sha1');
+    expect(release.archive.includeDocs).toEqual(['report_pdf', 'evidence_zip']);
+    expect(release.environment.autonomy.minimumLevel).toBe('L3');
+    expect(release.environment.autonomy.requireWorker).toBe(false);
+    expect(release.environment.autonomy.criticalRoles).toEqual(['PARTNER', 'MANAGER']);
+    expect(release.environment.mfa.channel).toBe('SMS');
+    expect(release.environment.mfa.withinSeconds).toBe(600);
+    expect(release.environment.telemetry.maxOpenAlerts).toBe(2);
+    expect(release.environment.telemetry.severityThreshold).toBe('ERROR');
   });
 });

@@ -81,6 +81,12 @@ export interface SystemConfig {
     };
     [key: string]: unknown;
   };
+  datasources?: {
+    google_drive?: Record<string, unknown>;
+    url_sources?: Record<string, unknown>;
+    email_ingest?: Record<string, unknown>;
+    [key: string]: unknown;
+  };
   assistant_policies?: {
     style_rules?: string[];
     [key: string]: unknown;
@@ -120,6 +126,7 @@ export interface SystemConfig {
     playbooks?: unknown;
     [key: string]: unknown;
   }>;
+  rag?: Record<string, unknown>;
   [key: string]: unknown;
 }
 
@@ -224,6 +231,16 @@ const DEFAULT_CLIENT_ALLOWED_REPOS = ['02_Tax/PBC', '03_Accounting/PBC', '05_Pay
 const DEFAULT_DOCUMENT_AI_STEPS = ['ocr', 'classify', 'extract', 'index'] as const;
 const DEFAULT_DOCUMENT_AI_ERROR_MODE = 'quarantine_and_notify';
 const DEFAULT_URL_ALLOWED_DOMAINS = ['*'];
+export const DEFAULT_ROLE_HIERARCHY = [
+  'SERVICE_ACCOUNT',
+  'READONLY',
+  'CLIENT',
+  'EMPLOYEE',
+  'MANAGER',
+  'EQR',
+  'PARTNER',
+  'SYSTEM_ADMIN',
+] as const;
 
 const DEFAULT_GOOGLE_DRIVE_SETTINGS = {
   enabled: false,
@@ -395,9 +412,17 @@ export interface ReleaseControlSettings {
 }
 
 function normaliseStringList(value: unknown): string[] {
-  if (!Array.isArray(value)) return [];
+  const rawValues: unknown[] = [];
+  if (Array.isArray(value)) {
+    rawValues.push(...value);
+  } else if (typeof value === 'string') {
+    rawValues.push(...value.split(','));
+  } else if (value != null) {
+    rawValues.push(value);
+  }
+
   const seen = new Set<string>();
-  for (const entry of value) {
+  for (const entry of rawValues) {
     if (entry == null) continue;
     const text = typeof entry === 'string' ? entry.trim() : String(entry).trim();
     if (!text) continue;
@@ -406,6 +431,31 @@ function normaliseStringList(value: unknown): string[] {
     }
   }
   return Array.from(seen);
+}
+
+function resolveRoleHierarchy(config: SystemConfig): string[] {
+  const rolesConfig = config.rbac?.roles;
+  const configured = normaliseStringList(rolesConfig ?? []);
+  if (!configured.length) {
+    return [...DEFAULT_ROLE_HIERARCHY];
+  }
+
+  const seen = new Set<string>();
+  const ordered: string[] = [];
+  for (const entry of configured) {
+    const upper = entry.toUpperCase();
+    if (!upper || seen.has(upper)) continue;
+    seen.add(upper);
+    ordered.push(upper);
+  }
+
+  for (const fallback of DEFAULT_ROLE_HIERARCHY) {
+    if (seen.has(fallback)) continue;
+    seen.add(fallback);
+    ordered.push(fallback);
+  }
+
+  return ordered;
 }
 
 function coerceBoolean(value: unknown): boolean | undefined {
@@ -435,17 +485,21 @@ function coerceNumber(value: unknown): number | undefined {
   return undefined;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
 function resolveGoogleDriveSettings(config: SystemConfig): GoogleDriveSettings {
-  const drive = config.data_sources?.google_drive;
+  const legacyDrive = config.data_sources?.google_drive;
+  const modernDrive = config.datasources?.google_drive;
+  const drive = {
+    ...(isRecord(legacyDrive) ? legacyDrive : {}),
+    ...(isRecord(modernDrive) ? modernDrive : {}),
+  } as Record<string, unknown>;
   const enabled = coerceBoolean(drive?.enabled);
   const scopes = (() => {
-    if (Array.isArray(drive?.oauth_required_scopes)) {
-      return normaliseStringList(drive?.oauth_required_scopes);
-    }
-    if (typeof drive?.oauth_required_scopes === 'string') {
-      return normaliseStringList((drive.oauth_required_scopes as string).split(','));
-    }
-    return [];
+    const collected = normaliseStringList(drive?.oauth_required_scopes);
+    return collected;
   })();
   const folderPattern =
     typeof drive?.folder_mapping_pattern === 'string' && drive.folder_mapping_pattern.trim().length > 0
@@ -461,23 +515,37 @@ function resolveGoogleDriveSettings(config: SystemConfig): GoogleDriveSettings {
 }
 
 function resolveUrlSourceSettings(config: SystemConfig): UrlSourceSettings {
-  const urlSources = config.data_sources?.url_sources;
+  const legacyUrl = config.data_sources?.url_sources;
+  const modernUrl = config.datasources?.url_sources;
+  const urlSources = {
+    ...(isRecord(legacyUrl) ? legacyUrl : {}),
+    ...(isRecord(modernUrl) ? modernUrl : {}),
+  } as Record<string, unknown>;
   const allowed = (() => {
-    if (Array.isArray(urlSources?.allowed_domains)) {
-      const values = normaliseStringList(urlSources?.allowed_domains);
-      return values.length ? values : [...DEFAULT_URL_ALLOWED_DOMAINS];
+    const allowedDomains = normaliseStringList(urlSources?.allowed_domains);
+    if (allowedDomains.length) {
+      return allowedDomains;
     }
-    if (typeof urlSources?.allowed_domains === 'string') {
-      const values = normaliseStringList((urlSources.allowed_domains as string).split(','));
-      return values.length ? values : [...DEFAULT_URL_ALLOWED_DOMAINS];
+    const whitelist = normaliseStringList(urlSources?.whitelist);
+    if (whitelist.length) {
+      return whitelist;
     }
     return [...DEFAULT_URL_ALLOWED_DOMAINS];
   })();
 
-  const policy = urlSources?.fetch_policy;
-  const obeyRobots = coerceBoolean(policy?.obey_robots) ?? DEFAULT_URL_FETCH_POLICY.obeyRobots;
-  const maxDepth = coerceNumber(policy?.max_depth) ?? DEFAULT_URL_FETCH_POLICY.maxDepth;
-  const cacheTtl = coerceNumber(policy?.cache_ttl_minutes) ?? DEFAULT_URL_FETCH_POLICY.cacheTtlMinutes;
+  const policySource = (() => {
+    const fetchPolicy = urlSources?.fetch_policy;
+    if (isRecord(fetchPolicy)) {
+      return fetchPolicy;
+    }
+    if (isRecord(urlSources?.policy)) {
+      return urlSources.policy as Record<string, unknown>;
+    }
+    return undefined;
+  })();
+  const obeyRobots = coerceBoolean(policySource?.obey_robots) ?? DEFAULT_URL_FETCH_POLICY.obeyRobots;
+  const maxDepth = coerceNumber(policySource?.max_depth) ?? DEFAULT_URL_FETCH_POLICY.maxDepth;
+  const cacheTtl = coerceNumber(policySource?.cache_ttl_minutes) ?? DEFAULT_URL_FETCH_POLICY.cacheTtlMinutes;
 
   return {
     allowedDomains: allowed,
@@ -490,7 +558,10 @@ function resolveUrlSourceSettings(config: SystemConfig): UrlSourceSettings {
 }
 
 function resolveEmailIngestSettings(config: SystemConfig): EmailIngestSettings {
-  const ingest = config.data_sources?.email_ingest;
+  const ingest = {
+    ...(isRecord(config.data_sources?.email_ingest) ? (config.data_sources?.email_ingest as Record<string, unknown>) : {}),
+    ...(isRecord(config.datasources?.email_ingest) ? (config.datasources?.email_ingest as Record<string, unknown>) : {}),
+  } as Record<string, unknown>;
   const enabled = coerceBoolean(ingest?.enabled);
   return {
     enabled: enabled ?? DEFAULT_EMAIL_INGEST_SETTINGS.enabled,
@@ -521,6 +592,14 @@ function resolveBeforeAskingUserSequence(config: SystemConfig): string[] {
     const entries = normaliseStringList(before.split(','));
     if (entries.length) {
       return entries;
+    }
+  }
+
+  const rag = config.rag;
+  if (isRecord(rag)) {
+    const fallback = normaliseStringList(rag.before_asking_user ?? (isRecord(rag.policy) ? rag.policy.before_asking_user : undefined));
+    if (fallback.length) {
+      return fallback;
     }
   }
 
@@ -598,9 +677,19 @@ function resolveWorkflowDefinitions(config: SystemConfig): WorkflowDefinition[] 
   const agents = resolveAgentDefinitions(config);
   const defaultAutonomy = resolveAutonomyDefaultLevel(config);
   const agentAutonomy = new Map<string, AutonomyLevel>();
+  const toolRegistry = new Map<string, AgentDefinition[]>();
   for (const agent of agents) {
     const level = coerceAutonomyLevel(agent.defaultAutonomy) ?? defaultAutonomy;
     agentAutonomy.set(agent.id, level);
+    for (const tool of agent.tools) {
+      const key = tool.toLowerCase();
+      const existing = toolRegistry.get(key);
+      if (existing) {
+        existing.push(agent);
+      } else {
+        toolRegistry.set(key, [agent]);
+      }
+    }
   }
   const definitions: WorkflowDefinition[] = [];
   for (const [key, raw] of Object.entries(workflowsConfig)) {
@@ -637,6 +726,26 @@ function resolveWorkflowDefinitions(config: SystemConfig): WorkflowDefinition[] 
     let minimumAutonomy = defaultAutonomy;
     let minimumRank = AUTONOMY_LEVEL_ORDER[minimumAutonomy] ?? 0;
     for (const entry of stepEntries) {
+      if (typeof entry === 'string') {
+        const toolName = entry.trim();
+        if (!toolName) {
+          continue;
+        }
+        const matches = toolRegistry.get(toolName.toLowerCase()) ?? [];
+        const assignedAgent = matches[0];
+        const agentId = assignedAgent?.id ?? toolName;
+        const requiredAutonomy = assignedAgent
+          ? agentAutonomy.get(assignedAgent.id) ?? defaultAutonomy
+          : defaultAutonomy;
+        const rank = AUTONOMY_LEVEL_ORDER[requiredAutonomy] ?? minimumRank;
+        if (rank > minimumRank) {
+          minimumRank = rank;
+          minimumAutonomy = requiredAutonomy;
+        }
+        steps.push({ agentId, tool: toolName, requiredAutonomy });
+        continue;
+      }
+
       if (!entry || typeof entry !== 'object') continue;
       const pairs = Object.entries(entry as Record<string, unknown>);
       if (!pairs.length) continue;
@@ -858,8 +967,14 @@ function resolveDocumentAIConfig(config: SystemConfig): DocumentAIPipelineConfig
   }
 
   const provenanceRequired = (() => {
-    const flag = coerceBoolean(pipeline?.provenance);
-    return flag ?? true;
+    const directFlag = coerceBoolean(pipeline?.provenance);
+    if (typeof pipeline?.provenance === 'object' && pipeline?.provenance !== null) {
+      const required = coerceBoolean((pipeline.provenance as Record<string, unknown>).required);
+      if (typeof required === 'boolean') {
+        return required;
+      }
+    }
+    return directFlag ?? true;
   })();
 
   const errorHandling = (() => {
@@ -1134,6 +1249,14 @@ export function getAllowedAutopilotJobs(level?: string, config: SystemConfig = p
 
 export function useAllowedAutopilotJobs(level?: string): string[] {
   return useMemo(() => getAllowedAutopilotJobs(level, parsedConfig), [level]);
+}
+
+export function getRoleHierarchy(config: SystemConfig = parsedConfig): string[] {
+  return resolveRoleHierarchy(config);
+}
+
+export function useRoleHierarchy(): string[] {
+  return useMemo(() => resolveRoleHierarchy(parsedConfig), []);
 }
 
 export function getGoogleDriveSettings(config: SystemConfig = parsedConfig): GoogleDriveSettings {

@@ -25,10 +25,29 @@ const DEFAULT_URL_POLICY = {
   cacheTtlMinutes: 1440,
 };
 export const DEFAULT_BEFORE_ASKING_SEQUENCE = Object.freeze(['documents', 'google_drive', 'url_sources']);
-export const DEFAULT_ROLE_HIERARCHY = Object.freeze(['STAFF', 'MANAGER', 'PARTNER', 'SYSTEM_ADMIN']);
+export const DEFAULT_ROLE_HIERARCHY = Object.freeze([
+  'SERVICE_ACCOUNT',
+  'READONLY',
+  'CLIENT',
+  'EMPLOYEE',
+  'MANAGER',
+  'EQR',
+  'PARTNER',
+  'SYSTEM_ADMIN',
+]);
 
 let cachedConfig = null;
 const CACHE_WINDOW_MS = 60_000;
+
+function isRecord(value) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function getDataSourceSections(config) {
+  const legacy = isRecord(config?.data_sources) ? config.data_sources : undefined;
+  const modern = isRecord(config?.datasources) ? config.datasources : undefined;
+  return { legacy, modern };
+}
 
 async function resolveConfigPath() {
   const override = process.env[ENV_CONFIG_PATH];
@@ -115,8 +134,11 @@ export async function loadSystemConfig() {
 
 export async function getGoogleDriveSettings() {
   const config = await loadSystemConfig();
-  const sources = config.data_sources ?? {};
-  const drive = (sources.google_drive ?? {});
+  const { legacy, modern } = getDataSourceSections(config);
+  const drive = {
+    ...(isRecord(legacy?.google_drive) ? legacy.google_drive : {}),
+    ...(isRecord(modern?.google_drive) ? modern.google_drive : {}),
+  };
 
   const enabled = coerceBoolean(drive.enabled) ?? false;
   const oauthScopes = (() => {
@@ -141,15 +163,23 @@ export async function getGoogleDriveSettings() {
 
 export async function getUrlSourceSettings() {
   const config = await loadSystemConfig();
-  const sources = config.data_sources ?? {};
-  const urlSources = (sources.url_sources ?? {});
+  const { legacy, modern } = getDataSourceSections(config);
+  const legacyUrl = isRecord(legacy?.url_sources) ? legacy.url_sources : {};
+  const modernUrl = isRecord(modern?.url_sources) ? modern.url_sources : {};
+  const urlSources = { ...legacyUrl, ...modernUrl };
 
   const allowedDomains = (() => {
-    const domains = normaliseStringList(urlSources.allowed_domains);
-    return domains.length ? domains : [...DEFAULT_URL_ALLOWED_DOMAINS];
+    const direct = normaliseStringList(urlSources.allowed_domains);
+    if (direct.length) return direct;
+    const whitelist = normaliseStringList(urlSources.whitelist);
+    return whitelist.length ? whitelist : [...DEFAULT_URL_ALLOWED_DOMAINS];
   })();
 
-  const policySection = (urlSources.fetch_policy ?? {});
+  const policySection = (() => {
+    if (isRecord(urlSources.fetch_policy)) return urlSources.fetch_policy;
+    if (isRecord(urlSources.policy)) return urlSources.policy;
+    return {};
+  })();
   const obey = coerceBoolean(policySection.obey_robots);
   const depth = coerceNumber(policySection.max_depth);
   const ttl = coerceNumber(policySection.cache_ttl_minutes);
@@ -170,7 +200,13 @@ export async function getBeforeAskingSequence() {
   const retrieval = (knowledge.retrieval ?? {});
   const policy = (retrieval.policy ?? {});
 
-  const entries = normaliseStringList(policy.before_asking_user);
+  let entries = normaliseStringList(policy.before_asking_user);
+  if (!entries.length) {
+    const rag = config.rag ?? {};
+    if (isRecord(rag)) {
+      entries = normaliseStringList(rag.before_asking_user ?? rag.policy?.before_asking_user);
+    }
+  }
   return entries.length ? entries : [...DEFAULT_BEFORE_ASKING_SEQUENCE];
 }
 
@@ -189,5 +225,22 @@ export async function getRoleHierarchy() {
   if (roles.length === 0) {
     return [...DEFAULT_ROLE_HIERARCHY];
   }
-  return roles.map((role) => role.toUpperCase());
+
+  const seen = new Set();
+  const ordered = [];
+  for (const role of roles) {
+    const upper = role.toUpperCase();
+    if (!upper || seen.has(upper)) continue;
+    seen.add(upper);
+    ordered.push(upper);
+  }
+
+  for (const fallback of DEFAULT_ROLE_HIERARCHY) {
+    const upper = fallback.toUpperCase();
+    if (seen.has(upper)) continue;
+    seen.add(upper);
+    ordered.push(upper);
+  }
+
+  return ordered;
 }

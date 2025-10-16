@@ -1,6 +1,8 @@
 export interface RawSystemConfig {
   data_sources?: Record<string, unknown>;
+  datasources?: Record<string, unknown>;
   knowledge?: Record<string, unknown>;
+  rag?: Record<string, unknown>;
   [key: string]: unknown;
 }
 

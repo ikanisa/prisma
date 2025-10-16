@@ -128,6 +128,45 @@ def test_data_source_defaults_when_missing(tmp_path, monkeypatch):
     assert email["enabled"] is False
 
 
+def test_datasources_aliases(tmp_path, monkeypatch):
+    _set_config(
+        tmp_path,
+        monkeypatch,
+        """
+        datasources:
+          google_drive:
+            enabled: true
+            mirror_to_storage: false
+          url_sources:
+            whitelist: [example.com]
+            policy:
+              obey_robots: false
+              max_depth: 2
+              cache_ttl_minutes: 60
+          email_ingest:
+            enabled: true
+        rag:
+          before_asking_user: [url_sources, documents]
+        """,
+    )
+
+    drive = config_loader.get_google_drive_settings()
+    assert drive["enabled"] is True
+    assert drive["mirror_to_storage"] is False
+
+    url_settings = config_loader.get_url_source_settings()
+    assert url_settings["allowed_domains"] == ["example.com"]
+    assert url_settings["fetch_policy"]["obey_robots"] is False
+    assert url_settings["fetch_policy"]["max_depth"] == 2
+    assert url_settings["fetch_policy"]["cache_ttl_minutes"] == 60
+
+    email = config_loader.get_email_ingest_settings()
+    assert email["enabled"] is True
+
+    sequence = config_loader.get_before_asking_user_sequence()
+    assert sequence == ["url_sources", "documents"]
+
+
 def test_autonomy_overrides(tmp_path, monkeypatch):
     _set_config(
         tmp_path,
