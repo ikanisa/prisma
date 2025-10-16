@@ -144,6 +144,16 @@ def _normalise_list(values: Iterable[Any]) -> List[str]:
             result.append(text)
     return result
 
+def _get_data_source_sections(config: Mapping[str, Any] | None) -> tuple[Mapping[str, Any] | None, Mapping[str, Any] | None]:
+    if not isinstance(config, Mapping):
+        return None, None
+    legacy = config.get("data_sources")
+    modern = config.get("datasources")
+    return (
+        legacy if isinstance(legacy, Mapping) else None,
+        modern if isinstance(modern, Mapping) else None,
+    )
+
 
 def _coerce_bool(value: Any) -> bool | None:
     if isinstance(value, bool):
@@ -192,9 +202,18 @@ def get_config_permission_map() -> Dict[str, str]:
     config = load_system_config()
     rbac = config.get("rbac") if isinstance(config, Mapping) else None
     permissions = rbac.get("permissions") if isinstance(rbac, Mapping) else None
+    matrix = rbac.get("matrix") if isinstance(rbac, Mapping) else None
     result: Dict[str, str] = {}
     if isinstance(permissions, Mapping):
         for key, value in permissions.items():
+            if key is None or value is None:
+                continue
+            permission_key = str(key).strip()
+            role_value = str(value).strip().upper()
+            if permission_key and role_value:
+                result[permission_key] = role_value
+    if isinstance(matrix, Mapping):
+        for key, value in matrix.items():
             if key is None or value is None:
                 continue
             permission_key = str(key).strip()
@@ -211,6 +230,8 @@ def get_client_portal_scope() -> Dict[str, List[str]]:
     scope = None
     if isinstance(rbac, Mapping):
         scope = rbac.get("client_portal_scope")
+        if not isinstance(scope, Mapping):
+            scope = rbac.get("client_scope")
     allowed: List[str] = []
     denied: List[str] = []
     if isinstance(scope, Mapping):
@@ -411,6 +432,15 @@ def get_workflow_definitions() -> Dict[str, Dict[str, Any]]:
     workflows = config.get("workflows") if isinstance(config, Mapping) else None
     definitions: Dict[str, Dict[str, Any]] = {}
     registry = get_agent_registry()
+    tool_registry: Dict[str, List[str]] = {}
+    for agent_id, definition in (registry or {}).items():
+        tools = definition.get("tools") if isinstance(definition, Mapping) else None
+        if isinstance(tools, Iterable):
+            for tool in tools:
+                key = str(tool or "").strip().lower()
+                if not key:
+                    continue
+                tool_registry.setdefault(key, []).append(agent_id)
     default_autonomy = get_default_autonomy_level()
     if isinstance(workflows, Mapping):
         for key, value in workflows.items():
@@ -437,6 +467,28 @@ def get_workflow_definitions() -> Dict[str, Dict[str, Any]]:
             step_entries = value.get("steps")
             if isinstance(step_entries, Iterable):
                 for entry in step_entries:
+                    if isinstance(entry, str):
+                        tool_name = entry.strip()
+                        if not tool_name:
+                            continue
+                        candidates = tool_registry.get(tool_name.lower(), [])
+                        agent_id = candidates[0] if candidates else tool_name
+                        agent_definition = registry.get(agent_id) if isinstance(registry, Mapping) else None
+                        agent_default = None
+                        if isinstance(agent_definition, Mapping):
+                            agent_default = agent_definition.get("default_autonomy")
+                        required_autonomy = _coerce_autonomy_level(agent_default) or default_autonomy
+                        steps.append({
+                            "agent_id": agent_id,
+                            "tool": tool_name,
+                            "required_autonomy": required_autonomy,
+                        })
+                        rank = _AUTONOMY_LEVEL_ORDER.get(required_autonomy, minimum_rank)
+                        if rank > minimum_rank:
+                            minimum_rank = rank
+                            minimum_autonomy = required_autonomy
+                        continue
+
                     if not isinstance(entry, Mapping) or not entry:
                         continue
                     agent_raw, tool_raw = next(iter(entry.items()))
@@ -473,23 +525,26 @@ def get_workflow_definitions() -> Dict[str, Dict[str, Any]]:
 @lru_cache(maxsize=1)
 def get_google_drive_settings() -> Dict[str, Any]:
     config = load_system_config()
-    data_sources = config.get("data_sources") if isinstance(config, Mapping) else None
-    drive = data_sources.get("google_drive") if isinstance(data_sources, Mapping) else None
+    legacy, modern = _get_data_source_sections(config if isinstance(config, Mapping) else None)
 
-    enabled = _coerce_bool(drive.get("enabled")) if isinstance(drive, Mapping) else None
+    merged: Dict[str, Any] = {}
+    for section in (legacy, modern):
+        drive_section = section.get("google_drive") if isinstance(section, Mapping) else None
+        if isinstance(drive_section, Mapping):
+            merged.update(drive_section)
+
+    enabled = _coerce_bool(merged.get("enabled"))
     scopes_raw = []
-    if isinstance(drive, Mapping):
-        scopes_value = drive.get("oauth_required_scopes")
-        if isinstance(scopes_value, (list, tuple)):
-            scopes_raw = _normalise_list(scopes_value)
-        elif isinstance(scopes_value, str):
-            scopes_raw = _normalise_list(scopes_value.split(","))
+    scopes_value = merged.get("oauth_required_scopes")
+    if isinstance(scopes_value, (list, tuple)):
+        scopes_raw = _normalise_list(scopes_value)
+    elif isinstance(scopes_value, str):
+        scopes_raw = _normalise_list(scopes_value.split(","))
     folder_pattern = None
-    if isinstance(drive, Mapping):
-        candidate = drive.get("folder_mapping_pattern")
-        if isinstance(candidate, str) and candidate.strip():
-            folder_pattern = candidate.strip()
-    mirror = _coerce_bool(drive.get("mirror_to_storage")) if isinstance(drive, Mapping) else None
+    candidate = merged.get("folder_mapping_pattern")
+    if isinstance(candidate, str) and candidate.strip():
+        folder_pattern = candidate.strip()
+    mirror = _coerce_bool(merged.get("mirror_to_storage"))
 
     return {
         "enabled": enabled if enabled is not None else False,
@@ -502,23 +557,40 @@ def get_google_drive_settings() -> Dict[str, Any]:
 @lru_cache(maxsize=1)
 def get_url_source_settings() -> Dict[str, Any]:
     config = load_system_config()
-    data_sources = config.get("data_sources") if isinstance(config, Mapping) else None
-    url_sources = data_sources.get("url_sources") if isinstance(data_sources, Mapping) else None
+    legacy, modern = _get_data_source_sections(config if isinstance(config, Mapping) else None)
+
+    merged: Dict[str, Any] = {}
+    for section in (legacy, modern):
+        url_section = section.get("url_sources") if isinstance(section, Mapping) else None
+        if isinstance(url_section, Mapping):
+            merged.update(url_section)
 
     allowed: List[str] = list(_DEFAULT_URL_ALLOWED_DOMAINS)
-    if isinstance(url_sources, Mapping):
-        domains = url_sources.get("allowed_domains")
-        if isinstance(domains, (list, tuple)):
-            entries = _normalise_list(domains)
+    domains = merged.get("allowed_domains")
+    if isinstance(domains, (list, tuple)):
+        entries = _normalise_list(domains)
+        if entries:
+            allowed = entries
+    elif isinstance(domains, str):
+        entries = _normalise_list(domains.split(","))
+        if entries:
+            allowed = entries
+    else:
+        whitelist = merged.get("whitelist")
+        if isinstance(whitelist, (list, tuple)):
+            entries = _normalise_list(whitelist)
             if entries:
                 allowed = entries
-        elif isinstance(domains, str):
-            entries = _normalise_list(domains.split(","))
+        elif isinstance(whitelist, str):
+            entries = _normalise_list(whitelist.split(","))
             if entries:
                 allowed = entries
 
     fetch_policy = _DEFAULT_URL_FETCH_POLICY.copy()
-    policy_section = url_sources.get("fetch_policy") if isinstance(url_sources, Mapping) else None
+    policy_section = merged.get("fetch_policy")
+    if not isinstance(policy_section, Mapping):
+        fallback_policy = merged.get("policy")
+        policy_section = fallback_policy if isinstance(fallback_policy, Mapping) else None
     if isinstance(policy_section, Mapping):
         obey = _coerce_bool(policy_section.get("obey_robots"))
         if obey is not None:
@@ -539,9 +611,15 @@ def get_url_source_settings() -> Dict[str, Any]:
 @lru_cache(maxsize=1)
 def get_email_ingest_settings() -> Dict[str, Any]:
     config = load_system_config()
-    data_sources = config.get("data_sources") if isinstance(config, Mapping) else None
-    email = data_sources.get("email_ingest") if isinstance(data_sources, Mapping) else None
-    enabled = _coerce_bool(email.get("enabled")) if isinstance(email, Mapping) else None
+    legacy, modern = _get_data_source_sections(config if isinstance(config, Mapping) else None)
+
+    merged: Dict[str, Any] = {}
+    for section in (legacy, modern):
+        email_section = section.get("email_ingest") if isinstance(section, Mapping) else None
+        if isinstance(email_section, Mapping):
+            merged.update(email_section)
+
+    enabled = _coerce_bool(merged.get("enabled"))
     return {"enabled": bool(enabled)}
 
 
@@ -558,6 +636,22 @@ def get_before_asking_user_sequence() -> List[str]:
             return entries
     if isinstance(before, str):
         entries = _normalise_list(before.split(","))
+        if entries:
+            return entries
+    rag = config.get("rag") if isinstance(config, Mapping) else None
+    candidate = None
+    if isinstance(rag, Mapping):
+        candidate = rag.get("before_asking_user")
+        if candidate is None:
+            policy_section = rag.get("policy")
+            if isinstance(policy_section, Mapping):
+                candidate = policy_section.get("before_asking_user")
+    if isinstance(candidate, (list, tuple)):
+        entries = _normalise_list(candidate)
+        if entries:
+            return entries
+    if isinstance(candidate, str):
+        entries = _normalise_list(candidate.split(","))
         if entries:
             return entries
     return list(_DEFAULT_BEFORE_ASKING_SEQUENCE)
