@@ -650,10 +650,15 @@ function resolveAgentDefinitions(config: SystemConfig): AgentDefinition[] {
       const steps = normaliseStringList(playbook.steps);
       playbooks.push({ name, steps });
     }
-    const defaultAutonomy =
-      typeof entry.default_autonomy === 'string' && entry.default_autonomy.trim().length > 0
-        ? entry.default_autonomy.trim().toUpperCase()
-        : undefined;
+    let defaultAutonomy: string | undefined;
+    if (typeof entry.autonomy === 'string' && entry.autonomy.trim().length > 0) {
+      defaultAutonomy = entry.autonomy.trim().toUpperCase();
+    } else if (
+      typeof entry.default_autonomy === 'string' &&
+      entry.default_autonomy.trim().length > 0
+    ) {
+      defaultAutonomy = entry.default_autonomy.trim().toUpperCase();
+    }
 
     agents.push({
       id,

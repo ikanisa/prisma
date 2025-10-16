@@ -414,9 +414,13 @@ def get_agent_registry() -> Dict[str, Dict[str, Any]]:
                     steps = _normalise_list(playbook.get("steps"))
                     playbooks.append({"name": name, "steps": steps})
 
+            autonomy = _coerce_autonomy_level(entry.get("autonomy"))
+            if autonomy is None:
+                autonomy = _coerce_autonomy_level(entry.get("default_autonomy"))
+
             registry[agent_id] = {
                 "title": (str(entry.get("title")) or "").strip() or None,
-                "default_autonomy": _coerce_autonomy_level(entry.get("default_autonomy")),
+                "default_autonomy": autonomy,
                 "tools": _normalise_list(entry.get("tools")),
                 "actions": _normalise_list(entry.get("actions")),
                 "approvals_required": _normalise_list(entry.get("approvals_required")),
