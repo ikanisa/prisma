@@ -1,10 +1,11 @@
 {
-  "name": "Web App",
-  "short_name": "Web",
-  "start_url": "/",
+  "name": "Prisma Glow Console",
+  "short_name": "Prisma",
+  "start_url": "/dashboard",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#ffffff",
+  "background_color": "#0f172a",
+  "theme_color": "#2563eb",
+  "description": "Fieldwork, tax automation, and agent operations in a single command center.",
   "icons": [
     {
       "src": "/icon-192.png",
@@ -15,6 +16,22 @@
       "src": "/icon-512.png",
       "sizes": "512x512",
       "type": "image/png"
+    },
+    {
+      "src": "/maskable-icon.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "any maskable"
     }
-  ]
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshots/dashboard.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "label": "Autonomy dashboard"
+    }
+  ],
+  "categories": ["productivity", "finance", "business"],
+  "lang": "en"
 }

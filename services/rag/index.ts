@@ -7637,14 +7637,28 @@ app.get('/v1/engagements', authenticate, async (req: AuthenticatedRequest, res) 
 
     const { orgId } = await resolveOrgForUser(userId, orgSlug);
 
-    const { data, error } = await supabaseService
+    const independenceStatusRaw = Array.isArray(req.query.independenceStatus)
+      ? (req.query.independenceStatus as string[])
+      : typeof req.query.independenceStatus === 'string'
+      ? (req.query.independenceStatus as string).split(',').map((value) => value.trim()).filter(Boolean)
+      : [];
+    const auditOnly = req.query.auditOnly === 'true';
+
+    let query = supabaseService
       .from('engagements')
       .select(
         'id, org_id, client_id, title, description, status, start_date, end_date, budget, created_at, updated_at, is_audit_client, requires_eqr, non_audit_services, independence_checked, independence_conclusion, independence_conclusion_note'
       )
-      .eq('org_id', orgId)
-      .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1);
+      .eq('org_id', orgId);
+
+    if (auditOnly) {
+      query = query.eq('is_audit_client', true);
+    }
+    if (independenceStatusRaw.length > 0) {
+      query = query.in('independence_conclusion', independenceStatusRaw);
+    }
+
+    const { data, error } = await query.order('created_at', { ascending: false }).range(offset, offset + limit - 1);
 
     if (error) {
       throw error;

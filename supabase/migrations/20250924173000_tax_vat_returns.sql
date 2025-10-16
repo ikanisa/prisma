@@ -23,6 +23,8 @@ CREATE TABLE IF NOT EXISTS public.vat_filings (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+COMMENT ON TABLE public.vat_filings IS 'VAT, OSS, and IOSS return snapshots powering review dashboards and independence gating.';
+
 CREATE INDEX IF NOT EXISTS idx_vat_filings_org_period
   ON public.vat_filings(org_id, tax_entity_id, period);
 

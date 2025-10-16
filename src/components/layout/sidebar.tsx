@@ -17,7 +17,9 @@ import {
   Calculator,
   ClipboardCheck,
   AlarmClock,
-  BarChart3
+  BarChart3,
+  ShieldAlert,
+  Building2
 } from 'lucide-react';
 import { Button } from '@/components/enhanced-button';
 import { useOrganizations } from '@/hooks/use-organizations';
@@ -35,31 +37,61 @@ type NavigationItem = {
   href: string;
   icon: typeof LayoutDashboard;
   minRole?: Role;
+  badge?: 'beta' | 'new';
 };
 
-const navigation: NavigationItem[] = [
-  { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { name: 'Clients', href: '/clients', icon: Users },
-  { name: 'Engagements', href: '/engagements', icon: Briefcase },
-  { name: 'Onboarding', href: '/onboarding', icon: ClipboardCheck, minRole: 'MANAGER' },
-  { name: 'Autopilot', href: '/autopilot', icon: AlarmClock, minRole: 'MANAGER' },
-  { name: 'Audit Workspace', href: '/audit/controls', icon: ShieldCheck, minRole: 'MANAGER' },
-  { name: 'Accounting Close', href: '/accounting', icon: Calculator, minRole: 'MANAGER' },
-  { name: 'Tasks', href: '/tasks', icon: CheckSquare },
-  { name: 'Documents', href: '/documents', icon: FileText },
-  { name: 'Knowledge', href: '/knowledge/repositories', icon: BookOpen, minRole: 'MANAGER' },
-  { name: 'Agent Configuration', href: '/agents/configuration', icon: Bot, minRole: 'MANAGER' },
-  { name: 'Agent Learning', href: '/agents/learning', icon: Sparkles, minRole: 'MANAGER' },
-  { name: 'Tax (Malta CIT)', href: '/tax/malta-cit', icon: FileText, minRole: 'MANAGER' },
-  { name: 'Tax (VAT & OSS)', href: '/tax/vat-oss', icon: FileText, minRole: 'MANAGER' },
-  { name: 'Tax (DAC6)', href: '/tax/dac6', icon: FileText, minRole: 'MANAGER' },
-  { name: 'Tax (Pillar Two)', href: '/tax/pillar-two', icon: FileText, minRole: 'MANAGER' },
-  { name: 'Tax (Treaty & WHT)', href: '/tax/treaty-wht', icon: FileText, minRole: 'MANAGER' },
-  { name: 'Advanced Analytics', href: '/analytics', icon: BarChart3, minRole: 'MANAGER' },
-  { name: 'Telemetry', href: '/telemetry', icon: Activity, minRole: 'MANAGER' },
-  { name: 'Notifications', href: '/notifications', icon: Bell },
-  { name: 'Activity', href: '/activity', icon: Activity },
-  { name: 'Settings', href: '/settings', icon: Settings, minRole: 'MANAGER' },
+type NavigationGroup = {
+  label: string;
+  items: NavigationItem[];
+};
+
+const navigation: NavigationGroup[] = [
+  {
+    label: 'Workspace',
+    items: [
+      { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+      { name: 'Clients', href: '/clients', icon: Users },
+      { name: 'Engagements', href: '/engagements', icon: Briefcase },
+      { name: 'Tasks', href: '/tasks', icon: CheckSquare },
+      { name: 'Documents', href: '/documents', icon: FileText },
+      { name: 'Notifications', href: '/notifications', icon: Bell },
+      { name: 'Activity', href: '/activity', icon: Activity },
+    ],
+  },
+  {
+    label: 'Quality & Autonomy',
+    items: [
+      { name: 'Onboarding', href: '/onboarding', icon: ClipboardCheck, minRole: 'MANAGER' },
+      { name: 'Autopilot', href: '/autopilot', icon: AlarmClock, minRole: 'MANAGER' },
+      { name: 'Independence Monitor', href: '/independence', icon: ShieldAlert, minRole: 'MANAGER', badge: 'beta' },
+      { name: 'Audit Workspace', href: '/audit/controls', icon: ShieldCheck, minRole: 'MANAGER' },
+      { name: 'Accounting Close', href: '/accounting', icon: Calculator, minRole: 'MANAGER' },
+      { name: 'Telemetry', href: '/telemetry', icon: Activity, minRole: 'MANAGER' },
+      { name: 'Advanced Analytics', href: '/analytics', icon: BarChart3, minRole: 'MANAGER' },
+    ],
+  },
+  {
+    label: 'Knowledge & Agents',
+    items: [
+      { name: 'Knowledge', href: '/knowledge/repositories', icon: BookOpen, minRole: 'MANAGER' },
+      { name: 'Agent Configuration', href: '/agents/configuration', icon: Bot, minRole: 'MANAGER' },
+      { name: 'Agent Learning', href: '/agents/learning', icon: Sparkles, minRole: 'MANAGER' },
+    ],
+  },
+  {
+    label: 'Tax Automation',
+    items: [
+      { name: 'Tax (Malta CIT)', href: '/tax/malta-cit', icon: Building2, minRole: 'MANAGER' },
+      { name: 'Tax (VAT & OSS)', href: '/tax/vat-oss', icon: FileText, minRole: 'MANAGER' },
+      { name: 'Tax (DAC6)', href: '/tax/dac6', icon: FileText, minRole: 'MANAGER' },
+      { name: 'Tax (Pillar Two)', href: '/tax/pillar-two', icon: FileText, minRole: 'MANAGER' },
+      { name: 'Tax (Treaty & WHT)', href: '/tax/treaty-wht', icon: FileText, minRole: 'MANAGER' },
+    ],
+  },
+  {
+    label: 'Administration',
+    items: [{ name: 'Settings', href: '/settings', icon: Settings, minRole: 'MANAGER' }],
+  },
 ];
 
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {
@@ -75,10 +107,15 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
   const userRoleLevel = userRole ? roleHierarchy[userRole as Role] ?? 0 : 0;
 
-  const filteredNavigation = navigation.filter((item) => {
-    if (!item.minRole) return true;
-    return userRoleLevel >= roleHierarchy[item.minRole];
-  });
+  const filteredNavigation = navigation
+    .map((group) => ({
+      label: group.label,
+      items: group.items.filter((item) => {
+        if (!item.minRole) return true;
+        return userRoleLevel >= roleHierarchy[item.minRole];
+      }),
+    }))
+    .filter((group) => group.items.length > 0);
 
   const isActive = (href: string) => {
     const path = location.pathname;
@@ -167,54 +204,83 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 p-4 space-y-2">
-        {filteredNavigation.map((item, index) => {
-          const active = isActive(item.href);
-          const baseSlug = currentOrg?.slug ?? orgSlug ?? 'prisma-glow';
-          const href = baseSlug ? `/${baseSlug}${item.href}` : item.href;
-          
-          return (
-            <motion.div
-              key={item.name}
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.3, delay: index * 0.05 }}
-            >
-              <NavLink
-                to={href}
-                className={({ isActive }) => cn(
-                  "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 group",
-                  isActive || active 
-                    ? "bg-primary text-primary-foreground shadow-primary" 
-                    : "text-muted-foreground hover:text-foreground hover:bg-accent"
-                )}
-              >
-                <motion.div
-                  variants={getNavItemVariants(active)}
-                  initial="rest"
-                  whileHover="hover"
-                  whileTap="tap"
-                  className="flex items-center gap-3 w-full"
+      <nav className="flex-1 p-4 space-y-6 overflow-y-auto">
+        {filteredNavigation.map((group, groupIndex) => (
+          <div key={group.label} className="space-y-2">
+            <AnimatePresence mode="wait">
+              {!collapsed && (
+                <motion.p
+                  className="px-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  transition={{ duration: 0.2, delay: groupIndex * 0.05 }}
                 >
-                  <item.icon className="w-5 h-5 shrink-0" />
-                  <AnimatePresence mode="wait">
-                    {!collapsed && (
-                      <motion.span
-                        initial={{ opacity: 0, width: 0 }}
-                        animate={{ opacity: 1, width: "auto" }}
-                        exit={{ opacity: 0, width: 0 }}
-                        transition={{ duration: 0.2 }}
-                        className="overflow-hidden whitespace-nowrap"
-                      >
-                        {item.name}
-                      </motion.span>
+                  {group.label}
+                </motion.p>
+              )}
+            </AnimatePresence>
+            {group.items.map((item, index) => {
+              const active = isActive(item.href);
+              const baseSlug = currentOrg?.slug ?? orgSlug ?? 'prisma-glow';
+              const href = baseSlug ? `/${baseSlug}${item.href}` : item.href;
+
+              return (
+                <motion.div
+                  key={item.name}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.3, delay: index * 0.04 }}
+                >
+                  <NavLink
+                    to={href}
+                    className={({ isActive }) => cn(
+                      "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 group",
+                      isActive || active
+                        ? "bg-primary text-primary-foreground shadow-primary"
+                        : "text-muted-foreground hover:text-foreground hover:bg-accent"
                     )}
-                  </AnimatePresence>
+                  >
+                    <motion.div
+                      variants={getNavItemVariants(active)}
+                      initial="rest"
+                      whileHover="hover"
+                      whileTap="tap"
+                      className="flex items-center gap-3 w-full"
+                    >
+                      <item.icon className="w-5 h-5 shrink-0" />
+                      <AnimatePresence mode="wait">
+                        {!collapsed && (
+                          <motion.span
+                            initial={{ opacity: 0, width: 0 }}
+                            animate={{ opacity: 1, width: "auto" }}
+                            exit={{ opacity: 0, width: 0 }}
+                            transition={{ duration: 0.2 }}
+                            className="overflow-hidden whitespace-nowrap"
+                          >
+                            {item.name}
+                          </motion.span>
+                        )}
+                      </AnimatePresence>
+                      {item.badge && !collapsed && (
+                        <span
+                          className={cn(
+                            'ml-auto rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-widest',
+                            item.badge === 'beta'
+                              ? 'bg-amber-500/10 text-amber-600'
+                              : 'bg-emerald-500/10 text-emerald-600'
+                          )}
+                        >
+                          {item.badge}
+                        </span>
+                      )}
+                    </motion.div>
+                  </NavLink>
                 </motion.div>
-              </NavLink>
-            </motion.div>
-          );
-        })}
+              );
+            })}
+          </div>
+        ))}
       </nav>
 
       {/* System Admin Panel Link */}

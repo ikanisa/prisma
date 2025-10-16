@@ -12,6 +12,7 @@ INSERT INTO public.activity_event_catalog (action, description, module, policy_p
   ('GRP_INSTRUCTION_COMPLETED', 'Component instruction completed and ready for review.', 'AUDIT_GRP1', 'AP-GOV-1', ARRAY['ISA 600'], 'NOTICE'),
   ('GRP_WORKPAPER_RECEIVED', 'Workpaper received from component auditor.', 'AUDIT_GRP1', 'AP-GOV-1', ARRAY['ISA 600'], 'INFO'),
   ('GRP_REVIEW_UPDATED', 'Group review status updated.', 'AUDIT_GRP1', 'AP-GOV-1', ARRAY['ISA 600'], 'INFO'),
+  ('ENGAGEMENT_INDEPENDENCE_UPDATED', 'Independence assessment updated with override/safeguard detail.', 'AUDIT_GOV', 'AP-GOV-1', ARRAY['ISA 220','IESBA 600'], 'NOTICE'),
   ('EXP_EXPERT_ASSESSED', 'External specialist reliance assessment captured.', 'AUDIT_EXP1', 'AP-GOV-1', ARRAY['ISA 620'], 'INFO'),
   ('EXP_IA_ASSESSED', 'Internal audit reliance assessment captured.', 'AUDIT_EXP1', 'AP-GOV-1', ARRAY['ISA 610'], 'INFO'),
   ('OI_UPLOADED', 'Other information document uploaded for review.', 'AUDIT_OI1', 'AP-GOV-1', ARRAY['ISA 720'], 'INFO'),

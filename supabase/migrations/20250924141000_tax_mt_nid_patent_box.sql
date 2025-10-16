@@ -25,6 +25,8 @@ CREATE TABLE IF NOT EXISTS public.nid_computations (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+COMMENT ON TABLE public.nid_computations IS 'Malta notional interest deduction calculator outputs with independence evidence trail.';
+
 CREATE INDEX IF NOT EXISTS idx_nid_computations_org_period
   ON public.nid_computations(org_id, tax_entity_id, period);
 
@@ -56,6 +58,8 @@ CREATE TABLE IF NOT EXISTS public.patent_box_computations (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+COMMENT ON TABLE public.patent_box_computations IS 'Malta patent box computations linked to tax evidence packs and independence review.';
 
 CREATE INDEX IF NOT EXISTS idx_patent_box_computations_org_period
   ON public.patent_box_computations(org_id, tax_entity_id, period);

@@ -64,6 +64,12 @@ CREATE TABLE IF NOT EXISTS public.engagements (
   start_date DATE,
   end_date DATE,
   budget DECIMAL(10,2),
+  is_audit_client BOOLEAN DEFAULT false,
+  requires_eqr BOOLEAN DEFAULT false,
+  non_audit_services JSONB DEFAULT '[]'::jsonb,
+  independence_checked BOOLEAN DEFAULT false,
+  independence_conclusion TEXT DEFAULT 'OK',
+  independence_conclusion_note TEXT,
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );

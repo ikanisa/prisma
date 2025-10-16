@@ -243,6 +243,19 @@ create table if not exists engagements(
 );
 create trigger trg_engagements_touch before update on engagements
   for each row execute function app.touch_updated_at();
+
+alter table if exists engagements
+  add column if not exists is_audit_client boolean default false;
+alter table if exists engagements
+  add column if not exists requires_eqr boolean default false;
+alter table if exists engagements
+  add column if not exists non_audit_services jsonb default '[]'::jsonb;
+alter table if exists engagements
+  add column if not exists independence_checked boolean default false;
+alter table if exists engagements
+  add column if not exists independence_conclusion text default 'OK';
+alter table if exists engagements
+  add column if not exists independence_conclusion_note text;
 create table if not exists risks(
   id uuid primary key default gen_random_uuid(),
   org_id uuid not null references organizations(id) on delete cascade,
