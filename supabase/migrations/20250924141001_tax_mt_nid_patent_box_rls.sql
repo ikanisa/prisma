@@ -23,8 +23,8 @@ CREATE POLICY nid_computations_select ON public.nid_computations
 DROP POLICY IF EXISTS nid_computations_write ON public.nid_computations;
 CREATE POLICY nid_computations_write ON public.nid_computations
   FOR ALL
-  USING (app.is_member_of(org_id, 'staff'))
-  WITH CHECK (app.is_member_of(org_id, 'staff'));
+  USING (app.is_member_of(org_id, 'manager'))
+  WITH CHECK (app.is_member_of(org_id, 'manager'));
 
 DROP POLICY IF EXISTS patent_box_computations_select ON public.patent_box_computations;
 CREATE POLICY patent_box_computations_select ON public.patent_box_computations
@@ -34,5 +34,5 @@ CREATE POLICY patent_box_computations_select ON public.patent_box_computations
 DROP POLICY IF EXISTS patent_box_computations_write ON public.patent_box_computations;
 CREATE POLICY patent_box_computations_write ON public.patent_box_computations
   FOR ALL
-  USING (app.is_member_of(org_id, 'staff'))
-  WITH CHECK (app.is_member_of(org_id, 'staff'));
+  USING (app.is_member_of(org_id, 'manager'))
+  WITH CHECK (app.is_member_of(org_id, 'manager'));

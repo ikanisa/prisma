@@ -28,6 +28,7 @@ const lazyDefault = <T extends { default: ComponentType<any> }>(factory: () => P
 const Dashboard = lazyNamed(() => import('./pages/dashboard'), 'Dashboard');
 const Clients = lazyNamed(() => import('./pages/clients'), 'Clients');
 const Engagements = lazyNamed(() => import('./pages/engagements'), 'Engagements');
+const IndependencePage = lazyNamed(() => import('./pages/independence'), 'Independence');
 const Tasks = lazyNamed(() => import('./pages/tasks'), 'Tasks');
 const Documents = lazyNamed(() => import('./pages/documents'), 'Documents');
 const Notifications = lazyNamed(() => import('./pages/notifications'), 'Notifications');
@@ -107,6 +108,7 @@ const App = () => (
               <Route path="dashboard" element={renderWithRouteSuspense(<Dashboard />)} />
               <Route path="clients" element={renderWithRouteSuspense(<Clients />)} />
               <Route path="engagements" element={renderWithRouteSuspense(<Engagements />)} />
+              <Route path="independence" element={renderWithRouteSuspense(<IndependencePage />)} />
               <Route
                 path="engagements/:engagementId/reporting/kam"
                 element={renderWithRouteSuspense(<KamReportingPage />)}

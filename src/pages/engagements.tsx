@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { motion } from 'framer-motion';
+import { formatDistanceToNow } from 'date-fns';
 import { Plus, Edit, Trash2, Loader2 } from 'lucide-react';
 import { Button } from '@/components/enhanced-button';
 import { Badge } from '@/components/ui/badge';
@@ -34,6 +35,7 @@ import {
   updateEngagement,
   deleteEngagement,
   type EngagementRecord,
+  type IndependenceConclusion,
   type NonAuditServiceSelection,
 } from '@/lib/engagements';
 
@@ -49,6 +51,20 @@ const statusColors: Record<string, string> = {
   IN_PROGRESS: 'bg-blue-100 text-blue-800',
   REVIEW: 'bg-purple-100 text-purple-800',
   COMPLETED: 'bg-green-100 text-green-800',
+};
+
+const independenceStatusStyles: Record<IndependenceConclusion, string> = {
+  OK: 'bg-emerald-100 text-emerald-700 border border-emerald-200',
+  SAFEGUARDS_REQUIRED: 'bg-amber-100 text-amber-800 border border-amber-200',
+  PROHIBITED: 'bg-destructive/10 text-destructive border border-destructive/30',
+  OVERRIDE: 'bg-amber-100 text-amber-800 border border-amber-200',
+};
+
+const independenceStatusLabels: Record<IndependenceConclusion, string> = {
+  OK: 'Independence OK',
+  SAFEGUARDS_REQUIRED: 'Safeguards required',
+  PROHIBITED: 'Prohibited service',
+  OVERRIDE: 'Override pending approval',
 };
 
 const NAS_CATALOG = [
@@ -171,6 +187,7 @@ export function Engagements() {
   const clientNameById = useMemo(() => new Map(clients.map((client) => [client.id, client.name])), [clients]);
 
   const independenceInfo = buildIndependencePayload(form.getValues(), selectedNas);
+  const prohibitedServices = independenceInfo.services.filter((svc) => svc.prohibited);
 
   const loadData = useCallback(async () => {
     if (!orgSlug) return;
@@ -335,63 +352,107 @@ export function Engagements() {
         </div>
       ) : (
         <div className="grid gap-6">
-          {engagements.map((engagement, index) => (
-            <motion.div
-              key={engagement.id}
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: index * 0.05 }}
-            >
-              <Card className="hover-lift glass">
-                <CardHeader className="flex flex-row items-start justify-between gap-4">
-                  <div>
-                    <CardTitle className="flex items-center gap-2">
-                      <span>{clientNameById.get(engagement.client_id) ?? 'Unknown client'}</span>
-                      <Badge className={statusColors[engagement.status ?? 'PLANNING'] ?? ''}>
-                        {engagement.status?.replace('_', ' ') ?? 'PLANNING'}
-                      </Badge>
-                    </CardTitle>
-                    <p className="mt-1 text-sm text-muted-foreground">{engagement.title}</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button variant="outline" size="icon" onClick={() => openEditDialog(engagement)}>
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" onClick={() => setDeletingEngagement(engagement)}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-3 text-sm text-muted-foreground">
-                  <div className="flex flex-wrap gap-4">
-                    <span>
-                      Period: {formatDate(engagement.start_date)} – {formatDate(engagement.end_date)}
-                    </span>
-                    <span>Budget: {engagement.budget ? `€${engagement.budget.toLocaleString()}` : '—'}</span>
-                  </div>
-                  <div>
-                    <p className="font-medium text-foreground">Independence</p>
-                    <div className="mt-1 flex flex-wrap gap-2 text-xs">
-                      <Badge variant={engagement.independence_conclusion === 'OK' ? 'outline' : 'destructive'}>
-                        {engagement.independence_conclusion}
-                      </Badge>
-                      {engagement.non_audit_services.map((svc) => (
-                        <Badge key={svc.service} variant={svc.prohibited ? 'destructive' : 'outline'}>
-                          {svc.service}
+          {engagements.map((engagement, index) => {
+            const updatedAgo = engagement.updated_at
+              ? formatDistanceToNow(new Date(engagement.updated_at), { addSuffix: true })
+              : null;
+            const independenceBadgeClass = `${independenceStatusStyles[engagement.independence_conclusion]} text-xs font-semibold`;
+            const independenceCheckClass = engagement.independence_checked
+              ? 'bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-semibold'
+              : 'bg-amber-100 text-amber-800 border border-amber-200 text-xs font-semibold';
+
+            return (
+              <motion.div
+                key={engagement.id}
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: index * 0.05 }}
+              >
+                <Card className="hover-lift glass">
+                  <CardHeader className="flex flex-row items-start justify-between gap-4">
+                    <div>
+                      <CardTitle className="flex flex-wrap items-center gap-2">
+                        <span>{clientNameById.get(engagement.client_id) ?? 'Unknown client'}</span>
+                        <Badge className={statusColors[engagement.status ?? 'PLANNING'] ?? ''}>
+                          {engagement.status?.replace('_', ' ') ?? 'PLANNING'}
                         </Badge>
-                      ))}
-                      {engagement.independence_conclusion_note && (
-                        <span className="rounded-full bg-amber-100 px-3 py-1 text-amber-900">
-                          {engagement.independence_conclusion_note}
-                        </span>
+                        {engagement.requires_eqr && (
+                          <Badge className="bg-purple-100 text-purple-800 border border-purple-200 text-xs font-semibold" variant="outline">
+                            EQR required
+                          </Badge>
+                        )}
+                      </CardTitle>
+                      <p className="mt-1 text-sm text-muted-foreground">{engagement.title}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button variant="outline" size="icon" onClick={() => openEditDialog(engagement)}>
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" onClick={() => setDeletingEngagement(engagement)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4 text-sm text-muted-foreground">
+                    <div className="flex flex-wrap gap-4">
+                      <span>
+                        Period: {formatDate(engagement.start_date)} – {formatDate(engagement.end_date)}
+                      </span>
+                      <span>Budget: {engagement.budget ? `€${engagement.budget.toLocaleString()}` : '—'}</span>
+                      {updatedAgo && <span>Updated {updatedAgo}</span>}
+                    </div>
+                    <div className="rounded-xl border border-primary/10 bg-primary/5 p-4">
+                      <div className="flex flex-wrap items-start justify-between gap-4">
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-wide text-primary">Independence</p>
+                          <div className="mt-2 flex flex-wrap items-center gap-2">
+                            <Badge variant="outline" className={independenceBadgeClass}>
+                              {independenceStatusLabels[engagement.independence_conclusion]}
+                            </Badge>
+                            {engagement.is_audit_client && (
+                              <Badge variant="outline" className={independenceCheckClass}>
+                                {engagement.independence_checked ? 'Check complete' : 'Check pending'}
+                              </Badge>
+                            )}
+                            {engagement.requires_eqr && (
+                              <Badge variant="outline" className="bg-purple-100 text-purple-800 border border-purple-200 text-xs font-semibold">
+                                Quality review
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                        {engagement.independence_conclusion_note && (
+                          <span className="rounded-md bg-amber-100 px-3 py-2 text-xs font-medium text-amber-900 shadow-sm">
+                            {engagement.independence_conclusion_note}
+                          </span>
+                        )}
+                      </div>
+                      {engagement.non_audit_services.length > 0 ? (
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {engagement.non_audit_services.map((svc) => (
+                            <Badge
+                              key={svc.service}
+                              variant="outline"
+                              className={`text-xs font-medium border ${
+                                svc.prohibited
+                                  ? 'border-destructive/40 bg-destructive/10 text-destructive'
+                                  : 'border-slate-200 bg-background text-foreground'
+                              }`}
+                            >
+                              {svc.service}
+                            </Badge>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="mt-3 text-xs text-muted-foreground">No non-audit services recorded.</p>
                       )}
                     </div>
-                  </div>
-                  {engagement.description && <p>{engagement.description}</p>}
-                </CardContent>
-              </Card>
-            </motion.div>
-          ))}
+                    {engagement.description && <p>{engagement.description}</p>}
+                  </CardContent>
+                </Card>
+              </motion.div>
+            );
+          })}
           {engagements.length === 0 && !loading && (
             <Card>
               <CardContent className="py-10 text-center text-muted-foreground">
@@ -559,12 +620,20 @@ export function Engagements() {
                   <AlertTitle>
                     {independenceInfo.prohibitedCount > 0
                       ? 'Prohibited services detected'
-                      : 'Independence check complete'}
+                      : 'Independence check ready'}
                   </AlertTitle>
                   <AlertDescription>
-                    {independenceInfo.prohibitedCount > 0
-                      ? 'Document safeguards and provide an override note to proceed.'
-                      : 'No prohibited services selected. Independence check passes.'}
+                    {independenceInfo.prohibitedCount > 0 ? (
+                      <span>
+                        The following services are restricted:{' '}
+                        <span className="font-semibold">
+                          {prohibitedServices.map((svc) => svc.service).join(', ')}
+                        </span>
+                        . Document safeguards and provide an override note before submitting for approval.
+                      </span>
+                    ) : (
+                      'No prohibited services selected. Capture the assessment in the engagement log.'
+                    )}
                   </AlertDescription>
                 </Alert>
               )}

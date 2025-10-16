@@ -41,4 +41,19 @@ BEGIN
   ) THEN
     EXECUTE 'CREATE INDEX IF NOT EXISTS tax_org_created_at_idx ON public.tax (org_id, created_at)';
   END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM pg_catalog.pg_tables
+    WHERE schemaname = 'public' AND tablename = 'engagements'
+  ) THEN
+    EXECUTE 'CREATE INDEX IF NOT EXISTS engagements_independence_conclusion_idx ON public.engagements (org_id, independence_conclusion)';
+    EXECUTE 'CREATE INDEX IF NOT EXISTS engagements_client_idx ON public.engagements (client_id)';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM pg_catalog.pg_tables
+    WHERE schemaname = 'public' AND tablename = 'approval_queue'
+  ) THEN
+    EXECUTE 'CREATE INDEX IF NOT EXISTS approval_queue_org_status_idx ON public.approval_queue (org_id, status, requested_at DESC)';
+  END IF;
 END $$;

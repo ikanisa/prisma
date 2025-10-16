@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase, isSupabaseConfigured } from '@/integrations/supabase/client';
 import { useAuth } from './use-auth';
 import { createTenantClient, TenantClient } from '@/lib/tenant-client';
@@ -53,12 +53,19 @@ export function useOrganizations() {
     return createTenantClient(currentOrg.id);
   }, [currentOrg]);
 
+  const hasFetched = useRef(false);
+
   const fetchMemberships = useCallback(async () => {
     if (!user) {
       recordClientEvent({ name: 'organizations:skipFetchNoUser' });
       return;
     }
     if (!isSupabaseConfigured) {
+      return;
+    }
+
+    if (hasFetched.current) {
+      recordClientEvent({ name: 'organizations:skipFetchAlreadyFetched' });
       return;
     }
 
@@ -79,12 +86,17 @@ export function useOrganizations() {
 
       recordClientEvent({ name: 'organizations:fetched', data: { count: data?.length ?? 0 } });
       setMemberships(data || []);
+      hasFetched.current = true;
     } catch (error) {
       recordClientError({ name: 'organizations:fetchError', error });
     } finally {
       setLoading(false);
     }
   }, [user]);
+
+  useEffect(() => {
+    hasFetched.current = false;
+  }, [user?.id, isSupabaseConfigured]);
 
   useEffect(() => {
     if (!isSupabaseConfigured) {
@@ -169,11 +181,19 @@ export function useOrganizations() {
   }, [user, fetchMemberships]);
 
   useEffect(() => {
-    const savedOrgId = localStorage.getItem('currentOrgId');
+    const inBrowser = typeof window !== 'undefined';
+    if (!inBrowser) {
+      return;
+    }
+
+    const savedOrgId = window.localStorage.getItem('currentOrgId');
     if (savedOrgId && memberships.some((m) => m.org_id === savedOrgId)) {
       recordClientEvent({ name: 'organizations:setCurrentFromStorage', data: { orgId: savedOrgId } });
       setCurrentOrgId(savedOrgId);
-    } else if (memberships.length > 0) {
+      return;
+    }
+
+    if (memberships.length > 0) {
       recordClientEvent({ name: 'organizations:setCurrentFromFirstMembership', data: { orgId: memberships[0].org_id } });
       setCurrentOrgId(memberships[0].org_id);
     } else if (memberships.length === 0) {
@@ -182,14 +202,32 @@ export function useOrganizations() {
   }, [memberships]);
 
   useEffect(() => {
-    if (currentOrgId) {
-      localStorage.setItem('currentOrgId', currentOrgId);
+    if (!currentOrgId || typeof window === 'undefined') {
+      return;
     }
+    window.localStorage.setItem('currentOrgId', currentOrgId);
   }, [currentOrgId]);
 
 
   const switchOrganization = useCallback((orgId: string) => {
-    setCurrentOrgId(orgId);
+    setCurrentOrgId((previous) => {
+      if (previous === orgId) {
+        return previous;
+      }
+      recordClientEvent({ name: 'organizations:switch', data: { orgId } });
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem('currentOrgId', orgId);
+      }
+      return orgId;
+    });
+  }, []);
+
+  const clearOrganization = useCallback(() => {
+    recordClientEvent({ name: 'organizations:clearCurrentOrg' });
+    setCurrentOrgId(null);
+    if (typeof window !== 'undefined') {
+      window.localStorage.removeItem('currentOrgId');
+    }
   }, []);
 
   const roleHierarchy: Record<OrgRole, number> = {
@@ -219,6 +257,7 @@ export function useOrganizations() {
     loading,
     currentRole,
     switchOrganization,
+    clearOrganization,
     hasRole,
     isSystemAdmin,
     refetch: fetchMemberships,

@@ -26,6 +26,8 @@ CREATE TABLE IF NOT EXISTS public.interest_limitation_computations (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+COMMENT ON TABLE public.interest_limitation_computations IS 'ATAD interest limitation computations with audit review trail.';
+
 CREATE INDEX IF NOT EXISTS idx_interest_limitation_org_period
   ON public.interest_limitation_computations(org_id, tax_entity_id, period);
 
@@ -55,6 +57,8 @@ CREATE TABLE IF NOT EXISTS public.cfc_inclusions (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+COMMENT ON TABLE public.cfc_inclusions IS 'Controlled foreign company inclusions informing independence monitor dashboards.';
 
 CREATE INDEX IF NOT EXISTS idx_cfc_inclusions_org_period
   ON public.cfc_inclusions(org_id, tax_entity_id, period);

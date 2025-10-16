@@ -6,7 +6,7 @@ export interface NonAuditServiceSelection {
   description?: string | null;
 }
 
-export type IndependenceConclusion = 'OK' | 'PROHIBITED' | 'OVERRIDE';
+export type IndependenceConclusion = 'OK' | 'SAFEGUARDS_REQUIRED' | 'PROHIBITED' | 'OVERRIDE';
 
 export interface EngagementRecord {
   id: string;
