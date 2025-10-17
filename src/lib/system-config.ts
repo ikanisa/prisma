@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import type { TargetAndTransition, Transition } from 'framer-motion';
 import { parse } from 'yaml';
 import rawSystemConfig from '../../config/system.yaml?raw';
 import {
@@ -127,16 +128,21 @@ export interface SystemConfig {
     [key: string]: unknown;
   }>;
   rag?: Record<string, unknown>;
+  knowledge?: {
+    vector_indexes?: Array<Record<string, unknown>>;
+    retrieval?: Record<string, unknown>;
+    [key: string]: unknown;
+  };
   [key: string]: unknown;
 }
 
 const parsedConfig = parse(rawSystemConfig) as SystemConfig;
 
 type MotionConfig = {
-  initial?: Record<string, unknown>;
-  animate?: Record<string, unknown>;
-  exit?: Record<string, unknown>;
-  transition?: Record<string, unknown>;
+  initial?: TargetAndTransition;
+  animate?: TargetAndTransition;
+  exit?: TargetAndTransition;
+  transition?: Transition;
 };
 
 export interface AssistantMotionPreset {

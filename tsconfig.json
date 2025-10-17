@@ -4,8 +4,7 @@
   "references": [
     { "path": "./tsconfig.app.json" },
     { "path": "./tsconfig.node.json" },
-    { "path": "./apps/gateway/tsconfig.json" },
-    { "path": "./services/rag/tsconfig.json" }
+    { "path": "./apps/gateway/tsconfig.json" }
   ],
   "compilerOptions": {
     "baseUrl": ".",
