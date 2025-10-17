@@ -49,6 +49,8 @@ export function createGatewayServer() {
   return app;
 }
 
+export default createGatewayServer;
+
 const isEntrypoint = (() => {
   try {
     const currentUrl = new URL(import.meta.url);
