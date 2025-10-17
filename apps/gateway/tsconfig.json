@@ -6,7 +6,9 @@
     "outDir": "dist",
     "rootDir": "src",
     "types": [
-      "node"
+      "node",
+      "express",
+      "supertest"
     ],
     "noEmit": false
   },

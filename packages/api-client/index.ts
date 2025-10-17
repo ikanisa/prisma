@@ -1,4 +1,4 @@
-import type { paths } from './types';
+import type { paths } from './types.js';
 
 export type FetchLike = (input: RequestInfo, init?: RequestInit) => Promise<Response>;
 
@@ -257,4 +257,4 @@ export class ApiClient {
 }
 
 export default ApiClient;
-export * as ApiTypes from './types';
+export * as ApiTypes from './types.js';

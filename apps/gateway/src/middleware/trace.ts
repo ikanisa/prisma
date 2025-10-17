@@ -1,6 +1,6 @@
 import type { RequestHandler } from 'express';
-import { createRequestId, createTraceId } from '../utils/ids';
-import { runWithRequestContext, setRequestContextValue } from '../utils/request-context';
+import { createRequestId, createTraceId } from '../utils/ids.js';
+import { runWithRequestContext, setRequestContextValue } from '../utils/request-context.js';
 
 export const REQUEST_ID_HEADER = 'x-request-id';
 export const CORRELATION_ID_HEADER = 'x-correlation-id';

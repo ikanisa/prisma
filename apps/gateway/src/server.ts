@@ -1,12 +1,12 @@
 import express from 'express';
-import { initTracing } from './otel';
+import { initTracing } from './otel.js';
 import type { ErrorRequestHandler } from 'express';
 import { pathToFileURL } from 'url';
-import { traceMiddleware } from './middleware/trace';
-import { createPiiScrubberMiddleware } from './middleware/pii-scrubber';
-import v1Router from './routes/v1';
-import { scrubPii } from './utils/pii';
-import { getRequestContext } from './utils/request-context';
+import { traceMiddleware } from './middleware/trace.js';
+import { createPiiScrubberMiddleware } from './middleware/pii-scrubber.js';
+import v1Router from './routes/v1.js';
+import { scrubPii } from './utils/pii.js';
+import { getRequestContext } from './utils/request-context.js';
 
 export function createGatewayServer() {
   initTracing();

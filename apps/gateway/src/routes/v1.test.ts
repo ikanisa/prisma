@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import request from 'supertest';
-import { createGatewayServer } from '../server';
+import type { Test } from 'supertest';
+import { createGatewayServer } from '../server.js';
 
 vi.mock('@prisma-glow/api-client', () => {
   return {
@@ -51,92 +52,99 @@ describe('v1 gateway routes', () => {
     app = createGatewayServer();
   });
 
+  function withOrgHeaders<T extends Test>(req: T): T {
+    return req
+      .set('x-org-id', 'acme')
+      .set('x-user-id', 'user-1')
+      .set('x-org-memberships', 'acme:MANAGER');
+  }
+
   it('proxies autonomy status', async () => {
-    const res = await request(app).get('/v1/autonomy/status').query({ orgSlug: 'acme' });
+    const res = await withOrgHeaders(request(app).get('/v1/autonomy/status').query({ orgSlug: 'acme' }));
     expect(res.status).toBe(200);
     expect(res.body.orgSlug).toBe('acme');
   });
 
   it('validates autonomy status query', async () => {
-    const res = await request(app).get('/v1/autonomy/status');
+    const res = await withOrgHeaders(request(app).get('/v1/autonomy/status'));
     expect(res.status).toBe(400);
   });
 
   it('proxies release controls check', async () => {
-    const res = await request(app).post('/v1/release-controls/check').send({ orgSlug: 'acme' });
+    const res = await withOrgHeaders(request(app).post('/v1/release-controls/check').send({ orgSlug: 'acme' }));
     expect(res.status).toBe(200);
     expect(res.body.input.orgSlug).toBe('acme');
   });
 
   it('proxies list tasks', async () => {
-    const res = await request(app).get('/v1/tasks').query({ orgSlug: 'acme' });
+    const res = await withOrgHeaders(request(app).get('/v1/tasks').query({ orgSlug: 'acme' }));
     expect(res.status).toBe(200);
     expect(res.body.tasks[0].orgSlug).toBe('acme');
   });
 
   it('creates a task', async () => {
-    const res = await request(app).post('/v1/tasks').send({ title: 'Test task' });
+    const res = await withOrgHeaders(request(app).post('/v1/tasks').send({ title: 'Test task' }));
     expect(res.status).toBe(200);
     expect(res.body.title).toBe('Test task');
   });
 
   it('lists documents', async () => {
-    const res = await request(app).get('/v1/storage/documents').query({ orgSlug: 'acme' });
+    const res = await withOrgHeaders(request(app).get('/v1/storage/documents').query({ orgSlug: 'acme' }));
     expect(res.status).toBe(200);
     expect(Array.isArray(res.body.documents)).toBe(true);
   });
 
   it('lists web sources', async () => {
-    const res = await request(app).get('/v1/knowledge/web-sources').query({ orgSlug: 'acme' });
+    const res = await withOrgHeaders(request(app).get('/v1/knowledge/web-sources').query({ orgSlug: 'acme' }));
     expect(res.status).toBe(200);
     expect(Array.isArray(res.body.sources)).toBe(true);
   });
 
   it('lists notifications', async () => {
-    const res = await request(app).get('/v1/notifications').query({ orgSlug: 'acme' });
+    const res = await withOrgHeaders(request(app).get('/v1/notifications').query({ orgSlug: 'acme' }));
     expect(res.status).toBe(200);
     expect(res.body.notifications[0].orgSlug).toBe('acme');
   });
 
   it('updates a notification', async () => {
-    const res = await request(app).patch('/v1/notifications/n1').send({ read: true });
+    const res = await withOrgHeaders(request(app).patch('/v1/notifications/n1').send({ read: true }));
     expect(res.status).toBe(200);
     expect(res.body.read).toBe(true);
   });
 
   it('marks all notifications', async () => {
-    const res = await request(app).post('/v1/notifications/mark-all').send({ orgSlug: 'acme' });
+    const res = await withOrgHeaders(request(app).post('/v1/notifications/mark-all').send({ orgSlug: 'acme' }));
     expect(res.status).toBe(200);
     expect(res.body.ok).toBe(true);
   });
 
   it('onboarding start', async () => {
-    const res = await request(app).post('/v1/onboarding/start').send({ orgSlug: 'acme' });
+    const res = await withOrgHeaders(request(app).post('/v1/onboarding/start').send({ orgSlug: 'acme' }));
     expect(res.status).toBe(200);
     expect(res.body.started).toBe(true);
   });
 
   it('onboarding link doc', async () => {
-    const res = await request(app).post('/v1/onboarding/link-doc').send({ documentId: 'd1' });
+    const res = await withOrgHeaders(request(app).post('/v1/onboarding/link-doc').send({ documentId: 'd1' }));
     expect(res.status).toBe(200);
     expect(res.body.linked).toBe(true);
   });
 
   it('onboarding commit', async () => {
-    const res = await request(app).post('/v1/onboarding/commit').send({ orgSlug: 'acme' });
+    const res = await withOrgHeaders(request(app).post('/v1/onboarding/commit').send({ orgSlug: 'acme' }));
     expect(res.status).toBe(200);
     expect(res.body.committed).toBe(true);
   });
 
   it('observability dry-run returns 404 when disabled', async () => {
     delete (process.env as any).ALLOW_SENTRY_DRY_RUN;
-    const res = await request(app).post('/v1/observability/dry-run');
+    const res = await withOrgHeaders(request(app).post('/v1/observability/dry-run'));
     expect(res.status).toBe(404);
   });
 
   it('observability dry-run throws when enabled', async () => {
     process.env.ALLOW_SENTRY_DRY_RUN = 'true';
-    const res = await request(app).post('/v1/observability/dry-run');
+    const res = await withOrgHeaders(request(app).post('/v1/observability/dry-run'));
     expect(res.status).toBe(500);
   });
 });

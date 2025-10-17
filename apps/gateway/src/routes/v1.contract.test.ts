@@ -1,7 +1,8 @@
 import { beforeAll, afterAll, describe, expect, it } from 'vitest';
 import http from 'node:http';
 import request from 'supertest';
-import { createGatewayServer } from '../server';
+import type { Test } from 'supertest';
+import { createGatewayServer } from '../server.js';
 
 let stubServer: http.Server;
 let stubPort = 0;
@@ -76,12 +77,19 @@ afterAll(async () => {
 
 describe('gateway → API contract proxying', () => {
   const app = createGatewayServer();
+  const withOrgHeaders = <T extends Test>(req: T): T =>
+    req
+      .set('x-org-id', 'acme')
+      .set('x-user-id', 'user-1')
+      .set('x-org-memberships', 'acme:MANAGER');
 
   it('proxies autonomy/status to backend', async () => {
-    const res = await request(app)
-      .get('/v1/autonomy/status')
-      .set('Authorization', 'Bearer test-token')
-      .query({ orgSlug: 'acme' });
+    const res = await withOrgHeaders(
+      request(app)
+        .get('/v1/autonomy/status')
+        .set('Authorization', 'Bearer test-token')
+        .query({ orgSlug: 'acme' }),
+    );
     expect(res.status).toBe(200);
     expect(res.body.orgSlug).toBe('acme');
     // Verify trace propagation
@@ -95,7 +103,9 @@ describe('gateway → API contract proxying', () => {
   });
 
   it('proxies release-controls/check to backend', async () => {
-    const res = await request(app).post('/v1/release-controls/check').send({ orgSlug: 'acme', engagementId: 'e1' });
+    const res = await withOrgHeaders(
+      request(app).post('/v1/release-controls/check').send({ orgSlug: 'acme', engagementId: 'e1' }),
+    );
     expect(res.status).toBe(200);
     expect(res.body.ok).toBe(true);
     expect(res.body.input.orgSlug).toBe('acme');
@@ -106,49 +116,59 @@ describe('gateway → API contract proxying', () => {
 
   it('retries on transient 503 upstream and eventually succeeds', async () => {
     releaseCalls = 0;
-    const res = await request(app)
-      .post('/v1/release-controls/check')
-      .send({ orgSlug: 'acme', engagementId: 'e1', flaky: true });
+    const res = await withOrgHeaders(
+      request(app)
+        .post('/v1/release-controls/check')
+        .send({ orgSlug: 'acme', engagementId: 'e1', flaky: true }),
+    );
     expect(res.status).toBe(200);
     expect(res.body.ok).toBe(true);
   });
 
   it('forwards incoming traceparent when provided', async () => {
     const traceparent = '00-0123456789abcdef0123456789abcdef-0123456789abcdef-01';
-    const res = await request(app)
-      .get('/v1/autonomy/status')
-      .set('traceparent', traceparent)
-      .query({ orgSlug: 'acme' });
+    const res = await withOrgHeaders(
+      request(app)
+        .get('/v1/autonomy/status')
+        .set('traceparent', traceparent)
+        .query({ orgSlug: 'acme' }),
+    );
     expect(res.status).toBe(200);
     expect(lastHeaders && lastHeaders['traceparent']).toBe(traceparent);
   });
 
   it('proxies knowledge web-sources to backend', async () => {
-    const res = await request(app)
-      .get('/v1/knowledge/web-sources')
-      .query({ orgSlug: 'acme' });
+    const res = await withOrgHeaders(
+      request(app)
+        .get('/v1/knowledge/web-sources')
+        .query({ orgSlug: 'acme' }),
+    );
     expect(res.status).toBe(200);
     expect(Array.isArray(res.body.sources)).toBe(true);
   });
 
   it('proxies documents list to backend', async () => {
-    const res = await request(app)
-      .get('/v1/storage/documents')
-      .query({ orgSlug: 'acme' });
+    const res = await withOrgHeaders(
+      request(app)
+        .get('/v1/storage/documents')
+        .query({ orgSlug: 'acme' }),
+    );
     expect(res.status).toBe(200);
     expect(Array.isArray(res.body.documents)).toBe(true);
   });
 
   it('proxies documents sign to backend', async () => {
-    const res = await request(app)
-      .post('/v1/storage/sign')
-      .send({ documentId: 'd1' });
+    const res = await withOrgHeaders(
+      request(app)
+        .post('/v1/storage/sign')
+        .send({ documentId: 'd1' }),
+    );
     expect(res.status).toBe(200);
     expect(res.body.ok).toBe(true);
   });
 
   it('returns 502 when upstream responds 404', async () => {
-    const res = await request(app).get('/v1/tasks').query({ orgSlug: 'acme' });
+    const res = await withOrgHeaders(request(app).get('/v1/tasks').query({ orgSlug: 'acme' }));
     expect(res.status).toBe(502);
     expect(typeof res.body.error).toBe('string');
   });

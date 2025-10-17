@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import ApiClient from '../index';
+import ApiClient from '../index.js';
 
 function createFetchMock() {
   const fn = vi.fn(async (input: RequestInfo, init?: RequestInit) => {

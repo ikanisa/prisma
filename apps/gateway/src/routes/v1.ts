@@ -1,12 +1,12 @@
 import { Router } from 'express';
 import ApiClient from '@prisma-glow/api-client';
-import { createOrgGuard } from '../middleware/org-guard';
-import { createIdempotencyMiddleware } from '../middleware/idempotency';
-import { createRateLimitMiddleware } from '../middleware/rate-limit';
-import { getRequestContext } from '../utils/request-context';
-import { buildTraceparent, isValidTraceparent } from '../utils/trace';
+import { createOrgGuard } from '../middleware/org-guard.js';
+import { createIdempotencyMiddleware } from '../middleware/idempotency.js';
+import { createRateLimitMiddleware } from '../middleware/rate-limit.js';
+import { getRequestContext } from '../utils/request-context.js';
+import { buildTraceparent, isValidTraceparent } from '../utils/trace.js';
 import type { Request } from 'express';
-import { scrubPii } from '../utils/pii';
+import { scrubPii } from '../utils/pii.js';
 
 const router = Router();
 

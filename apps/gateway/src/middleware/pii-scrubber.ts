@@ -1,6 +1,6 @@
 import type { RequestHandler } from 'express';
-import { scrubPii } from '../utils/pii';
-import { getRequestContext } from '../utils/request-context';
+import { scrubPii } from '../utils/pii.js';
+import { getRequestContext } from '../utils/request-context.js';
 
 export type PiiScrubberOptions = {
   logger?: Pick<typeof console, 'info' | 'warn' | 'error'>;

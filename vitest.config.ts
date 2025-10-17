@@ -40,6 +40,8 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
       'next/server': path.resolve(__dirname, './tests/stubs/next-server.ts'),
       'server-only': path.resolve(__dirname, './tests/stubs/server-only.ts'),
+      '@prisma-glow/api-client': path.resolve(__dirname, './packages/api-client/index.ts'),
+      '@prisma-glow/system-config': path.resolve(__dirname, './packages/system-config/index.js'),
     },
   },
 })

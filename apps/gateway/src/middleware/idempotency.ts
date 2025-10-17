@@ -1,5 +1,5 @@
 import type { Request, RequestHandler, Response } from 'express';
-import { getRequestContext } from '../utils/request-context';
+import { getRequestContext } from '../utils/request-context.js';
 
 export interface IdempotencyStore {
   get(key: string): Promise<{ status: number; body: unknown } | null>;

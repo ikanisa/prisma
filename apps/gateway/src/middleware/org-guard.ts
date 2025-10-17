@@ -1,6 +1,6 @@
 import type { RequestHandler } from 'express';
 import { DEFAULT_ROLE_HIERARCHY, getRoleHierarchy } from '@prisma-glow/system-config';
-import { bindOrgContext } from '../utils/request-context';
+import { bindOrgContext } from '../utils/request-context.js';
 
 export type OrgGuardOptions = {
   minimumRole?: string;
@@ -59,12 +59,11 @@ function hasRequiredRole(role: string, minimumRole: string | undefined, hierarch
   return index >= minIndex;
 }
 
-declare module 'express-serve-static-core' {
-  interface Response {
-    locals: {
+declare global {
+  namespace Express {
+    interface Locals {
       org?: OrgContext;
-      [key: string]: unknown;
-    };
+    }
   }
 }
 
