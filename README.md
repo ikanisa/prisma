@@ -36,6 +36,7 @@ Required variables:
 - `VITE_SUPABASE_URL`
 - `SUPABASE_URL`
 - `SUPABASE_SERVICE_ROLE_KEY`
+- `SUPABASE_ALLOW_STUB` (optional; set to `true` locally to enable the stub Supabase client when credentials are missing)
 - `SUPABASE_JWT_SECRET`
 - `DATABASE_URL` (Postgres connection string for the Supabase instance)
 - `OPENAI_API_KEY` (RAG embedding service)

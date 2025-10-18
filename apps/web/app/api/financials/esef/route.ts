@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-import { getServiceSupabaseClient } from '../../../../lib/supabase-server';
+import { getServiceSupabaseClient } from '@/lib/supabase-server';
 
 const XML_HEADER = `<?xml version="1.0" encoding="UTF-8"?>`;
 

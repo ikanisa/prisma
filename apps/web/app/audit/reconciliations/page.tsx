@@ -48,7 +48,7 @@ import type {
   ReconMatchGroup,
   ReconStatement,
   StatementSide,
-} from '../../../lib/audit/reconciliation-types';
+} from '@/lib/audit/reconciliation-types';
 
 const RECON_TYPES: { value: ReconciliationType; label: string }[] = [
   { value: 'BANK', label: 'Bank' },
@@ -358,8 +358,8 @@ function ReconciliationWorkbench() {
         }),
       });
       if (!response.ok) {
-        const payload = await response.json().catch(() => ({}));
-        throw new Error((payload as any).error || 'Failed to create reconciliation');
+        const payload = (await response.json().catch(() => ({}))) as { error?: string };
+        throw new Error(payload.error || 'Failed to create reconciliation');
       }
       const payload = (await response.json()) as { reconciliation: ReconciliationSnapshot };
       setCreateForm(INITIAL_CREATE_FORM);
@@ -401,8 +401,8 @@ function ReconciliationWorkbench() {
         }),
       });
       if (!response.ok) {
-        const payload = await response.json().catch(() => ({}));
-        throw new Error((payload as any).error || 'Failed to import statement');
+        const payload = (await response.json().catch(() => ({}))) as { error?: string };
+        throw new Error(payload.error || 'Failed to import statement');
       }
       const payload = (await response.json()) as { statement: ReconStatement; reconciliation: ReconciliationSnapshot };
       setReconciliation(payload.reconciliation);
@@ -435,8 +435,8 @@ function ReconciliationWorkbench() {
       }
       const response = await fetch(`/api/recon/${selectedId}/match`, init);
       if (!response.ok) {
-        const payload = await response.json().catch(() => ({}));
-        throw new Error((payload as any).error || 'Failed to run matching');
+        const payload = (await response.json().catch(() => ({}))) as { error?: string };
+        throw new Error(payload.error || 'Failed to run matching');
       }
       const payload = (await response.json()) as {
         matches: ReconMatchGroup[];
@@ -476,8 +476,8 @@ function ReconciliationWorkbench() {
         }),
       });
       if (!response.ok) {
-        const payload = await response.json().catch(() => ({}));
-        throw new Error((payload as any).error || 'Failed to resolve item');
+        const payload = (await response.json().catch(() => ({}))) as { error?: string };
+        throw new Error(payload.error || 'Failed to resolve item');
       }
       const payload = (await response.json()) as { item: ReconItem; reconciliation: ReconciliationSnapshot };
       setReconciliation(payload.reconciliation);
@@ -512,8 +512,8 @@ function ReconciliationWorkbench() {
         }),
       });
       if (!response.ok) {
-        const payload = await response.json().catch(() => ({}));
-        throw new Error((payload as any).error || 'Failed to close reconciliation');
+        const payload = (await response.json().catch(() => ({}))) as { error?: string };
+        throw new Error(payload.error || 'Failed to close reconciliation');
       }
       const payload = (await response.json()) as { reconciliation: ReconciliationSnapshot };
       setReconciliation(payload.reconciliation);
@@ -588,7 +588,7 @@ function ReconciliationWorkbench() {
           Import statements, run deterministic matching, manage reconciling items, and generate audit evidence ready for ISA 500 review.
         </p>
         <div className="mt-2 text-xs text-amber-700">
-          Mode: <strong>memory</strong> (set NEXT_PUBLIC_RECONCILIATION_MODE to "db" for live view)
+          Mode: <strong>memory</strong> (set NEXT_PUBLIC_RECONCILIATION_MODE to &quot;db&quot; for live view)
         </div>
       </header>
 
@@ -1231,18 +1231,66 @@ const demoReconcilations: AuditReconciliation[] = [
 type CreateState = { type: string; externalBalance: string; controlAccountId: string };
 type ItemState = { category: string; amount: string; reference: string; note: string };
 
-function normalizeReconciliations(records: any[]): AuditReconciliation[] {
-  return (records ?? []).map((rec) => ({
-    ...rec,
-    gl_balance: Number(rec?.gl_balance ?? 0),
-    external_balance: Number(rec?.external_balance ?? 0),
-    difference: Number(rec?.difference ?? 0),
-    items: (rec?.items ?? []).map((item: any) => ({
-      ...item,
-      amount: Number(item?.amount ?? 0),
-      resolved: Boolean(item?.resolved),
-    })),
-  }));
+type ReconciliationApiRecord = Partial<AuditReconciliation> & {
+  id: string;
+  gl_balance?: number | string | null;
+  external_balance?: number | string | null;
+  difference?: number | string | null;
+  items?: Array<Partial<AuditReconciliation['items'][number]>>;
+};
+
+function normalizeReconciliations(records: ReconciliationApiRecord[]): AuditReconciliation[] {
+  return (records ?? []).map((rec) => {
+    const {
+      id,
+      org_id = '',
+      entity_id = '',
+      period_id = '',
+      type = 'BANK',
+      control_account_id = null,
+      prepared_by_user_id = null,
+      reviewed_by_user_id = null,
+      status = 'DRAFT',
+      closed_at = null,
+      schedule_document_id = null,
+      created_at = new Date().toISOString(),
+      updated_at = new Date().toISOString(),
+      gl_balance,
+      external_balance,
+      difference,
+      items = [],
+    } = rec;
+
+    const toNumber = (value: number | string | null | undefined) =>
+      typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : 0;
+
+    return {
+      id,
+      org_id,
+      entity_id,
+      period_id,
+      type,
+      control_account_id,
+      prepared_by_user_id,
+      reviewed_by_user_id,
+      status,
+      closed_at,
+      schedule_document_id,
+      created_at,
+      updated_at,
+      gl_balance: toNumber(gl_balance),
+      external_balance: toNumber(external_balance),
+      difference: toNumber(difference),
+      items: items.map((item) => ({
+        id: item.id ?? crypto.randomUUID(),
+        category: item.category ?? 'OTHER',
+        amount: toNumber(item.amount),
+        reference: item.reference ?? null,
+        note: item.note ?? null,
+        resolved: Boolean(item.resolved),
+      })),
+    };
+  });
 }
 
 const reconciliationTypes = ['BANK', 'AR', 'AP', 'GRNI', 'PAYROLL', 'OTHER'];

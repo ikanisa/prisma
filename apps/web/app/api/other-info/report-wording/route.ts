@@ -1,5 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServiceSupabase, logOiAction } from '@/lib/supabase';
+import { logOiAction, tryGetServiceSupabase } from '@/lib/supabase';
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
+type OtherInfoDocRow = {
+  id: string;
+  title: string;
+  status: string;
+  metadata: Record<string, unknown> | null;
+  uploaded_at: string | null;
+};
+
+type OiFlagRow = {
+  id: string;
+  status: string;
+  category: string;
+  severity: string;
+  description: string;
+  resolution_notes: string | null;
+};
+
+type ComparativesCheckRow = {
+  id: string;
+  status: string;
+  assertion: string;
+  notes: string | null;
+};
 
 function badRequest(message: string) {
   return NextResponse.json({ error: message }, { status: 400 });
@@ -15,7 +42,7 @@ export async function POST(request: NextRequest) {
   let payload: ReportRequestBody;
   try {
     payload = (await request.json()) as ReportRequestBody;
-  } catch (error) {
+  } catch {
     return badRequest('Invalid JSON body.');
   }
 
@@ -31,7 +58,10 @@ export async function POST(request: NextRequest) {
     return badRequest('actorId is required.');
   }
 
-  const supabase = getServiceSupabase();
+  const supabase = tryGetServiceSupabase();
+  if (!supabase) {
+    return NextResponse.json({ reportText: '', documents: [], flags: [], checks: [], generatedAt: new Date().toISOString() });
+  }
   const [docsResult, flagsResult, checksResult] = await Promise.all([
     supabase
       .from('other_information_docs')
@@ -63,9 +93,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: checksResult.error.message }, { status: 500 });
   }
 
-  const documents = docsResult.data ?? [];
-  const flags = flagsResult.data ?? [];
-  const checks = checksResult.data ?? [];
+  const documents = (docsResult.data ?? []) as OtherInfoDocRow[];
+  const flags = (flagsResult.data ?? []) as OiFlagRow[];
+  const checks = (checksResult.data ?? []) as ComparativesCheckRow[];
 
   const openFlags = flags.filter((flag) => flag.status !== 'resolved');
   const completedChecks = checks.filter((check) => check.status === 'completed');

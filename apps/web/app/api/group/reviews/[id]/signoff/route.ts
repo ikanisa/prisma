@@ -1,8 +1,12 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { logGroupActivity } from '../../../../../../lib/group/activity';
-import { getOrgIdFromRequest, isUuid, resolveUserId, toJsonRecord } from '../../../../../../lib/group/request';
-import { getSupabaseServerClient } from '../../../../../../lib/supabase/server';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { logGroupActivity } from '@/lib/group/activity';
+import { getOrgIdFromRequest, isUuid, resolveUserId, toJsonRecord } from '@/lib/group/request';
+import { getSupabaseServerClient } from '@/lib/supabase/server';
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 type RouteContext = {
   params: {
@@ -10,13 +14,25 @@ type RouteContext = {
   };
 };
 
-const supabase = getSupabaseServerClient();
+function tryGetSupabaseClients() {
+  try {
+    const supabase = getSupabaseServerClient();
+    return { supabase, supabaseUnsafe: supabase as SupabaseClient };
+  } catch {
+    return null;
+  }
+}
 
 export async function POST(request: NextRequest, context: RouteContext) {
+  const clients = tryGetSupabaseClients();
+  if (!clients) {
+    return NextResponse.json({ error: 'Supabase not configured' }, { status: 503 });
+  }
+  const { supabase, supabaseUnsafe } = clients;
   let payload: unknown;
   try {
     payload = await request.json();
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Invalid JSON payload' }, { status: 400 });
   }
 
@@ -60,7 +76,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     updates.metadata = metadata ?? null;
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await supabaseUnsafe
     .from('component_reviews')
     .update(updates)
     .eq('org_id', orgId)

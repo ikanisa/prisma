@@ -1,6 +1,4 @@
-export type {
-  Tables,
-  TablesInsert,
-  TablesUpdate,
-  Json,
-} from '../../../src/integrations/supabase/types';
+export type Tables<T = Record<string, unknown>> = T;
+export type TablesInsert<T = Record<string, unknown>> = T;
+export type TablesUpdate<T = Record<string, unknown>> = T;
+export type Json = unknown;

@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { getSupabaseServiceClient } from '../../../../lib/supabase/server';
-import { recordSpecialistActivity } from '../../../../lib/supabase/activity';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { getSupabaseServiceClient } from '@/lib/supabase/server';
+import { recordSpecialistActivity } from '@/lib/supabase/activity';
 
 const STANDARD_EXPERT = 'ISA 620';
 const STANDARD_INTERNAL = 'ISA 610';
@@ -38,7 +39,7 @@ export async function POST(request: NextRequest) {
   let rawPayload: Record<string, unknown>;
   try {
     rawPayload = (await request.json()) as Record<string, unknown>;
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
 
@@ -94,6 +95,7 @@ export async function POST(request: NextRequest) {
   }
 
   const supabase = getSupabaseServiceClient();
+  const supabaseUnsafe = supabase as SupabaseClient;
   const targetType = payload.targetType as TargetType;
 
   const insertPayload: Record<string, unknown> = {
@@ -113,7 +115,7 @@ export async function POST(request: NextRequest) {
     insertPayload.internal_assessment_id = payload.targetId;
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await supabaseUnsafe
     .from('audit_specialist_evidence')
     .insert(insertPayload)
     .select('*')

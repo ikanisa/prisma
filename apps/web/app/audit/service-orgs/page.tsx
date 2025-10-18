@@ -734,12 +734,45 @@ const demoServiceOrgs: ServiceOrg[] = [
   },
 ];
 
-function normalizeServiceOrgs(records: any[]): ServiceOrg[] {
-  return (records ?? []).map((record) => ({
-    ...record,
-    cuecs: (record.cuecs ?? []).map((cuec: any) => ({
-      ...cuec,
-      tested: Boolean(cuec?.tested),
-    })),
-  }));
+type ServiceOrgApiRecord = Partial<ServiceOrg> & {
+  id: string;
+  cuecs?: Array<Partial<CuecControl>>;
+};
+
+function normalizeServiceOrgs(records: ServiceOrgApiRecord[]): ServiceOrg[] {
+  return (records ?? []).map((record) => {
+    const {
+      id,
+      org_id = '',
+      engagement_id = '',
+      name = '',
+      description = null,
+      service_type = null,
+      residual_risk = null,
+      reliance_assessed = false,
+      reports = [],
+      cuecs = [],
+    } = record;
+
+    return {
+      id,
+      org_id,
+      engagement_id,
+      name,
+      description,
+      service_type,
+      residual_risk,
+      reliance_assessed,
+      reports,
+      cuecs: cuecs.map((cuec) => ({
+        id: cuec.id ?? crypto.randomUUID(),
+        service_org_id: cuec.service_org_id ?? id,
+        description: cuec.description ?? '',
+        status: cuec.status ?? 'NOT_ASSESSED',
+        tested: Boolean(cuec.tested),
+        exception_note: cuec.exception_note ?? null,
+        compensating_control: cuec.compensating_control ?? null,
+      })),
+    };
+  });
 }

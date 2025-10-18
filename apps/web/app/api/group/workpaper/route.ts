@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server';
 import { ZodError, z } from 'zod';
-import { getServiceSupabaseClient } from '../../../../../lib/supabase-server';
-import { ensureEvidenceDocument } from '../../../../../lib/audit/evidence';
-import { upsertAuditModuleRecord } from '../../../../../lib/audit/module-records';
-import { logAuditActivity } from '../../../../../lib/audit/activity-log';
-import { attachRequestId, getOrCreateRequestId } from '../../../lib/observability';
-import { createApiGuard } from '../../../lib/api-guard';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { getServiceSupabaseClient } from '@/lib/supabase-server';
+import { ensureEvidenceDocument } from '@/lib/audit/evidence';
+import { upsertAuditModuleRecord } from '@/lib/audit/module-records';
+import { logAuditActivity } from '@/lib/audit/activity-log';
+import { attachRequestId, getOrCreateRequestId } from '@/app/lib/observability';
+import { createApiGuard } from '@/app/lib/api-guard';
 
 const workpaperSchema = z.object({
   orgId: z.string().uuid(),
@@ -22,6 +23,7 @@ const workpaperSchema = z.object({
 export async function POST(request: Request) {
   const requestId = getOrCreateRequestId(request);
   const supabase = await getServiceSupabaseClient();
+  const supabaseUnsafe = supabase as SupabaseClient;
   let payload;
   try {
     payload = workpaperSchema.parse(await request.json());
@@ -71,7 +73,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await supabaseUnsafe
     .from('group_workpapers')
     .insert({
       org_id: payload.orgId,

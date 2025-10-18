@@ -1,11 +1,13 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { getSupabaseServiceClient } from '../../../lib/supabase/server';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { getSupabaseServiceClient } from '@/lib/supabase/server';
 
 const STANDARD_EXPERT = 'ISA 620';
 const STANDARD_INTERNAL = 'ISA 610';
 
 export async function GET(request: NextRequest) {
   const supabase = getSupabaseServiceClient();
+  const supabaseUnsafe = supabase as SupabaseClient;
   const url = new URL(request.url);
   const orgId = url.searchParams.get('orgId');
   const engagementId = url.searchParams.get('engagementId');
@@ -14,7 +16,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'orgId query parameter is required' }, { status: 400 });
   }
 
-  const expertsQuery = supabase
+  const expertsQuery = supabaseUnsafe
     .from('audit_specialist_experts')
     .select('*')
     .eq('org_id', orgId);
@@ -23,7 +25,7 @@ export async function GET(request: NextRequest) {
     expertsQuery.eq('engagement_id', engagementId);
   }
 
-  const internalQuery = supabase
+  const internalQuery = supabaseUnsafe
     .from('audit_specialist_internal')
     .select('*')
     .eq('org_id', orgId);
@@ -32,7 +34,7 @@ export async function GET(request: NextRequest) {
     internalQuery.eq('engagement_id', engagementId);
   }
 
-  const evidenceQuery = supabase
+  const evidenceQuery = supabaseUnsafe
     .from('audit_specialist_evidence')
     .select('*')
     .eq('org_id', orgId);

@@ -32,15 +32,23 @@ This document operationalises the end-to-end workflow for the Prisma-backed Next
 | `DATABASE_URL` | GitHub Actions (all jobs), Vercel Preview, Vercel Production | Primary Postgres connection used by Prisma Client. |
 | `DIRECT_URL` | GitHub Actions (migrations), optional Vercel Production | Point to Supabase transactional pooler to avoid timeouts during migrations. |
 | `SUPABASE_URL` | Vercel Preview/Production, local dev | Base URL for Supabase client. |
+| `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Vercel Preview/Production | Client-side Supabase configuration surfaced to the browser. |
 | `SUPABASE_SERVICE_ROLE_KEY` | GitHub Actions (seeding/tests), Vercel Preview/Production | Privileged key used by API routes and optional seeds. |
-| `SUPABASE_JWT_SECRET` | GitHub Actions (tests), Vercel Preview/Production | Required for verifying Supabase-issued JWTs. |
+| `SUPABASE_JWT_SECRET` | GitHub Actions (tests), Vercel Preview/Production | Required for verifying Supabase-issued JWTs and signing NextAuth sessions. |
+| `AUTH_CLIENT_ID`, `AUTH_CLIENT_SECRET`, `AUTH_ISSUER` | Vercel Preview/Production | Keycloak/OpenID Connect credentials consumed by NextAuth (`apps/web/auth.ts`). |
+| `NEXT_PUBLIC_API_BASE`, `AGENT_SERVICE_URL` | Vercel Preview/Production | Base URL for API fetches from the browser and server-side agent proxy. |
 | `OPENAI_API_KEY` | Vercel Preview/Production, GitHub Actions (optional integration tests) | Used by RAG/agent flows. |
 | `API_RATE_LIMIT`, `API_RATE_WINDOW_SECONDS` | Vercel Preview/Production | Align with FastAPI/env defaults for rate limiting. |
-| Front-end vars (`VITE_*`) | Local dev, Vercel Preview/Production | Already modelled in `.env.example`; keep parity. |
+| `AUTOMATION_WEBHOOK_SECRET`, `N8N_WEBHOOK_SECRET` | Vercel Preview/Production | Shared secrets for webhook verification inside API routes. |
+| `SAMPLING_C1_BASE_URL`, `SAMPLING_C1_API_KEY` | Vercel Preview/Production | Required by audit sampling client for downstream service calls. |
+| Front-end toggles (`NEXT_PUBLIC_ACCOUNTING_MODE`, etc.) | Vercel Preview/Production | Control demo/feature flags for UI routes; safe defaults exist. |
+| Front-end vars (`VITE_*`) | Local dev, legacy Vite app | Legacy SPA configuration; keep parity until old UI retires. |
 
 Map the same variable names into Supabase Secrets for server-side functions/tasks when required.
 
 `.env.example` lists only variable names and sample placeholders. `.env`, `.env.*` stay ignored.
+
+If Vault is available, configure `VAULT_ADDR`, `VAULT_TOKEN`, `VAULT_KV_MOUNT`, and the Supabase overrides (`SUPABASE_VAULT_PATH`, `SUPABASE_SERVICE_ROLE_VAULT_FIELD`, `SUPABASE_JWT_VAULT_FIELD`). On Vercel, those fall back to direct environment variables.
 
 ## D) Database & Prisma Workflow
 

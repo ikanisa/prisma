@@ -93,7 +93,7 @@ export default function OtherInformationWorkspace() {
         if (body?.error) {
           message = body.error;
         }
-      } catch (error) {
+      } catch {
         // ignore JSON parsing failure and fall back to status text
       }
       throw new Error(message);

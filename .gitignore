@@ -7,6 +7,7 @@ supabase/config.toml.bak
 # Env & logs
 .env
 .env.*
+!.env.*.example
 *.log
 
 # Build & deps
@@ -27,3 +28,4 @@ apps/web/public/workbox-*.js
 .vercel/
 apps/web/.vercel/
 apps/web/.turbo/
+.vercel

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { computeUsGilti } from '../../../../../../lib/tax/calculators';
-import { recordActivity } from '../../../../../../lib/tax/activity';
+import { computeUsGilti } from '@/lib/tax/calculators';
+import { recordActivity } from '@/lib/tax/activity';
 
 const payloadSchema = z.object({
   scenario: z.string().min(1, 'scenario is required'),
@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
   let body: unknown;
   try {
     body = await request.json();
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
 

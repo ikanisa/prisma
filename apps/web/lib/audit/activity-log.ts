@@ -1,6 +1,5 @@
 import { randomUUID } from 'crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { Database } from '../../../../src/integrations/supabase/types';
 
 /* =========================================================================
    RECONCILIATION ACTIVITY (in-memory, dev-friendly)
@@ -92,7 +91,7 @@ type AuditActivityAction =
  * Insert a general audit activity row into Supabase (production path).
  */
 export async function logAuditActivity(
-  supabase: SupabaseClient<Database>,
+  supabase: SupabaseClient,
   params: {
     orgId: string;
     userId: string;
@@ -124,7 +123,7 @@ export async function logAuditActivity(
  * centralised audit trails. Keeps the in-memory recon log AND writes to DB.
  */
 export async function logReconActionToSupabase(
-  supabase: SupabaseClient<Database>,
+  supabase: SupabaseClient,
   params: {
     orgId: string;
     userId: string;

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getServiceSupabaseClient } from '../../../../lib/supabase-server';
+import { getServiceSupabaseClient } from '@/lib/supabase-server';
 
 function traceIdFromHeaders(request: Request): string {
   const header = request.headers.get('x-request-id') ?? request.headers.get('X-Request-ID');
@@ -69,7 +69,8 @@ export async function GET(request: Request) {
   );
 
   const averageDurationSeconds = jobStats.durations.length
-    ? jobStats.durations.reduce((sum, value) => sum + value, 0) / jobStats.durations.length
+    ? jobStats.durations.reduce((sum: number, value: number) => sum + value, 0) /
+      jobStats.durations.length
     : null;
 
   const npsScores = npsResult.data ?? [];

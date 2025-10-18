@@ -1,11 +1,11 @@
 import 'server-only';
 
 import { NextRequest, NextResponse } from 'next/server';
-import { handleWebhook } from '../../../../lib/webhook';
-import { evaluateCompliance, loadComplianceConfig } from '../../../../lib/compliance/evaluator';
-import { getServiceSupabaseClient } from '../../../../lib/supabase-server';
-import { attachRequestId, getOrCreateRequestId } from '../../lib/observability';
-import { createApiGuard } from '../../lib/api-guard';
+import { handleWebhook } from '@/lib/webhook';
+import { evaluateCompliance, loadComplianceConfig } from '@/lib/compliance/evaluator';
+import { getServiceSupabaseClient } from '@/lib/supabase-server';
+import { attachRequestId, getOrCreateRequestId } from '@/app/lib/observability';
+import { createApiGuard } from '@/app/lib/api-guard';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -14,11 +14,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 const webhookSecret =
   process.env.AUTOMATION_WEBHOOK_SECRET ?? process.env.N8N_WEBHOOK_SECRET ?? '';
 
-async function processPayload(
-  rawPayload: string,
-  requestId: string,
-  orgId: string
-): Promise<Response> {
+async function processPayload(rawPayload: string, requestId: string): Promise<Response> {
   let payload: unknown;
   try {
     payload = JSON.parse(rawPayload);
@@ -106,7 +102,7 @@ export async function POST(request: NextRequest) {
       body: payloadText,
     }),
     webhookSecret,
-    (payload) => processPayload(payload, requestId, orgId)
+    (payload) => processPayload(payload, requestId)
   );
 
   const headers = new Headers(response.headers);

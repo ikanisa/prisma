@@ -280,7 +280,7 @@ export default function AgentOrchestratorPage() {
           if (Object.keys(metadata).length > 0) {
             payload.metadata = metadata;
           }
-        } catch (error) {
+        } catch {
           setBoardError('Session metadata JSON is invalid');
           return;
         }

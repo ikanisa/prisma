@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-import { getServiceSupabaseClient } from '../../../../lib/supabase-server';
+import { getServiceSupabaseClient } from '@/lib/supabase-server';
 
 interface LedgerEntry {
   entity_id: string;
@@ -89,7 +89,7 @@ export async function GET(request: Request) {
   }
 
   const eliminations: Array<{ description: string; amount: number; accountCode?: string }> = [];
-  for (const [accountId, bucket] of consolidated.entries()) {
+  for (const [, bucket] of consolidated.entries()) {
     const account = bucket.account;
     if (!account) continue;
     if (/intercompany|due to|due from|loan to subsidiary|loan from parent/i.test(`${account.code} ${account.name}`)) {

@@ -51,13 +51,52 @@ type ComparativesState = {
   notes: string;
 };
 
-function normalizeDocuments(records: any[]): OtherInformationDoc[] {
-  return (records ?? []).map((record) => ({
-    ...record,
-    flags: (record.flags ?? []).map((flag: any) => ({
-      ...flag,
-    })),
-  }));
+type OtherInformationDocApiRecord = Partial<OtherInformationDoc> & {
+  id: string;
+  flags?: Array<Partial<OtherInformationFlag>>;
+};
+
+function normalizeDocuments(records: OtherInformationDocApiRecord[]): OtherInformationDoc[] {
+  return (records ?? []).map((record) => {
+    const {
+      id,
+      org_id = '',
+      engagement_id = '',
+      title = '',
+      summary = null,
+      status = 'UPLOADED',
+      uploaded_at = new Date().toISOString(),
+      uploaded_by_user_id = null,
+      document_id = null,
+      comparatives_consistent = null,
+      comparatives_note = null,
+      flags = [],
+    } = record;
+
+    return {
+      id,
+      org_id,
+      engagement_id,
+      title,
+      summary,
+      status,
+      uploaded_at,
+      uploaded_by_user_id,
+      document_id,
+      comparatives_consistent,
+      comparatives_note,
+      flags: flags.map((flag) => ({
+        id: flag.id ?? '',
+        description: flag.description ?? '',
+        severity: flag.severity ?? 'LOW',
+        status: flag.status ?? 'OPEN',
+        raised_by_user_id: flag.raised_by_user_id ?? null,
+        resolved_by_user_id: flag.resolved_by_user_id ?? null,
+        resolved_at: flag.resolved_at ?? null,
+        resolution_note: flag.resolution_note ?? null,
+      })) as OtherInformationFlag[],
+    };
+  });
 }
 
 export default function OtherInformationWorkspace() {

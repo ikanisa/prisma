@@ -18,7 +18,7 @@ export interface WorkflowSummary {
   nextSteps: string[];
 }
 
-export interface CalculatorResult<TMetrics extends Record<string, unknown>> {
+export interface CalculatorResult<TMetrics extends object> {
   module: ModuleKey;
   metrics: TMetrics;
   workflow: WorkflowSummary;

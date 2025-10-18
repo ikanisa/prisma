@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
 import { ZodError } from 'zod';
-import { getServiceSupabaseClient } from '../../../../../lib/supabase-server';
-import { createReconciliationSchema } from '../../../../../lib/accounting/schemas';
-import { logActivity } from '../../../../../lib/accounting/activity-log';
-import { upsertAuditModuleRecord } from '../../../../../lib/audit/module-records';
-import { attachRequestId, getOrCreateRequestId } from '../../../../../lib/observability';
-import { createApiGuard } from '../../../../../lib/api-guard';
+import { getServiceSupabaseClient } from '@/lib/supabase-server';
+import { createReconciliationSchema } from '@/lib/accounting/schemas';
+import { logActivity } from '@/lib/accounting/activity-log';
+import { upsertAuditModuleRecord } from '@/lib/audit/module-records';
+import { attachRequestId, getOrCreateRequestId } from '@/app/lib/observability';
+import { createApiGuard } from '@/app/lib/api-guard';
 
 export async function POST(request: Request) {
   const requestId = getOrCreateRequestId(request);

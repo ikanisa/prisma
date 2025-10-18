@@ -1,13 +1,34 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import type { Database } from '../../../../../../src/integrations/supabase/types';
-import { logGroupActivity } from '../../../../lib/group/activity';
-import { getOrgIdFromRequest, isUuid, resolveUserId, toJsonRecord } from '../../../../lib/group/request';
-import { getSupabaseServerClient } from '../../../../lib/supabase/server';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { logGroupActivity } from '@/lib/group/activity';
+import { getOrgIdFromRequest, isUuid, resolveUserId, toJsonRecord } from '@/lib/group/request';
+import { getSupabaseServerClient } from '@/lib/supabase/server';
 
-type ReviewInsert = Database['public']['Tables']['component_reviews']['Insert'];
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
-const supabase = getSupabaseServerClient();
+type ReviewInsert = {
+  org_id: string;
+  engagement_id: string;
+  component_id: string;
+  reviewer_id: string;
+  status?: string | null;
+  assigned_at: string;
+  workpaper_id?: string | null;
+  review_notes?: string | null;
+  due_at?: string | null;
+  metadata?: Record<string, unknown> | null;
+};
+
+function tryGetSupabaseClients() {
+  try {
+    const supabase = getSupabaseServerClient();
+    return { supabase, supabaseUnsafe: supabase as SupabaseClient };
+  } catch {
+    return null;
+  }
+}
 
 function buildInsertPayload(orgId: string, body: Record<string, unknown>): ReviewInsert {
   if (typeof body.engagementId !== 'string' || !isUuid(body.engagementId)) {
@@ -50,6 +71,11 @@ function buildInsertPayload(orgId: string, body: Record<string, unknown>): Revie
 }
 
 export async function GET(request: NextRequest) {
+  const clients = tryGetSupabaseClients();
+  if (!clients) {
+    return NextResponse.json({ reviews: [] });
+  }
+  const { supabaseUnsafe } = clients;
   const orgId = getOrgIdFromRequest(request);
   if (!orgId) {
     return NextResponse.json({ error: 'orgId is required' }, { status: 400 });
@@ -61,7 +87,7 @@ export async function GET(request: NextRequest) {
   const reviewerId = url.searchParams.get('reviewerId');
   const status = url.searchParams.get('status');
 
-  const query = supabase
+  const query = supabaseUnsafe
     .from('component_reviews')
     .select('*')
     .eq('org_id', orgId)
@@ -98,10 +124,15 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const clients = tryGetSupabaseClients();
+  if (!clients) {
+    return NextResponse.json({ error: 'Supabase not configured' }, { status: 503 });
+  }
+  const { supabase, supabaseUnsafe } = clients;
   let payload: unknown;
   try {
     payload = await request.json();
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Invalid JSON payload' }, { status: 400 });
   }
 
@@ -127,7 +158,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: (error as Error).message }, { status: 400 });
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await supabaseUnsafe
     .from('component_reviews')
     .insert(insertPayload)
     .select()

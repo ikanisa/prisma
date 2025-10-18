@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
 import { ZodError, z } from 'zod';
-import { getServiceSupabaseClient } from '../../../../../lib/supabase-server';
-import { ensureAuditRecordApprovalStage, upsertAuditModuleRecord } from '../../../../../lib/audit/module-records';
-import { logAuditActivity } from '../../../../../lib/audit/activity-log';
-import { attachRequestId, getOrCreateRequestId } from '../../../lib/observability';
-import { createApiGuard } from '../../../lib/api-guard';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { getServiceSupabaseClient } from '@/lib/supabase-server';
+import { ensureAuditRecordApprovalStage, upsertAuditModuleRecord } from '@/lib/audit/module-records';
+import { logAuditActivity } from '@/lib/audit/activity-log';
+import { attachRequestId, getOrCreateRequestId } from '@/app/lib/observability';
+import { createApiGuard } from '@/app/lib/api-guard';
 
 const reviewSchema = z.object({
   orgId: z.string().uuid(),
@@ -19,6 +20,7 @@ const reviewSchema = z.object({
 export async function POST(request: Request) {
   const requestId = getOrCreateRequestId(request);
   const supabase = await getServiceSupabaseClient();
+  const supabaseUnsafe = supabase as SupabaseClient;
   let payload;
   try {
     payload = reviewSchema.parse(await request.json());
@@ -46,7 +48,7 @@ export async function POST(request: Request) {
   if (guard.rateLimitResponse) return guard.rateLimitResponse;
   if (guard.replayResponse) return guard.replayResponse;
 
-  const { data: existing } = await supabase
+  const { data: existing } = await supabaseUnsafe
     .from('group_reviews')
     .select('id')
     .eq('org_id', payload.orgId)
@@ -56,7 +58,7 @@ export async function POST(request: Request) {
 
   let recordId: string | null = null;
   if (existing) {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseUnsafe
       .from('group_reviews')
       .update({
         reviewer_user_id: payload.reviewerUserId,
@@ -76,7 +78,7 @@ export async function POST(request: Request) {
     }
     recordId = data.id;
   } else {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseUnsafe
       .from('group_reviews')
       .insert({
         org_id: payload.orgId,

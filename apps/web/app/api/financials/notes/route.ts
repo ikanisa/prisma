@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-import { getServiceSupabaseClient } from '../../../../lib/supabase-server';
+import { getServiceSupabaseClient } from '@/lib/supabase-server';
 
 interface AccountTotal {
   debit: number;
@@ -9,6 +9,13 @@ interface AccountTotal {
   code?: string | null;
   name?: string | null;
 }
+
+type FinancialNote = {
+  standard: string;
+  title: string;
+  narrative: string;
+  [key: string]: unknown;
+};
 
 const SECTION_TITLES = {
   IFRS15: 'Revenue from Contracts with Customers',
@@ -165,7 +172,7 @@ export async function GET(request: Request) {
     segments[key] = Number(((segments[key] ?? 0) + net).toFixed(2));
   }
 
-  const notes = [
+  const notes: FinancialNote[] = [
     {
       standard: 'IFRS 15',
       title: SECTION_TITLES.IFRS15,

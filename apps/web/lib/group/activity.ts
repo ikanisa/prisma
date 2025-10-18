@@ -1,9 +1,8 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
 import type { SupabaseServerClient } from '../supabase/server';
 import { getSupabaseServerClient } from '../supabase/server';
 
-type Primitive = string | number | boolean | null;
-
-type ActivityMetadata = Record<string, Primitive | ActivityMetadata | Primitive[]>;
+type ActivityMetadata = Record<string, unknown>;
 
 export type GroupActivityAction =
   | 'GRP_COMPONENT_CREATED'
@@ -47,6 +46,7 @@ export async function logGroupActivity(params: GroupActivityParams) {
   }
 
   const supabase = params.supabase ?? getSupabaseServerClient();
+  const supabaseUnsafe = supabase as SupabaseClient;
   const payload = {
     action,
     org_id: orgId,
@@ -57,7 +57,7 @@ export async function logGroupActivity(params: GroupActivityParams) {
   };
 
   try {
-    await supabase.from('activity_log').insert(payload);
+    await supabaseUnsafe.from('activity_log').insert(payload);
   } catch (error) {
     console.error('Failed to persist group activity log', error);
   }

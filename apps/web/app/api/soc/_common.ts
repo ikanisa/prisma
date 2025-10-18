@@ -1,13 +1,32 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { auth } from '../../../../auth';
-import type { Database } from '../../../../../src/integrations/supabase/types';
+import { auth } from '@/auth';
+import { createSupabaseStub } from '@/lib/supabase/stub';
 
-type RoleLevel = Database['public']['Enums']['role_level'];
+type RoleLevel = 'EMPLOYEE' | 'MANAGER' | 'SYSTEM_ADMIN';
 
-type ServiceOrgRow = Database['public']['Tables']['service_orgs']['Row'];
-type CuecRow = Database['public']['Tables']['soc1_cuecs']['Row'];
+type ServiceOrgRow = {
+  id: string;
+  org_id: string;
+  engagement_id: string;
+  name: string;
+  description: string | null;
+  service_type: string | null;
+  residual_risk: string | null;
+  reliance_assessed: boolean | null;
+  contact_email: string | null;
+  contact_phone: string | null;
+};
+
+type CuecRow = {
+  id: string;
+  service_org_id: string;
+  status: string;
+  tested: boolean;
+  exception_note: string | null;
+  compensating_control: string | null;
+};
 
 type ActivityInput = {
   orgId: string;
@@ -18,7 +37,8 @@ type ActivityInput = {
   metadata?: Record<string, unknown> | null;
 };
 
-let cachedClient: SupabaseClient<Database> | null = null;
+let cachedClient: SupabaseClient | null = null;
+const SUPABASE_ALLOW_STUB = process.env.SUPABASE_ALLOW_STUB === 'true';
 
 export class HttpError extends Error {
   constructor(public status: number, message: string) {
@@ -27,19 +47,23 @@ export class HttpError extends Error {
   }
 }
 
-export function getSupabaseServiceClient(): SupabaseClient<Database> {
+export function getSupabaseServiceClient(): SupabaseClient {
   if (cachedClient) {
     return cachedClient;
   }
 
-  const url = process.env.SUPABASE_URL;
+  const url = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!url || !serviceRoleKey) {
-    throw new Error('Supabase service credentials are not configured');
+    if (!SUPABASE_ALLOW_STUB) {
+      throw new Error('Supabase service credentials are not configured');
+    }
+    cachedClient = createSupabaseStub();
+    return cachedClient;
   }
 
-  cachedClient = createClient<Database>(url, serviceRoleKey, {
+  cachedClient = createClient(url, serviceRoleKey, {
     auth: { persistSession: false },
   });
 
@@ -58,7 +82,7 @@ function hasRequiredRole(actual: RoleLevel, minimum: RoleLevel) {
 
 export async function resolveCurrentUser(
   request: NextRequest,
-  client: SupabaseClient<Database>,
+  client: SupabaseClient,
 ): Promise<{ userId: string; email?: string | null; name?: string | null }> {
   const session = await auth();
   const headerUserId = request.headers.get('x-user-id');
@@ -75,7 +99,7 @@ export async function resolveCurrentUser(
         .from('app_users')
         .select('user_id, full_name')
         .eq('email', email)
-        .maybeSingle();
+        .maybeSingle<{ user_id: string; full_name: string | null }>();
 
       if (error) {
         throw new HttpError(500, 'Failed to resolve current user');
@@ -99,7 +123,7 @@ export async function resolveCurrentUser(
 }
 
 export async function ensureOrgAccess(
-  client: SupabaseClient<Database>,
+  client: SupabaseClient,
   orgId: string,
   userId: string,
   minimum: RoleLevel = 'EMPLOYEE',
@@ -109,7 +133,7 @@ export async function ensureOrgAccess(
     .select('role')
     .eq('org_id', orgId)
     .eq('user_id', userId)
-    .maybeSingle();
+    .maybeSingle<{ role: RoleLevel }>();
 
   if (membershipError) {
     throw new HttpError(500, 'Unable to verify organization membership');
@@ -126,7 +150,7 @@ export async function ensureOrgAccess(
     .from('users')
     .select('is_system_admin')
     .eq('id', userId)
-    .maybeSingle();
+    .maybeSingle<{ is_system_admin: boolean }>();
 
   if (userError) {
     throw new HttpError(500, 'Unable to verify user privileges');
@@ -140,14 +164,14 @@ export async function ensureOrgAccess(
 }
 
 export async function getServiceOrgOrThrow(
-  client: SupabaseClient<Database>,
+  client: SupabaseClient,
   serviceOrgId: string,
 ): Promise<ServiceOrgRow> {
   const { data, error } = await client
     .from('service_orgs')
     .select('*')
     .eq('id', serviceOrgId)
-    .maybeSingle();
+    .maybeSingle<ServiceOrgRow>();
 
   if (error) {
     throw new HttpError(500, 'Failed to load service organization');
@@ -161,14 +185,14 @@ export async function getServiceOrgOrThrow(
 }
 
 export async function getCuecOrThrow(
-  client: SupabaseClient<Database>,
+  client: SupabaseClient,
   cuecId: string,
 ): Promise<CuecRow> {
   const { data, error } = await client
     .from('soc1_cuecs')
     .select('*')
     .eq('id', cuecId)
-    .maybeSingle();
+    .maybeSingle<CuecRow>();
 
   if (error) {
     throw new HttpError(500, 'Failed to load CUEC');
@@ -182,17 +206,19 @@ export async function getCuecOrThrow(
 }
 
 export async function logActivity(
-  client: SupabaseClient<Database>,
+  client: SupabaseClient,
   input: ActivityInput,
 ): Promise<void> {
-  const { error } = await client.from('activity_log').insert({
+  const payload = {
     org_id: input.orgId,
     user_id: input.userId,
     action: input.action,
     entity_type: input.entityType ?? null,
     entity_id: input.entityId ?? null,
     metadata: input.metadata ?? null,
-  });
+  };
+
+  const { error } = await client.from('activity_log').insert(payload);
 
   if (error) {
     // We do not fail the entire request on log errors, but surface details for troubleshooting.

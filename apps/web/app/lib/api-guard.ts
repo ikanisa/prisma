@@ -14,7 +14,7 @@ export type RateLimitOptions = {
 
 export type ApiGuardOptions = {
   request: Request;
-  supabase: SupabaseClient<any>;
+  supabase: SupabaseClient;
   orgId: string;
   resource: string;
   requestId?: string;

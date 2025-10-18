@@ -1,11 +1,26 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import type { Database } from '../../../../../../../src/integrations/supabase/types';
-import { logGroupActivity } from '../../../../../lib/group/activity';
-import { getOrgIdFromRequest, isUuid, resolveUserId, toJsonRecord } from '../../../../../lib/group/request';
-import { getSupabaseServerClient } from '../../../../../lib/supabase/server';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { logGroupActivity } from '@/lib/group/activity';
+import { getOrgIdFromRequest, isUuid, resolveUserId, toJsonRecord } from '@/lib/group/request';
+import { getSupabaseServerClient } from '@/lib/supabase/server';
 
-type GroupComponentInsert = Database['public']['Tables']['group_components']['Insert'];
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
+type GroupComponentInsert = {
+  org_id: string;
+  engagement_id: string;
+  component_name?: string | null;
+  component_code?: string | null;
+  component_type?: string | null;
+  jurisdiction?: string | null;
+  risk_level?: string | null;
+  status?: string | null;
+  materiality_scope?: string | null;
+  lead_auditor?: string | null;
+  metadata?: Record<string, unknown> | null;
+};
 
 type RouteContext = {
   params: {
@@ -13,7 +28,14 @@ type RouteContext = {
   };
 };
 
-const supabase = getSupabaseServerClient();
+function tryGetSupabaseClients() {
+  try {
+    const supabase = getSupabaseServerClient();
+    return { supabase, supabaseUnsafe: supabase as SupabaseClient };
+  } catch {
+    return null;
+  }
+}
 
 function buildUpdatePayload(body: Record<string, unknown>): Partial<GroupComponentInsert> {
   const payload: Partial<GroupComponentInsert> = {};
@@ -51,6 +73,11 @@ function buildUpdatePayload(body: Record<string, unknown>): Partial<GroupCompone
 }
 
 export async function GET(request: NextRequest, context: RouteContext) {
+  const clients = tryGetSupabaseClients();
+  if (!clients) {
+    return NextResponse.json({ error: 'Supabase not configured' }, { status: 503 });
+  }
+  const { supabaseUnsafe } = clients;
   const orgId = getOrgIdFromRequest(request);
   if (!orgId) {
     return NextResponse.json({ error: 'orgId is required' }, { status: 400 });
@@ -61,7 +88,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ error: 'component id must be a UUID' }, { status: 400 });
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await supabaseUnsafe
     .from('group_components')
     .select('*')
     .eq('org_id', orgId)
@@ -79,10 +106,15 @@ export async function GET(request: NextRequest, context: RouteContext) {
 }
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
+  const clients = tryGetSupabaseClients();
+  if (!clients) {
+    return NextResponse.json({ error: 'Supabase not configured' }, { status: 503 });
+  }
+  const { supabase, supabaseUnsafe } = clients;
   let payload: unknown;
   try {
     payload = await request.json();
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Invalid JSON payload' }, { status: 400 });
   }
 
@@ -111,7 +143,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ error: 'No updatable fields provided' }, { status: 400 });
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await supabaseUnsafe
     .from('group_components')
     .update(updates)
     .eq('org_id', orgId)
@@ -140,12 +172,17 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 }
 
 export async function DELETE(request: NextRequest, context: RouteContext) {
+  const clients = tryGetSupabaseClients();
+  if (!clients) {
+    return NextResponse.json({ error: 'Supabase not configured' }, { status: 503 });
+  }
+  const { supabase, supabaseUnsafe } = clients;
   let payload: unknown = null;
   try {
     if (request.headers.get('content-length')) {
       payload = await request.json();
     }
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Invalid JSON payload' }, { status: 400 });
   }
 
@@ -165,7 +202,7 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ error: 'component id must be a UUID' }, { status: 400 });
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await supabaseUnsafe
     .from('group_components')
     .delete()
     .eq('org_id', orgId)

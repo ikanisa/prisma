@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { getSupabaseServiceClient } from '../../../../lib/supabase/server';
-import { recordSpecialistActivity } from '../../../../lib/supabase/activity';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { getSupabaseServiceClient } from '@/lib/supabase/server';
+import { recordSpecialistActivity } from '@/lib/supabase/activity';
 
 const STANDARD_INTERNAL = 'ISA 610';
 const ALLOWED_STATUSES = new Set(['draft', 'in_review', 'final']);
@@ -23,7 +24,7 @@ export async function POST(request: NextRequest) {
   let payload: Record<string, unknown>;
   try {
     payload = (await request.json()) as Record<string, unknown>;
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
 
@@ -49,8 +50,9 @@ export async function POST(request: NextRequest) {
       : 'draft';
 
   const supabase = getSupabaseServiceClient();
+  const supabaseUnsafe = supabase as SupabaseClient;
 
-  const { data, error } = await supabase
+  const { data, error } = await supabaseUnsafe
     .from('audit_specialist_internal')
     .insert({
       org_id: orgId,

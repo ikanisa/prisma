@@ -1,13 +1,29 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import type { Database } from '../../../../../../src/integrations/supabase/types';
-import { logGroupActivity } from '../../../../lib/group/activity';
-import { getOrgIdFromRequest, isUuid, resolveUserId, toJsonRecord } from '../../../../lib/group/request';
-import { getSupabaseServerClient } from '../../../../lib/supabase/server';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { logGroupActivity } from '@/lib/group/activity';
+import { getOrgIdFromRequest, isUuid, resolveUserId, toJsonRecord } from '@/lib/group/request';
+import { getSupabaseServerClient } from '@/lib/supabase/server';
 
-type WorkpaperInsert = Database['public']['Tables']['component_workpapers']['Insert'];
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
-const supabase = getSupabaseServerClient();
+type WorkpaperInsert = {
+  org_id: string;
+  engagement_id: string;
+  component_id: string;
+  instruction_id?: string | null;
+  document_id?: string | null;
+  title: string;
+  uploaded_by_user_id?: string | null;
+  uploaded_at?: string;
+  status?: string;
+  notes?: string | null;
+  ingestion_method?: string | null;
+  ingested_by?: string;
+  ingested_at?: string;
+  metadata?: Record<string, unknown> | null;
+};
 
 function buildInsertPayload(orgId: string, userId: string, body: Record<string, unknown>): WorkpaperInsert {
   if (typeof body.engagementId !== 'string' || !isUuid(body.engagementId)) {
@@ -54,6 +70,14 @@ function buildInsertPayload(orgId: string, userId: string, body: Record<string, 
 }
 
 export async function GET(request: NextRequest) {
+  let supabase;
+  let supabaseUnsafe;
+  try {
+    supabase = getSupabaseServerClient();
+    supabaseUnsafe = supabase as SupabaseClient;
+  } catch {
+    return NextResponse.json({ workpapers: [] });
+  }
   const orgId = getOrgIdFromRequest(request);
   if (!orgId) {
     return NextResponse.json({ error: 'orgId is required' }, { status: 400 });
@@ -65,7 +89,7 @@ export async function GET(request: NextRequest) {
   const instructionId = url.searchParams.get('instructionId');
   const status = url.searchParams.get('status');
 
-  const query = supabase
+  const query = supabaseUnsafe
     .from('component_workpapers')
     .select('*')
     .eq('org_id', orgId)
@@ -102,10 +126,18 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  let supabase;
+  let supabaseUnsafe;
+  try {
+    supabase = getSupabaseServerClient();
+    supabaseUnsafe = supabase as SupabaseClient;
+  } catch {
+    return NextResponse.json({ error: 'Supabase not configured' }, { status: 503 });
+  }
   let payload: unknown;
   try {
     payload = await request.json();
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Invalid JSON payload' }, { status: 400 });
   }
 
@@ -131,7 +163,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: (error as Error).message }, { status: 400 });
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await supabaseUnsafe
     .from('component_workpapers')
     .insert(insertPayload)
     .select()

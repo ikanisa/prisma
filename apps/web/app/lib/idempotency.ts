@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 const IDEMPOTENCY_TABLE = 'idempotency_keys';
 
-type TypedClient = SupabaseClient<any>;
+type TypedClient = SupabaseClient;
 
 type FindParams = {
   client: TypedClient;
@@ -37,7 +37,11 @@ export async function findIdempotentResponse({ client, orgId, resource, key }: F
   }
 
   if (!data) return null;
-  return { status: data.status_code as number, body: data.response as Record<string, unknown> };
+  const { status_code, response } = data as { status_code?: number; response?: Record<string, unknown> | null };
+  return {
+    status: status_code ?? 200,
+    body: (response ?? {}) as Record<string, unknown>,
+  };
 }
 
 export async function storeIdempotentResponse({

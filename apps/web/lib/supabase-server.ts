@@ -1,23 +1,34 @@
 import 'server-only';
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import type { Database } from '../../src/integrations/supabase/types';
 import { getSupabaseServiceRoleKey } from '../../../lib/secrets';
+import { createSupabaseStub } from './supabase/stub';
 
-let cachedClient: SupabaseClient<Database> | null = null;
+let cachedClient: SupabaseClient | null = null;
 let cachedKey: string | null = null;
 let cachedUrl: string | null = null;
 
-export async function getServiceSupabaseClient(): Promise<SupabaseClient<Database>> {
+export async function getServiceSupabaseClient(): Promise<SupabaseClient> {
   const url = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL;
   if (!url) {
-    throw new Error('Supabase service URL is not configured. Set SUPABASE_URL.');
+    if (!cachedClient) {
+      cachedClient = createSupabaseStub();
+    }
+    return cachedClient;
   }
 
-  const serviceRoleKey = await getSupabaseServiceRoleKey();
+  let serviceRoleKey: string;
+  try {
+    serviceRoleKey = await getSupabaseServiceRoleKey();
+  } catch {
+    if (!cachedClient) {
+      cachedClient = createSupabaseStub();
+    }
+    return cachedClient;
+  }
 
   if (!cachedClient || cachedKey !== serviceRoleKey || cachedUrl !== url) {
-    cachedClient = createClient<Database>(url, serviceRoleKey, {
+    cachedClient = createClient(url, serviceRoleKey, {
       auth: { persistSession: false },
     });
     cachedKey = serviceRoleKey;

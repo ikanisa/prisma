@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
-import { getServiceSupabaseClient } from '../../../../lib/supabase-server';
-import { attachRequestId, getOrCreateRequestId } from '../../lib/observability';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { getServiceSupabaseClient } from '@/lib/supabase-server';
+import { attachRequestId, getOrCreateRequestId } from '@/app/lib/observability';
 
 export async function GET(request: Request) {
   const requestId = getOrCreateRequestId(request);
@@ -16,8 +17,9 @@ export async function GET(request: Request) {
   }
 
   const supabase = await getServiceSupabaseClient();
+  const supabaseUnsafe = supabase as SupabaseClient;
 
-  const { data, error } = await supabase
+  const { data, error } = await supabaseUnsafe
     .from('group_components')
     .select(
       `

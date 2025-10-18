@@ -1,4 +1,8 @@
 import Link from 'next/link';
+import type { Route } from 'next';
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 import { Button } from '@prisma-glow/ui';
 
 export default function Home() {
@@ -13,7 +17,7 @@ export default function Home() {
     { href: '/client-portal', label: 'Client Portal' },
     { href: '/agent/approvals', label: 'Agent Approvals' },
     { href: '/agent/orchestrator', label: 'Agent Orchestrator' },
-  ];
+  ] satisfies Array<{ href: Route; label: string }>; 
   return (
     <main className="p-4">
       <h1 className="text-xl mb-4">Welcome</h1>

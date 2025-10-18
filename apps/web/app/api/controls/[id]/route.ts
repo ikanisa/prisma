@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
 import { ZodError } from 'zod';
-import { getServiceSupabaseClient } from '../../../../lib/supabase-server';
-import { updateControlSchema } from '../../../../lib/audit/schemas';
-import { logAuditActivity } from '../../../../lib/audit/activity-log';
-import { upsertAuditModuleRecord } from '../../../../lib/audit/module-records';
-import { attachRequestId, getOrCreateRequestId } from '../../lib/observability';
-import { createApiGuard } from '../../lib/api-guard';
+import { getServiceSupabaseClient } from '@/lib/supabase-server';
+import { updateControlSchema } from '@/lib/audit/schemas';
+import { logAuditActivity } from '@/lib/audit/activity-log';
+import { upsertAuditModuleRecord } from '@/lib/audit/module-records';
+import { attachRequestId, getOrCreateRequestId } from '@/app/lib/observability';
+import { createApiGuard } from '@/app/lib/api-guard';
 
 export async function PATCH(request: Request, context: { params: { id: string } }) {
   const requestId = getOrCreateRequestId(request);

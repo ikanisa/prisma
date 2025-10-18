@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { GET, POST, setSamplingClientFactory } from '../route';
-import { resetTestRunStore } from '../../../../../../lib/audit/test-run-store';
-import { SamplingServiceError } from '../../../../../../lib/audit/sampling-client';
+import { GET, POST } from '../route';
+import { setSamplingClientFactory } from '../sampling-factory';
+import { resetTestRunStore } from '@/lib/audit/test-run-store';
+import { SamplingServiceError } from '@/lib/audit/sampling-client';
 
 const requestStub = vi.fn();
 

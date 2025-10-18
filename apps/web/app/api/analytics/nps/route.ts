@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getServiceSupabaseClient } from '../../../../lib/supabase-server';
+import { getServiceSupabaseClient } from '@/lib/supabase-server';
 
 interface PostPayload {
   orgId?: string;

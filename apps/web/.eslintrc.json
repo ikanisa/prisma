@@ -8,6 +8,9 @@
       "./tsconfig.json"
     ]
   },
+  "plugins": [
+    "react-refresh"
+  ],
   "rules": {
     "@typescript-eslint/explicit-module-boundary-types": "off",
     "@typescript-eslint/no-floating-promises": "error",

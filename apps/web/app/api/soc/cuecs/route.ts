@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   ensureOrgAccess,
   getCuecOrThrow,
@@ -51,12 +52,13 @@ function getDate(value: unknown, field: string) {
 
 export async function POST(request: NextRequest) {
   const supabase = getSupabaseServiceClient();
+  const supabaseUnsafe = supabase as SupabaseClient;
 
   try {
     let body: unknown;
     try {
       body = await request.json();
-    } catch (error) {
+    } catch {
       throw new HttpError(400, 'Invalid JSON payload');
     }
 
@@ -79,20 +81,33 @@ export async function POST(request: NextRequest) {
     const serviceOrg = await getServiceOrgOrThrow(supabase, serviceOrgId);
     await ensureOrgAccess(supabase, serviceOrg.org_id, userId, 'MANAGER');
 
-    const { data, error } = await supabase
+    const insertPayload = {
+      service_org_id: serviceOrgId,
+      control_objective: controlObjective,
+      control_reference: controlReference,
+      description,
+      control_owner: controlOwner,
+      frequency,
+      status,
+      testing_notes: testingNotes,
+      report_id: reportId,
+      residual_risk: residualRisk,
+    } satisfies {
+      service_org_id: string;
+      control_objective: string;
+      control_reference: string | null;
+      description: string | null;
+      control_owner: string | null;
+      frequency: string | null;
+      status: string;
+      testing_notes: string | null;
+      report_id: string | null;
+      residual_risk: string | null;
+    };
+
+    const { data, error } = await supabaseUnsafe
       .from('soc1_cuecs')
-      .insert({
-        service_org_id: serviceOrgId,
-        control_objective: controlObjective,
-        control_reference: controlReference,
-        description,
-        control_owner: controlOwner,
-        frequency,
-        status,
-        testing_notes: testingNotes,
-        report_id: reportId,
-        residual_risk: residualRisk,
-      })
+      .insert(insertPayload)
       .select('*')
       .single();
 
@@ -125,7 +140,7 @@ export async function PATCH(request: NextRequest) {
     let body: unknown;
     try {
       body = await request.json();
-    } catch (error) {
+    } catch {
       throw new HttpError(400, 'Invalid JSON payload');
     }
 
@@ -180,7 +195,7 @@ export async function PATCH(request: NextRequest) {
       throw new HttpError(400, 'No updatable fields were provided');
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as SupabaseClient)
       .from('soc1_cuecs')
       .update(updates)
       .eq('id', cuecId)

@@ -1,8 +1,7 @@
 import crypto from 'crypto'
 import { createClient, type SupabaseClient, type PostgrestError } from '@supabase/supabase-js'
-
-import type { Database } from '../src/integrations/supabase/types'
 import { getSupabaseServiceRoleKey, isSupabaseVaultBacked } from './secrets'
+import { createSupabaseStub } from '../apps/web/lib/supabase/stub'
 
 type StoreResult = 'new' | 'duplicate'
 
@@ -24,23 +23,34 @@ function hasSupabaseCredentials(): boolean {
   return Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY)
 }
 
-let supabaseClientPromise: Promise<SupabaseClient<Database>> | null = null
+let supabaseClientPromise: Promise<SupabaseClient> | null = null
+const SUPABASE_ALLOW_STUB = process.env.SUPABASE_ALLOW_STUB === 'true'
 
-async function getSupabaseClient(): Promise<SupabaseClient<Database>> {
+async function getSupabaseClient(): Promise<SupabaseClient> {
   if (supabaseClientPromise) {
     return supabaseClientPromise
   }
 
   const url = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL
   if (!url) {
-    throw new Error('Supabase URL is required to persist webhook idempotency state.')
+    if (!SUPABASE_ALLOW_STUB) {
+      throw new Error('Supabase URL is required to persist webhook idempotency state.')
+    }
+    return createSupabaseStub()
   }
 
   const pending = (async () => {
-    const serviceRoleKey = await getSupabaseServiceRoleKey()
-    return createClient<Database>(url, serviceRoleKey, {
-      auth: { persistSession: false },
-    })
+    try {
+      const serviceRoleKey = await getSupabaseServiceRoleKey()
+      return createClient(url, serviceRoleKey, {
+        auth: { persistSession: false },
+      })
+    } catch (error) {
+      if (!SUPABASE_ALLOW_STUB) {
+        throw error
+      }
+      return createSupabaseStub()
+    }
   })()
 
   supabaseClientPromise = pending
@@ -54,7 +64,7 @@ async function getSupabaseClient(): Promise<SupabaseClient<Database>> {
 }
 
 class SupabaseIdempotencyStore implements IdempotencyStore {
-  private readonly clientPromise: Promise<SupabaseClient<Database>>
+  private readonly clientPromise: Promise<SupabaseClient>
 
   constructor() {
     this.clientPromise = getSupabaseClient()

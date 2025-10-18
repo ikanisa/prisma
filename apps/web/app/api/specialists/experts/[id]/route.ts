@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { getSupabaseServiceClient } from '../../../../../lib/supabase/server';
-import { recordSpecialistActivity } from '../../../../../lib/supabase/activity';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { getSupabaseServiceClient } from '@/lib/supabase/server';
+import { recordSpecialistActivity } from '@/lib/supabase/activity';
 
 const STANDARD_EXPERT = 'ISA 620';
 const ALLOWED_STATUSES = new Set(['draft', 'in_review', 'final']);
@@ -55,11 +56,12 @@ export async function PUT(
   let payload: Record<string, unknown>;
   try {
     payload = (await request.json()) as Record<string, unknown>;
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
 
   const supabase = getSupabaseServiceClient();
+  const supabaseUnsafe = supabase as SupabaseClient;
 
   const updates: Record<string, unknown> = {};
 
@@ -125,7 +127,7 @@ export async function PUT(
 
   updates.updated_at = new Date().toISOString();
 
-  const { data, error } = await supabase
+  const { data, error } = await supabaseUnsafe
     .from('audit_specialist_experts')
     .update(updates)
     .eq('id', recordId)

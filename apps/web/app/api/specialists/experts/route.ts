@@ -1,7 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { auth } from '../../../../auth';
-import { getSupabaseServiceClient } from '../../../../lib/supabase/server';
-import { recordSpecialistActivity } from '../../../../lib/supabase/activity';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { auth } from '@/auth';
+import { getSupabaseServiceClient } from '@/lib/supabase/server';
+import { recordSpecialistActivity } from '@/lib/supabase/activity';
 
 type ServiceClient = ReturnType<typeof getSupabaseServiceClient>;
 
@@ -57,7 +58,7 @@ async function resolveAuthenticatedUser(client: ServiceClient) {
       .from('app_users')
       .select('user_id, full_name')
       .eq('email', email)
-      .maybeSingle();
+      .maybeSingle<{ user_id: string; full_name: string | null }>();
 
     if (error) {
       console.error('Failed to resolve user from email for specialist expert request', error);
@@ -82,7 +83,7 @@ async function ensureOrgMembership(client: ServiceClient, orgId: string, userId:
     .select('role')
     .eq('org_id', orgId)
     .eq('user_id', userId)
-    .maybeSingle();
+    .maybeSingle<{ role: string }>();
 
   if (membershipError) {
     console.error('Failed to verify organisation membership for specialist expert request', membershipError);
@@ -97,7 +98,7 @@ async function ensureOrgMembership(client: ServiceClient, orgId: string, userId:
     .from('users')
     .select('is_system_admin')
     .eq('id', userId)
-    .maybeSingle();
+    .maybeSingle<{ is_system_admin: boolean }>();
 
   if (userError) {
     console.error('Failed to verify user privileges for specialist expert request', userError);
@@ -116,7 +117,7 @@ async function ensureEngagementBelongsToOrg(client: ServiceClient, orgId: string
     .from('engagements')
     .select('org_id')
     .eq('id', engagementId)
-    .maybeSingle();
+    .maybeSingle<{ org_id: string }>();
 
   if (error) {
     console.error('Failed to verify engagement ownership for specialist expert request', error);
@@ -136,7 +137,7 @@ export async function POST(request: NextRequest) {
   let payload: Record<string, unknown>;
   try {
     payload = (await request.json()) as Record<string, unknown>;
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
 
@@ -159,6 +160,7 @@ export async function POST(request: NextRequest) {
       : 'draft';
 
   const supabase = getSupabaseServiceClient();
+  const supabaseUnsafe = supabase as SupabaseClient;
 
   let actorId: string;
   try {
@@ -183,7 +185,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unable to verify access for this engagement' }, { status: 500 });
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await supabaseUnsafe
     .from('audit_specialist_experts')
     .insert({
       org_id: orgId,

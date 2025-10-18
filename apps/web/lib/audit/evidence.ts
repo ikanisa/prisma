@@ -1,10 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import crypto from 'node:crypto';
-import type { Database } from '../../../../src/integrations/supabase/types';
 import type { AuditModuleCode } from './module-records';
 import { getSignedUrlTTL, sanitizeMetadata } from '../../../../lib/security/signed-url-policy';
 
-type TypedClient = SupabaseClient<Database>;
+type TypedClient = SupabaseClient;
 
 export type EvidenceManifest = {
   id: string;
@@ -79,7 +78,7 @@ export async function ensureEvidenceDocument(params: EnsureDocumentParams) {
     .select('id')
     .eq('org_id', orgId)
     .eq('file_path', objectPath)
-    .maybeSingle();
+    .maybeSingle<{ id: string }>();
 
   if (lookupError && lookupError.code !== 'PGRST116') {
     throw new Error(`Failed to lookup document: ${lookupError.message}`);
@@ -88,7 +87,7 @@ export async function ensureEvidenceDocument(params: EnsureDocumentParams) {
   let documentId = existingDocument?.id ?? null;
 
   if (!documentId) {
-    const insertPayload: Database['public']['Tables']['documents']['Insert'] = {
+    const insertPayload = {
       org_id: orgId,
       engagement_id: engagementId ?? null,
       name: documentName,
@@ -96,7 +95,7 @@ export async function ensureEvidenceDocument(params: EnsureDocumentParams) {
       file_type: mimeType ?? null,
       file_size: fileSize ?? null,
       uploaded_by: userId,
-    } as Database['public']['Tables']['documents']['Insert'];
+    };
 
     const { data, error } = await client.from('documents').insert(insertPayload).select('id').maybeSingle();
     if (error || !data) {
@@ -112,6 +111,10 @@ export async function ensureEvidenceDocument(params: EnsureDocumentParams) {
 
   if (signedError || !signedUrl?.signedUrl) {
     throw new Error(signedError?.message ?? 'Failed to generate signed URL for evidence document');
+  }
+
+  if (!documentId) {
+    throw new Error('Document identifier was not created');
   }
 
   return { documentId, signedUrl: signedUrl.signedUrl };

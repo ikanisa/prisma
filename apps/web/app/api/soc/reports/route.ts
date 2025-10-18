@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   ensureOrgAccess,
   getServiceOrgOrThrow,
@@ -40,12 +41,13 @@ function getDate(value: unknown, field: string, options?: { required?: boolean }
 
 export async function POST(request: NextRequest) {
   const supabase = getSupabaseServiceClient();
+  const supabaseUnsafe = supabase as SupabaseClient;
 
   try {
     let body: unknown;
     try {
       body = await request.json();
-    } catch (error) {
+    } catch {
       throw new HttpError(400, 'Invalid JSON payload');
     }
 
@@ -76,21 +78,35 @@ export async function POST(request: NextRequest) {
     const serviceOrg = await getServiceOrgOrThrow(supabase, serviceOrgId);
     await ensureOrgAccess(supabase, serviceOrg.org_id, userId, 'MANAGER');
 
-    const { data, error } = await supabase
+    const insertPayload = {
+      service_org_id: serviceOrgId,
+      period_start: periodStart,
+      period_end: periodEnd,
+      report_type: reportType,
+      auditor,
+      issued_at: issuedAt,
+      coverage_summary: coverageSummary,
+      testing_summary: testingSummary,
+      control_deficiencies: controlDeficiencies,
+      document_storage_path: documentStoragePath,
+      uploaded_by: userId,
+    } satisfies {
+      service_org_id: string;
+      period_start: string;
+      period_end: string;
+      report_type: string;
+      auditor: string | null;
+      issued_at: string | null;
+      coverage_summary: string | null;
+      testing_summary: string | null;
+      control_deficiencies: string | null;
+      document_storage_path: string | null;
+      uploaded_by: string;
+    };
+
+    const { data, error } = await supabaseUnsafe
       .from('soc1_reports')
-      .insert({
-        service_org_id: serviceOrgId,
-        period_start: periodStart,
-        period_end: periodEnd,
-        report_type: reportType,
-        auditor,
-        issued_at: issuedAt,
-        coverage_summary: coverageSummary,
-        testing_summary: testingSummary,
-        control_deficiencies: controlDeficiencies,
-        document_storage_path: documentStoragePath,
-        uploaded_by: userId,
-      })
+      .insert(insertPayload)
       .select('*')
       .single();
 
@@ -120,6 +136,7 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   const supabase = getSupabaseServiceClient();
+  const supabaseUnsafe = supabase as SupabaseClient;
 
   try {
     const { searchParams } = new URL(request.url);
@@ -133,7 +150,7 @@ export async function GET(request: NextRequest) {
     const serviceOrg = await getServiceOrgOrThrow(supabase, serviceOrgId);
     await ensureOrgAccess(supabase, serviceOrg.org_id, userId, 'EMPLOYEE');
 
-    const { data, error } = await supabase
+    const { data, error } = await supabaseUnsafe
       .from('soc1_reports')
       .select('*')
       .eq('service_org_id', serviceOrgId)
@@ -143,7 +160,7 @@ export async function GET(request: NextRequest) {
       throw new HttpError(500, 'Failed to load SOC 1 reports');
     }
 
-    return NextResponse.json({ reports: data ?? [] });
+    return NextResponse.json({ reports: (data ?? []) as Array<Record<string, unknown>> });
   } catch (error) {
     return handleRouteError(error, 'reports:GET');
   }

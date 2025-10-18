@@ -1,15 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseServiceClient } from '../../../../lib/supabase/server';
-import type { Database } from '@/integrations/supabase/types';
+import { getSupabaseServiceClient } from '@/lib/supabase/server';
 
-type ApprovalRow = Database['public']['Tables']['approval_queue']['Row'];
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
+type ApprovalRow = {
+  id: string;
+  org_id: string;
+  kind: string;
+  stage: string;
+  status: string;
+  requested_at: string;
+  requested_by_user_id: string | null;
+  approved_by_user_id: string | null;
+  decision_at: string | null;
+  decision_comment: string | null;
+  context_json: unknown;
+  session_id: string | null;
+  action_id: string | null;
+};
 
 type NormalisedApproval = {
   id: string;
   orgId: string;
   kind: string;
-  stage: Database['public']['Enums']['approval_stage'];
-  status: Database['public']['Enums']['approval_status'];
+  stage: string;
+  status: string;
   requestedAt: string;
   requestedByUserId: string | null;
   approvedByUserId: string | null;

@@ -1,8 +1,26 @@
 import { Buffer } from 'node:buffer';
 import { createHash, randomUUID } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
-import { getServiceSupabase, logOiAction } from '@/lib/supabase';
+import { logOiAction, tryGetServiceSupabase } from '@/lib/supabase';
 import { ensureOrgAccess, HttpError, resolveCurrentUser } from '../../soc/_common';
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
+type OtherInfoDocInsert = {
+  id?: string;
+  org_id: string;
+  engagement_id: string;
+  title: string;
+  storage_path: string;
+  status: string;
+  mime_type: string | null;
+  file_size: number | null;
+  checksum: string | null;
+  metadata: Record<string, unknown> | null;
+  uploaded_by: string;
+  uploaded_at?: string | null;
+};
 
 function badRequest(message: string, init?: ResponseInit) {
   return NextResponse.json({ error: message }, { status: 400, ...init });
@@ -26,7 +44,10 @@ export async function GET(request: NextRequest) {
     return badRequest('orgId and engagementId are required query parameters.');
   }
 
-  const supabase = getServiceSupabase();
+  const supabase = tryGetServiceSupabase();
+  if (!supabase) {
+    return NextResponse.json({ documents: [] });
+  }
 
   try {
     const { userId } = await resolveCurrentUser(request, supabase);
@@ -85,7 +106,10 @@ export async function POST(request: NextRequest) {
   const checksum = createHash('sha256').update(buffer).digest('hex');
   const pageCount = extractPageCount(buffer, file.name, file.type || null);
   const docId = randomUUID();
-  const supabase = getServiceSupabase();
+  const supabase = tryGetServiceSupabase();
+  if (!supabase) {
+    return NextResponse.json({ error: 'Supabase not configured' }, { status: 503 });
+  }
 
   let userId: string;
   try {
@@ -134,21 +158,23 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const insertPayload: OtherInfoDocInsert = {
+    id: docId,
+    org_id: orgId,
+    engagement_id: engagementId,
+    title,
+    storage_path: storagePath,
+    status: typeof status === 'string' && status ? status : 'uploaded',
+    mime_type: file.type || null,
+    file_size: file.size,
+    checksum,
+    metadata,
+    uploaded_by: uploaderId,
+  };
+
   const { data, error } = await supabase
     .from('other_information_docs')
-    .insert({
-      id: docId,
-      org_id: orgId,
-      engagement_id: engagementId,
-      title,
-      storage_path: storagePath,
-      status: typeof status === 'string' && status ? status : 'uploaded',
-      mime_type: file.type || null,
-      file_size: file.size,
-      checksum,
-      metadata,
-      uploaded_by: uploaderId,
-    })
+    .insert(insertPayload)
     .select()
     .single();
 

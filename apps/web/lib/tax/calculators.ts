@@ -485,7 +485,7 @@ export function resolveTreaty(input: TreatyResolverInput): CalculatorResult<Trea
   }
 
   if (input.apaRequested) {
-    decision = decision === 'refused' ? 'refused' : 'review';
+    decision = 'review';
     if (!reasons.includes('Advance Pricing Agreement requested.')) {
       reasons.push('Advance Pricing Agreement requested.');
     }

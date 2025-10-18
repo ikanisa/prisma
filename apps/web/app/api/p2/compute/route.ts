@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { computePillarTwo } from '../../../../../lib/tax/calculators';
-import { recordActivity } from '../../../../../lib/tax/activity';
+import { computePillarTwo } from '@/lib/tax/calculators';
+import { recordActivity } from '@/lib/tax/activity';
 
 const jurisdictionSchema = z.object({
   name: z.string().min(1, 'name is required'),
@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
   let body: unknown;
   try {
     body = await request.json();
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
 

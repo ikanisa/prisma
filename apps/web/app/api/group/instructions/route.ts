@@ -1,13 +1,30 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import type { Database } from '../../../../../../src/integrations/supabase/types';
-import { logGroupActivity } from '../../../../lib/group/activity';
-import { getOrgIdFromRequest, isUuid, resolveUserId, toJsonRecord } from '../../../../lib/group/request';
-import { getSupabaseServerClient } from '../../../../lib/supabase/server';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { logGroupActivity } from '@/lib/group/activity';
+import { getOrgIdFromRequest, isUuid, resolveUserId, toJsonRecord } from '@/lib/group/request';
+import { getSupabaseServerClient } from '@/lib/supabase/server';
 
-type GroupInstructionInsert = Database['public']['Tables']['group_instructions']['Insert'];
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
-const supabase = getSupabaseServerClient();
+type GroupInstructionInsert = {
+  org_id: string;
+  engagement_id: string;
+  component_id: string;
+  instruction_title: string;
+  instruction_body?: string | null;
+  status?: string | null;
+  due_at?: string | null;
+  sent_by: string;
+  sent_at: string;
+  metadata?: Record<string, unknown> | null;
+};
+
+function getSupabaseClients() {
+  const supabase = getSupabaseServerClient();
+  return { supabase, supabaseUnsafe: supabase as SupabaseClient };
+}
 
 function buildInsertPayload(orgId: string, userId: string, body: Record<string, unknown>): GroupInstructionInsert {
   if (typeof body.engagementId !== 'string' || !isUuid(body.engagementId)) {
@@ -48,6 +65,7 @@ function buildInsertPayload(orgId: string, userId: string, body: Record<string, 
 }
 
 export async function GET(request: NextRequest) {
+  const { supabaseUnsafe } = getSupabaseClients();
   const orgId = getOrgIdFromRequest(request);
   if (!orgId) {
     return NextResponse.json({ error: 'orgId is required' }, { status: 400 });
@@ -58,7 +76,7 @@ export async function GET(request: NextRequest) {
   const componentId = url.searchParams.get('componentId');
   const status = url.searchParams.get('status');
 
-  const query = supabase
+  const query = supabaseUnsafe
     .from('group_instructions')
     .select('*')
     .eq('org_id', orgId)
@@ -89,10 +107,11 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const { supabase, supabaseUnsafe } = getSupabaseClients();
   let payload: unknown;
   try {
     payload = await request.json();
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Invalid JSON payload' }, { status: 400 });
   }
 
@@ -118,7 +137,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: (error as Error).message }, { status: 400 });
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await supabaseUnsafe
     .from('group_instructions')
     .insert(insertPayload)
     .select()

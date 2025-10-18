@@ -1,15 +1,21 @@
 import 'server-only';
 
-import { getSupabaseServiceRoleKey } from '../../../../../../lib/secrets';
+import { getSupabaseServiceRoleKey } from '@/lib/secrets';
 
 const SUPABASE_URL = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL;
 
-if (!SUPABASE_URL) {
-  throw new Error('SUPABASE_URL must be configured.');
-}
-
 export async function invokeCitFunction<T>(path: string, payload: unknown): Promise<T> {
-  const serviceRoleKey = await getSupabaseServiceRoleKey();
+  if (!SUPABASE_URL) {
+    return {} as T;
+  }
+
+  let serviceRoleKey: string;
+  try {
+    serviceRoleKey = await getSupabaseServiceRoleKey();
+  } catch {
+    return {} as T;
+  }
+
   const response = await fetch(`${SUPABASE_URL}/functions/v1/tax-mt-cit${path}`, {
     method: 'POST',
     headers: {

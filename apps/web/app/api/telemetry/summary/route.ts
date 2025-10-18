@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-import { getServiceSupabaseClient } from '../../../lib/supabase-server';
+import { getServiceSupabaseClient } from '@/lib/supabase-server';
 
 export async function GET(request: Request) {
   const url = new URL(request.url);

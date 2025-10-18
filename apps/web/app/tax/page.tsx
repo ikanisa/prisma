@@ -1,34 +1,36 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type Dispatch, type SetStateAction } from 'react';
 import type { CalculatorResult, ModuleKey, TaxActivity } from '../../lib/tax/types';
 import {
   assessFiscalUnity,
   computeMaltaNid,
   evaluateAtadIlr,
+  resolveTreaty,
+  computeUsGilti,
   type AtadIlrMetrics,
   type Dac6Arrangement,
   type Dac6ScanMetrics,
-  type FiscalUnityInput,
   type FiscalUnityMetrics,
   type MaltaCitMetrics,
   type MaltaNidMetrics,
   type PillarTwoMetrics,
   type PillarTwoJurisdiction,
   type TreatyResolverMetrics,
+  type TreatyResolverInput,
   type UsGiltiMetrics,
   type VatPeriodInput,
   type VatPeriodMetrics,
-} from '../../lib/tax/calculators';
+} from '@/lib/tax/calculators';
 import type { Decision } from '../../lib/tax/types';
 
-interface ApiResponse<TMetrics extends Record<string, unknown>> {
+interface ApiResponse<TMetrics extends object> {
   scenario: string;
   result: CalculatorResult<TMetrics>;
   activity: TaxActivity;
 }
 
-interface ModuleState<TMetrics extends Record<string, unknown>> {
+interface ModuleState<TMetrics extends object> {
   scenario: string;
   result: CalculatorResult<TMetrics> | null;
   activity: TaxActivity | null;
@@ -42,7 +44,7 @@ const decisionColours: Record<Decision, string> = {
   refused: 'text-rose-600 dark:text-rose-400',
 };
 
-function createInitialState<TMetrics extends Record<string, unknown>>(): ModuleState<TMetrics> {
+function createInitialState<TMetrics extends object>(): ModuleState<TMetrics> {
   return {
     scenario: '',
     result: null,
@@ -100,7 +102,7 @@ function downloadEvidence(module: ModuleKey, scenario: string, payload: Record<s
   URL.revokeObjectURL(url);
 }
 
-function ResultPanel<TMetrics extends Record<string, unknown>>({
+function ResultPanel<TMetrics extends object>({
   scenario,
   result,
   activity,
@@ -250,7 +252,7 @@ function WorkspaceCard({
   );
 }
 
-function createLocalActivity<TMetrics extends Record<string, unknown>>(
+function createLocalActivity<TMetrics extends object>(
   module: ModuleKey,
   scenario: string,
   result: CalculatorResult<TMetrics>,
@@ -366,10 +368,10 @@ export default function Tax() {
   });
   const [giltiState, setGiltiState] = useState<ModuleState<UsGiltiMetrics>>(createInitialState());
 
-  async function requestCalculation<TMetrics extends Record<string, unknown>>(
+  async function requestCalculation<TMetrics extends object>(
     url: string,
     payload: Record<string, unknown>,
-    setState: (value: ModuleState<TMetrics>) => void
+    setState: Dispatch<SetStateAction<ModuleState<TMetrics>>>
   ) {
     setState((previous) => ({ ...previous, loading: true, error: null }));
 
@@ -431,7 +433,7 @@ export default function Tax() {
               className="grid gap-4"
               onSubmit={(event) => {
                 event.preventDefault();
-                requestCalculation<MaltaCitMetrics>('/api/tax/mt/cit/compute', {
+                void requestCalculation<MaltaCitMetrics>('/api/tax/mt/cit/compute', {
                   scenario: citForm.scenario,
                   preparedBy: citForm.preparedBy,
                   revenue: Number(citForm.revenue),
@@ -777,7 +779,7 @@ export default function Tax() {
               className="grid gap-4"
               onSubmit={(event) => {
                 event.preventDefault();
-                requestCalculation<VatPeriodMetrics>('/api/vat/period/prepare', {
+                void requestCalculation<VatPeriodMetrics>('/api/vat/period/prepare', {
                   scenario: vatForm.scenario,
                   preparedBy: vatForm.preparedBy,
                   sales: Number(vatForm.sales),
@@ -892,7 +894,7 @@ export default function Tax() {
                   crossBorder: row.crossBorder,
                   mainBenefit: row.mainBenefit,
                 }));
-                requestCalculation<Dac6ScanMetrics>('/api/dac6/scan', {
+                void requestCalculation<Dac6ScanMetrics>('/api/dac6/scan', {
                   scenario: dac6Scenario,
                   preparedBy: dac6PreparedBy,
                   arrangements,
@@ -1012,7 +1014,7 @@ export default function Tax() {
                   globeIncome: Number(globeIncome),
                   coveredTaxes: Number(coveredTaxes),
                 }));
-                requestCalculation<PillarTwoMetrics>('/api/p2/compute', {
+                void requestCalculation<PillarTwoMetrics>('/api/p2/compute', {
                   scenario: p2Scenario,
                   preparedBy: p2PreparedBy,
                   jurisdictions,
@@ -1137,7 +1139,7 @@ export default function Tax() {
               className="grid gap-4"
               onSubmit={(event) => {
                 event.preventDefault();
-                requestCalculation<TreatyResolverMetrics>('/api/treaty/resolve', {
+                void requestCalculation<TreatyResolverMetrics>('/api/treaty/resolve', {
                   scenario: treatyForm.scenario,
                   preparedBy: treatyForm.preparedBy,
                   residenceCountry: treatyForm.residenceCountry,
@@ -1232,7 +1234,7 @@ export default function Tax() {
               className="grid gap-4"
               onSubmit={(event) => {
                 event.preventDefault();
-                requestCalculation<UsGiltiMetrics>('/api/us/gilti/compute', {
+                void requestCalculation<UsGiltiMetrics>('/api/us/gilti/compute', {
                   scenario: giltiForm.scenario,
                   preparedBy: giltiForm.preparedBy,
                   testedIncome: Number(giltiForm.testedIncome),

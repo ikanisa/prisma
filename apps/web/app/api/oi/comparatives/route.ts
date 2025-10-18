@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
 import { ZodError, z } from 'zod';
 
-import { getServiceSupabaseClient } from '../../../../../lib/supabase-server';
-import { logAuditActivity } from '../../../../../lib/audit/activity-log';
-import { attachRequestId, getOrCreateRequestId } from '../../../lib/observability';
-import { createApiGuard } from '../../../lib/api-guard';
+import { getServiceSupabaseClient } from '@/lib/supabase-server';
+import { logAuditActivity } from '@/lib/audit/activity-log';
+import { attachRequestId, getOrCreateRequestId } from '@/app/lib/observability';
+import { createApiGuard } from '@/app/lib/api-guard';
 
 const comparisonSchema = z.object({
   orgId: z.string().uuid(),
@@ -59,7 +59,7 @@ export async function POST(request: Request) {
   await logAuditActivity(supabase, {
     orgId: payload.orgId,
     userId: payload.userId,
-    action: 'OI_COMPARATIVE_REVIEWED',
+    action: 'OI_UPLOADED',
     entityType: 'AUDIT_OTHER_INFORMATION',
     entityId: comparison.id,
     metadata: {

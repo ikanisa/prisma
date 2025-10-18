@@ -439,15 +439,15 @@ export function buildCashFlow(input: ModuleInput): ModuleExecutionResult {
   const investing = (payload.investingActivities ?? {}) as Record<string, unknown>;
   const financing = (payload.financingActivities ?? {}) as Record<string, unknown>;
 
-  const operatingNet = Object.values(operating).reduce(
+  const operatingNet = Object.values(operating).reduce<number>(
     (total, value) => total + toNumber(value, 0),
     0,
   );
-  const investingNet = Object.values(investing).reduce(
+  const investingNet = Object.values(investing).reduce<number>(
     (total, value) => total + toNumber(value, 0),
     0,
   );
-  const financingNet = Object.values(financing).reduce(
+  const financingNet = Object.values(financing).reduce<number>(
     (total, value) => total + toNumber(value, 0),
     0,
   );

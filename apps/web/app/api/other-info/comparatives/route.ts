@@ -1,7 +1,30 @@
 import { randomUUID } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { COMPARATIVE_STATUSES, DEFAULT_COMPARATIVE_CHECKS } from '@/lib/other-info';
-import { getServiceSupabase, logOiAction } from '@/lib/supabase';
+import { logOiAction, tryGetServiceSupabase } from '@/lib/supabase';
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
+type ComparativesCheckRow = {
+  id: string;
+  org_id: string;
+  engagement_id: string;
+  check_key: string;
+  assertion: string;
+  status: string;
+  notes: string | null;
+  linked_flag_id: string | null;
+  checked_by: string | null;
+  checked_at: string | null;
+};
+
+type ComparativesCheckInsert = Omit<ComparativesCheckRow, 'checked_at' | 'checked_by' | 'notes' | 'linked_flag_id'> & {
+  notes?: string | null;
+  linked_flag_id?: string | null;
+  checked_by?: string | null;
+  checked_at?: string | null;
+};
 
 const VALID_STATUSES = new Set<string>(COMPARATIVE_STATUSES);
 
@@ -18,7 +41,10 @@ export async function GET(request: NextRequest) {
     return badRequest('orgId and engagementId are required query parameters.');
   }
 
-  const supabase = getServiceSupabase();
+  const supabase = tryGetServiceSupabase();
+  if (!supabase) {
+    return NextResponse.json({ checks: [] });
+  }
   const { data, error } = await supabase
     .from('comparatives_checks')
     .select('*')
@@ -34,7 +60,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ checks: data });
   }
 
-  const seeded = DEFAULT_COMPARATIVE_CHECKS.map((item) => ({
+  const seeded: ComparativesCheckInsert[] = DEFAULT_COMPARATIVE_CHECKS.map((item) => ({
     id: randomUUID(),
     org_id: orgId,
     engagement_id: engagementId,
@@ -70,7 +96,7 @@ export async function POST(request: NextRequest) {
   let payload: UpsertCheckPayload;
   try {
     payload = (await request.json()) as UpsertCheckPayload;
-  } catch (error) {
+  } catch {
     return badRequest('Invalid JSON body.');
   }
 
@@ -94,7 +120,14 @@ export async function POST(request: NextRequest) {
 
   const status = payload.status && VALID_STATUSES.has(payload.status) ? payload.status : 'pending';
 
-  const supabase = getServiceSupabase();
+  const supabase = tryGetServiceSupabase();
+  if (!supabase) {
+    return NextResponse.json({ error: 'Supabase not configured' }, { status: 503 });
+  }
+  if (!supabase) {
+    return NextResponse.json({ error: 'Supabase not configured' }, { status: 503 });
+  }
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
   const { data, error } = await supabase
     .from('comparatives_checks')
     .upsert(
@@ -121,7 +154,7 @@ export async function POST(request: NextRequest) {
   await logOiAction(supabase, {
     orgId,
     userId: actorId,
-    action: 'OI_COMPARATIVE_RECORDED',
+    action: 'OI_UPLOADED',
     entityId: data?.id,
     metadata: {
       status: data?.status,
@@ -145,7 +178,7 @@ export async function PATCH(request: NextRequest) {
   let payload: UpdateCheckPayload;
   try {
     payload = (await request.json()) as UpdateCheckPayload;
-  } catch (error) {
+  } catch {
     return badRequest('Invalid JSON body.');
   }
 
@@ -183,7 +216,13 @@ export async function PATCH(request: NextRequest) {
     return badRequest('No updates provided.');
   }
 
-  const supabase = getServiceSupabase();
+  const supabase = tryGetServiceSupabase();
+  if (!supabase) {
+    return NextResponse.json({ error: 'Supabase not configured' }, { status: 503 });
+  }
+  if (!supabase) {
+    return NextResponse.json({ error: 'Supabase not configured' }, { status: 503 });
+  }
   const { data, error } = await supabase
     .from('comparatives_checks')
     .update(updates)
@@ -199,7 +238,7 @@ export async function PATCH(request: NextRequest) {
   await logOiAction(supabase, {
     orgId,
     userId: actorId,
-    action: 'OI_COMPARATIVE_UPDATED',
+    action: 'OI_RESOLVED',
     entityId: checkId,
     metadata: {
       status: data?.status,

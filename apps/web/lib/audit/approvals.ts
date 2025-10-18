@@ -1,13 +1,12 @@
-import { ensureAuditRecordApprovalStage, upsertAuditModuleRecord } from './module-records';
+import { ensureAuditRecordApprovalStage, upsertAuditModuleRecord, type AuditModuleCode } from './module-records';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { Database } from '../../../../src/integrations/supabase/types';
 
 export async function queueManagerReview(
-  client: SupabaseClient<Database>,
+  client: SupabaseClient,
   params: {
     orgId: string;
     engagementId: string;
-    moduleCode: Database['public']['Enums']['audit_module_code'];
+    moduleCode: AuditModuleCode;
     recordRef: string;
     title: string;
     metadata?: Record<string, unknown>;

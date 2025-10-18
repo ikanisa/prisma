@@ -23,12 +23,51 @@ export default function GroupAuditPage() {
    MODE A: GroupAuditDashboard  (from codex/implement-audit-group-features-and-endpoints)
    ============================================================================= */
 
-import type { Database } from '../../../../../src/integrations/supabase/types';
+type ComponentRow = {
+  id: string;
+  component_name: string;
+  component_code: string | null;
+  status: string | null;
+  risk_level: string | null;
+  jurisdiction: string | null;
+  lead_auditor: string | null;
+};
 
-type ComponentRow = Database['public']['Tables']['group_components']['Row'];
-type InstructionRow = Database['public']['Tables']['group_instructions']['Row'];
-type WorkpaperRow = Database['public']['Tables']['component_workpapers']['Row'];
-type ReviewRow = Database['public']['Tables']['component_reviews']['Row'];
+type InstructionRow = {
+  id: string;
+  component_id: string;
+  instruction_title: string;
+  instruction_body: string | null;
+  status: string | null;
+  due_at: string | null;
+  sent_at: string | null;
+  acknowledged_at: string | null;
+  acknowledged_by: string | null;
+};
+
+type WorkpaperRow = {
+  id: string;
+  component_id: string;
+  engagement_id: string;
+  instruction_id: string | null;
+  document_id: string | null;
+  title: string;
+  status: string | null;
+  ingested_at: string | null;
+};
+
+type ReviewRow = {
+  id: string;
+  component_id: string;
+  engagement_id: string;
+  workpaper_id: string | null;
+  reviewer_id: string | null;
+  status: string | null;
+  review_notes: string | null;
+  assigned_at: string | null;
+  due_at: string | null;
+  signed_off_at: string | null;
+};
 
 type Component = {
   id: string;
@@ -182,9 +221,15 @@ function mapReview(row: ReviewRow): Review {
 }
 
 function buildUploadLink(componentId: string, workpaperId?: string | null) {
-  const params = new URLSearchParams({ componentId });
-  if (workpaperId) params.append('workpaperId', workpaperId);
-  return `/client-portal?${params.toString()}`;
+  const query: Record<string, string> = { componentId };
+  if (workpaperId) {
+    query.workpaperId = workpaperId;
+  }
+
+  return {
+    pathname: '/client-portal',
+    query,
+  };
 }
 
 function GroupAuditDashboard() {
@@ -1302,20 +1347,63 @@ function GroupAuditWorkspace() {
   );
 }
 
-function normalizeComponents(records: any[]): GroupComponent[] {
-  return (records ?? []).map((record) => ({
-    ...record,
-    materiality: record.materiality !== null ? Number(record.materiality) : null,
-    instructions: (record.instructions ?? []).map((instruction: any) => ({
-      ...instruction,
-      due_at: instruction?.due_at ?? null,
-    })),
-    workpapers: (record.workpapers ?? []).map((workpaper: any) => ({
-      ...workpaper,
-      uploaded_at: workpaper.uploaded_at ?? new Date().toISOString(),
-    })),
-    reviews: (record.reviews ?? []).map((review: any) => ({ ...review })),
-  }));
+type ComponentApiRecord = Partial<GroupComponent> & {
+  id: string;
+  materiality?: number | string | null;
+  instructions?: Array<Partial<GroupInstruction>>;
+  workpapers?: Array<Partial<GroupWorkpaper>>;
+  reviews?: Array<Partial<GroupReview>>;
+};
+
+function normalizeComponents(records: ComponentApiRecord[]): GroupComponent[] {
+  return (records ?? []).map((record) => {
+    const {
+      id,
+      org_id = '',
+      engagement_id = '',
+      name = '',
+      country = null,
+      significance = 'INSIGNIFICANT',
+      materiality,
+      assigned_firm = null,
+      notes = null,
+      created_at = new Date().toISOString(),
+      updated_at = new Date().toISOString(),
+      instructions = [],
+      workpapers = [],
+      reviews = [],
+    } = record;
+
+    const rawMateriality =
+      typeof materiality === 'number'
+        ? materiality
+        : typeof materiality === 'string'
+        ? Number(materiality)
+        : null;
+
+    return {
+      id,
+      org_id,
+      engagement_id,
+      name,
+      country,
+      significance,
+      materiality: Number.isFinite(rawMateriality) ? Number(rawMateriality) : null,
+      assigned_firm,
+      notes,
+      created_at,
+      updated_at,
+      instructions: instructions.map((instruction) => ({
+        ...instruction,
+        due_at: instruction?.due_at ?? null,
+      })) as GroupInstruction[],
+      workpapers: workpapers.map((workpaper) => ({
+        ...workpaper,
+        uploaded_at: workpaper?.uploaded_at ?? new Date().toISOString(),
+      })) as GroupWorkpaper[],
+      reviews: reviews.map((review) => ({ ...review })) as GroupReview[],
+    };
+  });
 }
 
 function formatCurrencyUSD(value: number) {

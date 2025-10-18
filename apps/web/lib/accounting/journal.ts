@@ -1,6 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { differenceInCalendarDays, isWeekend, parseISO } from 'date-fns';
-import type { Database } from '../../src/integrations/supabase/types';
 import { JE_CONTROL_SEVERITIES, MAX_JE_IMBALANCE, ROUND_AMOUNT_STEP, SENSITIVE_ACCOUNT_TYPES } from './constants';
 
 interface ControlContext {
@@ -10,7 +9,7 @@ interface ControlContext {
 }
 
 export async function evaluateAndPersistJournalAlerts(
-  supabase: SupabaseClient<Database>,
+  supabase: SupabaseClient,
   ctx: ControlContext
 ): Promise<{ severity: 'LOW' | 'MEDIUM' | 'HIGH'; rule: string }[]> {
   const { orgId, batchId } = ctx;

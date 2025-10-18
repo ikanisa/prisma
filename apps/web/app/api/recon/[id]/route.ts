@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getReconciliationStore } from '../../../../lib/audit/reconciliation-store';
+import { getReconciliationStore } from '@/lib/audit/reconciliation-store';
 
 const store = getReconciliationStore();
 

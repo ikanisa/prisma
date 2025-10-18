@@ -157,13 +157,16 @@ export default function AgentChat() {
         const payload = JSON.parse(event.data) as StreamMessage;
         setEvents((prev) => [...prev, payload]);
         if (payload.type === 'text-delta' && typeof payload.data === 'string') {
-          setOutput((prev) => prev + payload.data);
+          const segment = payload.data;
+          setOutput((prev) => prev + segment);
         }
         if (payload.type === 'text-done' && typeof payload.data === 'string') {
-          setOutput((prev) => prev + payload.data);
+          const finalSegment = payload.data;
+          setOutput((prev) => prev + finalSegment);
         }
         if (payload.type === 'text-final' && typeof payload.data === 'string') {
-          setOutput((prev) => (prev.length ? `${prev}\n${payload.data}` : payload.data));
+          const finalText = payload.data;
+          setOutput((prev) => (prev.length ? `${prev}\n${finalText}` : finalText));
         }
       } catch (err) {
         console.warn('Failed to parse SSE payload', err, event.data);

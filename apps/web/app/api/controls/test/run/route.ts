@@ -1,25 +1,13 @@
 import { NextResponse } from 'next/server';
 import { ZodError } from 'zod';
-import { getServiceSupabaseClient } from '../../../../../lib/supabase-server';
-import { runControlTestSchema } from '../../../../../lib/audit/schemas';
-import { logAuditActivity } from '../../../../../lib/audit/activity-log';
-import { getSamplingClient as baseGetSamplingClient } from '../../../../../lib/audit/sampling-client';
-import { ensureAuditRecordApprovalStage, upsertAuditModuleRecord } from '../../../../../lib/audit/module-records';
-import { buildEvidenceManifest } from '../../../../../lib/audit/evidence';
-import { attachRequestId, getOrCreateRequestId } from '../../../../lib/observability';
-import { createApiGuard } from '../../../../lib/api-guard';
-
-/** 
- * Testability: allow tests to inject a fake Sampling client.
- * Defaults to the real client from lib/audit/sampling-client.
- */
-type SamplingClient = ReturnType<typeof baseGetSamplingClient>;
-let samplingClientFactory: () => SamplingClient = () => baseGetSamplingClient();
-
-/** Optional: used by tests to override the sampling client */
-export function setSamplingClientFactory(factory: (() => SamplingClient) | null) {
-  samplingClientFactory = factory ?? (() => baseGetSamplingClient());
-}
+import { getServiceSupabaseClient } from '@/lib/supabase-server';
+import { runControlTestSchema } from '@/lib/audit/schemas';
+import { logAuditActivity } from '@/lib/audit/activity-log';
+import { ensureAuditRecordApprovalStage, upsertAuditModuleRecord } from '@/lib/audit/module-records';
+import { buildEvidenceManifest } from '@/lib/audit/evidence';
+import { attachRequestId, getOrCreateRequestId } from '@/app/lib/observability';
+import { createApiGuard } from '@/app/lib/api-guard';
+import { resolveSamplingClient } from './sampling-factory';
 
 export async function POST(request: Request) {
   const requestId = getOrCreateRequestId(request);
@@ -79,7 +67,7 @@ export async function POST(request: Request) {
   }
 
   // Use the (possibly injected) sampling client
-  const samplingClient = samplingClientFactory();
+  const samplingClient = resolveSamplingClient();
   const samplingPlan = await samplingClient.requestPlan({
     orgId,
     engagementId,
@@ -135,7 +123,15 @@ export async function POST(request: Request) {
     },
   });
 
-  let deficiency = null as unknown as Record<string, unknown> | null;
+  type DeficiencyRow = {
+    id: string;
+    org_id: string;
+    engagement_id: string;
+    control_id: string;
+    recommendation: string | null;
+    severity: string;
+  };
+  let deficiency: DeficiencyRow | null = null;
   if (result === 'EXCEPTIONS') {
     const severity = deficiencySeverity ?? 'MEDIUM';
     const { data, error } = await supabase
@@ -156,7 +152,7 @@ export async function POST(request: Request) {
         { status: 500 },
       );
     }
-    deficiency = data;
+    deficiency = data as DeficiencyRow;
 
     await logAuditActivity(supabase, {
       orgId,
@@ -199,7 +195,7 @@ export async function POST(request: Request) {
 
     if (deficiency) {
       metadata.deficiencyId = deficiency.id;
-      metadata.deficiencySeverity = (deficiency as any).severity;
+      metadata.deficiencySeverity = deficiency.severity;
     }
 
     await upsertAuditModuleRecord(supabase, {

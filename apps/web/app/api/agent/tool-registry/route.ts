@@ -1,8 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseServiceClient } from '../../../../lib/supabase/server';
-import type { Database } from '@/integrations/supabase/types';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { getSupabaseServiceClient } from '@/lib/supabase/server';
 
-type ToolRegistryRow = Database['public']['Tables']['tool_registry']['Row'];
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
+type ToolRegistryRow = {
+  id: string;
+  key: string;
+  label: string | null;
+  description: string | null;
+  min_role: 'EMPLOYEE' | 'MANAGER' | 'SYSTEM_ADMIN';
+  sensitive: boolean;
+  enabled: boolean;
+  standards_refs: string[] | null;
+  metadata: unknown;
+  org_id: string | null;
+  updated_at: string;
+  updated_by_user_id: string | null;
+};
 
 type NormalisedTool = {
   id: string;
@@ -36,9 +52,10 @@ function normaliseTool(row: ToolRegistryRow): NormalisedTool {
 
 export async function GET(request: NextRequest) {
   const supabase = getSupabaseServiceClient();
+  const supabaseUnsafe = supabase as SupabaseClient;
   const orgId = request.nextUrl.searchParams.get('orgId');
 
-  let query = supabase
+  let query = supabaseUnsafe
     .from('tool_registry')
     .select('id, key, label, description, min_role, sensitive, standards_refs, enabled, metadata, org_id, updated_at, updated_by_user_id')
     .order('key', { ascending: true });
@@ -94,7 +111,8 @@ export async function PATCH(request: NextRequest) {
   }
 
   const supabase = getSupabaseServiceClient();
-  const { error } = await supabase
+  const supabaseUnsafe = supabase as SupabaseClient;
+  const { error } = await supabaseUnsafe
     .from('tool_registry')
     .update(updates)
     .eq('id', payload.id);

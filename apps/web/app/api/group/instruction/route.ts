@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
 import { ZodError, z } from 'zod';
-import { getServiceSupabaseClient } from '../../../../../lib/supabase-server';
-import { ensureAuditRecordApprovalStage, upsertAuditModuleRecord } from '../../../../../lib/audit/module-records';
-import { logAuditActivity } from '../../../../../lib/audit/activity-log';
-import { attachRequestId, getOrCreateRequestId } from '../../../lib/observability';
-import { createApiGuard } from '../../../lib/api-guard';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { getServiceSupabaseClient } from '@/lib/supabase-server';
+import { ensureAuditRecordApprovalStage, upsertAuditModuleRecord } from '@/lib/audit/module-records';
+import { logAuditActivity } from '@/lib/audit/activity-log';
+import { attachRequestId, getOrCreateRequestId } from '@/app/lib/observability';
+import { createApiGuard } from '@/app/lib/api-guard';
 
 const instructionSchema = z.object({
   orgId: z.string().uuid(),
@@ -19,6 +20,7 @@ const instructionSchema = z.object({
 export async function POST(request: Request) {
   const requestId = getOrCreateRequestId(request);
   const supabase = await getServiceSupabaseClient();
+  const supabaseUnsafe = supabase as SupabaseClient;
   let payload;
   try {
     payload = instructionSchema.parse(await request.json());
@@ -46,7 +48,7 @@ export async function POST(request: Request) {
   if (guard.rateLimitResponse) return guard.rateLimitResponse;
   if (guard.replayResponse) return guard.replayResponse;
 
-  const { data: component, error: componentError } = await supabase
+  const { data: component, error: componentError } = await supabaseUnsafe
     .from('group_components')
     .select('id')
     .eq('id', payload.componentId)
@@ -62,7 +64,7 @@ export async function POST(request: Request) {
     return guard.json({ error: 'Group component not found.' }, { status: 404 });
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await supabaseUnsafe
     .from('group_instructions')
     .insert({
       org_id: payload.orgId,

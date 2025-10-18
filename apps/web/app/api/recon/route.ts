@@ -4,14 +4,14 @@ import { NextResponse } from 'next/server';
 const MODE = (process.env.RECONCILIATION_MODE ?? 'db').toLowerCase();
 
 // Memory-store (dev) imports
-import { getReconciliationStore } from '../../../lib/audit/reconciliation-store';
+import { getReconciliationStore } from '@/lib/audit/reconciliation-store';
 import type {
   CreateReconciliationInput,
   ReconciliationType,
-} from '../../../lib/audit/reconciliation-types';
+} from '@/lib/audit/reconciliation-types';
 
 // Supabase (prod) import
-import { getServiceSupabaseClient } from '../../lib/supabase-server';
+import { getServiceSupabaseClient } from '@/lib/supabase-server';
 
 // --- Shared helpers (used by memory POST validation) ---
 const ALLOWED_TYPES: ReconciliationType[] = [

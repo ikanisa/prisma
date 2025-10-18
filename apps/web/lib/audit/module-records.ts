@@ -1,13 +1,12 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { Database } from '../../../../src/integrations/supabase/types';
 
-export type AuditModuleCode = Database['public']['Enums']['audit_module_code'];
-export type AuditRecordStatus = Database['public']['Enums']['audit_record_status'];
-export type AuditApprovalState = Database['public']['Enums']['audit_approval_state'];
-export type AuditApprovalStage = Database['public']['Enums']['audit_approval_stage'];
-export type AuditApprovalDecision = Database['public']['Enums']['audit_approval_decision'];
+export type AuditModuleCode = string;
+export type AuditRecordStatus = string;
+export type AuditApprovalState = string;
+export type AuditApprovalStage = string;
+export type AuditApprovalDecision = string;
 
-type TypedClient = SupabaseClient<Database>;
+type TypedClient = SupabaseClient;
 
 type UpsertRecordParams = {
   orgId: string;
@@ -100,7 +99,7 @@ export async function upsertAuditModuleRecord(client: TypedClient, params: Upser
     approvals: resolvedApprovals,
     metadata: resolvedMetadata,
     updated_by_user_id: resolvedUpdatedBy,
-  } satisfies Partial<Database['public']['Tables']['audit_module_records']['Insert']>;
+  };
 
   if (existing) {
     const { data, error } = await client
@@ -124,7 +123,7 @@ export async function upsertAuditModuleRecord(client: TypedClient, params: Upser
     record_ref: params.recordRef,
     ...payload,
     created_by_user_id: params.userId ?? resolvedPreparedBy ?? null,
-  } satisfies Database['public']['Tables']['audit_module_records']['Insert'];
+  };
 
   const { data, error } = await client
     .from('audit_module_records')

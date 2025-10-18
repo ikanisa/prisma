@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { getReconciliationStore } from '../../../../../lib/audit/reconciliation-store';
-import type { StatementImportInput, StatementSide } from '../../../../../lib/audit/reconciliation-types';
+import { getReconciliationStore } from '@/lib/audit/reconciliation-store';
+import type { StatementImportInput, StatementSide } from '@/lib/audit/reconciliation-types';
 
 const store = getReconciliationStore();
 

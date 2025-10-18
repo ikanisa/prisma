@@ -46,12 +46,6 @@ interface InternalEvaluationForm {
   standardRefs: string[];
 }
 
-interface EvaluationResponse<T> {
-  expert?: T;
-  internal?: T;
-  evidence?: T;
-}
-
 const STATUS_OPTIONS: Array<{ value: SpecialistStatus; label: string }> = [
   { value: 'draft', label: 'Draft' },
   { value: 'in_review', label: 'In review' },
@@ -62,6 +56,131 @@ const BASE_STANDARDS: Record<TargetType, string> = {
   expert: 'ISA 620',
   internal: 'ISA 610',
 };
+
+type ExpertApiResponse = {
+  id: string;
+  area?: string | null;
+  specialistName?: string | null;
+  specialist_name?: string | null;
+  specialistFirm?: string | null;
+  specialist_firm?: string | null;
+  scopeOfWork?: string | null;
+  scope_of_work?: string | null;
+  competenceAssessment?: string | null;
+  competence_assessment?: string | null;
+  objectivityAssessment?: string | null;
+  objectivity_assessment?: string | null;
+  workPerformed?: string | null;
+  work_performed?: string | null;
+  resultsSummary?: string | null;
+  results_summary?: string | null;
+  conclusion?: string | null;
+  status?: SpecialistStatus | string | null;
+  standardRefs?: string[] | null;
+  standard_refs?: string[] | null;
+  evidence?: EvidenceRecord[] | null;
+};
+
+type InternalApiResponse = {
+  id: string;
+  relianceArea?: string | null;
+  reliance_area?: string | null;
+  internalAuditLead?: string | null;
+  internal_audit_lead?: string | null;
+  scopeOfReliance?: string | null;
+  scope_of_reliance?: string | null;
+  competenceEvaluation?: string | null;
+  competence_evaluation?: string | null;
+  objectivityEvaluation?: string | null;
+  objectivity_evaluation?: string | null;
+  workEvaluation?: string | null;
+  work_evaluation?: string | null;
+  riskAssessment?: string | null;
+  risk_assessment?: string | null;
+  conclusion?: string | null;
+  status?: SpecialistStatus | string | null;
+  standardRefs?: string[] | null;
+  standard_refs?: string[] | null;
+  evidence?: EvidenceRecord[] | null;
+};
+
+function normaliseExpertResponse(
+  response: ExpertApiResponse,
+  previous?: ExpertEvaluationForm,
+): ExpertEvaluationForm {
+  return {
+    id: response.id ?? previous?.id ?? null,
+    area: response.area ?? previous?.area ?? '',
+    specialistName:
+      response.specialistName ?? response.specialist_name ?? previous?.specialistName ?? '',
+    specialistFirm:
+      response.specialistFirm ?? response.specialist_firm ?? previous?.specialistFirm ?? '',
+    scopeOfWork:
+      response.scopeOfWork ?? response.scope_of_work ?? previous?.scopeOfWork ?? '',
+    competenceAssessment:
+      response.competenceAssessment ??
+      response.competence_assessment ??
+      previous?.competenceAssessment ??
+      '',
+    objectivityAssessment:
+      response.objectivityAssessment ??
+      response.objectivity_assessment ??
+      previous?.objectivityAssessment ??
+      '',
+    workPerformed:
+      response.workPerformed ?? response.work_performed ?? previous?.workPerformed ?? '',
+    resultsSummary:
+      response.resultsSummary ?? response.results_summary ?? previous?.resultsSummary ?? '',
+    conclusion: response.conclusion ?? previous?.conclusion ?? '',
+    status: (response.status as SpecialistStatus | undefined) ?? previous?.status ?? 'draft',
+    standardRefs:
+      response.standardRefs ??
+      response.standard_refs ??
+      previous?.standardRefs ??
+      [BASE_STANDARDS.expert],
+  };
+}
+
+function normaliseInternalResponse(
+  response: InternalApiResponse,
+  previous?: InternalEvaluationForm,
+): InternalEvaluationForm {
+  return {
+    id: response.id ?? previous?.id ?? null,
+    relianceArea: response.relianceArea ?? response.reliance_area ?? previous?.relianceArea ?? '',
+    internalAuditLead:
+      response.internalAuditLead ??
+      response.internal_audit_lead ??
+      previous?.internalAuditLead ??
+      '',
+    scopeOfReliance:
+      response.scopeOfReliance ??
+      response.scope_of_reliance ??
+      previous?.scopeOfReliance ??
+      '',
+    competenceEvaluation:
+      response.competenceEvaluation ??
+      response.competence_evaluation ??
+      previous?.competenceEvaluation ??
+      '',
+    objectivityEvaluation:
+      response.objectivityEvaluation ??
+      response.objectivity_evaluation ??
+      previous?.objectivityEvaluation ??
+      '',
+    workEvaluation:
+      response.workEvaluation ?? response.work_evaluation ?? previous?.workEvaluation ?? '',
+    riskAssessment:
+      response.riskAssessment ?? response.risk_assessment ?? previous?.riskAssessment ?? '',
+    conclusion: response.conclusion ?? previous?.conclusion ?? '',
+    status: (response.status as SpecialistStatus | undefined) ?? previous?.status ?? 'draft',
+    standardRefs:
+      response.standardRefs ??
+      response.standard_refs ??
+      previous?.standardRefs ??
+      [BASE_STANDARDS.internal],
+  };
+}
 
 interface EvidenceFormInputs {
   description: string;
@@ -192,38 +311,14 @@ export default function AuditSpecialistsPage() {
       }
 
       const payload = (await response.json()) as {
-        experts: Array<ExpertEvaluationForm & { evidence: EvidenceRecord[] }>;
-        internal: Array<InternalEvaluationForm & { evidence: EvidenceRecord[] }>;
+        experts: ExpertApiResponse[];
+        internal: InternalApiResponse[];
       };
 
       const [expert] = payload.experts;
       if (expert) {
-        setExpertForm({
-          id: expert.id,
-          area: expert.area ?? '',
-          specialistName:
-            expert.specialistName ?? (expert as unknown as { specialist_name?: string }).specialist_name ?? '',
-          specialistFirm:
-            expert.specialistFirm ?? (expert as unknown as { specialist_firm?: string }).specialist_firm ?? '',
-          scopeOfWork:
-            expert.scopeOfWork ?? (expert as unknown as { scope_of_work?: string }).scope_of_work ?? '',
-          competenceAssessment:
-            expert.competenceAssessment ??
-            (expert as unknown as { competence_assessment?: string }).competence_assessment ??
-            '',
-          objectivityAssessment:
-            expert.objectivityAssessment ??
-            (expert as unknown as { objectivity_assessment?: string }).objectivity_assessment ??
-            '',
-          workPerformed:
-            expert.workPerformed ?? (expert as unknown as { work_performed?: string }).work_performed ?? '',
-          resultsSummary:
-            expert.resultsSummary ?? (expert as unknown as { results_summary?: string }).results_summary ?? '',
-          conclusion: expert.conclusion ?? '',
-          status: (expert.status as SpecialistStatus | null) ?? 'draft',
-          standardRefs: expert.standardRefs ?? (expert as any).standard_refs ?? [BASE_STANDARDS.expert],
-        });
-        setExpertEvidence(expert.evidence ?? []);
+        setExpertForm(normaliseExpertResponse(expert));
+        setExpertEvidence(Array.isArray(expert.evidence) ? expert.evidence : []);
       } else {
         setExpertForm({
           id: null,
@@ -244,37 +339,8 @@ export default function AuditSpecialistsPage() {
 
       const [internal] = payload.internal;
       if (internal) {
-        setInternalForm({
-          id: internal.id,
-          relianceArea:
-            internal.relianceArea ?? (internal as unknown as { reliance_area?: string }).reliance_area ?? '',
-          internalAuditLead:
-            internal.internalAuditLead ??
-            (internal as unknown as { internal_audit_lead?: string }).internal_audit_lead ??
-            '',
-          scopeOfReliance:
-            internal.scopeOfReliance ??
-            (internal as unknown as { scope_of_reliance?: string }).scope_of_reliance ??
-            '',
-          competenceEvaluation:
-            internal.competenceEvaluation ??
-            (internal as unknown as { competence_evaluation?: string }).competence_evaluation ??
-            '',
-          objectivityEvaluation:
-            internal.objectivityEvaluation ??
-            (internal as unknown as { objectivity_evaluation?: string }).objectivity_evaluation ??
-            '',
-          workEvaluation:
-            internal.workEvaluation ??
-            (internal as unknown as { work_evaluation?: string }).work_evaluation ??
-            '',
-          riskAssessment:
-            internal.riskAssessment ?? (internal as unknown as { risk_assessment?: string }).risk_assessment ?? '',
-          conclusion: internal.conclusion ?? '',
-          status: (internal.status as SpecialistStatus | null) ?? 'draft',
-          standardRefs: internal.standardRefs ?? (internal as any).standard_refs ?? [BASE_STANDARDS.internal],
-        });
-        setInternalEvidence(internal.evidence ?? []);
+        setInternalForm(normaliseInternalResponse(internal));
+        setInternalEvidence(Array.isArray(internal.evidence) ? internal.evidence : []);
       } else {
         setInternalForm({
           id: null,
@@ -369,55 +435,11 @@ export default function AuditSpecialistsPage() {
         throw new Error(message.error ?? 'Failed to persist expert evaluation');
       }
 
-      const result = (await response.json()) as EvaluationResponse<
-        ExpertEvaluationForm & { evidence?: EvidenceRecord[] }
-      >;
+      const result = (await response.json()) as { expert?: ExpertApiResponse & { evidence?: EvidenceRecord[] } };
 
       if (result.expert) {
-        setExpertForm({
-          id: result.expert.id ?? expertForm.id,
-          area: (result.expert as any).area ?? expertForm.area,
-          specialistName:
-            (result.expert as any).specialist_name ??
-            (result.expert as any).specialistName ??
-            expertForm.specialistName,
-          specialistFirm:
-            (result.expert as any).specialist_firm ??
-            (result.expert as any).specialistFirm ??
-            expertForm.specialistFirm,
-          scopeOfWork:
-            (result.expert as any).scope_of_work ??
-            (result.expert as any).scopeOfWork ??
-            expertForm.scopeOfWork,
-          competenceAssessment:
-            (result.expert as any).competence_assessment ??
-            (result.expert as any).competenceAssessment ??
-            expertForm.competenceAssessment,
-          objectivityAssessment:
-            (result.expert as any).objectivity_assessment ??
-            (result.expert as any).objectivityAssessment ??
-            expertForm.objectivityAssessment,
-          workPerformed:
-            (result.expert as any).work_performed ??
-            (result.expert as any).workPerformed ??
-            expertForm.workPerformed,
-          resultsSummary:
-            (result.expert as any).results_summary ??
-            (result.expert as any).resultsSummary ??
-            expertForm.resultsSummary,
-          conclusion:
-            (result.expert as any).conclusion ??
-            (result.expert as any).conclusion ??
-            expertForm.conclusion,
-          status:
-            ((result.expert as any).status ??
-              (result.expert.status as SpecialistStatus | undefined) ??
-              expertForm.status) as SpecialistStatus,
-          standardRefs:
-            (result.expert as any).standard_refs ??
-            (result.expert as any).standardRefs ??
-            expertForm.standardRefs,
-        });
+        setExpertForm(normaliseExpertResponse(result.expert, expertForm));
+        setExpertEvidence(Array.isArray(result.expert.evidence) ? result.expert.evidence : expertEvidence);
       }
 
       setFeedback(conclude ? 'Expert conclusion recorded.' : 'Expert evaluation saved.');
@@ -486,52 +508,13 @@ export default function AuditSpecialistsPage() {
         throw new Error(message.error ?? 'Failed to persist internal audit evaluation');
       }
 
-      const result = (await response.json()) as EvaluationResponse<InternalEvaluationForm>;
+      const result = (await response.json()) as { internal?: InternalApiResponse & { evidence?: EvidenceRecord[] } };
 
       if (result.internal) {
-        setInternalForm({
-          id: result.internal.id ?? internalForm.id,
-          relianceArea:
-            (result.internal as any).reliance_area ??
-            (result.internal as any).relianceArea ??
-            internalForm.relianceArea,
-          internalAuditLead:
-            (result.internal as any).internal_audit_lead ??
-            (result.internal as any).internalAuditLead ??
-            internalForm.internalAuditLead,
-          scopeOfReliance:
-            (result.internal as any).scope_of_reliance ??
-            (result.internal as any).scopeOfReliance ??
-            internalForm.scopeOfReliance,
-          competenceEvaluation:
-            (result.internal as any).competence_evaluation ??
-            (result.internal as any).competenceEvaluation ??
-            internalForm.competenceEvaluation,
-          objectivityEvaluation:
-            (result.internal as any).objectivity_evaluation ??
-            (result.internal as any).objectivityEvaluation ??
-            internalForm.objectivityEvaluation,
-          workEvaluation:
-            (result.internal as any).work_evaluation ??
-            (result.internal as any).workEvaluation ??
-            internalForm.workEvaluation,
-          riskAssessment:
-            (result.internal as any).risk_assessment ??
-            (result.internal as any).riskAssessment ??
-            internalForm.riskAssessment,
-          conclusion:
-            (result.internal as any).conclusion ??
-            (result.internal as any).conclusion ??
-            internalForm.conclusion,
-          status:
-            ((result.internal as any).status ??
-              (result.internal.status as SpecialistStatus | undefined) ??
-              internalForm.status) as SpecialistStatus,
-          standardRefs:
-            (result.internal as any).standard_refs ??
-            (result.internal as any).standardRefs ??
-            internalForm.standardRefs,
-        });
+        setInternalForm(normaliseInternalResponse(result.internal, internalForm));
+        setInternalEvidence(
+          Array.isArray(result.internal.evidence) ? result.internal.evidence : internalEvidence,
+        );
       }
 
       setFeedback(conclude ? 'Internal reliance conclusion saved.' : 'Internal audit evaluation saved.');
@@ -708,31 +691,33 @@ export default function AuditSpecialistsPage() {
     ];
 
     if (type === 'expert') {
+      const expertEvaluation = evaluation as ExpertEvaluationForm;
       lines.push(
         `## Specialist details`,
-        `- Area: ${evaluation.area || '—'}`,
-        `- Specialist: ${evaluation.specialistName || '—'}`,
-        `- Firm: ${evaluation.specialistFirm || '—'}`,
+        `- Area: ${expertEvaluation.area || '—'}`,
+        `- Specialist: ${expertEvaluation.specialistName || '—'}`,
+        `- Firm: ${expertEvaluation.specialistFirm || '—'}`,
         '',
         `## Evaluation`,
-        `- Scope of work: ${evaluation.scopeOfWork || '—'}`,
-        `- Competence: ${evaluation.competenceAssessment || '—'}`,
-        `- Objectivity: ${evaluation.objectivityAssessment || '—'}`,
-        `- Work performed: ${evaluation.workPerformed || '—'}`,
-        `- Results: ${evaluation.resultsSummary || '—'}`,
+        `- Scope of work: ${expertEvaluation.scopeOfWork || '—'}`,
+        `- Competence: ${expertEvaluation.competenceAssessment || '—'}`,
+        `- Objectivity: ${expertEvaluation.objectivityAssessment || '—'}`,
+        `- Work performed: ${expertEvaluation.workPerformed || '—'}`,
+        `- Results: ${expertEvaluation.resultsSummary || '—'}`,
       );
     } else {
+      const internalEvaluation = evaluation as InternalEvaluationForm;
       lines.push(
         `## Internal audit profile`,
-        `- Reliance area: ${evaluation.relianceArea || '—'}`,
-        `- Internal audit lead: ${evaluation.internalAuditLead || '—'}`,
+        `- Reliance area: ${internalEvaluation.relianceArea || '—'}`,
+        `- Internal audit lead: ${internalEvaluation.internalAuditLead || '—'}`,
         '',
         `## Evaluation`,
-        `- Scope of reliance: ${evaluation.scopeOfReliance || '—'}`,
-        `- Competence: ${evaluation.competenceEvaluation || '—'}`,
-        `- Objectivity: ${evaluation.objectivityEvaluation || '—'}`,
-        `- Work evaluation: ${evaluation.workEvaluation || '—'}`,
-        `- Risk assessment: ${evaluation.riskAssessment || '—'}`,
+        `- Scope of reliance: ${internalEvaluation.scopeOfReliance || '—'}`,
+        `- Competence: ${internalEvaluation.competenceEvaluation || '—'}`,
+        `- Objectivity: ${internalEvaluation.objectivityEvaluation || '—'}`,
+        `- Work evaluation: ${internalEvaluation.workEvaluation || '—'}`,
+        `- Risk assessment: ${internalEvaluation.riskAssessment || '—'}`,
       );
     }
 

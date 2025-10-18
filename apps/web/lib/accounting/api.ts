@@ -74,7 +74,7 @@ export async function handleModuleRequest(
   let body: unknown;
   try {
     body = await request.json();
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
 

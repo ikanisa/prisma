@@ -1,13 +1,26 @@
 import { NextResponse } from 'next/server';
 import { ZodError, z } from 'zod';
 
-import { getServiceSupabaseClient } from '../../../../../lib/supabase-server';
-import { upsertAuditModuleRecord } from '../../../../../lib/audit/module-records';
-import { logAuditActivity } from '../../../../../lib/audit/activity-log';
-import { attachRequestId, getOrCreateRequestId } from '../../../lib/observability';
-import { createApiGuard } from '../../../lib/api-guard';
+import { getServiceSupabaseClient } from '@/lib/supabase-server';
+import { upsertAuditModuleRecord } from '@/lib/audit/module-records';
+import { logAuditActivity } from '@/lib/audit/activity-log';
+import { attachRequestId, getOrCreateRequestId } from '@/app/lib/observability';
+import { createApiGuard } from '@/app/lib/api-guard';
 
 const TABLE = 'service_organisations' as const;
+
+type ServiceOrganisationRow = {
+  id: string;
+  org_id: string;
+  engagement_id: string;
+  name: string;
+  service_type: string | null;
+  residual_risk: string | null;
+  reliance_assessed: boolean | null;
+  control_owner?: string | null;
+  contact_email: string | null;
+  contact_phone: string | null;
+};
 
 // Schema from `main`, extended with optional fields from `codex/*`
 const createSchema = z.object({
@@ -128,8 +141,8 @@ export async function POST(request: Request) {
       contact_phone: payload.contactPhone ?? null,
       system_scope: payload.systemScope ?? null,
       oversight_notes: payload.oversightNotes ?? null,
-      created_by: payload.userId, // harmless if column missing; remove if your DB rejects unknown cols
-    } as any)
+      created_by: payload.userId,
+    })
     .select()
     .maybeSingle();
 
@@ -139,6 +152,7 @@ export async function POST(request: Request) {
       { status: 500 },
     );
   }
+  const serviceOrg = data as ServiceOrganisationRow;
 
   // Register in audit module records (as in main)
   try {
@@ -146,17 +160,17 @@ export async function POST(request: Request) {
       orgId: payload.orgId,
       engagementId: payload.engagementId,
       moduleCode: 'SOC1',
-      recordRef: data.id,
-      title: `${data.name} service org`,
+      recordRef: serviceOrg.id,
+      title: `${serviceOrg.name} service org`,
       recordStatus: 'IN_PROGRESS',
       approvalState: 'DRAFT',
       currentStage: 'PREPARER',
       preparedByUserId: payload.userId,
       metadata: {
-        serviceType: (data as any).service_type ?? null,
-        residualRisk: (data as any).residual_risk ?? null,
-        contactEmail: (data as any).contact_email ?? null,
-        contactPhone: (data as any).contact_phone ?? null,
+        serviceType: serviceOrg.service_type ?? null,
+        residualRisk: serviceOrg.residual_risk ?? null,
+        contactEmail: serviceOrg.contact_email ?? null,
+        contactPhone: serviceOrg.contact_phone ?? null,
       },
       userId: payload.userId,
     });
@@ -178,14 +192,14 @@ export async function POST(request: Request) {
     userId: payload.userId,
     action: 'SOC_CREATED',
     entityType: 'AUDIT_SOC',
-    entityId: data.id,
+    entityId: serviceOrg.id,
     metadata: {
-      serviceType: (data as any).service_type,
-      residualRisk: (data as any).residual_risk,
-      relianceAssessed: (data as any).reliance_assessed,
+      serviceType: serviceOrg.service_type,
+      residualRisk: serviceOrg.residual_risk,
+      relianceAssessed: serviceOrg.reliance_assessed ?? false,
       requestId,
     },
   });
 
-  return guard.respond({ serviceOrg: data });
+  return guard.respond({ serviceOrg });
 }

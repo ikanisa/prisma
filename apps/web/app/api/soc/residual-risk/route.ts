@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   ensureOrgAccess,
   getCuecOrThrow,
@@ -24,12 +25,13 @@ function requireString(value: unknown, field: string) {
 
 export async function POST(request: NextRequest) {
   const supabase = getSupabaseServiceClient();
+  const supabaseUnsafe = supabase as SupabaseClient;
 
   try {
     let body: unknown;
     try {
       body = await request.json();
-    } catch (error) {
+    } catch {
       throw new HttpError(400, 'Invalid JSON payload');
     }
 
@@ -65,16 +67,25 @@ export async function POST(request: NextRequest) {
     const serviceOrg = await getServiceOrgOrThrow(supabase, serviceOrgId);
     await ensureOrgAccess(supabase, serviceOrg.org_id, userId, 'EMPLOYEE');
 
-    const { data, error } = await supabase
+    const insertPayload = {
+      service_org_id: serviceOrgId,
+      cuec_id: cuecId,
+      note,
+      risk_rating: riskRating,
+      follow_up_owner: followUpOwner,
+      logged_by: userId,
+    } satisfies {
+      service_org_id: string;
+      cuec_id: string | null;
+      note: string;
+      risk_rating: string | null;
+      follow_up_owner: string | null;
+      logged_by: string;
+    };
+
+    const { data, error } = await supabaseUnsafe
       .from('soc1_residual_risk_notes')
-      .insert({
-        service_org_id: serviceOrgId,
-        cuec_id: cuecId,
-        note,
-        risk_rating: riskRating,
-        follow_up_owner: followUpOwner,
-        logged_by: userId,
-      })
+      .insert(insertPayload)
       .select('*')
       .single();
 
@@ -102,6 +113,7 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   const supabase = getSupabaseServiceClient();
+  const supabaseUnsafe = supabase as SupabaseClient;
 
   try {
     const { searchParams } = new URL(request.url);
@@ -128,7 +140,7 @@ export async function GET(request: NextRequest) {
     const serviceOrg = await getServiceOrgOrThrow(supabase, serviceOrgId);
     await ensureOrgAccess(supabase, serviceOrg.org_id, userId, 'EMPLOYEE');
 
-    const query = supabase
+    const query = supabaseUnsafe
       .from('soc1_residual_risk_notes')
       .select('*')
       .eq('service_org_id', serviceOrgId)
@@ -144,7 +156,7 @@ export async function GET(request: NextRequest) {
       throw new HttpError(500, 'Failed to load residual risk notes');
     }
 
-    return NextResponse.json({ notes: data ?? [] });
+    return NextResponse.json({ notes: (data ?? []) as Array<Record<string, unknown>> });
   } catch (error) {
     return handleRouteError(error, 'residual-risk:GET');
   }
