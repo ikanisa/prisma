@@ -26,8 +26,7 @@
     "react": "18.2.0",
     "react-dom": "18.2.0",
     "tailwind-merge": "^1.14.0",
-    "zod": "^3.25.76",
-      "@prisma-glow/ui": "workspace:*",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@types/node": "^20.12.7",

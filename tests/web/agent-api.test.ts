@@ -22,7 +22,7 @@ const supabaseClientMock = {
   from: vi.fn(),
 };
 
-vi.mock('../../apps/web/lib/supabase/server', () => ({
+vi.mock('@/lib/supabase/server', () => ({
   getSupabaseServiceClient: () => supabaseClientMock,
 }));
 
