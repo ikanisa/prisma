@@ -3,15 +3,16 @@ import { BatchSpanProcessor } from '@opentelemetry/sdk-trace-base';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 import { Resource } from '@opentelemetry/resources';
 import { SemanticResourceAttributes } from '@opentelemetry/semantic-conventions';
+import { env } from './env.js';
 
 let initialised = false;
 
 export function initTracing() {
   if (initialised) return;
-  const serviceName = process.env.OTEL_SERVICE_NAME || 'gateway';
-  const environment = process.env.SENTRY_ENVIRONMENT || process.env.ENVIRONMENT || process.env.NODE_ENV || 'development';
-  const version = process.env.SERVICE_VERSION || process.env.SENTRY_RELEASE || 'dev';
-  const endpoint = process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
+  const serviceName = env.OTEL_SERVICE_NAME || 'gateway';
+  const environment = env.SENTRY_ENVIRONMENT || env.ENVIRONMENT || env.NODE_ENV || 'development';
+  const version = env.SERVICE_VERSION || env.SENTRY_RELEASE || 'dev';
+  const endpoint = env.OTEL_EXPORTER_OTLP_ENDPOINT;
   if (!endpoint) {
     // No exporter configured; skip setup to avoid noisy errors.
     initialised = true;

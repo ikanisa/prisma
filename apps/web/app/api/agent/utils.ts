@@ -1,11 +1,12 @@
 import type { NextRequest } from 'next/server';
+import { env } from '@/src/env.server';
 
 function stripTrailingSlash(url: string): string {
   return url.endsWith('/') ? url.slice(0, -1) : url;
 }
 
 export function resolveAgentServiceUrl(): string | null {
-  const value = process.env.AGENT_SERVICE_URL ?? process.env.NEXT_PUBLIC_API_BASE ?? null;
+  const value = env.AGENT_SERVICE_URL ?? env.NEXT_PUBLIC_API_BASE ?? null;
   if (!value) return null;
   return stripTrailingSlash(value.trim());
 }

@@ -8,12 +8,10 @@ import {
   useState,
   type FormEvent,
 } from 'react';
+import { clientEnv } from '@/src/env.client';
 
 // Read once at build-time for client code
-const GROUP_MODE =
-  (process.env.NEXT_PUBLIC_GROUP_AUDIT_MODE ?? 'workspace').toLowerCase() as
-    | 'dashboard'
-    | 'workspace';
+const GROUP_MODE = clientEnv.NEXT_PUBLIC_GROUP_AUDIT_MODE;
 
 export default function GroupAuditPage() {
   return GROUP_MODE === 'dashboard' ? <GroupAuditDashboard /> : <GroupAuditWorkspace />;
@@ -115,8 +113,8 @@ type Review = {
   signedOffAt: string | null;
 };
 
-const DEFAULT_ORG_ID = process.env.NEXT_PUBLIC_DEMO_ORG_ID ?? '';
-const DEFAULT_ENGAGEMENT_ID = process.env.NEXT_PUBLIC_DEMO_ENGAGEMENT_ID ?? '';
+const DEFAULT_ORG_ID = clientEnv.NEXT_PUBLIC_DEMO_ORG_ID ?? '';
+const DEFAULT_ENGAGEMENT_ID = clientEnv.NEXT_PUBLIC_DEMO_ENGAGEMENT_ID ?? '';
 
 const STATUS_CLASS_MAP: Record<string, string> = {
   planned: 'bg-slate-100 text-slate-900',

@@ -2,6 +2,7 @@
   "name": "vite_react_shadcn_ts",
   "private": true,
   "version": "0.0.0",
+  "packageManager": "pnpm@9.12.3",
   "workspaces": [
     "apps/gateway",
     "apps/web",
@@ -9,6 +10,9 @@
     "packages/*"
   ],
   "type": "module",
+  "engines": {
+    "node": "18.20.4"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",

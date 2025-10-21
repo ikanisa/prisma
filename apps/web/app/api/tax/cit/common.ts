@@ -1,8 +1,9 @@
 import 'server-only';
 
 import { getSupabaseServiceRoleKey } from '@/lib/secrets';
+import { env } from '@/src/env.server';
 
-const SUPABASE_URL = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL;
+const SUPABASE_URL = env.SUPABASE_URL ?? env.NEXT_PUBLIC_SUPABASE_URL;
 
 export async function invokeCitFunction<T>(path: string, payload: unknown): Promise<T> {
   if (!SUPABASE_URL) {
