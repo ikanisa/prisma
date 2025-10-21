@@ -7,12 +7,14 @@ import { getRequestContext } from '../utils/request-context.js';
 import { buildTraceparent, isValidTraceparent } from '../utils/trace.js';
 import type { Request } from 'express';
 import { scrubPii } from '../utils/pii.js';
+import { env, getRuntimeEnv } from '../env.js';
 
 const router = Router();
 
 function getApiBaseUrl(): string {
-  const env = process.env.FASTAPI_BASE_URL || process.env.API_BASE_URL || '';
-  return env.replace(/\/$/, '') || 'http://localhost:8000';
+  const runtime = getRuntimeEnv();
+  const raw = runtime.FASTAPI_BASE_URL ?? runtime.API_BASE_URL ?? '';
+  return raw ? raw.replace(/\/$/, '') : 'http://localhost:8000';
 }
 
 function buildForwardHeaders(req: Request): Record<string, string> {
@@ -22,7 +24,7 @@ function buildForwardHeaders(req: Request): Record<string, string> {
   if (typeof auth === 'string' && auth.trim()) headers['authorization'] = auth;
   if (ctx?.requestId) headers['x-request-id'] = ctx.requestId;
   if (ctx?.traceId) headers['x-trace-id'] = ctx.traceId;
-  const serviceVersion = process.env.SERVICE_VERSION || process.env.SENTRY_RELEASE || 'dev';
+  const serviceVersion = env.SERVICE_VERSION || env.SENTRY_RELEASE || 'dev';
   headers['user-agent'] = `prisma-glow-gateway/${serviceVersion}`;
   const incomingTraceparent = req.headers['traceparent'];
   headers['traceparent'] =
@@ -225,7 +227,10 @@ router.post('/storage/sign', async (req, res) => {
 
 // Observability dry-run: intentionally raise an error to exercise alerting
 router.post('/observability/dry-run', (req, res) => {
-  const allow = String(process.env.ALLOW_SENTRY_DRY_RUN || 'false').toLowerCase() === 'true';
+  const allow =
+    process.env.ALLOW_SENTRY_DRY_RUN !== undefined
+      ? ['true', '1', 'yes'].includes(String(process.env.ALLOW_SENTRY_DRY_RUN).toLowerCase())
+      : env.ALLOW_SENTRY_DRY_RUN;
   if (!allow) return res.status(404).json({ error: 'not_found' });
   const rid = req.headers['x-request-id'] || null;
   // Unhandled error will be caught by the server error handler and logged

@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useMemo, useState } from "react";
+import { clientEnv } from '@/src/env.client';
 
 type AnalyticsKind = "JE" | "RATIO" | "VARIANCE" | "DUPLICATE" | "BENFORD";
 
@@ -45,9 +46,9 @@ type JournalEntry = {
   approvedBy?: string;
 };
 
-const demoOrgId = process.env.NEXT_PUBLIC_DEMO_ORG_ID ?? "";
-const demoEngagementId = process.env.NEXT_PUBLIC_DEMO_ENGAGEMENT_ID ?? "";
-const demoUserId = process.env.NEXT_PUBLIC_DEMO_USER_ID ?? "";
+const demoOrgId = clientEnv.NEXT_PUBLIC_DEMO_ORG_ID ?? "";
+const demoEngagementId = clientEnv.NEXT_PUBLIC_DEMO_ENGAGEMENT_ID ?? "";
+const demoUserId = clientEnv.NEXT_PUBLIC_DEMO_USER_ID ?? "";
 
 const demoJournalEntries: JournalEntry[] = (() => {
   const base = Array.from({ length: 30 }, (_, index) => {

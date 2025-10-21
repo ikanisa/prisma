@@ -2,6 +2,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
+import { env } from '@/src/env.server';
 import { createSupabaseStub } from '@/lib/supabase/stub';
 
 type RoleLevel = 'EMPLOYEE' | 'MANAGER' | 'SYSTEM_ADMIN';
@@ -38,7 +39,7 @@ type ActivityInput = {
 };
 
 let cachedClient: SupabaseClient | null = null;
-const SUPABASE_ALLOW_STUB = process.env.SUPABASE_ALLOW_STUB === 'true';
+const SUPABASE_ALLOW_STUB = env.SUPABASE_ALLOW_STUB;
 
 export class HttpError extends Error {
   constructor(public status: number, message: string) {
@@ -52,8 +53,8 @@ export function getSupabaseServiceClient(): SupabaseClient {
     return cachedClient;
   }
 
-  const url = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const url = env.SUPABASE_URL ?? env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!url || !serviceRoleKey) {
     if (!SUPABASE_ALLOW_STUB) {

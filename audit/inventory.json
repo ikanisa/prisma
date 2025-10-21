@@ -1,0 +1,93 @@
+{
+  "packageManager": {
+    "name": "pnpm",
+    "version": "9.12.3",
+    "lockfile": "pnpm-lock.yaml"
+  },
+  "node": {
+    "version": "18.20.4",
+    "constraints": [
+      "package.json#engines.node",
+      ".nvmrc"
+    ]
+  },
+  "apps": [
+    {
+      "name": "web",
+      "workspace": "web",
+      "path": "apps/web",
+      "framework": {
+        "name": "Next.js",
+        "version": "14.2.33",
+        "appRouter": true
+      },
+      "scripts": {
+        "dev": "pnpm --filter web dev",
+        "build": "pnpm --filter web build",
+        "start": "pnpm --filter web start",
+        "lint": "pnpm --filter web lint"
+      },
+      "additional": {
+        "database": "Prisma + PostgreSQL (DATABASE_URL)",
+        "auth": "NextAuth with Keycloak (AUTH_CLIENT_ID/SECRET/ISSUER)",
+        "supabase": "Service role + anon keys required",
+        "notes": "SSR + API routes; optional experimental PWA"
+      }
+    },
+    {
+      "name": "gateway",
+      "workspace": "@prisma-glow/gateway",
+      "path": "apps/gateway",
+      "framework": {
+        "name": "Express",
+        "language": "TypeScript",
+        "bundler": "tsc"
+      },
+      "scripts": {
+        "build": "pnpm --filter @prisma-glow/gateway build",
+        "lint": "pnpm --filter @prisma-glow/gateway lint",
+        "test": "pnpm --filter @prisma-glow/gateway test"
+      },
+      "additional": {
+        "notes": "Proxies API traffic to FastAPI service; depends on OTEL + Redis + PostgreSQL"
+      }
+    },
+    {
+      "name": "rag-service",
+      "workspace": "@prisma-glow/rag-service",
+      "path": "services/rag",
+      "framework": {
+        "name": "Node.js",
+        "runtime": "Express + custom workers",
+        "language": "TypeScript"
+      },
+      "scripts": {
+        "build": "pnpm --filter @prisma-glow/rag-service build",
+        "lint": "pnpm --filter @prisma-glow/rag-service lint"
+      },
+      "additional": {
+        "notes": "Handles RAG pipelines, OpenAI integrations, Supabase persistence"
+      }
+    }
+  ],
+  "packages": [
+    {
+      "name": "@prisma-glow/ui",
+      "path": "packages/ui",
+      "build": "pnpm --filter @prisma-glow/ui build",
+      "description": "Shared React component library built with tsup"
+    },
+    {
+      "name": "@prisma-glow/api-client",
+      "path": "packages/api-client",
+      "build": "pnpm --filter @prisma-glow/api-client build",
+      "test": "pnpm --filter @prisma-glow/api-client test",
+      "description": "Typed REST API client generated from OpenAPI"
+    },
+    {
+      "name": "@prisma-glow/system-config",
+      "path": "packages/system-config",
+      "description": "YAML configuration loader shared between services"
+    }
+  ]
+}

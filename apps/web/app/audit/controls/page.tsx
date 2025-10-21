@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { clientEnv } from '@/src/env.client';
 
 type Frequency = 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'ANNUAL' | 'EVENT_DRIVEN';
 type WalkthroughResult = 'DESIGNED' | 'NOT_DESIGNED' | 'IMPLEMENTED' | 'NOT_IMPLEMENTED';
@@ -131,9 +132,9 @@ const buildDemoSamplingPlan = (controlId: string, size: number): SamplingPlanSum
   })),
 });
 
-const demoOrgId = process.env.NEXT_PUBLIC_DEMO_ORG_ID ?? '';
-const demoEngagementId = process.env.NEXT_PUBLIC_DEMO_ENGAGEMENT_ID ?? '';
-const demoUserId = process.env.NEXT_PUBLIC_DEMO_USER_ID ?? '';
+const demoOrgId = clientEnv.NEXT_PUBLIC_DEMO_ORG_ID ?? '';
+const demoEngagementId = clientEnv.NEXT_PUBLIC_DEMO_ENGAGEMENT_ID ?? '';
+const demoUserId = clientEnv.NEXT_PUBLIC_DEMO_USER_ID ?? '';
 
 type StatusTone = 'success' | 'error' | 'info';
 const mapApiAttributes = (v: unknown): StoredAttribute[] => (Array.isArray(v) ? (v as StoredAttribute[]) : []);

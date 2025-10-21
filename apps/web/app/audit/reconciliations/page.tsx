@@ -8,12 +8,10 @@ import {
   type ChangeEvent,
   type FormEvent,
 } from 'react';
+import { clientEnv } from '@/src/env.client';
 
 // Read once at build-time for client code (must be NEXT_PUBLIC_)
-const RUNTIME_MODE =
-  (process.env.NEXT_PUBLIC_RECONCILIATION_MODE ?? 'db').toLowerCase() as
-    | 'memory'
-    | 'db';
+const RUNTIME_MODE = clientEnv.NEXT_PUBLIC_RECONCILIATION_MODE;
 
 /* -------------------------------------------------------------------
    MODE ROUTER

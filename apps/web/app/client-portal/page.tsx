@@ -1,5 +1,8 @@
 "use client";
 import { useState } from 'react';
+import { clientEnv } from '@/src/env.client';
+
+const API_BASE = clientEnv.NEXT_PUBLIC_API_BASE ?? '';
 
 export default function ClientPortal() {
   const [status, setStatus] = useState('');
@@ -8,7 +11,7 @@ export default function ClientPortal() {
     if (!file) return;
     const form = new FormData();
     form.append('file', file);
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE}/client/upload`, {
+    const res = await fetch(`${API_BASE}/client/upload`, {
       method: 'POST',
       body: form,
     });

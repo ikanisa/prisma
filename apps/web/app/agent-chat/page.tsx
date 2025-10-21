@@ -1,7 +1,10 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { clientEnv } from '@/src/env.client';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE?.replace(/\/$/, '') ?? '';
+const API_BASE = clientEnv.NEXT_PUBLIC_API_BASE
+  ? clientEnv.NEXT_PUBLIC_API_BASE.replace(/\/$/, '')
+  : '';
 
 interface StreamMessage {
   type: string;

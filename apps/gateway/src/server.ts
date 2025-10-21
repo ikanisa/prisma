@@ -7,6 +7,7 @@ import { createPiiScrubberMiddleware } from './middleware/pii-scrubber.js';
 import v1Router from './routes/v1.js';
 import { scrubPii } from './utils/pii.js';
 import { getRequestContext } from './utils/request-context.js';
+import { env } from './env.js';
 
 export function createGatewayServer() {
   initTracing();
@@ -24,8 +25,8 @@ export function createGatewayServer() {
 
   app.get('/readiness', (_req, res) => {
     // Minimal readiness: gateway is stateless. Optionally, verify required envs.
-    const requiredEnvs = ['OTEL_SERVICE_NAME'];
-    const missing = requiredEnvs.filter((key) => !process.env[key] || String(process.env[key]).trim().length === 0);
+    const missing: string[] = [];
+    if (!env.OTEL_SERVICE_NAME) missing.push('OTEL_SERVICE_NAME');
     const context = getRequestContext();
     if (missing.length) {
       return res.status(503).json({
@@ -63,7 +64,7 @@ const isEntrypoint = (() => {
 
 if (isEntrypoint) {
   const app = createGatewayServer();
-  const port = Number(process.env.PORT ?? 3000);
+  const port = env.PORT;
   app.listen(port, () => {
     console.warn(`Gateway listening on port ${port}`);
   });

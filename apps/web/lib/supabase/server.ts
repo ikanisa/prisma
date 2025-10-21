@@ -1,10 +1,11 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { env } from '@/src/env.server';
 import { createSupabaseStub } from './stub';
 
 type DatabaseClient = SupabaseClient;
 
 let cachedClient: DatabaseClient | null = null;
-const SUPABASE_ALLOW_STUB = process.env.SUPABASE_ALLOW_STUB === 'true';
+const SUPABASE_ALLOW_STUB = env.SUPABASE_ALLOW_STUB;
 
 /**
  * Lazily instantiate a Supabase Service Role client (server-side only).
@@ -13,8 +14,8 @@ const SUPABASE_ALLOW_STUB = process.env.SUPABASE_ALLOW_STUB === 'true';
 export function getSupabaseServiceClient(): DatabaseClient {
   if (cachedClient) return cachedClient;
 
-  const url = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const url = env.SUPABASE_URL ?? env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!url || !serviceRoleKey) {
     if (!SUPABASE_ALLOW_STUB) {

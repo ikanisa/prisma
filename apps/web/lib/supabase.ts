@@ -1,10 +1,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { env } from '@/src/env.server';
 import type { Json } from '../integrations/supabase/types';
 import { createSupabaseStub } from './supabase/stub';
-
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const SUPABASE_ALLOW_STUB = process.env.SUPABASE_ALLOW_STUB === 'true';
 
 type ServiceClient = SupabaseClient;
 
@@ -12,14 +9,14 @@ let cachedClient: ServiceClient | null = null;
 
 export function getServiceSupabase(): ServiceClient {
   if (!cachedClient) {
-    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-      if (!SUPABASE_ALLOW_STUB) {
+    if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
+      if (!env.SUPABASE_ALLOW_STUB) {
         throw new Error('Supabase service credentials are not configured');
       }
       cachedClient = createSupabaseStub();
       return cachedClient;
     }
-    cachedClient = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!, {
+    cachedClient = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
       auth: {
         autoRefreshToken: false,
         persistSession: false,
@@ -36,8 +33,8 @@ export function getServiceSupabase(): ServiceClient {
 }
 
 export function tryGetServiceSupabase(): ServiceClient | null {
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-    if (!SUPABASE_ALLOW_STUB) {
+  if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
+    if (!env.SUPABASE_ALLOW_STUB) {
       return null;
     }
   }

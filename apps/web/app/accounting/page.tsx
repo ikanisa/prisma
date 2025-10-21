@@ -1,12 +1,10 @@
 'use client';
 
 import { useMemo, useState, type ReactNode } from 'react';
+import { clientEnv } from '@/src/env.client';
 
 // Runtime mode: "modules" | "close"
-const ACCOUNTING_MODE =
-  (process.env.NEXT_PUBLIC_ACCOUNTING_MODE ?? 'close').toLowerCase() as
-    | 'modules'
-    | 'close';
+const ACCOUNTING_MODE = clientEnv.NEXT_PUBLIC_ACCOUNTING_MODE;
 
 /* ========================================================================
    EXPORTED PAGE

@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
+import { env } from '@/src/env.server';
 
 // --- Feature flag to choose backend ---
-const MODE = (process.env.RECONCILIATION_MODE ?? 'db').toLowerCase();
+const MODE = env.RECONCILIATION_MODE;
 
 // Memory-store (dev) imports
 import { getReconciliationStore } from '@/lib/audit/reconciliation-store';

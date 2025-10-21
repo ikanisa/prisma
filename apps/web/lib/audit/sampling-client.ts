@@ -1,5 +1,6 @@
 import 'server-only';
 import crypto from 'node:crypto';
+import { env } from '@/src/env.server';
 
 export class SamplingServiceError extends Error {
   readonly statusCode?: number;
@@ -148,8 +149,8 @@ let cachedClient: SamplingClient | null = null;
 export function getSamplingClient(): SamplingClient {
   if (!cachedClient) {
     cachedClient = new SamplingClient({
-      baseUrl: process.env.SAMPLING_C1_BASE_URL,
-      apiKey: process.env.SAMPLING_C1_API_KEY,
+      baseUrl: env.SAMPLING_C1_BASE_URL ?? undefined,
+      apiKey: env.SAMPLING_C1_API_KEY ?? undefined,
     });
   }
   return cachedClient;

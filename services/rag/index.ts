@@ -1,4 +1,5 @@
 /* eslint-env node */
+import './env.js';
 import express, { type NextFunction, type Request, type Response } from 'express';
 import multer from 'multer';
 import pdfParse from 'pdf-parse';

@@ -1,14 +1,9 @@
 import { NextResponse } from 'next/server';
 
 import prisma from '@/lib/prisma';
+import { env } from '@/src/env.server';
 
-const shouldBypassDatabaseCheck = () => {
-  if (process.env.SKIP_HEALTHCHECK_DB === 'true') {
-    return true;
-  }
-
-  return !process.env.DATABASE_URL;
-};
+const shouldBypassDatabaseCheck = () => env.SKIP_HEALTHCHECK_DB || !env.DATABASE_URL;
 
 export async function GET() {
   const startedAt = Date.now();
@@ -16,7 +11,7 @@ export async function GET() {
   if (shouldBypassDatabaseCheck()) {
     return NextResponse.json({
       status: 'ok',
-      database: process.env.DATABASE_URL ? 'bypassed' : 'unconfigured',
+      database: env.DATABASE_URL ? 'bypassed' : 'unconfigured',
       latencyMs: 0,
     });
   }
