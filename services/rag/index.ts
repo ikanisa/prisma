@@ -7103,12 +7103,14 @@ app.get('/api/agent/domain-tools/vector-stores', async (req: AuthenticatedReques
       attributeSampleSize: attributeSampleSizeParam,
     });
 
+    const attributeSampleSize = attributeSampleSizeParam ?? DEFAULT_ATTRIBUTE_SAMPLE_SIZE;
+
     logInfo('domain_tools.vector_store_catalog_generated', {
       userId,
       orgId: orgContext.orgId,
       agentKey,
       storeCount: vectorStores.length,
-      attributeSampleSize: attributeSampleSizeParam ?? DEFAULT_ATTRIBUTE_SAMPLE_SIZE,
+      attributeSampleSize,
       storesWithAdditionalAttributes: vectorStores.filter((store) => store.attributeSummary.hasMore).length,
     });
 
