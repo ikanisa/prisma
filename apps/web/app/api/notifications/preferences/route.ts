@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { auth } from '@/auth';
 import { getSupabaseServiceClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
@@ -21,13 +22,6 @@ type AppUserRow = {
   email: string | null;
   full_name: string | null;
 };
-
-function getActorId(request: NextRequest): string | null {
-  const header = request.headers.get('x-user-id');
-  if (!header) return null;
-  const trimmed = header.trim();
-  return trimmed.length > 0 ? trimmed : null;
-}
 
 function getOrgId(request: NextRequest): string | null {
   const orgId = request.nextUrl.searchParams.get('orgId');
@@ -52,12 +46,87 @@ function normalisePhone(value: unknown): string | null {
 
 type SupabaseService = SupabaseClient<Record<string, unknown>, 'public', Record<string, unknown>>;
 
-export async function GET(request: NextRequest) {
-  const actorId = getActorId(request);
-  if (!actorId) {
-    return NextResponse.json({ error: 'x-user-id header required' }, { status: 401 });
+class ApiError extends Error {
+  constructor(public status: number, message: string) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
+type ResolvedActor = {
+  userId: string;
+  email: string | null;
+  fullName: string | null;
+};
+
+async function resolveActor(
+  request: NextRequest,
+  supabase: SupabaseService,
+  orgId: string,
+): Promise<ResolvedActor> {
+  const session = await auth();
+
+  if (!session?.user) {
+    throw new ApiError(401, 'Authentication required');
   }
 
+  const sessionUser = session.user as {
+    id?: string | null;
+    sub?: string | null;
+    email?: string | null;
+    name?: string | null;
+  };
+
+  let userId = sessionUser.id?.trim() || sessionUser.sub?.trim() || null;
+  const email = sessionUser.email?.trim() || null;
+  let fullName = sessionUser.name?.trim() || null;
+
+  const lookupEmail = email?.toLowerCase() ?? null;
+
+  if (!userId && lookupEmail) {
+    const { data, error } = await supabase
+      .from('app_users')
+      .select('user_id, full_name')
+      .eq('email', lookupEmail)
+      .maybeSingle<{ user_id: string; full_name: string | null }>();
+
+    if (error) {
+      console.error('Failed to resolve user ID from email for notification preferences', error);
+      throw new ApiError(500, 'Unable to resolve current user');
+    }
+
+    if (!data) {
+      throw new ApiError(401, 'Authentication required');
+    }
+
+    userId = data.user_id;
+    fullName = data.full_name ?? fullName;
+  }
+
+  if (!userId) {
+    throw new ApiError(401, 'Authentication required');
+  }
+
+  const { data: membership, error: membershipError } = await supabase
+    .from('memberships')
+    .select('org_id')
+    .eq('org_id', orgId)
+    .eq('user_id', userId)
+    .maybeSingle<{ org_id: string }>();
+
+  if (membershipError) {
+    console.error('Failed to verify org membership for notification preferences', membershipError);
+    throw new ApiError(500, 'Unable to verify organization membership');
+  }
+
+  if (!membership) {
+    throw new ApiError(403, 'You do not have access to this organization');
+  }
+
+  return { userId, email, fullName };
+}
+
+export async function GET(request: NextRequest) {
   const orgId = getOrgId(request);
   if (!orgId) {
     return NextResponse.json({ error: 'orgId query parameter required' }, { status: 400 });
@@ -66,14 +135,24 @@ export async function GET(request: NextRequest) {
   const supabase = getSupabaseServiceClient();
   const supabaseUnsafe = supabase as SupabaseService;
 
+  let actor: ResolvedActor;
+  try {
+    actor = await resolveActor(request, supabaseUnsafe, orgId);
+  } catch (error) {
+    if (error instanceof ApiError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+    throw error;
+  }
+
   const [{ data: preferenceData, error: preferenceError }, { data: userData, error: userError }] = await Promise.all([
     supabaseUnsafe
       .from('user_notification_preferences')
       .select('email_enabled, email_override, sms_enabled, sms_number, updated_at, created_at')
-      .eq('user_id', actorId)
+      .eq('user_id', actor.userId)
       .eq('org_id', orgId)
       .maybeSingle(),
-    supabaseUnsafe.from('app_users').select('email, full_name').eq('user_id', actorId).maybeSingle(),
+    supabaseUnsafe.from('app_users').select('email, full_name').eq('user_id', actor.userId).maybeSingle(),
   ]);
 
   const preference = (preferenceData ?? null) as PreferenceRow | null;
@@ -92,7 +171,7 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({
     preference: {
       orgId,
-      userId: actorId,
+      userId: actor.userId,
       emailEnabled: preference?.email_enabled ?? true,
       emailOverride: preference?.email_override ?? null,
       smsEnabled: preference?.sms_enabled ?? false,
@@ -108,11 +187,6 @@ export async function GET(request: NextRequest) {
 }
 
 export async function PUT(request: NextRequest) {
-  const actorId = getActorId(request);
-  if (!actorId) {
-    return NextResponse.json({ error: 'x-user-id header required' }, { status: 401 });
-  }
-
   let payload: Record<string, unknown>;
   try {
     payload = (await request.json()) as Record<string, unknown>;
@@ -146,11 +220,21 @@ export async function PUT(request: NextRequest) {
   const supabase = getSupabaseServiceClient();
   const supabaseUnsafe = supabase as SupabaseService;
 
+  let actor: ResolvedActor;
+  try {
+    actor = await resolveActor(request, supabaseUnsafe, orgId);
+  } catch (error) {
+    if (error instanceof ApiError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+    throw error;
+  }
+
   const { data, error } = await supabaseUnsafe
     .from('user_notification_preferences')
     .upsert(
       {
-        user_id: actorId,
+        user_id: actor.userId,
         org_id: orgId,
         email_enabled: emailEnabled,
         email_override: emailOverride,
@@ -168,12 +252,12 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  const resolvedEmail = row?.email_override ?? null;
+  const resolvedEmail = row?.email_override ?? actor.email ?? null;
 
   return NextResponse.json({
     preference: {
       orgId,
-      userId: actorId,
+      userId: actor.userId,
       emailEnabled: row?.email_enabled ?? emailEnabled,
       emailOverride: row?.email_override ?? null,
       smsEnabled: row?.sms_enabled ?? smsEnabled,
