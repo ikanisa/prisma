@@ -1,6 +1,12 @@
 {
-  "org_slug": "acme",
-  "engagement_id": "eng-1",
-  "status": "READY",
-  "updated_at": "2025-10-22T15:03:27.269951Z"
+  "metadata": {
+    "captured_at": "2025-10-22T21:52:01.458396+00:00",
+    "target_url": "http://127.0.0.1:8000/services/connectors/oauth-url?provider=github",
+    "environment": "local",
+    "http_status": 200,
+    "service": "supabase-rpc"
+  },
+  "response": {
+    "url": "https://example.com/oauth/authorize?client_id=stub&redirect_uri=http%3A%2F%2F127.0.0.1%3A8000%2Fservices%2Fconnectors%2Fcallback&state=e4815e61-46a0-42bb-8303-dc4cf127ddc1&provider=github"
+  }
 }
