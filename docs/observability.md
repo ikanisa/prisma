@@ -32,6 +32,10 @@ prisma-glow-15 so engineers can trace incidents end to end.
 - `telemetry_service_levels`, `telemetry_coverage_metrics`, and
   `telemetry_refusal_events` (see `docs/telemetry.md`) are the authoritative
   metrics tables.
+- Centralised event contracts live in `analytics/events/schema.json`. Use the
+  helpers in `analytics/events/` to validate payloads before inserting into
+  Supabase so FastAPI, Express, and the RAG service emit consistent telemetry
+  events and span annotations.
 - Grafana dashboards:
   - **Audit Platform Overview**: surface rate-limited requests, error counts
     from telemetry, and Supabase function failures.
@@ -69,6 +73,9 @@ prisma-glow-15 so engineers can trace incidents end to end.
 - CI should execute `npm run lint`, `npm test`, and `scripts/test_policies.sql`
   so telemetry tables and structured logging helpers remain verified before
   deployment.
+- Run `make db-migrate-smoke` (or allow the `Migration smoke (Supabase)` CI job
+  to pass) ahead of production deploys to ensure the SQL migrations in
+  `migrations/sql/` apply cleanly to a fresh Supabase Postgres instance.
 - Quarterly, rehearse the observability stack by generating a synthetic
   `EDGE_FUNCTION_ERROR` and confirming it appears in logs, telemetry metrics,
   Grafana panels, and PagerDuty alerts.

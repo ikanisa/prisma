@@ -1,0 +1,211 @@
+ WARN  Unsupported engine: wanted: {"node":"18.20.4"} (current: {"node":"v20.19.4","pnpm":"9.12.3"})
+
+> vite_react_shadcn_ts@0.0.0 test /workspace/prisma
+> vitest run
+
+
+ RUN  v3.2.4 /workspace/prisma
+
+ ❯ tests/api/openai-chat-completions-endpoints.test.ts (9 tests | 9 skipped) 45ms
+   ↓ OpenAI chat completion proxy endpoints > rejects create requests without an authenticated user
+   ↓ OpenAI chat completion proxy endpoints > streams chat completion chunks via SSE and records debug metadata
+   ↓ OpenAI chat completion proxy endpoints > aborts the upstream stream when the client disconnects mid-stream
+   ↓ OpenAI chat completion proxy endpoints > creates a stored chat completion and logs Supabase debug metadata
+   ↓ OpenAI chat completion proxy endpoints > lists stored completions for the organisation
+   ↓ OpenAI chat completion proxy endpoints > retrieves a stored completion by id
+   ↓ OpenAI chat completion proxy endpoints > updates metadata on a stored completion
+   ↓ OpenAI chat completion proxy endpoints > deletes a stored completion
+   ↓ OpenAI chat completion proxy endpoints > lists stored messages for a completion
+ ✓ tests/web/agent-proxy.test.ts (9 tests) 319ms
+ ✓ tests/reporting/kam-reporting-page.test.tsx (2 tests) 1172ms
+   ✓ KamReportingPage workflow > covers candidate, drafting, approval, and export interactions  1036ms
+ ✓ tests/config/system-config.test.ts (32 tests) 19ms
+ ❯ tests/api/learning-endpoints.test.ts (4 tests | 4 skipped) 73ms
+   ↓ Learning API endpoints > lists pending learning jobs
+   ↓ Learning API endpoints > approves a learning job and transitions it to READY
+   ↓ Learning API endpoints > returns policy versions and metrics
+   ↓ Learning API endpoints > rolls back a policy version and removes associated artifacts
+ ✓ tests/tax/calculators.test.ts (17 tests) 14ms
+ ✓ tests/telemetry/telemetry-sync-edge.test.ts (6 tests) 56ms
+ ✓ tests/reporting/controls-matrix-page.test.tsx (2 tests) 885ms
+   ✓ ControlsMatrixPage workflow > captures control, walkthrough, testing, deficiency, and ITGC interactions  790ms
+ ✓ tests/audit/module-records.test.ts (5 tests) 25ms
+ ✓ tests/reporting/report-builder-page.test.tsx (2 tests) 603ms
+   ✓ ReportBuilderPage workflow > saves updates, evaluates decision tree, and refreshes notes  525ms
+ ✓ tests/archive/archive-sync-edge.test.ts (8 tests) 36ms
+ ✓ tests/openai-conversations.test.ts (10 tests) 60ms
+ ✓ tests/web/agent-api.test.ts (6 tests) 125ms
+ ✓ tests/api/group-instruction-route.test.ts (4 tests) 26ms
+ ✓ tests/api/group-review-route.test.ts (3 tests) 29ms
+ ✓ tests/api/group-workpaper-route.test.ts (2 tests) 20ms
+ ✓ tests/telemetry/error-notify-edge.test.ts (6 tests) 20ms
+ ✓ tests/audit/audit-responses-edge.test.ts (3 tests) 45ms
+ ✓ tests/reporting/pbc-manager-page.test.tsx (2 tests) 218ms
+ ❯ tests/telemetry/dashboard-page.test.tsx (4 tests | 3 failed) 3257ms
+   × TelemetryDashboardPage > shows loading state then renders telemetry metrics 1146ms
+     → expected "spy" to be called 1 times, but got 2 times
+
+Ignored nodes: comments, script, style
+[36m<html>[39m
+  [36m<head />[39m
+  [36m<body>[39m
+    [36m<div />[39m
+  [36m</body>[39m
+[36m</html>[39m
+   × TelemetryDashboardPage > syncs telemetry and refetches data on success 1023ms
+     → Unable to find an element with the text: Coverage ratios. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div />[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div />[39m
+[36m</body>[39m
+   × TelemetryDashboardPage > surfaces sync failures to the toast system 1052ms
+     → Unable to find an element with the text: Coverage ratios. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div />[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div />[39m
+[36m</body>[39m
+   ✓ TelemetryDashboardPage > renders an error card when the summary request fails 35ms
+ ✓ tests/audit/evidence.test.ts (5 tests) 13ms
+ ✓ tests/accounting/accounting-close-service.test.ts (6 tests) 60ms
+ ✓ tests/api/group-component-route.test.ts (2 tests) 20ms
+ ✓ tests/openai-chat-completions.test.ts (7 tests) 29ms
+ ✓ tests/api/api-guard.test.ts (3 tests) 15ms
+stdout | tests/gateway/middleware.test.ts > Idempotency middleware > stores new responses on success
+{"level":"info","event":"gateway.idempotency_pending","orgId":"11111111-2222-3333-4444-555555555555","resource":"tests:new","requestId":"req-6","timestamp":"2025-10-22T15:00:21.496Z"}
+
+ ✓ tests/gateway/middleware.test.ts (6 tests) 14ms
+ ✓ tests/api/exp-assessments-route.test.ts (2 tests) 34ms
+ ✓ tests/api/financials-consolidation-route.test.ts (3 tests) 19ms
+ ✓ tests/telemetry/summary-route.test.ts (3 tests) 24ms
+ ✓ tests/web/respond-helpers.test.ts (5 tests) 8ms
+ ✓ tests/audit/audit-controls-edge.test.ts (2 tests) 91ms
+ ✓ tests/approval-service.test.ts (4 tests) 11ms
+ ✓ tests/audit/telemetry-sync-edge.test.ts (2 tests) 32ms
+ ✓ tests/api/exp-assessments-conclude-route.test.ts (2 tests) 26ms
+ ✓ tests/audit/audit-plan-edge.test.ts (2 tests) 99ms
+ ✓ tests/drive/drive-utils.test.ts (6 tests) 14ms
+ ✓ tests/audit/tenant-client.test.ts (5 tests) 37ms
+ ✓ tests/audit/audit-plan-service.test.ts (3 tests) 33ms
+ ✓ tests/audit/knowledge-ingest-edge.test.ts (2 tests) 51ms
+ ✓ tests/system-config-loader.node.test.ts (4 tests) 109ms
+ ✓ tests/reporting/consolidation-page.test.tsx (2 tests) 335ms
+ ✓ tests/telemetry-service.test.ts (3 tests) 45ms
+ ✓ tests/audit/analytics-engine.test.ts (5 tests) 16ms
+ ✓ tests/secrets/secret-manager.test.ts (4 tests) 20ms
+ ✓ lib/__tests__/webhook.test.ts (6 tests) 23ms
+ ✓ tests/openai-file-search.test.ts (2 tests) 13ms
+ ✓ services/agents/__tests__/audit-execution.test.ts (3 tests) 7ms
+ ✓ tests/openai-debug.test.ts (3 tests) 13ms
+ ✓ tests/agent-conversation-recorder.test.ts (2 tests) 7ms
+ ✓ tests/audit/schemas.test.ts (3 tests) 8ms
+ ✓ tests/financials/consolidation-service.test.ts (4 tests) 11ms
+ ✓ tests/clients/client-onboarding-agent.test.ts (4 tests) 10ms
+ ✓ tests/error-notify.test.ts (3 tests) 32ms
+ ✓ tests/api/analytics-overview-route.test.ts (1 test) 39ms
+ ✓ tests/openai-stream.test.ts (1 test) 9ms
+ ✓ tests/secrets/vault-client.test.ts (3 tests) 11ms
+ ✓ tests/audit/idempotency.test.ts (4 tests) 22ms
+ ❯ tests/rag/openai-client-lazy-load.test.ts (1 test | 1 failed) 38ms
+   × RAG service OpenAI client lazy loading > does not construct the OpenAI client during module import when credentials are missing 37ms
+     →   x Return statement is not allowed here
+      ,-[/workspace/prisma/services/rag/index.ts:4486:1]
+ 4483 |       });
+ 4484 |       const summary = extractResponseText(response)?.trim();
+ 4485 |       if (summary) {
+ 4486 |         return summary;
+      :         ^^^^^^^^^^^^^^^
+ 4487 |       }
+ 4488 |     } catch (err) {
+ 4489 |       logError('web.harvest_summary_web_search_failed', err, { url });
+      `----
+  x Return statement is not allowed here
+      ,-[/workspace/prisma/services/rag/index.ts:4530:1]
+ 4527 |     });
+ 4528 |     const summary = extractResponseText(response)?.trim();
+ 4529 |     if (summary) {
+ 4530 |       return summary;
+      :       ^^^^^^^^^^^^^^^
+ 4531 |     }
+ 4532 |   } catch (err) {
+ 4533 |     logError('web.harvest_summary_fallback_failed', err, { url });
+      `----
+  x Return statement is not allowed here
+      ,-[/workspace/prisma/services/rag/index.ts:4536:1]
+ 4533 |     logError('web.harvest_summary_fallback_failed', err, { url });
+ 4534 |   }
+ 4535 | 
+ 4536 |   return ''; // caller will fallback further
+      :   ^^^^^^^^^^
+ 4537 | }
+ 4538 | 
+ 4539 | async function processWebHarvest(options: {
+      `----
+  x Expression expected
+      ,-[/workspace/prisma/services/rag/index.ts:4537:1]
+ 4534 |   }
+ 4535 | 
+ 4536 |   return ''; // caller will fallback further
+ 4537 | }
+      : ^
+ 4538 | 
+ 4539 | async function processWebHarvest(options: {
+ 4540 |   runId: string;
+      `----
+
+
+Caused by:
+    Syntax Error
+ ✓ tests/analytics/analytics-overview-page.test.tsx (1 test) 130ms
+ ✓ tests/openai-audio.test.ts (2 tests) 169ms
+ ✓ tests/openai-realtime.test.ts (5 tests) 12ms
+ ✓ tests/openai-workloads.test.ts (4 tests) 7ms
+ ✓ tests/api/nps-route.test.ts (2 tests) 23ms
+ ✓ tests/secrets/supabase-secrets.test.ts (3 tests) 7ms
+ ✓ tests/api/group-route.test.ts (2 tests) 14ms
+ ✓ tests/audit/approvals.test.ts (1 test) 8ms
+ ✓ tests/security/signed-url-policy.test.ts (6 tests) 5ms
+ ✓ tests/kam-export.test.ts (3 tests) 4ms
+ ✓ tests/report-decision.test.ts (5 tests) 7ms
+ ✓ tests/audit/sampling-client.test.ts (2 tests) 14ms
+ ✓ tests/audit/activity-log.test.ts (2 tests) 5ms
+ ✓ tests/financials/financial-report-service.test.ts (3 tests) 10ms
+ ✓ tests/rag-readiness.test.ts (3 tests) 5ms
+ ✓ tests/openai-agent-service.test.ts (2 tests) 6ms
+ ✓ tests/pbc-manager.test.ts (4 tests) 4ms
+ ✓ tests/tax/dac6.test.ts (3 tests) 6ms
+stdout | tests/agents/director.test.ts > DirectorAgent > produces plan with relevant tasks for audit objective
+{"level":"info","msg":"director.plan_generated","orgId":"org-1","objective":"Audit engagement for FY24","taskCount":7}
+
+stdout | tests/agents/director.test.ts > DirectorAgent > includes controller and AP agents for finance objectives
+{"level":"info","msg":"director.plan_generated","orgId":"org-1","objective":"Prepare close package and invoice run for Q2","taskCount":8}
+
+stdout | tests/agents/director.test.ts > DirectorAgent > selects corporate finance agent for board reporting
+{"level":"info","msg":"director.plan_generated","orgId":"org-1","objective":"Prepare board liquidity update and covenant review","taskCount":7}
+
+ ✓ tests/agents/director.test.ts (3 tests) 10ms
+ ✓ tests/assistant/style-policy.test.ts (2 tests) 5ms
+ ✓ tests/tcwg-pack.test.ts (2 tests) 3ms
+ ✓ tests/openai-media.test.ts (2 tests) 13ms
+ ✓ tests/openai-stream-tools.test.ts (1 test) 3ms
+ ✓ src/components/__tests__/enhanced-button.test.tsx (3 tests) 184ms
+ ✓ lib/__tests__/retry.test.ts (1 test) 8ms
+
+ Test Files  4 failed | 79 passed (83)
+      Tests  4 failed | 314 passed | 13 skipped (331)
+     Errors  3 errors
+   Start at  14:59:55
+   Duration  68.08s (transform 5.06s, setup 7.62s, collect 12.77s, tests 9.11s, environment 63.45s, prepare 11.24s)
+
+ ELIFECYCLE  Test failed. See above for more details.

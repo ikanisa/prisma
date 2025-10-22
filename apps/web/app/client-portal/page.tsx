@@ -1,6 +1,7 @@
 "use client";
 import { useState } from 'react';
 import { clientEnv } from '@/src/env.client';
+import { submitDocument } from './upload-service';
 
 const API_BASE = clientEnv.NEXT_PUBLIC_API_BASE ?? '';
 
@@ -9,13 +10,8 @@ export default function ClientPortal() {
   const upload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const form = new FormData();
-    form.append('file', file);
-    const res = await fetch(`${API_BASE}/client/upload`, {
-      method: 'POST',
-      body: form,
-    });
-    setStatus(res.ok ? 'Uploaded' : 'Upload failed');
+    const ok = await submitDocument({ apiBase: API_BASE, fetchImpl: fetch }, file);
+    setStatus(ok ? 'Uploaded' : 'Upload failed');
   };
   return (
     <main className="p-4" aria-labelledby="client-portal-heading">
