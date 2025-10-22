@@ -1,48 +1,49 @@
-import { designTokens } from '@prisma-glow/ui';
-import { Metadata } from 'next';
+import { themeTokens } from '@prisma-glow/ui';
 
-export const metadata: Metadata = {
-  title: 'Design Tokens',
+const colorGroups = Object.entries(themeTokens.colors);
+const spacingTokens = Object.entries(themeTokens.spacing);
+const radiusTokens = Object.entries(themeTokens.radii);
+
+export const metadata = {
+  title: 'Design tokens',
 };
-
-const colorGroups = [
-  { label: 'Brand', scale: designTokens.colors.brand },
-  { label: 'Neutral', scale: designTokens.colors.neutral },
-  { label: 'Accent', scale: designTokens.colors.accent },
-  { label: 'Success', scale: designTokens.colors.semantic.success },
-  { label: 'Warning', scale: designTokens.colors.semantic.warning },
-  { label: 'Danger', scale: designTokens.colors.semantic.danger },
-];
 
 export default function StyleGuidePage() {
   return (
-    <main className="space-y-10 p-8">
+    <main className="space-y-12 bg-background p-8" aria-labelledby="style-guide-heading">
       <header className="space-y-2">
-        <h1 className="text-3xl font-semibold">Design Tokens</h1>
-        <p className="max-w-2xl text-sm text-neutral-500">
-          Centralized design primitives sourced from <code>@prisma-glow/ui</code>. Use these color scales, radii, and
-          typography primitives when building new experiences to ensure consistency across the platform.
+        <h1 id="style-guide-heading" className="text-3xl font-semibold text-foreground">
+          Prisma Glow design tokens
+        </h1>
+        <p className="max-w-3xl text-sm text-muted-foreground">
+          Centralised tokens sourced from <code className="rounded bg-muted px-2 py-1 text-xs">@prisma-glow/ui</code>. Use these
+          primitives to keep brand, typography, and spacing consistent across applications.
         </p>
       </header>
 
-      <section className="space-y-4">
-        <h2 className="text-xl font-semibold">Color Scales</h2>
+      <section aria-labelledby="color-system" className="space-y-6">
+        <div>
+          <h2 id="color-system" className="text-2xl font-semibold text-foreground">
+            Colour palette
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Each swatch lists the semantic token and the hexadecimal value exposed via Tailwind&apos;s theme extension.
+          </p>
+        </div>
         <div className="grid gap-6 lg:grid-cols-2">
-          {colorGroups.map((group) => (
-            <article key={group.label} className="rounded-lg border border-neutral-100 p-4 shadow-glass">
-              <h3 className="text-sm font-medium text-neutral-600">{group.label}</h3>
-              <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
-                {Object.entries(group.scale).map(([tone, hex]) => (
-                  <div key={tone} className="space-y-1">
-                    <div
-                      className="h-14 rounded-md border border-neutral-100"
-                      style={{ backgroundColor: hex }}
-                      aria-hidden
-                    />
-                    <div className="text-xs text-neutral-500">
-                      <p className="font-medium text-neutral-700">{tone}</p>
-                      <p>{hex}</p>
-                    </div>
+          {colorGroups.map(([group, values]) => (
+            <article key={group} className="rounded-xl border border-border/70 bg-card p-4 shadow-sm">
+              <h3 className="text-lg font-semibold capitalize text-foreground">{group}</h3>
+              <div className="mt-4 grid gap-4 sm:grid-cols-3">
+                {Object.entries(values).map(([token, hex]) => (
+                  <div key={token} className="space-y-2">
+                    <div className="h-16 w-full rounded-lg border border-border/50" style={{ backgroundColor: String(hex) }} />
+                    <dl className="space-y-1 text-xs text-muted-foreground">
+                      <div className="font-medium text-foreground">
+                        <dt>{token}</dt>
+                      </div>
+                      <dd className="font-mono">{hex}</dd>
+                    </dl>
                   </div>
                 ))}
               </div>
@@ -51,37 +52,44 @@ export default function StyleGuidePage() {
         </div>
       </section>
 
-      <section className="space-y-4">
-        <h2 className="text-xl font-semibold">Radii</h2>
-        <div className="flex flex-wrap gap-4">
-          {Object.entries(designTokens.radii).map(([key, radius]) => (
-            <div key={key} className="space-y-2 text-sm">
-              <div className="flex h-16 w-16 items-center justify-center border border-neutral-200 bg-neutral-25" style={{ borderRadius: radius }}>
-                {key}
-              </div>
-              <p className="text-xs text-neutral-500">{radius}</p>
+      <section aria-labelledby="spacing-system" className="space-y-6">
+        <div>
+          <h2 id="spacing-system" className="text-2xl font-semibold text-foreground">
+            Spacing scale
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Reference spacing tokens when composing layouts or configuring component gaps.
+          </p>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          {spacingTokens.map(([token, size]) => (
+            <div key={token} className="rounded-xl border border-border/70 bg-card p-4 shadow-sm">
+              <p className="text-sm font-medium text-foreground">{token}</p>
+              <p className="mt-1 font-mono text-xs text-muted-foreground">{size}</p>
+              <div className="mt-3 h-2 rounded-full bg-brand-200" style={{ width: size }} />
             </div>
           ))}
         </div>
       </section>
 
-      <section className="space-y-4">
-        <h2 className="text-xl font-semibold">Typography</h2>
-        <div className="grid gap-4 md:grid-cols-2">
-          <article className="space-y-2 rounded-lg border border-neutral-100 p-4">
-            <h3 className="text-sm font-medium text-neutral-600">Sans</h3>
-            <p className="text-neutral-700" style={{ fontFamily: designTokens.typography.fontFamily.sans.join(', ') }}>
-              The quick brown fox jumps over the lazy dog.
-            </p>
-            <p className="text-xs text-neutral-500">{designTokens.typography.fontFamily.sans.join(', ')}</p>
-          </article>
-          <article className="space-y-2 rounded-lg border border-neutral-100 p-4">
-            <h3 className="text-sm font-medium text-neutral-600">Mono</h3>
-            <p className="font-mono text-neutral-700" style={{ fontFamily: designTokens.typography.fontFamily.mono.join(', ') }}>
-              0123456789 const sum = (a, b) =&gt; a + b;
-            </p>
-            <p className="text-xs text-neutral-500">{designTokens.typography.fontFamily.mono.join(', ')}</p>
-          </article>
+      <section aria-labelledby="radius-system" className="space-y-6">
+        <div>
+          <h2 id="radius-system" className="text-2xl font-semibold text-foreground">
+            Border radius tokens
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Apply these radii directly via Tailwind classes such as <code className="rounded bg-muted px-1 py-0.5 text-xs">rounded-md</code> or
+            <code className="rounded bg-muted px-1 py-0.5 text-xs">rounded-xl</code> to remain consistent.
+          </p>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {radiusTokens.map(([token, radius]) => (
+            <div key={token} className="rounded-xl border border-border/70 bg-card p-4 shadow-sm">
+              <p className="text-sm font-medium text-foreground">{token}</p>
+              <p className="mt-1 font-mono text-xs text-muted-foreground">{radius}</p>
+              <div className="mt-3 h-16 w-full border border-dashed border-brand-200" style={{ borderRadius: String(radius) }} />
+            </div>
+          ))}
         </div>
       </section>
     </main>
