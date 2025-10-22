@@ -242,6 +242,7 @@ export default defineConfig({
     include: [
       'src/**/*.{test,spec}.{js,ts,jsx,tsx}',
       'lib/**/*.{test,spec}.{js,ts}',
+      'services/**/*.{test,spec}.{js,ts}',
       'tests/**/*.{test,spec}.{js,ts,jsx,tsx}',
     ],
     exclude: ['tests/playwright/**', 'node_modules/**', 'node_modules/.pnpm/**'],
