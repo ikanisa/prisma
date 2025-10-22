@@ -1,15 +1,23 @@
 # Branch Inventory
 
-_Last updated: 2025-10-22 14:35:04Z_
+| Branch | Head Commit | Author | Commit Date (UTC) | Purpose / Notes |
+| --- | --- | --- | --- | --- |
+| main | 88ed55769edb035138593aa335a7ed6f4bdf4c06 | ikanisa | 2025-10-22 13:04:28 | Baseline integration branch used for fast-forward releases. Created locally to mirror the deployed state so feature branches can rebase consistently. |
+| work | 88ed55769edb035138593aa335a7ed6f4bdf4c06 | ikanisa | 2025-10-22 13:04:28 | Active development branch that tracks combined feature work (currently mirrors `main` after the latest PR merge). |
 
-| Branch | Purpose | Last Commit | Rebase & Validation Notes |
-| --- | --- | --- | --- |
-| `main` | Stable release branch used for production deployments and as the rebase target for feature work. | `88ed557` – Merge pull request #140 from ikanisa/codex/explore-best-practices-for-gpt-5 (2025-10-22) | Rebased reference for validation today; requires pnpm/pytest suites and k6 smoke before fast-forward. Current blockers: `pnpm test` suites (`telemetry/dashboard`, `rag/index.ts` syntax) failing, smoke script missing `k6`. |
-| `work` | Active integration branch for in-flight development in this workspace. Tracks features prior to stabilisation on `main`. | `88ed557` – Merge pull request #140 from ikanisa/codex/explore-best-practices-for-gpt-5 (2025-10-22) | Successfully rebased onto `main` (`2025-10-22`). Same validation blockers as `main`: vitest suites failing, pytest regressions (`autopilot_worker`, `csp_and_cors`, `web_sources`, `sentry_dry_run`), and missing `k6` binary for smoke tests. |
+## Rebase & Validation Status
 
-## Test Execution Summary
-- `pnpm test` failed: vitest reported syntax errors in `services/rag/index.ts` and failing telemetry dashboard UI tests that existed prior to this task.
-- `pytest` failed: regression suite surfaced four failing cases (`test_handle_autopilot_extract_documents_success`, `test_cors_allows_only_configured_origins`, `test_web_sources_endpoint`, `test_sentry_dry_run_returns_500`).
-- `./scripts/k6-autopilot-smoke.sh` could not run because the required `k6` binary is unavailable in the execution environment.
+- `work` → rebased onto `main` on 2025-01-08; no new commits required and the branch is aligned with the release baseline.
+- Automated checks executed from `work` after the rebase:
+  - `pnpm test` *(fails: existing Vitest suites contain telemetry dashboard, RAG service syntax, and OpenAI endpoint regressions; see `tests/telemetry/dashboard-page.test.tsx`, `services/rag/index.ts`, `tests/api/openai-chat-completions-endpoints.test.ts`)*.
+  - `pytest` *(fails: autopilot document extraction expectation, strict CORS behaviour, web knowledge source resolver, and Sentry dry-run auth awaitable issue; see failing tests in `tests/test_autopilot_worker.py`, `tests/test_csp_and_cors.py`, `tests/test_data_sources.py`, `tests/test_sentry_dry_run.py`)*.
+  - `./scripts/k6-autopilot-smoke.sh` *(blocked: `k6` CLI is not installed in the local environment).* 
+- Failures have been documented for follow-up before attempting a `main` fast-forward merge.
 
-These results have been flagged on the merge tracking board for remediation before attempting a `main` fast-forward.
+## Follow-up Recommendations
+
+1. Restore `k6` smoke coverage by installing the CLI locally or wiring the script to a containerised runner.
+2. Investigate the Vitest telemetry dashboard fixtures—the mock totals payload lacks the `events` key which now drives ratio calculations.
+3. Resolve the new syntax errors introduced near `services/rag/index.ts:4486` to unblock the RAG lazy-load tests and OpenAI endpoint coverage.
+4. Update backend fixtures so autopilot extract jobs emit `INCORP_CERT` classifications, align CORS configuration with stricter FastAPI behaviour, ensure web knowledge source toggles respect feature flags, and make `require_auth` awaitable in the Sentry dry-run route.
+
