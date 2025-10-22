@@ -41,9 +41,53 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'orgId query parameter is required.' }, { status: 400 });
   }
 
+  const session = await auth();
+  const userId =
+    (session?.user as { id?: string } | undefined)?.id ??
+    (session?.user as { sub?: string } | undefined)?.sub ??
+    null;
+
+  if (!userId) {
+    return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
+  }
+
   const since = new Date(Date.now() - windowHours * 60 * 60 * 1000).toISOString();
 
   const supabase = await getServiceSupabaseClient();
+  const { data: membership, error: membershipError } = await supabase
+    .from('memberships')
+    .select('role')
+    .eq('org_id', orgId)
+    .eq('user_id', userId)
+    .maybeSingle<{ role: RoleLevel }>();
+
+  if (membershipError) {
+    return NextResponse.json({ error: 'membership_lookup_failed' }, { status: 500 });
+  }
+
+  let hasAccess = false;
+  if (membership) {
+    hasAccess = membership.role === 'MANAGER' || membership.role === 'SYSTEM_ADMIN';
+  }
+
+  if (!hasAccess) {
+    const { data: userRow, error: userError } = await supabase
+      .from('users')
+      .select('is_system_admin')
+      .eq('id', userId)
+      .maybeSingle<{ is_system_admin: boolean }>();
+
+    if (userError) {
+      return NextResponse.json({ error: 'privilege_lookup_failed' }, { status: 500 });
+    }
+
+    if (!userRow?.is_system_admin) {
+      return NextResponse.json({ error: 'forbidden' }, { status: 403 });
+    }
+
+    hasAccess = true;
+  }
+
   const { data, error } = await supabase
     .from('autonomy_telemetry_events')
     .select('scenario, decision, metrics, occurred_at')
