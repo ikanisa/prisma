@@ -129,7 +129,7 @@ const TOOL_DEFINITIONS: McpToolDefinition[] = [
         },
         model: {
           type: 'string',
-          description: 'Override default vision model (e.g., gpt-4.1-mini).',
+          description: 'Override default vision model (e.g., gpt-5-mini).',
         },
       },
       required: ['url'],

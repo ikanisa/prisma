@@ -2344,47 +2344,8 @@ const openai: OpenAI = new Proxy(
 
 const OPENAI_WEB_SEARCH_ENABLED =
   (process.env.OPENAI_WEB_SEARCH_ENABLED ?? 'false').toLowerCase() === 'true';
-const OPENAI_WEB_SEARCH_MODEL = process.env.OPENAI_WEB_SEARCH_MODEL ?? 'gpt-4.1-mini';
-const OPENAI_SUMMARY_MODEL = process.env.OPENAI_SUMMARY_MODEL ?? OPENAI_WEB_SEARCH_MODEL;
-const OPENAI_FILE_SEARCH_VECTOR_STORE_ID = process.env.OPENAI_FILE_SEARCH_VECTOR_STORE_ID?.trim() ?? null;
-const OPENAI_FILE_SEARCH_MODEL =
-  process.env.OPENAI_FILE_SEARCH_MODEL?.trim() ?? process.env.AGENT_MODEL?.trim() ?? 'gpt-4.1-mini';
-const rawFileSearchMaxResults = Number(process.env.OPENAI_FILE_SEARCH_MAX_RESULTS);
-const OPENAI_FILE_SEARCH_MAX_RESULTS =
-  Number.isFinite(rawFileSearchMaxResults) && rawFileSearchMaxResults > 0
-    ? Math.floor(rawFileSearchMaxResults)
-    : null;
-const OPENAI_FILE_SEARCH_INCLUDE_RESULTS =
-  parseBooleanFlag(process.env.OPENAI_FILE_SEARCH_INCLUDE_RESULTS) ?? true;
-
-let OPENAI_FILE_SEARCH_FILTERS: Record<string, unknown> | undefined;
-const rawFileSearchFilters = process.env.OPENAI_FILE_SEARCH_FILTERS?.trim();
-if (rawFileSearchFilters) {
-  try {
-    const parsedFilters = JSON.parse(rawFileSearchFilters);
-    if (parsedFilters && typeof parsedFilters === 'object') {
-      OPENAI_FILE_SEARCH_FILTERS = parsedFilters as Record<string, unknown>;
-    } else {
-      throw new Error('OPENAI_FILE_SEARCH_FILTERS must be a JSON object');
-    }
-  } catch (error) {
-    logError('openai.file_search_filter_parse_failed', error, {});
-  }
-}
-
-const WEB_FETCH_CACHE_RETENTION_DAYS = (() => {
-  const raw = Number(process.env.WEB_FETCH_CACHE_RETENTION_DAYS ?? '14');
-  if (!Number.isFinite(raw) || raw <= 0) {
-    return 14;
-  }
-  return Math.floor(raw);
-})();
-const WEB_FETCH_CACHE_RETENTION_MS = WEB_FETCH_CACHE_RETENTION_DAYS * 24 * 60 * 60 * 1000;
-const WEB_FETCH_CACHE_PRUNE_INTERVAL_MS = Math.min(
-  Math.max(WEB_FETCH_CACHE_RETENTION_MS / 4, 60 * 60 * 1000),
-  12 * 60 * 60 * 1000,
-);
-let lastWebCachePruneAt = 0;
+const OPENAI_WEB_SEARCH_MODEL = process.env.OPENAI_WEB_SEARCH_MODEL ?? 'gpt-5';
+const OPENAI_SUMMARY_MODEL = process.env.OPENAI_SUMMARY_MODEL ?? 'gpt-5-mini';
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 if (!SUPABASE_URL) {
@@ -4487,411 +4448,33 @@ function extractResponseText(response: any): string {
 type ReasoningEffort = 'minimal' | 'low' | 'medium' | 'high';
 type ResponseVerbosity = 'low' | 'medium' | 'high';
 
-function normalizeReasoningEffort(value: unknown): ReasoningEffort | undefined {
-  if (typeof value !== 'string') return undefined;
-  const candidate = value.toLowerCase();
-  return candidate === 'minimal' || candidate === 'low' || candidate === 'medium' || candidate === 'high'
-    ? (candidate as ReasoningEffort)
-    : undefined;
-}
-
-function normalizeVerbosity(value: unknown): ResponseVerbosity | undefined {
-  if (typeof value !== 'string') return undefined;
-  const candidate = value.toLowerCase();
-  return candidate === 'low' || candidate === 'medium' || candidate === 'high'
-    ? (candidate as ResponseVerbosity)
-    : undefined;
-}
-
-type ResponseCitation =
-  | { type: 'url'; url: string; title?: string | null; location?: string | null }
-  | { type: 'file'; fileId: string; filename?: string | null; location?: string | null };
-
-function extractCitationsFromResponse(response: any): ResponseCitation[] {
-  const citations: ResponseCitation[] = [];
-  const items = Array.isArray(response?.output) ? response.output : [];
-  for (const item of items) {
-    if (item?.type !== 'message' || !Array.isArray(item.content)) continue;
-    for (const part of item.content) {
-      if (!Array.isArray(part?.annotations)) continue;
-      for (const annotation of part.annotations) {
-        if (annotation?.type === 'url_citation' && typeof annotation.url === 'string') {
-          citations.push({
-            type: 'url',
-            url: annotation.url,
-            title: annotation.title ?? null,
-            location: annotation.location ?? null,
-          });
-        } else if (annotation?.type === 'file_citation') {
-          const fileId = annotation.file_id ?? annotation.fileId;
-          if (typeof fileId === 'string' && fileId.length > 0) {
-            citations.push({
-              type: 'file',
-              fileId,
-              filename: annotation.filename ?? null,
-              location: annotation.location ?? null,
-            });
-          }
-        }
-      }
-    }
-  }
-  return citations;
-}
-
-type WebSourceSummary = {
-  url?: string;
-  title?: string;
-  snippet?: string;
-  domain?: string;
-};
-
-function extractWebSearchSources(response: any): WebSourceSummary[] {
-  const sources: WebSourceSummary[] = [];
-  const items = Array.isArray(response?.output) ? response.output : [];
-  for (const item of items) {
-    if (item?.type !== 'web_search_call') continue;
-    const action = item.action ?? {};
-    const callSources = Array.isArray(action?.sources) ? action.sources : Array.isArray(item.sources) ? item.sources : [];
-    for (const source of callSources) {
-      if (!source) continue;
-      sources.push({
-        url: typeof source.url === 'string' ? source.url : typeof source.href === 'string' ? source.href : undefined,
-        title: typeof source.title === 'string' ? source.title : typeof source.name === 'string' ? source.name : undefined,
-        snippet: typeof source.snippet === 'string' ? source.snippet : typeof source.summary === 'string' ? source.summary : undefined,
-        domain: typeof source.domain === 'string' ? source.domain : undefined,
-      });
-    }
-  }
-  return sources;
-}
-
-type FileSearchChunk = {
-  fileId: string;
-  filename: string;
-  score?: number;
-  content?: string[];
-};
-
-function extractFileSearchResults(response: any): FileSearchChunk[] {
-  const results: FileSearchChunk[] = [];
-  const items = Array.isArray(response?.output) ? response.output : [];
-  for (const item of items) {
-    if (item?.type !== 'file_search_call') continue;
-    const callResults = Array.isArray(item.results)
-      ? item.results
-      : Array.isArray(item.search_results)
-        ? item.search_results
-        : [];
-    for (const result of callResults) {
-      if (!result) continue;
-      const fileId = result.file_id ?? result.fileId;
-      if (typeof fileId !== 'string' || fileId.length === 0) continue;
-      const content = Array.isArray(result.content)
-        ? result.content
-            .map((entry: any) => (typeof entry?.text === 'string' ? entry.text : undefined))
-            .filter((value: string | undefined): value is string => Boolean(value))
-        : [];
-      results.push({
-        fileId,
-        filename: typeof result.filename === 'string' ? result.filename : fileId,
-        score: typeof result.score === 'number' ? result.score : undefined,
-        content,
-      });
-    }
-  }
-  return results;
-}
-
-function ensureDomainToolAgent(agentKey: unknown): string | null {
-  if (typeof agentKey !== 'string') return null;
-  return DOMAIN_TOOL_AGENT_KEYS.has(agentKey) ? agentKey : null;
-}
-
-type AttributeAccumulator = {
-  types: Set<string>;
-  examples: Array<{ value: Primitive; label: string; type: string }>;
-  seen: Set<string>;
-};
-
-type AttributeSummary = {
-  attributes: Array<{ key: string; types: string[]; examples: Array<{ value: Primitive; label: string; type: string }> }>;
-  sampledCount: number;
-  hasMore: boolean;
-  nextCursor: string | null;
-};
-
-const MAX_ATTRIBUTE_SAMPLE_SIZE = 200;
-const DEFAULT_ATTRIBUTE_SAMPLE_SIZE = 40;
-const ATTRIBUTE_PAGE_SIZE = 10;
-const MAX_ATTRIBUTE_PAGE_LIMIT = 50;
-const DEFAULT_ATTRIBUTE_PAGE_LIMIT = 20;
-
-function clampInteger(value: number, { min, max }: { min: number; max: number }): number {
-  return Math.max(min, Math.min(max, Math.floor(value)));
-}
-
-function extractQueryValue(value: unknown): string | undefined {
-  if (typeof value === 'string') {
-    return value;
-  }
-  if (Array.isArray(value) && value.length > 0 && typeof value[0] === 'string') {
-    return value[0] as string;
-  }
-  return undefined;
-}
-
-function parseAttributeSampleSizeParam(value: unknown): number | undefined {
-  const candidate = typeof value === 'string' ? Number.parseInt(value, 10) : Number(value);
-  if (!Number.isFinite(candidate) || candidate <= 0) {
-    return undefined;
-  }
-  return clampInteger(candidate, { min: 1, max: MAX_ATTRIBUTE_SAMPLE_SIZE });
-}
-
-function parseAttributePageLimitParam(value: unknown): number | undefined {
-  const candidate = typeof value === 'string' ? Number.parseInt(value, 10) : Number(value);
-  if (!Number.isFinite(candidate) || candidate <= 0) {
-    return undefined;
-  }
-  return clampInteger(candidate, { min: 1, max: MAX_ATTRIBUTE_PAGE_LIMIT });
-}
-
-function describePrimitive(value: Primitive): { label: string; type: string } {
-  if (value === null) {
-    return { label: 'null', type: 'null' };
-  }
-  const type = typeof value;
-  if (type === 'boolean') {
-    return { label: value ? 'true' : 'false', type };
-  }
-  if (type === 'number') {
-    return { label: Number.isFinite(value) ? String(value) : 'NaN', type };
-  }
-  return { label: value, type };
-}
-
-function recordAttributeValue(
-  map: Map<string, AttributeAccumulator>,
-  key: string,
-  value: unknown,
-): void {
-  const accumulator = map.get(key) ?? {
-    types: new Set<string>(),
-    examples: [],
-    seen: new Set<string>(),
-  };
-
-  const valueType = value === null ? 'null' : Array.isArray(value) ? 'array' : typeof value;
-  accumulator.types.add(valueType);
-
-  if (valueType === 'string' || valueType === 'number' || valueType === 'boolean' || valueType === 'null') {
-    const primitiveValue = (value as Primitive) ?? null;
-    const serialised = JSON.stringify(primitiveValue);
-    if (!accumulator.seen.has(serialised) && accumulator.examples.length < 5) {
-      accumulator.seen.add(serialised);
-      const { label, type } = describePrimitive(primitiveValue);
-      accumulator.examples.push({ value: primitiveValue, label, type });
-    }
-  }
-
-  map.set(key, accumulator);
-}
-
-function normaliseAttributes(attributes: unknown): Record<string, unknown> | null {
-  if (!attributes || typeof attributes !== 'object' || Array.isArray(attributes)) {
-    return null;
-  }
-  return attributes as Record<string, unknown>;
-}
-
-async function summariseVectorStoreAttributes(
-  vectorStoreId: string,
-  options?: { maxFiles?: number; pageSize?: number; after?: string | null },
-): Promise<AttributeSummary> {
-  const attributeMap = new Map<string, AttributeAccumulator>();
-  const maxFilesToInspect = Math.max(
-    1,
-    Math.min(options?.maxFiles ?? DEFAULT_ATTRIBUTE_SAMPLE_SIZE, MAX_ATTRIBUTE_SAMPLE_SIZE),
-  );
-  const pageSize = Math.max(1, Math.min(options?.pageSize ?? ATTRIBUTE_PAGE_SIZE, 50));
-  let fetched = 0;
-  let cursor = options?.after ?? undefined;
-  let nextCursor: string | null = null;
-  let hasMore = false;
-
-  try {
-    while (fetched < maxFilesToInspect) {
-      const limit = Math.min(pageSize, maxFilesToInspect - fetched);
-      if (limit <= 0) {
-        break;
-      }
-
-      const response = await openai.vectorStores.files.list(vectorStoreId, { limit, after: cursor });
-      const files = Array.isArray(response?.data) ? response.data : [];
-      if (!files.length) {
-        cursor = undefined;
-        hasMore = false;
-        nextCursor = null;
-        break;
-      }
-
-      for (const file of files) {
-        fetched += 1;
-        const attributes = normaliseAttributes((file as any)?.attributes ?? (file as any)?.metadata);
-        if (!attributes) continue;
-        for (const [key, value] of Object.entries(attributes)) {
-          recordAttributeValue(attributeMap, key, value);
-        }
-      }
-
-      const pageHasMore = Boolean(response?.has_more);
-      const last = files[files.length - 1];
-      const lastId = typeof (last as any)?.id === 'string' ? (last as any).id : undefined;
-      const candidateCursor =
-        typeof response?.last_id === 'string' ? response.last_id : lastId ?? undefined;
-
-      if (fetched >= maxFilesToInspect) {
-        if (pageHasMore && candidateCursor) {
-          hasMore = true;
-          nextCursor = candidateCursor;
-        } else if (pageHasMore) {
-          hasMore = true;
-          nextCursor = candidateCursor ?? null;
-        } else {
-          hasMore = false;
-          nextCursor = null;
-        }
-        break;
-      }
-
-      if (!pageHasMore || !candidateCursor) {
-        hasMore = false;
-        nextCursor = null;
-        break;
-      }
-
-      cursor = candidateCursor;
-      hasMore = true;
-      nextCursor = candidateCursor;
-    }
-  } catch (error) {
-    logError('domain_tools.vector_store_attribute_discovery_failed', error, { vectorStoreId });
-  }
-
-  return {
-    attributes: Array.from(attributeMap.entries()).map(([key, accumulator]) => ({
-      key,
-      types: Array.from(accumulator.types),
-      examples: accumulator.examples,
-    })),
-    sampledCount: fetched,
-    hasMore,
-    nextCursor,
-  };
-}
-
-async function listAccessibleVectorStores(options?: { attributeSampleSize?: number }) {
-  const attributeSampleSize = Math.max(
-    1,
-    Math.min(options?.attributeSampleSize ?? DEFAULT_ATTRIBUTE_SAMPLE_SIZE, MAX_ATTRIBUTE_SAMPLE_SIZE),
-  );
-  const results: Array<{
-    id: string;
-    name: string | null;
-    description: string | null;
-    status: string | null;
-    fileCount: number | null;
-    createdAt: string | null;
-    attributeSummary: AttributeSummary;
-    metadata: Record<string, unknown> | null;
-  }> = [];
-
-  let after: string | undefined;
-  const maxPages = 5;
-
-  for (let page = 0; page < maxPages; page += 1) {
-    const response = await openai.vectorStores.list({ limit: 20, after });
-    const vectorStores = Array.isArray(response?.data) ? response.data : [];
-    if (!vectorStores.length) {
-      break;
-    }
-
-    for (const store of vectorStores) {
-      const id = typeof (store as any)?.id === 'string' ? (store as any).id : null;
-      if (!id) continue;
-      const name = typeof (store as any)?.name === 'string' ? (store as any).name : null;
-      const description = typeof (store as any)?.description === 'string' ? (store as any).description : null;
-      const status = typeof (store as any)?.status === 'string' ? (store as any).status : null;
-      const fileCount = typeof (store as any)?.file_count === 'number'
-        ? (store as any).file_count
-        : typeof (store as any)?.fileCount === 'number'
-          ? (store as any).fileCount
-          : null;
-      const createdAt = typeof (store as any)?.created_at === 'string'
-        ? (store as any).created_at
-        : typeof (store as any)?.createdAt === 'string'
-          ? (store as any).createdAt
-          : null;
-      const metadata = normaliseAttributes((store as any)?.metadata);
-
-      const attributeSummary = await summariseVectorStoreAttributes(id, {
-        maxFiles: attributeSampleSize,
-      });
-
-      results.push({
-        id,
-        name,
-        description,
-        status,
-        fileCount,
-        createdAt,
-        attributeSummary,
-        metadata,
-      });
-    }
-
-    if (!response?.has_more) {
-      break;
-    }
-
-    const last = vectorStores[vectorStores.length - 1];
-    const lastId = typeof (last as any)?.id === 'string' ? (last as any).id : undefined;
-    after = typeof response?.last_id === 'string' ? response.last_id : lastId;
-    if (!after) {
-      break;
-    }
-  }
-
-  return results;
-}
-
-async function summariseWebDocument(url: string, text: string): Promise<string> {
-  if (!text) return '';
-
   if (OPENAI_WEB_SEARCH_ENABLED) {
     try {
-      const response = await openai.responses.create({
-        model: OPENAI_WEB_SEARCH_MODEL,
-        input: [
+      const response = await openai.responses.create(
+        withResponseDefaults(
           {
-            role: 'system',
-            content:
-              'You are a Big Four audit partner summarising authoritative accounting, audit, and tax technical content. Always highlight IFRS/ISA/Tax impacts and cite sections where possible.',
-          },
-          {
-            role: 'user',
-            content: [
+            model: OPENAI_WEB_SEARCH_MODEL,
+            input: [
               {
-                type: 'input_text',
-                text: `Use web search to review ${url} and provide a concise summary (<= 8 bullet points) covering accounting, audit, and tax implications relevant to Malta and IFRS/ISA frameworks.`,
+                role: 'system',
+                content:
+                  'You are a Big Four audit partner summarising authoritative accounting, audit, and tax technical content. Always highlight IFRS/ISA/Tax impacts and cite sections where possible.',
+              },
+              {
+                role: 'user',
+                content: [
+                  {
+                    type: 'input_text',
+                    text: `Use web search to review ${url} and provide a concise summary (<= 8 bullet points) covering accounting, audit, and tax implications relevant to Malta and IFRS/ISA frameworks.`,
+                  },
+                ],
               },
             ],
+            tools: [{ type: 'web_search' }],
           },
-        ],
-        tools: [{ type: 'web_search' }],
-        temperature: 0.2,
-      });
+          { effort: SUMMARY_REASONING_EFFORT, verbosity: SUMMARY_VERBOSITY },
+        ),
+      );
       await logOpenAIDebugEvent({
         endpoint: 'responses.create',
         response: response as any,
@@ -4908,25 +4491,35 @@ async function summariseWebDocument(url: string, text: string): Promise<string> 
   }
 
   try {
-    const chat = await createChatCompletion({
-      client: openai,
-      payload: {
-        model: OPENAI_SUMMARY_MODEL,
-        temperature: 0.2,
-        messages: [
-          {
-            role: 'system',
-            content:
-              'You are a Big Four partner producing concise technical notes. Summaries must emphasise IFRS/ISA/TAX relevance, cite clauses when possible, and flag uncertainties.',
-          },
-          {
-            role: 'user',
-            content: `Source URL: ${url}\n\nExtracted Content (truncated):\n${text}\n\nProvide a bullet summary (<= 8 items) covering key accounting, auditing, and tax takeaways for Malta.`,
-          },
-        ],
-      },
-      debugLogger: logOpenAIDebugEvent,
-      logError,
+    const response = await openai.responses.create(
+      withResponseDefaults(
+        {
+          model: OPENAI_SUMMARY_MODEL,
+          input: [
+            {
+              role: 'system',
+              content:
+                'You are a Big Four partner producing concise technical notes. Summaries must emphasise IFRS/ISA/TAX relevance, cite clauses when possible, and flag uncertainties.',
+            },
+            {
+              role: 'user',
+              content: [
+                {
+                  type: 'input_text',
+                  text: `Source URL: ${url}\n\nExtracted Content (truncated):\n${text}\n\nProvide a bullet summary (<= 8 items) covering key accounting, auditing, and tax takeaways for Malta.`,
+                },
+              ],
+            },
+          ],
+          response_format: { type: 'text' },
+        },
+        { effort: SUMMARY_REASONING_EFFORT, verbosity: SUMMARY_VERBOSITY },
+      ),
+    );
+    await logOpenAIDebugEvent({
+      endpoint: 'responses.create',
+      response: response as any,
+      requestPayload: { url, model: OPENAI_SUMMARY_MODEL, mode: 'fallback' },
       metadata: { source: 'web_summary' },
       orgId,
       tags: ['web_summary'],
@@ -5173,7 +4766,61 @@ async function processWebHarvest(options: {
   }
 }
 
-const AGENT_MODEL = process.env.AGENT_MODEL ?? 'gpt-4.1-mini';
+type ReasoningEffortLevel = 'minimal' | 'low' | 'medium' | 'high';
+type VerbosityLevel = 'low' | 'medium' | 'high';
+
+function resolveReasoningEffort(value: string | undefined, fallback: ReasoningEffortLevel): ReasoningEffortLevel {
+  if (!value) return fallback;
+  const normalised = value.trim().toLowerCase();
+  if (normalised === 'minimal' || normalised === 'low' || normalised === 'medium' || normalised === 'high') {
+    return normalised;
+  }
+  return fallback;
+}
+
+function resolveVerbosity(value: string | undefined, fallback: VerbosityLevel): VerbosityLevel {
+  if (!value) return fallback;
+  const normalised = value.trim().toLowerCase();
+  if (normalised === 'low' || normalised === 'medium' || normalised === 'high') {
+    return normalised;
+  }
+  return fallback;
+}
+
+const DEFAULT_REASONING_EFFORT = resolveReasoningEffort(process.env.OPENAI_DEFAULT_REASONING_EFFORT, 'low');
+const DEFAULT_VERBOSITY = resolveVerbosity(process.env.OPENAI_DEFAULT_VERBOSITY, 'medium');
+const AGENT_REASONING_EFFORT = resolveReasoningEffort(
+  process.env.OPENAI_AGENT_REASONING_EFFORT,
+  DEFAULT_REASONING_EFFORT,
+);
+const AGENT_VERBOSITY = resolveVerbosity(process.env.OPENAI_AGENT_VERBOSITY, DEFAULT_VERBOSITY);
+const SUMMARY_REASONING_EFFORT = resolveReasoningEffort(
+  process.env.OPENAI_SUMMARY_REASONING_EFFORT,
+  DEFAULT_REASONING_EFFORT,
+);
+const SUMMARY_VERBOSITY = resolveVerbosity(process.env.OPENAI_SUMMARY_VERBOSITY, DEFAULT_VERBOSITY);
+
+function withResponseDefaults<T extends Record<string, unknown>>(
+  payload: T,
+  overrides?: { effort?: ReasoningEffortLevel; verbosity?: VerbosityLevel },
+): T & { reasoning?: { effort: ReasoningEffortLevel }; text?: { verbosity: VerbosityLevel } } {
+  const result: Record<string, unknown> = { ...payload };
+  if (!result.reasoning) {
+    const effort = overrides?.effort ?? DEFAULT_REASONING_EFFORT;
+    if (effort) {
+      result.reasoning = { effort };
+    }
+  }
+  if (!result.text) {
+    const verbosity = overrides?.verbosity ?? DEFAULT_VERBOSITY;
+    if (verbosity) {
+      result.text = { verbosity };
+    }
+  }
+  return result as T & { reasoning?: { effort: ReasoningEffortLevel }; text?: { verbosity: VerbosityLevel } };
+}
+
+const AGENT_MODEL = process.env.AGENT_MODEL ?? 'gpt-5-mini';
 
 const AGENT_SYSTEM_PROMPTS: Record<'AUDIT' | 'FINANCE' | 'TAX', string> = {
   AUDIT:
@@ -5317,29 +4964,36 @@ async function performRagSearch(orgId: string, queryInput: string, topK = 6) {
 
 async function performPolicyCheck(orgId: string, statement: string, domain?: string) {
   try {
-    const completion = await createChatCompletion({
-      client: openai,
-      payload: {
-        model: OPENAI_SUMMARY_MODEL,
-        temperature: 0,
-        messages: [
-          {
-            role: 'system',
-            content:
-              'You are a technical reviewer ensuring compliance with IFRS/IAS/ISA and Malta CFR guidance. Respond with either PASS, WARNING, or FAIL followed by reasoning.',
-          },
-          {
-            role: 'user',
-            content: `Domain: ${domain ?? 'general'}\nStatement:\n${statement}\n\nAssess compliance and cite any standards or regulations referenced. Keep it short (<=4 sentences).`,
-          },
-        ],
-      },
-      debugLogger: logOpenAIDebugEvent,
-      logError,
-      metadata: { scope: 'policy_check', domain: domain ?? 'general' },
-      orgId,
-      tags: ['policy_check'],
-      requestLogPayload: { model: OPENAI_SUMMARY_MODEL, domain: domain ?? 'general' },
+    const response = await openai.responses.create(
+      withResponseDefaults(
+        {
+          model: OPENAI_SUMMARY_MODEL,
+          input: [
+            {
+              role: 'system',
+              content:
+                'You are a technical reviewer ensuring compliance with IFRS/IAS/ISA and Malta CFR guidance. Respond with either PASS, WARNING, or FAIL followed by reasoning.',
+            },
+            {
+              role: 'user',
+              content: [
+                {
+                  type: 'input_text',
+                  text: `Domain: ${domain ?? 'general'}\nStatement:\n${statement}\n\nAssess compliance and cite any standards or regulations referenced. Keep it short (<=4 sentences).`,
+                },
+              ],
+            },
+          ],
+          response_format: { type: 'text' },
+        },
+        { effort: SUMMARY_REASONING_EFFORT, verbosity: 'low' },
+      ),
+    );
+    await logOpenAIDebugEvent({
+      endpoint: 'responses.create',
+      response: response as any,
+      requestPayload: { model: OPENAI_SUMMARY_MODEL, domain: domain ?? 'general' },
+      metadata: { scope: 'policy_check' },
     });
     const answer = extractResponseText(response) || 'Policy review unavailable.';
     return { output: answer };
@@ -5753,11 +5407,16 @@ app.get('/api/agent/stream/execute', async (req: AuthenticatedRequest, res) => {
       writeSse({ type: 'conversation-started', data: payload });
     }
 
-    let response = await openai.responses.create({
-      model: AGENT_MODEL,
-      input: messages,
-      tools,
-    });
+    let response = await openai.responses.create(
+      withResponseDefaults(
+        {
+          model: AGENT_MODEL,
+          input: messages,
+          tools,
+        },
+        { effort: AGENT_REASONING_EFFORT, verbosity: AGENT_VERBOSITY },
+      ),
+    );
 
     let iteration = 0;
     await conversationRecorder.recordResponse({ response, stage: 'initial', iteration });
@@ -5808,11 +5467,16 @@ app.get('/api/agent/stream/execute', async (req: AuthenticatedRequest, res) => {
         break;
       }
 
-      response = await openai.responses.create({
-        model: AGENT_MODEL,
-        response_id: response.id,
-        tool_outputs: toolOutputs,
-      });
+      response = await openai.responses.create(
+        withResponseDefaults(
+          {
+            model: AGENT_MODEL,
+            response_id: response.id,
+            tool_outputs: toolOutputs,
+          },
+          { effort: AGENT_REASONING_EFFORT, verbosity: AGENT_VERBOSITY },
+        ),
+      );
 
       await logOpenAIDebugEvent({
         endpoint: 'responses.create',
@@ -8973,11 +8637,16 @@ async function runAgentConversation(options: {
   const citations: any[] = [];
   const start = Date.now();
 
-  let response = await openai.responses.create({
-    model: AGENT_MODEL,
-    input: messages,
-    tools,
-  });
+  let response = await openai.responses.create(
+    withResponseDefaults(
+      {
+        model: AGENT_MODEL,
+        input: messages,
+        tools,
+      },
+      { effort: AGENT_REASONING_EFFORT, verbosity: AGENT_VERBOSITY },
+    ),
+  );
   await logOpenAIDebugEvent({
     endpoint: 'responses.create',
     response: response as any,
@@ -9013,11 +8682,16 @@ async function runAgentConversation(options: {
       }
     }
 
-    response = await openai.responses.create({
-      model: AGENT_MODEL,
-      response_id: response.id,
-      tool_outputs: toolOutputs,
-    });
+    response = await openai.responses.create(
+      withResponseDefaults(
+        {
+          model: AGENT_MODEL,
+          response_id: response.id,
+          tool_outputs: toolOutputs,
+        },
+        { effort: AGENT_REASONING_EFFORT, verbosity: AGENT_VERBOSITY },
+      ),
+    );
     await logOpenAIDebugEvent({
       endpoint: 'responses.create',
       response: response as any,

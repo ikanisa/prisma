@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { installRateLimitFetchMock, type RateLimitFetchMock } from './helpers/rate-limit';
 
 const getServiceSupabaseClientMock = vi.fn();
 const upsertAuditModuleRecordMock = vi.fn();
@@ -63,10 +64,17 @@ function createSupabase(options: { rateAllowed?: boolean }) {
 }
 
 describe('POST /api/exp/assessments', () => {
+  let rateLimitMock: RateLimitFetchMock;
+
   beforeEach(() => {
     getServiceSupabaseClientMock.mockReset();
     upsertAuditModuleRecordMock.mockReset();
     logAuditActivityMock.mockReset();
+    rateLimitMock = installRateLimitFetchMock();
+  });
+
+  afterEach(() => {
+    rateLimitMock.restore();
   });
 
   it('creates a specialist assessment and logs activity', async () => {
@@ -104,6 +112,7 @@ describe('POST /api/exp/assessments', () => {
   it('returns 429 when rate limit exceeded', async () => {
     const { supabase } = createSupabase({ rateAllowed: false });
     getServiceSupabaseClientMock.mockReturnValue(supabase);
+    rateLimitMock.setRateLimit({ allowed: false, requestCount: 999 });
 
     const response = await POST(
       new Request('https://example.com/api/exp/assessments', {

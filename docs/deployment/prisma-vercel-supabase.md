@@ -24,6 +24,7 @@ This document operationalises the end-to-end workflow for the Prisma-backed Next
    - `DATABASE_URL` – Supabase connection string (staging/production via environments).
    - `DIRECT_URL` – Optional transactional/pooled connection for migrations.
    - `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_JWT_SECRET`, `SUPABASE_URL`, `OPENAI_API_KEY`, `API_RATE_LIMIT`, `API_RATE_WINDOW_SECONDS`, etc. (as required by app tests or seed scripts).
+   - GPT-5 tuning defaults (`OPENAI_DEFAULT_REASONING_EFFORT`, `OPENAI_DEFAULT_VERBOSITY`, `OPENAI_AGENT_REASONING_EFFORT`, `OPENAI_AGENT_VERBOSITY`, `OPENAI_SUMMARY_REASONING_EFFORT`, `OPENAI_SUMMARY_VERBOSITY`) – mirror values across Vercel Preview/Production env groups and backend secret stores so Responses API calls stay aligned.
 
 ## C) Environment Matrix
 
@@ -38,8 +39,7 @@ This document operationalises the end-to-end workflow for the Prisma-backed Next
 | `AUTH_CLIENT_ID`, `AUTH_CLIENT_SECRET`, `AUTH_ISSUER` | Vercel Preview/Production | Keycloak/OpenID Connect credentials consumed by NextAuth (`apps/web/auth.ts`). |
 | `NEXT_PUBLIC_API_BASE`, `AGENT_SERVICE_URL` | Vercel Preview/Production | Base URL for API fetches from the browser and server-side agent proxy. |
 | `OPENAI_API_KEY` | Vercel Preview/Production, GitHub Actions (optional integration tests) | Used by RAG/agent flows. |
-| `OPENAI_WEB_SEARCH_ENABLED`, `OPENAI_WEB_SEARCH_MODEL` | Vercel Production | Enable the web-search summarisation flow and specify the model ID. |
-| `WEB_FETCH_CACHE_RETENTION_DAYS` | Vercel Production, Supabase secrets | Retention horizon (days) before cached harvests are pruned. |
+| GPT-5 tuning (`OPENAI_DEFAULT_REASONING_EFFORT`, `OPENAI_DEFAULT_VERBOSITY`, `OPENAI_AGENT_REASONING_EFFORT`, `OPENAI_AGENT_VERBOSITY`, `OPENAI_SUMMARY_REASONING_EFFORT`, `OPENAI_SUMMARY_VERBOSITY`) | Vercel Preview/Production, backend containers | Keeps agent/summarisation workloads aligned with GPT-5 defaults; mirror values across Vercel env groups and Compose deployments. |
 | `API_RATE_LIMIT`, `API_RATE_WINDOW_SECONDS` | Vercel Preview/Production | Align with FastAPI/env defaults for rate limiting. |
 | `AUTOMATION_WEBHOOK_SECRET`, `N8N_WEBHOOK_SECRET` | Vercel Preview/Production | Shared secrets for webhook verification inside API routes. |
 | `SAMPLING_C1_BASE_URL`, `SAMPLING_C1_API_KEY` | Vercel Preview/Production | Required by audit sampling client for downstream service calls. |

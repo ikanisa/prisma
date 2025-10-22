@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { installRateLimitFetchMock, type RateLimitFetchMock } from './helpers/rate-limit';
 
 const getServiceSupabaseClientMock = vi.fn();
 const ensureEvidenceDocumentMock = vi.fn();
@@ -15,15 +16,31 @@ vi.mock('@/lib/supabase-server', () => ({
   getServiceSupabaseClient: () => getServiceSupabaseClientMock(),
 }));
 
-vi.mock('@/lib/audit/evidence', () => ({
+vi.mock('../../apps/web/lib/supabase-server', () => ({
+  getServiceSupabaseClient: () => getServiceSupabaseClientMock(),
+}));
+
+vi.mock('../../apps/lib/audit/evidence', () => ({
   ensureEvidenceDocument: (...args: unknown[]) => ensureEvidenceDocumentMock(...args),
 }));
 
-vi.mock('@/lib/audit/module-records', () => ({
+vi.mock('../../apps/web/lib/audit/evidence', () => ({
+  ensureEvidenceDocument: (...args: unknown[]) => ensureEvidenceDocumentMock(...args),
+}));
+
+vi.mock('../../apps/lib/audit/module-records', () => ({
   upsertAuditModuleRecord: (...args: unknown[]) => upsertAuditModuleRecordMock(...args),
 }));
 
-vi.mock('@/lib/audit/activity-log', () => ({
+vi.mock('../../apps/web/lib/audit/module-records', () => ({
+  upsertAuditModuleRecord: (...args: unknown[]) => upsertAuditModuleRecordMock(...args),
+}));
+
+vi.mock('../../apps/lib/audit/activity-log', () => ({
+  logAuditActivity: (...args: unknown[]) => logAuditActivityMock(...args),
+}));
+
+vi.mock('../../apps/web/lib/audit/activity-log', () => ({
   logAuditActivity: (...args: unknown[]) => logAuditActivityMock(...args),
 }));
 
@@ -64,11 +81,18 @@ function createSupabase(rateAllowed = true) {
 }
 
 describe('POST /api/group/workpaper', () => {
+  let rateLimitMock: RateLimitFetchMock;
+
   beforeEach(() => {
     getServiceSupabaseClientMock.mockReset();
     ensureEvidenceDocumentMock.mockReset();
     upsertAuditModuleRecordMock.mockReset();
     logAuditActivityMock.mockReset();
+    rateLimitMock = installRateLimitFetchMock();
+  });
+
+  afterEach(() => {
+    rateLimitMock.restore();
   });
 
   it('registers a workpaper, updates module register, and returns signed URL', async () => {
@@ -147,6 +171,7 @@ describe('POST /api/group/workpaper', () => {
     const { supabase } = createSupabase(false);
     ensureEvidenceDocumentMock.mockResolvedValue({ documentId: 'doc', signedUrl: 'url' });
     getServiceSupabaseClientMock.mockReturnValue(supabase);
+    rateLimitMock.setRateLimit({ allowed: false, requestCount: 999 });
 
     const response = await POST(
       new Request('https://example.com/api/group/workpaper', {

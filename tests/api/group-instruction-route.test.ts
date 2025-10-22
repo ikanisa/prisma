@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { installRateLimitFetchMock, type RateLimitFetchMock } from './helpers/rate-limit';
 const getServiceSupabaseClientMock = vi.fn();
 const upsertAuditModuleRecordMock = vi.fn();
 const ensureAuditRecordApprovalStageMock = vi.fn();
@@ -13,12 +14,25 @@ vi.mock('@/lib/supabase-server', () => ({
   getServiceSupabaseClient: () => getServiceSupabaseClientMock(),
 }));
 
-vi.mock('@/lib/audit/module-records', () => ({
+vi.mock('../../apps/web/lib/supabase-server', () => ({
+  getServiceSupabaseClient: () => getServiceSupabaseClientMock(),
+}));
+
+vi.mock('../../apps/lib/audit/module-records', () => ({
   upsertAuditModuleRecord: (...args: unknown[]) => upsertAuditModuleRecordMock(...args),
   ensureAuditRecordApprovalStage: (...args: unknown[]) => ensureAuditRecordApprovalStageMock(...args),
 }));
 
-vi.mock('@/lib/audit/activity-log', () => ({
+vi.mock('../../apps/web/lib/audit/module-records', () => ({
+  upsertAuditModuleRecord: (...args: unknown[]) => upsertAuditModuleRecordMock(...args),
+  ensureAuditRecordApprovalStage: (...args: unknown[]) => ensureAuditRecordApprovalStageMock(...args),
+}));
+
+vi.mock('../../apps/lib/audit/activity-log', () => ({
+  logAuditActivity: (...args: unknown[]) => logAuditActivityMock(...args),
+}));
+
+vi.mock('../../apps/web/lib/audit/activity-log', () => ({
   logAuditActivity: (...args: unknown[]) => logAuditActivityMock(...args),
 }));
 
@@ -76,11 +90,18 @@ function createSupabase(options: {
 }
 
 describe('POST /api/group/instruction', () => {
+  let rateLimitMock: RateLimitFetchMock;
+
   beforeEach(() => {
     getServiceSupabaseClientMock.mockReset();
     upsertAuditModuleRecordMock.mockReset();
     ensureAuditRecordApprovalStageMock.mockReset();
     logAuditActivityMock.mockReset();
+    rateLimitMock = installRateLimitFetchMock();
+  });
+
+  afterEach(() => {
+    rateLimitMock.restore();
   });
 
   it('records an instruction and updates audit module metadata', async () => {
@@ -108,10 +129,8 @@ describe('POST /api/group/instruction', () => {
       }),
     );
 
-    expect(getServiceSupabaseClientMock).toHaveBeenCalled();
-    const status = response.status;
     const body = await response.json();
-    expect(status).toBe(200);
+    expect(response.status).toBe(200);
     expect(body).toEqual({ instruction: instructionRow });
 
     expect(upsertAuditModuleRecordMock).toHaveBeenCalledWith(
@@ -172,9 +191,8 @@ describe('POST /api/group/instruction', () => {
       }),
     );
 
-    const status = response.status;
     const body = await response.json();
-    expect(status).toBe(200);
+    expect(response.status).toBe(200);
     expect(body).toEqual({ instruction: instructionRow });
 
     expect(upsertAuditModuleRecordMock).toHaveBeenCalledWith(
@@ -226,6 +244,7 @@ describe('POST /api/group/instruction', () => {
   it('returns 429 when rate limit exceeded', async () => {
     const { supabase } = createSupabase({ rateAllowed: false });
     getServiceSupabaseClientMock.mockReturnValue(supabase);
+    rateLimitMock.setRateLimit({ allowed: false, requestCount: 999 });
 
     const response = await POST(
       new Request('https://example.com/api/group/instruction', {

@@ -69,13 +69,14 @@ and deployment environments (values may remain blank until Google Drive access i
 - `GOOGLE_DRIVE_CLIENT_SECRET` – placeholder secret
 - `GOOGLE_DRIVE_REFRESH_TOKEN` – placeholder refresh token (Drive sync disabled without it)
 - `EMBED_MODEL` – defaults to `text-embedding-3-small`
-- `AGENT_MODEL` – defaults to `gpt-4.1-mini`
-- `DOMAIN_TOOL_MODEL` – set to the GPT-5 tier powering the domain tool harness (production uses `gpt-5`)
-- `DOMAIN_IMAGE_MODEL` – image generation model for persona tooling (e.g., `gpt-image-1`)
+- `AGENT_MODEL` – defaults to `gpt-5-mini`
 - `RAG_SEARCH_TOP_K` – optional override for hybrid retrieval fan-out (default 12)
-- `OPENAI_WEB_SEARCH_ENABLED` – toggle to `true` once OpenAI web search workloads are provisioned (enabled in production)
-- `OPENAI_WEB_SEARCH_MODEL` – optional custom web search model id (default `gpt-4.1-mini`)
-- `WEB_FETCH_CACHE_RETENTION_DAYS` – retention window for cached harvests (default 14 days; aligns with pruning job)
+- `OPENAI_WEB_SEARCH_ENABLED` – set to `true` once OpenAI web search credentials are provisioned
+- `OPENAI_WEB_SEARCH_MODEL` – optional custom web search model id (default `gpt-5`)
+- `OPENAI_DEFAULT_REASONING_EFFORT` – optional global Responses API reasoning effort (`minimal`/`low`/`medium`/`high`; default `low`)
+- `OPENAI_DEFAULT_VERBOSITY` – optional global verbosity control (`low`/`medium`/`high`; default `medium`)
+- `OPENAI_AGENT_REASONING_EFFORT` / `OPENAI_AGENT_VERBOSITY` – override agent run behaviour when GPT-5 handles multi-step workflows
+- `OPENAI_SUMMARY_REASONING_EFFORT` / `OPENAI_SUMMARY_VERBOSITY` – override summarisation and policy-check defaults
 
 > Until Google Drive credentials are supplied the ingestion pipeline runs in placeholder mode. The
 > new endpoints/edge function will queue learning runs and emit knowledge events without fetching

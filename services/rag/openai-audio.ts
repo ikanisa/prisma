@@ -68,7 +68,6 @@ export async function transcribeAudioBuffer(options: AudioTranscriptionOptions):
       file: createReadableAudioStream(options.audio, fileName) as any,
       model,
       response_format: responseFormat,
-      temperature: 0,
       ...(options.language ? { language: options.language } : {}),
     });
 
