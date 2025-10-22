@@ -5,14 +5,14 @@
     "moduleResolution": "NodeNext",
     "outDir": "dist",
     "rootDir": "src",
-    "types": [
-      "node",
-      "express",
-      "supertest"
-    ],
-    "noEmit": false
+    "types": ["node", "express", "supertest"],
+    "noEmit": false,
+    "incremental": true,
+    "tsBuildInfoFile": "dist/tsconfig.tsbuildinfo"
   },
-  "include": [
-    "src"
+  "include": ["src"],
+  "references": [
+    { "path": "../../packages/api-client/tsconfig.json" },
+    { "path": "../../packages/system-config/tsconfig.json" }
   ]
 }

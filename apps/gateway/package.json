@@ -5,7 +5,7 @@
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
-    "build": "pnpm --filter @prisma-glow/api-client run build && pnpm exec tsc -p tsconfig.json",
+    "build": "tsc -b tsconfig.json",
     "lint": "eslint src --ext .ts",
     "test": "vitest run"
   },
