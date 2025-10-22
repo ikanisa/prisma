@@ -79,6 +79,10 @@ const parseDate = (value: unknown, fallback: Date) => {
 
 const formatDate = (date: Date) => date.toISOString().slice(0, 10);
 const telemetryAlertWebhook = Deno.env.get('TELEMETRY_ALERT_WEBHOOK') ?? Deno.env.get('ERROR_NOTIFY_WEBHOOK') ?? null;
+const retentionEnv = Deno.env.get('WEB_FETCH_CACHE_RETENTION_DAYS');
+const parsedRetention = Number.parseInt(retentionEnv ?? '14', 10);
+const WEB_CACHE_RETENTION_DAYS = Number.isFinite(parsedRetention) && parsedRetention > 0 ? parsedRetention : 14;
+const WEB_CACHE_RETENTION_MS = WEB_CACHE_RETENTION_DAYS * 24 * 60 * 60 * 1000;
 
 const getCount = async (
   client: TypedClient,
@@ -225,10 +229,77 @@ export async function handler(request: Request): Promise<Response> {
       }
     }
 
+    const { data: cacheMetricsRow, error: cacheMetricsError } = await client
+      .from('web_fetch_cache_metrics')
+      .select('*')
+      .maybeSingle();
+    if (cacheMetricsError) throw new HttpError(500, 'web_cache_metrics_failed');
+
+    const metricsPayload = {
+      totalRows: cacheMetricsRow?.total_rows ?? 0,
+      totalBytes: cacheMetricsRow?.total_bytes ?? 0,
+      totalChars: cacheMetricsRow?.total_chars ?? 0,
+      fetchedLast24h: cacheMetricsRow?.fetched_last_24h ?? 0,
+      usedLast24h: cacheMetricsRow?.used_last_24h ?? 0,
+      newestFetch: cacheMetricsRow?.newest_fetched_at ?? null,
+      oldestFetch: cacheMetricsRow?.oldest_fetched_at ?? null,
+      newestUse: cacheMetricsRow?.newest_last_used_at ?? null,
+      oldestUse: cacheMetricsRow?.oldest_last_used_at ?? null,
+    };
+
+    let cacheStatus: 'EMPTY' | 'HEALTHY' | 'STALE' = 'EMPTY';
+    if (metricsPayload.totalRows === 0) {
+      cacheStatus = 'EMPTY';
+    } else {
+      cacheStatus = 'HEALTHY';
+      const nowMs = Date.now();
+      const newestFetchMs = metricsPayload.newestFetch ? Date.parse(metricsPayload.newestFetch) : Number.NaN;
+      const oldestFetchMs = metricsPayload.oldestFetch ? Date.parse(metricsPayload.oldestFetch) : Number.NaN;
+      const windowMs = WEB_CACHE_RETENTION_MS;
+      if (Number.isFinite(oldestFetchMs)) {
+        const referenceMs = Number.isFinite(newestFetchMs) ? Math.max(newestFetchMs, nowMs) : nowMs;
+        if (referenceMs - oldestFetchMs > windowMs * 1.05) {
+          cacheStatus = 'STALE';
+        }
+      }
+    }
+
+    if (cacheStatus === 'STALE') {
+      const alertContext = {
+        retentionDays: WEB_CACHE_RETENTION_DAYS,
+        metrics: metricsPayload,
+      };
+      await client
+        .from('telemetry_alerts')
+        .insert({
+          org_id: orgId,
+          alert_type: 'WEB_CACHE_RETENTION',
+          severity: 'WARNING',
+          message: `web_fetch_cache oldest_fetched_at ${metricsPayload.oldestFetch ?? 'unknown'} exceeds ${WEB_CACHE_RETENTION_DAYS} day retention`,
+          context: alertContext,
+        })
+        .catch((error) => console.warn('telemetry_alert_insert_failed', error));
+
+      if (telemetryAlertWebhook) {
+        await fetch(telemetryAlertWebhook, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            text: `⚠️ web_fetch_cache retention exceeded for ${orgSlug ?? orgId ?? 'global'}. Oldest fetch ${metricsPayload.oldestFetch ?? 'unknown'}.`,
+          }),
+        }).catch((error) => console.warn('telemetry_alert_webhook_failed', error));
+      }
+    }
+
     return new Response(
       JSON.stringify({
         coverage: coverageRows,
         sla: slaRow,
+        webCache: {
+          retentionDays: WEB_CACHE_RETENTION_DAYS,
+          status: cacheStatus,
+          metrics: metricsPayload,
+        },
       }),
       { status: 200, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
     );

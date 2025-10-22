@@ -38,6 +38,8 @@ This document operationalises the end-to-end workflow for the Prisma-backed Next
 | `AUTH_CLIENT_ID`, `AUTH_CLIENT_SECRET`, `AUTH_ISSUER` | Vercel Preview/Production | Keycloak/OpenID Connect credentials consumed by NextAuth (`apps/web/auth.ts`). |
 | `NEXT_PUBLIC_API_BASE`, `AGENT_SERVICE_URL` | Vercel Preview/Production | Base URL for API fetches from the browser and server-side agent proxy. |
 | `OPENAI_API_KEY` | Vercel Preview/Production, GitHub Actions (optional integration tests) | Used by RAG/agent flows. |
+| `OPENAI_WEB_SEARCH_ENABLED`, `OPENAI_WEB_SEARCH_MODEL` | Vercel Production | Enable the web-search summarisation flow and specify the model ID. |
+| `WEB_FETCH_CACHE_RETENTION_DAYS` | Vercel Production, Supabase secrets | Retention horizon (days) before cached harvests are pruned. |
 | `API_RATE_LIMIT`, `API_RATE_WINDOW_SECONDS` | Vercel Preview/Production | Align with FastAPI/env defaults for rate limiting. |
 | `AUTOMATION_WEBHOOK_SECRET`, `N8N_WEBHOOK_SECRET` | Vercel Preview/Production | Shared secrets for webhook verification inside API routes. |
 | `SAMPLING_C1_BASE_URL`, `SAMPLING_C1_API_KEY` | Vercel Preview/Production | Required by audit sampling client for downstream service calls. |
@@ -66,6 +68,7 @@ If Vault is available, configure `VAULT_ADDR`, `VAULT_TOKEN`, `VAULT_KV_MOUNT`, 
 5. **Apply cadence:**
    - **Preview:** merge to `main` triggers `Supabase Prisma Deploy` (preview job) executing `prisma migrate deploy` with staging secrets.
    - **Production:** manual `workflow_dispatch` → choose `production` to run the same command with production secrets. Require DBA/lead approval before triggering.
+- **Web search cache:** run both `supabase/migrations/20251115122000_web_fetch_cache.sql` and `supabase/migrations/20251115123000_web_fetch_cache_retention.sql` against every Supabase project before enabling the production feature flag. The helper script `pnpm supabase:migrate:web-cache` wraps the Supabase CLI and will sequentially apply both files for each project listed in `SUPABASE_PROJECTS="<env>=<ref>,..."`. Fall back to the Supabase SQL editor when the CLI is unavailable.
 6. **Post-apply checklist:**
    - `npx prisma db pull` (optional) to confirm schema matches.
    - `npm run prisma:generate` to refresh client.

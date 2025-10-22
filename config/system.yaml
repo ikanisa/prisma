@@ -207,6 +207,11 @@ assistant:
   citation_required: true
   ask_user_last: true
 
+assistant_policies:
+  style_rules:
+    - "Every assistant response must conclude with the next two suggested actions for the user."
+    - "Explain briefly why the recommendation is being made; keep the summary under 480 characters."
+
 ui:
   shell:
     assistant_dock: true

@@ -43,14 +43,33 @@ const serverSchema = z.object({
   NEXT_PUBLIC_DEMO_USER_ID: z.string().optional(),
 });
 
+const isTestEnv = process.env.NODE_ENV === 'test' || process.env.VITEST !== undefined;
+
+const readWithTestFallback = (key: keyof NodeJS.ProcessEnv, fallback: string): string | undefined => {
+  const raw = process.env[key];
+  if (typeof raw === 'string' && raw.trim().length > 0) {
+    return raw;
+  }
+  if (isTestEnv) {
+    process.env[key] = fallback;
+    return fallback;
+  }
+  return undefined;
+};
+
+const resolvedNextPublicSupabaseUrl = readWithTestFallback('NEXT_PUBLIC_SUPABASE_URL', 'https://supabase.test.local');
+
 const parsed = serverSchema.safeParse({
   NODE_ENV: process.env.NODE_ENV,
-  AUTH_CLIENT_ID: process.env.AUTH_CLIENT_ID,
-  AUTH_CLIENT_SECRET: process.env.AUTH_CLIENT_SECRET,
-  AUTH_ISSUER: process.env.AUTH_ISSUER,
-  SUPABASE_URL: process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL,
-  SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
-  SUPABASE_ALLOW_STUB: process.env.SUPABASE_ALLOW_STUB,
+  AUTH_CLIENT_ID: readWithTestFallback('AUTH_CLIENT_ID', 'test-client-id'),
+  AUTH_CLIENT_SECRET: readWithTestFallback('AUTH_CLIENT_SECRET', 'test-client-secret'),
+  AUTH_ISSUER: readWithTestFallback('AUTH_ISSUER', 'https://auth.test.local'),
+  SUPABASE_URL:
+    process.env.SUPABASE_URL ??
+    resolvedNextPublicSupabaseUrl ??
+    (isTestEnv ? readWithTestFallback('SUPABASE_URL', 'https://supabase.test.local') : undefined),
+  SUPABASE_SERVICE_ROLE_KEY: readWithTestFallback('SUPABASE_SERVICE_ROLE_KEY', 'test-service-role-key'),
+  SUPABASE_ALLOW_STUB: readWithTestFallback('SUPABASE_ALLOW_STUB', 'true'),
   AGENT_SERVICE_URL: process.env.AGENT_SERVICE_URL ?? undefined,
   SAMPLING_C1_BASE_URL: process.env.SAMPLING_C1_BASE_URL ?? undefined,
   SAMPLING_C1_API_KEY: process.env.SAMPLING_C1_API_KEY ?? undefined,
@@ -62,8 +81,8 @@ const parsed = serverSchema.safeParse({
   SKIP_HEALTHCHECK_DB: process.env.SKIP_HEALTHCHECK_DB,
   RECONCILIATION_MODE: process.env.RECONCILIATION_MODE ?? undefined,
   NEXT_PUBLIC_API_BASE: process.env.NEXT_PUBLIC_API_BASE ?? undefined,
-  NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
-  NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  NEXT_PUBLIC_SUPABASE_URL: resolvedNextPublicSupabaseUrl,
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: readWithTestFallback('NEXT_PUBLIC_SUPABASE_ANON_KEY', 'test-anon-key'),
   NEXT_PUBLIC_ACCOUNTING_MODE: process.env.NEXT_PUBLIC_ACCOUNTING_MODE ?? undefined,
   NEXT_PUBLIC_RECONCILIATION_MODE: process.env.NEXT_PUBLIC_RECONCILIATION_MODE ?? undefined,
   NEXT_PUBLIC_GROUP_AUDIT_MODE: process.env.NEXT_PUBLIC_GROUP_AUDIT_MODE ?? undefined,
