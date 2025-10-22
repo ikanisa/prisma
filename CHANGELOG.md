@@ -2,9 +2,9 @@
 
 ## [Unreleased]
 ### Added
-- Documented the hotfix release operations playbook, covering temporary release branching, observability thresholds, stakeholder UAT, and cleanup communication steps.
+- Documented the hotfix release branch workflow, including milestone tagging, observability guardrails, stakeholder UAT coordination, and legacy branch decommissioning steps in `docs/OPERATIONS/hotfix-release-branch-runbook.md`.
+- Added `scripts/operations/hotfix-release-manager.ts` with package scripts for automating hotfix branch lifecycle tasks and generating outstanding item reports.
 
-### Operational
-- Established guidance for tagging hotfix milestones and decommissioning temporary release branches.
-- Captured monitoring alert thresholds for Sentry and OpenTelemetry dashboards to guard against regressions.
-- Outlined stakeholder UAT scheduling and feedback triage expectations for hotfix cycles.
+### Operations
+- Established guidance for updating internal wikis alongside changelog entries when hotfixes are executed.
+- Introduced `docs/OPERATIONS/hotfix-status.json` and `docs/OPERATIONS/hotfix-outstanding-items.md` to track execution status and highlight remaining follow-up work for each hotfix.
