@@ -91,6 +91,10 @@ import { initialiseMcpInfrastructure } from './mcp/bootstrap';
 import { createDirectorAgent as createMcpDirectorAgent } from './mcp/director';
 import { createSafetyAgent as createMcpSafetyAgent } from './mcp/safety';
 import { executeTaskWithExecutor } from './mcp/executors';
+import {
+  scheduleUrgentNotificationFanout,
+  startNotificationFanoutWorker,
+} from './notifications/fanout';
 
 type AgentPersona = 'AUDIT' | 'FINANCE' | 'TAX';
 type LearningMode = 'INITIAL' | 'CONTINUOUS';
@@ -817,13 +821,113 @@ const toolHandlers: Record<string, ToolHandler> = {
       expiresInSeconds: Number(process.env.DOCUMENT_SIGN_TTL ?? '120'),
     };
   },
-  'notify.user': async (input) => {
+  'notify.user': async (input, context) => {
     const payload = (input && typeof input === 'object' ? input : {}) as Record<string, unknown>;
+    const rawMessage = typeof payload.message === 'string' ? payload.message.trim() : '';
+    if (!rawMessage) {
+      throw new Error('notify.user requires a non-empty message.');
+    }
+
+    const addRecipient = (value: unknown, recipients: Set<string>) => {
+      if (typeof value === 'string' && value.trim().length > 0) {
+        recipients.add(value.trim());
+        return;
+      }
+      if (value && typeof value === 'object' && 'id' in value) {
+        const candidate = (value as { id?: unknown }).id;
+        if (typeof candidate === 'string' && candidate.trim().length > 0) {
+          recipients.add(candidate.trim());
+        }
+      }
+    };
+
+    const recipientSet = new Set<string>();
+    addRecipient(payload.userId, recipientSet);
+    if (Array.isArray(payload.recipients)) {
+      for (const entry of payload.recipients) {
+        addRecipient(entry, recipientSet);
+      }
+    } else if (typeof payload.recipient === 'string') {
+      addRecipient(payload.recipient, recipientSet);
+    }
+
+    if (recipientSet.size === 0) {
+      throw new Error('notify.user requires at least one recipient userId.');
+    }
+
+    const MAX_RECIPIENTS = 20;
+    const recipients = Array.from(recipientSet).slice(0, MAX_RECIPIENTS);
+    const title =
+      typeof payload.title === 'string' && payload.title.trim().length > 0
+        ? payload.title.trim()
+        : 'Agent notification';
+    const link = typeof payload.link === 'string' && payload.link.trim().length > 0 ? payload.link.trim() : null;
+    const rawKind = typeof payload.kind === 'string' ? payload.kind.toUpperCase() : 'SYSTEM';
+    const allowedKinds = new Set(['TASK', 'DOC', 'APPROVAL', 'SYSTEM']);
+    const kind = allowedKinds.has(rawKind) ? rawKind : 'SYSTEM';
+    const urgency = typeof payload.urgency === 'string' ? payload.urgency.toLowerCase() : 'info';
+    const urgent = urgency === 'critical' || urgency === 'high';
+
+    const insertRows = recipients.map((userId) => ({
+      org_id: context.orgId,
+      user_id: userId,
+      title,
+      body: rawMessage,
+      link,
+      urgent,
+      kind,
+    }));
+
+    const { data, error } = await supabaseService
+      .from('notifications')
+      .insert(insertRows)
+      .select('id, org_id, user_id, created_at, urgent');
+
+    if (error) {
+      throw error;
+    }
+
+    const inserted = (data ?? []).map((row) => ({
+      ...row,
+      org_id: row.org_id ?? context.orgId,
+    }));
+    logInfo('agent.notify_user_enqueued', {
+      sessionId: context.sessionId,
+      runId: context.runId,
+      orgId: context.orgId,
+      recipientCount: recipients.length,
+      urgent,
+    });
+
+    if (urgent && inserted.length > 0) {
+      await scheduleUrgentNotificationFanout({
+        supabase: supabaseService,
+        orgId: context.orgId,
+        notifications: inserted.map((row) => ({
+          id: row.id,
+          user_id: row.user_id,
+          org_id: row.org_id,
+        })),
+        title,
+        message: rawMessage,
+        link,
+        kind,
+        urgent,
+        logInfo,
+        logError,
+      });
+    }
+
     return {
       notified: true,
-      message: typeof payload.message === 'string' ? payload.message : 'Notification queued.',
-      recipients: Array.isArray(payload.recipients) ? payload.recipients : [],
-      sentAt: new Date().toISOString(),
+      message: rawMessage,
+      title,
+      kind,
+      urgent,
+      recipients: inserted.length ? inserted.map((row) => row.user_id) : recipients,
+      notificationIds: inserted.map((row) => row.id),
+      createdAt: inserted.length ? inserted[0].created_at : new Date().toISOString(),
+      link,
     };
   },
 };
@@ -2039,6 +2143,8 @@ const SUPABASE_SERVICE_ROLE_KEY = await getSupabaseServiceRoleKey();
 const supabaseService = createClient<Database>(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
   auth: { persistSession: false },
 });
+
+startNotificationFanoutWorker({ supabase: supabaseService, logInfo, logError });
 
 const OPENAI_DEBUG_LOGGING = (process.env.OPENAI_DEBUG_LOGGING ?? 'false').toLowerCase() === 'true';
 const OPENAI_DEBUG_FETCH_DETAILS =
@@ -6045,7 +6151,7 @@ app.get('/v1/notifications', async (req: AuthenticatedRequest, res) => {
 
     const { data, error } = await supabaseService
       .from('notifications')
-      .select('id, org_id, user_id, title, body, type, read, created_at')
+      .select('id, org_id, user_id, title, body, kind, link, urgent, read, created_at')
       .eq('org_id', orgContext.orgId)
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
@@ -7578,7 +7684,7 @@ app.patch('/v1/notifications/:id', async (req: AuthenticatedRequest, res) => {
       .from('notifications')
       .update({ read: read ?? true })
       .eq('id', notificationId)
-      .select('id, org_id, user_id, title, body, type, read, created_at')
+      .select('id, org_id, user_id, title, body, kind, link, urgent, read, created_at')
       .single();
 
     if (updateError) {
