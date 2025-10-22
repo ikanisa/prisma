@@ -21,6 +21,14 @@ import { registerInstrumentations } from '@opentelemetry/instrumentation';
 import { HttpInstrumentation } from '@opentelemetry/instrumentation-http';
 import { ExpressInstrumentation } from '@opentelemetry/instrumentation-express';
 import { createClient } from '@supabase/supabase-js';
+import type {
+  ChatCompletionChunk,
+  ChatCompletionCreateParamsNonStreaming,
+  ChatCompletionCreateParamsStreaming,
+  ChatCompletionListParams,
+  ChatCompletionUpdateParams,
+} from 'openai/resources/chat/completions';
+import type { MessageListParams } from 'openai/resources/chat/completions/messages';
 import { getSignedUrlTTL } from '../../lib/security/signed-url-policy';
 import {
   scheduleLearningRun,
@@ -91,6 +99,15 @@ import { AgentConversationRecorder } from './agent-conversation-recorder';
 import { createRealtimeSession, getRealtimeTurnServers } from './openai-realtime';
 import { generateSoraVideo } from './openai-media';
 import { transcribeAudioBuffer, synthesizeSpeech } from './openai-audio';
+import {
+  createChatCompletion,
+  deleteChatCompletion,
+  listChatCompletionMessages,
+  listChatCompletions,
+  retrieveChatCompletion,
+  streamChatCompletion,
+  updateChatCompletion,
+} from './openai-chat-completions';
 import { directorAgent as legacyDirectorAgent } from '../agents/director';
 import { DOMAIN_AGENT_LIST } from '../agents/domain-agents';
 import type { OrchestratorContext } from '../agents/types';
@@ -178,6 +195,20 @@ const WEB_DOMAIN_MAP: Record<string, { corpusDomain: string; agentKind: AgentPer
 };
 
 const WEB_HARVEST_INTERVAL_MS = Number(process.env.WEB_HARVEST_INTERVAL_MS ?? 60 * 60 * 1000);
+
+function resolveHeartbeatInterval(defaultValue: number): number {
+  const raw = process.env.CHAT_COMPLETIONS_STREAM_HEARTBEAT_INTERVAL_MS;
+  if (raw === undefined || raw === null || raw === '') {
+    return defaultValue;
+  }
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    return defaultValue;
+  }
+  return parsed;
+}
+
+const CHAT_COMPLETIONS_STREAM_HEARTBEAT_INTERVAL_MS = resolveHeartbeatInterval(15_000);
 let webBootstrapRunning = false;
 
 type RobotsRules = { allow: string[]; disallow: string[] };
@@ -3415,7 +3446,7 @@ function extractResponseText(response: any): string {
   return '';
 }
 
-async function summariseWebDocument(url: string, text: string): Promise<string> {
+async function summariseWebDocument(orgId: string, url: string, text: string): Promise<string> {
   if (!text) return '';
 
   if (OPENAI_WEB_SEARCH_ENABLED) {
@@ -3457,35 +3488,29 @@ async function summariseWebDocument(url: string, text: string): Promise<string> 
   }
 
   try {
-    const response = await openai.responses.create({
-      model: OPENAI_SUMMARY_MODEL,
-      temperature: 0.2,
-      input: [
-        {
-          role: 'system',
-          content: [
-            {
-              type: 'input_text',
-              text: 'You are a Big Four partner producing concise technical notes. Summaries must emphasise IFRS/ISA/TAX relevance, cite clauses when possible, and flag uncertainties.',
-            },
-          ],
-        },
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'input_text',
-              text: `Source URL: ${url}\n\nExtracted Content (truncated):\n${text}\n\nProvide a bullet summary (<= 8 items) covering key accounting, auditing, and tax takeaways for Malta.`,
-            },
-          ],
-        },
-      ],
-    });
-    await logOpenAIDebugEvent({
-      endpoint: 'responses.create',
-      response: response as any,
-      requestPayload: { url, model: OPENAI_SUMMARY_MODEL },
+    const chat = await createChatCompletion({
+      client: openai,
+      payload: {
+        model: OPENAI_SUMMARY_MODEL,
+        temperature: 0.2,
+        messages: [
+          {
+            role: 'system',
+            content:
+              'You are a Big Four partner producing concise technical notes. Summaries must emphasise IFRS/ISA/TAX relevance, cite clauses when possible, and flag uncertainties.',
+          },
+          {
+            role: 'user',
+            content: `Source URL: ${url}\n\nExtracted Content (truncated):\n${text}\n\nProvide a bullet summary (<= 8 items) covering key accounting, auditing, and tax takeaways for Malta.`,
+          },
+        ],
+      },
+      debugLogger: logOpenAIDebugEvent,
+      logError,
       metadata: { source: 'web_summary' },
+      orgId,
+      tags: ['web_summary'],
+      requestLogPayload: { url, model: OPENAI_SUMMARY_MODEL },
     });
     const summary = extractResponseText(response)?.trim();
     if (summary) {
@@ -3552,7 +3577,7 @@ async function processWebHarvest(options: {
       fetchedFresh = true;
     }
 
-    const summary = await summariseWebDocument(webSource.url, cleaned);
+    const summary = await summariseWebDocument(options.orgId, webSource.url, cleaned);
     const chunks = chunkText(cleaned, 700);
     if (chunks.length === 0) {
       throw new Error('No chunks generated from web content');
@@ -3785,37 +3810,31 @@ async function performRagSearch(orgId: string, queryInput: string, topK = 6) {
   };
 }
 
-async function performPolicyCheck(statement: string, domain?: string) {
+async function performPolicyCheck(orgId: string, statement: string, domain?: string) {
   try {
-    const response = await openai.responses.create({
-      model: OPENAI_SUMMARY_MODEL,
-      temperature: 0,
-      input: [
-        {
-          role: 'system',
-          content: [
-            {
-              type: 'input_text',
-              text: 'You are a technical reviewer ensuring compliance with IFRS/IAS/ISA and Malta CFR guidance. Respond with either PASS, WARNING, or FAIL followed by reasoning.',
-            },
-          ],
-        },
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'input_text',
-              text: `Domain: ${domain ?? 'general'}\nStatement:\n${statement}\n\nAssess compliance and cite any standards or regulations referenced. Keep it short (<=4 sentences).`,
-            },
-          ],
-        },
-      ],
-    });
-    await logOpenAIDebugEvent({
-      endpoint: 'responses.create',
-      response: response as any,
-      requestPayload: { model: OPENAI_SUMMARY_MODEL, domain: domain ?? 'general' },
-      metadata: { scope: 'policy_check' },
+    const completion = await createChatCompletion({
+      client: openai,
+      payload: {
+        model: OPENAI_SUMMARY_MODEL,
+        temperature: 0,
+        messages: [
+          {
+            role: 'system',
+            content:
+              'You are a technical reviewer ensuring compliance with IFRS/IAS/ISA and Malta CFR guidance. Respond with either PASS, WARNING, or FAIL followed by reasoning.',
+          },
+          {
+            role: 'user',
+            content: `Domain: ${domain ?? 'general'}\nStatement:\n${statement}\n\nAssess compliance and cite any standards or regulations referenced. Keep it short (<=4 sentences).`,
+          },
+        ],
+      },
+      debugLogger: logOpenAIDebugEvent,
+      logError,
+      metadata: { scope: 'policy_check', domain: domain ?? 'general' },
+      orgId,
+      tags: ['policy_check'],
+      requestLogPayload: { model: OPENAI_SUMMARY_MODEL, domain: domain ?? 'general' },
     });
     const answer = extractResponseText(response) || 'Policy review unavailable.';
     return { output: answer };
@@ -3872,7 +3891,7 @@ async function executeToolCall(orgId: string, call: any) {
     if (!statement) {
       return { output: 'policy_check requires a statement.' };
     }
-    return await performPolicyCheck(statement, args.domain ? String(args.domain) : undefined);
+    return await performPolicyCheck(orgId, statement, args.domain ? String(args.domain) : undefined);
   }
 
   if (name === 'db_read') {
@@ -5060,6 +5079,564 @@ app.post('/api/agent/media/video', async (req: AuthenticatedRequest, res) => {
   } catch (err) {
     logError('agent.sora_video_failed', err, { userId: req.user?.sub });
     return res.status(500).json({ error: 'video_generation_failed' });
+  }
+});
+
+function isStreamingRequested(rawPayload: unknown): boolean {
+  if (!rawPayload || typeof rawPayload !== 'object' || Array.isArray(rawPayload)) {
+    return false;
+  }
+
+  if (!('stream' in rawPayload)) {
+    return false;
+  }
+
+  const streamValue = (rawPayload as Record<string, unknown>).stream;
+  const parsed = parseBooleanFlag(streamValue);
+  return parsed === true;
+}
+
+function normaliseChatCompletionCreatePayload(
+  rawPayload: unknown,
+  options?: { streaming?: boolean },
+): ChatCompletionCreateParamsNonStreaming | ChatCompletionCreateParamsStreaming | null {
+  if (!rawPayload || typeof rawPayload !== 'object' || Array.isArray(rawPayload)) {
+    return null;
+  }
+
+  const cloned = JSON.parse(JSON.stringify(rawPayload)) as Record<string, unknown>;
+  if (Array.isArray(cloned.messages) === false) {
+    return null;
+  }
+
+  const model = typeof cloned.model === 'string' ? cloned.model.trim() : '';
+  if (!model) {
+    return null;
+  }
+
+  cloned.model = model;
+
+  if (options?.streaming) {
+    cloned.stream = true;
+    return cloned as ChatCompletionCreateParamsStreaming;
+  }
+
+  if ('stream' in cloned) {
+    delete cloned.stream;
+  }
+
+  if ('store' in cloned) {
+    cloned.store = Boolean(cloned.store);
+  }
+
+  return cloned as ChatCompletionCreateParamsNonStreaming;
+}
+
+function parseMetadataRecord(input: unknown): Record<string, unknown> | undefined {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    return undefined;
+  }
+  return input as Record<string, unknown>;
+}
+
+function parseStringArray(input: unknown): string[] | undefined {
+  if (!Array.isArray(input)) return undefined;
+  const tags = Array.from(
+    new Set(
+      input
+        .map((entry) => (typeof entry === 'string' ? entry.trim() : ''))
+        .filter((entry): entry is string => entry.length > 0),
+    ),
+  );
+  return tags.length > 0 ? tags : undefined;
+}
+
+function parseQuotaTag(input: unknown): string | undefined {
+  if (typeof input !== 'string') return undefined;
+  const trimmed = input.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function buildChatCompletionListQuery(query: Record<string, unknown>): ChatCompletionListParams {
+  const params: ChatCompletionListParams = {};
+  if (typeof query.after === 'string' && query.after.trim().length > 0) {
+    params.after = query.after.trim();
+  }
+  if (typeof query.limit === 'string') {
+    const limitValue = Number(query.limit);
+    if (Number.isFinite(limitValue)) {
+      params.limit = Math.max(1, Math.min(100, Math.floor(limitValue)));
+    }
+  }
+  if (typeof query.model === 'string' && query.model.trim().length > 0) {
+    params.model = query.model.trim();
+  }
+  return params;
+}
+
+function buildChatCompletionMessagesQuery(query: Record<string, unknown>): MessageListParams {
+  const params: MessageListParams = {};
+  if (typeof query.after === 'string' && query.after.trim().length > 0) {
+    params.after = query.after.trim();
+  }
+  if (typeof query.limit === 'string') {
+    const limitValue = Number(query.limit);
+    if (Number.isFinite(limitValue)) {
+      params.limit = Math.max(1, Math.min(200, Math.floor(limitValue)));
+    }
+  }
+  if (typeof query.order === 'string') {
+    const order = query.order.trim().toLowerCase();
+    if (order === 'asc' || order === 'desc') {
+      params.order = order as 'asc' | 'desc';
+    }
+  }
+  return params;
+}
+
+app.post('/api/openai/chat-completions', async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = req.user?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: 'invalid session' });
+    }
+
+    const body = req.body as Record<string, unknown> | undefined;
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
+      return res.status(400).json({ error: 'invalid_request_body' });
+    }
+
+    const orgSlugRaw = body.orgSlug;
+    const orgSlug = typeof orgSlugRaw === 'string' ? orgSlugRaw.trim() : '';
+    if (!orgSlug) {
+      return res.status(400).json({ error: 'orgSlug is required' });
+    }
+
+    const streamingRequested = isStreamingRequested(body.payload);
+    const payload = normaliseChatCompletionCreatePayload(body.payload, { streaming: streamingRequested });
+    if (!payload) {
+      return res.status(400).json({ error: 'payload must include model and messages' });
+    }
+
+    const orgContext = await resolveOrgForUser(userId, orgSlug);
+
+    const metadata = parseMetadataRecord(body.metadata);
+    const tags = parseStringArray(body.tags);
+    const quotaTag = parseQuotaTag(body.quotaTag);
+    const requestLogPayload =
+      body.requestLogPayload && typeof body.requestLogPayload === 'object'
+        ? (body.requestLogPayload as Record<string, unknown>)
+        : { model: payload.model };
+
+    const metadataWithOrg = { ...(metadata ?? {}), orgSlug };
+
+    if (streamingRequested) {
+      logInfo('openai.chat_completion_streaming_request', {
+        userId,
+        orgSlug,
+        requestId: req.requestId,
+      });
+
+      res.status(200);
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+      res.flushHeaders?.();
+
+      const cleanupCallbacks: Array<() => void> = [];
+      let clientClosed = false;
+      let streamStatus: 'pending' | 'completed' | 'client_disconnect' | 'error' = 'pending';
+      const streamStartedAt = Date.now();
+      let firstChunkAt: number | null = null;
+      let lastChunkAt: number | null = null;
+      let chunkCount = 0;
+      let totalChunkBytes = 0;
+      let chunkIntervalTotal = 0;
+      let chunkIntervalCount = 0;
+      let chunkIntervalMin: number | null = null;
+      let chunkIntervalMax = 0;
+      let heartbeatCount = 0;
+      let lastHeartbeatAt: number | null = null;
+      let heartbeatTimer: NodeJS.Timeout | null = null;
+      const heartbeatIntervalMs = CHAT_COMPLETIONS_STREAM_HEARTBEAT_INTERVAL_MS;
+
+      const recordChunkMetrics = (chunk: ChatCompletionChunk) => {
+        const now = Date.now();
+        const chunkString = JSON.stringify(chunk);
+        chunkCount += 1;
+        totalChunkBytes += Buffer.byteLength(chunkString, 'utf8');
+        if (firstChunkAt === null) {
+          firstChunkAt = now;
+        }
+        if (lastChunkAt !== null) {
+          const delta = now - lastChunkAt;
+          chunkIntervalTotal += delta;
+          chunkIntervalCount += 1;
+          chunkIntervalMax = Math.max(chunkIntervalMax, delta);
+          chunkIntervalMin = chunkIntervalMin === null ? delta : Math.min(chunkIntervalMin, delta);
+        }
+        lastChunkAt = now;
+      };
+
+      try {
+        const { stream, logCompletion } = await streamChatCompletion({
+          client: openai,
+          payload: payload as ChatCompletionCreateParamsStreaming,
+          debugLogger: logOpenAIDebugEvent,
+          logError,
+          metadata: metadataWithOrg,
+          tags,
+          quotaTag,
+          orgId: orgContext.orgId,
+          requestLogPayload,
+        });
+
+        const writeEvent = (event: { type: string; data?: unknown }) => {
+          if (clientClosed || res.writableEnded) {
+            return;
+          }
+          res.write(`data: ${JSON.stringify(event)}\n\n`);
+        };
+
+        const abortStream = () => {
+          try {
+            stream.controller?.abort();
+          } catch {
+            // ignore abort errors
+          }
+        };
+
+        const markClientClosed = () => {
+          clientClosed = true;
+          if (streamStatus === 'pending') {
+            streamStatus = 'client_disconnect';
+          }
+          if (heartbeatTimer) {
+            clearInterval(heartbeatTimer);
+            heartbeatTimer = null;
+          }
+          abortStream();
+        };
+
+        if (res.on) {
+          res.on('close', markClientClosed);
+          cleanupCallbacks.push(() => res.removeListener?.('close', markClientClosed));
+          res.on('finish', markClientClosed);
+          cleanupCallbacks.push(() => res.removeListener?.('finish', markClientClosed));
+        }
+
+        if (heartbeatIntervalMs > 0) {
+          const sendHeartbeat = () => {
+            if (clientClosed || res.writableEnded) {
+              return;
+            }
+            lastHeartbeatAt = Date.now();
+            heartbeatCount += 1;
+            res.write(`: keep-alive ${lastHeartbeatAt}\n\n`);
+          };
+          heartbeatTimer = setInterval(sendHeartbeat, heartbeatIntervalMs);
+          heartbeatTimer.unref?.();
+          cleanupCallbacks.push(() => {
+            if (heartbeatTimer) {
+              clearInterval(heartbeatTimer);
+              heartbeatTimer = null;
+            }
+          });
+        }
+
+        let lastChunk: ChatCompletionChunk | undefined;
+
+        for await (const chunk of stream) {
+          if (clientClosed) {
+            break;
+          }
+          lastChunk = chunk;
+          recordChunkMetrics(chunk);
+          writeEvent({ type: 'chunk', data: chunk });
+        }
+
+        if (!clientClosed) {
+          try {
+            await logCompletion({
+              response: lastChunk ? { id: lastChunk.id } : undefined,
+              metadata: { streaming: true },
+            });
+          } catch (err) {
+            logError('openai.chat_completion_stream_log_failed', err, {
+              orgId: orgContext.orgId,
+              requestId: req.requestId,
+            });
+          }
+
+          writeEvent({ type: 'done' });
+          if (!res.writableEnded) {
+            res.write('data: [DONE]\n\n');
+            res.end();
+          }
+
+          if (streamStatus === 'pending') {
+            streamStatus = 'completed';
+          }
+        }
+
+        return;
+      } catch (error) {
+        if (!clientClosed) {
+          logError('openai.chat_completion_stream_failed', error, {
+            userId,
+            orgId: orgContext.orgId,
+            requestId: req.requestId,
+          });
+
+          const message = error instanceof Error ? error.message : 'stream_error';
+          if (!res.headersSent) {
+            res.status(500);
+            res.setHeader('Content-Type', 'text/event-stream');
+            res.setHeader('Cache-Control', 'no-cache');
+            res.setHeader('Connection', 'keep-alive');
+            res.flushHeaders?.();
+          }
+          if (!res.writableEnded) {
+            res.write(`data: ${JSON.stringify({ type: 'error', data: { message } })}\n\n`);
+            res.write('data: [DONE]\n\n');
+            res.end();
+          }
+        }
+
+        if (!clientClosed && streamStatus === 'pending') {
+          streamStatus = 'error';
+        }
+
+        return;
+      } finally {
+        for (const cleanup of cleanupCallbacks) {
+          try {
+            cleanup();
+          } catch {
+            // ignore cleanup errors
+          }
+        }
+
+        const finishedAt = Date.now();
+        const durationMs = finishedAt - streamStartedAt;
+        const timeToFirstChunkMs = firstChunkAt !== null ? firstChunkAt - streamStartedAt : null;
+        const averageChunkIntervalMs =
+          chunkIntervalCount > 0 ? chunkIntervalTotal / chunkIntervalCount : null;
+
+        logInfo('openai.chat_completion_stream_metrics', {
+          userId,
+          orgId: orgContext.orgId,
+          orgSlug,
+          requestId: req.requestId,
+          status: streamStatus,
+          durationMs,
+          timeToFirstChunkMs,
+          chunkCount,
+          totalChunkBytes,
+          chunkIntervalMinMs: chunkIntervalMin,
+          chunkIntervalMaxMs: chunkIntervalCount > 0 ? chunkIntervalMax : null,
+          chunkIntervalAvgMs: averageChunkIntervalMs,
+          heartbeatCount,
+          heartbeatIntervalMs,
+          lastHeartbeatAt,
+          lastChunkAt,
+        });
+      }
+    }
+
+    const completion = await createChatCompletion({
+      client: openai,
+      payload: payload as ChatCompletionCreateParamsNonStreaming,
+      debugLogger: logOpenAIDebugEvent,
+      logError,
+      metadata: metadataWithOrg,
+      tags,
+      quotaTag,
+      orgId: orgContext.orgId,
+      requestLogPayload,
+    });
+
+    return res.status(201).json({ completion });
+  } catch (error) {
+    logError('openai.chat_completion_proxy_failed', error, { userId: req.user?.sub });
+    return res.status(500).json({ error: 'failed_to_create_chat_completion' });
+  }
+});
+
+app.get('/api/openai/chat-completions', async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = req.user?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: 'invalid session' });
+    }
+
+    const orgSlug = typeof req.query.orgSlug === 'string' ? req.query.orgSlug.trim() : '';
+    if (!orgSlug) {
+      return res.status(400).json({ error: 'orgSlug query param required' });
+    }
+
+    const orgContext = await resolveOrgForUser(userId, orgSlug);
+    const query = buildChatCompletionListQuery(req.query as Record<string, unknown>);
+
+    const result = await listChatCompletions({
+      client: openai,
+      query,
+      debugLogger: logOpenAIDebugEvent,
+      logError,
+      metadata: { orgSlug },
+      orgId: orgContext.orgId,
+    });
+
+    return res.json(result);
+  } catch (error) {
+    logError('openai.chat_completion_list_failed', error, { userId: req.user?.sub });
+    return res.status(500).json({ error: 'failed_to_list_chat_completions' });
+  }
+});
+
+app.get('/api/openai/chat-completions/:id', async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = req.user?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: 'invalid session' });
+    }
+
+    const orgSlug = typeof req.query.orgSlug === 'string' ? req.query.orgSlug.trim() : '';
+    if (!orgSlug) {
+      return res.status(400).json({ error: 'orgSlug query param required' });
+    }
+
+    const orgContext = await resolveOrgForUser(userId, orgSlug);
+    const completion = await retrieveChatCompletion({
+      client: openai,
+      completionId: req.params.id,
+      debugLogger: logOpenAIDebugEvent,
+      logError,
+      metadata: { orgSlug },
+      orgId: orgContext.orgId,
+    });
+
+    return res.json({ completion });
+  } catch (error) {
+    logError('openai.chat_completion_retrieve_failed', error, {
+      userId: req.user?.sub,
+      completionId: req.params.id,
+    });
+    return res.status(500).json({ error: 'failed_to_retrieve_chat_completion' });
+  }
+});
+
+app.patch('/api/openai/chat-completions/:id', async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = req.user?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: 'invalid session' });
+    }
+
+    const body = req.body as Record<string, unknown> | undefined;
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
+      return res.status(400).json({ error: 'invalid_request_body' });
+    }
+
+    const orgSlugRaw = body.orgSlug ?? req.query.orgSlug;
+    const orgSlug = typeof orgSlugRaw === 'string' ? orgSlugRaw.trim() : '';
+    if (!orgSlug) {
+      return res.status(400).json({ error: 'orgSlug is required' });
+    }
+
+    const metadata = parseMetadataRecord(body.metadata);
+    if (!metadata) {
+      return res.status(400).json({ error: 'metadata object is required' });
+    }
+
+    const orgContext = await resolveOrgForUser(userId, orgSlug);
+
+    const completion = await updateChatCompletion({
+      client: openai,
+      completionId: req.params.id,
+      payload: { metadata } as ChatCompletionUpdateParams,
+      debugLogger: logOpenAIDebugEvent,
+      logError,
+      metadata: { orgSlug },
+      tags: parseStringArray(body.tags),
+      quotaTag: parseQuotaTag(body.quotaTag),
+      orgId: orgContext.orgId,
+    });
+
+    return res.json({ completion });
+  } catch (error) {
+    logError('openai.chat_completion_update_failed', error, {
+      userId: req.user?.sub,
+      completionId: req.params.id,
+    });
+    return res.status(500).json({ error: 'failed_to_update_chat_completion' });
+  }
+});
+
+app.delete('/api/openai/chat-completions/:id', async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = req.user?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: 'invalid session' });
+    }
+
+    const orgSlug = typeof req.query.orgSlug === 'string' ? req.query.orgSlug.trim() : '';
+    if (!orgSlug) {
+      return res.status(400).json({ error: 'orgSlug query param required' });
+    }
+
+    const orgContext = await resolveOrgForUser(userId, orgSlug);
+    const deleted = await deleteChatCompletion({
+      client: openai,
+      completionId: req.params.id,
+      debugLogger: logOpenAIDebugEvent,
+      logError,
+      metadata: { orgSlug },
+      orgId: orgContext.orgId,
+    });
+
+    return res.json({ deleted });
+  } catch (error) {
+    logError('openai.chat_completion_delete_failed', error, {
+      userId: req.user?.sub,
+      completionId: req.params.id,
+    });
+    return res.status(500).json({ error: 'failed_to_delete_chat_completion' });
+  }
+});
+
+app.get('/api/openai/chat-completions/:id/messages', async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = req.user?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: 'invalid session' });
+    }
+
+    const orgSlug = typeof req.query.orgSlug === 'string' ? req.query.orgSlug.trim() : '';
+    if (!orgSlug) {
+      return res.status(400).json({ error: 'orgSlug query param required' });
+    }
+
+    const orgContext = await resolveOrgForUser(userId, orgSlug);
+    const query = buildChatCompletionMessagesQuery(req.query as Record<string, unknown>);
+
+    const result = await listChatCompletionMessages({
+      client: openai,
+      completionId: req.params.id,
+      query,
+      debugLogger: logOpenAIDebugEvent,
+      logError,
+      metadata: { orgSlug },
+      orgId: orgContext.orgId,
+    });
+
+    return res.json(result);
+  } catch (error) {
+    logError('openai.chat_completion_messages_list_failed', error, {
+      userId: req.user?.sub,
+      completionId: req.params.id,
+    });
+    return res.status(500).json({ error: 'failed_to_list_chat_completion_messages' });
   }
 });
 
