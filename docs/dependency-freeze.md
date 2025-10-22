@@ -1,11 +1,5 @@
-# Dependency Freeze Checkpoint
+# Dependency Freeze Log
 
-- Generated on 2025-10-22T14:36:31Z from the current workspace lockfile.
-- `pnpm-lock.yaml` SHA-256: `019760a9dc8b676b5c435ef9e796500e788932b95837c7d48ffef8f96ba99a02`
-- Keep Renovate/Dependabot paused until the refactor is complete; re-enable updates once the checksum intentionally changes.
+This document tracks the cryptographic fingerprint of the current `pnpm-lock.yaml` that is frozen to stabilize dependencies.
 
-To verify locally:
-```sh
-sha256sum pnpm-lock.yaml
-```
-Compare the output to the recorded hash above.
+- 2025-10-22: SHA-256 `0f1efdc38522081d21ab9248aecd6763b9490b896ff27f16d0959a38e952329d`

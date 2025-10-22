@@ -1,12 +1,13 @@
 {
+  // Temporarily freeze npm dependency updates until the lockfile hash in docs/dependency-freeze.md is refreshed.
+  // Remove these overrides once we are ready to resume automated package upgrades.
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["config:base"],
-  "enabled": true,
+  "extends": ["config:recommended"],
   "packageRules": [
     {
+      "description": "Disable npm dependency updates during freeze",
       "matchManagers": ["npm"],
-      "enabled": false,
-      "description": "Temporarily pause npm updates while the refactor is in progress"
+      "enabled": false
     }
   ]
 }
