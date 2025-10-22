@@ -1,8 +1,8 @@
 import os
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
-from sqlalchemy import Column, Integer, Text, DateTime, Numeric, Date, text
-from sqlalchemy.dialects.postgresql import UUID as PGUUID, JSONB
+from sqlalchemy import Column, Integer, Text, DateTime, text
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from pgvector.sqlalchemy import Vector
 
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+psycopg://postgres:postgres@localhost:5432/postgres")
@@ -24,74 +24,22 @@ class Chunk(Base):
     content_hash = Column(Text, nullable=False)
 
 
-class TelemetryAlert(Base):
-    __tablename__ = "telemetry_alerts"
+class AnalyticsEvent(Base):
+    __tablename__ = "analytics_events"
 
-    id = Column(PGUUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
-    org_id = Column(PGUUID(as_uuid=True), nullable=True)
-    alert_type = Column(Text, nullable=False)
-    severity = Column(Text, nullable=False)
-    message = Column(Text, nullable=False)
-    context = Column(JSONB, nullable=False, default=dict)
-    resolved_at = Column(DateTime(timezone=True))
-    created_at = Column(DateTime(timezone=True), server_default=text("now()"))
-    updated_at = Column(DateTime(timezone=True), server_default=text("now()"))
-
-
-class TelemetryServiceLevel(Base):
-    __tablename__ = "telemetry_service_levels"
-
-    id = Column(PGUUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
-    org_id = Column(PGUUID(as_uuid=True), nullable=True)
-    module = Column(Text, nullable=False)
-    workflow_event = Column(Text, nullable=False)
-    target_hours = Column(Integer, nullable=False)
-    breaches = Column(Integer, nullable=False, default=0)
-    last_breach_at = Column(DateTime(timezone=True))
-    open_breaches = Column(Integer, nullable=False, default=0)
-    status = Column(Text, nullable=False, default="ON_TRACK")
-    computed_at = Column(DateTime(timezone=True), nullable=False, server_default=text("now()"))
-
-
-class TelemetryCoverageMetric(Base):
-    __tablename__ = "telemetry_coverage_metrics"
-
-    id = Column(PGUUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
-    org_id = Column(PGUUID(as_uuid=True), nullable=True)
-    module = Column(Text, nullable=False)
-    metric = Column(Text, nullable=False)
-    measured_value = Column(Numeric(18, 2), nullable=False, default=0)
-    population = Column(Numeric(18, 2), nullable=False, default=0)
-    coverage_ratio = Column(Numeric(6, 3))
-    period_start = Column(Date, nullable=False)
-    period_end = Column(Date, nullable=False)
-    computed_at = Column(DateTime(timezone=True), nullable=False, server_default=text("now()"))
-
-
-class TelemetryRefusalEvent(Base):
-    __tablename__ = "telemetry_refusal_events"
-
-    id = Column(PGUUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
-    org_id = Column(PGUUID(as_uuid=True), nullable=True)
-    module = Column(Text, nullable=False)
+    id = Column(Text, primary_key=True)
     event = Column(Text, nullable=False)
-    reason = Column(Text)
-    severity = Column(Text, nullable=False, default="INFO")
-    count = Column(Integer, nullable=False, default=1)
+    service = Column(Text, nullable=True)
+    source = Column(Text, nullable=False)
+    org_id = Column(Text, nullable=True)
+    actor_id = Column(Text, nullable=True)
+    properties = Column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
+    tags = Column(ARRAY(Text), nullable=False, server_default=text("ARRAY[]::text[]"))
+    context = Column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
+    metadata = Column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
     occurred_at = Column(DateTime(timezone=True), nullable=False, server_default=text("now()"))
+    ingested_at = Column(DateTime(timezone=True), nullable=False, server_default=text("now()"))
 
-
-class AutonomyTelemetryEvent(Base):
-    __tablename__ = "autonomy_telemetry_events"
-
-    id = Column(PGUUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
-    org_id = Column(PGUUID(as_uuid=True), nullable=False)
-    module = Column(Text, nullable=False)
-    scenario = Column(Text, nullable=False)
-    decision = Column(Text, nullable=False)
-    metrics = Column(JSONB, nullable=False)
-    actor = Column(PGUUID(as_uuid=True), nullable=True)
-    occurred_at = Column(DateTime(timezone=True), nullable=False, server_default=text("now()"))
 
 async def init_db():
     async with engine.begin() as conn:

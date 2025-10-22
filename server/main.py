@@ -41,11 +41,7 @@ import os.path
 
 
 from services.analytics.jobs import anomaly_scan_job, policy_check_job, reembed_job
-from analytics.events import (
-    AnalyticsEventValidationError,
-    build_telemetry_alert_event,
-    telemetry_alert_row,
-)
+from analytics import AnalyticsHttpClient
 
 from .autopilot_handlers import handle_extract_documents
 from .deterministic_contract import build_manifest, validate_manifest
@@ -89,6 +85,9 @@ from .workflow_orchestrator import (
 )
 
 app = FastAPI()
+
+
+analytics_client = AnalyticsHttpClient()
 
 
 def _bool_env(name: str, default: bool = False) -> bool:
@@ -302,6 +301,42 @@ structlog.configure(
     ]
 )
 logger = structlog.get_logger()
+
+
+async def _emit_analytics_event(
+    event_name: str,
+    *,
+    request: Request,
+    org_id: Optional[str] = None,
+    actor_id: Optional[str] = None,
+    properties: Optional[Dict[str, Any]] = None,
+    tags: Optional[List[str]] = None,
+) -> None:
+    """Send analytics events without impacting request flow."""
+
+    context: Dict[str, Optional[str]] = {}
+    request_id = getattr(request.state, "request_id", None)
+    if request_id:
+        context["requestId"] = request_id
+    traceparent = request.headers.get("traceparent")
+    if traceparent:
+        context["traceId"] = traceparent
+
+    try:
+        await analytics_client.record_event(
+            {
+                "event": event_name,
+                "service": SERVICE_NAME,
+                "source": "fastapi.backend",
+                "orgId": org_id,
+                "actorId": actor_id,
+                "properties": properties or {},
+                "tags": tags or [],
+                "context": context,
+            }
+        )
+    except Exception as exc:  # pragma: no cover - non-critical path
+        logger.warning("analytics.event_emit_failed", event=event_name, error=str(exc))
 
 
 def _load_permission_map() -> Dict[str, str]:
@@ -4446,13 +4481,24 @@ async def list_ada_runs(
 
 
 @app.post("/api/ada/run")
-async def create_ada_run(payload: AdaRunRequest, auth: Dict[str, Any] = Depends(require_auth)) -> Dict[str, Any]:
+async def create_ada_run(
+    payload: AdaRunRequest,
+    auth: Dict[str, Any] = Depends(require_auth),
+    request: Request = Depends(lambda request: request),
+) -> Dict[str, Any]:
     role = normalise_role(await ensure_org_access_by_id(auth["sub"], payload.orgId))
     ensure_permission_for_role(role, "audit.analytics.run")
 
     try:
         sanitised_params, dataset_hash, analytics_result = run_analytics(payload.kind.value, payload.params)
     except AnalyticsValidationError as exc:
+        await _emit_analytics_event(
+            "analytics.run.validation_failed",
+            request=request,
+            org_id=payload.orgId,
+            actor_id=payload.userId,
+            properties={"kind": payload.kind.value, "reason": str(exc)},
+        )
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     run_body = {
@@ -4494,6 +4540,18 @@ async def create_ada_run(payload: AdaRunRequest, auth: Dict[str, Any] = Depends(
             "kind": payload.kind.value,
             "datasetRef": payload.datasetRef,
             "datasetHash": dataset_hash,
+        },
+    )
+    await _emit_analytics_event(
+        "analytics.run.started",
+        request=request,
+        org_id=payload.orgId,
+        actor_id=payload.userId,
+        properties={
+            "runId": run_row.get("id"),
+            "kind": payload.kind.value,
+            "datasetHash": dataset_hash,
+            "engagementId": payload.engagementId,
         },
     )
 
@@ -4554,6 +4612,13 @@ async def create_ada_run(payload: AdaRunRequest, auth: Dict[str, Any] = Depends(
             body=update_response.text,
             run_id=run_row.get("id"),
         )
+        await _emit_analytics_event(
+            "analytics.run.failed",
+            request=request,
+            org_id=payload.orgId,
+            actor_id=payload.userId,
+            properties={"runId": run_row.get("id"), "stage": "update", "status": update_response.status_code},
+        )
         raise HTTPException(status_code=502, detail="failed to finalise analytics run")
 
     updated_rows = update_response.json() or []
@@ -4572,6 +4637,27 @@ async def create_ada_run(payload: AdaRunRequest, auth: Dict[str, Any] = Depends(
             "exceptions": len(exception_rows),
             "totals": summary.get("totals"),
         },
+    )
+    started_at_raw = run_row.get("started_at")
+    duration_seconds: Optional[float] = None
+    if isinstance(started_at_raw, str):
+        try:
+            start_dt = datetime.fromisoformat(started_at_raw)
+            finish_dt = datetime.fromisoformat(finished_at)
+            duration_seconds = max((finish_dt - start_dt).total_seconds(), 0.0)
+        except ValueError:
+            duration_seconds = None
+    await _emit_analytics_event(
+        "analytics.run.completed",
+        request=request,
+        org_id=payload.orgId,
+        actor_id=payload.userId,
+        properties={
+            "runId": updated_run.get("id"),
+            "exceptions": len(exception_rows),
+            "durationSeconds": duration_seconds,
+        },
+        tags=[payload.kind.value],
     )
 
     manifest = build_manifest(

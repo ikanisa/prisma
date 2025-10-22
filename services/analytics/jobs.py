@@ -9,8 +9,10 @@ from typing import Any, Optional
 import httpx
 from opentelemetry import trace
 import sentry_sdk
+from analytics import AnalyticsHttpClient
 
 tracer = trace.get_tracer(__name__)
+analytics_client = AnalyticsHttpClient()
 
 def _coerce_positive_int(raw: Optional[str], default: int) -> int:
     try:
@@ -31,6 +33,15 @@ async def log_agent_action(action: str, detail: str, metadata: Optional[dict[str
 
     payload = {"action": action, "detail": detail, "metadata": metadata or {}}
     print(json.dumps({"level": "info", "msg": "analytics.job", **payload}))
+    await analytics_client.record_event(
+        {
+            "event": f"analytics.job.{action}",
+            "service": "analytics-jobs",
+            "source": "analytics.scheduler",
+            "properties": payload,
+            "tags": ["job"],
+        }
+    )
 
 
 async def log_error(action: str, exc: Exception, metadata: Optional[dict[str, Any]] = None) -> None:
@@ -45,6 +56,15 @@ async def log_error(action: str, exc: Exception, metadata: Optional[dict[str, An
         "metadata": metadata or {},
     }
     print(json.dumps(error_payload))
+    await analytics_client.record_event(
+        {
+            "event": f"analytics.job_error.{action}",
+            "service": "analytics-jobs",
+            "source": "analytics.scheduler",
+            "properties": error_payload,
+            "tags": ["job", "error"],
+        }
+    )
 
 
 async def reembed_job() -> None:
