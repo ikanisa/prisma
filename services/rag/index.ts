@@ -77,7 +77,7 @@ import {
 } from './approval-service';
 import { createOpenAiDebugLogger } from './openai-debug';
 import { getOpenAIClient } from '../../lib/openai/client';
-import type OpenAI from 'openai';
+import { runOpenAiFileSearch } from '../../lib/openai/file-search';
 import { readOpenAiWorkloadEnv } from '../../lib/openai/workloads';
 import {
   syncAgentToolsFromRegistry,
@@ -2346,9 +2346,31 @@ const OPENAI_WEB_SEARCH_ENABLED =
   (process.env.OPENAI_WEB_SEARCH_ENABLED ?? 'false').toLowerCase() === 'true';
 const OPENAI_WEB_SEARCH_MODEL = process.env.OPENAI_WEB_SEARCH_MODEL ?? 'gpt-4.1-mini';
 const OPENAI_SUMMARY_MODEL = process.env.OPENAI_SUMMARY_MODEL ?? OPENAI_WEB_SEARCH_MODEL;
-const DOMAIN_TOOL_AGENT_KEYS = new Set(['brokerageEnablement', 'callerMarketing', 'mobilityOps']);
-const DOMAIN_TOOL_MODEL = process.env.DOMAIN_TOOL_MODEL ?? 'gpt-5';
-const DOMAIN_IMAGE_MODEL = process.env.DOMAIN_IMAGE_MODEL ?? DOMAIN_TOOL_MODEL;
+const OPENAI_FILE_SEARCH_VECTOR_STORE_ID = process.env.OPENAI_FILE_SEARCH_VECTOR_STORE_ID?.trim() ?? null;
+const OPENAI_FILE_SEARCH_MODEL =
+  process.env.OPENAI_FILE_SEARCH_MODEL?.trim() ?? process.env.AGENT_MODEL?.trim() ?? 'gpt-4.1-mini';
+const rawFileSearchMaxResults = Number(process.env.OPENAI_FILE_SEARCH_MAX_RESULTS);
+const OPENAI_FILE_SEARCH_MAX_RESULTS =
+  Number.isFinite(rawFileSearchMaxResults) && rawFileSearchMaxResults > 0
+    ? Math.floor(rawFileSearchMaxResults)
+    : null;
+const OPENAI_FILE_SEARCH_INCLUDE_RESULTS =
+  parseBooleanFlag(process.env.OPENAI_FILE_SEARCH_INCLUDE_RESULTS) ?? true;
+
+let OPENAI_FILE_SEARCH_FILTERS: Record<string, unknown> | undefined;
+const rawFileSearchFilters = process.env.OPENAI_FILE_SEARCH_FILTERS?.trim();
+if (rawFileSearchFilters) {
+  try {
+    const parsedFilters = JSON.parse(rawFileSearchFilters);
+    if (parsedFilters && typeof parsedFilters === 'object') {
+      OPENAI_FILE_SEARCH_FILTERS = parsedFilters as Record<string, unknown>;
+    } else {
+      throw new Error('OPENAI_FILE_SEARCH_FILTERS must be a JSON object');
+    }
+  } catch (error) {
+    logError('openai.file_search_filter_parse_failed', error, {});
+  }
+}
 
 const WEB_FETCH_CACHE_RETENTION_DAYS = (() => {
   const raw = Number(process.env.WEB_FETCH_CACHE_RETENTION_DAYS ?? '14');
@@ -5216,8 +5238,62 @@ function buildToolDefinitions() {
 }
 
 async function performRagSearch(orgId: string, queryInput: string, topK = 6) {
-  const { vectors } = await embed([queryInput]);
-  const [embedding] = vectors;
+  if (OPENAI_FILE_SEARCH_VECTOR_STORE_ID) {
+    try {
+      const requestedTopK = Number.isFinite(topK) && topK > 0 ? Math.floor(topK) : 6;
+      const cappedTopK = OPENAI_FILE_SEARCH_MAX_RESULTS
+        ? Math.max(1, Math.min(requestedTopK, OPENAI_FILE_SEARCH_MAX_RESULTS))
+        : Math.max(1, requestedTopK);
+
+      const fileSearchResult = await runOpenAiFileSearch({
+        client: openai,
+        query: queryInput,
+        vectorStoreId: OPENAI_FILE_SEARCH_VECTOR_STORE_ID,
+        model: OPENAI_FILE_SEARCH_MODEL,
+        topK: cappedTopK,
+        filters: OPENAI_FILE_SEARCH_FILTERS,
+        includeResults: OPENAI_FILE_SEARCH_INCLUDE_RESULTS,
+      });
+
+      await logOpenAIDebugEvent({
+        endpoint: 'responses.create',
+        response: fileSearchResult.rawResponse as any,
+        requestPayload: {
+          query: queryInput,
+          vector_store_id: OPENAI_FILE_SEARCH_VECTOR_STORE_ID,
+          topK: cappedTopK,
+          filters: OPENAI_FILE_SEARCH_FILTERS ?? null,
+          include_results: OPENAI_FILE_SEARCH_INCLUDE_RESULTS,
+        },
+        metadata: { scope: 'rag_file_search' },
+        orgId,
+      });
+
+      if (fileSearchResult.items.length > 0) {
+        const results = fileSearchResult.items.map((item) => ({
+          text: item.text,
+          score: item.score,
+          citation: item.citation,
+        }));
+
+        return {
+          output: JSON.stringify({ results }),
+          citations: results.map((result) => ({
+            documentId: result.citation.documentId,
+            chunkIndex: result.citation.chunkIndex,
+            source: result.citation.source ?? result.citation.filename ?? result.citation.url ?? null,
+            fileId: result.citation.fileId ?? null,
+            filename: result.citation.filename ?? null,
+            url: result.citation.url ?? null,
+          })),
+        };
+      }
+    } catch (error) {
+      logError('rag.file_search_failed', error, { orgId });
+    }
+  }
+
+  const [embedding] = await embed([queryInput]);
   const { rows } = await db.query(
     'SELECT doc_id, chunk_index, content, source, embedding <-> $1 AS distance FROM document_chunks WHERE org_id = $2 ORDER BY embedding <-> $1 LIMIT $3',
     [vector(embedding), orgId, topK]
@@ -9307,33 +9383,38 @@ app.post('/v1/rag/search', async (req: AuthenticatedRequest, res) => {
       throw err;
     }
 
-    const cacheKey = `search:${orgContext.orgId}:${limit}:${query}`;
+    const numericLimit = Math.max(1, Math.min(12, Number(limit ?? 5)));
+
+    const cacheKey = `search:${orgContext.orgId}:${numericLimit}:${query}`;
     const cached = cache.get(cacheKey);
     if (cached) {
       logInfo('search.cache_hit', { userId, orgId: orgContext.orgId, query });
       return res.json(cached);
     }
 
-    const { vectors: queryVectors } = await embed([query]);
-    const [queryEmbedding] = queryVectors;
-    const { rows } = await db.query(
-      'SELECT doc_id, chunk_index, content, source, embedding <-> $1 AS distance FROM document_chunks WHERE org_id = $2 ORDER BY embedding <-> $1 LIMIT $3',
-      [vector(queryEmbedding), orgContext.orgId, limit]
-    );
+    const ragResult = await performRagSearch(orgContext.orgId, query, numericLimit);
+    let parsedResults: Array<Record<string, unknown>> = [];
 
-    const results = rows.map((r: any) => ({
-      text: r.content,
-      score: 1 - Number(r.distance),
-      citation: { documentId: r.doc_id, chunkIndex: r.chunk_index, source: r.source },
-    }));
+    try {
+      const parsed = ragResult?.output ? JSON.parse(ragResult.output) : null;
+      if (parsed && typeof parsed === 'object' && Array.isArray((parsed as any).results)) {
+        parsedResults = (parsed as any).results as Array<Record<string, unknown>>;
+      }
+    } catch (error) {
+      logError('search.result_parse_failed', error, { orgId: orgContext.orgId });
+    }
 
-    const response = { results };
+    if (!parsedResults.length) {
+      parsedResults = [];
+    }
+
+    const response = { results: parsedResults };
     cache.set(cacheKey, response);
     logInfo('search.complete', {
       userId,
       orgId: orgContext.orgId,
       query,
-      results: results.length,
+      results: parsedResults.length,
     });
     res.json(response);
   } catch (err) {
