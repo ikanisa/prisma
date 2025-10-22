@@ -10,6 +10,13 @@ let cachedKey: string | null = null;
 let cachedUrl: string | null = null;
 
 export async function getServiceSupabaseClient(): Promise<SupabaseClient> {
+  if (env.SUPABASE_ALLOW_STUB) {
+    if (!cachedClient) {
+      cachedClient = createSupabaseStub();
+    }
+    return cachedClient;
+  }
+
   const url = env.SUPABASE_URL ?? env.NEXT_PUBLIC_SUPABASE_URL;
   if (!url) {
     if (!cachedClient) {
