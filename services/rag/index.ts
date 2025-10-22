@@ -1,5 +1,5 @@
 /* eslint-env node */
-import './env.js';
+import { env } from './env.js';
 import express, { type NextFunction, type Request, type Response } from 'express';
 import multer from 'multer';
 import pdfParse from 'pdf-parse';
@@ -21,6 +21,14 @@ import { registerInstrumentations } from '@opentelemetry/instrumentation';
 import { HttpInstrumentation } from '@opentelemetry/instrumentation-http';
 import { ExpressInstrumentation } from '@opentelemetry/instrumentation-express';
 import { createClient } from '@supabase/supabase-js';
+import type {
+  ChatCompletionChunk,
+  ChatCompletionCreateParamsNonStreaming,
+  ChatCompletionCreateParamsStreaming,
+  ChatCompletionListParams,
+  ChatCompletionUpdateParams,
+} from 'openai/resources/chat/completions';
+import type { MessageListParams } from 'openai/resources/chat/completions/messages';
 import { getSignedUrlTTL } from '../../lib/security/signed-url-policy';
 import {
   scheduleLearningRun,
@@ -79,9 +87,27 @@ import {
   createAgentRun,
 } from './openai-agent-service';
 import { streamOpenAiResponse } from './openai-stream';
+import {
+  createConversationItems,
+  deleteConversation,
+  getConversation,
+  listConversationItems,
+  listConversations,
+  type ConversationItemInput,
+} from './openai-conversations';
+import { AgentConversationRecorder } from './agent-conversation-recorder';
 import { createRealtimeSession, getRealtimeTurnServers } from './openai-realtime';
 import { generateSoraVideo } from './openai-media';
 import { transcribeAudioBuffer, synthesizeSpeech } from './openai-audio';
+import {
+  createChatCompletion,
+  deleteChatCompletion,
+  listChatCompletionMessages,
+  listChatCompletions,
+  retrieveChatCompletion,
+  streamChatCompletion,
+  updateChatCompletion,
+} from './openai-chat-completions';
 import { directorAgent as legacyDirectorAgent } from '../agents/director';
 import { DOMAIN_AGENT_LIST } from '../agents/domain-agents';
 import type { OrchestratorContext } from '../agents/types';
@@ -155,6 +181,8 @@ if (SENTRY_ENABLED) {
   });
 }
 
+type Primitive = string | number | boolean | null;
+
 const WEB_DOMAIN_MAP: Record<string, { corpusDomain: string; agentKind: AgentPersona }> = {
   IFRS: { corpusDomain: 'IFRS', agentKind: 'FINANCE' },
   IAS: { corpusDomain: 'IAS', agentKind: 'FINANCE' },
@@ -169,6 +197,20 @@ const WEB_DOMAIN_MAP: Record<string, { corpusDomain: string; agentKind: AgentPer
 };
 
 const WEB_HARVEST_INTERVAL_MS = Number(process.env.WEB_HARVEST_INTERVAL_MS ?? 60 * 60 * 1000);
+
+function resolveHeartbeatInterval(defaultValue: number): number {
+  const raw = process.env.CHAT_COMPLETIONS_STREAM_HEARTBEAT_INTERVAL_MS;
+  if (raw === undefined || raw === null || raw === '') {
+    return defaultValue;
+  }
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    return defaultValue;
+  }
+  return parsed;
+}
+
+const CHAT_COMPLETIONS_STREAM_HEARTBEAT_INTERVAL_MS = resolveHeartbeatInterval(15_000);
 let webBootstrapRunning = false;
 
 type RobotsRules = { allow: string[]; disallow: string[] };
@@ -651,6 +693,10 @@ app.use((req: AuthenticatedRequest, res: Response, next: NextFunction) => {
 const JWT_SECRET = await getSupabaseJwtSecret();
 const JWT_AUDIENCE = process.env.SUPABASE_JWT_AUDIENCE ?? 'authenticated';
 const RATE_LIMIT_ALERT_WEBHOOK = process.env.RATE_LIMIT_ALERT_WEBHOOK ?? process.env.ERROR_NOTIFY_WEBHOOK ?? '';
+const TELEMETRY_ALERT_WEBHOOK =
+  env.TELEMETRY_ALERT_WEBHOOK ?? process.env.TELEMETRY_ALERT_WEBHOOK ?? process.env.ERROR_NOTIFY_WEBHOOK ?? '';
+const EMBEDDING_ALERT_WEBHOOK =
+  env.EMBEDDING_ALERT_WEBHOOK ?? process.env.EMBEDDING_ALERT_WEBHOOK ?? TELEMETRY_ALERT_WEBHOOK;
 
 if (!JWT_SECRET) {
   throw new Error('SUPABASE_JWT_SECRET must be set to secure the RAG service.');
@@ -726,6 +772,11 @@ type AgentTypeKey = 'CLOSE' | 'TAX' | 'AUDIT' | 'ADVISORY' | 'CLIENT';
 const ENFORCE_CITATIONS = getFeatureFlag('FEATURE_ENFORCE_CITATIONS', true);
 const SUPPORTED_AGENT_TYPES = new Set<AgentTypeKey>(['CLOSE', 'TAX', 'AUDIT', 'ADVISORY', 'CLIENT']);
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+const EMBEDDING_CRON_SECRET = env.EMBEDDING_CRON_SECRET ?? '';
+const EMBEDDING_DELTA_LOOKBACK_HOURS = env.EMBEDDING_DELTA_LOOKBACK_HOURS;
+const EMBEDDING_DELTA_DOCUMENT_LIMIT = env.EMBEDDING_DELTA_DOCUMENT_LIMIT;
+const EMBEDDING_DELTA_POLICY_LIMIT = env.EMBEDDING_DELTA_POLICY_LIMIT;
 
 function formatDateKey(date: Date): string {
   const year = date.getUTCFullYear();
@@ -2415,6 +2466,109 @@ async function notifyRateLimitBreach(meta: { userId: string; path: string; orgSl
   }).catch((error) => logError('alerts.rate_limit_webhook_failed', error, context));
 }
 
+async function notifyEmbeddingDeltaResult(payload: {
+  summary?: DeltaEmbeddingSummary;
+  error?: unknown;
+  initiatedBy: string;
+  targetOrgIds?: string[];
+}): Promise<void> {
+  const { summary, error, initiatedBy } = payload;
+  const actor = initiatedBy || 'embedding-cron';
+  const targetOrgIds = payload.targetOrgIds ?? summary?.targetOrgIds ?? [];
+
+  const severity = error
+    ? 'CRITICAL'
+    : summary && (summary.refusals > 0 || summary.reviews > 0)
+    ? 'WARNING'
+    : 'INFO';
+  const alertType = error ? 'EMBEDDING_DELTA_FAILED' : 'EMBEDDING_DELTA_COMPLETE';
+
+  const failureCount = summary?.failures.length ?? 0;
+  const baseMessage = error
+    ? `Delta embeddings job failed (${actor})`
+    : `Delta embeddings job completed (${summary?.lookbackWindowHours ?? 0}h window by ${actor})`;
+  const message = error
+    ? `${baseMessage}: ${error instanceof Error ? error.message : String(error)}`
+    : `${baseMessage}: ${summary?.documentsEmbedded ?? 0} documents, ${summary?.policiesEmbedded ?? 0} policies, ${failureCount} failures.`;
+
+  const context: Record<string, unknown> = {
+    actor,
+    targetOrgIds,
+  };
+
+  if (summary) {
+    context.summary = {
+      lookbackWindowHours: summary.lookbackWindowHours,
+      organizationsScanned: summary.organizationsScanned,
+      organizationsUpdated: summary.organizationsUpdated,
+      documentsEmbedded: summary.documentsEmbedded,
+      policiesEmbedded: summary.policiesEmbedded,
+      chunksEmbedded: summary.chunksEmbedded,
+      skippedDocuments: summary.skippedDocuments,
+      skippedPolicies: summary.skippedPolicies,
+      approvals: summary.approvals,
+      reviews: summary.reviews,
+      refusals: summary.refusals,
+      tokensConsumed: summary.tokensConsumed,
+      organizationBreakdown: summary.organizationBreakdown.map((org) => ({
+        orgId: org.orgId,
+        orgSlug: org.orgSlug,
+        documentsEmbedded: org.documentsEmbedded,
+        policiesEmbedded: org.policiesEmbedded,
+        approvals: org.approvals,
+        reviews: org.reviews,
+        refusals: org.refusals,
+        skippedDocuments: org.skippedDocuments,
+        skippedPolicies: org.skippedPolicies,
+      })),
+      failures: summary.failures.slice(0, 10),
+    };
+  }
+
+  if (error) {
+    context.error = error instanceof Error ? error.message : String(error);
+  }
+
+  await supabaseService
+    .from('telemetry_alerts')
+    .insert({
+      alert_type: alertType,
+      severity,
+      message,
+      context,
+    })
+    .catch((err) => logError('alerts.embedding_delta_insert_failed', err, { severity, actor }));
+
+  if (!EMBEDDING_ALERT_WEBHOOK) {
+    return;
+  }
+
+  const emoji = error ? '❌' : severity === 'WARNING' ? '⚠️' : '✅';
+  const headline = summary
+    ? `${emoji} Delta embeddings (${summary.lookbackWindowHours}h) by ${actor}`
+    : `${emoji} Delta embeddings job update for ${actor}`;
+  const totalsLine = summary
+    ? `${summary.documentsEmbedded} docs · ${summary.policiesEmbedded} policies · ${failureCount} failures`
+    : null;
+  const breakdownLine = summary
+    ? summary.organizationBreakdown
+        .slice(0, 3)
+        .map((org) =>
+          `${org.orgSlug ?? org.orgId}: ${org.documentsEmbedded + org.policiesEmbedded} updates / ${org.refusals} refusals`,
+        )
+        .join(' • ')
+    : null;
+  const errorLine = error ? (error instanceof Error ? error.message : String(error)) : null;
+
+  const text = [headline, totalsLine, breakdownLine, errorLine].filter(Boolean).join('\n');
+
+  await fetch(EMBEDDING_ALERT_WEBHOOK, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text }),
+  }).catch((err) => logError('alerts.embedding_delta_webhook_failed', err, { severity, actor }));
+}
+
 async function ensureDocumentsBucket() {
   const { data: bucket } = await supabaseService.storage.getBucket('documents');
   if (!bucket) {
@@ -2530,6 +2684,78 @@ app.post(['/v1/observability/dry-run'], (req, res) => {
   if (!allow) return res.status(404).json({ error: 'not_found' });
   const rid = req.headers['x-request-id'] || null;
   throw new Error(`sentry_dry_run_triggered request_id=${rid}`);
+});
+
+app.post('/internal/knowledge/embeddings/reembed-delta', async (req, res) => {
+  let actor = 'embedding-cron';
+  let targetOrgIds: string[] = [];
+  try {
+    if (!EMBEDDING_CRON_SECRET) {
+      return res.status(503).json({ error: 'delta_embedding_job_disabled' });
+    }
+
+    const headerSecret = req.header('x-embedding-cron-secret');
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const bodySecret = typeof body.secret === 'string' ? body.secret : null;
+    const providedSecret = headerSecret ?? bodySecret;
+
+    if (providedSecret !== EMBEDDING_CRON_SECRET) {
+      logError('embeddings.delta_auth_failed', new Error('invalid cron secret'), { provided: Boolean(providedSecret) });
+      return res.status(401).json({ error: 'unauthorised' });
+    }
+
+    const lookbackHours = typeof body.lookbackHours === 'number' && Number.isFinite(body.lookbackHours)
+      ? Math.max(1, Math.floor(body.lookbackHours))
+      : EMBEDDING_DELTA_LOOKBACK_HOURS;
+    const documentLimit = typeof body.documentLimit === 'number' && Number.isFinite(body.documentLimit)
+      ? Math.max(1, Math.floor(body.documentLimit))
+      : EMBEDDING_DELTA_DOCUMENT_LIMIT;
+    const policyLimit = typeof body.policyLimit === 'number' && Number.isFinite(body.policyLimit)
+      ? Math.max(1, Math.floor(body.policyLimit))
+      : EMBEDDING_DELTA_POLICY_LIMIT;
+    actor = typeof body.actor === 'string' && body.actor.trim().length > 0 ? body.actor.trim() : 'embedding-cron';
+
+    const orgIdCandidates: string[] = [];
+    if (typeof body.orgId === 'string' && body.orgId.trim().length > 0) {
+      orgIdCandidates.push(body.orgId.trim());
+    }
+    if (Array.isArray(body.orgIds)) {
+      for (const value of body.orgIds) {
+        if (typeof value === 'string' && value.trim().length > 0) {
+          orgIdCandidates.push(value.trim());
+        }
+      }
+    }
+    targetOrgIds = Array.from(new Set(orgIdCandidates));
+
+    logInfo('embeddings.delta_job_start', {
+      lookbackHours,
+      documentLimit,
+      policyLimit,
+      actor,
+      targetOrgIds,
+    });
+
+    const summary = await reembedDeltaEmbeddings({
+      lookbackHours,
+      documentLimit,
+      policyLimit,
+      initiatedBy: actor,
+      orgIds: targetOrgIds.length > 0 ? targetOrgIds : undefined,
+    });
+
+    logInfo('embeddings.delta_job_complete', summary);
+    await notifyEmbeddingDeltaResult({ summary, initiatedBy: actor, targetOrgIds }).catch((error) =>
+      logError('alerts.embedding_delta_notify_failed', error, { actor }),
+    );
+    res.json(summary);
+  } catch (error) {
+    logError('embeddings.delta_job_failed', error, { actor, targetOrgIds });
+    await notifyEmbeddingDeltaResult({ error, initiatedBy: actor, targetOrgIds }).catch((notifyError) =>
+      logError('alerts.embedding_delta_notify_failed', notifyError, { actor }),
+    );
+    res.status(500).json({ error: 'delta_job_failed' });
+  }
 });
 
 app.use(authenticate);
@@ -2914,7 +3140,50 @@ function chunkText(text: string, size = 500): string[] {
   return chunks;
 }
 
-async function embed(texts: string[]): Promise<number[][]> {
+type EmbeddingTelemetryDecision = 'APPROVED' | 'REVIEW' | 'REFUSED';
+
+interface EmbeddingTelemetryEvent {
+  orgId: string;
+  scenario: string;
+  decision: EmbeddingTelemetryDecision;
+  metrics: Record<string, unknown>;
+  actor?: string | null;
+}
+
+async function recordEmbeddingTelemetry(event: EmbeddingTelemetryEvent): Promise<void> {
+  try {
+    await supabaseService.from('autonomy_telemetry_events').insert({
+      org_id: event.orgId,
+      module: 'knowledge_embeddings',
+      scenario: event.scenario,
+      decision: event.decision,
+      metrics: {
+        ...event.metrics,
+        recorded_at: new Date().toISOString(),
+      },
+      actor: event.actor ?? null,
+    });
+  } catch (error) {
+    logError('telemetry.embedding_log_failed', error, {
+      orgId: event.orgId,
+      scenario: event.scenario,
+      decision: event.decision,
+    });
+  }
+}
+
+type EmbedUsage = {
+  prompt_tokens?: number;
+  total_tokens?: number;
+};
+
+type EmbedResult = {
+  vectors: number[][];
+  usage: EmbedUsage;
+  model: string;
+};
+
+async function embed(texts: string[]): Promise<EmbedResult> {
   const res = await openai.embeddings.create({
     model: 'text-embedding-3-small',
     input: texts,
@@ -2924,7 +3193,761 @@ async function embed(texts: string[]): Promise<number[][]> {
     response: res as any,
     requestPayload: { size: texts.length, model: 'text-embedding-3-small' },
   });
-  return res.data.map((d) => d.embedding);
+  return {
+    vectors: res.data.map((d) => d.embedding),
+    usage: res.usage ?? {},
+    model: res.model,
+  };
+}
+
+interface BackfillSummary {
+  documentsProcessed: number;
+  policyVersionsProcessed: number;
+  chunksEmbedded: number;
+  tokensConsumed: number;
+  skippedDocuments: number;
+  skippedPolicies: number;
+  failures: { target: string; reason: string }[];
+}
+
+async function fetchDocumentsMissingEmbeddings(orgId: string, limit: number) {
+  const { rows } = await db.query(
+    `SELECT id, name, file_path, file_type, file_size, created_at
+       FROM documents
+      WHERE org_id = $1
+        AND file_path IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1 FROM document_chunks WHERE document_chunks.doc_id = documents.id
+        )
+      ORDER BY created_at ASC
+      LIMIT $2`,
+    [orgId, limit],
+  );
+  return rows as Array<{
+    id: string;
+    name: string;
+    file_path: string;
+    file_type: string | null;
+    file_size: number | null;
+  }>;
+}
+
+async function fetchDocumentsNeedingDelta(orgId: string, windowStart: Date, limit: number) {
+  const { rows } = await db.query(
+    `SELECT d.id,
+            d.name,
+            d.file_path,
+            d.file_type,
+            d.file_size,
+            COALESCE(d.created_at, now()) AS created_at,
+            MAX(c.last_embedded_at) AS last_embedded_at
+       FROM documents d
+  LEFT JOIN document_chunks c ON c.doc_id = d.id
+      WHERE d.org_id = $1
+        AND d.file_path IS NOT NULL
+        AND COALESCE(d.created_at, now()) >= $2
+   GROUP BY d.id
+     HAVING MAX(c.last_embedded_at) IS NULL OR MAX(c.last_embedded_at) < COALESCE(d.created_at, now())
+   ORDER BY COALESCE(d.created_at, now()) ASC
+      LIMIT $3`,
+    [orgId, windowStart.toISOString(), limit],
+  );
+
+  return rows as Array<{
+    id: string;
+    name: string;
+    file_path: string;
+    file_type: string | null;
+    file_size: number | null;
+  }>;
+}
+
+async function fetchPolicyVersionsNeedingDelta(orgId: string, windowStart: Date, limit: number) {
+  const { rows } = await db.query(
+    `SELECT pv.id,
+            pv.version,
+            pv.status,
+            pv.summary,
+            pv.diff,
+            COALESCE(pv.updated_at, pv.created_at, now()) AS modified_at,
+            MAX(dc.last_embedded_at) AS last_embedded_at
+       FROM agent_policy_versions pv
+  LEFT JOIN document_chunks dc
+         ON dc.org_id = pv.org_id AND dc.source = 'policy:' || pv.id::text
+      WHERE pv.org_id = $1
+        AND COALESCE(pv.updated_at, pv.created_at, now()) >= $2
+   GROUP BY pv.id
+     HAVING MAX(dc.last_embedded_at) IS NULL OR MAX(dc.last_embedded_at) < COALESCE(pv.updated_at, pv.created_at, now())
+   ORDER BY COALESCE(pv.updated_at, pv.created_at, now()) ASC
+      LIMIT $3`,
+    [orgId, windowStart.toISOString(), limit],
+  );
+
+  return rows as Array<{
+    id: string;
+    version: number;
+    status: string;
+    summary: string | null;
+    diff: unknown;
+  }>;
+}
+
+async function hasExistingPolicyEmbeddings(orgId: string, policyId: string) {
+  const sourceKey = `policy:${policyId}`;
+  const { rows } = await db.query(
+    'SELECT 1 FROM document_chunks WHERE org_id = $1 AND source = $2 LIMIT 1',
+    [orgId, sourceKey],
+  );
+  return rows.length > 0;
+}
+
+type DeltaOrgResult = {
+  documentsEmbedded: number;
+  policiesEmbedded: number;
+  chunksEmbedded: number;
+  tokensConsumed: number;
+  skippedDocuments: number;
+  skippedPolicies: number;
+  approvals: number;
+  reviews: number;
+  refusals: number;
+  failures: { target: string; reason: string; orgId?: string }[];
+};
+
+type DeltaOrgBreakdown = Omit<DeltaOrgResult, 'failures'> & {
+  orgId: string;
+  orgSlug: string;
+};
+
+type DeltaEmbeddingSummary = DeltaOrgResult & {
+  lookbackWindowHours: number;
+  organizationsScanned: number;
+  organizationsUpdated: number;
+  targetOrgIds: string[];
+  organizationBreakdown: DeltaOrgBreakdown[];
+};
+
+async function reembedDeltaForOrg(options: {
+  orgId: string;
+  orgSlug: string;
+  windowStart: Date;
+  documentLimit: number;
+  policyLimit: number;
+  initiatedBy: string;
+}): Promise<DeltaOrgResult> {
+  const orgSummary: DeltaOrgResult = {
+    documentsEmbedded: 0,
+    policiesEmbedded: 0,
+    chunksEmbedded: 0,
+    tokensConsumed: 0,
+    skippedDocuments: 0,
+    skippedPolicies: 0,
+    approvals: 0,
+    reviews: 0,
+    refusals: 0,
+    failures: [],
+  };
+
+  const documents = await fetchDocumentsNeedingDelta(options.orgId, options.windowStart, options.documentLimit);
+
+  for (const document of documents) {
+    try {
+      const download = await supabaseService.storage.from('documents').download(document.file_path);
+      if (download.error || !download.data) {
+        orgSummary.skippedDocuments += 1;
+        orgSummary.reviews += 1;
+        const reason = download.error?.message ?? 'document_download_failed';
+        orgSummary.failures.push({ target: `document:${document.id}`, reason, orgId: options.orgId });
+        await recordEmbeddingTelemetry({
+          orgId: options.orgId,
+          scenario: 'document_delta',
+          decision: 'REVIEW',
+          metrics: {
+            documentId: document.id,
+            reason,
+            lookbackHours: options.lookbackHours,
+            delta: true,
+          },
+          actor: options.initiatedBy,
+        });
+        continue;
+      }
+
+      const arrayBuffer = await download.data.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+      const text = await extractText(buffer, document.file_type ?? 'application/octet-stream');
+      const trimmed = text.trim();
+      if (!trimmed) {
+        orgSummary.skippedDocuments += 1;
+        orgSummary.reviews += 1;
+        orgSummary.failures.push({ target: `document:${document.id}`, reason: 'no_text_content', orgId: options.orgId });
+        await recordEmbeddingTelemetry({
+          orgId: options.orgId,
+          scenario: 'document_delta',
+          decision: 'REVIEW',
+          metrics: {
+            documentId: document.id,
+            reason: 'no_text_content',
+            lookbackHours: options.lookbackHours,
+            delta: true,
+          },
+          actor: options.initiatedBy,
+        });
+        continue;
+      }
+
+      const chunks = chunkText(trimmed);
+      if (!chunks.length) {
+        orgSummary.skippedDocuments += 1;
+        orgSummary.reviews += 1;
+        orgSummary.failures.push({ target: `document:${document.id}`, reason: 'no_chunks_generated', orgId: options.orgId });
+        await recordEmbeddingTelemetry({
+          orgId: options.orgId,
+          scenario: 'document_delta',
+          decision: 'REVIEW',
+          metrics: {
+            documentId: document.id,
+            reason: 'no_chunks_generated',
+            lookbackHours: options.lookbackHours,
+            delta: true,
+          },
+          actor: options.initiatedBy,
+        });
+        continue;
+      }
+
+      const { vectors, usage, model } = await embed(chunks);
+
+      await db.query('BEGIN');
+      await db.query('DELETE FROM document_chunks WHERE org_id = $1 AND doc_id = $2', [options.orgId, document.id]);
+      const insertSql =
+        'INSERT INTO document_chunks(org_id, doc_id, chunk_index, content, embedding, source, last_embedded_at) VALUES ($1,$2,$3,$4,$5,$6,now())';
+      for (let i = 0; i < chunks.length; i += 1) {
+        await db.query(insertSql, [
+          options.orgId,
+          document.id,
+          i,
+          chunks[i],
+          vector(vectors[i]),
+          `document:${document.id}`,
+        ]);
+      }
+      await db.query('COMMIT');
+
+      orgSummary.documentsEmbedded += 1;
+      orgSummary.chunksEmbedded += chunks.length;
+      orgSummary.tokensConsumed += usage.total_tokens ?? 0;
+      orgSummary.approvals += 1;
+
+      await recordEmbeddingTelemetry({
+        orgId: options.orgId,
+        scenario: 'document_delta',
+        decision: 'APPROVED',
+        metrics: {
+          documentId: document.id,
+          chunkCount: chunks.length,
+          tokens: usage.total_tokens ?? 0,
+          promptTokens: usage.prompt_tokens ?? 0,
+          model,
+          lookbackHours: options.lookbackHours,
+          delta: true,
+        },
+        actor: options.initiatedBy,
+      });
+    } catch (error) {
+      await db.query('ROLLBACK').catch(() => undefined);
+      const message = error instanceof Error ? error.message : String(error);
+      orgSummary.failures.push({ target: `document:${document.id}`, reason: message, orgId: options.orgId });
+      orgSummary.refusals += 1;
+      await recordEmbeddingTelemetry({
+        orgId: options.orgId,
+        scenario: 'document_delta',
+        decision: 'REFUSED',
+        metrics: {
+          documentId: document.id,
+          error: message,
+          lookbackHours: options.lookbackHours,
+          delta: true,
+        },
+        actor: options.initiatedBy,
+      }).catch(() => undefined);
+    }
+  }
+
+  const policies = await fetchPolicyVersionsNeedingDelta(options.orgId, options.windowStart, options.policyLimit);
+
+  for (const policy of policies) {
+    try {
+      const policyText = buildPolicyText({
+        version: policy.version ?? 0,
+        status: policy.status ?? 'unknown',
+        summary: policy.summary ?? null,
+        diff: policy.diff ?? null,
+      });
+
+      if (!policyText) {
+        orgSummary.skippedPolicies += 1;
+        orgSummary.reviews += 1;
+        await recordEmbeddingTelemetry({
+          orgId: options.orgId,
+          scenario: 'policy_delta',
+          decision: 'REVIEW',
+          metrics: {
+            policyVersionId: policy.id,
+            reason: 'no_content',
+            lookbackHours: options.lookbackHours,
+            delta: true,
+          },
+          actor: options.initiatedBy,
+        });
+        continue;
+      }
+
+      const chunks = chunkText(policyText, 700);
+      if (!chunks.length) {
+        orgSummary.skippedPolicies += 1;
+        orgSummary.reviews += 1;
+        await recordEmbeddingTelemetry({
+          orgId: options.orgId,
+          scenario: 'policy_delta',
+          decision: 'REVIEW',
+          metrics: {
+            policyVersionId: policy.id,
+            reason: 'no_chunks_generated',
+            lookbackHours: options.lookbackHours,
+            delta: true,
+          },
+          actor: options.initiatedBy,
+        });
+        continue;
+      }
+
+      const { vectors, usage, model } = await embed(chunks);
+      const sourceKey = `policy:${policy.id}`;
+
+      await db.query('BEGIN');
+      await db.query('DELETE FROM document_chunks WHERE org_id = $1 AND source = $2', [options.orgId, sourceKey]);
+      const insertSql =
+        'INSERT INTO document_chunks(org_id, doc_id, chunk_index, content, embedding, source, last_embedded_at) VALUES ($1,$2,$3,$4,$5,$6,now())';
+      for (let i = 0; i < chunks.length; i += 1) {
+        await db.query(insertSql, [
+          options.orgId,
+          policy.id,
+          i,
+          chunks[i],
+          vector(vectors[i]),
+          sourceKey,
+        ]);
+      }
+      await db.query('COMMIT');
+
+      orgSummary.policiesEmbedded += 1;
+      orgSummary.chunksEmbedded += chunks.length;
+      orgSummary.tokensConsumed += usage.total_tokens ?? 0;
+      orgSummary.approvals += 1;
+
+      await recordEmbeddingTelemetry({
+        orgId: options.orgId,
+        scenario: 'policy_delta',
+        decision: 'APPROVED',
+        metrics: {
+          policyVersionId: policy.id,
+          chunkCount: chunks.length,
+          tokens: usage.total_tokens ?? 0,
+          promptTokens: usage.prompt_tokens ?? 0,
+          model,
+          lookbackHours: options.lookbackHours,
+          delta: true,
+        },
+        actor: options.initiatedBy,
+      });
+    } catch (error) {
+      await db.query('ROLLBACK').catch(() => undefined);
+      const message = error instanceof Error ? error.message : String(error);
+      orgSummary.failures.push({ target: `policy:${policy.id}`, reason: message, orgId: options.orgId });
+      orgSummary.refusals += 1;
+      await recordEmbeddingTelemetry({
+        orgId: options.orgId,
+        scenario: 'policy_delta',
+        decision: 'REFUSED',
+        metrics: {
+          policyVersionId: policy.id,
+          error: message,
+          lookbackHours: options.lookbackHours,
+          delta: true,
+        },
+        actor: options.initiatedBy,
+      }).catch(() => undefined);
+    }
+  }
+
+  return orgSummary;
+}
+
+async function reembedDeltaEmbeddings(options: {
+  lookbackHours: number;
+  documentLimit: number;
+  policyLimit: number;
+  initiatedBy: string;
+  orgIds?: string[];
+}): Promise<DeltaEmbeddingSummary> {
+  const windowStart = new Date(Date.now() - options.lookbackHours * 60 * 60 * 1000);
+  const requestedOrgIds = options.orgIds && options.orgIds.length > 0 ? Array.from(new Set(options.orgIds)) : undefined;
+
+  let orgQuery = supabaseService
+    .from('organizations')
+    .select('id, slug')
+    .order('created_at', { ascending: true });
+
+  if (requestedOrgIds && requestedOrgIds.length > 0) {
+    orgQuery = orgQuery.in('id', requestedOrgIds);
+  }
+
+  const { data: organizations, error: orgError } = await orgQuery;
+
+  if (orgError) {
+    throw orgError;
+  }
+
+  const summary: DeltaEmbeddingSummary = {
+    lookbackWindowHours: options.lookbackHours,
+    organizationsScanned: organizations?.length ?? 0,
+    organizationsUpdated: 0,
+    documentsEmbedded: 0,
+    policiesEmbedded: 0,
+    chunksEmbedded: 0,
+    tokensConsumed: 0,
+    skippedDocuments: 0,
+    skippedPolicies: 0,
+    approvals: 0,
+    reviews: 0,
+    refusals: 0,
+    failures: [],
+    targetOrgIds: requestedOrgIds ?? [],
+    organizationBreakdown: [],
+  };
+
+  if (requestedOrgIds && requestedOrgIds.length > 0) {
+    const discovered = new Set((organizations ?? []).map((org) => org.id));
+    for (const requestedOrgId of requestedOrgIds) {
+      if (!discovered.has(requestedOrgId)) {
+        summary.failures.push({ target: `org:${requestedOrgId}`, reason: 'org_not_found' });
+        summary.refusals += 1;
+      }
+    }
+  }
+
+  for (const org of organizations ?? []) {
+    try {
+      const orgResult = await reembedDeltaForOrg({
+        orgId: org.id,
+        orgSlug: org.slug,
+        windowStart,
+        documentLimit: options.documentLimit,
+        policyLimit: options.policyLimit,
+        initiatedBy: options.initiatedBy,
+        lookbackHours: options.lookbackHours,
+      });
+
+      const totalUpdates = orgResult.documentsEmbedded + orgResult.policiesEmbedded;
+      if (totalUpdates > 0) {
+        summary.organizationsUpdated += 1;
+      }
+
+      summary.documentsEmbedded += orgResult.documentsEmbedded;
+      summary.policiesEmbedded += orgResult.policiesEmbedded;
+      summary.chunksEmbedded += orgResult.chunksEmbedded;
+      summary.tokensConsumed += orgResult.tokensConsumed;
+      summary.skippedDocuments += orgResult.skippedDocuments;
+      summary.skippedPolicies += orgResult.skippedPolicies;
+      summary.approvals += orgResult.approvals;
+      summary.reviews += orgResult.reviews;
+      summary.refusals += orgResult.refusals;
+      summary.failures.push(
+        ...orgResult.failures.map((failure) => (failure.orgId ? failure : { ...failure, orgId: org.id })),
+      );
+
+      const { failures: _orgFailures, ...orgSnapshot } = orgResult;
+      summary.organizationBreakdown.push({
+        orgId: org.id,
+        orgSlug: org.slug,
+        ...orgSnapshot,
+      });
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      summary.failures.push({ target: `org:${org.id}`, reason });
+      summary.refusals += 1;
+      logError('embeddings.delta_org_failed', error, { orgId: org.id, orgSlug: org.slug });
+      summary.organizationBreakdown.push({
+        orgId: org.id,
+        orgSlug: org.slug,
+        documentsEmbedded: 0,
+        policiesEmbedded: 0,
+        chunksEmbedded: 0,
+        tokensConsumed: 0,
+        skippedDocuments: 0,
+        skippedPolicies: 0,
+        approvals: 0,
+        reviews: 0,
+        refusals: 1,
+      });
+    }
+  }
+
+  return summary;
+}
+
+function buildPolicyText(policy: { version: number; status: string; summary: string | null; diff: any }): string {
+  const parts: string[] = [];
+  parts.push(`Policy version ${policy.version} (${policy.status})`);
+  if (typeof policy.summary === 'string' && policy.summary.trim()) {
+    parts.push(policy.summary.trim());
+  }
+  if (policy.diff != null) {
+    const diffText =
+      typeof policy.diff === 'string'
+        ? policy.diff
+        : (() => {
+            try {
+              return JSON.stringify(policy.diff, null, 2);
+            } catch (err) {
+              return String(policy.diff);
+            }
+          })();
+    if (diffText && diffText.trim().length > 0) {
+      parts.push(diffText.trim());
+    }
+  }
+  return parts.join('\n\n').trim();
+}
+
+async function backfillOrgEmbeddings(options: {
+  orgId: string;
+  limit: number;
+  includePolicies: boolean;
+  initiatedBy: string;
+}): Promise<BackfillSummary> {
+  const summary: BackfillSummary = {
+    documentsProcessed: 0,
+    policyVersionsProcessed: 0,
+    chunksEmbedded: 0,
+    tokensConsumed: 0,
+    skippedDocuments: 0,
+    skippedPolicies: 0,
+    failures: [],
+  };
+
+  const documents = await fetchDocumentsMissingEmbeddings(options.orgId, options.limit);
+  for (const document of documents) {
+    try {
+      const download = await supabaseService.storage.from('documents').download(document.file_path);
+      if (download.error || !download.data) {
+        summary.skippedDocuments += 1;
+        summary.failures.push({
+          target: `document:${document.id}`,
+          reason: download.error?.message ?? 'document_download_failed',
+        });
+        await recordEmbeddingTelemetry({
+          orgId: options.orgId,
+          scenario: 'document_backfill',
+          decision: 'REVIEW',
+          metrics: {
+            documentId: document.id,
+            reason: download.error?.message ?? 'document_download_failed',
+          },
+          actor: options.initiatedBy,
+        });
+        continue;
+      }
+
+      const arrayBuffer = await download.data.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+      const text = await extractText(buffer, document.file_type ?? 'application/octet-stream');
+      const trimmed = text.trim();
+      if (!trimmed) {
+        summary.skippedDocuments += 1;
+        await recordEmbeddingTelemetry({
+          orgId: options.orgId,
+          scenario: 'document_backfill',
+          decision: 'REVIEW',
+          metrics: {
+            documentId: document.id,
+            reason: 'empty_content',
+          },
+          actor: options.initiatedBy,
+        });
+        continue;
+      }
+
+      const chunks = chunkText(trimmed);
+      if (!chunks.length) {
+        summary.skippedDocuments += 1;
+        await recordEmbeddingTelemetry({
+          orgId: options.orgId,
+          scenario: 'document_backfill',
+          decision: 'REVIEW',
+          metrics: {
+            documentId: document.id,
+            reason: 'no_chunks_generated',
+          },
+          actor: options.initiatedBy,
+        });
+        continue;
+      }
+
+      const { vectors, usage, model } = await embed(chunks);
+
+      await db.query('BEGIN');
+      await db.query('DELETE FROM document_chunks WHERE org_id = $1 AND doc_id = $2', [
+        options.orgId,
+        document.id,
+      ]);
+      const insertSql =
+        'INSERT INTO document_chunks(org_id, doc_id, chunk_index, content, embedding, source, last_embedded_at) VALUES ($1,$2,$3,$4,$5,$6,now())';
+      for (let i = 0; i < chunks.length; i += 1) {
+        await db.query(insertSql, [
+          options.orgId,
+          document.id,
+          i,
+          chunks[i],
+          vector(vectors[i]),
+          `document:${document.id}`,
+        ]);
+      }
+      await db.query('COMMIT');
+
+      summary.documentsProcessed += 1;
+      summary.chunksEmbedded += chunks.length;
+      summary.tokensConsumed += usage.total_tokens ?? 0;
+
+      await recordEmbeddingTelemetry({
+        orgId: options.orgId,
+        scenario: 'document_backfill',
+        decision: 'APPROVED',
+        metrics: {
+          documentId: document.id,
+          chunkCount: chunks.length,
+          tokens: usage.total_tokens ?? 0,
+          promptTokens: usage.prompt_tokens ?? 0,
+          model,
+          fileType: document.file_type ?? null,
+          backfill: true,
+        },
+        actor: options.initiatedBy,
+      });
+    } catch (error) {
+      await db.query('ROLLBACK').catch(() => undefined);
+      const message = error instanceof Error ? error.message : String(error);
+      summary.failures.push({ target: `document:${document.id}`, reason: message });
+      await recordEmbeddingTelemetry({
+        orgId: options.orgId,
+        scenario: 'document_backfill',
+        decision: 'REFUSED',
+        metrics: {
+          documentId: document.id,
+          error: message,
+        },
+        actor: options.initiatedBy,
+      }).catch(() => undefined);
+    }
+  }
+
+  if (options.includePolicies) {
+    const { data: policies, error } = await supabaseService
+      .from('agent_policy_versions')
+      .select('id, version, status, summary, diff')
+      .eq('org_id', options.orgId)
+      .order('version', { ascending: true })
+      .limit(options.limit);
+
+    if (error) {
+      throw error;
+    }
+
+    for (const policy of policies ?? []) {
+      try {
+        if (await hasExistingPolicyEmbeddings(options.orgId, policy.id)) {
+          summary.skippedPolicies += 1;
+          continue;
+        }
+
+        const policyText = buildPolicyText({
+          version: policy.version ?? 0,
+          status: policy.status ?? 'unknown',
+          summary: policy.summary ?? null,
+          diff: policy.diff ?? null,
+        });
+
+        if (!policyText) {
+          summary.skippedPolicies += 1;
+          continue;
+        }
+
+        const chunks = chunkText(policyText, 700);
+        if (!chunks.length) {
+          summary.skippedPolicies += 1;
+          continue;
+        }
+
+        const { vectors, usage, model } = await embed(chunks);
+        const sourceKey = `policy:${policy.id}`;
+
+        await db.query('BEGIN');
+        await db.query('DELETE FROM document_chunks WHERE org_id = $1 AND source = $2', [
+          options.orgId,
+          sourceKey,
+        ]);
+        const insertSql =
+          'INSERT INTO document_chunks(org_id, doc_id, chunk_index, content, embedding, source, last_embedded_at) VALUES ($1,$2,$3,$4,$5,$6,now())';
+        for (let i = 0; i < chunks.length; i += 1) {
+          await db.query(insertSql, [
+            options.orgId,
+            policy.id,
+            i,
+            chunks[i],
+            vector(vectors[i]),
+            sourceKey,
+          ]);
+        }
+        await db.query('COMMIT');
+
+        summary.policyVersionsProcessed += 1;
+        summary.chunksEmbedded += chunks.length;
+        summary.tokensConsumed += usage.total_tokens ?? 0;
+
+        await recordEmbeddingTelemetry({
+          orgId: options.orgId,
+          scenario: 'policy_backfill',
+          decision: 'APPROVED',
+          metrics: {
+            policyVersionId: policy.id,
+            chunkCount: chunks.length,
+            tokens: usage.total_tokens ?? 0,
+            promptTokens: usage.prompt_tokens ?? 0,
+            model,
+            backfill: true,
+          },
+          actor: options.initiatedBy,
+        });
+      } catch (error) {
+        await db.query('ROLLBACK').catch(() => undefined);
+        const message = error instanceof Error ? error.message : String(error);
+        summary.failures.push({ target: `policy:${policy.id}`, reason: message });
+        await recordEmbeddingTelemetry({
+          orgId: options.orgId,
+          scenario: 'policy_backfill',
+          decision: 'REFUSED',
+          metrics: {
+            policyVersionId: policy.id,
+            error: message,
+          },
+          actor: options.initiatedBy,
+        }).catch(() => undefined);
+      }
+    }
+  }
+
+  return summary;
 }
 
 function stripHtml(html: string): string {
@@ -3219,7 +4242,7 @@ async function upsertDriveDocument(
     return { status: 'skipped', reason: 'no_chunks_generated' };
   }
 
-  const embeddings = await embed(chunks);
+  const { vectors: embeddings, usage: embeddingUsage, model: embeddingModel } = await embed(chunks);
   const uploaderId = await resolveDriveUploaderId(change.org_id);
   const filePath = `gdrive:${change.file_id}`;
   const fileName = download.fileName;
@@ -3251,8 +4274,38 @@ async function upsertDriveDocument(
     await db.query('COMMIT');
   } catch (err) {
     await db.query('ROLLBACK');
+    await recordEmbeddingTelemetry({
+      orgId: change.org_id,
+      scenario: 'drive_ingest',
+      decision: 'REFUSED',
+      metrics: {
+        documentId: documentId ?? mapping?.document_id ?? null,
+        chunkCount: chunks.length,
+        mode: 'changefeed',
+        error: err instanceof Error ? err.message : String(err),
+      },
+      actor: uploaderId,
+    });
     throw err;
   }
+
+  await recordEmbeddingTelemetry({
+    orgId: change.org_id,
+    scenario: 'drive_ingest',
+    decision: 'APPROVED',
+    metrics: {
+      documentId,
+      chunkCount: chunks.length,
+      tokens: embeddingUsage.total_tokens ?? 0,
+      promptTokens: embeddingUsage.prompt_tokens ?? 0,
+      model: embeddingModel,
+      fileSize,
+      mimeType: download.mimeType,
+      checksum,
+      mode: 'changefeed',
+    },
+    actor: uploaderId,
+  });
 
   const now = new Date().toISOString();
   if (mapping?.document_id) {
@@ -3431,6 +4484,388 @@ function extractResponseText(response: any): string {
   return '';
 }
 
+type ReasoningEffort = 'minimal' | 'low' | 'medium' | 'high';
+type ResponseVerbosity = 'low' | 'medium' | 'high';
+
+function normalizeReasoningEffort(value: unknown): ReasoningEffort | undefined {
+  if (typeof value !== 'string') return undefined;
+  const candidate = value.toLowerCase();
+  return candidate === 'minimal' || candidate === 'low' || candidate === 'medium' || candidate === 'high'
+    ? (candidate as ReasoningEffort)
+    : undefined;
+}
+
+function normalizeVerbosity(value: unknown): ResponseVerbosity | undefined {
+  if (typeof value !== 'string') return undefined;
+  const candidate = value.toLowerCase();
+  return candidate === 'low' || candidate === 'medium' || candidate === 'high'
+    ? (candidate as ResponseVerbosity)
+    : undefined;
+}
+
+type ResponseCitation =
+  | { type: 'url'; url: string; title?: string | null; location?: string | null }
+  | { type: 'file'; fileId: string; filename?: string | null; location?: string | null };
+
+function extractCitationsFromResponse(response: any): ResponseCitation[] {
+  const citations: ResponseCitation[] = [];
+  const items = Array.isArray(response?.output) ? response.output : [];
+  for (const item of items) {
+    if (item?.type !== 'message' || !Array.isArray(item.content)) continue;
+    for (const part of item.content) {
+      if (!Array.isArray(part?.annotations)) continue;
+      for (const annotation of part.annotations) {
+        if (annotation?.type === 'url_citation' && typeof annotation.url === 'string') {
+          citations.push({
+            type: 'url',
+            url: annotation.url,
+            title: annotation.title ?? null,
+            location: annotation.location ?? null,
+          });
+        } else if (annotation?.type === 'file_citation') {
+          const fileId = annotation.file_id ?? annotation.fileId;
+          if (typeof fileId === 'string' && fileId.length > 0) {
+            citations.push({
+              type: 'file',
+              fileId,
+              filename: annotation.filename ?? null,
+              location: annotation.location ?? null,
+            });
+          }
+        }
+      }
+    }
+  }
+  return citations;
+}
+
+type WebSourceSummary = {
+  url?: string;
+  title?: string;
+  snippet?: string;
+  domain?: string;
+};
+
+function extractWebSearchSources(response: any): WebSourceSummary[] {
+  const sources: WebSourceSummary[] = [];
+  const items = Array.isArray(response?.output) ? response.output : [];
+  for (const item of items) {
+    if (item?.type !== 'web_search_call') continue;
+    const action = item.action ?? {};
+    const callSources = Array.isArray(action?.sources) ? action.sources : Array.isArray(item.sources) ? item.sources : [];
+    for (const source of callSources) {
+      if (!source) continue;
+      sources.push({
+        url: typeof source.url === 'string' ? source.url : typeof source.href === 'string' ? source.href : undefined,
+        title: typeof source.title === 'string' ? source.title : typeof source.name === 'string' ? source.name : undefined,
+        snippet: typeof source.snippet === 'string' ? source.snippet : typeof source.summary === 'string' ? source.summary : undefined,
+        domain: typeof source.domain === 'string' ? source.domain : undefined,
+      });
+    }
+  }
+  return sources;
+}
+
+type FileSearchChunk = {
+  fileId: string;
+  filename: string;
+  score?: number;
+  content?: string[];
+};
+
+function extractFileSearchResults(response: any): FileSearchChunk[] {
+  const results: FileSearchChunk[] = [];
+  const items = Array.isArray(response?.output) ? response.output : [];
+  for (const item of items) {
+    if (item?.type !== 'file_search_call') continue;
+    const callResults = Array.isArray(item.results)
+      ? item.results
+      : Array.isArray(item.search_results)
+        ? item.search_results
+        : [];
+    for (const result of callResults) {
+      if (!result) continue;
+      const fileId = result.file_id ?? result.fileId;
+      if (typeof fileId !== 'string' || fileId.length === 0) continue;
+      const content = Array.isArray(result.content)
+        ? result.content
+            .map((entry: any) => (typeof entry?.text === 'string' ? entry.text : undefined))
+            .filter((value: string | undefined): value is string => Boolean(value))
+        : [];
+      results.push({
+        fileId,
+        filename: typeof result.filename === 'string' ? result.filename : fileId,
+        score: typeof result.score === 'number' ? result.score : undefined,
+        content,
+      });
+    }
+  }
+  return results;
+}
+
+function ensureDomainToolAgent(agentKey: unknown): string | null {
+  if (typeof agentKey !== 'string') return null;
+  return DOMAIN_TOOL_AGENT_KEYS.has(agentKey) ? agentKey : null;
+}
+
+type AttributeAccumulator = {
+  types: Set<string>;
+  examples: Array<{ value: Primitive; label: string; type: string }>;
+  seen: Set<string>;
+};
+
+type AttributeSummary = {
+  attributes: Array<{ key: string; types: string[]; examples: Array<{ value: Primitive; label: string; type: string }> }>;
+  sampledCount: number;
+  hasMore: boolean;
+  nextCursor: string | null;
+};
+
+const MAX_ATTRIBUTE_SAMPLE_SIZE = 200;
+const DEFAULT_ATTRIBUTE_SAMPLE_SIZE = 40;
+const ATTRIBUTE_PAGE_SIZE = 10;
+const MAX_ATTRIBUTE_PAGE_LIMIT = 50;
+const DEFAULT_ATTRIBUTE_PAGE_LIMIT = 20;
+
+function clampInteger(value: number, { min, max }: { min: number; max: number }): number {
+  return Math.max(min, Math.min(max, Math.floor(value)));
+}
+
+function extractQueryValue(value: unknown): string | undefined {
+  if (typeof value === 'string') {
+    return value;
+  }
+  if (Array.isArray(value) && value.length > 0 && typeof value[0] === 'string') {
+    return value[0] as string;
+  }
+  return undefined;
+}
+
+function parseAttributeSampleSizeParam(value: unknown): number | undefined {
+  const candidate = typeof value === 'string' ? Number.parseInt(value, 10) : Number(value);
+  if (!Number.isFinite(candidate) || candidate <= 0) {
+    return undefined;
+  }
+  return clampInteger(candidate, { min: 1, max: MAX_ATTRIBUTE_SAMPLE_SIZE });
+}
+
+function parseAttributePageLimitParam(value: unknown): number | undefined {
+  const candidate = typeof value === 'string' ? Number.parseInt(value, 10) : Number(value);
+  if (!Number.isFinite(candidate) || candidate <= 0) {
+    return undefined;
+  }
+  return clampInteger(candidate, { min: 1, max: MAX_ATTRIBUTE_PAGE_LIMIT });
+}
+
+function describePrimitive(value: Primitive): { label: string; type: string } {
+  if (value === null) {
+    return { label: 'null', type: 'null' };
+  }
+  const type = typeof value;
+  if (type === 'boolean') {
+    return { label: value ? 'true' : 'false', type };
+  }
+  if (type === 'number') {
+    return { label: Number.isFinite(value) ? String(value) : 'NaN', type };
+  }
+  return { label: value, type };
+}
+
+function recordAttributeValue(
+  map: Map<string, AttributeAccumulator>,
+  key: string,
+  value: unknown,
+): void {
+  const accumulator = map.get(key) ?? {
+    types: new Set<string>(),
+    examples: [],
+    seen: new Set<string>(),
+  };
+
+  const valueType = value === null ? 'null' : Array.isArray(value) ? 'array' : typeof value;
+  accumulator.types.add(valueType);
+
+  if (valueType === 'string' || valueType === 'number' || valueType === 'boolean' || valueType === 'null') {
+    const primitiveValue = (value as Primitive) ?? null;
+    const serialised = JSON.stringify(primitiveValue);
+    if (!accumulator.seen.has(serialised) && accumulator.examples.length < 5) {
+      accumulator.seen.add(serialised);
+      const { label, type } = describePrimitive(primitiveValue);
+      accumulator.examples.push({ value: primitiveValue, label, type });
+    }
+  }
+
+  map.set(key, accumulator);
+}
+
+function normaliseAttributes(attributes: unknown): Record<string, unknown> | null {
+  if (!attributes || typeof attributes !== 'object' || Array.isArray(attributes)) {
+    return null;
+  }
+  return attributes as Record<string, unknown>;
+}
+
+async function summariseVectorStoreAttributes(
+  vectorStoreId: string,
+  options?: { maxFiles?: number; pageSize?: number; after?: string | null },
+): Promise<AttributeSummary> {
+  const attributeMap = new Map<string, AttributeAccumulator>();
+  const maxFilesToInspect = Math.max(
+    1,
+    Math.min(options?.maxFiles ?? DEFAULT_ATTRIBUTE_SAMPLE_SIZE, MAX_ATTRIBUTE_SAMPLE_SIZE),
+  );
+  const pageSize = Math.max(1, Math.min(options?.pageSize ?? ATTRIBUTE_PAGE_SIZE, 50));
+  let fetched = 0;
+  let cursor = options?.after ?? undefined;
+  let nextCursor: string | null = null;
+  let hasMore = false;
+
+  try {
+    while (fetched < maxFilesToInspect) {
+      const limit = Math.min(pageSize, maxFilesToInspect - fetched);
+      if (limit <= 0) {
+        break;
+      }
+
+      const response = await openai.vectorStores.files.list(vectorStoreId, { limit, after: cursor });
+      const files = Array.isArray(response?.data) ? response.data : [];
+      if (!files.length) {
+        cursor = undefined;
+        hasMore = false;
+        nextCursor = null;
+        break;
+      }
+
+      for (const file of files) {
+        fetched += 1;
+        const attributes = normaliseAttributes((file as any)?.attributes ?? (file as any)?.metadata);
+        if (!attributes) continue;
+        for (const [key, value] of Object.entries(attributes)) {
+          recordAttributeValue(attributeMap, key, value);
+        }
+      }
+
+      const pageHasMore = Boolean(response?.has_more);
+      const last = files[files.length - 1];
+      const lastId = typeof (last as any)?.id === 'string' ? (last as any).id : undefined;
+      const candidateCursor =
+        typeof response?.last_id === 'string' ? response.last_id : lastId ?? undefined;
+
+      if (fetched >= maxFilesToInspect) {
+        if (pageHasMore && candidateCursor) {
+          hasMore = true;
+          nextCursor = candidateCursor;
+        } else if (pageHasMore) {
+          hasMore = true;
+          nextCursor = candidateCursor ?? null;
+        } else {
+          hasMore = false;
+          nextCursor = null;
+        }
+        break;
+      }
+
+      if (!pageHasMore || !candidateCursor) {
+        hasMore = false;
+        nextCursor = null;
+        break;
+      }
+
+      cursor = candidateCursor;
+      hasMore = true;
+      nextCursor = candidateCursor;
+    }
+  } catch (error) {
+    logError('domain_tools.vector_store_attribute_discovery_failed', error, { vectorStoreId });
+  }
+
+  return {
+    attributes: Array.from(attributeMap.entries()).map(([key, accumulator]) => ({
+      key,
+      types: Array.from(accumulator.types),
+      examples: accumulator.examples,
+    })),
+    sampledCount: fetched,
+    hasMore,
+    nextCursor,
+  };
+}
+
+async function listAccessibleVectorStores(options?: { attributeSampleSize?: number }) {
+  const attributeSampleSize = Math.max(
+    1,
+    Math.min(options?.attributeSampleSize ?? DEFAULT_ATTRIBUTE_SAMPLE_SIZE, MAX_ATTRIBUTE_SAMPLE_SIZE),
+  );
+  const results: Array<{
+    id: string;
+    name: string | null;
+    description: string | null;
+    status: string | null;
+    fileCount: number | null;
+    createdAt: string | null;
+    attributeSummary: AttributeSummary;
+    metadata: Record<string, unknown> | null;
+  }> = [];
+
+  let after: string | undefined;
+  const maxPages = 5;
+
+  for (let page = 0; page < maxPages; page += 1) {
+    const response = await openai.vectorStores.list({ limit: 20, after });
+    const vectorStores = Array.isArray(response?.data) ? response.data : [];
+    if (!vectorStores.length) {
+      break;
+    }
+
+    for (const store of vectorStores) {
+      const id = typeof (store as any)?.id === 'string' ? (store as any).id : null;
+      if (!id) continue;
+      const name = typeof (store as any)?.name === 'string' ? (store as any).name : null;
+      const description = typeof (store as any)?.description === 'string' ? (store as any).description : null;
+      const status = typeof (store as any)?.status === 'string' ? (store as any).status : null;
+      const fileCount = typeof (store as any)?.file_count === 'number'
+        ? (store as any).file_count
+        : typeof (store as any)?.fileCount === 'number'
+          ? (store as any).fileCount
+          : null;
+      const createdAt = typeof (store as any)?.created_at === 'string'
+        ? (store as any).created_at
+        : typeof (store as any)?.createdAt === 'string'
+          ? (store as any).createdAt
+          : null;
+      const metadata = normaliseAttributes((store as any)?.metadata);
+
+      const attributeSummary = await summariseVectorStoreAttributes(id, {
+        maxFiles: attributeSampleSize,
+      });
+
+      results.push({
+        id,
+        name,
+        description,
+        status,
+        fileCount,
+        createdAt,
+        attributeSummary,
+        metadata,
+      });
+    }
+
+    if (!response?.has_more) {
+      break;
+    }
+
+    const last = vectorStores[vectorStores.length - 1];
+    const lastId = typeof (last as any)?.id === 'string' ? (last as any).id : undefined;
+    after = typeof response?.last_id === 'string' ? response.last_id : lastId;
+    if (!after) {
+      break;
+    }
+  }
+
+  return results;
+}
+
 async function summariseWebDocument(url: string, text: string): Promise<string> {
   if (!text) return '';
 
@@ -3473,35 +4908,29 @@ async function summariseWebDocument(url: string, text: string): Promise<string> 
   }
 
   try {
-    const response = await openai.responses.create({
-      model: OPENAI_SUMMARY_MODEL,
-      temperature: 0.2,
-      input: [
-        {
-          role: 'system',
-          content: [
-            {
-              type: 'input_text',
-              text: 'You are a Big Four partner producing concise technical notes. Summaries must emphasise IFRS/ISA/TAX relevance, cite clauses when possible, and flag uncertainties.',
-            },
-          ],
-        },
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'input_text',
-              text: `Source URL: ${url}\n\nExtracted Content (truncated):\n${text}\n\nProvide a bullet summary (<= 8 items) covering key accounting, auditing, and tax takeaways for Malta.`,
-            },
-          ],
-        },
-      ],
-    });
-    await logOpenAIDebugEvent({
-      endpoint: 'responses.create',
-      response: response as any,
-      requestPayload: { url, model: OPENAI_SUMMARY_MODEL },
+    const chat = await createChatCompletion({
+      client: openai,
+      payload: {
+        model: OPENAI_SUMMARY_MODEL,
+        temperature: 0.2,
+        messages: [
+          {
+            role: 'system',
+            content:
+              'You are a Big Four partner producing concise technical notes. Summaries must emphasise IFRS/ISA/TAX relevance, cite clauses when possible, and flag uncertainties.',
+          },
+          {
+            role: 'user',
+            content: `Source URL: ${url}\n\nExtracted Content (truncated):\n${text}\n\nProvide a bullet summary (<= 8 items) covering key accounting, auditing, and tax takeaways for Malta.`,
+          },
+        ],
+      },
+      debugLogger: logOpenAIDebugEvent,
+      logError,
       metadata: { source: 'web_summary' },
+      orgId,
+      tags: ['web_summary'],
+      requestLogPayload: { url, model: OPENAI_SUMMARY_MODEL },
     });
     const summary = extractResponseText(response)?.trim();
     if (summary) {
@@ -3524,6 +4953,7 @@ async function processWebHarvest(options: {
 }) {
   let transactionStarted = false;
   let existingState: Record<string, any> = {};
+  let webSource: WebSourceRow | null = null;
   try {
     const { data: linkRow } = await supabaseService
       .from('knowledge_sources')
@@ -3534,7 +4964,7 @@ async function processWebHarvest(options: {
       existingState = linkRow.state as Record<string, any>;
     }
 
-    const webSource = await getWebSource(options.webSourceId);
+    webSource = await getWebSource(options.webSourceId);
 
     await supabaseService
       .from('learning_runs')
@@ -3568,13 +4998,13 @@ async function processWebHarvest(options: {
       fetchedFresh = true;
     }
 
-    const summary = await summariseWebDocument(webSource.url, cleaned);
+    const summary = await summariseWebDocument(options.orgId, webSource.url, cleaned);
     const chunks = chunkText(cleaned, 700);
     if (chunks.length === 0) {
       throw new Error('No chunks generated from web content');
     }
 
-    const embeddings = await embed(chunks);
+    const { vectors: embeddings, usage: embeddingUsage, model: embeddingModel } = await embed(chunks);
 
     await db.query('BEGIN');
     transactionStarted = true;
@@ -3591,6 +5021,24 @@ async function processWebHarvest(options: {
     }
     await db.query('COMMIT');
     transactionStarted = false;
+
+    if (webSource) {
+      await recordEmbeddingTelemetry({
+        orgId: options.orgId,
+        scenario: 'web_harvest',
+        decision: 'APPROVED',
+        metrics: {
+          documentId: docId,
+          chunkCount: chunks.length,
+          tokens: embeddingUsage.total_tokens ?? 0,
+          promptTokens: embeddingUsage.prompt_tokens ?? 0,
+          model: embeddingModel,
+          url: webSource.url,
+          cacheUsed: usedCache,
+        },
+        actor: options.initiatedBy,
+      });
+    }
 
     const completedState = {
       ...existingState,
@@ -3670,6 +5118,17 @@ async function processWebHarvest(options: {
     if (transactionStarted) {
       await db.query('ROLLBACK').catch(() => undefined);
     }
+    await recordEmbeddingTelemetry({
+      orgId: options.orgId,
+      scenario: 'web_harvest',
+      decision: 'REFUSED',
+      metrics: {
+        chunkCount: chunks.length,
+        url: webSource?.url ?? null,
+        error: err instanceof Error ? err.message : String(err),
+      },
+      actor: options.initiatedBy,
+    });
     const failureMessage = err instanceof Error ? err.message : String(err);
     const finishedAt = new Date().toISOString();
 
@@ -3856,37 +5315,31 @@ async function performRagSearch(orgId: string, queryInput: string, topK = 6) {
   };
 }
 
-async function performPolicyCheck(statement: string, domain?: string) {
+async function performPolicyCheck(orgId: string, statement: string, domain?: string) {
   try {
-    const response = await openai.responses.create({
-      model: OPENAI_SUMMARY_MODEL,
-      temperature: 0,
-      input: [
-        {
-          role: 'system',
-          content: [
-            {
-              type: 'input_text',
-              text: 'You are a technical reviewer ensuring compliance with IFRS/IAS/ISA and Malta CFR guidance. Respond with either PASS, WARNING, or FAIL followed by reasoning.',
-            },
-          ],
-        },
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'input_text',
-              text: `Domain: ${domain ?? 'general'}\nStatement:\n${statement}\n\nAssess compliance and cite any standards or regulations referenced. Keep it short (<=4 sentences).`,
-            },
-          ],
-        },
-      ],
-    });
-    await logOpenAIDebugEvent({
-      endpoint: 'responses.create',
-      response: response as any,
-      requestPayload: { model: OPENAI_SUMMARY_MODEL, domain: domain ?? 'general' },
-      metadata: { scope: 'policy_check' },
+    const completion = await createChatCompletion({
+      client: openai,
+      payload: {
+        model: OPENAI_SUMMARY_MODEL,
+        temperature: 0,
+        messages: [
+          {
+            role: 'system',
+            content:
+              'You are a technical reviewer ensuring compliance with IFRS/IAS/ISA and Malta CFR guidance. Respond with either PASS, WARNING, or FAIL followed by reasoning.',
+          },
+          {
+            role: 'user',
+            content: `Domain: ${domain ?? 'general'}\nStatement:\n${statement}\n\nAssess compliance and cite any standards or regulations referenced. Keep it short (<=4 sentences).`,
+          },
+        ],
+      },
+      debugLogger: logOpenAIDebugEvent,
+      logError,
+      metadata: { scope: 'policy_check', domain: domain ?? 'general' },
+      orgId,
+      tags: ['policy_check'],
+      requestLogPayload: { model: OPENAI_SUMMARY_MODEL, domain: domain ?? 'general' },
     });
     const answer = extractResponseText(response) || 'Policy review unavailable.';
     return { output: answer };
@@ -3943,7 +5396,7 @@ async function executeToolCall(orgId: string, call: any) {
     if (!statement) {
       return { output: 'policy_check requires a statement.' };
     }
-    return await performPolicyCheck(statement, args.domain ? String(args.domain) : undefined);
+    return await performPolicyCheck(orgId, statement, args.domain ? String(args.domain) : undefined);
   }
 
   if (name === 'db_read') {
@@ -4062,6 +5515,9 @@ app.get('/api/agent/stream', async (req: AuthenticatedRequest, res) => {
     const question = typeof req.query.question === 'string' ? (req.query.question as string) : undefined;
     const agentTypeRaw = typeof req.query.agentType === 'string' ? (req.query.agentType as string) : 'AUDIT';
     const context = typeof req.query.context === 'string' ? (req.query.context as string) : undefined;
+    const engagementId = typeof req.query.engagementId === 'string' ? (req.query.engagementId as string) : undefined;
+    const agentSessionId = typeof req.query.agentSessionId === 'string' ? (req.query.agentSessionId as string) : undefined;
+    const supabaseRunId = typeof req.query.supabaseRunId === 'string' ? (req.query.supabaseRunId as string) : undefined;
 
     if (!orgSlug) {
       return res.status(400).json({ error: 'orgSlug query param required' });
@@ -4079,6 +5535,32 @@ app.get('/api/agent/stream', async (req: AuthenticatedRequest, res) => {
     ];
 
     try {
+      const conversationRecorder = await AgentConversationRecorder.start({
+        orgId: orgContext.orgId,
+        orgSlug,
+        agentType: normalizedType,
+        mode: 'plain',
+        systemPrompt: AGENT_SYSTEM_PROMPTS[normalizedType],
+        userPrompt: question,
+        context: context ?? undefined,
+        source: 'agent_stream_plain',
+        userId,
+        agentSessionId: agentSessionId ?? undefined,
+        engagementId: engagementId ?? undefined,
+        supabaseRunId: supabaseRunId ?? undefined,
+        metadata: {
+          question_length: String(question.length),
+          context_length: context ? String(context.length) : undefined,
+          stream_channel: 'sse',
+        },
+        logError,
+        logInfo,
+      });
+
+      let deltaBuffer = '';
+      let finalBuffer = '';
+      let recorded = false;
+
       await streamOpenAiResponse({
         res,
         openai,
@@ -4087,6 +5569,75 @@ app.get('/api/agent/stream', async (req: AuthenticatedRequest, res) => {
           input: messages,
         },
         endpoint: 'responses.stream',
+        onStart: () => {
+          const conversationId = conversationRecorder.conversationId;
+          if (conversationId) {
+            const payload: Record<string, unknown> = { conversationId };
+            if (agentSessionId) {
+              payload.agentSessionId = agentSessionId;
+            }
+            if (supabaseRunId) {
+              payload.supabaseRunId = supabaseRunId;
+            }
+            res.write(`data: ${JSON.stringify({ type: 'conversation-started', data: payload })}\n\n`);
+          }
+        },
+        onEvent: async (event) => {
+          if (event.type === 'text-delta' && typeof event.data === 'string') {
+            deltaBuffer += event.data;
+          }
+          if (event.type === 'text-done' && typeof event.data === 'string') {
+            finalBuffer = event.data;
+          }
+          if (event.type === 'refusal-delta' && typeof event.data === 'string') {
+            deltaBuffer += event.data;
+          }
+          if (event.type === 'refusal-done') {
+            if (typeof event.data === 'string') {
+              finalBuffer = event.data;
+            } else if (event.data) {
+              finalBuffer = JSON.stringify(event.data);
+            }
+          }
+        },
+        onResponseCompleted: async ({ responseId }) => {
+          if (recorded) return;
+          const text = finalBuffer || deltaBuffer;
+          if (!text) return;
+          try {
+            await conversationRecorder.recordPlainText({
+              text,
+              responseId,
+              stage: 'completed',
+            });
+            recorded = true;
+          } catch (error) {
+            logError('agent.conversation_plain_record_failed', error, {
+              orgId: orgContext.orgId,
+              conversationId: conversationRecorder.conversationId,
+              responseId,
+            });
+          }
+        },
+        onStreamClosed: async () => {
+          if (recorded) return;
+          const text = finalBuffer || deltaBuffer;
+          if (!text) return;
+          try {
+            await conversationRecorder.recordPlainText({
+              text,
+              stage: 'closed',
+              status: 'completed',
+            });
+            recorded = true;
+          } catch (error) {
+            logError('agent.conversation_plain_record_failed', error, {
+              orgId: orgContext.orgId,
+              conversationId: conversationRecorder.conversationId,
+              responseRecordedOnClose: true,
+            });
+          }
+        },
         debugLogger: async (event) => {
           await logOpenAIDebugEvent({
             endpoint: event.endpoint,
@@ -4127,6 +5678,7 @@ app.get('/api/agent/stream/execute', async (req: AuthenticatedRequest, res) => {
     const question = typeof req.query.question === 'string' ? (req.query.question as string) : undefined;
     const agentTypeRaw = typeof req.query.agentType === 'string' ? (req.query.agentType as string) : 'AUDIT';
     const context = typeof req.query.context === 'string' ? (req.query.context as string) : undefined;
+    const engagementId = typeof req.query.engagementId === 'string' ? (req.query.engagementId as string) : undefined;
 
     if (!orgSlug) {
       return res.status(400).json({ error: 'orgSlug query param required' });
@@ -4154,13 +5706,62 @@ app.get('/api/agent/stream/execute', async (req: AuthenticatedRequest, res) => {
       { role: 'user', content: context ? `${question}\n\nContext:\n${context}` : question },
     ];
 
-    writeSse({ type: 'started', data: { question, context, agentType: normalizedType } });
+    writeSse({
+      type: 'started',
+      data: {
+        question,
+        context,
+        agentType: normalizedType,
+        agentSessionId: agentSessionId ?? undefined,
+        supabaseRunId: supabaseRunId ?? undefined,
+      },
+    });
+
+    const toolNames = tools.map((tool) => tool.function?.name).filter((name): name is string => Boolean(name));
+    const conversationRecorder = await AgentConversationRecorder.start({
+      orgId: orgContext.orgId,
+      orgSlug,
+      agentType: normalizedType,
+      mode: 'tools',
+      systemPrompt: AGENT_SYSTEM_PROMPTS[normalizedType],
+      userPrompt: question,
+      context: context ?? undefined,
+      source: 'agent_stream_tools',
+      userId,
+      agentSessionId: agentSessionId ?? undefined,
+      engagementId: engagementId ?? undefined,
+      supabaseRunId: supabaseRunId ?? undefined,
+      toolNames,
+      metadata: {
+        question_length: String(question.length),
+        context_length: context ? String(context.length) : undefined,
+        stream_channel: 'sse',
+        tool_count: toolNames.length ? String(toolNames.length) : undefined,
+      },
+      logError,
+      logInfo,
+    });
+    const conversationId = conversationRecorder.conversationId;
+    if (conversationId) {
+      const payload: Record<string, unknown> = { conversationId };
+      if (agentSessionId) {
+        payload.agentSessionId = agentSessionId;
+      }
+      if (supabaseRunId) {
+        payload.supabaseRunId = supabaseRunId;
+      }
+      writeSse({ type: 'conversation-started', data: payload });
+    }
 
     let response = await openai.responses.create({
       model: AGENT_MODEL,
       input: messages,
       tools,
     });
+
+    let iteration = 0;
+    await conversationRecorder.recordResponse({ response, stage: 'initial', iteration });
+    iteration += 1;
 
     await logOpenAIDebugEvent({
       endpoint: 'responses.create',
@@ -4182,9 +5783,24 @@ app.get('/api/agent/stream/execute', async (req: AuthenticatedRequest, res) => {
           const result = await executeToolCall(orgContext.orgId, call);
           writeSse({ type: 'tool-result', data: { toolKey, callId: call.id, output: result.output, citations: result.citations ?? [] } });
           toolOutputs.push({ tool_call_id: call.id, output: result.output });
+          await conversationRecorder.recordToolResult({
+            callId: call.id,
+            toolName: toolKey,
+            output: result.output,
+            stage: 'tool_execution',
+            status: 'completed',
+          });
         } catch (error) {
           writeSse({ type: 'tool-error', data: { toolKey, callId: call.id, message: error instanceof Error ? error.message : String(error) } });
-          toolOutputs.push({ tool_call_id: call.id, output: `Tool ${toolKey} failed: ${error instanceof Error ? error.message : String(error)}` });
+          const failureMessage = error instanceof Error ? error.message : String(error);
+          toolOutputs.push({ tool_call_id: call.id, output: `Tool ${toolKey} failed: ${failureMessage}` });
+          await conversationRecorder.recordToolResult({
+            callId: call.id,
+            toolName: toolKey,
+            output: failureMessage,
+            stage: 'tool_execution',
+            status: 'failed',
+          });
         }
       }
 
@@ -4205,6 +5821,9 @@ app.get('/api/agent/stream/execute', async (req: AuthenticatedRequest, res) => {
         metadata: { scope: 'agent_stream_tools', stage: 'followup' },
         orgId: orgContext.orgId,
       });
+
+      await conversationRecorder.recordResponse({ response, stage: 'followup', iteration });
+      iteration += 1;
     }
 
     if (!closed) {
@@ -4226,6 +5845,356 @@ app.get('/api/agent/stream/execute', async (req: AuthenticatedRequest, res) => {
       res.write(`data: ${JSON.stringify({ type: 'error', data: { message: err instanceof Error ? err.message : String(err) } })}\n\n`);
       res.end();
     }
+  }
+});
+
+app.get('/api/agent/conversations', async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = req.user?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: 'invalid session' });
+    }
+
+    const orgSlug = typeof req.query.orgSlug === 'string' ? req.query.orgSlug : undefined;
+    if (!orgSlug) {
+      return res.status(400).json({ error: 'orgSlug query param required' });
+    }
+
+    const orderParam = typeof req.query.order === 'string' && req.query.order.toLowerCase() === 'asc' ? 'asc' : 'desc';
+    const limitParam = Number(req.query.limit ?? 20);
+    const limit = Number.isFinite(limitParam) ? Math.max(1, Math.min(100, limitParam)) : 20;
+    const after = typeof req.query.after === 'string' ? req.query.after : undefined;
+
+    const orgContext = await resolveOrgForUser(userId, orgSlug);
+
+    const response = await listConversations({
+      limit,
+      order: orderParam,
+      after,
+      logError,
+      logInfo,
+    });
+
+    const modeFilter = typeof req.query.mode === 'string' && req.query.mode !== 'all' ? req.query.mode : undefined;
+    const agentTypeFilter = typeof req.query.agentType === 'string' && req.query.agentType !== 'all' ? req.query.agentType : undefined;
+    const sourceFilter = typeof req.query.source === 'string' && req.query.source !== 'all' ? req.query.source : undefined;
+    const sinceFilter = typeof req.query.since === 'string' ? req.query.since : undefined;
+    const searchFilter = typeof req.query.search === 'string' && req.query.search.trim().length > 0 ? req.query.search.trim().toLowerCase() : undefined;
+    const hasContextFilter = typeof req.query.hasContext === 'string' && req.query.hasContext !== 'any' ? req.query.hasContext : undefined;
+    const mineOnly = req.query.mine === '1' || req.query.mine === 'true';
+
+    let sinceTimestamp: number | undefined;
+    if (sinceFilter && sinceFilter !== 'all') {
+      const nowSeconds = Math.floor(Date.now() / 1000);
+      switch (sinceFilter) {
+        case '24h':
+          sinceTimestamp = nowSeconds - 24 * 60 * 60;
+          break;
+        case '7d':
+          sinceTimestamp = nowSeconds - 7 * 24 * 60 * 60;
+          break;
+        case '30d':
+          sinceTimestamp = nowSeconds - 30 * 24 * 60 * 60;
+          break;
+        default:
+          sinceTimestamp = undefined;
+      }
+    }
+
+    const conversations = (response.data ?? []).filter((conversation) => {
+      const metadata = conversation.metadata ?? {};
+      if (metadata.org_id !== orgContext.orgId) {
+        return false;
+      }
+      if (modeFilter && metadata.mode !== modeFilter) {
+        return false;
+      }
+      if (agentTypeFilter && metadata.agent_type !== agentTypeFilter) {
+        return false;
+      }
+      if (sourceFilter && metadata.source !== sourceFilter) {
+        return false;
+      }
+      if (sinceTimestamp && typeof conversation.created_at === 'number' && conversation.created_at < sinceTimestamp) {
+        return false;
+      }
+      if (mineOnly) {
+        if (!metadata.user_id) {
+          return false;
+        }
+        if (metadata.user_id !== userId) {
+          return false;
+        }
+      }
+      if (hasContextFilter === 'true') {
+        if (metadata.has_context !== 'true' && metadata.context_present !== 'true') {
+          return false;
+        }
+      } else if (hasContextFilter === 'false') {
+        if (metadata.has_context === 'true' || metadata.context_present === 'true') {
+          return false;
+        }
+      }
+      if (searchFilter) {
+        const haystack = [
+          conversation.id,
+          metadata.initial_prompt_preview ?? '',
+          metadata.agent_type ?? '',
+          metadata.mode ?? '',
+          metadata.source ?? '',
+        ]
+          .join(' ')
+          .toLowerCase();
+        if (!haystack.includes(searchFilter)) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+
+    return res.json({
+      conversations,
+      hasMore: response.has_more ?? false,
+      lastId: response.last_id ?? null,
+    });
+  } catch (error) {
+    logError('agent.conversations_list_failed', error, { userId: req.user?.sub });
+    return res.status(500).json({ error: 'failed_to_list_conversations' });
+  }
+});
+
+app.post('/api/agent/conversations', async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = req.user?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: 'invalid session' });
+    }
+
+    const body = req.body as {
+      orgSlug?: string;
+      agentType?: string;
+      question?: string;
+      context?: string;
+      mode?: string;
+      metadata?: Record<string, string>;
+      engagementId?: string;
+      source?: string;
+      toolNames?: string[];
+    };
+
+    if (!body.orgSlug) {
+      return res.status(400).json({ error: 'orgSlug is required' });
+    }
+    if (!body.question || body.question.trim().length === 0) {
+      return res.status(400).json({ error: 'question is required' });
+    }
+
+    const normalizedType = normaliseAgentType(body.agentType ?? 'AUDIT');
+    const orgContext = await resolveOrgForUser(userId, body.orgSlug);
+
+    const recorder = await AgentConversationRecorder.start({
+      orgId: orgContext.orgId,
+      orgSlug: body.orgSlug,
+      agentType: normalizedType,
+      mode: body.mode ?? 'manual',
+      systemPrompt: AGENT_SYSTEM_PROMPTS[normalizedType],
+      userPrompt: body.question.trim(),
+      context: body.context?.trim() ? body.context.trim() : undefined,
+      source: body.source ?? 'agent_manual',
+      metadata: body.metadata,
+      userId,
+      engagementId: body.engagementId?.trim() ? body.engagementId.trim() : undefined,
+      toolNames: Array.isArray(body.toolNames)
+        ? body.toolNames
+            .filter((value): value is string => typeof value === 'string')
+            .map((value) => value.trim())
+            .filter((value) => value.length > 0)
+        : undefined,
+      logError,
+      logInfo,
+    });
+
+    const conversation = recorder.getConversation();
+    if (!conversation) {
+      return res.status(500).json({ error: 'failed_to_create_conversation' });
+    }
+
+    return res.status(201).json({ conversation });
+  } catch (error) {
+    logError('agent.conversation_create_route_failed', error, { userId: req.user?.sub });
+    return res.status(500).json({ error: 'failed_to_create_conversation' });
+  }
+});
+
+app.get('/api/agent/conversations/:id', async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = req.user?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: 'invalid session' });
+    }
+
+    const orgSlug = typeof req.query.orgSlug === 'string' ? req.query.orgSlug : undefined;
+    if (!orgSlug) {
+      return res.status(400).json({ error: 'orgSlug query param required' });
+    }
+
+    const orgContext = await resolveOrgForUser(userId, orgSlug);
+    const conversationId = req.params.id;
+
+    const conversation = await getConversation({
+      conversationId,
+      logError,
+      logInfo,
+    });
+
+    if (conversation.metadata?.org_id !== orgContext.orgId) {
+      return res.status(404).json({ error: 'conversation_not_found' });
+    }
+
+    return res.json({ conversation });
+  } catch (error) {
+    logError('agent.conversation_fetch_failed', error, { userId: req.user?.sub, conversationId: req.params.id });
+    return res.status(500).json({ error: 'failed_to_fetch_conversation' });
+  }
+});
+
+app.get('/api/agent/conversations/:id/items', async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = req.user?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: 'invalid session' });
+    }
+
+    const orgSlug = typeof req.query.orgSlug === 'string' ? req.query.orgSlug : undefined;
+    if (!orgSlug) {
+      return res.status(400).json({ error: 'orgSlug query param required' });
+    }
+
+    const orgContext = await resolveOrgForUser(userId, orgSlug);
+    const conversationId = req.params.id;
+
+    const conversation = await getConversation({
+      conversationId,
+      logError,
+      logInfo,
+    });
+
+    if (conversation.metadata?.org_id !== orgContext.orgId) {
+      return res.status(404).json({ error: 'conversation_not_found' });
+    }
+
+    const limitParam = Number(req.query.limit ?? 50);
+    const limit = Number.isFinite(limitParam) ? Math.max(1, Math.min(100, limitParam)) : 50;
+    const orderParam = typeof req.query.order === 'string' && req.query.order.toLowerCase() === 'asc' ? 'asc' : 'desc';
+    const after = typeof req.query.after === 'string' ? req.query.after : undefined;
+    const includeParam = req.query.include;
+    const include = Array.isArray(includeParam)
+      ? includeParam.filter((value): value is string => typeof value === 'string')
+      : typeof includeParam === 'string'
+        ? [includeParam]
+        : undefined;
+
+    const itemsResponse = await listConversationItems({
+      conversationId,
+      limit,
+      order: orderParam,
+      after,
+      include,
+      logError,
+      logInfo,
+    });
+
+    return res.json({
+      conversation,
+      items: itemsResponse.data ?? [],
+      hasMore: itemsResponse.has_more ?? false,
+      lastId: itemsResponse.last_id ?? null,
+    });
+  } catch (error) {
+    logError('agent.conversation_items_fetch_failed', error, { userId: req.user?.sub, conversationId: req.params.id });
+    return res.status(500).json({ error: 'failed_to_fetch_conversation_items' });
+  }
+});
+
+app.post('/api/agent/conversations/:id/items', async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = req.user?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: 'invalid session' });
+    }
+
+    const body = req.body as { orgSlug?: string; items?: ConversationItemInput[] };
+    if (!body.orgSlug) {
+      return res.status(400).json({ error: 'orgSlug is required' });
+    }
+
+    if (!Array.isArray(body.items) || body.items.length === 0) {
+      return res.status(400).json({ error: 'items array is required' });
+    }
+
+    const orgContext = await resolveOrgForUser(userId, body.orgSlug);
+    const conversationId = req.params.id;
+
+    const conversation = await getConversation({
+      conversationId,
+      logError,
+      logInfo,
+    });
+
+    if (conversation.metadata?.org_id !== orgContext.orgId) {
+      return res.status(404).json({ error: 'conversation_not_found' });
+    }
+
+    const response = await createConversationItems({
+      conversationId,
+      items: body.items,
+      logError,
+      logInfo,
+    });
+
+    return res.status(201).json({ items: response.data ?? [] });
+  } catch (error) {
+    logError('agent.conversation_items_create_failed', error, { userId: req.user?.sub, conversationId: req.params.id });
+    return res.status(500).json({ error: 'failed_to_create_conversation_items' });
+  }
+});
+
+app.delete('/api/agent/conversations/:id', async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = req.user?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: 'invalid session' });
+    }
+
+    const orgSlug = typeof req.query.orgSlug === 'string' ? req.query.orgSlug : undefined;
+    if (!orgSlug) {
+      return res.status(400).json({ error: 'orgSlug query param required' });
+    }
+
+    const orgContext = await resolveOrgForUser(userId, orgSlug);
+    const conversationId = req.params.id;
+
+    const conversation = await getConversation({
+      conversationId,
+      logError,
+      logInfo,
+    });
+
+    if (conversation.metadata?.org_id !== orgContext.orgId) {
+      return res.status(404).json({ error: 'conversation_not_found' });
+    }
+
+    const response = await deleteConversation({
+      conversationId,
+      logError,
+      logInfo,
+    });
+
+    return res.json({ deleted: response.deleted, conversationId });
+  } catch (error) {
+    logError('agent.conversation_delete_failed', error, { userId: req.user?.sub, conversationId: req.params.id });
+    return res.status(500).json({ error: 'failed_to_delete_conversation' });
   }
 });
 
@@ -4618,11 +6587,1106 @@ app.post('/api/agent/media/video', async (req: AuthenticatedRequest, res) => {
   }
 });
 
+function isStreamingRequested(rawPayload: unknown): boolean {
+  if (!rawPayload || typeof rawPayload !== 'object' || Array.isArray(rawPayload)) {
+    return false;
+  }
+
+  if (!('stream' in rawPayload)) {
+    return false;
+  }
+
+  const streamValue = (rawPayload as Record<string, unknown>).stream;
+  const parsed = parseBooleanFlag(streamValue);
+  return parsed === true;
+}
+
+function normaliseChatCompletionCreatePayload(
+  rawPayload: unknown,
+  options?: { streaming?: boolean },
+): ChatCompletionCreateParamsNonStreaming | ChatCompletionCreateParamsStreaming | null {
+  if (!rawPayload || typeof rawPayload !== 'object' || Array.isArray(rawPayload)) {
+    return null;
+  }
+
+  const cloned = JSON.parse(JSON.stringify(rawPayload)) as Record<string, unknown>;
+  if (Array.isArray(cloned.messages) === false) {
+    return null;
+  }
+
+  const model = typeof cloned.model === 'string' ? cloned.model.trim() : '';
+  if (!model) {
+    return null;
+  }
+
+  cloned.model = model;
+
+  if (options?.streaming) {
+    cloned.stream = true;
+    return cloned as ChatCompletionCreateParamsStreaming;
+  }
+
+  if ('stream' in cloned) {
+    delete cloned.stream;
+  }
+
+  if ('store' in cloned) {
+    cloned.store = Boolean(cloned.store);
+  }
+
+  return cloned as ChatCompletionCreateParamsNonStreaming;
+}
+
+function parseMetadataRecord(input: unknown): Record<string, unknown> | undefined {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    return undefined;
+  }
+  return input as Record<string, unknown>;
+}
+
+function parseStringArray(input: unknown): string[] | undefined {
+  if (!Array.isArray(input)) return undefined;
+  const tags = Array.from(
+    new Set(
+      input
+        .map((entry) => (typeof entry === 'string' ? entry.trim() : ''))
+        .filter((entry): entry is string => entry.length > 0),
+    ),
+  );
+  return tags.length > 0 ? tags : undefined;
+}
+
+function parseQuotaTag(input: unknown): string | undefined {
+  if (typeof input !== 'string') return undefined;
+  const trimmed = input.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function buildChatCompletionListQuery(query: Record<string, unknown>): ChatCompletionListParams {
+  const params: ChatCompletionListParams = {};
+  if (typeof query.after === 'string' && query.after.trim().length > 0) {
+    params.after = query.after.trim();
+  }
+  if (typeof query.limit === 'string') {
+    const limitValue = Number(query.limit);
+    if (Number.isFinite(limitValue)) {
+      params.limit = Math.max(1, Math.min(100, Math.floor(limitValue)));
+    }
+  }
+  if (typeof query.model === 'string' && query.model.trim().length > 0) {
+    params.model = query.model.trim();
+  }
+  return params;
+}
+
+function buildChatCompletionMessagesQuery(query: Record<string, unknown>): MessageListParams {
+  const params: MessageListParams = {};
+  if (typeof query.after === 'string' && query.after.trim().length > 0) {
+    params.after = query.after.trim();
+  }
+  if (typeof query.limit === 'string') {
+    const limitValue = Number(query.limit);
+    if (Number.isFinite(limitValue)) {
+      params.limit = Math.max(1, Math.min(200, Math.floor(limitValue)));
+    }
+  }
+  if (typeof query.order === 'string') {
+    const order = query.order.trim().toLowerCase();
+    if (order === 'asc' || order === 'desc') {
+      params.order = order as 'asc' | 'desc';
+    }
+  }
+  return params;
+}
+
+app.post('/api/openai/chat-completions', async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = req.user?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: 'invalid session' });
+    }
+
+    const body = req.body as Record<string, unknown> | undefined;
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
+      return res.status(400).json({ error: 'invalid_request_body' });
+    }
+
+    const orgSlugRaw = body.orgSlug;
+    const orgSlug = typeof orgSlugRaw === 'string' ? orgSlugRaw.trim() : '';
+    if (!orgSlug) {
+      return res.status(400).json({ error: 'orgSlug is required' });
+    }
+
+    const streamingRequested = isStreamingRequested(body.payload);
+    const payload = normaliseChatCompletionCreatePayload(body.payload, { streaming: streamingRequested });
+    if (!payload) {
+      return res.status(400).json({ error: 'payload must include model and messages' });
+    }
+
+    const orgContext = await resolveOrgForUser(userId, orgSlug);
+
+    const metadata = parseMetadataRecord(body.metadata);
+    const tags = parseStringArray(body.tags);
+    const quotaTag = parseQuotaTag(body.quotaTag);
+    const requestLogPayload =
+      body.requestLogPayload && typeof body.requestLogPayload === 'object'
+        ? (body.requestLogPayload as Record<string, unknown>)
+        : { model: payload.model };
+
+    const metadataWithOrg = { ...(metadata ?? {}), orgSlug };
+
+    if (streamingRequested) {
+      logInfo('openai.chat_completion_streaming_request', {
+        userId,
+        orgSlug,
+        requestId: req.requestId,
+      });
+
+      res.status(200);
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+      res.flushHeaders?.();
+
+      const cleanupCallbacks: Array<() => void> = [];
+      let clientClosed = false;
+      let streamStatus: 'pending' | 'completed' | 'client_disconnect' | 'error' = 'pending';
+      const streamStartedAt = Date.now();
+      let firstChunkAt: number | null = null;
+      let lastChunkAt: number | null = null;
+      let chunkCount = 0;
+      let totalChunkBytes = 0;
+      let chunkIntervalTotal = 0;
+      let chunkIntervalCount = 0;
+      let chunkIntervalMin: number | null = null;
+      let chunkIntervalMax = 0;
+      let heartbeatCount = 0;
+      let lastHeartbeatAt: number | null = null;
+      let heartbeatTimer: NodeJS.Timeout | null = null;
+      const heartbeatIntervalMs = CHAT_COMPLETIONS_STREAM_HEARTBEAT_INTERVAL_MS;
+
+      const recordChunkMetrics = (chunk: ChatCompletionChunk) => {
+        const now = Date.now();
+        const chunkString = JSON.stringify(chunk);
+        chunkCount += 1;
+        totalChunkBytes += Buffer.byteLength(chunkString, 'utf8');
+        if (firstChunkAt === null) {
+          firstChunkAt = now;
+        }
+        if (lastChunkAt !== null) {
+          const delta = now - lastChunkAt;
+          chunkIntervalTotal += delta;
+          chunkIntervalCount += 1;
+          chunkIntervalMax = Math.max(chunkIntervalMax, delta);
+          chunkIntervalMin = chunkIntervalMin === null ? delta : Math.min(chunkIntervalMin, delta);
+        }
+        lastChunkAt = now;
+      };
+
+      try {
+        const { stream, logCompletion } = await streamChatCompletion({
+          client: openai,
+          payload: payload as ChatCompletionCreateParamsStreaming,
+          debugLogger: logOpenAIDebugEvent,
+          logError,
+          metadata: metadataWithOrg,
+          tags,
+          quotaTag,
+          orgId: orgContext.orgId,
+          requestLogPayload,
+        });
+
+        const writeEvent = (event: { type: string; data?: unknown }) => {
+          if (clientClosed || res.writableEnded) {
+            return;
+          }
+          res.write(`data: ${JSON.stringify(event)}\n\n`);
+        };
+
+        const abortStream = () => {
+          try {
+            stream.controller?.abort();
+          } catch {
+            // ignore abort errors
+          }
+        };
+
+        const markClientClosed = () => {
+          clientClosed = true;
+          if (streamStatus === 'pending') {
+            streamStatus = 'client_disconnect';
+          }
+          if (heartbeatTimer) {
+            clearInterval(heartbeatTimer);
+            heartbeatTimer = null;
+          }
+          abortStream();
+        };
+
+        if (res.on) {
+          res.on('close', markClientClosed);
+          cleanupCallbacks.push(() => res.removeListener?.('close', markClientClosed));
+          res.on('finish', markClientClosed);
+          cleanupCallbacks.push(() => res.removeListener?.('finish', markClientClosed));
+        }
+
+        if (heartbeatIntervalMs > 0) {
+          const sendHeartbeat = () => {
+            if (clientClosed || res.writableEnded) {
+              return;
+            }
+            lastHeartbeatAt = Date.now();
+            heartbeatCount += 1;
+            res.write(`: keep-alive ${lastHeartbeatAt}\n\n`);
+          };
+          heartbeatTimer = setInterval(sendHeartbeat, heartbeatIntervalMs);
+          heartbeatTimer.unref?.();
+          cleanupCallbacks.push(() => {
+            if (heartbeatTimer) {
+              clearInterval(heartbeatTimer);
+              heartbeatTimer = null;
+            }
+          });
+        }
+
+        let lastChunk: ChatCompletionChunk | undefined;
+
+        for await (const chunk of stream) {
+          if (clientClosed) {
+            break;
+          }
+          lastChunk = chunk;
+          recordChunkMetrics(chunk);
+          writeEvent({ type: 'chunk', data: chunk });
+        }
+
+        if (!clientClosed) {
+          try {
+            await logCompletion({
+              response: lastChunk ? { id: lastChunk.id } : undefined,
+              metadata: { streaming: true },
+            });
+          } catch (err) {
+            logError('openai.chat_completion_stream_log_failed', err, {
+              orgId: orgContext.orgId,
+              requestId: req.requestId,
+            });
+          }
+
+          writeEvent({ type: 'done' });
+          if (!res.writableEnded) {
+            res.write('data: [DONE]\n\n');
+            res.end();
+          }
+
+          if (streamStatus === 'pending') {
+            streamStatus = 'completed';
+          }
+        }
+
+        return;
+      } catch (error) {
+        if (!clientClosed) {
+          logError('openai.chat_completion_stream_failed', error, {
+            userId,
+            orgId: orgContext.orgId,
+            requestId: req.requestId,
+          });
+
+          const message = error instanceof Error ? error.message : 'stream_error';
+          if (!res.headersSent) {
+            res.status(500);
+            res.setHeader('Content-Type', 'text/event-stream');
+            res.setHeader('Cache-Control', 'no-cache');
+            res.setHeader('Connection', 'keep-alive');
+            res.flushHeaders?.();
+          }
+          if (!res.writableEnded) {
+            res.write(`data: ${JSON.stringify({ type: 'error', data: { message } })}\n\n`);
+            res.write('data: [DONE]\n\n');
+            res.end();
+          }
+        }
+
+        if (!clientClosed && streamStatus === 'pending') {
+          streamStatus = 'error';
+        }
+
+        return;
+      } finally {
+        for (const cleanup of cleanupCallbacks) {
+          try {
+            cleanup();
+          } catch {
+            // ignore cleanup errors
+          }
+        }
+
+        const finishedAt = Date.now();
+        const durationMs = finishedAt - streamStartedAt;
+        const timeToFirstChunkMs = firstChunkAt !== null ? firstChunkAt - streamStartedAt : null;
+        const averageChunkIntervalMs =
+          chunkIntervalCount > 0 ? chunkIntervalTotal / chunkIntervalCount : null;
+
+        logInfo('openai.chat_completion_stream_metrics', {
+          userId,
+          orgId: orgContext.orgId,
+          orgSlug,
+          requestId: req.requestId,
+          status: streamStatus,
+          durationMs,
+          timeToFirstChunkMs,
+          chunkCount,
+          totalChunkBytes,
+          chunkIntervalMinMs: chunkIntervalMin,
+          chunkIntervalMaxMs: chunkIntervalCount > 0 ? chunkIntervalMax : null,
+          chunkIntervalAvgMs: averageChunkIntervalMs,
+          heartbeatCount,
+          heartbeatIntervalMs,
+          lastHeartbeatAt,
+          lastChunkAt,
+        });
+      }
+    }
+
+    const completion = await createChatCompletion({
+      client: openai,
+      payload: payload as ChatCompletionCreateParamsNonStreaming,
+      debugLogger: logOpenAIDebugEvent,
+      logError,
+      metadata: metadataWithOrg,
+      tags,
+      quotaTag,
+      orgId: orgContext.orgId,
+      requestLogPayload,
+    });
+
+    return res.status(201).json({ completion });
+  } catch (error) {
+    logError('openai.chat_completion_proxy_failed', error, { userId: req.user?.sub });
+    return res.status(500).json({ error: 'failed_to_create_chat_completion' });
+  }
+});
+
+app.get('/api/openai/chat-completions', async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = req.user?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: 'invalid session' });
+    }
+
+    const orgSlug = typeof req.query.orgSlug === 'string' ? req.query.orgSlug.trim() : '';
+    if (!orgSlug) {
+      return res.status(400).json({ error: 'orgSlug query param required' });
+    }
+
+    const orgContext = await resolveOrgForUser(userId, orgSlug);
+    const query = buildChatCompletionListQuery(req.query as Record<string, unknown>);
+
+    const result = await listChatCompletions({
+      client: openai,
+      query,
+      debugLogger: logOpenAIDebugEvent,
+      logError,
+      metadata: { orgSlug },
+      orgId: orgContext.orgId,
+    });
+
+    return res.json(result);
+  } catch (error) {
+    logError('openai.chat_completion_list_failed', error, { userId: req.user?.sub });
+    return res.status(500).json({ error: 'failed_to_list_chat_completions' });
+  }
+});
+
+app.get('/api/openai/chat-completions/:id', async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = req.user?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: 'invalid session' });
+    }
+
+    const orgSlug = typeof req.query.orgSlug === 'string' ? req.query.orgSlug.trim() : '';
+    if (!orgSlug) {
+      return res.status(400).json({ error: 'orgSlug query param required' });
+    }
+
+    const orgContext = await resolveOrgForUser(userId, orgSlug);
+    const completion = await retrieveChatCompletion({
+      client: openai,
+      completionId: req.params.id,
+      debugLogger: logOpenAIDebugEvent,
+      logError,
+      metadata: { orgSlug },
+      orgId: orgContext.orgId,
+    });
+
+    return res.json({ completion });
+  } catch (error) {
+    logError('openai.chat_completion_retrieve_failed', error, {
+      userId: req.user?.sub,
+      completionId: req.params.id,
+    });
+    return res.status(500).json({ error: 'failed_to_retrieve_chat_completion' });
+  }
+});
+
+app.patch('/api/openai/chat-completions/:id', async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = req.user?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: 'invalid session' });
+    }
+
+    const body = req.body as Record<string, unknown> | undefined;
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
+      return res.status(400).json({ error: 'invalid_request_body' });
+    }
+
+    const orgSlugRaw = body.orgSlug ?? req.query.orgSlug;
+    const orgSlug = typeof orgSlugRaw === 'string' ? orgSlugRaw.trim() : '';
+    if (!orgSlug) {
+      return res.status(400).json({ error: 'orgSlug is required' });
+    }
+
+    const metadata = parseMetadataRecord(body.metadata);
+    if (!metadata) {
+      return res.status(400).json({ error: 'metadata object is required' });
+    }
+
+    const orgContext = await resolveOrgForUser(userId, orgSlug);
+
+    const completion = await updateChatCompletion({
+      client: openai,
+      completionId: req.params.id,
+      payload: { metadata } as ChatCompletionUpdateParams,
+      debugLogger: logOpenAIDebugEvent,
+      logError,
+      metadata: { orgSlug },
+      tags: parseStringArray(body.tags),
+      quotaTag: parseQuotaTag(body.quotaTag),
+      orgId: orgContext.orgId,
+    });
+
+    return res.json({ completion });
+  } catch (error) {
+    logError('openai.chat_completion_update_failed', error, {
+      userId: req.user?.sub,
+      completionId: req.params.id,
+    });
+    return res.status(500).json({ error: 'failed_to_update_chat_completion' });
+  }
+});
+
+app.delete('/api/openai/chat-completions/:id', async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = req.user?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: 'invalid session' });
+    }
+
+    const orgSlug = typeof req.query.orgSlug === 'string' ? req.query.orgSlug.trim() : '';
+    if (!orgSlug) {
+      return res.status(400).json({ error: 'orgSlug query param required' });
+    }
+
+    const orgContext = await resolveOrgForUser(userId, orgSlug);
+    const deleted = await deleteChatCompletion({
+      client: openai,
+      completionId: req.params.id,
+      debugLogger: logOpenAIDebugEvent,
+      logError,
+      metadata: { orgSlug },
+      orgId: orgContext.orgId,
+    });
+
+    return res.json({ deleted });
+  } catch (error) {
+    logError('openai.chat_completion_delete_failed', error, {
+      userId: req.user?.sub,
+      completionId: req.params.id,
+    });
+    return res.status(500).json({ error: 'failed_to_delete_chat_completion' });
+  }
+});
+
+app.get('/api/openai/chat-completions/:id/messages', async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = req.user?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: 'invalid session' });
+    }
+
+    const orgSlug = typeof req.query.orgSlug === 'string' ? req.query.orgSlug.trim() : '';
+    if (!orgSlug) {
+      return res.status(400).json({ error: 'orgSlug query param required' });
+    }
+
+    const orgContext = await resolveOrgForUser(userId, orgSlug);
+    const query = buildChatCompletionMessagesQuery(req.query as Record<string, unknown>);
+
+    const result = await listChatCompletionMessages({
+      client: openai,
+      completionId: req.params.id,
+      query,
+      debugLogger: logOpenAIDebugEvent,
+      logError,
+      metadata: { orgSlug },
+      orgId: orgContext.orgId,
+    });
+
+    return res.json(result);
+  } catch (error) {
+    logError('openai.chat_completion_messages_list_failed', error, {
+      userId: req.user?.sub,
+      completionId: req.params.id,
+    });
+    return res.status(500).json({ error: 'failed_to_list_chat_completion_messages' });
+  }
+});
+
 app.get('/api/agent/orchestrator/agents', (req: AuthenticatedRequest, res) => {
   if (!OPENAI_ORCHESTRATOR_ENABLED) {
     return res.status(404).json({ error: 'orchestrator_disabled' });
   }
   return res.json({ agents: DOMAIN_AGENT_LIST });
+});
+
+app.get('/api/agent/domain-tools/vector-stores', async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = req.user?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: 'invalid session' });
+    }
+
+    const orgSlug = typeof req.query?.orgSlug === 'string' ? (req.query.orgSlug as string).trim() : '';
+    if (!orgSlug) {
+      return res.status(400).json({ error: 'orgSlug is required' });
+    }
+
+    const agentKey = ensureDomainToolAgent(req.query?.agentKey);
+    if (!agentKey) {
+      return res.status(400).json({ error: 'agentKey must be a supported domain persona' });
+    }
+
+    const orgContext = await resolveOrgForUser(userId, orgSlug);
+
+    const attributeSampleSizeParam = parseAttributeSampleSizeParam(
+      extractQueryValue(req.query?.attributeSampleSize),
+    );
+
+    const vectorStores = await listAccessibleVectorStores({
+      attributeSampleSize: attributeSampleSizeParam,
+    });
+
+    logInfo('domain_tools.vector_store_catalog_generated', {
+      userId,
+      orgId: orgContext.orgId,
+      agentKey,
+      storeCount: vectorStores.length,
+      attributeSampleSize: attributeSampleSizeParam ?? DEFAULT_ATTRIBUTE_SAMPLE_SIZE,
+      storesWithAdditionalAttributes: vectorStores.filter((store) => store.attributeSummary.hasMore).length,
+    });
+
+    return res.json({
+      attributeSampleSize,
+      attributePageLimit: DEFAULT_ATTRIBUTE_PAGE_LIMIT,
+      vectorStores: vectorStores.map((store) => ({
+        id: store.id,
+        name: store.name,
+        description: store.description,
+        status: store.status,
+        fileCount: store.fileCount,
+        createdAt: store.createdAt,
+        attributes: store.attributeSummary.attributes,
+        attributeSampledCount: store.attributeSummary.sampledCount,
+        attributeHasMore: store.attributeSummary.hasMore,
+        attributeNextCursor: store.attributeSummary.nextCursor,
+        metadata: store.metadata,
+      })),
+    });
+  } catch (error) {
+    logError('domain_tools.vector_store_catalog_failed', error, { userId: req.user?.sub });
+    return res.status(500).json({ error: 'vector_store_catalog_failed' });
+  }
+});
+
+app.get('/api/agent/domain-tools/vector-stores/:vectorStoreId/attributes', async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = req.user?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: 'invalid session' });
+    }
+
+    const orgSlug = extractQueryValue(req.query?.orgSlug)?.trim() ?? '';
+    if (!orgSlug) {
+      return res.status(400).json({ error: 'orgSlug is required' });
+    }
+
+    const agentKey = ensureDomainToolAgent(extractQueryValue(req.query?.agentKey));
+    if (!agentKey) {
+      return res.status(400).json({ error: 'agentKey must be a supported domain persona' });
+    }
+
+    const vectorStoreId = typeof req.params?.vectorStoreId === 'string' ? req.params.vectorStoreId : '';
+    if (!vectorStoreId.trim()) {
+      return res.status(400).json({ error: 'vectorStoreId is required' });
+    }
+
+    await resolveOrgForUser(userId, orgSlug);
+
+    const cursor = extractQueryValue(req.query?.cursor);
+    const limit =
+      parseAttributePageLimitParam(extractQueryValue(req.query?.limit)) ?? DEFAULT_ATTRIBUTE_PAGE_LIMIT;
+
+    const summary = await summariseVectorStoreAttributes(vectorStoreId, {
+      maxFiles: limit,
+      pageSize: limit,
+      after: cursor ?? null,
+    });
+
+    logInfo('domain_tools.vector_store_attribute_page_generated', {
+      userId,
+      orgSlug,
+      agentKey,
+      vectorStoreId,
+      limit,
+      sampledCount: summary.sampledCount,
+      hasMore: summary.hasMore,
+    });
+
+    return res.json({
+      attributes: summary.attributes,
+      sampledCount: summary.sampledCount,
+      hasMore: summary.hasMore,
+      nextCursor: summary.nextCursor,
+    });
+  } catch (error) {
+    logError('domain_tools.vector_store_attribute_page_failed', error, {
+      userId: req.user?.sub,
+      vectorStoreId: typeof req.params?.vectorStoreId === 'string' ? req.params.vectorStoreId : undefined,
+    });
+    return res.status(500).json({ error: 'vector_store_attribute_page_failed' });
+  }
+});
+
+app.post('/api/agent/domain-tools/web-search', async (req: AuthenticatedRequest, res) => {
+  if (!OPENAI_WEB_SEARCH_ENABLED) {
+    return res.status(404).json({ error: 'web_search_disabled' });
+  }
+
+  try {
+    const userId = req.user?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: 'invalid session' });
+    }
+
+    const body = req.body as {
+      orgSlug?: string;
+      agentKey?: string;
+      query?: string;
+      reasoningEffort?: string;
+      allowedDomains?: unknown;
+      location?: { country?: string; city?: string; region?: string };
+    };
+
+    const orgSlug = typeof body.orgSlug === 'string' ? body.orgSlug.trim() : '';
+    if (!orgSlug) {
+      return res.status(400).json({ error: 'orgSlug is required' });
+    }
+
+    const agentKey = ensureDomainToolAgent(body.agentKey);
+    if (!agentKey) {
+      return res.status(400).json({ error: 'agentKey must be a supported domain persona' });
+    }
+
+    const query = typeof body.query === 'string' ? body.query.trim() : '';
+    if (!query) {
+      return res.status(400).json({ error: 'query is required' });
+    }
+
+    await resolveOrgForUser(userId, orgSlug);
+
+    const allowedDomains = Array.isArray(body.allowedDomains)
+      ? Array.from(
+          new Set(
+            body.allowedDomains
+              .map((value) => (typeof value === 'string' ? value.trim() : ''))
+              .filter((value) => value.length > 0),
+          ),
+        )
+      : [];
+    if (allowedDomains.length > 20) {
+      return res.status(400).json({ error: 'allowedDomains cannot exceed 20 entries' });
+    }
+    const reasoningEffort = normalizeReasoningEffort(body.reasoningEffort);
+    const locationInput =
+      body.location && typeof body.location === 'object' && !Array.isArray(body.location)
+        ? body.location
+        : undefined;
+    const userLocation = locationInput
+      ? {
+          type: 'approximate',
+          country:
+            typeof locationInput.country === 'string' && locationInput.country.trim().length
+              ? locationInput.country.trim()
+              : undefined,
+          city:
+            typeof locationInput.city === 'string' && locationInput.city.trim().length
+              ? locationInput.city.trim()
+              : undefined,
+          region:
+            typeof locationInput.region === 'string' && locationInput.region.trim().length
+              ? locationInput.region.trim()
+              : undefined,
+        }
+      : undefined;
+
+    const webTool: Record<string, unknown> = { type: 'web_search' };
+    if (allowedDomains.length) {
+      webTool.filters = { allowed_domains: allowedDomains };
+    }
+    if (userLocation && (userLocation.country || userLocation.city || userLocation.region)) {
+      webTool.user_location = userLocation;
+    }
+
+    const response = await openai.responses.create({
+      model: DOMAIN_TOOL_MODEL,
+      input: query,
+      tools: [webTool],
+      include: ['web_search_call.action.sources'],
+      tool_choice: { type: 'web_search' },
+      ...(reasoningEffort ? { reasoning: { effort: reasoningEffort } } : {}),
+    });
+
+    const answer = extractResponseText(response) || 'No answer generated.';
+    const citations = extractCitationsFromResponse(response);
+    const sources = extractWebSearchSources(response);
+
+    logInfo('domain_tools.web_search_completed', {
+      userId,
+      agentKey,
+      orgSlug,
+      citationCount: citations.length,
+      sourceCount: sources.length,
+    });
+
+    return res.json({ answer, citations, sources });
+  } catch (error) {
+    logError('domain_tools.web_search_failed', error, { userId: req.user?.sub });
+    return res.status(500).json({ error: 'web_search_failed' });
+  }
+});
+
+app.post('/api/agent/domain-tools/file-search', async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = req.user?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: 'invalid session' });
+    }
+
+    const body = req.body as {
+      orgSlug?: string;
+      agentKey?: string;
+      query?: string;
+      vectorStoreIds?: unknown;
+      maxResults?: unknown;
+    };
+
+    const orgSlug = typeof body.orgSlug === 'string' ? body.orgSlug.trim() : '';
+    if (!orgSlug) {
+      return res.status(400).json({ error: 'orgSlug is required' });
+    }
+
+    const agentKey = ensureDomainToolAgent(body.agentKey);
+    if (!agentKey) {
+      return res.status(400).json({ error: 'agentKey must be a supported domain persona' });
+    }
+
+    const query = typeof body.query === 'string' ? body.query.trim() : '';
+    if (!query) {
+      return res.status(400).json({ error: 'query is required' });
+    }
+
+    const vectorStoreIds = Array.isArray(body.vectorStoreIds)
+      ? Array.from(
+          new Set(
+            body.vectorStoreIds
+              .map((value) => (typeof value === 'string' ? value.trim() : ''))
+              .filter((value) => value.length > 0),
+          ),
+        )
+      : [];
+    if (!vectorStoreIds.length) {
+      return res.status(400).json({ error: 'vectorStoreIds must include at least one id' });
+    }
+
+    const maxResultsCandidate = Number(body.maxResults);
+    const maxResults = Number.isFinite(maxResultsCandidate) && maxResultsCandidate > 0
+      ? Math.min(20, Math.floor(maxResultsCandidate))
+      : undefined;
+
+    await resolveOrgForUser(userId, orgSlug);
+
+    const toolSpec: Record<string, unknown> = {
+      type: 'file_search',
+      vector_store_ids: vectorStoreIds,
+    };
+    if (typeof maxResults === 'number') {
+      toolSpec.max_num_results = maxResults;
+    }
+
+    const response = await openai.responses.create({
+      model: DOMAIN_TOOL_MODEL,
+      input: query,
+      tools: [toolSpec],
+      include: ['file_search_call.results'],
+      tool_choice: { type: 'file_search' },
+    });
+
+    const answer = extractResponseText(response) || 'No answer generated.';
+    const citations = extractCitationsFromResponse(response);
+    const results = extractFileSearchResults(response);
+
+    logInfo('domain_tools.file_search_completed', {
+      userId,
+      agentKey,
+      orgSlug,
+      resultCount: results.length,
+    });
+
+    return res.json({ answer, citations, results });
+  } catch (error) {
+    logError('domain_tools.file_search_failed', error, { userId: req.user?.sub });
+    return res.status(500).json({ error: 'file_search_failed' });
+  }
+});
+
+app.post('/api/agent/domain-tools/retrieval', async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = req.user?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: 'invalid session' });
+    }
+
+    const body = req.body as {
+      orgSlug?: string;
+      agentKey?: string;
+      vectorStoreId?: string;
+      query?: string;
+      maxResults?: unknown;
+      rewriteQuery?: unknown;
+      attributeFilter?: unknown;
+    };
+
+    const orgSlug = typeof body.orgSlug === 'string' ? body.orgSlug.trim() : '';
+    if (!orgSlug) {
+      return res.status(400).json({ error: 'orgSlug is required' });
+    }
+
+    const agentKey = ensureDomainToolAgent(body.agentKey);
+    if (!agentKey) {
+      return res.status(400).json({ error: 'agentKey must be a supported domain persona' });
+    }
+
+    const vectorStoreId = typeof body.vectorStoreId === 'string' ? body.vectorStoreId.trim() : '';
+    if (!vectorStoreId) {
+      return res.status(400).json({ error: 'vectorStoreId is required' });
+    }
+
+    const query = typeof body.query === 'string' ? body.query.trim() : '';
+    if (!query) {
+      return res.status(400).json({ error: 'query is required' });
+    }
+
+    const maxResultsCandidate = Number(body.maxResults);
+    const maxResults = Number.isFinite(maxResultsCandidate) && maxResultsCandidate > 0
+      ? Math.min(50, Math.floor(maxResultsCandidate))
+      : undefined;
+
+    const rewriteQuery = typeof body.rewriteQuery === 'boolean' ? body.rewriteQuery : true;
+
+    const attributeFilter =
+      body.attributeFilter && typeof body.attributeFilter === 'object' && !Array.isArray(body.attributeFilter)
+        ? body.attributeFilter
+        : undefined;
+
+    const orgContext = await resolveOrgForUser(userId, orgSlug);
+
+    const searchPayload: Record<string, unknown> = {
+      query,
+      rewrite_query: rewriteQuery,
+    };
+    if (typeof maxResults === 'number') {
+      searchPayload.max_num_results = maxResults;
+    }
+    if (attributeFilter) {
+      searchPayload.attribute_filter = attributeFilter;
+    }
+
+    const searchResponse = await openai.vectorStores.search(vectorStoreId, searchPayload);
+    const hits = Array.isArray(searchResponse.data) ? searchResponse.data : [];
+    const results = hits.map((hit) => ({
+      fileId: hit.file_id,
+      filename: hit.filename,
+      score: hit.score,
+      content: Array.isArray(hit.content) ? hit.content.map((entry) => entry?.text ?? '').filter(Boolean) : [],
+      attributes: hit.attributes ?? null,
+    }));
+
+    logInfo('domain_tools.vector_search_completed', {
+      userId,
+      agentKey,
+      orgId: orgContext.orgId,
+      vectorStoreId,
+      resultCount: results.length,
+    });
+
+    return res.json({ results });
+  } catch (error) {
+    logError('domain_tools.vector_search_failed', error, { userId: req.user?.sub });
+    return res.status(500).json({ error: 'retrieval_failed' });
+  }
+});
+
+app.post('/api/agent/domain-tools/image-generation', async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = req.user?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: 'invalid session' });
+    }
+
+    const body = req.body as {
+      orgSlug?: string;
+      agentKey?: string;
+      prompt?: string;
+      size?: string;
+      quality?: string;
+      background?: string;
+    };
+
+    const orgSlug = typeof body.orgSlug === 'string' ? body.orgSlug.trim() : '';
+    if (!orgSlug) {
+      return res.status(400).json({ error: 'orgSlug is required' });
+    }
+
+    const agentKey = ensureDomainToolAgent(body.agentKey);
+    if (!agentKey) {
+      return res.status(400).json({ error: 'agentKey must be a supported domain persona' });
+    }
+
+    const prompt = typeof body.prompt === 'string' ? body.prompt.trim() : '';
+    if (!prompt) {
+      return res.status(400).json({ error: 'prompt is required' });
+    }
+
+    await resolveOrgForUser(userId, orgSlug);
+
+    const toolOptions: Record<string, unknown> = { type: 'image_generation' };
+    if (typeof body.size === 'string' && body.size.trim()) {
+      toolOptions.size = body.size.trim();
+    }
+    if (typeof body.quality === 'string' && body.quality.trim()) {
+      toolOptions.quality = body.quality.trim();
+    }
+    if (typeof body.background === 'string' && body.background.trim()) {
+      toolOptions.background = body.background.trim();
+    }
+
+    const response = await openai.responses.create({
+      model: DOMAIN_IMAGE_MODEL,
+      input: prompt,
+      tools: [toolOptions],
+      tool_choice: { type: 'image_generation' },
+    });
+
+    const outputItems = Array.isArray(response.output) ? response.output : [];
+    const imageCall = outputItems.find((item) => item?.type === 'image_generation_call');
+    const imageBase64 = typeof imageCall?.result === 'string' ? imageCall.result : null;
+    if (!imageBase64) {
+      logError('domain_tools.image_generation_missing_result', new Error('image result missing'), { userId });
+      return res.status(502).json({ error: 'image_generation_failed' });
+    }
+
+    logInfo('domain_tools.image_generation_completed', { userId, agentKey, orgSlug });
+
+    return res.json({ imageBase64, revisedPrompt: imageCall?.revised_prompt ?? null });
+  } catch (error) {
+    logError('domain_tools.image_generation_failed', error, { userId: req.user?.sub });
+    return res.status(500).json({ error: 'image_generation_failed' });
+  }
+});
+
+app.post('/api/agent/domain-tools/gpt5', async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = req.user?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: 'invalid session' });
+    }
+
+    const body = req.body as {
+      orgSlug?: string;
+      agentKey?: string;
+      prompt?: string;
+      reasoningEffort?: string;
+      verbosity?: string;
+      maxOutputTokens?: unknown;
+    };
+
+    const orgSlug = typeof body.orgSlug === 'string' ? body.orgSlug.trim() : '';
+    if (!orgSlug) {
+      return res.status(400).json({ error: 'orgSlug is required' });
+    }
+
+    const agentKey = ensureDomainToolAgent(body.agentKey);
+    if (!agentKey) {
+      return res.status(400).json({ error: 'agentKey must be a supported domain persona' });
+    }
+
+    const prompt = typeof body.prompt === 'string' ? body.prompt.trim() : '';
+    if (!prompt) {
+      return res.status(400).json({ error: 'prompt is required' });
+    }
+
+    await resolveOrgForUser(userId, orgSlug);
+
+    const reasoningEffort = normalizeReasoningEffort(body.reasoningEffort);
+    const verbosity = normalizeVerbosity(body.verbosity);
+    const maxTokensCandidate = Number(body.maxOutputTokens);
+    const maxOutputTokens = Number.isFinite(maxTokensCandidate) && maxTokensCandidate > 0
+      ? Math.min(4000, Math.floor(maxTokensCandidate))
+      : undefined;
+
+    const requestPayload: Record<string, unknown> = {
+      model: DOMAIN_TOOL_MODEL,
+      input: prompt,
+    };
+    if (reasoningEffort) {
+      requestPayload.reasoning = { effort: reasoningEffort };
+    }
+    if (verbosity) {
+      requestPayload.text = { verbosity };
+    }
+    if (typeof maxOutputTokens === 'number') {
+      requestPayload.max_output_tokens = maxOutputTokens;
+    }
+
+    const response = await openai.responses.create(requestPayload);
+    const answer = extractResponseText(response) || 'No answer generated.';
+    const citations = extractCitationsFromResponse(response);
+
+    logInfo('domain_tools.gpt5_completed', {
+      userId,
+      agentKey,
+      orgSlug,
+      citationCount: citations.length,
+    });
+
+    return res.json({ answer, citations });
+  } catch (error) {
+    logError('domain_tools.gpt5_failed', error, { userId: req.user?.sub });
+    return res.status(500).json({ error: 'gpt5_failed' });
+  }
 });
 
 app.post('/api/agent/tools/sync', async (req: AuthenticatedRequest, res) => {
@@ -6190,6 +9254,10 @@ function startRealtimeKnowledgeWatchers() {
 }
 
 app.post('/v1/rag/ingest', upload.single('file'), async (req: AuthenticatedRequest, res) => {
+  let orgContext: Awaited<ReturnType<typeof resolveOrgForUser>> | null = null;
+  let chunks: string[] = [];
+  let embeddingUsage: EmbedUsage = {};
+  let embeddingModel = 'text-embedding-3-small';
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'file required' });
@@ -6210,7 +9278,6 @@ app.post('/v1/rag/ingest', upload.single('file'), async (req: AuthenticatedReque
       return res.status(400).json({ error: 'orgSlug is required' });
     }
 
-    let orgContext;
     try {
       orgContext = await resolveOrgForUser(userId, orgSlug);
     } catch (err) {
@@ -6225,8 +9292,10 @@ app.post('/v1/rag/ingest', upload.single('file'), async (req: AuthenticatedReque
 
     const { buffer, mimetype, originalname } = req.file;
     const text = await extractText(buffer, mimetype);
-    const chunks = chunkText(text);
-    const embeddings = await embed(chunks);
+    chunks = chunkText(text);
+    const { vectors: embeddings, usage, model } = await embed(chunks);
+    embeddingUsage = usage;
+    embeddingModel = model;
 
     await db.query('BEGIN');
     const docResult = await db.query(
@@ -6248,10 +9317,36 @@ app.post('/v1/rag/ingest', upload.single('file'), async (req: AuthenticatedReque
       chunks: chunks.length,
       orgId: orgContext.orgId,
     });
+    await recordEmbeddingTelemetry({
+      orgId: orgContext.orgId,
+      scenario: 'manual_ingest',
+      decision: 'APPROVED',
+      metrics: {
+        documentId: docId,
+        chunkCount: chunks.length,
+        tokens: embeddingUsage.total_tokens ?? 0,
+        promptTokens: embeddingUsage.prompt_tokens ?? 0,
+        model: embeddingModel,
+        fileType: mimetype,
+      },
+      actor: userId,
+    });
     res.json({ documentId: docId, chunks: chunks.length });
   } catch (err) {
     await db.query('ROLLBACK');
     logError('ingest.failed', err, { userId: req.user?.sub });
+    if (orgContext) {
+      await recordEmbeddingTelemetry({
+        orgId: orgContext.orgId,
+        scenario: 'manual_ingest',
+        decision: 'REFUSED',
+        metrics: {
+          chunkCount: chunks.length,
+          error: err instanceof Error ? err.message : String(err),
+        },
+        actor: req.user?.sub ?? null,
+      }).catch(() => undefined);
+    }
     res.status(500).json({ error: 'ingest failed' });
   }
 });
@@ -6329,6 +9424,7 @@ app.post('/v1/rag/search', async (req: AuthenticatedRequest, res) => {
 });
 
 app.post('/v1/rag/reembed', async (req: AuthenticatedRequest, res) => {
+  let orgContext: Awaited<ReturnType<typeof resolveOrgForUser>> | null = null;
   try {
     const { documentId, orgSlug } = req.body as { documentId?: string; orgSlug?: string };
     if (!documentId) {
@@ -6343,7 +9439,6 @@ app.post('/v1/rag/reembed', async (req: AuthenticatedRequest, res) => {
       return res.status(401).json({ error: 'invalid session' });
     }
 
-    let orgContext;
     try {
       orgContext = await resolveOrgForUser(userId, orgSlug);
     } catch (err) {
@@ -6368,7 +9463,7 @@ app.post('/v1/rag/reembed', async (req: AuthenticatedRequest, res) => {
     }
 
     const texts = rows.map((r: any) => r.content);
-    const embeddings = await embed(texts);
+    const { vectors: embeddings, usage: embeddingUsage, model: embeddingModel } = await embed(texts);
     for (let i = 0; i < rows.length; i++) {
       await db.query('UPDATE document_chunks SET embedding = $1 WHERE id = $2', [vector(embeddings[i]), rows[i].id]);
     }
@@ -6378,10 +9473,84 @@ app.post('/v1/rag/reembed', async (req: AuthenticatedRequest, res) => {
       updated: rows.length,
       orgId: orgContext.orgId,
     });
+    await recordEmbeddingTelemetry({
+      orgId: orgContext.orgId,
+      scenario: 'manual_reembed',
+      decision: 'APPROVED',
+      metrics: {
+        documentId,
+        chunkCount: rows.length,
+        tokens: embeddingUsage.total_tokens ?? 0,
+        promptTokens: embeddingUsage.prompt_tokens ?? 0,
+        model: embeddingModel,
+      },
+      actor: userId,
+    });
     res.json({ updated: rows.length });
   } catch (err) {
     logError('reembed.failed', err, { userId: req.user?.sub });
+    if (orgContext) {
+      await recordEmbeddingTelemetry({
+        orgId: orgContext.orgId,
+        scenario: 'manual_reembed',
+        decision: 'REFUSED',
+        metrics: {
+          documentId: (req.body as any)?.documentId ?? null,
+          error: err instanceof Error ? err.message : String(err),
+        },
+        actor: req.user?.sub ?? null,
+      }).catch(() => undefined);
+    }
     res.status(500).json({ error: 'reembed failed' });
+  }
+});
+
+app.post('/api/knowledge/embeddings/backfill', async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = req.user?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: 'invalid session' });
+    }
+
+    const { orgSlug, limit, includePolicies } = req.body as {
+      orgSlug?: string;
+      limit?: number;
+      includePolicies?: boolean;
+    };
+
+    if (!orgSlug) {
+      return res.status(400).json({ error: 'orgSlug required' });
+    }
+
+    const orgContext = await resolveOrgForUser(userId, orgSlug);
+    if (!hasManagerPrivileges(orgContext.role)) {
+      return res.status(403).json({ error: 'manager role required' });
+    }
+
+    const parsedLimit = Number(limit);
+    const batchSize = Number.isFinite(parsedLimit)
+      ? Math.max(1, Math.min(100, Math.trunc(parsedLimit)))
+      : 25;
+
+    const summary = await backfillOrgEmbeddings({
+      orgId: orgContext.orgId,
+      limit: batchSize,
+      includePolicies: includePolicies !== false,
+      initiatedBy: userId,
+    });
+
+    logInfo('embeddings.backfill_complete', {
+      orgId: orgContext.orgId,
+      documents: summary.documentsProcessed,
+      policies: summary.policyVersionsProcessed,
+      chunks: summary.chunksEmbedded,
+      tokens: summary.tokensConsumed,
+    });
+
+    return res.json({ summary });
+  } catch (err) {
+    logError('embeddings.backfill_failed', err, { userId: req.user?.sub });
+    return res.status(500).json({ error: 'backfill failed' });
   }
 });
 

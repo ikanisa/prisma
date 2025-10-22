@@ -2,9 +2,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { useOrganizations } from '@/hooks/use-organizations';
 import { useToast } from '@/hooks/use-toast';
 import { useQuery } from '@tanstack/react-query';
-import { Loader2, RefreshCw } from 'lucide-react';
+import { Loader2, RefreshCw, Sparkles } from 'lucide-react';
 
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
@@ -42,6 +42,43 @@ interface TelemetrySummary {
   }>;
 }
 
+interface EmbeddingScenarioSummary {
+  scenario: string;
+  events: number;
+  approved: number;
+  review: number;
+  refused: number;
+  tokens: number;
+  promptTokens: number;
+  estimatedCost: number;
+  failureRate: number;
+  reviewRate: number;
+}
+
+interface EmbeddingFailureRecord {
+  scenario: string;
+  decision: string;
+  reason: string | null;
+  occurredAt: string | null;
+  metrics: Record<string, unknown>;
+}
+
+interface EmbeddingTelemetrySummary {
+  windowHours: number;
+  totals: {
+    events: number;
+    approved: number;
+    review: number;
+    refused: number;
+    tokens: number;
+    promptTokens: number;
+    estimatedCost: number;
+  };
+  scenarios: EmbeddingScenarioSummary[];
+  recentFailures: EmbeddingFailureRecord[];
+  staleCorpora: EmbeddingFailureRecord[];
+}
+
 export default function TelemetryDashboardPage() {
   const { currentOrg } = useOrganizations();
   const { toast } = useToast();
@@ -58,7 +95,25 @@ export default function TelemetryDashboardPage() {
     },
   });
 
+  const embeddingWindowHours = periodWindow === '30d' ? 24 * 30 : 24 * 90;
+
+  const embeddingQuery = useQuery({
+    queryKey: ['embedding-telemetry', currentOrg?.id, periodWindow],
+    enabled: Boolean(currentOrg?.id),
+    queryFn: async () => {
+      if (!currentOrg?.id) throw new Error('Missing org');
+      const params = new URLSearchParams({
+        orgId: currentOrg.id,
+        windowHours: String(embeddingWindowHours),
+      });
+      const response = await fetch(`/api/telemetry/embeddings?${params.toString()}`);
+      if (!response.ok) throw new Error('Failed to load embedding telemetry');
+      return (await response.json()) as EmbeddingTelemetrySummary;
+    },
+  });
+
   const [syncing, setSyncing] = useState(false);
+  const [triggeringDelta, setTriggeringDelta] = useState(false);
 
   const handleSync = async () => {
     if (!currentOrg) return;
@@ -74,6 +129,53 @@ export default function TelemetryDashboardPage() {
     }
   };
 
+  const handleDeltaTrigger = async () => {
+    if (!currentOrg) return;
+    setTriggeringDelta(true);
+    try {
+      const response = await fetch('/api/telemetry/embeddings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orgId: currentOrg.id }),
+      });
+      let body: unknown = null;
+      try {
+        body = await response.json();
+      } catch {
+        body = null;
+      }
+
+      if (!response.ok) {
+        const errorMessage =
+          body && typeof body === 'object' && 'error' in body && typeof (body as { error?: unknown }).error === 'string'
+            ? (body as { error: string }).error
+            : 'Failed to trigger delta embeddings';
+        throw new Error(errorMessage);
+      }
+
+      const summary =
+        body && typeof body === 'object' && !Array.isArray(body)
+          ? (body as Record<string, unknown>)
+          : {};
+      const documentsEmbedded =
+        typeof summary.documentsEmbedded === 'number' ? summary.documentsEmbedded : 0;
+      const policiesEmbedded =
+        typeof summary.policiesEmbedded === 'number' ? summary.policiesEmbedded : 0;
+      const refusals = typeof summary.refusals === 'number' ? summary.refusals : 0;
+      const orgSlug = typeof summary.orgSlug === 'string' ? summary.orgSlug : currentOrg.slug;
+
+      toast({
+        title: 'Delta embeddings complete',
+        description: `Org ${orgSlug} processed ${documentsEmbedded} documents · ${policiesEmbedded} policies (${refusals} refusals).`,
+      });
+      embeddingQuery.refetch();
+    } catch (error: any) {
+      toast({ title: 'Delta trigger failed', description: error.message ?? 'Unexpected error', variant: 'destructive' });
+    } finally {
+      setTriggeringDelta(false);
+    }
+  };
+
   const coverageByModule = useMemo(() => {
     if (!summaryQuery.data?.coverage) return [];
     return summaryQuery.data.coverage.sort((a, b) => a.module.localeCompare(b.module));
@@ -85,6 +187,30 @@ export default function TelemetryDashboardPage() {
   }, [summaryQuery.data?.serviceLevels]);
 
   const refusalEvents = summaryQuery.data?.refusals ?? [];
+  const currencyFormatter = useMemo(
+    () =>
+      new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        maximumFractionDigits: 4,
+      }),
+    [],
+  );
+
+  const embeddingScenarios = useMemo(() => {
+    if (!embeddingQuery.data?.scenarios) return [];
+    return [...embeddingQuery.data.scenarios].sort((a, b) => b.tokens - a.tokens);
+  }, [embeddingQuery.data?.scenarios]);
+
+  const formatDateTime = (value: string | null | undefined) =>
+    value ? new Date(value).toLocaleString() : '—';
+
+  const extractTargetId = (metrics: Record<string, unknown>) => {
+    if (typeof metrics.documentId === 'string') return metrics.documentId;
+    if (typeof metrics.policyVersionId === 'string') return metrics.policyVersionId;
+    if (typeof metrics.document_id === 'string') return metrics.document_id;
+    return null;
+  };
 
   return (
     <div className="space-y-6">
@@ -227,6 +353,180 @@ export default function TelemetryDashboardPage() {
           </Card>
         </div>
       )}
+
+      <Card>
+        <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <CardTitle>Embedding telemetry</CardTitle>
+            <CardDescription>
+              Track nightly re-embedding progress, token spend, and stale corpus signals across the knowledge base.
+            </CardDescription>
+          </div>
+          <Button
+            onClick={handleDeltaTrigger}
+            disabled={triggeringDelta || !currentOrg}
+            variant="secondary"
+          >
+            {triggeringDelta ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Sparkles className="mr-2 h-4 w-4" />
+            )}
+            Trigger delta run
+          </Button>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {embeddingQuery.isLoading ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" /> Loading embedding telemetry…
+            </div>
+          ) : embeddingQuery.isError ? (
+            <p className="text-sm text-muted-foreground">
+              Failed to load embedding telemetry. Retry once the scheduler has run or verify the delta endpoint secret.
+            </p>
+          ) : embeddingQuery.data ? (
+            <>
+              {(() => {
+                const totals = embeddingQuery.data.totals;
+                const failureRate = totals.events ? (totals.refused / totals.events) * 100 : 0;
+                const reviewRate = totals.events ? (totals.review / totals.events) * 100 : 0;
+                return (
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    <div className="rounded-lg border border-border p-4">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Events analysed</p>
+                      <p className="mt-1 text-2xl font-semibold text-foreground">
+                        {totals.events.toLocaleString()}
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Window {embeddingQuery.data.windowHours}h
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-border p-4">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Token usage</p>
+                      <p className="mt-1 text-2xl font-semibold text-foreground">
+                        {totals.tokens.toLocaleString()}
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">Prompt tokens {totals.promptTokens.toLocaleString()}</p>
+                    </div>
+                    <div className="rounded-lg border border-border p-4">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Estimated spend</p>
+                      <p className="mt-1 text-2xl font-semibold text-foreground">
+                        {currencyFormatter.format(totals.estimatedCost)}
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">Based on model pricing per 1K tokens</p>
+                    </div>
+                    <div className="rounded-lg border border-border p-4">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Failure share</p>
+                      <p className="mt-1 text-2xl font-semibold text-foreground">
+                        {failureRate.toFixed(1)}%
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">Review {reviewRate.toFixed(1)}%</p>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
+                <div className="space-y-3">
+                  <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Scenario breakdown</h3>
+                  <div className="overflow-x-auto rounded-lg border border-border">
+                    <table className="w-full min-w-[480px] text-sm">
+                      <thead className="bg-muted/60">
+                        <tr>
+                          <th className="px-4 py-2 text-left">Scenario</th>
+                          <th className="px-4 py-2 text-right">Events</th>
+                          <th className="px-4 py-2 text-right">Tokens</th>
+                          <th className="px-4 py-2 text-right">Cost</th>
+                          <th className="px-4 py-2 text-right">Failures</th>
+                          <th className="px-4 py-2 text-right">Reviews</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {embeddingScenarios.length === 0 ? (
+                          <tr>
+                            <td colSpan={6} className="px-4 py-3 text-center text-xs text-muted-foreground">
+                              No embedding events captured in this window.
+                            </td>
+                          </tr>
+                        ) : (
+                          embeddingScenarios.map((scenario) => (
+                            <tr key={scenario.scenario} className="border-b border-border/60">
+                              <td className="px-4 py-2 font-medium">{scenario.scenario}</td>
+                              <td className="px-4 py-2 text-right">{scenario.events.toLocaleString()}</td>
+                              <td className="px-4 py-2 text-right">{scenario.tokens.toLocaleString()}</td>
+                              <td className="px-4 py-2 text-right">
+                                {currencyFormatter.format(scenario.estimatedCost)}
+                              </td>
+                              <td className="px-4 py-2 text-right">{(scenario.failureRate * 100).toFixed(1)}%</td>
+                              <td className="px-4 py-2 text-right">{(scenario.reviewRate * 100).toFixed(1)}%</td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="rounded-lg border border-border p-4">
+                    <h4 className="text-sm font-semibold text-foreground">Recent failures</h4>
+                    <p className="text-xs text-muted-foreground">
+                      Embedding attempts refused due to downstream errors or guardrails.
+                    </p>
+                    <div className="mt-3 space-y-3">
+                      {embeddingQuery.data.recentFailures.length === 0 ? (
+                        <p className="text-xs text-muted-foreground">No refusals recorded.</p>
+                      ) : (
+                        embeddingQuery.data.recentFailures.slice(0, 5).map((failure, index) => {
+                          const targetId = extractTargetId(failure.metrics);
+                          return (
+                            <div key={`${failure.scenario}-${failure.occurredAt}-${index}`} className="rounded-md border border-border/70 p-3">
+                              <p className="text-sm font-medium">{failure.scenario}</p>
+                              <p className="text-xs text-muted-foreground">{failure.reason ?? 'No reason provided'}</p>
+                              <p className="mt-1 text-[11px] text-muted-foreground">
+                                {formatDateTime(failure.occurredAt)}
+                                {targetId ? ` • Target ${targetId}` : ''}
+                              </p>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg border border-border p-4">
+                    <h4 className="text-sm font-semibold text-foreground">Stale corpora signals</h4>
+                    <p className="text-xs text-muted-foreground">
+                      Review decisions that indicate missing text, download issues, or empty corpora.
+                    </p>
+                    <div className="mt-3 space-y-3">
+                      {embeddingQuery.data.staleCorpora.length === 0 ? (
+                        <p className="text-xs text-muted-foreground">No review actions recorded.</p>
+                      ) : (
+                        embeddingQuery.data.staleCorpora.slice(0, 5).map((entry, index) => {
+                          const targetId = extractTargetId(entry.metrics);
+                          return (
+                            <div key={`${entry.scenario}-${entry.occurredAt}-${index}`} className="rounded-md border border-border/70 p-3">
+                              <p className="text-sm font-medium">{entry.scenario}</p>
+                              <p className="text-xs text-muted-foreground">{entry.reason ?? 'Review pending manual follow-up'}</p>
+                              <p className="mt-1 text-[11px] text-muted-foreground">
+                                {formatDateTime(entry.occurredAt)}
+                                {targetId ? ` • Target ${targetId}` : ''}
+                              </p>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground">No embedding telemetry available for this organisation.</p>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

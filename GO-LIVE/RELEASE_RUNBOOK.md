@@ -6,6 +6,7 @@
 - Confirm P0 issues closed (`GO-LIVE/OPEN_ISSUES.md`).
 - Verify clean git status (`git status -sb`).
 - Export final env configuration (Supabase URL/service role key, OTEL endpoint, Sentry DSN, `API_ALLOWED_ORIGINS`).
+- Confirm `DOMAIN_TOOL_MODEL`, `DOMAIN_IMAGE_MODEL`, and `OPENAI_WEB_SEARCH_ENABLED` are set in the production secrets store for the rag service deployment.
 - Ensure `VITE_ENABLE_PWA=true` and `AUTOPILOT_WORKER_DISABLED=false` in production `.env`.
 - Review `PRODUCTION_READINESS_CHECKLIST.md` and `docs/observability.md` for updated gates.
 

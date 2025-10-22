@@ -50,12 +50,13 @@ from .db import AsyncSessionLocal, Chunk, init_db
 from .rag import (
     chunk_text,
     embed_chunks,
-    extract_text,
+    extract_text_from_bytes,
     store_chunks,
     perform_semantic_search,
     get_primary_index_config,
     get_retrieval_config,
 )
+from . import openai_retrieval
 from .health import build_readiness_report
 from .security import build_csp_header, normalise_allowed_origins
 from .config_loader import (
@@ -4215,7 +4216,7 @@ async def ingest(
     org_slug_form: str = Form(..., alias="orgSlug"),
     document_id: str = Form(None),
     auth: Dict[str, Any] = Depends(require_auth),
-) -> Dict[str, int]:
+) -> Dict[str, Any]:
     if file.content_type not in ("application/pdf",):
         raise HTTPException(status_code=400, detail="Only PDF supported")
 
@@ -4230,22 +4231,38 @@ async def ingest(
         window=RAG_INGEST_RATE_WINDOW,
     )
 
+    org_slug = org_slug_form.strip()
+    if not org_slug:
+        raise HTTPException(status_code=400, detail="org slug required")
+
     org_context = await resolve_org_context(user_id, org_slug)
 
-    text = await extract_text(file)
+    payload = await file.read()
+    if not payload:
+        raise HTTPException(status_code=400, detail="empty file upload")
+
+    text = extract_text_from_bytes(payload, file.content_type)
     index_config = get_primary_index_config()
     chunk_size = int(index_config.get("chunk_size") or 1200)
     chunk_overlap = int(index_config.get("chunk_overlap") or 150)
     chunks = chunk_text(text, max_tokens=chunk_size, overlap=chunk_overlap)
     embedding_model = index_config.get("embedding_model") or None
     embeds = await embed_chunks(chunks, model=embedding_model)
+    document_ref = document_id or file.filename
     await store_chunks(
-        document_id or file.filename,
+        document_ref,
         org_context["org_id"],
         index_config.get("name"),
         embedding_model,
         chunks,
         embeds,
+    )
+    vector_store_info = await openai_retrieval.ingest_document(
+        org_id=org_context["org_id"],
+        data=payload,
+        filename=file.filename,
+        mime_type=file.content_type,
+        document_id=document_ref,
     )
     logger.info(
         "ingest",
@@ -4255,7 +4272,10 @@ async def ingest(
         org_id=org_context["org_id"],
         index=index_config.get("name"),
     )
-    return {"chunks": len(chunks)}
+    response: Dict[str, Any] = {"chunks": len(chunks)}
+    if vector_store_info:
+        response["openaiVectorStore"] = vector_store_info
+    return response
 
 
 @app.post("/v1/rag/search")

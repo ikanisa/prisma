@@ -75,6 +75,60 @@ export const DOMAIN_AGENTS: Record<DomainAgentKey, DomainAgentMetadata> = {
     ],
     dependencies: ['accountingClose', 'riskAndCompliance'],
   },
+  brokerageEnablement: {
+    toolCatalog: [
+      'openai.web_search',
+      'openai.file_search',
+      'openai.vector_search',
+      'openai.image_generation',
+      'openai.gpt5_responses',
+    ],
+    datasetKeys: ['broker_pipeline', 'deal_rooms', 'market_intelligence'],
+    knowledgeBases: ['capital_markets_playbooks', 'product_catalogues'],
+    key: 'brokerageEnablement',
+    title: 'Broker AI Agent',
+    description:
+      'Synthesises market intelligence, prepares collateral, and coordinates digital brokerage workflows across channels.',
+    status: 'in_progress',
+    owner: 'Brokerage Ops Lead',
+    capabilities: [
+      'Real-time market briefings with sourced citations',
+      'Prospect dossier assembly from first- and third-party data',
+      'Sales collateral and pitch automation (copy + imagery)',
+      'Compliance-aware outreach sequencing',
+      'Deal room knowledge upkeep leveraging vector stores',
+    ],
+    dependencies: ['corporateFinance', 'knowledgeCurator', 'riskAndCompliance'],
+    tooling: [
+      {
+        name: 'Web Search Intelligence',
+        summary:
+          'Uses the Responses API web_search tool to aggregate the latest market movements with inline citations and optional domain filters.',
+        apis: ['responses.create', 'web_search tool'],
+        notes: 'Supports user location hints and full source lists for broker compliance packs.',
+      },
+      {
+        name: 'File + Vector Retrieval',
+        summary:
+          'Blends file_search tool calls with direct vector store semantic search to surface archived deal collateral and research.',
+        apis: ['responses.create', 'file_search tool', 'vector_stores.search'],
+        notes: 'Respects metadata filters such as product line and jurisdiction.',
+      },
+      {
+        name: 'Image Generation',
+        summary:
+          'Generates on-brand imagery for decks and listings through the image_generation tool with prompt revision support.',
+        apis: ['responses.create', 'image_generation tool'],
+      },
+      {
+        name: 'GPT-5 Reasoning',
+        summary:
+          'Runs GPT-5 with configurable reasoning effort and verbosity to draft broker memos and scenario analyses.',
+        apis: ['responses.create (gpt-5)'],
+      },
+    ],
+    notes: 'Requires OPENAI_WEB_SEARCH_ENABLED and configured vector stores to access live market data.',
+  },
   financialReporting: {
     toolCatalog: ['trial_balance.get', 'rag.search'],
     datasetKeys: ['trial_balance', 'financial_statements'],
@@ -180,6 +234,110 @@ export const DOMAIN_AGENTS: Record<DomainAgentKey, DomainAgentMetadata> = {
     status: 'planned',
     owner: 'Platform Ops',
     capabilities: ['Cost dashboards', 'Rate limit alerts', 'Agent telemetry summarisation'],
+  },
+  callerMarketing: {
+    toolCatalog: [
+      'openai.web_search',
+      'openai.file_search',
+      'openai.vector_search',
+      'openai.image_generation',
+      'openai.gpt5_responses',
+    ],
+    datasetKeys: ['call_scripts', 'campaign_performance', 'crm_notes'],
+    knowledgeBases: ['marketing_playbooks', 'brand_guidelines'],
+    key: 'callerMarketing',
+    title: 'Caller Marketing Agent',
+    description:
+      'Coordinates outbound call campaigns, personalises scripts, and monitors engagement telemetry for marketing teams.',
+    status: 'in_progress',
+    owner: 'Growth Marketing Lead',
+    capabilities: [
+      'Dynamic call script authoring with GPT-5 reasoning',
+      'Audience research via real-time web and file search',
+      'Campaign insight boards from vector store retrieval',
+      'Creative asset refreshes via image generation',
+      'Compliance guardrails with citation-tracked messaging',
+    ],
+    dependencies: ['clientCollaboration', 'knowledgeCurator', 'opsMonitoring'],
+    tooling: [
+      {
+        name: 'Audience Web Search',
+        summary:
+          'Executes agentic web lookups before dial sessions, enriching lead dossiers with citations and geography-aware context.',
+        apis: ['responses.create', 'web_search tool'],
+      },
+      {
+        name: 'Knowledge File Search',
+        summary: 'Leverages marketing collateral vector stores for script snippets and objection handling references.',
+        apis: ['responses.create', 'file_search tool'],
+      },
+      {
+        name: 'Vector Store Insights',
+        summary: 'Runs semantic retrieval with rewrite support to collate campaign performance highlights.',
+        apis: ['vector_stores.search'],
+      },
+      {
+        name: 'Creative Refresh',
+        summary: 'Generates updated hero images for nurture sequences with tunable size and quality.',
+        apis: ['responses.create', 'image_generation tool'],
+      },
+    ],
+    notes: 'Optimised for omni-channel calling pods that require rapid research and asset refreshes.',
+  },
+  mobilityOps: {
+    toolCatalog: [
+      'openai.web_search',
+      'openai.file_search',
+      'openai.vector_search',
+      'openai.image_generation',
+      'openai.gpt5_responses',
+    ],
+    datasetKeys: ['fleet_status', 'route_guides', 'service_bulletins'],
+    knowledgeBases: ['mobility_policies', 'safety_manuals'],
+    key: 'mobilityOps',
+    title: 'Mobility Operations Agent',
+    description:
+      'Supports transport networks with service alerts, fleet intelligence, and rider comms built on live and indexed data.',
+    status: 'planned',
+    owner: 'Mobility COO',
+    capabilities: [
+      'Incident-aware rider briefings with GPT-5 reasoning',
+      'Local regulation scanning via web search',
+      'Maintenance bulletin retrieval from vector stores',
+      'Route signage and announcement visuals through image generation',
+      'Structured report drafting with citations for regulators',
+    ],
+    dependencies: ['opsMonitoring', 'riskAndCompliance', 'dataPreparation'],
+    tooling: [
+      {
+        name: 'Regulation Web Search',
+        summary:
+          'Queries current mobility advisories and city notices with optional domain allow lists for trusted transport authorities.',
+        apis: ['responses.create', 'web_search tool'],
+      },
+      {
+        name: 'Maintenance File Search',
+        summary: 'Finds latest service bulletins and SOPs stored in vectorised knowledge hubs.',
+        apis: ['responses.create', 'file_search tool'],
+      },
+      {
+        name: 'Semantic Fleet Retrieval',
+        summary:
+          'Surfaces historical incidents and telemetry using vector store semantic search with attribute filters (vehicle type, depot).',
+        apis: ['vector_stores.search'],
+      },
+      {
+        name: 'Visual Alert Generation',
+        summary: 'Produces platform-ready signage and rider notices using image generation presets.',
+        apis: ['responses.create', 'image_generation tool'],
+      },
+      {
+        name: 'GPT-5 Briefings',
+        summary: 'Generates structured status briefings leveraging GPT-5 reasoning and verbosity controls.',
+        apis: ['responses.create (gpt-5)'],
+      },
+    ],
+    notes: 'Integrates with fleet telematics vector stores for contextual retrieval.',
   },
 };
 

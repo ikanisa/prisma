@@ -12,6 +12,15 @@ type DomainAgent = {
   owner: string;
   capabilities: string[];
   dependencies?: string[];
+  toolCatalog?: string[];
+  datasetKeys?: string[];
+  knowledgeBases?: string[];
+  tooling?: Array<{
+    name: string;
+    summary: string;
+    apis: string[];
+    notes?: string;
+  }>;
   notes?: string;
 };
 
@@ -775,7 +784,42 @@ export default function AgentOrchestratorPage() {
                   <dt className="uppercase text-muted-foreground">Dependencies</dt>
                   <dd>{agent.dependencies?.length ? agent.dependencies.join(', ') : '--'}</dd>
                 </div>
+                {agent.toolCatalog?.length ? (
+                  <div>
+                    <dt className="uppercase text-muted-foreground">Tool Catalog</dt>
+                    <dd>{agent.toolCatalog.join(', ')}</dd>
+                  </div>
+                ) : null}
+                {agent.datasetKeys?.length ? (
+                  <div>
+                    <dt className="uppercase text-muted-foreground">Datasets</dt>
+                    <dd>{agent.datasetKeys.join(', ')}</dd>
+                  </div>
+                ) : null}
+                {agent.knowledgeBases?.length ? (
+                  <div>
+                    <dt className="uppercase text-muted-foreground">Knowledge Bases</dt>
+                    <dd>{agent.knowledgeBases.join(', ')}</dd>
+                  </div>
+                ) : null}
               </dl>
+              {agent.tooling?.length ? (
+                <div className="mt-3 space-y-2">
+                  <h4 className="text-xs font-semibold uppercase text-muted-foreground">Tooling</h4>
+                  <ul className="space-y-2">
+                    {agent.tooling.map((tool) => (
+                      <li key={`${agent.key}-${tool.name}`} className="rounded-md border border-dashed border-slate-300 p-2">
+                        <div className="text-xs font-semibold">{tool.name}</div>
+                        <p className="mt-1 text-xs text-muted-foreground">{tool.summary}</p>
+                        <p className="mt-1 text-[11px]"><span className="font-semibold">APIs:</span> {tool.apis.join(', ')}</p>
+                        {tool.notes ? (
+                          <p className="mt-1 text-[11px] text-muted-foreground">Notes: {tool.notes}</p>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
               {agent.notes ? (
                 <p className="mt-2 text-xs text-muted-foreground">Notes: {agent.notes}</p>
               ) : null}
