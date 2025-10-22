@@ -3,43 +3,40 @@ import nextPWA from 'next-pwa';
 const withPWA = nextPWA({
   dest: 'public',
   disable: process.env.NODE_ENV === 'development',
-  buildExcludes: [/middleware-manifest\.json$/]
+  buildExcludes: [/middleware-manifest\.json$/],
 });
 
 const securityHeaders = [
   {
     key: 'Strict-Transport-Security',
-    value: 'max-age=63072000; includeSubDomains; preload'
+    value: 'max-age=63072000; includeSubDomains; preload',
   },
   {
     key: 'X-Content-Type-Options',
-    value: 'nosniff'
+    value: 'nosniff',
   },
   {
     key: 'Referrer-Policy',
-    value: 'strict-origin-when-cross-origin'
-  }
+    value: 'strict-origin-when-cross-origin',
+  },
 ];
 
 export default withPWA({
   reactStrictMode: true,
   output: 'standalone',
-  experimental: {
-    instrumentationHook: true,
-    typedRoutes: true
-  },
   images: {
+    unoptimized: true,
     remotePatterns: [
       { protocol: 'https', hostname: 'images.prismaglow.test' },
-      { protocol: 'https', hostname: 'cdn.prismaglow.test' }
-    ]
+      { protocol: 'https', hostname: 'cdn.prismaglow.test' },
+    ],
   },
   async headers() {
     return [
       {
         source: '/(.*)',
-        headers: securityHeaders
-      }
+        headers: securityHeaders,
+      },
     ];
-  }
+  },
 });
