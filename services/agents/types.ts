@@ -11,7 +11,17 @@ export type DomainAgentKey =
   | 'dataPreparation'
   | 'knowledgeCurator'
   | 'riskAndCompliance'
-  | 'opsMonitoring';
+  | 'opsMonitoring'
+  | 'brokerageEnablement'
+  | 'callerMarketing'
+  | 'mobilityOps';
+
+export interface DomainAgentTooling {
+  name: string;
+  summary: string;
+  apis: string[];
+  notes?: string;
+}
 
 export interface DomainAgentMetadata {
   key: DomainAgentKey;
@@ -25,6 +35,7 @@ export interface DomainAgentMetadata {
   datasetKeys?: string[];
   knowledgeBases?: string[];
   notes?: string;
+  tooling?: DomainAgentTooling[];
 }
 
 export interface OrchestrationTask {

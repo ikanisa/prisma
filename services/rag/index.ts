@@ -150,6 +150,8 @@ if (SENTRY_ENABLED) {
   });
 }
 
+type Primitive = string | number | boolean | null;
+
 const WEB_DOMAIN_MAP: Record<string, { corpusDomain: string; agentKind: AgentPersona }> = {
   IFRS: { corpusDomain: 'IFRS', agentKind: 'FINANCE' },
   IAS: { corpusDomain: 'IAS', agentKind: 'FINANCE' },
@@ -2028,6 +2030,9 @@ const OPENAI_WEB_SEARCH_ENABLED =
   (process.env.OPENAI_WEB_SEARCH_ENABLED ?? 'false').toLowerCase() === 'true';
 const OPENAI_WEB_SEARCH_MODEL = process.env.OPENAI_WEB_SEARCH_MODEL ?? 'gpt-4.1-mini';
 const OPENAI_SUMMARY_MODEL = process.env.OPENAI_SUMMARY_MODEL ?? OPENAI_WEB_SEARCH_MODEL;
+const DOMAIN_TOOL_AGENT_KEYS = new Set(['brokerageEnablement', 'callerMarketing', 'mobilityOps']);
+const DOMAIN_TOOL_MODEL = process.env.DOMAIN_TOOL_MODEL ?? 'gpt-5';
+const DOMAIN_IMAGE_MODEL = process.env.DOMAIN_IMAGE_MODEL ?? DOMAIN_TOOL_MODEL;
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 if (!SUPABASE_URL) {
@@ -3121,6 +3126,388 @@ function extractResponseText(response: any): string {
     return choices[0].message.content as string;
   }
   return '';
+}
+
+type ReasoningEffort = 'minimal' | 'low' | 'medium' | 'high';
+type ResponseVerbosity = 'low' | 'medium' | 'high';
+
+function normalizeReasoningEffort(value: unknown): ReasoningEffort | undefined {
+  if (typeof value !== 'string') return undefined;
+  const candidate = value.toLowerCase();
+  return candidate === 'minimal' || candidate === 'low' || candidate === 'medium' || candidate === 'high'
+    ? (candidate as ReasoningEffort)
+    : undefined;
+}
+
+function normalizeVerbosity(value: unknown): ResponseVerbosity | undefined {
+  if (typeof value !== 'string') return undefined;
+  const candidate = value.toLowerCase();
+  return candidate === 'low' || candidate === 'medium' || candidate === 'high'
+    ? (candidate as ResponseVerbosity)
+    : undefined;
+}
+
+type ResponseCitation =
+  | { type: 'url'; url: string; title?: string | null; location?: string | null }
+  | { type: 'file'; fileId: string; filename?: string | null; location?: string | null };
+
+function extractCitationsFromResponse(response: any): ResponseCitation[] {
+  const citations: ResponseCitation[] = [];
+  const items = Array.isArray(response?.output) ? response.output : [];
+  for (const item of items) {
+    if (item?.type !== 'message' || !Array.isArray(item.content)) continue;
+    for (const part of item.content) {
+      if (!Array.isArray(part?.annotations)) continue;
+      for (const annotation of part.annotations) {
+        if (annotation?.type === 'url_citation' && typeof annotation.url === 'string') {
+          citations.push({
+            type: 'url',
+            url: annotation.url,
+            title: annotation.title ?? null,
+            location: annotation.location ?? null,
+          });
+        } else if (annotation?.type === 'file_citation') {
+          const fileId = annotation.file_id ?? annotation.fileId;
+          if (typeof fileId === 'string' && fileId.length > 0) {
+            citations.push({
+              type: 'file',
+              fileId,
+              filename: annotation.filename ?? null,
+              location: annotation.location ?? null,
+            });
+          }
+        }
+      }
+    }
+  }
+  return citations;
+}
+
+type WebSourceSummary = {
+  url?: string;
+  title?: string;
+  snippet?: string;
+  domain?: string;
+};
+
+function extractWebSearchSources(response: any): WebSourceSummary[] {
+  const sources: WebSourceSummary[] = [];
+  const items = Array.isArray(response?.output) ? response.output : [];
+  for (const item of items) {
+    if (item?.type !== 'web_search_call') continue;
+    const action = item.action ?? {};
+    const callSources = Array.isArray(action?.sources) ? action.sources : Array.isArray(item.sources) ? item.sources : [];
+    for (const source of callSources) {
+      if (!source) continue;
+      sources.push({
+        url: typeof source.url === 'string' ? source.url : typeof source.href === 'string' ? source.href : undefined,
+        title: typeof source.title === 'string' ? source.title : typeof source.name === 'string' ? source.name : undefined,
+        snippet: typeof source.snippet === 'string' ? source.snippet : typeof source.summary === 'string' ? source.summary : undefined,
+        domain: typeof source.domain === 'string' ? source.domain : undefined,
+      });
+    }
+  }
+  return sources;
+}
+
+type FileSearchChunk = {
+  fileId: string;
+  filename: string;
+  score?: number;
+  content?: string[];
+};
+
+function extractFileSearchResults(response: any): FileSearchChunk[] {
+  const results: FileSearchChunk[] = [];
+  const items = Array.isArray(response?.output) ? response.output : [];
+  for (const item of items) {
+    if (item?.type !== 'file_search_call') continue;
+    const callResults = Array.isArray(item.results)
+      ? item.results
+      : Array.isArray(item.search_results)
+        ? item.search_results
+        : [];
+    for (const result of callResults) {
+      if (!result) continue;
+      const fileId = result.file_id ?? result.fileId;
+      if (typeof fileId !== 'string' || fileId.length === 0) continue;
+      const content = Array.isArray(result.content)
+        ? result.content
+            .map((entry: any) => (typeof entry?.text === 'string' ? entry.text : undefined))
+            .filter((value: string | undefined): value is string => Boolean(value))
+        : [];
+      results.push({
+        fileId,
+        filename: typeof result.filename === 'string' ? result.filename : fileId,
+        score: typeof result.score === 'number' ? result.score : undefined,
+        content,
+      });
+    }
+  }
+  return results;
+}
+
+function ensureDomainToolAgent(agentKey: unknown): string | null {
+  if (typeof agentKey !== 'string') return null;
+  return DOMAIN_TOOL_AGENT_KEYS.has(agentKey) ? agentKey : null;
+}
+
+type AttributeAccumulator = {
+  types: Set<string>;
+  examples: Array<{ value: Primitive; label: string; type: string }>;
+  seen: Set<string>;
+};
+
+type AttributeSummary = {
+  attributes: Array<{ key: string; types: string[]; examples: Array<{ value: Primitive; label: string; type: string }> }>;
+  sampledCount: number;
+  hasMore: boolean;
+  nextCursor: string | null;
+};
+
+const MAX_ATTRIBUTE_SAMPLE_SIZE = 200;
+const DEFAULT_ATTRIBUTE_SAMPLE_SIZE = 40;
+const ATTRIBUTE_PAGE_SIZE = 10;
+const MAX_ATTRIBUTE_PAGE_LIMIT = 50;
+const DEFAULT_ATTRIBUTE_PAGE_LIMIT = 20;
+
+function clampInteger(value: number, { min, max }: { min: number; max: number }): number {
+  return Math.max(min, Math.min(max, Math.floor(value)));
+}
+
+function extractQueryValue(value: unknown): string | undefined {
+  if (typeof value === 'string') {
+    return value;
+  }
+  if (Array.isArray(value) && value.length > 0 && typeof value[0] === 'string') {
+    return value[0] as string;
+  }
+  return undefined;
+}
+
+function parseAttributeSampleSizeParam(value: unknown): number | undefined {
+  const candidate = typeof value === 'string' ? Number.parseInt(value, 10) : Number(value);
+  if (!Number.isFinite(candidate) || candidate <= 0) {
+    return undefined;
+  }
+  return clampInteger(candidate, { min: 1, max: MAX_ATTRIBUTE_SAMPLE_SIZE });
+}
+
+function parseAttributePageLimitParam(value: unknown): number | undefined {
+  const candidate = typeof value === 'string' ? Number.parseInt(value, 10) : Number(value);
+  if (!Number.isFinite(candidate) || candidate <= 0) {
+    return undefined;
+  }
+  return clampInteger(candidate, { min: 1, max: MAX_ATTRIBUTE_PAGE_LIMIT });
+}
+
+function describePrimitive(value: Primitive): { label: string; type: string } {
+  if (value === null) {
+    return { label: 'null', type: 'null' };
+  }
+  const type = typeof value;
+  if (type === 'boolean') {
+    return { label: value ? 'true' : 'false', type };
+  }
+  if (type === 'number') {
+    return { label: Number.isFinite(value) ? String(value) : 'NaN', type };
+  }
+  return { label: value, type };
+}
+
+function recordAttributeValue(
+  map: Map<string, AttributeAccumulator>,
+  key: string,
+  value: unknown,
+): void {
+  const accumulator = map.get(key) ?? {
+    types: new Set<string>(),
+    examples: [],
+    seen: new Set<string>(),
+  };
+
+  const valueType = value === null ? 'null' : Array.isArray(value) ? 'array' : typeof value;
+  accumulator.types.add(valueType);
+
+  if (valueType === 'string' || valueType === 'number' || valueType === 'boolean' || valueType === 'null') {
+    const primitiveValue = (value as Primitive) ?? null;
+    const serialised = JSON.stringify(primitiveValue);
+    if (!accumulator.seen.has(serialised) && accumulator.examples.length < 5) {
+      accumulator.seen.add(serialised);
+      const { label, type } = describePrimitive(primitiveValue);
+      accumulator.examples.push({ value: primitiveValue, label, type });
+    }
+  }
+
+  map.set(key, accumulator);
+}
+
+function normaliseAttributes(attributes: unknown): Record<string, unknown> | null {
+  if (!attributes || typeof attributes !== 'object' || Array.isArray(attributes)) {
+    return null;
+  }
+  return attributes as Record<string, unknown>;
+}
+
+async function summariseVectorStoreAttributes(
+  vectorStoreId: string,
+  options?: { maxFiles?: number; pageSize?: number; after?: string | null },
+): Promise<AttributeSummary> {
+  const attributeMap = new Map<string, AttributeAccumulator>();
+  const maxFilesToInspect = Math.max(
+    1,
+    Math.min(options?.maxFiles ?? DEFAULT_ATTRIBUTE_SAMPLE_SIZE, MAX_ATTRIBUTE_SAMPLE_SIZE),
+  );
+  const pageSize = Math.max(1, Math.min(options?.pageSize ?? ATTRIBUTE_PAGE_SIZE, 50));
+  let fetched = 0;
+  let cursor = options?.after ?? undefined;
+  let nextCursor: string | null = null;
+  let hasMore = false;
+
+  try {
+    while (fetched < maxFilesToInspect) {
+      const limit = Math.min(pageSize, maxFilesToInspect - fetched);
+      if (limit <= 0) {
+        break;
+      }
+
+      const response = await openai.vectorStores.files.list(vectorStoreId, { limit, after: cursor });
+      const files = Array.isArray(response?.data) ? response.data : [];
+      if (!files.length) {
+        cursor = undefined;
+        hasMore = false;
+        nextCursor = null;
+        break;
+      }
+
+      for (const file of files) {
+        fetched += 1;
+        const attributes = normaliseAttributes((file as any)?.attributes ?? (file as any)?.metadata);
+        if (!attributes) continue;
+        for (const [key, value] of Object.entries(attributes)) {
+          recordAttributeValue(attributeMap, key, value);
+        }
+      }
+
+      const pageHasMore = Boolean(response?.has_more);
+      const last = files[files.length - 1];
+      const lastId = typeof (last as any)?.id === 'string' ? (last as any).id : undefined;
+      const candidateCursor =
+        typeof response?.last_id === 'string' ? response.last_id : lastId ?? undefined;
+
+      if (fetched >= maxFilesToInspect) {
+        if (pageHasMore && candidateCursor) {
+          hasMore = true;
+          nextCursor = candidateCursor;
+        } else if (pageHasMore) {
+          hasMore = true;
+          nextCursor = candidateCursor ?? null;
+        } else {
+          hasMore = false;
+          nextCursor = null;
+        }
+        break;
+      }
+
+      if (!pageHasMore || !candidateCursor) {
+        hasMore = false;
+        nextCursor = null;
+        break;
+      }
+
+      cursor = candidateCursor;
+      hasMore = true;
+      nextCursor = candidateCursor;
+    }
+  } catch (error) {
+    logError('domain_tools.vector_store_attribute_discovery_failed', error, { vectorStoreId });
+  }
+
+  return {
+    attributes: Array.from(attributeMap.entries()).map(([key, accumulator]) => ({
+      key,
+      types: Array.from(accumulator.types),
+      examples: accumulator.examples,
+    })),
+    sampledCount: fetched,
+    hasMore,
+    nextCursor,
+  };
+}
+
+async function listAccessibleVectorStores(options?: { attributeSampleSize?: number }) {
+  const attributeSampleSize = Math.max(
+    1,
+    Math.min(options?.attributeSampleSize ?? DEFAULT_ATTRIBUTE_SAMPLE_SIZE, MAX_ATTRIBUTE_SAMPLE_SIZE),
+  );
+  const results: Array<{
+    id: string;
+    name: string | null;
+    description: string | null;
+    status: string | null;
+    fileCount: number | null;
+    createdAt: string | null;
+    attributeSummary: AttributeSummary;
+    metadata: Record<string, unknown> | null;
+  }> = [];
+
+  let after: string | undefined;
+  const maxPages = 5;
+
+  for (let page = 0; page < maxPages; page += 1) {
+    const response = await openai.vectorStores.list({ limit: 20, after });
+    const vectorStores = Array.isArray(response?.data) ? response.data : [];
+    if (!vectorStores.length) {
+      break;
+    }
+
+    for (const store of vectorStores) {
+      const id = typeof (store as any)?.id === 'string' ? (store as any).id : null;
+      if (!id) continue;
+      const name = typeof (store as any)?.name === 'string' ? (store as any).name : null;
+      const description = typeof (store as any)?.description === 'string' ? (store as any).description : null;
+      const status = typeof (store as any)?.status === 'string' ? (store as any).status : null;
+      const fileCount = typeof (store as any)?.file_count === 'number'
+        ? (store as any).file_count
+        : typeof (store as any)?.fileCount === 'number'
+          ? (store as any).fileCount
+          : null;
+      const createdAt = typeof (store as any)?.created_at === 'string'
+        ? (store as any).created_at
+        : typeof (store as any)?.createdAt === 'string'
+          ? (store as any).createdAt
+          : null;
+      const metadata = normaliseAttributes((store as any)?.metadata);
+
+      const attributeSummary = await summariseVectorStoreAttributes(id, {
+        maxFiles: attributeSampleSize,
+      });
+
+      results.push({
+        id,
+        name,
+        description,
+        status,
+        fileCount,
+        createdAt,
+        attributeSummary,
+        metadata,
+      });
+    }
+
+    if (!response?.has_more) {
+      break;
+    }
+
+    const last = vectorStores[vectorStores.length - 1];
+    const lastId = typeof (last as any)?.id === 'string' ? (last as any).id : undefined;
+    after = typeof response?.last_id === 'string' ? response.last_id : lastId;
+    if (!after) {
+      break;
+    }
+  }
+
+  return results;
 }
 
 async function summariseWebDocument(url: string, text: string): Promise<string> {
@@ -4241,6 +4628,543 @@ app.get('/api/agent/orchestrator/agents', (req: AuthenticatedRequest, res) => {
     return res.status(404).json({ error: 'orchestrator_disabled' });
   }
   return res.json({ agents: DOMAIN_AGENT_LIST });
+});
+
+app.get('/api/agent/domain-tools/vector-stores', async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = req.user?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: 'invalid session' });
+    }
+
+    const orgSlug = typeof req.query?.orgSlug === 'string' ? (req.query.orgSlug as string).trim() : '';
+    if (!orgSlug) {
+      return res.status(400).json({ error: 'orgSlug is required' });
+    }
+
+    const agentKey = ensureDomainToolAgent(req.query?.agentKey);
+    if (!agentKey) {
+      return res.status(400).json({ error: 'agentKey must be a supported domain persona' });
+    }
+
+    const orgContext = await resolveOrgForUser(userId, orgSlug);
+
+    const attributeSampleSizeParam = parseAttributeSampleSizeParam(
+      extractQueryValue(req.query?.attributeSampleSize),
+    );
+
+    const vectorStores = await listAccessibleVectorStores({
+      attributeSampleSize: attributeSampleSizeParam,
+    });
+
+    logInfo('domain_tools.vector_store_catalog_generated', {
+      userId,
+      orgId: orgContext.orgId,
+      agentKey,
+      storeCount: vectorStores.length,
+      attributeSampleSize: attributeSampleSizeParam ?? DEFAULT_ATTRIBUTE_SAMPLE_SIZE,
+      storesWithAdditionalAttributes: vectorStores.filter((store) => store.attributeSummary.hasMore).length,
+    });
+
+    return res.json({
+      attributeSampleSize,
+      attributePageLimit: DEFAULT_ATTRIBUTE_PAGE_LIMIT,
+      vectorStores: vectorStores.map((store) => ({
+        id: store.id,
+        name: store.name,
+        description: store.description,
+        status: store.status,
+        fileCount: store.fileCount,
+        createdAt: store.createdAt,
+        attributes: store.attributeSummary.attributes,
+        attributeSampledCount: store.attributeSummary.sampledCount,
+        attributeHasMore: store.attributeSummary.hasMore,
+        attributeNextCursor: store.attributeSummary.nextCursor,
+        metadata: store.metadata,
+      })),
+    });
+  } catch (error) {
+    logError('domain_tools.vector_store_catalog_failed', error, { userId: req.user?.sub });
+    return res.status(500).json({ error: 'vector_store_catalog_failed' });
+  }
+});
+
+app.get('/api/agent/domain-tools/vector-stores/:vectorStoreId/attributes', async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = req.user?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: 'invalid session' });
+    }
+
+    const orgSlug = extractQueryValue(req.query?.orgSlug)?.trim() ?? '';
+    if (!orgSlug) {
+      return res.status(400).json({ error: 'orgSlug is required' });
+    }
+
+    const agentKey = ensureDomainToolAgent(extractQueryValue(req.query?.agentKey));
+    if (!agentKey) {
+      return res.status(400).json({ error: 'agentKey must be a supported domain persona' });
+    }
+
+    const vectorStoreId = typeof req.params?.vectorStoreId === 'string' ? req.params.vectorStoreId : '';
+    if (!vectorStoreId.trim()) {
+      return res.status(400).json({ error: 'vectorStoreId is required' });
+    }
+
+    await resolveOrgForUser(userId, orgSlug);
+
+    const cursor = extractQueryValue(req.query?.cursor);
+    const limit =
+      parseAttributePageLimitParam(extractQueryValue(req.query?.limit)) ?? DEFAULT_ATTRIBUTE_PAGE_LIMIT;
+
+    const summary = await summariseVectorStoreAttributes(vectorStoreId, {
+      maxFiles: limit,
+      pageSize: limit,
+      after: cursor ?? null,
+    });
+
+    logInfo('domain_tools.vector_store_attribute_page_generated', {
+      userId,
+      orgSlug,
+      agentKey,
+      vectorStoreId,
+      limit,
+      sampledCount: summary.sampledCount,
+      hasMore: summary.hasMore,
+    });
+
+    return res.json({
+      attributes: summary.attributes,
+      sampledCount: summary.sampledCount,
+      hasMore: summary.hasMore,
+      nextCursor: summary.nextCursor,
+    });
+  } catch (error) {
+    logError('domain_tools.vector_store_attribute_page_failed', error, {
+      userId: req.user?.sub,
+      vectorStoreId: typeof req.params?.vectorStoreId === 'string' ? req.params.vectorStoreId : undefined,
+    });
+    return res.status(500).json({ error: 'vector_store_attribute_page_failed' });
+  }
+});
+
+app.post('/api/agent/domain-tools/web-search', async (req: AuthenticatedRequest, res) => {
+  if (!OPENAI_WEB_SEARCH_ENABLED) {
+    return res.status(404).json({ error: 'web_search_disabled' });
+  }
+
+  try {
+    const userId = req.user?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: 'invalid session' });
+    }
+
+    const body = req.body as {
+      orgSlug?: string;
+      agentKey?: string;
+      query?: string;
+      reasoningEffort?: string;
+      allowedDomains?: unknown;
+      location?: { country?: string; city?: string; region?: string };
+    };
+
+    const orgSlug = typeof body.orgSlug === 'string' ? body.orgSlug.trim() : '';
+    if (!orgSlug) {
+      return res.status(400).json({ error: 'orgSlug is required' });
+    }
+
+    const agentKey = ensureDomainToolAgent(body.agentKey);
+    if (!agentKey) {
+      return res.status(400).json({ error: 'agentKey must be a supported domain persona' });
+    }
+
+    const query = typeof body.query === 'string' ? body.query.trim() : '';
+    if (!query) {
+      return res.status(400).json({ error: 'query is required' });
+    }
+
+    await resolveOrgForUser(userId, orgSlug);
+
+    const allowedDomains = Array.isArray(body.allowedDomains)
+      ? Array.from(
+          new Set(
+            body.allowedDomains
+              .map((value) => (typeof value === 'string' ? value.trim() : ''))
+              .filter((value) => value.length > 0),
+          ),
+        )
+      : [];
+    if (allowedDomains.length > 20) {
+      return res.status(400).json({ error: 'allowedDomains cannot exceed 20 entries' });
+    }
+    const reasoningEffort = normalizeReasoningEffort(body.reasoningEffort);
+    const locationInput =
+      body.location && typeof body.location === 'object' && !Array.isArray(body.location)
+        ? body.location
+        : undefined;
+    const userLocation = locationInput
+      ? {
+          type: 'approximate',
+          country:
+            typeof locationInput.country === 'string' && locationInput.country.trim().length
+              ? locationInput.country.trim()
+              : undefined,
+          city:
+            typeof locationInput.city === 'string' && locationInput.city.trim().length
+              ? locationInput.city.trim()
+              : undefined,
+          region:
+            typeof locationInput.region === 'string' && locationInput.region.trim().length
+              ? locationInput.region.trim()
+              : undefined,
+        }
+      : undefined;
+
+    const webTool: Record<string, unknown> = { type: 'web_search' };
+    if (allowedDomains.length) {
+      webTool.filters = { allowed_domains: allowedDomains };
+    }
+    if (userLocation && (userLocation.country || userLocation.city || userLocation.region)) {
+      webTool.user_location = userLocation;
+    }
+
+    const response = await openai.responses.create({
+      model: DOMAIN_TOOL_MODEL,
+      input: query,
+      tools: [webTool],
+      include: ['web_search_call.action.sources'],
+      tool_choice: { type: 'web_search' },
+      ...(reasoningEffort ? { reasoning: { effort: reasoningEffort } } : {}),
+    });
+
+    const answer = extractResponseText(response) || 'No answer generated.';
+    const citations = extractCitationsFromResponse(response);
+    const sources = extractWebSearchSources(response);
+
+    logInfo('domain_tools.web_search_completed', {
+      userId,
+      agentKey,
+      orgSlug,
+      citationCount: citations.length,
+      sourceCount: sources.length,
+    });
+
+    return res.json({ answer, citations, sources });
+  } catch (error) {
+    logError('domain_tools.web_search_failed', error, { userId: req.user?.sub });
+    return res.status(500).json({ error: 'web_search_failed' });
+  }
+});
+
+app.post('/api/agent/domain-tools/file-search', async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = req.user?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: 'invalid session' });
+    }
+
+    const body = req.body as {
+      orgSlug?: string;
+      agentKey?: string;
+      query?: string;
+      vectorStoreIds?: unknown;
+      maxResults?: unknown;
+    };
+
+    const orgSlug = typeof body.orgSlug === 'string' ? body.orgSlug.trim() : '';
+    if (!orgSlug) {
+      return res.status(400).json({ error: 'orgSlug is required' });
+    }
+
+    const agentKey = ensureDomainToolAgent(body.agentKey);
+    if (!agentKey) {
+      return res.status(400).json({ error: 'agentKey must be a supported domain persona' });
+    }
+
+    const query = typeof body.query === 'string' ? body.query.trim() : '';
+    if (!query) {
+      return res.status(400).json({ error: 'query is required' });
+    }
+
+    const vectorStoreIds = Array.isArray(body.vectorStoreIds)
+      ? Array.from(
+          new Set(
+            body.vectorStoreIds
+              .map((value) => (typeof value === 'string' ? value.trim() : ''))
+              .filter((value) => value.length > 0),
+          ),
+        )
+      : [];
+    if (!vectorStoreIds.length) {
+      return res.status(400).json({ error: 'vectorStoreIds must include at least one id' });
+    }
+
+    const maxResultsCandidate = Number(body.maxResults);
+    const maxResults = Number.isFinite(maxResultsCandidate) && maxResultsCandidate > 0
+      ? Math.min(20, Math.floor(maxResultsCandidate))
+      : undefined;
+
+    await resolveOrgForUser(userId, orgSlug);
+
+    const toolSpec: Record<string, unknown> = {
+      type: 'file_search',
+      vector_store_ids: vectorStoreIds,
+    };
+    if (typeof maxResults === 'number') {
+      toolSpec.max_num_results = maxResults;
+    }
+
+    const response = await openai.responses.create({
+      model: DOMAIN_TOOL_MODEL,
+      input: query,
+      tools: [toolSpec],
+      include: ['file_search_call.results'],
+      tool_choice: { type: 'file_search' },
+    });
+
+    const answer = extractResponseText(response) || 'No answer generated.';
+    const citations = extractCitationsFromResponse(response);
+    const results = extractFileSearchResults(response);
+
+    logInfo('domain_tools.file_search_completed', {
+      userId,
+      agentKey,
+      orgSlug,
+      resultCount: results.length,
+    });
+
+    return res.json({ answer, citations, results });
+  } catch (error) {
+    logError('domain_tools.file_search_failed', error, { userId: req.user?.sub });
+    return res.status(500).json({ error: 'file_search_failed' });
+  }
+});
+
+app.post('/api/agent/domain-tools/retrieval', async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = req.user?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: 'invalid session' });
+    }
+
+    const body = req.body as {
+      orgSlug?: string;
+      agentKey?: string;
+      vectorStoreId?: string;
+      query?: string;
+      maxResults?: unknown;
+      rewriteQuery?: unknown;
+      attributeFilter?: unknown;
+    };
+
+    const orgSlug = typeof body.orgSlug === 'string' ? body.orgSlug.trim() : '';
+    if (!orgSlug) {
+      return res.status(400).json({ error: 'orgSlug is required' });
+    }
+
+    const agentKey = ensureDomainToolAgent(body.agentKey);
+    if (!agentKey) {
+      return res.status(400).json({ error: 'agentKey must be a supported domain persona' });
+    }
+
+    const vectorStoreId = typeof body.vectorStoreId === 'string' ? body.vectorStoreId.trim() : '';
+    if (!vectorStoreId) {
+      return res.status(400).json({ error: 'vectorStoreId is required' });
+    }
+
+    const query = typeof body.query === 'string' ? body.query.trim() : '';
+    if (!query) {
+      return res.status(400).json({ error: 'query is required' });
+    }
+
+    const maxResultsCandidate = Number(body.maxResults);
+    const maxResults = Number.isFinite(maxResultsCandidate) && maxResultsCandidate > 0
+      ? Math.min(50, Math.floor(maxResultsCandidate))
+      : undefined;
+
+    const rewriteQuery = typeof body.rewriteQuery === 'boolean' ? body.rewriteQuery : true;
+
+    const attributeFilter =
+      body.attributeFilter && typeof body.attributeFilter === 'object' && !Array.isArray(body.attributeFilter)
+        ? body.attributeFilter
+        : undefined;
+
+    const orgContext = await resolveOrgForUser(userId, orgSlug);
+
+    const searchPayload: Record<string, unknown> = {
+      query,
+      rewrite_query: rewriteQuery,
+    };
+    if (typeof maxResults === 'number') {
+      searchPayload.max_num_results = maxResults;
+    }
+    if (attributeFilter) {
+      searchPayload.attribute_filter = attributeFilter;
+    }
+
+    const searchResponse = await openai.vectorStores.search(vectorStoreId, searchPayload);
+    const hits = Array.isArray(searchResponse.data) ? searchResponse.data : [];
+    const results = hits.map((hit) => ({
+      fileId: hit.file_id,
+      filename: hit.filename,
+      score: hit.score,
+      content: Array.isArray(hit.content) ? hit.content.map((entry) => entry?.text ?? '').filter(Boolean) : [],
+      attributes: hit.attributes ?? null,
+    }));
+
+    logInfo('domain_tools.vector_search_completed', {
+      userId,
+      agentKey,
+      orgId: orgContext.orgId,
+      vectorStoreId,
+      resultCount: results.length,
+    });
+
+    return res.json({ results });
+  } catch (error) {
+    logError('domain_tools.vector_search_failed', error, { userId: req.user?.sub });
+    return res.status(500).json({ error: 'retrieval_failed' });
+  }
+});
+
+app.post('/api/agent/domain-tools/image-generation', async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = req.user?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: 'invalid session' });
+    }
+
+    const body = req.body as {
+      orgSlug?: string;
+      agentKey?: string;
+      prompt?: string;
+      size?: string;
+      quality?: string;
+      background?: string;
+    };
+
+    const orgSlug = typeof body.orgSlug === 'string' ? body.orgSlug.trim() : '';
+    if (!orgSlug) {
+      return res.status(400).json({ error: 'orgSlug is required' });
+    }
+
+    const agentKey = ensureDomainToolAgent(body.agentKey);
+    if (!agentKey) {
+      return res.status(400).json({ error: 'agentKey must be a supported domain persona' });
+    }
+
+    const prompt = typeof body.prompt === 'string' ? body.prompt.trim() : '';
+    if (!prompt) {
+      return res.status(400).json({ error: 'prompt is required' });
+    }
+
+    await resolveOrgForUser(userId, orgSlug);
+
+    const toolOptions: Record<string, unknown> = { type: 'image_generation' };
+    if (typeof body.size === 'string' && body.size.trim()) {
+      toolOptions.size = body.size.trim();
+    }
+    if (typeof body.quality === 'string' && body.quality.trim()) {
+      toolOptions.quality = body.quality.trim();
+    }
+    if (typeof body.background === 'string' && body.background.trim()) {
+      toolOptions.background = body.background.trim();
+    }
+
+    const response = await openai.responses.create({
+      model: DOMAIN_IMAGE_MODEL,
+      input: prompt,
+      tools: [toolOptions],
+      tool_choice: { type: 'image_generation' },
+    });
+
+    const outputItems = Array.isArray(response.output) ? response.output : [];
+    const imageCall = outputItems.find((item) => item?.type === 'image_generation_call');
+    const imageBase64 = typeof imageCall?.result === 'string' ? imageCall.result : null;
+    if (!imageBase64) {
+      logError('domain_tools.image_generation_missing_result', new Error('image result missing'), { userId });
+      return res.status(502).json({ error: 'image_generation_failed' });
+    }
+
+    logInfo('domain_tools.image_generation_completed', { userId, agentKey, orgSlug });
+
+    return res.json({ imageBase64, revisedPrompt: imageCall?.revised_prompt ?? null });
+  } catch (error) {
+    logError('domain_tools.image_generation_failed', error, { userId: req.user?.sub });
+    return res.status(500).json({ error: 'image_generation_failed' });
+  }
+});
+
+app.post('/api/agent/domain-tools/gpt5', async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = req.user?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: 'invalid session' });
+    }
+
+    const body = req.body as {
+      orgSlug?: string;
+      agentKey?: string;
+      prompt?: string;
+      reasoningEffort?: string;
+      verbosity?: string;
+      maxOutputTokens?: unknown;
+    };
+
+    const orgSlug = typeof body.orgSlug === 'string' ? body.orgSlug.trim() : '';
+    if (!orgSlug) {
+      return res.status(400).json({ error: 'orgSlug is required' });
+    }
+
+    const agentKey = ensureDomainToolAgent(body.agentKey);
+    if (!agentKey) {
+      return res.status(400).json({ error: 'agentKey must be a supported domain persona' });
+    }
+
+    const prompt = typeof body.prompt === 'string' ? body.prompt.trim() : '';
+    if (!prompt) {
+      return res.status(400).json({ error: 'prompt is required' });
+    }
+
+    await resolveOrgForUser(userId, orgSlug);
+
+    const reasoningEffort = normalizeReasoningEffort(body.reasoningEffort);
+    const verbosity = normalizeVerbosity(body.verbosity);
+    const maxTokensCandidate = Number(body.maxOutputTokens);
+    const maxOutputTokens = Number.isFinite(maxTokensCandidate) && maxTokensCandidate > 0
+      ? Math.min(4000, Math.floor(maxTokensCandidate))
+      : undefined;
+
+    const requestPayload: Record<string, unknown> = {
+      model: DOMAIN_TOOL_MODEL,
+      input: prompt,
+    };
+    if (reasoningEffort) {
+      requestPayload.reasoning = { effort: reasoningEffort };
+    }
+    if (verbosity) {
+      requestPayload.text = { verbosity };
+    }
+    if (typeof maxOutputTokens === 'number') {
+      requestPayload.max_output_tokens = maxOutputTokens;
+    }
+
+    const response = await openai.responses.create(requestPayload);
+    const answer = extractResponseText(response) || 'No answer generated.';
+    const citations = extractCitationsFromResponse(response);
+
+    logInfo('domain_tools.gpt5_completed', {
+      userId,
+      agentKey,
+      orgSlug,
+      citationCount: citations.length,
+    });
+
+    return res.json({ answer, citations });
+  } catch (error) {
+    logError('domain_tools.gpt5_failed', error, { userId: req.user?.sub });
+    return res.status(500).json({ error: 'gpt5_failed' });
+  }
 });
 
 app.post('/api/agent/tools/sync', async (req: AuthenticatedRequest, res) => {

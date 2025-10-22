@@ -17,7 +17,8 @@ export default function Home() {
     { href: '/client-portal', label: 'Client Portal' },
     { href: '/agent/approvals', label: 'Agent Approvals' },
     { href: '/agent/orchestrator', label: 'Agent Orchestrator' },
-  ] satisfies Array<{ href: Route; label: string }>; 
+    { href: '/agent/domain-tools', label: 'Agent Domain Tools' },
+  ] satisfies Array<{ href: Route; label: string }>;
   return (
     <main className="p-4">
       <h1 className="text-xl mb-4">Welcome</h1>
