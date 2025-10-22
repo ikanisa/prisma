@@ -6487,7 +6487,7 @@ async def knowledge_web_sources(
     metrics_response = await supabase_table_request(
         "GET",
         "web_fetch_cache_metrics",
-        params={"limit": 1},
+        params={"select": "*", "limit": 1},
     )
     metrics_payload: Dict[str, Any] = {
         "totalRows": 0,
