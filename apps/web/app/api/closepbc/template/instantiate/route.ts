@@ -9,6 +9,8 @@ import { logActivity } from '@/lib/accounting/activity-log';
 import { attachRequestId, getOrCreateRequestId } from '@/app/lib/observability';
 import { createApiGuard } from '@/app/lib/api-guard';
 
+export const runtime = 'nodejs';
+
 export async function POST(request: Request) {
   const requestId = getOrCreateRequestId(request);
   const supabase = await getServiceSupabaseClient();

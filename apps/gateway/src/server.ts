@@ -1,15 +1,16 @@
 import express from 'express';
 import { initTracing } from './otel.js';
-import type { ErrorRequestHandler } from 'express';
+import type { ErrorRequestHandler, Express } from 'express';
 import { pathToFileURL } from 'url';
 import { traceMiddleware } from './middleware/trace.js';
 import { createPiiScrubberMiddleware } from './middleware/pii-scrubber.js';
+import { analyticsMiddleware } from './middleware/analytics.js';
 import v1Router from './routes/v1.js';
 import { scrubPii } from './utils/pii.js';
 import { getRequestContext } from './utils/request-context.js';
 import { env } from './env.js';
 
-export function createGatewayServer() {
+export function createGatewayServer(): Express {
   initTracing();
   const app = express();
 
@@ -17,6 +18,7 @@ export function createGatewayServer() {
   app.use(express.json({ limit: '5mb' }));
   app.use(traceMiddleware);
   app.use(createPiiScrubberMiddleware());
+  app.use(analyticsMiddleware);
 
   app.get('/health', (_req, res) => {
     const context = getRequestContext();
