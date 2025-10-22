@@ -7,12 +7,11 @@
     "rootDir": ".",
     "types": ["node"],
     "noEmit": false,
-    "incremental": true,
-    "tsBuildInfoFile": "dist/tsconfig.tsbuildinfo"
+    "composite": true
   },
   "include": ["**/*.ts"],
   "exclude": ["dist", "node_modules"],
   "references": [
-    { "path": "../../packages/system-config/tsconfig.json" }
+    { "path": "../../packages/system-config" }
   ]
 }

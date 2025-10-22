@@ -1,5 +1,9 @@
 import type { RequestHandler } from 'express';
-import { DEFAULT_ROLE_HIERARCHY, getRoleHierarchy } from '@prisma-glow/system-config';
+import {
+  DEFAULT_ROLE_HIERARCHY,
+  createSystemConfigAccessor,
+  getRoleHierarchy,
+} from '@prisma-glow/system-config';
 import { bindOrgContext } from '../utils/request-context.js';
 
 export type OrgGuardOptions = {
@@ -59,24 +63,34 @@ function hasRequiredRole(role: string, minimumRole: string | undefined, hierarch
   return index >= minIndex;
 }
 
-declare module 'express' {
-  interface Locals {
-    org?: OrgContext;
+/* eslint-disable @typescript-eslint/no-namespace */
+declare global {
+  namespace Express {
+    interface Locals {
+      org?: OrgContext;
+    }
   }
 }
+/* eslint-enable @typescript-eslint/no-namespace */
 
 const FALLBACK_ROLE_HIERARCHY = [...DEFAULT_ROLE_HIERARCHY];
+const systemConfig = createSystemConfigAccessor();
 let cachedRoleHierarchy = [...DEFAULT_ROLE_HIERARCHY];
 
-getRoleHierarchy()
-  .then((roles) => {
+async function hydrateRoleHierarchy(): Promise<void> {
+  try {
+    const roles = await systemConfig.withConfig((config) => getRoleHierarchy(config));
     if (Array.isArray(roles) && roles.length > 0) {
       cachedRoleHierarchy = roles.map((role) => role.toUpperCase());
+      return;
     }
-  })
-  .catch(() => {
-    cachedRoleHierarchy = [...FALLBACK_ROLE_HIERARCHY];
-  });
+  } catch {
+    // fall back to defaults below
+  }
+  cachedRoleHierarchy = [...FALLBACK_ROLE_HIERARCHY];
+}
+
+void hydrateRoleHierarchy();
 
 export function createOrgGuard(options: OrgGuardOptions = {}): RequestHandler {
   const hierarchy = options.roleHierarchy ?? cachedRoleHierarchy;
