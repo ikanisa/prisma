@@ -9,7 +9,7 @@
   ],
   "compilerOptions": {
     "target": "ES2020",
-    "module": "ESNext",
+    "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "strict": true,
     "allowSyntheticDefaultImports": true,
@@ -17,6 +17,10 @@
     "resolveJsonModule": true,
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
+    "composite": true,
+    "declaration": true,
+    "declarationMap": true,
+    "incremental": true,
     "paths": {
       "@prisma-glow/api-client": [
         "./packages/api-client/dist/index.d.ts",
@@ -31,5 +35,9 @@
         "./packages/ui/src/index.ts"
       ]
     }
-  }
+  },
+  "references": [
+    { "path": "./packages/api-client/tsconfig.json" },
+    { "path": "./packages/system-config/tsconfig.json" }
+  ]
 }

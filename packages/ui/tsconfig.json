@@ -10,6 +10,7 @@
     "noEmit": false,
     "composite": true
   },
-  "include": ["src/**/*"],
-  "exclude": ["dist", "node_modules"]
+  "include": ["src/**/*.ts", "src/**/*.tsx"],
+  "exclude": ["dist", "node_modules"],
+  "references": []
 }

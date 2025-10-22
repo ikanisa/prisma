@@ -4,6 +4,7 @@ import { FLAG_SEVERITIES, FLAG_STATUSES } from '@/lib/other-info';
 import { logOiAction, tryGetServiceSupabase } from '@/lib/supabase';
 import { ensureOrgAccess, HttpError, resolveCurrentUser } from '../../soc/_common';
 
+export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 

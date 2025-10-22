@@ -10,5 +10,6 @@
     "composite": true
   },
   "include": ["**/*.ts", "**/*.d.ts"],
-  "exclude": ["dist", "node_modules", "tests"]
+  "exclude": ["dist", "node_modules", "tests"],
+  "references": []
 }

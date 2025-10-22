@@ -28,6 +28,21 @@ export default tseslint.config(
       "@typescript-eslint/no-empty-object-type": "off",
       "@typescript-eslint/no-require-imports": "off",
       "no-console": ["error", { allow: ["warn", "error"] }],
+      "no-restricted-imports": [
+        "error",
+        {
+          "patterns": [
+            {
+              group: ["@prisma-glow/*/*"],
+              message: "Import from the package entry point instead of deep paths.",
+            },
+            {
+              group: ["packages/*", "**/packages/*"],
+              message: "Use the workspace package alias (e.g. @prisma-glow/…) rather than relative paths into packages.",
+            },
+          ],
+        },
+      ],
     },
   },
   {
