@@ -2026,8 +2026,8 @@ const openai = getOpenAIClient();
 
 const OPENAI_WEB_SEARCH_ENABLED =
   (process.env.OPENAI_WEB_SEARCH_ENABLED ?? 'false').toLowerCase() === 'true';
-const OPENAI_WEB_SEARCH_MODEL = process.env.OPENAI_WEB_SEARCH_MODEL ?? 'gpt-4.1-mini';
-const OPENAI_SUMMARY_MODEL = process.env.OPENAI_SUMMARY_MODEL ?? OPENAI_WEB_SEARCH_MODEL;
+const OPENAI_WEB_SEARCH_MODEL = process.env.OPENAI_WEB_SEARCH_MODEL ?? 'gpt-5';
+const OPENAI_SUMMARY_MODEL = process.env.OPENAI_SUMMARY_MODEL ?? 'gpt-5-mini';
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 if (!SUPABASE_URL) {
@@ -3128,27 +3128,31 @@ async function summariseWebDocument(url: string, text: string): Promise<string> 
 
   if (OPENAI_WEB_SEARCH_ENABLED) {
     try {
-      const response = await openai.responses.create({
-        model: OPENAI_WEB_SEARCH_MODEL,
-        input: [
+      const response = await openai.responses.create(
+        withResponseDefaults(
           {
-            role: 'system',
-            content:
-              'You are a Big Four audit partner summarising authoritative accounting, audit, and tax technical content. Always highlight IFRS/ISA/Tax impacts and cite sections where possible.',
-          },
-          {
-            role: 'user',
-            content: [
+            model: OPENAI_WEB_SEARCH_MODEL,
+            input: [
               {
-                type: 'input_text',
-                text: `Use web search to review ${url} and provide a concise summary (<= 8 bullet points) covering accounting, audit, and tax implications relevant to Malta and IFRS/ISA frameworks.`,
+                role: 'system',
+                content:
+                  'You are a Big Four audit partner summarising authoritative accounting, audit, and tax technical content. Always highlight IFRS/ISA/Tax impacts and cite sections where possible.',
+              },
+              {
+                role: 'user',
+                content: [
+                  {
+                    type: 'input_text',
+                    text: `Use web search to review ${url} and provide a concise summary (<= 8 bullet points) covering accounting, audit, and tax implications relevant to Malta and IFRS/ISA frameworks.`,
+                  },
+                ],
               },
             ],
+            tools: [{ type: 'web_search' }],
           },
-        ],
-        tools: [{ type: 'web_search' }],
-        temperature: 0.2,
-      });
+          { effort: SUMMARY_REASONING_EFFORT, verbosity: SUMMARY_VERBOSITY },
+        ),
+      );
       await logOpenAIDebugEvent({
         endpoint: 'responses.create',
         response: response as any,
@@ -3165,28 +3169,38 @@ async function summariseWebDocument(url: string, text: string): Promise<string> 
   }
 
   try {
-    const chat = await openai.chat.completions.create({
-      model: OPENAI_SUMMARY_MODEL,
-      temperature: 0.2,
-      messages: [
+    const response = await openai.responses.create(
+      withResponseDefaults(
         {
-          role: 'system',
-          content:
-            'You are a Big Four partner producing concise technical notes. Summaries must emphasise IFRS/ISA/TAX relevance, cite clauses when possible, and flag uncertainties.',
+          model: OPENAI_SUMMARY_MODEL,
+          input: [
+            {
+              role: 'system',
+              content:
+                'You are a Big Four partner producing concise technical notes. Summaries must emphasise IFRS/ISA/TAX relevance, cite clauses when possible, and flag uncertainties.',
+            },
+            {
+              role: 'user',
+              content: [
+                {
+                  type: 'input_text',
+                  text: `Source URL: ${url}\n\nExtracted Content (truncated):\n${text}\n\nProvide a bullet summary (<= 8 items) covering key accounting, auditing, and tax takeaways for Malta.`,
+                },
+              ],
+            },
+          ],
+          response_format: { type: 'text' },
         },
-        {
-          role: 'user',
-          content: `Source URL: ${url}\n\nExtracted Content (truncated):\n${text}\n\nProvide a bullet summary (<= 8 items) covering key accounting, auditing, and tax takeaways for Malta.`,
-        },
-      ],
-    });
+        { effort: SUMMARY_REASONING_EFFORT, verbosity: SUMMARY_VERBOSITY },
+      ),
+    );
     await logOpenAIDebugEvent({
-      endpoint: 'chat.completions.create',
-      response: chat as any,
-      requestPayload: { url, model: OPENAI_SUMMARY_MODEL },
+      endpoint: 'responses.create',
+      response: response as any,
+      requestPayload: { url, model: OPENAI_SUMMARY_MODEL, mode: 'fallback' },
       metadata: { source: 'web_summary' },
     });
-    const summary = chat.choices[0]?.message?.content?.trim();
+    const summary = extractResponseText(response)?.trim();
     if (summary) {
       return summary;
     }
@@ -3396,7 +3410,61 @@ async function processWebHarvest(options: {
   }
 }
 
-const AGENT_MODEL = process.env.AGENT_MODEL ?? 'gpt-4.1-mini';
+type ReasoningEffortLevel = 'minimal' | 'low' | 'medium' | 'high';
+type VerbosityLevel = 'low' | 'medium' | 'high';
+
+function resolveReasoningEffort(value: string | undefined, fallback: ReasoningEffortLevel): ReasoningEffortLevel {
+  if (!value) return fallback;
+  const normalised = value.trim().toLowerCase();
+  if (normalised === 'minimal' || normalised === 'low' || normalised === 'medium' || normalised === 'high') {
+    return normalised;
+  }
+  return fallback;
+}
+
+function resolveVerbosity(value: string | undefined, fallback: VerbosityLevel): VerbosityLevel {
+  if (!value) return fallback;
+  const normalised = value.trim().toLowerCase();
+  if (normalised === 'low' || normalised === 'medium' || normalised === 'high') {
+    return normalised;
+  }
+  return fallback;
+}
+
+const DEFAULT_REASONING_EFFORT = resolveReasoningEffort(process.env.OPENAI_DEFAULT_REASONING_EFFORT, 'low');
+const DEFAULT_VERBOSITY = resolveVerbosity(process.env.OPENAI_DEFAULT_VERBOSITY, 'medium');
+const AGENT_REASONING_EFFORT = resolveReasoningEffort(
+  process.env.OPENAI_AGENT_REASONING_EFFORT,
+  DEFAULT_REASONING_EFFORT,
+);
+const AGENT_VERBOSITY = resolveVerbosity(process.env.OPENAI_AGENT_VERBOSITY, DEFAULT_VERBOSITY);
+const SUMMARY_REASONING_EFFORT = resolveReasoningEffort(
+  process.env.OPENAI_SUMMARY_REASONING_EFFORT,
+  DEFAULT_REASONING_EFFORT,
+);
+const SUMMARY_VERBOSITY = resolveVerbosity(process.env.OPENAI_SUMMARY_VERBOSITY, DEFAULT_VERBOSITY);
+
+function withResponseDefaults<T extends Record<string, unknown>>(
+  payload: T,
+  overrides?: { effort?: ReasoningEffortLevel; verbosity?: VerbosityLevel },
+): T & { reasoning?: { effort: ReasoningEffortLevel }; text?: { verbosity: VerbosityLevel } } {
+  const result: Record<string, unknown> = { ...payload };
+  if (!result.reasoning) {
+    const effort = overrides?.effort ?? DEFAULT_REASONING_EFFORT;
+    if (effort) {
+      result.reasoning = { effort };
+    }
+  }
+  if (!result.text) {
+    const verbosity = overrides?.verbosity ?? DEFAULT_VERBOSITY;
+    if (verbosity) {
+      result.text = { verbosity };
+    }
+  }
+  return result as T & { reasoning?: { effort: ReasoningEffortLevel }; text?: { verbosity: VerbosityLevel } };
+}
+
+const AGENT_MODEL = process.env.AGENT_MODEL ?? 'gpt-5-mini';
 
 const AGENT_SYSTEM_PROMPTS: Record<'AUDIT' | 'FINANCE' | 'TAX', string> = {
   AUDIT:
@@ -3485,28 +3553,38 @@ async function performRagSearch(orgId: string, queryInput: string, topK = 6) {
 
 async function performPolicyCheck(statement: string, domain?: string) {
   try {
-    const completion = await openai.chat.completions.create({
-      model: OPENAI_SUMMARY_MODEL,
-      temperature: 0,
-      messages: [
+    const response = await openai.responses.create(
+      withResponseDefaults(
         {
-          role: 'system',
-          content:
-            'You are a technical reviewer ensuring compliance with IFRS/IAS/ISA and Malta CFR guidance. Respond with either PASS, WARNING, or FAIL followed by reasoning.',
+          model: OPENAI_SUMMARY_MODEL,
+          input: [
+            {
+              role: 'system',
+              content:
+                'You are a technical reviewer ensuring compliance with IFRS/IAS/ISA and Malta CFR guidance. Respond with either PASS, WARNING, or FAIL followed by reasoning.',
+            },
+            {
+              role: 'user',
+              content: [
+                {
+                  type: 'input_text',
+                  text: `Domain: ${domain ?? 'general'}\nStatement:\n${statement}\n\nAssess compliance and cite any standards or regulations referenced. Keep it short (<=4 sentences).`,
+                },
+              ],
+            },
+          ],
+          response_format: { type: 'text' },
         },
-        {
-          role: 'user',
-          content: `Domain: ${domain ?? 'general'}\nStatement:\n${statement}\n\nAssess compliance and cite any standards or regulations referenced. Keep it short (<=4 sentences).`,
-        },
-      ],
-    });
+        { effort: SUMMARY_REASONING_EFFORT, verbosity: 'low' },
+      ),
+    );
     await logOpenAIDebugEvent({
-      endpoint: 'chat.completions.create',
-      response: completion as any,
+      endpoint: 'responses.create',
+      response: response as any,
       requestPayload: { model: OPENAI_SUMMARY_MODEL, domain: domain ?? 'general' },
       metadata: { scope: 'policy_check' },
     });
-    const answer = completion.choices[0]?.message?.content ?? 'Policy review unavailable.';
+    const answer = extractResponseText(response) || 'Policy review unavailable.';
     return { output: answer };
   } catch (err) {
     logError('agent.policy_check_failed', err, {});
@@ -3774,11 +3852,16 @@ app.get('/api/agent/stream/execute', async (req: AuthenticatedRequest, res) => {
 
     writeSse({ type: 'started', data: { question, context, agentType: normalizedType } });
 
-    let response = await openai.responses.create({
-      model: AGENT_MODEL,
-      input: messages,
-      tools,
-    });
+    let response = await openai.responses.create(
+      withResponseDefaults(
+        {
+          model: AGENT_MODEL,
+          input: messages,
+          tools,
+        },
+        { effort: AGENT_REASONING_EFFORT, verbosity: AGENT_VERBOSITY },
+      ),
+    );
 
     await logOpenAIDebugEvent({
       endpoint: 'responses.create',
@@ -3810,11 +3893,16 @@ app.get('/api/agent/stream/execute', async (req: AuthenticatedRequest, res) => {
         break;
       }
 
-      response = await openai.responses.create({
-        model: AGENT_MODEL,
-        response_id: response.id,
-        tool_outputs: toolOutputs,
-      });
+      response = await openai.responses.create(
+        withResponseDefaults(
+          {
+            model: AGENT_MODEL,
+            response_id: response.id,
+            tool_outputs: toolOutputs,
+          },
+          { effort: AGENT_REASONING_EFFORT, verbosity: AGENT_VERBOSITY },
+        ),
+      );
 
       await logOpenAIDebugEvent({
         endpoint: 'responses.create',
@@ -5412,11 +5500,16 @@ async function runAgentConversation(options: {
   const citations: any[] = [];
   const start = Date.now();
 
-  let response = await openai.responses.create({
-    model: AGENT_MODEL,
-    input: messages,
-    tools,
-  });
+  let response = await openai.responses.create(
+    withResponseDefaults(
+      {
+        model: AGENT_MODEL,
+        input: messages,
+        tools,
+      },
+      { effort: AGENT_REASONING_EFFORT, verbosity: AGENT_VERBOSITY },
+    ),
+  );
   await logOpenAIDebugEvent({
     endpoint: 'responses.create',
     response: response as any,
@@ -5452,11 +5545,16 @@ async function runAgentConversation(options: {
       }
     }
 
-    response = await openai.responses.create({
-      model: AGENT_MODEL,
-      response_id: response.id,
-      tool_outputs: toolOutputs,
-    });
+    response = await openai.responses.create(
+      withResponseDefaults(
+        {
+          model: AGENT_MODEL,
+          response_id: response.id,
+          tool_outputs: toolOutputs,
+        },
+        { effort: AGENT_REASONING_EFFORT, verbosity: AGENT_VERBOSITY },
+      ),
+    );
     await logOpenAIDebugEvent({
       endpoint: 'responses.create',
       response: response as any,

@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { installRateLimitFetchMock, type RateLimitFetchMock } from './helpers/rate-limit';
 
 const getServiceSupabaseClientMock = vi.fn();
 const upsertAuditModuleRecordMock = vi.fn();
@@ -12,11 +13,23 @@ vi.mock('../../apps/lib/supabase-server', () => ({
   getServiceSupabaseClient: () => getServiceSupabaseClientMock(),
 }));
 
+vi.mock('../../apps/web/lib/supabase-server', () => ({
+  getServiceSupabaseClient: () => getServiceSupabaseClientMock(),
+}));
+
 vi.mock('../../apps/lib/audit/module-records', () => ({
   upsertAuditModuleRecord: (...args: unknown[]) => upsertAuditModuleRecordMock(...args),
 }));
 
+vi.mock('../../apps/web/lib/audit/module-records', () => ({
+  upsertAuditModuleRecord: (...args: unknown[]) => upsertAuditModuleRecordMock(...args),
+}));
+
 vi.mock('../../apps/lib/audit/activity-log', () => ({
+  logAuditActivity: (...args: unknown[]) => logAuditActivityMock(...args),
+}));
+
+vi.mock('../../apps/web/lib/audit/activity-log', () => ({
   logAuditActivity: (...args: unknown[]) => logAuditActivityMock(...args),
 }));
 
@@ -56,10 +69,17 @@ function createSupabase(rateAllowed = true) {
 }
 
 describe('POST /api/group/component', () => {
+  let rateLimitMock: RateLimitFetchMock;
+
   beforeEach(() => {
     getServiceSupabaseClientMock.mockReset();
     upsertAuditModuleRecordMock.mockReset();
     logAuditActivityMock.mockReset();
+    rateLimitMock = installRateLimitFetchMock();
+  });
+
+  afterEach(() => {
+    rateLimitMock.restore();
   });
 
   it('creates a group component and records audit metadata', async () => {
@@ -130,6 +150,7 @@ describe('POST /api/group/component', () => {
   it('returns 429 when rate limit exceeded', async () => {
     const { supabase } = createSupabase(false);
     getServiceSupabaseClientMock.mockReturnValue(supabase);
+    rateLimitMock.setRateLimit({ allowed: false, requestCount: 999 });
 
     const response = await POST(
       new Request('https://example.com/api/group/component', {

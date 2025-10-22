@@ -59,7 +59,7 @@ export async function extractVisionOcr(options: VisionOcrOptions): Promise<Visio
     throw new Error('Image URL is required for vision OCR.');
   }
 
-  const model = options.model ?? process.env.OPENAI_VISION_MODEL ?? process.env.OPENAI_AGENT_MODEL ?? 'gpt-4.1-mini';
+  const model = options.model ?? process.env.OPENAI_VISION_MODEL ?? process.env.OPENAI_AGENT_MODEL ?? 'gpt-5-mini';
   const maxOutputTokens = options.maxOutputTokens ?? 2048;
   const instructions =
     options.instructions?.trim() ??

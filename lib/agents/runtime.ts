@@ -9,7 +9,7 @@ const PERSONA_VERSIONS: Record<GenerateAgentPlanInput['agentType'], string> = {
   ADVISORY: 'advisory-lead.v1',
   CLIENT: 'client-collab.v1',
 };
-const DEFAULT_PLANNER_MODEL = process.env.AGENT_PLANNER_MODEL ?? process.env.AGENT_MODEL ?? 'gpt-4.1-mini';
+const DEFAULT_PLANNER_MODEL = process.env.AGENT_PLANNER_MODEL ?? process.env.AGENT_MODEL ?? 'gpt-5-mini';
 const MAX_GENERATION_ATTEMPTS = 2;
 
 export async function generateAgentPlan(options: GenerateAgentPlanInput): Promise<AgentPlanGenerationResult> {

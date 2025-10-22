@@ -22,6 +22,12 @@ apps/web,NEXT_PUBLIC_GROUP_AUDIT_MODE,client,false,workspace,Feature flag for gr
 apps/web,NEXT_PUBLIC_DEMO_ORG_ID,client,false,,Optional default organisation slug for demo views.
 apps/web,NEXT_PUBLIC_DEMO_ENGAGEMENT_ID,client,false,,Optional default engagement identifier for demo views.
 apps/web,NEXT_PUBLIC_DEMO_USER_ID,client,false,,Optional default user identifier for demo/demo analytics cards.
+apps/web,OPENAI_DEFAULT_REASONING_EFFORT,server,false,low,Global Responses API reasoning effort (minimal/low/medium/high) forwarded to the agent guard.
+apps/web,OPENAI_DEFAULT_VERBOSITY,server,false,medium,Verbosity defaults for Responses API requests issued by web API routes.
+apps/web,OPENAI_AGENT_REASONING_EFFORT,server,false,low,Override reasoning effort used by createApiGuard agent flows.
+apps/web,OPENAI_AGENT_VERBOSITY,server,false,medium,Override verbosity used by createApiGuard agent flows.
+apps/web,OPENAI_SUMMARY_REASONING_EFFORT,server,false,minimal,Override reasoning effort for policy/summarisation routes on web.
+apps/web,OPENAI_SUMMARY_VERBOSITY,server,false,low,Override verbosity for policy/summarisation routes on web.
 
 apps/gateway,PORT,server,false,3000,Runtime port when running standalone (ignored in serverless mode).
 apps/gateway,OTEL_SERVICE_NAME,server,false,gateway,OpenTelemetry service name for tracing spans.
@@ -47,10 +53,16 @@ services/rag,SUPABASE_URL,server,true,,Supabase project URL for persistence + au
 services/rag,SUPABASE_SERVICE_ROLE_KEY,server,true,,Service role key used for privileged Supabase access.
 services/rag,SUPABASE_JWT_SECRET,server,false,,JWT secret for Supabase auth helpers.
 services/rag,OPENAI_API_KEY,server,true,,Primary OpenAI API key for completions, embeddings, and audio APIs.
-services/rag,OPENAI_AGENT_MODEL,server,false,gpt-4.1-mini,Default model for agent orchestration.
+services/rag,OPENAI_AGENT_MODEL,server,false,gpt-5-mini,Default model for agent orchestration.
 services/rag,OPENAI_WEB_SEARCH_ENABLED,server,false,false,Enables web search augmentation feature flag.
-services/rag,OPENAI_WEB_SEARCH_MODEL,server,false,gpt-4.1-mini,Model for web search summarisation when enabled.
-services/rag,OPENAI_SUMMARY_MODEL,server,false,gpt-4.1-mini,Model for summarisation workloads when enabled.
+services/rag,OPENAI_WEB_SEARCH_MODEL,server,false,gpt-5,Model for web search summarisation when enabled.
+services/rag,OPENAI_SUMMARY_MODEL,server,false,gpt-5-mini,Model for summarisation workloads when enabled.
+services/rag,OPENAI_DEFAULT_REASONING_EFFORT,server,false,low,Global Responses API reasoning effort (minimal/low/medium/high).
+services/rag,OPENAI_DEFAULT_VERBOSITY,server,false,medium,Global verbosity control for GPT-5 Responses API (low/medium/high).
+services/rag,OPENAI_AGENT_REASONING_EFFORT,server,false,low,Override reasoning effort for agent conversations.
+services/rag,OPENAI_AGENT_VERBOSITY,server,false,medium,Override verbosity for agent conversations.
+services/rag,OPENAI_SUMMARY_REASONING_EFFORT,server,false,minimal,Override reasoning effort for summarisation/policy checks.
+services/rag,OPENAI_SUMMARY_VERBOSITY,server,false,low,Override verbosity for summarisation/policy checks.
 services/rag,OPENAI_STREAMING_ENABLED,server,false,false,Enable streaming responses from OpenAI completions.
 services/rag,OPENAI_REALTIME_ENABLED,server,false,false,Enable OpenAI realtime sessions.
 services/rag,OPENAI_REALTIME_MODEL,server,false,gpt-4o-realtime-preview,Realtime model identifier.
@@ -82,6 +94,6 @@ services/rag,SUPABASE_JWT_AUDIENCE,server,false,authenticated,Supabase JWT audie
 services/rag,ALLOW_SENTRY_DRY_RUN,server,false,false,Enable dry-run logging for Sentry webhooks.
 services/rag,ERROR_NOTIFY_WEBHOOK,server,false,,Webhook target for error notifications.
 services/rag,ORCHESTRATION_POLL_INTERVAL_MS,server,false,15000,Polling interval for orchestration workers.
-services/rag,AGENT_MODEL,server,false,gpt-4.1-mini,Default agent LLM selection.
+services/rag,AGENT_MODEL,server,false,gpt-5-mini,Default agent LLM selection.
 services/rag,RATE_LIMIT,server,false,60,Legacy alias for API rate limit (per minute).
 services/rag,RATE_WINDOW_MS,server,false,60000,Legacy alias for API rate window (ms).

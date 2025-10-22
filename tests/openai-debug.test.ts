@@ -72,7 +72,7 @@ describe('createOpenAiDebugLogger', () => {
       logInfo: vi.fn(),
     });
 
-    await logger({ endpoint: 'responses.create', response: { id: 'resp_debug', model: 'gpt-4.1' } });
+    await logger({ endpoint: 'responses.create', response: { id: 'resp_debug', model: 'gpt-5' } });
 
     expect(fetchSpy).toHaveBeenCalledWith('https://api.openai.com/v1/requests/resp_debug/debug', expect.any(Object));
     expect(upsertMock).toHaveBeenCalledWith(
@@ -80,7 +80,7 @@ describe('createOpenAiDebugLogger', () => {
         request_id: 'resp_debug',
         debug: expect.any(Object),
         metadata: expect.objectContaining({
-          tags: expect.arrayContaining(['endpoint:responses.create', 'model:gpt-4.1', 'status:200']),
+          tags: expect.arrayContaining(['endpoint:responses.create', 'model:gpt-5', 'status:200']),
         }),
       }),
       { onConflict: 'request_id' },

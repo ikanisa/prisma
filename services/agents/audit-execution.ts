@@ -53,7 +53,7 @@ export class AuditExecutionAgent {
     const { openai, logInfo } = this.deps;
     logInfo('audit_execution.plan_stub', { context, question });
     const response = await openai.responses.create({
-      model: process.env.AGENT_MODEL ?? 'gpt-4.1-mini',
+      model: process.env.AGENT_MODEL ?? 'gpt-5-mini',
       input: [
         {
           role: 'system',

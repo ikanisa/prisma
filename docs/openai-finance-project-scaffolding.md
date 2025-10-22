@@ -35,7 +35,7 @@
 ## Compliance Guardrails
 - Budget alerts: configure 70%/85%/95% thresholds emailing finance-ops + Slack pager.
 - RPM/RPD caps: use OpenAI project settings to enforce lower limits on staging keys; add per-service rate limiters for production.
-- Allowed models: restrict project access to approved tiers (gpt-4.1-mini, gpt-4.1, text-embedding-3-small; realtime preview disabled until cleared).
+- Allowed models: restrict project access to approved tiers (gpt-5, gpt-5-mini, text-embedding-3-small; realtime preview disabled until cleared).
 - Data handling: disable log retention if accessible; rely on explicit `mode=default` usage; document downstream storage (Supabase `openai_debug_events`).
 
 ## Deployment Steps
