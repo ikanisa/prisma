@@ -4,6 +4,7 @@
   "version": "0.0.0",
   "packageManager": "pnpm@9.12.3",
   "workspaces": [
+    "analytics",
     "apps/gateway",
     "apps/web",
     "services/*",

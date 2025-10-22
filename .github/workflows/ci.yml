@@ -71,6 +71,65 @@ jobs:
       - name: Audit dependencies
         run: npm audit --omit=dev || true
 
+  migration-smoke:
+    name: Database migration smoke
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Wait for Postgres
+        run: |
+          for i in {1..20}; do
+            if pg_isready -h 127.0.0.1 -p 5432 -U postgres; then
+              exit 0
+            fi
+            sleep 3
+          done
+          echo "Postgres did not become ready" >&2
+          exit 1
+
+      - name: Apply Supabase migrations
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/postgres
+        run: |
+          set -euo pipefail
+          for file in $(ls -1 supabase/migrations/*.sql | sort); do
+            echo "Applying $file"
+            psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$file"
+          done
+
+      - name: Apply consolidated SQL migrations
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/postgres
+        run: |
+          set -euo pipefail
+          for file in $(ls -1 migrations/sql/*.sql | sort); do
+            echo "Applying $file"
+            psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$file"
+          done
+
+      - name: Verify core tables
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/postgres
+        run: |
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          SELECT 'analytics_events' AS table, to_regclass('public.analytics_events');
+          SELECT 'telemetry_service_levels' AS table, to_regclass('public.telemetry_service_levels');
+          SELECT 'openai_debug_events' AS table, to_regclass('public.openai_debug_events');
+          SQL
+
   openapi-client:
     name: OpenAPI codegen + client build
     runs-on: ubuntu-latest

@@ -12,6 +12,7 @@ import { randomUUID, createHash } from 'crypto';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import * as Sentry from '@sentry/node';
 import { context, trace, SpanStatusCode } from '@opentelemetry/api';
+import { createAnalyticsClient } from '@prisma-glow/analytics';
 import { NodeTracerProvider } from '@opentelemetry/sdk-trace-node';
 import { BatchSpanProcessor } from '@opentelemetry/sdk-trace-base';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
@@ -134,6 +135,15 @@ const OTLP_ENDPOINT = process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
 let telemetryInitialised = false;
 const RUNTIME_ENVIRONMENT = process.env.ENVIRONMENT ?? process.env.NODE_ENV ?? 'development';
 const SERVICE_VERSION = process.env.SERVICE_VERSION ?? process.env.SENTRY_RELEASE ?? 'dev';
+const analyticsClient = createAnalyticsClient({
+  endpoint: process.env.ANALYTICS_SERVICE_URL,
+  apiKey: process.env.ANALYTICS_SERVICE_TOKEN,
+  service: SERVICE_NAME,
+  environment: RUNTIME_ENVIRONMENT,
+  onError: (error) => {
+    logError('analytics.event_failed', error instanceof Error ? error : new Error(String(error)));
+  },
+});
 
 function configureTelemetry(): void {
   if (telemetryInitialised) {
@@ -4448,6 +4458,7 @@ function extractResponseText(response: any): string {
 type ReasoningEffort = 'minimal' | 'low' | 'medium' | 'high';
 type ResponseVerbosity = 'low' | 'medium' | 'high';
 
+async function summariseWebDocument(orgId: string, url: string, text: string): Promise<string> {
   if (OPENAI_WEB_SEARCH_ENABLED) {
     try {
       const response = await openai.responses.create(
@@ -4480,6 +4491,8 @@ type ResponseVerbosity = 'low' | 'medium' | 'high';
         response: response as any,
         requestPayload: { url, model: OPENAI_WEB_SEARCH_MODEL, mode: 'web_search' },
         metadata: { source: 'web_summary' },
+        orgId,
+        requestLogPayload: { url, model: OPENAI_WEB_SEARCH_MODEL },
       });
       const summary = extractResponseText(response)?.trim();
       if (summary) {
@@ -9063,6 +9076,23 @@ app.post('/v1/rag/search', async (req: AuthenticatedRequest, res) => {
     const cached = cache.get(cacheKey);
     if (cached) {
       logInfo('search.cache_hit', { userId, orgId: orgContext.orgId, query });
+      analyticsClient
+        .record({
+          event: 'rag.search.cache_hit',
+          source: 'rag.api',
+          orgId: orgContext.orgId,
+          actorId: userId,
+          properties: {
+            queryLength: query.length,
+            limit: numericLimit,
+            results: Array.isArray((cached as any).results) ? (cached as any).results.length : 0,
+          },
+          context: {
+            requestId: req.requestId,
+            traceId: req.header('traceparent') ?? undefined,
+          },
+        })
+        .catch((error) => logError('analytics.record_failed', error, { event: 'rag.search.cache_hit' }));
       return res.json(cached);
     }
 
@@ -9090,6 +9120,23 @@ app.post('/v1/rag/search', async (req: AuthenticatedRequest, res) => {
       query,
       results: parsedResults.length,
     });
+    analyticsClient
+      .record({
+        event: 'rag.search.completed',
+        source: 'rag.api',
+        orgId: orgContext.orgId,
+        actorId: userId,
+        properties: {
+          queryLength: query.length,
+          limit: numericLimit,
+          results: parsedResults.length,
+        },
+        context: {
+          requestId: req.requestId,
+          traceId: req.header('traceparent') ?? undefined,
+        },
+      })
+      .catch((error) => logError('analytics.record_failed', error, { event: 'rag.search.completed' }));
     res.json(response);
   } catch (err) {
     logError('search.failed', err, { userId: req.user?.sub });
