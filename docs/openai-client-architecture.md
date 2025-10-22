@@ -20,3 +20,9 @@
 - Update datadog/Splunk routing instructions to reference the shared helpers so rate/usage dashboards remain consistent across environments.
 - Finance-specific project scaffolding is described in `docs/openai-finance-project-scaffolding.md`; reference it when promoting environments.
 - Configure request tagging via `OPENAI_REQUEST_TAGS=service:rag,env:prod` (comma-separated) and optional quota routing via `OPENAI_REQUEST_QUOTA_TAG=<billing-tag>`. The debug logger persists these tags alongside `openai_debug_events` records so Datadog/Splunk and quota monitors align with OpenAI dashboards.
+
+## Deterministic corpora & offline testing
+- The embeddings playground ships with a deterministic similarity explorer that avoids live API calls. The curated corpus and L2-normalised vectors live in `apps/web/app/openai/embeddings/components/similarity-explorer.tsx`; edit the `SAMPLE_DOCUMENTS` array to tweak scenarios or titles, and regenerate the vocabulary by saving the file (the helper recomputes the set at runtime).
+- Playwright coverage (`tests/playwright/embeddings-playground.spec.ts`) asserts that the offline toggle ranks the deterministic corpus. When adjusting the sample documents, update expectations in this spec to keep snapshots aligned.
+- To exercise the full pipeline locally without OpenAI access, leave the “Use deterministic corpus (offline)” toggle enabled in the similarity explorer UI. Disable it only when you have configured `OPENAI_API_KEY` workloads or the `/api/openai/embeddings` proxy in local development.
+- Document QA workflows that rely on deterministic corpora in team runbooks so solution engineers and SREs know how to validate ranking changes before promoting them to environments that hit live OpenAI endpoints.
