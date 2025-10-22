@@ -4155,6 +4155,8 @@ app.get('/api/agent/stream/execute', async (req: AuthenticatedRequest, res) => {
     const agentTypeRaw = typeof req.query.agentType === 'string' ? (req.query.agentType as string) : 'AUDIT';
     const context = typeof req.query.context === 'string' ? (req.query.context as string) : undefined;
     const engagementId = typeof req.query.engagementId === 'string' ? (req.query.engagementId as string) : undefined;
+    const agentSessionId = typeof req.query.agentSessionId === 'string' ? (req.query.agentSessionId as string) : undefined;
+    const supabaseRunId = typeof req.query.supabaseRunId === 'string' ? (req.query.supabaseRunId as string) : undefined;
 
     if (!orgSlug) {
       return res.status(400).json({ error: 'orgSlug query param required' });
