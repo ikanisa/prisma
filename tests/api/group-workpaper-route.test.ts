@@ -11,19 +11,19 @@ const COMPONENT_ID = '50000000-0000-0000-0000-000000000003';
 const INSTRUCTION_ID = '50000000-0000-0000-0000-000000000004';
 const USER_ID = '50000000-0000-0000-0000-000000000005';
 
-vi.mock('../../apps/lib/supabase-server', () => ({
+vi.mock('@/lib/supabase-server', () => ({
   getServiceSupabaseClient: () => getServiceSupabaseClientMock(),
 }));
 
-vi.mock('../../apps/lib/audit/evidence', () => ({
+vi.mock('@/lib/audit/evidence', () => ({
   ensureEvidenceDocument: (...args: unknown[]) => ensureEvidenceDocumentMock(...args),
 }));
 
-vi.mock('../../apps/lib/audit/module-records', () => ({
+vi.mock('@/lib/audit/module-records', () => ({
   upsertAuditModuleRecord: (...args: unknown[]) => upsertAuditModuleRecordMock(...args),
 }));
 
-vi.mock('../../apps/lib/audit/activity-log', () => ({
+vi.mock('@/lib/audit/activity-log', () => ({
   logAuditActivity: (...args: unknown[]) => logAuditActivityMock(...args),
 }));
 
