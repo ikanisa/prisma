@@ -7,6 +7,9 @@ export {
   getUrlSourceSettings,
   getBeforeAskingSequence,
   getRoleHierarchy,
+  loadSystemConfig,
+  refreshSystemConfig,
+  invalidateSystemConfigCache,
   clearSystemConfigCache as __clearSystemConfigCache,
   getResolvedConfigPath as __getResolvedConfigPath,
 } from '@prisma-glow/system-config';

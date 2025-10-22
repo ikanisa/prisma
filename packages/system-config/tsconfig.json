@@ -3,16 +3,14 @@
   "compilerOptions": {
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
-    "outDir": "dist",
     "rootDir": "src",
-    "types": ["node", "express", "supertest"],
+    "outDir": "dist",
+    "declaration": true,
+    "declarationMap": true,
     "noEmit": false,
     "incremental": true,
     "tsBuildInfoFile": "dist/tsconfig.tsbuildinfo"
   },
-  "include": ["src"],
-  "references": [
-    { "path": "../../packages/api-client/tsconfig.json" },
-    { "path": "../../packages/system-config/tsconfig.json" }
-  ]
+  "include": ["src/**/*.ts"],
+  "references": []
 }
