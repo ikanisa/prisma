@@ -29,21 +29,21 @@ jobs:
       DIRECT_URL: ${{ secrets.DIRECT_URL }}
     steps:
       - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          run_install: false
       - uses: actions/setup-node@v6
         with:
           node-version: 20
-          cache: 'npm'
-          cache-dependency-path: apps/web/package-lock.json
+          cache: 'pnpm'
       - name: Install dependencies
-        run: npm ci
-        working-directory: apps/web
+        run: pnpm install --frozen-lockfile
       - name: Mark Prisma baseline as applied (idempotent)
         run: |
-          npx prisma migrate resolve --applied 0001_init || true
-        working-directory: apps/web
+          pnpm --filter web exec prisma migrate resolve --applied 0001_init || true
       - name: Prisma migrate deploy (preview)
-        run: npm run prisma:migrate:deploy
-        working-directory: apps/web
+        run: pnpm --filter web run prisma:migrate:deploy
 
   deploy-production:
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production'
@@ -55,18 +55,18 @@ jobs:
       DIRECT_URL: ${{ secrets.DIRECT_URL }}
     steps:
       - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          run_install: false
       - uses: actions/setup-node@v6
         with:
           node-version: 20
-          cache: 'npm'
-          cache-dependency-path: apps/web/package-lock.json
+          cache: 'pnpm'
       - name: Install dependencies
-        run: npm ci
-        working-directory: apps/web
+        run: pnpm install --frozen-lockfile
       - name: Mark Prisma baseline as applied (idempotent)
         run: |
-          npx prisma migrate resolve --applied 0001_init || true
-        working-directory: apps/web
+          pnpm --filter web exec prisma migrate resolve --applied 0001_init || true
       - name: Prisma migrate deploy (production)
-        run: npm run prisma:migrate:deploy
-        working-directory: apps/web
+        run: pnpm --filter web run prisma:migrate:deploy

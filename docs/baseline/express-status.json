@@ -1,0 +1,6 @@
+{
+  "status": "ok",
+  "requestId": "b3bed313-27bc-4628-9bc2-5b95de81fb2c",
+  "redis": "disabled",
+  "idempotency": "disabled"
+}
