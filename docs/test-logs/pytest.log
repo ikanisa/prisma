@@ -1,0 +1,792 @@
+===================================================== test session starts ======================================================
+platform linux -- Python 3.12.10, pytest-8.4.1, pluggy-1.6.0
+rootdir: /workspace/prisma
+configfile: pytest.ini
+plugins: anyio-4.11.0, asyncio-0.26.0, cov-5.0.0, mock-3.15.1
+asyncio: mode=Mode.AUTO, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 109 items
+
+tests/accounting/test_docs.py ..                                                                                         [  1%]
+tests/accounting/test_registry.py ..                                                                                     [  3%]
+tests/accounting/test_sql_schema.py ...                                                                                  [  6%]
+tests/accounting/test_workspace.py ....                                                                                  [ 10%]
+tests/api/test_core_smoke.py ...                                                                                         [ 12%]
+tests/tax/test_calculators.py ........                                                                                   [ 20%]
+tests/tax/test_telemetry_payloads.py .                                                                                   [ 21%]
+tests/tax/test_vat_workflow.py .                                                                                         [ 22%]
+tests/test_agent_routing.py .                                                                                            [ 22%]
+tests/test_analytics_module.py ..                                                                                        [ 24%]
+tests/test_autonomy_controls.py ........                                                                                 [ 32%]
+tests/test_autonomy_status.py .                                                                                          [ 33%]
+tests/test_autopilot_phase_c.py ..                                                                                       [ 34%]
+tests/test_autopilot_worker.py F.                                                                                        [ 36%]
+tests/test_controls_module.py ...                                                                                        [ 39%]
+tests/test_csp_and_cors.py .F                                                                                            [ 41%]
+tests/test_data_sources.py ...F.                                                                                         [ 45%]
+tests/test_documents_permissions.py .....                                                                                [ 50%]
+tests/test_documents_signing.py .                                                                                        [ 51%]
+tests/test_health_readiness.py ...                                                                                       [ 54%]
+tests/test_idempotency.py .                                                                                              [ 55%]
+tests/test_knowledge_retrieval.py .......                                                                                [ 61%]
+tests/test_mfa_enforcement.py ..                                                                                         [ 63%]
+tests/test_onboarding_phase_b.py .                                                                                       [ 64%]
+tests/test_openai_backfill.py .........                                                                                  [ 72%]
+tests/test_openai_retrieval.py ..                                                                                        [ 74%]
+tests/test_permissions_alignment.py .                                                                                    [ 75%]
+tests/test_policy_pack_permissions.py ..                                                                                 [ 77%]
+tests/test_rag.py .                                                                                                      [ 77%]
+tests/test_rate_limit.py .                                                                                               [ 78%]
+tests/test_reconciliations_module.py ..                                                                                  [ 80%]
+tests/test_release_controls.py ...                                                                                       [ 83%]
+tests/test_request_id.py ..                                                                                              [ 85%]
+tests/test_security_headers.py .....                                                                                     [ 89%]
+tests/test_sentry_dry_run.py F                                                                                           [ 90%]
+tests/test_system_config_loader.py .....                                                                                 [ 95%]
+tests/test_vat_evaluator.py .                                                                                            [ 96%]
+tests/test_workflows.py ....                                                                                             [100%]
+
+=========================================================== FAILURES ===========================================================
+_______________________________________ test_handle_autopilot_extract_documents_success ________________________________________
+
+    @pytest.mark.anyio
+    async def test_handle_autopilot_extract_documents_success():
+        supabase = FakeSupabase(
+            rows=[
+                {
+                    "id": "extract-1",
+                    "document_id": "doc-1",
+                    "fields": {},
+                    "provenance": [],
+                    "documents": {
+                        "id": "doc-1",
+                        "org_id": "org-123",
+                        "name": "Certificate.pdf",
+                        "classification": "OTHER",
+                        "storage_path": "org-123/docs/certificate.pdf",
+                        "mime_type": "application/pdf",
+                    },
+                }
+            ]
+        )
+        logger = _Logger()
+        vector_recorder = VectorRecorder()
+        pipeline = create_document_ai_pipeline(
+            supabase_table_request=supabase,
+            logger=logger,
+            iso_now=lambda: "2025-01-01T00:00:00Z",
+            provider=SuccessfulProvider(),
+            vector_ingestor=vector_recorder,
+        )
+        job = {"id": "job-1", "org_id": "org-123", "kind": "extract_documents", "payload": {}}
+    
+        result = await handle_extract_documents(
+            job,
+            supabase_table_request=supabase,
+            iso_now=lambda: "2025-01-01T00:00:00Z",
+            logger=logger,
+            batch_limit=5,
+            pipeline=pipeline,
+        )
+    
+        assert result["processed"] == 1
+        assert result["failed"] == []
+        assert result["document_ids"] == ["doc-1"]
+>       assert result["documents"][0]["extraction"]["classification"] == "INCORP_CERT"
+E       AssertionError: assert 'OTHER' == 'INCORP_CERT'
+E         
+E         - INCORP_CERT
+E         + OTHER
+
+tests/test_autopilot_worker.py:187: AssertionError
+___________________________________________ test_cors_allows_only_configured_origins ___________________________________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fb50bda09b0>
+
+    def test_cors_allows_only_configured_origins(monkeypatch):
+        # Re-import main with a controlled allow-list
+        monkeypatch.setenv('ENVIRONMENT', 'production')
+        monkeypatch.setenv('API_ALLOWED_ORIGINS', 'https://app.example.com')
+    
+        # The app was imported above already, but CORSMiddleware uses allowed_origins list
+        # to decide which Origin gets a CORS allow header on each request. We can exercise
+        # both an allowed and disallowed origin against the existing app instance.
+        client = TestClient(main.app)
+    
+        # Allowed origin should receive an allow-origin echo
+        preflight_allowed = client.options(
+            '/health',
+            headers={
+                'Origin': 'https://app.example.com',
+                'Access-Control-Request-Method': 'GET',
+            },
+        )
+>       assert preflight_allowed.status_code in (200, 204)
+E       assert 400 in (200, 204)
+E        +  where 400 = <Response [400 Bad Request]>.status_code
+
+tests/test_csp_and_cors.py:40: AssertionError
+__________________________________________________ test_web_sources_endpoint ___________________________________________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fb50bda2900>
+
+    def test_web_sources_endpoint(monkeypatch):
+        async def fake_resolve_org_context(_user_id: str, _org_slug: str):
+            return {'org_id': 'org-1', 'role': 'MANAGER'}
+    
+        async def fake_table_request(method: str, table: str, **kwargs):
+            if table == 'web_knowledge_sources':
+                return DummyResponse(200, [
+                    {
+                        'id': 'source-1',
+                        'title': 'MFSA Guidance',
+                        'url': 'https://maltaguide.example.com',
+                        'domain': 'COMPLIANCE',
+                        'jurisdiction': ['MT'],
+                        'tags': ['audit'],
+                        'priority': 1,
+                        'created_at': '2024-01-01T00:00:00Z',
+                    }
+                ])
+            if table == 'web_fetch_cache_metrics':
+                return DummyResponse(200, [
+                    {
+                        'total_rows': 5,
+                        'total_bytes': 4096,
+                        'total_chars': 10240,
+                        'fetched_last_24h': 2,
+                        'used_last_24h': 1,
+                        'newest_fetched_at': '2024-01-02T00:00:00Z',
+                        'oldest_fetched_at': '2024-01-01T00:00:00Z',
+                        'newest_last_used_at': '2024-01-02T01:00:00Z',
+                        'oldest_last_used_at': '2024-01-01T02:00:00Z',
+                    }
+                ])
+            raise AssertionError(f'unexpected table {table}')
+    
+        monkeypatch.setattr(main, 'resolve_org_context', fake_resolve_org_context)
+        monkeypatch.setattr(main, 'supabase_table_request', fake_table_request)
+    
+        client = TestClient(main.app)
+        response = client.get('/v1/knowledge/web-sources', params={'orgSlug': 'acme'}, headers={'Authorization': 'Bearer token'})
+    
+        assert response.status_code == 200
+        body = response.json()
+        assert len(body['sources']) == 1
+        assert body['sources'][0]['title'] == 'MFSA Guidance'
+        settings = body['settings']
+        assert 'allowedDomains' in settings
+        assert 'fetchPolicy' in settings
+        assert settings['fetchPolicy']['cacheTtlMinutes'] == 1440
+        web_search = body['webSearch']
+>       assert web_search['enabled'] is True
+E       assert False is True
+
+tests/test_data_sources.py:221: AssertionError
+----------------------------------------------------- Captured stdout call -----------------------------------------------------
+{"user_id": "user-123", "event": "auth.accepted", "request_id": "dace04d3-a20d-4847-95cd-b5bbc8c203b2", "timestamp": "2025-10-22T15:01:21.017719Z"}
+_______________________________________________ test_sentry_dry_run_returns_500 ________________________________________________
+  + Exception Group Traceback (most recent call last):
+  |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/_utils.py", line 79, in collapse_excgroups
+  |     yield
+  |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/middleware/base.py", line 183, in __call__
+  |     async with anyio.create_task_group() as task_group:
+  |                ^^^^^^^^^^^^^^^^^^^^^^^^^
+  |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/anyio/_backends/_asyncio.py", line 781, in __aexit__
+  |     raise BaseExceptionGroup(
+  | ExceptionGroup: unhandled errors in a TaskGroup (1 sub-exception)
+  +-+---------------- 1 ----------------
+    | Traceback (most recent call last):
+    |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/_pytest/runner.py", line 344, in from_call
+    |     result: TResult | None = func()
+    |                              ^^^^^^
+    |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/_pytest/runner.py", line 246, in <lambda>
+    |     lambda: runtest_hook(item=item, **kwds), when=when, reraise=reraise
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/pluggy/_hooks.py", line 512, in __call__
+    |     return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/pluggy/_manager.py", line 120, in _hookexec
+    |     return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/pluggy/_callers.py", line 167, in _multicall
+    |     raise exception
+    |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/pluggy/_callers.py", line 139, in _multicall
+    |     teardown.throw(exception)
+    |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/_pytest/logging.py", line 850, in pytest_runtest_call
+    |     yield
+    |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/pluggy/_callers.py", line 139, in _multicall
+    |     teardown.throw(exception)
+    |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/_pytest/capture.py", line 900, in pytest_runtest_call
+    |     return (yield)
+    |             ^^^^^
+    |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/pluggy/_callers.py", line 139, in _multicall
+    |     teardown.throw(exception)
+    |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/_pytest/skipping.py", line 263, in pytest_runtest_call
+    |     return (yield)
+    |             ^^^^^
+    |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/pluggy/_callers.py", line 121, in _multicall
+    |     res = hook_impl.function(*args)
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/_pytest/runner.py", line 178, in pytest_runtest_call
+    |     item.runtest()
+    |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/_pytest/python.py", line 1671, in runtest
+    |     self.ihook.pytest_pyfunc_call(pyfuncitem=self)
+    |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/pluggy/_hooks.py", line 512, in __call__
+    |     return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/pluggy/_manager.py", line 120, in _hookexec
+    |     return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/pluggy/_callers.py", line 167, in _multicall
+    |     raise exception
+    |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/pluggy/_callers.py", line 139, in _multicall
+    |     teardown.throw(exception)
+    |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/pluggy/_callers.py", line 53, in run_old_style_hookwrapper
+    |     return result.get_result()
+    |            ^^^^^^^^^^^^^^^^^^^
+    |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/pluggy/_result.py", line 103, in get_result
+    |     raise exc.with_traceback(tb)
+    |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/pluggy/_callers.py", line 38, in run_old_style_hookwrapper
+    |     res = yield
+    |           ^^^^^
+    |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/pluggy/_callers.py", line 121, in _multicall
+    |     res = hook_impl.function(*args)
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/_pytest/python.py", line 157, in pytest_pyfunc_call
+    |     result = testfunction(**testargs)
+    |              ^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/workspace/prisma/tests/test_sentry_dry_run.py", line 19, in test_sentry_dry_run_returns_500
+    |     response = client.post('/v1/observability/dry-run', headers={'Authorization': 'Bearer token', 'X-Request-ID': 'dry-run-req'})
+    |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/testclient.py", line 552, in post
+    |     return super().post(
+    |            ^^^^^^^^^^^^^
+    |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/httpx/_client.py", line 1144, in post
+    |     return self.request(
+    |            ^^^^^^^^^^^^^
+    |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/testclient.py", line 451, in request
+    |     return super().request(
+    |            ^^^^^^^^^^^^^^^^
+    |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/httpx/_client.py", line 825, in request
+    |     return self.send(request, auth=auth, follow_redirects=follow_redirects)
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/httpx/_client.py", line 914, in send
+    |     response = self._send_handling_auth(
+    |                ^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/httpx/_client.py", line 942, in _send_handling_auth
+    |     response = self._send_handling_redirects(
+    |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/httpx/_client.py", line 979, in _send_handling_redirects
+    |     response = self._send_single_request(request)
+    |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/httpx/_client.py", line 1014, in _send_single_request
+    |     response = transport.handle_request(request)
+    |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/testclient.py", line 354, in handle_request
+    |     raise exc
+    |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/testclient.py", line 351, in handle_request
+    |     portal.call(self.app, scope, receive, send)
+    |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/anyio/from_thread.py", line 321, in call
+    |     return cast(T_Retval, self.start_task_soon(func, *args).result())
+    |                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/concurrent/futures/_base.py", line 456, in result
+    |     return self.__get_result()
+    |            ^^^^^^^^^^^^^^^^^^^
+    |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/concurrent/futures/_base.py", line 401, in __get_result
+    |     raise self._exception
+    |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/anyio/from_thread.py", line 252, in _call_func
+    |     retval = await retval_or_awaitable
+    |              ^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/fastapi/applications.py", line 1133, in __call__
+    |     await super().__call__(scope, receive, send)
+    |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/applications.py", line 113, in __call__
+    |     await self.middleware_stack(scope, receive, send)
+    |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/middleware/errors.py", line 186, in __call__
+    |     raise exc
+    |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/middleware/errors.py", line 164, in __call__
+    |     await self.app(scope, receive, _send)
+    |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/opentelemetry/instrumentation/asgi/__init__.py", line 795, in __call__
+    |     await self.app(scope, otel_receive, otel_send)
+    |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/middleware/errors.py", line 186, in __call__
+    |     raise exc
+    |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/middleware/errors.py", line 164, in __call__
+    |     await self.app(scope, receive, _send)
+    |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/opentelemetry/instrumentation/fastapi/__init__.py", line 307, in __call__
+    |     await self.app(scope, receive, send)
+    |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/middleware/cors.py", line 85, in __call__
+    |     await self.app(scope, receive, send)
+    |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/middleware/base.py", line 182, in __call__
+    |     with recv_stream, send_stream, collapse_excgroups():
+    |                                    ^^^^^^^^^^^^^^^^^^^^
+    |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/contextlib.py", line 158, in __exit__
+    |     self.gen.throw(value)
+    |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/_utils.py", line 85, in collapse_excgroups
+    |     raise exc
+    |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/middleware/base.py", line 184, in __call__
+    |     response = await self.dispatch_func(request, call_next)
+    |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/workspace/prisma/server/main.py", line 286, in apply_security_headers
+    |     response = await call_next(request)
+    |                ^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/middleware/base.py", line 159, in call_next
+    |     raise app_exc
+    |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/middleware/base.py", line 144, in coro
+    |     await self.app(scope, receive_or_disconnect, send_no_error)
+    |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/middleware/base.py", line 182, in __call__
+    |     with recv_stream, send_stream, collapse_excgroups():
+    |                                    ^^^^^^^^^^^^^^^^^^^^
+    |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/contextlib.py", line 158, in __exit__
+    |     self.gen.throw(value)
+    |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/_utils.py", line 85, in collapse_excgroups
+    |     raise exc
+    |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/middleware/base.py", line 184, in __call__
+    |     response = await self.dispatch_func(request, call_next)
+    |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/workspace/prisma/server/main.py", line 275, in add_request_id
+    |     response = await call_next(request)
+    |                ^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/middleware/base.py", line 159, in call_next
+    |     raise app_exc
+    |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/middleware/base.py", line 144, in coro
+    |     await self.app(scope, receive_or_disconnect, send_no_error)
+    |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/middleware/base.py", line 182, in __call__
+    |     with recv_stream, send_stream, collapse_excgroups():
+    |                                    ^^^^^^^^^^^^^^^^^^^^
+    |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/contextlib.py", line 158, in __exit__
+    |     self.gen.throw(value)
+    |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/_utils.py", line 85, in collapse_excgroups
+    |     raise exc
+    |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/middleware/base.py", line 184, in __call__
+    |     response = await self.dispatch_func(request, call_next)
+    |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/workspace/prisma/server/main.py", line 248, in trace_requests
+    |     response = await call_next(request)
+    |                ^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/middleware/base.py", line 159, in call_next
+    |     raise app_exc
+    |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/middleware/base.py", line 144, in coro
+    |     await self.app(scope, receive_or_disconnect, send_no_error)
+    |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/middleware/exceptions.py", line 63, in __call__
+    |     await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+    |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    |     raise exc
+    |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    |     await app(scope, receive, sender)
+    |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/fastapi/middleware/asyncexitstack.py", line 18, in __call__
+    |     await self.app(scope, receive, send)
+    |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/routing.py", line 716, in __call__
+    |     await self.middleware_stack(scope, receive, send)
+    |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/routing.py", line 736, in app
+    |     await route.handle(scope, receive, send)
+    |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/routing.py", line 290, in handle
+    |     await self.app(scope, receive, send)
+    |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/fastapi/routing.py", line 123, in app
+    |     await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+    |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    |     raise exc
+    |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    |     await app(scope, receive, sender)
+    |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/fastapi/routing.py", line 109, in app
+    |     response = await f(request)
+    |                ^^^^^^^^^^^^^^^^
+    |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/fastapi/routing.py", line 389, in app
+    |     raw_response = await run_endpoint_function(
+    |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/fastapi/routing.py", line 288, in run_endpoint_function
+    |     return await dependant.call(**values)
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/workspace/prisma/server/main.py", line 7124, in sentry_dry_run
+    |     _ = await require_auth(authorization)  # noqa: F841
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    | TypeError: object dict can't be used in 'await' expression
+    +------------------------------------
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/workspace/prisma/tests/test_sentry_dry_run.py", line 19, in test_sentry_dry_run_returns_500
+    response = client.post('/v1/observability/dry-run', headers={'Authorization': 'Bearer token', 'X-Request-ID': 'dry-run-req'})
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/testclient.py", line 552, in post
+    return super().post(
+           ^^^^^^^^^^^^^
+  File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/httpx/_client.py", line 1144, in post
+    return self.request(
+           ^^^^^^^^^^^^^
+  File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/testclient.py", line 451, in request
+    return super().request(
+           ^^^^^^^^^^^^^^^^
+  File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/httpx/_client.py", line 825, in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/httpx/_client.py", line 914, in send
+    response = self._send_handling_auth(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/httpx/_client.py", line 942, in _send_handling_auth
+    response = self._send_handling_redirects(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/httpx/_client.py", line 979, in _send_handling_redirects
+    response = self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/httpx/_client.py", line 1014, in _send_single_request
+    response = transport.handle_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/testclient.py", line 354, in handle_request
+    raise exc
+  File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/testclient.py", line 351, in handle_request
+    portal.call(self.app, scope, receive, send)
+  File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/anyio/from_thread.py", line 321, in call
+    return cast(T_Retval, self.start_task_soon(func, *args).result())
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/.pyenv/versions/3.12.10/lib/python3.12/concurrent/futures/_base.py", line 456, in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+  File "/root/.pyenv/versions/3.12.10/lib/python3.12/concurrent/futures/_base.py", line 401, in __get_result
+    raise self._exception
+  File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/anyio/from_thread.py", line 252, in _call_func
+    retval = await retval_or_awaitable
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/fastapi/applications.py", line 1133, in __call__
+    await super().__call__(scope, receive, send)
+  File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/applications.py", line 113, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/middleware/errors.py", line 186, in __call__
+    raise exc
+  File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/middleware/errors.py", line 164, in __call__
+    await self.app(scope, receive, _send)
+  File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/opentelemetry/instrumentation/asgi/__init__.py", line 795, in __call__
+    await self.app(scope, otel_receive, otel_send)
+  File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/middleware/errors.py", line 186, in __call__
+    raise exc
+  File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/middleware/errors.py", line 164, in __call__
+    await self.app(scope, receive, _send)
+  File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/opentelemetry/instrumentation/fastapi/__init__.py", line 307, in __call__
+    await self.app(scope, receive, send)
+  File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/middleware/cors.py", line 85, in __call__
+    await self.app(scope, receive, send)
+  File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/middleware/base.py", line 182, in __call__
+    with recv_stream, send_stream, collapse_excgroups():
+                                   ^^^^^^^^^^^^^^^^^^^^
+  File "/root/.pyenv/versions/3.12.10/lib/python3.12/contextlib.py", line 158, in __exit__
+    self.gen.throw(value)
+  File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/_utils.py", line 85, in collapse_excgroups
+    raise exc
+  File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/middleware/base.py", line 184, in __call__
+    response = await self.dispatch_func(request, call_next)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/prisma/server/main.py", line 286, in apply_security_headers
+    response = await call_next(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/middleware/base.py", line 159, in call_next
+    raise app_exc
+  File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/middleware/base.py", line 144, in coro
+    await self.app(scope, receive_or_disconnect, send_no_error)
+  File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/middleware/base.py", line 182, in __call__
+    with recv_stream, send_stream, collapse_excgroups():
+                                   ^^^^^^^^^^^^^^^^^^^^
+  File "/root/.pyenv/versions/3.12.10/lib/python3.12/contextlib.py", line 158, in __exit__
+    self.gen.throw(value)
+  File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/_utils.py", line 85, in collapse_excgroups
+    raise exc
+  File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/middleware/base.py", line 184, in __call__
+    response = await self.dispatch_func(request, call_next)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/prisma/server/main.py", line 275, in add_request_id
+    response = await call_next(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/middleware/base.py", line 159, in call_next
+    raise app_exc
+  File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/middleware/base.py", line 144, in coro
+    await self.app(scope, receive_or_disconnect, send_no_error)
+  File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/middleware/base.py", line 182, in __call__
+    with recv_stream, send_stream, collapse_excgroups():
+                                   ^^^^^^^^^^^^^^^^^^^^
+  File "/root/.pyenv/versions/3.12.10/lib/python3.12/contextlib.py", line 158, in __exit__
+    self.gen.throw(value)
+  File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/_utils.py", line 85, in collapse_excgroups
+    raise exc
+  File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/middleware/base.py", line 184, in __call__
+    response = await self.dispatch_func(request, call_next)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/prisma/server/main.py", line 248, in trace_requests
+    response = await call_next(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/middleware/base.py", line 159, in call_next
+    raise app_exc
+  File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/middleware/base.py", line 144, in coro
+    await self.app(scope, receive_or_disconnect, send_no_error)
+  File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/middleware/exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/fastapi/middleware/asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/routing.py", line 716, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/routing.py", line 736, in app
+    await route.handle(scope, receive, send)
+  File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/routing.py", line 290, in handle
+    await self.app(scope, receive, send)
+  File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/fastapi/routing.py", line 123, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/fastapi/routing.py", line 109, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/fastapi/routing.py", line 389, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/fastapi/routing.py", line 288, in run_endpoint_function
+    return await dependant.call(**values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/prisma/server/main.py", line 7124, in sentry_dry_run
+    _ = await require_auth(authorization)  # noqa: F841
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: object dict can't be used in 'await' expression
+
+During handling of the above exception, another exception occurred:
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7fb50bd7a150>
+
+    def test_sentry_dry_run_returns_500(monkeypatch):
+        monkeypatch.setenv('ALLOW_SENTRY_DRY_RUN', 'true')
+    
+        def fake_require_auth(_auth: str):
+            return {'sub': 'user-123'}
+    
+        monkeypatch.setattr(main, 'require_auth', fake_require_auth)
+    
+        client = TestClient(main.app)
+>       response = client.post('/v1/observability/dry-run', headers={'Authorization': 'Bearer token', 'X-Request-ID': 'dry-run-req'})
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_sentry_dry_run.py:19: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/testclient.py:552: in post
+    return super().post(
+/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/httpx/_client.py:1144: in post
+    return self.request(
+/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/testclient.py:451: in request
+    return super().request(
+/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/httpx/_client.py:825: in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/httpx/_client.py:914: in send
+    response = self._send_handling_auth(
+/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/httpx/_client.py:942: in _send_handling_auth
+    response = self._send_handling_redirects(
+/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/httpx/_client.py:979: in _send_handling_redirects
+    response = self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/httpx/_client.py:1014: in _send_single_request
+    response = transport.handle_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/testclient.py:354: in handle_request
+    raise exc
+/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/testclient.py:351: in handle_request
+    portal.call(self.app, scope, receive, send)
+/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/anyio/from_thread.py:321: in call
+    return cast(T_Retval, self.start_task_soon(func, *args).result())
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/root/.pyenv/versions/3.12.10/lib/python3.12/concurrent/futures/_base.py:456: in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+/root/.pyenv/versions/3.12.10/lib/python3.12/concurrent/futures/_base.py:401: in __get_result
+    raise self._exception
+/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/anyio/from_thread.py:252: in _call_func
+    retval = await retval_or_awaitable
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/fastapi/applications.py:1133: in __call__
+    await super().__call__(scope, receive, send)
+/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/applications.py:113: in __call__
+    await self.middleware_stack(scope, receive, send)
+/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/middleware/errors.py:186: in __call__
+    raise exc
+/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/middleware/errors.py:164: in __call__
+    await self.app(scope, receive, _send)
+/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/opentelemetry/instrumentation/asgi/__init__.py:795: in __call__
+    await self.app(scope, otel_receive, otel_send)
+/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/middleware/errors.py:186: in __call__
+    raise exc
+/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/middleware/errors.py:164: in __call__
+    await self.app(scope, receive, _send)
+/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/opentelemetry/instrumentation/fastapi/__init__.py:307: in __call__
+    await self.app(scope, receive, send)
+/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/middleware/cors.py:85: in __call__
+    await self.app(scope, receive, send)
+/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/middleware/base.py:182: in __call__
+    with recv_stream, send_stream, collapse_excgroups():
+                                   ^^^^^^^^^^^^^^^^^^^^
+/root/.pyenv/versions/3.12.10/lib/python3.12/contextlib.py:158: in __exit__
+    self.gen.throw(value)
+/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/_utils.py:85: in collapse_excgroups
+    raise exc
+/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/middleware/base.py:184: in __call__
+    response = await self.dispatch_func(request, call_next)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+server/main.py:286: in apply_security_headers
+    response = await call_next(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/middleware/base.py:159: in call_next
+    raise app_exc
+/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/middleware/base.py:144: in coro
+    await self.app(scope, receive_or_disconnect, send_no_error)
+/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/middleware/base.py:182: in __call__
+    with recv_stream, send_stream, collapse_excgroups():
+                                   ^^^^^^^^^^^^^^^^^^^^
+/root/.pyenv/versions/3.12.10/lib/python3.12/contextlib.py:158: in __exit__
+    self.gen.throw(value)
+/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/_utils.py:85: in collapse_excgroups
+    raise exc
+/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/middleware/base.py:184: in __call__
+    response = await self.dispatch_func(request, call_next)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+server/main.py:275: in add_request_id
+    response = await call_next(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/middleware/base.py:159: in call_next
+    raise app_exc
+/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/middleware/base.py:144: in coro
+    await self.app(scope, receive_or_disconnect, send_no_error)
+/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/middleware/base.py:182: in __call__
+    with recv_stream, send_stream, collapse_excgroups():
+                                   ^^^^^^^^^^^^^^^^^^^^
+/root/.pyenv/versions/3.12.10/lib/python3.12/contextlib.py:158: in __exit__
+    self.gen.throw(value)
+/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/_utils.py:85: in collapse_excgroups
+    raise exc
+/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/middleware/base.py:184: in __call__
+    response = await self.dispatch_func(request, call_next)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+server/main.py:248: in trace_requests
+    response = await call_next(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/middleware/base.py:159: in call_next
+    raise app_exc
+/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/middleware/base.py:144: in coro
+    await self.app(scope, receive_or_disconnect, send_no_error)
+/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/middleware/exceptions.py:63: in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/_exception_handler.py:53: in wrapped_app
+    raise exc
+/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/fastapi/middleware/asyncexitstack.py:18: in __call__
+    await self.app(scope, receive, send)
+/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/routing.py:716: in __call__
+    await self.middleware_stack(scope, receive, send)
+/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/routing.py:736: in app
+    await route.handle(scope, receive, send)
+/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/routing.py:290: in handle
+    await self.app(scope, receive, send)
+/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/fastapi/routing.py:123: in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/_exception_handler.py:53: in wrapped_app
+    raise exc
+/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/starlette/_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/fastapi/routing.py:109: in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/fastapi/routing.py:389: in app
+    raw_response = await run_endpoint_function(
+/root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/fastapi/routing.py:288: in run_endpoint_function
+    return await dependant.call(**values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+authorization = 'Bearer token', request = <starlette.requests.Request object at 0x7fb50bd82a80>
+
+    @app.post("/v1/observability/dry-run", tags=["observability"])
+    async def sentry_dry_run(
+        authorization: str = Header(...),
+        request: Request = None,
+    ):
+        """Intentionally raises a server error to validate Sentry/alerts.
+    
+        Guarded by `ALLOW_SENTRY_DRY_RUN` env var. Requires a valid Bearer token.
+        Call with a unique `X-Request-ID` for traceability.
+        """
+        allow = os.getenv("ALLOW_SENTRY_DRY_RUN", "false").lower() == "true"
+        if not allow:
+            raise HTTPException(status_code=404, detail="not found")
+    
+        # Authenticate request (rate limit is handled in require_auth)
+>       _ = await require_auth(authorization)  # noqa: F841
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: object dict can't be used in 'await' expression
+
+server/main.py:7124: TypeError
+======================================================= warnings summary =======================================================
+server/main.py:2994
+  /workspace/prisma/server/main.py:2994: PydanticDeprecatedSince20: `min_items` is deprecated and will be removed, use `min_length` instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    chunks: List[int] = Field(..., min_items=1)
+
+server/main.py:3227
+  /workspace/prisma/server/main.py:3227: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event("startup")
+
+../../root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/fastapi/applications.py:4574
+../../root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/fastapi/applications.py:4574
+  /root/.pyenv/versions/3.12.10/lib/python3.12/site-packages/fastapi/applications.py:4574: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    return self.router.on_event(event_type)
+
+server/main.py:3238
+  /workspace/prisma/server/main.py:3238: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event("shutdown")
+
+tests/test_analytics_module.py: 2 warnings
+tests/test_autonomy_controls.py: 2 warnings
+tests/test_controls_module.py: 1 warning
+tests/test_data_sources.py: 1 warning
+tests/test_onboarding_phase_b.py: 2 warnings
+tests/test_policy_pack_permissions.py: 1 warning
+tests/test_reconciliations_module.py: 2 warnings
+tests/test_workflows.py: 3 warnings
+  /workspace/prisma/server/main.py:1198: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    return datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
+
+tests/test_analytics_module.py::test_update_ada_exception_records_resolution
+  /workspace/prisma/server/main.py:4617: PydanticDeprecatedSince20: The `__fields_set__` attribute is deprecated, use `model_fields_set` instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    fields_set = getattr(payload, "model_fields_set", getattr(payload, "__fields_set__", set()))
+
+tests/test_data_sources.py::test_drive_status_endpoint
+  /workspace/prisma/server/main.py:6384: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    failure_window = (datetime.utcnow() - timedelta(hours=24)).isoformat()
+
+tests/test_documents_permissions.py::test_employee_uploads_document
+tests/test_documents_permissions.py::test_employee_uploads_document_sets_portal_visible_for_allowed_repo
+  /workspace/prisma/server/main.py:5401: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    timestamp = datetime.utcnow().strftime("%Y%m%dT%H%M%S")
+
+tests/test_onboarding_phase_b.py::test_onboarding_commit_seeds_tasks_and_notifications
+  /workspace/prisma/server/main.py:6078: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    default_due = (datetime.utcnow() + timedelta(days=3)).replace(microsecond=0).isoformat() + "Z"
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=================================================== short test summary info ====================================================
+FAILED tests/test_autopilot_worker.py::test_handle_autopilot_extract_documents_success - AssertionError: assert 'OTHER' == 'I...
+FAILED tests/test_csp_and_cors.py::test_cors_allows_only_configured_origins - assert 400 in (200, 204)
+FAILED tests/test_data_sources.py::test_web_sources_endpoint - assert False is True
+FAILED tests/test_sentry_dry_run.py::test_sentry_dry_run_returns_500 - TypeError: object dict can't be used in 'await' expres...
+========================================== 4 failed, 105 passed, 24 warnings in 5.21s ==========================================
