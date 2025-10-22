@@ -9,4 +9,3 @@ plugins: asyncio-0.26.0, anyio-4.11.0, mock-3.15.1, cov-5.0.0
 asyncio: mode=Mode.AUTO, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
 collected 0 items
 
-==================================================== no tests ran in 0.05s =====================================================

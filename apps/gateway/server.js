@@ -8,6 +8,7 @@ import { createIdempotencyMiddleware } from './idempotency-middleware.js';
 import { registerAgentRoutes } from './routes/agent.js';
 import { registerRagRoutes } from './routes/rag.js';
 import { logInfo } from './logger.js';
+import { createAnalyticsClient } from '@prisma-glow/analytics';
 
 const JSON_LIMIT = '5mb';
 
@@ -18,6 +19,37 @@ export function createGatewayServer() {
   app.use(express.json({ limit: JSON_LIMIT }));
   app.use(express.urlencoded({ extended: true }));
   app.use(requestContextMiddleware);
+  const analyticsClient = createAnalyticsClient({
+    endpoint: process.env.ANALYTICS_SERVICE_URL,
+    apiKey: process.env.ANALYTICS_SERVICE_TOKEN,
+    service: process.env.OTEL_SERVICE_NAME ?? 'gateway',
+    environment: process.env.SENTRY_ENVIRONMENT ?? process.env.ENVIRONMENT ?? process.env.NODE_ENV ?? 'development',
+  });
+
+  app.use((req, res, next) => {
+    const started = Date.now();
+    res.on('finish', () => {
+      analyticsClient
+        .record({
+          event: 'gateway.request',
+          source: 'gateway.express',
+          orgId: typeof req.headers['x-org-id'] === 'string' ? req.headers['x-org-id'] : undefined,
+          actorId: typeof req.headers['x-user-id'] === 'string' ? req.headers['x-user-id'] : undefined,
+          properties: {
+            method: req.method,
+            path: req.originalUrl ?? req.url,
+            status: res.statusCode,
+            durationMs: Date.now() - started,
+          },
+          context: {
+            requestId: req.requestId,
+            traceId: req.traceparent,
+          },
+        })
+        .catch(() => undefined);
+    });
+    next();
+  });
 
   const orgGuard = createOrgGuard();
   const apiKeys = process.env.GATEWAY_API_KEYS || process.env.API_KEYS || '';
