@@ -19,10 +19,27 @@ vi.mock('next/server', () => ({
 const originalFetch = global.fetch;
 
 describe('agent proxy routes', () => {
+  beforeEach(() => {
+    process.env.AUTH_CLIENT_ID = 'client-id';
+    process.env.AUTH_CLIENT_SECRET = 'client-secret';
+    process.env.AUTH_ISSUER = 'https://auth.example.com';
+    process.env.SUPABASE_URL = 'https://supabase.example.com';
+    process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role-key';
+    process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://supabase.example.com';
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'anon-key';
+  });
+
   afterEach(() => {
     global.fetch = originalFetch;
     delete process.env.AGENT_SERVICE_URL;
     delete process.env.NEXT_PUBLIC_API_BASE;
+    delete process.env.AUTH_CLIENT_ID;
+    delete process.env.AUTH_CLIENT_SECRET;
+    delete process.env.AUTH_ISSUER;
+    delete process.env.SUPABASE_URL;
+    delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+    delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+    delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     vi.restoreAllMocks();
     vi.resetModules();
   });
@@ -109,6 +126,44 @@ describe('agent proxy routes', () => {
     expect(forwardedHeaders.get('cookie')).toBe('session=abc');
     expect(forwardedHeaders.get('authorization')).toBe('Bearer token');
     expect(await response.json()).toEqual({ plan: { tasks: [] } });
+  });
+
+  it('proxies model response creation requests', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ response: { id: 'resp_123' } }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }),
+      );
+    global.fetch = fetchMock as unknown as typeof global.fetch;
+    process.env.AGENT_SERVICE_URL = 'https://agent.example.com';
+
+    const { POST } = await import('../../apps/web/app/api/agent/respond/route');
+
+    const payload = { orgSlug: 'demo', request: { input: 'Hello world' } };
+    const request = Object.assign(
+      new Request('https://app.example.com/api/agent/respond', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+        headers: { 'content-type': 'application/json' },
+      }),
+      { nextUrl: new URL('https://app.example.com/api/agent/respond') },
+    );
+
+    const response = await POST(request as any);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://agent.example.com/api/agent/respond',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }),
+    );
+    const forwardedHeaders = (fetchMock.mock.calls[0]?.[1] as RequestInit)?.headers as Headers;
+    expect(forwardedHeaders.get('content-type')).toBe('application/json');
+    expect(await response.json()).toEqual({ response: { id: 'resp_123' } });
   });
 
   it('proxies realtime session requests', async () => {

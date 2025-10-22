@@ -9,16 +9,16 @@ const ENGAGEMENT_ID = '00000000-0000-0000-0000-000000000002';
 const COMPONENT_ID = '00000000-0000-0000-0000-000000000003';
 const USER_ID = '00000000-0000-0000-0000-000000000004';
 
-vi.mock('../../apps/lib/supabase-server', () => ({
+vi.mock('@/lib/supabase-server', () => ({
   getServiceSupabaseClient: () => getServiceSupabaseClientMock(),
 }));
 
-vi.mock('../../apps/lib/audit/module-records', () => ({
+vi.mock('@/lib/audit/module-records', () => ({
   upsertAuditModuleRecord: (...args: unknown[]) => upsertAuditModuleRecordMock(...args),
   ensureAuditRecordApprovalStage: (...args: unknown[]) => ensureAuditRecordApprovalStageMock(...args),
 }));
 
-vi.mock('../../apps/lib/audit/activity-log', () => ({
+vi.mock('@/lib/audit/activity-log', () => ({
   logAuditActivity: (...args: unknown[]) => logAuditActivityMock(...args),
 }));
 
@@ -108,8 +108,10 @@ describe('POST /api/group/instruction', () => {
       }),
     );
 
-    expect(response.status).toBe(200);
+    expect(getServiceSupabaseClientMock).toHaveBeenCalled();
+    const status = response.status;
     const body = await response.json();
+    expect(status).toBe(200);
     expect(body).toEqual({ instruction: instructionRow });
 
     expect(upsertAuditModuleRecordMock).toHaveBeenCalledWith(
@@ -170,8 +172,9 @@ describe('POST /api/group/instruction', () => {
       }),
     );
 
-    expect(response.status).toBe(200);
+    const status = response.status;
     const body = await response.json();
+    expect(status).toBe(200);
     expect(body).toEqual({ instruction: instructionRow });
 
     expect(upsertAuditModuleRecordMock).toHaveBeenCalledWith(

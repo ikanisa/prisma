@@ -3588,33 +3588,39 @@ export type Database = {
       }
       notifications: {
         Row: {
-          created_at: string | null
+          body: string | null
+          created_at: string
           id: string
-          message: string | null
           org_id: string
-          read: boolean | null
+          read: boolean
           title: string
-          type: string | null
+          kind: string
+          link: string | null
+          urgent: boolean
           user_id: string
         }
         Insert: {
-          created_at?: string | null
+          body?: string | null
+          created_at?: string
           id?: string
-          message?: string | null
           org_id: string
-          read?: boolean | null
+          read?: boolean
           title: string
-          type?: string | null
+          kind: string
+          link?: string | null
+          urgent?: boolean
           user_id: string
         }
         Update: {
-          created_at?: string | null
+          body?: string | null
+          created_at?: string
           id?: string
-          message?: string | null
           org_id?: string
-          read?: boolean | null
+          read?: boolean
           title?: string
-          type?: string | null
+          kind?: string
+          link?: string | null
+          urgent?: boolean
           user_id?: string
         }
         Relationships: [
@@ -3624,6 +3630,76 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      notification_dispatch_queue: {
+        Row: {
+          attempts: number
+          channel: 'email' | 'sms' | 'webhook'
+          created_at: string
+          id: string
+          last_error: string | null
+          notification_id: string
+          org_id: string
+          payload: Json
+          processed_at: string | null
+          scheduled_at: string
+          status: 'pending' | 'processing' | 'sent' | 'failed'
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          attempts?: number
+          channel: 'email' | 'sms' | 'webhook'
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          notification_id: string
+          org_id: string
+          payload: Json
+          processed_at?: string | null
+          scheduled_at?: string
+          status?: 'pending' | 'processing' | 'sent' | 'failed'
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          attempts?: number
+          channel?: 'email' | 'sms' | 'webhook'
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          notification_id?: string
+          org_id?: string
+          payload?: Json
+          processed_at?: string | null
+          scheduled_at?: string
+          status?: 'pending' | 'processing' | 'sent' | 'failed'
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_dispatch_queue_notification_id_fkey"
+            columns: ["notification_id"]
+            isOneToOne: false
+            referencedRelation: "notifications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notification_dispatch_queue_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notification_dispatch_queue_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "app_users"
+            referencedColumns: ["user_id"]
           },
         ]
       }
@@ -5143,6 +5219,54 @@ export type Database = {
           },
         ]
       }
+      user_notification_preferences: {
+        Row: {
+          created_at: string
+          email_enabled: boolean
+          email_override: string | null
+          org_id: string
+          sms_enabled: boolean
+          sms_number: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email_enabled?: boolean
+          email_override?: string | null
+          org_id: string
+          sms_enabled?: boolean
+          sms_number?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email_enabled?: boolean
+          email_override?: string | null
+          org_id?: string
+          sms_enabled?: boolean
+          sms_number?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_notification_preferences_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_notification_preferences_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "app_users"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       users: {
         Row: {
           avatar_url: string | null
@@ -5510,6 +5634,7 @@ export type Database = {
           fetched_at: string
           id: string
           inserted_at: string
+          last_used_at: string
           metadata: Json | null
           status: string | null
           updated_at: string
@@ -5521,6 +5646,7 @@ export type Database = {
           fetched_at?: string
           id?: string
           inserted_at?: string
+          last_used_at?: string
           metadata?: Json | null
           status?: string | null
           updated_at?: string
@@ -5532,6 +5658,7 @@ export type Database = {
           fetched_at?: string
           id?: string
           inserted_at?: string
+          last_used_at?: string
           metadata?: Json | null
           status?: string | null
           updated_at?: string
@@ -5739,7 +5866,20 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      web_fetch_cache_metrics: {
+        Row: {
+          fetched_last_24h: number | null
+          newest_fetched_at: string | null
+          newest_last_used_at: string | null
+          oldest_fetched_at: string | null
+          oldest_last_used_at: string | null
+          total_bytes: number | null
+          total_chars: number | null
+          total_rows: number | null
+          used_last_24h: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       binary_quantize: {

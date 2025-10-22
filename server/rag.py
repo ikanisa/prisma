@@ -36,7 +36,6 @@ from .config_loader import (
 )
 
 MODEL = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
-client = get_openai_client()
 rate_limiter = RateLimiter(int(os.getenv("OPENAI_RPM", "60")))
 logger = structlog.get_logger(__name__)
 
@@ -137,8 +136,21 @@ async def extract_text(file: UploadFile) -> str:
     reader = PdfReader(io.BytesIO(data))
     return "\n".join(page.extract_text() or "" for page in reader.pages)
 
+def _get_embeddings_client():
+    """Resolve the shared OpenAI client lazily.
+
+    Import-time instantiation raises when the API key is not configured, which
+    breaks our test suite where the OpenAI client is patched/mocked. By
+    resolving the client on demand we only require credentials when embedding
+    calls actually happen.
+    """
+
+    return get_openai_client()
+
+
 async def embed_chunks(chunks: List[str], model: str | None = None) -> List[List[float]]:
     target_model = model or get_primary_index_config().get("embedding_model") or MODEL
+    client = _get_embeddings_client()
     embeddings = []
     for ch in chunks:
         if not rate_limiter.allow(time.time()):

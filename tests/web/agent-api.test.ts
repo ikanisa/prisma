@@ -176,10 +176,11 @@ describe('agent approvals API routes', () => {
       vi.stubGlobal('fetch', vi.fn());
     });
 
-    afterEach(() => {
-      Object.assign(process.env, originalEnv);
-      (global.fetch as unknown as vi.Mock).mockRestore?.();
-    });
+  afterEach(() => {
+    Object.assign(process.env, originalEnv);
+    (global.fetch as unknown as vi.Mock).mockRestore?.();
+    vi.resetModules();
+  });
 
     it('forwards decision payload to agent service', async () => {
       process.env.NEXT_PUBLIC_API_BASE = 'https://api.example.com';

@@ -1,5 +1,21 @@
 import '@testing-library/jest-dom'
+import { webcrypto } from 'node:crypto'
 import { vi } from 'vitest'
+
+const cryptoWithSubtle = globalThis.crypto ?? (webcrypto as Crypto)
+
+if (!cryptoWithSubtle.subtle) {
+  Object.defineProperty(cryptoWithSubtle, 'subtle', {
+    value: webcrypto.subtle,
+    configurable: true,
+  })
+}
+
+if (!globalThis.crypto) {
+  Object.defineProperty(globalThis, 'crypto', {
+    value: cryptoWithSubtle,
+  })
+}
 
 // Mock IntersectionObserver
 global.IntersectionObserver = vi.fn(() => ({

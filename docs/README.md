@@ -8,6 +8,7 @@ This directory houses the reference material, runbooks, and decision records for
 - `GDRIVE_INGESTION_RUNBOOK.md` captures the operational steps for the Google Drive ingestion pipeline.
 - `iam/USER_MANAGEMENT.md` outlines the IAM-1 organization directory, API surfaces, and admin UI workflows.
 - `iam/PERMISSION_ENFORCEMENT_NOTES.md` summarises how the IAM-2 permission matrix is enforced across backend and UI layers.
+- `web-search.md` outlines how to enable, configure, and govern OpenAI web search integrations across agents and client applications.
 - Topical guides (for example security, telemetry, and tax) live in subdirectories to keep operational runbooks and regulatory evidence organized.
 
 Follow the guardrails in `agent/policies/GUARDRAILS.md` when contributing new documentation.
