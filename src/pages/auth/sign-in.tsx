@@ -11,6 +11,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useOrganizations } from '@/hooks/use-organizations';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { runtimeConfig } from '@/lib/runtime-config';
 import { logger } from '@/lib/logger';
 
 export function SignIn() {
@@ -24,7 +25,7 @@ export function SignIn() {
   const { user, signIn, signUp, sendMagicLink, loading } = useAuth();
   const { memberships } = useOrganizations();
   const { toast } = useToast();
-  const enableDemoLogin = import.meta.env.VITE_ENABLE_DEMO_LOGIN === 'true';
+  const enableDemoLogin = runtimeConfig.enableDemoLogin;
 
   // Redirect authenticated users to their organization
   useEffect(() => {

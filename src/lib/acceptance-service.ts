@@ -1,6 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
+import { getSupabaseFunctionBaseUrl } from '@/lib/supabase-functions';
 
-const FUNCTIONS_BASE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/audit-acceptance`;
+const FUNCTIONS_BASE_URL = getSupabaseFunctionBaseUrl('audit-acceptance');
 
 export type AcceptanceStatus = 'DRAFT' | 'APPROVED' | 'REJECTED';
 

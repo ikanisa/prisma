@@ -6,7 +6,7 @@
 - Document every rollback action in the deployment log.
 
 ## Frontend
-1. Redeploy previous known-good build artifact (from CDN or Vercel preview) by reactivating prior release tag.
+1. Redeploy previous known-good build artifact (from CDN or your hosting platform's preview) by reactivating the prior release tag.
 2. Clear CDN caches (`/tasks`, `/documents`, `/onboarding`, `/assistant`) to prevent stale assets.
 3. Verify UI loads without console errors; assistant dock visible.
 

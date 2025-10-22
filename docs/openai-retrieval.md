@@ -123,7 +123,7 @@ Files are chunked automatically with defaults of `max_chunk_size_tokens=800` and
 Provision the Retrieval secrets alongside the existing OpenAI credentials in every environment:
 
 - **Local / development** – update `.env.development.example` (and local overrides) with either `OPENAI_RETRIEVAL_VECTOR_STORE_ID` or `OPENAI_RETRIEVAL_VECTOR_STORE_NAME` so engineers can exercise the managed search flow.
-- **Shared staging** – mirror the same variables in the deployment secrets (Vercel, Docker Compose, or GitHub Actions) plus the OpenAI API key and optional base URL/organization overrides.
+- **Shared staging** – mirror the same variables in the deployment secrets (hosting platform, Docker Compose, or GitHub Actions) plus the OpenAI API key and optional base URL/organization overrides.
 - **Production** – register the vector store identifier in both `FASTAPI` and `services/rag` runtime environments so the FastAPI ingestion endpoint and the Node RAG service upload to the same managed store.
 
 When only a name is configured, the backend will lazily create the vector store on first upload and cache the resulting id. Restart services after rotating the id or name to ensure the cache picks up the new value.

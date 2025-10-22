@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { runtimeConfig } from '@/lib/runtime-config';
 import { logger } from '@/lib/logger';
 
 const STORAGE_KEY = 'cookieConsent';
@@ -7,7 +8,7 @@ type ConsentState = 'accepted' | 'rejected' | null;
 
 export function useConsent() {
   const [consent, setConsent] = useState<ConsentState>(null);
-  const trackingEnabled = (import.meta.env.VITE_TRACKING_ENABLED ?? 'false') !== 'false';
+  const trackingEnabled = runtimeConfig.trackingEnabled;
 
   useEffect(() => {
     try {

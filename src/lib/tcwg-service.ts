@@ -1,6 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
+import { getSupabaseFunctionBaseUrl } from '@/lib/supabase-functions';
 
-const FUNCTIONS_BASE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/audit-tcwg`;
+const FUNCTIONS_BASE_URL = getSupabaseFunctionBaseUrl('audit-tcwg');
 
 export type TcwgStatus = 'DRAFT' | 'READY_FOR_REVIEW' | 'APPROVED' | 'SENT';
 

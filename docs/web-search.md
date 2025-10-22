@@ -121,7 +121,7 @@ Follow the steps below when turning on web search in a new environment:
    SUPABASE_PROJECTS="preview=<ref>,production=<ref>" pnpm supabase:migrate:web-cache
    ```
    The script shells out to the Supabase CLI (`supabase db remote commit`) for each configured project, emitting the commands it executes. When the CLI is unavailable you can still apply the SQL manually via the Supabase SQL editor.
-4. **Update environment manifests:** ensure `.env.production`, Vercel environment variables, and Vault entries include the new keys `OPENAI_WEB_SEARCH_ENABLED`, `OPENAI_WEB_SEARCH_MODEL`, and `WEB_FETCH_CACHE_RETENTION_DAYS`.
+4. **Update environment manifests:** ensure `.env.production`, hosting environment variables, and Vault entries include the new keys `OPENAI_WEB_SEARCH_ENABLED`, `OPENAI_WEB_SEARCH_MODEL`, and `WEB_FETCH_CACHE_RETENTION_DAYS`.
 5. **Smoke test the pipeline:** trigger a manual web harvest run and verify summaries include inline citations sourced from the web search tool.
 
 ## Monitoring and Retention
@@ -138,7 +138,7 @@ After deployment, monitor the metrics endpoint or view and confirm that `usedLas
 
 - Display inline citations whenever web-sourced content reaches end users.
 - Monitor usage metrics to stay within allocated rate limits, especially for deep research tasks that execute numerous search actions.
-- Align deployment pipelines with Vercel requirements, ensuring that any endpoints or web assets depending on web search integrations are included in QA before promotion to production.
+- Align deployment pipelines with hosting platform requirements, ensuring that any endpoints or web assets depending on web search integrations are included in QA before promotion to production.
 
 ## Additional Resources
 

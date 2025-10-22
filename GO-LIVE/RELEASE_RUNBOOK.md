@@ -33,7 +33,7 @@
 - Record migration hash in deployment log.
 
 ## 4. Deployment
-- Frontend: build artefact (`dist/`) deployed to CDN (Vercel/Netlify as configured).
+- Frontend: build artefact (`dist/`) deployed to CDN (hosting provider as configured).
 - Backend: build FastAPI container (tag with release + git sha). Push to container registry; deploy to environment (Fly/Render/Kubernetes).
 - Run database migrations as part of release pipeline before backend rollout.
 - Toggle feature flags (if any) via config service.
