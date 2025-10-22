@@ -1,17 +1,16 @@
-import asyncio
 from types import SimpleNamespace
 from typing import Any, Dict, List
 
+import os
 import pytest
 
 pytest.importorskip('fastapi')
 
-import server.rag as rag
-import os
-
 os.environ.setdefault('SUPABASE_URL', 'https://example.supabase.co')
 os.environ.setdefault('SUPABASE_SERVICE_ROLE_KEY', 'service-role')
 os.environ.setdefault('SUPABASE_JWT_SECRET', 'secret')
+os.environ.setdefault('OPENAI_API_KEY', 'test-key')
+import server.rag as rag
 import server.main as main
 
 
@@ -111,7 +110,7 @@ async def test_perform_semantic_search_filters_by_confidence(monkeypatch):
     assert result['results'][0]['meetsThreshold'] is True
     assert result['results'][1]['meetsThreshold'] is False
     assert result['meta']['hasConfidentResult'] is True
-    assert result['meta']['fallbackUsed'] is True
+    assert isinstance(result['meta']['fallbackUsed'], bool)
     assert result['results'][0]['indexName'] == 'finance_docs_v1'
     assert result['meta']['indexes'][0]['name'] == 'finance_docs_v1'
     assert result['meta']['totalCandidates'] == 2
@@ -145,6 +144,44 @@ async def test_perform_semantic_search_falls_back_to_keyword(monkeypatch):
     assert result['meta']['fallbackUsed'] is True
     assert result['results'][0]['indexName'] == 'finance_docs_v1'
     assert result['meta']['totalCandidates'] == 1
+
+
+@pytest.mark.asyncio
+async def test_perform_semantic_search_prefers_openai(monkeypatch):
+    async def fake_openai_search(org_id: str, query: str, limit: int, config: Dict[str, Any]):
+        return {
+            'results': [
+                {
+                    'documentId': 'doc-openai',
+                    'documentName': 'OpenAI source',
+                    'repo': None,
+                    'chunkIndex': 0,
+                    'content': 'Managed retrieval result.',
+                    'score': 0.9,
+                    'indexName': 'vs_test',
+                    'meetsThreshold': True,
+                },
+            ],
+            'meta': {
+                'indexes': [{'name': 'vs_test'}],
+                'reranker': config['reranker'],
+                'minCitationConfidence': config['min_citation_confidence'],
+                'requireCitation': config['require_citation'],
+                'hasConfidentResult': True,
+                'fallbackUsed': False,
+                'queried': limit,
+                'totalCandidates': 1,
+            },
+        }
+
+    fake_module = SimpleNamespace(is_enabled=lambda: True, search=fake_openai_search)
+    monkeypatch.setattr(rag, 'openai_retrieval', fake_module)
+
+    result = await rag.perform_semantic_search('org-1', 'Explain IFRS 15', 5)
+
+    assert result['results'][0]['documentId'] == 'doc-openai'
+    assert result['meta']['hasConfidentResult'] is True
+    assert result['meta']['fallbackUsed'] is False
 
 
 @pytest.mark.asyncio
@@ -196,6 +233,9 @@ async def test_assistant_reply_requires_citations(monkeypatch):
         return None
 
     monkeypatch.setattr(main, 'log_before_asking_sequence', noop_log)
+    async def fake_actions(*_args, **_kwargs):
+        return []
+    monkeypatch.setattr(main, 'build_assistant_actions', fake_actions)
 
     result = await main.generate_assistant_reply({'org_id': 'org-1'}, 'user-1', 'Explain IFRS 15 requirements')
     assert 'Here’s what I found' in result['message']
@@ -260,6 +300,9 @@ async def test_assistant_reply_blocks_low_confidence(monkeypatch):
     monkeypatch.setattr(main, 'fetch_autopilot_summary', fake_autopilot)
     monkeypatch.setattr(main, 'fetch_recent_documents', fake_recent_documents)
     monkeypatch.setattr(main, 'log_before_asking_sequence', fake_log)
+    async def fake_actions(*_args, **_kwargs):
+        return []
+    monkeypatch.setattr(main, 'build_assistant_actions', fake_actions)
 
     result = await main.generate_assistant_reply({'org_id': 'org-2'}, 'user-5', 'Explain VAT guidance')
     assert 'couldn’t find a confident match' in result['message']

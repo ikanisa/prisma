@@ -6,6 +6,7 @@ This directory houses the reference material, runbooks, and decision records for
 - `ADR_TEMPLATE.md` is the starting point for new decision records; copy it into `docs/` (or a subfolder) when drafting an ADR.
 - `LEARNING_OVERVIEW.md`, `LEARNING_POLICY_GUARDRAILS.md`, and `LEARNING_RUNBOOK_ROLLBACK.md` document the Reinforced RAG learning loop, guardrails, and rollback procedure.
 - `GDRIVE_INGESTION_RUNBOOK.md` captures the operational steps for the Google Drive ingestion pipeline.
+- `openai-retrieval.md` outlines semantic search concepts, vector store management, and grounding responses with the Retrieval API.
 - `iam/USER_MANAGEMENT.md` outlines the IAM-1 organization directory, API surfaces, and admin UI workflows.
 - `iam/PERMISSION_ENFORCEMENT_NOTES.md` summarises how the IAM-2 permission matrix is enforced across backend and UI layers.
 - `web-search.md` outlines how to enable, configure, and govern OpenAI web search integrations across agents and client applications.
