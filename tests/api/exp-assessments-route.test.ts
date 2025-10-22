@@ -8,7 +8,7 @@ const ORG_ID = '90000000-0000-0000-0000-000000000001';
 const ENGAGEMENT_ID = '90000000-0000-0000-0000-000000000002';
 const USER_ID = '90000000-0000-0000-0000-000000000003';
 
-vi.mock('../../apps/lib/supabase-server', () => ({
+vi.mock('@/lib/supabase-server', () => ({
   getServiceSupabaseClient: () => getServiceSupabaseClientMock(),
 }));
 

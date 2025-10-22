@@ -48,9 +48,12 @@ services/rag,SUPABASE_SERVICE_ROLE_KEY,server,true,,Service role key used for pr
 services/rag,SUPABASE_JWT_SECRET,server,false,,JWT secret for Supabase auth helpers.
 services/rag,OPENAI_API_KEY,server,true,,Primary OpenAI API key for completions, embeddings, and audio APIs.
 services/rag,OPENAI_AGENT_MODEL,server,false,gpt-4.1-mini,Default model for agent orchestration.
-services/rag,OPENAI_WEB_SEARCH_ENABLED,server,false,false,Enables web search augmentation feature flag.
+services/rag,DOMAIN_TOOL_MODEL,server,false,gpt-5,Primary model for domain tool responses.
+services/rag,DOMAIN_IMAGE_MODEL,server,false,gpt-image-1,Image generation model for domain tooling.
+services/rag,OPENAI_WEB_SEARCH_ENABLED,server,false,true,Enables web search augmentation feature flag.
 services/rag,OPENAI_WEB_SEARCH_MODEL,server,false,gpt-4.1-mini,Model for web search summarisation when enabled.
 services/rag,OPENAI_SUMMARY_MODEL,server,false,gpt-4.1-mini,Model for summarisation workloads when enabled.
+services/rag,WEB_FETCH_CACHE_RETENTION_DAYS,server,false,14,Number of days to retain cached web harvest responses before pruning.
 services/rag,OPENAI_STREAMING_ENABLED,server,false,false,Enable streaming responses from OpenAI completions.
 services/rag,OPENAI_REALTIME_ENABLED,server,false,false,Enable OpenAI realtime sessions.
 services/rag,OPENAI_REALTIME_MODEL,server,false,gpt-4o-realtime-preview,Realtime model identifier.

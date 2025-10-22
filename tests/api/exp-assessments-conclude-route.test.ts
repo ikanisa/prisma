@@ -4,7 +4,7 @@ const getServiceSupabaseClientMock = vi.fn();
 const queueManagerReviewMock = vi.fn();
 const buildEvidenceManifestMock = vi.fn();
 
-vi.mock('../../apps/lib/supabase-server', () => ({
+vi.mock('@/lib/supabase-server', () => ({
   getServiceSupabaseClient: () => getServiceSupabaseClientMock(),
 }));
 

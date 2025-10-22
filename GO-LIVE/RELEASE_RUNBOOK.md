@@ -6,6 +6,7 @@
 - Confirm P0 issues closed (`GO-LIVE/OPEN_ISSUES.md`).
 - Verify clean git status (`git status -sb`).
 - Export final env configuration (Supabase URL/service role key, OTEL endpoint, Sentry DSN, `API_ALLOWED_ORIGINS`).
+- Confirm `DOMAIN_TOOL_MODEL`, `DOMAIN_IMAGE_MODEL`, and `OPENAI_WEB_SEARCH_ENABLED` are set in the production secrets store for the rag service deployment.
 - Ensure `VITE_ENABLE_PWA=true` and `AUTOPILOT_WORKER_DISABLED=false` in production `.env`.
 - Review `PRODUCTION_READINESS_CHECKLIST.md` and `docs/observability.md` for updated gates.
 
@@ -25,6 +26,9 @@
 - Apply migrations in chronological order using `supabase db push` or the CI workflow:
   1. `supabase/migrations/20250926090000_tasks_documents_notifications.sql`
   2. `supabase/migrations/20250926181500_activity_event_catalog_rls.sql`
+  3. `supabase/migrations/20251115122000_web_fetch_cache.sql`
+  4. `supabase/migrations/20251115123000_web_fetch_cache_retention.sql`
+- Run `SUPABASE_PROJECTS="preview=<ref>,production=<ref>" pnpm supabase:migrate:web-cache --dry-run` to verify CLI connectivity, then execute without `--dry-run` to commit the cache migrations to each Supabase project prior to code promotion. Capture CLI output in the deployment log.
 - Confirm helper functions exist (`supabase/migrations/20250821115406_.sql`) and storage policies (new migration from P1 task once merged).
 - Record migration hash in deployment log.
 
@@ -54,6 +58,7 @@
 - Observability:
   - Confirm Sentry receives an intentional test error.
   - Check OTLP collector for new trace with correlation ID.
+  - Query `select * from web_fetch_cache_metrics;` (Supabase SQL editor or CLI) and verify `oldest_fetched_at` is within the configured 14-day retention window. Investigate anomalies before sign-off.
 
 ## 6. Runbooks & Sign-off
 - Update `/GO-LIVE/GO-LIVE_SCORECARD.md` with final status.

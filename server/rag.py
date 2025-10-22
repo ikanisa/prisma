@@ -37,7 +37,6 @@ from .config_loader import (
 )
 
 MODEL = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
-client = get_openai_client()
 rate_limiter = RateLimiter(int(os.getenv("OPENAI_RPM", "60")))
 logger = structlog.get_logger(__name__)
 
@@ -145,6 +144,7 @@ async def extract_text(file: UploadFile) -> str:
 
 async def embed_chunks(chunks: List[str], model: str | None = None) -> List[List[float]]:
     target_model = model or get_primary_index_config().get("embedding_model") or MODEL
+    client = _get_embeddings_client()
     embeddings = []
     for ch in chunks:
         if not rate_limiter.allow(time.time()):

@@ -140,6 +140,63 @@ const TOOL_DEFINITIONS: McpToolDefinition[] = [
     },
   },
   {
+    toolKey: 'notify.user',
+    name: 'User notification',
+    description: 'Send targeted in-app notifications to organisation members.',
+    provider: 'supabase',
+    schema: {
+      type: 'object',
+      properties: {
+        message: {
+          type: 'string',
+          description: 'Notification message body to deliver to recipients.',
+        },
+        title: {
+          type: 'string',
+          description: 'Optional notification title shown in the inbox.',
+        },
+        userId: {
+          type: 'string',
+          format: 'uuid',
+          description: 'Legacy single-recipient identifier (deprecated – prefer recipients array).',
+        },
+        recipients: {
+          type: 'array',
+          description: 'Collection of user IDs that should receive the notification.',
+          items: { type: 'string', format: 'uuid' },
+          minItems: 1,
+        },
+        link: {
+          type: 'string',
+          format: 'uri',
+          description: 'Optional deep link to open when the notification is viewed.',
+        },
+        urgency: {
+          type: 'string',
+          enum: ['info', 'warning', 'critical'],
+          description: 'Routing urgency (critical notifications mark as urgent).',
+        },
+        kind: {
+          type: 'string',
+          enum: ['TASK', 'DOC', 'APPROVAL', 'SYSTEM'],
+          description: 'Notification category stored for filtering inside the inbox.',
+        },
+      },
+      required: ['message'],
+      anyOf: [
+        { required: ['recipients'] },
+        { required: ['userId'] },
+      ],
+    },
+    metadata: {
+      category: 'engagement',
+      maxRecipients: 20,
+      deprecatedFields: ['userId'],
+      fanoutChannels: ['email', 'sms'],
+      urgencyFanout: 'critical/high urgency triggers webhook delivery via email and SMS',
+    },
+  },
+  {
     toolKey: 'accounting.reconciliation_summary',
     name: 'Accounting reconciliation summary',
     description: 'Summarise reconciliation status and variance totals for accounting close.',

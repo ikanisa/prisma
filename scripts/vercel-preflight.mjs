@@ -27,13 +27,71 @@ const run = (command, options = {}) => {
   execSync(command, { stdio: 'inherit', ...options });
 };
 
+const loadVercelCredentials = async () => {
+  if (process.env.VERCEL_TOKEN && process.env.VERCEL_ORG_ID && process.env.VERCEL_PROJECT_ID) {
+    return {
+      token: process.env.VERCEL_TOKEN,
+      orgId: process.env.VERCEL_ORG_ID,
+      projectId: process.env.VERCEL_PROJECT_ID,
+    };
+  }
+
+  try {
+    const { readFileSync } = await import('node:fs');
+    const { resolve } = await import('node:path');
+    const credentialsPath = resolve('config/vercel-credentials.json');
+    const raw = readFileSync(credentialsPath, 'utf-8');
+    const parsed = JSON.parse(raw);
+
+    if (parsed?.token && parsed?.orgId && parsed?.projectId) {
+      process.env.VERCEL_TOKEN = parsed.token;
+      process.env.VERCEL_ORG_ID = parsed.orgId;
+      process.env.VERCEL_PROJECT_ID = parsed.projectId;
+      if (parsed.mode) {
+        process.env.VERCEL_CLI_MODE = parsed.mode;
+      }
+      return {
+        token: parsed.token,
+        orgId: parsed.orgId,
+        projectId: parsed.projectId,
+      };
+    }
+
+    console.warn('[preflight] vercel-credentials.json missing required fields; continuing without defaults');
+    return null;
+  } catch (error) {
+    if (error && error.code !== 'ENOENT') {
+      console.warn('[preflight] Failed to load vercel credentials file:', error);
+    }
+    return null;
+  }
+};
+
+const requiredNode = '18.20.4';
 const nodeVersion = process.version.replace(/^v/, '');
-if (!nodeVersion.startsWith('18.')) {
-  console.warn(`[preflight] Warning: expected Node 18.x but found ${process.version}`);
+if (nodeVersion !== requiredNode) {
+  console.error(
+    `[preflight] Node ${requiredNode} is required. Detected ${process.version}. ` +
+      'Run `nvm use` or install the version pinned in .nvmrc before running the preflight.',
+  );
+  process.exit(1);
 }
 
 run('corepack enable');
 run('pnpm install --frozen-lockfile');
+
+try {
+  await import('google-auth-library');
+  console.log('[preflight] google-auth-library resolved successfully');
+} catch (error) {
+  console.error('[preflight] Failed to resolve google-auth-library. Ensure pnpm install completed.', error);
+  process.exit(1);
+}
+
+const credentials = await loadVercelCredentials();
+if (credentials) {
+  console.log('[preflight] Loaded Vercel credentials for project', credentials.projectId);
+}
 
 if (process.env.VERCEL_TOKEN && process.env.VERCEL_ORG_ID && process.env.VERCEL_PROJECT_ID) {
   const vercelEnv = {
@@ -42,16 +100,32 @@ if (process.env.VERCEL_TOKEN && process.env.VERCEL_ORG_ID && process.env.VERCEL_
     VERCEL_ORG_ID: process.env.VERCEL_ORG_ID,
     VERCEL_PROJECT_ID: process.env.VERCEL_PROJECT_ID,
   };
-  run('npx vercel pull --yes --environment=preview', {
-    cwd: 'apps/web',
-    env: vercelEnv,
-  });
-  run('npx vercel build', {
-    cwd: 'apps/web',
-    env: vercelEnv,
-  });
+
+  const useStub = (process.env.VERCEL_CLI_MODE ?? '').toLowerCase() === 'stub';
+  if (useStub) {
+    run('node ../../scripts/vercel-cli-stub.mjs pull --environment=preview', {
+      cwd: 'apps/web',
+      env: vercelEnv,
+    });
+    run('node ../../scripts/vercel-cli-stub.mjs build', {
+      cwd: 'apps/web',
+      env: vercelEnv,
+    });
+  } else {
+    run('npx vercel pull --yes --environment=preview', {
+      cwd: 'apps/web',
+      env: vercelEnv,
+    });
+    run('npx vercel build', {
+      cwd: 'apps/web',
+      env: vercelEnv,
+    });
+  }
 } else {
-  console.warn('[preflight] Skipping vercel pull/build because VERCEL_TOKEN/ORG_ID/PROJECT_ID are not all set.');
+  const reason = credentials
+    ? 'token/org/project fields were incomplete'
+    : 'VERCEL_TOKEN/ORG_ID/PROJECT_ID are not all set';
+  console.warn(`[preflight] Skipping vercel pull/build because ${reason}.`);
 }
 
 console.log('[preflight] Success');
