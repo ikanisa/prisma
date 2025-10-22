@@ -10,6 +10,24 @@ interface OpenAiLike {
   responses: { create(payload: any): Promise<any> };
 }
 
+function extractResponseText(response: any): string {
+  if (!response) return '';
+  if (typeof response.output_text === 'string') {
+    return response.output_text;
+  }
+  if (Array.isArray(response.output)) {
+    return response.output
+      .flatMap((item: any) => (Array.isArray(item?.content) ? item.content : []))
+      .map((part: any) => (typeof part?.text === 'string' ? part.text : ''))
+      .filter((text: string) => text.length > 0)
+      .join('\n');
+  }
+  if (Array.isArray(response.choices) && response.choices[0]?.message?.content) {
+    return String(response.choices[0].message.content);
+  }
+  return '';
+}
+
 export interface AuditExecutionContext {
   orgId: string;
   orgSlug: string;
@@ -65,11 +83,26 @@ export class AuditExecutionAgent {
           content: question,
         },
       ],
-      response_format: { type: 'json_object' },
+      text: { format: 'json_object' },
     });
 
+    const text = extractResponseText(response).trim();
+    let parsedPlan: Record<string, unknown> | null = null;
+    if (text) {
+      try {
+        const candidate = JSON.parse(text);
+        if (candidate && typeof candidate === 'object' && !Array.isArray(candidate)) {
+          parsedPlan = candidate as Record<string, unknown>;
+        } else {
+          this.deps.logError('audit_execution.plan_parse_failed', new Error('Invalid plan shape'), { raw: text });
+        }
+      } catch (error) {
+        this.deps.logError('audit_execution.plan_parse_failed', error, { raw: text });
+      }
+    }
+
     return {
-      plan: response,
+      plan: parsedPlan,
     };
   }
 }

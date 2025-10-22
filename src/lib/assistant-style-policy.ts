@@ -11,7 +11,16 @@ interface AssistantResponseLike {
   actions?: Array<unknown>;
 }
 
-const styleRules = systemConfig.assistant_policies?.style_rules ?? [];
+const DEFAULT_STYLE_RULES = [
+  'Responses must include the next two suggested actions for the user.',
+  'Explain briefly (under 480 characters) why the assistant recommends the plan.',
+];
+
+const configuredStyleRules = systemConfig.assistant_policies?.style_rules;
+const styleRules =
+  Array.isArray(configuredStyleRules) && configuredStyleRules.length > 0
+    ? configuredStyleRules
+    : DEFAULT_STYLE_RULES;
 const requiresSuggestedActions = styleRules.some((rule) =>
   rule.toLowerCase().includes('next two suggested actions'),
 );

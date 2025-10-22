@@ -30,6 +30,12 @@ const envSchema = z.object({
   ALLOW_SENTRY_DRY_RUN: optionalBooleanish,
   API_RATE_LIMIT: z.coerce.number().int().positive().default(60),
   API_RATE_WINDOW_SECONDS: z.coerce.number().int().positive().default(60),
+  EMBEDDING_CRON_SECRET: z.string().optional(),
+  EMBEDDING_DELTA_LOOKBACK_HOURS: z.coerce.number().int().positive().default(24),
+  EMBEDDING_DELTA_DOCUMENT_LIMIT: z.coerce.number().int().positive().default(50),
+  EMBEDDING_DELTA_POLICY_LIMIT: z.coerce.number().int().positive().default(25),
+  TELEMETRY_ALERT_WEBHOOK: z.string().url().optional(),
+  EMBEDDING_ALERT_WEBHOOK: z.string().url().optional(),
 });
 
 const parsed = envSchema.safeParse({
@@ -50,6 +56,12 @@ const parsed = envSchema.safeParse({
   ALLOW_SENTRY_DRY_RUN: process.env.ALLOW_SENTRY_DRY_RUN,
   API_RATE_LIMIT: process.env.API_RATE_LIMIT,
   API_RATE_WINDOW_SECONDS: process.env.API_RATE_WINDOW_SECONDS,
+  EMBEDDING_CRON_SECRET: process.env.EMBEDDING_CRON_SECRET,
+  EMBEDDING_DELTA_LOOKBACK_HOURS: process.env.EMBEDDING_DELTA_LOOKBACK_HOURS,
+  EMBEDDING_DELTA_DOCUMENT_LIMIT: process.env.EMBEDDING_DELTA_DOCUMENT_LIMIT,
+  EMBEDDING_DELTA_POLICY_LIMIT: process.env.EMBEDDING_DELTA_POLICY_LIMIT,
+  TELEMETRY_ALERT_WEBHOOK: process.env.TELEMETRY_ALERT_WEBHOOK,
+  EMBEDDING_ALERT_WEBHOOK: process.env.EMBEDDING_ALERT_WEBHOOK,
 });
 
 if (!parsed.success) {

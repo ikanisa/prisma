@@ -81,9 +81,31 @@ from .workflow_orchestrator import (
     complete_workflow_step,
     get_workflow_suggestions,
 )
-from .openai_client import get_openai_client
 
 app = FastAPI()
+
+
+def _bool_env(name: str, default: bool = False) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _positive_int_env(name: str, default: int) -> int:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        return default
+    return value if value > 0 else default
+
+
+OPENAI_WEB_SEARCH_ENABLED = _bool_env("OPENAI_WEB_SEARCH_ENABLED")
+OPENAI_WEB_SEARCH_MODEL = os.getenv("OPENAI_WEB_SEARCH_MODEL", "gpt-4.1-mini")
+WEB_FETCH_CACHE_RETENTION_DAYS = _positive_int_env("WEB_FETCH_CACHE_RETENTION_DAYS", 14)
 
 # OpenTelemetry service identity and environment
 SERVICE_NAME = os.getenv("OTEL_SERVICE_NAME", "backend-api")
@@ -444,8 +466,6 @@ NOTIFICATION_KIND_TO_FRONTEND = {
     "APPROVAL": "engagement",
     "SYSTEM": "system",
 }
-
-assistant_client = get_openai_client()
 
 KNOWLEDGE_ALLOWED_DOMAINS = {"IAS", "IFRS", "ISA", "TAX", "ORG"}
 
@@ -6460,6 +6480,47 @@ async def knowledge_web_sources(
     sources = response.json()
     url_settings = get_url_source_config()
     policy = url_settings.get("fetch_policy", {}) if isinstance(url_settings, Mapping) else {}
+
+    metrics_response = await supabase_table_request(
+        "GET",
+        "web_fetch_cache_metrics",
+        params={"limit": 1},
+    )
+    metrics_payload: Dict[str, Any] = {
+        "totalRows": 0,
+        "totalBytes": 0,
+        "totalChars": 0,
+        "fetchedLast24h": 0,
+        "usedLast24h": 0,
+        "newestFetch": None,
+        "oldestFetch": None,
+        "newestUse": None,
+        "oldestUse": None,
+    }
+    if metrics_response.status_code == 200:
+        rows = metrics_response.json()
+        if rows:
+            row = rows[0]
+            metrics_payload.update(
+                {
+                    "totalRows": row.get("total_rows", 0),
+                    "totalBytes": row.get("total_bytes", 0),
+                    "totalChars": row.get("total_chars", 0),
+                    "fetchedLast24h": row.get("fetched_last_24h", 0),
+                    "usedLast24h": row.get("used_last_24h", 0),
+                    "newestFetch": row.get("newest_fetched_at"),
+                    "oldestFetch": row.get("oldest_fetched_at"),
+                    "newestUse": row.get("newest_last_used_at"),
+                    "oldestUse": row.get("oldest_last_used_at"),
+                }
+            )
+    else:
+        logger.warning(
+            "knowledge.web_cache_metrics_failed",
+            status=metrics_response.status_code,
+            body=metrics_response.text,
+        )
+
     return {
         "sources": sources,
         "settings": {
@@ -6469,6 +6530,14 @@ async def knowledge_web_sources(
                 "maxDepth": policy.get("max_depth", 1),
                 "cacheTtlMinutes": policy.get("cache_ttl_minutes", 1440),
             },
+        },
+        "webSearch": {
+            "enabled": OPENAI_WEB_SEARCH_ENABLED,
+            "model": OPENAI_WEB_SEARCH_MODEL,
+        },
+        "cache": {
+            "retentionDays": WEB_FETCH_CACHE_RETENTION_DAYS,
+            "metrics": metrics_payload,
         },
     }
 
