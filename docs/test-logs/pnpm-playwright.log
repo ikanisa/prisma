@@ -1,0 +1,171 @@
+SUMMARY:
+- Playwright suite aborted: Chromium binaries missing (run `pnpm exec playwright install`).
+- Core journeys, embeddings playground, and smoke specs all failed to launch the browser.
+- No UI assertions executed because browserType.launch errored immediately.
+
+
+Running 12 tests using 1 worker
+
+  -   1 [Chromium] › tests/playwright/a11y.spec.ts:91:5 › Accessibility › Tasks keyboard + axe
+  -   2 [Chromium] › tests/playwright/a11y.spec.ts:91:5 › Accessibility › Documents keyboard + axe
+  -   3 [Chromium] › tests/playwright/a11y.spec.ts:91:5 › Accessibility › Onboarding keyboard + axe
+  -   4 [Chromium] › tests/playwright/a11y.spec.ts:91:5 › Accessibility › Assistant Autopilot keyboard + axe
+  -   5 [Chromium] › tests/playwright/consent-screenshot.spec.ts:18:3 › Cookie consent banner › captures screenshots before and after consent
+  ✘   6 [Chromium] › tests/playwright/core-journeys.spec.ts:90:3 › Core customer journeys › auth landing exposes primary navigation (14ms)
+  ✘   7 [Chromium] › tests/playwright/core-journeys.spec.ts:97:3 › Core customer journeys › agent chat session bootstrap uses stable fixtures (13ms)
+  ✘   8 [Chromium] › tests/playwright/core-journeys.spec.ts:114:3 › Core customer journeys › document upload flow reports success state (13ms)
+  ✘   9 [Chromium] › tests/playwright/embeddings-playground.spec.ts:4:3 › Embeddings playground › generates an embedding preview via the proxy API (14ms)
+  ✘  10 [Chromium] › tests/playwright/embeddings-playground.spec.ts:46:3 › Embeddings playground › ranks deterministic corpus without live API calls (13ms)
+  ✘  11 [Chromium] › tests/playwright/smoke.spec.ts:10:5 › UI smoke › renders / (17ms)
+  ✘  12 [Chromium] › tests/playwright/smoke.spec.ts:10:5 › UI smoke › renders /login (13ms)
+
+
+  1) [Chromium] › tests/playwright/core-journeys.spec.ts:90:3 › Core customer journeys › auth landing exposes primary navigation 
+
+    Error: browserType.launch: Executable doesn't exist at /root/.cache/ms-playwright/chromium_headless_shell-1194/chrome-linux/headless_shell
+    ╔═════════════════════════════════════════════════════════════════════════╗
+    ║ Looks like Playwright Test or Playwright was just installed or updated. ║
+    ║ Please run the following command to download new browsers:              ║
+    ║                                                                         ║
+    ║     pnpm exec playwright install                                        ║
+    ║                                                                         ║
+    ║ <3 Playwright Team                                                      ║
+    ╚═════════════════════════════════════════════════════════════════════════╝
+
+    attachment #1: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/core-journeys-Core-custome-de900--exposes-primary-navigation-Chromium/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/core-journeys-Core-custome-de900--exposes-primary-navigation-Chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2) [Chromium] › tests/playwright/core-journeys.spec.ts:97:3 › Core customer journeys › agent chat session bootstrap uses stable fixtures 
+
+    Error: browserType.launch: Executable doesn't exist at /root/.cache/ms-playwright/chromium_headless_shell-1194/chrome-linux/headless_shell
+    ╔═════════════════════════════════════════════════════════════════════════╗
+    ║ Looks like Playwright Test or Playwright was just installed or updated. ║
+    ║ Please run the following command to download new browsers:              ║
+    ║                                                                         ║
+    ║     pnpm exec playwright install                                        ║
+    ║                                                                         ║
+    ║ <3 Playwright Team                                                      ║
+    ╚═════════════════════════════════════════════════════════════════════════╝
+
+    attachment #1: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/core-journeys-Core-custome-d518d-tstrap-uses-stable-fixtures-Chromium/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/core-journeys-Core-custome-d518d-tstrap-uses-stable-fixtures-Chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  3) [Chromium] › tests/playwright/core-journeys.spec.ts:114:3 › Core customer journeys › document upload flow reports success state 
+
+    Error: browserType.launch: Executable doesn't exist at /root/.cache/ms-playwright/chromium_headless_shell-1194/chrome-linux/headless_shell
+    ╔═════════════════════════════════════════════════════════════════════════╗
+    ║ Looks like Playwright Test or Playwright was just installed or updated. ║
+    ║ Please run the following command to download new browsers:              ║
+    ║                                                                         ║
+    ║     pnpm exec playwright install                                        ║
+    ║                                                                         ║
+    ║ <3 Playwright Team                                                      ║
+    ╚═════════════════════════════════════════════════════════════════════════╝
+
+    attachment #1: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/core-journeys-Core-custome-477a7--flow-reports-success-state-Chromium/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/core-journeys-Core-custome-477a7--flow-reports-success-state-Chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  4) [Chromium] › tests/playwright/embeddings-playground.spec.ts:4:3 › Embeddings playground › generates an embedding preview via the proxy API 
+
+    Error: browserType.launch: Executable doesn't exist at /root/.cache/ms-playwright/chromium_headless_shell-1194/chrome-linux/headless_shell
+    ╔═════════════════════════════════════════════════════════════════════════╗
+    ║ Looks like Playwright Test or Playwright was just installed or updated. ║
+    ║ Please run the following command to download new browsers:              ║
+    ║                                                                         ║
+    ║     pnpm exec playwright install                                        ║
+    ║                                                                         ║
+    ║ <3 Playwright Team                                                      ║
+    ╚═════════════════════════════════════════════════════════════════════════╝
+
+    attachment #1: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/embeddings-playground-Embe-5a909-g-preview-via-the-proxy-API-Chromium/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/embeddings-playground-Embe-5a909-g-preview-via-the-proxy-API-Chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  5) [Chromium] › tests/playwright/embeddings-playground.spec.ts:46:3 › Embeddings playground › ranks deterministic corpus without live API calls 
+
+    Error: browserType.launch: Executable doesn't exist at /root/.cache/ms-playwright/chromium_headless_shell-1194/chrome-linux/headless_shell
+    ╔═════════════════════════════════════════════════════════════════════════╗
+    ║ Looks like Playwright Test or Playwright was just installed or updated. ║
+    ║ Please run the following command to download new browsers:              ║
+    ║                                                                         ║
+    ║     pnpm exec playwright install                                        ║
+    ║                                                                         ║
+    ║ <3 Playwright Team                                                      ║
+    ╚═════════════════════════════════════════════════════════════════════════╝
+
+    attachment #1: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/embeddings-playground-Embe-5f41a-rpus-without-live-API-calls-Chromium/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/embeddings-playground-Embe-5f41a-rpus-without-live-API-calls-Chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  6) [Chromium] › tests/playwright/smoke.spec.ts:10:5 › UI smoke › renders / ───────────────────────
+
+    Error: browserType.launch: Executable doesn't exist at /root/.cache/ms-playwright/chromium_headless_shell-1194/chrome-linux/headless_shell
+    ╔═════════════════════════════════════════════════════════════════════════╗
+    ║ Looks like Playwright Test or Playwright was just installed or updated. ║
+    ║ Please run the following command to download new browsers:              ║
+    ║                                                                         ║
+    ║     pnpm exec playwright install                                        ║
+    ║                                                                         ║
+    ║ <3 Playwright Team                                                      ║
+    ╚═════════════════════════════════════════════════════════════════════════╝
+
+    attachment #1: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/smoke-UI-smoke-renders--Chromium/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/smoke-UI-smoke-renders--Chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  7) [Chromium] › tests/playwright/smoke.spec.ts:10:5 › UI smoke › renders /login ──────────────────
+
+    Error: browserType.launch: Executable doesn't exist at /root/.cache/ms-playwright/chromium_headless_shell-1194/chrome-linux/headless_shell
+    ╔═════════════════════════════════════════════════════════════════════════╗
+    ║ Looks like Playwright Test or Playwright was just installed or updated. ║
+    ║ Please run the following command to download new browsers:              ║
+    ║                                                                         ║
+    ║     pnpm exec playwright install                                        ║
+    ║                                                                         ║
+    ║ <3 Playwright Team                                                      ║
+    ╚═════════════════════════════════════════════════════════════════════════╝
+
+    attachment #1: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/smoke-UI-smoke-renders-login-Chromium/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace test-results/smoke-UI-smoke-renders-login-Chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  7 failed
+    [Chromium] › tests/playwright/core-journeys.spec.ts:90:3 › Core customer journeys › auth landing exposes primary navigation 
+    [Chromium] › tests/playwright/core-journeys.spec.ts:97:3 › Core customer journeys › agent chat session bootstrap uses stable fixtures 
+    [Chromium] › tests/playwright/core-journeys.spec.ts:114:3 › Core customer journeys › document upload flow reports success state 
+    [Chromium] › tests/playwright/embeddings-playground.spec.ts:4:3 › Embeddings playground › generates an embedding preview via the proxy API 
+    [Chromium] › tests/playwright/embeddings-playground.spec.ts:46:3 › Embeddings playground › ranks deterministic corpus without live API calls 
+    [Chromium] › tests/playwright/smoke.spec.ts:10:5 › UI smoke › renders / ────────────────────────
+    [Chromium] › tests/playwright/smoke.spec.ts:10:5 › UI smoke › renders /login ───────────────────
+  5 skipped

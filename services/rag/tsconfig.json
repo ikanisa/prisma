@@ -1,13 +1,17 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "module": "ESNext",
-    "moduleResolution": "NodeNext",
+    "module": "NodeNext",
+    "moduleResolution": "Bundler",
     "outDir": "dist",
     "rootDir": ".",
     "types": ["node"],
-    "noEmit": false
+    "noEmit": false,
+    "composite": true
   },
   "include": ["**/*.ts"],
-  "exclude": ["dist", "node_modules"]
+  "exclude": ["dist", "node_modules"],
+  "references": [
+    { "path": "../../packages/system-config" }
+  ]
 }

@@ -1,7 +1,15 @@
 {
+  "files": [],
+  "references": [
+    { "path": "./packages/api-client" },
+    { "path": "./packages/system-config" },
+    { "path": "./packages/ui" },
+    { "path": "./services/rag" },
+    { "path": "./apps/gateway" }
+  ],
   "compilerOptions": {
     "target": "ES2020",
-    "module": "ESNext",
+    "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "strict": true,
     "allowSyntheticDefaultImports": true,
@@ -9,16 +17,27 @@
     "resolveJsonModule": true,
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
+    "composite": true,
+    "declaration": true,
+    "declarationMap": true,
+    "incremental": true,
     "paths": {
       "@prisma-glow/api-client": [
         "./packages/api-client/dist/index.d.ts",
         "./packages/api-client/dist/index.js"
       ],
       "@prisma-glow/system-config": [
-        "./packages/system-config/index.d.ts",
-        "./packages/system-config/index.js"
+        "./packages/system-config/src/index.ts",
+        "./packages/system-config/dist/index.d.ts",
+        "./packages/system-config/dist/index.js"
       ],
-      "@prisma-glow/ui": ["./packages/ui/src/index.ts"]
+      "@prisma-glow/ui": [
+        "./packages/ui/src/index.ts"
+      ]
     }
-  }
+  },
+  "references": [
+    { "path": "./packages/api-client/tsconfig.json" },
+    { "path": "./packages/system-config/tsconfig.json" }
+  ]
 }

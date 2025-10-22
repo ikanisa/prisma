@@ -7,7 +7,7 @@ import uuid
 from typing import Optional
 
 import sentry_sdk
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException, status, Depends
 from opentelemetry import trace
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.sdk.resources import Resource
@@ -17,11 +17,15 @@ from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExport
 from opentelemetry.trace import Status, StatusCode
 from sentry_sdk.integrations.fastapi import FastApiIntegration
 
+from analytics import AnalyticsEventModel, AnalyticsIngestor
 from .api import router
 
 _REQUEST_ID_HEADER = "X-Request-ID"
 _TRACING_CONFIGURED = False
 _SENTRY_CONFIGURED = False
+_INGEST_TOKEN = os.getenv("ANALYTICS_INGEST_TOKEN")
+
+_ingestor = AnalyticsIngestor()
 
 
 def _configure_tracing(app: FastAPI, service_name: str) -> trace.Tracer:
@@ -80,6 +84,19 @@ def _configure_sentry() -> None:
     _SENTRY_CONFIGURED = True
 
 
+def _verify_ingest_token(request: Request) -> None:
+    if not _INGEST_TOKEN:
+        return
+    header = request.headers.get("authorization") or ""
+    expected = f"Bearer {_INGEST_TOKEN}"
+    if header.strip() != expected:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid analytics ingest token")
+
+
+async def _authorise_ingest(request: Request) -> None:
+    _verify_ingest_token(request)
+
+
 def create_app() -> FastAPI:
     """Create the analytics FastAPI application."""
     service_name = os.getenv("OTEL_SERVICE_NAME", "analytics-service")
@@ -87,6 +104,17 @@ def create_app() -> FastAPI:
 
     tracer = _configure_tracing(app, service_name)
     _configure_sentry()
+
+    @app.on_event("startup")
+    async def _startup() -> None:
+        try:
+            await _ingestor.start()
+        except Exception as exc:  # pragma: no cover - environment failures
+            print({"level": "error", "msg": "analytics.ingestor_start_failed", "error": str(exc)})
+
+    @app.on_event("shutdown")
+    async def _shutdown() -> None:
+        await _ingestor.stop()
 
     @app.middleware("http")
     async def tracing_middleware(request: Request, call_next):  # type: ignore[override]
@@ -123,6 +151,17 @@ def create_app() -> FastAPI:
         return response
 
     app.include_router(router)
+
+    @app.post("/v1/analytics/events", status_code=status.HTTP_202_ACCEPTED)
+    async def ingest_event(event: AnalyticsEventModel, request: Request, _: None = Depends(_authorise_ingest)) -> dict:
+        with tracer.start_as_current_span("analytics.ingest_event") as span:
+            try:
+                await _ingestor.insert(event)
+            except Exception as exc:  # pragma: no cover - database failure
+                span.record_exception(exc)
+                span.set_status(Status(StatusCode.ERROR, str(exc)))
+                raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="failed to persist analytics event") from exc
+        return {"status": "accepted"}
 
     return app
 

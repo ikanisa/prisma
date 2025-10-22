@@ -19,7 +19,8 @@
       "@/*": ["./*"],
       "@components/*": ["./components/*"],
       "@lib/*": ["./lib/*"],
-      "@/integrations/*": ["./src/integrations/*"]
+      "@/integrations/*": ["./src/integrations/*"],
+      "@/features/*": ["./src/features/*"]
     },
     "plugins": [{ "name": "next" }]
   },

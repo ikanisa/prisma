@@ -16,6 +16,7 @@ supabase/config.toml.bak
 **/node_modules/
 dist/
 *.tsbuildinfo
+**/v8-compile-cache-*/
 
 # Python
 __pycache__/

@@ -779,6 +779,66 @@ export type Database = {
           },
         ]
       }
+      analytics_events: {
+        Row: {
+          actor_id: string | null
+          context: Json
+          event: string
+          id: string
+          ingested_at: string
+          metadata: Json
+          occurred_at: string
+          org_id: string | null
+          properties: Json
+          service: string | null
+          source: string
+          tags: string[] | null
+        }
+        Insert: {
+          actor_id?: string | null
+          context?: Json
+          event: string
+          id?: string
+          ingested_at?: string
+          metadata?: Json
+          occurred_at?: string
+          org_id?: string | null
+          properties?: Json
+          service?: string | null
+          source: string
+          tags?: string[] | null
+        }
+        Update: {
+          actor_id?: string | null
+          context?: Json
+          event?: string
+          id?: string
+          ingested_at?: string
+          metadata?: Json
+          occurred_at?: string
+          org_id?: string | null
+          properties?: Json
+          service?: string | null
+          source?: string
+          tags?: string[] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "analytics_events_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "analytics_events_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agent_runs: {
         Row: {
           created_at: string

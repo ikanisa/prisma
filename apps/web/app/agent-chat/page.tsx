@@ -1,14 +1,7 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { clientEnv } from '@/src/env.client';
-import {
-  buildModelResponsePayload,
-  createMessageDraft,
-  createToolOutputDraft,
-  type MessageContentType,
-  type ResponseMessageDraft,
-  type ResponseToolOutputDraft,
-} from './respond-helpers';
+import { buildModelResponsePayload, createMessageDraft, createToolOutputDraft, type MessageContentType } from './respond-helpers';
 
 const API_BASE = clientEnv.NEXT_PUBLIC_API_BASE
   ? clientEnv.NEXT_PUBLIC_API_BASE.replace(/\/$/, '')
@@ -17,42 +10,23 @@ const API_BASE = clientEnv.NEXT_PUBLIC_API_BASE
 const RESPONSE_MESSAGES_STORAGE_KEY = 'agent-chat.responses.messages';
 const RESPONSE_TOOL_OUTPUTS_STORAGE_KEY = 'agent-chat.responses.tool-outputs';
 
-const parseStoredValue = (value: string | null): unknown => {
-  if (!value) {
-    return null;
-  }
-  try {
-    return JSON.parse(value) as unknown;
-  } catch (err) {
-    console.warn('Failed to parse stored Responses playground value', err);
-    return null;
-  }
-};
-
-const sanitizeStoredMessage = (candidate: unknown): ResponseMessageDraft => {
-  const record = (candidate && typeof candidate === 'object' ? candidate : {}) as Record<string, unknown>;
-  return createMessageDraft({
-    id: typeof record.id === 'string' && record.id ? record.id : undefined,
-    role: typeof record.role === 'string' ? record.role : 'user',
-    name: typeof record.name === 'string' ? record.name : '',
-    content: typeof record.content === 'string' ? record.content : '',
-    contentType: record.contentType === 'json' ? 'json' : 'text',
-  });
-};
-
-const sanitizeStoredToolOutput = (candidate: unknown): ResponseToolOutputDraft => {
-  const record = (candidate && typeof candidate === 'object' ? candidate : {}) as Record<string, unknown>;
-  return createToolOutputDraft({
-    id: typeof record.id === 'string' && record.id ? record.id : undefined,
-    toolCallId: typeof record.toolCallId === 'string' ? record.toolCallId : '',
-    output: typeof record.output === 'string' ? record.output : '',
-    outputType: record.outputType === 'json' ? 'json' : 'text',
-  });
-};
-
 interface StreamMessage {
   type: string;
   data?: unknown;
+}
+
+type ConversationStartedPayload = {
+  conversationId: string;
+  agentSessionId?: string;
+  supabaseRunId?: string;
+};
+
+function isConversationStartedPayload(data: unknown): data is ConversationStartedPayload {
+  if (!data || typeof data !== 'object') {
+    return false;
+  }
+  const record = data as Record<string, unknown>;
+  return typeof record.conversationId === 'string';
 }
 
 type ChatkitSessionRow = {
@@ -514,8 +488,8 @@ export default function AgentChat() {
             setSupabaseRunId(data.supabaseRunId.trim());
           }
         }
-        if (payload.type === 'conversation-started' && payload.data && typeof (payload.data as any).conversationId === 'string') {
-          const data = payload.data as { conversationId: string; agentSessionId?: string; supabaseRunId?: string };
+        if (payload.type === 'conversation-started' && isConversationStartedPayload(payload.data)) {
+          const data = payload.data;
           const id = data.conversationId;
           conversationIdRef.current = id;
           setSelectedConversationId(id);
