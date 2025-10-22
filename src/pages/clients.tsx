@@ -5,10 +5,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAppStore } from '@/stores/mock-data';
+import { useOrganizations } from '@/hooks/use-organizations';
 
 export function Clients() {
-  const { currentOrg, getOrgClients } = useAppStore();
-  const clients = getOrgClients(currentOrg?.id ?? '');
+  const { currentOrg: storeOrg, getOrgClients } = useAppStore();
+  const { currentOrg: membershipOrg } = useOrganizations();
+  const activeOrgId = storeOrg?.id ?? membershipOrg?.id ?? '';
+  const activeOrgName = storeOrg?.name ?? membershipOrg?.name ?? 'Select an organisation to continue';
+  const clients = getOrgClients(activeOrgId);
 
   return (
     <motion.div
@@ -44,7 +48,7 @@ export function Clients() {
                 </div>
                 <div className="mt-2 flex items-center gap-2 text-muted-foreground">
                   <Globe2 className="h-4 w-4" />
-                  {currentOrg?.name ?? 'Select an organisation to continue'}
+                  {activeOrgName}
                 </div>
               </div>
             </CardContent>

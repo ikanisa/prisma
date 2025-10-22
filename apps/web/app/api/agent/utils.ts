@@ -25,11 +25,38 @@ export function buildForwardHeaders(request: NextRequest, init?: { contentType?:
 }
 
 export function forwardJsonResponse(upstream: Response): Response {
+  const headers = new Headers();
   const contentType = upstream.headers.get('content-type') ?? 'application/json';
+  headers.set('content-type', contentType);
+
+  const cacheControl = upstream.headers.get('cache-control') ?? 'private, max-age=5, stale-while-revalidate=30';
+  headers.set('cache-control', cacheControl);
+
+  const etag = upstream.headers.get('etag');
+  if (etag) {
+    headers.set('etag', etag);
+  }
+
+  const vary = upstream.headers.get('vary');
+  if (vary) {
+    headers.set('vary', vary);
+  }
+
+  const rateLimitHeaders = [
+    'x-ratelimit-limit',
+    'x-ratelimit-remaining',
+    'x-ratelimit-reset',
+    'retry-after',
+  ];
+  for (const header of rateLimitHeaders) {
+    const value = upstream.headers.get(header);
+    if (value) {
+      headers.set(header, value);
+    }
+  }
+
   return new Response(upstream.body, {
     status: upstream.status,
-    headers: {
-      'content-type': contentType,
-    },
+    headers,
   });
 }

@@ -1,5 +1,13 @@
 import { logError, logInfo, logWarn } from '../logger.js';
 
+const parsePositiveInteger = (value, fallback) => {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return fallback;
+  }
+  return Math.floor(parsed);
+};
+
 function buildAgentUrl(baseUrl) {
   if (!baseUrl) return null;
   try {
@@ -29,9 +37,20 @@ function forwardHeaders(req, extra = {}) {
 
 export function registerAgentRoutes(app, { agentServiceUrl, agentServiceApiKey, rateLimiter }) {
   const upstream = buildAgentUrl(agentServiceUrl);
+  const rateLimitPerMinute = parsePositiveInteger(process.env.AGENT_CHAT_RATE_LIMIT_PER_MINUTE, 30);
+  const rateLimitWindowSeconds = parsePositiveInteger(
+    process.env.AGENT_CHAT_RATE_LIMIT_WINDOW_SECONDS,
+    60,
+  );
+  const streamCacheDirective =
+    process.env.AGENT_CHAT_CACHE_CONTROL ?? 'no-store, must-revalidate, max-age=0';
 
   const rateLimitMiddleware = typeof rateLimiter === 'function'
-    ? rateLimiter({ resource: 'agent:chat', limit: 30, windowSeconds: 60 })
+    ? rateLimiter({
+        resource: 'agent:chat',
+        limit: rateLimitPerMinute,
+        windowSeconds: rateLimitWindowSeconds,
+      })
     : (_req, _res, next) => next();
 
   app.get('/v1/agent/chat', rateLimitMiddleware, async (req, res) => {
@@ -43,8 +62,9 @@ export function registerAgentRoutes(app, { agentServiceUrl, agentServiceApiKey, 
     logInfo('gateway.agent_chat_start', { orgId: req.orgId, requestId: req.requestId });
 
     res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Cache-Control', streamCacheDirective);
     res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
     res.flushHeaders?.();
 
     const controller = new AbortController();
