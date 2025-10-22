@@ -71,14 +71,16 @@ and deployment environments (values may remain blank until Google Drive access i
 - `EMBED_MODEL` – defaults to `text-embedding-3-small`
 - `AGENT_MODEL` – defaults to `gpt-4.1-mini`
 - `RAG_SEARCH_TOP_K` – optional override for hybrid retrieval fan-out (default 12)
-- `OPENAI_WEB_SEARCH_ENABLED` – set to `true` once OpenAI web search credentials are provisioned
+- `OPENAI_WEB_SEARCH_ENABLED` – production is now configured with `true`; keep set for environments with web search access
 - `OPENAI_WEB_SEARCH_MODEL` – optional custom web search model id (default `gpt-4.1-mini`)
+- `WEB_FETCH_CACHE_RETENTION_DAYS` – retention window for cached harvests (default 14 days; aligns with pruning job)
 
 > Until Google Drive credentials are supplied the ingestion pipeline runs in placeholder mode. The
 > new endpoints/edge function will queue learning runs and emit knowledge events without fetching
 > real documents. Web harvests also operate in placeholder mode until OpenAI web search is
 > available. Swap the environment variables above with live credentials when the Drive workspace and
-> web search access are connected.
+> web search access are connected. The production environment has live credentials with `OPENAI_WEB_SEARCH_ENABLED=true`
+> and a 14-day cache retention policy driven by `WEB_FETCH_CACHE_RETENTION_DAYS`.
 
 ### OpenAI agent platform & streaming toggles
 

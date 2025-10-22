@@ -12,25 +12,36 @@ const booleanish = z
 
 const optionalBooleanish = booleanish.optional().default(false);
 
-const envSchema = z.object({
-  NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
-  ENVIRONMENT: z.string().optional(),
-  SERVICE_VERSION: z.string().optional(),
-  OTEL_SERVICE_NAME: z.string().min(1).default('rag-service'),
-  OTEL_EXPORTER_OTLP_ENDPOINT: z.string().url().optional(),
-  SUPABASE_URL: z.string().url('SUPABASE_URL must be a valid URL'),
-  SUPABASE_SERVICE_ROLE_KEY: z.string().min(1, 'SUPABASE_SERVICE_ROLE_KEY is required'),
-  SUPABASE_JWT_SECRET: z.string().optional(),
-  SUPABASE_JWT_AUDIENCE: z.string().optional(),
-  OPENAI_API_KEY: z.string().min(1, 'OPENAI_API_KEY is required'),
-  DATABASE_URL: z.string().url().optional(),
-  SENTRY_DSN: z.string().url().optional(),
-  SENTRY_ENVIRONMENT: z.string().optional(),
-  SENTRY_RELEASE: z.string().optional(),
-  ALLOW_SENTRY_DRY_RUN: optionalBooleanish,
-  API_RATE_LIMIT: z.coerce.number().int().positive().default(60),
-  API_RATE_WINDOW_SECONDS: z.coerce.number().int().positive().default(60),
-});
+const envSchema = z
+  .object({
+    NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+    ENVIRONMENT: z.string().optional(),
+    SERVICE_VERSION: z.string().optional(),
+    OTEL_SERVICE_NAME: z.string().min(1).default('rag-service'),
+    OTEL_EXPORTER_OTLP_ENDPOINT: z.string().url().optional(),
+    SUPABASE_URL: z.string().url('SUPABASE_URL must be a valid URL'),
+    SUPABASE_SERVICE_ROLE_KEY: z.string().min(1, 'SUPABASE_SERVICE_ROLE_KEY is required'),
+    SUPABASE_JWT_SECRET: z.string().optional(),
+    SUPABASE_JWT_AUDIENCE: z.string().optional(),
+    OPENAI_API_KEY: z.string().min(1, 'OPENAI_API_KEY is required').optional(),
+    DATABASE_URL: z.string().url().optional(),
+    SENTRY_DSN: z.string().url().optional(),
+    SENTRY_ENVIRONMENT: z.string().optional(),
+    SENTRY_RELEASE: z.string().optional(),
+    ALLOW_SENTRY_DRY_RUN: optionalBooleanish,
+    API_RATE_LIMIT: z.coerce.number().int().positive().default(60),
+    API_RATE_WINDOW_SECONDS: z.coerce.number().int().positive().default(60),
+  })
+  .superRefine((value, ctx) => {
+    const missingKey = !value.OPENAI_API_KEY || value.OPENAI_API_KEY.trim().length === 0;
+    if (value.NODE_ENV === 'production' && missingKey) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'OPENAI_API_KEY is required in production environments',
+        path: ['OPENAI_API_KEY'],
+      });
+    }
+  });
 
 const parsed = envSchema.safeParse({
   NODE_ENV: process.env.NODE_ENV,

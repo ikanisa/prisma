@@ -5,6 +5,7 @@
 - Standard configuration pulls from env (`OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_ORG_ID`, `OPENAI_USER_AGENT_TAG`).
 - Default timeout is 60s with singleton reuse to prevent redundant TCP handshakes and allow shared instrumentation.
 - Consumers (RAG service, upcoming workers, Next.js API routes) should import `getOpenAIClient()` instead of instantiating `new OpenAI()`.
+- `services/rag/index.ts` lazily resolves the shared client via a proxy so module import no longer demands configured credentials during tests.
 - Debug logging hooks (`createOpenAiDebugLogger`) receive the shared client instance so Requests API metadata flows into `openai_debug_events` consistently.
 - `services/rag/openai-vision.ts` and `services/rag/openai-audio.ts` wrap the Vision/S2T/TTS APIs so agents share consistent logging and error handling.
 - `lib/openai/url.ts` normalises `OPENAI_BASE_URL` (removing trailing `/v1` or slashes) and exposes `buildOpenAiUrl()` for composing REST fetch calls without duplicating the version prefix.

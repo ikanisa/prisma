@@ -1,10 +1,54 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { clientEnv } from '@/src/env.client';
+import {
+  buildModelResponsePayload,
+  createMessageDraft,
+  createToolOutputDraft,
+  type MessageContentType,
+  type ResponseMessageDraft,
+  type ResponseToolOutputDraft,
+} from './respond-helpers';
 
 const API_BASE = clientEnv.NEXT_PUBLIC_API_BASE
   ? clientEnv.NEXT_PUBLIC_API_BASE.replace(/\/$/, '')
   : '';
+
+const RESPONSE_MESSAGES_STORAGE_KEY = 'agent-chat.responses.messages';
+const RESPONSE_TOOL_OUTPUTS_STORAGE_KEY = 'agent-chat.responses.tool-outputs';
+
+const parseStoredValue = (value: string | null): unknown => {
+  if (!value) {
+    return null;
+  }
+  try {
+    return JSON.parse(value) as unknown;
+  } catch (err) {
+    console.warn('Failed to parse stored Responses playground value', err);
+    return null;
+  }
+};
+
+const sanitizeStoredMessage = (candidate: unknown): ResponseMessageDraft => {
+  const record = (candidate && typeof candidate === 'object' ? candidate : {}) as Record<string, unknown>;
+  return createMessageDraft({
+    id: typeof record.id === 'string' && record.id ? record.id : undefined,
+    role: typeof record.role === 'string' ? record.role : 'user',
+    name: typeof record.name === 'string' ? record.name : '',
+    content: typeof record.content === 'string' ? record.content : '',
+    contentType: record.contentType === 'json' ? 'json' : 'text',
+  });
+};
+
+const sanitizeStoredToolOutput = (candidate: unknown): ResponseToolOutputDraft => {
+  const record = (candidate && typeof candidate === 'object' ? candidate : {}) as Record<string, unknown>;
+  return createToolOutputDraft({
+    id: typeof record.id === 'string' && record.id ? record.id : undefined,
+    toolCallId: typeof record.toolCallId === 'string' ? record.toolCallId : '',
+    output: typeof record.output === 'string' ? record.output : '',
+    outputType: record.outputType === 'json' ? 'json' : 'text',
+  });
+};
 
 interface StreamMessage {
   type: string;
@@ -149,6 +193,20 @@ export default function AgentChat() {
       eventSourceRef.current?.close();
     };
   }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    window.localStorage.setItem(RESPONSE_MESSAGES_STORAGE_KEY, JSON.stringify(responseMessages));
+  }, [responseMessages]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    window.localStorage.setItem(RESPONSE_TOOL_OUTPUTS_STORAGE_KEY, JSON.stringify(responseToolOutputs));
+  }, [responseToolOutputs]);
 
   const startAgentSession = useCallback(async () => {
     const trimmedOrg = orgSlug.trim();
@@ -622,6 +680,106 @@ export default function AgentChat() {
   const chatkitStatus = chatkitSession?.status ?? (chatkitSessionIdForActions ? 'ACTIVE' : '—');
   const supabaseRunIdDisplay = supabaseRunId.trim();
 
+  const moveResponseMessage = useCallback((messageId: string, delta: -1 | 1) => {
+    setResponseMessages((prev) => {
+      const currentIndex = prev.findIndex((entry) => entry.id === messageId);
+      if (currentIndex === -1) {
+        return prev;
+      }
+      const targetIndex = currentIndex + delta;
+      if (targetIndex < 0 || targetIndex >= prev.length) {
+        return prev;
+      }
+      const next = [...prev];
+      const [moved] = next.splice(currentIndex, 1);
+      next.splice(targetIndex, 0, moved);
+      return next;
+    });
+  }, []);
+
+  const duplicateResponseMessage = useCallback((messageId: string) => {
+    setResponseMessages((prev) => {
+      const currentIndex = prev.findIndex((entry) => entry.id === messageId);
+      if (currentIndex === -1) {
+        return prev;
+      }
+      const original = prev[currentIndex];
+      const clone = createMessageDraft({
+        role: original.role,
+        name: original.name,
+        content: original.content,
+        contentType: original.contentType,
+      });
+      const next = [...prev];
+      next.splice(currentIndex + 1, 0, clone);
+      return next;
+    });
+  }, []);
+
+  const sendModelResponse = useCallback(async () => {
+    const result = buildModelResponsePayload({
+      orgSlug,
+      model: responseModel,
+      requestJson: responseRequestJson,
+      messages: responseMessages,
+      toolOutputs: responseToolOutputs,
+    });
+
+    if ('error' in result) {
+      setResponseError(result.error);
+      setResponseWarnings([]);
+      return;
+    }
+
+    const payload = result.payload;
+
+    setResponseInFlight(true);
+    setResponseError(null);
+    setResponseWarnings(result.warnings);
+    setResponseResult(null);
+    setResponseDurationMs(null);
+    setLastResponsePayload(payload);
+
+    const start = typeof performance !== 'undefined' ? performance.now() : Date.now();
+
+    try {
+      const res = await fetch(`${API_BASE}/api/agent/respond`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(payload),
+      });
+
+      const text = await res.text();
+      let body: Record<string, unknown> | null = null;
+      if (text) {
+        try {
+          body = JSON.parse(text) as Record<string, unknown>;
+        } catch (parseError) {
+          throw new Error(
+            parseError instanceof Error
+              ? `Failed to parse response JSON: ${parseError.message}`
+              : 'Failed to parse response JSON.',
+          );
+        }
+      }
+
+      if (!res.ok) {
+        const errorMessage = (body?.error as string | undefined) ?? `Request failed (${res.status})`;
+        throw new Error(errorMessage);
+      }
+
+      setResponseResult(body);
+    } catch (err) {
+      setResponseResult(null);
+      setResponseError(err instanceof Error ? err.message : 'Failed to create model response.');
+    } finally {
+      const end = typeof performance !== 'undefined' ? performance.now() : Date.now();
+      setResponseDurationMs(Math.round(end - start));
+      setResponseInFlight(false);
+    }
+  }, [orgSlug, responseMessages, responseModel, responseRequestJson, responseToolOutputs]);
+
   return (
     <main className="space-y-6 p-6" aria-labelledby="chat-heading">
       <header className="space-y-2">
@@ -865,6 +1023,341 @@ export default function AgentChat() {
       <section aria-label="Agent output" className="space-y-3 rounded-lg border p-4">
         <h2 className="text-lg font-semibold">Output</h2>
         <pre className="min-h-[160px] whitespace-pre-wrap rounded-md bg-muted/40 p-3 text-sm">{output || 'Awaiting output…'}</pre>
+      </section>
+
+      <section aria-label="Responses API" className="space-y-3 rounded-lg border p-4">
+        <div className="space-y-2">
+          <h2 className="text-lg font-semibold">Responses API (single request)</h2>
+          <p className="text-sm text-muted-foreground">
+            Call the non-streaming <code>/api/agent/respond</code> endpoint to debug a single-turn model response. Provide an
+            optional model override and JSON request body to supply tools, metadata, or tool outputs.
+          </p>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <label className="flex flex-col gap-2 text-sm font-medium">
+            Model (optional)
+            <input
+              value={responseModel}
+              onChange={(event) => setResponseModel(event.target.value)}
+              className="rounded-md border px-3 py-2"
+              placeholder="gpt-4.1-mini"
+            />
+          </label>
+          <div className="md:col-span-2 space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="text-sm font-semibold">Messages</h3>
+              <div className="flex flex-wrap gap-2 text-xs">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setResponseMessages((prev) => [
+                      ...prev,
+                      createMessageDraft({ role: 'user' }),
+                    ])
+                  }
+                  className="rounded border border-slate-400 px-3 py-1 font-medium text-slate-600 hover:bg-slate-50"
+                >
+                  Add message
+                </button>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Compose an ordered array of messages for the Responses API. Leave content blank to omit a message from the
+              request.
+            </p>
+            <div className="space-y-3">
+              {responseMessages.length === 0 ? (
+                <div className="rounded-md border border-dashed p-3 text-xs text-muted-foreground">
+                  No messages configured. Add one above to include prompt content.
+                </div>
+              ) : null}
+              {responseMessages.map((message, index) => (
+                <div key={message.id} className="space-y-3 rounded-md border p-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      Message {index + 1}
+                    </span>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <label className="flex items-center gap-1 text-xs font-medium">
+                        Role
+                        <select
+                          value={message.role}
+                          onChange={(event) =>
+                            setResponseMessages((prev) =>
+                              prev.map((entry) =>
+                                entry.id === message.id ? { ...entry, role: event.target.value } : entry,
+                              ),
+                            )
+                          }
+                          className="rounded border px-2 py-1 text-xs"
+                        >
+                          <option value="user">user</option>
+                          <option value="assistant">assistant</option>
+                          <option value="system">system</option>
+                          <option value="developer">developer</option>
+                          <option value="tool">tool</option>
+                        </select>
+                      </label>
+                      <label className="flex items-center gap-1 text-xs font-medium">
+                        Content type
+                        <select
+                          value={message.contentType}
+                          onChange={(event) =>
+                            setResponseMessages((prev) =>
+                              prev.map((entry) =>
+                                entry.id === message.id
+                                  ? { ...entry, contentType: event.target.value as MessageContentType }
+                                  : entry,
+                              ),
+                            )
+                          }
+                          className="rounded border px-2 py-1 text-xs"
+                        >
+                          <option value="text">Text</option>
+                          <option value="json">JSON</option>
+                        </select>
+                      </label>
+                      <div className="flex flex-wrap items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => duplicateResponseMessage(message.id)}
+                          className="rounded border border-slate-400 px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50"
+                          aria-label={`Duplicate message ${index + 1}`}
+                        >
+                          Duplicate
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => moveResponseMessage(message.id, -1)}
+                          disabled={index === 0}
+                          className="rounded border border-slate-300 px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                          aria-label={`Move message ${index + 1} up`}
+                        >
+                          ↑
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => moveResponseMessage(message.id, 1)}
+                          disabled={index === responseMessages.length - 1}
+                          className="rounded border border-slate-300 px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                          aria-label={`Move message ${index + 1} down`}
+                        >
+                          ↓
+                        </button>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setResponseMessages((prev) => prev.filter((entry) => entry.id !== message.id))
+                        }
+                        className="rounded border border-red-200 px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
+                        aria-label={`Remove message ${index + 1}`}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                  <label className="flex flex-col gap-1 text-xs font-medium">
+                    Name (optional)
+                    <input
+                      value={message.name}
+                      onChange={(event) =>
+                        setResponseMessages((prev) =>
+                          prev.map((entry) =>
+                            entry.id === message.id ? { ...entry, name: event.target.value } : entry,
+                          ),
+                        )
+                      }
+                      className="rounded border px-2 py-1 text-xs"
+                      placeholder="function-helper"
+                    />
+                  </label>
+                  <label className="flex flex-col gap-1 text-xs font-medium">
+                    Message content
+                    <textarea
+                      value={message.content}
+                      onChange={(event) =>
+                        setResponseMessages((prev) =>
+                          prev.map((entry) =>
+                            entry.id === message.id ? { ...entry, content: event.target.value } : entry,
+                          ),
+                        )
+                      }
+                      className="min-h-[90px] rounded border px-2 py-1 text-xs"
+                      placeholder={
+                        message.contentType === 'json'
+                          ? '[{"type":"text","text":"Hello"}]'
+                          : 'Ask the model...'
+                      }
+                    />
+                  </label>
+                </div>
+              ))}
+            </div>
+          </div>
+          <label className="flex flex-col gap-2 text-sm font-medium md:col-span-2">
+            Request overrides (JSON, optional)
+            <textarea
+              value={responseRequestJson}
+              onChange={(event) => setResponseRequestJson(event.target.value)}
+              className="min-h-[140px] rounded-md border px-3 py-2 font-mono text-xs"
+              placeholder='{
+  "temperature": 0.3,
+  "metadata": { "debug": true }
+}'
+            />
+          </label>
+        </div>
+
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-sm font-semibold">Tool outputs</h3>
+            <button
+              type="button"
+              onClick={() =>
+                setResponseToolOutputs((prev) => [
+                  ...prev,
+                  createToolOutputDraft(),
+                ])
+              }
+              className="rounded border border-slate-400 px-3 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50"
+            >
+              Add tool output
+            </button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Provide tool call IDs and outputs to continue a previous response. Leave entries blank to exclude them from the
+            request.
+          </p>
+          <div className="space-y-3">
+            {responseToolOutputs.length === 0 ? (
+              <div className="rounded-md border border-dashed p-3 text-xs text-muted-foreground">
+                No tool outputs configured.
+              </div>
+            ) : null}
+            {responseToolOutputs.map((entry, index) => (
+              <div key={entry.id} className="space-y-3 rounded-md border p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Tool output {index + 1}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setResponseToolOutputs((prev) => prev.filter((candidate) => candidate.id !== entry.id))
+                    }
+                    className="rounded border border-red-200 px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
+                    aria-label={`Remove tool output ${index + 1}`}
+                  >
+                    Remove
+                  </button>
+                </div>
+                <label className="flex flex-col gap-1 text-xs font-medium">
+                  Tool call ID
+                  <input
+                    value={entry.toolCallId}
+                    onChange={(event) =>
+                      setResponseToolOutputs((prev) =>
+                        prev.map((candidate) =>
+                          candidate.id === entry.id ? { ...candidate, toolCallId: event.target.value } : candidate,
+                        ),
+                      )
+                    }
+                    className="rounded border px-2 py-1 text-xs"
+                    placeholder="call_abc123"
+                  />
+                </label>
+                <div className="grid gap-2 md:grid-cols-[1fr_auto] md:items-start">
+                  <label className="flex flex-col gap-1 text-xs font-medium">
+                    Output
+                    <textarea
+                      value={entry.output}
+                      onChange={(event) =>
+                        setResponseToolOutputs((prev) =>
+                          prev.map((candidate) =>
+                            candidate.id === entry.id ? { ...candidate, output: event.target.value } : candidate,
+                          ),
+                        )
+                      }
+                      className="min-h-[90px] rounded border px-2 py-1 text-xs"
+                      placeholder={
+                        entry.outputType === 'json'
+                          ? '{"result":"ok"}'
+                          : 'Tool execution output...'
+                      }
+                    />
+                  </label>
+                  <label className="flex flex-col gap-1 text-xs font-medium">
+                    Output type
+                    <select
+                      value={entry.outputType}
+                      onChange={(event) =>
+                        setResponseToolOutputs((prev) =>
+                          prev.map((candidate) =>
+                            candidate.id === entry.id
+                              ? { ...candidate, outputType: event.target.value as MessageContentType }
+                              : candidate,
+                          ),
+                        )
+                      }
+                      className="rounded border px-2 py-1 text-xs"
+                    >
+                      <option value="text">Text</option>
+                      <option value="json">JSON</option>
+                    </select>
+                  </label>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={sendModelResponse}
+            disabled={responseInFlight}
+            className="rounded-md border border-indigo-500 px-4 py-2 text-sm font-medium text-indigo-600 hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {responseInFlight ? 'Sending…' : 'Send model request'}
+          </button>
+          {responseDurationMs !== null ? (
+            <span className="text-sm text-muted-foreground">{responseDurationMs} ms</span>
+          ) : null}
+        </div>
+
+        {responseWarnings.length > 0 ? (
+          <div className="space-y-1 rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+            <p className="font-semibold">Request warnings</p>
+            <ul className="list-disc space-y-1 pl-4">
+              {responseWarnings.map((warning, index) => (
+                <li key={`${warning}-${index}`}>{warning}</li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
+        {responseError ? (
+          <p className="text-sm text-red-600" role="alert">
+            {responseError}
+          </p>
+        ) : null}
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-2">
+            <h3 className="text-sm font-semibold">Last request payload</h3>
+            <pre className="min-h-[120px] whitespace-pre-wrap break-words rounded-md bg-muted/40 p-3 text-xs">
+              {lastResponsePayload ? JSON.stringify(lastResponsePayload, null, 2) : '—'}
+            </pre>
+          </div>
+          <div className="space-y-2">
+            <h3 className="text-sm font-semibold">Latest response</h3>
+            <pre className="min-h-[120px] whitespace-pre-wrap break-words rounded-md bg-muted/40 p-3 text-xs">
+              {responseResult ? JSON.stringify(responseResult, null, 2) : responseInFlight ? 'Awaiting response…' : '—'}
+            </pre>
+          </div>
+        </div>
       </section>
 
       <section aria-label="Stream events" className="space-y-3 rounded-lg border p-4">

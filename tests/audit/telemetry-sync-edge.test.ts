@@ -115,6 +115,7 @@ describe('telemetry-sync edge function', () => {
     const body = await response.json();
     expect(body.coverage).toHaveLength(2);
     expect(body.sla).toMatchObject({ module: 'TAX_TREATY_WHT', status: 'ON_TRACK' });
+    expect(body.webCache).toMatchObject({ retentionDays: 14 });
     expect(hoisted.createSupabaseClientWithAuthMock).toHaveBeenCalledWith('Bearer token');
   });
 

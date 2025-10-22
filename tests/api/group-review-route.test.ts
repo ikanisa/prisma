@@ -11,16 +11,16 @@ const COMPONENT_ID = '30000000-0000-0000-0000-000000000003';
 const USER_ID = '30000000-0000-0000-0000-000000000004';
 const REVIEWER_ID = '30000000-0000-0000-0000-000000000005';
 
-vi.mock('../../apps/lib/supabase-server', () => ({
+vi.mock('@/lib/supabase-server', () => ({
   getServiceSupabaseClient: () => getServiceSupabaseClientMock(),
 }));
 
-vi.mock('../../apps/lib/audit/module-records', () => ({
+vi.mock('@/lib/audit/module-records', () => ({
   upsertAuditModuleRecord: (...args: unknown[]) => upsertAuditModuleRecordMock(...args),
   ensureAuditRecordApprovalStage: (...args: unknown[]) => ensureAuditRecordApprovalStageMock(...args),
 }));
 
-vi.mock('../../apps/lib/audit/activity-log', () => ({
+vi.mock('@/lib/audit/activity-log', () => ({
   logAuditActivity: (...args: unknown[]) => logAuditActivityMock(...args),
 }));
 
