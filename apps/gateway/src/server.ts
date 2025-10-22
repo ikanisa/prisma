@@ -1,6 +1,6 @@
 import express from 'express';
 import { initTracing } from './otel.js';
-import type { ErrorRequestHandler } from 'express';
+import type { ErrorRequestHandler, Express } from 'express';
 import { pathToFileURL } from 'url';
 import { traceMiddleware } from './middleware/trace.js';
 import { createPiiScrubberMiddleware } from './middleware/pii-scrubber.js';
@@ -9,7 +9,7 @@ import { scrubPii } from './utils/pii.js';
 import { getRequestContext } from './utils/request-context.js';
 import { env } from './env.js';
 
-export function createGatewayServer() {
+export function createGatewayServer(): Express {
   initTracing();
   const app = express();
 
