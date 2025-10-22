@@ -49,6 +49,10 @@
   - Confirm PWA install prompt appears (Chrome/Edge dev tools > Application > Manifest).
 - Autopilot:
   - Trigger test job `POST /v1/autopilot/jobs/run` (kind `extract_documents`) with staging org; monitor logs.
+- RAG file search:
+  - Publish the staged/production vector store ids with `pnpm openai:file-search:secrets` (requires `gh auth login`).
+  - Inspect Supabase `openai_debug_events` for recent `scope=rag_file_search` rows from staging/production traffic and verify the `vector_store_id` and citations match expectations.
+  - If early runs surface irrelevant citations, adjust `OPENAI_FILE_SEARCH_FILTERS` or `OPENAI_FILE_SEARCH_MAX_RESULTS` secrets and redeploy the RAG service.
 - Storage:
   - Upload document via UI and confirm signed URL download returns 200 while direct GET fails.
 - Observability:

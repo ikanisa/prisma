@@ -23,6 +23,7 @@ See [`audit/inventory.json`](audit/inventory.json) for the full machine-readable
   - `apps/web/src/env.server.ts` + `env.client.ts` guard both server and browser variables.
   - `apps/gateway/src/env.ts` validates required telemetry + upstream configuration and exposes helpers for dynamic overrides.
   - `services/rag/env.ts` enforces core Supabase/OpenAI prerequisites; imported at startup for fail-fast behaviour.
+- RAG staging/production manifests now include `OPENAI_FILE_SEARCH_VECTOR_STORE_ID` (plus optional model/max/filter overrides) so hosted file search targets the correct vector store on deploy. Use `pnpm openai:file-search:secrets` to populate GitHub environment secrets in a single step.
 
 ## Vercel Deployment Plan
 Detailed notes in [`audit/vercel-plan.md`](audit/vercel-plan.md). Key points:

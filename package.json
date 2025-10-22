@@ -31,6 +31,7 @@
     "agents:publish:dry": "npm run agents:generate && npm run agents:publish -- --dry-run",
     "agents:publish:staging": "npm run agents:generate && npm run agents:publish && npm run agents:update",
     "agents:evaluate": "node scripts/run_agent_evaluations.js",
+    "openai:file-search:secrets": "ts-node scripts/operations/publish-openai-file-search-secrets.ts",
     "archive:phase4": "scripts/operations/archive-phase4.sh",
     "codegen:api": "python3 server/export_openapi.py && openapi-typescript openapi/fastapi.json -o packages/api-client/types.ts"
   },

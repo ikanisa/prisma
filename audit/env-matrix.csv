@@ -61,6 +61,11 @@ services/rag,OPENAI_TTS_VOICE,server,false,alloy,Voice preset for TTS API.
 services/rag,OPENAI_TTS_FORMAT,server,false,mp3,Audio format for generated speech.
 services/rag,OPENAI_TRANSCRIPTION_MODEL,server,false,,Override transcription model (defaults to Whisper API).
 services/rag,OPENAI_WHISPER_MODEL,server,false,,Legacy override for Whisper transcription model.
+services/rag,OPENAI_FILE_SEARCH_VECTOR_STORE_ID,server,false,,Vector store identifier for hosted file search queries (staging/production).
+services/rag,OPENAI_FILE_SEARCH_MODEL,server,false,gpt-4.1-mini,Override the model invoked with the hosted file search tool.
+services/rag,OPENAI_FILE_SEARCH_MAX_RESULTS,server,false,,Maximum hosted file search results returned per query.
+services/rag,OPENAI_FILE_SEARCH_FILTERS,server,false,,JSON metadata filters applied to hosted file search results.
+services/rag,OPENAI_FILE_SEARCH_INCLUDE_RESULTS,server,false,true,Include raw hosted file search hits for debugging and QA.
 services/rag,DATABASE_URL,server,false,,PostgreSQL connection string for job + rate limit persistence.
 services/rag,OTEL_EXPORTER_OTLP_ENDPOINT,server,false,,OTLP endpoint for tracing spans.
 services/rag,OTEL_SERVICE_NAME,server,false,rag-service,Service name reported to OTEL exporters.
