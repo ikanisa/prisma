@@ -1,18 +1,12 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": ["config:base"],
+  "enabled": true,
   "packageRules": [
     {
-      "description": "Freeze dependency updates during refactor",
       "matchManagers": ["npm"],
-      "matchUpdateTypes": [
-        "major",
-        "minor",
-        "patch",
-        "pin",
-        "digest"
-      ],
-      "enabled": false
+      "enabled": false,
+      "description": "Temporarily pause npm updates while the refactor is in progress"
     }
   ]
 }

@@ -1508,22 +1508,44 @@ async def _emit_manifest_alert(job: Dict[str, Any], reason: str) -> None:
     org_id = job.get("org_id")
     if not org_id:
         return
-    payload = {
-        "org_id": org_id,
-        "alert_type": "DETERMINISTIC_MANIFEST_MISSING",
-        "severity": "CRITICAL",
-        "message": f"Deterministic manifest {reason} for {job.get('kind')}",
-        "context": {
-            "jobId": job.get("id"),
-            "kind": job.get("kind"),
-            "reason": reason,
-        },
-    }
+    try:
+        event = build_telemetry_alert_event(
+            alert_type="DETERMINISTIC_MANIFEST_MISSING",
+            severity="CRITICAL",
+            message=f"Deterministic manifest {reason} for {job.get('kind')}",
+            org_id=org_id,
+            context={
+                "jobId": job.get("id"),
+                "kind": job.get("kind"),
+                "reason": reason,
+            },
+        )
+    except AnalyticsEventValidationError as exc:
+        logger.error(
+            "autopilot.manifest_alert_validation_failed",
+            job_id=job.get("id"),
+            org_id=org_id,
+            reason=reason,
+            errors=exc.errors,
+        )
+        return
+
+    span = trace.get_current_span()
+    if span is not None:
+        span.add_event(
+            event.name,
+            {
+                "event.alert_type": event.properties["alertType"],
+                "event.severity": event.properties["severity"],
+                "event.reason": event.properties["context"].get("reason"),
+            },
+        )
+
     try:
         await supabase_table_request(
             "POST",
             "telemetry_alerts",
-            json=payload,
+            json=telemetry_alert_row(event),
             headers={"Prefer": "return=minimal"},
         )
     except Exception as exc:  # pragma: no cover - defensive logging

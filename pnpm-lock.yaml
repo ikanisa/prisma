@@ -524,6 +524,9 @@ importers:
       '@supabase/supabase-js':
         specifier: ^2.55.0
         version: 2.75.0
+      ajv:
+        specifier: ^8.17.1
+        version: 8.17.1
       express:
         specifier: ^4.19.2
         version: 4.21.2

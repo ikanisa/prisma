@@ -77,6 +77,9 @@ prisma-glow-15 so engineers can trace incidents end to end.
 - CI should execute `npm run lint`, `npm test`, and `scripts/test_policies.sql`
   so telemetry tables and structured logging helpers remain verified before
   deployment.
+- Run `make db-migrate-smoke` (or allow the `Migration smoke (Supabase)` CI job
+  to pass) ahead of production deploys to ensure the SQL migrations in
+  `migrations/sql/` apply cleanly to a fresh Supabase Postgres instance.
 - Quarterly, rehearse the observability stack by generating a synthetic
   `EDGE_FUNCTION_ERROR` and confirming it appears in logs, telemetry metrics,
   Grafana panels, and PagerDuty alerts.
