@@ -13,10 +13,12 @@
     "prisma:format": "prisma format"
   },
   "dependencies": {
-    "@prisma/client": "^5.19.1",
     "@prisma-glow/ui": "workspace:*",
+    "@prisma/client": "^5.19.1",
     "@radix-ui/react-slot": "^1.0.2",
     "@supabase/supabase-js": "^2.55.0",
+    "@tanstack/react-query": "^5.90.2",
+    "@tanstack/react-query-devtools": "^5.90.2",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.0.0",
     "date-fns": "^3.6.0",
@@ -26,20 +28,21 @@
     "react": "18.2.0",
     "react-dom": "18.2.0",
     "tailwind-merge": "^1.14.0",
-    "zod": "^3.25.76"
+    "zod": "^3.25.76",
+    "zustand": "^5.0.8"
   },
   "devDependencies": {
+    "@tailwindcss/forms": "^0.5.7",
+    "@tailwindcss/typography": "^0.5.10",
     "@types/node": "^20.12.7",
     "@types/react": "^18.2.45",
     "autoprefixer": "^10.4.16",
     "eslint": "^8.44.0",
-    "eslint-plugin-react-refresh": "^0.4.20",
     "eslint-config-next": "14.2.33",
+    "eslint-plugin-react-refresh": "^0.4.20",
     "postcss": "^8.4.31",
     "prisma": "^5.19.1",
     "tailwindcss": "^3.3.3",
-    "@tailwindcss/forms": "^0.5.7",
-    "@tailwindcss/typography": "^0.5.10",
     "typescript": "^5.0.2"
   }
 }
