@@ -3307,6 +3307,7 @@ async function reembedDeltaForOrg(options: {
   documentLimit: number;
   policyLimit: number;
   initiatedBy: string;
+  lookbackHours: number;
 }): Promise<DeltaOrgResult> {
   const orgSummary: DeltaOrgResult = {
     documentsEmbedded: 0,
