@@ -35,5 +35,26 @@ export default tseslint.config(
     rules: {
       "no-console": "off",
     },
+  },
+  {
+    files: ["apps/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: [
+                "@prisma-glow/*/*",
+                "../../packages/*",
+                "../packages/*",
+                "../../../packages/*",
+              ],
+              message: "Import from the package entry point (e.g. @prisma-glow/pkg) instead of deep paths.",
+            },
+          ],
+        },
+      ],
+    },
   }
 );
