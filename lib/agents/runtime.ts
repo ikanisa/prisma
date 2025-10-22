@@ -61,7 +61,7 @@ export async function generateAgentPlan(options: GenerateAgentPlanInput): Promis
       const response = await options.openai.responses.create({
         model,
         input: plannerMessages,
-        response_format: { type: 'json_object' },
+        text: { format: 'json_object' },
         ...(options.abortSignal ? { signal: options.abortSignal } : {}),
       });
       await options.debugLogger?.({

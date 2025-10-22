@@ -92,6 +92,10 @@ import { initialiseMcpInfrastructure } from './mcp/bootstrap';
 import { createDirectorAgent as createMcpDirectorAgent } from './mcp/director';
 import { createSafetyAgent as createMcpSafetyAgent } from './mcp/safety';
 import { executeTaskWithExecutor } from './mcp/executors';
+import {
+  scheduleUrgentNotificationFanout,
+  startNotificationFanoutWorker,
+} from './notifications/fanout';
 
 type AgentPersona = 'AUDIT' | 'FINANCE' | 'TAX';
 type LearningMode = 'INITIAL' | 'CONTINUOUS';
@@ -210,6 +214,7 @@ type WebCacheRow = {
   url: string;
   content: string | null;
   fetched_at: string | null;
+  last_used_at: string | null;
   status: string | null;
   metadata: Record<string, any> | null;
 };
@@ -333,7 +338,7 @@ async function ensureUrlAllowed(rawUrl: string, settings: UrlSourceSettings): Pr
 async function getCachedWebContent(url: string): Promise<WebCacheRow | null> {
   const { data, error, status } = await supabaseService
     .from('web_fetch_cache')
-    .select('id, url, content, fetched_at, status, metadata')
+    .select('id, url, content, fetched_at, last_used_at, status, metadata')
     .eq('url', url)
     .maybeSingle();
   if (error && status !== 406) {
@@ -343,12 +348,14 @@ async function getCachedWebContent(url: string): Promise<WebCacheRow | null> {
 }
 
 async function upsertWebCache(url: string, content: string, metadata: Record<string, any>, status = 'fetched') {
+  const nowIso = new Date().toISOString();
   const payload = {
     url,
     content,
     content_hash: createHash('sha256').update(content).digest('hex'),
     status,
-    fetched_at: new Date().toISOString(),
+    fetched_at: nowIso,
+    last_used_at: nowIso,
     metadata,
   };
   const { error } = await supabaseService.from('web_fetch_cache').upsert(payload, { onConflict: 'url' });
@@ -357,14 +364,42 @@ async function upsertWebCache(url: string, content: string, metadata: Record<str
   }
 }
 
-async function touchWebCache(cache: WebCacheRow, metadataUpdates: Record<string, any>) {
-  const merged = { ...(cache.metadata ?? {}), ...metadataUpdates };
+async function touchWebCache(cache: WebCacheRow, metadataUpdates: Record<string, any> = {}) {
+  const updates: Record<string, any> = {
+    last_used_at: new Date().toISOString(),
+  };
+  if (metadataUpdates && Object.keys(metadataUpdates).length > 0) {
+    updates.metadata = { ...(cache.metadata ?? {}), ...metadataUpdates };
+  }
   const { error } = await supabaseService
     .from('web_fetch_cache')
-    .update({ metadata: merged })
+    .update(updates)
     .eq('id', cache.id);
   if (error) {
     console.warn(JSON.stringify({ level: 'warn', msg: 'web.cache_touch_failed', url: cache.url, error: error.message }));
+  }
+}
+
+async function pruneStaleWebCache(): Promise<void> {
+  if (WEB_FETCH_CACHE_RETENTION_MS <= 0) {
+    return;
+  }
+  const now = Date.now();
+  if (now - lastWebCachePruneAt < WEB_FETCH_CACHE_PRUNE_INTERVAL_MS) {
+    return;
+  }
+  lastWebCachePruneAt = now;
+  const cutoff = new Date(now - WEB_FETCH_CACHE_RETENTION_MS).toISOString();
+  const { error, count } = await supabaseService
+    .from('web_fetch_cache')
+    .delete({ count: 'exact' })
+    .lt('fetched_at', cutoff);
+  if (error) {
+    logError('web.cache_prune_failed', error, { cutoff });
+    return;
+  }
+  if (typeof count === 'number' && count > 0) {
+    logInfo('web.cache_pruned', { cutoff, deleted: count });
   }
 }
 
@@ -818,13 +853,113 @@ const toolHandlers: Record<string, ToolHandler> = {
       expiresInSeconds: Number(process.env.DOCUMENT_SIGN_TTL ?? '120'),
     };
   },
-  'notify.user': async (input) => {
+  'notify.user': async (input, context) => {
     const payload = (input && typeof input === 'object' ? input : {}) as Record<string, unknown>;
+    const rawMessage = typeof payload.message === 'string' ? payload.message.trim() : '';
+    if (!rawMessage) {
+      throw new Error('notify.user requires a non-empty message.');
+    }
+
+    const addRecipient = (value: unknown, recipients: Set<string>) => {
+      if (typeof value === 'string' && value.trim().length > 0) {
+        recipients.add(value.trim());
+        return;
+      }
+      if (value && typeof value === 'object' && 'id' in value) {
+        const candidate = (value as { id?: unknown }).id;
+        if (typeof candidate === 'string' && candidate.trim().length > 0) {
+          recipients.add(candidate.trim());
+        }
+      }
+    };
+
+    const recipientSet = new Set<string>();
+    addRecipient(payload.userId, recipientSet);
+    if (Array.isArray(payload.recipients)) {
+      for (const entry of payload.recipients) {
+        addRecipient(entry, recipientSet);
+      }
+    } else if (typeof payload.recipient === 'string') {
+      addRecipient(payload.recipient, recipientSet);
+    }
+
+    if (recipientSet.size === 0) {
+      throw new Error('notify.user requires at least one recipient userId.');
+    }
+
+    const MAX_RECIPIENTS = 20;
+    const recipients = Array.from(recipientSet).slice(0, MAX_RECIPIENTS);
+    const title =
+      typeof payload.title === 'string' && payload.title.trim().length > 0
+        ? payload.title.trim()
+        : 'Agent notification';
+    const link = typeof payload.link === 'string' && payload.link.trim().length > 0 ? payload.link.trim() : null;
+    const rawKind = typeof payload.kind === 'string' ? payload.kind.toUpperCase() : 'SYSTEM';
+    const allowedKinds = new Set(['TASK', 'DOC', 'APPROVAL', 'SYSTEM']);
+    const kind = allowedKinds.has(rawKind) ? rawKind : 'SYSTEM';
+    const urgency = typeof payload.urgency === 'string' ? payload.urgency.toLowerCase() : 'info';
+    const urgent = urgency === 'critical' || urgency === 'high';
+
+    const insertRows = recipients.map((userId) => ({
+      org_id: context.orgId,
+      user_id: userId,
+      title,
+      body: rawMessage,
+      link,
+      urgent,
+      kind,
+    }));
+
+    const { data, error } = await supabaseService
+      .from('notifications')
+      .insert(insertRows)
+      .select('id, org_id, user_id, created_at, urgent');
+
+    if (error) {
+      throw error;
+    }
+
+    const inserted = (data ?? []).map((row) => ({
+      ...row,
+      org_id: row.org_id ?? context.orgId,
+    }));
+    logInfo('agent.notify_user_enqueued', {
+      sessionId: context.sessionId,
+      runId: context.runId,
+      orgId: context.orgId,
+      recipientCount: recipients.length,
+      urgent,
+    });
+
+    if (urgent && inserted.length > 0) {
+      await scheduleUrgentNotificationFanout({
+        supabase: supabaseService,
+        orgId: context.orgId,
+        notifications: inserted.map((row) => ({
+          id: row.id,
+          user_id: row.user_id,
+          org_id: row.org_id,
+        })),
+        title,
+        message: rawMessage,
+        link,
+        kind,
+        urgent,
+        logInfo,
+        logError,
+      });
+    }
+
     return {
       notified: true,
-      message: typeof payload.message === 'string' ? payload.message : 'Notification queued.',
-      recipients: Array.isArray(payload.recipients) ? payload.recipients : [],
-      sentAt: new Date().toISOString(),
+      message: rawMessage,
+      title,
+      kind,
+      urgent,
+      recipients: inserted.length ? inserted.map((row) => row.user_id) : recipients,
+      notificationIds: inserted.map((row) => row.id),
+      createdAt: inserted.length ? inserted[0].created_at : new Date().toISOString(),
+      link,
     };
   },
 };
@@ -1950,6 +2085,95 @@ function parseAgentRequestContext(raw: unknown): AgentRequestContext | undefined
   return Object.keys(context).length > 0 ? context : undefined;
 }
 
+type NormalizedResponseMessage = { role: string; content: unknown } & Record<string, unknown>;
+
+const RESPONSES_ALLOWED_KEYS = new Set([
+  'temperature',
+  'top_p',
+  'max_output_tokens',
+  'response_format',
+  'tools',
+  'tool_choice',
+  'tool_outputs',
+  'metadata',
+  'modalities',
+  'reasoning',
+  'user',
+  'seed',
+  'logit_bias',
+  'parallel_tool_calls',
+  'max_tool_calls',
+  'conversation',
+  'safety_identifier',
+  'store',
+  'audio',
+  'text',
+  'service_tier',
+  'background',
+  'instructions',
+  'include',
+  'response_id',
+  'previous_response_id',
+]);
+
+const RESPONSE_KEY_ALIASES: Record<string, string> = {
+  responseId: 'response_id',
+  previousResponseId: 'previous_response_id',
+  toolOutputs: 'tool_outputs',
+  toolChoice: 'tool_choice',
+  responseFormat: 'response_format',
+  maxOutputTokens: 'max_output_tokens',
+  maxToolCalls: 'max_tool_calls',
+  topP: 'top_p',
+  serviceTier: 'service_tier',
+  safetyIdentifier: 'safety_identifier',
+  parallelToolCalls: 'parallel_tool_calls',
+};
+
+function normaliseResponsesInput(raw: unknown): NormalizedResponseMessage[] | null {
+  if (raw === null || raw === undefined) {
+    return null;
+  }
+
+  if (typeof raw === 'string') {
+    return [{ role: 'user', content: raw }];
+  }
+
+  if (Array.isArray(raw)) {
+    if (raw.length === 0) {
+      throw new Error('Responses input must include at least one message');
+    }
+
+    const normalised = raw.map((entry) => {
+      if (typeof entry === 'string') {
+        return { role: 'user', content: entry };
+      }
+      if (entry && typeof entry === 'object' && 'role' in entry) {
+        const record = entry as Record<string, unknown>;
+        const roleCandidate = typeof record.role === 'string' ? (record.role as string) : 'user';
+        if (!('content' in record)) {
+          throw new Error('Responses input items must include content');
+        }
+        return { ...record, role: roleCandidate } as NormalizedResponseMessage;
+      }
+      throw new Error('Unsupported responses input entry');
+    });
+
+    return normalised as NormalizedResponseMessage[];
+  }
+
+  if (raw && typeof raw === 'object' && 'role' in raw) {
+    const record = raw as Record<string, unknown>;
+    const roleValue = typeof record.role === 'string' ? (record.role as string) : 'user';
+    if (!('content' in record)) {
+      throw new Error('Responses input items must include content');
+    }
+    return [{ ...record, role: roleValue } as NormalizedResponseMessage];
+  }
+
+  throw new Error('Unsupported responses input payload');
+}
+
 function normaliseAgentType(value: unknown): AgentTypeKey {
   if (typeof value === 'string') {
     const upper = value.trim().toUpperCase();
@@ -2023,7 +2247,49 @@ function authenticate(req: AuthenticatedRequest, res: Response, next: NextFuncti
 const db = new Client({ connectionString: process.env.DATABASE_URL });
 await db.connect();
 
-const openai = getOpenAIClient();
+function resolveOpenAiClient(): OpenAI {
+  return getOpenAIClient();
+}
+
+type OpenAiProxyTarget = OpenAI & Record<PropertyKey, unknown>;
+
+function getOpenAiProxyTarget(): OpenAiProxyTarget {
+  return resolveOpenAiClient() as OpenAiProxyTarget;
+}
+
+const openai: OpenAI = new Proxy(
+  {},
+  {
+    get(_target, property, receiver) {
+      const client = getOpenAiProxyTarget();
+      const value = Reflect.get(client, property, receiver);
+      if (typeof value === 'function') {
+        return value.bind(client);
+      }
+      return value;
+    },
+    has(_target, property) {
+      const client = getOpenAiProxyTarget();
+      return Reflect.has(client, property);
+    },
+    ownKeys() {
+      const client = getOpenAiProxyTarget();
+      return Reflect.ownKeys(client);
+    },
+    getOwnPropertyDescriptor(_target, property) {
+      const client = getOpenAiProxyTarget();
+      const descriptor = Object.getOwnPropertyDescriptor(client, property);
+      if (!descriptor) {
+        return undefined;
+      }
+      return { ...descriptor, configurable: true };
+    },
+    set(_target, property, value, receiver) {
+      const client = getOpenAiProxyTarget();
+      return Reflect.set(client, property, value, receiver);
+    },
+  },
+) as OpenAI;
 
 const OPENAI_WEB_SEARCH_ENABLED =
   (process.env.OPENAI_WEB_SEARCH_ENABLED ?? 'false').toLowerCase() === 'true';
@@ -2055,6 +2321,20 @@ if (rawFileSearchFilters) {
   }
 }
 
+const WEB_FETCH_CACHE_RETENTION_DAYS = (() => {
+  const raw = Number(process.env.WEB_FETCH_CACHE_RETENTION_DAYS ?? '14');
+  if (!Number.isFinite(raw) || raw <= 0) {
+    return 14;
+  }
+  return Math.floor(raw);
+})();
+const WEB_FETCH_CACHE_RETENTION_MS = WEB_FETCH_CACHE_RETENTION_DAYS * 24 * 60 * 60 * 1000;
+const WEB_FETCH_CACHE_PRUNE_INTERVAL_MS = Math.min(
+  Math.max(WEB_FETCH_CACHE_RETENTION_MS / 4, 60 * 60 * 1000),
+  12 * 60 * 60 * 1000,
+);
+let lastWebCachePruneAt = 0;
+
 const SUPABASE_URL = process.env.SUPABASE_URL;
 if (!SUPABASE_URL) {
   throw new Error('SUPABASE_URL must be configured.');
@@ -2065,6 +2345,8 @@ const SUPABASE_SERVICE_ROLE_KEY = await getSupabaseServiceRoleKey();
 const supabaseService = createClient<Database>(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
   auth: { persistSession: false },
 });
+
+startNotificationFanoutWorker({ supabase: supabaseService, logInfo, logError });
 
 const OPENAI_DEBUG_LOGGING = (process.env.OPENAI_DEBUG_LOGGING ?? 'false').toLowerCase() === 'true';
 const OPENAI_DEBUG_FETCH_DETAILS =
@@ -3191,28 +3473,37 @@ async function summariseWebDocument(url: string, text: string): Promise<string> 
   }
 
   try {
-    const chat = await openai.chat.completions.create({
+    const response = await openai.responses.create({
       model: OPENAI_SUMMARY_MODEL,
       temperature: 0.2,
-      messages: [
+      input: [
         {
           role: 'system',
-          content:
-            'You are a Big Four partner producing concise technical notes. Summaries must emphasise IFRS/ISA/TAX relevance, cite clauses when possible, and flag uncertainties.',
+          content: [
+            {
+              type: 'input_text',
+              text: 'You are a Big Four partner producing concise technical notes. Summaries must emphasise IFRS/ISA/TAX relevance, cite clauses when possible, and flag uncertainties.',
+            },
+          ],
         },
         {
           role: 'user',
-          content: `Source URL: ${url}\n\nExtracted Content (truncated):\n${text}\n\nProvide a bullet summary (<= 8 items) covering key accounting, auditing, and tax takeaways for Malta.`,
+          content: [
+            {
+              type: 'input_text',
+              text: `Source URL: ${url}\n\nExtracted Content (truncated):\n${text}\n\nProvide a bullet summary (<= 8 items) covering key accounting, auditing, and tax takeaways for Malta.`,
+            },
+          ],
         },
       ],
     });
     await logOpenAIDebugEvent({
-      endpoint: 'chat.completions.create',
-      response: chat as any,
+      endpoint: 'responses.create',
+      response: response as any,
       requestPayload: { url, model: OPENAI_SUMMARY_MODEL },
       metadata: { source: 'web_summary' },
     });
-    const summary = chat.choices[0]?.message?.content?.trim();
+    const summary = extractResponseText(response)?.trim();
     if (summary) {
       return summary;
     }
@@ -3252,6 +3543,7 @@ async function processWebHarvest(options: {
 
     const urlSettings = await getUrlSourceSettings();
     const cacheTtlMs = Math.max(0, urlSettings.fetchPolicy.cacheTtlMinutes) * 60_000;
+    await pruneStaleWebCache();
     const cached = await getCachedWebContent(webSource.url);
 
     let cleaned: string | null = null;
@@ -3263,7 +3555,7 @@ async function processWebHarvest(options: {
       if (!Number.isNaN(fetchedAt) && Date.now() - fetchedAt <= cacheTtlMs) {
         cleaned = cached.content;
         usedCache = true;
-        await touchWebCache(cached, { lastUsedAt: new Date().toISOString() });
+        await touchWebCache(cached);
       }
     }
 
@@ -3566,28 +3858,37 @@ async function performRagSearch(orgId: string, queryInput: string, topK = 6) {
 
 async function performPolicyCheck(statement: string, domain?: string) {
   try {
-    const completion = await openai.chat.completions.create({
+    const response = await openai.responses.create({
       model: OPENAI_SUMMARY_MODEL,
       temperature: 0,
-      messages: [
+      input: [
         {
           role: 'system',
-          content:
-            'You are a technical reviewer ensuring compliance with IFRS/IAS/ISA and Malta CFR guidance. Respond with either PASS, WARNING, or FAIL followed by reasoning.',
+          content: [
+            {
+              type: 'input_text',
+              text: 'You are a technical reviewer ensuring compliance with IFRS/IAS/ISA and Malta CFR guidance. Respond with either PASS, WARNING, or FAIL followed by reasoning.',
+            },
+          ],
         },
         {
           role: 'user',
-          content: `Domain: ${domain ?? 'general'}\nStatement:\n${statement}\n\nAssess compliance and cite any standards or regulations referenced. Keep it short (<=4 sentences).`,
+          content: [
+            {
+              type: 'input_text',
+              text: `Domain: ${domain ?? 'general'}\nStatement:\n${statement}\n\nAssess compliance and cite any standards or regulations referenced. Keep it short (<=4 sentences).`,
+            },
+          ],
         },
       ],
     });
     await logOpenAIDebugEvent({
-      endpoint: 'chat.completions.create',
-      response: completion as any,
+      endpoint: 'responses.create',
+      response: response as any,
       requestPayload: { model: OPENAI_SUMMARY_MODEL, domain: domain ?? 'general' },
       metadata: { scope: 'policy_check' },
     });
-    const answer = completion.choices[0]?.message?.content ?? 'Policy review unavailable.';
+    const answer = extractResponseText(response) || 'Policy review unavailable.';
     return { output: answer };
   } catch (err) {
     logError('agent.policy_check_failed', err, {});
@@ -4807,6 +5108,121 @@ app.post('/api/agent/plan', applyExpressIdempotency({
   } catch (err) {
     logError('agent.plan_failed', err, { userId: req.user?.sub });
     return res.status(500).json({ error: 'failed to generate plan' });
+  }
+});
+
+app.post('/api/agent/respond', async (req: AuthenticatedRequest, res) => {
+  const userId = req.user?.sub;
+  if (!userId) {
+    return res.status(401).json({ error: 'invalid session' });
+  }
+
+  const body = (req.body ?? {}) as Record<string, unknown>;
+  const orgSlug = typeof body.orgSlug === 'string' ? body.orgSlug : undefined;
+  if (!orgSlug) {
+    return res.status(400).json({ error: 'orgSlug is required' });
+  }
+
+  try {
+    const orgContext = await resolveOrgForUser(userId, orgSlug);
+
+    const baseRequest =
+      typeof body.request === 'object' && body.request !== null && !Array.isArray(body.request)
+        ? { ...(body.request as Record<string, unknown>) }
+        : {};
+
+    for (const [key, value] of Object.entries(body)) {
+      if (value === undefined) continue;
+      if (key === 'orgSlug' || key === 'request' || key === 'model' || key === 'input') continue;
+      const normalizedKey = RESPONSE_KEY_ALIASES[key] ?? key;
+      if (!RESPONSES_ALLOWED_KEYS.has(normalizedKey)) continue;
+      if (baseRequest[normalizedKey] === undefined) {
+        baseRequest[normalizedKey] = value;
+      }
+    }
+
+    const modelFromRequest =
+      typeof baseRequest.model === 'string' && baseRequest.model.trim().length > 0
+        ? (baseRequest.model as string).trim()
+        : undefined;
+    const modelFromBody = typeof body.model === 'string' && body.model.trim().length > 0 ? body.model.trim() : undefined;
+    baseRequest.model = modelFromRequest ?? modelFromBody ?? AGENT_MODEL;
+
+    let normalizedInput: NormalizedResponseMessage[] | null = null;
+    try {
+      normalizedInput = normaliseResponsesInput(baseRequest.input ?? body.input ?? null);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'invalid responses input';
+      return res.status(400).json({ error: message });
+    }
+
+    if (normalizedInput) {
+      baseRequest.input = normalizedInput;
+    } else {
+      delete baseRequest.input;
+    }
+
+    const hasInput = Array.isArray(normalizedInput) && normalizedInput.length > 0;
+    const hasToolOutputs = Array.isArray(baseRequest.tool_outputs) && baseRequest.tool_outputs.length > 0;
+    if (!hasInput && !hasToolOutputs) {
+      return res.status(400).json({ error: 'input or tool_outputs is required' });
+    }
+
+    if (baseRequest.stream === true) {
+      return res.status(400).json({ error: 'stream is not supported on this endpoint' });
+    }
+    if ('stream' in baseRequest) {
+      delete baseRequest.stream;
+    }
+
+    const start = Date.now();
+    try {
+      const response = await openai.responses.create(baseRequest as any);
+
+      const latencyMs = Date.now() - start;
+      logInfo('agent.model_response_created', {
+        userId,
+        orgId: orgContext.orgId,
+        model: baseRequest.model,
+        messageCount: normalizedInput?.length ?? 0,
+        hasToolOutputs,
+        latencyMs,
+      });
+
+      await logOpenAIDebugEvent({
+        endpoint: 'responses.create',
+        response: response as any,
+        requestPayload: {
+          model: baseRequest.model,
+          messageCount: normalizedInput?.length ?? 0,
+          hasToolOutputs,
+          orgSlug,
+        },
+        metadata: {
+          scope: 'agent_model_response',
+          latencyMs,
+          requestId: req.requestId ?? undefined,
+        },
+        orgId: orgContext.orgId,
+      });
+
+      return res.json({ response });
+    } catch (error) {
+      const status = typeof (error as any)?.status === 'number' ? ((error as any).status as number) : null;
+      const message = error instanceof Error ? error.message : 'failed_to_create_response';
+      logError('agent.model_response_openai_failed', error, {
+        userId,
+        orgId: orgContext.orgId,
+        status: status ?? undefined,
+      });
+      if (status && status >= 400 && status < 600) {
+        return res.status(status).json({ error: message });
+      }
+      return res.status(502).json({ error: message });
+    }
+  } catch (err) {
+    logError('agent.model_response_failed', err, { userId, requestId: req.requestId });
+    return res.status(500).json({ error: 'failed_to_create_response' });
   }
 });
 
@@ -6132,7 +6548,7 @@ app.get('/v1/notifications', async (req: AuthenticatedRequest, res) => {
 
     const { data, error } = await supabaseService
       .from('notifications')
-      .select('id, org_id, user_id, title, body, type, read, created_at')
+      .select('id, org_id, user_id, title, body, kind, link, urgent, read, created_at')
       .eq('org_id', orgContext.orgId)
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
@@ -7665,7 +8081,7 @@ app.patch('/v1/notifications/:id', async (req: AuthenticatedRequest, res) => {
       .from('notifications')
       .update({ read: read ?? true })
       .eq('id', notificationId)
-      .select('id, org_id, user_id, title, body, type, read, created_at')
+      .select('id, org_id, user_id, title, body, kind, link, urgent, read, created_at')
       .single();
 
     if (updateError) {
