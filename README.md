@@ -70,8 +70,10 @@ and deployment environments (values may remain blank until Google Drive access i
 - `GOOGLE_DRIVE_REFRESH_TOKEN` – placeholder refresh token (Drive sync disabled without it)
 - `EMBED_MODEL` – defaults to `text-embedding-3-small`
 - `AGENT_MODEL` – defaults to `gpt-4.1-mini`
+- `DOMAIN_TOOL_MODEL` – set to the GPT-5 tier powering the domain tool harness (production uses `gpt-5`)
+- `DOMAIN_IMAGE_MODEL` – image generation model for persona tooling (e.g., `gpt-image-1`)
 - `RAG_SEARCH_TOP_K` – optional override for hybrid retrieval fan-out (default 12)
-- `OPENAI_WEB_SEARCH_ENABLED` – production is now configured with `true`; keep set for environments with web search access
+- `OPENAI_WEB_SEARCH_ENABLED` – toggle to `true` once OpenAI web search workloads are provisioned (enabled in production)
 - `OPENAI_WEB_SEARCH_MODEL` – optional custom web search model id (default `gpt-4.1-mini`)
 - `WEB_FETCH_CACHE_RETENTION_DAYS` – retention window for cached harvests (default 14 days; aligns with pruning job)
 

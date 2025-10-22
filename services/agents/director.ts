@@ -8,12 +8,15 @@ const DEFAULT_PRIORITY_ORDER: DomainAgentKey[] = [
   'accountingClose',
   'accountsPayable',
   'corporateFinance',
+  'brokerageEnablement',
   'financialReporting',
   'governance',
   'riskAndCompliance',
   'knowledgeCurator',
   'dataPreparation',
   'clientCollaboration',
+  'callerMarketing',
+  'mobilityOps',
   'opsMonitoring',
   'advisory',
 ];
@@ -86,10 +89,34 @@ export class DirectorAgent {
           intent.includes('corporate') ||
           intent.includes('liquidity')
         );
+      case 'brokerageEnablement':
+        return (
+          intent.includes('broker') ||
+          intent.includes('deal') ||
+          intent.includes('capital') ||
+          intent.includes('sales') ||
+          intent.includes('pipeline')
+        );
       case 'financialReporting':
         return intent.includes('report') || intent.includes('ifrs');
       case 'advisory':
         return intent.includes('valuation') || intent.includes('deal');
+      case 'callerMarketing':
+        return (
+          intent.includes('marketing') ||
+          intent.includes('campaign') ||
+          intent.includes('caller') ||
+          intent.includes('outbound') ||
+          intent.includes('telemarketing')
+        );
+      case 'mobilityOps':
+        return (
+          intent.includes('mobility') ||
+          intent.includes('transport') ||
+          intent.includes('fleet') ||
+          intent.includes('transit') ||
+          intent.includes('rider')
+        );
       default:
         return true;
     }
@@ -107,6 +134,8 @@ export class DirectorAgent {
         return `Process invoices, run three-way match, and manage payments related to ${context.objective}.`;
       case 'corporateFinance':
         return `Prepare board-ready corporate finance packs, covenant checks, and treasury insights for ${context.objective}.`;
+      case 'brokerageEnablement':
+        return `Produce market briefings, collateral, and compliance-ready outreach assets to progress brokerage deals for ${context.objective}.`;
       case 'financialReporting':
         return `Produce IFRS financial statements and note disclosures informed by ${context.objective}.`;
       case 'governance':
@@ -119,6 +148,10 @@ export class DirectorAgent {
         return `Ingest and normalise source data required to deliver ${context.objective}.`;
       case 'clientCollaboration':
         return `Manage client communications and approvals for ${context.objective}.`;
+      case 'callerMarketing':
+        return `Orchestrate outbound caller campaigns, scripts, and creative refreshes aligned with ${context.objective}.`;
+      case 'mobilityOps':
+        return `Coordinate mobility service updates, rider comms, and regulatory briefings for ${context.objective}.`;
       case 'opsMonitoring':
         return `Track usage, cost, and alerts while executing ${context.objective}.`;
       case 'advisory':
@@ -140,8 +173,26 @@ export class DirectorAgent {
         return { approvalThreshold: 'MANAGER', includeAging: true };
       case 'corporateFinance':
         return { deliverables: ['board_pack', 'treasury_update'], horizon: context.priority ?? 'MEDIUM' };
+      case 'brokerageEnablement':
+        return {
+          briefingScope: 'market_intel',
+          requireCitations: true,
+          targetSegments: context.constraints?.filter((c) => c.toLowerCase().includes('segment')) ?? [],
+        };
       case 'financialReporting':
         return { frameworks: ['IFRS'], deliverable: 'FS + Notes' };
+      case 'callerMarketing':
+        return {
+          campaign: context.objective,
+          includeCreative: true,
+          audienceFilters: context.constraints ?? [],
+        };
+      case 'mobilityOps':
+        return {
+          regions: context.constraints?.filter((c) => c.toLowerCase().includes('region')) ?? [],
+          includeVisuals: true,
+          requireRegulatorySummary: true,
+        };
       default:
         return undefined;
     }
@@ -154,7 +205,9 @@ export class DirectorAgent {
       agentKey === 'taxCompliance' ||
       agentKey === 'financialReporting' ||
       agentKey === 'accountingClose' ||
-      agentKey === 'corporateFinance'
+      agentKey === 'corporateFinance' ||
+      agentKey === 'brokerageEnablement' ||
+      agentKey === 'mobilityOps'
     );
   }
 }

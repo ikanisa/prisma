@@ -17,7 +17,7 @@ export default function Home() {
     { href: '/client-portal', label: 'Client Portal' },
     { href: '/agent/approvals', label: 'Agent Approvals' },
     { href: '/agent/orchestrator', label: 'Agent Orchestrator' },
-    { href: '/openai/embeddings', label: 'OpenAI Embeddings' },
+    { href: '/agent/domain-tools', label: 'Agent Domain Tools' },
   ] satisfies Array<{ href: Route; label: string }>;
   return (
     <main className="p-4">
