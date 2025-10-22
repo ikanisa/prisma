@@ -1,29 +1,34 @@
+SUMMARY:
+- pnpm lint failed with 6 errors (21 total issues).
+- Blocking items: irregular whitespace in apps/web/app/agent-chat/page.tsx, missing @next/next/no-img-element rule config, and disallowed console statements in app/page.tsx & publish-openai-file-search-secrets.ts.
+- Numerous React hook dependency and unused eslint-disable warnings also reported.
+
  WARN  Unsupported engine: wanted: {"node":"18.20.4"} (current: {"node":"v20.19.4","pnpm":"9.12.3"})
 
 > vite_react_shadcn_ts@0.0.0 lint /workspace/prisma
 > eslint .
 
 
-/workspace/prisma/apps/gateway/src/middleware/org-guard.ts
-  63:3  error  ES2015 module syntax is preferred over namespaces  @typescript-eslint/no-namespace
-
 /workspace/prisma/apps/web/app/agent-chat/page.tsx
-   202:6   warning  React Hook useEffect has an unnecessary dependency: 'responseMessages'. Either exclude it or remove the dependency array. Outer scope values like 'responseMessages' aren't valid dependencies because mutating them doesn't re-render the component                                                                        react-hooks/exhaustive-deps
-   209:6   warning  React Hook useEffect has an unnecessary dependency: 'responseToolOutputs'. Either exclude it or remove the dependency array. Outer scope values like 'responseToolOutputs' aren't valid dependencies because mutating them doesn't re-render the component                                                                  react-hooks/exhaustive-deps
-   781:6   warning  React Hook useCallback has unnecessary dependencies: 'responseMessages', 'responseModel', 'responseRequestJson', and 'responseToolOutputs'. Either exclude them or remove the dependency array. Outer scope values like 'responseMessages' aren't valid dependencies because mutating them doesn't re-render the component  react-hooks/exhaustive-deps
-  1326:81  error    Irregular whitespace not allowed                                                                                                                                                                                                                                                                                            no-irregular-whitespace
+   176:6   warning  React Hook useEffect has an unnecessary dependency: 'responseMessages'. Either exclude it or remove the dependency array. Outer scope values like 'responseMessages' aren't valid dependencies because mutating them doesn't re-render the component                                                                        react-hooks/exhaustive-deps
+   183:6   warning  React Hook useEffect has an unnecessary dependency: 'responseToolOutputs'. Either exclude it or remove the dependency array. Outer scope values like 'responseToolOutputs' aren't valid dependencies because mutating them doesn't re-render the component                                                                  react-hooks/exhaustive-deps
+   755:6   warning  React Hook useCallback has unnecessary dependencies: 'responseMessages', 'responseModel', 'responseRequestJson', and 'responseToolOutputs'. Either exclude them or remove the dependency array. Outer scope values like 'responseMessages' aren't valid dependencies because mutating them doesn't re-render the component  react-hooks/exhaustive-deps
+  1300:81  error    Irregular whitespace not allowed                                                                                                                                                                                                                                                                                            no-irregular-whitespace
 
 /workspace/prisma/apps/web/app/agent/domain-tools/page.tsx
-  1424:16  error  Definition for rule '@next/next/no-img-element' was not found  @next/next/no-img-element
+  1392:16  error  Definition for rule '@next/next/no-img-element' was not found  @next/next/no-img-element
 
 /workspace/prisma/apps/web/app/api/other-info/comparatives/route.ts
-  130:3  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unsafe-argument')
+  131:3  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unsafe-argument')
 
 /workspace/prisma/apps/web/app/openai/embeddings/page.tsx
   183:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
 
 /workspace/prisma/apps/web/app/page.tsx
   26:32  error  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
+
+/workspace/prisma/apps/web/app/style-guide/page.tsx
+  4:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
 
 /workspace/prisma/apps/web/lib/prisma.ts
   1:1  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-unsafe-assignment', '@typescript-eslint/no-var-requires', '@typescript-eslint/no-explicit-any', or '@typescript-eslint/no-require-imports')
@@ -43,20 +48,17 @@
   1:1  warning  Unused eslint-disable directive (no problems were reported)
 
 /workspace/prisma/packages/api-client/index.ts
-  35:5  warning  Unused eslint-disable directive (no problems were reported from 'no-constant-condition')
+  77:5  warning  Unused eslint-disable directive (no problems were reported from 'no-constant-condition')
 
 /workspace/prisma/scripts/operations/publish-openai-file-search-secrets.ts
   106:3  error  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
   125:3  error  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
   138:5  error  Unexpected console statement. Only these console methods are allowed: warn, error  no-console
 
-/workspace/prisma/services/rag/index.ts
-  4537:0  error  Parsing error: Declaration or statement expected
-
 /workspace/prisma/src/hooks/use-organizations.ts
   99:6  warning  React Hook useEffect has an unnecessary dependency: 'isSupabaseConfigured'. Either exclude it or remove the dependency array. Outer scope values like 'isSupabaseConfigured' aren't valid dependencies because mutating them doesn't re-render the component  react-hooks/exhaustive-deps
 
-✖ 22 problems (8 errors, 14 warnings)
+✖ 21 problems (6 errors, 15 warnings)
   0 errors and 9 warnings potentially fixable with the `--fix` option.
 
  ELIFECYCLE  Command failed with exit code 1.
