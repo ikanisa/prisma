@@ -1,33 +1,39 @@
-# Welcome to your Lovable project
+# Prisma Glow Workspace
 
-## Project info
+Modern AI-powered operations suite with Supabase, FastAPI, and multi-app pnpm workspace tooling.
 
-**URL**: https://lovable.dev/projects/1b81869f-f7ae-4d22-99d2-79a60a4ddbf8
+## Local Setup (Mac)
 
-## How can I edit this code?
+1. **Install prerequisites**
+   - Install [Homebrew](https://brew.sh) if it is missing.
+   - `brew install node@20 pnpm python@3.11 postgresql@15` provides the toolchain used in CI. Volta pins Node.js `18.20.4` for local parity; Node 20 is also validated in the workflows.
+   - Optionally install [direnv](https://direnv.net) for environment variable management.
+2. **Clone the repository**
+   ```bash
+   git clone <your-fork-url>
+   cd prisma
+   ```
+3. **Install dependencies**
+   ```bash
+   pnpm install --frozen-lockfile
+   ```
+4. **Create your local environment file** by copying `.env.example` to `.env.local` and filling in credentials. See [docs/local-hosting.md](docs/local-hosting.md) for details.
+5. **Start developing**
+   - Web (Vite) shell: `pnpm dev`
+   - Next.js app: `pnpm --filter web dev`
+   - Gateway service: `pnpm --filter @prisma-glow/gateway dev`
 
-There are several ways of editing your application.
+More context on running the stack locally, including reverse-proxy plans, lives in [docs/local-hosting.md](docs/local-hosting.md).
 
-**Use Lovable**
+## Environment Variables
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/1b81869f-f7ae-4d22-99d2-79a60a4ddbf8) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-## Environment Setup
-
-This project requires Supabase credentials (shared with Lovable). Create a local `.env.local`
-(ignored by git) by copying the provided `.env.example` and filling in the actual project values:
+The project loads configuration from `.env.local` for local runs and GitHub Actions/Compose secrets in automation. Copy the template first:
 
 ```sh
 cp .env.example .env.local
 ```
+
+### Core application
 
 Required variables:
 
@@ -58,6 +64,35 @@ Required variables:
   `RAG_SEARCH_RATE_WINDOW_SECONDS`, `AUTOPILOT_SCHEDULE_RATE_LIMIT`,
   `AUTOPILOT_SCHEDULE_RATE_WINDOW_SECONDS`, `AUTOPILOT_JOB_RATE_LIMIT`, and
   `AUTOPILOT_JOB_RATE_WINDOW_SECONDS`.
+
+## Run Commands
+
+- `pnpm install --frozen-lockfile` – install workspace dependencies.
+- `pnpm run typecheck` – ensure TypeScript projects compile without emitting files.
+- `pnpm run lint` – lint the monorepo.
+- `pnpm run test` or `pnpm run coverage` – execute Vitest suites (coverage gate lives in CI).
+- `pnpm run build` – build shared packages and the Vite bundle (`tsc -b` runs first).
+- `pnpm run preview` – serve the production bundle locally.
+- `pnpm --filter <workspace>` – scope commands to a specific app (e.g. `pnpm --filter web build`).
+- `pnpm --filter @prisma-glow/gateway dev` – start the Express gateway for local API smoke tests.
+
+Git hooks, CI, and deployment workflows now rely on pnpm exclusively; make sure your local environment mirrors the lockfile versions.
+
+## Supabase Notes
+
+- Database migrations live in `supabase/migrations` (SQL) and `apps/web/prisma/migrations` (Prisma). Use `pnpm --filter web run prisma:migrate:dev` for iterative schema work and `pnpm --filter web run prisma:migrate:deploy` in CI.
+- Stub mode (`SUPABASE_ALLOW_STUB=true`) lets UI developers work without live Supabase credentials; gateway and FastAPI continue to guard privileged routes.
+- Policy tests reside in `scripts/test_policies.sql`. Run them with `pnpm run config:validate` + manual `psql` or trigger the GitHub Action with `run_pgtap=true` once pgTAP is installed.
+- Supabase client keys should stay in `.env.local` (or GitHub secrets) only; never commit Supabase secrets.
+
+## Summary of Vercel removal
+
+- All Vercel-specific GitHub workflows and preview deployments have been removed from this repository.
+- Continuous integration now standardises on pnpm for install/typecheck/lint/build gates.
+- Production hosting is driven by Docker/Compose and manual GitHub Actions deployments (see `.github/workflows/compose-deploy.yml`).
+- Local preview flows are documented in [docs/local-hosting.md](docs/local-hosting.md); reverse proxies will be introduced there when ready.
+
+The sections below retain the deep-dive environment details and operational runbooks referenced throughout the monorepo.
 
 ### Agent learning & RAG additions
 
@@ -169,7 +204,7 @@ User agent and correlation:
 
 - Gateway forwards `Authorization`, `X-Request-ID`, `X-Trace-ID`, and W3C `traceparent`/`tracestate` headers to FastAPI.
 - Gateway sets a service user agent on upstream requests: `prisma-glow-gateway/<SERVICE_VERSION>`.
-- Ensure `SERVICE_VERSION` is set in runtime (CI uses the commit SHA). For Vercel, set it as an environment variable so traces include `service.version`.
+- Ensure `SERVICE_VERSION` is set in runtime (CI uses the commit SHA). When running on a managed host (the retired Vercel deployment or future PaaS targets), set it as an environment variable so traces include `service.version`.
 
 Versioning for trace correlation:
 

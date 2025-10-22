@@ -1,0 +1,12 @@
+{
+  "metadata": {
+    "captured_at": "2025-10-22T21:52:01.457310+00:00",
+    "target_url": "http://127.0.0.1:8001/health",
+    "environment": "local",
+    "http_status": 200,
+    "service": "fastapi-health"
+  },
+  "response": {
+    "status": "ok"
+  }
+}
