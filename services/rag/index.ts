@@ -79,6 +79,15 @@ import {
   createAgentRun,
 } from './openai-agent-service';
 import { streamOpenAiResponse } from './openai-stream';
+import {
+  createConversationItems,
+  deleteConversation,
+  getConversation,
+  listConversationItems,
+  listConversations,
+  type ConversationItemInput,
+} from './openai-conversations';
+import { AgentConversationRecorder } from './agent-conversation-recorder';
 import { createRealtimeSession, getRealtimeTurnServers } from './openai-realtime';
 import { generateSoraVideo } from './openai-media';
 import { transcribeAudioBuffer, synthesizeSpeech } from './openai-audio';
@@ -3982,6 +3991,9 @@ app.get('/api/agent/stream', async (req: AuthenticatedRequest, res) => {
     const question = typeof req.query.question === 'string' ? (req.query.question as string) : undefined;
     const agentTypeRaw = typeof req.query.agentType === 'string' ? (req.query.agentType as string) : 'AUDIT';
     const context = typeof req.query.context === 'string' ? (req.query.context as string) : undefined;
+    const engagementId = typeof req.query.engagementId === 'string' ? (req.query.engagementId as string) : undefined;
+    const agentSessionId = typeof req.query.agentSessionId === 'string' ? (req.query.agentSessionId as string) : undefined;
+    const supabaseRunId = typeof req.query.supabaseRunId === 'string' ? (req.query.supabaseRunId as string) : undefined;
 
     if (!orgSlug) {
       return res.status(400).json({ error: 'orgSlug query param required' });
@@ -3999,6 +4011,32 @@ app.get('/api/agent/stream', async (req: AuthenticatedRequest, res) => {
     ];
 
     try {
+      const conversationRecorder = await AgentConversationRecorder.start({
+        orgId: orgContext.orgId,
+        orgSlug,
+        agentType: normalizedType,
+        mode: 'plain',
+        systemPrompt: AGENT_SYSTEM_PROMPTS[normalizedType],
+        userPrompt: question,
+        context: context ?? undefined,
+        source: 'agent_stream_plain',
+        userId,
+        agentSessionId: agentSessionId ?? undefined,
+        engagementId: engagementId ?? undefined,
+        supabaseRunId: supabaseRunId ?? undefined,
+        metadata: {
+          question_length: String(question.length),
+          context_length: context ? String(context.length) : undefined,
+          stream_channel: 'sse',
+        },
+        logError,
+        logInfo,
+      });
+
+      let deltaBuffer = '';
+      let finalBuffer = '';
+      let recorded = false;
+
       await streamOpenAiResponse({
         res,
         openai,
@@ -4007,6 +4045,75 @@ app.get('/api/agent/stream', async (req: AuthenticatedRequest, res) => {
           input: messages,
         },
         endpoint: 'responses.stream',
+        onStart: () => {
+          const conversationId = conversationRecorder.conversationId;
+          if (conversationId) {
+            const payload: Record<string, unknown> = { conversationId };
+            if (agentSessionId) {
+              payload.agentSessionId = agentSessionId;
+            }
+            if (supabaseRunId) {
+              payload.supabaseRunId = supabaseRunId;
+            }
+            res.write(`data: ${JSON.stringify({ type: 'conversation-started', data: payload })}\n\n`);
+          }
+        },
+        onEvent: async (event) => {
+          if (event.type === 'text-delta' && typeof event.data === 'string') {
+            deltaBuffer += event.data;
+          }
+          if (event.type === 'text-done' && typeof event.data === 'string') {
+            finalBuffer = event.data;
+          }
+          if (event.type === 'refusal-delta' && typeof event.data === 'string') {
+            deltaBuffer += event.data;
+          }
+          if (event.type === 'refusal-done') {
+            if (typeof event.data === 'string') {
+              finalBuffer = event.data;
+            } else if (event.data) {
+              finalBuffer = JSON.stringify(event.data);
+            }
+          }
+        },
+        onResponseCompleted: async ({ responseId }) => {
+          if (recorded) return;
+          const text = finalBuffer || deltaBuffer;
+          if (!text) return;
+          try {
+            await conversationRecorder.recordPlainText({
+              text,
+              responseId,
+              stage: 'completed',
+            });
+            recorded = true;
+          } catch (error) {
+            logError('agent.conversation_plain_record_failed', error, {
+              orgId: orgContext.orgId,
+              conversationId: conversationRecorder.conversationId,
+              responseId,
+            });
+          }
+        },
+        onStreamClosed: async () => {
+          if (recorded) return;
+          const text = finalBuffer || deltaBuffer;
+          if (!text) return;
+          try {
+            await conversationRecorder.recordPlainText({
+              text,
+              stage: 'closed',
+              status: 'completed',
+            });
+            recorded = true;
+          } catch (error) {
+            logError('agent.conversation_plain_record_failed', error, {
+              orgId: orgContext.orgId,
+              conversationId: conversationRecorder.conversationId,
+              responseRecordedOnClose: true,
+            });
+          }
+        },
         debugLogger: async (event) => {
           await logOpenAIDebugEvent({
             endpoint: event.endpoint,
@@ -4047,6 +4154,7 @@ app.get('/api/agent/stream/execute', async (req: AuthenticatedRequest, res) => {
     const question = typeof req.query.question === 'string' ? (req.query.question as string) : undefined;
     const agentTypeRaw = typeof req.query.agentType === 'string' ? (req.query.agentType as string) : 'AUDIT';
     const context = typeof req.query.context === 'string' ? (req.query.context as string) : undefined;
+    const engagementId = typeof req.query.engagementId === 'string' ? (req.query.engagementId as string) : undefined;
 
     if (!orgSlug) {
       return res.status(400).json({ error: 'orgSlug query param required' });
@@ -4074,13 +4182,62 @@ app.get('/api/agent/stream/execute', async (req: AuthenticatedRequest, res) => {
       { role: 'user', content: context ? `${question}\n\nContext:\n${context}` : question },
     ];
 
-    writeSse({ type: 'started', data: { question, context, agentType: normalizedType } });
+    writeSse({
+      type: 'started',
+      data: {
+        question,
+        context,
+        agentType: normalizedType,
+        agentSessionId: agentSessionId ?? undefined,
+        supabaseRunId: supabaseRunId ?? undefined,
+      },
+    });
+
+    const toolNames = tools.map((tool) => tool.function?.name).filter((name): name is string => Boolean(name));
+    const conversationRecorder = await AgentConversationRecorder.start({
+      orgId: orgContext.orgId,
+      orgSlug,
+      agentType: normalizedType,
+      mode: 'tools',
+      systemPrompt: AGENT_SYSTEM_PROMPTS[normalizedType],
+      userPrompt: question,
+      context: context ?? undefined,
+      source: 'agent_stream_tools',
+      userId,
+      agentSessionId: agentSessionId ?? undefined,
+      engagementId: engagementId ?? undefined,
+      supabaseRunId: supabaseRunId ?? undefined,
+      toolNames,
+      metadata: {
+        question_length: String(question.length),
+        context_length: context ? String(context.length) : undefined,
+        stream_channel: 'sse',
+        tool_count: toolNames.length ? String(toolNames.length) : undefined,
+      },
+      logError,
+      logInfo,
+    });
+    const conversationId = conversationRecorder.conversationId;
+    if (conversationId) {
+      const payload: Record<string, unknown> = { conversationId };
+      if (agentSessionId) {
+        payload.agentSessionId = agentSessionId;
+      }
+      if (supabaseRunId) {
+        payload.supabaseRunId = supabaseRunId;
+      }
+      writeSse({ type: 'conversation-started', data: payload });
+    }
 
     let response = await openai.responses.create({
       model: AGENT_MODEL,
       input: messages,
       tools,
     });
+
+    let iteration = 0;
+    await conversationRecorder.recordResponse({ response, stage: 'initial', iteration });
+    iteration += 1;
 
     await logOpenAIDebugEvent({
       endpoint: 'responses.create',
@@ -4102,9 +4259,24 @@ app.get('/api/agent/stream/execute', async (req: AuthenticatedRequest, res) => {
           const result = await executeToolCall(orgContext.orgId, call);
           writeSse({ type: 'tool-result', data: { toolKey, callId: call.id, output: result.output, citations: result.citations ?? [] } });
           toolOutputs.push({ tool_call_id: call.id, output: result.output });
+          await conversationRecorder.recordToolResult({
+            callId: call.id,
+            toolName: toolKey,
+            output: result.output,
+            stage: 'tool_execution',
+            status: 'completed',
+          });
         } catch (error) {
           writeSse({ type: 'tool-error', data: { toolKey, callId: call.id, message: error instanceof Error ? error.message : String(error) } });
-          toolOutputs.push({ tool_call_id: call.id, output: `Tool ${toolKey} failed: ${error instanceof Error ? error.message : String(error)}` });
+          const failureMessage = error instanceof Error ? error.message : String(error);
+          toolOutputs.push({ tool_call_id: call.id, output: `Tool ${toolKey} failed: ${failureMessage}` });
+          await conversationRecorder.recordToolResult({
+            callId: call.id,
+            toolName: toolKey,
+            output: failureMessage,
+            stage: 'tool_execution',
+            status: 'failed',
+          });
         }
       }
 
@@ -4125,6 +4297,9 @@ app.get('/api/agent/stream/execute', async (req: AuthenticatedRequest, res) => {
         metadata: { scope: 'agent_stream_tools', stage: 'followup' },
         orgId: orgContext.orgId,
       });
+
+      await conversationRecorder.recordResponse({ response, stage: 'followup', iteration });
+      iteration += 1;
     }
 
     if (!closed) {
@@ -4146,6 +4321,356 @@ app.get('/api/agent/stream/execute', async (req: AuthenticatedRequest, res) => {
       res.write(`data: ${JSON.stringify({ type: 'error', data: { message: err instanceof Error ? err.message : String(err) } })}\n\n`);
       res.end();
     }
+  }
+});
+
+app.get('/api/agent/conversations', async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = req.user?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: 'invalid session' });
+    }
+
+    const orgSlug = typeof req.query.orgSlug === 'string' ? req.query.orgSlug : undefined;
+    if (!orgSlug) {
+      return res.status(400).json({ error: 'orgSlug query param required' });
+    }
+
+    const orderParam = typeof req.query.order === 'string' && req.query.order.toLowerCase() === 'asc' ? 'asc' : 'desc';
+    const limitParam = Number(req.query.limit ?? 20);
+    const limit = Number.isFinite(limitParam) ? Math.max(1, Math.min(100, limitParam)) : 20;
+    const after = typeof req.query.after === 'string' ? req.query.after : undefined;
+
+    const orgContext = await resolveOrgForUser(userId, orgSlug);
+
+    const response = await listConversations({
+      limit,
+      order: orderParam,
+      after,
+      logError,
+      logInfo,
+    });
+
+    const modeFilter = typeof req.query.mode === 'string' && req.query.mode !== 'all' ? req.query.mode : undefined;
+    const agentTypeFilter = typeof req.query.agentType === 'string' && req.query.agentType !== 'all' ? req.query.agentType : undefined;
+    const sourceFilter = typeof req.query.source === 'string' && req.query.source !== 'all' ? req.query.source : undefined;
+    const sinceFilter = typeof req.query.since === 'string' ? req.query.since : undefined;
+    const searchFilter = typeof req.query.search === 'string' && req.query.search.trim().length > 0 ? req.query.search.trim().toLowerCase() : undefined;
+    const hasContextFilter = typeof req.query.hasContext === 'string' && req.query.hasContext !== 'any' ? req.query.hasContext : undefined;
+    const mineOnly = req.query.mine === '1' || req.query.mine === 'true';
+
+    let sinceTimestamp: number | undefined;
+    if (sinceFilter && sinceFilter !== 'all') {
+      const nowSeconds = Math.floor(Date.now() / 1000);
+      switch (sinceFilter) {
+        case '24h':
+          sinceTimestamp = nowSeconds - 24 * 60 * 60;
+          break;
+        case '7d':
+          sinceTimestamp = nowSeconds - 7 * 24 * 60 * 60;
+          break;
+        case '30d':
+          sinceTimestamp = nowSeconds - 30 * 24 * 60 * 60;
+          break;
+        default:
+          sinceTimestamp = undefined;
+      }
+    }
+
+    const conversations = (response.data ?? []).filter((conversation) => {
+      const metadata = conversation.metadata ?? {};
+      if (metadata.org_id !== orgContext.orgId) {
+        return false;
+      }
+      if (modeFilter && metadata.mode !== modeFilter) {
+        return false;
+      }
+      if (agentTypeFilter && metadata.agent_type !== agentTypeFilter) {
+        return false;
+      }
+      if (sourceFilter && metadata.source !== sourceFilter) {
+        return false;
+      }
+      if (sinceTimestamp && typeof conversation.created_at === 'number' && conversation.created_at < sinceTimestamp) {
+        return false;
+      }
+      if (mineOnly) {
+        if (!metadata.user_id) {
+          return false;
+        }
+        if (metadata.user_id !== userId) {
+          return false;
+        }
+      }
+      if (hasContextFilter === 'true') {
+        if (metadata.has_context !== 'true' && metadata.context_present !== 'true') {
+          return false;
+        }
+      } else if (hasContextFilter === 'false') {
+        if (metadata.has_context === 'true' || metadata.context_present === 'true') {
+          return false;
+        }
+      }
+      if (searchFilter) {
+        const haystack = [
+          conversation.id,
+          metadata.initial_prompt_preview ?? '',
+          metadata.agent_type ?? '',
+          metadata.mode ?? '',
+          metadata.source ?? '',
+        ]
+          .join(' ')
+          .toLowerCase();
+        if (!haystack.includes(searchFilter)) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+
+    return res.json({
+      conversations,
+      hasMore: response.has_more ?? false,
+      lastId: response.last_id ?? null,
+    });
+  } catch (error) {
+    logError('agent.conversations_list_failed', error, { userId: req.user?.sub });
+    return res.status(500).json({ error: 'failed_to_list_conversations' });
+  }
+});
+
+app.post('/api/agent/conversations', async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = req.user?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: 'invalid session' });
+    }
+
+    const body = req.body as {
+      orgSlug?: string;
+      agentType?: string;
+      question?: string;
+      context?: string;
+      mode?: string;
+      metadata?: Record<string, string>;
+      engagementId?: string;
+      source?: string;
+      toolNames?: string[];
+    };
+
+    if (!body.orgSlug) {
+      return res.status(400).json({ error: 'orgSlug is required' });
+    }
+    if (!body.question || body.question.trim().length === 0) {
+      return res.status(400).json({ error: 'question is required' });
+    }
+
+    const normalizedType = normaliseAgentType(body.agentType ?? 'AUDIT');
+    const orgContext = await resolveOrgForUser(userId, body.orgSlug);
+
+    const recorder = await AgentConversationRecorder.start({
+      orgId: orgContext.orgId,
+      orgSlug: body.orgSlug,
+      agentType: normalizedType,
+      mode: body.mode ?? 'manual',
+      systemPrompt: AGENT_SYSTEM_PROMPTS[normalizedType],
+      userPrompt: body.question.trim(),
+      context: body.context?.trim() ? body.context.trim() : undefined,
+      source: body.source ?? 'agent_manual',
+      metadata: body.metadata,
+      userId,
+      engagementId: body.engagementId?.trim() ? body.engagementId.trim() : undefined,
+      toolNames: Array.isArray(body.toolNames)
+        ? body.toolNames
+            .filter((value): value is string => typeof value === 'string')
+            .map((value) => value.trim())
+            .filter((value) => value.length > 0)
+        : undefined,
+      logError,
+      logInfo,
+    });
+
+    const conversation = recorder.getConversation();
+    if (!conversation) {
+      return res.status(500).json({ error: 'failed_to_create_conversation' });
+    }
+
+    return res.status(201).json({ conversation });
+  } catch (error) {
+    logError('agent.conversation_create_route_failed', error, { userId: req.user?.sub });
+    return res.status(500).json({ error: 'failed_to_create_conversation' });
+  }
+});
+
+app.get('/api/agent/conversations/:id', async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = req.user?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: 'invalid session' });
+    }
+
+    const orgSlug = typeof req.query.orgSlug === 'string' ? req.query.orgSlug : undefined;
+    if (!orgSlug) {
+      return res.status(400).json({ error: 'orgSlug query param required' });
+    }
+
+    const orgContext = await resolveOrgForUser(userId, orgSlug);
+    const conversationId = req.params.id;
+
+    const conversation = await getConversation({
+      conversationId,
+      logError,
+      logInfo,
+    });
+
+    if (conversation.metadata?.org_id !== orgContext.orgId) {
+      return res.status(404).json({ error: 'conversation_not_found' });
+    }
+
+    return res.json({ conversation });
+  } catch (error) {
+    logError('agent.conversation_fetch_failed', error, { userId: req.user?.sub, conversationId: req.params.id });
+    return res.status(500).json({ error: 'failed_to_fetch_conversation' });
+  }
+});
+
+app.get('/api/agent/conversations/:id/items', async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = req.user?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: 'invalid session' });
+    }
+
+    const orgSlug = typeof req.query.orgSlug === 'string' ? req.query.orgSlug : undefined;
+    if (!orgSlug) {
+      return res.status(400).json({ error: 'orgSlug query param required' });
+    }
+
+    const orgContext = await resolveOrgForUser(userId, orgSlug);
+    const conversationId = req.params.id;
+
+    const conversation = await getConversation({
+      conversationId,
+      logError,
+      logInfo,
+    });
+
+    if (conversation.metadata?.org_id !== orgContext.orgId) {
+      return res.status(404).json({ error: 'conversation_not_found' });
+    }
+
+    const limitParam = Number(req.query.limit ?? 50);
+    const limit = Number.isFinite(limitParam) ? Math.max(1, Math.min(100, limitParam)) : 50;
+    const orderParam = typeof req.query.order === 'string' && req.query.order.toLowerCase() === 'asc' ? 'asc' : 'desc';
+    const after = typeof req.query.after === 'string' ? req.query.after : undefined;
+    const includeParam = req.query.include;
+    const include = Array.isArray(includeParam)
+      ? includeParam.filter((value): value is string => typeof value === 'string')
+      : typeof includeParam === 'string'
+        ? [includeParam]
+        : undefined;
+
+    const itemsResponse = await listConversationItems({
+      conversationId,
+      limit,
+      order: orderParam,
+      after,
+      include,
+      logError,
+      logInfo,
+    });
+
+    return res.json({
+      conversation,
+      items: itemsResponse.data ?? [],
+      hasMore: itemsResponse.has_more ?? false,
+      lastId: itemsResponse.last_id ?? null,
+    });
+  } catch (error) {
+    logError('agent.conversation_items_fetch_failed', error, { userId: req.user?.sub, conversationId: req.params.id });
+    return res.status(500).json({ error: 'failed_to_fetch_conversation_items' });
+  }
+});
+
+app.post('/api/agent/conversations/:id/items', async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = req.user?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: 'invalid session' });
+    }
+
+    const body = req.body as { orgSlug?: string; items?: ConversationItemInput[] };
+    if (!body.orgSlug) {
+      return res.status(400).json({ error: 'orgSlug is required' });
+    }
+
+    if (!Array.isArray(body.items) || body.items.length === 0) {
+      return res.status(400).json({ error: 'items array is required' });
+    }
+
+    const orgContext = await resolveOrgForUser(userId, body.orgSlug);
+    const conversationId = req.params.id;
+
+    const conversation = await getConversation({
+      conversationId,
+      logError,
+      logInfo,
+    });
+
+    if (conversation.metadata?.org_id !== orgContext.orgId) {
+      return res.status(404).json({ error: 'conversation_not_found' });
+    }
+
+    const response = await createConversationItems({
+      conversationId,
+      items: body.items,
+      logError,
+      logInfo,
+    });
+
+    return res.status(201).json({ items: response.data ?? [] });
+  } catch (error) {
+    logError('agent.conversation_items_create_failed', error, { userId: req.user?.sub, conversationId: req.params.id });
+    return res.status(500).json({ error: 'failed_to_create_conversation_items' });
+  }
+});
+
+app.delete('/api/agent/conversations/:id', async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = req.user?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: 'invalid session' });
+    }
+
+    const orgSlug = typeof req.query.orgSlug === 'string' ? req.query.orgSlug : undefined;
+    if (!orgSlug) {
+      return res.status(400).json({ error: 'orgSlug query param required' });
+    }
+
+    const orgContext = await resolveOrgForUser(userId, orgSlug);
+    const conversationId = req.params.id;
+
+    const conversation = await getConversation({
+      conversationId,
+      logError,
+      logInfo,
+    });
+
+    if (conversation.metadata?.org_id !== orgContext.orgId) {
+      return res.status(404).json({ error: 'conversation_not_found' });
+    }
+
+    const response = await deleteConversation({
+      conversationId,
+      logError,
+      logInfo,
+    });
+
+    return res.json({ deleted: response.deleted, conversationId });
+  } catch (error) {
+    logError('agent.conversation_delete_failed', error, { userId: req.user?.sub, conversationId: req.params.id });
+    return res.status(500).json({ error: 'failed_to_delete_conversation' });
   }
 });
 
