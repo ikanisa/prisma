@@ -9,7 +9,7 @@ COMPOSE_ENV ?= .env.compose
 FRONTEND_PROFILE ?= web
 FRONTEND_SERVICE := $(if $(filter $(FRONTEND_PROFILE),web),web,ui)
 
-.PHONY: print-version compose-dev-up compose-dev-down compose-dev-logs images-build compose-prod-up compose-prod-down compose-prod-logs compose-prod-set-tag compose-prod-rollback
+.PHONY: print-version compose-dev-up compose-dev-down compose-dev-logs images-build compose-prod-up compose-prod-down compose-prod-logs compose-prod-set-tag compose-prod-rollback db-migrate-smoke
 
 print-version:
 	@echo "SERVICE_VERSION=$(SERVICE_VERSION)"
@@ -55,6 +55,9 @@ compose-prod-set-tag:
 # Roll back by setting a previous tag and restarting
 # Usage: make compose-prod-rollback ROLLBACK_TAG=<sha> FRONTEND_PROFILE=web
 compose-prod-rollback:
-	@if [[ -z "$(ROLLBACK_TAG)" ]]; then echo "ROLLBACK_TAG is required, e.g. make compose-prod-rollback ROLLBACK_TAG=abc123" >&2; exit 1; fi
-	$(MAKE) compose-prod-set-tag TAG=$(ROLLBACK_TAG) COMPOSE_ENV=$(COMPOSE_ENV)
-	$(MAKE) compose-prod-up COMPOSE_ENV=$(COMPOSE_ENV) FRONTEND_PROFILE=$(FRONTEND_PROFILE)
+        @if [[ -z "$(ROLLBACK_TAG)" ]]; then echo "ROLLBACK_TAG is required, e.g. make compose-prod-rollback ROLLBACK_TAG=abc123" >&2; exit 1; fi
+        $(MAKE) compose-prod-set-tag TAG=$(ROLLBACK_TAG) COMPOSE_ENV=$(COMPOSE_ENV)
+        $(MAKE) compose-prod-up COMPOSE_ENV=$(COMPOSE_ENV) FRONTEND_PROFILE=$(FRONTEND_PROFILE)
+
+db-migrate-smoke:
+        bash scripts/operations/migration-smoke.sh
