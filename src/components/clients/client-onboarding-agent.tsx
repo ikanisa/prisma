@@ -16,6 +16,7 @@ import { Card } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { useAppStore, Client } from '@/stores/mock-data';
+import { useOrganizations } from '@/hooks/use-organizations';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import {
@@ -63,7 +64,9 @@ export function ClientOnboardingAgent({ onCreated }: ClientOnboardingAgentProps)
   const [createdClientId, setCreatedClientId] = useState<string | null>(null);
   const objectUrlsRef = useRef<string[]>([]);
   const { toast } = useToast();
-  const { currentOrg, currentUser, clients, setClients, addDocument } = useAppStore();
+  const { currentOrg: storeOrg, currentUser, clients, setClients, addDocument } = useAppStore();
+  const { currentOrg: membershipOrg } = useOrganizations();
+  const resolvedOrgId = storeOrg?.id ?? membershipOrg?.id ?? null;
 
   const missingFields = useMemo(
     () => REQUIRED_FIELDS.filter((field) => !draft[field]),
@@ -223,12 +226,12 @@ export function ClientOnboardingAgent({ onCreated }: ClientOnboardingAgentProps)
       uploads.push(uploaded);
       const { next } = mergeDraft(aggregatedUpdates, derived);
       Object.assign(aggregatedUpdates, next);
-      if (currentOrg) {
+      if (resolvedOrgId) {
         const url = URL.createObjectURL(file);
         objectUrlsRef.current.push(url);
         addDocument({
           id: friendlyId(),
-          orgId: currentOrg.id,
+          orgId: resolvedOrgId,
           name: file.name,
           type: file.type || 'application/octet-stream',
           url,
@@ -252,7 +255,7 @@ export function ClientOnboardingAgent({ onCreated }: ClientOnboardingAgentProps)
   };
 
   const createClient = () => {
-    if (!currentOrg) {
+    if (!resolvedOrgId) {
       pushAgentMessage('Please select an organisation before creating a client.');
       return;
     }
@@ -262,7 +265,7 @@ export function ClientOnboardingAgent({ onCreated }: ClientOnboardingAgentProps)
     }
     const client: Client = {
       id: friendlyId(),
-      orgId: currentOrg.id,
+      orgId: resolvedOrgId,
       name: draft.name ?? '',
       industry: draft.industry ?? '',
       country: draft.country ?? '',

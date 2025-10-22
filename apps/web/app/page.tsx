@@ -1,8 +1,8 @@
+"use client";
+
 import Link from 'next/link';
 import type { Route } from 'next';
 
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
 import { Button } from '@prisma-glow/ui';
 
 export default function Home() {
