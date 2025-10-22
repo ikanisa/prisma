@@ -2054,6 +2054,95 @@ function parseAgentRequestContext(raw: unknown): AgentRequestContext | undefined
   return Object.keys(context).length > 0 ? context : undefined;
 }
 
+type NormalizedResponseMessage = { role: string; content: unknown } & Record<string, unknown>;
+
+const RESPONSES_ALLOWED_KEYS = new Set([
+  'temperature',
+  'top_p',
+  'max_output_tokens',
+  'response_format',
+  'tools',
+  'tool_choice',
+  'tool_outputs',
+  'metadata',
+  'modalities',
+  'reasoning',
+  'user',
+  'seed',
+  'logit_bias',
+  'parallel_tool_calls',
+  'max_tool_calls',
+  'conversation',
+  'safety_identifier',
+  'store',
+  'audio',
+  'text',
+  'service_tier',
+  'background',
+  'instructions',
+  'include',
+  'response_id',
+  'previous_response_id',
+]);
+
+const RESPONSE_KEY_ALIASES: Record<string, string> = {
+  responseId: 'response_id',
+  previousResponseId: 'previous_response_id',
+  toolOutputs: 'tool_outputs',
+  toolChoice: 'tool_choice',
+  responseFormat: 'response_format',
+  maxOutputTokens: 'max_output_tokens',
+  maxToolCalls: 'max_tool_calls',
+  topP: 'top_p',
+  serviceTier: 'service_tier',
+  safetyIdentifier: 'safety_identifier',
+  parallelToolCalls: 'parallel_tool_calls',
+};
+
+function normaliseResponsesInput(raw: unknown): NormalizedResponseMessage[] | null {
+  if (raw === null || raw === undefined) {
+    return null;
+  }
+
+  if (typeof raw === 'string') {
+    return [{ role: 'user', content: raw }];
+  }
+
+  if (Array.isArray(raw)) {
+    if (raw.length === 0) {
+      throw new Error('Responses input must include at least one message');
+    }
+
+    const normalised = raw.map((entry) => {
+      if (typeof entry === 'string') {
+        return { role: 'user', content: entry };
+      }
+      if (entry && typeof entry === 'object' && 'role' in entry) {
+        const record = entry as Record<string, unknown>;
+        const roleCandidate = typeof record.role === 'string' ? (record.role as string) : 'user';
+        if (!('content' in record)) {
+          throw new Error('Responses input items must include content');
+        }
+        return { ...record, role: roleCandidate } as NormalizedResponseMessage;
+      }
+      throw new Error('Unsupported responses input entry');
+    });
+
+    return normalised as NormalizedResponseMessage[];
+  }
+
+  if (raw && typeof raw === 'object' && 'role' in raw) {
+    const record = raw as Record<string, unknown>;
+    const roleValue = typeof record.role === 'string' ? (record.role as string) : 'user';
+    if (!('content' in record)) {
+      throw new Error('Responses input items must include content');
+    }
+    return [{ ...record, role: roleValue } as NormalizedResponseMessage];
+  }
+
+  throw new Error('Unsupported responses input payload');
+}
+
 function normaliseAgentType(value: unknown): AgentTypeKey {
   if (typeof value === 'string') {
     const upper = value.trim().toUpperCase();
@@ -4893,6 +4982,121 @@ app.post('/api/agent/plan', applyExpressIdempotency({
   } catch (err) {
     logError('agent.plan_failed', err, { userId: req.user?.sub });
     return res.status(500).json({ error: 'failed to generate plan' });
+  }
+});
+
+app.post('/api/agent/respond', async (req: AuthenticatedRequest, res) => {
+  const userId = req.user?.sub;
+  if (!userId) {
+    return res.status(401).json({ error: 'invalid session' });
+  }
+
+  const body = (req.body ?? {}) as Record<string, unknown>;
+  const orgSlug = typeof body.orgSlug === 'string' ? body.orgSlug : undefined;
+  if (!orgSlug) {
+    return res.status(400).json({ error: 'orgSlug is required' });
+  }
+
+  try {
+    const orgContext = await resolveOrgForUser(userId, orgSlug);
+
+    const baseRequest =
+      typeof body.request === 'object' && body.request !== null && !Array.isArray(body.request)
+        ? { ...(body.request as Record<string, unknown>) }
+        : {};
+
+    for (const [key, value] of Object.entries(body)) {
+      if (value === undefined) continue;
+      if (key === 'orgSlug' || key === 'request' || key === 'model' || key === 'input') continue;
+      const normalizedKey = RESPONSE_KEY_ALIASES[key] ?? key;
+      if (!RESPONSES_ALLOWED_KEYS.has(normalizedKey)) continue;
+      if (baseRequest[normalizedKey] === undefined) {
+        baseRequest[normalizedKey] = value;
+      }
+    }
+
+    const modelFromRequest =
+      typeof baseRequest.model === 'string' && baseRequest.model.trim().length > 0
+        ? (baseRequest.model as string).trim()
+        : undefined;
+    const modelFromBody = typeof body.model === 'string' && body.model.trim().length > 0 ? body.model.trim() : undefined;
+    baseRequest.model = modelFromRequest ?? modelFromBody ?? AGENT_MODEL;
+
+    let normalizedInput: NormalizedResponseMessage[] | null = null;
+    try {
+      normalizedInput = normaliseResponsesInput(baseRequest.input ?? body.input ?? null);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'invalid responses input';
+      return res.status(400).json({ error: message });
+    }
+
+    if (normalizedInput) {
+      baseRequest.input = normalizedInput;
+    } else {
+      delete baseRequest.input;
+    }
+
+    const hasInput = Array.isArray(normalizedInput) && normalizedInput.length > 0;
+    const hasToolOutputs = Array.isArray(baseRequest.tool_outputs) && baseRequest.tool_outputs.length > 0;
+    if (!hasInput && !hasToolOutputs) {
+      return res.status(400).json({ error: 'input or tool_outputs is required' });
+    }
+
+    if (baseRequest.stream === true) {
+      return res.status(400).json({ error: 'stream is not supported on this endpoint' });
+    }
+    if ('stream' in baseRequest) {
+      delete baseRequest.stream;
+    }
+
+    const start = Date.now();
+    try {
+      const response = await openai.responses.create(baseRequest as any);
+
+      const latencyMs = Date.now() - start;
+      logInfo('agent.model_response_created', {
+        userId,
+        orgId: orgContext.orgId,
+        model: baseRequest.model,
+        messageCount: normalizedInput?.length ?? 0,
+        hasToolOutputs,
+        latencyMs,
+      });
+
+      await logOpenAIDebugEvent({
+        endpoint: 'responses.create',
+        response: response as any,
+        requestPayload: {
+          model: baseRequest.model,
+          messageCount: normalizedInput?.length ?? 0,
+          hasToolOutputs,
+          orgSlug,
+        },
+        metadata: {
+          scope: 'agent_model_response',
+          latencyMs,
+          requestId: req.requestId ?? undefined,
+        },
+        orgId: orgContext.orgId,
+      });
+
+      return res.json({ response });
+    } catch (error) {
+      const status = typeof (error as any)?.status === 'number' ? ((error as any).status as number) : null;
+      const message = error instanceof Error ? error.message : 'failed_to_create_response';
+      logError('agent.model_response_openai_failed', error, {
+        userId,
+        orgId: orgContext.orgId,
+        status: status ?? undefined,
+      });
+      if (status && status >= 400 && status < 600) {
+        return res.status(status).json({ error: message });
+      }
+      return res.status(502).json({ error: message });
+    }
+  } catch (err) {
+    logError('agent.model_response_failed', err, { userId, requestId: req.requestId });
+    return res.status(500).json({ error: 'failed_to_create_response' });
   }
 });
 
