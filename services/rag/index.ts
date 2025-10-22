@@ -214,6 +214,7 @@ type WebCacheRow = {
   url: string;
   content: string | null;
   fetched_at: string | null;
+  last_used_at: string | null;
   status: string | null;
   metadata: Record<string, any> | null;
 };
@@ -337,7 +338,7 @@ async function ensureUrlAllowed(rawUrl: string, settings: UrlSourceSettings): Pr
 async function getCachedWebContent(url: string): Promise<WebCacheRow | null> {
   const { data, error, status } = await supabaseService
     .from('web_fetch_cache')
-    .select('id, url, content, fetched_at, status, metadata')
+    .select('id, url, content, fetched_at, last_used_at, status, metadata')
     .eq('url', url)
     .maybeSingle();
   if (error && status !== 406) {
@@ -347,12 +348,14 @@ async function getCachedWebContent(url: string): Promise<WebCacheRow | null> {
 }
 
 async function upsertWebCache(url: string, content: string, metadata: Record<string, any>, status = 'fetched') {
+  const nowIso = new Date().toISOString();
   const payload = {
     url,
     content,
     content_hash: createHash('sha256').update(content).digest('hex'),
     status,
-    fetched_at: new Date().toISOString(),
+    fetched_at: nowIso,
+    last_used_at: nowIso,
     metadata,
   };
   const { error } = await supabaseService.from('web_fetch_cache').upsert(payload, { onConflict: 'url' });
@@ -361,14 +364,42 @@ async function upsertWebCache(url: string, content: string, metadata: Record<str
   }
 }
 
-async function touchWebCache(cache: WebCacheRow, metadataUpdates: Record<string, any>) {
-  const merged = { ...(cache.metadata ?? {}), ...metadataUpdates };
+async function touchWebCache(cache: WebCacheRow, metadataUpdates: Record<string, any> = {}) {
+  const updates: Record<string, any> = {
+    last_used_at: new Date().toISOString(),
+  };
+  if (metadataUpdates && Object.keys(metadataUpdates).length > 0) {
+    updates.metadata = { ...(cache.metadata ?? {}), ...metadataUpdates };
+  }
   const { error } = await supabaseService
     .from('web_fetch_cache')
-    .update({ metadata: merged })
+    .update(updates)
     .eq('id', cache.id);
   if (error) {
     console.warn(JSON.stringify({ level: 'warn', msg: 'web.cache_touch_failed', url: cache.url, error: error.message }));
+  }
+}
+
+async function pruneStaleWebCache(): Promise<void> {
+  if (WEB_FETCH_CACHE_RETENTION_MS <= 0) {
+    return;
+  }
+  const now = Date.now();
+  if (now - lastWebCachePruneAt < WEB_FETCH_CACHE_PRUNE_INTERVAL_MS) {
+    return;
+  }
+  lastWebCachePruneAt = now;
+  const cutoff = new Date(now - WEB_FETCH_CACHE_RETENTION_MS).toISOString();
+  const { error, count } = await supabaseService
+    .from('web_fetch_cache')
+    .delete({ count: 'exact' })
+    .lt('fetched_at', cutoff);
+  if (error) {
+    logError('web.cache_prune_failed', error, { cutoff });
+    return;
+  }
+  if (typeof count === 'number' && count > 0) {
+    logInfo('web.cache_pruned', { cutoff, deleted: count });
   }
 }
 
@@ -2265,6 +2296,20 @@ const OPENAI_WEB_SEARCH_ENABLED =
 const OPENAI_WEB_SEARCH_MODEL = process.env.OPENAI_WEB_SEARCH_MODEL ?? 'gpt-4.1-mini';
 const OPENAI_SUMMARY_MODEL = process.env.OPENAI_SUMMARY_MODEL ?? OPENAI_WEB_SEARCH_MODEL;
 
+const WEB_FETCH_CACHE_RETENTION_DAYS = (() => {
+  const raw = Number(process.env.WEB_FETCH_CACHE_RETENTION_DAYS ?? '14');
+  if (!Number.isFinite(raw) || raw <= 0) {
+    return 14;
+  }
+  return Math.floor(raw);
+})();
+const WEB_FETCH_CACHE_RETENTION_MS = WEB_FETCH_CACHE_RETENTION_DAYS * 24 * 60 * 60 * 1000;
+const WEB_FETCH_CACHE_PRUNE_INTERVAL_MS = Math.min(
+  Math.max(WEB_FETCH_CACHE_RETENTION_MS / 4, 60 * 60 * 1000),
+  12 * 60 * 60 * 1000,
+);
+let lastWebCachePruneAt = 0;
+
 const SUPABASE_URL = process.env.SUPABASE_URL;
 if (!SUPABASE_URL) {
   throw new Error('SUPABASE_URL must be configured.');
@@ -3473,6 +3518,7 @@ async function processWebHarvest(options: {
 
     const urlSettings = await getUrlSourceSettings();
     const cacheTtlMs = Math.max(0, urlSettings.fetchPolicy.cacheTtlMinutes) * 60_000;
+    await pruneStaleWebCache();
     const cached = await getCachedWebContent(webSource.url);
 
     let cleaned: string | null = null;
@@ -3484,7 +3530,7 @@ async function processWebHarvest(options: {
       if (!Number.isNaN(fetchedAt) && Date.now() - fetchedAt <= cacheTtlMs) {
         cleaned = cached.content;
         usedCache = true;
-        await touchWebCache(cached, { lastUsedAt: new Date().toISOString() });
+        await touchWebCache(cached);
       }
     }
 

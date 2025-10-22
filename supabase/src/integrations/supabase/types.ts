@@ -5634,6 +5634,7 @@ export type Database = {
           fetched_at: string
           id: string
           inserted_at: string
+          last_used_at: string
           metadata: Json | null
           status: string | null
           updated_at: string
@@ -5645,6 +5646,7 @@ export type Database = {
           fetched_at?: string
           id?: string
           inserted_at?: string
+          last_used_at?: string
           metadata?: Json | null
           status?: string | null
           updated_at?: string
@@ -5656,6 +5658,7 @@ export type Database = {
           fetched_at?: string
           id?: string
           inserted_at?: string
+          last_used_at?: string
           metadata?: Json | null
           status?: string | null
           updated_at?: string
@@ -5863,7 +5866,20 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      web_fetch_cache_metrics: {
+        Row: {
+          fetched_last_24h: number | null
+          newest_fetched_at: string | null
+          newest_last_used_at: string | null
+          oldest_fetched_at: string | null
+          oldest_last_used_at: string | null
+          total_bytes: number | null
+          total_chars: number | null
+          total_rows: number | null
+          used_last_24h: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       binary_quantize: {
