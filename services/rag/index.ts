@@ -1,5 +1,5 @@
 /* eslint-env node */
-import './env.js';
+import { env } from './env.js';
 import express, { type NextFunction, type Request, type Response } from 'express';
 import multer from 'multer';
 import pdfParse from 'pdf-parse';
@@ -691,6 +691,10 @@ app.use((req: AuthenticatedRequest, res: Response, next: NextFunction) => {
 const JWT_SECRET = await getSupabaseJwtSecret();
 const JWT_AUDIENCE = process.env.SUPABASE_JWT_AUDIENCE ?? 'authenticated';
 const RATE_LIMIT_ALERT_WEBHOOK = process.env.RATE_LIMIT_ALERT_WEBHOOK ?? process.env.ERROR_NOTIFY_WEBHOOK ?? '';
+const TELEMETRY_ALERT_WEBHOOK =
+  env.TELEMETRY_ALERT_WEBHOOK ?? process.env.TELEMETRY_ALERT_WEBHOOK ?? process.env.ERROR_NOTIFY_WEBHOOK ?? '';
+const EMBEDDING_ALERT_WEBHOOK =
+  env.EMBEDDING_ALERT_WEBHOOK ?? process.env.EMBEDDING_ALERT_WEBHOOK ?? TELEMETRY_ALERT_WEBHOOK;
 
 if (!JWT_SECRET) {
   throw new Error('SUPABASE_JWT_SECRET must be set to secure the RAG service.');
@@ -766,6 +770,11 @@ type AgentTypeKey = 'CLOSE' | 'TAX' | 'AUDIT' | 'ADVISORY' | 'CLIENT';
 const ENFORCE_CITATIONS = getFeatureFlag('FEATURE_ENFORCE_CITATIONS', true);
 const SUPPORTED_AGENT_TYPES = new Set<AgentTypeKey>(['CLOSE', 'TAX', 'AUDIT', 'ADVISORY', 'CLIENT']);
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+const EMBEDDING_CRON_SECRET = env.EMBEDDING_CRON_SECRET ?? '';
+const EMBEDDING_DELTA_LOOKBACK_HOURS = env.EMBEDDING_DELTA_LOOKBACK_HOURS;
+const EMBEDDING_DELTA_DOCUMENT_LIMIT = env.EMBEDDING_DELTA_DOCUMENT_LIMIT;
+const EMBEDDING_DELTA_POLICY_LIMIT = env.EMBEDDING_DELTA_POLICY_LIMIT;
 
 function formatDateKey(date: Date): string {
   const year = date.getUTCFullYear();
@@ -2430,6 +2439,109 @@ async function notifyRateLimitBreach(meta: { userId: string; path: string; orgSl
   }).catch((error) => logError('alerts.rate_limit_webhook_failed', error, context));
 }
 
+async function notifyEmbeddingDeltaResult(payload: {
+  summary?: DeltaEmbeddingSummary;
+  error?: unknown;
+  initiatedBy: string;
+  targetOrgIds?: string[];
+}): Promise<void> {
+  const { summary, error, initiatedBy } = payload;
+  const actor = initiatedBy || 'embedding-cron';
+  const targetOrgIds = payload.targetOrgIds ?? summary?.targetOrgIds ?? [];
+
+  const severity = error
+    ? 'CRITICAL'
+    : summary && (summary.refusals > 0 || summary.reviews > 0)
+    ? 'WARNING'
+    : 'INFO';
+  const alertType = error ? 'EMBEDDING_DELTA_FAILED' : 'EMBEDDING_DELTA_COMPLETE';
+
+  const failureCount = summary?.failures.length ?? 0;
+  const baseMessage = error
+    ? `Delta embeddings job failed (${actor})`
+    : `Delta embeddings job completed (${summary?.lookbackWindowHours ?? 0}h window by ${actor})`;
+  const message = error
+    ? `${baseMessage}: ${error instanceof Error ? error.message : String(error)}`
+    : `${baseMessage}: ${summary?.documentsEmbedded ?? 0} documents, ${summary?.policiesEmbedded ?? 0} policies, ${failureCount} failures.`;
+
+  const context: Record<string, unknown> = {
+    actor,
+    targetOrgIds,
+  };
+
+  if (summary) {
+    context.summary = {
+      lookbackWindowHours: summary.lookbackWindowHours,
+      organizationsScanned: summary.organizationsScanned,
+      organizationsUpdated: summary.organizationsUpdated,
+      documentsEmbedded: summary.documentsEmbedded,
+      policiesEmbedded: summary.policiesEmbedded,
+      chunksEmbedded: summary.chunksEmbedded,
+      skippedDocuments: summary.skippedDocuments,
+      skippedPolicies: summary.skippedPolicies,
+      approvals: summary.approvals,
+      reviews: summary.reviews,
+      refusals: summary.refusals,
+      tokensConsumed: summary.tokensConsumed,
+      organizationBreakdown: summary.organizationBreakdown.map((org) => ({
+        orgId: org.orgId,
+        orgSlug: org.orgSlug,
+        documentsEmbedded: org.documentsEmbedded,
+        policiesEmbedded: org.policiesEmbedded,
+        approvals: org.approvals,
+        reviews: org.reviews,
+        refusals: org.refusals,
+        skippedDocuments: org.skippedDocuments,
+        skippedPolicies: org.skippedPolicies,
+      })),
+      failures: summary.failures.slice(0, 10),
+    };
+  }
+
+  if (error) {
+    context.error = error instanceof Error ? error.message : String(error);
+  }
+
+  await supabaseService
+    .from('telemetry_alerts')
+    .insert({
+      alert_type: alertType,
+      severity,
+      message,
+      context,
+    })
+    .catch((err) => logError('alerts.embedding_delta_insert_failed', err, { severity, actor }));
+
+  if (!EMBEDDING_ALERT_WEBHOOK) {
+    return;
+  }
+
+  const emoji = error ? '❌' : severity === 'WARNING' ? '⚠️' : '✅';
+  const headline = summary
+    ? `${emoji} Delta embeddings (${summary.lookbackWindowHours}h) by ${actor}`
+    : `${emoji} Delta embeddings job update for ${actor}`;
+  const totalsLine = summary
+    ? `${summary.documentsEmbedded} docs · ${summary.policiesEmbedded} policies · ${failureCount} failures`
+    : null;
+  const breakdownLine = summary
+    ? summary.organizationBreakdown
+        .slice(0, 3)
+        .map((org) =>
+          `${org.orgSlug ?? org.orgId}: ${org.documentsEmbedded + org.policiesEmbedded} updates / ${org.refusals} refusals`,
+        )
+        .join(' • ')
+    : null;
+  const errorLine = error ? (error instanceof Error ? error.message : String(error)) : null;
+
+  const text = [headline, totalsLine, breakdownLine, errorLine].filter(Boolean).join('\n');
+
+  await fetch(EMBEDDING_ALERT_WEBHOOK, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text }),
+  }).catch((err) => logError('alerts.embedding_delta_webhook_failed', err, { severity, actor }));
+}
+
 async function ensureDocumentsBucket() {
   const { data: bucket } = await supabaseService.storage.getBucket('documents');
   if (!bucket) {
@@ -2545,6 +2657,78 @@ app.post(['/v1/observability/dry-run'], (req, res) => {
   if (!allow) return res.status(404).json({ error: 'not_found' });
   const rid = req.headers['x-request-id'] || null;
   throw new Error(`sentry_dry_run_triggered request_id=${rid}`);
+});
+
+app.post('/internal/knowledge/embeddings/reembed-delta', async (req, res) => {
+  let actor = 'embedding-cron';
+  let targetOrgIds: string[] = [];
+  try {
+    if (!EMBEDDING_CRON_SECRET) {
+      return res.status(503).json({ error: 'delta_embedding_job_disabled' });
+    }
+
+    const headerSecret = req.header('x-embedding-cron-secret');
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const bodySecret = typeof body.secret === 'string' ? body.secret : null;
+    const providedSecret = headerSecret ?? bodySecret;
+
+    if (providedSecret !== EMBEDDING_CRON_SECRET) {
+      logError('embeddings.delta_auth_failed', new Error('invalid cron secret'), { provided: Boolean(providedSecret) });
+      return res.status(401).json({ error: 'unauthorised' });
+    }
+
+    const lookbackHours = typeof body.lookbackHours === 'number' && Number.isFinite(body.lookbackHours)
+      ? Math.max(1, Math.floor(body.lookbackHours))
+      : EMBEDDING_DELTA_LOOKBACK_HOURS;
+    const documentLimit = typeof body.documentLimit === 'number' && Number.isFinite(body.documentLimit)
+      ? Math.max(1, Math.floor(body.documentLimit))
+      : EMBEDDING_DELTA_DOCUMENT_LIMIT;
+    const policyLimit = typeof body.policyLimit === 'number' && Number.isFinite(body.policyLimit)
+      ? Math.max(1, Math.floor(body.policyLimit))
+      : EMBEDDING_DELTA_POLICY_LIMIT;
+    actor = typeof body.actor === 'string' && body.actor.trim().length > 0 ? body.actor.trim() : 'embedding-cron';
+
+    const orgIdCandidates: string[] = [];
+    if (typeof body.orgId === 'string' && body.orgId.trim().length > 0) {
+      orgIdCandidates.push(body.orgId.trim());
+    }
+    if (Array.isArray(body.orgIds)) {
+      for (const value of body.orgIds) {
+        if (typeof value === 'string' && value.trim().length > 0) {
+          orgIdCandidates.push(value.trim());
+        }
+      }
+    }
+    targetOrgIds = Array.from(new Set(orgIdCandidates));
+
+    logInfo('embeddings.delta_job_start', {
+      lookbackHours,
+      documentLimit,
+      policyLimit,
+      actor,
+      targetOrgIds,
+    });
+
+    const summary = await reembedDeltaEmbeddings({
+      lookbackHours,
+      documentLimit,
+      policyLimit,
+      initiatedBy: actor,
+      orgIds: targetOrgIds.length > 0 ? targetOrgIds : undefined,
+    });
+
+    logInfo('embeddings.delta_job_complete', summary);
+    await notifyEmbeddingDeltaResult({ summary, initiatedBy: actor, targetOrgIds }).catch((error) =>
+      logError('alerts.embedding_delta_notify_failed', error, { actor }),
+    );
+    res.json(summary);
+  } catch (error) {
+    logError('embeddings.delta_job_failed', error, { actor, targetOrgIds });
+    await notifyEmbeddingDeltaResult({ error, initiatedBy: actor, targetOrgIds }).catch((notifyError) =>
+      logError('alerts.embedding_delta_notify_failed', notifyError, { actor }),
+    );
+    res.status(500).json({ error: 'delta_job_failed' });
+  }
 });
 
 app.use(authenticate);
@@ -2929,7 +3113,50 @@ function chunkText(text: string, size = 500): string[] {
   return chunks;
 }
 
-async function embed(texts: string[]): Promise<number[][]> {
+type EmbeddingTelemetryDecision = 'APPROVED' | 'REVIEW' | 'REFUSED';
+
+interface EmbeddingTelemetryEvent {
+  orgId: string;
+  scenario: string;
+  decision: EmbeddingTelemetryDecision;
+  metrics: Record<string, unknown>;
+  actor?: string | null;
+}
+
+async function recordEmbeddingTelemetry(event: EmbeddingTelemetryEvent): Promise<void> {
+  try {
+    await supabaseService.from('autonomy_telemetry_events').insert({
+      org_id: event.orgId,
+      module: 'knowledge_embeddings',
+      scenario: event.scenario,
+      decision: event.decision,
+      metrics: {
+        ...event.metrics,
+        recorded_at: new Date().toISOString(),
+      },
+      actor: event.actor ?? null,
+    });
+  } catch (error) {
+    logError('telemetry.embedding_log_failed', error, {
+      orgId: event.orgId,
+      scenario: event.scenario,
+      decision: event.decision,
+    });
+  }
+}
+
+type EmbedUsage = {
+  prompt_tokens?: number;
+  total_tokens?: number;
+};
+
+type EmbedResult = {
+  vectors: number[][];
+  usage: EmbedUsage;
+  model: string;
+};
+
+async function embed(texts: string[]): Promise<EmbedResult> {
   const res = await openai.embeddings.create({
     model: 'text-embedding-3-small',
     input: texts,
@@ -2939,7 +3166,761 @@ async function embed(texts: string[]): Promise<number[][]> {
     response: res as any,
     requestPayload: { size: texts.length, model: 'text-embedding-3-small' },
   });
-  return res.data.map((d) => d.embedding);
+  return {
+    vectors: res.data.map((d) => d.embedding),
+    usage: res.usage ?? {},
+    model: res.model,
+  };
+}
+
+interface BackfillSummary {
+  documentsProcessed: number;
+  policyVersionsProcessed: number;
+  chunksEmbedded: number;
+  tokensConsumed: number;
+  skippedDocuments: number;
+  skippedPolicies: number;
+  failures: { target: string; reason: string }[];
+}
+
+async function fetchDocumentsMissingEmbeddings(orgId: string, limit: number) {
+  const { rows } = await db.query(
+    `SELECT id, name, file_path, file_type, file_size, created_at
+       FROM documents
+      WHERE org_id = $1
+        AND file_path IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1 FROM document_chunks WHERE document_chunks.doc_id = documents.id
+        )
+      ORDER BY created_at ASC
+      LIMIT $2`,
+    [orgId, limit],
+  );
+  return rows as Array<{
+    id: string;
+    name: string;
+    file_path: string;
+    file_type: string | null;
+    file_size: number | null;
+  }>;
+}
+
+async function fetchDocumentsNeedingDelta(orgId: string, windowStart: Date, limit: number) {
+  const { rows } = await db.query(
+    `SELECT d.id,
+            d.name,
+            d.file_path,
+            d.file_type,
+            d.file_size,
+            COALESCE(d.created_at, now()) AS created_at,
+            MAX(c.last_embedded_at) AS last_embedded_at
+       FROM documents d
+  LEFT JOIN document_chunks c ON c.doc_id = d.id
+      WHERE d.org_id = $1
+        AND d.file_path IS NOT NULL
+        AND COALESCE(d.created_at, now()) >= $2
+   GROUP BY d.id
+     HAVING MAX(c.last_embedded_at) IS NULL OR MAX(c.last_embedded_at) < COALESCE(d.created_at, now())
+   ORDER BY COALESCE(d.created_at, now()) ASC
+      LIMIT $3`,
+    [orgId, windowStart.toISOString(), limit],
+  );
+
+  return rows as Array<{
+    id: string;
+    name: string;
+    file_path: string;
+    file_type: string | null;
+    file_size: number | null;
+  }>;
+}
+
+async function fetchPolicyVersionsNeedingDelta(orgId: string, windowStart: Date, limit: number) {
+  const { rows } = await db.query(
+    `SELECT pv.id,
+            pv.version,
+            pv.status,
+            pv.summary,
+            pv.diff,
+            COALESCE(pv.updated_at, pv.created_at, now()) AS modified_at,
+            MAX(dc.last_embedded_at) AS last_embedded_at
+       FROM agent_policy_versions pv
+  LEFT JOIN document_chunks dc
+         ON dc.org_id = pv.org_id AND dc.source = 'policy:' || pv.id::text
+      WHERE pv.org_id = $1
+        AND COALESCE(pv.updated_at, pv.created_at, now()) >= $2
+   GROUP BY pv.id
+     HAVING MAX(dc.last_embedded_at) IS NULL OR MAX(dc.last_embedded_at) < COALESCE(pv.updated_at, pv.created_at, now())
+   ORDER BY COALESCE(pv.updated_at, pv.created_at, now()) ASC
+      LIMIT $3`,
+    [orgId, windowStart.toISOString(), limit],
+  );
+
+  return rows as Array<{
+    id: string;
+    version: number;
+    status: string;
+    summary: string | null;
+    diff: unknown;
+  }>;
+}
+
+async function hasExistingPolicyEmbeddings(orgId: string, policyId: string) {
+  const sourceKey = `policy:${policyId}`;
+  const { rows } = await db.query(
+    'SELECT 1 FROM document_chunks WHERE org_id = $1 AND source = $2 LIMIT 1',
+    [orgId, sourceKey],
+  );
+  return rows.length > 0;
+}
+
+type DeltaOrgResult = {
+  documentsEmbedded: number;
+  policiesEmbedded: number;
+  chunksEmbedded: number;
+  tokensConsumed: number;
+  skippedDocuments: number;
+  skippedPolicies: number;
+  approvals: number;
+  reviews: number;
+  refusals: number;
+  failures: { target: string; reason: string; orgId?: string }[];
+};
+
+type DeltaOrgBreakdown = Omit<DeltaOrgResult, 'failures'> & {
+  orgId: string;
+  orgSlug: string;
+};
+
+type DeltaEmbeddingSummary = DeltaOrgResult & {
+  lookbackWindowHours: number;
+  organizationsScanned: number;
+  organizationsUpdated: number;
+  targetOrgIds: string[];
+  organizationBreakdown: DeltaOrgBreakdown[];
+};
+
+async function reembedDeltaForOrg(options: {
+  orgId: string;
+  orgSlug: string;
+  windowStart: Date;
+  documentLimit: number;
+  policyLimit: number;
+  initiatedBy: string;
+}): Promise<DeltaOrgResult> {
+  const orgSummary: DeltaOrgResult = {
+    documentsEmbedded: 0,
+    policiesEmbedded: 0,
+    chunksEmbedded: 0,
+    tokensConsumed: 0,
+    skippedDocuments: 0,
+    skippedPolicies: 0,
+    approvals: 0,
+    reviews: 0,
+    refusals: 0,
+    failures: [],
+  };
+
+  const documents = await fetchDocumentsNeedingDelta(options.orgId, options.windowStart, options.documentLimit);
+
+  for (const document of documents) {
+    try {
+      const download = await supabaseService.storage.from('documents').download(document.file_path);
+      if (download.error || !download.data) {
+        orgSummary.skippedDocuments += 1;
+        orgSummary.reviews += 1;
+        const reason = download.error?.message ?? 'document_download_failed';
+        orgSummary.failures.push({ target: `document:${document.id}`, reason, orgId: options.orgId });
+        await recordEmbeddingTelemetry({
+          orgId: options.orgId,
+          scenario: 'document_delta',
+          decision: 'REVIEW',
+          metrics: {
+            documentId: document.id,
+            reason,
+            lookbackHours: options.lookbackHours,
+            delta: true,
+          },
+          actor: options.initiatedBy,
+        });
+        continue;
+      }
+
+      const arrayBuffer = await download.data.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+      const text = await extractText(buffer, document.file_type ?? 'application/octet-stream');
+      const trimmed = text.trim();
+      if (!trimmed) {
+        orgSummary.skippedDocuments += 1;
+        orgSummary.reviews += 1;
+        orgSummary.failures.push({ target: `document:${document.id}`, reason: 'no_text_content', orgId: options.orgId });
+        await recordEmbeddingTelemetry({
+          orgId: options.orgId,
+          scenario: 'document_delta',
+          decision: 'REVIEW',
+          metrics: {
+            documentId: document.id,
+            reason: 'no_text_content',
+            lookbackHours: options.lookbackHours,
+            delta: true,
+          },
+          actor: options.initiatedBy,
+        });
+        continue;
+      }
+
+      const chunks = chunkText(trimmed);
+      if (!chunks.length) {
+        orgSummary.skippedDocuments += 1;
+        orgSummary.reviews += 1;
+        orgSummary.failures.push({ target: `document:${document.id}`, reason: 'no_chunks_generated', orgId: options.orgId });
+        await recordEmbeddingTelemetry({
+          orgId: options.orgId,
+          scenario: 'document_delta',
+          decision: 'REVIEW',
+          metrics: {
+            documentId: document.id,
+            reason: 'no_chunks_generated',
+            lookbackHours: options.lookbackHours,
+            delta: true,
+          },
+          actor: options.initiatedBy,
+        });
+        continue;
+      }
+
+      const { vectors, usage, model } = await embed(chunks);
+
+      await db.query('BEGIN');
+      await db.query('DELETE FROM document_chunks WHERE org_id = $1 AND doc_id = $2', [options.orgId, document.id]);
+      const insertSql =
+        'INSERT INTO document_chunks(org_id, doc_id, chunk_index, content, embedding, source, last_embedded_at) VALUES ($1,$2,$3,$4,$5,$6,now())';
+      for (let i = 0; i < chunks.length; i += 1) {
+        await db.query(insertSql, [
+          options.orgId,
+          document.id,
+          i,
+          chunks[i],
+          vector(vectors[i]),
+          `document:${document.id}`,
+        ]);
+      }
+      await db.query('COMMIT');
+
+      orgSummary.documentsEmbedded += 1;
+      orgSummary.chunksEmbedded += chunks.length;
+      orgSummary.tokensConsumed += usage.total_tokens ?? 0;
+      orgSummary.approvals += 1;
+
+      await recordEmbeddingTelemetry({
+        orgId: options.orgId,
+        scenario: 'document_delta',
+        decision: 'APPROVED',
+        metrics: {
+          documentId: document.id,
+          chunkCount: chunks.length,
+          tokens: usage.total_tokens ?? 0,
+          promptTokens: usage.prompt_tokens ?? 0,
+          model,
+          lookbackHours: options.lookbackHours,
+          delta: true,
+        },
+        actor: options.initiatedBy,
+      });
+    } catch (error) {
+      await db.query('ROLLBACK').catch(() => undefined);
+      const message = error instanceof Error ? error.message : String(error);
+      orgSummary.failures.push({ target: `document:${document.id}`, reason: message, orgId: options.orgId });
+      orgSummary.refusals += 1;
+      await recordEmbeddingTelemetry({
+        orgId: options.orgId,
+        scenario: 'document_delta',
+        decision: 'REFUSED',
+        metrics: {
+          documentId: document.id,
+          error: message,
+          lookbackHours: options.lookbackHours,
+          delta: true,
+        },
+        actor: options.initiatedBy,
+      }).catch(() => undefined);
+    }
+  }
+
+  const policies = await fetchPolicyVersionsNeedingDelta(options.orgId, options.windowStart, options.policyLimit);
+
+  for (const policy of policies) {
+    try {
+      const policyText = buildPolicyText({
+        version: policy.version ?? 0,
+        status: policy.status ?? 'unknown',
+        summary: policy.summary ?? null,
+        diff: policy.diff ?? null,
+      });
+
+      if (!policyText) {
+        orgSummary.skippedPolicies += 1;
+        orgSummary.reviews += 1;
+        await recordEmbeddingTelemetry({
+          orgId: options.orgId,
+          scenario: 'policy_delta',
+          decision: 'REVIEW',
+          metrics: {
+            policyVersionId: policy.id,
+            reason: 'no_content',
+            lookbackHours: options.lookbackHours,
+            delta: true,
+          },
+          actor: options.initiatedBy,
+        });
+        continue;
+      }
+
+      const chunks = chunkText(policyText, 700);
+      if (!chunks.length) {
+        orgSummary.skippedPolicies += 1;
+        orgSummary.reviews += 1;
+        await recordEmbeddingTelemetry({
+          orgId: options.orgId,
+          scenario: 'policy_delta',
+          decision: 'REVIEW',
+          metrics: {
+            policyVersionId: policy.id,
+            reason: 'no_chunks_generated',
+            lookbackHours: options.lookbackHours,
+            delta: true,
+          },
+          actor: options.initiatedBy,
+        });
+        continue;
+      }
+
+      const { vectors, usage, model } = await embed(chunks);
+      const sourceKey = `policy:${policy.id}`;
+
+      await db.query('BEGIN');
+      await db.query('DELETE FROM document_chunks WHERE org_id = $1 AND source = $2', [options.orgId, sourceKey]);
+      const insertSql =
+        'INSERT INTO document_chunks(org_id, doc_id, chunk_index, content, embedding, source, last_embedded_at) VALUES ($1,$2,$3,$4,$5,$6,now())';
+      for (let i = 0; i < chunks.length; i += 1) {
+        await db.query(insertSql, [
+          options.orgId,
+          policy.id,
+          i,
+          chunks[i],
+          vector(vectors[i]),
+          sourceKey,
+        ]);
+      }
+      await db.query('COMMIT');
+
+      orgSummary.policiesEmbedded += 1;
+      orgSummary.chunksEmbedded += chunks.length;
+      orgSummary.tokensConsumed += usage.total_tokens ?? 0;
+      orgSummary.approvals += 1;
+
+      await recordEmbeddingTelemetry({
+        orgId: options.orgId,
+        scenario: 'policy_delta',
+        decision: 'APPROVED',
+        metrics: {
+          policyVersionId: policy.id,
+          chunkCount: chunks.length,
+          tokens: usage.total_tokens ?? 0,
+          promptTokens: usage.prompt_tokens ?? 0,
+          model,
+          lookbackHours: options.lookbackHours,
+          delta: true,
+        },
+        actor: options.initiatedBy,
+      });
+    } catch (error) {
+      await db.query('ROLLBACK').catch(() => undefined);
+      const message = error instanceof Error ? error.message : String(error);
+      orgSummary.failures.push({ target: `policy:${policy.id}`, reason: message, orgId: options.orgId });
+      orgSummary.refusals += 1;
+      await recordEmbeddingTelemetry({
+        orgId: options.orgId,
+        scenario: 'policy_delta',
+        decision: 'REFUSED',
+        metrics: {
+          policyVersionId: policy.id,
+          error: message,
+          lookbackHours: options.lookbackHours,
+          delta: true,
+        },
+        actor: options.initiatedBy,
+      }).catch(() => undefined);
+    }
+  }
+
+  return orgSummary;
+}
+
+async function reembedDeltaEmbeddings(options: {
+  lookbackHours: number;
+  documentLimit: number;
+  policyLimit: number;
+  initiatedBy: string;
+  orgIds?: string[];
+}): Promise<DeltaEmbeddingSummary> {
+  const windowStart = new Date(Date.now() - options.lookbackHours * 60 * 60 * 1000);
+  const requestedOrgIds = options.orgIds && options.orgIds.length > 0 ? Array.from(new Set(options.orgIds)) : undefined;
+
+  let orgQuery = supabaseService
+    .from('organizations')
+    .select('id, slug')
+    .order('created_at', { ascending: true });
+
+  if (requestedOrgIds && requestedOrgIds.length > 0) {
+    orgQuery = orgQuery.in('id', requestedOrgIds);
+  }
+
+  const { data: organizations, error: orgError } = await orgQuery;
+
+  if (orgError) {
+    throw orgError;
+  }
+
+  const summary: DeltaEmbeddingSummary = {
+    lookbackWindowHours: options.lookbackHours,
+    organizationsScanned: organizations?.length ?? 0,
+    organizationsUpdated: 0,
+    documentsEmbedded: 0,
+    policiesEmbedded: 0,
+    chunksEmbedded: 0,
+    tokensConsumed: 0,
+    skippedDocuments: 0,
+    skippedPolicies: 0,
+    approvals: 0,
+    reviews: 0,
+    refusals: 0,
+    failures: [],
+    targetOrgIds: requestedOrgIds ?? [],
+    organizationBreakdown: [],
+  };
+
+  if (requestedOrgIds && requestedOrgIds.length > 0) {
+    const discovered = new Set((organizations ?? []).map((org) => org.id));
+    for (const requestedOrgId of requestedOrgIds) {
+      if (!discovered.has(requestedOrgId)) {
+        summary.failures.push({ target: `org:${requestedOrgId}`, reason: 'org_not_found' });
+        summary.refusals += 1;
+      }
+    }
+  }
+
+  for (const org of organizations ?? []) {
+    try {
+      const orgResult = await reembedDeltaForOrg({
+        orgId: org.id,
+        orgSlug: org.slug,
+        windowStart,
+        documentLimit: options.documentLimit,
+        policyLimit: options.policyLimit,
+        initiatedBy: options.initiatedBy,
+        lookbackHours: options.lookbackHours,
+      });
+
+      const totalUpdates = orgResult.documentsEmbedded + orgResult.policiesEmbedded;
+      if (totalUpdates > 0) {
+        summary.organizationsUpdated += 1;
+      }
+
+      summary.documentsEmbedded += orgResult.documentsEmbedded;
+      summary.policiesEmbedded += orgResult.policiesEmbedded;
+      summary.chunksEmbedded += orgResult.chunksEmbedded;
+      summary.tokensConsumed += orgResult.tokensConsumed;
+      summary.skippedDocuments += orgResult.skippedDocuments;
+      summary.skippedPolicies += orgResult.skippedPolicies;
+      summary.approvals += orgResult.approvals;
+      summary.reviews += orgResult.reviews;
+      summary.refusals += orgResult.refusals;
+      summary.failures.push(
+        ...orgResult.failures.map((failure) => (failure.orgId ? failure : { ...failure, orgId: org.id })),
+      );
+
+      const { failures: _orgFailures, ...orgSnapshot } = orgResult;
+      summary.organizationBreakdown.push({
+        orgId: org.id,
+        orgSlug: org.slug,
+        ...orgSnapshot,
+      });
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      summary.failures.push({ target: `org:${org.id}`, reason });
+      summary.refusals += 1;
+      logError('embeddings.delta_org_failed', error, { orgId: org.id, orgSlug: org.slug });
+      summary.organizationBreakdown.push({
+        orgId: org.id,
+        orgSlug: org.slug,
+        documentsEmbedded: 0,
+        policiesEmbedded: 0,
+        chunksEmbedded: 0,
+        tokensConsumed: 0,
+        skippedDocuments: 0,
+        skippedPolicies: 0,
+        approvals: 0,
+        reviews: 0,
+        refusals: 1,
+      });
+    }
+  }
+
+  return summary;
+}
+
+function buildPolicyText(policy: { version: number; status: string; summary: string | null; diff: any }): string {
+  const parts: string[] = [];
+  parts.push(`Policy version ${policy.version} (${policy.status})`);
+  if (typeof policy.summary === 'string' && policy.summary.trim()) {
+    parts.push(policy.summary.trim());
+  }
+  if (policy.diff != null) {
+    const diffText =
+      typeof policy.diff === 'string'
+        ? policy.diff
+        : (() => {
+            try {
+              return JSON.stringify(policy.diff, null, 2);
+            } catch (err) {
+              return String(policy.diff);
+            }
+          })();
+    if (diffText && diffText.trim().length > 0) {
+      parts.push(diffText.trim());
+    }
+  }
+  return parts.join('\n\n').trim();
+}
+
+async function backfillOrgEmbeddings(options: {
+  orgId: string;
+  limit: number;
+  includePolicies: boolean;
+  initiatedBy: string;
+}): Promise<BackfillSummary> {
+  const summary: BackfillSummary = {
+    documentsProcessed: 0,
+    policyVersionsProcessed: 0,
+    chunksEmbedded: 0,
+    tokensConsumed: 0,
+    skippedDocuments: 0,
+    skippedPolicies: 0,
+    failures: [],
+  };
+
+  const documents = await fetchDocumentsMissingEmbeddings(options.orgId, options.limit);
+  for (const document of documents) {
+    try {
+      const download = await supabaseService.storage.from('documents').download(document.file_path);
+      if (download.error || !download.data) {
+        summary.skippedDocuments += 1;
+        summary.failures.push({
+          target: `document:${document.id}`,
+          reason: download.error?.message ?? 'document_download_failed',
+        });
+        await recordEmbeddingTelemetry({
+          orgId: options.orgId,
+          scenario: 'document_backfill',
+          decision: 'REVIEW',
+          metrics: {
+            documentId: document.id,
+            reason: download.error?.message ?? 'document_download_failed',
+          },
+          actor: options.initiatedBy,
+        });
+        continue;
+      }
+
+      const arrayBuffer = await download.data.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+      const text = await extractText(buffer, document.file_type ?? 'application/octet-stream');
+      const trimmed = text.trim();
+      if (!trimmed) {
+        summary.skippedDocuments += 1;
+        await recordEmbeddingTelemetry({
+          orgId: options.orgId,
+          scenario: 'document_backfill',
+          decision: 'REVIEW',
+          metrics: {
+            documentId: document.id,
+            reason: 'empty_content',
+          },
+          actor: options.initiatedBy,
+        });
+        continue;
+      }
+
+      const chunks = chunkText(trimmed);
+      if (!chunks.length) {
+        summary.skippedDocuments += 1;
+        await recordEmbeddingTelemetry({
+          orgId: options.orgId,
+          scenario: 'document_backfill',
+          decision: 'REVIEW',
+          metrics: {
+            documentId: document.id,
+            reason: 'no_chunks_generated',
+          },
+          actor: options.initiatedBy,
+        });
+        continue;
+      }
+
+      const { vectors, usage, model } = await embed(chunks);
+
+      await db.query('BEGIN');
+      await db.query('DELETE FROM document_chunks WHERE org_id = $1 AND doc_id = $2', [
+        options.orgId,
+        document.id,
+      ]);
+      const insertSql =
+        'INSERT INTO document_chunks(org_id, doc_id, chunk_index, content, embedding, source, last_embedded_at) VALUES ($1,$2,$3,$4,$5,$6,now())';
+      for (let i = 0; i < chunks.length; i += 1) {
+        await db.query(insertSql, [
+          options.orgId,
+          document.id,
+          i,
+          chunks[i],
+          vector(vectors[i]),
+          `document:${document.id}`,
+        ]);
+      }
+      await db.query('COMMIT');
+
+      summary.documentsProcessed += 1;
+      summary.chunksEmbedded += chunks.length;
+      summary.tokensConsumed += usage.total_tokens ?? 0;
+
+      await recordEmbeddingTelemetry({
+        orgId: options.orgId,
+        scenario: 'document_backfill',
+        decision: 'APPROVED',
+        metrics: {
+          documentId: document.id,
+          chunkCount: chunks.length,
+          tokens: usage.total_tokens ?? 0,
+          promptTokens: usage.prompt_tokens ?? 0,
+          model,
+          fileType: document.file_type ?? null,
+          backfill: true,
+        },
+        actor: options.initiatedBy,
+      });
+    } catch (error) {
+      await db.query('ROLLBACK').catch(() => undefined);
+      const message = error instanceof Error ? error.message : String(error);
+      summary.failures.push({ target: `document:${document.id}`, reason: message });
+      await recordEmbeddingTelemetry({
+        orgId: options.orgId,
+        scenario: 'document_backfill',
+        decision: 'REFUSED',
+        metrics: {
+          documentId: document.id,
+          error: message,
+        },
+        actor: options.initiatedBy,
+      }).catch(() => undefined);
+    }
+  }
+
+  if (options.includePolicies) {
+    const { data: policies, error } = await supabaseService
+      .from('agent_policy_versions')
+      .select('id, version, status, summary, diff')
+      .eq('org_id', options.orgId)
+      .order('version', { ascending: true })
+      .limit(options.limit);
+
+    if (error) {
+      throw error;
+    }
+
+    for (const policy of policies ?? []) {
+      try {
+        if (await hasExistingPolicyEmbeddings(options.orgId, policy.id)) {
+          summary.skippedPolicies += 1;
+          continue;
+        }
+
+        const policyText = buildPolicyText({
+          version: policy.version ?? 0,
+          status: policy.status ?? 'unknown',
+          summary: policy.summary ?? null,
+          diff: policy.diff ?? null,
+        });
+
+        if (!policyText) {
+          summary.skippedPolicies += 1;
+          continue;
+        }
+
+        const chunks = chunkText(policyText, 700);
+        if (!chunks.length) {
+          summary.skippedPolicies += 1;
+          continue;
+        }
+
+        const { vectors, usage, model } = await embed(chunks);
+        const sourceKey = `policy:${policy.id}`;
+
+        await db.query('BEGIN');
+        await db.query('DELETE FROM document_chunks WHERE org_id = $1 AND source = $2', [
+          options.orgId,
+          sourceKey,
+        ]);
+        const insertSql =
+          'INSERT INTO document_chunks(org_id, doc_id, chunk_index, content, embedding, source, last_embedded_at) VALUES ($1,$2,$3,$4,$5,$6,now())';
+        for (let i = 0; i < chunks.length; i += 1) {
+          await db.query(insertSql, [
+            options.orgId,
+            policy.id,
+            i,
+            chunks[i],
+            vector(vectors[i]),
+            sourceKey,
+          ]);
+        }
+        await db.query('COMMIT');
+
+        summary.policyVersionsProcessed += 1;
+        summary.chunksEmbedded += chunks.length;
+        summary.tokensConsumed += usage.total_tokens ?? 0;
+
+        await recordEmbeddingTelemetry({
+          orgId: options.orgId,
+          scenario: 'policy_backfill',
+          decision: 'APPROVED',
+          metrics: {
+            policyVersionId: policy.id,
+            chunkCount: chunks.length,
+            tokens: usage.total_tokens ?? 0,
+            promptTokens: usage.prompt_tokens ?? 0,
+            model,
+            backfill: true,
+          },
+          actor: options.initiatedBy,
+        });
+      } catch (error) {
+        await db.query('ROLLBACK').catch(() => undefined);
+        const message = error instanceof Error ? error.message : String(error);
+        summary.failures.push({ target: `policy:${policy.id}`, reason: message });
+        await recordEmbeddingTelemetry({
+          orgId: options.orgId,
+          scenario: 'policy_backfill',
+          decision: 'REFUSED',
+          metrics: {
+            policyVersionId: policy.id,
+            error: message,
+          },
+          actor: options.initiatedBy,
+        }).catch(() => undefined);
+      }
+    }
+  }
+
+  return summary;
 }
 
 function stripHtml(html: string): string {
@@ -3234,7 +4215,7 @@ async function upsertDriveDocument(
     return { status: 'skipped', reason: 'no_chunks_generated' };
   }
 
-  const embeddings = await embed(chunks);
+  const { vectors: embeddings, usage: embeddingUsage, model: embeddingModel } = await embed(chunks);
   const uploaderId = await resolveDriveUploaderId(change.org_id);
   const filePath = `gdrive:${change.file_id}`;
   const fileName = download.fileName;
@@ -3266,8 +4247,38 @@ async function upsertDriveDocument(
     await db.query('COMMIT');
   } catch (err) {
     await db.query('ROLLBACK');
+    await recordEmbeddingTelemetry({
+      orgId: change.org_id,
+      scenario: 'drive_ingest',
+      decision: 'REFUSED',
+      metrics: {
+        documentId: documentId ?? mapping?.document_id ?? null,
+        chunkCount: chunks.length,
+        mode: 'changefeed',
+        error: err instanceof Error ? err.message : String(err),
+      },
+      actor: uploaderId,
+    });
     throw err;
   }
+
+  await recordEmbeddingTelemetry({
+    orgId: change.org_id,
+    scenario: 'drive_ingest',
+    decision: 'APPROVED',
+    metrics: {
+      documentId,
+      chunkCount: chunks.length,
+      tokens: embeddingUsage.total_tokens ?? 0,
+      promptTokens: embeddingUsage.prompt_tokens ?? 0,
+      model: embeddingModel,
+      fileSize,
+      mimeType: download.mimeType,
+      checksum,
+      mode: 'changefeed',
+    },
+    actor: uploaderId,
+  });
 
   const now = new Date().toISOString();
   if (mapping?.document_id) {
@@ -3533,6 +4544,7 @@ async function processWebHarvest(options: {
 }) {
   let transactionStarted = false;
   let existingState: Record<string, any> = {};
+  let webSource: WebSourceRow | null = null;
   try {
     const { data: linkRow } = await supabaseService
       .from('knowledge_sources')
@@ -3543,7 +4555,7 @@ async function processWebHarvest(options: {
       existingState = linkRow.state as Record<string, any>;
     }
 
-    const webSource = await getWebSource(options.webSourceId);
+    webSource = await getWebSource(options.webSourceId);
 
     await supabaseService
       .from('learning_runs')
@@ -3583,7 +4595,7 @@ async function processWebHarvest(options: {
       throw new Error('No chunks generated from web content');
     }
 
-    const embeddings = await embed(chunks);
+    const { vectors: embeddings, usage: embeddingUsage, model: embeddingModel } = await embed(chunks);
 
     await db.query('BEGIN');
     transactionStarted = true;
@@ -3600,6 +4612,24 @@ async function processWebHarvest(options: {
     }
     await db.query('COMMIT');
     transactionStarted = false;
+
+    if (webSource) {
+      await recordEmbeddingTelemetry({
+        orgId: options.orgId,
+        scenario: 'web_harvest',
+        decision: 'APPROVED',
+        metrics: {
+          documentId: docId,
+          chunkCount: chunks.length,
+          tokens: embeddingUsage.total_tokens ?? 0,
+          promptTokens: embeddingUsage.prompt_tokens ?? 0,
+          model: embeddingModel,
+          url: webSource.url,
+          cacheUsed: usedCache,
+        },
+        actor: options.initiatedBy,
+      });
+    }
 
     const completedState = {
       ...existingState,
@@ -3679,6 +4709,17 @@ async function processWebHarvest(options: {
     if (transactionStarted) {
       await db.query('ROLLBACK').catch(() => undefined);
     }
+    await recordEmbeddingTelemetry({
+      orgId: options.orgId,
+      scenario: 'web_harvest',
+      decision: 'REFUSED',
+      metrics: {
+        chunkCount: chunks.length,
+        url: webSource?.url ?? null,
+        error: err instanceof Error ? err.message : String(err),
+      },
+      actor: options.initiatedBy,
+    });
     const failureMessage = err instanceof Error ? err.message : String(err);
     const finishedAt = new Date().toISOString();
 
@@ -3788,7 +4829,8 @@ function buildToolDefinitions() {
 }
 
 async function performRagSearch(orgId: string, queryInput: string, topK = 6) {
-  const [embedding] = await embed([queryInput]);
+  const { vectors } = await embed([queryInput]);
+  const [embedding] = vectors;
   const { rows } = await db.query(
     'SELECT doc_id, chunk_index, content, source, embedding <-> $1 AS distance FROM document_chunks WHERE org_id = $2 ORDER BY embedding <-> $1 LIMIT $3',
     [vector(embedding), orgId, topK]
@@ -7212,6 +8254,10 @@ function startRealtimeKnowledgeWatchers() {
 }
 
 app.post('/v1/rag/ingest', upload.single('file'), async (req: AuthenticatedRequest, res) => {
+  let orgContext: Awaited<ReturnType<typeof resolveOrgForUser>> | null = null;
+  let chunks: string[] = [];
+  let embeddingUsage: EmbedUsage = {};
+  let embeddingModel = 'text-embedding-3-small';
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'file required' });
@@ -7232,7 +8278,6 @@ app.post('/v1/rag/ingest', upload.single('file'), async (req: AuthenticatedReque
       return res.status(400).json({ error: 'orgSlug is required' });
     }
 
-    let orgContext;
     try {
       orgContext = await resolveOrgForUser(userId, orgSlug);
     } catch (err) {
@@ -7247,8 +8292,10 @@ app.post('/v1/rag/ingest', upload.single('file'), async (req: AuthenticatedReque
 
     const { buffer, mimetype, originalname } = req.file;
     const text = await extractText(buffer, mimetype);
-    const chunks = chunkText(text);
-    const embeddings = await embed(chunks);
+    chunks = chunkText(text);
+    const { vectors: embeddings, usage, model } = await embed(chunks);
+    embeddingUsage = usage;
+    embeddingModel = model;
 
     await db.query('BEGIN');
     const docResult = await db.query(
@@ -7270,10 +8317,36 @@ app.post('/v1/rag/ingest', upload.single('file'), async (req: AuthenticatedReque
       chunks: chunks.length,
       orgId: orgContext.orgId,
     });
+    await recordEmbeddingTelemetry({
+      orgId: orgContext.orgId,
+      scenario: 'manual_ingest',
+      decision: 'APPROVED',
+      metrics: {
+        documentId: docId,
+        chunkCount: chunks.length,
+        tokens: embeddingUsage.total_tokens ?? 0,
+        promptTokens: embeddingUsage.prompt_tokens ?? 0,
+        model: embeddingModel,
+        fileType: mimetype,
+      },
+      actor: userId,
+    });
     res.json({ documentId: docId, chunks: chunks.length });
   } catch (err) {
     await db.query('ROLLBACK');
     logError('ingest.failed', err, { userId: req.user?.sub });
+    if (orgContext) {
+      await recordEmbeddingTelemetry({
+        orgId: orgContext.orgId,
+        scenario: 'manual_ingest',
+        decision: 'REFUSED',
+        metrics: {
+          chunkCount: chunks.length,
+          error: err instanceof Error ? err.message : String(err),
+        },
+        actor: req.user?.sub ?? null,
+      }).catch(() => undefined);
+    }
     res.status(500).json({ error: 'ingest failed' });
   }
 });
@@ -7317,7 +8390,8 @@ app.post('/v1/rag/search', async (req: AuthenticatedRequest, res) => {
       return res.json(cached);
     }
 
-    const [queryEmbedding] = await embed([query]);
+    const { vectors: queryVectors } = await embed([query]);
+    const [queryEmbedding] = queryVectors;
     const { rows } = await db.query(
       'SELECT doc_id, chunk_index, content, source, embedding <-> $1 AS distance FROM document_chunks WHERE org_id = $2 ORDER BY embedding <-> $1 LIMIT $3',
       [vector(queryEmbedding), orgContext.orgId, limit]
@@ -7345,6 +8419,7 @@ app.post('/v1/rag/search', async (req: AuthenticatedRequest, res) => {
 });
 
 app.post('/v1/rag/reembed', async (req: AuthenticatedRequest, res) => {
+  let orgContext: Awaited<ReturnType<typeof resolveOrgForUser>> | null = null;
   try {
     const { documentId, orgSlug } = req.body as { documentId?: string; orgSlug?: string };
     if (!documentId) {
@@ -7359,7 +8434,6 @@ app.post('/v1/rag/reembed', async (req: AuthenticatedRequest, res) => {
       return res.status(401).json({ error: 'invalid session' });
     }
 
-    let orgContext;
     try {
       orgContext = await resolveOrgForUser(userId, orgSlug);
     } catch (err) {
@@ -7384,7 +8458,7 @@ app.post('/v1/rag/reembed', async (req: AuthenticatedRequest, res) => {
     }
 
     const texts = rows.map((r: any) => r.content);
-    const embeddings = await embed(texts);
+    const { vectors: embeddings, usage: embeddingUsage, model: embeddingModel } = await embed(texts);
     for (let i = 0; i < rows.length; i++) {
       await db.query('UPDATE document_chunks SET embedding = $1 WHERE id = $2', [vector(embeddings[i]), rows[i].id]);
     }
@@ -7394,10 +8468,84 @@ app.post('/v1/rag/reembed', async (req: AuthenticatedRequest, res) => {
       updated: rows.length,
       orgId: orgContext.orgId,
     });
+    await recordEmbeddingTelemetry({
+      orgId: orgContext.orgId,
+      scenario: 'manual_reembed',
+      decision: 'APPROVED',
+      metrics: {
+        documentId,
+        chunkCount: rows.length,
+        tokens: embeddingUsage.total_tokens ?? 0,
+        promptTokens: embeddingUsage.prompt_tokens ?? 0,
+        model: embeddingModel,
+      },
+      actor: userId,
+    });
     res.json({ updated: rows.length });
   } catch (err) {
     logError('reembed.failed', err, { userId: req.user?.sub });
+    if (orgContext) {
+      await recordEmbeddingTelemetry({
+        orgId: orgContext.orgId,
+        scenario: 'manual_reembed',
+        decision: 'REFUSED',
+        metrics: {
+          documentId: (req.body as any)?.documentId ?? null,
+          error: err instanceof Error ? err.message : String(err),
+        },
+        actor: req.user?.sub ?? null,
+      }).catch(() => undefined);
+    }
     res.status(500).json({ error: 'reembed failed' });
+  }
+});
+
+app.post('/api/knowledge/embeddings/backfill', async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = req.user?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: 'invalid session' });
+    }
+
+    const { orgSlug, limit, includePolicies } = req.body as {
+      orgSlug?: string;
+      limit?: number;
+      includePolicies?: boolean;
+    };
+
+    if (!orgSlug) {
+      return res.status(400).json({ error: 'orgSlug required' });
+    }
+
+    const orgContext = await resolveOrgForUser(userId, orgSlug);
+    if (!hasManagerPrivileges(orgContext.role)) {
+      return res.status(403).json({ error: 'manager role required' });
+    }
+
+    const parsedLimit = Number(limit);
+    const batchSize = Number.isFinite(parsedLimit)
+      ? Math.max(1, Math.min(100, Math.trunc(parsedLimit)))
+      : 25;
+
+    const summary = await backfillOrgEmbeddings({
+      orgId: orgContext.orgId,
+      limit: batchSize,
+      includePolicies: includePolicies !== false,
+      initiatedBy: userId,
+    });
+
+    logInfo('embeddings.backfill_complete', {
+      orgId: orgContext.orgId,
+      documents: summary.documentsProcessed,
+      policies: summary.policyVersionsProcessed,
+      chunks: summary.chunksEmbedded,
+      tokens: summary.tokensConsumed,
+    });
+
+    return res.json({ summary });
+  } catch (err) {
+    logError('embeddings.backfill_failed', err, { userId: req.user?.sub });
+    return res.status(500).json({ error: 'backfill failed' });
   }
 });
 

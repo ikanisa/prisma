@@ -316,6 +316,47 @@ export type Database = {
         }
         Relationships: []
       }
+      autonomy_telemetry_events: {
+        Row: {
+          actor: string | null
+          decision: string
+          id: string
+          metrics: Json
+          module: string
+          occurred_at: string | null
+          org_id: string
+          scenario: string
+        }
+        Insert: {
+          actor?: string | null
+          decision: string
+          id?: string
+          metrics: Json
+          module: string
+          occurred_at?: string | null
+          org_id: string
+          scenario: string
+        }
+        Update: {
+          actor?: string | null
+          decision?: string
+          id?: string
+          metrics?: Json
+          module?: string
+          occurred_at?: string | null
+          org_id?: string
+          scenario?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "autonomy_telemetry_events_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agent_mcp_tools: {
         Row: {
           created_at: string
