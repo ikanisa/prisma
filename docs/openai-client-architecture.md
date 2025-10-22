@@ -11,7 +11,7 @@
 - `lib/openai/url.ts` normalises `OPENAI_BASE_URL` (removing trailing `/v1` or slashes) and exposes `buildOpenAiUrl()` for composing REST fetch calls without duplicating the version prefix.
 
 ## Python Services
-- `server/openai_client.py` now provides `get_openai_client` / `refresh_openai_client`, mirroring the TypeScript helper.
+- `server/openai/` now provides `get_openai_client` / `refresh_openai_client` helpers backed by a configurable factory.
 - Embedding calls in `server/rag.py` use the shared client and emit `openai_debug_events` records (with optional Requests API enrichment when `OPENAI_DEBUG_FETCH_DETAILS=true`).
 - FastAPI and worker entry points rely on the shared helper via the shared RAG module; no ad-hoc `AsyncOpenAI()` instantiations remain.
 - When additional assistant workflows are re-enabled, import the helper and invoke `log_openai_debug_event` to retain parity with Phase 0 observability.

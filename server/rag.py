@@ -22,7 +22,7 @@ from sqlalchemy import text
 
 from .db import Chunk, AsyncSessionLocal
 from .rate_limit import RateLimiter
-from .openai_client import get_openai_client
+from .openai import get_openai_client
 from .openai_debug import log_openai_debug_event
 from . import openai_retrieval
 

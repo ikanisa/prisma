@@ -100,6 +100,23 @@ function coerceBoolean(value) {
   return undefined;
 }
 
+function parseHeadersEnv(raw) {
+  const headers = {};
+  if (typeof raw !== 'string') return headers;
+  const parts = raw.split(',');
+  for (const part of parts) {
+    const trimmed = part.trim();
+    if (!trimmed) continue;
+    const eqIndex = trimmed.indexOf('=');
+    if (eqIndex <= 0) continue;
+    const key = trimmed.slice(0, eqIndex).trim();
+    const value = trimmed.slice(eqIndex + 1).trim();
+    if (!key || !value) continue;
+    headers[key] = value;
+  }
+  return headers;
+}
+
 function coerceNumber(value) {
   if (typeof value === 'number' && Number.isFinite(value)) {
     return value;
@@ -243,4 +260,65 @@ export async function getRoleHierarchy() {
   }
 
   return ordered;
+}
+
+export async function getTelemetryConfig() {
+  const config = await loadSystemConfig();
+  const telemetry = isRecord(config.telemetry) ? config.telemetry : {};
+
+  const namespace =
+    typeof telemetry.namespace === 'string' && telemetry.namespace.trim()
+      ? telemetry.namespace.trim()
+      : 'prisma-glow';
+  const defaultService =
+    typeof telemetry.default_service === 'string' && telemetry.default_service.trim()
+      ? telemetry.default_service.trim()
+      : 'backend-api';
+  const defaultEnvironmentEnv =
+    typeof telemetry.default_environment_env === 'string' && telemetry.default_environment_env.trim()
+      ? telemetry.default_environment_env.trim()
+      : undefined;
+
+  const exporters = [];
+  const exporterSection = telemetry.exporters;
+  if (isRecord(exporterSection) && Array.isArray(exporterSection.traces)) {
+    for (const entry of exporterSection.traces) {
+      if (!isRecord(entry)) continue;
+      const headersRaw = entry.headers;
+      const headers = isRecord(headersRaw)
+        ? Object.fromEntries(Object.entries(headersRaw).map(([key, value]) => [String(key), String(value)]))
+        : {};
+
+      exporters.push({
+        name: typeof entry.name === 'string' && entry.name.trim() ? entry.name.trim() : 'default',
+        protocol: typeof entry.protocol === 'string' && entry.protocol.trim() ? entry.protocol.trim() : 'otlp_http',
+        endpoint: typeof entry.endpoint === 'string' && entry.endpoint.trim() ? entry.endpoint.trim() : undefined,
+        endpointEnv:
+          typeof entry.endpoint_env === 'string' && entry.endpoint_env.trim() ? entry.endpoint_env.trim() : undefined,
+        headers,
+        headersEnv:
+          typeof entry.headers_env === 'string' && entry.headers_env.trim() ? entry.headers_env.trim() : undefined,
+      });
+    }
+  }
+
+  return {
+    namespace,
+    defaultService,
+    defaultEnvironmentEnv,
+    traces: exporters,
+  };
+}
+
+export function resolveTraceExporter(exporter) {
+  const endpointEnv = exporter.endpointEnv ? process.env[exporter.endpointEnv] : undefined;
+  const endpoint = typeof endpointEnv === 'string' && endpointEnv.trim() ? endpointEnv.trim() : exporter.endpoint ?? null;
+  const headers = { ...(exporter.headers ?? {}) };
+  const headersEnv = exporter.headersEnv ? process.env[exporter.headersEnv] : undefined;
+  Object.assign(headers, parseHeadersEnv(headersEnv));
+  return {
+    ...exporter,
+    resolvedEndpoint: endpoint || null,
+    resolvedHeaders: headers,
+  };
 }

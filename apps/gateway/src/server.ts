@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { type Express } from 'express';
 import { initTracing } from './otel.js';
 import type { ErrorRequestHandler } from 'express';
 import { pathToFileURL } from 'url';
@@ -9,8 +9,8 @@ import { scrubPii } from './utils/pii.js';
 import { getRequestContext } from './utils/request-context.js';
 import { env } from './env.js';
 
-export function createGatewayServer() {
-  initTracing();
+export async function createGatewayServer(): Promise<Express> {
+  await initTracing();
   const app = express();
 
   app.disable('x-powered-by');
@@ -63,9 +63,10 @@ const isEntrypoint = (() => {
 })();
 
 if (isEntrypoint) {
-  const app = createGatewayServer();
   const port = env.PORT;
-  app.listen(port, () => {
-    console.warn(`Gateway listening on port ${port}`);
+  createGatewayServer().then((app) => {
+    app.listen(port, () => {
+      console.warn(`Gateway listening on port ${port}`);
+    });
   });
 }

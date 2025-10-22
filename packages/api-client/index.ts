@@ -69,9 +69,7 @@ export class ApiClient {
    * @see ApiTypes for exact response shape
    */
   async checkReleaseControls(
-    payload: paths['/api/release-controls/check']['post']['requestBody']['content']['application/json'] & {
-      orgSlug: string;
-    },
+    payload: paths['/api/release-controls/check']['post']['requestBody']['content']['application/json'],
   ): Promise<
     paths['/api/release-controls/check']['post']['responses']['200']['content']['application/json']
   > {
