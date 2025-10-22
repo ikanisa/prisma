@@ -32,6 +32,7 @@
     "agents:publish:staging": "npm run agents:generate && npm run agents:publish && npm run agents:update",
     "agents:evaluate": "node scripts/run_agent_evaluations.js",
     "archive:phase4": "scripts/operations/archive-phase4.sh",
+    "supabase:migrate:web-cache": "node ./scripts/operations/apply-web-cache-migrations.mjs",
     "codegen:api": "python3 server/export_openapi.py && openapi-typescript openapi/fastapi.json -o packages/api-client/types.ts"
   },
   "dependencies": {
