@@ -9,16 +9,18 @@
     "resolveJsonModule": true,
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
+    "composite": true,
+    "declaration": true,
+    "declarationMap": true,
+    "incremental": true,
     "paths": {
-      "@prisma-glow/api-client": [
-        "./packages/api-client/dist/index.d.ts",
-        "./packages/api-client/dist/index.js"
-      ],
-      "@prisma-glow/system-config": [
-        "./packages/system-config/index.d.ts",
-        "./packages/system-config/index.js"
-      ],
+      "@prisma-glow/api-client": ["./packages/api-client/index.ts"],
+      "@prisma-glow/system-config": ["./packages/system-config/src/index.ts"],
       "@prisma-glow/ui": ["./packages/ui/src/index.ts"]
     }
-  }
+  },
+  "references": [
+    { "path": "./packages/api-client/tsconfig.json" },
+    { "path": "./packages/system-config/tsconfig.json" }
+  ]
 }
