@@ -21,6 +21,79 @@ type ChatkitSessionRow = {
   updated_at: string;
 };
 
+type ConversationSummary = {
+  id: string;
+  created_at: number;
+  metadata?: Record<string, string> | null;
+};
+
+type ConversationContentPart = {
+  type: string;
+  text?: string;
+  output_text?: string;
+  image_url?: string;
+  [key: string]: unknown;
+};
+
+type ConversationItemRow = {
+  id: string;
+  type: string;
+  role?: string;
+  status?: string;
+  content?: ConversationContentPart[];
+  metadata?: Record<string, string> | null;
+};
+
+type ConversationFilters = {
+  mode: 'all' | 'plain' | 'tools' | 'manual';
+  agentType: 'all' | 'AUDIT' | 'FINANCE' | 'TAX';
+  hasContext: 'any' | 'true' | 'false';
+  source: 'all' | 'agent_chat' | 'agent_stream_plain' | 'agent_stream_tools' | 'agent_manual';
+  timeRange: 'all' | '24h' | '7d' | '30d';
+  mineOnly: boolean;
+  search: string;
+};
+
+function formatConversationTimestamp(timestamp: number): string {
+  if (!timestamp) return 'Unknown';
+  const date = new Date(timestamp * 1000);
+  if (Number.isNaN(date.getTime())) {
+    return 'Unknown';
+  }
+  return date.toLocaleString();
+}
+
+function extractItemContent(item: ConversationItemRow): string {
+  if (!Array.isArray(item.content)) {
+    return '';
+  }
+  const segments = item.content
+    .map((part) => {
+      if (!part || typeof part !== 'object') return '';
+      if (typeof part.text === 'string' && part.text.length > 0) {
+        return part.text;
+      }
+      if (typeof part.output_text === 'string' && part.output_text.length > 0) {
+        return part.output_text;
+      }
+      if (typeof part.image_url === 'string' && part.image_url.length > 0) {
+        return `[image] ${part.image_url}`;
+      }
+      return part.type ?? '';
+    })
+    .filter((segment) => segment && segment.length > 0);
+  return segments.join('\n');
+}
+
+function describeConversationItem(item: ConversationItemRow): string {
+  const content = extractItemContent(item);
+  if (content) return content;
+  if (item.metadata && Object.keys(item.metadata).length > 0) {
+    return JSON.stringify(item.metadata, null, 2);
+  }
+  return JSON.stringify({ type: item.type, status: item.status }, null, 2);
+}
+
 export default function AgentChat() {
   const [question, setQuestion] = useState('Summarise ISA 315 key requirements for a senior manager.');
   const [orgSlug, setOrgSlug] = useState('demo');
@@ -32,6 +105,7 @@ export default function AgentChat() {
   const [streaming, setStreaming] = useState(false);
   const [streamMode, setStreamMode] = useState<'plain' | 'tools'>('plain');
   const [agentSessionId, setAgentSessionId] = useState<string | null>(null);
+  const [supabaseRunId, setSupabaseRunId] = useState('');
   const [startingSession, setStartingSession] = useState(false);
   const [sessionError, setSessionError] = useState<string | null>(null);
   const [sessionMessage, setSessionMessage] = useState<string | null>(null);
@@ -49,7 +123,26 @@ export default function AgentChat() {
   const [chatkitError, setChatkitError] = useState<string | null>(null);
   const [chatkitActionInFlight, setChatkitActionInFlight] = useState<'cancel' | 'resume' | null>(null);
   const [resumeNote, setResumeNote] = useState('');
+  const [conversations, setConversations] = useState<ConversationSummary[]>([]);
+  const [conversationsLoading, setConversationsLoading] = useState(false);
+  const [conversationLoadingMore, setConversationLoadingMore] = useState(false);
+  const [conversationItems, setConversationItems] = useState<ConversationItemRow[]>([]);
+  const [conversationItemsLoading, setConversationItemsLoading] = useState(false);
+  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
+  const [conversationError, setConversationError] = useState<string | null>(null);
+  const [conversationFilters, setConversationFilters] = useState<ConversationFilters>({
+    mode: 'all',
+    agentType: 'all',
+    hasContext: 'any',
+    source: 'all',
+    timeRange: 'all',
+    mineOnly: false,
+    search: '',
+  });
+  const [conversationCursor, setConversationCursor] = useState<string | null>(null);
+  const [conversationHasMore, setConversationHasMore] = useState(false);
   const eventSourceRef = useRef<EventSource | null>(null);
+  const conversationIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     return () => {
@@ -126,6 +219,187 @@ export default function AgentChat() {
     }
   }, []);
 
+  const loadConversations = useCallback(
+    async (options?: { cursor?: string | null; append?: boolean }) => {
+      const trimmedOrg = orgSlug.trim();
+      if (!trimmedOrg) {
+        setConversations([]);
+        setConversationCursor(null);
+        setConversationHasMore(false);
+        return;
+      }
+
+      if (options?.append) {
+        setConversationLoadingMore(true);
+      } else {
+        setConversationsLoading(true);
+        setConversationHasMore(false);
+      }
+      setConversationError(null);
+
+      try {
+        const params = new URLSearchParams({ orgSlug: trimmedOrg, order: 'desc', limit: '20' });
+        if (conversationFilters.mode !== 'all') {
+          params.set('mode', conversationFilters.mode);
+        }
+        if (conversationFilters.agentType !== 'all') {
+          params.set('agentType', conversationFilters.agentType);
+        }
+        if (conversationFilters.mineOnly) {
+          params.set('mine', '1');
+        }
+        if (conversationFilters.hasContext !== 'any') {
+          params.set('hasContext', conversationFilters.hasContext);
+        }
+        if (conversationFilters.source !== 'all') {
+          params.set('source', conversationFilters.source);
+        }
+        if (conversationFilters.timeRange !== 'all') {
+          params.set('since', conversationFilters.timeRange);
+        }
+        if (conversationFilters.search.trim()) {
+          params.set('search', conversationFilters.search.trim());
+        }
+        if (options?.cursor) {
+          params.set('after', options.cursor);
+        }
+
+        const res = await fetch(`${API_BASE}/api/agent/conversations?${params.toString()}`, {
+          method: 'GET',
+          credentials: 'include',
+        });
+        if (!res.ok) {
+          const body = (await res.json().catch(() => ({}))) as { error?: string };
+          throw new Error(body.error ?? `Failed to load conversations (${res.status})`);
+        }
+
+        const body = (await res.json()) as {
+          conversations?: ConversationSummary[];
+          hasMore?: boolean;
+          lastId?: string | null;
+        };
+
+        const incoming = body.conversations ?? [];
+        setConversationCursor(body.lastId ?? null);
+        setConversationHasMore(Boolean(body.hasMore));
+
+        if (options?.append) {
+          setConversations((prev) => {
+            const merged = new Map(prev.map((conversation) => [conversation.id, conversation]));
+            for (const conversation of incoming) {
+              merged.set(conversation.id, conversation);
+            }
+            return Array.from(merged.values());
+          });
+        } else {
+          setConversations(incoming);
+        }
+      } catch (error) {
+        setConversationError(error instanceof Error ? error.message : 'Failed to load conversations');
+      } finally {
+        if (options?.append) {
+          setConversationLoadingMore(false);
+        } else {
+          setConversationsLoading(false);
+        }
+      }
+    },
+    [conversationFilters, orgSlug],
+  );
+
+  const loadConversationItems = useCallback(
+    async (conversationId: string) => {
+      const trimmedOrg = orgSlug.trim();
+      if (!trimmedOrg) {
+        return;
+      }
+      setConversationItemsLoading(true);
+      setConversationError(null);
+      try {
+        const params = new URLSearchParams({ orgSlug: trimmedOrg, order: 'asc', limit: '100' });
+        const res = await fetch(
+          `${API_BASE}/api/agent/conversations/${encodeURIComponent(conversationId)}/items?${params.toString()}`,
+          {
+            method: 'GET',
+            credentials: 'include',
+          },
+        );
+        if (!res.ok) {
+          const body = (await res.json().catch(() => ({}))) as { error?: string };
+          throw new Error(body.error ?? `Failed to load conversation (${res.status})`);
+        }
+        const body = (await res.json()) as { items?: ConversationItemRow[] };
+        setConversationItems(body.items ?? []);
+      } catch (error) {
+        setConversationError(error instanceof Error ? error.message : 'Failed to load conversation items');
+      } finally {
+        setConversationItemsLoading(false);
+      }
+    },
+    [orgSlug],
+  );
+
+  const handleSelectConversation = useCallback(
+    (conversationId: string) => {
+      setSelectedConversationId(conversationId);
+      conversationIdRef.current = conversationId;
+      setConversationItems([]);
+      void loadConversationItems(conversationId);
+    },
+    [loadConversationItems],
+  );
+
+  const updateConversationFilter = useCallback((key: keyof ConversationFilters, value: string | boolean) => {
+    setConversationFilters((prev) => {
+      if (prev[key] === value) {
+        return prev;
+      }
+      return {
+        ...prev,
+        [key]: value,
+      } as ConversationFilters;
+    });
+    setConversationCursor(null);
+  }, []);
+
+  const resetConversationFilters = useCallback(() => {
+    setConversationFilters({
+      mode: 'all',
+      agentType: 'all',
+      hasContext: 'any',
+      source: 'all',
+      timeRange: 'all',
+      mineOnly: false,
+      search: '',
+    });
+    setConversationCursor(null);
+  }, []);
+
+  const loadMoreConversations = useCallback(() => {
+    if (!conversationCursor) return;
+    void loadConversations({ cursor: conversationCursor, append: true });
+  }, [conversationCursor, loadConversations]);
+
+  useEffect(() => {
+    const trimmed = orgSlug.trim();
+    if (!trimmed) {
+      setConversations([]);
+      setConversationItems([]);
+      setSelectedConversationId(null);
+      setConversationCursor(null);
+      setConversationHasMore(false);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      void loadConversations();
+    }, 200);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [orgSlug, loadConversations]);
+
   const startStream = (mode: 'plain' | 'tools' = 'plain') => {
     if (!question.trim()) return;
 
@@ -134,6 +408,10 @@ export default function AgentChat() {
     setOutput('');
     setStreaming(true);
     setStreamMode(mode);
+    setConversationError(null);
+    setConversationItems([]);
+    setSelectedConversationId(null);
+    conversationIdRef.current = null;
 
     const params = new URLSearchParams({
       orgSlug: orgSlug.trim(),
@@ -142,6 +420,16 @@ export default function AgentChat() {
     });
     if (context.trim()) {
       params.set('context', context.trim());
+    }
+    if (engagementId.trim()) {
+      params.set('engagementId', engagementId.trim());
+    }
+    if (agentSessionId) {
+      params.set('agentSessionId', agentSessionId);
+    }
+    const trimmedRunId = supabaseRunId.trim();
+    if (trimmedRunId) {
+      params.set('supabaseRunId', trimmedRunId);
     }
 
     const path = mode === 'tools' ? '/api/agent/stream/execute' : '/api/agent/stream';
@@ -159,6 +447,29 @@ export default function AgentChat() {
       try {
         const payload = JSON.parse(event.data) as StreamMessage;
         setEvents((prev) => [...prev, payload]);
+        if (payload.type === 'started' && payload.data && typeof payload.data === 'object') {
+          const data = payload.data as { agentSessionId?: string; supabaseRunId?: string };
+          if (!agentSessionId && typeof data.agentSessionId === 'string') {
+            setAgentSessionId(data.agentSessionId);
+          }
+          if (typeof data.supabaseRunId === 'string' && data.supabaseRunId.trim().length > 0) {
+            setSupabaseRunId(data.supabaseRunId.trim());
+          }
+        }
+        if (payload.type === 'conversation-started' && payload.data && typeof (payload.data as any).conversationId === 'string') {
+          const data = payload.data as { conversationId: string; agentSessionId?: string; supabaseRunId?: string };
+          const id = data.conversationId;
+          conversationIdRef.current = id;
+          setSelectedConversationId(id);
+          if (!agentSessionId && typeof data.agentSessionId === 'string') {
+            setAgentSessionId(data.agentSessionId);
+          }
+          if (typeof data.supabaseRunId === 'string' && data.supabaseRunId.trim().length > 0) {
+            setSupabaseRunId(data.supabaseRunId.trim());
+          }
+          void loadConversations();
+          void loadConversationItems(id);
+        }
         if (payload.type === 'text-delta' && typeof payload.data === 'string') {
           const segment = payload.data;
           setOutput((prev) => prev + segment);
@@ -170,6 +481,9 @@ export default function AgentChat() {
         if (payload.type === 'text-final' && typeof payload.data === 'string') {
           const finalText = payload.data;
           setOutput((prev) => (prev.length ? `${prev}\n${finalText}` : finalText));
+        }
+        if (payload.type === 'completed' && conversationIdRef.current) {
+          void loadConversationItems(conversationIdRef.current);
         }
       } catch (err) {
         console.warn('Failed to parse SSE payload', err, event.data);
@@ -306,6 +620,7 @@ export default function AgentChat() {
 
   const chatkitSessionIdForActions = chatkitSession?.chatkit_session_id ?? realtimeSession?.sessionId ?? null;
   const chatkitStatus = chatkitSession?.status ?? (chatkitSessionIdForActions ? 'ACTIVE' : '—');
+  const supabaseRunIdDisplay = supabaseRunId.trim();
 
   return (
     <main className="space-y-6 p-6" aria-labelledby="chat-heading">
@@ -320,7 +635,7 @@ export default function AgentChat() {
       </header>
 
       <section aria-label="Stream controls" className="space-y-4 rounded-lg border p-4">
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           <label className="flex flex-col gap-2 text-sm font-medium">
             Organisation slug
             <input
@@ -349,6 +664,15 @@ export default function AgentChat() {
               onChange={(event) => setEngagementId(event.target.value)}
               className="rounded-md border px-3 py-2"
               placeholder="engagement-id"
+            />
+          </label>
+          <label className="flex flex-col gap-2 text-sm font-medium">
+            Supabase run ID (optional)
+            <input
+              value={supabaseRunId}
+              onChange={(event) => setSupabaseRunId(event.target.value)}
+              className="rounded-md border px-3 py-2"
+              placeholder="run-uuid"
             />
           </label>
         </div>
@@ -471,6 +795,11 @@ export default function AgentChat() {
             <div>
               <p className="font-semibold">Agent Session</p>
               <p>Session ID: <code className="break-all">{agentSessionId}</code></p>
+              {supabaseRunIdDisplay ? (
+                <p>
+                  Supabase Run ID: <code className="break-all">{supabaseRunIdDisplay}</code>
+                </p>
+              ) : null}
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <button
@@ -547,6 +876,218 @@ export default function AgentChat() {
               {JSON.stringify(evt, null, 2)}
             </pre>
           ))}
+        </div>
+      </section>
+
+      <section aria-label="Stored conversations" className="space-y-4 rounded-lg border p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-lg font-semibold">Stored Conversations</h2>
+          <button
+            type="button"
+            onClick={() => void loadConversations()}
+            className="rounded-md border border-slate-400 px-3 py-1 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          >
+            Refresh list
+          </button>
+        </div>
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
+          <label className="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Mode
+            <select
+              value={conversationFilters.mode}
+              onChange={(event) => updateConversationFilter('mode', event.target.value as ConversationFilters['mode'])}
+              className="rounded-md border px-2 py-1 text-sm"
+            >
+              <option value="all">All</option>
+              <option value="plain">Plain</option>
+              <option value="tools">Tools</option>
+              <option value="manual">Manual</option>
+            </select>
+          </label>
+          <label className="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Agent Persona
+            <select
+              value={conversationFilters.agentType}
+              onChange={(event) => updateConversationFilter('agentType', event.target.value as ConversationFilters['agentType'])}
+              className="rounded-md border px-2 py-1 text-sm"
+            >
+              <option value="all">All personas</option>
+              <option value="AUDIT">Audit</option>
+              <option value="FINANCE">Finance</option>
+              <option value="TAX">Tax</option>
+            </select>
+          </label>
+          <label className="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Context
+            <select
+              value={conversationFilters.hasContext}
+              onChange={(event) => updateConversationFilter('hasContext', event.target.value as ConversationFilters['hasContext'])}
+              className="rounded-md border px-2 py-1 text-sm"
+            >
+              <option value="any">Any</option>
+              <option value="true">With context</option>
+              <option value="false">No context</option>
+            </select>
+          </label>
+          <label className="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Source
+            <select
+              value={conversationFilters.source}
+              onChange={(event) => updateConversationFilter('source', event.target.value as ConversationFilters['source'])}
+              className="rounded-md border px-2 py-1 text-sm"
+            >
+              <option value="all">All sources</option>
+              <option value="agent_chat">Agent chat</option>
+              <option value="agent_stream_plain">Plain stream</option>
+              <option value="agent_stream_tools">Tool stream</option>
+              <option value="agent_manual">Manual</option>
+            </select>
+          </label>
+          <label className="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Time range
+            <select
+              value={conversationFilters.timeRange}
+              onChange={(event) => updateConversationFilter('timeRange', event.target.value as ConversationFilters['timeRange'])}
+              className="rounded-md border px-2 py-1 text-sm"
+            >
+              <option value="all">All time</option>
+              <option value="24h">Last 24 hours</option>
+              <option value="7d">Last 7 days</option>
+              <option value="30d">Last 30 days</option>
+            </select>
+          </label>
+          <label className="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground md:col-span-2 xl:col-span-2">
+            Search
+            <input
+              value={conversationFilters.search}
+              onChange={(event) => updateConversationFilter('search', event.target.value)}
+              placeholder="Search by id or prompt"
+              className="rounded-md border px-2 py-1 text-sm"
+            />
+          </label>
+        </div>
+        <div className="flex flex-wrap items-center gap-3 text-sm">
+          <label className="inline-flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={conversationFilters.mineOnly}
+              onChange={(event) => updateConversationFilter('mineOnly', event.target.checked)}
+              className="h-4 w-4 rounded border"
+            />
+            <span>Only show my runs</span>
+          </label>
+          <button
+            type="button"
+            onClick={resetConversationFilters}
+            className="text-sm font-medium text-slate-600 underline-offset-2 hover:underline"
+          >
+            Reset filters
+          </button>
+        </div>
+        {conversationError ? (
+          <p className="text-sm text-red-600" role="alert">
+            {conversationError}
+          </p>
+        ) : null}
+        <div className="grid gap-4 lg:grid-cols-2">
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-sm font-semibold">
+              <span>Conversations</span>
+              {conversationsLoading ? <span className="text-xs text-muted-foreground">Loading…</span> : null}
+            </div>
+            {conversations.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No stored conversations yet.</p>
+            ) : (
+              <ul className="space-y-2">
+                {conversations.map((conversation) => (
+                  <li key={conversation.id}>
+                    <button
+                      type="button"
+                      onClick={() => handleSelectConversation(conversation.id)}
+                      className={`w-full rounded-md border px-3 py-2 text-left text-sm transition hover:bg-muted/40 ${
+                        selectedConversationId === conversation.id
+                          ? 'border-blue-500 bg-blue-50 text-blue-700'
+                          : 'border-muted-foreground/30'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <span>{conversation.metadata?.agent_type ?? 'unknown'} agent</span>
+                        <span>{formatConversationTimestamp(conversation.created_at)}</span>
+                      </div>
+                      <div className="truncate text-sm font-medium">{conversation.id}</div>
+                      <div className="mt-1 flex flex-wrap gap-2 text-[0.7rem] uppercase tracking-wide text-muted-foreground">
+                        <span className="rounded bg-muted px-2 py-0.5">{conversation.metadata?.mode ?? 'unknown'}</span>
+                        {conversation.metadata?.source ? (
+                          <span className="rounded bg-muted px-2 py-0.5">{conversation.metadata.source}</span>
+                        ) : null}
+                        {conversation.metadata?.has_context === 'true' || conversation.metadata?.context_present === 'true' ? (
+                          <span className="rounded bg-emerald-100 px-2 py-0.5 text-emerald-700">context</span>
+                        ) : null}
+                      </div>
+                      {conversation.metadata?.initial_prompt_preview ? (
+                        <p className="truncate text-xs text-muted-foreground">
+                          {conversation.metadata.initial_prompt_preview}
+                        </p>
+                      ) : null}
+                      {conversation.metadata?.agent_session_id || conversation.metadata?.supabase_run_id ? (
+                        <div className="mt-1 space-y-0.5 text-[0.65rem] text-muted-foreground">
+                          {conversation.metadata?.agent_session_id ? (
+                            <p>
+                              Session: <code className="break-all">{conversation.metadata.agent_session_id}</code>
+                            </p>
+                          ) : null}
+                          {conversation.metadata?.supabase_run_id ? (
+                            <p>
+                              Run: <code className="break-all">{conversation.metadata.supabase_run_id}</code>
+                            </p>
+                          ) : null}
+                        </div>
+                      ) : null}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {conversationHasMore ? (
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={loadMoreConversations}
+                  disabled={conversationLoadingMore || !conversationCursor}
+                  className="w-full rounded-md border border-slate-400 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {conversationLoadingMore ? 'Loading more…' : 'Load more'}
+                </button>
+              </div>
+            ) : null}
+          </div>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-sm font-semibold">
+              <span>Transcript</span>
+              {conversationItemsLoading ? <span className="text-xs text-muted-foreground">Loading…</span> : null}
+            </div>
+            {selectedConversationId ? (
+              <p className="text-xs text-muted-foreground">Conversation ID: {selectedConversationId}</p>
+            ) : (
+              <p className="text-sm text-muted-foreground">Select a conversation to view its transcript.</p>
+            )}
+            {selectedConversationId && conversationItems.length === 0 && !conversationItemsLoading ? (
+              <p className="text-sm text-muted-foreground">No items recorded yet.</p>
+            ) : null}
+            {conversationItems.length > 0 ? (
+              <ul className="max-h-[280px] space-y-2 overflow-auto rounded-md bg-muted/30 p-3 text-sm">
+                {conversationItems.map((item) => (
+                  <li key={item.id} className="rounded-md border border-muted-foreground/30 bg-background p-2">
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <span>{item.role ?? item.type}</span>
+                      <span>{item.metadata?.stage ?? item.status ?? ''}</span>
+                    </div>
+                    <pre className="mt-1 whitespace-pre-wrap break-words text-sm">{describeConversationItem(item)}</pre>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
         </div>
       </section>
     </main>
