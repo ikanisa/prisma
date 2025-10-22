@@ -40,6 +40,7 @@ This playbook outlines the temporary branching, monitoring, UAT, and documentati
   ```bash
   git checkout main
   git pull origin main
+  git merge --ff-only release/hotfix-<ticket>
   git branch -d release/hotfix-<ticket>
   git push origin --delete release/hotfix-<ticket>
   ```
