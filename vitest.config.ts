@@ -287,6 +287,10 @@ export default defineConfig({
         replacement: path.resolve(__dirname, './tests/stubs/server-only.ts'),
       },
       {
+        find: 'google-auth-library',
+        replacement: path.resolve(__dirname, './tests/stubs/google-auth-library.ts'),
+      },
+      {
         find: '@prisma-glow/api-client',
         replacement: path.resolve(__dirname, './packages/api-client/index.ts'),
       },

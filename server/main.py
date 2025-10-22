@@ -81,7 +81,6 @@ from .workflow_orchestrator import (
     complete_workflow_step,
     get_workflow_suggestions,
 )
-from .openai_client import get_openai_client
 
 app = FastAPI()
 
@@ -444,8 +443,6 @@ NOTIFICATION_KIND_TO_FRONTEND = {
     "APPROVAL": "engagement",
     "SYSTEM": "system",
 }
-
-assistant_client = get_openai_client()
 
 KNOWLEDGE_ALLOWED_DOMAINS = {"IAS", "IFRS", "ISA", "TAX", "ORG"}
 

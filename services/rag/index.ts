@@ -69,6 +69,7 @@ import {
 } from './approval-service';
 import { createOpenAiDebugLogger } from './openai-debug';
 import { getOpenAIClient } from '../../lib/openai/client';
+import type OpenAI from 'openai';
 import { readOpenAiWorkloadEnv } from '../../lib/openai/workloads';
 import {
   syncAgentToolsFromRegistry,
@@ -2022,7 +2023,49 @@ function authenticate(req: AuthenticatedRequest, res: Response, next: NextFuncti
 const db = new Client({ connectionString: process.env.DATABASE_URL });
 await db.connect();
 
-const openai = getOpenAIClient();
+function resolveOpenAiClient(): OpenAI {
+  return getOpenAIClient();
+}
+
+type OpenAiProxyTarget = OpenAI & Record<PropertyKey, unknown>;
+
+function getOpenAiProxyTarget(): OpenAiProxyTarget {
+  return resolveOpenAiClient() as OpenAiProxyTarget;
+}
+
+const openai: OpenAI = new Proxy(
+  {},
+  {
+    get(_target, property, receiver) {
+      const client = getOpenAiProxyTarget();
+      const value = Reflect.get(client, property, receiver);
+      if (typeof value === 'function') {
+        return value.bind(client);
+      }
+      return value;
+    },
+    has(_target, property) {
+      const client = getOpenAiProxyTarget();
+      return Reflect.has(client, property);
+    },
+    ownKeys() {
+      const client = getOpenAiProxyTarget();
+      return Reflect.ownKeys(client);
+    },
+    getOwnPropertyDescriptor(_target, property) {
+      const client = getOpenAiProxyTarget();
+      const descriptor = Object.getOwnPropertyDescriptor(client, property);
+      if (!descriptor) {
+        return undefined;
+      }
+      return { ...descriptor, configurable: true };
+    },
+    set(_target, property, value, receiver) {
+      const client = getOpenAiProxyTarget();
+      return Reflect.set(client, property, value, receiver);
+    },
+  },
+) as OpenAI;
 
 const OPENAI_WEB_SEARCH_ENABLED =
   (process.env.OPENAI_WEB_SEARCH_ENABLED ?? 'false').toLowerCase() === 'true';
