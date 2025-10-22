@@ -60,6 +60,11 @@ model Organization {
   audits        Audit[]
   accounting    Accounting[]   @relation("AccountingOrganization")
   taxRules      Tax[]
+  telemetryAlerts        TelemetryAlert[]
+  telemetryServiceLevels TelemetryServiceLevel[]
+  telemetryCoverage      TelemetryCoverageMetric[]
+  telemetryRefusals      TelemetryRefusalEvent[]
+  autonomyTelemetry      AutonomyTelemetryEvent[]
 
   @@map("organizations")
 }
@@ -254,4 +259,84 @@ model Tax {
   organization Organization? @relation(fields: [orgId], references: [id])
 
   @@map("tax")
+}
+
+model TelemetryAlert {
+  id        String   @id @db.Uuid
+  orgId     String?  @map("org_id") @db.Uuid
+  alertType String   @map("alert_type")
+  severity  String
+  message   String
+  context   Json
+  resolvedAt DateTime? @map("resolved_at") @db.Timestamptz(6)
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization? @relation(fields: [orgId], references: [id])
+
+  @@map("telemetry_alerts")
+}
+
+model TelemetryServiceLevel {
+  id            String   @id @db.Uuid
+  orgId         String?  @map("org_id") @db.Uuid
+  module        String
+  workflowEvent String   @map("workflow_event")
+  targetHours   Int      @map("target_hours")
+  breaches      Int      @default(0)
+  lastBreachAt  DateTime? @map("last_breach_at") @db.Timestamptz(6)
+  openBreaches  Int      @default(0) @map("open_breaches")
+  status        String   @default("ON_TRACK")
+  computedAt    DateTime @default(now()) @map("computed_at") @db.Timestamptz(6)
+
+  organization Organization? @relation(fields: [orgId], references: [id])
+
+  @@map("telemetry_service_levels")
+}
+
+model TelemetryCoverageMetric {
+  id            String   @id @db.Uuid
+  orgId         String?  @map("org_id") @db.Uuid
+  module        String
+  metric        String
+  measuredValue Decimal  @map("measured_value") @db.Decimal(18, 2)
+  population    Decimal  @db.Decimal(18, 2)
+  coverageRatio Decimal? @map("coverage_ratio") @db.Decimal(6, 3)
+  periodStart   DateTime @map("period_start") @db.Date
+  periodEnd     DateTime @map("period_end") @db.Date
+  computedAt    DateTime @default(now()) @map("computed_at") @db.Timestamptz(6)
+
+  organization Organization? @relation(fields: [orgId], references: [id])
+
+  @@map("telemetry_coverage_metrics")
+}
+
+model TelemetryRefusalEvent {
+  id         String   @id @db.Uuid
+  orgId      String?  @map("org_id") @db.Uuid
+  module     String
+  event      String
+  reason     String?
+  severity   String   @default("INFO")
+  count      Int      @default(1)
+  occurredAt DateTime @default(now()) @map("occurred_at") @db.Timestamptz(6)
+
+  organization Organization? @relation(fields: [orgId], references: [id])
+
+  @@map("telemetry_refusal_events")
+}
+
+model AutonomyTelemetryEvent {
+  id        String   @id @db.Uuid
+  orgId     String   @map("org_id") @db.Uuid
+  module    String
+  scenario  String
+  decision  String
+  metrics   Json
+  actor     String?  @db.Uuid
+  occurredAt DateTime @default(now()) @map("occurred_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [orgId], references: [id])
+
+  @@map("autonomy_telemetry_events")
 }

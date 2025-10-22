@@ -51,13 +51,11 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build gateway
-        run: |
-          pnpm --filter @prisma-glow/system-config build || true
-          pnpm --filter @prisma-glow/ui build || true
-          pnpm --filter @prisma-glow/api-client build || true
-          pnpm --filter @prisma-glow/gateway build
+        run: pnpm turbo run build --filter=@prisma-glow/gateway...
       - name: Lint gateway
-        run: pnpm --filter @prisma-glow/gateway lint
+        run: pnpm turbo run lint --filter=@prisma-glow/gateway
+      - name: Gateway tests
+        run: pnpm turbo run test --filter=@prisma-glow/gateway
 
   build-rag:
     name: Build RAG service
@@ -78,13 +76,9 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build RAG service
-        run: |
-          pnpm --filter @prisma-glow/system-config build || true
-          pnpm --filter @prisma-glow/ui build || true
-          pnpm --filter @prisma-glow/api-client build || true
-          pnpm --filter @prisma-glow/rag-service build
+        run: pnpm turbo run build --filter=@prisma-glow/rag-service...
       - name: Lint RAG service
-        run: pnpm --filter @prisma-glow/rag-service lint
+        run: pnpm turbo run lint --filter=@prisma-glow/rag-service
 
   web-tests:
     name: Frontend lint/tests
@@ -105,10 +99,10 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Lint (web)
-        run: pnpm --filter vite_react_shadcn_ts lint
+        run: pnpm turbo run lint --filter=vite_react_shadcn_ts
 
       - name: Web unit tests
-        run: pnpm --filter vite_react_shadcn_ts test
+        run: pnpm turbo run test --filter=vite_react_shadcn_ts
 
   node-tests:
     name: Node package tests
