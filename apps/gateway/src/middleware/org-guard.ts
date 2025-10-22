@@ -59,11 +59,9 @@ function hasRequiredRole(role: string, minimumRole: string | undefined, hierarch
   return index >= minIndex;
 }
 
-declare global {
-  namespace Express {
-    interface Locals {
-      org?: OrgContext;
-    }
+declare module 'express' {
+  interface Locals {
+    org?: OrgContext;
   }
 }
 

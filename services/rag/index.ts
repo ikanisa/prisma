@@ -20,6 +20,14 @@ import { SemanticResourceAttributes } from '@opentelemetry/semantic-conventions'
 import { registerInstrumentations } from '@opentelemetry/instrumentation';
 import { HttpInstrumentation } from '@opentelemetry/instrumentation-http';
 import { ExpressInstrumentation } from '@opentelemetry/instrumentation-express';
+import {
+  AnalyticsEventValidationError,
+  buildAutonomyTelemetryEvent,
+  buildTelemetryAlertEvent,
+  autonomyTelemetryRowFromEvent,
+  telemetryAlertRowFromEvent,
+  recordEventOnSpan,
+} from '../../analytics/events/node.js';
 import { createClient } from '@supabase/supabase-js';
 import type {
   ChatCompletionChunk,
@@ -2406,14 +2414,28 @@ async function notifyRateLimitBreach(meta: { userId: string; path: string; orgSl
     requestId: meta.requestId ?? null,
   };
 
-  await supabaseService
-    .from('telemetry_alerts')
-    .insert({
-      alert_type: 'RATE_LIMIT_BREACH',
+  let event;
+  try {
+    event = buildTelemetryAlertEvent({
+      alertType: 'RATE_LIMIT_BREACH',
       severity: 'WARNING',
       message: `Rate limit exceeded on ${meta.path}`,
+      orgId: null,
       context,
-    })
+    });
+  } catch (error) {
+    if (error instanceof AnalyticsEventValidationError) {
+      logError('alerts.rate_limit_validation_failed', error, context);
+      return;
+    }
+    throw error;
+  }
+
+  recordEventOnSpan(event, trace.getActiveSpan());
+
+  await supabaseService
+    .from('telemetry_alerts')
+    .insert(telemetryAlertRowFromEvent(event))
     .catch((error) => logError('alerts.rate_limit_insert_failed', error, context));
 
   if (!RATE_LIMIT_ALERT_WEBHOOK) return;
@@ -2490,14 +2512,28 @@ async function notifyEmbeddingDeltaResult(payload: {
     context.error = error instanceof Error ? error.message : String(error);
   }
 
-  await supabaseService
-    .from('telemetry_alerts')
-    .insert({
-      alert_type: alertType,
+  let alertEvent;
+  try {
+    alertEvent = buildTelemetryAlertEvent({
+      alertType,
       severity,
       message,
       context,
-    })
+      orgId: null,
+    });
+  } catch (error) {
+    if (error instanceof AnalyticsEventValidationError) {
+      logError('alerts.embedding_delta_validation_failed', error, { severity, actor });
+      return;
+    }
+    throw error;
+  }
+
+  recordEventOnSpan(alertEvent, trace.getActiveSpan());
+
+  await supabaseService
+    .from('telemetry_alerts')
+    .insert(telemetryAlertRowFromEvent(alertEvent))
     .catch((err) => logError('alerts.embedding_delta_insert_failed', err, { severity, actor }));
 
   if (!EMBEDDING_ALERT_WEBHOOK) {
@@ -3113,17 +3149,22 @@ interface EmbeddingTelemetryEvent {
 
 async function recordEmbeddingTelemetry(event: EmbeddingTelemetryEvent): Promise<void> {
   try {
-    await supabaseService.from('autonomy_telemetry_events').insert({
-      org_id: event.orgId,
+    const metrics = {
+      ...event.metrics,
+      recorded_at: new Date().toISOString(),
+    };
+    const telemetryEvent = buildAutonomyTelemetryEvent({
+      orgId: event.orgId,
       module: 'knowledge_embeddings',
       scenario: event.scenario,
       decision: event.decision,
-      metrics: {
-        ...event.metrics,
-        recorded_at: new Date().toISOString(),
-      },
+      metrics,
       actor: event.actor ?? null,
     });
+    recordEventOnSpan(telemetryEvent, trace.getActiveSpan());
+    await supabaseService
+      .from('autonomy_telemetry_events')
+      .insert(autonomyTelemetryRowFromEvent(telemetryEvent));
   } catch (error) {
     logError('telemetry.embedding_log_failed', error, {
       orgId: event.orgId,
@@ -4448,29 +4489,30 @@ function extractResponseText(response: any): string {
 type ReasoningEffort = 'minimal' | 'low' | 'medium' | 'high';
 type ResponseVerbosity = 'low' | 'medium' | 'high';
 
+async function generateWebSummary(url: string, text: string): Promise<string> {
   if (OPENAI_WEB_SEARCH_ENABLED) {
     try {
       const response = await openai.responses.create(
         withResponseDefaults(
           {
-            model: OPENAI_WEB_SEARCH_MODEL,
+            model: OPENAI_SUMMARY_MODEL,
             input: [
               {
                 role: 'system',
                 content:
-                  'You are a Big Four audit partner summarising authoritative accounting, audit, and tax technical content. Always highlight IFRS/ISA/Tax impacts and cite sections where possible.',
+                  'You are a Big Four partner producing concise technical notes. Summaries must emphasise IFRS/ISA/TAX relevance, cite clauses when possible, and flag uncertainties.',
               },
               {
                 role: 'user',
                 content: [
                   {
                     type: 'input_text',
-                    text: `Use web search to review ${url} and provide a concise summary (<= 8 bullet points) covering accounting, audit, and tax implications relevant to Malta and IFRS/ISA frameworks.`,
+                    text: `Source URL: ${url}\n\nExtracted Content (truncated):\n${source}\n\nProvide a bullet summary (<= 8 items) covering key accounting, auditing, and tax takeaways for Malta.`,
                   },
                 ],
               },
             ],
-            tools: [{ type: 'web_search' }],
+            response_format: { type: 'text' },
           },
           { effort: SUMMARY_REASONING_EFFORT, verbosity: SUMMARY_VERBOSITY },
         ),
@@ -4478,63 +4520,26 @@ type ResponseVerbosity = 'low' | 'medium' | 'high';
       await logOpenAIDebugEvent({
         endpoint: 'responses.create',
         response: response as any,
-        requestPayload: { url, model: OPENAI_WEB_SEARCH_MODEL, mode: 'web_search' },
+        requestPayload: { url, model: OPENAI_SUMMARY_MODEL, mode: 'fallback' },
         metadata: { source: 'web_summary' },
+        orgId,
+        tags: ['web_summary'],
+        requestLogPayload: { url, model: OPENAI_SUMMARY_MODEL },
       });
       const summary = extractResponseText(response)?.trim();
       if (summary) {
         return summary;
       }
     } catch (err) {
-      logError('web.harvest_summary_web_search_failed', err, { url });
+      logError('web.harvest_summary_fallback_failed', err, { url });
     }
-  }
 
-  try {
-    const response = await openai.responses.create(
-      withResponseDefaults(
-        {
-          model: OPENAI_SUMMARY_MODEL,
-          input: [
-            {
-              role: 'system',
-              content:
-                'You are a Big Four partner producing concise technical notes. Summaries must emphasise IFRS/ISA/TAX relevance, cite clauses when possible, and flag uncertainties.',
-            },
-            {
-              role: 'user',
-              content: [
-                {
-                  type: 'input_text',
-                  text: `Source URL: ${url}\n\nExtracted Content (truncated):\n${text}\n\nProvide a bullet summary (<= 8 items) covering key accounting, auditing, and tax takeaways for Malta.`,
-                },
-              ],
-            },
-          ],
-          response_format: { type: 'text' },
-        },
-        { effort: SUMMARY_REASONING_EFFORT, verbosity: SUMMARY_VERBOSITY },
-      ),
-    );
-    await logOpenAIDebugEvent({
-      endpoint: 'responses.create',
-      response: response as any,
-      requestPayload: { url, model: OPENAI_SUMMARY_MODEL, mode: 'fallback' },
-      metadata: { source: 'web_summary' },
-      orgId,
-      tags: ['web_summary'],
-      requestLogPayload: { url, model: OPENAI_SUMMARY_MODEL },
-    });
-    const summary = extractResponseText(response)?.trim();
-    if (summary) {
-      return summary;
-    }
-  } catch (err) {
-    logError('web.harvest_summary_fallback_failed', err, { url });
+    return ''; // caller will fallback further
   }
 
   return ''; // caller will fallback further
 }
+
 
 async function processWebHarvest(options: {
   runId: string;

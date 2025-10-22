@@ -21,19 +21,27 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          run_install: false
+
       - uses: actions/setup-node@v6
         with:
           node-version: 20
-          cache: npm
+          cache: 'pnpm'
 
       - name: Install deps
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Validate system config
-        run: npm run config:validate
+        run: pnpm run config:validate
+
+      - name: Typecheck
+        run: pnpm run typecheck
 
       - name: Lint (root)
-        run: npm run lint
+        run: pnpm run lint
 
       - name: Unit tests with coverage (Vitest)
         env:
@@ -42,17 +50,17 @@ jobs:
           TARGET_FUNCTIONS: 45
           TARGET_LINES: 45
         run: |
-          npm run config:validate
-          npm run coverage
+          pnpm run config:validate
+          pnpm run coverage
 
       - name: Build web bundle
-        run: npm run build
+        run: pnpm run build
 
       - name: Enforce bundle budgets
         env:
           BUNDLE_MAX_MAIN_GZ_KB: 300
           BUNDLE_MAX_CHUNK_GZ_KB: 250
-        run: npm run check:bundle
+        run: pnpm run check:bundle
 
       - name: Policy tests (pgTAP)
         env:
@@ -69,19 +77,37 @@ jobs:
           psql "$DATABASE_URL" -f scripts/test_policies.sql
 
       - name: Audit dependencies
-        run: npm audit --omit=dev || true
+        run: pnpm audit --prod || true
 
-  openapi-client:
-    name: OpenAPI codegen + client build
+  migration-smoke:
+    name: Migration smoke (Supabase)
     runs-on: ubuntu-latest
     needs: build-test
     steps:
       - uses: actions/checkout@v5
 
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Run migration smoke test
+        run: ./scripts/operations/migration-smoke.sh
+
+  openapi-client:
+    name: OpenAPI codegen + client build
+    runs-on: ubuntu-latest
+    needs: [build-test, migration-smoke]
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          run_install: false
+
       - uses: actions/setup-node@v6
         with:
           node-version: 20
-          cache: npm
+          cache: 'pnpm'
 
       - uses: actions/setup-python@v5
         with:
@@ -89,7 +115,7 @@ jobs:
           cache: 'pip'
 
       - name: Install root deps
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Install backend deps for OpenAPI export
         run: |
@@ -101,11 +127,11 @@ jobs:
           fi
 
       - name: Export OpenAPI + generate types
-        run: npm run codegen:api
+        run: pnpm run codegen:api
 
       - name: Build API client
         run: |
-          npm -w @prisma-glow/api-client run build || true
+          pnpm --filter @prisma-glow/api-client run build || true
 
       - name: Enforce OpenAPI/types drift-free
         run: |
@@ -115,7 +141,7 @@ jobs:
   next-web:
     name: Next.js + Prisma
     runs-on: ubuntu-latest
-    needs: build-test
+    needs: [build-test, migration-smoke]
     env:
       DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/postgres
       DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/postgres
@@ -123,35 +149,33 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          run_install: false
+
       - uses: actions/setup-node@v6
         with:
           node-version: 20
-          cache: npm
-          cache-dependency-path: apps/web/package-lock.json
+          cache: 'pnpm'
 
       - name: Install dependencies (Next.js app)
-        run: npm ci
-        working-directory: apps/web
+        run: pnpm install --frozen-lockfile
 
       - name: Prisma validate
-        run: npx prisma validate
-        working-directory: apps/web
+        run: pnpm --filter web exec prisma validate
 
       - name: Prisma generate
-        run: npm run prisma:generate
-        working-directory: apps/web
+        run: pnpm --filter web run prisma:generate
 
       - name: Prisma migration diff (dry-run)
-        run: npx prisma migrate diff --from-empty --to-schema-datamodel ./prisma/schema.prisma --script
-        working-directory: apps/web
+        run: pnpm --filter web exec prisma migrate diff --from-empty --to-schema-datamodel ./prisma/schema.prisma --script
 
       - name: Lint (Next.js)
-        run: npm run lint
-        working-directory: apps/web
+        run: pnpm --filter web run lint
 
       - name: Build (Next.js)
-        run: npm run build
-        working-directory: apps/web
+        run: pnpm --filter web run build
 
   ui-smoke:
     name: UI smoke (Playwright)
@@ -160,16 +184,21 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          run_install: false
+
       - uses: actions/setup-node@v6
         with:
           node-version: 20
-          cache: npm
+          cache: 'pnpm'
 
       - name: Install deps
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Install Playwright browsers
-        run: npx playwright install --with-deps
+        run: pnpm exec playwright install --with-deps
 
       - name: Smoke tests (Playwright)
         env:
@@ -180,7 +209,7 @@ jobs:
             echo 'PLAYWRIGHT_BASE_URL secret is required for UI smoke tests.' >&2
             exit 1
           fi
-          npm run test:playwright
+          pnpm run test:playwright
 
   agent-manifests:
     name: Agent manifests publish
@@ -190,17 +219,22 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          run_install: false
+
       - uses: actions/setup-node@v6
         with:
           node-version: 20
-          cache: npm
+          cache: 'pnpm'
 
       - name: Install deps
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Dry-run manifest publish
         if: github.event_name == 'pull_request'
-        run: npm run agents:publish:dry
+        run: pnpm run agents:publish:dry
 
       - name: Publish manifests to staging
         if: github.event_name != 'pull_request'
@@ -209,7 +243,7 @@ jobs:
           OPENAI_ORG_ID: ${{ secrets.STAGING_OPENAI_ORG_ID }}
           SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.STAGING_SUPABASE_SERVICE_ROLE_KEY }}
-        run: npm run agents:publish:staging
+        run: pnpm run agents:publish:staging
 
   agent-evaluations:
     name: Agent evaluations
@@ -219,19 +253,24 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          run_install: false
+
       - uses: actions/setup-node@v6
         with:
           node-version: 20
-          cache: npm
+          cache: 'pnpm'
 
       - name: Install deps
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Run agent evaluations
         env:
           AGENT_EVALUATION_BASE_URL: ${{ secrets.AGENT_EVALUATION_BASE_URL }}
           AGENT_EVALUATION_BEARER_TOKEN: ${{ secrets.AGENT_EVALUATION_BEARER_TOKEN }}
-        run: npm run agents:evaluate
+        run: pnpm run agents:evaluate
 
       - name: Upload evaluation artifacts
         if: always()
