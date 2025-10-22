@@ -3165,28 +3165,37 @@ async function summariseWebDocument(url: string, text: string): Promise<string> 
   }
 
   try {
-    const chat = await openai.chat.completions.create({
+    const response = await openai.responses.create({
       model: OPENAI_SUMMARY_MODEL,
       temperature: 0.2,
-      messages: [
+      input: [
         {
           role: 'system',
-          content:
-            'You are a Big Four partner producing concise technical notes. Summaries must emphasise IFRS/ISA/TAX relevance, cite clauses when possible, and flag uncertainties.',
+          content: [
+            {
+              type: 'input_text',
+              text: 'You are a Big Four partner producing concise technical notes. Summaries must emphasise IFRS/ISA/TAX relevance, cite clauses when possible, and flag uncertainties.',
+            },
+          ],
         },
         {
           role: 'user',
-          content: `Source URL: ${url}\n\nExtracted Content (truncated):\n${text}\n\nProvide a bullet summary (<= 8 items) covering key accounting, auditing, and tax takeaways for Malta.`,
+          content: [
+            {
+              type: 'input_text',
+              text: `Source URL: ${url}\n\nExtracted Content (truncated):\n${text}\n\nProvide a bullet summary (<= 8 items) covering key accounting, auditing, and tax takeaways for Malta.`,
+            },
+          ],
         },
       ],
     });
     await logOpenAIDebugEvent({
-      endpoint: 'chat.completions.create',
-      response: chat as any,
+      endpoint: 'responses.create',
+      response: response as any,
       requestPayload: { url, model: OPENAI_SUMMARY_MODEL },
       metadata: { source: 'web_summary' },
     });
-    const summary = chat.choices[0]?.message?.content?.trim();
+    const summary = extractResponseText(response)?.trim();
     if (summary) {
       return summary;
     }
@@ -3485,28 +3494,37 @@ async function performRagSearch(orgId: string, queryInput: string, topK = 6) {
 
 async function performPolicyCheck(statement: string, domain?: string) {
   try {
-    const completion = await openai.chat.completions.create({
+    const response = await openai.responses.create({
       model: OPENAI_SUMMARY_MODEL,
       temperature: 0,
-      messages: [
+      input: [
         {
           role: 'system',
-          content:
-            'You are a technical reviewer ensuring compliance with IFRS/IAS/ISA and Malta CFR guidance. Respond with either PASS, WARNING, or FAIL followed by reasoning.',
+          content: [
+            {
+              type: 'input_text',
+              text: 'You are a technical reviewer ensuring compliance with IFRS/IAS/ISA and Malta CFR guidance. Respond with either PASS, WARNING, or FAIL followed by reasoning.',
+            },
+          ],
         },
         {
           role: 'user',
-          content: `Domain: ${domain ?? 'general'}\nStatement:\n${statement}\n\nAssess compliance and cite any standards or regulations referenced. Keep it short (<=4 sentences).`,
+          content: [
+            {
+              type: 'input_text',
+              text: `Domain: ${domain ?? 'general'}\nStatement:\n${statement}\n\nAssess compliance and cite any standards or regulations referenced. Keep it short (<=4 sentences).`,
+            },
+          ],
         },
       ],
     });
     await logOpenAIDebugEvent({
-      endpoint: 'chat.completions.create',
-      response: completion as any,
+      endpoint: 'responses.create',
+      response: response as any,
       requestPayload: { model: OPENAI_SUMMARY_MODEL, domain: domain ?? 'general' },
       metadata: { scope: 'policy_check' },
     });
-    const answer = completion.choices[0]?.message?.content ?? 'Policy review unavailable.';
+    const answer = extractResponseText(response) || 'Policy review unavailable.';
     return { output: answer };
   } catch (err) {
     logError('agent.policy_check_failed', err, {});
