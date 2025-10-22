@@ -102,7 +102,7 @@ export async function extractVisionOcr(options: VisionOcrOptions): Promise<Visio
           ],
         },
       ],
-      response_format: { type: 'text' },
+      text: { format: 'text' },
     });
 
     const text = normaliseOutputText(response).trim();

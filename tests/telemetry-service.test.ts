@@ -65,6 +65,21 @@ describe('syncTelemetry', () => {
               { module: 'TAX_US_OVERLAY', metric: 'coverage_ratio', measured_value: 5, population: 8 },
             ],
             sla: { module: 'TAX_US_OVERLAY', workflow_event: 'MAP_CASE_RESPONSE', status: 'ON_TRACK', open_breaches: 0 },
+            webCache: {
+              retentionDays: 14,
+              status: 'HEALTHY',
+              metrics: {
+                totalRows: 3,
+                totalBytes: 1024,
+                totalChars: 4096,
+                fetchedLast24h: 1,
+                usedLast24h: 1,
+                newestFetch: '2025-01-31T00:00:00Z',
+                oldestFetch: '2025-01-30T00:00:00Z',
+                newestUse: '2025-01-31T01:00:00Z',
+                oldestUse: '2025-01-30T01:00:00Z',
+              },
+            },
           }),
         ),
     });
@@ -83,5 +98,7 @@ describe('syncTelemetry', () => {
     );
     expect(result.coverage[0].module).toBe('TAX_US_OVERLAY');
     expect(result.sla.status).toBe('ON_TRACK');
+    expect(result.webCache.status).toBe('HEALTHY');
+    expect(result.webCache.metrics.totalRows).toBe(3);
   });
 });

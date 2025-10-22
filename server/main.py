@@ -50,12 +50,13 @@ from .db import AsyncSessionLocal, Chunk, init_db
 from .rag import (
     chunk_text,
     embed_chunks,
-    extract_text,
+    extract_text_from_bytes,
     store_chunks,
     perform_semantic_search,
     get_primary_index_config,
     get_retrieval_config,
 )
+from . import openai_retrieval
 from .health import build_readiness_report
 from .security import build_csp_header, normalise_allowed_origins
 from .config_loader import (
@@ -81,9 +82,31 @@ from .workflow_orchestrator import (
     complete_workflow_step,
     get_workflow_suggestions,
 )
-from .openai_client import get_openai_client
 
 app = FastAPI()
+
+
+def _bool_env(name: str, default: bool = False) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _positive_int_env(name: str, default: int) -> int:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        return default
+    return value if value > 0 else default
+
+
+OPENAI_WEB_SEARCH_ENABLED = _bool_env("OPENAI_WEB_SEARCH_ENABLED")
+OPENAI_WEB_SEARCH_MODEL = os.getenv("OPENAI_WEB_SEARCH_MODEL", "gpt-4.1-mini")
+WEB_FETCH_CACHE_RETENTION_DAYS = _positive_int_env("WEB_FETCH_CACHE_RETENTION_DAYS", 14)
 
 # OpenTelemetry service identity and environment
 SERVICE_NAME = os.getenv("OTEL_SERVICE_NAME", "backend-api")
@@ -444,8 +467,6 @@ NOTIFICATION_KIND_TO_FRONTEND = {
     "APPROVAL": "engagement",
     "SYSTEM": "system",
 }
-
-assistant_client = get_openai_client()
 
 KNOWLEDGE_ALLOWED_DOMAINS = {"IAS", "IFRS", "ISA", "TAX", "ORG"}
 
@@ -4195,7 +4216,7 @@ async def ingest(
     org_slug_form: str = Form(..., alias="orgSlug"),
     document_id: str = Form(None),
     auth: Dict[str, Any] = Depends(require_auth),
-) -> Dict[str, int]:
+) -> Dict[str, Any]:
     if file.content_type not in ("application/pdf",):
         raise HTTPException(status_code=400, detail="Only PDF supported")
 
@@ -4210,22 +4231,38 @@ async def ingest(
         window=RAG_INGEST_RATE_WINDOW,
     )
 
+    org_slug = org_slug_form.strip()
+    if not org_slug:
+        raise HTTPException(status_code=400, detail="org slug required")
+
     org_context = await resolve_org_context(user_id, org_slug)
 
-    text = await extract_text(file)
+    payload = await file.read()
+    if not payload:
+        raise HTTPException(status_code=400, detail="empty file upload")
+
+    text = extract_text_from_bytes(payload, file.content_type)
     index_config = get_primary_index_config()
     chunk_size = int(index_config.get("chunk_size") or 1200)
     chunk_overlap = int(index_config.get("chunk_overlap") or 150)
     chunks = chunk_text(text, max_tokens=chunk_size, overlap=chunk_overlap)
     embedding_model = index_config.get("embedding_model") or None
     embeds = await embed_chunks(chunks, model=embedding_model)
+    document_ref = document_id or file.filename
     await store_chunks(
-        document_id or file.filename,
+        document_ref,
         org_context["org_id"],
         index_config.get("name"),
         embedding_model,
         chunks,
         embeds,
+    )
+    vector_store_info = await openai_retrieval.ingest_document(
+        org_id=org_context["org_id"],
+        data=payload,
+        filename=file.filename,
+        mime_type=file.content_type,
+        document_id=document_ref,
     )
     logger.info(
         "ingest",
@@ -4235,7 +4272,10 @@ async def ingest(
         org_id=org_context["org_id"],
         index=index_config.get("name"),
     )
-    return {"chunks": len(chunks)}
+    response: Dict[str, Any] = {"chunks": len(chunks)}
+    if vector_store_info:
+        response["openaiVectorStore"] = vector_store_info
+    return response
 
 
 @app.post("/v1/rag/search")
@@ -6460,6 +6500,47 @@ async def knowledge_web_sources(
     sources = response.json()
     url_settings = get_url_source_config()
     policy = url_settings.get("fetch_policy", {}) if isinstance(url_settings, Mapping) else {}
+
+    metrics_response = await supabase_table_request(
+        "GET",
+        "web_fetch_cache_metrics",
+        params={"limit": 1},
+    )
+    metrics_payload: Dict[str, Any] = {
+        "totalRows": 0,
+        "totalBytes": 0,
+        "totalChars": 0,
+        "fetchedLast24h": 0,
+        "usedLast24h": 0,
+        "newestFetch": None,
+        "oldestFetch": None,
+        "newestUse": None,
+        "oldestUse": None,
+    }
+    if metrics_response.status_code == 200:
+        rows = metrics_response.json()
+        if rows:
+            row = rows[0]
+            metrics_payload.update(
+                {
+                    "totalRows": row.get("total_rows", 0),
+                    "totalBytes": row.get("total_bytes", 0),
+                    "totalChars": row.get("total_chars", 0),
+                    "fetchedLast24h": row.get("fetched_last_24h", 0),
+                    "usedLast24h": row.get("used_last_24h", 0),
+                    "newestFetch": row.get("newest_fetched_at"),
+                    "oldestFetch": row.get("oldest_fetched_at"),
+                    "newestUse": row.get("newest_last_used_at"),
+                    "oldestUse": row.get("oldest_last_used_at"),
+                }
+            )
+    else:
+        logger.warning(
+            "knowledge.web_cache_metrics_failed",
+            status=metrics_response.status_code,
+            body=metrics_response.text,
+        )
+
     return {
         "sources": sources,
         "settings": {
@@ -6469,6 +6550,14 @@ async def knowledge_web_sources(
                 "maxDepth": policy.get("max_depth", 1),
                 "cacheTtlMinutes": policy.get("cache_ttl_minutes", 1440),
             },
+        },
+        "webSearch": {
+            "enabled": OPENAI_WEB_SEARCH_ENABLED,
+            "model": OPENAI_WEB_SEARCH_MODEL,
+        },
+        "cache": {
+            "retentionDays": WEB_FETCH_CACHE_RETENTION_DAYS,
+            "metrics": metrics_payload,
         },
     }
 

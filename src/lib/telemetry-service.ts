@@ -30,5 +30,20 @@ export async function syncTelemetry(payload: { orgSlug: string; periodStart?: st
   return json as {
     coverage: Array<{ module: string; metric: string; measured_value: number; population: number }>;
     sla: { module: string; workflow_event: string; status: string; open_breaches: number };
+    webCache: {
+      retentionDays: number;
+      status: 'EMPTY' | 'HEALTHY' | 'STALE';
+      metrics: {
+        totalRows: number;
+        totalBytes: number;
+        totalChars: number;
+        fetchedLast24h: number;
+        usedLast24h: number;
+        newestFetch: string | null;
+        oldestFetch: string | null;
+        newestUse: string | null;
+        oldestUse: string | null;
+      };
+    };
   };
 }

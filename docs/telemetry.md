@@ -24,7 +24,7 @@ curl -X POST \
   -d '{"orgSlug":"acme-audit","periodStart":"2025-01-01","periodEnd":"2025-01-31"}'
 ```
 
-This populates `telemetry_coverage_metrics` with treaty/US overlay coverage and updates `telemetry_service_levels` for MAP case response SLAs. Use `src/lib/telemetry-service.ts` or the dashboard sync button to invoke the same logic from the front-end.
+This populates `telemetry_coverage_metrics` with treaty/US overlay coverage and updates `telemetry_service_levels` for MAP case response SLAs. The same execution samples `web_fetch_cache_metrics`, returning cache health to callers and emitting a `WEB_CACHE_RETENTION` alert whenever the retention window is exceeded. Use `src/lib/telemetry-service.ts` or the dashboard sync button to invoke the same logic from the front-end.
 
 The Phase D release controls endpoint `/api/release-controls/check` reuses these
 tables, filtering `telemetry_alerts` for `WARNING+` severities and exposing both

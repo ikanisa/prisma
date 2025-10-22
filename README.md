@@ -82,7 +82,8 @@ and deployment environments (values may remain blank until Google Drive access i
 > new endpoints/edge function will queue learning runs and emit knowledge events without fetching
 > real documents. Web harvests also operate in placeholder mode until OpenAI web search is
 > available. Swap the environment variables above with live credentials when the Drive workspace and
-> web search access are connected.
+> web search access are connected. The production environment has live credentials with `OPENAI_WEB_SEARCH_ENABLED=true`
+> and a 14-day cache retention policy driven by `WEB_FETCH_CACHE_RETENTION_DAYS`.
 
 ### OpenAI agent platform & streaming toggles
 

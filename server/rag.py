@@ -24,6 +24,7 @@ from .db import Chunk, AsyncSessionLocal
 from .rate_limit import RateLimiter
 from .openai_client import get_openai_client
 from .openai_debug import log_openai_debug_event
+from . import openai_retrieval
 
 try:  # pragma: no cover - optional dependency for high-quality reranking
     from sentence_transformers import CrossEncoder  # type: ignore
@@ -36,7 +37,6 @@ from .config_loader import (
 )
 
 MODEL = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
-client = get_openai_client()
 rate_limiter = RateLimiter(int(os.getenv("OPENAI_RPM", "60")))
 logger = structlog.get_logger(__name__)
 
@@ -118,8 +118,8 @@ def chunk_text(text: str, max_tokens: int | None = None, overlap: int | None = N
         start += step
     return chunks
 
-async def extract_text(file: UploadFile) -> str:
-    data = await file.read()
+def extract_text_from_bytes(data: bytes, mime_type: Optional[str] = None) -> str:
+    resolved_mime = mime_type or "application/pdf"
     if documentai and os.getenv("DOCAI_PROCESSOR_ID"):
         try:
             client = documentai.DocumentProcessorServiceClient()
@@ -128,7 +128,7 @@ async def extract_text(file: UploadFile) -> str:
                 os.getenv("GOOGLE_LOCATION", "us"),
                 os.getenv("DOCAI_PROCESSOR_ID"),
             )
-            doc = documentai.RawDocument(content=data, mime_type=file.content_type)
+            doc = documentai.RawDocument(content=data, mime_type=resolved_mime)
             request = documentai.ProcessRequest(name=name, raw_document=doc)
             result = client.process_document(request=request)
             return result.document.text
@@ -137,8 +137,14 @@ async def extract_text(file: UploadFile) -> str:
     reader = PdfReader(io.BytesIO(data))
     return "\n".join(page.extract_text() or "" for page in reader.pages)
 
+
+async def extract_text(file: UploadFile) -> str:
+    data = await file.read()
+    return extract_text_from_bytes(data, file.content_type)
+
 async def embed_chunks(chunks: List[str], model: str | None = None) -> List[List[float]]:
     target_model = model or get_primary_index_config().get("embedding_model") or MODEL
+    client = _get_embeddings_client()
     embeddings = []
     for ch in chunks:
         if not rate_limiter.allow(time.time()):
@@ -286,6 +292,16 @@ async def _apply_reranker(query: str, results: Iterable[Dict[str, Any]], reranke
 async def perform_semantic_search(org_id: str, query: str, requested_k: int) -> Dict[str, Any]:
     retrieval_config = get_retrieval_config()
     limit = max(1, min(retrieval_config["top_k"], requested_k))
+
+    if openai_retrieval.is_enabled():
+        try:
+            return await openai_retrieval.search(org_id, query, limit, retrieval_config)
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.warning(
+                "rag.openai_retrieval_failed",
+                error=str(exc),
+                org_id=org_id,
+            )
 
     configured_indexes = get_vector_index_configs()
     primary_index = get_primary_index_config()

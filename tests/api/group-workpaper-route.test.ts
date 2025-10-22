@@ -12,7 +12,7 @@ const COMPONENT_ID = '50000000-0000-0000-0000-000000000003';
 const INSTRUCTION_ID = '50000000-0000-0000-0000-000000000004';
 const USER_ID = '50000000-0000-0000-0000-000000000005';
 
-vi.mock('../../apps/lib/supabase-server', () => ({
+vi.mock('@/lib/supabase-server', () => ({
   getServiceSupabaseClient: () => getServiceSupabaseClientMock(),
 }));
 

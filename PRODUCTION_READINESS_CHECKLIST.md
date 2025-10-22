@@ -50,6 +50,7 @@
 - Telemetry schemas and rate-limit guidance in `docs/telemetry.md` with actionable alerts.
 - Error notification pipeline implemented via `/functions/v1/error-notify`; process captured in `docs/incident-response.md`.
 - Rate-limit breaches and SLA at-risk events emit `telemetry_alerts` rows and optional webhooks (`RATE_LIMIT_ALERT_WEBHOOK`, `TELEMETRY_ALERT_WEBHOOK`) routing to PagerDuty/Slack.
+- Web search cache retention monitored via `telemetry-sync` (`WEB_CACHE_RETENTION` alerts) with operational steps captured in `docs/web-search.md` and `GO-LIVE/RELEASE_RUNBOOK.md`.
 - `/api/release-controls/check` reports `environment.autonomy/mfa/telemetry` states as `satisfied` before change approval; archive the response JSON in the go-live ticket.
 
 ## DevOps
