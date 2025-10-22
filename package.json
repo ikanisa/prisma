@@ -29,6 +29,7 @@
     "test": "vitest run",
     "coverage": "./scripts/coverage.sh",
     "test:playwright": "playwright test",
+    "test:playwright:core": "playwright test tests/playwright/core-journeys.spec.ts",
     "agents:generate": "ts-node scripts/generate_agent_manifests.ts",
     "agents:publish": "ts-node scripts/publish_agent_manifests.ts",
     "agents:update": "ts-node scripts/update_agent_manifest_ids.ts",
@@ -36,6 +37,7 @@
     "agents:publish:staging": "npm run agents:generate && npm run agents:publish && npm run agents:update",
     "agents:evaluate": "node scripts/run_agent_evaluations.js",
     "openai:file-search:secrets": "ts-node scripts/operations/publish-openai-file-search-secrets.ts",
+    "load:test": "npx artillery run tests/load/artillery/core-journeys.yml",
     "archive:phase4": "scripts/operations/archive-phase4.sh",
     "supabase:migrate:web-cache": "node ./scripts/operations/apply-web-cache-migrations.mjs",
     "codegen:api": "python3 server/export_openapi.py && openapi-typescript openapi/fastapi.json -o packages/api-client/types.ts"

@@ -172,6 +172,42 @@ Open items: <secrets to rotate, DNS cutover, analytics hooks, etc.>
 
 Keep this report in `AUDIT_REPORT.md` or share via the chosen compliance channel.
 
+## J) Vercel Deployment Checklist (Preview & Production)
+
+1. **Pre-flight validation**
+   - [ ] Confirm the latest commit on the release branch has passed `pnpm test`, `pnpm lint`, Playwright (`pnpm test:playwright`), and Python test suites (`pytest`).
+   - [ ] Review coverage summaries in `coverage/lcov.info` (Vitest) and the pytest-cov report (e.g., `pytest --cov` output captured in CI artifacts) to ensure lines/functions stay within historical thresholds before approving the release.
+   - [ ] Tag the release candidate in GitHub with an annotated tag (e.g., `vercel-v2025.02.14`) for traceability.
+
+2. **Environment parity checks**
+   - [ ] In Vercel → Project Settings → Environment Variables, verify the Preview and Production groups mirror the matrix in Section C (especially `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_JWT_SECRET`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_API_BASE`, `OPENAI_API_KEY`, rate limiting knobs, and GPT-5 tuning values).
+   - [ ] Run `pnpm run agents:generate` followed by `pnpm run agents:update` to ensure agent manifests/serverless metadata match the Supabase tables before deploying.
+   - [ ] Confirm Supabase secrets for server-side functions (Vault path or direct variables) match the Vercel environment values.
+
+3. **Database & migrations**
+   - [ ] Execute `pnpm supabase:migrate:web-cache` (or `supabase db push` for ad hoc changes) against staging. Capture the CLI output artifact in the deployment ticket.
+   - [ ] Review generated SQL under `apps/web/prisma/migrations` and obtain sign-off from the data owner.
+   - [ ] Schedule production `prisma migrate deploy` via the `Supabase Prisma Deploy` GitHub Action (environment = `production`) immediately after the Vercel promotion window.
+
+4. **Serverless & edge functions**
+   - [ ] Run `pnpm build` from the repo root to ensure Next.js, edge functions under `apps/web/app/api/*`, and shared packages compile without warnings.
+   - [ ] Re-run `pnpm test:playwright --project=Chromium` to validate auth, agent chat, and document upload flows using the fixture suite added in `tests/playwright/core-journeys.spec.ts`.
+   - [ ] For Supabase Edge functions or scheduled tasks, verify the latest bundle hash recorded in `audit/edge-function-manifest.json` matches the deployed version.
+
+5. **Deployment execution**
+   - [ ] Trigger a Vercel Preview deployment by pushing the release branch; validate `/api/healthz`, agent chat streaming controls, and document upload success states manually or via scripted smoke tests.
+   - [ ] Promote the Preview deployment to Production once migrations finish and smoke tests pass. Capture the deployment URL and ID.
+
+6. **Post-deploy monitoring**
+   - [ ] Confirm Datadog/New Relic dashboards show healthy p95 latency (<800 ms) for `/api/agent/*` and no 429 spikes (correlate with the k6/Artillery thresholds).
+   - [ ] Review Supabase rate limit metrics; adjust `API_RATE_LIMIT`/`API_RATE_WINDOW_SECONDS` if throttling appears during load.
+   - [ ] Update `DEPLOYMENT_READINESS_REPORT.md` with the deployment ID, migration batch, and verification timestamps.
+
+7. **Rollback playbook**
+   - [ ] Use Vercel’s “Promote previous deployment” for immediate rollback, then `git revert` the offending commits to keep `main` accurate.
+   - [ ] If a migration must be undone, execute the documented Supabase PITR or manual down script; record actions in the incident log and notify stakeholders per Section H.
+   - [ ] Post-rollback, run smoke tests and update the checklist to reflect the restored state.
+
 ---
 
 ### Related References
