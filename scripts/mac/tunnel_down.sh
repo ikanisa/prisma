@@ -1,36 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+PID_FILE="$ROOT_DIR/.logs/cloudflared.pid"
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
-CONFIG_DIR="$ROOT_DIR/infra/cloudflared"
-PID_FILE="$CONFIG_DIR/cloudflared.pid"
-
-stop_tunnel() {
-  if [[ ! -f "$PID_FILE" ]]; then
-    echo "No PID file found at $PID_FILE. The tunnel does not appear to be running."
-    exit 0
+if [[ -f "$PID_FILE" ]]; then
+  PID="$(cat "$PID_FILE")"
+  if kill "$PID" >/dev/null 2>&1; then
+    echo "🛑 Stopped cloudflared (PID $PID)."
+  else
+    echo "ℹ️  cloudflared was not running."
   fi
-
-  local pid
-  pid="$(cat "$PID_FILE")"
-  if [[ -z "$pid" ]]; then
-    echo "PID file at $PID_FILE is empty. Removing it." >&2
-    rm -f "$PID_FILE"
-    exit 0
-  fi
-
-  if ! kill -0 "$pid" >/dev/null 2>&1; then
-    echo "No running cloudflared process found for PID $pid. Removing stale PID file." >&2
-    rm -f "$PID_FILE"
-    exit 0
-  fi
-
-  echo "Stopping cloudflared tunnel (PID $pid)..."
-  kill "$pid"
-  wait "$pid" 2>/dev/null || true
   rm -f "$PID_FILE"
-  echo "cloudflared tunnel stopped."
-}
-
-stop_tunnel
+else
+  pkill -f "cloudflared .*tunnel run" >/dev/null 2>&1 || true
+  echo "ℹ️  Attempted to stop cloudflared (no PID file found)."
+fi

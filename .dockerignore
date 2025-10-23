@@ -1,21 +1,33 @@
 # Node & general build output
 node_modules
 **/node_modules
-npm-debug.log*
-.yarn/cache
-.pnpm-store
+.next
+**/.next
+dist
+build
+coverage
+
+# VCS metadata
+.git
+.gitignore
 
 # Environment & secrets
 .env*
 *.local
 .supabase
 
-# Git metadata
-.git
-.gitignore
+# Package manager caches
+.pnpm-store
+.yarn/cache
+pnpm-lock.yaml.#tmp
 
-# Build artifacts
-build
-dist
-coverage
+# Docker artifacts
+Dockerfile*
+docker-compose*.yml
+
+# Logs & misc
+npm-debug.log*
 .DS_Store
+
+# Project-specific
+**/v8-compile-cache-*/
