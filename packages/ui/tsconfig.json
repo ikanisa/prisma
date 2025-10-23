@@ -8,8 +8,7 @@
     "declaration": true,
     "jsx": "react-jsx",
     "noEmit": false,
-    "incremental": false,
-    "composite": false
+    "composite": true
   },
   "include": ["src/**/*.ts", "src/**/*.tsx"],
   "exclude": ["dist", "node_modules"],

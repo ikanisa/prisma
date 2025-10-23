@@ -14,5 +14,3 @@ updates:
           - "version-update:semver-major"
           - "version-update:semver-minor"
           - "version-update:semver-patch"
-        # Freeze dependency updates during the refactor window; remove once work is complete.
-

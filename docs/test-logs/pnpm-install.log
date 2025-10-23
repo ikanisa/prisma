@@ -1,18 +1,31 @@
+SUMMARY:
+- pnpm install completed successfully in ~24s.
+- WARN: Node v20.19.4 is running while the project expects v18.20.4.
+- WARN: vite-plugin-pwa peer dependencies (workbox-build/window ^7.3.0) remain unmet; several deprecated subdependencies noted.
+
  WARN  Unsupported engine: wanted: {"node":"18.20.4"} (current: {"node":"v20.19.4","pnpm":"9.12.3"})
 Scope: all 7 workspace projects
 Progress: resolved 1, reused 0, downloaded 0, added 0
+Progress: resolved 85, reused 85, downloaded 0, added 0
 apps/web                                 |  WARN  deprecated eslint@8.57.1
 packages/ui                              |  WARN  deprecated tsup@7.3.0
-Progress: resolved 126, reused 126, downloaded 0, added 0
-Progress: resolved 709, reused 624, downloaded 0, added 0
-Progress: resolved 1319, reused 1218, downloaded 0, added 0
+Progress: resolved 128, reused 126, downloaded 2, added 0
+Progress: resolved 278, reused 253, downloaded 2, added 0
+Progress: resolved 571, reused 493, downloaded 2, added 0
+Progress: resolved 956, reused 844, downloaded 2, added 0
+Progress: resolved 1283, reused 1173, downloaded 3, added 0
+Progress: resolved 1342, reused 1232, downloaded 4, added 0
  WARN  14 deprecated subdependencies found: @humanwhocodes/config-array@0.13.0, @humanwhocodes/object-schema@2.0.3, @types/minimatch@6.0.0, glob@7.2.3, google-p12-pem@4.0.1, inflight@1.0.6, node-domexception@1.0.0, rimraf@2.7.1, rimraf@3.0.2, rollup-plugin-terser@7.0.2, source-map@0.8.0-beta.0, sourcemap-codec@1.4.8, workbox-cacheable-response@6.6.0, workbox-google-analytics@6.6.0
-Progress: resolved 1350, reused 1249, downloaded 0, added 0
-Already up to date
-Progress: resolved 1350, reused 1249, downloaded 0, added 0, done
+Progress: resolved 1359, reused 1249, downloaded 4, added 0
+Packages: +7
++++++++
+Progress: resolved 1359, reused 1249, downloaded 4, added 7, done
+packages/system-config prepare$ pnpm run build
 packages/ui prepare$ pnpm run build
 packages/ui prepare: > @prisma-glow/ui@0.0.1 build /workspace/prisma/packages/ui
 packages/ui prepare: > tsup src/index.ts --format esm,cjs --dts --out-dir dist --clean --external react --external react-dom
+packages/system-config prepare: > @prisma-glow/system-config@0.0.1 build /workspace/prisma/packages/system-config
+packages/system-config prepare: > tsc -b tsconfig.json
 packages/ui prepare: CLI Building entry: src/index.ts
 packages/ui prepare: CLI Using tsconfig: tsconfig.json
 packages/ui prepare: CLI tsup v7.3.0
@@ -20,15 +33,19 @@ packages/ui prepare: CLI Target: es2020
 packages/ui prepare: CLI Cleaning output folder
 packages/ui prepare: ESM Build start
 packages/ui prepare: CJS Build start
-packages/ui prepare: CJS dist/index.cjs 2.95 KB
-packages/ui prepare: CJS ⚡️ Build success in 55ms
-packages/ui prepare: ESM dist/index.js 1.27 KB
-packages/ui prepare: ESM ⚡️ Build success in 63ms
+packages/ui prepare: ESM dist/index.js 3.66 KB
+packages/ui prepare: ESM ⚡️ Build success in 272ms
+packages/ui prepare: CJS dist/index.cjs 5.44 KB
+packages/ui prepare: CJS ⚡️ Build success in 279ms
 packages/ui prepare: DTS Build start
-packages/ui prepare: DTS ⚡️ Build success in 1726ms
-packages/ui prepare: DTS dist/index.d.ts  726.00 B
-packages/ui prepare: DTS dist/index.d.cts 726.00 B
+packages/system-config prepare: Done
+packages/ui prepare: DTS ⚡️ Build success in 6324ms
+packages/ui prepare: DTS dist/index.d.ts  1.85 KB
+packages/ui prepare: DTS dist/index.d.cts 1.85 KB
 packages/ui prepare: Done
+
+devDependencies:
++ turbo 2.5.8
 
  WARN  Issues with peer dependencies found
 .
@@ -36,4 +53,4 @@ packages/ui prepare: Done
   ├── ✕ unmet peer workbox-build@^7.3.0: found 6.6.0
   └── ✕ unmet peer workbox-window@^7.3.0: found 6.6.0
 
-Done in 9.5s
+Done in 24s

@@ -1,4 +1,4 @@
-import { promises as fs } from 'node:fs';
+import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parse } from 'yaml';
@@ -6,33 +6,23 @@ import { parse } from 'yaml';
 const ENV_CONFIG_PATH = 'SYSTEM_CONFIG_PATH';
 const DEFAULT_CONFIG_PATH = path.resolve(process.cwd(), 'config/system.yaml');
 
-const moduleDefaultPath = (() => {
-  try {
-    return path.resolve(fileURLToPath(new URL('../../config/system.yaml', import.meta.url)));
-  } catch {
-    return DEFAULT_CONFIG_PATH;
-  }
-})();
-
-const DEFAULT_GOOGLE_SCOPES = [
+const DEFAULT_GOOGLE_SCOPES = Object.freeze([
   'https://www.googleapis.com/auth/drive.readonly',
   'https://www.googleapis.com/auth/drive.metadata.readonly',
-] as const;
-const DEFAULT_FOLDER_MAPPING = 'org-{orgId}/entity-{entityId}/{repoFolder}' as const;
-const DEFAULT_URL_ALLOWED_DOMAINS = ['*'] as const;
-const DEFAULT_URL_POLICY = {
+]);
+const DEFAULT_FOLDER_MAPPING = 'org-{orgId}/entity-{entityId}/{repoFolder}';
+const DEFAULT_URL_ALLOWED_DOMAINS = Object.freeze(['*']);
+const DEFAULT_URL_POLICY = Object.freeze({
   obeyRobots: true,
   maxDepth: 1,
-  cacheTtlMinutes: 1440,
-} as const;
-
-export const DEFAULT_BEFORE_ASKING_SEQUENCE: ReadonlyArray<string> = Object.freeze([
+  cacheTtlMinutes: 1_440,
+});
+export const DEFAULT_BEFORE_ASKING_SEQUENCE = Object.freeze([
   'documents',
   'google_drive',
   'url_sources',
-]);
-
-export const DEFAULT_ROLE_HIERARCHY: ReadonlyArray<string> = Object.freeze([
+]) as readonly string[];
+export const DEFAULT_ROLE_HIERARCHY = Object.freeze([
   'SERVICE_ACCOUNT',
   'READONLY',
   'CLIENT',
@@ -41,27 +31,14 @@ export const DEFAULT_ROLE_HIERARCHY: ReadonlyArray<string> = Object.freeze([
   'EQR',
   'PARTNER',
   'SYSTEM_ADMIN',
-]);
+]) as readonly string[];
 
 export interface RawSystemConfig {
   data_sources?: Record<string, unknown>;
   datasources?: Record<string, unknown>;
-  knowledge?: {
-    retrieval?: {
-      policy?: Record<string, unknown>;
-      [key: string]: unknown;
-    };
-    [key: string]: unknown;
-  };
-  rag?: {
-    before_asking_user?: unknown;
-    policy?: Record<string, unknown>;
-    [key: string]: unknown;
-  };
-  rbac?: {
-    roles?: unknown;
-    [key: string]: unknown;
-  };
+  knowledge?: Record<string, unknown>;
+  rag?: Record<string, unknown>;
+  rbac?: Record<string, unknown>;
   [key: string]: unknown;
 }
 
@@ -81,50 +58,47 @@ export interface UrlSourceSettings {
   };
 }
 
-type CacheEntry<T> = {
-  value: T;
+interface CacheEntry<TConfig> {
   loadedAt: number;
   path: string;
-};
-
-class ExpiringAsyncCache<T> {
-  private entry: CacheEntry<T> | null = null;
-
-  constructor(private readonly ttlMs: number, private readonly loader: () => Promise<CacheEntry<T>>) {}
-
-  async get(forceReload = false): Promise<CacheEntry<T>> {
-    const now = Date.now();
-    if (!forceReload && this.entry && now - this.entry.loadedAt < this.ttlMs) {
-      return this.entry;
-    }
-
-    const entry = await this.loader();
-    this.entry = { ...entry, loadedAt: now };
-    return this.entry;
-  }
-
-  invalidate(): void {
-    this.entry = null;
-  }
-
-  snapshot(): CacheEntry<T> | null {
-    return this.entry;
-  }
+  value: TConfig;
 }
 
 const CACHE_WINDOW_MS = 60_000;
+
+type ReadFile = (resolvedPath: string) => Promise<string>;
+
+export interface SystemConfigAccessorOptions<TConfig extends RawSystemConfig = RawSystemConfig> {
+  cacheTtlMs?: number;
+  readFile?: ReadFile;
+  resolvePath?: () => Promise<string>;
+  transform?: (config: RawSystemConfig) => TConfig;
+}
+
+
+export interface SystemConfigAccessor<TConfig> {
+  load(): Promise<TConfig>;
+  /** Returns the cached value if present without triggering I/O. */
+  snapshot(): TConfig | undefined;
+  invalidate(): void;
+  getPath(): Promise<string>;
+  withConfig<TResult>(selector: (config: TConfig) => TResult | Promise<TResult>): Promise<TResult>;
+  refresh(): Promise<TConfig>;
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
-function getDataSourceSections(config: RawSystemConfig) {
-  const legacy = isRecord(config?.data_sources) ? config.data_sources : undefined;
-  const modern = isRecord(config?.datasources) ? config.datasources : undefined;
-  return { legacy, modern };
+function resolveModuleDefaultPath(): string {
+  try {
+    return path.resolve(fileURLToPath(new URL('../../config/system.yaml', import.meta.url)));
+  } catch {
+    return DEFAULT_CONFIG_PATH;
+  }
 }
 
-async function resolveConfigPath(): Promise<string> {
+async function resolveDefaultConfigPath(): Promise<string> {
   const override = process.env[ENV_CONFIG_PATH];
   if (override && override.trim()) {
     const candidate = path.resolve(override.trim());
@@ -133,15 +107,15 @@ async function resolveConfigPath(): Promise<string> {
       if (stats.isDirectory()) {
         return path.join(candidate, 'system.yaml');
       }
+      return candidate;
     } catch {
       if (!path.extname(candidate)) {
         return path.join(candidate, 'system.yaml');
       }
       return candidate;
     }
-    return candidate;
   }
-  return moduleDefaultPath;
+  return resolveModuleDefaultPath();
 }
 
 function normaliseStringList(values: unknown): string[] {
@@ -188,53 +162,105 @@ function coerceNumber(value: unknown): number | undefined {
   return undefined;
 }
 
-async function loadConfigFromDisk(): Promise<CacheEntry<RawSystemConfig>> {
-  const configPath = await resolveConfigPath();
-  try {
-    const file = await fs.readFile(configPath, 'utf8');
-    const parsed = parse(file);
-    const config = parsed && isRecord(parsed) ? (parsed as RawSystemConfig) : {};
-    return { value: config, path: configPath, loadedAt: Date.now() };
-  } catch {
-    return { value: {}, path: configPath, loadedAt: Date.now() };
+async function defaultReadFile(resolvedPath: string): Promise<string> {
+  return fs.readFile(resolvedPath, 'utf8');
+}
+
+export function createSystemConfigAccessor<TConfig extends RawSystemConfig = RawSystemConfig>(
+  options: SystemConfigAccessorOptions<TConfig> = {},
+): SystemConfigAccessor<TConfig> {
+  const ttl = options.cacheTtlMs ?? CACHE_WINDOW_MS;
+  const resolvePath = options.resolvePath ?? resolveDefaultConfigPath;
+  const readFile = options.readFile ?? defaultReadFile;
+  const transform = options.transform ?? ((config) => config as TConfig);
+
+  let cache: CacheEntry<TConfig> | null = null;
+
+  async function loadFresh(): Promise<CacheEntry<TConfig>> {
+    const configPath = await resolvePath();
+    try {
+      const file = await readFile(configPath);
+      const parsed = parse(file);
+      const value = transform(isRecord(parsed) ? (parsed as RawSystemConfig) : ({} as RawSystemConfig));
+      return { loadedAt: Date.now(), path: configPath, value };
+    } catch {
+      const value = transform({} as RawSystemConfig);
+      return { loadedAt: Date.now(), path: configPath, value };
+    }
   }
+
+  async function load(): Promise<TConfig> {
+    const now = Date.now();
+    const configPath = await resolvePath();
+    if (cache && cache.path === configPath && now - cache.loadedAt < ttl) {
+      return cache.value;
+    }
+    cache = await loadFresh();
+    return cache.value;
+  }
+
+  async function refresh(): Promise<TConfig> {
+    cache = await loadFresh();
+    return cache.value;
+  }
+
+  return {
+    async load() {
+      return load();
+    },
+    snapshot() {
+      return cache?.value;
+    },
+    invalidate() {
+      cache = null;
+    },
+    async getPath() {
+      return resolvePath();
+    },
+    async withConfig<TResult>(selector: (config: TConfig) => TResult | Promise<TResult>) {
+      const config = await load();
+      return selector(config);
+    },
+    async refresh() {
+      return refresh();
+    },
+  };
 }
 
-const configCache = new ExpiringAsyncCache<RawSystemConfig>(CACHE_WINDOW_MS, loadConfigFromDisk);
+const defaultAccessor = createSystemConfigAccessor();
 
-export async function loadSystemConfig(options?: { forceReload?: boolean }): Promise<RawSystemConfig> {
-  const { value } = await configCache.get(options?.forceReload === true);
-  return value;
+export async function loadSystemConfig<TConfig extends RawSystemConfig = RawSystemConfig>(): Promise<TConfig> {
+  return defaultAccessor.load() as Promise<TConfig>;
 }
 
-export async function refreshSystemConfig(): Promise<RawSystemConfig> {
-  configCache.invalidate();
-  return loadSystemConfig({ forceReload: true });
+export function getCachedSystemConfig<TConfig extends RawSystemConfig = RawSystemConfig>(): TConfig | undefined {
+  return defaultAccessor.snapshot() as TConfig | undefined;
 }
 
 export function clearSystemConfigCache(): void {
-  configCache.invalidate();
-}
-
-export function invalidateSystemConfigCache(): void {
-  clearSystemConfigCache();
+  defaultAccessor.invalidate();
 }
 
 export async function getResolvedConfigPath(): Promise<string> {
-  const snapshot = configCache.snapshot();
-  if (snapshot) {
-    return snapshot.path;
-  }
-  const { path: resolvedPath } = await configCache.get(true);
-  return resolvedPath;
+  return defaultAccessor.getPath();
+}
+
+export async function refreshSystemConfig<TConfig extends RawSystemConfig = RawSystemConfig>(): Promise<TConfig> {
+  return defaultAccessor.refresh() as Promise<TConfig>;
+}
+
+function getDataSourceSections(config: RawSystemConfig) {
+  const legacy = isRecord(config?.data_sources) ? config.data_sources : undefined;
+  const modern = isRecord(config?.datasources) ? config.datasources : undefined;
+  return { legacy, modern };
 }
 
 export async function getGoogleDriveSettings(): Promise<GoogleDriveSettings> {
   const config = await loadSystemConfig();
   const { legacy, modern } = getDataSourceSections(config);
   const drive = {
-    ...(isRecord(legacy?.google_drive) ? (legacy!.google_drive as Record<string, unknown>) : {}),
-    ...(isRecord(modern?.google_drive) ? (modern!.google_drive as Record<string, unknown>) : {}),
+    ...(isRecord(legacy?.google_drive) ? (legacy.google_drive as Record<string, unknown>) : {}),
+    ...(isRecord(modern?.google_drive) ? (modern.google_drive as Record<string, unknown>) : {}),
   };
 
   const enabled = coerceBoolean(drive.enabled) ?? false;
@@ -261,8 +287,8 @@ export async function getGoogleDriveSettings(): Promise<GoogleDriveSettings> {
 export async function getUrlSourceSettings(): Promise<UrlSourceSettings> {
   const config = await loadSystemConfig();
   const { legacy, modern } = getDataSourceSections(config);
-  const legacyUrl = isRecord(legacy?.url_sources) ? (legacy!.url_sources as Record<string, unknown>) : {};
-  const modernUrl = isRecord(modern?.url_sources) ? (modern!.url_sources as Record<string, unknown>) : {};
+  const legacyUrl = isRecord(legacy?.url_sources) ? (legacy.url_sources as Record<string, unknown>) : {};
+  const modernUrl = isRecord(modern?.url_sources) ? (modern.url_sources as Record<string, unknown>) : {};
   const urlSources = { ...legacyUrl, ...modernUrl };
 
   const allowedDomains = (() => {
@@ -273,11 +299,10 @@ export async function getUrlSourceSettings(): Promise<UrlSourceSettings> {
   })();
 
   const policySection = (() => {
-    if (isRecord(urlSources.fetch_policy)) return urlSources.fetch_policy as Record<string, unknown>;
-    if (isRecord(urlSources.policy)) return urlSources.policy as Record<string, unknown>;
-    return {} as Record<string, unknown>;
-  })();
-
+    if (isRecord(urlSources.fetch_policy)) return urlSources.fetch_policy;
+    if (isRecord(urlSources.policy)) return urlSources.policy;
+    return {};
+  })() as Record<string, unknown>;
   const obey = coerceBoolean(policySection.obey_robots);
   const depth = coerceNumber(policySection.max_depth);
   const ttl = coerceNumber(policySection.cache_ttl_minutes);
@@ -301,16 +326,22 @@ export async function getBeforeAskingSequence(): Promise<string[]> {
 
   let entries = normaliseStringList(policy.before_asking_user);
   if (!entries.length) {
-    const rag = (config.rag ?? {}) as Record<string, unknown>;
+    const rag = config.rag;
     if (isRecord(rag)) {
-      entries = normaliseStringList(rag.before_asking_user ?? (rag.policy as Record<string, unknown> | undefined)?.before_asking_user);
+      const ragRecord = rag as Record<string, unknown>;
+      const ragSequence = normaliseStringList(ragRecord.before_asking_user);
+      if (ragSequence.length) {
+        entries = ragSequence;
+      } else if (isRecord(ragRecord.policy)) {
+        entries = normaliseStringList((ragRecord.policy as Record<string, unknown>).before_asking_user);
+      }
     }
   }
   return entries.length ? entries : [...DEFAULT_BEFORE_ASKING_SEQUENCE];
 }
 
-export async function getRoleHierarchy(): Promise<string[]> {
-  const config = await loadSystemConfig();
+export async function getRoleHierarchy(configOverride?: RawSystemConfig): Promise<string[]> {
+  const config = configOverride ?? (await loadSystemConfig());
   const rbac = (config.rbac ?? {}) as Record<string, unknown>;
   const roles = normaliseStringList(rbac.roles);
   if (roles.length === 0) {
@@ -335,3 +366,4 @@ export async function getRoleHierarchy(): Promise<string[]> {
 
   return ordered;
 }
+

@@ -1,0 +1,10 @@
+# Copy this file to config.yml and replace the placeholders before starting the tunnel.
+# The ${ADMIN_HOSTNAME} placeholder relies on an environment variable so that the same
+# config can be used for multiple environments.
+tunnel: YOUR_TUNNEL_NAME
+credentials-file: /Users/you/.cloudflared/YOUR_TUNNEL_ID.json
+
+ingress:
+  - hostname: ${ADMIN_HOSTNAME}
+    service: http://localhost:3000
+  - service: http_status:404

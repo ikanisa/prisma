@@ -1,41 +1,149 @@
 # Environment Gap Analysis
 
-## Method
-- Enumerated every `process.env` reference in the repository and compared the unique keys against the root `.env.example` contents.
-- Diff was produced with `rg --no-filename -o "process\\.env\\.([A-Z0-9_]+)"` and `comm` to highlight variables that are referenced in code but missing from the template; grouped findings by owning service for readability.
+## Overview
+This document compares the environment variable keys required by the application code with the shared `.env.example` template. It also captures the status of live secret exports from Vercel, Supabase, and Vault so that missing credentials can be backfilled quickly.
 
-## Missing from `.env.example`
+## Key Inventory Comparison
+The table below shows whether each key is present in the source files that validate environment variables. A check mark means the key is required or consumed in that layer. A dot indicates that the key is optional in that layer but present in `.env.example` for completeness.
 
-### Gateway API (`apps/gateway`)
-- Runtime schema expects service coordination variables such as `PORT`, `OTEL_SERVICE_NAME`, `OTEL_EXPORTER_OTLP_ENDPOINT`, `SERVICE_VERSION`, `SENTRY_RELEASE`, `SENTRY_ENVIRONMENT`, `REDIS_URL`, `GATEWAY_API_KEYS`, `API_KEYS`, `AGENT_SERVICE_URL`, `AGENT_SERVICE_API_KEY`, `RAG_SERVICE_URL`, and `RAG_SERVICE_API_KEY`.【F:apps/gateway/src/env.ts†L15-L88】
-- Dynamic routing also honours `FASTAPI_BASE_URL` / `API_BASE_URL` at runtime for proxying to the FastAPI backend.【F:apps/gateway/src/env.ts†L62-L87】
+| Key | `.env.example` | Gateway (`apps/gateway/src/env.ts`) | Web (`apps/web/src/env.*.ts`) | RAG (`services/rag/env.ts`) | Notes |
+| --- | --- | --- | --- | --- | --- |
+| AGENT_SERVICE_API_KEY | ✓ | ✓ | ✓ | – | Added to template for gateway & web service parity. |
+| AGENT_SERVICE_URL | ✓ | ✓ | ✓ | – | |
+| API_BASE_URL | ✓ | ✓ | – | – | Runtime override for gateway. |
+| API_KEYS | ✓ | ✓ | – | – | |
+| API_RATE_LIMIT | ✓ | – | – | ✓ | Shared rate-limiting defaults. |
+| API_RATE_WINDOW_SECONDS | ✓ | – | – | ✓ | |
+| API_ALLOWED_ORIGINS | ✓ | ✓ | – | – | |
+| AUTOPILOT_JOB_RATE_LIMIT | ✓ | – | – | – | Existing template value retained (not validated in code). |
+| AUTOPILOT_JOB_RATE_WINDOW_SECONDS | ✓ | – | – | – | |
+| AUTOPILOT_SCHEDULE_RATE_LIMIT | ✓ | – | – | – | |
+| AUTOPILOT_SCHEDULE_RATE_WINDOW_SECONDS | ✓ | – | – | – | |
+| AUTOMATION_WEBHOOK_SECRET | ✓ | – | ✓ | – | |
+| AUTH_CLIENT_ID | ✓ | – | ✓ | – | |
+| AUTH_CLIENT_SECRET | ✓ | – | ✓ | – | |
+| AUTH_ISSUER | ✓ | – | ✓ | – | |
+| DATABASE_URL | ✓ | ✓ | ✓ | ✓ | |
+| DIRECT_URL | ✓ | – | – | – | Used for Prisma migrations only. |
+| DOCUMENT_UPLOAD_RATE_LIMIT | ✓ | – | – | – | |
+| DOCUMENT_UPLOAD_RATE_WINDOW_SECONDS | ✓ | – | – | – | |
+| EMBEDDING_ALERT_WEBHOOK | ✓ | – | – | ✓ | |
+| EMBEDDING_CRON_SECRET | ✓ | – | ✓ | ✓ | |
+| EMBEDDING_DELTA_DOCUMENT_LIMIT | ✓ | – | – | ✓ | |
+| EMBEDDING_DELTA_LOOKBACK_HOURS | ✓ | – | – | ✓ | |
+| EMBEDDING_DELTA_POLICY_LIMIT | ✓ | – | – | ✓ | |
+| ENVIRONMENT | ✓ | ✓ | – | ✓ | |
+| ERROR_NOTIFY_WEBHOOK | ✓ | – | – | – | |
+| FASTAPI_BASE_URL | ✓ | ✓ | – | – | |
+| GATEWAY_API_KEYS | ✓ | ✓ | – | – | |
+| GDRIVE_FOLDER_ID | ✓ | – | – | – | External integration not validated in TS schema. |
+| GDRIVE_SERVICE_ACCOUNT_EMAIL | ✓ | – | – | – | |
+| GDRIVE_SERVICE_ACCOUNT_KEY | ✓ | – | – | – | |
+| GDRIVE_SHARED_DRIVE_ID | ✓ | – | – | – | |
+| GDRIVE_WATCH_CHANNEL_TOKEN | ✓ | – | – | – | |
+| GOOGLE_SERVICE_ACCOUNT_KEY_PATH | ✓ | – | – | – | |
+| GOOGLE_SHEET_ID | ✓ | – | – | – | |
+| NEXT_PUBLIC_ACCOUNTING_MODE | ✓ | – | ✓ | – | |
+| NEXT_PUBLIC_API_BASE | ✓ | – | ✓ | – | |
+| NEXT_PUBLIC_DEMO_ENGAGEMENT_ID | ✓ | – | ✓ | – | |
+| NEXT_PUBLIC_DEMO_ORG_ID | ✓ | – | ✓ | – | |
+| NEXT_PUBLIC_DEMO_USER_ID | ✓ | – | ✓ | – | |
+| NEXT_PUBLIC_GROUP_AUDIT_MODE | ✓ | – | ✓ | – | |
+| NEXT_PUBLIC_RECONCILIATION_MODE | ✓ | – | ✓ | – | |
+| NEXT_PUBLIC_SUPABASE_ANON_KEY | ✓ | – | ✓ | – | |
+| NEXT_PUBLIC_SUPABASE_URL | ✓ | – | ✓ | – | |
+| NODE_ENV | ✓ | ✓ | ✓ | ✓ | |
+| N8N_WEBHOOK_SECRET | ✓ | – | ✓ | – | |
+| OPENAI_AGENT_ID | ✓ | – | – | – | |
+| OPENAI_AGENT_PLATFORM_ENABLED | ✓ | – | – | – | |
+| OPENAI_API_KEY | ✓ | – | ✓ | ✓ | |
+| OPENAI_DEBUG_FETCH_DETAILS | ✓ | – | – | – | |
+| OPENAI_DEBUG_LOGGING | ✓ | – | – | – | |
+| OPENAI_FILE_SEARCH_FILTERS | ✓ | – | – | – | |
+| OPENAI_FILE_SEARCH_INCLUDE_RESULTS | ✓ | – | – | – | |
+| OPENAI_FILE_SEARCH_MAX_RESULTS | ✓ | – | – | – | |
+| OPENAI_FILE_SEARCH_MODEL | ✓ | – | – | – | |
+| OPENAI_FILE_SEARCH_VECTOR_STORE_ID | ✓ | – | – | – | |
+| OPENAI_ORCHESTRATOR_ENABLED | ✓ | – | – | – | |
+| OPENAI_REALTIME_ENABLED | ✓ | – | – | – | |
+| OPENAI_REALTIME_MODEL | ✓ | – | – | – | |
+| OPENAI_REALTIME_TURN_SERVERS | ✓ | – | – | – | |
+| OPENAI_REALTIME_VOICE | ✓ | – | – | – | |
+| OPENAI_RETRIEVAL_VECTOR_STORE_ID | ✓ | – | – | – | |
+| OPENAI_RETRIEVAL_VECTOR_STORE_NAME | ✓ | – | – | – | |
+| OPENAI_RPM | ✓ | – | – | – | |
+| OPENAI_SORA_ASPECT_RATIO | ✓ | – | – | – | |
+| OPENAI_SORA_ENABLED | ✓ | – | – | – | |
+| OPENAI_SORA_MODEL | ✓ | – | – | – | |
+| OPENAI_STREAMING_ENABLED | ✓ | – | – | – | |
+| OPENAI_STREAMING_TOOL_ENABLED | ✓ | – | – | – | |
+| OPENAI_TRANSCRIPTION_MODEL | ✓ | – | – | – | |
+| OPENAI_TTS_FORMAT | ✓ | – | – | – | |
+| OPENAI_TTS_MODEL | ✓ | – | – | – | |
+| OPENAI_TTS_VOICE | ✓ | – | – | – | |
+| OPENAI_WEB_SEARCH_ENABLED | ✓ | – | – | – | |
+| OPENAI_WEB_SEARCH_MODEL | ✓ | – | – | – | |
+| ORCHESTRATION_POLL_INTERVAL_MS | ✓ | – | – | – | |
+| OTEL_EXPORTER_OTLP_ENDPOINT | ✓ | ✓ | – | ✓ | |
+| OTEL_SERVICE_NAME | ✓ | ✓ | – | ✓ | |
+| PORT | ✓ | ✓ | – | – | |
+| RAG_INGEST_RATE_LIMIT | ✓ | – | – | – | |
+| RAG_INGEST_RATE_WINDOW_SECONDS | ✓ | – | – | – | |
+| RAG_REEMBED_RATE_LIMIT | ✓ | – | – | – | |
+| RAG_REEMBED_RATE_WINDOW_SECONDS | ✓ | – | – | – | |
+| RAG_SEARCH_RATE_LIMIT | ✓ | – | – | – | |
+| RAG_SEARCH_RATE_WINDOW_SECONDS | ✓ | – | – | – | |
+| RAG_SERVICE_API_KEY | ✓ | ✓ | ✓ | – | |
+| RAG_SERVICE_URL | ✓ | ✓ | ✓ | – | |
+| RATE_LIMIT_ALERT_WEBHOOK | ✓ | – | – | – | |
+| RECONCILIATION_MODE | ✓ | – | ✓ | – | |
+| REDIS_URL | ✓ | ✓ | – | – | |
+| SAMPLING_C1_API_KEY | ✓ | – | ✓ | – | |
+| SAMPLING_C1_BASE_URL | ✓ | – | ✓ | – | |
+| SENTRY_DSN | ✓ | – | – | ✓ | |
+| SENTRY_ENVIRONMENT | ✓ | ✓ | – | ✓ | |
+| SENTRY_RELEASE | ✓ | ✓ | – | ✓ | |
+| SERVICE_VERSION | ✓ | ✓ | – | ✓ | |
+| SIGNED_URL_DEFAULT_TTL_SECONDS | ✓ | – | – | – | |
+| SIGNED_URL_EVIDENCE_TTL_SECONDS | ✓ | – | – | – | |
+| SKIP_HEALTHCHECK_DB | ✓ | – | ✓ | – | |
+| SUPABASE_ALLOW_STUB | ✓ | – | ✓ | – | |
+| SUPABASE_JWT_AUDIENCE | ✓ | – | – | ✓ | |
+| SUPABASE_JWT_SECRET | ✓ | – | – | ✓ | |
+| SUPABASE_JWT_VAULT_FIELD | ✓ | – | – | – | |
+| SUPABASE_SERVICE_ROLE_KEY | ✓ | – | ✓ | ✓ | |
+| SUPABASE_SERVICE_ROLE_VAULT_FIELD | ✓ | – | – | – | |
+| SUPABASE_URL | ✓ | ✓ | ✓ | ✓ | |
+| SUPABASE_VAULT_PATH | ✓ | – | – | – | |
+| TELEMETRY_ALERT_WEBHOOK | ✓ | – | – | ✓ | |
+| VAULT_ADDR | ✓ | – | – | – | |
+| VAULT_KV_MOUNT | ✓ | – | – | – | |
+| VAULT_TOKEN | ✓ | – | – | – | |
+| VITE_API_BASE_URL | ✓ | – | – | – | |
+| VITE_ENABLE_DEMO_LOGIN | ✓ | – | – | – | |
+| VITE_ENABLE_PWA | ✓ | – | – | – | |
+| VITE_SUPABASE_PROJECT_ID | ✓ | – | – | – | |
+| VITE_SUPABASE_PUBLISHABLE_KEY | ✓ | – | – | – | |
+| VITE_SUPABASE_URL | ✓ | – | – | – | |
+| VITE_TRACKING_ENABLED | ✓ | – | – | – | |
+| WEB_FETCH_CACHE_RETENTION_DAYS | ✓ | – | – | – | |
 
-### Web application (`apps/web`)
-- Server-side env validation requires identity and downstream credentials (`AUTH_CLIENT_ID`, `AUTH_CLIENT_SECRET`, `AUTH_ISSUER`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`) plus optional integrations such as `AGENT_SERVICE_URL`, `SAMPLING_C1_BASE_URL`, `SAMPLING_C1_API_KEY`, `AUTOMATION_WEBHOOK_SECRET`, `N8N_WEBHOOK_SECRET`, `RAG_SERVICE_URL`, `EMBEDDING_CRON_SECRET`, `DATABASE_URL`, and `SKIP_HEALTHCHECK_DB` / `RECONCILIATION_MODE` overrides.【F:apps/web/src/env.server.ts†L17-L129】
-- Public-facing feature flags and demo placeholders are read via `NEXT_PUBLIC_API_BASE`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `NEXT_PUBLIC_ACCOUNTING_MODE`, `NEXT_PUBLIC_RECONCILIATION_MODE`, `NEXT_PUBLIC_GROUP_AUDIT_MODE`, and optional demo identifiers (`NEXT_PUBLIC_DEMO_ORG_ID`, `NEXT_PUBLIC_DEMO_ENGAGEMENT_ID`, `NEXT_PUBLIC_DEMO_USER_ID`).【F:apps/web/src/env.server.ts†L35-L141】
-- Client bundle expects those public keys to be present at runtime in addition to supporting custom accounting modes.【F:apps/web/src/env.client.ts†L3-L21】
+## Environment-Specific Findings
+- **Gateway service** – `.env.example` now contains every key required by `apps/gateway/src/env.ts`. The newly added Sentry, Redis, agent, and RAG credentials were previously missing.
+- **Web application** – Added OAuth, Supabase, automation webhook, and public NEXT_PUBLIC keys so that the server/client schemas can be satisfied when running locally or in CI.
+- **RAG service** – Added observability, Supabase JWT, OpenAI, embedding, and alert webhook values to cover the validation schema.
+- **Global template-only keys** – Several keys (e.g. rate limit buckets, Google integrations, legacy Vite client values) are not validated in TypeScript but remain in `.env.example` to support optional features documented elsewhere.
 
-### Retrieval & agent services (`services/rag` and shared libraries)
-- Core service config pulls tracing, Supabase, and OpenAI credentials (`OTEL_SERVICE_NAME`, `OTEL_EXPORTER_OTLP_ENDPOINT`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_JWT_SECRET`, `SUPABASE_JWT_AUDIENCE`, `OPENAI_API_KEY`, `SENTRY_DSN`, `SENTRY_ENVIRONMENT`, `SENTRY_RELEASE`, `TELEMETRY_ALERT_WEBHOOK`, `EMBEDDING_ALERT_WEBHOOK`, and embedding deltas) from environment variables not documented in `.env.example`.【F:services/rag/env.ts†L15-L73】【F:services/rag/index.ts†L693-L706】
-- Chat, search, and orchestration pipelines depend on OpenAI tuning knobs (`OPENAI_WEB_SEARCH_ENABLED`, `OPENAI_WEB_SEARCH_MODEL`, `OPENAI_SUMMARY_MODEL`, `OPENAI_DEBUG_LOGGING`, `OPENAI_DEBUG_FETCH_DETAILS`, `OPENAI_STREAMING_ENABLED`, `OPENAI_REALTIME_ENABLED`, `OPENAI_STREAMING_TOOL_ENABLED`, `OPENAI_SORA_ENABLED`, `OPENAI_ORCHESTRATOR_ENABLED`, `ORCHESTRATION_POLL_INTERVAL_MS`, `OPENAI_REQUEST_TAGS`, `OPENAI_REQUEST_QUOTA_TAG`, `OPENAI_DEFAULT_REASONING_EFFORT`, `OPENAI_DEFAULT_VERBOSITY`, `OPENAI_AGENT_REASONING_EFFORT`, `OPENAI_AGENT_VERBOSITY`, `OPENAI_SUMMARY_REASONING_EFFORT`, `OPENAI_SUMMARY_VERBOSITY`, `OPENAI_AGENT_MODEL`) that are only defined in code defaults.【F:services/rag/index.ts†L2345-L2395】【F:services/rag/index.ts†L4769-L4823】
-- Knowledge ingestion and notifications use additional service hooks: `WEB_HARVEST_INTERVAL_MS`, `CHAT_COMPLETIONS_STREAM_HEARTBEAT_INTERVAL_MS`, `GDRIVE_PROCESS_BATCH_LIMIT`, `DOCUMENT_SIGN_TTL`, and the notification fan-out settings (`NOTIFY_USER_DISPATCH_BATCH`, `NOTIFY_USER_DISPATCH_INTERVAL_MS`, `NOTIFY_USER_DISPATCH_MAX_ATTEMPTS`, `NOTIFY_USER_DISPATCH_RETRY_BASE_MS`, `NOTIFY_USER_EMAIL_WEBHOOK`, `NOTIFY_USER_EMAIL_WEBHOOK_AUTH`, `NOTIFY_USER_SMS_WEBHOOK`, `NOTIFY_USER_SMS_WEBHOOK_AUTH`).【F:services/rag/index.ts†L199-L213】【F:services/rag/index.ts†L766-L904】【F:services/rag/notifications/fanout.ts†L44-L151】
-- Audio/vision helpers reference `OPENAI_TRANSCRIPTION_MODEL`, `OPENAI_WHISPER_MODEL`, `OPENAI_TTS_MODEL`, `OPENAI_TTS_VOICE`, `OPENAI_TTS_FORMAT`, and `OPENAI_VISION_MODEL` for media workflows.【F:services/rag/openai-audio.ts†L51-L141】【F:services/rag/openai-vision.ts†L56-L118】
-- OpenAI routing libraries expect `OPENAI_BASE_URL`, workload overrides (`OPENAI_ORG_ID`, `OPENAI_REQUEST_TAGS`, `OPENAI_REQUEST_QUOTA_TAG`, `OPENAI_FINANCE_WORKLOAD`), and optional finance workload secrets to be populated.【F:lib/openai/url.ts†L21-L33】【F:lib/openai/workloads.ts†L13-L106】
-- Agent runtime reads `AGENT_POLICY_PACK_VERSION`, `AGENT_PLANNER_MODEL`, and `AGENT_MODEL` when generating fallback plans.【F:lib/agents/runtime.ts†L3-L34】
+## Live Secret Inventory (Normalized Names)
+Live exports could not be generated from this workspace because the deployment managers require authenticated access. Use the commands below from an authenticated terminal and store the results alongside this analysis when available:
 
-### Tooling & automation scripts
-- Agent evaluation harness requires `AGENT_EVALUATION_BASE_URL` and `AGENT_EVALUATION_BEARER_TOKEN` to run outside CI skips.【F:scripts/run_agent_evaluations.js†L273-L277】
-- Bundle budget check honours `BUNDLE_MAX_MAIN_GZ_KB` and `BUNDLE_MAX_CHUNK_GZ_KB` for alerts in CI.【F:scripts/check_bundlesize.mjs†L8-L9】
-- OpenAI file search secret publisher consumes staging/production mappings (`STAGING_OPENAI_FILE_SEARCH_*`, `PRODUCTION_OPENAI_FILE_SEARCH_*`).【F:scripts/operations/publish-openai-file-search-secrets.ts†L58-L138】
-- Supabase migration helper needs `SUPABASE_PROJECTS` to know which refs to update during cache deployments.【F:scripts/operations/apply-web-cache-migrations.mjs†L15-L78】
-- Vercel bootstrap scripts look for `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`, and `VERCEL_CLI_MODE` when seeding preview environments.【F:scripts/vercel-preflight.mjs†L31-L104】
-- System configuration loader respects `SYSTEM_CONFIG_PATH` overrides for pointing to bespoke `system.yaml` manifests.【F:packages/system-config/index.js†L6-L69】
+| Platform | Command | Normalization Notes |
+| --- | --- | --- |
+| Vercel | `vercel env pull --environment production --yes ./vercel.env` | Convert names to uppercase snake case and map aliases (e.g. NEXT_PUBLIC_SUPABASE_ANON_KEY). |
+| Supabase | `supabase secrets list --project-ref <project>` | Ensure secrets align with Supabase dashboard names; normalize to match the keys above. |
+| Vault | `vault kv get -format=json secret/apps/prisma-glow-15` | Flatten nested JSON keys and uppercase to match application expectations. |
 
-### Testing & QA pipelines
-- Playwright configuration toggles headless automation with `PLAYWRIGHT_BASE_URL`, `PLAYWRIGHT_START_WEB_SERVER`, `PLAYWRIGHT_RUN`, and loads org context via `PLAYWRIGHT_ORG_SLUG` / `PLAYWRIGHT_SMOKE_PATHS`; CI toggles traces with the `CI` flag.【F:playwright.config.ts†L3-L38】【F:tests/playwright/a11y.spec.ts†L19-L42】【F:tests/playwright/smoke.spec.ts†L1-L11】
-- Vitest coverage thresholds depend on `VITEST_COVERAGE_STATEMENTS`, `VITEST_COVERAGE_BRANCHES`, `VITEST_COVERAGE_FUNCTIONS`, `VITEST_COVERAGE_LINES`, and the `VITEST` sentinel used to auto-seed defaults during tests.【F:vitest.config.ts†L240-L265】【F:apps/web/src/env.server.ts†L46-L90】
+Record the normalized results in `docs/env-gap-analysis.md` once retrieved so reviewers can confirm parity with the template.
 
-## Recommendations
-- Document the above keys in the deployment password vaults and CI secrets so staging/production parity is maintained.
-- Update `.env.example` (or provide layered templates) to include placeholder values for each missing key, keeping defaults aligned with the runtime schemas referenced above.
-- Mirror these secrets in the Vercel/Supabase environments before promoting new releases to avoid runtime validation failures.
+## Next Steps
+Refer to `docs/env-next-actions.md` for owner-specific follow-up required to backfill missing secrets across environments.
