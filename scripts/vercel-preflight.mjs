@@ -48,7 +48,14 @@ try {
   process.exit(1);
 }
 
-const appEnv = (process.env.APP_ENV ?? 'local').toLowerCase();
+const rawAppEnv = process.env.APP_ENV;
+
+if (!rawAppEnv || !String(rawAppEnv).trim()) {
+  console.error('[preflight] APP_ENV must be defined to determine build steps.');
+  process.exit(1);
+}
+
+const appEnv = rawAppEnv.toLowerCase();
 console.log(`[preflight] APP_ENV resolved to "${appEnv}"`);
 
 if (['production', 'preview'].includes(appEnv)) {
