@@ -7,10 +7,10 @@
     "outDir": "dist",
     "declaration": true,
     "declarationMap": true,
-    "noEmit": false,
-    "incremental": true,
-    "tsBuildInfoFile": "dist/tsconfig.tsbuildinfo"
+    "sourceMap": true,
+    "composite": true,
+    "noEmit": false
   },
   "include": ["src/**/*.ts"],
-  "references": []
+  "exclude": ["dist", "node_modules"]
 }

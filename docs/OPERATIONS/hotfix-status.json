@@ -1,0 +1,26 @@
+{
+  "branch": {
+    "name": null,
+    "base": "origin/main",
+    "created": false,
+    "pushed": false,
+    "createdAt": null,
+    "milestoneTags": []
+  },
+  "observability": {
+    "sentryThresholdConfigured": false,
+    "otelThresholdConfigured": false,
+    "notes": null
+  },
+  "uat": {
+    "scheduled": false,
+    "scheduledAt": null,
+    "feedbackLogged": false
+  },
+  "decommission": {
+    "mergedToMain": false,
+    "legacyBranchesRemoved": false,
+    "documentationUpdated": false
+  },
+  "lastUpdated": null
+}

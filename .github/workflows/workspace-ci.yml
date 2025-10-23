@@ -57,6 +57,27 @@ jobs:
       - name: Gateway tests
         run: pnpm turbo run test --filter=@prisma-glow/gateway
 
+  workspace-pipelines:
+    name: Workspace lint/test/build
+    runs-on: ubuntu-latest
+    needs: setup
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Install pnpm
+        run: npm install -g pnpm@9
+
+      - name: Install workspace deps
+        run: pnpm install --frozen-lockfile
+
+      - name: Run recursive lint/test/build
+        run: pnpm run ci:verify
+
   build-rag:
     name: Build RAG service
     runs-on: ubuntu-latest

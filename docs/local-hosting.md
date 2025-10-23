@@ -74,10 +74,5 @@ Before running any of the scripts:
 
 ## 5. Future reverse-proxy plans
 
-The production Docker Compose stack terminates TLS at the gateway and forwards traffic internally. When we reintroduce a managed edge, we plan to:
+When you need an externally accessible reverse proxy, follow [`docs/local-caddy-cloudflare-tunnel.md`](./local-caddy-cloudflare-tunnel.md). It provides the Caddy configuration, Cloudflare Tunnel setup, Access policies, Supabase CORS updates, and rollback steps tailored for macOS. Future changes to the proxy workflow will be documented there.
 
-- Ship a local Traefik/Caddy profile that mirrors production routing (gateway on 3001, Next.js on 3000, FastAPI on 8000).
-- Support automatic certificate issuance via mkcert for secure localhost testing.
-- Expose a single entry point (likely https://app.local.prisma-glow.test) that proxies to each service based on path.
-
-Track progress in `docs/local-hosting.md`—updates will document the reverse-proxy configuration and any new `make` targets required to bootstrap it.

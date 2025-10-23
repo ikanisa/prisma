@@ -5,14 +5,19 @@
     "moduleResolution": "NodeNext",
     "outDir": "dist",
     "rootDir": "src",
-    "types": ["node", "express", "supertest"],
+    "types": [
+      "node",
+      "express",
+      "supertest"
+    ],
     "noEmit": false,
-    "incremental": true,
-    "tsBuildInfoFile": "dist/tsconfig.tsbuildinfo"
+    "composite": true
   },
-  "include": ["src"],
+  "include": [
+    "src"
+  ],
   "references": [
-    { "path": "../../packages/api-client/tsconfig.json" },
-    { "path": "../../packages/system-config/tsconfig.json" }
+    { "path": "../../packages/api-client" },
+    { "path": "../../packages/system-config" }
   ]
 }

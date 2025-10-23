@@ -3,6 +3,14 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
   "description": "Shared helpers for loading and normalising system.yaml configuration.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -24,6 +32,9 @@
     "yaml",
     "prisma-glow"
   ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  },
   "dependencies": {
     "yaml": "^2.8.1"
   }
