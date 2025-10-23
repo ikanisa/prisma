@@ -11,6 +11,9 @@ supabase/config.toml.bak
 !**/.env.example
 !**/.env.*.example
 *.log
+.logs/
+.logs/*.pid
+.logs/*.log
 
 # Build & deps
 **/node_modules/
