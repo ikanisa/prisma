@@ -53,6 +53,10 @@ app.local.prisma-glow.test {
 ```
 
 - Adjust port targets if your local processes use alternate ports.
+- Map the Caddy hostname to `127.0.0.1` so browsers and the tunnel can reach your local proxy:
+  ```bash
+  sudo sh -c 'echo "127.0.0.1 app.local.prisma-glow.test" >> /etc/hosts'
+  ```
 - The `tls internal` directive issues a local CA certificate. Trust the generated certificate via:
   ```bash
   sudo security add-trust -d -r trustAsRoot -k /Library/Keychains/System.keychain \
@@ -86,7 +90,12 @@ sudo brew services start caddy
        service: https://app.local.prisma-glow.test
      - service: http_status:404
    ```
-5. Run the tunnel:
+5. Create a DNS record that points the public hostname to the tunnel:
+   ```bash
+   cloudflared tunnel route dns prisma-glow-local app.dev.prisma-glow.com
+   ```
+   Alternatively, create the equivalent CNAME record (`app.dev.prisma-glow.com` → `prisma-glow-local.cloudflare-gateway.com`) in the Cloudflare dashboard.
+6. Run the tunnel:
    ```bash
    CLOUDFLARE_TUNNEL_TOKEN=<YOUR_CLOUDFLARE_TUNNEL_TOKEN> \
    cloudflared tunnel run prisma-glow-local
