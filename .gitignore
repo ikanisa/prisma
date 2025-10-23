@@ -31,3 +31,4 @@ apps/web/public/workbox-*.js
 apps/web/.vercel/
 apps/web/.turbo/
 .vercel
+.logs/
