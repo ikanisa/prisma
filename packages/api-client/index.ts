@@ -429,6 +429,4 @@ export interface CompleteTaskPayload {
 }
 
 export default ApiClient;
-
-export default ApiClient;
 export * as ApiTypes from './types.js';
