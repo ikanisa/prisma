@@ -1,30 +1,41 @@
-FROM node:20-alpine AS deps
-ARG SERVICE_VERSION=dev
-ENV SERVICE_VERSION=${SERVICE_VERSION}
-WORKDIR /app/apps/web
-COPY apps/web/package*.json ./
-RUN npm ci
-
+# ---- Build stage ----
 FROM node:20-alpine AS builder
-ARG SERVICE_VERSION=dev
-ENV SERVICE_VERSION=${SERVICE_VERSION}
-WORKDIR /app/apps/web
-COPY --from=deps /app/apps/web/node_modules ./node_modules
-COPY apps/web .
-RUN npm run build
-
-FROM node:20-alpine AS runner
-ARG SERVICE_VERSION=dev
-ENV SERVICE_VERSION=${SERVICE_VERSION}
-ENV NODE_ENV=production
 WORKDIR /app
-RUN addgroup -g 1001 nextjs && adduser -D -u 1001 -G nextjs nextjs && apk add --no-cache curl
+
+# Corepack + pnpm
+RUN corepack enable && corepack prepare pnpm@9.0.0 --activate
+
+# Copy top-level manifests to allow workspace install
+COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
+# Copy the web app and any shared packages you use (adjust paths if needed)
+COPY apps/web/package.json apps/web/
+COPY packages/api-client/package.json packages/api-client/
+COPY packages/system-config/package.json packages/system-config/
+COPY packages/ui/package.json packages/ui/
+
+RUN pnpm install --frozen-lockfile
+
+# Now copy source for a proper build
+COPY . .
+WORKDIR /app/apps/web
+
+# Ensure standalone in apps/web/next.config.[jt]s
+RUN pnpm build
+
+# ---- Runtime stage ----
+FROM node:20-alpine
+WORKDIR /app
+
+RUN apk add --no-cache wget
+
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+
+# Copy web standalone server
+# Standalone folder is inside the web app
 COPY --from=builder /app/apps/web/.next/standalone ./
 COPY --from=builder /app/apps/web/.next/static ./.next/static
 COPY --from=builder /app/apps/web/public ./public
-USER nextjs
-EXPOSE 3000
-ENV PORT=3000
-HEALTHCHECK --interval=30s --timeout=10s --start-period=10s CMD curl -f http://localhost:3000/ || exit 1
-CMD ["node", "server.js"]
 
+EXPOSE 3000
+CMD ["node", "server.js"]

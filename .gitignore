@@ -10,6 +10,7 @@ supabase/config.toml.bak
 !.env.example
 !**/.env.example
 !**/.env.*.example
+!.env.template
 *.log
 .logs/
 .logs/*.pid
@@ -36,3 +37,7 @@ apps/web/.vercel/
 apps/web/.turbo/
 .vercel
 .logs/
+
+# Cloudflare/Caddy local runtime
+infra/cloudflared/config.yml
+infra/cloudflared/credentials/
