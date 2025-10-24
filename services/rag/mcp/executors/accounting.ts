@@ -1,4 +1,4 @@
-import type { TaskExecutorResult, TaskExecutionContext } from '../executors';
+import type { TaskExecutorResult, TaskExecutionContext } from '../executors.js';
 
 interface BaseParams {
   input: Record<string, unknown> | undefined;

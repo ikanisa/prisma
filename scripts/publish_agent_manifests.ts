@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import fetch from 'node-fetch';
 
-import { buildOpenAiUrl } from '../lib/openai/url';
+import { buildOpenAiUrl } from '@prisma-glow/lib/openai/url';
 
 interface AgentManifest {
   agentKey: string;

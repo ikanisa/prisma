@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { Database } from '../../supabase/src/integrations/supabase/types';
+import type { Database } from '../types/supabase.js';
 import type {
   DirectorAgent,
   DirectorAgentOptions,
@@ -7,8 +7,8 @@ import type {
   OrchestrationSessionRecord,
   OrchestrationTaskInput,
   OrchestrationTaskRecord,
-} from './types';
-import { initialiseMcpInfrastructure } from './bootstrap';
+} from './types.js';
+import { initialiseMcpInfrastructure } from './bootstrap.js';
 
 type SupabaseDb = SupabaseClient<Database>;
 

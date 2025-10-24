@@ -18,7 +18,7 @@ describe('openai audio helpers', () => {
       },
     } as any;
 
-    const clientModule = await import('../lib/openai/client');
+    const clientModule = await import('@prisma-glow/lib/openai/client');
     vi.spyOn(clientModule, 'getOpenAIClient').mockReturnValue(mockClient);
 
     const { transcribeAudioBuffer } = await import('../services/rag/openai-audio');
@@ -49,7 +49,7 @@ describe('openai audio helpers', () => {
       },
     } as any;
 
-    const clientModule = await import('../lib/openai/client');
+    const clientModule = await import('@prisma-glow/lib/openai/client');
     vi.spyOn(clientModule, 'getOpenAIClient').mockReturnValue(mockClient);
 
     const { synthesizeSpeech } = await import('../services/rag/openai-audio');

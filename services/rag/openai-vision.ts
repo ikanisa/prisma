@@ -1,4 +1,4 @@
-import { getOpenAIClient } from '../../lib/openai/client';
+import { getOpenAIClient } from '@prisma-glow/lib/openai/client';
 
 type LogFn = (message: string, meta?: Record<string, unknown>) => void;
 
@@ -98,11 +98,11 @@ export async function extractVisionOcr(options: VisionOcrOptions): Promise<Visio
             {
               type: 'input_image',
               image_url: imageUrl,
+              detail: 'high',
             },
           ],
         },
       ],
-      text: { format: 'text' },
     });
 
     const text = normaliseOutputText(response).trim();
@@ -116,7 +116,7 @@ export async function extractVisionOcr(options: VisionOcrOptions): Promise<Visio
     return {
       text,
       model,
-      usage: response?.usage ?? undefined,
+      usage: response?.usage ? { ...response.usage } : undefined,
       rawResponse: response,
     };
   } catch (error) {

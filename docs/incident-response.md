@@ -10,3 +10,4 @@
 ## Drills and Testing
 - Quarterly tabletop exercises.
 - Annual external penetration test with remediation tracking.
+- Validate observability run (`docs/OPERATIONS/observability-checklist.md`) and edge-function review (`docs/SECURITY/edge-function-review.md`) once per release.

@@ -4,7 +4,7 @@ let handler: (request: Request) => Promise<Response>;
 
 const hoisted = vi.hoisted(() => {
   const envGetMock = vi.fn((key: string) => {
-    if (key === 'API_ALLOWED_ORIGINS') return 'https://app.example.com';
+    if (key === 'API_ALLOWED_ORIGINS') return 'https://app.prisma-cpa.vercel.app';
     return undefined;
   });
 

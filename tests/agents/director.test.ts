@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { directorAgent } from '../../services/agents/director';
+import { directorAgent } from '@prisma-glow/agents/director';
 
 describe('DirectorAgent', () => {
   it('produces plan with relevant tasks for audit objective', () => {

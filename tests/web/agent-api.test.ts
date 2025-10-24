@@ -183,7 +183,7 @@ describe('agent approvals API routes', () => {
   });
 
     it('forwards decision payload to agent service', async () => {
-      process.env.NEXT_PUBLIC_API_BASE = 'https://api.example.com';
+      process.env.NEXT_PUBLIC_API_BASE = 'https://api.prisma-cpa.vercel.app';
       const fetchMock = global.fetch as unknown as vi.Mock;
       fetchMock.mockResolvedValue(
         new MockNextResponse(JSON.stringify({ approval: { id: 'approval-1' } }), {
@@ -209,7 +209,7 @@ describe('agent approvals API routes', () => {
 
       const res = await POST(request as any, { params: { id: 'approval-1' } });
       expect(res.status).toBe(200);
-      expect(fetchMock).toHaveBeenCalledWith('https://api.example.com/v1/approvals/approval-1/decision', {
+      expect(fetchMock).toHaveBeenCalledWith('https://api.prisma-cpa.vercel.app/v1/approvals/approval-1/decision', {
         method: 'POST',
         headers: expect.objectContaining({
           'content-type': 'application/json',

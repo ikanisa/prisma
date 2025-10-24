@@ -41,10 +41,13 @@ This document operationalises the end-to-end workflow for the Prisma-backed Next
 | `OPENAI_API_KEY` | Vercel Preview/Production, GitHub Actions (optional integration tests) | Used by RAG/agent flows. |
 | GPT-5 tuning (`OPENAI_DEFAULT_REASONING_EFFORT`, `OPENAI_DEFAULT_VERBOSITY`, `OPENAI_AGENT_REASONING_EFFORT`, `OPENAI_AGENT_VERBOSITY`, `OPENAI_SUMMARY_REASONING_EFFORT`, `OPENAI_SUMMARY_VERBOSITY`) | Vercel Preview/Production, backend containers | Keeps agent/summarisation workloads aligned with GPT-5 defaults; mirror values across Vercel env groups and Compose deployments. |
 | `API_RATE_LIMIT`, `API_RATE_WINDOW_SECONDS` | Vercel Preview/Production | Align with FastAPI/env defaults for rate limiting. |
+| `TURNSTILE_SECRET_KEY`, `VITE_TURNSTILE_SITE_KEY`, `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Vercel Preview/Production, local dev | Enable CAPTCHA verification on sign-in/sign-up flows. Site keys surface to the client; the secret key stays server-side. |
 | `AUTOMATION_WEBHOOK_SECRET`, `N8N_WEBHOOK_SECRET` | Vercel Preview/Production | Shared secrets for webhook verification inside API routes. |
 | `SAMPLING_C1_BASE_URL`, `SAMPLING_C1_API_KEY` | Vercel Preview/Production | Required by audit sampling client for downstream service calls. |
 | Front-end toggles (`NEXT_PUBLIC_ACCOUNTING_MODE`, etc.) | Vercel Preview/Production | Control demo/feature flags for UI routes; safe defaults exist. |
 | Front-end vars (`VITE_*`) | Local dev, legacy Vite app | Legacy SPA configuration; keep parity until old UI retires. |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM_EMAIL`, `SMTP_FROM_NAME`, `SMTP_USE_SSL`, `SMTP_USE_STARTTLS` | Vercel Preview/Production, Supabase secrets | SMTP credentials for outbound invite emails. Configure at least host, port, and from address. |
+| `INVITE_ACCEPT_BASE_URL` | Vercel Preview/Production | Base URL used when generating membership invitation links (defaults to `/auth/accept-invite`). |
 
 Map the same variable names into Supabase Secrets for server-side functions/tasks when required.
 
@@ -81,7 +84,7 @@ If Vault is available, configure `VAULT_ADDR`, `VAULT_TOKEN`, `VAULT_KV_MOUNT`, 
 2. **Framework preset:** Next.js 14, build command `npm run build`, install command `npm install`, output `.next`.
 3. **Runtime:** Node.js 20. Enable `NODE_OPTIONS=--max-old-space-size=4096` if builds need additional memory.
 4. **Environment variables:** configure Preview and Production with the matrix above (names only). Keep secrets out of code and PRs.
-5. **Domains:** map production domain (e.g., `app.example.com`) and optional custom preview domain. Document Vercel project URL and alias.
+5. **Domains:** map production domain (e.g., `app.prisma-cpa.vercel.app`) and optional custom preview domain. Document Vercel project URL and alias.
 6. **Integrations:** Ensure Vercel GitHub app reports preview deployments back to PRs. Optionally enable Edge Config / Serverless regions close to Supabase region.
 
 ## F) CI/CD Policy
@@ -132,7 +135,7 @@ docker compose --env-file .env.compose --profile web -f docker-compose.prod.yml 
 ### G1) Healthz Smoke Workflow
 
 - Trigger the workflow `Healthz Smoke` from the Actions tab with input:
-  - `app_url`: e.g., `https://app.example.com/api/healthz`
+  - `app_url`: e.g., `https://app.prisma-cpa.vercel.app/api/healthz`
 - The job validates HTTP 200 and JSON `{ status: "ok" }`.
 - Optionally set `PRODUCTION_HEALTH_URL` in `.env.production.example` for reference.
 
@@ -161,7 +164,7 @@ Branch protections: <summary/link>
 CI pipelines: Monorepo CI (run URL)
 Vercel project: https://vercel.com/<team>/<project>
 Preview URL: https://<branch>--web.vercel.app
-Production URL: https://app.example.com
+Production URL: https://app.prisma-cpa.vercel.app
 Supabase project: https://app.supabase.com/project/<ref>
 Latest Prisma migration: 2025xxxx_<name> (reviewer, approval date)
 Env matrix: DATABASE_URL, DIRECT_URL, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_JWT_SECRET, OPENAI_API_KEY, ...

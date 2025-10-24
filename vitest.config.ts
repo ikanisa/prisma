@@ -241,7 +241,7 @@ export default defineConfig({
     css: true,
     include: [
       'src/**/*.{test,spec}.{js,ts,jsx,tsx}',
-      'lib/**/*.{test,spec}.{js,ts}',
+      '@prisma-glow/lib/**/*.{test,spec}.{js,ts}',
       'services/**/*.{test,spec}.{js,ts}',
       'tests/**/*.{test,spec}.{js,ts,jsx,tsx}',
     ],
@@ -276,6 +276,22 @@ export default defineConfig({
         },
       },
       {
+        find: /^@\/components\/ui\//,
+        replacement: path.resolve(__dirname, './src/components/ui/') + '/',
+      },
+      {
+        find: /^@\/hooks\//,
+        replacement: path.resolve(__dirname, './src/hooks/') + '/',
+      },
+      {
+        find: /^@\/integrations\//,
+        replacement: path.resolve(__dirname, './src/integrations/') + '/',
+      },
+      {
+        find: /^@\/lib\/security\/password$/,
+        replacement: path.resolve(__dirname, './src/lib/security/password.ts'),
+      },
+      {
         find: '@',
         replacement: path.resolve(__dirname, './src'),
       },
@@ -297,7 +313,7 @@ export default defineConfig({
       },
       {
         find: '@prisma-glow/system-config',
-        replacement: path.resolve(__dirname, './packages/system-config/dist/index.js'),
+        replacement: path.resolve(__dirname, './packages/system-config/index.js'),
       },
     ],
   },

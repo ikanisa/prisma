@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import { buildOpenAiUrl } from '../../lib/openai/url';
+import { buildOpenAiUrl } from '@prisma-glow/lib/openai/url';
 
 interface ToolRecord {
   key: string;
@@ -43,7 +43,7 @@ export function getOpenAiAgentId(): string | null {
   return value && value.length > 0 ? value : null;
 }
 
-function buildAuthHeaders(apiKey?: string): HeadersInit {
+function buildAuthHeaders(apiKey?: string): Record<string, string> {
   if (!apiKey) {
     throw new Error('OpenAI API key is required for agent platform operations');
   }

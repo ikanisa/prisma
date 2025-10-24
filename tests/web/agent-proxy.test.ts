@@ -59,8 +59,8 @@ describe('agent proxy routes', () => {
     const { GET } = await import('../../apps/web/app/api/agent/stream/route');
 
     const request = Object.assign(
-      new Request('https://app.example.com/api/agent/stream?orgSlug=demo&question=Hi'),
-      { nextUrl: new URL('https://app.example.com/api/agent/stream?orgSlug=demo&question=Hi') },
+      new Request('https://app.prisma-cpa.vercel.app/api/agent/stream?orgSlug=demo&question=Hi'),
+      { nextUrl: new URL('https://app.prisma-cpa.vercel.app/api/agent/stream?orgSlug=demo&question=Hi') },
     );
 
     const response = await GET(request as any);
@@ -76,8 +76,8 @@ describe('agent proxy routes', () => {
 
   it('returns error when agent service URL missing', async () => {
     const { GET } = await import('../../apps/web/app/api/agent/stream/route');
-    const request = Object.assign(new Request('https://app.example.com/api/agent/stream'), {
-      nextUrl: new URL('https://app.example.com/api/agent/stream'),
+    const request = Object.assign(new Request('https://app.prisma-cpa.vercel.app/api/agent/stream'), {
+      nextUrl: new URL('https://app.prisma-cpa.vercel.app/api/agent/stream'),
     });
     const response = await GET(request as any);
     expect(response.status).toBe(500);
@@ -101,7 +101,7 @@ describe('agent proxy routes', () => {
 
     const payload = { orgSlug: 'demo', objective: 'Test objective' };
     const request = Object.assign(
-      new Request('https://app.example.com/api/agent/orchestrator/plan', {
+      new Request('https://app.prisma-cpa.vercel.app/api/agent/orchestrator/plan', {
         method: 'POST',
         body: JSON.stringify(payload),
         headers: {
@@ -110,7 +110,7 @@ describe('agent proxy routes', () => {
           authorization: 'Bearer token',
         },
       }),
-      { nextUrl: new URL('https://app.example.com/api/agent/orchestrator/plan') },
+      { nextUrl: new URL('https://app.prisma-cpa.vercel.app/api/agent/orchestrator/plan') },
     );
 
     const response = await POST(request as any);
@@ -181,12 +181,12 @@ describe('agent proxy routes', () => {
     const { POST } = await import('../../apps/web/app/api/agent/realtime/session/route');
 
     const request = Object.assign(
-      new Request('https://app.example.com/api/agent/realtime/session', {
+      new Request('https://app.prisma-cpa.vercel.app/api/agent/realtime/session', {
         method: 'POST',
         body: JSON.stringify({ orgSlug: 'demo' }),
         headers: { 'content-type': 'application/json' },
       }),
-      { nextUrl: new URL('https://app.example.com/api/agent/realtime/session') },
+      { nextUrl: new URL('https://app.prisma-cpa.vercel.app/api/agent/realtime/session') },
     );
 
     const response = await POST(request as any);
@@ -214,12 +214,12 @@ describe('agent proxy routes', () => {
 
     const payload = { orgSlug: 'demo', objective: 'Automate close', tasks: [{ title: 'Gather data' }] };
     const request = Object.assign(
-      new Request('https://app.example.com/api/agent/orchestrator/session', {
+      new Request('https://app.prisma-cpa.vercel.app/api/agent/orchestrator/session', {
         method: 'POST',
         body: JSON.stringify(payload),
         headers: { 'content-type': 'application/json', cookie: 'session=xyz' },
       }),
-      { nextUrl: new URL('https://app.example.com/api/agent/orchestrator/session') },
+      { nextUrl: new URL('https://app.prisma-cpa.vercel.app/api/agent/orchestrator/session') },
     );
 
     const response = await POST(request as any);
@@ -247,8 +247,8 @@ describe('agent proxy routes', () => {
 
     const { GET } = await import('../../apps/web/app/api/agent/orchestrator/session/[id]/route');
 
-    const request = Object.assign(new Request('https://app.example.com/api/agent/orchestrator/session/session-1'), {
-      nextUrl: new URL('https://app.example.com/api/agent/orchestrator/session/session-1'),
+    const request = Object.assign(new Request('https://app.prisma-cpa.vercel.app/api/agent/orchestrator/session/session-1'), {
+      nextUrl: new URL('https://app.prisma-cpa.vercel.app/api/agent/orchestrator/session/session-1'),
     });
 
     const response = await GET(request as any, { params: { id: 'session-1' } });
@@ -275,12 +275,12 @@ describe('agent proxy routes', () => {
     const { POST } = await import('../../apps/web/app/api/agent/orchestrator/tasks/[id]/complete/route');
 
     const request = Object.assign(
-      new Request('https://app.example.com/api/agent/orchestrator/tasks/task-1/complete', {
+      new Request('https://app.prisma-cpa.vercel.app/api/agent/orchestrator/tasks/task-1/complete', {
         method: 'POST',
         body: JSON.stringify({ status: 'COMPLETED' }),
         headers: { 'content-type': 'application/json' },
       }),
-      { nextUrl: new URL('https://app.example.com/api/agent/orchestrator/tasks/task-1/complete') },
+      { nextUrl: new URL('https://app.prisma-cpa.vercel.app/api/agent/orchestrator/tasks/task-1/complete') },
     );
 
     const response = await POST(request as any, { params: { id: 'task-1' } });
@@ -307,8 +307,8 @@ describe('agent proxy routes', () => {
     const { GET } = await import('../../apps/web/app/api/agent/orchestrator/sessions/route');
 
     const request = Object.assign(
-      new Request('https://app.example.com/api/agent/orchestrator/sessions?orgSlug=demo'),
-      { nextUrl: new URL('https://app.example.com/api/agent/orchestrator/sessions?orgSlug=demo') },
+      new Request('https://app.prisma-cpa.vercel.app/api/agent/orchestrator/sessions?orgSlug=demo'),
+      { nextUrl: new URL('https://app.prisma-cpa.vercel.app/api/agent/orchestrator/sessions?orgSlug=demo') },
     );
 
     const response = await GET(request as any);

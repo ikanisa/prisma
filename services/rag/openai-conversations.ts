@@ -1,13 +1,10 @@
-import { buildOpenAiUrl } from '../../lib/openai/url';
+import { buildOpenAiUrl } from '@prisma-glow/lib/openai/url';
 
-type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
+type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue } | undefined;
 
 export type ConversationRole = 'user' | 'assistant' | 'system' | 'tool';
 
-export interface ConversationContentBlock {
-  type: string;
-  [key: string]: JsonValue;
-}
+export type ConversationContentBlock = { type: string } & Record<string, JsonValue>;
 
 export interface ConversationTextContent extends ConversationContentBlock {
   type: 'input_text' | 'output_text';
@@ -17,7 +14,7 @@ export interface ConversationTextContent extends ConversationContentBlock {
 export interface ConversationImageContent extends ConversationContentBlock {
   type: 'input_image';
   image_url: string;
-  detail?: 'low' | 'high' | 'auto';
+  detail?: 'low' | 'high' | 'auto' | null;
 }
 
 export type ConversationContent = ConversationTextContent | ConversationImageContent | ConversationContentBlock;
@@ -47,7 +44,7 @@ export interface ConversationToolCallItem {
   status?: 'in_progress' | 'completed' | 'cancelled' | string;
   metadata?: Record<string, string> | null;
   created_at?: number;
-  [key: string]: JsonValue;
+  [key: string]: unknown;
 }
 
 export type OpenAiConversationItem = ConversationMessageItem | ConversationToolCallItem;
@@ -64,7 +61,7 @@ export interface ConversationItemInput {
   type: string;
   status?: 'in_progress' | 'completed' | 'cancelled' | string;
   metadata?: Record<string, string>;
-  [key: string]: JsonValue | undefined;
+  [key: string]: unknown;
 }
 
 export interface ConversationMessageInput extends ConversationItemInput {
@@ -175,7 +172,11 @@ async function requestConversationsEndpoint<T>({
     if (successEvent) {
       const metaValue =
         typeof successEvent.meta === 'function' ? successEvent.meta(result) : successEvent.meta ?? undefined;
-      options.logInfo?.(successEvent.message, metaValue);
+      if (metaValue !== undefined) {
+        options.logInfo?.(successEvent.message, metaValue);
+      } else {
+        options.logInfo?.(successEvent.message);
+      }
     }
     return result;
   } catch (error) {

@@ -86,11 +86,15 @@ export function AdminUsersPage() {
       return;
     }
     setInviteLoading(true);
+    const trimmedContact = inviteContact.trim();
     try {
-      const result = await inviteMember({ orgId: currentOrgId, emailOrPhone: inviteContact.trim(), role: inviteRole });
+      const result = await inviteMember({ orgId: currentOrgId, emailOrPhone: trimmedContact, role: inviteRole });
+      const isEmail = trimmedContact.includes('@');
       toast({
         title: 'Invite sent',
-        description: `Share this token securely with the invitee: ${result.token}`,
+        description: isEmail
+          ? `An email invitation was sent to ${trimmedContact}. Backup token: ${result.token}`
+          : `Share this token securely with the invitee: ${result.token}`,
       });
       setInviteContact('');
       await loadDirectory();

@@ -17,17 +17,17 @@ function createFetchMock() {
 describe('ApiClient basic construction', () => {
   it('builds autonomy status url with query params', async () => {
     const mock = createFetchMock();
-    const client = new ApiClient({ baseUrl: 'https://api.example.com', fetch: mock });
+    const client = new ApiClient({ baseUrl: 'https://api.prisma-cpa.vercel.app', fetch: mock });
     const res = await client.getAutonomyStatus('acme');
-    expect((res as any).url).toBe('https://api.example.com/v1/autonomy/status?orgSlug=acme');
+    expect((res as any).url).toBe('https://api.prisma-cpa.vercel.app/v1/autonomy/status?orgSlug=acme');
     expect((res as any).method).toBe('GET');
   });
 
   it('posts release controls check payload', async () => {
     const mock = createFetchMock();
-    const client = new ApiClient({ baseUrl: 'https://api.example.com', fetch: mock });
+    const client = new ApiClient({ baseUrl: 'https://api.prisma-cpa.vercel.app', fetch: mock });
     const res = await client.checkReleaseControls({ orgSlug: 'acme', engagementId: 'eng-1' } as any);
-    expect((res as any).url).toBe('https://api.example.com/api/release-controls/check');
+    expect((res as any).url).toBe('https://api.prisma-cpa.vercel.app/api/release-controls/check');
     expect((res as any).method).toBe('POST');
     expect((res as any).body.orgSlug).toBe('acme');
   });
@@ -42,7 +42,7 @@ describe('ApiClient basic construction', () => {
       }
       return new Response(JSON.stringify({ ok: true, url }), { status: 200, headers: { 'Content-Type': 'application/json' } });
     });
-    const client = new ApiClient({ baseUrl: 'https://api.example.com', fetch: mock as any, retries: 2, retryDelayMs: 1 });
+    const client = new ApiClient({ baseUrl: 'https://api.prisma-cpa.vercel.app', fetch: mock as any, retries: 2, retryDelayMs: 1 });
     const res = await client.getAutonomyStatus('acme');
     expect((res as any).ok).toBe(true);
     expect(calls).toBe(2);

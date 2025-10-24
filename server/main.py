@@ -38,6 +38,7 @@ from decimal import Decimal
 import uuid
 import hashlib
 import os.path
+from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 
 from services.analytics.jobs import anomaly_scan_job, policy_check_job, reembed_job
@@ -83,6 +84,8 @@ from .workflow_orchestrator import (
     complete_workflow_step,
     get_workflow_suggestions,
 )
+from .openai_client import get_openai_client
+from .email import send_member_invite_email
 
 app = FastAPI()
 
@@ -167,6 +170,8 @@ AUTONOMY_LEVEL_RANK = {"L0": 0, "L1": 1, "L2": 2, "L3": 3}
 LEGACY_AUTONOMY_NUMERIC_MAP = {0: "L0", 1: "L1", 2: "L2", 3: "L3", 4: "L3", 5: "L3"}
 DEFAULT_IMPERSONATION_EXPIRY_HOURS = 8
 RESERVED_ORG_SETTINGS_FIELDS = {"default_role", "impersonation_breakglass_emails"}
+TURNSTILE_SECRET_KEY = os.getenv("TURNSTILE_SECRET_KEY")
+INVITE_ACCEPT_BASE_URL = os.getenv("INVITE_ACCEPT_BASE_URL", "https://app.prismaglow.com/auth/accept-invite")
 
 
 def resolve_agent_for_tool(tool_name: str) -> Optional[str]:
@@ -182,6 +187,18 @@ def resolve_agent_for_tool(tool_name: str) -> Optional[str]:
             if isinstance(entry, str) and entry.strip().lower() == normalised:
                 return agent_id
     return None
+
+
+def build_invite_link(token: str) -> str:
+    try:
+        parsed = urlparse(INVITE_ACCEPT_BASE_URL)
+    except ValueError:  # pragma: no cover - defensive fallback
+        return f"{INVITE_ACCEPT_BASE_URL}?token={token}"
+
+    query = dict(parse_qsl(parsed.query, keep_blank_values=True))
+    query["token"] = token
+    new_query = urlencode(query)
+    return urlunparse(parsed._replace(query=new_query))
 
 
 async def build_assistant_actions(org_id: str, autonomy_level: Optional[str] = None) -> List[Dict[str, Any]]:
@@ -3021,6 +3038,13 @@ class AdminOrgSettingsUpdateRequest(BaseModel):
     impersonationBreakglassEmails: Optional[List[str]] = None
 
 
+class CaptchaVerificationRequest(BaseModel):
+    token: str
+    remote_ip: Optional[str] = Field(default=None, alias="remoteIp")
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
 class PolicyPackUpdateRequest(BaseModel):
     orgSlug: str
     policyPackId: str
@@ -3286,6 +3310,42 @@ class WebHarvestRequest(BaseModel):
     agentKind: str = Field(..., min_length=1)
 
 
+@app.post("/v1/security/verify-captcha", tags=["security"])
+async def verify_turnstile_token(payload: CaptchaVerificationRequest, request: Request) -> Dict[str, str]:
+    if not TURNSTILE_SECRET_KEY:
+        logger.info("captcha.verification_skipped", reason="secret_not_configured")
+        return {"status": "skipped"}
+
+    token = payload.token.strip()
+    if not token:
+        raise HTTPException(status_code=400, detail="missing_token")
+
+    verification_payload: Dict[str, str] = {
+        "secret": TURNSTILE_SECRET_KEY,
+        "response": token,
+    }
+    remote_ip = payload.remote_ip or (request.client.host if request.client else None)
+    if remote_ip:
+        verification_payload["remoteip"] = remote_ip
+
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            response = await client.post(
+                "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+                data=verification_payload,
+            )
+            response.raise_for_status()
+            result = response.json()
+    except httpx.HTTPError as exc:
+        logger.warning("captcha.verify_http_error", exc_info=exc)
+        raise HTTPException(status_code=502, detail="captcha_verification_unavailable") from exc
+
+    if not result.get("success"):
+        raise HTTPException(status_code=400, detail="captcha_failed")
+
+    return {"status": "ok"}
+
+
 @app.on_event("startup")
 async def startup() -> None:
     await init_db()
@@ -3489,6 +3549,26 @@ async def invite_member(payload: InviteMemberRequest, auth: Dict[str, Any] = Dep
             "email_or_phone": payload.emailOrPhone.strip(),
         },
     )
+
+    contact_value = payload.emailOrPhone.strip()
+    if "@" in contact_value:
+        invite_link = build_invite_link(token)
+        org_row = await fetch_single_record("organizations", payload.orgId, "name")
+        inviter_profile = await fetch_single_record("user_profiles", actor_id, "display_name")
+
+        async def dispatch_invite_email() -> None:
+            success = await send_member_invite_email(
+                recipient=contact_value.lower(),
+                invite_link=invite_link,
+                org_name=org_row.get("name") if org_row else None,
+                role=target_role,
+                inviter_name=inviter_profile.get("display_name") if inviter_profile else None,
+                expires_at=expires_at_value,
+            )
+            if not success:
+                logger.warning("iam.invite_email_failed", email=contact_value.lower())
+
+        asyncio.create_task(dispatch_invite_email())
 
     return {
         "inviteId": invite.get("id") if invite else None,

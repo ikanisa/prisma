@@ -61,12 +61,12 @@ vi.mock('@supabase/supabase-js', () => ({
   createClient: vi.fn(() => supabaseStub),
 }));
 
-vi.mock('../../lib/secrets', () => ({
+vi.mock('@prisma-glow/lib/secrets', () => ({
   getSupabaseServiceRoleKey: vi.fn(async () => 'service-role-key'),
   getSupabaseJwtSecret: vi.fn(async () => 'test-jwt-secret'),
 }));
 
-vi.mock('../../lib/openai/client', () => ({
+vi.mock('@prisma-glow/lib/openai/client', () => ({
   getOpenAIClient: vi.fn(() => openAiStub),
 }));
 

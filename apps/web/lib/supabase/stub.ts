@@ -1,7 +1,33 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 type QueryResult = { data: unknown; error: null };
+
+interface MutationChain extends Promise<QueryResult> {
+  select(): MutationChain;
+  eq(): MutationChain;
+  match(): MutationChain;
+  order(): MutationChain;
+  limit(): MutationChain;
+  maybeSingle(): Promise<QueryResult>;
+  single(): Promise<QueryResult>;
+}
+
+interface QueryChain extends Promise<QueryResult> {
+  select(): QueryChain;
+  eq(): QueryChain;
+  in(): QueryChain;
+  not(): QueryChain;
+  match(): QueryChain;
+  order(): QueryChain;
+  limit(): QueryChain;
+  filter(): QueryChain;
+  insert(): MutationChain;
+  update(): MutationChain;
+  upsert(): MutationChain;
+  delete(): MutationChain;
+  maybeSingle(): Promise<QueryResult>;
+  single(): Promise<QueryResult>;
+}
 
 function createResolvedPromise<T extends QueryResult>(result: T) {
   const promise = {
@@ -28,9 +54,10 @@ function createResolvedPromise<T extends QueryResult>(result: T) {
   return promise;
 }
 
-function createMutationChain() {
+function createMutationChain(): MutationChain {
   const result: QueryResult = { data: null, error: null };
-  const chain: any = {
+  const base = createResolvedPromise(result);
+  const chain = Object.assign(base, {
     select: () => chain,
     eq: () => chain,
     match: () => chain,
@@ -38,14 +65,15 @@ function createMutationChain() {
     limit: () => chain,
     maybeSingle: async () => ({ data: null, error: null }),
     single: async () => ({ data: null, error: null }),
-  };
+  }) as MutationChain;
 
-  return Object.assign(createResolvedPromise(result), chain);
+  return chain;
 }
 
-function createQueryChain() {
+function createQueryChain(): QueryChain {
   const result: QueryResult = { data: [], error: null };
-  const chain: any = {
+  const base = createResolvedPromise(result);
+  const chain = Object.assign(base, {
     select: () => chain,
     eq: () => chain,
     in: () => chain,
@@ -60,13 +88,13 @@ function createQueryChain() {
     delete: () => createMutationChain(),
     maybeSingle: async () => ({ data: null, error: null }),
     single: async () => ({ data: null, error: null }),
-  };
+  }) as QueryChain;
 
-  return Object.assign(createResolvedPromise(result), chain);
+  return chain;
 }
 
 export function createSupabaseStub(): SupabaseClient {
-  const client: any = {
+  const client = {
     from: () => createQueryChain(),
     rpc: async () => ({ data: null, error: null }),
     auth: {
@@ -80,7 +108,7 @@ export function createSupabaseStub(): SupabaseClient {
         remove: async () => ({ data: [], error: null }),
       }),
     },
-  };
+  } satisfies Record<string, unknown>;
 
   return client as SupabaseClient;
 }

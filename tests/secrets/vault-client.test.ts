@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { VaultClient, VaultClientError } from '../../lib/secrets/vault-client';
+import { VaultClient, VaultClientError } from '@prisma-glow/lib/secrets/vault-client';
 
 describe('VaultClient', () => {
-  const baseUrl = 'https://vault.example.com';
+  const baseUrl = 'https://vault.prisma-cpa.vercel.app';
   const token = 'test-token';
 
   beforeEach(() => {

@@ -1,4 +1,4 @@
-import { buildOpenAiUrl } from '../../lib/openai/url';
+import { buildOpenAiUrl } from '@prisma-glow/lib/openai/url';
 
 interface CreateRealtimeSessionOptions {
   openAiApiKey?: string;
@@ -29,20 +29,19 @@ function normaliseTurnServerEntry(input: unknown): RealtimeTurnServerConfig | nu
 }
 
 function parseTurnServerString(value: string): RealtimeTurnServerConfig[] {
-  return value
-    .split(',')
-    .map((chunk) => chunk.trim())
-    .filter((chunk) => chunk.length > 0)
-    .map((chunk) => {
-      const [urls, username, credential] = chunk.split('|').map((part) => part.trim());
-      if (!urls) return null;
-      return {
-        urls,
-        username: username || undefined,
-        credential: credential || undefined,
-      };
-    })
-    .filter((entry): entry is RealtimeTurnServerConfig => Boolean(entry));
+  const entries: RealtimeTurnServerConfig[] = [];
+  for (const rawChunk of value.split(',')) {
+    const chunk = rawChunk.trim();
+    if (!chunk) continue;
+    const [urls, username, credential] = chunk.split('|').map((part) => part.trim());
+    if (!urls) continue;
+    entries.push({
+      urls,
+      username: username || undefined,
+      credential: credential || undefined,
+    });
+  }
+  return entries;
 }
 
 export function getRealtimeTurnServers(): RealtimeTurnServerConfig[] {
@@ -59,9 +58,13 @@ export function getRealtimeTurnServers(): RealtimeTurnServerConfig[] {
   try {
     const parsed = JSON.parse(trimmed);
     if (Array.isArray(parsed)) {
-      const result = parsed
-        .map((item) => normaliseTurnServerEntry(item))
-        .filter((entry): entry is RealtimeTurnServerConfig => entry !== null);
+      const result: RealtimeTurnServerConfig[] = [];
+      for (const item of parsed) {
+        const entry = normaliseTurnServerEntry(item);
+        if (entry) {
+          result.push(entry);
+        }
+      }
       return result;
     }
     if (parsed && typeof parsed === 'object') {

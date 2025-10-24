@@ -1,17 +1,27 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
+    "target": "ES2022",
     "module": "NodeNext",
-    "moduleResolution": "Bundler",
-    "outDir": "dist",
-    "rootDir": ".",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2022"],
     "types": ["node"],
-    "noEmit": false,
-    "composite": true
+    "rootDir": ".",
+    "outDir": "dist",
+    "strict": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "composite": true,
+    "declaration": true,
+    "declarationMap": true,
+    "noEmit": false
   },
-  "include": ["**/*.ts"],
+  "include": ["**/*.ts", "ambient.d.ts"],
   "exclude": ["dist", "node_modules"],
   "references": [
-    { "path": "../../packages/system-config" }
+    { "path": "../../packages/lib/tsconfig.json" },
+    { "path": "../../packages/agents/tsconfig.json" },
+    { "path": "../../packages/system-config/tsconfig.json" }
   ]
 }
