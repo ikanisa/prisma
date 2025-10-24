@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { Database, Json } from '../../../supabase/src/integrations/supabase/types';
+import type { Database, Json } from '../types/supabase.js';
 
 type NotificationRow = Database['public']['Tables']['notifications']['Row'];
 type DispatchInsert = Database['public']['Tables']['notification_dispatch_queue']['Insert'];

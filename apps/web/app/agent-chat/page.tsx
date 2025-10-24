@@ -1297,7 +1297,7 @@ export default function AgentChat() {
             {responseInFlight ? 'Sending…' : 'Send model request'}
           </button>
           {responseDurationMs !== null ? (
-            <span className="text-sm text-muted-foreground">{responseDurationMs} ms</span>
+            <span className="text-sm text-muted-foreground">{responseDurationMs} ms</span>
           ) : null}
         </div>
 

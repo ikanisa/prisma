@@ -28,7 +28,7 @@ reject before continuing with rollback steps.
    curl -X POST \
      -H "Authorization: Bearer <token>" \
      -H "Content-Type: application/json" \
-     https://api.example.com/api/learning/rollback \
+     https://api.prisma-cpa.vercel.app/api/learning/rollback \
      -d '{"policy_version_id": "<version-id>"}'
    ```
 3. Verify response `status: "ok"`.

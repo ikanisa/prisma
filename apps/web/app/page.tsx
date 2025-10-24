@@ -23,7 +23,7 @@ export default function Home() {
     <main className="p-4">
       <h1 className="text-xl mb-4">Welcome</h1>
       <div className="mb-4">
-        <Button onClick={() => console.log('hello')}>
+        <Button onClick={() => console.warn('hello')}>
           Quick Action
         </Button>
       </div>

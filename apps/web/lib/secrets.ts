@@ -1,1 +1,1 @@
-export * from '../../../lib/secrets';
+export * from '@prisma-glow/lib/secrets';

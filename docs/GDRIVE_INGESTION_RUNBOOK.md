@@ -22,7 +22,7 @@ This runbook outlines how to operate the secure Google Drive ingestion pipeline 
    curl -X POST \
      -H "Authorization: Bearer <token>" \
      -H "Content-Type: application/json" \
-     https://api.example.com/api/gdrive/backfill \
+     https://api.prisma-cpa.vercel.app/api/gdrive/backfill \
      -d '{"orgSlug": "acme", "limit": 25}'
    ```
 3. Response includes `connectorId`, `queued`, `processed`, `skipped`, `failed`, `remaining`.
@@ -40,7 +40,7 @@ This runbook outlines how to operate the secure Google Drive ingestion pipeline 
    curl -X POST \
      -H "Authorization: Bearer <token>" \
      -H "Content-Type: application/json" \
-     https://api.example.com/api/gdrive/process-changes \
+     https://api.prisma-cpa.vercel.app/api/gdrive/process-changes \
      -d '{"orgSlug": "acme", "limit": 25}'
    ```
 4. Response reports queued changes, new page token, processed/skipped/failed counts.

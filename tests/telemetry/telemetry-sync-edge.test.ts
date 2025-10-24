@@ -38,7 +38,7 @@ const serveMock = hoisted.serveMock;
 envGetMock.mockImplementation((key: string) => {
   if (key === 'SUPABASE_URL') return 'https://supabase.test';
   if (key === 'SUPABASE_SERVICE_ROLE_KEY') return 'service-role-key';
-  if (key === 'API_ALLOWED_ORIGINS') return 'https://app.example.com';
+  if (key === 'API_ALLOWED_ORIGINS') return 'https://app.prisma-cpa.vercel.app';
   if (key === 'WEB_FETCH_CACHE_RETENTION_DAYS') return '14';
   return undefined;
 });
@@ -147,7 +147,7 @@ describe('telemetry-sync edge function', () => {
   it('responds to CORS preflight requests', async () => {
     const response = await handler(new Request('https://example.com', { method: 'OPTIONS' }));
     expect(response.status).toBe(200);
-    expect(response.headers.get('Access-Control-Allow-Origin')).toBe('https://app.example.com');
+    expect(response.headers.get('Access-Control-Allow-Origin')).toBe('https://app.prisma-cpa.vercel.app');
     expect(await response.text()).toBe('');
   });
 

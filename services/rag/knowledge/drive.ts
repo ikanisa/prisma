@@ -4,7 +4,7 @@ import {
   type DriveFileSummary,
   type GoogleDriveClient,
   type GoogleDriveConfig,
-} from './google-drive-client';
+} from './google-drive-client.js';
 
 const GOOGLE_EXPORT_TARGETS: Record<string, { mimeType: string; extension: string }> = {
   'application/vnd.google-apps.document': { mimeType: 'application/pdf', extension: '.pdf' },

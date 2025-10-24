@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { SecretManager } from '../../lib/secrets/secret-manager';
+import { SecretManager } from '@prisma-glow/lib/secrets/secret-manager';
 
-const baseUrl = 'https://vault.example.com';
+const baseUrl = 'https://vault.prisma-cpa.vercel.app';
 const token = 'test-token';
 
 function mockFetchOnce(payload: Record<string, unknown>) {

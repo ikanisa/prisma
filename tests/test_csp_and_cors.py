@@ -22,7 +22,7 @@ def test_health_includes_strict_csp_header():
 def test_cors_allows_only_configured_origins(monkeypatch):
     # Re-import main with a controlled allow-list
     monkeypatch.setenv('ENVIRONMENT', 'production')
-    monkeypatch.setenv('API_ALLOWED_ORIGINS', 'https://app.example.com')
+    monkeypatch.setenv('API_ALLOWED_ORIGINS', 'https://app.prisma-cpa.vercel.app')
 
     # The app was imported above already, but CORSMiddleware uses allowed_origins list
     # to decide which Origin gets a CORS allow header on each request. We can exercise
@@ -33,12 +33,12 @@ def test_cors_allows_only_configured_origins(monkeypatch):
     preflight_allowed = client.options(
         '/health',
         headers={
-            'Origin': 'https://app.example.com',
+            'Origin': 'https://app.prisma-cpa.vercel.app',
             'Access-Control-Request-Method': 'GET',
         },
     )
     assert preflight_allowed.status_code in (200, 204)
-    assert preflight_allowed.headers.get('access-control-allow-origin') == 'https://app.example.com'
+    assert preflight_allowed.headers.get('access-control-allow-origin') == 'https://app.prisma-cpa.vercel.app'
 
     # Disallowed origin should not receive allow-origin header
     preflight_denied = client.options(
@@ -50,4 +50,3 @@ def test_cors_allows_only_configured_origins(monkeypatch):
     )
     assert preflight_denied.status_code in (200, 204)
     assert preflight_denied.headers.get('access-control-allow-origin') is None
-

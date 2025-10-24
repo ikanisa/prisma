@@ -241,6 +241,10 @@ export function clearSystemConfigCache(): void {
   defaultAccessor.invalidate();
 }
 
+export function invalidateSystemConfigCache(): void {
+  clearSystemConfigCache();
+}
+
 export async function getResolvedConfigPath(): Promise<string> {
   return defaultAccessor.getPath();
 }
@@ -366,4 +370,3 @@ export async function getRoleHierarchy(configOverride?: RawSystemConfig): Promis
 
   return ordered;
 }
-

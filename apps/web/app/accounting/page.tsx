@@ -24,8 +24,8 @@ import type {
   AccountingModule,
   AccountingModuleDefinition,
   ModuleExecutionResult,
-} from '../../lib/accounting/types';
-import { ACCOUNTING_MODULES } from '../../lib/accounting/metadata';
+} from '@prisma-glow/lib/accounting/types';
+import { ACCOUNTING_MODULES } from '@prisma-glow/lib/accounting/metadata';
 
 type ModuleKey = AccountingModule;
 type ModuleResponseMap = Partial<Record<ModuleKey, ModuleExecutionResult>>;

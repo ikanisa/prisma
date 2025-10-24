@@ -1,6 +1,6 @@
 import { drive, type drive_v3 } from '@googleapis/drive';
 import { JWT } from 'google-auth-library';
-import { getGoogleDriveSettings } from '../system-config';
+import { getGoogleDriveSettings } from '../system-config.js';
 
 export interface ServiceAccountCredentials {
   clientEmail: string;
@@ -40,7 +40,7 @@ export class GoogleDriveClient {
       scopes: requestedScopes,
     });
 
-    const api = drive({ version: 'v3', auth });
+    const api = drive({ version: 'v3', auth: auth as unknown as any });
     return new GoogleDriveClient(api, config, requestedScopes);
   }
 

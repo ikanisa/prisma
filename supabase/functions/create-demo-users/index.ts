@@ -2,10 +2,11 @@ import { getServiceSupabaseClient } from '../_shared/supabase-client.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-bootstrap-token',
 }
 
 const allowDemoBootstrap = Deno.env.get('ALLOW_DEMO_BOOTSTRAP') === 'true'
+const bootstrapToken = Deno.env.get('DEMO_BOOTSTRAP_AUTH_TOKEN') ?? ''
 
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
@@ -14,11 +15,22 @@ Deno.serve(async (req) => {
   }
 
   try {
-    if (!allowDemoBootstrap) {
+    if (!allowDemoBootstrap || !bootstrapToken) {
       return new Response(
         JSON.stringify({ success: false, error: 'Demo bootstrap disabled' }),
         {
           status: 403,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        },
+      )
+    }
+
+    const bootstrapHeader = req.headers.get('x-bootstrap-token')
+    if (bootstrapHeader !== bootstrapToken) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Invalid bootstrap token' }),
+        {
+          status: 401,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         },
       )

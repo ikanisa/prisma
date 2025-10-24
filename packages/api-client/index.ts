@@ -73,9 +73,7 @@ export class ApiClient {
 
   private async request<T>(path: string, init?: RequestInit): Promise<T> {
     const url = `${this.baseUrl}${path}`;
-    let attempt = 0;
-    // eslint-disable-next-line no-constant-condition
-    while (true) {
+    for (let attempt = 0; ; attempt += 1) {
       const res = await this.fetchImpl(url, {
         ...init,
         headers: { 'Content-Type': 'application/json', ...this.defaultHeaders, ...(init?.headers ?? {}) },
@@ -89,8 +87,7 @@ export class ApiClient {
         const err = (body && (body.error || body.detail)) || `request_failed_${res.status}`;
         throw new Error(typeof err === 'string' ? err : JSON.stringify(err));
       }
-      attempt += 1;
-      const backoff = this.retryDelayMs * attempt;
+      const backoff = this.retryDelayMs * (attempt + 1);
       await new Promise((r) => setTimeout(r, backoff));
     }
   }

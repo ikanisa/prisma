@@ -1389,7 +1389,6 @@ export default function DomainToolsPage() {
           <div className="mt-4 space-y-2">
             <h3 className="text-sm font-semibold">Preview</h3>
             <div className="overflow-hidden rounded border">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={`data:image/png;base64,${imageState.result.imageBase64}`}
                 alt="Generated visual"

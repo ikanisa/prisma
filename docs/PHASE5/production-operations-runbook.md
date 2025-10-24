@@ -8,10 +8,11 @@ Once Phase 4 hardening activities are complete and the release readiness checkli
 
 | Cadence | Activities | Owner(s) | Artefacts |
 | --- | --- | --- | --- |
-| Daily | Review telemetry dashboard (SLAs, refusal rates, Supabase health), triage Sentry / Supabase errors, confirm overnight jobs succeeded (`/api/release-controls/check`). | On-call engineer | `docs/OPERATIONS/daily-checklist.md` *(create if missing)* |
+| Daily | Review telemetry dashboard (SLAs, refusal rates, Supabase health), triage Sentry / Supabase errors, confirm overnight jobs succeeded (`/api/release-controls/check`). | On-call engineer | `docs/OPERATIONS/daily-checklist.md` |
 | Weekly | Close/autonomy backlog grooming, cost monitoring vs budget, ensure rate-limit baselines intact, rotate temporary access tokens. | Eng Manager, FinOps | `reports/week-<iso>.md` |
 | Monthly | Run archive manifest verification, PITR backup restore drill (staging), review RLS policy changes & access logs. | DevOps + Security | `docs/SECURITY/monthly-controls.md` |
 | Quarterly | Perform threat drill (tabletop + runbook), refresh SOC/ISA traceability matrix, review regulatory updates (tax / audit). | Security + Product | `docs/SECURITY/threat-drills.md`, `STANDARDS/TRACEABILITY/matrix.md` |
+| Retention & evidence upkeep | Maintain traceability artefacts, archive Phase 4 evidence, update policy packs with regulatory changes. | Compliance lead | `docs/OPERATIONS/traceability-upkeep.md` |
 
 ---
 

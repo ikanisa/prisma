@@ -1,6 +1,29 @@
 import { getServiceSupabaseClient } from '../_shared/supabase-client.ts'
 
+const requiredToken = Deno.env.get('SEED_DATA_AUTH_TOKEN')
+
+function isAuthorised(request: Request): boolean {
+  if (!requiredToken) {
+    return false
+  }
+
+  const authHeader = request.headers.get('authorization')
+  if (!authHeader || !authHeader.toLowerCase().startsWith('bearer ')) {
+    return false
+  }
+
+  const provided = authHeader.substring('bearer '.length).trim()
+  return provided === requiredToken
+}
+
 Deno.serve(async (req) => {
+  if (!isAuthorised(req)) {
+    return new Response('Seed endpoint disabled', {
+      status: 403,
+      headers: { 'Content-Type': 'text/plain' },
+    })
+  }
+
   try {
     // Create admin client using service role key
     const supabaseAdmin = await getServiceSupabaseClient()

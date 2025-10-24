@@ -125,10 +125,6 @@ export async function POST(request: NextRequest) {
   if (!supabase) {
     return NextResponse.json({ error: 'Supabase not configured' }, { status: 503 });
   }
-  if (!supabase) {
-    return NextResponse.json({ error: 'Supabase not configured' }, { status: 503 });
-  }
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
   const { data, error } = await supabase
     .from('comparatives_checks')
     .upsert(
