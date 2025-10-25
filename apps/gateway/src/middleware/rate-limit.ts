@@ -1,113 +1,116 @@
-import type { Request, RequestHandler } from 'express';
-import { logger } from '@prisma-glow/logger';
+import rateLimit, {
+  type AugmentedRequest,
+  type ClientRateLimitInfo,
+  type Options,
+  type RequestHandler,
+  type Store,
+} from 'express-rate-limit';
+import type { Request } from 'express';
 
 export interface RedisLikeClient {
   eval<T = unknown>(script: string, options: { keys: string[]; arguments: Array<string | number> }): Promise<T>;
 }
 
-type ConsumeResult = { allowed: boolean; retryAfterMs?: number };
-
-interface TokenBucket {
-  consume(key: string): Promise<ConsumeResult>;
-}
-
-class InMemoryTokenBucket implements TokenBucket {
-  private readonly capacity: number;
-  private readonly refillPerMs: number;
-  private readonly windowMs: number;
-  private readonly buckets = new Map<string, { tokens: number; lastRefill: number }>();
-
-  constructor(capacity: number, windowMs: number) {
-    this.capacity = Math.max(1, capacity);
-    this.windowMs = Math.max(1000, windowMs);
-    this.refillPerMs = this.capacity / this.windowMs;
-  }
-
-  async consume(key: string): Promise<ConsumeResult> {
-    const now = Date.now();
-    const state = this.buckets.get(key) ?? { tokens: this.capacity, lastRefill: now };
-    const delta = now - state.lastRefill;
-    if (delta > 0) {
-      state.tokens = Math.min(this.capacity, state.tokens + delta * this.refillPerMs);
-      state.lastRefill = now;
-    }
-
-    if (state.tokens < 1) {
-      const deficit = 1 - state.tokens;
-      const waitMs = Math.ceil(deficit / this.refillPerMs);
-      this.buckets.set(key, state);
-      return { allowed: false, retryAfterMs: waitMs };
-    }
-
-    state.tokens -= 1;
-    this.buckets.set(key, state);
-    return { allowed: true };
-  }
-}
-
-class RedisTokenBucket implements TokenBucket {
-  private readonly capacity: number;
-  private readonly windowMs: number;
-  private readonly refillPerMs: number;
-  private readonly client: RedisLikeClient;
-
-  constructor(client: RedisLikeClient, capacity: number, windowMs: number) {
-    this.client = client;
-    this.capacity = Math.max(1, capacity);
-    this.windowMs = Math.max(1000, windowMs);
-    this.refillPerMs = this.capacity / this.windowMs;
-  }
-
-  async consume(key: string): Promise<ConsumeResult> {
-    const now = Date.now();
-    const result = await this.client.eval<[number, number]>(LUA_TOKEN_BUCKET_SCRIPT, {
-      keys: [key],
-      arguments: [this.capacity, this.refillPerMs, now, this.windowMs],
-    });
-    if (!result || !Array.isArray(result)) {
-      return { allowed: true };
-    }
-    const allowed = Number(result[0]) === 1;
-    const retryAfterMs = Number(result[1]);
-    if (allowed) {
-      return { allowed: true };
-    }
-    return { allowed: false, retryAfterMs: retryAfterMs > 0 ? retryAfterMs : this.windowMs };
-  }
-}
-
-const LUA_TOKEN_BUCKET_SCRIPT = `
-local capacity = tonumber(ARGV[1])
-local refillPerMs = tonumber(ARGV[2])
-local now = tonumber(ARGV[3])
-local windowMs = tonumber(ARGV[4])
-local bucket = redis.call('hmget', KEYS[1], 'tokens', 'timestamp')
-local tokens = tonumber(bucket[1])
-local lastRefill = tonumber(bucket[2])
-if tokens == nil then
-  tokens = capacity
-  lastRefill = now
+const LUA_INCREMENT_SCRIPT = `
+local key = KEYS[1]
+local windowMs = tonumber(ARGV[1])
+local current = redis.call('incr', key)
+if current == 1 then
+  redis.call('pexpire', key, windowMs)
 end
-if lastRefill == nil then
-  lastRefill = now
+local ttl = redis.call('pttl', key)
+if ttl < 0 then
+  ttl = windowMs
+  redis.call('pexpire', key, windowMs)
 end
-local delta = now - lastRefill
-if delta > 0 then
-  local refill = delta * refillPerMs
-  tokens = math.min(capacity, tokens + refill)
-  lastRefill = now
-end
-if tokens < 1 then
-  redis.call('hmset', KEYS[1], 'tokens', tokens, 'timestamp', lastRefill)
-  redis.call('pexpire', KEYS[1], windowMs)
-  local deficit = 1 - tokens
-  local wait = math.ceil(deficit / refillPerMs)
-  return {0, wait}
-end
-redis.call('hmset', KEYS[1], 'tokens', tokens - 1, 'timestamp', lastRefill)
-redis.call('pexpire', KEYS[1], windowMs)
-return {1, 0}
+return {current, ttl}
 `;
+
+const LUA_GET_SCRIPT = `
+local key = KEYS[1]
+local current = redis.call('get', key)
+if not current then
+  return {0, -1}
+end
+local ttl = redis.call('pttl', key)
+if ttl < 0 then
+  ttl = -1
+end
+return {tonumber(current), ttl}
+`;
+
+const LUA_DECREMENT_SCRIPT = `
+local key = KEYS[1]
+local current = redis.call('get', key)
+if not current then
+  return 0
+end
+current = tonumber(current)
+if current <= 1 then
+  redis.call('del', key)
+  return 0
+end
+return redis.call('decr', key)
+`;
+
+const LUA_RESET_KEY_SCRIPT = `
+local key = KEYS[1]
+redis.call('del', key)
+return 1
+`;
+
+class RedisStore implements Store {
+  private readonly client: RedisLikeClient;
+  private windowMs = 60_000;
+
+  constructor(client: RedisLikeClient) {
+    this.client = client;
+  }
+
+  async init(options: Options): Promise<void> {
+    if (typeof options.windowMs === 'number' && Number.isFinite(options.windowMs) && options.windowMs > 0) {
+      this.windowMs = Math.floor(options.windowMs);
+    }
+  }
+
+  async increment(key: string): Promise<ClientRateLimitInfo> {
+    const result = await this.client.eval<[number, number]>(LUA_INCREMENT_SCRIPT, {
+      keys: [key],
+      arguments: [this.windowMs],
+    });
+    const totalHits = Number(result?.[0] ?? 0);
+    const ttl = Number(result?.[1] ?? this.windowMs);
+    const resetTime = new Date(Date.now() + (ttl > 0 ? ttl : this.windowMs));
+    return { totalHits, resetTime };
+  }
+
+  async decrement(key: string): Promise<void> {
+    await this.client.eval(LUA_DECREMENT_SCRIPT, { keys: [key], arguments: [] });
+  }
+
+  async get(key: string): Promise<ClientRateLimitInfo | undefined> {
+    const result = await this.client.eval<[number, number]>(LUA_GET_SCRIPT, { keys: [key], arguments: [] });
+    const totalHits = Number(result?.[0] ?? 0);
+    if (totalHits <= 0) {
+      return undefined;
+    }
+    const ttl = Number(result?.[1] ?? this.windowMs);
+    const resetTime = new Date(Date.now() + (ttl > 0 ? ttl : this.windowMs));
+    return { totalHits, resetTime };
+  }
+
+  async resetKey(key: string): Promise<void> {
+    await this.client.eval(LUA_RESET_KEY_SCRIPT, { keys: [key], arguments: [] });
+  }
+
+  async resetAll(): Promise<void> {
+    // This implementation intentionally does not flush the entire Redis database.
+  }
+
+  async shutdown(): Promise<void> {
+    // No resources to clean up.
+  }
+}
 
 export type RateLimitOptions = {
   capacity: number;
@@ -119,22 +122,27 @@ export type RateLimitOptions = {
 export function createRateLimitMiddleware(options: RateLimitOptions): RequestHandler {
   const keyGenerator =
     options.keyGenerator ?? ((req) => `${req.method}:${req.baseUrl}${req.path}:${req.ip ?? 'unknown'}`);
-  const bucket: TokenBucket = options.redisClient
-    ? new RedisTokenBucket(options.redisClient, options.capacity, options.windowMs)
-    : new InMemoryTokenBucket(options.capacity, options.windowMs);
 
-  return async (req, res, next) => {
-    const key = keyGenerator(req);
-    try {
-      const result = await bucket.consume(key);
-      if (!result.allowed) {
-        const retrySeconds = Math.ceil((result.retryAfterMs ?? options.windowMs) / 1000);
-        res.setHeader('retry-after', String(retrySeconds));
-        return res.status(429).json({ error: 'rate_limit_exceeded', retryAfterSeconds: retrySeconds });
-      }
-    } catch (error) {
-      logger.warn('rate_limit_fallback', { error });
-    }
-    next();
-  };
+  const limit = Math.max(1, Math.floor(options.capacity));
+  const windowMs = Math.max(1000, Math.floor(options.windowMs));
+  const store = options.redisClient ? new RedisStore(options.redisClient) : undefined;
+
+  const middleware = rateLimit({
+    windowMs,
+    limit,
+    keyGenerator,
+    legacyHeaders: false,
+    standardHeaders: 'draft-6',
+    passOnStoreError: true,
+    ...(store ? { store } : {}),
+    handler: (req, res, _next, opts) => {
+      const rateInfo = (req as AugmentedRequest).rateLimit;
+      const retryMs = rateInfo?.resetTime ? Math.max(0, rateInfo.resetTime.getTime() - Date.now()) : windowMs;
+      const retryAfterSeconds = Math.max(1, Math.ceil(retryMs / 1000));
+      res.setHeader('retry-after', String(retryAfterSeconds));
+      res.status(opts.statusCode).json({ error: 'rate_limit_exceeded', retryAfterSeconds });
+    },
+  });
+
+  return middleware;
 }

@@ -13,6 +13,8 @@ const booleanish = z
 
 const optionalBooleanish = booleanish.optional().default(false);
 
+const DEFAULT_ALLOWED_ORIGINS = ['http://localhost:3000', 'http://localhost:5173'] as const;
+
 const baseSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   ENVIRONMENT: z.string().optional(),
@@ -36,6 +38,7 @@ const baseSchema = z.object({
   AGENT_SERVICE_API_KEY: z.string().optional(),
   RAG_SERVICE_URL: z.string().url().optional(),
   RAG_SERVICE_API_KEY: z.string().optional(),
+  API_ALLOWED_ORIGINS: z.string().optional(),
 });
 
 const parsed = baseSchema.safeParse({
@@ -61,6 +64,7 @@ const parsed = baseSchema.safeParse({
   AGENT_SERVICE_API_KEY: process.env.AGENT_SERVICE_API_KEY,
   RAG_SERVICE_URL: process.env.RAG_SERVICE_URL,
   RAG_SERVICE_API_KEY: process.env.RAG_SERVICE_API_KEY,
+  API_ALLOWED_ORIGINS: process.env.API_ALLOWED_ORIGINS,
 });
 
 if (!parsed.success) {
@@ -70,12 +74,33 @@ if (!parsed.success) {
   throw new Error('apps/gateway environment validation failed');
 }
 
-const baseEnv = parsed.data;
+function normaliseAllowedOrigins(raw: string | undefined): string[] {
+  if (!raw) {
+    return [...DEFAULT_ALLOWED_ORIGINS];
+  }
+  const trimmed = raw.trim();
+  if (!trimmed) {
+    return [...DEFAULT_ALLOWED_ORIGINS];
+  }
+  if (trimmed === '*') {
+    return ['*'];
+  }
+  const unique = new Set<string>();
+  for (const origin of trimmed.split(',')) {
+    const candidate = origin.trim();
+    if (candidate) {
+      unique.add(candidate);
+    }
+  }
+  if (unique.size === 0) {
+    return [...DEFAULT_ALLOWED_ORIGINS];
+  }
+  return Array.from(unique);
+}
 
 export const env = Object.freeze({
-  ...baseEnv,
-  SENTRY_DSN: baseEnv.GATEWAY_SENTRY_DSN ?? baseEnv.SENTRY_DSN ?? undefined,
-  SENTRY_TRACES_SAMPLE_RATE: baseEnv.SENTRY_TRACES_SAMPLE_RATE ?? undefined,
+  ...parsed.data,
+  allowedOrigins: normaliseAllowedOrigins(parsed.data.API_ALLOWED_ORIGINS),
 });
 
 const dynamicSchema = z.object({
