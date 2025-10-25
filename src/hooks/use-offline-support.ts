@@ -16,9 +16,8 @@ export interface UseOfflineSupportResult {
   queue: QueuedOfflineAction[];
   queueLength: number;
   hasPendingActions: boolean;
-  enqueueAction: (action: string, data: unknown) => Promise<number>;
+  enqueueAction: (action: string, data: unknown) => number;
   processQueue: () => Promise<number>;
-  resetQueue: () => Promise<void>;
 }
 
 export function useOfflineSupport({ autoProcessOnReconnect = false }: UseOfflineSupportOptions = {}): UseOfflineSupportResult {
@@ -54,7 +53,9 @@ export function useOfflineSupport({ autoProcessOnReconnect = false }: UseOffline
     let handleOnline: (() => void) | undefined;
     if (autoProcessOnReconnect) {
       handleOnline = () => {
-        void processQueuedActions().then(() => refreshQueue());
+        processQueuedActions().finally(() => {
+          refreshQueue();
+        });
       };
       window.addEventListener('online', handleOnline);
     }
@@ -78,7 +79,7 @@ export function useOfflineSupport({ autoProcessOnReconnect = false }: UseOffline
 
   const process = useCallback(async () => {
     const processed = await processQueuedActions();
-    await refreshQueue();
+    refreshQueue();
     return processed;
   }, [refreshQueue]);
 
