@@ -33,7 +33,7 @@
     "test:workspace": "pnpm -r --if-present run test",
     "coverage": "./scripts/coverage.sh",
     "build:workspace": "pnpm -r --if-present run build",
-    "ci:verify": "pnpm run lint:workspace && pnpm run typecheck && pnpm run test:workspace && pnpm run build:workspace",
+    "ci:verify": "pnpm run lint:workspace && pnpm run test:workspace && pnpm run build:workspace && pnpm run check:bundle",
     "test:playwright": "playwright test",
     "test:playwright:core": "playwright test tests/playwright/core-journeys.spec.ts",
     "agents:generate": "ts-node scripts/generate_agent_manifests.ts",

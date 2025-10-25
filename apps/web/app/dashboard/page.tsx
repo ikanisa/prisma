@@ -1,3 +1,5 @@
+'use client';
+
 import { AsyncBoundary } from '@/src/components/async-boundary';
 import { LoadingStack } from '@/src/components/loading-skeleton';
 import { AgentTaskList } from '@/src/features/agents';
