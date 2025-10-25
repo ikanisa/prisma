@@ -2,6 +2,13 @@
 
 import { recordClientError, recordClientEvent } from '@/lib/client-events';
 import { logger } from '@/lib/logger';
+import {
+  deleteIndexedDb,
+  getFromIndexedDb,
+  isIndexedDbAvailable,
+  isQuotaExceededError,
+  setInIndexedDb,
+} from '@/lib/storage/indexed-db';
 
 export const OFFLINE_QUEUE_STORAGE_KEY = 'queuedActions';
 export const OFFLINE_QUEUE_UPDATED_EVENT = 'offline-queue:updated';
@@ -93,8 +100,8 @@ function computeClientNextAttempt(retries: number): number {
   return Date.now() + delay;
 }
 
-function readOfflineQueue(): QueuedOfflineAction[] {
-  if (typeof window === 'undefined') {
+async function readOfflineQueue(): Promise<QueuedOfflineAction[]> {
+  if (typeof window === 'undefined' || !isIndexedDbAvailable()) {
     return [];
   }
 
@@ -111,8 +118,8 @@ function readOfflineQueue(): QueuedOfflineAction[] {
   }
 }
 
-function writeOfflineQueue(queue: QueuedOfflineAction[]) {
-  if (typeof window === 'undefined') {
+async function writeOfflineQueue(queue: QueuedOfflineAction[]): Promise<void> {
+  if (typeof window === 'undefined' || !isIndexedDbAvailable()) {
     return;
   }
 
@@ -361,13 +368,18 @@ export function queueAction(
   });
 
   queuedActions.push(entry);
-  writeOfflineQueue(queuedActions);
+  try {
+    await writeOfflineQueue(queuedActions);
+  } catch (error) {
+    queuedActions.pop();
+    return queuedActions.length;
+  }
 
   void postMessageToServiceWorker({ type: 'OFFLINE_QUEUE_ENQUEUE', payload: entry });
 
   if ('serviceWorker' in navigator) {
     // Register for background sync (if supported)
-    navigator.serviceWorker.ready
+    void navigator.serviceWorker.ready
       .then((registration) => {
         if ('sync' in registration) {
           const syncManager = (registration as ServiceWorkerRegistration & {
@@ -522,8 +534,20 @@ export async function processQueuedActions(): Promise<ProcessQueueResult> {
   return result;
 }
 
-export function getOfflineQueueSnapshot(): QueuedOfflineAction[] {
+export function getOfflineQueueSnapshot(): Promise<QueuedOfflineAction[]> {
   return readOfflineQueue();
+}
+
+export async function resetOfflineQueue(): Promise<void> {
+  if (typeof window === 'undefined' || !isIndexedDbAvailable()) {
+    return;
+  }
+
+  try {
+    await writeOfflineQueue([]);
+  } catch {
+    await deleteIndexedDb();
+  }
 }
 
 // Network status monitoring

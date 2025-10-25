@@ -1,5 +1,6 @@
 import { auth } from '@/auth';
 import type { NextRequest } from 'next/server';
+import { logger } from '@/lib/logger';
 
 const UUID_REGEX = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 
@@ -48,7 +49,7 @@ export async function resolveUserId(request: NextRequest, candidate?: unknown): 
       }
     }
   } catch (error) {
-    console.warn('Unable to resolve session user for group request', error);
+    logger.warn('group.request_session_resolve_failed', { error });
   }
 
   return null;

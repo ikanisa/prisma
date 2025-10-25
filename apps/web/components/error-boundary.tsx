@@ -1,6 +1,7 @@
 'use client';
 
 import { Component, type ErrorInfo, type ReactNode } from 'react';
+import { logger } from '@/lib/logger';
 
 interface ErrorBoundaryProps {
   fallback?: ReactNode;
@@ -20,7 +21,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     if (process.env.NODE_ENV !== 'production') {
-      console.error('Error boundary caught error', error, errorInfo);
+      logger.error('error_boundary.caught', { error, errorInfo });
     }
   }
 

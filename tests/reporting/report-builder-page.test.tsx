@@ -294,4 +294,23 @@ describe('ReportBuilderPage workflow', () => {
     await screen.findByText('IFRS 15');
     expect(screen.getByText('Revenue from Contracts with Customers')).toBeInTheDocument();
   });
+
+  it('sanitizes the report preview HTML before rendering', () => {
+    const maliciousHtml =
+      "<img src='x' onerror=\"alert('xss')\"><p>Visible text</p><script>alert('boom')</script>";
+
+    reportBuilder.report = {
+      ...(reportBuilder.report as ReportDraft),
+      draft_html: maliciousHtml,
+    };
+
+    const { container } = renderWithRouter();
+
+    expect(screen.getByText('Visible text')).toBeInTheDocument();
+    expect(container.querySelector('script')).toBeNull();
+
+    const image = container.querySelector('img');
+    expect(image).not.toBeNull();
+    expect(image?.getAttribute('onerror')).toBeNull();
+  });
 });
