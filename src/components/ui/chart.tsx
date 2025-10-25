@@ -26,14 +26,10 @@ function isThemeName(value: unknown): value is ThemeName {
 }
 
 function useResolvedThemeName(): ThemeName | undefined {
-  try {
-    const { resolvedTheme, theme } = useTheme()
-    const candidate = resolvedTheme ?? theme
+  const { resolvedTheme, theme } = useTheme()
+  const candidate = resolvedTheme ?? theme
 
-    return isThemeName(candidate) ? candidate : undefined
-  } catch (error) {
-    return undefined
-  }
+  return isThemeName(candidate) ? candidate : undefined
 }
 
 function generateChartVariables(config: ChartConfig): ChartVariableMap {

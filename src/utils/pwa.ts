@@ -168,31 +168,79 @@ const normaliseQueuedAction = (input: unknown): QueuedOfflineAction | null => {
   };
 };
 
-function readOfflineQueue(): QueuedOfflineAction[] {
+async function readOfflineQueue(): Promise<QueuedOfflineAction[]> {
   if (typeof window === 'undefined') {
     return [];
   }
 
+  const readFromLocalStorage = () => {
+    try {
+      const raw = window.localStorage.getItem(OFFLINE_QUEUE_STORAGE_KEY);
+      if (!raw) {
+        return [];
+      }
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) {
+        return [];
+      }
+      return parsed.map((entry) => normalizeQueuedAction(entry as Partial<QueuedOfflineAction>));
+    } catch {
+      return [];
+    }
+  };
+
   try {
-    const raw = window.localStorage.getItem(OFFLINE_QUEUE_STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.map((entry) => normalizeQueuedAction(entry as Partial<QueuedOfflineAction>));
+    if (!isIndexedDbAvailable()) {
+      return readFromLocalStorage();
+    }
+
+    const stored = await getFromIndexedDb<unknown>(OFFLINE_QUEUE_STORAGE_KEY);
+    if (!stored) {
+      return readFromLocalStorage();
+    }
+
+    if (Array.isArray(stored)) {
+      return stored.map((entry) => normalizeQueuedAction(entry as Partial<QueuedOfflineAction>));
+    }
+
+    if (typeof stored === 'string') {
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed)) {
+        return parsed.map((entry) => normalizeQueuedAction(entry as Partial<QueuedOfflineAction>));
+      }
+    }
+
+    if (Array.isArray((stored as any)?.jobs)) {
+      return (stored as any).jobs.map((entry: Partial<QueuedOfflineAction>) => normalizeQueuedAction(entry));
+    }
+
+    return [];
   } catch (error) {
     logger.error('pwa.read_offline_queue_failed', error);
     recordClientError({ name: 'pwa:readOfflineQueueFailed', error });
-    return [];
+    return readFromLocalStorage();
   }
 }
 
-function writeOfflineQueue(queue: QueuedOfflineAction[]): void {
-  if (typeof window === 'undefined' || !isIndexedDbAvailable()) {
+async function writeOfflineQueue(queue: QueuedOfflineAction[]): Promise<void> {
+  if (typeof window === 'undefined') {
     return;
   }
 
   const normalized = queue.map((entry) => normalizeQueuedAction(entry));
-  window.localStorage.setItem(OFFLINE_QUEUE_STORAGE_KEY, JSON.stringify(normalized));
+
+  if (!isIndexedDbAvailable()) {
+    window.localStorage.setItem(OFFLINE_QUEUE_STORAGE_KEY, JSON.stringify(normalized));
+    dispatchOfflineQueueEvent(normalized);
+    return;
+  }
+
+  await setInIndexedDb(OFFLINE_QUEUE_STORAGE_KEY, normalized);
+  try {
+    window.localStorage.setItem(OFFLINE_QUEUE_STORAGE_KEY, JSON.stringify(normalized));
+  } catch {
+    // LocalStorage mirroring is best-effort only.
+  }
   dispatchOfflineQueueEvent(normalized);
 }
 
@@ -216,11 +264,15 @@ async function postMessageToServiceWorker(message: unknown) {
   }
 }
 
-function removeOfflineQueueEntry(id: string) {
-  const queue = readOfflineQueue();
-  const nextQueue = queue.filter((item) => item.id !== id);
-  if (nextQueue.length !== queue.length) {
-    writeOfflineQueue(nextQueue);
+async function removeOfflineQueueEntry(id: string) {
+  try {
+    const queue = await readOfflineQueue();
+    const nextQueue = queue.filter((item) => item.id !== id);
+    if (nextQueue.length !== queue.length) {
+      await writeOfflineQueue(nextQueue);
+    }
+  } catch (error) {
+    logger.warn('pwa.remove_offline_queue_entry_failed', error);
   }
 }
 
@@ -247,14 +299,19 @@ async function requestOfflineQueueSnapshot() {
         resolve();
       }, 2000);
 
-      channel.port1.onmessage = (event) => {
+      channel.port1.onmessage = async (event) => {
         window.clearTimeout(timeout);
+        channel.port1.close();
         const { data } = event;
         if (data && typeof data === 'object' && data.type === 'OFFLINE_QUEUE_SNAPSHOT') {
           const jobs = Array.isArray(data.payload?.jobs)
             ? (data.payload.jobs as Array<Partial<QueuedOfflineAction>>)
             : [];
-          writeOfflineQueue(jobs.map((job) => normalizeQueuedAction(job)));
+          try {
+            await writeOfflineQueue(jobs.map((job) => normalizeQueuedAction(job)));
+          } catch (error) {
+            logger.warn('pwa.offline_queue_snapshot_write_failed', error);
+          }
         }
         resolve();
       };
@@ -268,7 +325,7 @@ async function requestOfflineQueueSnapshot() {
 
 let serviceWorkerListenerRegistered = false;
 
-function handleServiceWorkerMessage(event: MessageEvent) {
+async function handleServiceWorkerMessage(event: MessageEvent) {
   const { data } = event;
   if (!data || typeof data !== 'object') {
     return;
@@ -277,7 +334,7 @@ function handleServiceWorkerMessage(event: MessageEvent) {
   if (data.type === 'OFFLINE_QUEUE_JOB_COMPLETED') {
     const id = data.payload?.id as string | undefined;
     if (id) {
-      removeOfflineQueueEntry(id);
+      void removeOfflineQueueEntry(id);
     }
     return;
   }
@@ -292,22 +349,26 @@ function handleServiceWorkerMessage(event: MessageEvent) {
       removeOfflineQueueEntry(id);
       return;
     }
-    const queue = readOfflineQueue();
-    const nextQueue = queue.map((item) => {
-      if (item.id !== id) return item;
-      const retries = typeof payload.retries === 'number' ? payload.retries : item.retries + 1;
-      const nextAttemptAt =
-        typeof payload.nextAttemptAt === 'number' && Number.isFinite(payload.nextAttemptAt)
-          ? payload.nextAttemptAt
-          : computeClientNextAttempt(retries);
-      return normalizeQueuedAction({
-        ...item,
-        retries,
-        lastError: typeof payload.error === 'string' ? payload.error : item.lastError ?? null,
-        nextAttemptAt,
+    try {
+      const queue = await readOfflineQueue();
+      const nextQueue = queue.map((item) => {
+        if (item.id !== id) return item;
+        const retries = typeof payload.retries === 'number' ? payload.retries : item.retries + 1;
+        const nextAttemptAt =
+          typeof payload.nextAttemptAt === 'number' && Number.isFinite(payload.nextAttemptAt)
+            ? payload.nextAttemptAt
+            : computeClientNextAttempt(retries);
+        return normalizeQueuedAction({
+          ...item,
+          retries,
+          lastError: typeof payload.error === 'string' ? payload.error : item.lastError ?? null,
+          nextAttemptAt,
+        });
       });
-    });
-    writeOfflineQueue(nextQueue);
+      await writeOfflineQueue(nextQueue);
+    } catch (error) {
+      logger.warn('pwa.offline_queue_update_failed', error);
+    }
   }
 }
 
@@ -530,16 +591,16 @@ export function showInstallPrompt() {
 }
 
 // Enhanced background sync for offline actions
-export function queueAction(
+export async function queueAction(
   action: string,
   data: unknown,
   options: QueueOfflineActionOptions = {},
-): QueuedOfflineAction {
+): Promise<QueuedOfflineAction> {
   if (typeof window === 'undefined') {
     return normalizeQueuedAction({ action, data });
   }
 
-  const queuedActions = readOfflineQueue();
+  const queuedActions = await readOfflineQueue();
   const entry = normalizeQueuedAction({
     id: options.id,
     action,
@@ -555,10 +616,17 @@ export function queueAction(
 
   queuedActions.push(entry);
   try {
-    writeOfflineQueue(queuedActions);
+    await writeOfflineQueue(queuedActions);
   } catch (error) {
     queuedActions.pop();
-    return queuedActions.length;
+    if (isQuotaExceededError(error)) {
+      logger.error('pwa.offline_queue_quota_exceeded', error);
+      recordClientError({ name: 'pwa:offlineQueueQuotaExceeded', error });
+    } else {
+      logger.error('pwa.offline_queue_write_failed', error);
+      recordClientError({ name: 'pwa:offlineQueueWriteFailed', error });
+    }
+    throw error;
   }
 
   void postMessageToServiceWorker({ type: 'OFFLINE_QUEUE_ENQUEUE', payload: entry });
@@ -596,11 +664,22 @@ async function processQueuedActionsWithServiceWorker(): Promise<ProcessQueueResu
       return DEFAULT_QUEUE_RESULT;
     }
 
+    const readRemaining = async (): Promise<number> => {
+      try {
+        const queue = await readOfflineQueue();
+        return queue.length;
+      } catch {
+        return 0;
+      }
+    };
+
     return await new Promise<ProcessQueueResult>((resolve) => {
       const channel = new MessageChannel();
       const timeout = window.setTimeout(() => {
         channel.port1.close();
-        resolve({ ...DEFAULT_QUEUE_RESULT, remaining: readOfflineQueue().length });
+        void readRemaining().then((remaining) => {
+          resolve({ ...DEFAULT_QUEUE_RESULT, remaining });
+        });
       }, 4000);
 
       channel.port1.onmessage = (event) => {
@@ -609,15 +688,19 @@ async function processQueuedActionsWithServiceWorker(): Promise<ProcessQueueResu
         const message = event.data;
         if (message && typeof message === 'object' && message.type === 'OFFLINE_QUEUE_PROCESS_RESULT') {
           const payload = message.payload as Partial<ProcessQueueResult> | undefined;
-          resolve({
-            processed: typeof payload?.processed === 'number' ? payload.processed : 0,
-            failed: typeof payload?.failed === 'number' ? payload.failed : 0,
-            remaining: typeof payload?.remaining === 'number' ? payload.remaining : readOfflineQueue().length,
-          });
+          const processed = typeof payload?.processed === 'number' ? payload.processed : 0;
+          const failed = typeof payload?.failed === 'number' ? payload.failed : 0;
+          if (typeof payload?.remaining === 'number') {
+            resolve({ processed, failed, remaining: payload.remaining });
+            return;
+          }
+          void readRemaining().then((remaining) => resolve({ processed, failed, remaining }));
           return;
         }
 
-        resolve({ ...DEFAULT_QUEUE_RESULT, remaining: readOfflineQueue().length });
+        void readRemaining().then((remaining) => {
+          resolve({ ...DEFAULT_QUEUE_RESULT, remaining });
+        });
       };
 
       try {
@@ -626,7 +709,9 @@ async function processQueuedActionsWithServiceWorker(): Promise<ProcessQueueResu
         window.clearTimeout(timeout);
         channel.port1.close();
         recordClientError({ name: 'pwa:processQueuePostMessageFailed', error });
-        resolve({ ...DEFAULT_QUEUE_RESULT, remaining: readOfflineQueue().length });
+        void readRemaining().then((remaining) => {
+          resolve({ ...DEFAULT_QUEUE_RESULT, remaining });
+        });
       }
     });
   } catch (error) {
@@ -641,7 +726,7 @@ async function processQueuedActionsLocally(): Promise<ProcessQueueResult> {
     return DEFAULT_QUEUE_RESULT;
   }
 
-  const queuedActions = readOfflineQueue();
+  const queuedActions = await readOfflineQueue();
   if (queuedActions.length === 0) {
     return { ...DEFAULT_QUEUE_RESULT, remaining: 0 };
   }
@@ -655,7 +740,9 @@ async function processQueuedActionsLocally(): Promise<ProcessQueueResult> {
       recordClientEvent({ name: 'pwa:processQueuedAction', data: { action: item.action } });
 
       if (!item.endpoint) {
-        throw new Error('missing_endpoint');
+        await executeQueuedApiAction(item);
+        processed += 1;
+        continue;
       }
 
       const method = item.method ?? 'POST';
@@ -698,7 +785,7 @@ async function processQueuedActionsLocally(): Promise<ProcessQueueResult> {
     }
   }
 
-  writeOfflineQueue(nextQueue);
+  await writeOfflineQueue(nextQueue);
 
   return { processed, failed, remaining: nextQueue.length };
 }
@@ -725,11 +812,16 @@ export function getOfflineQueueSnapshot(): Promise<QueuedOfflineAction[]> {
 }
 
 export async function resetOfflineQueue(): Promise<void> {
-  if (typeof window === 'undefined' || !isIndexedDbAvailable()) {
+  if (typeof window === 'undefined') {
     return;
   }
 
   try {
+    if (!isIndexedDbAvailable()) {
+      window.localStorage.removeItem(OFFLINE_QUEUE_STORAGE_KEY);
+      dispatchOfflineQueueEvent([]);
+      return;
+    }
     await writeOfflineQueue([]);
   } catch {
     await deleteIndexedDb();

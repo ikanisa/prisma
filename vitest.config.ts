@@ -337,6 +337,10 @@ export default defineConfig({
         replacement: path.resolve(__dirname, './packages/lib/dist/index.js'),
       },
       {
+        find: '@prisma-glow/logger',
+        replacement: path.resolve(__dirname, './packages/logger/src/index.ts'),
+      },
+      {
         find: '@prisma-glow/system-config',
         replacement: path.resolve(__dirname, './packages/system-config/src/index.ts'),
       },

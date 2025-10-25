@@ -30,6 +30,10 @@ function initialiseSentry(): boolean {
       : environment === 'production'
         ? 0.2
         : 1.0;
+  const transport =
+    typeof (globalThis as { __SENTRY_TRANSPORT__?: () => unknown }).__SENTRY_TRANSPORT__ === 'function'
+      ? (globalThis as { __SENTRY_TRANSPORT__?: () => unknown }).__SENTRY_TRANSPORT__
+      : undefined;
 
   try {
     Sentry.init({
@@ -37,6 +41,7 @@ function initialiseSentry(): boolean {
       environment,
       release,
       tracesSampleRate,
+      transport: transport as any,
     });
     logger.info('gateway.sentry_initialised', { environment, release, tracesSampleRate });
     return true;
