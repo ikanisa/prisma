@@ -6,7 +6,7 @@ Modern AI-powered operations suite with Supabase, FastAPI, and multi-app pnpm wo
 
 1. **Install prerequisites**
    - Install [Homebrew](https://brew.sh) if it is missing.
-   - `brew install node@20 pnpm python@3.11 postgresql@15` provides the toolchain used in CI. Volta pins Node.js `18.20.4` for local parity; Node 20 is also validated in the workflows.
+   - `brew install node@20 pnpm python@3.11 postgresql@15` provides the toolchain used in CI. Volta pins Node.js `20.19.4` for local parity and the workflows target the same version to avoid engine drift.
    - Optionally install [direnv](https://direnv.net) for environment variable management.
 2. **Clone the repository**
    ```bash

@@ -186,7 +186,7 @@ function readOfflineQueue(): QueuedOfflineAction[] {
   }
 }
 
-async function writeOfflineQueue(queue: QueuedOfflineAction[]): Promise<void> {
+function writeOfflineQueue(queue: QueuedOfflineAction[]): void {
   if (typeof window === 'undefined' || !isIndexedDbAvailable()) {
     return;
   }
@@ -555,7 +555,7 @@ export function queueAction(
 
   queuedActions.push(entry);
   try {
-    await writeOfflineQueue(queuedActions);
+    writeOfflineQueue(queuedActions);
   } catch (error) {
     queuedActions.pop();
     return queuedActions.length;

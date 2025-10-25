@@ -1,6 +1,5 @@
 import express from 'express';
 import * as Sentry from '@sentry/node';
-import type { Transport, TransportOptions } from '@sentry/types';
 import { initTracing } from './otel.js';
 import type { ErrorRequestHandler, Express } from 'express';
 import { pathToFileURL } from 'url';
@@ -12,6 +11,40 @@ import { scrubPii } from './utils/pii.js';
 import { getRequestContext } from './utils/request-context.js';
 import { env } from './env.js';
 import { createCorsMiddleware } from './middleware/cors.js';
+import { logger } from '@prisma-glow/logger';
+
+function initialiseSentry(): boolean {
+  const dsn = env.GATEWAY_SENTRY_DSN ?? env.SENTRY_DSN;
+  if (!dsn) {
+    if (env.ALLOW_SENTRY_DRY_RUN) {
+      logger.warn('gateway.sentry_disabled', { reason: 'missing_dsn' });
+    }
+    return false;
+  }
+
+  const environment = env.SENTRY_ENVIRONMENT ?? env.ENVIRONMENT ?? env.NODE_ENV;
+  const release = env.SENTRY_RELEASE ?? env.SERVICE_VERSION;
+  const tracesSampleRate =
+    env.SENTRY_TRACES_SAMPLE_RATE !== undefined
+      ? env.SENTRY_TRACES_SAMPLE_RATE
+      : environment === 'production'
+        ? 0.2
+        : 1.0;
+
+  try {
+    Sentry.init({
+      dsn,
+      environment,
+      release,
+      tracesSampleRate,
+    });
+    logger.info('gateway.sentry_initialised', { environment, release, tracesSampleRate });
+    return true;
+  } catch (error) {
+    logger.error('gateway.sentry_initialisation_failed', { error });
+    return false;
+  }
+}
 
 export function createGatewayServer(): Express {
   initTracing();

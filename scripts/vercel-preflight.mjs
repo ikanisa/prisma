@@ -27,7 +27,7 @@ const run = (command, options = {}) => {
   execSync(command, { stdio: 'inherit', ...options });
 };
 
-const requiredNode = '18.20.4';
+const requiredNode = '20.19.4';
 const nodeVersion = process.version.replace(/^v/, '');
 if (nodeVersion !== requiredNode) {
   console.error(
