@@ -1,5 +1,6 @@
 import { inspect } from 'node:util';
 import { z } from 'zod';
+import { logger } from '@prisma-glow/logger';
 
 const booleanish = z
   .union([z.string(), z.boolean(), z.number()])
@@ -63,7 +64,9 @@ const parsed = baseSchema.safeParse({
 });
 
 if (!parsed.success) {
-  console.error('apps/gateway: invalid environment variables', inspect(parsed.error.format(), { depth: null }));
+  logger.error('apps/gateway.invalid_environment', {
+    details: inspect(parsed.error.format(), { depth: null }),
+  });
   throw new Error('apps/gateway environment validation failed');
 }
 
@@ -92,7 +95,9 @@ export function getRuntimeEnv(): DynamicEnv {
   });
 
   if (!evaluated.success) {
-    console.error('apps/gateway: invalid runtime environment variables', inspect(evaluated.error.format(), { depth: null }));
+    logger.error('apps/gateway.invalid_runtime_environment', {
+      details: inspect(evaluated.error.format(), { depth: null }),
+    });
     return { FASTAPI_BASE_URL: null, API_BASE_URL: null };
   }
 

@@ -11,6 +11,7 @@ import v1Router from './routes/v1.js';
 import { scrubPii } from './utils/pii.js';
 import { getRequestContext } from './utils/request-context.js';
 import { env } from './env.js';
+import { logger } from '@prisma-glow/logger';
 
 declare global {
   // eslint-disable-next-line no-var
@@ -117,7 +118,7 @@ export function createGatewayServer(): Express {
   app.use('/v1', v1Router);
 
   const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
-    console.error('gateway.unhandled_error', scrubPii({ message: err?.message, stack: err?.stack }));
+    logger.error('gateway.unhandled_error', scrubPii({ message: err?.message, stack: err?.stack }));
     res.status(500).json({ error: 'internal_server_error' });
   };
   if (sentryEnabled) {
@@ -144,6 +145,6 @@ if (isEntrypoint) {
   const app = createGatewayServer();
   const port = env.PORT;
   app.listen(port, () => {
-    console.warn(`Gateway listening on port ${port}`);
+    logger.info('gateway.listening', { port });
   });
 }

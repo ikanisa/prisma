@@ -2,6 +2,7 @@ import 'server-only';
 
 import { inspect } from 'node:util';
 import { z } from 'zod';
+import { logger } from '@/lib/logger';
 
 const booleanish = z
   .union([z.string(), z.boolean(), z.number()])
@@ -103,7 +104,9 @@ const parsed = serverSchema.safeParse({
 
 if (!parsed.success) {
   const formatted = parsed.error.format();
-  console.error('apps/web: invalid environment variables', inspect(formatted, { depth: null }));
+  logger.error('apps.web.invalid_environment', {
+    details: inspect(formatted, { depth: null }),
+  });
   throw new Error('apps/web environment validation failed');
 }
 

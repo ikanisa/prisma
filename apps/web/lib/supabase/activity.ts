@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { logger } from '@/lib/logger';
 
 type DatabaseClient = SupabaseClient;
 
@@ -24,6 +25,6 @@ export async function recordSpecialistActivity(
   });
 
   if (error) {
-    console.error('Failed to record specialist activity', error);
+    logger.error('supabase.specialist_activity_insert_failed', { error, input });
   }
 }

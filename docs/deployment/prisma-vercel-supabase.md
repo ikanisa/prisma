@@ -73,7 +73,11 @@ If Vault is available, configure `VAULT_ADDR`, `VAULT_TOKEN`, `VAULT_KV_MOUNT`, 
 5. **Apply cadence:**
    - **Preview:** merge to `main` triggers `Supabase Prisma Deploy` (preview job) executing `prisma migrate deploy` with staging secrets.
    - **Production:** manual `workflow_dispatch` → choose `production` to run the same command with production secrets. Require DBA/lead approval before triggering.
-- **Web search cache:** run both `supabase/migrations/20251115122000_web_fetch_cache.sql` and `supabase/migrations/20251115123000_web_fetch_cache_retention.sql` against every Supabase project before enabling the production feature flag. The helper script `pnpm supabase:migrate:web-cache` wraps the Supabase CLI and will sequentially apply both files for each project listed in `SUPABASE_PROJECTS="<env>=<ref>,..."`. Fall back to the Supabase SQL editor when the CLI is unavailable.
+- **Web search cache:** run both `supabase/migrations/20251115122000_web_fetch_cache.sql` and `supabase/migrations/20251115123000_web_fetch_cache_retention.sql` against every Supabase project before enabling the production feature flag. When coordinating the extension rollout, include `20251202120000_extensions_schema_reset.sql` and `20251202121000_role_search_path_extensions.sql` via the `--extra` flag:
+  ```bash
+  SUPABASE_PROJECTS="preview=<ref>,production=<ref>" pnpm supabase:migrate:web-cache --extra=20251202120000_extensions_schema_reset.sql,20251202121000_role_search_path_extensions.sql
+  ```
+  Drop the `--extra` flag once the extensions live in every environment. The helper script wraps the Supabase CLI and will sequentially apply the SQL files for each project listed in `SUPABASE_PROJECTS="<env>=<ref>,..."`. Fall back to the Supabase SQL editor when the CLI is unavailable.
 6. **Post-apply checklist:**
    - `npx prisma db pull` (optional) to confirm schema matches.
    - `npm run prisma:generate` to refresh client.
