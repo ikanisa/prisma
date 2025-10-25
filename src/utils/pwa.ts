@@ -186,17 +186,27 @@ function readOfflineQueue(): QueuedOfflineAction[] {
   }
 }
 
-async function writeOfflineQueue(queue: QueuedOfflineAction[]): Promise<void> {
+const unsyncedWorkerQueueEntries = new Set<string>();
+
+function writeOfflineQueue(queue: QueuedOfflineAction[]): void {
   if (typeof window === 'undefined' || !isIndexedDbAvailable()) {
     return;
   }
 
   const normalized = queue.map((entry) => normalizeQueuedAction(entry));
+  const ids = new Set(normalized.map((entry) => entry.id));
+
+  for (const id of Array.from(unsyncedWorkerQueueEntries)) {
+    if (!ids.has(id)) {
+      unsyncedWorkerQueueEntries.delete(id);
+    }
+  }
+
   window.localStorage.setItem(OFFLINE_QUEUE_STORAGE_KEY, JSON.stringify(normalized));
   dispatchOfflineQueueEvent(normalized);
 }
 
-async function postMessageToServiceWorker(message: unknown) {
+async function postMessageToServiceWorker(message: unknown, transfer?: Transferable[]) {
   if (typeof window === 'undefined') {
     return;
   }
@@ -209,7 +219,11 @@ async function postMessageToServiceWorker(message: unknown) {
     const registration = await navigator.serviceWorker.ready;
     const worker = registration.active ?? navigator.serviceWorker.controller;
     if (worker) {
-      worker.postMessage(message);
+      if (Array.isArray(transfer) && transfer.length > 0) {
+        worker.postMessage(message, transfer);
+      } else {
+        worker.postMessage(message);
+      }
     }
   } catch (error) {
     logger.warn('pwa.service_worker_message_failed', error);
@@ -222,6 +236,7 @@ function removeOfflineQueueEntry(id: string) {
   if (nextQueue.length !== queue.length) {
     writeOfflineQueue(nextQueue);
   }
+  unsyncedWorkerQueueEntries.delete(id);
 }
 
 async function requestOfflineQueueSnapshot() {
@@ -251,11 +266,24 @@ async function requestOfflineQueueSnapshot() {
         window.clearTimeout(timeout);
         const { data } = event;
         if (data && typeof data === 'object' && data.type === 'OFFLINE_QUEUE_SNAPSHOT') {
+          if (unsyncedWorkerQueueEntries.size > 0) {
+            recordClientEvent({
+              name: 'pwa:offlineQueueSnapshotSkipped',
+              data: { pending: unsyncedWorkerQueueEntries.size },
+            });
+            channel.port1.close();
+            resolve();
+            return;
+          }
           const jobs = Array.isArray(data.payload?.jobs)
             ? (data.payload.jobs as Array<Partial<QueuedOfflineAction>>)
             : [];
           writeOfflineQueue(jobs.map((job) => normalizeQueuedAction(job)));
+          channel.port1.close();
+          resolve();
+          return;
         }
+        channel.port1.close();
         resolve();
       };
 
@@ -555,13 +583,86 @@ export function queueAction(
 
   queuedActions.push(entry);
   try {
-    await writeOfflineQueue(queuedActions);
+    writeOfflineQueue(queuedActions);
   } catch (error) {
     queuedActions.pop();
     return queuedActions.length;
   }
 
-  void postMessageToServiceWorker({ type: 'OFFLINE_QUEUE_ENQUEUE', payload: entry });
+  unsyncedWorkerQueueEntries.add(entry.id);
+
+  const sendEnqueueMessage = () => {
+    if (!('serviceWorker' in navigator)) {
+      return;
+    }
+
+    if ('MessageChannel' in window) {
+      const channel = new MessageChannel();
+      const timeout = window.setTimeout(() => {
+        channel.port1.close();
+        recordClientError({
+          name: 'pwa:offlineQueueEnqueueAckTimeout',
+          error: new Error('service_worker_ack_timeout'),
+          data: { id: entry.id },
+        });
+      }, 2000);
+
+      channel.port1.onmessage = (event) => {
+        window.clearTimeout(timeout);
+        const message = event.data;
+        if (message && typeof message === 'object' && message.type === 'OFFLINE_QUEUE_ENQUEUE_ACK') {
+          const payload = (message.payload ?? {}) as { persisted?: boolean; error?: unknown };
+          if (payload.persisted === true) {
+            unsyncedWorkerQueueEntries.delete(entry.id);
+          } else {
+            const errorMessage =
+              typeof payload.error === 'string'
+                ? payload.error
+                : payload.error instanceof Error
+                  ? payload.error.message
+                  : 'unknown';
+            const fallbackMessage =
+              errorMessage && errorMessage !== 'unknown'
+                ? errorMessage
+                : 'service_worker_enqueue_failed';
+            logger.warn('pwa.offline_queue_worker_enqueue_failed', {
+              id: entry.id,
+              reason: errorMessage,
+            });
+            recordClientError({
+              name: 'pwa:offlineQueueWorkerEnqueueFailed',
+              error: new Error(fallbackMessage),
+              data: { id: entry.id, reason: errorMessage },
+            });
+          }
+        }
+        channel.port1.close();
+      };
+
+      void postMessageToServiceWorker({ type: 'OFFLINE_QUEUE_ENQUEUE', payload: entry }, [channel.port2]).catch(
+        (error) => {
+          window.clearTimeout(timeout);
+          channel.port1.close();
+          recordClientError({
+            name: 'pwa:offlineQueueEnqueueMessageFailed',
+            error,
+            data: { id: entry.id },
+          });
+        },
+      );
+      return;
+    }
+
+    void postMessageToServiceWorker({ type: 'OFFLINE_QUEUE_ENQUEUE', payload: entry }).catch((error) => {
+      recordClientError({
+        name: 'pwa:offlineQueueEnqueueMessageFailed',
+        error,
+        data: { id: entry.id },
+      });
+    });
+  };
+
+  sendEnqueueMessage();
 
   if ('serviceWorker' in navigator) {
     // Register for background sync (if supported)
@@ -708,7 +809,8 @@ export async function processQueuedActions(): Promise<ProcessQueueResult> {
     return DEFAULT_QUEUE_RESULT;
   }
 
-  const useServiceWorker = 'serviceWorker' in navigator;
+  const useServiceWorker =
+    'serviceWorker' in navigator && unsyncedWorkerQueueEntries.size === 0;
   const result = useServiceWorker
     ? await processQueuedActionsWithServiceWorker()
     : await processQueuedActionsLocally();
@@ -730,7 +832,7 @@ export async function resetOfflineQueue(): Promise<void> {
   }
 
   try {
-    await writeOfflineQueue([]);
+    writeOfflineQueue([]);
   } catch {
     await deleteIndexedDb();
   }
