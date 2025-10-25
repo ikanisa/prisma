@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { env } from '@/src/env.server';
 import { createSupabaseStub } from '@/lib/supabase/stub';
+import { logger } from '@/lib/logger';
 
 type RoleLevel = 'EMPLOYEE' | 'MANAGER' | 'SYSTEM_ADMIN';
 
@@ -223,7 +224,7 @@ export async function logActivity(
 
   if (error) {
     // We do not fail the entire request on log errors, but surface details for troubleshooting.
-    console.error('Failed to record activity log entry', { error, action: input.action });
+    logger.error('soc.activity_log_insert_failed', { error, action: input.action });
   }
 }
 
@@ -232,6 +233,6 @@ export function handleRouteError(error: unknown, context: string) {
     return NextResponse.json({ error: error.message }, { status: error.status });
   }
 
-  console.error(`[soc-api] ${context}`, error);
+  logger.error('soc.route_error', { context, error });
   return NextResponse.json({ error: 'Unexpected server error' }, { status: 500 });
 }

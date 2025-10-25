@@ -3,6 +3,13 @@
 import { callApi, type ApiRequestDescriptor } from '@/lib/apiClient';
 import { recordClientError, recordClientEvent } from '@/lib/client-events';
 import { logger } from '@/lib/logger';
+import {
+  deleteIndexedDb,
+  getFromIndexedDb,
+  isIndexedDbAvailable,
+  isQuotaExceededError,
+  setInIndexedDb,
+} from '@/lib/storage/indexed-db';
 
 export const OFFLINE_QUEUE_STORAGE_KEY = 'queuedActions';
 export const OFFLINE_QUEUE_UPDATED_EVENT = 'offline-queue:updated';
@@ -105,13 +112,29 @@ function readOfflineQueue(): QueuedOfflineAction[] {
   }
 }
 
-function writeOfflineQueue(queue: QueuedOfflineAction[]) {
-  if (typeof window === 'undefined') {
+async function writeOfflineQueue(queue: QueuedOfflineAction[]): Promise<void> {
+  if (typeof window === 'undefined' || !isIndexedDbAvailable()) {
     return;
   }
 
-  window.localStorage.setItem(OFFLINE_QUEUE_STORAGE_KEY, JSON.stringify(queue));
-  dispatchOfflineQueueEvent(queue);
+  try {
+    await setInIndexedDb(OFFLINE_QUEUE_STORAGE_KEY, queue);
+    dispatchOfflineQueueEvent(queue);
+  } catch (error) {
+    if (isQuotaExceededError(error)) {
+      logger.error('pwa.offline_queue_quota_exceeded', error);
+      recordClientError({
+        name: 'pwa:offlineQueueQuotaExceeded',
+        error,
+        data: { queueSize: queue.length },
+      });
+    } else {
+      logger.error('pwa.write_offline_queue_failed', error);
+      recordClientError({ name: 'pwa:writeOfflineQueueFailed', error });
+    }
+
+    throw error;
+  }
 }
 
 function dispatchOfflineQueueEvent(queue: QueuedOfflineAction[]) {
@@ -313,12 +336,12 @@ export function showInstallPrompt() {
 }
 
 // Enhanced background sync for offline actions
-export function queueAction(action: string, data: any) {
+export async function queueAction(action: string, data: any) {
   if (typeof window === 'undefined') {
     return 0;
   }
 
-  const queuedActions = readOfflineQueue();
+  const queuedActions = await readOfflineQueue();
   const entry: QueuedOfflineAction = {
     id: createQueueId(),
     action,
@@ -327,11 +350,16 @@ export function queueAction(action: string, data: any) {
     retries: 0,
   };
   queuedActions.push(entry);
-  writeOfflineQueue(queuedActions);
+  try {
+    await writeOfflineQueue(queuedActions);
+  } catch (error) {
+    queuedActions.pop();
+    return queuedActions.length;
+  }
 
   if ('serviceWorker' in navigator) {
     // Register for background sync (if supported)
-    navigator.serviceWorker.ready
+    void navigator.serviceWorker.ready
       .then((registration) => {
         if ('sync' in registration) {
           return (registration as any).sync.register('background-sync');
@@ -352,7 +380,7 @@ export async function processQueuedActions(): Promise<number> {
     return 0;
   }
 
-  const queuedActions = readOfflineQueue();
+  const queuedActions = await readOfflineQueue();
   const processed: string[] = [];
 
   for (const item of queuedActions) {
@@ -379,13 +407,34 @@ export async function processQueuedActions(): Promise<number> {
   }
 
   const remaining = queuedActions.filter((item) => !processed.includes(item.id));
-  writeOfflineQueue(remaining);
+
+  try {
+    await writeOfflineQueue(remaining);
+  } catch (error) {
+    // The write failure is already logged in writeOfflineQueue. We swallow the error to avoid
+    // breaking the caller, but still ensure the queue reflects the last persisted state.
+    if (!isQuotaExceededError(error)) {
+      logger.error('pwa.process_queue_persist_failed', error);
+    }
+  }
 
   return processed.length;
 }
 
-export function getOfflineQueueSnapshot(): QueuedOfflineAction[] {
+export function getOfflineQueueSnapshot(): Promise<QueuedOfflineAction[]> {
   return readOfflineQueue();
+}
+
+export async function resetOfflineQueue(): Promise<void> {
+  if (typeof window === 'undefined' || !isIndexedDbAvailable()) {
+    return;
+  }
+
+  try {
+    await writeOfflineQueue([]);
+  } catch {
+    await deleteIndexedDb();
+  }
 }
 
 // Network status monitoring

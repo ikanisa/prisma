@@ -2,14 +2,14 @@
 
 import { formatDistanceToNow } from 'date-fns';
 import { useDocuments } from '../hooks/use-documents';
+import { logger } from '@/lib/logger';
 
 const formatUpdatedAt = (iso: string) => {
   try {
     return formatDistanceToNow(new Date(iso), { addSuffix: true });
   } catch (error) {
     if (process.env.NODE_ENV !== 'production') {
-      // eslint-disable-next-line no-console
-      console.warn('Failed to format document timestamp', error);
+      logger.warn('document_grid.timestamp_format_failed', { error, iso });
     }
     return 'recently';
   }

@@ -28,3 +28,6 @@ additional_redirect_urls = [
   "http://localhost:5173"
 ]
 jwt_expiry = 3600
+
+[auth.passwords]
+hibp_enabled = true

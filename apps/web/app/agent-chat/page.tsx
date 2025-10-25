@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { clientEnv } from '@/src/env.client';
 import { buildModelResponsePayload, createMessageDraft, createToolOutputDraft, type MessageContentType } from './respond-helpers';
+import { logger } from '@/lib/logger';
 
 const API_BASE = clientEnv.NEXT_PUBLIC_API_BASE
   ? clientEnv.NEXT_PUBLIC_API_BASE.replace(/\/$/, '')
@@ -518,7 +519,7 @@ export default function AgentChat() {
           void loadConversationItems(conversationIdRef.current);
         }
       } catch (err) {
-        console.warn('Failed to parse SSE payload', err, event.data);
+        logger.warn('agent_chat.sse_parse_failed', { error: err, raw: event.data });
       }
     };
 

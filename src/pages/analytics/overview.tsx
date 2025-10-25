@@ -8,18 +8,23 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, BarChart3 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import {
-  ResponsiveContainer,
   LineChart,
   Line,
   CartesianGrid,
   XAxis,
   YAxis,
-  Tooltip,
-  Legend,
   BarChart,
   Bar,
   Cell,
 } from 'recharts';
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  ChartLegend,
+  ChartLegendContent,
+  type ChartConfig,
+} from '@/components/ui/chart';
 import { getReleaseControlSettings } from '@/lib/system-config';
 
 interface CoverageRow {
@@ -67,6 +72,40 @@ interface AnalyticsOverviewPayload {
 }
 
 type ReleaseControlState = 'satisfied' | 'pending' | 'changes_required' | 'not_applicable' | 'unknown';
+
+const NPS_CHART_CONFIG: ChartConfig = {
+  promoters: {
+    label: 'Promoters',
+    theme: {
+      light: '#16a34a',
+      dark: '#22c55e',
+    },
+  },
+  passives: {
+    label: 'Passives',
+    theme: {
+      light: '#60a5fa',
+      dark: '#93c5fd',
+    },
+  },
+  detractors: {
+    label: 'Detractors',
+    theme: {
+      light: '#f97316',
+      dark: '#fb923c',
+    },
+  },
+};
+
+const COVERAGE_CHART_CONFIG: ChartConfig = {
+  coverage: {
+    label: 'Coverage %',
+    theme: {
+      light: '#2563eb',
+      dark: '#60a5fa',
+    },
+  },
+};
 
 interface ReleaseControlActionSummary {
   state: ReleaseControlState;
@@ -287,9 +326,9 @@ export default function AnalyticsOverviewPage() {
     if (!analyticsQuery.data?.nps) return [];
     const { promoters, passives, detractors } = analyticsQuery.data.nps;
     return [
-      { bucket: 'Promoters', count: promoters, fill: '#16a34a' },
-      { bucket: 'Passives', count: passives, fill: '#60a5fa' },
-      { bucket: 'Detractors', count: detractors, fill: '#f97316' },
+      { bucket: 'Promoters', bucketKey: 'promoters', count: promoters },
+      { bucket: 'Passives', bucketKey: 'passives', count: passives },
+      { bucket: 'Detractors', bucketKey: 'detractors', count: detractors },
     ];
   }, [analyticsQuery.data?.nps]);
 
@@ -349,19 +388,27 @@ export default function AnalyticsOverviewPage() {
                   </div>
                 </div>
                 <div className="h-48">
-                  <ResponsiveContainer>
+                  <ChartContainer
+                    config={NPS_CHART_CONFIG}
+                    className="h-full w-full aspect-auto"
+                  >
                     <BarChart data={npsDistribution}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="bucket" />
                       <YAxis allowDecimals={false} />
-                      <Tooltip />
-                      <Bar dataKey="count">
+                      <ChartTooltip
+                        content={<ChartTooltipContent labelKey="bucketKey" />}
+                      />
+                      <Bar dataKey="count" name="Responses">
                         {npsDistribution.map((entry) => (
-                          <Cell key={entry.bucket} fill={entry.fill} />
+                          <Cell
+                            key={entry.bucketKey}
+                            fill={`var(--color-${entry.bucketKey})`}
+                          />
                         ))}
                       </Bar>
                     </BarChart>
-                  </ResponsiveContainer>
+                  </ChartContainer>
                 </div>
                 <ScrollArea className="h-32 rounded-md border border-dashed">
                   <div className="p-3 space-y-2 text-sm">
@@ -492,16 +539,28 @@ export default function AnalyticsOverviewPage() {
               {coverageSeries.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No coverage metrics recorded.</p>
               ) : (
-                <ResponsiveContainer>
+                <ChartContainer
+                  config={COVERAGE_CHART_CONFIG}
+                  className="h-full w-full aspect-auto"
+                >
                   <LineChart data={coverageSeries}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="module" />
                     <YAxis domain={[0, 100]} />
-                    <Tooltip />
-                    <Legend />
-                    <Line type="monotone" dataKey="coverage" name="Coverage %" stroke="#2563eb" />
+                    <ChartTooltip
+                      content={<ChartTooltipContent indicator="line" />}
+                    />
+                    <ChartLegend content={<ChartLegendContent />} />
+                    <Line
+                      type="monotone"
+                      dataKey="coverage"
+                      name="Coverage %"
+                      stroke="var(--color-coverage)"
+                      strokeWidth={2}
+                      dot={{ r: 3 }}
+                    />
                   </LineChart>
-                </ResponsiveContainer>
+                </ChartContainer>
               )}
             </CardContent>
           </Card>

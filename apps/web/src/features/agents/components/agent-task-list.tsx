@@ -2,6 +2,7 @@
 
 import { formatDistanceToNow } from 'date-fns';
 import { useAgentTasks } from '../hooks/use-agent-tasks';
+import { logger } from '@/lib/logger';
 
 const formatRelativeDate = (iso?: string | null) => {
   if (!iso) return 'No due date';
@@ -9,8 +10,7 @@ const formatRelativeDate = (iso?: string | null) => {
     return formatDistanceToNow(new Date(iso), { addSuffix: true });
   } catch (error) {
     if (process.env.NODE_ENV !== 'production') {
-      // eslint-disable-next-line no-console
-      console.warn('Failed to format date', error);
+      logger.warn('agent_task_list.date_format_failed', { error, iso });
     }
     return 'No due date';
   }

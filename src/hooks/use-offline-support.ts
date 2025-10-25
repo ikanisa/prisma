@@ -1,24 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   getOfflineQueueSnapshot,
-  OFFLINE_QUEUE_STORAGE_KEY,
   OFFLINE_QUEUE_UPDATED_EVENT,
   processQueuedActions,
   queueAction,
+  resetOfflineQueue,
   type QueuedOfflineAction,
 } from '@/utils/pwa';
-
-function readQueue(): QueuedOfflineAction[] {
-  if (typeof window === 'undefined') {
-    return [];
-  }
-
-  try {
-    return getOfflineQueueSnapshot();
-  } catch {
-    return [];
-  }
-}
 
 export interface UseOfflineSupportOptions {
   autoProcessOnReconnect?: boolean;
@@ -33,10 +21,20 @@ export interface UseOfflineSupportResult {
 }
 
 export function useOfflineSupport({ autoProcessOnReconnect = false }: UseOfflineSupportOptions = {}): UseOfflineSupportResult {
-  const [queue, setQueue] = useState<QueuedOfflineAction[]>(() => readQueue());
+  const [queue, setQueue] = useState<QueuedOfflineAction[]>([]);
 
-  const refreshQueue = useCallback(() => {
-    setQueue(readQueue());
+  const refreshQueue = useCallback(async () => {
+    if (typeof window === 'undefined') {
+      setQueue([]);
+      return;
+    }
+
+    try {
+      const snapshot = await getOfflineQueueSnapshot();
+      setQueue(snapshot);
+    } catch {
+      setQueue([]);
+    }
   }, []);
 
   useEffect(() => {
@@ -44,17 +42,13 @@ export function useOfflineSupport({ autoProcessOnReconnect = false }: UseOffline
       return;
     }
 
+    void refreshQueue();
+
     const handleQueueUpdated: EventListener = () => {
-      refreshQueue();
-    };
-    const handleStorage = (event: StorageEvent) => {
-      if (event.key === OFFLINE_QUEUE_STORAGE_KEY) {
-        refreshQueue();
-      }
+      void refreshQueue();
     };
 
     window.addEventListener(OFFLINE_QUEUE_UPDATED_EVENT, handleQueueUpdated);
-    window.addEventListener('storage', handleStorage);
 
     let handleOnline: (() => void) | undefined;
     if (autoProcessOnReconnect) {
@@ -68,7 +62,6 @@ export function useOfflineSupport({ autoProcessOnReconnect = false }: UseOffline
 
     return () => {
       window.removeEventListener(OFFLINE_QUEUE_UPDATED_EVENT, handleQueueUpdated);
-      window.removeEventListener('storage', handleStorage);
       if (handleOnline) {
         window.removeEventListener('online', handleOnline);
       }
@@ -76,9 +69,9 @@ export function useOfflineSupport({ autoProcessOnReconnect = false }: UseOffline
   }, [autoProcessOnReconnect, refreshQueue]);
 
   const enqueue = useCallback(
-    (action: string, data: unknown) => {
-      const length = queueAction(action, data);
-      refreshQueue();
+    async (action: string, data: unknown) => {
+      const length = await queueAction(action, data);
+      await refreshQueue();
       return length;
     },
     [refreshQueue],
@@ -90,11 +83,16 @@ export function useOfflineSupport({ autoProcessOnReconnect = false }: UseOffline
     return processed;
   }, [refreshQueue]);
 
+  const resetQueue = useCallback(async () => {
+    await resetOfflineQueue();
+    await refreshQueue();
+  }, [refreshQueue]);
+
   const hasPendingActions = queue.length > 0;
   const queueLength = queue.length;
 
   return useMemo(
-    () => ({ queue, queueLength, hasPendingActions, enqueueAction: enqueue, processQueue: process }),
-    [enqueue, hasPendingActions, process, queue, queueLength],
+    () => ({ queue, queueLength, hasPendingActions, enqueueAction: enqueue, processQueue: process, resetQueue }),
+    [enqueue, hasPendingActions, process, queue, queueLength, resetQueue],
   );
 }

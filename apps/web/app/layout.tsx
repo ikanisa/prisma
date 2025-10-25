@@ -1,6 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import './globals.css';
 import '@/src/env.server';
+import '@/src/main';
 import { Providers } from '@/components/providers';
 import type { ReactNode } from 'react';
 

@@ -38,6 +38,8 @@ This document operationalises the end-to-end workflow for the Prisma-backed Next
 | `SUPABASE_JWT_SECRET` | GitHub Actions (tests), Vercel Preview/Production | Required for verifying Supabase-issued JWTs and signing NextAuth sessions. |
 | `AUTH_CLIENT_ID`, `AUTH_CLIENT_SECRET`, `AUTH_ISSUER` | Vercel Preview/Production | Keycloak/OpenID Connect credentials consumed by NextAuth (`apps/web/auth.ts`). |
 | `NEXT_PUBLIC_API_BASE`, `AGENT_SERVICE_URL` | Vercel Preview/Production | Base URL for API fetches from the browser and server-side agent proxy. |
+| `WEB_SENTRY_DSN`, `NEXT_PUBLIC_SENTRY_DSN` | Vercel Preview/Production | Sentry DSNs for Next.js server/browser telemetry (use the same value across both). |
+| `GATEWAY_SENTRY_DSN` | Vercel Preview/Production | Dedicated DSN for the Express gateway service; falls back to `SENTRY_DSN` when unset. |
 | `OPENAI_API_KEY` | Vercel Preview/Production, GitHub Actions (optional integration tests) | Used by RAG/agent flows. |
 | GPT-5 tuning (`OPENAI_DEFAULT_REASONING_EFFORT`, `OPENAI_DEFAULT_VERBOSITY`, `OPENAI_AGENT_REASONING_EFFORT`, `OPENAI_AGENT_VERBOSITY`, `OPENAI_SUMMARY_REASONING_EFFORT`, `OPENAI_SUMMARY_VERBOSITY`) | Vercel Preview/Production, backend containers | Keeps agent/summarisation workloads aligned with GPT-5 defaults; mirror values across Vercel env groups and Compose deployments. |
 | `API_RATE_LIMIT`, `API_RATE_WINDOW_SECONDS` | Vercel Preview/Production | Align with FastAPI/env defaults for rate limiting. |
@@ -71,7 +73,11 @@ If Vault is available, configure `VAULT_ADDR`, `VAULT_TOKEN`, `VAULT_KV_MOUNT`, 
 5. **Apply cadence:**
    - **Preview:** merge to `main` triggers `Supabase Prisma Deploy` (preview job) executing `prisma migrate deploy` with staging secrets.
    - **Production:** manual `workflow_dispatch` → choose `production` to run the same command with production secrets. Require DBA/lead approval before triggering.
-- **Web search cache:** run both `supabase/migrations/20251115122000_web_fetch_cache.sql` and `supabase/migrations/20251115123000_web_fetch_cache_retention.sql` against every Supabase project before enabling the production feature flag. The helper script `pnpm supabase:migrate:web-cache` wraps the Supabase CLI and will sequentially apply both files for each project listed in `SUPABASE_PROJECTS="<env>=<ref>,..."`. Fall back to the Supabase SQL editor when the CLI is unavailable.
+- **Web search cache:** run both `supabase/migrations/20251115122000_web_fetch_cache.sql` and `supabase/migrations/20251115123000_web_fetch_cache_retention.sql` against every Supabase project before enabling the production feature flag. When coordinating the extension rollout, include `20251202120000_extensions_schema_reset.sql` and `20251202121000_role_search_path_extensions.sql` via the `--extra` flag:
+  ```bash
+  SUPABASE_PROJECTS="preview=<ref>,production=<ref>" pnpm supabase:migrate:web-cache --extra=20251202120000_extensions_schema_reset.sql,20251202121000_role_search_path_extensions.sql
+  ```
+  Drop the `--extra` flag once the extensions live in every environment. The helper script wraps the Supabase CLI and will sequentially apply the SQL files for each project listed in `SUPABASE_PROJECTS="<env>=<ref>,..."`. Fall back to the Supabase SQL editor when the CLI is unavailable.
 6. **Post-apply checklist:**
    - `npx prisma db pull` (optional) to confirm schema matches.
    - `npm run prisma:generate` to refresh client.

@@ -1,6 +1,7 @@
 'use client';
 
 import { Component, type ErrorInfo, type ReactNode, Suspense } from 'react';
+import { logger } from '@/lib/logger';
 
 interface BoundaryProps {
   fallback: ReactNode | ((error: Error, reset: () => void) => ReactNode);
@@ -20,8 +21,7 @@ class ErrorBoundary extends Component<BoundaryProps, BoundaryState> {
 
   componentDidCatch(error: Error, info: ErrorInfo) {
     if (process.env.NODE_ENV !== 'production') {
-      // eslint-disable-next-line no-console
-      console.error('AsyncBoundary caught an error', error, info);
+      logger.error('async_boundary.caught_error', { error, info });
     }
   }
 
