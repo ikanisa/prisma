@@ -13,6 +13,8 @@
     "@prisma-glow/logger": "workspace:*",
     "@prisma-glow/analytics": "file:../../analytics",
     "@prisma-glow/system-config": "file:../../packages/system-config",
+    "@sentry/node": "^7.120.0",
+    "@sentry/types": "^7.120.0",
     "express": "^4.19.2"
   },
   "devDependencies": {

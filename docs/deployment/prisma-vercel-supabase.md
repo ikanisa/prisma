@@ -38,6 +38,8 @@ This document operationalises the end-to-end workflow for the Prisma-backed Next
 | `SUPABASE_JWT_SECRET` | GitHub Actions (tests), Vercel Preview/Production | Required for verifying Supabase-issued JWTs and signing NextAuth sessions. |
 | `AUTH_CLIENT_ID`, `AUTH_CLIENT_SECRET`, `AUTH_ISSUER` | Vercel Preview/Production | Keycloak/OpenID Connect credentials consumed by NextAuth (`apps/web/auth.ts`). |
 | `NEXT_PUBLIC_API_BASE`, `AGENT_SERVICE_URL` | Vercel Preview/Production | Base URL for API fetches from the browser and server-side agent proxy. |
+| `WEB_SENTRY_DSN`, `NEXT_PUBLIC_SENTRY_DSN` | Vercel Preview/Production | Sentry DSNs for Next.js server/browser telemetry (use the same value across both). |
+| `GATEWAY_SENTRY_DSN` | Vercel Preview/Production | Dedicated DSN for the Express gateway service; falls back to `SENTRY_DSN` when unset. |
 | `OPENAI_API_KEY` | Vercel Preview/Production, GitHub Actions (optional integration tests) | Used by RAG/agent flows. |
 | GPT-5 tuning (`OPENAI_DEFAULT_REASONING_EFFORT`, `OPENAI_DEFAULT_VERBOSITY`, `OPENAI_AGENT_REASONING_EFFORT`, `OPENAI_AGENT_VERBOSITY`, `OPENAI_SUMMARY_REASONING_EFFORT`, `OPENAI_SUMMARY_VERBOSITY`) | Vercel Preview/Production, backend containers | Keeps agent/summarisation workloads aligned with GPT-5 defaults; mirror values across Vercel env groups and Compose deployments. |
 | `API_RATE_LIMIT`, `API_RATE_WINDOW_SECONDS` | Vercel Preview/Production | Align with FastAPI/env defaults for rate limiting. |

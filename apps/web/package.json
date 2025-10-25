@@ -19,6 +19,8 @@
     "@prisma-glow/ui": "workspace:*",
     "@prisma/client": "^5.19.1",
     "@radix-ui/react-slot": "^1.0.2",
+    "@sentry/nextjs": "^7.120.0",
+    "@sentry/types": "^7.120.0",
     "@supabase/supabase-js": "^2.55.0",
     "@tanstack/react-query": "^5.90.2",
     "@tanstack/react-query-devtools": "^5.90.2",
