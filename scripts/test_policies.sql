@@ -1,6 +1,6 @@
 -- pgTAP tests for RLS policies
 BEGIN;
-SELECT plan(102);
+SELECT plan(108);
 
 -- Phase A: ensure autonomy metadata columns exist
 SELECT ok(
@@ -131,6 +131,62 @@ SELECT ok(
           AND policyname = 'job_schedules_update'
     ),
     'job_schedules_update policy exists'
+);
+
+-- Notification fanout queue should be service-role gated
+SELECT ok(
+    (SELECT relrowsecurity FROM pg_class WHERE oid = 'public.notification_dispatch_queue'::regclass),
+    'RLS enabled on notification_dispatch_queue table'
+);
+SELECT ok(
+    EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE schemaname = 'public'
+          AND tablename = 'notification_dispatch_queue'
+          AND policyname = 'Service role notification dispatch queue'
+    ),
+    'Service role notification_dispatch_queue policy exists'
+);
+
+SELECT ok(
+    EXISTS (
+        SELECT 1
+        FROM pg_policy pol
+        WHERE pol.schemaname = 'public'
+          AND pol.tablename = 'notification_dispatch_queue'
+          AND pol.policyname = 'Service role notification dispatch queue'
+          AND pg_get_expr(pol.polqual, pol.polrelid) LIKE '%auth.role() = ''service_role''%'
+          AND pg_get_expr(pol.polwithcheck, pol.polrelid) LIKE '%auth.role() = ''service_role''%'
+    ),
+    'Service role notification_dispatch_queue policy enforces auth.role() = service_role'
+);
+
+-- System settings must remain locked to the service role
+SELECT ok(
+    (SELECT relrowsecurity FROM pg_class WHERE oid = 'public.system_settings'::regclass),
+    'RLS enabled on system_settings table'
+);
+SELECT ok(
+    EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE schemaname = 'public'
+          AND tablename = 'system_settings'
+          AND policyname = 'system_settings_service_role'
+    ),
+    'system_settings_service_role policy exists'
+);
+
+SELECT ok(
+    EXISTS (
+        SELECT 1
+        FROM pg_policy pol
+        WHERE pol.schemaname = 'public'
+          AND pol.tablename = 'system_settings'
+          AND pol.policyname = 'system_settings_service_role'
+          AND pg_get_expr(pol.polqual, pol.polrelid) LIKE '%auth.role() = ''service_role''%'
+          AND pg_get_expr(pol.polwithcheck, pol.polrelid) LIKE '%auth.role() = ''service_role''%'
+    ),
+    'system_settings_service_role policy enforces auth.role() = service_role'
 );
 
 SELECT ok(
