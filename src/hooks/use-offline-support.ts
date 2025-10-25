@@ -29,7 +29,7 @@ export interface UseOfflineSupportResult {
   queueLength: number;
   hasPendingActions: boolean;
   enqueueAction: (action: string, data: unknown) => number;
-  processQueue: () => number;
+  processQueue: () => Promise<number>;
 }
 
 export function useOfflineSupport({ autoProcessOnReconnect = false }: UseOfflineSupportOptions = {}): UseOfflineSupportResult {
@@ -59,8 +59,9 @@ export function useOfflineSupport({ autoProcessOnReconnect = false }: UseOffline
     let handleOnline: (() => void) | undefined;
     if (autoProcessOnReconnect) {
       handleOnline = () => {
-        processQueuedActions();
-        refreshQueue();
+        processQueuedActions().finally(() => {
+          refreshQueue();
+        });
       };
       window.addEventListener('online', handleOnline);
     }
@@ -83,8 +84,8 @@ export function useOfflineSupport({ autoProcessOnReconnect = false }: UseOffline
     [refreshQueue],
   );
 
-  const process = useCallback(() => {
-    const processed = processQueuedActions();
+  const process = useCallback(async () => {
+    const processed = await processQueuedActions();
     refreshQueue();
     return processed;
   }, [refreshQueue]);
