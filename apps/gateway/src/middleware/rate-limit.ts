@@ -1,4 +1,5 @@
 import type { Request, RequestHandler } from 'express';
+import { logger } from '@prisma-glow/logger';
 
 export interface RedisLikeClient {
   eval<T = unknown>(script: string, options: { keys: string[]; arguments: Array<string | number> }): Promise<T>;
@@ -132,7 +133,7 @@ export function createRateLimitMiddleware(options: RateLimitOptions): RequestHan
         return res.status(429).json({ error: 'rate_limit_exceeded', retryAfterSeconds: retrySeconds });
       }
     } catch (error) {
-      console.warn('rate_limit_fallback', { error });
+      logger.warn('rate_limit_fallback', { error });
     }
     next();
   };

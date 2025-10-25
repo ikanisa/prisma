@@ -27,6 +27,7 @@ import {
   extractClientFieldsFromText,
   mergeDraft,
 } from './client-onboarding-helpers';
+import { logger } from '@/lib/logger';
 
 interface ChatMessage {
   id: string;
@@ -444,4 +445,3 @@ function formatBytes(bytes: number) {
   return `${value.toFixed(value >= 10 || index === 0 ? 0 : 1)} ${units[index]}`;
 }
 
-const logger: Pick<Console, 'warn'> = typeof console !== 'undefined' ? console : { warn: () => undefined };
