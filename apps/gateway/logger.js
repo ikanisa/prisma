@@ -1,3 +1,5 @@
+import { logger } from '@prisma-glow/logger';
+
 const SENSITIVE_KEYS = new Set(['authorization', 'api-key', 'api_key', 'token', 'password', 'secret']);
 
 function scrubValue(value) {
@@ -54,33 +56,16 @@ function scrubMeta(meta = {}) {
 }
 
 export function logInfo(event, meta = {}) {
-  const payload = {
-    level: 'info',
-    event,
-    ...scrubMeta(meta),
-    timestamp: new Date().toISOString(),
-  };
-  console.log(JSON.stringify(payload));
+  logger.info(event, scrubMeta(meta));
 }
 
 export function logWarn(event, meta = {}) {
-  const payload = {
-    level: 'warn',
-    event,
-    ...scrubMeta(meta),
-    timestamp: new Date().toISOString(),
-  };
-  console.warn(JSON.stringify(payload));
+  logger.warn(event, scrubMeta(meta));
 }
 
 export function logError(event, error, meta = {}) {
-  const payload = {
-    level: 'error',
-    event,
-    error: error instanceof Error ? error.message : String(error),
-    stack: error instanceof Error ? error.stack : undefined,
-    ...scrubMeta(meta),
-    timestamp: new Date().toISOString(),
-  };
-  console.error(JSON.stringify(payload));
+  const scrubbedMeta = scrubMeta(meta);
+  const errorDetails = scrubValue(error);
+  const payload = errorDetails ? { ...scrubbedMeta, error: errorDetails } : scrubbedMeta;
+  logger.error(event, payload);
 }

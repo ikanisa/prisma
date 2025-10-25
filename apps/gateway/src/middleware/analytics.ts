@@ -2,6 +2,7 @@ import type { RequestHandler } from 'express';
 import { createAnalyticsClient } from '@prisma-glow/analytics';
 import { env } from '../env.js';
 import { getRequestContext } from '../utils/request-context.js';
+import { logger } from '@prisma-glow/logger';
 
 const analyticsClient = createAnalyticsClient({
   endpoint: env.ANALYTICS_SERVICE_URL,
@@ -10,7 +11,7 @@ const analyticsClient = createAnalyticsClient({
   environment: env.SENTRY_ENVIRONMENT ?? env.ENVIRONMENT ?? env.NODE_ENV ?? 'development',
   onError: (error) => {
     if (env.NODE_ENV !== 'production') {
-      console.warn('gateway.analytics_record_failed', error);
+      logger.warn('gateway.analytics_record_failed', { error });
     }
   },
 });
@@ -45,7 +46,7 @@ export const analyticsMiddleware: RequestHandler = (req, res, next) => {
       })
       .catch((error) => {
         if (env.NODE_ENV !== 'production') {
-          console.warn('gateway.analytics_request_log_failed', error);
+          logger.warn('gateway.analytics_request_log_failed', { error });
         }
       });
   });

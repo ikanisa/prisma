@@ -68,7 +68,8 @@ Required variables:
 ## Run Commands
 
 - `pnpm install --frozen-lockfile` – install workspace dependencies.
-- `pnpm run typecheck` – ensure TypeScript projects compile without emitting files.
+- `pnpm run typecheck` – project-reference typecheck (`tsc -b`) for gateway, shared packages, and services; the script cleans the incremental build artefacts afterwards.
+- `pnpm --filter web typecheck` – Next.js typecheck (fails until the web workspace cleans up its outstanding TS debt).
 - `pnpm run lint` – lint the monorepo.
 - `pnpm run test` or `pnpm run coverage` – execute Vitest suites (coverage gate lives in CI).
 - `pnpm run build` – build shared packages and the Vite bundle (`tsc -b` runs first).
@@ -88,7 +89,7 @@ Git hooks, CI, and deployment workflows now rely on pnpm exclusively; make sure 
 ## Summary of Vercel removal
 
 - All Vercel-specific GitHub workflows and preview deployments have been removed from this repository.
-- Continuous integration now standardises on pnpm for install/typecheck/lint/build gates.
+- Continuous integration now standardises on pnpm for install/typecheck/lint/build gates via `pnpm run ci:verify` (which now calls the monorepo `typecheck`).
 - Production hosting is driven by Docker/Compose and manual GitHub Actions deployments (see `.github/workflows/compose-deploy.yml`).
 - Local preview flows are documented in [docs/local-hosting.md](docs/local-hosting.md); reverse proxies will be introduced there when ready.
 
