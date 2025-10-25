@@ -29,7 +29,7 @@ BEGIN
             created_at, updated_at
         ) VALUES (
             zero_instance, sophia_uuid, 'authenticated', 'authenticated', 'sophia@prismaglow.test',
-            crypt('lovable123', gen_salt('bf')),
+            crypt('securepass123', gen_salt('bf')),
             now(),
             jsonb_build_object('provider', 'email', 'providers', jsonb_build_array('email')),
             jsonb_build_object('name', 'Sophia Systems', 'email', 'sophia@prismaglow.test', 'email_verified', true),
@@ -66,7 +66,7 @@ BEGIN
             created_at, updated_at
         ) VALUES (
             zero_instance, mark_uuid, 'authenticated', 'authenticated', 'mark@prismaglow.test',
-            crypt('lovable123', gen_salt('bf')),
+            crypt('securepass123', gen_salt('bf')),
             now(),
             jsonb_build_object('provider', 'email', 'providers', jsonb_build_array('email')),
             jsonb_build_object('name', 'Mark Manager', 'email', 'mark@prismaglow.test', 'email_verified', true),
@@ -103,7 +103,7 @@ BEGIN
             created_at, updated_at
         ) VALUES (
             zero_instance, eli_uuid, 'authenticated', 'authenticated', 'eli@prismaglow.test',
-            crypt('lovable123', gen_salt('bf')),
+            crypt('securepass123', gen_salt('bf')),
             now(),
             jsonb_build_object('provider', 'email', 'providers', jsonb_build_array('email')),
             jsonb_build_object('name', 'Eli Employee', 'email', 'eli@prismaglow.test', 'email_verified', true),

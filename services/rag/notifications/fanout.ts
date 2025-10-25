@@ -1,5 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database, Json } from '../types/supabase.js';
+import {
+  AnalyticsEventValidationError,
+  buildTelemetryAlertEvent,
+  telemetryAlertRowFromEvent,
+} from '../../../analytics/events/node.js';
 
 type NotificationRow = Database['public']['Tables']['notifications']['Row'];
 type DispatchInsert = Database['public']['Tables']['notification_dispatch_queue']['Insert'];
@@ -50,9 +55,125 @@ const EMAIL_WEBHOOK_AUTH = process.env.NOTIFY_USER_EMAIL_WEBHOOK_AUTH ?? '';
 const SMS_WEBHOOK_URL = process.env.NOTIFY_USER_SMS_WEBHOOK ?? '';
 const SMS_WEBHOOK_AUTH = process.env.NOTIFY_USER_SMS_WEBHOOK_AUTH ?? '';
 
+const QUEUE_WARNING_DEPTH = Number(process.env.NOTIFY_USER_QUEUE_WARNING_DEPTH ?? '25');
+const QUEUE_CRITICAL_DEPTH = Number(process.env.NOTIFY_USER_QUEUE_CRITICAL_DEPTH ?? '100');
+const QUEUE_WARNING_LAG_MS = Number(process.env.NOTIFY_USER_QUEUE_WARNING_LAG_MS ?? String(5 * 60 * 1000));
+const QUEUE_CRITICAL_LAG_MS = Number(process.env.NOTIFY_USER_QUEUE_CRITICAL_LAG_MS ?? String(15 * 60 * 1000));
+const QUEUE_ALERT_COOLDOWN_MS = Number(process.env.NOTIFY_USER_QUEUE_ALERT_COOLDOWN_MS ?? String(5 * 60 * 1000));
+
+let lastDispatchQueueAlert: { severity: 'WARNING' | 'CRITICAL'; timestamp: number } | null = null;
+
 let workerStarted = false;
 let workerTimer: NodeJS.Timeout | null = null;
 let workerRunning = false;
+
+type QueueAlertSeverity = 'WARNING' | 'CRITICAL';
+
+function determineQueueSeverity(pendingCount: number, lagMs: number): QueueAlertSeverity | null {
+  if (Number.isFinite(pendingCount) && pendingCount >= Math.max(1, QUEUE_CRITICAL_DEPTH)) {
+    return 'CRITICAL';
+  }
+  if (Number.isFinite(lagMs) && lagMs >= Math.max(QUEUE_CRITICAL_LAG_MS, QUEUE_WARNING_LAG_MS)) {
+    return 'CRITICAL';
+  }
+  if (Number.isFinite(pendingCount) && pendingCount >= Math.max(1, QUEUE_WARNING_DEPTH)) {
+    return 'WARNING';
+  }
+  if (Number.isFinite(lagMs) && lagMs >= Math.max(QUEUE_WARNING_LAG_MS, 0)) {
+    return 'WARNING';
+  }
+  return null;
+}
+
+async function insertQueueAlert(
+  supabase: SupabaseClient<Database>,
+  severity: 'WARNING' | 'CRITICAL' | 'INFO',
+  message: string,
+  context: Record<string, unknown>,
+  logError: LogError,
+  resolvedAt: string | null = null,
+) {
+  try {
+    const event = buildTelemetryAlertEvent({
+      alertType: 'NOTIFICATION_DISPATCH_QUEUE_LAG',
+      severity,
+      message,
+      context,
+      orgId: null,
+      resolvedAt,
+    });
+
+    await supabase.from('telemetry_alerts').insert(telemetryAlertRowFromEvent(event));
+  } catch (error) {
+    if (error instanceof AnalyticsEventValidationError) {
+      logError('notification_fanout.queue_alert_invalid', error, context);
+      return;
+    }
+    logError('notification_fanout.queue_alert_failed', error, context);
+  }
+}
+
+async function maybeEmitDispatchQueueAlert(options: {
+  supabase: SupabaseClient<Database>;
+  pendingCount: number;
+  oldest: DispatchRow | null;
+  now: Date;
+  logError: LogError;
+}): Promise<void> {
+  const { supabase, pendingCount, oldest, now, logError } = options;
+  const nowMs = now.getTime();
+  const scheduledAt = oldest?.scheduled_at ? Date.parse(oldest.scheduled_at) : null;
+  const createdAt = oldest?.created_at ? Date.parse(oldest.created_at) : null;
+  const referenceTime = Number.isFinite(scheduledAt) ? scheduledAt : Number.isFinite(createdAt) ? createdAt : null;
+  const lagMs = referenceTime !== null ? Math.max(nowMs - referenceTime, 0) : 0;
+
+  const severity = determineQueueSeverity(pendingCount, lagMs);
+
+  if (severity) {
+    const shouldSend =
+      !lastDispatchQueueAlert ||
+      lastDispatchQueueAlert.severity !== severity ||
+      nowMs - lastDispatchQueueAlert.timestamp >= Math.max(QUEUE_ALERT_COOLDOWN_MS, 60 * 1000);
+
+    if (!shouldSend) {
+      return;
+    }
+
+    const context = {
+      pendingCount,
+      lagMs,
+      lagSeconds: Math.round(lagMs / 1000),
+      oldestDispatchId: oldest?.id ?? null,
+      oldestOrgId: oldest?.org_id ?? null,
+      oldestChannel: oldest?.channel ?? null,
+      oldestScheduledAt: oldest?.scheduled_at ?? null,
+      oldestCreatedAt: oldest?.created_at ?? null,
+    } satisfies Record<string, unknown>;
+
+    const message = `Notification dispatch queue delayed (${pendingCount} pending, ${Math.round(lagMs / 1000)}s lag)`;
+    await insertQueueAlert(supabase, severity, message, context, logError);
+    lastDispatchQueueAlert = { severity, timestamp: nowMs };
+    return;
+  }
+
+  if (lastDispatchQueueAlert) {
+    const context = {
+      pendingCount,
+      lagMs,
+      lagSeconds: Math.round(lagMs / 1000),
+      recoveredAt: now.toISOString(),
+    } satisfies Record<string, unknown>;
+    await insertQueueAlert(
+      supabase,
+      'INFO',
+      'Notification dispatch queue recovered',
+      context,
+      logError,
+      now.toISOString(),
+    );
+    lastDispatchQueueAlert = null;
+  }
+}
 
 export async function scheduleUrgentNotificationFanout(options: FanoutSchedulerOptions): Promise<void> {
   const { supabase, orgId, notifications, title, message, link, kind, urgent, logInfo, logError } = options;
@@ -178,12 +299,14 @@ export function startNotificationFanoutWorker(options: FanoutWorkerOptions): voi
 
 async function processPendingDispatches(options: FanoutWorkerOptions): Promise<void> {
   const { supabase, logInfo, logError } = options;
+  const now = new Date();
+  const dueCutoff = now.toISOString();
 
   const { data: pending, error } = await supabase
     .from('notification_dispatch_queue')
-    .select('id, org_id, user_id, channel, payload, attempts, status, scheduled_at, notification_id')
+    .select('id, org_id, user_id, channel, payload, attempts, status, scheduled_at, notification_id, created_at')
     .eq('status', 'pending')
-    .lte('scheduled_at', new Date().toISOString())
+    .lte('scheduled_at', dueCutoff)
     .order('scheduled_at', { ascending: true })
     .limit(Math.max(1, DEFAULT_BATCH_SIZE));
 
@@ -191,6 +314,28 @@ async function processPendingDispatches(options: FanoutWorkerOptions): Promise<v
     logError('notification_fanout.fetch_failed', error, {});
     return;
   }
+
+  let pendingCount = 0;
+  const { count: dueCount, error: countError } = await supabase
+    .from('notification_dispatch_queue')
+    .select('id', { count: 'exact', head: true })
+    .eq('status', 'pending')
+    .lte('scheduled_at', dueCutoff);
+
+  if (countError) {
+    logError('notification_fanout.pending_count_failed', countError, {});
+  } else if (typeof dueCount === 'number') {
+    pendingCount = dueCount;
+  }
+
+  const oldest = pending && pending.length > 0 ? pending[0] : null;
+  await maybeEmitDispatchQueueAlert({
+    supabase,
+    pendingCount,
+    oldest,
+    now,
+    logError,
+  });
 
   if (!pending || pending.length === 0) {
     return;

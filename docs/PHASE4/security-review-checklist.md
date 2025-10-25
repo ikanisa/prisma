@@ -21,7 +21,7 @@ This checklist guides the final security hardening activities prior to productio
 | --- | --- | --- |
 | Vault / 1Password audit | Export secret inventory (`docs/SECURITY/secrets-inventory.md`) and confirm rotations. |
 | `.env` drift check | `scripts/secrets/compare_env.sh` ensures `.env.local` matches `.env.example`. |
-| Supabase service roles | Confirm no service role keys are exposed in Vercel/CI logs; rotate if older than 90 days. |
+| Supabase service roles | Confirm no service role keys are exposed in hosting-platform/CI logs; rotate if older than 90 days. |
 | OpenAI / Agent credentials | Check `lib/openai/client.ts` uses Vault loader; ensure no raw keys committed. |
 
 ---

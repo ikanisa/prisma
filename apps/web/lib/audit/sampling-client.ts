@@ -1,6 +1,7 @@
 import 'server-only';
 import crypto from 'node:crypto';
 import { env } from '@/src/env.server';
+import { logger } from '@/lib/logger';
 
 export class SamplingServiceError extends Error {
   readonly statusCode?: number;
@@ -114,7 +115,7 @@ export class SamplingClient {
         source: 'service',
       };
     } catch (error) {
-      console.warn('Sampling service unavailable, falling back to deterministic fixture.', error);
+      logger.warn('sampling.service_unavailable', { error });
       return this.generateDeterministicPlan(request);
     }
   }

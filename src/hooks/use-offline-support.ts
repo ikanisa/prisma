@@ -1,24 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   getOfflineQueueSnapshot,
-  OFFLINE_QUEUE_STORAGE_KEY,
   OFFLINE_QUEUE_UPDATED_EVENT,
   processQueuedActions,
   queueAction,
+  resetOfflineQueue,
   type QueuedOfflineAction,
+  type QueueOfflineActionOptions,
+  type ProcessQueueResult,
 } from '@/utils/pwa';
-
-function readQueue(): QueuedOfflineAction[] {
-  if (typeof window === 'undefined') {
-    return [];
-  }
-
-  try {
-    return getOfflineQueueSnapshot();
-  } catch {
-    return [];
-  }
-}
 
 export interface UseOfflineSupportOptions {
   autoProcessOnReconnect?: boolean;
@@ -28,15 +18,25 @@ export interface UseOfflineSupportResult {
   queue: QueuedOfflineAction[];
   queueLength: number;
   hasPendingActions: boolean;
-  enqueueAction: (action: string, data: unknown) => number;
-  processQueue: () => number;
+  enqueueAction: (action: string, data: unknown, options?: QueueOfflineActionOptions) => QueuedOfflineAction;
+  processQueue: () => Promise<ProcessQueueResult>;
 }
 
 export function useOfflineSupport({ autoProcessOnReconnect = false }: UseOfflineSupportOptions = {}): UseOfflineSupportResult {
-  const [queue, setQueue] = useState<QueuedOfflineAction[]>(() => readQueue());
+  const [queue, setQueue] = useState<QueuedOfflineAction[]>([]);
 
-  const refreshQueue = useCallback(() => {
-    setQueue(readQueue());
+  const refreshQueue = useCallback(async () => {
+    if (typeof window === 'undefined') {
+      setQueue([]);
+      return;
+    }
+
+    try {
+      const snapshot = await getOfflineQueueSnapshot();
+      setQueue(snapshot);
+    } catch {
+      setQueue([]);
+    }
   }, []);
 
   useEffect(() => {
@@ -44,30 +44,28 @@ export function useOfflineSupport({ autoProcessOnReconnect = false }: UseOffline
       return;
     }
 
+    void refreshQueue();
+
     const handleQueueUpdated: EventListener = () => {
-      refreshQueue();
-    };
-    const handleStorage = (event: StorageEvent) => {
-      if (event.key === OFFLINE_QUEUE_STORAGE_KEY) {
-        refreshQueue();
-      }
+      void refreshQueue();
     };
 
     window.addEventListener(OFFLINE_QUEUE_UPDATED_EVENT, handleQueueUpdated);
-    window.addEventListener('storage', handleStorage);
 
     let handleOnline: (() => void) | undefined;
     if (autoProcessOnReconnect) {
       handleOnline = () => {
-        processQueuedActions();
-        refreshQueue();
+        void processQueuedActions().then(() => {
+          refreshQueue();
+        }).catch(() => {
+          refreshQueue();
+        });
       };
       window.addEventListener('online', handleOnline);
     }
 
     return () => {
       window.removeEventListener(OFFLINE_QUEUE_UPDATED_EVENT, handleQueueUpdated);
-      window.removeEventListener('storage', handleStorage);
       if (handleOnline) {
         window.removeEventListener('online', handleOnline);
       }
@@ -75,25 +73,30 @@ export function useOfflineSupport({ autoProcessOnReconnect = false }: UseOffline
   }, [autoProcessOnReconnect, refreshQueue]);
 
   const enqueue = useCallback(
-    (action: string, data: unknown) => {
-      const length = queueAction(action, data);
+    (action: string, data: unknown, options?: QueueOfflineActionOptions) => {
+      const entry = queueAction(action, data, options);
       refreshQueue();
-      return length;
+      return entry;
     },
     [refreshQueue],
   );
 
-  const process = useCallback(() => {
-    const processed = processQueuedActions();
+  const process = useCallback(async () => {
+    const result = await processQueuedActions();
     refreshQueue();
-    return processed;
+    return result;
+  }, [refreshQueue]);
+
+  const resetQueue = useCallback(async () => {
+    await resetOfflineQueue();
+    await refreshQueue();
   }, [refreshQueue]);
 
   const hasPendingActions = queue.length > 0;
   const queueLength = queue.length;
 
   return useMemo(
-    () => ({ queue, queueLength, hasPendingActions, enqueueAction: enqueue, processQueue: process }),
-    [enqueue, hasPendingActions, process, queue, queueLength],
+    () => ({ queue, queueLength, hasPendingActions, enqueueAction: enqueue, processQueue: process, resetQueue }),
+    [enqueue, hasPendingActions, process, queue, queueLength, resetQueue],
   );
 }

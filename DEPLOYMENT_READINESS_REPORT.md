@@ -1,7 +1,7 @@
 # Deployment Readiness Report
 
 ## Overview
-- **Target platform:** Vercel (Node 22)
+- **Target platform:** Self-hosted container platform (Node 22)
 - **Primary app:** `apps/web` (Next.js 14 App Router)
 - **Supporting services:** `apps/gateway` (Express proxy), `services/rag` (RAG/worker service)
 - **Package manager:** pnpm 9.12.3 (pinned via `packageManager` field)
@@ -14,7 +14,7 @@ See [`audit/inventory.json`](audit/inventory.json) for the full machine-readable
 | --- | --- | --- | --- |
 | `apps/web` | Next.js 14 App Router | `pnpm --filter web build` | Requires Supabase + Keycloak credentials; uses Prisma + NextAuth. |
 | `apps/gateway` | Express (TypeScript) | `pnpm --filter @prisma-glow/gateway build` | Proxies API calls to FastAPI and RAG services; tracing via OTEL. |
-| `services/rag` | Node workers + Express | `pnpm --filter @prisma-glow/rag-service build` | Long-running RAG orchestrator; not Vercel-friendly, deploy to container runtime. |
+| `services/rag` | Node workers + Express | `pnpm --filter @prisma-glow/rag-service build` | Long-running RAG orchestrator; deploy to dedicated container runtime. |
 
 ## Environment Status
 - Full matrix captured in [`audit/env-matrix.csv`](audit/env-matrix.csv).
@@ -25,17 +25,16 @@ See [`audit/inventory.json`](audit/inventory.json) for the full machine-readable
   - `services/rag/env.ts` enforces core Supabase/OpenAI prerequisites; imported at startup for fail-fast behaviour.
 - RAG staging/production manifests now include `OPENAI_FILE_SEARCH_VECTOR_STORE_ID` (plus optional model/max/filter overrides) so hosted file search targets the correct vector store on deploy. Use `pnpm openai:file-search:secrets` to populate GitHub environment secrets in a single step.
 
-## Vercel Deployment Plan
-Detailed notes in [`audit/vercel-plan.md`](audit/vercel-plan.md). Key points:
-- `apps/web/vercel.json` pins install/build commands (`cd .. && pnpm …`) so monorepo dependencies resolve correctly.
-- Preview/production builds use `vercel pull`/`vercel build` with Node 22.
-- Gateway and RAG services remain external to Vercel; expose endpoints via configured environment variables.
+## Deployment Plan
+- `apps/web` builds via `pnpm --filter web build` and publishes the `.next/standalone` artefact to the container registry; runtime manifests set install/build commands explicitly.
+- Preview/production builds run the same install/lint/test/build pipeline before publishing images.
+- Gateway and RAG services remain external to the web frontend; expose endpoints via configured environment variables.
 
 ## CI / Automation
-- Added `.github/workflows/vercel-preview-build.yml` to mirror the Vercel preview build locally on PRs.
-- Workflow expects `VERCEL_TOKEN`, `VERCEL_ORG_ID`, and `VERCEL_PROJECT_ID` secrets.
-- Artifacts upload Vercel build logs for triage.
-- Local helper script `scripts/vercel-preflight.mjs` automates install + optional `vercel build` to reproduce failures.
+- `.github/workflows/compose-deploy.yml` mirrors the production build/lint/test steps and pushes container images.
+- Workflows expect the same secrets listed in `docs/deployment/configuration-audit.md`.
+- Artifacts upload build logs for triage of failed releases.
+- Local helper scripts under `scripts/operations/` reproduce the CI pipeline as needed.
 
 ## Risks & Follow-ups
 - `services/rag` still relies on numerous optional feature flags; ensure downstream infra injects required OpenAI/Supabase secrets before enabling those features.
@@ -46,6 +45,6 @@ Detailed notes in [`audit/vercel-plan.md`](audit/vercel-plan.md). Key points:
 ## Status Summary
 | Component | Status | Notes |
 | --- | --- | --- |
-| `apps/web` | 🟢 Ready | Validated env schema, CI parity, preflight script, Vercel plan in place. |
-| `apps/gateway` | 🟡 External Deploy | Env validator and docs added; deployment to Vercel requires additional routing decisions. |
-| `services/rag` | 🟡 External Deploy | Validated core env; keep on container runtime (not Vercel). |
+| `apps/web` | 🟢 Ready | Validated env schema, CI parity, and deployment plan in place. |
+| `apps/gateway` | 🟡 External Deploy | Env validator and docs added; deployment to managed hosting requires routing decisions. |
+| `services/rag` | 🟡 External Deploy | Validated core env; keep on container runtime alongside the rest of the stack. |

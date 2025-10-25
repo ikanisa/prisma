@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { SupabaseServerClient } from '../supabase/server';
 import { getSupabaseServerClient } from '../supabase/server';
+import { logger } from '@/lib/logger';
 
 type ActivityMetadata = Record<string, unknown>;
 
@@ -32,7 +33,7 @@ function sanitizeMetadata(metadata?: ActivityMetadata | null): ActivityMetadata 
     JSON.stringify(metadata);
     return metadata;
   } catch (error) {
-    console.warn('Unable to serialise activity metadata', error);
+    logger.warn('group.activity_metadata_serialisation_failed', { error });
     return null;
   }
 }
@@ -59,6 +60,11 @@ export async function logGroupActivity(params: GroupActivityParams) {
   try {
     await supabaseUnsafe.from('activity_log').insert(payload);
   } catch (error) {
-    console.error('Failed to persist group activity log', error);
+    logger.error('group.activity_persist_failed', {
+      error,
+      orgId,
+      userId,
+      action,
+    });
   }
 }

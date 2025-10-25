@@ -116,12 +116,12 @@ Follow the steps below when turning on web search in a new environment:
 
 1. **Provision credentials:** request production access to OpenAI web search and store the key in the shared secrets manager alongside `OPENAI_API_KEY`.
 2. **Flip the feature flag:** set `OPENAI_WEB_SEARCH_ENABLED=true` (already committed for production) and confirm the model identifier in `OPENAI_WEB_SEARCH_MODEL` if you are overriding the default `gpt-4.1-mini`.
-3. **Apply required migrations:** run both `supabase/migrations/20251115122000_web_fetch_cache.sql` and `supabase/migrations/20251115123000_web_fetch_cache_retention.sql` against each Supabase project before deploying code. The quickest path is the helper script:
+3. **Apply required migrations:** run both `supabase/migrations/20251115122000_web_fetch_cache.sql` and `supabase/migrations/20251115123000_web_fetch_cache_retention.sql` against each Supabase project before deploying code. When coordinating the extension rollout, include the `extensions_schema_reset` and `role_search_path_extensions` files as well. The helper script accepts an `--extra` flag for additional SQL migrations:
    ```bash
-   SUPABASE_PROJECTS="preview=<ref>,production=<ref>" pnpm supabase:migrate:web-cache
+   SUPABASE_PROJECTS="preview=<ref>,production=<ref>" pnpm supabase:migrate:web-cache --extra=20251202120000_extensions_schema_reset.sql,20251202121000_role_search_path_extensions.sql
    ```
-   The script shells out to the Supabase CLI (`supabase db remote commit`) for each configured project, emitting the commands it executes. When the CLI is unavailable you can still apply the SQL manually via the Supabase SQL editor.
-4. **Update environment manifests:** ensure `.env.production`, Vercel environment variables, and Vault entries include the new keys `OPENAI_WEB_SEARCH_ENABLED`, `OPENAI_WEB_SEARCH_MODEL`, and `WEB_FETCH_CACHE_RETENTION_DAYS`.
+   The script shells out to the Supabase CLI (`supabase db remote commit`) for each configured project, emitting the commands it executes. Omit the `--extra` flag once the extension migrations have been applied in every environment. When the CLI is unavailable you can still apply the SQL manually via the Supabase SQL editor.
+4. **Update environment manifests:** ensure `.env.production`, the hosting platform environment variables, and Vault entries include the new keys `OPENAI_WEB_SEARCH_ENABLED`, `OPENAI_WEB_SEARCH_MODEL`, and `WEB_FETCH_CACHE_RETENTION_DAYS`.
 5. **Smoke test the pipeline:** trigger a manual web harvest run and verify summaries include inline citations sourced from the web search tool.
 
 ## Monitoring and Retention
@@ -138,7 +138,7 @@ After deployment, monitor the metrics endpoint or view and confirm that `usedLas
 
 - Display inline citations whenever web-sourced content reaches end users.
 - Monitor usage metrics to stay within allocated rate limits, especially for deep research tasks that execute numerous search actions.
-- Align deployment pipelines with Vercel requirements, ensuring that any endpoints or web assets depending on web search integrations are included in QA before promotion to production.
+- Align deployment pipelines with the hosting platform requirements, ensuring that any endpoints or web assets depending on web search integrations are included in QA before promotion to production.
 
 ## Additional Resources
 

@@ -1,5 +1,6 @@
 import { getApiClient } from '@/src/lib/api-client';
 import type { ApiClientInstance } from '@/src/lib/api-client';
+import { logger } from '@/lib/logger';
 
 export type DocumentSummary = {
   id: string;
@@ -101,8 +102,7 @@ export const fetchDocuments = async (
     }
   } catch (error) {
     if (process.env.NODE_ENV !== 'production') {
-      // eslint-disable-next-line no-console
-      console.warn('Falling back to stubbed documents', error);
+      logger.warn('documents.fallback_to_stub', { error, orgSlug, repo });
     }
   }
 

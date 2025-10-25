@@ -1,6 +1,6 @@
 # Scheduled workflow notes
 
-The legacy CI schedule (`Monorepo CI` every day at 02:30 UTC) now runs in GitHub Actions without depending on Vercel preview deploys. When the cron trigger is disabled or when you need to reproduce it locally:
+The legacy CI schedule (`Monorepo CI` every day at 02:30 UTC) now runs entirely in GitHub Actions without depending on external preview deploys. When the cron trigger is disabled or when you need to reproduce it locally:
 
 1. Run the same gates manually with pnpm:
    ```bash

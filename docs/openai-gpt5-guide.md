@@ -78,4 +78,4 @@ response = client.responses.create(
 print(response)
 ```
 
-Integrate these patterns into deployment pipelines and Vercel-ready agents to take full advantage of GPT-5's reasoning-first architecture.
+Integrate these patterns into deployment pipelines and production agents to take full advantage of GPT-5's reasoning-first architecture.

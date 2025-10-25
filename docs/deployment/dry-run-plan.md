@@ -1,9 +1,9 @@
 # Deployment Dry Run & Postgres Upgrade Plan
 
-## Vercel Dry Run
+## Deployment Dry Run
 1. Create a release branch (`release/<date>`).
 2. Run CI (`pnpm lint`, `pnpm test`, `pnpm --filter web prisma migrate deploy` against staging DB).
-3. Trigger Vercel preview deployment; run smoke suite:
+3. Trigger a preview deployment on the hosting platform; run smoke suite:
    - Frontend Playwright smoke
    - API smoke (`OPENAI_API_KEY=dummy pytest tests/api/test_core_smoke.py`)
    - CAPTCHA + invite flow (test Turnstile + SMTP in staging).
