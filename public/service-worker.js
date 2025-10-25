@@ -376,23 +376,39 @@ self.addEventListener('message', (event) => {
     const job = normalizeJobRecord(payload);
     if (!job) {
       console.error('service_worker.queue_enqueue_invalid', payload);
+      reply({
+        type: 'OFFLINE_QUEUE_ENQUEUE_ACK',
+        payload: { id: payload?.id, persisted: false, error: 'invalid_job' },
+      });
       return;
     }
 
     event.waitUntil(
-      putOfflineJob(job)
-        .then(async () => {
-          if (self.registration?.sync) {
-            try {
-              await self.registration.sync.register(BACKGROUND_SYNC_TAG);
-            } catch (error) {
-              console.error('service_worker.sync_register_failed', error);
-            }
-          }
-        })
-        .catch((error) => {
+      (async () => {
+        try {
+          await putOfflineJob(job);
+          reply({ type: 'OFFLINE_QUEUE_ENQUEUE_ACK', payload: { id: job.id, persisted: true } });
+        } catch (error) {
           console.error('service_worker.queue_enqueue_failed', error);
-        }),
+          reply({
+            type: 'OFFLINE_QUEUE_ENQUEUE_ACK',
+            payload: {
+              id: job.id,
+              persisted: false,
+              error: error instanceof Error ? error.message : String(error),
+            },
+          });
+          return;
+        }
+
+        if (self.registration?.sync) {
+          try {
+            await self.registration.sync.register(BACKGROUND_SYNC_TAG);
+          } catch (error) {
+            console.error('service_worker.sync_register_failed', error);
+          }
+        }
+      })(),
     );
     return;
   }
