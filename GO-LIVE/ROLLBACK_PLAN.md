@@ -20,6 +20,27 @@
 1. If migrations introduced faulty schema, use Supabase PITR to timestamp immediately before deployment.
 2. Alternatively, run down-migrations (if authored) on staging first, then prod.
 3. Re-validate RLS helpers (`SELECT public.is_member_of(...)`) and storage policies.
+4. If the extension/search-path rollout causes issues, execute the emergency SQL:
+   ```sql
+   DO $$
+   DECLARE
+     ext text;
+     role_name text;
+   BEGIN
+     FOR ext IN SELECT unnest(ARRAY['pgcrypto','vector','btree_gin','pg_trgm']) LOOP
+       IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = ext) THEN
+         EXECUTE format('ALTER EXTENSION %I SET SCHEMA public', ext);
+       END IF;
+     END LOOP;
+     FOR role_name IN SELECT unnest(ARRAY['postgres','supabase_admin','supabase_auth_admin','supabase_storage_admin','authenticator','service_role','authenticated','anon']) LOOP
+       IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = role_name) THEN
+         EXECUTE format('ALTER ROLE %I SET search_path TO app, public, auth', role_name);
+       END IF;
+     END LOOP;
+   END
+   $$;
+   ```
+   Document the execution and schedule a follow-up migration to reinstate the fix once the root cause is addressed.
 
 ## Storage Buckets
 1. If new policies block legitimate access, revert to previous policy migration (apply inverse migration) while investigating.
