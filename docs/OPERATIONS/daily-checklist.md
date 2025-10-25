@@ -18,6 +18,7 @@ Use this checklist at the start of each on-call shift.
 ## Access & Security
 - [ ] Rotate temporary credentials or disable breakglass accounts that expired.
 - [ ] Ensure Turnstile CAPTCHA and SMTP services respond as expected (perform sample requests if needed).
+- [ ] Confirm Supabase Authentication → Passwords has "Check for compromised passwords" enabled for **production** and **staging** (see `docs/security/auth-passwords.md`).
 
 ## Notes
 Record observations and ticket links here:
