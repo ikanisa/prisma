@@ -6,6 +6,8 @@ import {
   processQueuedActions,
   queueAction,
   type QueuedOfflineAction,
+  type QueueOfflineActionOptions,
+  type ProcessQueueResult,
 } from '@/utils/pwa';
 
 function readQueue(): QueuedOfflineAction[] {
@@ -28,8 +30,8 @@ export interface UseOfflineSupportResult {
   queue: QueuedOfflineAction[];
   queueLength: number;
   hasPendingActions: boolean;
-  enqueueAction: (action: string, data: unknown) => number;
-  processQueue: () => number;
+  enqueueAction: (action: string, data: unknown, options?: QueueOfflineActionOptions) => QueuedOfflineAction;
+  processQueue: () => Promise<ProcessQueueResult>;
 }
 
 export function useOfflineSupport({ autoProcessOnReconnect = false }: UseOfflineSupportOptions = {}): UseOfflineSupportResult {
@@ -59,8 +61,11 @@ export function useOfflineSupport({ autoProcessOnReconnect = false }: UseOffline
     let handleOnline: (() => void) | undefined;
     if (autoProcessOnReconnect) {
       handleOnline = () => {
-        processQueuedActions();
-        refreshQueue();
+        void processQueuedActions().then(() => {
+          refreshQueue();
+        }).catch(() => {
+          refreshQueue();
+        });
       };
       window.addEventListener('online', handleOnline);
     }
@@ -75,18 +80,18 @@ export function useOfflineSupport({ autoProcessOnReconnect = false }: UseOffline
   }, [autoProcessOnReconnect, refreshQueue]);
 
   const enqueue = useCallback(
-    (action: string, data: unknown) => {
-      const length = queueAction(action, data);
+    (action: string, data: unknown, options?: QueueOfflineActionOptions) => {
+      const entry = queueAction(action, data, options);
       refreshQueue();
-      return length;
+      return entry;
     },
     [refreshQueue],
   );
 
-  const process = useCallback(() => {
-    const processed = processQueuedActions();
+  const process = useCallback(async () => {
+    const result = await processQueuedActions();
     refreshQueue();
-    return processed;
+    return result;
   }, [refreshQueue]);
 
   const hasPendingActions = queue.length > 0;
