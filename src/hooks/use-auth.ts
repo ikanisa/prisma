@@ -4,6 +4,7 @@ import { User, Session } from '@supabase/supabase-js';
 import { useToast } from '@/hooks/use-toast';
 import { recordClientEvent } from '@/lib/client-events';
 import { isPasswordBreached, isPasswordBreachCheckEnabled } from '@/lib/security/password';
+import { logger } from '@/lib/logger';
 
 export interface AuthState {
   user: User | null;
@@ -49,7 +50,7 @@ export function useAuth(): AuthState {
     }
 
     if (!apiBaseUrl) {
-      console.warn('captcha_enabled_but_api_base_missing');
+      logger.warn('captcha_enabled_but_api_base_missing');
       return;
     }
 
@@ -67,7 +68,7 @@ export function useAuth(): AuthState {
         body: JSON.stringify({ token }),
       });
     } catch (error) {
-      console.warn('captcha.verification_request_failed', error);
+      logger.warn('captcha.verification_request_failed', { error });
       throw new Error('captcha_verification_unavailable');
     }
 
@@ -148,7 +149,7 @@ export function useAuth(): AuthState {
     try {
       if (shouldCheckPasswords) {
         const breached = await isPasswordBreached(password).catch((error) => {
-          console.warn('password_breach_check_failed', error);
+          logger.warn('password_breach_check_failed', { error });
           return false;
         });
 

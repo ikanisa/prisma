@@ -1,5 +1,6 @@
 import type { Request, RequestHandler, Response } from 'express';
 import { getRequestContext } from '../utils/request-context.js';
+import { logger } from '@prisma-glow/logger';
 
 export interface IdempotencyStore {
   get(key: string): Promise<{ status: number; body: unknown } | null>;
@@ -71,7 +72,7 @@ export function createIdempotencyMiddleware(options: IdempotencyOptions = {}): R
         return res.status(cached.status).json(cached.body);
       }
     } catch (error) {
-      console.warn('idempotency_lookup_failed', { error });
+      logger.warn('idempotency_lookup_failed', { error });
     }
 
     const originalJson = res.json.bind(res);
@@ -80,9 +81,9 @@ export function createIdempotencyMiddleware(options: IdempotencyOptions = {}): R
         const status = res.statusCode ?? 200;
         store
           .set(compositeKey, { status, body }, ttlMs)
-          .catch((error) => console.warn('idempotency_store_failed', { error }));
+          .catch((error) => logger.warn('idempotency_store_failed', { error }));
       } catch (error) {
-        console.warn('idempotency_store_failed', { error });
+        logger.warn('idempotency_store_failed', { error });
       }
       return originalJson(body);
     };

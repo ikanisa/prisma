@@ -45,7 +45,7 @@ export default tseslint.config(
       "@typescript-eslint/no-explicit-any": "off",
       "@typescript-eslint/no-empty-object-type": "off",
       "@typescript-eslint/no-require-imports": "off",
-      "no-console": ["error", { allow: ["warn", "error"] }],
+      "no-console": "error",
       "no-restricted-imports": [
         "error",
         {
@@ -65,6 +65,18 @@ export default tseslint.config(
   },
   {
     files: ["services/**/*.{ts,tsx}", "supabase/functions/**/*.{ts,tsx}"],
+    rules: {
+      "no-console": "off",
+    },
+  },
+  {
+    files: ["src/lib/logger.ts", "src/lib/logger.js", "packages/logger/src/**/*.ts"],
+    rules: {
+      "no-console": "off",
+    },
+  },
+  {
+    files: ["packages/**/*.{ts,tsx,js,jsx}", "scripts/**/*.{ts,tsx,js,jsx}", "tests/**/*.{ts,tsx,js,jsx}"],
     rules: {
       "no-console": "off",
     },
