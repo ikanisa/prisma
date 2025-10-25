@@ -1,11 +1,11 @@
 # Deployment Readiness Report
 
 ## Overview
-- **Target platform:** Vercel (Node 18)
+- **Target platform:** Vercel (Node 22)
 - **Primary app:** `apps/web` (Next.js 14 App Router)
 - **Supporting services:** `apps/gateway` (Express proxy), `services/rag` (RAG/worker service)
 - **Package manager:** pnpm 9.12.3 (pinned via `packageManager` field)
-- **Node version:** 18.20.4 (enforced via `.nvmrc` and `package.json` engines)
+- **Node version:** 22.12.0 (enforced via `.nvmrc` and `package.json` engines)
 
 ## Inventory Summary
 See [`audit/inventory.json`](audit/inventory.json) for the full machine-readable snapshot.
@@ -28,7 +28,7 @@ See [`audit/inventory.json`](audit/inventory.json) for the full machine-readable
 ## Vercel Deployment Plan
 Detailed notes in [`audit/vercel-plan.md`](audit/vercel-plan.md). Key points:
 - `apps/web/vercel.json` pins install/build commands (`cd .. && pnpm …`) so monorepo dependencies resolve correctly.
-- Preview/production builds use `vercel pull`/`vercel build` with Node 18.
+- Preview/production builds use `vercel pull`/`vercel build` with Node 22.
 - Gateway and RAG services remain external to Vercel; expose endpoints via configured environment variables.
 
 ## CI / Automation
@@ -49,4 +49,3 @@ Detailed notes in [`audit/vercel-plan.md`](audit/vercel-plan.md). Key points:
 | `apps/web` | 🟢 Ready | Validated env schema, CI parity, preflight script, Vercel plan in place. |
 | `apps/gateway` | 🟡 External Deploy | Env validator and docs added; deployment to Vercel requires additional routing decisions. |
 | `services/rag` | 🟡 External Deploy | Validated core env; keep on container runtime (not Vercel). |
-

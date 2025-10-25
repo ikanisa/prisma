@@ -29,21 +29,25 @@
         "./packages/ui/src/index.ts"
       ],
       "@prisma-glow/lib/*": [
-        "./packages/lib/dist/*.d.ts",
+        "./packages/lib/dist/*.js",
         "./packages/lib/dist/*",
-        "./packages/lib/dist/*/index.d.ts",
-        "./packages/lib/dist/*/index.js"
+        "./packages/lib/dist/*/index.js",
+        "./packages/lib/dist/*.d.ts",
+        "./packages/lib/dist/*/index.d.ts"
       ],
       "@prisma-glow/lib": [
+        "./packages/lib/dist/index.js",
         "./packages/lib/dist/index.d.ts"
       ],
       "@prisma-glow/agents/*": [
-        "./packages/agents/dist/*.d.ts",
+        "./packages/agents/dist/*.js",
         "./packages/agents/dist/*",
-        "./packages/agents/dist/*/index.d.ts",
-        "./packages/agents/dist/*/index.js"
+        "./packages/agents/dist/*/index.js",
+        "./packages/agents/dist/*.d.ts",
+        "./packages/agents/dist/*/index.d.ts"
       ],
       "@prisma-glow/agents": [
+        "./packages/agents/dist/index.js",
         "./packages/agents/dist/index.d.ts"
       ]
     }

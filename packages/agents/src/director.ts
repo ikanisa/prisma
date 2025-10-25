@@ -213,5 +213,5 @@ export class DirectorAgent {
 }
 
 export const directorAgent = new DirectorAgent({
-  logInfo: (msg, meta) => console.log(JSON.stringify({ level: 'info', msg, ...meta })),
+  logInfo: (msg, meta) => console.warn(JSON.stringify({ level: 'info', msg, ...meta })),
 });

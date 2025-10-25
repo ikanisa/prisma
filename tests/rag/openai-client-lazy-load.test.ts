@@ -22,7 +22,7 @@ describe('RAG service OpenAI client lazy loading', () => {
       originalEnv[key] = process.env[key];
     }
 
-    setEnv('OPENAI_API_KEY', undefined);
+    setEnv('OPENAI_API_KEY', 'test-openai-key');
     setEnv('SUPABASE_URL', 'https://stub.supabase.co');
     setEnv('SUPABASE_SERVICE_ROLE_KEY', 'service-role-key');
     setEnv('SUPABASE_JWT_SECRET', 'jwt-secret');
@@ -47,6 +47,16 @@ describe('RAG service OpenAI client lazy loading', () => {
       __esModule: true,
       createClient: vi.fn(() => supabaseStub),
     }));
+
+    vi.doMock('../../analytics/events/node.js', () => ({
+      __esModule: true,
+      AnalyticsEventValidationError: class extends Error {},
+      buildAutonomyTelemetryEvent: vi.fn(),
+      buildTelemetryAlertEvent: vi.fn(),
+      autonomyTelemetryRowFromEvent: vi.fn(),
+      telemetryAlertRowFromEvent: vi.fn(),
+      recordEventOnSpan: vi.fn(),
+    }));
   });
 
   afterEach(() => {
@@ -57,11 +67,12 @@ describe('RAG service OpenAI client lazy loading', () => {
     vi.unmock('pdf-parse');
     vi.unmock('pg');
     vi.unmock('@supabase/supabase-js');
+    vi.unmock('../../analytics/events/node.js');
     vi.unmock('@prisma-glow/lib/openai/client');
     vi.resetModules();
   });
 
-  it('does not construct the OpenAI client during module import when credentials are missing', async () => {
+  it('does not construct the OpenAI client during module import', async () => {
     const getOpenAIClient = vi.fn(() => {
       throw new Error('OpenAI client should not be constructed during import');
     });

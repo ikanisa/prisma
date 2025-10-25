@@ -6,7 +6,7 @@
 - **Install Command**: `cd .. && pnpm install --frozen-lockfile`
 - **Build Command**: `cd .. && pnpm --filter web build`
 - **Output Directory**: `.next`
-- **Node Version**: 18.20.x (pinned via `.nvmrc` and `package.json` engines)
+- **Node Version**: 22.12.x (pinned via `.nvmrc` and `package.json` engines)
 - **Environment acquisition**: `vercel pull --environment=<preview|production>` executed from `apps/web`
 - **Notes**:
   - Requires Supabase (service role + anon key), Keycloak (OIDC) and optional downstream API URLs.
@@ -18,7 +18,7 @@
 - **Deployment target**: Keep on Vercel as a Node Serverless Function if needed, but recommended to run behind API routes or move to separate infra.
 - **Install Command**: `pnpm install --frozen-lockfile`
 - **Build Command**: `pnpm --filter @prisma-glow/gateway build`
-- **Runtime**: Node 18 serverless function using the compiled `dist/server.js` entry.
+- **Runtime**: Node 22 serverless function using the compiled `dist/server.js` entry.
 - **Notes**: Requires Redis, PostgreSQL, and upstream FastAPI URLs. Not wired to Vercel in this iteration; include in future phases when service boundaries are stable.
 
 ## services/rag (Node workers + Express)

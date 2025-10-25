@@ -8,6 +8,7 @@ export default tseslint.config(
   {
     ignores: [
       "dist",
+      "**/dist/**",
       "coverage",
       ".next",
       "**/.next/**",
@@ -51,10 +52,6 @@ export default tseslint.config(
         {
           "patterns": [
             {
-              group: ["@prisma-glow/*/*"],
-              message: "Import from the package entry point instead of deep paths.",
-            },
-            {
               group: ["packages/*", "**/packages/*"],
               message: "Use the workspace package alias (e.g. @prisma-glow/…) rather than relative paths into packages.",
             },
@@ -78,12 +75,11 @@ export default tseslint.config(
           patterns: [
             {
               group: [
-                "@prisma-glow/*/*",
                 "../../packages/*",
                 "../packages/*",
                 "../../../packages/*",
               ],
-              message: "Import from the package entry point (e.g. @prisma-glow/pkg) instead of deep paths.",
+              message: "Use the workspace alias (e.g. @prisma-glow/pkg) instead of relative paths into packages.",
             },
           ],
         },

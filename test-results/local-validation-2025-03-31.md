@@ -1,7 +1,7 @@
 # Local Validation Summary (2025-03-31)
 
 ## Environment
-- Node.js: v20.19.4 (per pnpm warning; project expects 18.20.4)
+- Node.js: v20.19.4 (per pnpm warning; project now expects 22.12.0)
 - pnpm: 9.12.3
 
 ## Commands Executed
