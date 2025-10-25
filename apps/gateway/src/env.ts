@@ -21,6 +21,9 @@ const baseSchema = z.object({
   SERVICE_VERSION: z.string().optional(),
   SENTRY_RELEASE: z.string().optional(),
   SENTRY_ENVIRONMENT: z.string().optional(),
+  SENTRY_DSN: z.string().url().optional(),
+  GATEWAY_SENTRY_DSN: z.string().url().optional(),
+  SENTRY_TRACES_SAMPLE_RATE: z.coerce.number().min(0).max(1).optional(),
   ALLOW_SENTRY_DRY_RUN: optionalBooleanish,
   ANALYTICS_SERVICE_URL: z.string().url().optional(),
   ANALYTICS_SERVICE_TOKEN: z.string().optional(),
@@ -43,6 +46,9 @@ const parsed = baseSchema.safeParse({
   SERVICE_VERSION: process.env.SERVICE_VERSION,
   SENTRY_RELEASE: process.env.SENTRY_RELEASE,
   SENTRY_ENVIRONMENT: process.env.SENTRY_ENVIRONMENT,
+  SENTRY_DSN: process.env.SENTRY_DSN,
+  GATEWAY_SENTRY_DSN: process.env.GATEWAY_SENTRY_DSN,
+  SENTRY_TRACES_SAMPLE_RATE: process.env.SENTRY_TRACES_SAMPLE_RATE,
   ALLOW_SENTRY_DRY_RUN: process.env.ALLOW_SENTRY_DRY_RUN,
   ANALYTICS_SERVICE_URL: process.env.ANALYTICS_SERVICE_URL,
   ANALYTICS_SERVICE_TOKEN: process.env.ANALYTICS_SERVICE_TOKEN,
@@ -61,7 +67,13 @@ if (!parsed.success) {
   throw new Error('apps/gateway environment validation failed');
 }
 
-export const env = Object.freeze(parsed.data);
+const baseEnv = parsed.data;
+
+export const env = Object.freeze({
+  ...baseEnv,
+  SENTRY_DSN: baseEnv.GATEWAY_SENTRY_DSN ?? baseEnv.SENTRY_DSN ?? undefined,
+  SENTRY_TRACES_SAMPLE_RATE: baseEnv.SENTRY_TRACES_SAMPLE_RATE ?? undefined,
+});
 
 const dynamicSchema = z.object({
   FASTAPI_BASE_URL: z.string().url().optional(),
