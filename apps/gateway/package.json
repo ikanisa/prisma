@@ -10,6 +10,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@prisma-glow/logger": "workspace:*",
     "@prisma-glow/analytics": "file:../../analytics",
     "@prisma-glow/system-config": "file:../../packages/system-config",
     "cors": "^2.8.5",

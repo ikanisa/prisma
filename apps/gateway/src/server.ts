@@ -1,4 +1,6 @@
 import express from 'express';
+import * as Sentry from '@sentry/node';
+import type { Transport, TransportOptions } from '@sentry/types';
 import { initTracing } from './otel.js';
 import type { ErrorRequestHandler, Express } from 'express';
 import { pathToFileURL } from 'url';
@@ -13,14 +15,45 @@ import { createCorsMiddleware } from './middleware/cors.js';
 
 export function createGatewayServer(): Express {
   initTracing();
+  const sentryEnabled = initialiseSentry();
   const app = express();
 
   app.disable('x-powered-by');
+  if (sentryEnabled) {
+    app.use(Sentry.Handlers.requestHandler({ user: false }));
+    app.use(Sentry.Handlers.tracingHandler());
+  }
+
   app.use(express.json({ limit: '5mb' }));
   const corsMiddleware = createCorsMiddleware(env.allowedOrigins);
   app.use(corsMiddleware);
   app.options('*', corsMiddleware);
   app.use(traceMiddleware);
+  if (sentryEnabled) {
+    app.use((req, _res, next) => {
+      const context = getRequestContext();
+      Sentry.configureScope((scope) => {
+        if (context?.requestId) {
+          scope.setTag('request_id', context.requestId);
+        }
+        if (context?.traceId) {
+          scope.setTag('trace_id', context.traceId);
+        }
+      });
+      Sentry.addBreadcrumb({
+        category: 'request',
+        level: 'info',
+        message: `${req.method} ${req.path}`,
+        data: {
+          method: req.method,
+          path: req.path,
+          requestId: context?.requestId,
+          traceId: context?.traceId,
+        },
+      });
+      next();
+    });
+  }
   app.use(createPiiScrubberMiddleware());
   app.use(analyticsMiddleware);
 
@@ -48,9 +81,12 @@ export function createGatewayServer(): Express {
   app.use('/v1', v1Router);
 
   const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
-    console.error('gateway.unhandled_error', scrubPii({ message: err?.message, stack: err?.stack }));
+    logger.error('gateway.unhandled_error', scrubPii({ message: err?.message, stack: err?.stack }));
     res.status(500).json({ error: 'internal_server_error' });
   };
+  if (sentryEnabled) {
+    app.use(Sentry.Handlers.errorHandler());
+  }
   app.use(errorHandler);
 
   return app;
@@ -72,6 +108,6 @@ if (isEntrypoint) {
   const app = createGatewayServer();
   const port = env.PORT;
   app.listen(port, () => {
-    console.warn(`Gateway listening on port ${port}`);
+    logger.info('gateway.listening', { port });
   });
 }

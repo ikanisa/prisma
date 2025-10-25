@@ -1,10 +1,79 @@
+"use client"
+
 import * as React from "react"
 import * as RechartsPrimitive from "recharts"
+import { useTheme } from "next-themes"
 
 import { cn } from "@/lib/utils"
 
 // Format: { THEME_NAME: CSS_SELECTOR }
 const THEMES = { light: "", dark: ".dark" } as const
+
+type ThemeName = keyof typeof THEMES
+
+type CSSVarStyles = React.CSSProperties & Record<string, string>
+
+type ChartVariableMap = {
+  base: CSSVarStyles
+  themes: Record<ThemeName, CSSVarStyles>
+  hasVariables: boolean
+}
+
+const THEME_NAMES = Object.keys(THEMES) as ThemeName[]
+
+function isThemeName(value: unknown): value is ThemeName {
+  return typeof value === "string" && value in THEMES
+}
+
+function useResolvedThemeName(): ThemeName | undefined {
+  try {
+    const { resolvedTheme, theme } = useTheme()
+    const candidate = resolvedTheme ?? theme
+
+    return isThemeName(candidate) ? candidate : undefined
+  } catch (error) {
+    return undefined
+  }
+}
+
+function generateChartVariables(config: ChartConfig): ChartVariableMap {
+  const base: CSSVarStyles = {} as CSSVarStyles
+  const themes = THEME_NAMES.reduce(
+    (acc, theme) => {
+      acc[theme] = {} as CSSVarStyles
+      return acc
+    },
+    {} as Record<ThemeName, CSSVarStyles>
+  )
+
+  let hasVariables = false
+
+  for (const [key, itemConfig] of Object.entries(config)) {
+    const variable = `--color-${key}`
+
+    if ("theme" in itemConfig && itemConfig.theme) {
+      let fallbackAssigned = false
+
+      for (const themeName of THEME_NAMES) {
+        const value = itemConfig.theme?.[themeName]
+
+        if (!value) continue
+
+        themes[themeName][variable] = value
+        if (!fallbackAssigned) {
+          base[variable] = value
+          fallbackAssigned = true
+        }
+        hasVariables = true
+      }
+    } else if (itemConfig.color) {
+      base[variable] = itemConfig.color
+      hasVariables = true
+    }
+  }
+
+  return { base, themes, hasVariables }
+}
 
 export type ChartConfig = {
   [k in string]: {
@@ -36,67 +105,77 @@ const ChartContainer = React.forwardRef<
   HTMLDivElement,
   React.ComponentProps<"div"> & {
     config: ChartConfig
+    theme?: ThemeName
     children: React.ComponentProps<
       typeof RechartsPrimitive.ResponsiveContainer
     >["children"]
   }
->(({ id, className, children, config, ...props }, ref) => {
-  const uniqueId = React.useId()
-  const chartId = `chart-${id || uniqueId.replace(/:/g, "")}`
+>(
+  (
+    {
+      id,
+      className,
+      children,
+      config,
+      style,
+      theme: themeOverride,
+      ...props
+    },
+    ref
+  ) => {
+    const uniqueId = React.useId()
+    const chartId = `chart-${id || uniqueId.replace(/:/g, "")}`
+    const resolvedThemeName = useResolvedThemeName()
+    const chartVariables = React.useMemo(
+      () => generateChartVariables(config),
+      [config]
+    )
 
-  return (
-    <ChartContext.Provider value={{ config }}>
-      <div
-        data-chart={chartId}
-        ref={ref}
-        className={cn(
-          "flex aspect-video justify-center text-xs [&_.recharts-cartesian-axis-tick_text]:fill-muted-foreground [&_.recharts-cartesian-grid_line[stroke='#ccc']]:stroke-border/50 [&_.recharts-curve.recharts-tooltip-cursor]:stroke-border [&_.recharts-dot[stroke='#fff']]:stroke-transparent [&_.recharts-layer]:outline-none [&_.recharts-polar-grid_[stroke='#ccc']]:stroke-border [&_.recharts-radial-bar-background-sector]:fill-muted [&_.recharts-rectangle.recharts-tooltip-cursor]:fill-muted [&_.recharts-reference-line_[stroke='#ccc']]:stroke-border [&_.recharts-sector[stroke='#fff']]:stroke-transparent [&_.recharts-sector]:outline-none [&_.recharts-surface]:outline-none",
-          className
-        )}
-        {...props}
-      >
-        <ChartStyle id={chartId} config={config} />
-        <RechartsPrimitive.ResponsiveContainer>
-          {children}
-        </RechartsPrimitive.ResponsiveContainer>
-      </div>
-    </ChartContext.Provider>
-  )
-})
+    const themeName = React.useMemo<ThemeName>(() => {
+      if (isThemeName(themeOverride)) {
+        return themeOverride
+      }
+
+      return resolvedThemeName ?? "light"
+    }, [resolvedThemeName, themeOverride])
+
+    const mergedStyles = React.useMemo<React.CSSProperties | undefined>(() => {
+      if (!chartVariables.hasVariables) {
+        return style as React.CSSProperties | undefined
+      }
+
+      const themeStyles = chartVariables.themes[themeName] ?? {}
+
+      return {
+        ...chartVariables.base,
+        ...themeStyles,
+        ...(style as React.CSSProperties),
+      }
+    }, [chartVariables, style, themeName])
+
+    return (
+      <ChartContext.Provider value={{ config }}>
+        <div
+          data-chart={chartId}
+          ref={ref}
+          className={cn(
+            "flex aspect-video justify-center text-xs [&_.recharts-cartesian-axis-tick_text]:fill-muted-foreground [&_.recharts-cartesian-grid_line[stroke='#ccc']]:stroke-border/50 [&_.recharts-curve.recharts-tooltip-cursor]:stroke-border [&_.recharts-dot[stroke='#fff']]:stroke-transparent [&_.recharts-layer]:outline-none [&_.recharts-polar-grid_[stroke='#ccc']]:stroke-border [&_.recharts-radial-bar-background-sector]:fill-muted [&_.recharts-rectangle.recharts-tooltip-cursor]:fill-muted [&_.recharts-reference-line_[stroke='#ccc']]:stroke-border [&_.recharts-sector[stroke='#fff']]:stroke-transparent [&_.recharts-sector]:outline-none [&_.recharts-surface]:outline-none",
+            className
+          )}
+          style={mergedStyles}
+          {...props}
+        >
+          <RechartsPrimitive.ResponsiveContainer>
+            {children}
+          </RechartsPrimitive.ResponsiveContainer>
+        </div>
+      </ChartContext.Provider>
+    )
+  }
+)
 ChartContainer.displayName = "Chart"
 
-const ChartStyle = ({ id, config }: { id: string; config: ChartConfig }) => {
-  const colorConfig = Object.entries(config).filter(
-    ([_, config]) => config.theme || config.color
-  )
-
-  if (!colorConfig.length) {
-    return null
-  }
-
-  return (
-    <style
-      dangerouslySetInnerHTML={{
-        __html: Object.entries(THEMES)
-          .map(
-            ([theme, prefix]) => `
-${prefix} [data-chart=${id}] {
-${colorConfig
-  .map(([key, itemConfig]) => {
-    const color =
-      itemConfig.theme?.[theme as keyof typeof itemConfig.theme] ||
-      itemConfig.color
-    return color ? `  --color-${key}: ${color};` : null
-  })
-  .join("\n")}
-}
-`
-          )
-          .join("\n"),
-      }}
-    />
-  )
-}
+const ChartStyle: React.FC<{ id: string; config: ChartConfig }> = () => null
 
 const ChartTooltip = RechartsPrimitive.Tooltip
 
@@ -381,4 +460,5 @@ export {
   ChartLegend,
   ChartLegendContent,
   ChartStyle,
+  generateChartVariables,
 }

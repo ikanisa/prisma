@@ -1,6 +1,15 @@
 # Audit Changelog
 
 ## Date
+2025-12-15
+
+### RLS Audit Findings
+- `public.notification_dispatch_queue` (fanout worker queue) lacked any row level security policies in both `supabase/migrations` and the mirrored `migrations/sql` directory.
+- `public.system_settings` was created after the original hardening migration and therefore shipped without RLS or the intended service-role policy.
+- Prisma schema (`apps/web/prisma/schema.prisma`) does not declare these service-owned tables, so RLS coverage must be enforced purely via SQL migrations.
+- Verified no additional tables in the Supabase schema are missing policies after applying the remediation; historical `independence_checks` tables are fully deprecated and removed by later migrations.
+
+## Date
 2025-09-21
 
 ## Branch Hygiene

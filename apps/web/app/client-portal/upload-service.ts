@@ -1,3 +1,5 @@
+import { logger } from '@/lib/logger';
+
 export interface UploadOptions {
   apiBase: string;
   fetchImpl?: typeof fetch;
@@ -20,7 +22,7 @@ export async function submitDocument({ apiBase, fetchImpl = fetch }: UploadOptio
     const response = await fetchImpl(target, { method: 'POST', body: form });
     return response.ok;
   } catch (error) {
-    console.warn('Document upload failed', error);
+    logger.warn('client_portal.document_upload_failed', { error, target });
     return false;
   }
 }

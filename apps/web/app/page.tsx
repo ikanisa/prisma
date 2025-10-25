@@ -4,6 +4,7 @@ import Link from 'next/link';
 import type { Route } from 'next';
 
 import { Button } from '@prisma-glow/ui';
+import { logger } from '@/lib/logger';
 
 export default function Home() {
   const links = [
@@ -23,7 +24,11 @@ export default function Home() {
     <main className="p-4">
       <h1 className="text-xl mb-4">Welcome</h1>
       <div className="mb-4">
-        <Button onClick={() => console.warn('hello')}>
+        <Button
+          onClick={() => {
+            logger.warn('home.quick_action_clicked');
+          }}
+        >
           Quick Action
         </Button>
       </div>
