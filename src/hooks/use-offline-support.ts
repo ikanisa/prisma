@@ -6,6 +6,8 @@ import {
   queueAction,
   resetOfflineQueue,
   type QueuedOfflineAction,
+  type QueueOfflineActionOptions,
+  type ProcessQueueResult,
 } from '@/utils/pwa';
 
 export interface UseOfflineSupportOptions {
@@ -16,8 +18,8 @@ export interface UseOfflineSupportResult {
   queue: QueuedOfflineAction[];
   queueLength: number;
   hasPendingActions: boolean;
-  enqueueAction: (action: string, data: unknown) => number;
-  processQueue: () => Promise<number>;
+  enqueueAction: (action: string, data: unknown, options?: QueueOfflineActionOptions) => QueuedOfflineAction;
+  processQueue: () => Promise<ProcessQueueResult>;
 }
 
 export function useOfflineSupport({ autoProcessOnReconnect = false }: UseOfflineSupportOptions = {}): UseOfflineSupportResult {
@@ -53,7 +55,9 @@ export function useOfflineSupport({ autoProcessOnReconnect = false }: UseOffline
     let handleOnline: (() => void) | undefined;
     if (autoProcessOnReconnect) {
       handleOnline = () => {
-        processQueuedActions().finally(() => {
+        void processQueuedActions().then(() => {
+          refreshQueue();
+        }).catch(() => {
           refreshQueue();
         });
       };
@@ -69,18 +73,18 @@ export function useOfflineSupport({ autoProcessOnReconnect = false }: UseOffline
   }, [autoProcessOnReconnect, refreshQueue]);
 
   const enqueue = useCallback(
-    async (action: string, data: unknown) => {
-      const length = await queueAction(action, data);
-      await refreshQueue();
-      return length;
+    (action: string, data: unknown, options?: QueueOfflineActionOptions) => {
+      const entry = queueAction(action, data, options);
+      refreshQueue();
+      return entry;
     },
     [refreshQueue],
   );
 
   const process = useCallback(async () => {
-    const processed = await processQueuedActions();
+    const result = await processQueuedActions();
     refreshQueue();
-    return processed;
+    return result;
   }, [refreshQueue]);
 
   const resetQueue = useCallback(async () => {
