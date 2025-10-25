@@ -9,6 +9,7 @@ import v1Router from './routes/v1.js';
 import { scrubPii } from './utils/pii.js';
 import { getRequestContext } from './utils/request-context.js';
 import { env } from './env.js';
+import { createCorsMiddleware } from './middleware/cors.js';
 
 export function createGatewayServer(): Express {
   initTracing();
@@ -16,6 +17,9 @@ export function createGatewayServer(): Express {
 
   app.disable('x-powered-by');
   app.use(express.json({ limit: '5mb' }));
+  const corsMiddleware = createCorsMiddleware(env.allowedOrigins);
+  app.use(corsMiddleware);
+  app.options('*', corsMiddleware);
   app.use(traceMiddleware);
   app.use(createPiiScrubberMiddleware());
   app.use(analyticsMiddleware);
