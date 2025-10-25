@@ -13,9 +13,9 @@
     "@prisma-glow/logger": "workspace:*",
     "@prisma-glow/analytics": "file:../../analytics",
     "@prisma-glow/system-config": "file:../../packages/system-config",
-    "@sentry/node": "^7.120.0",
-    "@sentry/types": "^7.120.0",
-    "express": "^4.19.2"
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "express-rate-limit": "^8.1.0"
   },
   "devDependencies": {
     "@types/express": "^4.17.23",

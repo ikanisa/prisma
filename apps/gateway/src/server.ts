@@ -11,47 +11,7 @@ import v1Router from './routes/v1.js';
 import { scrubPii } from './utils/pii.js';
 import { getRequestContext } from './utils/request-context.js';
 import { env } from './env.js';
-import { logger } from '@prisma-glow/logger';
-
-declare global {
-  // eslint-disable-next-line no-var
-  var __SENTRY_TRANSPORT__: ((options: TransportOptions) => Transport) | undefined;
-}
-
-function initialiseSentry(): boolean {
-  const dsn = env.SENTRY_DSN ?? process.env.GATEWAY_SENTRY_DSN ?? process.env.SENTRY_DSN;
-  if (!dsn) {
-    return false;
-  }
-
-  if (!Sentry.getCurrentHub().getClient()) {
-    const environment = env.SENTRY_ENVIRONMENT ?? env.ENVIRONMENT ?? env.NODE_ENV ?? 'development';
-    const release = env.SENTRY_RELEASE ?? env.SERVICE_VERSION ?? process.env.SERVICE_VERSION;
-    const sampleRate = (() => {
-      if (typeof env.SENTRY_TRACES_SAMPLE_RATE === 'number') {
-        return env.SENTRY_TRACES_SAMPLE_RATE;
-      }
-      const raw = process.env.SENTRY_TRACES_SAMPLE_RATE ?? '0';
-      const parsed = Number.parseFloat(raw);
-      if (Number.isFinite(parsed) && parsed >= 0 && parsed <= 1) {
-        return parsed;
-      }
-      return 0;
-    })();
-
-    const transportFactory = globalThis.__SENTRY_TRANSPORT__;
-
-    Sentry.init({
-      dsn,
-      environment,
-      release: release ?? undefined,
-      tracesSampleRate: sampleRate,
-      transport: typeof transportFactory === 'function' ? transportFactory : undefined,
-    });
-  }
-
-  return true;
-}
+import { createCorsMiddleware } from './middleware/cors.js';
 
 export function createGatewayServer(): Express {
   initTracing();
@@ -65,6 +25,9 @@ export function createGatewayServer(): Express {
   }
 
   app.use(express.json({ limit: '5mb' }));
+  const corsMiddleware = createCorsMiddleware(env.allowedOrigins);
+  app.use(corsMiddleware);
+  app.options('*', corsMiddleware);
   app.use(traceMiddleware);
   if (sentryEnabled) {
     app.use((req, _res, next) => {

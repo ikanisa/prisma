@@ -313,7 +313,7 @@ export default defineConfig({
       },
       {
         find: '@prisma-glow/system-config',
-        replacement: path.resolve(__dirname, './packages/system-config/index.js'),
+        replacement: path.resolve(__dirname, './packages/system-config/src/index.js'),
       },
     ],
   },
