@@ -375,50 +375,66 @@ export async function queueAction(action: string, data: any) {
   return queuedActions.length;
 }
 
+let processQueuedActionsInFlight: Promise<number> | null = null;
+
 export async function processQueuedActions(): Promise<number> {
   if (typeof window === 'undefined') {
     return 0;
   }
 
-  const queuedActions = await readOfflineQueue();
-  const processed: string[] = [];
+  if (processQueuedActionsInFlight) {
+    return processQueuedActionsInFlight;
+  }
 
-  for (const item of queuedActions) {
-    recordClientEvent({ name: 'pwa:processQueuedAction', data: { action: item.action } });
+  const run = async (): Promise<number> => {
+    const queuedActions = await readOfflineQueue();
+    const processed: string[] = [];
 
-    try {
-      await executeQueuedApiAction(item);
-      recordClientEvent({
-        name: 'pwa:queuedActionProcessed',
-        data: { action: item.action, retries: item.retries },
-      });
-      processed.push(item.id);
-    } catch (error) {
-      logger.error('pwa.process_queued_action_failed', error);
-      recordClientError({ name: 'pwa:queuedActionFailed', error, data: { action: item.action } });
+    for (const item of queuedActions) {
+      recordClientEvent({ name: 'pwa:processQueuedAction', data: { action: item.action } });
 
-      if (
-        item.retries >= MAX_QUEUE_RETRIES ||
-        (error instanceof Error && error.message === 'invalid_offline_action')
-      ) {
+      try {
+        await executeQueuedApiAction(item);
+        recordClientEvent({
+          name: 'pwa:queuedActionProcessed',
+          data: { action: item.action, retries: item.retries },
+        });
         processed.push(item.id);
+      } catch (error) {
+        logger.error('pwa.process_queued_action_failed', error);
+        recordClientError({ name: 'pwa:queuedActionFailed', error, data: { action: item.action } });
+
+        if (
+          item.retries >= MAX_QUEUE_RETRIES ||
+          (error instanceof Error && error.message === 'invalid_offline_action')
+        ) {
+          processed.push(item.id);
+        }
       }
     }
-  }
 
-  const remaining = queuedActions.filter((item) => !processed.includes(item.id));
+    const remaining = queuedActions.filter((item) => !processed.includes(item.id));
+
+    try {
+      await writeOfflineQueue(remaining);
+    } catch (error) {
+      // The write failure is already logged in writeOfflineQueue. We swallow the error to avoid
+      // breaking the caller, but still ensure the queue reflects the last persisted state.
+      if (!isQuotaExceededError(error)) {
+        logger.error('pwa.process_queue_persist_failed', error);
+      }
+    }
+
+    return processed.length;
+  };
+
+  processQueuedActionsInFlight = run();
 
   try {
-    await writeOfflineQueue(remaining);
-  } catch (error) {
-    // The write failure is already logged in writeOfflineQueue. We swallow the error to avoid
-    // breaking the caller, but still ensure the queue reflects the last persisted state.
-    if (!isQuotaExceededError(error)) {
-      logger.error('pwa.process_queue_persist_failed', error);
-    }
+    return await processQueuedActionsInFlight;
+  } finally {
+    processQueuedActionsInFlight = null;
   }
-
-  return processed.length;
 }
 
 export function getOfflineQueueSnapshot(): Promise<QueuedOfflineAction[]> {
