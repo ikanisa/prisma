@@ -38,12 +38,15 @@
         "./packages/lib/dist/index.d.ts"
       ],
       "@prisma-glow/agents/*": [
+        "./packages/agents/src/*.ts",
+        "./packages/agents/src/*/index.ts",
         "./packages/agents/dist/*.d.ts",
         "./packages/agents/dist/*",
         "./packages/agents/dist/*/index.d.ts",
         "./packages/agents/dist/*/index.js"
       ],
       "@prisma-glow/agents": [
+        "./packages/agents/src/index.ts",
         "./packages/agents/dist/index.d.ts"
       ]
     }
