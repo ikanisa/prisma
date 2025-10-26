@@ -14,6 +14,10 @@ import yaml
 from pydantic import BaseModel, Field
 
 
+_TRUTHY = {"1", "true", "yes", "on"}
+_FALSY = {"0", "false", "no", "off"}
+
+
 def _resolve_config_path() -> Path:
     override = os.getenv("SYSTEM_CONFIG_PATH")
     if override:
@@ -34,6 +38,20 @@ def _expand_env_values(value: Any) -> Any:
     if isinstance(value, dict):
         return {key: _expand_env_values(val) for key, val in value.items()}
     return value
+
+
+def _read_bool_env(name: str) -> Optional[bool]:
+    """Interpret an environment variable as a boolean flag."""
+
+    raw = os.getenv(name)
+    if raw is None:
+        return None
+    value = raw.strip().lower()
+    if value in _TRUTHY:
+        return True
+    if value in _FALSY:
+        return False
+    return None
 
 
 class TraceExporterConfig(BaseModel):
@@ -75,6 +93,10 @@ class TelemetrySettings(BaseModel):
     default_environment_env: Optional[str] = "SENTRY_ENVIRONMENT"
     dashboards: List[str] = Field(default_factory=list)
     traces: List[TraceExporterConfig] = Field(default_factory=list)
+    disabled_environments: List[str] = Field(
+        default_factory=lambda: ["development", "test", "local"]
+    )
+    require_exporter: bool = True
 
     def resolve_environment(self, *, fallback: Optional[str] = None) -> str:
         if self.default_environment_env:
@@ -90,6 +112,24 @@ class TelemetrySettings(BaseModel):
             if exporter.resolved_endpoint():
                 return exporter
         return None
+
+    def should_enable_tracing(self, *, environment: Optional[str]) -> bool:
+        """Determine whether distributed tracing should be initialised."""
+
+        if _read_bool_env("OTEL_FORCE_ENABLED") is True:
+            return True
+        if _read_bool_env("OTEL_SDK_DISABLED") is True:
+            return False
+
+        env_value = (environment or self.resolve_environment()).strip().lower()
+        if env_value and any(env_value == entry.strip().lower() for entry in self.disabled_environments):
+            return False
+
+        exporter = self.first_active_trace_exporter()
+        if not exporter or not exporter.resolved_endpoint():
+            if self.require_exporter and _read_bool_env("OTEL_FORCE_ENABLED") is not True:
+                return False
+        return True
 
 
 class OpenAIClientSettings(BaseModel):
@@ -164,6 +204,23 @@ class WorkflowDefinition(BaseModel):
 class WorkflowsSettings(BaseModel):
     definitions: Dict[str, WorkflowDefinition] = Field(default_factory=dict)
     default_autonomy: str = "L2"
+    enabled: bool = True
+    disabled_environments: List[str] = Field(default_factory=list)
+
+    def is_enabled(self, *, environment: Optional[str] = None) -> bool:
+        """Return True when workflow orchestration should be active."""
+
+        if _read_bool_env("ENABLE_WORKFLOWS") is True:
+            return True
+        if _read_bool_env("DISABLE_WORKFLOWS") is True:
+            return False
+        if not self.enabled:
+            return False
+        environment = environment or os.getenv("SENTRY_ENVIRONMENT") or os.getenv("ENVIRONMENT")
+        if not environment:
+            return True
+        env_value = environment.strip().lower()
+        return not any(env_value == entry.strip().lower() for entry in self.disabled_environments)
 
 
 class AgentDefinition(BaseModel):
@@ -339,6 +396,34 @@ class SystemSettings(BaseModel):
         workflows_section = data.get("workflows") if isinstance(data, Mapping) else None
         registry = cls._build_agent_registry(data)
 
+        enabled = True
+        disabled_environments: List[str] = []
+        definitions_source: Mapping[str, Any] | None = None
+        if isinstance(workflows_section, Mapping):
+            enabled_value = workflows_section.get("enabled")
+            if isinstance(enabled_value, bool):
+                enabled = enabled_value
+            elif isinstance(enabled_value, str):
+                normalised = enabled_value.strip().lower()
+                if normalised in _TRUTHY:
+                    enabled = True
+                elif normalised in _FALSY:
+                    enabled = False
+            disabled_envs_raw = workflows_section.get("disabled_environments")
+            if isinstance(disabled_envs_raw, Iterable):
+                disabled_environments = _normalise_list(disabled_envs_raw)
+            maybe_definitions = workflows_section.get("definitions")
+            if isinstance(maybe_definitions, Mapping):
+                definitions_source = maybe_definitions
+        if definitions_source is None and isinstance(workflows_section, Mapping):
+            definitions_source = {
+                key: value
+                for key, value in workflows_section.items()
+                if key not in {"enabled", "disabled_environments", "definitions"}
+            }
+        elif definitions_source is None:
+            definitions_source = {}
+
         tool_registry: Dict[str, List[str]] = {}
         for agent in registry.values():
             for tool in agent.tools:
@@ -355,8 +440,8 @@ class SystemSettings(BaseModel):
         minimum_rank_default = level_order.get(default_autonomy, 0)
 
         workflow_models: Dict[str, WorkflowDefinition] = {}
-        if isinstance(workflows_section, Mapping):
-            for key, value in workflows_section.items():
+        if isinstance(definitions_source, Mapping):
+            for key, value in definitions_source.items():
                 if not isinstance(value, Mapping):
                     continue
                 workflow_key = str(key or "").strip()
@@ -428,7 +513,12 @@ class SystemSettings(BaseModel):
                     minimum_autonomy=minimum_autonomy,
                 )
 
-        return WorkflowsSettings(definitions=workflow_models, default_autonomy=default_autonomy)
+        return WorkflowsSettings(
+            definitions=workflow_models,
+            default_autonomy=default_autonomy,
+            enabled=enabled,
+            disabled_environments=disabled_environments,
+        )
 
     @staticmethod
     def _build_telemetry_settings(data: Mapping[str, Any]) -> TelemetrySettings:
@@ -438,6 +528,8 @@ class SystemSettings(BaseModel):
         dashboards: List[str] = []
         default_env_var: Optional[str] = "SENTRY_ENVIRONMENT"
         exporters: List[TraceExporterConfig] = []
+        disabled_envs: List[str] = ["development", "test", "local"]
+        require_exporter = True
         if isinstance(section, Mapping):
             namespace_raw = section.get("namespace")
             if isinstance(namespace_raw, str) and namespace_raw.strip():
@@ -453,6 +545,22 @@ class SystemSettings(BaseModel):
             env_ref = section.get("default_environment_env")
             if isinstance(env_ref, str) and env_ref.strip():
                 default_env_var = env_ref.strip()
+            disabled_raw = section.get("disabled_environments")
+            if isinstance(disabled_raw, Iterable):
+                disabled_envs = [
+                    entry.strip()
+                    for entry in disabled_raw
+                    if isinstance(entry, str) and entry.strip()
+                ] or disabled_envs
+            require_exporter_raw = section.get("require_exporter")
+            if isinstance(require_exporter_raw, bool):
+                require_exporter = require_exporter_raw
+            elif isinstance(require_exporter_raw, str):
+                normalised = require_exporter_raw.strip().lower()
+                if normalised in _TRUTHY:
+                    require_exporter = True
+                elif normalised in _FALSY:
+                    require_exporter = False
             exporters_raw = section.get("exporters")
             if isinstance(exporters_raw, Mapping):
                 traces_section = exporters_raw.get("traces")
@@ -478,6 +586,8 @@ class SystemSettings(BaseModel):
             default_environment_env=default_env_var,
             dashboards=dashboards,
             traces=exporters,
+            disabled_environments=disabled_envs,
+            require_exporter=require_exporter,
         )
 
     @classmethod

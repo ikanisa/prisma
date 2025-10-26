@@ -292,47 +292,49 @@ ui:
     notifications: "You’re all caught up."
 
 workflows:
-  onboarding_zero_typing:
-    trigger: "user:Add company"
-    steps:
-      - "onboarding.start"
-      - "documents.upload_url"
-      - "doc_ai.extract"
-      - "onboarding.link_doc"
-      - "onboarding.commit"
-      - "tasks.create"
-  monthly_close:
-    steps:
-      - "close.snapshot_tb"
-      - "recon.bank"
-      - "journals.propose"
-      - "variance.analyze"
-      - "cashflow.build_indirect"
-    approval: "close.lock"
-  audit_cycle:
-    steps:
-      - "audit.plan"
-      - "sampling.design"
-      - "confirmations.manage"
-      - "estimates.evaluate"
-      - "gc.assess"
-      - "se.review"
-      - "kam.draft"
-      - "report.assemble"
-      - "tcwg.pack"
-    approvals:
-      - "audit.plan.freeze"
-      - "audit.report.release"
-      - "eqr.signoff"
-  tax_cycle:
-    steps:
-      - "mt.cit.compute"
-      - "mt.vat.prepare"
-      - "dac6.classify"
-      - "p2.scope"
-      - "p2.compute"
-    approvals:
-      - "tax.return.submit"
+  enabled: true
+  definitions:
+    onboarding_zero_typing:
+      trigger: "user:Add company"
+      steps:
+        - "onboarding.start"
+        - "documents.upload_url"
+        - "doc_ai.extract"
+        - "onboarding.link_doc"
+        - "onboarding.commit"
+        - "tasks.create"
+    monthly_close:
+      steps:
+        - "close.snapshot_tb"
+        - "recon.bank"
+        - "journals.propose"
+        - "variance.analyze"
+        - "cashflow.build_indirect"
+      approval: "close.lock"
+    audit_cycle:
+      steps:
+        - "audit.plan"
+        - "sampling.design"
+        - "confirmations.manage"
+        - "estimates.evaluate"
+        - "gc.assess"
+        - "se.review"
+        - "kam.draft"
+        - "report.assemble"
+        - "tcwg.pack"
+      approvals:
+        - "audit.plan.freeze"
+        - "audit.report.release"
+        - "eqr.signoff"
+    tax_cycle:
+      steps:
+        - "mt.cit.compute"
+        - "mt.vat.prepare"
+        - "dac6.classify"
+        - "p2.scope"
+        - "p2.compute"
+      approvals:
+        - "tax.return.submit"
 
 agents:
   - id: orchestrator
@@ -408,6 +410,11 @@ telemetry:
     - "doc_pipeline"
     - "compliance"
     - "security"
+  disabled_environments:
+    - "development"
+    - "test"
+    - "local"
+  require_exporter: true
   exporters:
     traces:
       - name: "default"

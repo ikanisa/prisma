@@ -19,9 +19,13 @@ class WorkflowOrchestrator:
     """High-level helper that keeps workflow configuration and helpers together."""
 
     def __init__(self, workflows: WorkflowsSettings, agents: Mapping[str, AgentDefinition]):
+        self._settings = workflows
         self._definitions = workflows.definitions
         self._default_autonomy = workflows.default_autonomy
         self._agents = dict(agents)
+
+    def _workflows_enabled(self) -> bool:
+        return self._settings.is_enabled()
 
     def _normalise_autonomy(self, level: Optional[str]) -> str:
         if isinstance(level, str):
@@ -125,6 +129,8 @@ class WorkflowOrchestrator:
         *,
         supabase_table_request,
     ) -> List[Dict[str, Any]]:
+        if not self._workflows_enabled():
+            return []
         params = {
             "org_id": f"eq.{org_id}",
             "status": "in.(PENDING,RUNNING)",
@@ -148,6 +154,8 @@ class WorkflowOrchestrator:
         supabase_table_request,
         iso_now,
     ) -> Optional[Dict[str, Any]]:
+        if not self._workflows_enabled():
+            return None
         definition = self._definitions.get(workflow_key)
         if not definition:
             return None
@@ -196,6 +204,8 @@ class WorkflowOrchestrator:
         iso_now,
         actor_id: Optional[str],
     ) -> None:
+        if not self._workflows_enabled():
+            return None
         payload = {
             "org_id": run.get("org_id"),
             "run_id": run.get("id"),
@@ -225,6 +235,8 @@ class WorkflowOrchestrator:
         iso_now,
         actor_id: Optional[str],
     ) -> Optional[Dict[str, Any]]:
+        if not self._workflows_enabled():
+            return run
         definition = self._definitions.get(workflow_key)
         if not definition:
             return None
@@ -270,6 +282,8 @@ class WorkflowOrchestrator:
         supabase_table_request,
         autonomy_level: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
+        if not self._workflows_enabled():
+            return []
         runs = await self.list_active_runs(org_id, supabase_table_request=supabase_table_request)
         runs_by_key = {run.get("workflow"): run for run in runs if isinstance(run, Mapping)}
         org_autonomy = self._normalise_autonomy(autonomy_level)
