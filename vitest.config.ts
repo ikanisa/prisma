@@ -344,6 +344,10 @@ export default defineConfig({
         find: '@prisma-glow/system-config',
         replacement: path.resolve(__dirname, './packages/system-config/src/index.ts'),
       },
+      {
+        find: '@prisma-glow/agents',
+        replacement: path.resolve(__dirname, './packages/agents/src'),
+      },
     ],
   },
 })
