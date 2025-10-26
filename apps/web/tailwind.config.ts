@@ -60,9 +60,9 @@ const config: Config = {
         glass: '0 12px 48px rgba(15, 23, 42, 0.35)',
       },
       fontFamily: {
-        sans: themeTokens.typography.fontFamilies.sans,
-        display: themeTokens.typography.fontFamilies.display,
-        mono: themeTokens.typography.fontFamilies.mono,
+        sans: Array.from(themeTokens.typography.fontFamilies.sans),
+        display: Array.from(themeTokens.typography.fontFamilies.display),
+        mono: Array.from(themeTokens.typography.fontFamilies.mono),
       },
       borderRadius: themeTokens.radii,
       spacing: themeTokens.spacing,
