@@ -1,0 +1,25 @@
+app:
+  title: Prisma Developer Portal
+  baseUrl: http://localhost:7007
+
+organization:
+  name: Prisma Glow
+
+backend:
+  baseUrl: http://localhost:7007
+  listen:
+    port: 7007
+
+techdocs:
+  builder: local
+  publisher:
+    type: local
+
+catalog:
+  rules:
+    - allow: [Component, System, API, Group]
+  locations:
+    - type: file
+      target: ./catalog-info.yaml
+      rules:
+        - allow: [Component, System, API, Group]

@@ -1,0 +1,13 @@
+{
+  "name": "@prisma-glow/dev-portal",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Backstage catalog configuration for the Prisma developer portal.",
+  "license": "UNLICENSED",
+  "type": "module",
+  "files": [
+    "app-config.yaml",
+    "catalog-info.yaml",
+    "README.md"
+  ]
+}
