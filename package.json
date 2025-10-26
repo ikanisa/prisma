@@ -25,7 +25,7 @@
     "preview": "vite preview --host --port 8080",
     "check:bundle": "node ./scripts/check_bundlesize.mjs",
     "build:dev": "vite build --mode development",
-    "lint": "eslint .",
+    "lint": "node ./scripts/lint/check-architecture-adr.mjs && eslint .",
     "lint:workspace": "pnpm -r --if-present run lint",
     "config:validate": "node scripts/config/validate-config.mjs",
     "codegen:aat": "openapi-typescript openapi/aat_agent_api.yaml -o src/integrations/aat-agent/types.ts",
