@@ -18,4 +18,4 @@ This directory contains the Prisma data model and migration history for the `app
 - Staging (Preview): automatically via GitHub Actions on merges to `main` once `DATABASE_URL`/`DIRECT_URL` secrets are configured.
 - Production: trigger the `Supabase Prisma Deploy` workflow manually (`workflow_dispatch`) selecting `production`. The workflow runs `prisma migrate deploy` using the production secrets.
 
-After each apply, run through the post-deployment checklist documented in `docs/deployment/database-readiness.md` (introspect, generate client, seed, smoke-test).
+After each apply, run through the post-deployment checklist documented in `docs/deployment/prisma-supabase-deployment.md` (introspect, generate client, seed, smoke-test).

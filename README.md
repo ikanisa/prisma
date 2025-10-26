@@ -195,7 +195,7 @@ User agent and correlation:
 
 - Gateway forwards `Authorization`, `X-Request-ID`, `X-Trace-ID`, and W3C `traceparent`/`tracestate` headers to FastAPI.
 - Gateway sets a service user agent on upstream requests: `prisma-glow-gateway/<SERVICE_VERSION>`.
-- Ensure `SERVICE_VERSION` is set in runtime (CI uses the commit SHA). When running on a managed host or PaaS target, set it as an environment variable so traces include `service.version`.
+- Ensure `SERVICE_VERSION` is set in runtime (CI uses the commit SHA). Inject it through your hosting provider so traces include `service.version`.
 
 Versioning for trace correlation:
 

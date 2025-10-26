@@ -32,12 +32,4 @@ apps/web/public/workbox-*.js
 
 # Misc
 *.swp
-.vercel/
-apps/web/.vercel/
 apps/web/.turbo/
-.vercel
-.logs/
-
-# Cloudflare/Caddy local runtime
-infra/cloudflared/config.yml
-infra/cloudflared/credentials/

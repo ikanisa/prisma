@@ -45,7 +45,7 @@
    - `OPENAI_API_KEY_FINANCE_PROD` / `_STAGING` for finance tasks.
    - `OPENAI_ORG_ID_FINANCE_*`, `OPENAI_REQUEST_TAGS_FINANCE_*`, `OPENAI_REQUEST_QUOTA_TAG_FINANCE_*`, and `OPENAI_USER_AGENT_TAG_FINANCE` to align observability + billing.
    - Update `OPENAI_ORG_ID` if finance project resides in separate org.
-3. Update infra manifests (Docker, k8s, the hosting platform) to reference new secret names; update CI pipelines as needed.
+3. Update infra manifests (Docker, k8s, hosting provider) to reference new secret names; update CI pipelines as needed.
 4. Services can now call `getOpenAIClientForWorkload('finance-prod' | 'finance-staging')` or `readOpenAiWorkloadEnv()` from `lib/openai/workloads.ts` to route requests to the correct credentials; multi-key routing by org remains a future enhancement.
 5. Validate connectivity via staging smoke tests (embeddings + response calls) and confirm `openai_debug_events` receives entries tagged with finance org ID.
 6. Document in release runbook (`docs/observability.md`, `docs/backup-restore.md`).
