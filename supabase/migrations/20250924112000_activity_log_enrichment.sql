@@ -69,6 +69,7 @@ ON CONFLICT (action) DO UPDATE SET
 CREATE OR REPLACE FUNCTION app.activity_log_enrich()
 RETURNS TRIGGER
 LANGUAGE plpgsql
+SET search_path = app, public
 AS $$
 DECLARE
   catalog public.activity_event_catalog%ROWTYPE;

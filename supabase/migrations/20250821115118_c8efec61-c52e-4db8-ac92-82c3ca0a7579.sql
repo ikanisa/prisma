@@ -135,10 +135,11 @@ ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.activity_log ENABLE ROW LEVEL SECURITY;
 -- Helper functions for RLS
 CREATE OR REPLACE FUNCTION public.is_member_of(org UUID)
-RETURNS BOOLEAN 
-LANGUAGE SQL 
+RETURNS BOOLEAN
+LANGUAGE SQL
 STABLE
 SECURITY DEFINER
+SET search_path = public
 AS $$
   SELECT EXISTS (
     SELECT 1 FROM public.memberships m
@@ -146,10 +147,11 @@ AS $$
   );
 $$;
 CREATE OR REPLACE FUNCTION public.has_min_role(org UUID, min public.role_level)
-RETURNS BOOLEAN 
-LANGUAGE SQL 
+RETURNS BOOLEAN
+LANGUAGE SQL
 STABLE
 SECURITY DEFINER
+SET search_path = public
 AS $$
   WITH my_role AS (
     SELECT m.role
@@ -292,12 +294,15 @@ CREATE POLICY "activity_log_insert" ON public.activity_log
   FOR INSERT WITH CHECK (public.is_member_of(org_id) AND user_id = auth.uid());
 -- Create updated_at trigger function
 CREATE OR REPLACE FUNCTION public.handle_updated_at()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SET search_path = public
+AS $$
 BEGIN
   NEW.updated_at = now();
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 -- Add updated_at triggers to all tables with updated_at columns
 DROP TRIGGER IF EXISTS set_users_updated_at ON public.users;
 CREATE TRIGGER set_users_updated_at BEFORE UPDATE ON public.users 
@@ -319,17 +324,21 @@ CREATE TRIGGER set_tasks_updated_at BEFORE UPDATE ON public.tasks
   FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
 -- Create function to automatically create user profile on signup
 CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
 BEGIN
   INSERT INTO public.users (id, email, name)
   VALUES (
-    NEW.id, 
-    NEW.email, 
+    NEW.id,
+    NEW.email,
     COALESCE(NEW.raw_user_meta_data->>'name', NEW.email)
   );
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$;
 -- Trigger to create user profile on auth signup
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created

@@ -4,6 +4,7 @@ CREATE OR REPLACE FUNCTION app.create_api_key(p_org_slug text, p_name text, p_sc
  RETURNS TABLE(id uuid, key_plain text)
  LANGUAGE plpgsql
  SECURITY DEFINER
+ SET search_path = app, public
 AS $function$
 declare v_org uuid; v_key bytea; v_key_plain text; v_hash text;
 begin
@@ -27,6 +28,7 @@ CREATE OR REPLACE FUNCTION app.current_user_id()
  RETURNS uuid
  LANGUAGE sql
  STABLE
+ SET search_path = app, public
 AS $function$ SELECT auth.uid(); $function$
 ;
 
@@ -34,8 +36,9 @@ CREATE OR REPLACE FUNCTION app.is_org_admin(p_org uuid)
  RETURNS boolean
  LANGUAGE sql
  STABLE
-AS $function$ 
-  SELECT app.is_org_member(p_org, 'admin'::org_role); 
+ SET search_path = app, public
+AS $function$
+  SELECT app.is_org_member(p_org, 'admin'::org_role);
 $function$
 ;
 
@@ -43,6 +46,7 @@ CREATE OR REPLACE FUNCTION app.is_org_member(p_org uuid, p_min_role org_role DEF
  RETURNS boolean
  LANGUAGE sql
  STABLE
+ SET search_path = app, public
 AS $function$
   SELECT EXISTS (
     SELECT 1 FROM members m
@@ -57,8 +61,9 @@ CREATE OR REPLACE FUNCTION app.role_rank(role_in org_role)
  RETURNS integer
  LANGUAGE sql
  IMMUTABLE
+ SET search_path = app, public
 AS $function$
-  SELECT CASE role_in 
+  SELECT CASE role_in
     WHEN 'admin' THEN 4 
     WHEN 'manager' THEN 3 
     WHEN 'staff' THEN 2 
@@ -71,14 +76,16 @@ $function$
 CREATE OR REPLACE FUNCTION app.set_tenant(p_org uuid)
  RETURNS void
  LANGUAGE plpgsql
+ SET search_path = app, public
 AS $function$ begin perform set_config('app.current_org', p_org::text, true); end; $function$
 ;
 
 CREATE OR REPLACE FUNCTION app.touch_updated_at()
  RETURNS trigger
  LANGUAGE plpgsql
+ SET search_path = app, public
 AS $function$
-BEGIN 
+BEGIN
   NEW.updated_at = now(); 
   RETURN NEW; 
 END; 
@@ -2293,7 +2300,7 @@ CREATE OR REPLACE FUNCTION public.handle_new_user()
  RETURNS trigger
  LANGUAGE plpgsql
  SECURITY DEFINER
- SET search_path TO 'public'
+ SET search_path = public
 AS $function$
 BEGIN
   INSERT INTO public.users (id, email, name)
@@ -2311,7 +2318,7 @@ CREATE OR REPLACE FUNCTION public.handle_updated_at()
  RETURNS trigger
  LANGUAGE plpgsql
  SECURITY DEFINER
- SET search_path TO 'public'
+ SET search_path = public
 AS $function$
 BEGIN
   NEW.updated_at = now();
@@ -2324,7 +2331,7 @@ CREATE OR REPLACE FUNCTION public.has_min_role(org uuid, min role_level)
  RETURNS boolean
  LANGUAGE sql
  STABLE SECURITY DEFINER
- SET search_path TO 'public'
+ SET search_path = public
 AS $function$
   WITH my_role AS (
     SELECT m.role
@@ -2348,7 +2355,7 @@ CREATE OR REPLACE FUNCTION public.is_member_of(org uuid)
  RETURNS boolean
  LANGUAGE sql
  STABLE SECURITY DEFINER
- SET search_path TO 'public'
+ SET search_path = public
 AS $function$
   SELECT EXISTS (
     SELECT 1 FROM public.memberships m

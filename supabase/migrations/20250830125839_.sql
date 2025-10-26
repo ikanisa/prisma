@@ -1,17 +1,30 @@
 -- Create helper functions now that tables exist
 CREATE OR REPLACE FUNCTION app.current_user_id()
-RETURNS uuid LANGUAGE sql STABLE AS $$ SELECT auth.uid(); $$;
+RETURNS uuid
+LANGUAGE sql
+STABLE
+SET search_path = app, public
+AS $$
+  SELECT auth.uid();
+$$;
 
 CREATE OR REPLACE FUNCTION app.touch_updated_at()
-RETURNS trigger LANGUAGE plpgsql AS $$
-BEGIN 
-  NEW.updated_at = now(); 
-  RETURN NEW; 
-END; 
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = app, public
+AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
 $$;
 
 CREATE OR REPLACE FUNCTION app.role_rank(role_in org_role)
-RETURNS int LANGUAGE sql IMMUTABLE AS $$
+RETURNS int
+LANGUAGE sql
+IMMUTABLE
+SET search_path = app, public
+AS $$
   SELECT CASE role_in
     WHEN 'admin' THEN 4
     WHEN 'manager' THEN 3
@@ -22,7 +35,11 @@ RETURNS int LANGUAGE sql IMMUTABLE AS $$
 $$;
 
 CREATE OR REPLACE FUNCTION app.is_org_member(p_org uuid, p_min_role org_role DEFAULT 'staff')
-RETURNS boolean LANGUAGE sql STABLE AS $$
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SET search_path = app, public
+AS $$
   SELECT public.has_min_role(
     p_org,
     CASE p_min_role
@@ -36,7 +53,11 @@ RETURNS boolean LANGUAGE sql STABLE AS $$
 $$;
 
 CREATE OR REPLACE FUNCTION app.is_org_admin(p_org uuid)
-RETURNS boolean LANGUAGE sql STABLE AS $$
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SET search_path = app, public
+AS $$
   SELECT public.has_min_role(p_org, 'SYSTEM_ADMIN'::public.role_level);
 $$;
 

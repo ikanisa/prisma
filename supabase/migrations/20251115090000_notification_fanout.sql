@@ -22,12 +22,15 @@ create index if not exists notification_dispatch_queue_user_idx
   on public.notification_dispatch_queue (user_id);
 
 create or replace function public.set_notification_dispatch_queue_updated_at()
-returns trigger as $$
+returns trigger
+language plpgsql
+set search_path = public
+as $$
 begin
   new.updated_at = now();
   return new;
 end;
-$$ language plpgsql;
+$$;
 
 drop trigger if exists notification_dispatch_queue_set_updated_at on public.notification_dispatch_queue;
 create trigger notification_dispatch_queue_set_updated_at
@@ -52,12 +55,15 @@ create index if not exists user_notification_preferences_sms_idx
   where sms_enabled = true;
 
 create or replace function public.set_user_notification_preferences_updated_at()
-returns trigger as $$
+returns trigger
+language plpgsql
+set search_path = public
+as $$
 begin
   new.updated_at = now();
   return new;
 end;
-$$ language plpgsql;
+$$;
 
 drop trigger if exists user_notification_preferences_set_updated_at on public.user_notification_preferences;
 create trigger user_notification_preferences_set_updated_at
