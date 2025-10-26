@@ -416,6 +416,99 @@ async function removeOfflineQueueEntry(id: string) {
   removeUnsyncedWorkerQueueEntry(id);
 }
 
+async function readServiceWorkerOfflineQueueSnapshot(): Promise<QueuedOfflineAction[] | null> {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  if (!('serviceWorker' in navigator)) {
+    return null;
+  }
+
+  try {
+    const registration = await navigator.serviceWorker.ready;
+    const worker = registration.active ?? navigator.serviceWorker.controller;
+    if (!worker) {
+      return null;
+    }
+
+    return await new Promise<QueuedOfflineAction[] | null>((resolve) => {
+      const channel = new MessageChannel();
+      const timeout = window.setTimeout(() => {
+        channel.port1.close();
+        resolve(null);
+      }, 2000);
+
+      channel.port1.onmessage = (event) => {
+        window.clearTimeout(timeout);
+        channel.port1.close();
+        const { data } = event;
+        if (data && typeof data === 'object' && data.type === 'OFFLINE_QUEUE_SNAPSHOT') {
+          if (Array.isArray(data.payload?.jobs)) {
+            resolve(
+              (data.payload.jobs as Array<Partial<QueuedOfflineAction>>).map((job) =>
+                normalizeQueuedAction(job),
+              ),
+            );
+            return;
+          }
+          resolve([]);
+          return;
+        }
+        resolve(null);
+      };
+
+      worker.postMessage({ type: 'OFFLINE_QUEUE_REQUEST_SNAPSHOT' }, [channel.port2]);
+    });
+  } catch (error) {
+    logger.warn('pwa.offline_queue_snapshot_failed', error);
+    return null;
+  }
+}
+
+async function reconcileUnsyncedWorkerQueueEntries() {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  if (unsyncedWorkerQueueEntries.size === 0) {
+    return;
+  }
+
+  const snapshot = await readServiceWorkerOfflineQueueSnapshot();
+  if (!snapshot) {
+    return;
+  }
+
+  const snapshotIds = new Set(snapshot.map((job) => job.id));
+  let cleared = false;
+
+  for (const id of Array.from(unsyncedWorkerQueueEntries)) {
+    if (snapshotIds.has(id)) {
+      removeUnsyncedWorkerQueueEntry(id);
+      cleared = true;
+    }
+  }
+
+  if (!cleared) {
+    return;
+  }
+
+  try {
+    const queue = await readOfflineQueue();
+    const queueIds = new Set(queue.map((item) => item.id));
+    const missingJobs = snapshot.filter((job) => !queueIds.has(job.id));
+
+    if (missingJobs.length === 0) {
+      return;
+    }
+
+    writeOfflineQueue([...queue, ...missingJobs]);
+  } catch (error) {
+    logger.warn('pwa.reconcile_unsynced_queue_failed', error);
+  }
+}
+
 async function requestOfflineQueueSnapshot() {
   if (typeof window === 'undefined') {
     return;
