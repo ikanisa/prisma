@@ -36,7 +36,12 @@ class AnalyticsEvent(Base):
     properties = Column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
     tags = Column(ARRAY(Text), nullable=False, server_default=text("ARRAY[]::text[]"))
     context = Column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
-    metadata = Column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
+    metadata_json = Column(
+        "metadata",
+        JSONB,
+        nullable=False,
+        server_default=text("'{}'::jsonb"),
+    )
     occurred_at = Column(DateTime(timezone=True), nullable=False, server_default=text("now()"))
     ingested_at = Column(DateTime(timezone=True), nullable=False, server_default=text("now()"))
 
