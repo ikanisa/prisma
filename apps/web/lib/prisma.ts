@@ -7,7 +7,7 @@ type PrismaClientLike = {
 type PrismaClientConstructor = new (...args: unknown[]) => PrismaClientLike;
 
 const FallbackPrismaClient: PrismaClientConstructor = class implements PrismaClientLike {
-  constructor(..._args: unknown[]) {}
+  constructor() {}
 
   async $connect(): Promise<void> {
     return Promise.resolve();
@@ -25,6 +25,7 @@ const FallbackPrismaClient: PrismaClientConstructor = class implements PrismaCli
 let PrismaClientCtor: PrismaClientConstructor = FallbackPrismaClient;
 
 try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const PrismaPkg = require('@prisma/client');
   const candidate = PrismaPkg?.PrismaClient ?? PrismaPkg;
   if (typeof candidate === 'function') {
@@ -40,9 +41,30 @@ const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClientInstance;
 };
 
-const prismaInstance: PrismaClientInstance = globalForPrisma.prisma ?? new PrismaClientCtor({
-  log: ['error', 'warn'],
-});
+const prismaInstance: PrismaClientInstance = (() => {
+  if (globalForPrisma.prisma) {
+    return globalForPrisma.prisma;
+  }
+
+  try {
+    return new PrismaClientCtor({
+      log: ['error', 'warn'],
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '';
+    const needsFallback =
+      message.includes('did not initialize yet') ||
+      message.includes('has not been generated') ||
+      message.includes('.prisma/client');
+
+    if (!needsFallback) {
+      throw error;
+    }
+
+    PrismaClientCtor = FallbackPrismaClient;
+    return new PrismaClientCtor();
+  }
+})();
 
 export const prisma: PrismaClientInstance = prismaInstance;
 

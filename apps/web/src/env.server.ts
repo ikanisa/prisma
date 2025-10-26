@@ -50,32 +50,53 @@ const serverSchema = z.object({
 });
 
 const isTestEnv = process.env.NODE_ENV === 'test' || process.env.VITEST !== undefined;
+const allowUnsafeDefaults =
+  isTestEnv ||
+  process.env.ALLOW_UNSAFE_ENV_DEFAULTS === 'true' ||
+  process.env.CI === '1' ||
+  process.env.CI === 'true';
 
-const readWithTestFallback = (key: keyof NodeJS.ProcessEnv, fallback: string): string | undefined => {
+const maskValue = (value: string): string => {
+  if (/^https?:\/\//.test(value)) {
+    return value;
+  }
+  if (/key|secret|token|password/i.test(value)) {
+    return '[redacted]';
+  }
+  return value.length > 4 ? `${value.slice(0, 2)}…${value.slice(-2)}` : '[redacted]';
+};
+
+const readWithFallback = (key: keyof NodeJS.ProcessEnv, fallback: string): string | undefined => {
   const raw = process.env[key];
   if (typeof raw === 'string' && raw.trim().length > 0) {
     return raw;
   }
-  if (isTestEnv) {
+  if (allowUnsafeDefaults) {
     process.env[key] = fallback;
+    if (!isTestEnv) {
+      logger.warn('apps.web.env_missing_using_fallback', {
+        key,
+        fallback: maskValue(fallback),
+      });
+    }
     return fallback;
   }
   return undefined;
 };
 
-const resolvedNextPublicSupabaseUrl = readWithTestFallback('NEXT_PUBLIC_SUPABASE_URL', 'https://supabase.test.local');
+const resolvedNextPublicSupabaseUrl = readWithFallback('NEXT_PUBLIC_SUPABASE_URL', 'https://supabase.test.local');
 
 const parsed = serverSchema.safeParse({
   NODE_ENV: process.env.NODE_ENV,
-  AUTH_CLIENT_ID: readWithTestFallback('AUTH_CLIENT_ID', 'test-client-id'),
-  AUTH_CLIENT_SECRET: readWithTestFallback('AUTH_CLIENT_SECRET', 'test-client-secret'),
-  AUTH_ISSUER: readWithTestFallback('AUTH_ISSUER', 'https://auth.test.local'),
+  AUTH_CLIENT_ID: readWithFallback('AUTH_CLIENT_ID', 'test-client-id'),
+  AUTH_CLIENT_SECRET: readWithFallback('AUTH_CLIENT_SECRET', 'test-client-secret'),
+  AUTH_ISSUER: readWithFallback('AUTH_ISSUER', 'https://auth.test.local'),
   SUPABASE_URL:
     process.env.SUPABASE_URL ??
     resolvedNextPublicSupabaseUrl ??
-    (isTestEnv ? readWithTestFallback('SUPABASE_URL', 'https://supabase.test.local') : undefined),
-  SUPABASE_SERVICE_ROLE_KEY: readWithTestFallback('SUPABASE_SERVICE_ROLE_KEY', 'test-service-role-key'),
-  SUPABASE_ALLOW_STUB: readWithTestFallback('SUPABASE_ALLOW_STUB', 'true'),
+    (allowUnsafeDefaults ? readWithFallback('SUPABASE_URL', 'https://supabase.test.local') : undefined),
+  SUPABASE_SERVICE_ROLE_KEY: readWithFallback('SUPABASE_SERVICE_ROLE_KEY', 'test-service-role-key'),
+  SUPABASE_ALLOW_STUB: readWithFallback('SUPABASE_ALLOW_STUB', 'true'),
   AGENT_SERVICE_URL: process.env.AGENT_SERVICE_URL ?? undefined,
   SAMPLING_C1_BASE_URL: process.env.SAMPLING_C1_BASE_URL ?? undefined,
   SAMPLING_C1_API_KEY: process.env.SAMPLING_C1_API_KEY ?? undefined,
@@ -88,7 +109,7 @@ const parsed = serverSchema.safeParse({
   RECONCILIATION_MODE: process.env.RECONCILIATION_MODE ?? undefined,
   NEXT_PUBLIC_API_BASE: process.env.NEXT_PUBLIC_API_BASE ?? undefined,
   NEXT_PUBLIC_SUPABASE_URL: resolvedNextPublicSupabaseUrl,
-  NEXT_PUBLIC_SUPABASE_ANON_KEY: readWithTestFallback('NEXT_PUBLIC_SUPABASE_ANON_KEY', 'test-anon-key'),
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: readWithFallback('NEXT_PUBLIC_SUPABASE_ANON_KEY', 'test-anon-key'),
   WEB_SENTRY_DSN: process.env.WEB_SENTRY_DSN ?? process.env.SENTRY_DSN ?? undefined,
   NEXT_PUBLIC_SENTRY_DSN: process.env.NEXT_PUBLIC_SENTRY_DSN ?? process.env.WEB_SENTRY_DSN ?? undefined,
   NEXT_PUBLIC_SENTRY_ENVIRONMENT: process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT ?? process.env.SENTRY_ENVIRONMENT ?? undefined,

@@ -60,6 +60,52 @@ export interface AuditPlanSnapshot {
   approvals: ApprovalEntry[];
 }
 
+type RawPlanDetail = {
+  id: string;
+  basis_framework: string;
+  strategy?: Record<string, unknown> | null;
+  status: AuditPlanStatus;
+  submitted_at: string | null;
+  locked_at: string | null;
+  approvals?: unknown[] | null;
+  updated_at: string;
+};
+
+type RawMaterialityDetail = {
+  id: string;
+  fs_materiality?: number | string | null;
+  performance_materiality?: number | string | null;
+  clearly_trivial_threshold?: number | string | null;
+  benchmarks?: unknown[] | null;
+  rationale?: string | null;
+  prepared_at: string;
+};
+
+type RawChangeEntry = {
+  id: string;
+  reason: string;
+  impact?: Record<string, unknown> | null;
+  created_at: string;
+  changed_by_user_id: string;
+};
+
+type RawApprovalEntry = {
+  id: string;
+  stage: ApprovalEntry['stage'];
+  status: ApprovalEntry['status'];
+  created_at: string;
+  resolved_at: string | null;
+  resolved_by_user_id: string | null;
+  payload?: Record<string, unknown> | null;
+};
+
+type RawAuditPlanSnapshot = {
+  plan?: RawPlanDetail | null;
+  materiality?: RawMaterialityDetail | null;
+  changeLog?: RawChangeEntry[] | null;
+  approvals?: RawApprovalEntry[] | null;
+};
+
 async function getAccessToken(): Promise<string | null> {
   const { data } = await supabase.auth.getSession();
   return data.session?.access_token ?? null;
@@ -93,35 +139,37 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
 export async function fetchAuditPlanSnapshot(params: { orgSlug: string; engagementId: string }) {
   const query = new URLSearchParams(params as Record<string, string>);
-  const raw = await request<any>(`/status?${query.toString()}`);
+  const raw = await request<RawAuditPlanSnapshot>(`/status?${query.toString()}`);
 
-  const plan = raw.plan
+  const planSource = raw.plan ?? null;
+  const plan = planSource
     ? {
-        id: raw.plan.id,
-        basisFramework: raw.plan.basis_framework,
-        strategy: raw.plan.strategy ?? {},
-        status: raw.plan.status as AuditPlanStatus,
-        submittedAt: raw.plan.submitted_at,
-        lockedAt: raw.plan.locked_at,
-        approvals: raw.plan.approvals ?? [],
-        updatedAt: raw.plan.updated_at,
+        id: planSource.id,
+        basisFramework: planSource.basis_framework,
+        strategy: planSource.strategy ?? {},
+        status: planSource.status,
+        submittedAt: planSource.submitted_at,
+        lockedAt: planSource.locked_at,
+        approvals: planSource.approvals ?? [],
+        updatedAt: planSource.updated_at,
       }
     : null;
 
-  const materiality = raw.materiality
+  const materialitySource = raw.materiality ?? null;
+  const materiality = materialitySource
     ? {
-        id: raw.materiality.id,
-        fsMateriality: Number(raw.materiality.fs_materiality ?? 0),
-        performanceMateriality: Number(raw.materiality.performance_materiality ?? 0),
-        clearlyTrivialThreshold: Number(raw.materiality.clearly_trivial_threshold ?? 0),
-        benchmarks: raw.materiality.benchmarks ?? [],
-        rationale: raw.materiality.rationale ?? null,
-        preparedAt: raw.materiality.prepared_at,
+        id: materialitySource.id,
+        fsMateriality: Number(materialitySource.fs_materiality ?? 0),
+        performanceMateriality: Number(materialitySource.performance_materiality ?? 0),
+        clearlyTrivialThreshold: Number(materialitySource.clearly_trivial_threshold ?? 0),
+        benchmarks: materialitySource.benchmarks ?? [],
+        rationale: materialitySource.rationale ?? null,
+        preparedAt: materialitySource.prepared_at,
       }
     : null;
 
   const changeLog: PlanChangeEntry[] = Array.isArray(raw.changeLog)
-    ? raw.changeLog.map((entry: any) => ({
+    ? raw.changeLog.map((entry) => ({
         id: entry.id,
         reason: entry.reason,
         impact: entry.impact ?? {},
@@ -131,7 +179,7 @@ export async function fetchAuditPlanSnapshot(params: { orgSlug: string; engageme
     : [];
 
   const approvals: ApprovalEntry[] = Array.isArray(raw.approvals)
-    ? raw.approvals.map((entry: any) => ({
+    ? raw.approvals.map((entry) => ({
         id: entry.id,
         stage: entry.stage,
         status: entry.status,
