@@ -31,35 +31,35 @@ scenarios:
     flow:
       - get:
           url: /api/healthz
-        expect:
-          - statusCode: 200
+          expect:
+            - statusCode: 200
       - think: 1
       - post:
           url: /api/auth/token/issue
           json:
             email: "{{ email }}"
             password: "{{ password }}"
-        capture:
-          - json: $.accessToken
-            as: token
-        expect:
-          - statusCode: 200
+          capture:
+            - json: $.accessToken
+              as: token
+          expect:
+            - statusCode: 200
       - function: authorise
       - post:
           url: /api/agent/start
           json:
             orgSlug: "{{ orgSlug }}"
             agentType: AUDIT
-        capture:
-          - json: $.sessionId
-            as: sessionId
-        expect:
-          - statusCode: 200
+          capture:
+            - json: $.sessionId
+              as: sessionId
+          expect:
+            - statusCode: 200
       - think: 1
       - get:
           url: "/api/agent/conversations?orgSlug={{ orgSlug }}&limit=20"
-        expect:
-          - statusCode: 200
+          expect:
+            - statusCode: 200
       - think: 1
       - post:
           url: /client/upload
@@ -69,10 +69,10 @@ scenarios:
             file:
               value: "{{ file('fixtures/sample.pdf') }}"
               contentType: application/pdf
-        expect:
-          - statusCode: 200
+          expect:
+            - statusCode: 200
       - think: 1
       - get:
           url: /api/rate-limit/status
-        expect:
-          - statusCode: 200
+          expect:
+            - statusCode: 200
