@@ -34,9 +34,19 @@ CREATE TABLE IF NOT EXISTS public.treaty_wht_calculations (
 CREATE INDEX IF NOT EXISTS idx_treaty_wht_org_period
   ON public.treaty_wht_calculations(org_id, tax_entity_id, created_at DESC);
 
-CREATE TRIGGER trg_treaty_wht_touch
-  BEFORE UPDATE ON public.treaty_wht_calculations
-  FOR EACH ROW EXECUTE FUNCTION app.touch_updated_at();
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_trigger
+    WHERE tgname = 'trg_treaty_wht_touch'
+      AND tgrelid = 'public.treaty_wht_calculations'::regclass
+  ) THEN
+    CREATE TRIGGER trg_treaty_wht_touch
+      BEFORE UPDATE ON public.treaty_wht_calculations
+      FOR EACH ROW EXECUTE FUNCTION app.touch_updated_at();
+  END IF;
+END;
+$$;
 
 CREATE TABLE IF NOT EXISTS public.tax_dispute_cases (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -62,9 +72,19 @@ CREATE TABLE IF NOT EXISTS public.tax_dispute_cases (
 CREATE INDEX IF NOT EXISTS idx_tax_dispute_cases_org_status
   ON public.tax_dispute_cases(org_id, status, created_at DESC);
 
-CREATE TRIGGER trg_tax_dispute_cases_touch
-  BEFORE UPDATE ON public.tax_dispute_cases
-  FOR EACH ROW EXECUTE FUNCTION app.touch_updated_at();
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_trigger
+    WHERE tgname = 'trg_tax_dispute_cases_touch'
+      AND tgrelid = 'public.tax_dispute_cases'::regclass
+  ) THEN
+    CREATE TRIGGER trg_tax_dispute_cases_touch
+      BEFORE UPDATE ON public.tax_dispute_cases
+      FOR EACH ROW EXECUTE FUNCTION app.touch_updated_at();
+  END IF;
+END;
+$$;
 
 CREATE TABLE IF NOT EXISTS public.tax_dispute_events (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

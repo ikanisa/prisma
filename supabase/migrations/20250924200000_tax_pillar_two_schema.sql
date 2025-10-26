@@ -23,9 +23,19 @@ CREATE INDEX IF NOT EXISTS idx_tax_entity_relationships_org_parent
 CREATE INDEX IF NOT EXISTS idx_tax_entity_relationships_child
   ON public.tax_entity_relationships(child_tax_entity_id);
 
-CREATE TRIGGER trg_tax_entity_relationships_touch
-  BEFORE UPDATE ON public.tax_entity_relationships
-  FOR EACH ROW EXECUTE FUNCTION app.touch_updated_at();
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_trigger
+    WHERE tgname = 'trg_tax_entity_relationships_touch'
+      AND tgrelid = 'public.tax_entity_relationships'::regclass
+  ) THEN
+    CREATE TRIGGER trg_tax_entity_relationships_touch
+      BEFORE UPDATE ON public.tax_entity_relationships
+      FOR EACH ROW EXECUTE FUNCTION app.touch_updated_at();
+  END IF;
+END;
+$$;
 
 CREATE TABLE IF NOT EXISTS public.pillar_two_computations (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -53,9 +63,19 @@ CREATE INDEX IF NOT EXISTS idx_pillar_two_computations_org_period
 CREATE INDEX IF NOT EXISTS idx_pillar_two_computations_root
   ON public.pillar_two_computations(root_tax_entity_id);
 
-CREATE TRIGGER trg_pillar_two_computations_touch
-  BEFORE UPDATE ON public.pillar_two_computations
-  FOR EACH ROW EXECUTE FUNCTION app.touch_updated_at();
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_trigger
+    WHERE tgname = 'trg_pillar_two_computations_touch'
+      AND tgrelid = 'public.pillar_two_computations'::regclass
+  ) THEN
+    CREATE TRIGGER trg_pillar_two_computations_touch
+      BEFORE UPDATE ON public.pillar_two_computations
+      FOR EACH ROW EXECUTE FUNCTION app.touch_updated_at();
+  END IF;
+END;
+$$;
 
 INSERT INTO public.activity_event_catalog (action, description, module, policy_pack, standard_refs, severity)
 VALUES

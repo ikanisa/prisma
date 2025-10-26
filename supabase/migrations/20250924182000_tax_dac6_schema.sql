@@ -81,9 +81,19 @@ CREATE INDEX IF NOT EXISTS idx_dac6_hallmarks_arrangement ON public.dac6_hallmar
 CREATE INDEX IF NOT EXISTS idx_dac6_participants_arrangement ON public.dac6_participants(arrangement_id);
 CREATE INDEX IF NOT EXISTS idx_dac6_filings_arrangement ON public.dac6_filings(arrangement_id);
 
-CREATE TRIGGER trg_dac6_arrangements_touch
-  BEFORE UPDATE ON public.dac6_arrangements
-  FOR EACH ROW
-  EXECUTE FUNCTION app.touch_updated_at();
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_trigger
+    WHERE tgname = 'trg_dac6_arrangements_touch'
+      AND tgrelid = 'public.dac6_arrangements'::regclass
+  ) THEN
+    CREATE TRIGGER trg_dac6_arrangements_touch
+      BEFORE UPDATE ON public.dac6_arrangements
+      FOR EACH ROW
+      EXECUTE FUNCTION app.touch_updated_at();
+  END IF;
+END;
+$$;
 
 COMMIT;

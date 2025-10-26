@@ -30,10 +30,20 @@ COMMENT ON TABLE public.nid_computations IS 'Malta notional interest deduction c
 CREATE INDEX IF NOT EXISTS idx_nid_computations_org_period
   ON public.nid_computations(org_id, tax_entity_id, period);
 
-CREATE TRIGGER trg_nid_computations_touch
-  BEFORE UPDATE ON public.nid_computations
-  FOR EACH ROW
-  EXECUTE FUNCTION app.touch_updated_at();
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_trigger
+    WHERE tgname = 'trg_nid_computations_touch'
+      AND tgrelid = 'public.nid_computations'::regclass
+  ) THEN
+    CREATE TRIGGER trg_nid_computations_touch
+      BEFORE UPDATE ON public.nid_computations
+      FOR EACH ROW
+      EXECUTE FUNCTION app.touch_updated_at();
+  END IF;
+END;
+$$;
 
 CREATE TABLE IF NOT EXISTS public.patent_box_computations (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -64,9 +74,19 @@ COMMENT ON TABLE public.patent_box_computations IS 'Malta patent box computation
 CREATE INDEX IF NOT EXISTS idx_patent_box_computations_org_period
   ON public.patent_box_computations(org_id, tax_entity_id, period);
 
-CREATE TRIGGER trg_patent_box_computations_touch
-  BEFORE UPDATE ON public.patent_box_computations
-  FOR EACH ROW
-  EXECUTE FUNCTION app.touch_updated_at();
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_trigger
+    WHERE tgname = 'trg_patent_box_computations_touch'
+      AND tgrelid = 'public.patent_box_computations'::regclass
+  ) THEN
+    CREATE TRIGGER trg_patent_box_computations_touch
+      BEFORE UPDATE ON public.patent_box_computations
+      FOR EACH ROW
+      EXECUTE FUNCTION app.touch_updated_at();
+  END IF;
+END;
+$$;
 
 COMMIT;

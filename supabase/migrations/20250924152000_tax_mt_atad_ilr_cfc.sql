@@ -31,10 +31,20 @@ COMMENT ON TABLE public.interest_limitation_computations IS 'ATAD interest limit
 CREATE INDEX IF NOT EXISTS idx_interest_limitation_org_period
   ON public.interest_limitation_computations(org_id, tax_entity_id, period);
 
-CREATE TRIGGER trg_interest_limitation_touch
-  BEFORE UPDATE ON public.interest_limitation_computations
-  FOR EACH ROW
-  EXECUTE FUNCTION app.touch_updated_at();
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_trigger
+    WHERE tgname = 'trg_interest_limitation_touch'
+      AND tgrelid = 'public.interest_limitation_computations'::regclass
+  ) THEN
+    CREATE TRIGGER trg_interest_limitation_touch
+      BEFORE UPDATE ON public.interest_limitation_computations
+      FOR EACH ROW
+      EXECUTE FUNCTION app.touch_updated_at();
+  END IF;
+END;
+$$;
 
 CREATE TABLE IF NOT EXISTS public.cfc_inclusions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -63,9 +73,19 @@ COMMENT ON TABLE public.cfc_inclusions IS 'Controlled foreign company inclusions
 CREATE INDEX IF NOT EXISTS idx_cfc_inclusions_org_period
   ON public.cfc_inclusions(org_id, tax_entity_id, period);
 
-CREATE TRIGGER trg_cfc_inclusions_touch
-  BEFORE UPDATE ON public.cfc_inclusions
-  FOR EACH ROW
-  EXECUTE FUNCTION app.touch_updated_at();
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_trigger
+    WHERE tgname = 'trg_cfc_inclusions_touch'
+      AND tgrelid = 'public.cfc_inclusions'::regclass
+  ) THEN
+    CREATE TRIGGER trg_cfc_inclusions_touch
+      BEFORE UPDATE ON public.cfc_inclusions
+      FOR EACH ROW
+      EXECUTE FUNCTION app.touch_updated_at();
+  END IF;
+END;
+$$;
 
 COMMIT;
