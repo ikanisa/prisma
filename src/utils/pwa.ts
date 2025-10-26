@@ -223,7 +223,22 @@ async function readOfflineQueue(): Promise<QueuedOfflineAction[]> {
   }
 }
 
-const unsyncedWorkerQueueEntries = new Set<string>();
+const sessionStartedAt = Date.now();
+
+type UnsyncedWorkerQueueEntry = {
+  addedAt: number;
+};
+
+const unsyncedWorkerQueueEntries = new Map<string, UnsyncedWorkerQueueEntry>();
+
+const hasSessionUnsyncedWorkerQueueEntries = () => {
+  for (const entry of unsyncedWorkerQueueEntries.values()) {
+    if (entry.addedAt >= sessionStartedAt) {
+      return true;
+    }
+  }
+  return false;
+};
 
 function clearPersistedUnsyncedWorkerQueueEntries(): void {
   if (typeof window === 'undefined') {
@@ -250,7 +265,12 @@ function persistUnsyncedWorkerQueueEntries(): void {
 
     window.localStorage.setItem(
       OFFLINE_QUEUE_UNSYNCED_STORAGE_KEY,
-      JSON.stringify(Array.from(unsyncedWorkerQueueEntries)),
+      JSON.stringify(
+        Array.from(unsyncedWorkerQueueEntries.entries()).map(([id, entry]) => ({
+          id,
+          addedAt: entry.addedAt,
+        })),
+      ),
     );
   } catch (error) {
     logger.warn('pwa.persist_unsynced_queue_failed', error);
@@ -264,10 +284,12 @@ function removeUnsyncedWorkerQueueEntry(id: string): void {
 }
 
 function addUnsyncedWorkerQueueEntry(id: string): void {
-  if (!unsyncedWorkerQueueEntries.has(id)) {
-    unsyncedWorkerQueueEntries.add(id);
-    persistUnsyncedWorkerQueueEntries();
+  if (unsyncedWorkerQueueEntries.has(id)) {
+    return;
   }
+
+  unsyncedWorkerQueueEntries.set(id, { addedAt: Date.now() });
+  persistUnsyncedWorkerQueueEntries();
 }
 
 function loadUnsyncedWorkerQueueEntries(): void {
@@ -291,14 +313,36 @@ function loadUnsyncedWorkerQueueEntries(): void {
     let changed = false;
 
     for (const candidate of parsed) {
-      if (typeof candidate === 'string' && queueIds.has(candidate)) {
-        unsyncedWorkerQueueEntries.add(candidate);
+      if (typeof candidate === 'string') {
+        if (queueIds.has(candidate)) {
+          unsyncedWorkerQueueEntries.set(candidate, { addedAt: 0 });
+          changed = true;
+        } else {
+          changed = true;
+        }
+        continue;
+      }
+
+      if (
+        candidate &&
+        typeof candidate === 'object' &&
+        typeof candidate.id === 'string' &&
+        queueIds.has(candidate.id)
+      ) {
+        const addedAt =
+          typeof candidate.addedAt === 'number' && Number.isFinite(candidate.addedAt)
+            ? candidate.addedAt
+            : 0;
+        unsyncedWorkerQueueEntries.set(candidate.id, { addedAt });
+        if (addedAt === 0) {
+          changed = true;
+        }
       } else {
         changed = true;
       }
     }
 
-    for (const id of Array.from(unsyncedWorkerQueueEntries)) {
+    for (const [id] of Array.from(unsyncedWorkerQueueEntries.entries())) {
       if (!queueIds.has(id)) {
         unsyncedWorkerQueueEntries.delete(id);
         changed = true;
@@ -324,7 +368,7 @@ function writeOfflineQueue(queue: QueuedOfflineAction[]): void {
   const normalized = queue.map((entry) => normalizeQueuedAction(entry));
   const ids = new Set(normalized.map((entry) => entry.id));
 
-  for (const id of Array.from(unsyncedWorkerQueueEntries)) {
+  for (const id of Array.from(unsyncedWorkerQueueEntries.keys())) {
     if (!ids.has(id)) {
       removeUnsyncedWorkerQueueEntry(id);
     }
@@ -400,7 +444,7 @@ async function requestOfflineQueueSnapshot() {
         channel.port1.close();
         const { data } = event;
         if (data && typeof data === 'object' && data.type === 'OFFLINE_QUEUE_SNAPSHOT') {
-          if (unsyncedWorkerQueueEntries.size > 0) {
+          if (hasSessionUnsyncedWorkerQueueEntries()) {
             recordClientEvent({
               name: 'pwa:offlineQueueSnapshotSkipped',
               data: { pending: unsyncedWorkerQueueEntries.size },
@@ -974,7 +1018,7 @@ export async function processQueuedActions(): Promise<ProcessQueueResult> {
   }
 
   const useServiceWorker =
-    'serviceWorker' in navigator && unsyncedWorkerQueueEntries.size === 0;
+    'serviceWorker' in navigator && !hasSessionUnsyncedWorkerQueueEntries();
   const result = useServiceWorker
     ? await processQueuedActionsWithServiceWorker()
     : await processQueuedActionsLocally();
