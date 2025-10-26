@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { Database } from '../../supabase/src/integrations/supabase/types';
-import type { AgentManifestDefinition, DirectorAgentOptions, McpToolDefinition } from './types';
+import type { Database } from '../types/supabase.js';
+import type { AgentManifestDefinition, DirectorAgentOptions, McpToolDefinition } from './types.js';
 
 const TOOL_DEFINITIONS: McpToolDefinition[] = [
   {

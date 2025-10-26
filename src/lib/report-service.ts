@@ -1,6 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
+import { getSupabaseFunctionBaseUrl } from '@/lib/supabase-functions';
 
-const FUNCTIONS_BASE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/audit-report`;
+const FUNCTIONS_BASE_URL = getSupabaseFunctionBaseUrl('audit-report');
 
 export interface AuditReportDraft {
   id: string;

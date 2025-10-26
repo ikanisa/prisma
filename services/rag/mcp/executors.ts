@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { Database } from '../../supabase/src/integrations/supabase/types';
+import type { Database } from '../types/supabase.js';
 
-import { extractVisionOcr } from '../openai-vision';
+import { extractVisionOcr } from '../openai-vision.js';
 
 export interface TaskExecutionContext {
   supabase: SupabaseClient<Database>;
@@ -273,7 +273,7 @@ import {
   reconciliationExecutor as accountingReconciliationExecutor,
   journalExecutor as accountingJournalExecutor,
   closeStatusExecutor as accountingCloseExecutor,
-} from './executors/accounting';
+} from './executors/accounting.js';
 
 const executors: Record<string, TaskExecutor> = {
   'audit-risk-summary': auditRiskSummaryExecutor,

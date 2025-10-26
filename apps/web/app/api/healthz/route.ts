@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 
 import prisma from '@/lib/prisma';
 import { env } from '@/src/env.server';
+import { logger } from '@/lib/logger';
 
 const shouldBypassDatabaseCheck = () => env.SKIP_HEALTHCHECK_DB || !env.DATABASE_URL;
 
@@ -25,7 +26,7 @@ export async function GET() {
       latencyMs: Date.now() - startedAt,
     });
   } catch (error) {
-    console.error('Health check failed', error);
+    logger.error('healthcheck.failed', { error });
     return NextResponse.json(
       {
         status: 'error',

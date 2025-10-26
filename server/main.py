@@ -31,6 +31,7 @@ from decimal import Decimal
 import uuid
 import hashlib
 import os.path
+from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 
 from services.analytics.jobs import anomaly_scan_job, policy_check_job, reembed_job
@@ -75,6 +76,8 @@ from .workflows import (
     complete_workflow_step,
     get_workflow_suggestions,
 )
+from .openai import get_openai_client
+from .email import send_member_invite_email
 from .api.schemas import ReleaseControlCheckRequest, ReleaseControlCheckResponse
 from .telemetry import RequestTelemetryMiddleware, configure_fastapi_tracing
 from .settings import get_system_settings
@@ -139,6 +142,8 @@ AUTONOMY_LEVEL_RANK = {"L0": 0, "L1": 1, "L2": 2, "L3": 3}
 LEGACY_AUTONOMY_NUMERIC_MAP = {0: "L0", 1: "L1", 2: "L2", 3: "L3", 4: "L3", 5: "L3"}
 DEFAULT_IMPERSONATION_EXPIRY_HOURS = 8
 RESERVED_ORG_SETTINGS_FIELDS = {"default_role", "impersonation_breakglass_emails"}
+TURNSTILE_SECRET_KEY = os.getenv("TURNSTILE_SECRET_KEY")
+INVITE_ACCEPT_BASE_URL = os.getenv("INVITE_ACCEPT_BASE_URL", "https://app.prismaglow.com/auth/accept-invite")
 
 
 def resolve_agent_for_tool(tool_name: str) -> Optional[str]:
@@ -154,6 +159,18 @@ def resolve_agent_for_tool(tool_name: str) -> Optional[str]:
             if isinstance(entry, str) and entry.strip().lower() == normalised:
                 return agent_id
     return None
+
+
+def build_invite_link(token: str) -> str:
+    try:
+        parsed = urlparse(INVITE_ACCEPT_BASE_URL)
+    except ValueError:  # pragma: no cover - defensive fallback
+        return f"{INVITE_ACCEPT_BASE_URL}?token={token}"
+
+    query = dict(parse_qsl(parsed.query, keep_blank_values=True))
+    query["token"] = token
+    new_query = urlencode(query)
+    return urlunparse(parsed._replace(query=new_query))
 
 
 async def build_assistant_actions(org_id: str, autonomy_level: Optional[str] = None) -> List[Dict[str, Any]]:
@@ -1423,22 +1440,44 @@ async def _emit_manifest_alert(job: Dict[str, Any], reason: str) -> None:
     org_id = job.get("org_id")
     if not org_id:
         return
-    payload = {
-        "org_id": org_id,
-        "alert_type": "DETERMINISTIC_MANIFEST_MISSING",
-        "severity": "CRITICAL",
-        "message": f"Deterministic manifest {reason} for {job.get('kind')}",
-        "context": {
-            "jobId": job.get("id"),
-            "kind": job.get("kind"),
-            "reason": reason,
-        },
-    }
+    try:
+        event = build_telemetry_alert_event(
+            alert_type="DETERMINISTIC_MANIFEST_MISSING",
+            severity="CRITICAL",
+            message=f"Deterministic manifest {reason} for {job.get('kind')}",
+            org_id=org_id,
+            context={
+                "jobId": job.get("id"),
+                "kind": job.get("kind"),
+                "reason": reason,
+            },
+        )
+    except AnalyticsEventValidationError as exc:
+        logger.error(
+            "autopilot.manifest_alert_validation_failed",
+            job_id=job.get("id"),
+            org_id=org_id,
+            reason=reason,
+            errors=exc.errors,
+        )
+        return
+
+    span = trace.get_current_span()
+    if span is not None:
+        span.add_event(
+            event.name,
+            {
+                "event.alert_type": event.properties["alertType"],
+                "event.severity": event.properties["severity"],
+                "event.reason": event.properties["context"].get("reason"),
+            },
+        )
+
     try:
         await supabase_table_request(
             "POST",
             "telemetry_alerts",
-            json=payload,
+            json=telemetry_alert_row(event),
             headers={"Prefer": "return=minimal"},
         )
     except Exception as exc:  # pragma: no cover - defensive logging
@@ -2914,6 +2953,13 @@ class AdminOrgSettingsUpdateRequest(BaseModel):
     impersonationBreakglassEmails: Optional[List[str]] = None
 
 
+class CaptchaVerificationRequest(BaseModel):
+    token: str
+    remote_ip: Optional[str] = Field(default=None, alias="remoteIp")
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
 class PolicyPackUpdateRequest(BaseModel):
     orgSlug: str
     policyPackId: str
@@ -3179,6 +3225,42 @@ class WebHarvestRequest(BaseModel):
     agentKind: str = Field(..., min_length=1)
 
 
+@app.post("/v1/security/verify-captcha", tags=["security"])
+async def verify_turnstile_token(payload: CaptchaVerificationRequest, request: Request) -> Dict[str, str]:
+    if not TURNSTILE_SECRET_KEY:
+        logger.info("captcha.verification_skipped", reason="secret_not_configured")
+        return {"status": "skipped"}
+
+    token = payload.token.strip()
+    if not token:
+        raise HTTPException(status_code=400, detail="missing_token")
+
+    verification_payload: Dict[str, str] = {
+        "secret": TURNSTILE_SECRET_KEY,
+        "response": token,
+    }
+    remote_ip = payload.remote_ip or (request.client.host if request.client else None)
+    if remote_ip:
+        verification_payload["remoteip"] = remote_ip
+
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            response = await client.post(
+                "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+                data=verification_payload,
+            )
+            response.raise_for_status()
+            result = response.json()
+    except httpx.HTTPError as exc:
+        logger.warning("captcha.verify_http_error", exc_info=exc)
+        raise HTTPException(status_code=502, detail="captcha_verification_unavailable") from exc
+
+    if not result.get("success"):
+        raise HTTPException(status_code=400, detail="captcha_failed")
+
+    return {"status": "ok"}
+
+
 @app.on_event("startup")
 async def startup() -> None:
     await init_db()
@@ -3382,6 +3464,26 @@ async def invite_member(payload: InviteMemberRequest, auth: Dict[str, Any] = Dep
             "email_or_phone": payload.emailOrPhone.strip(),
         },
     )
+
+    contact_value = payload.emailOrPhone.strip()
+    if "@" in contact_value:
+        invite_link = build_invite_link(token)
+        org_row = await fetch_single_record("organizations", payload.orgId, "name")
+        inviter_profile = await fetch_single_record("user_profiles", actor_id, "display_name")
+
+        async def dispatch_invite_email() -> None:
+            success = await send_member_invite_email(
+                recipient=contact_value.lower(),
+                invite_link=invite_link,
+                org_name=org_row.get("name") if org_row else None,
+                role=target_role,
+                inviter_name=inviter_profile.get("display_name") if inviter_profile else None,
+                expires_at=expires_at_value,
+            )
+            if not success:
+                logger.warning("iam.invite_email_failed", email=contact_value.lower())
+
+        asyncio.create_task(dispatch_invite_email())
 
     return {
         "inviteId": invite.get("id") if invite else None,
@@ -4370,7 +4472,11 @@ async def list_ada_runs(
 
 
 @app.post("/api/ada/run")
-async def create_ada_run(payload: AdaRunRequest, auth: Dict[str, Any] = Depends(require_auth)) -> Dict[str, Any]:
+async def create_ada_run(
+    payload: AdaRunRequest,
+    auth: Dict[str, Any] = Depends(require_auth),
+    request: Request = Depends(lambda request: request),
+) -> Dict[str, Any]:
     role = normalise_role(await ensure_org_access_by_id(auth["sub"], payload.orgId))
     ensure_permission_for_role(role, "audit.analytics.run")
 
@@ -4497,6 +4603,15 @@ async def create_ada_run(payload: AdaRunRequest, auth: Dict[str, Any] = Depends(
             "totals": summary.get("totals"),
         },
     )
+    started_at_raw = run_row.get("started_at")
+    duration_seconds: Optional[float] = None
+    if isinstance(started_at_raw, str):
+        try:
+            start_dt = datetime.fromisoformat(started_at_raw)
+            finish_dt = datetime.fromisoformat(finished_at)
+            duration_seconds = max((finish_dt - start_dt).total_seconds(), 0.0)
+        except ValueError:
+            duration_seconds = None
 
     manifest = build_manifest(
         kind=f"analytics.{payload.kind.value.lower()}",

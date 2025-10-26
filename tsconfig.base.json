@@ -1,24 +1,70 @@
 {
+  "files": [],
   "compilerOptions": {
     "target": "ES2020",
-    "module": "ESNext",
+    "module": "NodeNext",
     "moduleResolution": "NodeNext",
+    "baseUrl": ".",
     "strict": true,
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
     "resolveJsonModule": true,
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
+    "composite": true,
+    "declaration": true,
+    "declarationMap": true,
+    "incremental": true,
     "paths": {
       "@prisma-glow/api-client": [
         "./packages/api-client/dist/index.d.ts",
         "./packages/api-client/dist/index.js"
       ],
       "@prisma-glow/system-config": [
-        "./packages/system-config/index.d.ts",
-        "./packages/system-config/index.js"
+        "./packages/system-config/src/index.ts",
+        "./packages/system-config/dist/index.d.ts",
+        "./packages/system-config/dist/index.js"
       ],
-      "@prisma-glow/ui": ["./packages/ui/src/index.ts"]
+      "@prisma-glow/logger": [
+        "./packages/logger/dist/index.d.ts",
+        "./packages/logger/src/index.ts",
+        "./packages/logger/dist/index.js"
+      ],
+      "@prisma-glow/ui": [
+        "./packages/ui/src/index.ts"
+      ],
+      "@prisma-glow/lib/*": [
+        "./packages/lib/dist/*.js",
+        "./packages/lib/dist/*",
+        "./packages/lib/dist/*/index.js",
+        "./packages/lib/dist/*.d.ts",
+        "./packages/lib/dist/*/index.d.ts"
+      ],
+      "@prisma-glow/lib": [
+        "./packages/lib/dist/index.js",
+        "./packages/lib/dist/index.d.ts"
+      ],
+      "@prisma-glow/agents/*": [
+        "./packages/agents/dist/*.js",
+        "./packages/agents/dist/*",
+        "./packages/agents/dist/*/index.js",
+        "./packages/agents/dist/*.d.ts",
+        "./packages/agents/dist/*/index.d.ts"
+      ],
+      "@prisma-glow/agents": [
+        "./packages/agents/dist/index.js",
+        "./packages/agents/dist/index.d.ts"
+      ]
     }
-  }
+  },
+  "references": [
+    { "path": "./packages/api-client/tsconfig.json" },
+    { "path": "./packages/system-config/tsconfig.json" },
+    { "path": "./packages/logger/tsconfig.json" },
+    { "path": "./packages/ui/tsconfig.json" },
+    { "path": "./packages/agents/tsconfig.json" },
+    { "path": "./packages/lib/tsconfig.json" },
+    { "path": "./services/rag/tsconfig.json" },
+    { "path": "./apps/gateway/tsconfig.json" }
+  ]
 }

@@ -17,7 +17,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsup src/index.ts --format esm,cjs --dts --out-dir dist --clean --external react --external react-dom",
+    "build": "tsup src/index.ts --format esm,cjs --out-dir dist --clean --external react --external react-dom && tsc --project tsconfig.json --emitDeclarationOnly --declaration",
     "prepare": "pnpm run build"
   },
   "peerDependencies": {

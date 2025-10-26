@@ -1,5 +1,6 @@
 import { FormEvent, useMemo, useState } from "react";
 import { authorizedFetch } from "@/lib/api";
+import { runtimeConfig } from "@/lib/runtime-config";
 import { AuditWorkspaceLayout } from "./layout";
 
 type AnalyticsKind = "JE" | "RATIO" | "VARIANCE" | "DUPLICATE" | "BENFORD";
@@ -45,9 +46,9 @@ type JournalEntry = {
   approvedBy?: string;
 };
 
-const demoOrgId = import.meta.env.VITE_DEMO_ORG_ID ?? "";
-const demoEngagementId = import.meta.env.VITE_DEMO_ENGAGEMENT_ID ?? "";
-const demoUserId = import.meta.env.VITE_DEMO_USER_ID ?? "";
+const demoOrgId = runtimeConfig.demoOrgId ?? "";
+const demoEngagementId = runtimeConfig.demoEngagementId ?? "";
+const demoUserId = runtimeConfig.demoUserId ?? "";
 
 const demoJournalEntries: JournalEntry[] = (() => {
   const base = Array.from({ length: 30 }, (_, index) => {

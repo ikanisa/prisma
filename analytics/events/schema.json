@@ -1,0 +1,75 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "AnalyticsEvent",
+  "type": "object",
+  "required": ["name", "properties"],
+  "additionalProperties": false,
+  "properties": {
+    "name": {
+      "type": "string",
+      "enum": [
+        "telemetry.alert",
+        "telemetry.autonomy_event"
+      ]
+    },
+    "properties": {
+      "type": "object"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "name": { "const": "telemetry.alert" }
+        }
+      },
+      "then": {
+        "properties": {
+          "properties": {
+            "type": "object",
+            "required": ["alertType", "severity", "message"],
+            "additionalProperties": false,
+            "properties": {
+              "alertType": { "type": "string", "minLength": 1 },
+              "severity": {
+                "type": "string",
+                "enum": ["INFO", "WARNING", "ERROR", "CRITICAL"]
+              },
+              "message": { "type": "string", "minLength": 1 },
+              "orgId": { "type": ["string", "null"], "minLength": 1 },
+              "context": { "type": "object", "default": {} },
+              "resolvedAt": { "type": ["string", "null"], "format": "date-time" }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "name": { "const": "telemetry.autonomy_event" }
+        }
+      },
+      "then": {
+        "properties": {
+          "properties": {
+            "type": "object",
+            "required": ["orgId", "module", "scenario", "decision", "metrics"],
+            "additionalProperties": false,
+            "properties": {
+              "orgId": { "type": "string", "minLength": 1 },
+              "module": { "type": "string", "minLength": 1 },
+              "scenario": { "type": "string", "minLength": 1 },
+              "decision": {
+                "type": "string",
+                "enum": ["APPROVED", "REVIEW", "REFUSED"]
+              },
+              "metrics": { "type": "object" },
+              "actor": { "type": ["string", "null"], "minLength": 1 }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 import { Readable } from 'node:stream';
 
-import { getOpenAIClient } from '../../lib/openai/client';
+import { getOpenAIClient } from '@prisma-glow/lib/openai/client';
 
 type LogFn = (message: string, meta?: Record<string, unknown>) => void;
 
@@ -111,14 +111,18 @@ export async function synthesizeSpeech(options: TextToSpeechOptions): Promise<Te
   const client = getOpenAIClient();
   const model = options.model ?? process.env.OPENAI_TTS_MODEL ?? 'gpt-4o-mini-tts';
   const voice = options.voice ?? process.env.OPENAI_TTS_VOICE ?? 'alloy';
-  const format = options.format ?? process.env.OPENAI_TTS_FORMAT ?? 'mp3';
+  const allowedFormats = new Set<'mp3' | 'opus' | 'aac' | 'flac' | 'wav' | 'pcm'>(['mp3', 'opus', 'aac', 'flac', 'wav', 'pcm']);
+  const rawFormat = (options.format ?? process.env.OPENAI_TTS_FORMAT ?? 'mp3').toLowerCase();
+  const format: 'mp3' | 'opus' | 'aac' | 'flac' | 'wav' | 'pcm' = allowedFormats.has(rawFormat as any)
+    ? (rawFormat as 'mp3' | 'opus' | 'aac' | 'flac' | 'wav' | 'pcm')
+    : 'mp3';
 
   try {
     const response = await client.audio.speech.create({
       model,
       voice,
       input: text,
-      format,
+      response_format: format,
     });
 
     const audio = Buffer.from(await response.arrayBuffer());

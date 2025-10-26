@@ -12,8 +12,8 @@ interface AssistantResponseLike {
 }
 
 const DEFAULT_STYLE_RULES = [
-  'Responses must include the next two suggested actions for the user.',
-  'Explain briefly (under 480 characters) why the assistant recommends the plan.',
+  'Include the next two suggested actions',
+  'Explain briefly (<= 480 characters)',
 ];
 
 const configuredStyleRules = systemConfig.assistant_policies?.style_rules;

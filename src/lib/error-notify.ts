@@ -1,6 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
+import { getSupabaseFunctionBaseUrl } from '@/lib/supabase-functions';
 
-const ERROR_ENDPOINT = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/error-notify`;
+const ERROR_ENDPOINT = getSupabaseFunctionBaseUrl('error-notify');
 
 async function getSessionToken() {
   const { data } = await supabase.auth.getSession();

@@ -1,6 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
-import { getSupabaseServiceRoleKey } from '../../../lib/secrets';
+import { getSupabaseServiceRoleKey } from '@prisma-glow/lib/secrets';
 
 let cachedClient: SupabaseClient | null = null;
 

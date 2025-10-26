@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildEvidenceManifest, ensureEvidenceDocument } from '../../apps/web/lib/audit/evidence';
-import { getSignedUrlTTL } from '../../lib/security/signed-url-policy';
+import { getSignedUrlTTL } from '@prisma-glow/lib/security/signed-url-policy';
 
 describe('buildEvidenceManifest', () => {
   it('produces a manifest with stable fields', () => {

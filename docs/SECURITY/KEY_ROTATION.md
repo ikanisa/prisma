@@ -6,6 +6,9 @@
 3. Record the current key for rollback.
 4. Generate new anon and service role keys.
 5. Update secret storage (.env, CI, Terraform) with the rotated values (see `.env.example` for placeholders) and push the new values to Vault (`${SUPABASE_VAULT_PATH}` fields `service_role_key` and `jwt_secret`).
+   - **Hosting platform:** update `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_JWT_SECRET`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` (or equivalents) in each environment and redeploy after rotating.
+   - **GitHub:** Update repository/environment secrets (`Settings → Secrets and variables → Actions`) for `DATABASE_URL`, `DIRECT_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_JWT_SECRET`, `SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
+   - **Supabase CLI/Functions:** `supabase secrets set SUPABASE_SERVICE_ROLE_KEY=... SUPABASE_JWT_SECRET=...` (per project). Re-run `supabase functions deploy --all` to pick up new values.
    The Supabase Edge Functions automatically consume these secrets via `supabase/functions/_shared/supabase-client.ts`, so no per-function env overrides are needed once Vault is updated.
 6. Redeploy services/edge functions consuming the keys.
 7. Revoke the previous keys in the Supabase dashboard.

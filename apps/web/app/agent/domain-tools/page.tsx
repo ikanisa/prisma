@@ -1,27 +1,10 @@
 'use client';
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import type { DomainAgent } from '@prisma-glow/api-client';
+import { useDomainAgentsQuery } from '@/src/features/agents/hooks';
 
-type DomainAgentStatus = 'implemented' | 'in_progress' | 'planned';
-
-type DomainAgent = {
-  key: string;
-  title: string;
-  description: string;
-  status: DomainAgentStatus;
-  owner: string;
-  capabilities: string[];
-  toolCatalog?: string[];
-  datasetKeys?: string[];
-  knowledgeBases?: string[];
-  tooling?: Array<{
-    name: string;
-    summary: string;
-    apis: string[];
-    notes?: string;
-  }>;
-  notes?: string;
-};
+const EMPTY_AGENTS: DomainAgent[] = [];
 
 type Citation =
   | { type: 'url'; url: string; title?: string; location?: string }
@@ -301,9 +284,15 @@ function SourcesList({ sources }: { sources?: WebSearchSource[] }) {
 
 export default function DomainToolsPage() {
   const [orgSlug, setOrgSlug] = useState('demo');
-  const [agents, setAgents] = useState<DomainAgent[]>([]);
-  const [agentsLoading, setAgentsLoading] = useState(false);
-  const [agentsError, setAgentsError] = useState<string | null>(null);
+  const agentsQuery = useDomainAgentsQuery();
+  const agentsResponse = agentsQuery.data;
+  const agents: DomainAgent[] = agentsResponse?.agents ?? EMPTY_AGENTS;
+  const agentsLoading = agentsQuery.isLoading;
+  const agentsError = agentsQuery.error
+    ? agentsQuery.error instanceof Error
+      ? agentsQuery.error.message
+      : 'Failed to load agents'
+    : null;
   const [selectedAgentKey, setSelectedAgentKey] = useState<string>('brokerageEnablement');
 
   const [webQuery, setWebQuery] = useState('Latest broker-dealer regulation changes impacting EU listings');
@@ -356,27 +345,6 @@ export default function DomainToolsPage() {
   const [retrievalState, setRetrievalState] = useState<AsyncState<RetrievalResult>>({ ...DEFAULT_ASYNC_STATE });
   const [imageState, setImageState] = useState<AsyncState<ImageGenerationResult>>({ ...DEFAULT_ASYNC_STATE });
   const [gptState, setGptState] = useState<AsyncState<Gpt5Result>>({ ...DEFAULT_ASYNC_STATE });
-
-  useEffect(() => {
-    const fetchAgents = async () => {
-      setAgentsLoading(true);
-      setAgentsError(null);
-      try {
-        const res = await fetch('/api/agent/orchestrator/agents', { cache: 'no-store' });
-        const body = (await res.json()) as { agents?: DomainAgent[]; error?: string };
-        if (!res.ok) {
-          throw new Error(body.error ?? `Failed to load agents (${res.status})`);
-        }
-        setAgents(body.agents ?? []);
-      } catch (error) {
-        setAgentsError(error instanceof Error ? error.message : 'Failed to load agents');
-        setAgents([]);
-      } finally {
-        setAgentsLoading(false);
-      }
-    };
-    void fetchAgents();
-  }, []);
 
   const domainAgents = useMemo(
     () => agents.filter((agent) => SUPPORTED_AGENT_KEYS.has(agent.key)),
@@ -1421,7 +1389,6 @@ export default function DomainToolsPage() {
           <div className="mt-4 space-y-2">
             <h3 className="text-sm font-semibold">Preview</h3>
             <div className="overflow-hidden rounded border">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={`data:image/png;base64,${imageState.result.imageBase64}`}
                 alt="Generated visual"

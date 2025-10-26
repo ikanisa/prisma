@@ -9,7 +9,7 @@ COMPOSE_ENV ?= .env.compose
 FRONTEND_PROFILE ?= web
 FRONTEND_SERVICE := $(if $(filter $(FRONTEND_PROFILE),web),web,ui)
 
-.PHONY: print-version compose-dev-up compose-dev-down compose-dev-logs images-build compose-prod-up compose-prod-down compose-prod-logs compose-prod-set-tag compose-prod-rollback
+.PHONY: print-version compose-dev-up compose-dev-down compose-dev-logs images-build compose-prod-up compose-prod-down compose-prod-logs compose-prod-set-tag compose-prod-rollback deps admin
 
 print-version:
 	@echo "SERVICE_VERSION=$(SERVICE_VERSION)"
@@ -58,3 +58,33 @@ compose-prod-rollback:
 	@if [[ -z "$(ROLLBACK_TAG)" ]]; then echo "ROLLBACK_TAG is required, e.g. make compose-prod-rollback ROLLBACK_TAG=abc123" >&2; exit 1; fi
 	$(MAKE) compose-prod-set-tag TAG=$(ROLLBACK_TAG) COMPOSE_ENV=$(COMPOSE_ENV)
 	$(MAKE) compose-prod-up COMPOSE_ENV=$(COMPOSE_ENV) FRONTEND_PROFILE=$(FRONTEND_PROFILE)
+
+deps:
+	pnpm install
+
+admin:
+	pnpm build
+	pnpm start
+
+
+.PHONY: deps-cloudflare tunnel-up tunnel-bg tunnel-down caddy-up caddy-bg caddy-down
+
+deps-cloudflare:
+	./scripts/mac/install_cloudflared.sh
+
+tunnel-up:
+	./scripts/mac/tunnel_up.sh
+
+tunnel-bg:
+	./scripts/mac/tunnel_bg.sh
+
+tunnel-down:
+	./scripts/mac/tunnel_down.sh
+
+caddy-up:
+	docker compose up -d caddy
+
+caddy-bg: caddy-up
+
+caddy-down:
+	docker compose rm -sf caddy

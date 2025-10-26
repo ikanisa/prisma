@@ -1,5 +1,5 @@
 // Prisma schema aligning with the Supabase Postgres schema
-// The datasource uses DATABASE_URL / DIRECT_URL environment variables configured in CI and Vercel
+// The datasource uses DATABASE_URL / DIRECT_URL environment variables configured in CI and the hosting platform
 
 generator client {
   provider = "prisma-client-js"
@@ -36,6 +36,7 @@ model User {
   agentSessions AgentSession[]
   accounting    Accounting[]   @relation("AccountingCreatedBy")
   Audit         Audit[]
+  analyticsEvents AnalyticsEvent[] @relation("AnalyticsActor")
 
   @@map("users")
 }
@@ -60,6 +61,7 @@ model Organization {
   audits        Audit[]
   accounting    Accounting[]   @relation("AccountingOrganization")
   taxRules      Tax[]
+  analyticsEvents AnalyticsEvent[]
 
   @@map("organizations")
 }
@@ -254,4 +256,95 @@ model Tax {
   organization Organization? @relation(fields: [orgId], references: [id])
 
   @@map("tax")
+}
+
+model TelemetryServiceLevel {
+  id           String   @id @db.Uuid
+  orgId        String?  @map("org_id") @db.Uuid
+  module       String
+  workflowEvent String  @map("workflow_event")
+  targetHours  Int      @map("target_hours")
+  breaches     Int      @default(0)
+  lastBreachAt DateTime? @map("last_breach_at") @db.Timestamptz(6)
+  openBreaches Int      @default(0) @map("open_breaches")
+  status       String   @default("ON_TRACK")
+  computedAt   DateTime @default(now()) @map("computed_at") @db.Timestamptz(6)
+
+  organization Organization? @relation(fields: [orgId], references: [id])
+
+  @@index([orgId, module], map: "idx_telemetry_sla_org_module")
+  @@map("telemetry_service_levels")
+}
+
+model TelemetryCoverageMetric {
+  id            String   @id @db.Uuid
+  orgId         String?  @map("org_id") @db.Uuid
+  module        String
+  metric        String
+  measuredValue Decimal  @map("measured_value") @db.Decimal(18, 2)
+  population    Decimal  @db.Decimal(18, 2)
+  coverageRatio Decimal  @map("coverage_ratio") @db.Decimal(6, 3)
+  periodStart   DateTime @map("period_start") @db.Date
+  periodEnd     DateTime @map("period_end") @db.Date
+  computedAt    DateTime @default(now()) @map("computed_at") @db.Timestamptz(6)
+
+  organization Organization? @relation(fields: [orgId], references: [id])
+
+  @@index([orgId, module], map: "idx_telemetry_coverage_org_module")
+  @@map("telemetry_coverage_metrics")
+}
+
+model TelemetryRefusalEvent {
+  id        String   @id @db.Uuid
+  orgId     String?  @map("org_id") @db.Uuid
+  module    String
+  event     String
+  reason    String?
+  severity  String?  @default("INFO")
+  count     Int      @default(1)
+  occurredAt DateTime @default(now()) @map("occurred_at") @db.Timestamptz(6)
+
+  organization Organization? @relation(fields: [orgId], references: [id])
+
+  @@index([orgId, module], map: "idx_telemetry_refusal_org_module")
+  @@map("telemetry_refusal_events")
+}
+
+model OpenAiDebugEvent {
+  id         String   @id @db.Uuid
+  requestId  String   @map("request_id")
+  modelName  String?  @map("model")
+  endpoint   String
+  statusCode Int?     @map("status_code")
+  orgId      String?  @map("org_id") @db.Uuid
+  metadata   Json     @default("{}")
+  debug      Json?
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  organization Organization? @relation(fields: [orgId], references: [id])
+
+  @@unique([requestId], map: "uq_openai_debug_request_id")
+  @@map("openai_debug_events")
+}
+
+model AnalyticsEvent {
+  id         String    @id @db.Uuid
+  event      String
+  service    String?
+  source     String
+  orgId      String?   @map("org_id") @db.Uuid
+  actorId    String?   @map("actor_id") @db.Uuid
+  properties Json      @default("{}")
+  tags       String[]  @db.TextArray
+  context    Json      @default("{}")
+  metadata   Json      @default("{}")
+  occurredAt DateTime  @default(now()) @map("occurred_at") @db.Timestamptz(6)
+  ingestedAt DateTime  @default(now()) @map("ingested_at") @db.Timestamptz(6)
+
+  organization Organization? @relation(fields: [orgId], references: [id])
+  actor        User?         @relation("AnalyticsActor", fields: [actorId], references: [id])
+
+  @@index([orgId, event], map: "idx_analytics_events_org_event")
+  @@index([occurredAt], map: "idx_analytics_events_occurred_at")
+  @@map("analytics_events")
 }

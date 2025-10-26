@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       app_url:
-        description: 'Full health endpoint URL (e.g., https://app.example.com/api/healthz)'
+        description: 'Full health endpoint URL (e.g., https://app.prisma-cpa.vercel.app/api/healthz)'
         required: true
         type: string
 

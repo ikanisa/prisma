@@ -1,0 +1,33 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://prisma.glow/schemas/analytics-event.json",
+  "title": "AnalyticsEvent",
+  "type": "object",
+  "required": ["event", "source"],
+  "additionalProperties": false,
+  "properties": {
+    "event": { "type": "string", "minLength": 1 },
+    "service": { "type": "string", "minLength": 1 },
+    "source": { "type": "string", "minLength": 1 },
+    "orgId": { "type": "string", "format": "uuid" },
+    "actorId": { "type": "string", "format": "uuid" },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "tags": { "type": "array", "items": { "type": "string" }, "default": [] },
+    "properties": { "type": "object", "default": {}, "additionalProperties": true },
+    "context": {
+      "type": "object",
+      "default": {},
+      "additionalProperties": false,
+      "properties": {
+        "requestId": { "type": "string", "minLength": 1 },
+        "traceId": { "type": "string", "minLength": 1 },
+        "spanId": { "type": "string", "minLength": 1 }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "default": {},
+      "additionalProperties": true
+    }
+  }
+}

@@ -5,7 +5,7 @@ import {
   createConversation,
   createConversationItems,
   type OpenAiConversation,
-} from './openai-conversations';
+} from './openai-conversations.js';
 
 interface RecorderDeps {
   logError: (message: string, error: unknown, meta?: Record<string, unknown>) => void;

@@ -10,12 +10,17 @@ supabase/config.toml.bak
 !.env.example
 !**/.env.example
 !**/.env.*.example
+!.env.template
 *.log
+.logs/
+.logs/*.pid
+.logs/*.log
 
 # Build & deps
 **/node_modules/
 dist/
 *.tsbuildinfo
+**/v8-compile-cache-*/
 
 # Python
 __pycache__/
@@ -27,7 +32,4 @@ apps/web/public/workbox-*.js
 
 # Misc
 *.swp
-.vercel/
-apps/web/.vercel/
 apps/web/.turbo/
-.vercel

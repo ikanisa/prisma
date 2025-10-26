@@ -1,3 +1,4 @@
+import DOMPurify from 'dompurify';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { AlertCircle, CheckCircle2, Loader2, RefreshCw, ShieldCheck } from 'lucide-react';
@@ -630,7 +631,9 @@ export default function ReportBuilderPage() {
               <CardContent>
                 {report.report?.draft_html ? (
                   <ScrollArea className="h-[420px] border rounded-md p-4 prose prose-sm">
-                    <div dangerouslySetInnerHTML={{ __html: report.report.draft_html }} />
+                    <div
+                      dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(report.report.draft_html) }}
+                    />
                   </ScrollArea>
                 ) : (
                   <p className="text-sm text-muted-foreground">Save the report to generate a preview.</p>

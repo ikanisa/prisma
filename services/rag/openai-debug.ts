@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type OpenAI from 'openai';
 
-import { buildOpenAiUrl } from '../../lib/openai/url';
+import { buildOpenAiUrl } from '@prisma-glow/lib/openai/url';
 
 export interface OpenAiDebugLoggerOptions {
   supabase: Pick<SupabaseClient, 'from'>;
@@ -86,7 +86,9 @@ export function createOpenAiDebugLogger(options: OpenAiDebugLoggerOptions) {
       tagSet.add(`org:${orgId}`);
     }
 
-    const debugDetails = await fetchDebugDetails(responseId, { endpoint: event.endpoint });
+    const debugDetails = (await fetchDebugDetails(responseId, { endpoint: event.endpoint })) as
+      | Record<string, any>
+      | null;
 
     const statusCodeFromDebug =
       typeof debugDetails?.response?.status_code === 'number'

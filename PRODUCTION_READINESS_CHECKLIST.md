@@ -33,12 +33,16 @@
 | Accounting workspace job cards implemented | PASS |
 | Policy guides in STANDARDS/POLICY refreshed | PASS |
 | Automated tests for accounting modules | PASS |
+| CAPTCHA + leaked-password checks enabled | PASS |
+| SMTP invite delivery configured | PASS |
 
 ## Security
 - OAuth scope catalogue maintained in `docs/SECURITY/oauth-scopes.md`; changes require security sign-off and rotation per the key-rotation guide.
 - Penetration test & threat drill procedures defined in `docs/SECURITY/penetration-testing.md` (bi-annual cadence, reporting requirements).
 - Supabase keys rotated per `docs/SECURITY/KEY_ROTATION.md` (placeholders updated in `.env.example`).
 - Edge functions and server runtimes source Supabase secrets through Vault helpers (`lib/secrets/*`, `supabase/functions/_shared/supabase-client.ts`); rotation only requires updating the Vault path referenced in `.env.example`.
+- Turnstile CAPTCHA and HaveIBeenPwned password checks are enforced in the auth flow; confirm `TURNSTILE_*` variables and breach lookup toggles via `docs/deployment/configuration-audit.md`.
+- SMTP invites and notifications use credentials defined in `.env.example`; validate delivery through the provider before production go-live.
 
 ## Reliability
 - Retries with exponential backoff on all external integrations; idempotency keys for webhook processing.
@@ -52,6 +56,7 @@
 - Rate-limit breaches and SLA at-risk events emit `telemetry_alerts` rows and optional webhooks (`RATE_LIMIT_ALERT_WEBHOOK`, `TELEMETRY_ALERT_WEBHOOK`) routing to PagerDuty/Slack.
 - Web search cache retention monitored via `telemetry-sync` (`WEB_CACHE_RETENTION` alerts) with operational steps captured in `docs/web-search.md` and `GO-LIVE/RELEASE_RUNBOOK.md`.
 - `/api/release-controls/check` reports `environment.autonomy/mfa/telemetry` states as `satisfied` before change approval; archive the response JSON in the go-live ticket.
+- Observability and backup verification sequence documented in `docs/OPERATIONS/observability-checklist.md`; attach evidence when executed.
 
 ## DevOps
 - CI runs linting, unit/integration tests, SCA, and secret scanning (gitleaks).

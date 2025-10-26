@@ -1,1 +1,1 @@
-export * from '../web/lib/supabase-server';
+export * from '@prisma-glow/lib/supabase-server';

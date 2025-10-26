@@ -11,8 +11,8 @@ import type {
 import type { MessageListParams } from 'openai/resources/chat/completions/messages';
 import type { Stream } from 'openai/streaming';
 
-import type { OpenAiDebugEvent } from './openai-debug';
-import type { OpenAiClientWithDebug } from './openai-debug';
+import type { OpenAiDebugEvent } from './openai-debug.js';
+import type { OpenAiClientWithDebug } from './openai-debug.js';
 
 type ChatCompletionCreatePayload = ChatCompletionCreateParamsNonStreaming & { stream?: false };
 
@@ -226,7 +226,7 @@ export async function deleteChatCompletion(options: DeleteOptions): Promise<bool
     if (logger) {
       await logger({
         endpoint: 'chat.completions.delete',
-        response: { id: completionId, ...result },
+        response: result as any,
         requestPayload: { completionId },
         metadata: mergeMetadata(options.metadata, {}),
         orgId: options.orgId ?? null,
@@ -241,7 +241,7 @@ export async function deleteChatCompletion(options: DeleteOptions): Promise<bool
   }
 }
 
-export async function listChatCompletions(options: ListOptions = {}): Promise<ChatCompletionListResult> {
+export async function listChatCompletions(options: ListOptions): Promise<ChatCompletionListResult> {
   const { client, query } = options;
   try {
     const page = await client.chat.completions.list(query ?? {});

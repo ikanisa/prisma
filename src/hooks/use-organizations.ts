@@ -96,7 +96,7 @@ export function useOrganizations() {
 
   useEffect(() => {
     hasFetched.current = false;
-  }, [user?.id, isSupabaseConfigured]);
+  }, [user?.id]);
 
   useEffect(() => {
     if (!isSupabaseConfigured) {

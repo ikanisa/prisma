@@ -1,16 +1,40 @@
 {
   "name": "@prisma-glow/system-config",
   "version": "0.0.1",
-  "type": "module",
-  "main": "index.js",
-  "types": "index.d.ts",
-  "description": "Shared helpers for loading and normalising system.yaml configuration.",
   "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "description": "Shared helpers for loading and normalising system.yaml configuration.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b tsconfig.json",
+    "prepare": "pnpm run build"
+  },
   "keywords": [
     "system-config",
     "yaml",
     "prisma-glow"
   ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  },
   "dependencies": {
     "yaml": "^2.8.1"
   }

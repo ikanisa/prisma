@@ -5,7 +5,7 @@ let handler: (request: Request) => Promise<Response>;
 const hoisted = vi.hoisted(() => {
   const envGetMock = vi.fn((key: string) => {
     if (key === 'ERROR_NOTIFY_WEBHOOK') return 'https://webhook.example.com/notify';
-    if (key === 'API_ALLOWED_ORIGINS') return 'https://app.example.com';
+    if (key === 'API_ALLOWED_ORIGINS') return 'https://app.prismaglow.example.com';
     return undefined;
   });
   const createSupabaseClientWithAuthMock = vi.fn();
@@ -92,7 +92,7 @@ describe('error-notify edge function', () => {
   it('allows CORS preflight', async () => {
     const response = await handler(new Request('https://example.com/error-notify', { method: 'OPTIONS' }));
     expect(response.status).toBe(200);
-    expect(response.headers.get('Access-Control-Allow-Origin')).toBe('https://app.example.com');
+    expect(response.headers.get('Access-Control-Allow-Origin')).toBe('https://app.prismaglow.example.com');
   });
 
   it('rejects requests without authorization headers', async () => {
