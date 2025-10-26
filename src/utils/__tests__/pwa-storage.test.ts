@@ -16,6 +16,7 @@ import { logger } from '@/lib/logger';
 import { recordClientError } from '@/lib/client-events';
 import * as storage from '@/lib/storage/indexed-db';
 import {
+  OFFLINE_QUEUE_STORAGE_KEY,
   getOfflineQueueSnapshot,
   queueAction,
   resetOfflineQueue,
@@ -56,6 +57,21 @@ describe('offline queue IndexedDB storage', () => {
 
     const snapshot = await getOfflineQueueSnapshot();
     expect(snapshot).toHaveLength(0);
+
+    setSpy.mockRestore();
+  });
+
+  it('clears local storage mirrors when IndexedDB reset fails', async () => {
+    await queueAction('persist-local', { value: 'cached' });
+    expect(window.localStorage.getItem(OFFLINE_QUEUE_STORAGE_KEY)).not.toBeNull();
+
+    const resetError = new Error('reset-failed');
+    const setSpy = vi.spyOn(storage, 'setInIndexedDb').mockRejectedValue(resetError);
+
+    await expect(resetOfflineQueue()).resolves.toBeUndefined();
+
+    expect(window.localStorage.getItem(OFFLINE_QUEUE_STORAGE_KEY)).toBeNull();
+    expect(await getOfflineQueueSnapshot()).toEqual([]);
 
     setSpy.mockRestore();
   });
