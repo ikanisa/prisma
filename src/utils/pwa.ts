@@ -12,6 +12,7 @@ import {
 } from '@/lib/storage/indexed-db';
 
 export const OFFLINE_QUEUE_STORAGE_KEY = 'queuedActions';
+const OFFLINE_QUEUE_UNSYNCED_STORAGE_KEY = 'queuedActions:unsynced';
 export const OFFLINE_QUEUE_UPDATED_EVENT = 'offline-queue:updated';
 const BACKGROUND_SYNC_TAG = 'background-sync';
 const CLIENT_RETRY_BASE_DELAY_MS = 30 * 1000;
@@ -188,6 +189,97 @@ function readOfflineQueue(): QueuedOfflineAction[] {
 
 const unsyncedWorkerQueueEntries = new Set<string>();
 
+function clearPersistedUnsyncedWorkerQueueEntries(): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  try {
+    window.localStorage.removeItem(OFFLINE_QUEUE_UNSYNCED_STORAGE_KEY);
+  } catch (error) {
+    logger.warn('pwa.clear_unsynced_queue_failed', error);
+  }
+}
+
+function persistUnsyncedWorkerQueueEntries(): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  try {
+    if (unsyncedWorkerQueueEntries.size === 0) {
+      clearPersistedUnsyncedWorkerQueueEntries();
+      return;
+    }
+
+    window.localStorage.setItem(
+      OFFLINE_QUEUE_UNSYNCED_STORAGE_KEY,
+      JSON.stringify(Array.from(unsyncedWorkerQueueEntries)),
+    );
+  } catch (error) {
+    logger.warn('pwa.persist_unsynced_queue_failed', error);
+  }
+}
+
+function removeUnsyncedWorkerQueueEntry(id: string): void {
+  if (unsyncedWorkerQueueEntries.delete(id)) {
+    persistUnsyncedWorkerQueueEntries();
+  }
+}
+
+function addUnsyncedWorkerQueueEntry(id: string): void {
+  if (!unsyncedWorkerQueueEntries.has(id)) {
+    unsyncedWorkerQueueEntries.add(id);
+    persistUnsyncedWorkerQueueEntries();
+  }
+}
+
+function loadUnsyncedWorkerQueueEntries(): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  try {
+    const raw = window.localStorage.getItem(OFFLINE_QUEUE_UNSYNCED_STORAGE_KEY);
+    if (!raw) {
+      return;
+    }
+
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) {
+      clearPersistedUnsyncedWorkerQueueEntries();
+      return;
+    }
+
+    const queueIds = new Set(readOfflineQueue().map((entry) => entry.id));
+    let changed = false;
+
+    for (const candidate of parsed) {
+      if (typeof candidate === 'string' && queueIds.has(candidate)) {
+        unsyncedWorkerQueueEntries.add(candidate);
+      } else {
+        changed = true;
+      }
+    }
+
+    for (const id of Array.from(unsyncedWorkerQueueEntries)) {
+      if (!queueIds.has(id)) {
+        unsyncedWorkerQueueEntries.delete(id);
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      persistUnsyncedWorkerQueueEntries();
+    }
+  } catch (error) {
+    logger.warn('pwa.load_unsynced_queue_failed', error);
+    clearPersistedUnsyncedWorkerQueueEntries();
+  }
+}
+
+loadUnsyncedWorkerQueueEntries();
+
 function writeOfflineQueue(queue: QueuedOfflineAction[]): void {
   if (typeof window === 'undefined' || !isIndexedDbAvailable()) {
     return;
@@ -198,12 +290,13 @@ function writeOfflineQueue(queue: QueuedOfflineAction[]): void {
 
   for (const id of Array.from(unsyncedWorkerQueueEntries)) {
     if (!ids.has(id)) {
-      unsyncedWorkerQueueEntries.delete(id);
+      removeUnsyncedWorkerQueueEntry(id);
     }
   }
 
   window.localStorage.setItem(OFFLINE_QUEUE_STORAGE_KEY, JSON.stringify(normalized));
   dispatchOfflineQueueEvent(normalized);
+  persistUnsyncedWorkerQueueEntries();
 }
 
 async function postMessageToServiceWorker(message: unknown, transfer?: Transferable[]) {
@@ -236,7 +329,7 @@ function removeOfflineQueueEntry(id: string) {
   if (nextQueue.length !== queue.length) {
     writeOfflineQueue(nextQueue);
   }
-  unsyncedWorkerQueueEntries.delete(id);
+  removeUnsyncedWorkerQueueEntry(id);
 }
 
 async function requestOfflineQueueSnapshot() {
@@ -589,7 +682,7 @@ export function queueAction(
     return queuedActions.length;
   }
 
-  unsyncedWorkerQueueEntries.add(entry.id);
+  addUnsyncedWorkerQueueEntry(entry.id);
 
   const sendEnqueueMessage = () => {
     if (!('serviceWorker' in navigator)) {
@@ -613,7 +706,7 @@ export function queueAction(
         if (message && typeof message === 'object' && message.type === 'OFFLINE_QUEUE_ENQUEUE_ACK') {
           const payload = (message.payload ?? {}) as { persisted?: boolean; error?: unknown };
           if (payload.persisted === true) {
-            unsyncedWorkerQueueEntries.delete(entry.id);
+            removeUnsyncedWorkerQueueEntry(entry.id);
           } else {
             const errorMessage =
               typeof payload.error === 'string'
