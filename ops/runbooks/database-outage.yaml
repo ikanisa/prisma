@@ -1,0 +1,55 @@
+metadata:
+  id: database-outage
+  name: Restore Primary Database Service
+  severity: SEV-1
+  summary: |
+    This runbook orchestrates the automated and manual response required when the
+    primary Postgres database is unavailable or degraded.
+  owned_by: platform-oncall
+  last_reviewed_on: 2025-01-15
+review:
+  frequency: quarterly
+  approvers:
+    - platform-oncall-lead
+    - sre-manager
+  simulation:
+    command: pnpm vitest run tests/runbooks/runbook-simulation.test.ts --run
+    description: Vitest simulation to verify runbook automation contracts.
+automation:
+  pagerduty:
+    service_id: P123456
+    escalation_policy_id: EP654321
+    urgency: high
+    title_template: "Database outage detected in production"
+    body_template: |
+      Automated trigger initiated by runbook automation. See FireHydrant incident
+      for additional context and track the remediation steps outlined in the
+      runbook.
+  firehydrant:
+    incident_type: database_outage
+    environment: production
+    priority: P0
+    title_template: "Production database outage"
+    summary_template: |
+      PagerDuty incident has been triggered. Use the attached mitigation steps to
+      coordinate with the database team and restore service.
+playbook:
+  steps:
+    - title: Confirm the outage and gather telemetry
+      details: |
+        - Validate alert fidelity using the database and gateway dashboards.
+        - Capture current error rates, latency, and replication lag metrics.
+    - title: Execute automated failover if replicas are healthy
+      details: |
+        - Run `automation/incident-integrations.ts` failover helper to promote the
+          most recent replica.
+        - Update connection strings or load balancer targets if required.
+    - title: Coordinate communications
+      details: |
+        - Page the database owner channel via PagerDuty notes.
+        - Update the FireHydrant incident timeline with status changes every 15
+          minutes until resolution.
+    - title: Post-incident actions
+      details: |
+        - Capture root cause summary.
+        - Schedule follow-up tasks and attach logs to the incident timeline.
