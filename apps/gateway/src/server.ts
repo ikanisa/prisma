@@ -1,8 +1,8 @@
-import express from 'express';
+import express, { type Express } from 'express';
 import * as Sentry from '@sentry/node';
 import type { Transport, TransportOptions } from '@sentry/types';
 import { initTracing } from './otel.js';
-import type { ErrorRequestHandler, Express } from 'express';
+import type { ErrorRequestHandler } from 'express';
 import { pathToFileURL } from 'url';
 import { traceMiddleware } from './middleware/trace.js';
 import { createPiiScrubberMiddleware } from './middleware/pii-scrubber.js';
@@ -64,8 +64,8 @@ function initialiseSentry(): boolean {
   }
 }
 
-export function createGatewayServer(): Express {
-  initTracing();
+export async function createGatewayServer(): Promise<Express> {
+  await initTracing();
   const sentryEnabled = initialiseSentry();
   const app = express();
 
@@ -114,7 +114,6 @@ export function createGatewayServer(): Express {
   });
 
   app.get('/readiness', (_req, res) => {
-    // Minimal readiness: gateway is stateless. Optionally, verify required envs.
     const missing: string[] = [];
     if (!env.OTEL_SERVICE_NAME) missing.push('OTEL_SERVICE_NAME');
     const context = getRequestContext();
@@ -156,9 +155,10 @@ const isEntrypoint = (() => {
 })();
 
 if (isEntrypoint) {
-  const app = createGatewayServer();
   const port = env.PORT;
-  app.listen(port, () => {
-    logger.info('gateway.listening', { port });
+  createGatewayServer().then((app) => {
+    app.listen(port, () => {
+      logger.info('gateway.listening', { port });
+    });
   });
 }

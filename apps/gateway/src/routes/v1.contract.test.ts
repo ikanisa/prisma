@@ -1,5 +1,6 @@
 import { beforeAll, afterAll, describe, expect, it } from 'vitest';
 import http from 'node:http';
+import type { Express } from 'express';
 import request from 'supertest';
 import type { Test } from 'supertest';
 import { createGatewayServer } from '../server.js';
@@ -76,7 +77,10 @@ afterAll(async () => {
 });
 
 describe('gateway → API contract proxying', () => {
-  const app = createGatewayServer();
+  let app: Express;
+  beforeAll(async () => {
+    app = await createGatewayServer();
+  });
   const withOrgHeaders = <T extends Test>(req: T): T =>
     req
       .set('x-org-id', 'acme')
