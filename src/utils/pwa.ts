@@ -816,15 +816,30 @@ export async function resetOfflineQueue(): Promise<void> {
     return;
   }
 
+  const clearLocalMirror = () => {
+    try {
+      window.localStorage.removeItem(OFFLINE_QUEUE_STORAGE_KEY);
+    } catch {
+      // Clearing localStorage is best-effort only.
+    }
+    dispatchOfflineQueueEvent([]);
+  };
+
   try {
     if (!isIndexedDbAvailable()) {
-      window.localStorage.removeItem(OFFLINE_QUEUE_STORAGE_KEY);
-      dispatchOfflineQueueEvent([]);
+      clearLocalMirror();
       return;
     }
     await writeOfflineQueue([]);
-  } catch {
-    await deleteIndexedDb();
+  } catch (error) {
+    clearLocalMirror();
+    logger.warn('pwa.reset_offline_queue_write_failed', error);
+    try {
+      await deleteIndexedDb();
+    } catch (deleteError) {
+      logger.warn('pwa.reset_offline_queue_delete_failed', deleteError);
+      throw deleteError;
+    }
   }
 }
 
