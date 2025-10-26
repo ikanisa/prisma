@@ -1,25 +1,42 @@
 -- Create helper functions now that tables exist
 CREATE OR REPLACE FUNCTION app.current_user_id()
-RETURNS uuid LANGUAGE sql STABLE AS $$ SELECT auth.uid(); $$;
+RETURNS uuid
+LANGUAGE sql
+STABLE
+SET search_path = app, public
+AS $$
+  SELECT auth.uid();
+$$;
 CREATE OR REPLACE FUNCTION app.touch_updated_at()
-RETURNS trigger LANGUAGE plpgsql AS $$
-BEGIN 
-  NEW.updated_at = now(); 
-  RETURN NEW; 
-END; 
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = app, public
+AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
 $$;
 CREATE OR REPLACE FUNCTION app.role_rank(role_in org_role)
-RETURNS int LANGUAGE sql IMMUTABLE AS $$
-  SELECT CASE role_in 
-    WHEN 'admin' THEN 4 
-    WHEN 'manager' THEN 3 
-    WHEN 'staff' THEN 2 
-    WHEN 'client' THEN 1 
-    ELSE 0 
+RETURNS int
+LANGUAGE sql
+IMMUTABLE
+SET search_path = app, public
+AS $$
+  SELECT CASE role_in
+    WHEN 'admin' THEN 4
+    WHEN 'manager' THEN 3
+    WHEN 'staff' THEN 2
+    WHEN 'client' THEN 1
+    ELSE 0
   END;
 $$;
 CREATE OR REPLACE FUNCTION app.is_org_member(p_org uuid, p_min_role org_role DEFAULT 'staff')
-RETURNS boolean LANGUAGE sql STABLE AS $$
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SET search_path = app, public
+AS $$
   SELECT EXISTS (
     SELECT 1 FROM members m
     WHERE m.org_id = p_org
@@ -28,8 +45,12 @@ RETURNS boolean LANGUAGE sql STABLE AS $$
   );
 $$;
 CREATE OR REPLACE FUNCTION app.is_org_admin(p_org uuid)
-RETURNS boolean LANGUAGE sql STABLE AS $$ 
-  SELECT app.is_org_member(p_org, 'admin'::org_role); 
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SET search_path = app, public
+AS $$
+  SELECT app.is_org_member(p_org, 'admin'::org_role);
 $$;
 -- Add RLS policies for core tables
 DROP POLICY IF EXISTS orgs_read ON organizations;

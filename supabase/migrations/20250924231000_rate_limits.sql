@@ -16,6 +16,7 @@ create or replace function public.enforce_rate_limit(
 )
 returns table(allowed boolean, request_count integer)
 language plpgsql
+set search_path = public
 as $$
 declare
   v_window_start timestamptz := date_trunc('second', now()) - make_interval(secs => mod(extract(epoch from now())::integer, p_window_seconds));

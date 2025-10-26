@@ -44,16 +44,43 @@ create table if not exists api_keys(
 );
 -- Helper functions (now that members exists)
 create or replace function app.current_user_id()
-returns uuid language sql stable as $$ select auth.uid(); $$;
+returns uuid
+language sql
+stable
+set search_path = app, public
+as $$
+  select auth.uid();
+$$;
 create or replace function app.touch_updated_at()
-returns trigger language plpgsql as $$
-begin new.updated_at = now(); return new; end; $$;
+returns trigger
+language plpgsql
+set search_path = app, public
+as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
 create or replace function app.role_rank(role_in org_role)
-returns int language sql immutable as $$
-  select case role_in when 'admin' then 4 when 'manager' then 3 when 'staff' then 2 when 'client' then 1 else 0 end;
+returns int
+language sql
+immutable
+set search_path = app, public
+as $$
+  select case role_in
+    when 'admin' then 4
+    when 'manager' then 3
+    when 'staff' then 2
+    when 'client' then 1
+    else 0
+  end;
 $$;
 create or replace function app.is_org_member(p_org uuid, p_min_role org_role default 'staff')
-returns boolean language sql stable as $$
+returns boolean
+language sql
+stable
+set search_path = app, public
+as $$
   select exists (
     select 1 from members m
     where m.org_id = p_org
@@ -62,17 +89,41 @@ returns boolean language sql stable as $$
   );
 $$;
 create or replace function app.is_org_admin(p_org uuid)
-returns boolean language sql stable as $$ select app.is_org_member(p_org, 'admin'::org_role); $$;
+returns boolean
+language sql
+stable
+set search_path = app, public
+as $$
+  select app.is_org_member(p_org, 'admin'::org_role);
+$$;
 create or replace function app.set_tenant(p_org uuid)
-returns void language plpgsql as $$ begin perform set_config('app.current_org', p_org::text, true); end; $$;
+returns void
+language plpgsql
+set search_path = app, public
+as $$
+begin
+  perform set_config('app.current_org', p_org::text, true);
+end;
+$$;
 create or replace function app.create_api_key(p_org_slug text, p_name text, p_scope jsonb default '{}'::jsonb)
 returns table(id uuid, key_plain text)
-language plpgsql security definer as $$
-declare v_org uuid; v_key bytea; v_key_plain text; v_hash text;
+language plpgsql
+security definer
+set search_path = app, public
+as $$
+declare
+  v_org uuid;
+  v_key bytea;
+  v_key_plain text;
+  v_hash text;
 begin
   select id into v_org from organizations where slug = p_org_slug;
-  if v_org is null then raise exception 'Unknown org slug %', p_org_slug; end if;
-  if not app.is_org_admin(v_org) then raise exception 'Forbidden'; end if;
+  if v_org is null then
+    raise exception 'Unknown org slug %', p_org_slug;
+  end if;
+  if not app.is_org_admin(v_org) then
+    raise exception 'Forbidden';
+  end if;
 
   v_key := gen_random_bytes(32);
   v_key_plain := 'pk_' || encode(v_key, 'base64url');
@@ -82,8 +133,10 @@ begin
   values (gen_random_uuid(), v_org, p_name, v_hash, coalesce(p_scope, '{}'::jsonb), app.current_user_id())
   returning api_keys.id into id;
 
-  key_plain := v_key_plain; return next;
-end; $$;
+  key_plain := v_key_plain;
+  return next;
+end;
+$$;
 -- RAG & ingestion
 create table if not exists documents(
   id uuid primary key default gen_random_uuid(),

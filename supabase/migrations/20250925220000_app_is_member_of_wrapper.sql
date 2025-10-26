@@ -7,6 +7,7 @@ CREATE OR REPLACE FUNCTION app.is_member_of(
 ) RETURNS boolean
 LANGUAGE sql
 STABLE
+SET search_path = app, public
 AS $$
   SELECT app.is_org_member(p_org, p_min_role::org_role);
 $$;

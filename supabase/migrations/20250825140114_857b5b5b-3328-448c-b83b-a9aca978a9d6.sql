@@ -57,12 +57,19 @@ create table if not exists api_keys(
 
 -- Current user (from Supabase auth)
 create or replace function app.current_user_id()
-returns uuid language sql stable as $$
+returns uuid
+language sql
+stable
+set search_path = app, public
+as $$
   select auth.uid();
 $$;
 -- Update timestamp trigger
 create or replace function app.touch_updated_at()
-returns trigger language plpgsql as $$
+returns trigger
+language plpgsql
+set search_path = app, public
+as $$
 begin
   new.updated_at = now();
   return new;
@@ -70,7 +77,11 @@ end;
 $$;
 -- Rank roles for comparisons
 create or replace function app.role_rank(role_in org_role)
-returns int language sql immutable as $$
+returns int
+language sql
+immutable
+set search_path = app, public
+as $$
   select case role_in
     when 'admin' then 4
     when 'manager' then 3
@@ -81,7 +92,10 @@ $$;
 -- Is member with minimum role?
 create or replace function app.is_org_member(p_org uuid, p_min_role org_role default 'staff')
 returns boolean
-language sql stable as $$
+language sql
+stable
+set search_path = app, public
+as $$
   select exists (
     select 1 from members m
     where m.org_id = p_org
@@ -91,12 +105,19 @@ language sql stable as $$
 $$;
 -- Is admin?
 create or replace function app.is_org_admin(p_org uuid)
-returns boolean language sql stable as $$
+returns boolean
+language sql
+stable
+set search_path = app, public
+as $$
   select app.is_org_member(p_org, 'admin'::org_role);
 $$;
 -- Optional: convenience setter for SQL clients to scope queries (not used by policies)
 create or replace function app.set_tenant(p_org uuid)
-returns void language plpgsql as $$
+returns void
+language plpgsql
+set search_path = app, public
+as $$
 begin
   perform set_config('app.current_org', p_org::text, true);
 end;
@@ -104,7 +125,10 @@ $$;
 -- Create API key (returns plaintext once), stores SHA-256 hash
 create or replace function app.create_api_key(p_org_slug text, p_name text, p_scope jsonb default '{}'::jsonb)
 returns table(id uuid, key_plain text)
-language plpgsql security definer as $$
+language plpgsql
+security definer
+set search_path = app, public
+as $$
 declare
   v_org uuid;
   v_key bytea;
