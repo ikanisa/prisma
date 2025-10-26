@@ -1,0 +1,16 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: chaos-testing
+resources:
+  - namespace.yaml
+  - rbac.yaml
+  - dashboard.yaml
+  - experiments/db-throttle.yaml
+  - experiments/network-latency.yaml
+  - experiments/pod-kill.yaml
+configMapGenerator:
+  - name: chaos-mesh-values
+    files:
+      - values.yaml
+configurations:
+  - kustomizeconfig.yaml
