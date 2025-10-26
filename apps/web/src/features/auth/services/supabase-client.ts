@@ -1,8 +1,8 @@
 'use client';
 
 import { create } from 'zustand';
-import { createClient, type Session, type SupabaseClient } from '@supabase/supabase-js';
-import { clientEnv } from '@/src/env.client';
+import type { Session, SupabaseClient } from '@supabase/supabase-js';
+import { supabase } from '@/integrations/supabase/client';
 
 type AuthStoreState = {
   client: SupabaseClient | null;
@@ -15,14 +15,6 @@ type AuthStoreState = {
   signOut(): Promise<void>;
 };
 
-const createSupabaseClient = () =>
-  createClient(clientEnv.NEXT_PUBLIC_SUPABASE_URL, clientEnv.NEXT_PUBLIC_SUPABASE_ANON_KEY, {
-    auth: {
-      persistSession: true,
-      autoRefreshToken: true,
-    },
-  });
-
 export const useSupabaseAuth = create<AuthStoreState>((set, get) => ({
   client: null,
   session: null,
@@ -31,9 +23,8 @@ export const useSupabaseAuth = create<AuthStoreState>((set, get) => ({
   ensureClient() {
     const existing = get().client;
     if (existing) return existing;
-    const client = createSupabaseClient();
-    set({ client });
-    return client;
+    set({ client: supabase });
+    return supabase;
   },
   async initialize() {
     set({ initializing: true, error: null });
