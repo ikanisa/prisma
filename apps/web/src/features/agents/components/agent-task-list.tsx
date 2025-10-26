@@ -5,18 +5,7 @@ import { useAgentTasks } from '../hooks/use-agent-tasks';
 import type { AgentTask } from '../services/task-service';
 import { logger } from '@/lib/logger';
 import { Skeleton } from '@/components/ui/skeleton';
-
-const formatRelativeDate = (iso?: string | null) => {
-  if (!iso) return 'No due date';
-  try {
-    return formatDistanceToNow(new Date(iso), { addSuffix: true });
-  } catch (error) {
-    if (process.env.NODE_ENV !== 'production') {
-      logger.warn('agent_task_list.date_format_failed', { error, iso });
-    }
-    return 'No due date';
-  }
-};
+import { useI18nContext } from '@/i18n/I18nProvider';
 
 const priorityBadgeClass: Record<string, string> = {
   high: 'bg-destructive/10 text-destructive',
@@ -28,6 +17,41 @@ const LOADING_PLACEHOLDERS = Array.from({ length: 4 });
 
 export function AgentTaskList() {
   const { tasks, total, source, isPending } = useAgentTasks();
+  const { t } = useI18nContext();
+
+  const formatRelativeDate = (iso: string | null | undefined, fallback: string) => {
+    if (!iso) return fallback;
+    try {
+      return formatDistanceToNow(new Date(iso), { addSuffix: true });
+    } catch (error) {
+      if (process.env.NODE_ENV !== 'production') {
+        logger.warn('agent_task_list.date_format_failed', { error, iso });
+      }
+      return fallback;
+    }
+  };
+
+  const priorityTranslationMap: Record<'high' | 'medium' | 'low', string> = {
+    high: 'agents.tasks.priority.high',
+    medium: 'agents.tasks.priority.medium',
+    low: 'agents.tasks.priority.low',
+  };
+
+  const resolvePriorityLabel = (priority?: string | null) => {
+    const fallbackRaw = (priority ?? 'medium').toLowerCase();
+    const normalized = fallbackRaw as keyof typeof priorityTranslationMap;
+    const key = priorityTranslationMap[normalized] ?? priorityTranslationMap.medium;
+    const translated = t(key);
+    if (translated === key) {
+      return fallbackRaw.charAt(0).toUpperCase() + fallbackRaw.slice(1);
+    }
+    return translated;
+  };
+
+  const heading = t('agents.tasks.title');
+  const sampleTag = source === 'stub' ? ` ${t('common.sampleDataTag')}` : '';
+  const subtitle = t('agents.tasks.subtitle', { sampleTag });
+  const totalLabel = t('agents.tasks.total', { count: String(total) });
 
   if (isPending) {
     return (
@@ -77,14 +101,14 @@ export function AgentTaskList() {
       <header className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 id="agent-tasks-heading" className="text-lg font-semibold text-foreground">
-            In-flight agent tasks
+            {heading}
           </h2>
           <p className="text-sm text-muted-foreground">
-            Pulled from the unified workflow API {source === 'stub' ? '(sample data)' : ''}.
+            {subtitle}
           </p>
         </div>
         <span className="rounded-full bg-muted px-3 py-1 text-xs font-medium text-muted-foreground" aria-live="polite">
-          {total} total
+          {totalLabel}
         </span>
       </header>
 
@@ -97,23 +121,27 @@ export function AgentTaskList() {
                 <span
                   className={`rounded-full px-2 py-1 text-xs font-medium ${priorityBadgeClass[task.priority ?? 'medium'] ?? priorityBadgeClass.medium}`}
                 >
-                  {task.priority ?? 'medium'} priority
+                  {t('agents.tasks.priorityLabel', {
+                    priority: resolvePriorityLabel(task.priority),
+                  })}
                 </span>
               </div>
               <h3 className="text-base font-semibold text-foreground">{task.title}</h3>
               <dl className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
                 <div>
-                  <dt className="font-medium text-foreground">Assignee</dt>
-                  <dd>{task.assignee ?? 'Unassigned'}</dd>
+                  <dt className="font-medium text-foreground">{t('common.assignee')}</dt>
+                  <dd>{task.assignee ?? t('common.unassigned')}</dd>
                 </div>
                 <div>
-                  <dt className="font-medium text-foreground">Due</dt>
-                  <dd>{formatRelativeDate(task.dueDate)}</dd>
+                  <dt className="font-medium text-foreground">{t('common.due')}</dt>
+                  <dd>{formatRelativeDate(task.dueDate, t('tasks.noDueDate'))}</dd>
                 </div>
               </dl>
             </div>
             <p className="mt-4 text-xs text-muted-foreground">
-              Updated {formatRelativeDate(task.updatedAt)}
+              {t('agents.tasks.updated', {
+                when: formatRelativeDate(task.updatedAt, t('common.time.recently')),
+              })}
             </p>
           </article>
         ))}
