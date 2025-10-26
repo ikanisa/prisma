@@ -76,6 +76,9 @@ jobs:
           fi
           psql "$DATABASE_URL" -f scripts/test_policies.sql
 
+      - name: Verify retention policy documentation
+        run: pnpm run policy:verify
+
       - name: Audit dependencies
         run: pnpm audit --prod || true
 
