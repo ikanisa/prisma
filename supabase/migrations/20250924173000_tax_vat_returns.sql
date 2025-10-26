@@ -28,9 +28,19 @@ COMMENT ON TABLE public.vat_filings IS 'VAT, OSS, and IOSS return snapshots powe
 CREATE INDEX IF NOT EXISTS idx_vat_filings_org_period
   ON public.vat_filings(org_id, tax_entity_id, period);
 
-CREATE TRIGGER trg_vat_filings_touch
-  BEFORE UPDATE ON public.vat_filings
-  FOR EACH ROW
-  EXECUTE FUNCTION app.touch_updated_at();
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_trigger
+    WHERE tgname = 'trg_vat_filings_touch'
+      AND tgrelid = 'public.vat_filings'::regclass
+  ) THEN
+    CREATE TRIGGER trg_vat_filings_touch
+      BEFORE UPDATE ON public.vat_filings
+      FOR EACH ROW
+      EXECUTE FUNCTION app.touch_updated_at();
+  END IF;
+END;
+$$;
 
 COMMIT;

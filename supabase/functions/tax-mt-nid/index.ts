@@ -15,6 +15,8 @@ import {
 } from '@prisma-glow/tax/calculators';
 import { logEdgeError } from '../_shared/error-notify.ts';
 import { assessDac6 } from '@prisma-glow/tax/dac6';
+import { HttpError, requireRole, type RoleLevel } from './access.ts';
+import { logActivity } from './activity.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': Deno.env.get('API_ALLOWED_ORIGINS') ?? '*',
@@ -23,15 +25,8 @@ const corsHeaders = {
 };
 
 type TypedClient = SupabaseClient<Database>;
-type RoleLevel = Database['public']['Enums']['role_level'];
 type TaxDisputeStatus = Database['public']['Enums']['tax_dispute_status'];
 type SupabaseUser = { id: string; email?: string | null };
-
-const roleRank: Record<RoleLevel, number> = {
-  EMPLOYEE: 1,
-  MANAGER: 2,
-  SYSTEM_ADMIN: 3,
-};
 
 const disputeStatuses: TaxDisputeStatus[] = ['OPEN', 'IN_PROGRESS', 'SUBMITTED', 'RESOLVED', 'CLOSED'];
 const disputeStatusSet = new Set(disputeStatuses);
@@ -43,14 +38,6 @@ const usOverlayActivityMap: Record<string, 'US_GILTI_COMPUTED' | 'US_163J_COMPUT
   CAMT: 'US_CAMT_COMPUTED',
   EXCISE_4501: 'US_4501_COMPUTED',
 };
-
-class HttpError extends Error {
-  status: number;
-  constructor(status: number, message: string) {
-    super(message);
-    this.status = status;
-  }
-}
 
 function jsonResponse(status: number, body: Record<string, unknown> = {}) {
   return new Response(JSON.stringify(body), {
@@ -96,12 +83,6 @@ async function getOrgContext(client: TypedClient, orgSlug: string | null, userId
   if (!membership) throw new HttpError(403, 'not_a_member');
 
   return { orgId: org.id, role: membership.role as RoleLevel };
-}
-
-function requireRole(current: RoleLevel, min: RoleLevel) {
-  if (roleRank[current] < roleRank[min]) {
-    throw new HttpError(403, 'insufficient_role');
-  }
 }
 
 async function ensureTaxEntity(client: TypedClient, orgId: string, taxEntityId: string | null) {

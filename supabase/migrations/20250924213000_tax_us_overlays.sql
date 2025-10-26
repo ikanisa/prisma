@@ -29,9 +29,19 @@ CREATE TABLE IF NOT EXISTS public.us_tax_overlay_calculations (
 CREATE INDEX IF NOT EXISTS idx_us_tax_overlay_org_type
   ON public.us_tax_overlay_calculations(org_id, overlay_type, period);
 
-CREATE TRIGGER trg_us_tax_overlay_touch
-  BEFORE UPDATE ON public.us_tax_overlay_calculations
-  FOR EACH ROW EXECUTE FUNCTION app.touch_updated_at();
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_trigger
+    WHERE tgname = 'trg_us_tax_overlay_touch'
+      AND tgrelid = 'public.us_tax_overlay_calculations'::regclass
+  ) THEN
+    CREATE TRIGGER trg_us_tax_overlay_touch
+      BEFORE UPDATE ON public.us_tax_overlay_calculations
+      FOR EACH ROW EXECUTE FUNCTION app.touch_updated_at();
+  END IF;
+END;
+$$;
 
 INSERT INTO public.activity_event_catalog (action, description, module, policy_pack, standard_refs, severity) VALUES
   ('US_GILTI_COMPUTED', 'GILTI inclusion calculated and stored.', 'TAX_US_OVERLAY', 'T-GOV-1', ARRAY['IRC §951A'], 'INFO'),

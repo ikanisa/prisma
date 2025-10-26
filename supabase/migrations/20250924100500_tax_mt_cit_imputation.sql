@@ -118,16 +118,46 @@ CREATE TABLE IF NOT EXISTS public.return_files (
 DROP INDEX IF EXISTS idx_return_files_unique_period;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_return_files_unique_period ON public.return_files(org_id, tax_entity_id, period, kind);
 
-CREATE TRIGGER trg_tax_entities_touch
-  BEFORE UPDATE ON public.tax_entities
-  FOR EACH ROW EXECUTE FUNCTION app.touch_updated_at();
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_trigger
+    WHERE tgname = 'trg_tax_entities_touch'
+      AND tgrelid = 'public.tax_entities'::regclass
+  ) THEN
+    CREATE TRIGGER trg_tax_entities_touch
+      BEFORE UPDATE ON public.tax_entities
+      FOR EACH ROW EXECUTE FUNCTION app.touch_updated_at();
+  END IF;
+END;
+$$;
 
-CREATE TRIGGER trg_tax_accounts_touch
-  BEFORE UPDATE ON public.tax_accounts
-  FOR EACH ROW EXECUTE FUNCTION app.touch_updated_at();
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_trigger
+    WHERE tgname = 'trg_tax_accounts_touch'
+      AND tgrelid = 'public.tax_accounts'::regclass
+  ) THEN
+    CREATE TRIGGER trg_tax_accounts_touch
+      BEFORE UPDATE ON public.tax_accounts
+      FOR EACH ROW EXECUTE FUNCTION app.touch_updated_at();
+  END IF;
+END;
+$$;
 
-CREATE TRIGGER trg_cit_computations_touch
-  BEFORE UPDATE ON public.cit_computations
-  FOR EACH ROW EXECUTE FUNCTION app.touch_updated_at();
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_trigger
+    WHERE tgname = 'trg_cit_computations_touch'
+      AND tgrelid = 'public.cit_computations'::regclass
+  ) THEN
+    CREATE TRIGGER trg_cit_computations_touch
+      BEFORE UPDATE ON public.cit_computations
+      FOR EACH ROW EXECUTE FUNCTION app.touch_updated_at();
+  END IF;
+END;
+$$;
 
 COMMIT;

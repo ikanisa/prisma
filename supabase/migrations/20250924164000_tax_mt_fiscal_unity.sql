@@ -28,9 +28,19 @@ COMMENT ON TABLE public.fiscal_unity_computations IS 'Malta fiscal unity computa
 CREATE INDEX IF NOT EXISTS idx_fiscal_unity_org_period
   ON public.fiscal_unity_computations(org_id, parent_tax_entity_id, period);
 
-CREATE TRIGGER trg_fiscal_unity_touch
-  BEFORE UPDATE ON public.fiscal_unity_computations
-  FOR EACH ROW
-  EXECUTE FUNCTION app.touch_updated_at();
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_trigger
+    WHERE tgname = 'trg_fiscal_unity_touch'
+      AND tgrelid = 'public.fiscal_unity_computations'::regclass
+  ) THEN
+    CREATE TRIGGER trg_fiscal_unity_touch
+      BEFORE UPDATE ON public.fiscal_unity_computations
+      FOR EACH ROW
+      EXECUTE FUNCTION app.touch_updated_at();
+  END IF;
+END;
+$$;
 
 COMMIT;
