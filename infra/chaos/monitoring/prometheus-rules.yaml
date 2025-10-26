@@ -1,0 +1,63 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: prisma-chaos-slos
+  namespace: monitoring
+  labels:
+    prometheus: kube-prometheus-stack
+    role: alert-rules
+spec:
+  groups:
+    - name: chaos-slo.rules
+      interval: 30s
+      rules:
+        - record: slo:api:availability:error_ratio:5m
+          expr: |
+            sum(rate(http_requests_total{job="api",status!~"2..", chaos_scenario!=""}[5m]))
+              /
+            sum(rate(http_requests_total{job="api", chaos_scenario!=""}[5m]))
+        - record: slo:api:availability:error_ratio:1h
+          expr: |
+            sum(rate(http_requests_total{job="api",status!~"2..", chaos_scenario!=""}[1h]))
+              /
+            sum(rate(http_requests_total{job="api", chaos_scenario!=""}[1h]))
+        - alert: ApiAvailabilityErrorBudgetBurn
+          annotations:
+            summary: "API availability SLO burn-rate high during chaos"
+            description: |
+              API error budget burn is {{ $value | humanizePercentage }} over the last hour
+              while scenario {{ $labels.chaos_scenario }} is active.
+              Check dashboards and consider aborting the experiment if burn-rate persists.
+          expr: |
+            slo:api:availability:error_ratio:5m{chaos_scenario!=""}
+              > 0.02
+            and
+            slo:api:availability:error_ratio:1h{chaos_scenario!=""}
+              > 0.01
+          for: 10m
+          labels:
+            severity: warning
+        - alert: ApiLatencyBudgetExhausted
+          annotations:
+            summary: "API latency SLO degraded during chaos"
+            description: |
+              P95 latency exceeded the SLO while scenario {{ $labels.chaos_scenario }} is running.
+              Investigate downstream dependencies impacted by the fault injection.
+          expr: |
+            histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job="api", chaos_scenario!=""}[5m])) by (le))
+              > 0.8
+          for: 5m
+          labels:
+            severity: critical
+        - alert: DatabaseThroughputThrottled
+          annotations:
+            summary: "Database throughput below SLO during chaos"
+            description: |
+              Detected a sustained drop in postgres transaction throughput while running
+              {{ $labels.chaos_scenario }}. Ensure throttling recovers after the experiment.
+          expr: |
+            increase(pg_stat_database_xact_commit{chaos_scenario="db-throttle"}[5m])
+              < 100
+          for: 5m
+          labels:
+            severity: warning

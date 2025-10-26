@@ -1,0 +1,28 @@
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: inject-latency-api
+  namespace: chaos-testing
+  labels:
+    chaos-mesh.org/experiment: network-latency
+spec:
+  action: delay
+  mode: one
+  selector:
+    namespaces:
+      - control-plane
+    labelSelectors:
+      app.kubernetes.io/component: api
+  delay:
+    latency: "250ms"
+    jitter: "50ms"
+    correlation: "0.5"
+  direction: to
+  target:
+    mode: all
+    selector:
+      namespaces:
+        - data-plane
+      labelSelectors:
+        app.kubernetes.io/component: graphql
+  duration: 10m
