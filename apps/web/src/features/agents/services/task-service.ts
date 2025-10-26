@@ -1,5 +1,6 @@
 import { getApiClient } from '@/src/lib/api-client';
 import type { ApiClientInstance } from '@/src/lib/api-client';
+import { logger } from '@/lib/logger';
 
 export type AgentTask = {
   id: string;
@@ -106,8 +107,7 @@ export const fetchAgentTasks = async (
     }
   } catch (error) {
     if (process.env.NODE_ENV !== 'production') {
-      // eslint-disable-next-line no-console
-      console.warn('Falling back to stubbed tasks', error);
+      logger.warn('agent_tasks.fallback_to_stub', { error, orgSlug });
     }
   }
   return buildStubTasks(orgSlug);

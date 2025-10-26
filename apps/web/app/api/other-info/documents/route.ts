@@ -3,6 +3,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { logOiAction, tryGetServiceSupabase } from '@/lib/supabase';
 import { ensureOrgAccess, HttpError, resolveCurrentUser } from '../../soc/_common';
+import { logger } from '@/lib/logger';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -32,7 +33,7 @@ function handleAuthorizationError(error: unknown): NextResponse {
     return NextResponse.json({ error: error.message }, { status: error.status });
   }
 
-  console.error('Failed to authorize other information document request', error);
+  logger.error('other_info.documents_authorization_failed', { error });
   return NextResponse.json({ error: 'Failed to authorize request.' }, { status: 500 });
 }
 
@@ -182,7 +183,11 @@ export async function POST(request: NextRequest) {
   if (error) {
     const cleanupResult = await supabase.storage.from(bucket).remove([objectPath]);
     if (cleanupResult.error) {
-      console.error('Failed to clean up uploaded other information object after database error', cleanupResult.error);
+      logger.error('other_info.document_cleanup_failed', {
+        error: cleanupResult.error,
+        bucket,
+        objectPath,
+      });
     }
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

@@ -75,6 +75,35 @@ const sampleSummary = {
   ],
 };
 
+const sampleEmbeddingSummary = {
+  windowHours: 720,
+  totals: {
+    events: 12,
+    approved: 10,
+    review: 1,
+    refused: 1,
+    tokens: 12000,
+    promptTokens: 8000,
+    estimatedCost: 6.5,
+  },
+  scenarios: [
+    {
+      scenario: 'drive_ingest',
+      events: 6,
+      approved: 5,
+      review: 0,
+      refused: 1,
+      tokens: 5000,
+      promptTokens: 3200,
+      estimatedCost: 2.1,
+      failureRate: 1 / 6,
+      reviewRate: 0,
+    },
+  ],
+  recentFailures: [],
+  staleCorpora: [],
+};
+
 type RenderResult = ReturnType<typeof render> & { queryClient: QueryClient };
 
 function renderWithClient(): RenderResult {
@@ -110,24 +139,34 @@ afterEach(() => {
 
 describe('TelemetryDashboardPage', () => {
   it('shows loading state then renders telemetry metrics', async () => {
-    let resolveFetch: (value: any) => void = () => {};
-    fetchMock.mockImplementation(
-      () =>
-        new Promise((resolve) => {
-          resolveFetch = resolve;
-        }),
-    );
+    let resolveSummary: (value: any) => void = () => {};
+    let resolveEmbeddings: (value: any) => void = () => {};
+    fetchMock.mockImplementation((url: RequestInfo | URL) => {
+      const urlString = String(url);
+      if (urlString.includes('/telemetry/embeddings')) {
+        return new Promise((resolve) => {
+          resolveEmbeddings = resolve;
+        });
+      }
+      return new Promise((resolve) => {
+        resolveSummary = resolve;
+      });
+    });
 
     const { queryClient } = renderWithClient();
 
     expect(screen.getByText(/Loading telemetry summary/i)).toBeInTheDocument();
 
-    resolveFetch({
+    resolveSummary({
       ok: true,
       json: async () => sampleSummary,
     });
+    resolveEmbeddings({
+      ok: true,
+      json: async () => sampleEmbeddingSummary,
+    });
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
     await screen.findByText('Coverage ratios');
 
     expect(screen.getAllByText('ACCOUNTING_CLOSE').length).toBeGreaterThan(0);
@@ -139,9 +178,13 @@ describe('TelemetryDashboardPage', () => {
   });
 
   it('syncs telemetry and refetches data on success', async () => {
-    fetchMock
-      .mockResolvedValueOnce({ ok: true, json: async () => sampleSummary })
-      .mockResolvedValueOnce({ ok: true, json: async () => sampleSummary });
+    fetchMock.mockImplementation((url: RequestInfo | URL) => {
+      const urlString = String(url);
+      if (urlString.includes('/telemetry/embeddings')) {
+        return Promise.resolve({ ok: true, json: async () => sampleEmbeddingSummary });
+      }
+      return Promise.resolve({ ok: true, json: async () => sampleSummary });
+    });
 
     const { queryClient } = renderWithClient();
     await screen.findByText('Coverage ratios');
@@ -165,7 +208,7 @@ describe('TelemetryDashboardPage', () => {
 
     resolveSync?.();
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
     await waitFor(() =>
       expect(toastMock).toHaveBeenCalledWith(
         expect.objectContaining({ title: 'Telemetry refreshed', description: 'Coverage and SLA data updated.' }),
@@ -178,7 +221,13 @@ describe('TelemetryDashboardPage', () => {
   });
 
   it('surfaces sync failures to the toast system', async () => {
-    fetchMock.mockResolvedValue({ ok: true, json: async () => sampleSummary });
+    fetchMock.mockImplementation((url: RequestInfo | URL) => {
+      const urlString = String(url);
+      if (urlString.includes('/telemetry/embeddings')) {
+        return Promise.resolve({ ok: true, json: async () => sampleEmbeddingSummary });
+      }
+      return Promise.resolve({ ok: true, json: async () => sampleSummary });
+    });
 
     const { queryClient } = renderWithClient();
     await screen.findByText('Coverage ratios');
@@ -193,14 +242,20 @@ describe('TelemetryDashboardPage', () => {
         expect.objectContaining({ title: 'Sync failed', description: 'unable to sync', variant: 'destructive' }),
       ),
     );
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
 
     queryClient.getQueryCache().clear();
     queryClient.getMutationCache().clear();
   });
 
   it('renders an error card when the summary request fails', async () => {
-    fetchMock.mockResolvedValue({ ok: false, json: async () => ({}) });
+    fetchMock.mockImplementation((url: RequestInfo | URL) => {
+      const urlString = String(url);
+      if (urlString.includes('/telemetry/embeddings')) {
+        return Promise.resolve({ ok: true, json: async () => sampleEmbeddingSummary });
+      }
+      return Promise.resolve({ ok: false, json: async () => ({}) });
+    });
 
     const { queryClient } = renderWithClient();
 

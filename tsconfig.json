@@ -5,6 +5,7 @@
     { "path": "./packages/api-client" },
     { "path": "./packages/system-config" },
     { "path": "./packages/ui" },
+    { "path": "./packages/logger" },
     { "path": "./services/rag" },
     { "path": "./apps/gateway/tsconfig.json" }
   ],

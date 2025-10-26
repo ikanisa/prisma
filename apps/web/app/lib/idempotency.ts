@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { logger } from '@/lib/logger';
 
 const IDEMPOTENCY_TABLE = 'idempotency_keys';
 
@@ -32,7 +33,7 @@ export async function findIdempotentResponse({ client, orgId, resource, key }: F
     .maybeSingle();
 
   if (error) {
-    console.warn('idempotency_lookup_failed', { resource, orgId, error });
+    logger.warn('idempotency.lookup_failed', { resource, orgId, error });
     return null;
   }
 
@@ -68,6 +69,6 @@ export async function storeIdempotentResponse({
       .select('id')
       .maybeSingle();
   } catch (error) {
-    console.warn('idempotency_store_failed', { resource, orgId, error });
+    logger.warn('idempotency.store_failed', { resource, orgId, error });
   }
 }

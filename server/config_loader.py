@@ -3,10 +3,9 @@ from __future__ import annotations
 
 import os
 from functools import lru_cache
-from pathlib import Path
 from typing import Any, Dict, Iterable, List, Mapping, Set
 
-import yaml
+from .settings import get_system_settings
 
 _DEFAULT_CLIENT_ALLOWED_REPOS = [
     "02_Tax/PBC",
@@ -55,8 +54,6 @@ _DEFAULT_RELEASE_ENVIRONMENT = {
     },
 }
 
-_CONFIG_PATH_ENV_VAR = "SYSTEM_CONFIG_PATH"
-_SYSTEM_CONFIG_PATH = Path(__file__).resolve().parents[1] / "config" / "system.yaml"
 _DEFAULT_AUTONOMY_LEVEL = "L2"
 _AUTONOMY_LEVEL_ORDER = {"L0": 0, "L1": 1, "L2": 2, "L3": 3}
 _DEFAULT_AUTONOMY_LABELS = {
@@ -106,30 +103,11 @@ _DEFAULT_AUTOPILOT_ALLOWANCES = {
         "tax_cycle",
     ],
 }
-
-def _resolve_config_path() -> Path:
-    env_value = os.getenv(_CONFIG_PATH_ENV_VAR)
-    if env_value:
-        candidate = Path(env_value).expanduser()
-        if candidate.is_dir():
-            candidate = candidate / "system.yaml"
-        return candidate
-    return _SYSTEM_CONFIG_PATH
-
-
 @lru_cache(maxsize=1)
 def load_system_config() -> Mapping[str, Any]:
-    try:
-        path = _resolve_config_path()
-        with path.open("r", encoding="utf-8") as handle:
-            data = yaml.safe_load(handle) or {}
-            if isinstance(data, Mapping):
-                return data
-    except FileNotFoundError:
-        return {}
-    except yaml.YAMLError:
-        return {}
-    return {}
+    settings = get_system_settings()
+    raw = settings.raw
+    return raw if isinstance(raw, Mapping) else {}
 
 
 def _normalise_list(values: Iterable[Any]) -> List[str]:

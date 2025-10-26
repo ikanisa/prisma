@@ -19,7 +19,7 @@ jobs:
 
       - uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 20.19.4
           cache: 'pnpm'
 
       - name: Install pnpm
@@ -41,7 +41,7 @@ jobs:
 
       - uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 20.19.4
           cache: 'pnpm'
 
       - name: Install pnpm
@@ -66,7 +66,7 @@ jobs:
 
       - uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 20.19.4
           cache: 'pnpm'
 
       - name: Install pnpm
@@ -87,7 +87,7 @@ jobs:
 
       - uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 20.19.4
           cache: 'pnpm'
 
       - name: Install pnpm
@@ -110,7 +110,7 @@ jobs:
 
       - uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 20.19.4
           cache: 'pnpm'
 
       - name: Install pnpm
@@ -133,7 +133,7 @@ jobs:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 20.19.4
           cache: 'pnpm'
       - name: Install pnpm
         run: npm install -g pnpm@9
@@ -170,7 +170,7 @@ jobs:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 20.19.4
           cache: 'pnpm'
       - name: Install pnpm
         run: npm install -g pnpm@9
@@ -373,7 +373,7 @@ jobs:
 
       - uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 20.19.4
           cache: 'pnpm'
 
       - name: Install pnpm

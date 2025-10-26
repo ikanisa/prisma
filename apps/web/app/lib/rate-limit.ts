@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { logger } from '@/lib/logger';
 
 const DEFAULT_LIMIT = 60;
 const DEFAULT_WINDOW_SECONDS = 60;
@@ -32,7 +33,7 @@ export async function enforceRateLimit({
   });
 
   if (error) {
-    console.warn('rate_limit_rpc_failed', { resource, orgId, error });
+    logger.warn('rate_limit.rpc_failed', { resource, orgId, error });
     return { allowed: true, requestCount: 0 };
   }
 

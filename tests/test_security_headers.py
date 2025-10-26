@@ -29,8 +29,8 @@ def test_build_csp_header_respects_extra_sources():
 
 def test_normalise_allowed_origins_uses_env_values(monkeypatch):
     monkeypatch.setenv("ENVIRONMENT", "production")
-    origins = normalise_allowed_origins("https://app.prisma-cpa.vercel.app, https://admin.prisma-cpa.vercel.app")
-    assert origins == ["https://app.prisma-cpa.vercel.app", "https://admin.prisma-cpa.vercel.app"]
+    origins = normalise_allowed_origins("https://app.prismaglow.example.com, https://admin.prismaglow.example.com")
+    assert origins == ["https://app.prismaglow.example.com", "https://admin.prismaglow.example.com"]
 
 
 def test_normalise_allowed_origins_dev_fallback(monkeypatch):

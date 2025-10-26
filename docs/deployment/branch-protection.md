@@ -9,7 +9,7 @@
   - `Monorepo CI (next-web)`
   - `pnpm lint` (if split out)
   - `pnpm test` suites (root + apps)
-  - Vercel preview deployment status (`Vercel (Production)`).
+  - Preview deployment status from the hosting platform (production gate).
 - Turn on **Require branch to be up to date before merging**.
 - Disallow force pushes and branch deletions.
 

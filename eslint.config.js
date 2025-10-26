@@ -8,6 +8,7 @@ export default tseslint.config(
   {
     ignores: [
       "dist",
+      "**/dist/**",
       "coverage",
       ".next",
       "**/.next/**",
@@ -45,15 +46,11 @@ export default tseslint.config(
       "@typescript-eslint/no-explicit-any": "off",
       "@typescript-eslint/no-empty-object-type": "off",
       "@typescript-eslint/no-require-imports": "off",
-      "no-console": ["error", { allow: ["warn", "error"] }],
+      "no-console": "error",
       "no-restricted-imports": [
         "error",
         {
           "patterns": [
-            {
-              group: ["@prisma-glow/*/*"],
-              message: "Import from the package entry point instead of deep paths.",
-            },
             {
               group: ["packages/*", "**/packages/*"],
               message: "Use the workspace package alias (e.g. @prisma-glow/…) rather than relative paths into packages.",
@@ -70,6 +67,18 @@ export default tseslint.config(
     },
   },
   {
+    files: ["src/lib/logger.ts", "src/lib/logger.js", "packages/logger/src/**/*.ts"],
+    rules: {
+      "no-console": "off",
+    },
+  },
+  {
+    files: ["packages/**/*.{ts,tsx,js,jsx}", "scripts/**/*.{ts,tsx,js,jsx}", "tests/**/*.{ts,tsx,js,jsx}"],
+    rules: {
+      "no-console": "off",
+    },
+  },
+  {
     files: ["apps/**/*.{ts,tsx}"],
     rules: {
       "no-restricted-imports": [
@@ -78,12 +87,11 @@ export default tseslint.config(
           patterns: [
             {
               group: [
-                "@prisma-glow/*/*",
                 "../../packages/*",
                 "../packages/*",
                 "../../../packages/*",
               ],
-              message: "Import from the package entry point (e.g. @prisma-glow/pkg) instead of deep paths.",
+              message: "Use the workspace alias (e.g. @prisma-glow/pkg) instead of relative paths into packages.",
             },
           ],
         },

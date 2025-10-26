@@ -27,7 +27,7 @@ import {
   computeFiscalUnity,
   listFiscalUnityComputations,
   type FiscalUnityComputation,
-} from '@/lib/tax-mt-service';
+} from '@prisma-glow/tax-mt-service';
 import { isSupabaseConfigured } from '@/integrations/supabase/client';
 import { logger } from '@/lib/logger';
 

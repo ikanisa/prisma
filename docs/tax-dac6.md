@@ -13,7 +13,7 @@
 ## Workflow
 1. Access `/tax/dac6` (manager role required).
 2. Enter arrangement details, hallmarks, and participants.
-3. The edge function `/functions/v1/tax-mt-nid` with `calculator=DAC6` assesses hallmarks via `src/lib/tax/dac6.ts` and persists the arrangement (`dac6_arrangements`, `dac6_hallmarks`, `dac6_participants`).
+3. The edge function `/functions/v1/tax-mt-nid` with `calculator=DAC6` assesses hallmarks via `@prisma-glow/tax/dac6` and persists the arrangement (`dac6_arrangements`, `dac6_hallmarks`, `dac6_participants`).
 4. Activity log `DAC6_ASSESSED` records status (draft vs ready for submission) and rationale.
 5. The history table shows recent arrangements with status tracking.
 

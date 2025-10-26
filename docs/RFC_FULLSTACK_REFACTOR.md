@@ -15,7 +15,7 @@
   installed offline (see README backend setup notes).
 
 ## Motivation
-The codebase has grown around parallel delivery tracks (Lovable Vite app, Next.js portal, FastAPI
+The codebase has grown around parallel delivery tracks (legacy Vite app, Next.js portal, FastAPI
 services, RAG/agent experiments, Supabase functions). Configuration, tooling, and deployment
 contracts diverged across these surfaces, creating friction for onboarding, testing, and production
 hardening. We recently standardised configuration loading, but broader refactors are required to:
@@ -105,7 +105,7 @@ hardening. We recently standardised configuration loading, but broader refactors
 - **Service downtime:** Feature flags and dark deploys for gateway/RAG changes; ensure backward
   compatibility while new clients roll out.
 - **Team alignment:** Weekly syncs across guilds; RFC updates capture deviations.
-- **Package churn:** Workspace introduction may affect Lovable flows; provide migration doc and
+- **Package churn:** Workspace introduction may affect the legacy Vite flows; provide migration doc and
   maintain compatibility until completion.
 
 ## Rollout & Verification
@@ -119,7 +119,7 @@ hardening. We recently standardised configuration loading, but broader refactors
   - Updated runbooks and training for ops/support.
 
 ## Open Questions
-- Should we remove the Lovable Vite frontend entirely or keep it behind feature flags until clients
+- Should we remove the legacy Vite frontend entirely or keep it behind feature flags until clients
   migrate?
 - Do we adopt Poetry/UV for Python package management or keep `requirements.txt`?
 - How do we stage Supabase edge function refactors without interrupting production jobs (blue/green,

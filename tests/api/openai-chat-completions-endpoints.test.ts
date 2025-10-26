@@ -570,7 +570,7 @@ describe('OpenAI chat completion proxy endpoints', () => {
   });
 
   it('deletes a stored completion', async () => {
-    completionDeleteMock.mockResolvedValue({ deleted: true });
+    completionDeleteMock.mockResolvedValue({ id: 'chat_77', deleted: true, object: 'chat.completion.deleted' });
 
     const result = await invokeRoute('delete', '/api/openai/chat-completions/:id', {
       query: { orgSlug: 'acme' },
@@ -609,4 +609,3 @@ describe('OpenAI chat completion proxy endpoints', () => {
     });
   });
 });
-

@@ -7,7 +7,7 @@ import { dirname, resolve } from 'node:path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const MIGRATIONS = [
+const DEFAULT_MIGRATIONS = [
   'supabase/migrations/20251115122000_web_fetch_cache.sql',
   'supabase/migrations/20251115123000_web_fetch_cache_retention.sql',
 ];
@@ -45,9 +45,9 @@ async function runCommand(command, args, options = {}) {
   });
 }
 
-async function applyMigrations({ projects, dryRun }) {
+async function applyMigrations({ projects, dryRun, migrations }) {
   for (const project of projects) {
-    for (const migration of MIGRATIONS) {
+    for (const migration of migrations) {
       const absolute = resolve(__dirname, '..', '..', migration);
       const args = ['db', 'remote', 'commit', '--project-ref', project.ref, '--file', absolute];
       if (dryRun) {
@@ -66,6 +66,19 @@ async function main() {
     const only = process.argv
       .filter((arg) => arg.startsWith('--project='))
       .map((arg) => arg.split('=')[1]);
+    const extra = process.argv
+      .filter((arg) => arg.startsWith('--extra='))
+      .flatMap((arg) => arg.split('=')[1]?.split(',') ?? [])
+      .map((value) => value.trim())
+      .filter(Boolean);
+
+    const migrations = [...DEFAULT_MIGRATIONS];
+    for (const entry of extra) {
+      const withPrefix = entry.includes('/') ? entry : `supabase/migrations/${entry}`;
+      if (!migrations.includes(withPrefix)) {
+        migrations.push(withPrefix);
+      }
+    }
 
     const projects = parseProjects(process.env.SUPABASE_PROJECTS);
     const filtered = only.length > 0 ? projects.filter((project) => only.includes(project.name)) : projects;
@@ -75,8 +88,8 @@ async function main() {
       return;
     }
 
-    await applyMigrations({ projects: filtered, dryRun });
-    console.log('Web fetch cache migrations complete.');
+    await applyMigrations({ projects: filtered, dryRun, migrations });
+    console.log('Supabase migrations complete.');
   } catch (error) {
     console.error(error.message ?? error);
     process.exit(1);

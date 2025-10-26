@@ -1,6 +1,12 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 import { logger } from '@/lib/logger';
+import {
+  isSupabaseRuntimeConfigured,
+  resolvedSupabaseAnonKey,
+  resolvedSupabaseUrl,
+  runtimeConfig,
+} from '@/lib/runtime-config';
 
 type ExtendedDatabase = Database & {
   public: Database['public'] & {
@@ -113,18 +119,7 @@ type ExtendedDatabase = Database & {
   };
 };
 
-const envSupabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const envSupabaseAnonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-
-const isPlaceholder = (value?: string) =>
-  !value || value.startsWith('REPLACE_WITH_') || value.includes('your_project_id');
-
-const SUPABASE_URL = envSupabaseUrl ?? '';
-const SUPABASE_ANON_KEY = envSupabaseAnonKey ?? '';
-
-export const isSupabaseConfigured = Boolean(
-  !isPlaceholder(envSupabaseUrl) && !isPlaceholder(envSupabaseAnonKey),
-);
+export const isSupabaseConfigured = isSupabaseRuntimeConfigured;
 
 if (!isSupabaseConfigured) {
   if (import.meta.env.MODE === 'production') {
@@ -138,13 +133,13 @@ if (!isSupabaseConfigured) {
   }
 }
 
-const FALLBACK_SUPABASE_URL = isSupabaseConfigured ? SUPABASE_URL : 'https://demo.invalid.supabase.co';
-const FALLBACK_SUPABASE_KEY = isSupabaseConfigured ? SUPABASE_ANON_KEY : 'public-anon-demo-key';
-
-export const supabase = createClient<ExtendedDatabase>(FALLBACK_SUPABASE_URL, FALLBACK_SUPABASE_KEY, {
+export const supabase = createClient<ExtendedDatabase>(resolvedSupabaseUrl, resolvedSupabaseAnonKey, {
   auth: {
     storage: typeof window !== 'undefined' ? window.localStorage : undefined,
     persistSession: true,
     autoRefreshToken: true,
+  },
+  db: {
+    schema: runtimeConfig.supabaseSchema ?? 'public',
   },
 });

@@ -385,12 +385,21 @@ export default function TelemetryDashboardPage() {
               Failed to load embedding telemetry. Retry once the scheduler has run or verify the delta endpoint secret.
             </p>
           ) : embeddingQuery.data ? (
-            <>
-              {(() => {
-                const totals = embeddingQuery.data.totals;
-                const failureRate = totals.events ? (totals.refused / totals.events) * 100 : 0;
-                const reviewRate = totals.events ? (totals.review / totals.events) * 100 : 0;
-                return (
+            (() => {
+              const totals = embeddingQuery.data.totals ?? {
+                events: 0,
+                tokens: 0,
+                promptTokens: 0,
+                estimatedCost: 0,
+                refused: 0,
+                review: 0,
+              };
+              const recentFailures = embeddingQuery.data.recentFailures ?? [];
+              const staleCorpora = embeddingQuery.data.staleCorpora ?? [];
+              const failureRate = totals.events ? (totals.refused / totals.events) * 100 : 0;
+              const reviewRate = totals.events ? (totals.review / totals.events) * 100 : 0;
+              return (
+                <>
                   <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                     <div className="rounded-lg border border-border p-4">
                       <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Events analysed</p>
@@ -423,10 +432,8 @@ export default function TelemetryDashboardPage() {
                       <p className="mt-1 text-xs text-muted-foreground">Review {reviewRate.toFixed(1)}%</p>
                     </div>
                   </div>
-                );
-              })()}
 
-              <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
+                  <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
                 <div className="space-y-3">
                   <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Scenario breakdown</h3>
                   <div className="overflow-x-auto rounded-lg border border-border">
@@ -474,10 +481,10 @@ export default function TelemetryDashboardPage() {
                       Embedding attempts refused due to downstream errors or guardrails.
                     </p>
                     <div className="mt-3 space-y-3">
-                      {embeddingQuery.data.recentFailures.length === 0 ? (
+                      {recentFailures.length === 0 ? (
                         <p className="text-xs text-muted-foreground">No refusals recorded.</p>
                       ) : (
-                        embeddingQuery.data.recentFailures.slice(0, 5).map((failure, index) => {
+                        recentFailures.slice(0, 5).map((failure, index) => {
                           const targetId = extractTargetId(failure.metrics);
                           return (
                             <div key={`${failure.scenario}-${failure.occurredAt}-${index}`} className="rounded-md border border-border/70 p-3">
@@ -500,10 +507,10 @@ export default function TelemetryDashboardPage() {
                       Review decisions that indicate missing text, download issues, or empty corpora.
                     </p>
                     <div className="mt-3 space-y-3">
-                      {embeddingQuery.data.staleCorpora.length === 0 ? (
+                      {staleCorpora.length === 0 ? (
                         <p className="text-xs text-muted-foreground">No review actions recorded.</p>
                       ) : (
-                        embeddingQuery.data.staleCorpora.slice(0, 5).map((entry, index) => {
+                        staleCorpora.slice(0, 5).map((entry, index) => {
                           const targetId = extractTargetId(entry.metrics);
                           return (
                             <div key={`${entry.scenario}-${entry.occurredAt}-${index}`} className="rounded-md border border-border/70 p-3">
@@ -521,7 +528,9 @@ export default function TelemetryDashboardPage() {
                   </div>
                 </div>
               </div>
-            </>
+                </>
+              );
+            })()
           ) : (
             <p className="text-sm text-muted-foreground">No embedding telemetry available for this organisation.</p>
           )}

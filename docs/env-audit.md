@@ -2,7 +2,7 @@
 
 ## Methodology
 - Parsed `.env.example` and compared the declared keys to every `process.env`, `os.getenv`, and `environ[...]` access within the monorepo.
-- Grouped the 100+ uncovered variables by owning subsystem so that missing secrets can be sourced from the relevant platform vaults (Vercel, Supabase, Vault, CI, etc.).
+- Grouped the 100+ uncovered variables by owning subsystem so that missing secrets can be sourced from the relevant platform vaults (hosting provider, Supabase, Vault, CI, etc.).
 
 ## Summary of Missing Keys
 The following variables are consumed in code or tests but absent from `.env.example`. Populate them in the shared secrets manager before promoting changes.
@@ -46,7 +46,6 @@ The following variables are consumed in code or tests but absent from `.env.exam
 - `TELEMETRY_ALERT_WEBHOOK` — telemetry sync reporting. `services/rag/index.ts`
 
 ### Infrastructure & Deployment
-- `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`, `VERCEL_TOKEN`, `VERCEL_CLI_MODE` — deployment preflight scripts. `scripts/vercel-preflight.mjs`
 - `SERVICE_VERSION`, `NODE_ENV`, `CI` — release metadata across services. `server/main.py`, `index.js`
 
 Ensure each key is recorded in the shared `.env.example` (with safe placeholders) and in the appropriate secret store before deployment.

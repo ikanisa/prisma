@@ -24,13 +24,6 @@ from fastapi.responses import JSONResponse
 import httpx
 from pydantic import BaseModel, Field, ConfigDict
 from functools import lru_cache
-from opentelemetry import trace
-from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
-from opentelemetry.sdk.resources import Resource
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
-from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
-from opentelemetry.trace import Status, StatusCode
 from rq import Queue
 from sqlalchemy import text
 from datetime import datetime, timezone, timedelta
@@ -42,7 +35,6 @@ from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 
 from services.analytics.jobs import anomaly_scan_job, policy_check_job, reembed_job
-from analytics import AnalyticsHttpClient
 
 from .autopilot_handlers import handle_extract_documents
 from .deterministic_contract import build_manifest, validate_manifest
@@ -79,18 +71,18 @@ from .config_loader import (
     get_managerial_roles,
 )
 from .release_controls import evaluate_release_controls, summarise_release_environment
-from .workflow_orchestrator import (
+from .workflows import (
     ensure_workflow_run,
     complete_workflow_step,
     get_workflow_suggestions,
 )
-from .openai_client import get_openai_client
+from .openai import get_openai_client
 from .email import send_member_invite_email
+from .api.schemas import ReleaseControlCheckRequest, ReleaseControlCheckResponse
+from .telemetry import RequestTelemetryMiddleware, configure_fastapi_tracing
+from .settings import get_system_settings
 
 app = FastAPI()
-
-
-analytics_client = AnalyticsHttpClient()
 
 
 def _bool_env(name: str, default: bool = False) -> bool:
@@ -115,45 +107,25 @@ OPENAI_WEB_SEARCH_ENABLED = _bool_env("OPENAI_WEB_SEARCH_ENABLED")
 OPENAI_WEB_SEARCH_MODEL = os.getenv("OPENAI_WEB_SEARCH_MODEL", "gpt-4.1-mini")
 WEB_FETCH_CACHE_RETENTION_DAYS = _positive_int_env("WEB_FETCH_CACHE_RETENTION_DAYS", 14)
 
-# OpenTelemetry service identity and environment
-SERVICE_NAME = os.getenv("OTEL_SERVICE_NAME", "backend-api")
-RUNTIME_ENVIRONMENT = os.getenv("SENTRY_ENVIRONMENT", os.getenv("ENVIRONMENT", "development"))
-_OTEL_CONFIGURED = False
+telemetry_settings = get_system_settings().telemetry
+SERVICE_NAME = os.getenv("OTEL_SERVICE_NAME", telemetry_settings.default_service)
+SERVICE_VERSION = os.getenv("SERVICE_VERSION") or os.getenv("SENTRY_RELEASE")
+RUNTIME_ENVIRONMENT = (
+    os.getenv("SENTRY_ENVIRONMENT")
+    or os.getenv("ENVIRONMENT")
+    or telemetry_settings.resolve_environment()
+)
 
-
-def _configure_tracing(target_app: FastAPI) -> trace.Tracer:
-    global _OTEL_CONFIGURED
-
-    if not _OTEL_CONFIGURED:
-        service_version = os.getenv("SERVICE_VERSION") or os.getenv("SENTRY_RELEASE") or "dev"
-        resource = Resource.create({
-            "service.name": SERVICE_NAME,
-            "service.namespace": "prisma-glow",
-            "deployment.environment": RUNTIME_ENVIRONMENT,
-            "service.version": service_version,
-        })
-        provider = TracerProvider(resource=resource)
-        otlp_endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
-        if otlp_endpoint:
-            provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter(endpoint=otlp_endpoint)))
-        trace.set_tracer_provider(provider)
-        _OTEL_CONFIGURED = True
-
-    provider = trace.get_tracer_provider()
-    if not getattr(target_app.state, "_otel_instrumented", False):
-        if isinstance(provider, TracerProvider):
-            FastAPIInstrumentor.instrument_app(target_app, tracer_provider=provider)
-        else:  # pragma: no cover - defensive fallback
-            FastAPIInstrumentor.instrument_app(target_app)
-        target_app.state._otel_instrumented = True
-
-    return trace.get_tracer(SERVICE_NAME)
-
-
-tracer = _configure_tracing(app)
+tracer = configure_fastapi_tracing(
+    app,
+    service_name=SERVICE_NAME,
+    environment=RUNTIME_ENVIRONMENT,
+    version=SERVICE_VERSION,
+)
+app.add_middleware(RequestTelemetryMiddleware, tracer=tracer)
 
 SENTRY_RELEASE = os.getenv("SENTRY_RELEASE")
-SENTRY_ENVIRONMENT = os.getenv("SENTRY_ENVIRONMENT", os.getenv("ENVIRONMENT", "development"))
+SENTRY_ENVIRONMENT = RUNTIME_ENVIRONMENT
 SENTRY_DSN = os.getenv("SENTRY_DSN")
 SENTRY_ENABLED = bool(SENTRY_DSN)
 
@@ -259,27 +231,6 @@ def get_current_request_id() -> Optional[str]:
 
 
 @app.middleware("http")
-async def trace_requests(request: Request, call_next):
-    span_name = f"{request.method} {request.url.path}"
-    with tracer.start_as_current_span(span_name) as span:
-        span.set_attribute("http.method", request.method)
-        span.set_attribute("http.route", request.url.path)
-        span.set_attribute("http.scheme", request.url.scheme)
-        try:
-            response = await call_next(request)
-        except Exception as exc:  # pragma: no cover - defensive logging
-            span.record_exception(exc)
-            span.set_status(Status(StatusCode.ERROR, str(exc)))
-            raise
-
-        span.set_attribute("http.status_code", response.status_code)
-        request_id = getattr(request.state, "request_id", None)
-        if request_id:
-            span.set_attribute("prismaglow.request_id", request_id)
-        return response
-
-
-@app.middleware("http")
 async def add_request_id(request: Request, call_next):
     incoming = request.headers.get(REQUEST_ID_HEADER) or request.headers.get(REQUEST_ID_HEADER.lower())
     request_id = (incoming or "").strip() or str(uuid.uuid4())
@@ -318,42 +269,6 @@ structlog.configure(
     ]
 )
 logger = structlog.get_logger()
-
-
-async def _emit_analytics_event(
-    event_name: str,
-    *,
-    request: Request,
-    org_id: Optional[str] = None,
-    actor_id: Optional[str] = None,
-    properties: Optional[Dict[str, Any]] = None,
-    tags: Optional[List[str]] = None,
-) -> None:
-    """Send analytics events without impacting request flow."""
-
-    context: Dict[str, Optional[str]] = {}
-    request_id = getattr(request.state, "request_id", None)
-    if request_id:
-        context["requestId"] = request_id
-    traceparent = request.headers.get("traceparent")
-    if traceparent:
-        context["traceId"] = traceparent
-
-    try:
-        await analytics_client.record_event(
-            {
-                "event": event_name,
-                "service": SERVICE_NAME,
-                "source": "fastapi.backend",
-                "orgId": org_id,
-                "actorId": actor_id,
-                "properties": properties or {},
-                "tags": tags or [],
-                "context": context,
-            }
-        )
-    except Exception as exc:  # pragma: no cover - non-critical path
-        logger.warning("analytics.event_emit_failed", event=event_name, error=str(exc))
 
 
 def _load_permission_map() -> Dict[str, str]:
@@ -1525,6 +1440,7 @@ async def _emit_manifest_alert(job: Dict[str, Any], reason: str) -> None:
     org_id = job.get("org_id")
     if not org_id:
         return
+    event = None
     try:
         event = build_telemetry_alert_event(
             alert_type="DETERMINISTIC_MANIFEST_MISSING",
@@ -1545,24 +1461,48 @@ async def _emit_manifest_alert(job: Dict[str, Any], reason: str) -> None:
             reason=reason,
             errors=exc.errors,
         )
-        return
-
-    span = trace.get_current_span()
-    if span is not None:
-        span.add_event(
-            event.name,
-            {
-                "event.alert_type": event.properties["alertType"],
-                "event.severity": event.properties["severity"],
-                "event.reason": event.properties["context"].get("reason"),
-            },
+        event = None
+    except Exception as exc:  # pragma: no cover - defensive fallback
+        logger.error(
+            "autopilot.manifest_alert_unexpected_error",
+            job_id=job.get("id"),
+            org_id=org_id,
+            reason=reason,
+            error=str(exc),
         )
+        event = None
+
+    payload: Dict[str, Any]
+    if event is not None:
+        span = trace.get_current_span()
+        if span is not None:
+            span.add_event(
+                event.name,
+                {
+                    "event.alert_type": event.properties["alertType"],
+                    "event.severity": event.properties["severity"],
+                    "event.reason": event.properties["context"].get("reason"),
+                },
+            )
+        payload = telemetry_alert_row(event)
+    else:
+        payload = {
+            "org_id": org_id,
+            "alert_type": "DETERMINISTIC_MANIFEST_MISSING",
+            "severity": "CRITICAL",
+            "message": f"Deterministic manifest {reason} for {job.get('kind')}",
+            "context": {
+                "jobId": job.get("id"),
+                "kind": job.get("kind"),
+                "reason": reason,
+            },
+        }
 
     try:
         await supabase_table_request(
             "POST",
             "telemetry_alerts",
-            json=telemetry_alert_row(event),
+            json=payload,
             headers={"Prefer": "return=minimal"},
         )
     except Exception as exc:  # pragma: no cover - defensive logging
@@ -3578,26 +3518,22 @@ async def invite_member(payload: InviteMemberRequest, auth: Dict[str, Any] = Dep
     }
 
 
-@app.post("/api/release-controls/check")
-async def check_release_controls(payload: Dict[str, Any], auth: Dict[str, Any] = Depends(require_auth)) -> Dict[str, Any]:
+@app.post("/api/release-controls/check", response_model=ReleaseControlCheckResponse)
+async def check_release_controls(
+    payload: ReleaseControlCheckRequest, auth: Dict[str, Any] = Depends(require_auth)
+) -> ReleaseControlCheckResponse:
     user_id = auth.get("sub")
     if not user_id:
         raise HTTPException(status_code=401, detail="unauthenticated")
 
-    org_slug_raw = payload.get("orgSlug") or payload.get("org_slug")
-    org_slug = org_slug_raw.strip() if isinstance(org_slug_raw, str) else ""
+    org_slug = payload.normalized_org_slug()
     if not org_slug:
         raise HTTPException(status_code=400, detail="orgSlug is required")
 
     context = await resolve_org_context(user_id, org_slug)
     ensure_min_role(context.get("role"), "MANAGER")
 
-    engagement_input = payload.get("engagementId")
-    engagement_id = (
-        engagement_input.strip()
-        if isinstance(engagement_input, str) and engagement_input.strip()
-        else None
-    )
+    engagement_id = payload.normalized_engagement_id()
 
     requirements = get_release_control_settings_config()
     archive_settings = requirements.get("archive", {}) if isinstance(requirements, Mapping) else {}
@@ -3623,12 +3559,12 @@ async def check_release_controls(payload: Dict[str, Any], auth: Dict[str, Any] =
 
     generated_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
-    return {
-        "requirements": requirements,
-        "status": status,
-        "environment": environment_summary,
-        "generatedAt": generated_at,
-    }
+    return ReleaseControlCheckResponse(
+        requirements=requirements,
+        status=status,
+        environment=environment_summary,
+        generatedAt=generated_at,
+    )
 
 
 @app.post("/api/iam/members/accept")
@@ -4572,13 +4508,6 @@ async def create_ada_run(
     try:
         sanitised_params, dataset_hash, analytics_result = run_analytics(payload.kind.value, payload.params)
     except AnalyticsValidationError as exc:
-        await _emit_analytics_event(
-            "analytics.run.validation_failed",
-            request=request,
-            org_id=payload.orgId,
-            actor_id=payload.userId,
-            properties={"kind": payload.kind.value, "reason": str(exc)},
-        )
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     run_body = {
@@ -4620,18 +4549,6 @@ async def create_ada_run(
             "kind": payload.kind.value,
             "datasetRef": payload.datasetRef,
             "datasetHash": dataset_hash,
-        },
-    )
-    await _emit_analytics_event(
-        "analytics.run.started",
-        request=request,
-        org_id=payload.orgId,
-        actor_id=payload.userId,
-        properties={
-            "runId": run_row.get("id"),
-            "kind": payload.kind.value,
-            "datasetHash": dataset_hash,
-            "engagementId": payload.engagementId,
         },
     )
 
@@ -4692,13 +4609,6 @@ async def create_ada_run(
             body=update_response.text,
             run_id=run_row.get("id"),
         )
-        await _emit_analytics_event(
-            "analytics.run.failed",
-            request=request,
-            org_id=payload.orgId,
-            actor_id=payload.userId,
-            properties={"runId": run_row.get("id"), "stage": "update", "status": update_response.status_code},
-        )
         raise HTTPException(status_code=502, detail="failed to finalise analytics run")
 
     updated_rows = update_response.json() or []
@@ -4727,18 +4637,6 @@ async def create_ada_run(
             duration_seconds = max((finish_dt - start_dt).total_seconds(), 0.0)
         except ValueError:
             duration_seconds = None
-    await _emit_analytics_event(
-        "analytics.run.completed",
-        request=request,
-        org_id=payload.orgId,
-        actor_id=payload.userId,
-        properties={
-            "runId": updated_run.get("id"),
-            "exceptions": len(exception_rows),
-            "durationSeconds": duration_seconds,
-        },
-        tags=[payload.kind.value],
-    )
 
     manifest = build_manifest(
         kind=f"analytics.{payload.kind.value.lower()}",

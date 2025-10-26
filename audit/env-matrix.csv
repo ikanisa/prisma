@@ -13,6 +13,7 @@ apps/web,N8N_WEBHOOK_SECRET,server,false,,Legacy automation webhook secret fallb
 apps/web,DATABASE_URL,server,false,,PostgreSQL connection string used by Prisma and health checks.
 apps/web,SKIP_HEALTHCHECK_DB,server,false,false,Bypass database connectivity check on the `/api/healthz` endpoint.
 apps/web,RECONCILIATION_MODE,server,false,db,Server-side reconciliation handler (`db` or experimental `memory`).
+apps/web,WEB_SENTRY_DSN,server,false,,Sentry DSN for Next.js server error reporting.
 apps/web,NEXT_PUBLIC_SUPABASE_URL,client,true,,Public Supabase URL surfaced to the browser.
 apps/web,NEXT_PUBLIC_SUPABASE_ANON_KEY,client,true,,Anon/publishable Supabase key for browser access.
 apps/web,NEXT_PUBLIC_API_BASE,client,false,,External API base URL for client fetches (falls back to same origin when empty).
@@ -22,6 +23,7 @@ apps/web,NEXT_PUBLIC_GROUP_AUDIT_MODE,client,false,workspace,Feature flag for gr
 apps/web,NEXT_PUBLIC_DEMO_ORG_ID,client,false,,Optional default organisation slug for demo views.
 apps/web,NEXT_PUBLIC_DEMO_ENGAGEMENT_ID,client,false,,Optional default engagement identifier for demo views.
 apps/web,NEXT_PUBLIC_DEMO_USER_ID,client,false,,Optional default user identifier for demo/demo analytics cards.
+apps/web,NEXT_PUBLIC_SENTRY_DSN,client,false,,Browser Sentry DSN mirroring WEB_SENTRY_DSN for telemetry.
 apps/web,OPENAI_DEFAULT_REASONING_EFFORT,server,false,low,Global Responses API reasoning effort (minimal/low/medium/high) forwarded to the agent guard.
 apps/web,OPENAI_DEFAULT_VERBOSITY,server,false,medium,Verbosity defaults for Responses API requests issued by web API routes.
 apps/web,OPENAI_AGENT_REASONING_EFFORT,server,false,low,Override reasoning effort used by createApiGuard agent flows.
@@ -37,6 +39,7 @@ apps/gateway,NODE_ENV,server,false,development,Node environment indicator used f
 apps/gateway,SERVICE_VERSION,server,false,,Deployed version string surfaced in headers/user-agent.
 apps/gateway,SENTRY_RELEASE,server,false,,Sentry release identifier used when reporting errors.
 apps/gateway,SENTRY_ENVIRONMENT,server,false,,Sentry environment name.
+apps/gateway,SENTRY_DSN,server,false,,Sentry DSN for gateway error reporting.
 apps/gateway,API_BASE_URL,server,false,,Fallback FastAPI base URL for proxy routes.
 apps/gateway,FASTAPI_BASE_URL,server,false,,Preferred FastAPI base URL for proxy routes.
 apps/gateway,ALLOW_SENTRY_DRY_RUN,server,false,false,Enables Sentry dry-run endpoints when true.

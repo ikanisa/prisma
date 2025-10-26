@@ -1,13 +1,7 @@
-import { AsyncBoundary } from '@/src/components/async-boundary';
-import { LoadingStack } from '@/src/components/loading-skeleton';
+'use client';
+
 import { AgentTaskList } from '@/src/features/agents';
 import { DocumentGrid } from '@/src/features/documents';
-
-const ErrorState = () => (
-  <div className="rounded-md border border-destructive bg-destructive/10 p-4 text-sm text-destructive" role="alert">
-    Something went wrong while loading operational data. Try refreshing the page.
-  </div>
-);
 
 export default function Dashboard() {
   return (
@@ -22,13 +16,9 @@ export default function Dashboard() {
         </p>
       </header>
 
-      <AsyncBoundary pendingFallback={<LoadingStack rows={4} />} errorFallback={<ErrorState />}>
-        <AgentTaskList />
-      </AsyncBoundary>
+      <AgentTaskList />
 
-      <AsyncBoundary pendingFallback={<LoadingStack rows={3} />} errorFallback={<ErrorState />}>
-        <DocumentGrid />
-      </AsyncBoundary>
+      <DocumentGrid />
     </main>
   );
 }

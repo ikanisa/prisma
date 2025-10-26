@@ -22,7 +22,7 @@ from typing import Any, Dict, Iterable, List, Optional
 
 import structlog
 
-from .openai_client import get_openai_client
+from .openai import get_openai_client
 
 logger = structlog.get_logger(__name__)
 

@@ -1,5 +1,5 @@
 # ---- Build stage ----
-FROM node:20-alpine AS builder
+FROM node:20.19.4-alpine AS builder
 WORKDIR /app
 
 # Corepack + pnpm
@@ -23,7 +23,7 @@ WORKDIR /app/apps/web
 RUN pnpm build
 
 # ---- Runtime stage ----
-FROM node:20-alpine
+FROM node:20.19.4-alpine
 WORKDIR /app
 
 RUN apk add --no-cache wget

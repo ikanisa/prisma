@@ -3,6 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { auth } from '@/auth';
 import { getSupabaseServiceClient } from '@/lib/supabase/server';
 import { recordSpecialistActivity } from '@/lib/supabase/activity';
+import { logger } from '@/lib/logger';
 
 type ServiceClient = ReturnType<typeof getSupabaseServiceClient>;
 
@@ -39,7 +40,7 @@ async function resolveAuthenticatedUser(client: ServiceClient) {
     const session = await auth();
     sessionUser = (session?.user as SessionUser | undefined) ?? null;
   } catch (error) {
-    console.error('Failed to resolve session for specialist expert request', error);
+    logger.error('specialist_expert.session_resolution_failed', { error });
     throw new HttpError(500, 'Unable to verify authentication');
   }
 
@@ -61,7 +62,7 @@ async function resolveAuthenticatedUser(client: ServiceClient) {
       .maybeSingle<{ user_id: string; full_name: string | null }>();
 
     if (error) {
-      console.error('Failed to resolve user from email for specialist expert request', error);
+      logger.error('specialist_expert.email_lookup_failed', { error, email });
       throw new HttpError(500, 'Unable to resolve current user');
     }
 
@@ -86,7 +87,7 @@ async function ensureOrgMembership(client: ServiceClient, orgId: string, userId:
     .maybeSingle<{ role: string }>();
 
   if (membershipError) {
-    console.error('Failed to verify organisation membership for specialist expert request', membershipError);
+    logger.error('specialist_expert.membership_check_failed', { error: membershipError, orgId, userId });
     throw new HttpError(500, 'Unable to verify organisation membership');
   }
 
@@ -101,7 +102,7 @@ async function ensureOrgMembership(client: ServiceClient, orgId: string, userId:
     .maybeSingle<{ is_system_admin: boolean }>();
 
   if (userError) {
-    console.error('Failed to verify user privileges for specialist expert request', userError);
+    logger.error('specialist_expert.privilege_check_failed', { error: userError, userId });
     throw new HttpError(500, 'Unable to verify user privileges');
   }
 
@@ -120,7 +121,7 @@ async function ensureEngagementBelongsToOrg(client: ServiceClient, orgId: string
     .maybeSingle<{ org_id: string }>();
 
   if (error) {
-    console.error('Failed to verify engagement ownership for specialist expert request', error);
+    logger.error('specialist_expert.engagement_check_failed', { error, orgId, engagementId });
     throw new HttpError(500, 'Unable to verify engagement access');
   }
 
@@ -170,7 +171,7 @@ export async function POST(request: NextRequest) {
     if (error instanceof HttpError) {
       return NextResponse.json({ error: error.message }, { status: error.status });
     }
-    console.error('Unexpected error while resolving current user for specialist expert', error);
+    logger.error('specialist_expert.resolve_current_user_unexpected', { error });
     return NextResponse.json({ error: 'Failed to resolve current user' }, { status: 500 });
   }
 
@@ -181,7 +182,7 @@ export async function POST(request: NextRequest) {
     if (error instanceof HttpError) {
       return NextResponse.json({ error: error.message }, { status: error.status });
     }
-    console.error('Unexpected authorisation error for specialist expert request', error);
+    logger.error('specialist_expert.authorization_unexpected', { error });
     return NextResponse.json({ error: 'Unable to verify access for this engagement' }, { status: 500 });
   }
 

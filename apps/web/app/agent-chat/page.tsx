@@ -1,7 +1,15 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { clientEnv } from '@/src/env.client';
-import { buildModelResponsePayload, createMessageDraft, createToolOutputDraft, type MessageContentType } from './respond-helpers';
+import {
+  buildModelResponsePayload,
+  createMessageDraft,
+  createToolOutputDraft,
+  type MessageContentType,
+  type ResponseMessageDraft,
+  type ResponseToolOutputDraft,
+} from './respond-helpers';
+import { logger } from '@/lib/logger';
 
 const API_BASE = clientEnv.NEXT_PUBLIC_API_BASE
   ? clientEnv.NEXT_PUBLIC_API_BASE.replace(/\/$/, '')
@@ -9,6 +17,106 @@ const API_BASE = clientEnv.NEXT_PUBLIC_API_BASE
 
 const RESPONSE_MESSAGES_STORAGE_KEY = 'agent-chat.responses.messages';
 const RESPONSE_TOOL_OUTPUTS_STORAGE_KEY = 'agent-chat.responses.tool-outputs';
+const DEFAULT_RESPONSE_MESSAGE = () =>
+  createMessageDraft({
+    role: 'user',
+    content: 'Summarise the key control objectives for this engagement.',
+  });
+
+const DEFAULT_TOOL_OUTPUT = () =>
+  createToolOutputDraft({
+    toolCallId: 'audit.findings.review',
+    outputType: 'json',
+    output: JSON.stringify({ status: 'ok' }, null, 2),
+  });
+
+const parseStoredDrafts = <T,>(
+  raw: unknown,
+  normalize: (entry: Record<string, unknown>) => T | null,
+  fallback: () => T,
+): T[] => {
+  if (!Array.isArray(raw)) {
+    return [fallback()];
+  }
+  const revived = raw
+    .map((entry) => {
+      if (!entry || typeof entry !== 'object') {
+        return null;
+      }
+      return normalize(entry as Record<string, unknown>);
+    })
+    .filter((value): value is T => value !== null);
+  return revived.length > 0 ? revived : [fallback()];
+};
+
+const loadStoredMessages = (): ResponseMessageDraft[] => {
+  if (typeof window === 'undefined') {
+    return [DEFAULT_RESPONSE_MESSAGE()];
+  }
+  try {
+    const raw = window.localStorage.getItem(RESPONSE_MESSAGES_STORAGE_KEY);
+    if (!raw) {
+      return [DEFAULT_RESPONSE_MESSAGE()];
+    }
+    const parsed = JSON.parse(raw) as unknown;
+    return parseStoredDrafts<ResponseMessageDraft>(
+      parsed,
+      (entry) => {
+        const content = typeof entry.content === 'string' ? entry.content : '';
+        const role = typeof entry.role === 'string' ? entry.role : 'user';
+        const name = typeof entry.name === 'string' ? entry.name : '';
+        const contentType: MessageContentType =
+          entry.contentType === 'json' ? 'json' : 'text';
+        return createMessageDraft({
+          id: typeof entry.id === 'string' && entry.id ? entry.id : undefined,
+          role,
+          name,
+          content,
+          contentType,
+        });
+      },
+      DEFAULT_RESPONSE_MESSAGE,
+    );
+  } catch (error) {
+    logger.warn('agent_chat.restore_messages_failed', error);
+    return [DEFAULT_RESPONSE_MESSAGE()];
+  }
+};
+
+const loadStoredToolOutputs = (): ResponseToolOutputDraft[] => {
+  if (typeof window === 'undefined') {
+    return [DEFAULT_TOOL_OUTPUT()];
+  }
+  try {
+    const raw = window.localStorage.getItem(RESPONSE_TOOL_OUTPUTS_STORAGE_KEY);
+    if (!raw) {
+      return [DEFAULT_TOOL_OUTPUT()];
+    }
+    const parsed = JSON.parse(raw) as unknown;
+    return parseStoredDrafts<ResponseToolOutputDraft>(
+      parsed,
+      (entry) => {
+        const toolCallId = typeof entry.toolCallId === 'string' ? entry.toolCallId : '';
+        const output = typeof entry.output === 'string' ? entry.output : '';
+        const outputType: MessageContentType =
+          entry.outputType === 'json' ? 'json' : 'text';
+        if (!toolCallId && !output) {
+          return null;
+        }
+        return createToolOutputDraft({
+          id: typeof entry.id === 'string' && entry.id ? entry.id : undefined,
+          toolCallId,
+          output,
+          outputType,
+        });
+      },
+      DEFAULT_TOOL_OUTPUT,
+    );
+  } catch (error) {
+    logger.warn('agent_chat.restore_tool_outputs_failed', error);
+    return [DEFAULT_TOOL_OUTPUT()];
+  }
+};
 
 interface StreamMessage {
   type: string;
@@ -161,6 +269,16 @@ export default function AgentChat() {
   const [conversationHasMore, setConversationHasMore] = useState(false);
   const eventSourceRef = useRef<EventSource | null>(null);
   const conversationIdRef = useRef<string | null>(null);
+  const [responseMessages, setResponseMessages] = useState<ResponseMessageDraft[]>(loadStoredMessages);
+  const [responseToolOutputs, setResponseToolOutputs] = useState<ResponseToolOutputDraft[]>(loadStoredToolOutputs);
+  const [responseModel, setResponseModel] = useState('');
+  const [responseRequestJson, setResponseRequestJson] = useState('');
+  const [responseError, setResponseError] = useState<string | null>(null);
+  const [responseWarnings, setResponseWarnings] = useState<string[]>([]);
+  const [responseInFlight, setResponseInFlight] = useState(false);
+  const [responseResult, setResponseResult] = useState<Record<string, unknown> | null>(null);
+  const [responseDurationMs, setResponseDurationMs] = useState<number | null>(null);
+  const [lastResponsePayload, setLastResponsePayload] = useState<Record<string, unknown> | null>(null);
 
   useEffect(() => {
     return () => {
@@ -518,7 +636,7 @@ export default function AgentChat() {
           void loadConversationItems(conversationIdRef.current);
         }
       } catch (err) {
-        console.warn('Failed to parse SSE payload', err, event.data);
+        logger.warn('agent_chat.sse_parse_failed', { error: err, raw: event.data });
       }
     };
 

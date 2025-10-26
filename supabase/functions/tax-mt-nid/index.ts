@@ -12,9 +12,9 @@ import {
   calculatePillarTwo,
   calculateTreatyWht,
   calculateUsOverlay,
-} from '../../../src/lib/tax/calculators.ts';
+} from '@prisma-glow/tax/calculators';
 import { logEdgeError } from '../_shared/error-notify.ts';
-import { assessDac6 } from '../../../src/lib/tax/dac6.ts';
+import { assessDac6 } from '@prisma-glow/tax/dac6';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': Deno.env.get('API_ALLOWED_ORIGINS') ?? '*',

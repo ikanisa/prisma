@@ -1,5 +1,6 @@
 import { inspect } from 'node:util';
 import { z } from 'zod';
+import { logger } from '@prisma-glow/logger';
 
 const booleanish = z
   .union([z.string(), z.boolean(), z.number()])
@@ -12,6 +13,8 @@ const booleanish = z
 
 const optionalBooleanish = booleanish.optional().default(false);
 
+const DEFAULT_ALLOWED_ORIGINS = ['http://localhost:3000', 'http://localhost:5173'] as const;
+
 const baseSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   ENVIRONMENT: z.string().optional(),
@@ -21,6 +24,9 @@ const baseSchema = z.object({
   SERVICE_VERSION: z.string().optional(),
   SENTRY_RELEASE: z.string().optional(),
   SENTRY_ENVIRONMENT: z.string().optional(),
+  SENTRY_DSN: z.string().url().optional(),
+  GATEWAY_SENTRY_DSN: z.string().url().optional(),
+  SENTRY_TRACES_SAMPLE_RATE: z.coerce.number().min(0).max(1).optional(),
   ALLOW_SENTRY_DRY_RUN: optionalBooleanish,
   ANALYTICS_SERVICE_URL: z.string().url().optional(),
   ANALYTICS_SERVICE_TOKEN: z.string().optional(),
@@ -32,6 +38,7 @@ const baseSchema = z.object({
   AGENT_SERVICE_API_KEY: z.string().optional(),
   RAG_SERVICE_URL: z.string().url().optional(),
   RAG_SERVICE_API_KEY: z.string().optional(),
+  API_ALLOWED_ORIGINS: z.string().optional(),
 });
 
 const parsed = baseSchema.safeParse({
@@ -43,6 +50,9 @@ const parsed = baseSchema.safeParse({
   SERVICE_VERSION: process.env.SERVICE_VERSION,
   SENTRY_RELEASE: process.env.SENTRY_RELEASE,
   SENTRY_ENVIRONMENT: process.env.SENTRY_ENVIRONMENT,
+  SENTRY_DSN: process.env.SENTRY_DSN,
+  GATEWAY_SENTRY_DSN: process.env.GATEWAY_SENTRY_DSN,
+  SENTRY_TRACES_SAMPLE_RATE: process.env.SENTRY_TRACES_SAMPLE_RATE,
   ALLOW_SENTRY_DRY_RUN: process.env.ALLOW_SENTRY_DRY_RUN,
   ANALYTICS_SERVICE_URL: process.env.ANALYTICS_SERVICE_URL,
   ANALYTICS_SERVICE_TOKEN: process.env.ANALYTICS_SERVICE_TOKEN,
@@ -54,14 +64,44 @@ const parsed = baseSchema.safeParse({
   AGENT_SERVICE_API_KEY: process.env.AGENT_SERVICE_API_KEY,
   RAG_SERVICE_URL: process.env.RAG_SERVICE_URL,
   RAG_SERVICE_API_KEY: process.env.RAG_SERVICE_API_KEY,
+  API_ALLOWED_ORIGINS: process.env.API_ALLOWED_ORIGINS,
 });
 
 if (!parsed.success) {
-  console.error('apps/gateway: invalid environment variables', inspect(parsed.error.format(), { depth: null }));
+  logger.error('apps/gateway.invalid_environment', {
+    details: inspect(parsed.error.format(), { depth: null }),
+  });
   throw new Error('apps/gateway environment validation failed');
 }
 
-export const env = Object.freeze(parsed.data);
+function normaliseAllowedOrigins(raw: string | undefined): string[] {
+  if (!raw) {
+    return [...DEFAULT_ALLOWED_ORIGINS];
+  }
+  const trimmed = raw.trim();
+  if (!trimmed) {
+    return [...DEFAULT_ALLOWED_ORIGINS];
+  }
+  if (trimmed === '*') {
+    return ['*'];
+  }
+  const unique = new Set<string>();
+  for (const origin of trimmed.split(',')) {
+    const candidate = origin.trim();
+    if (candidate) {
+      unique.add(candidate);
+    }
+  }
+  if (unique.size === 0) {
+    return [...DEFAULT_ALLOWED_ORIGINS];
+  }
+  return Array.from(unique);
+}
+
+export const env = Object.freeze({
+  ...parsed.data,
+  allowedOrigins: normaliseAllowedOrigins(parsed.data.API_ALLOWED_ORIGINS),
+});
 
 const dynamicSchema = z.object({
   FASTAPI_BASE_URL: z.string().url().optional(),
@@ -80,7 +120,9 @@ export function getRuntimeEnv(): DynamicEnv {
   });
 
   if (!evaluated.success) {
-    console.error('apps/gateway: invalid runtime environment variables', inspect(evaluated.error.format(), { depth: null }));
+    logger.error('apps/gateway.invalid_runtime_environment', {
+      details: inspect(evaluated.error.format(), { depth: null }),
+    });
     return { FASTAPI_BASE_URL: null, API_BASE_URL: null };
   }
 

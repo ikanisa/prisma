@@ -1,6 +1,7 @@
 type PrismaClientLike = {
   $connect(): Promise<void> | void;
   $disconnect(): Promise<void> | void;
+  $queryRaw<T = unknown>(...args: unknown[]): Promise<T> | T;
 };
 
 type PrismaClientConstructor = new (...args: unknown[]) => PrismaClientLike;
@@ -14,6 +15,10 @@ const FallbackPrismaClient: PrismaClientConstructor = class implements PrismaCli
 
   async $disconnect(): Promise<void> {
     return Promise.resolve();
+  }
+
+  async $queryRaw<T = unknown>(): Promise<T> {
+    return Promise.resolve(undefined as T);
   }
 };
 

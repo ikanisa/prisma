@@ -1,1 +1,34 @@
-export * from '../../../src/lib/client-events';
+export type ClientEventLevel = 'info' | 'warn' | 'error';
+
+export interface ClientEvent {
+  name: string;
+  level?: ClientEventLevel;
+  data?: Record<string, unknown>;
+}
+
+const EVENT_BUFFER_KEY = '__prismaglow_client_events__';
+const DEFAULT_LEVEL: ClientEventLevel = 'info';
+
+function pushToBuffer(event: ClientEvent & { timestamp: number }) {
+  if (typeof window === 'undefined') return;
+  const existing = (window as typeof window & { [EVENT_BUFFER_KEY]?: typeof event[] })[EVENT_BUFFER_KEY];
+  const buffer = Array.isArray(existing) ? existing.slice(-49) : [];
+  buffer.push(event);
+  (window as typeof window & { [EVENT_BUFFER_KEY]?: typeof event[] })[EVENT_BUFFER_KEY] = buffer;
+  window.dispatchEvent(new CustomEvent('prismaglow:client-event', { detail: event }));
+}
+
+export function recordClientEvent(event: ClientEvent) {
+  pushToBuffer({ ...event, level: event.level ?? DEFAULT_LEVEL, timestamp: Date.now() });
+}
+
+export function recordClientError(event: ClientEvent & { error: unknown }) {
+  recordClientEvent({
+    name: event.name,
+    level: 'error',
+    data: {
+      ...(event.data ?? {}),
+      message: event.error instanceof Error ? event.error.message : String(event.error),
+    },
+  });
+}

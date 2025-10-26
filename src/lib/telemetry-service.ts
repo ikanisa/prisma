@@ -1,6 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
+import { getSupabaseFunctionBaseUrl } from '@/lib/supabase-functions';
 
-const TELEMETRY_ENDPOINT = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/telemetry-sync`;
+const TELEMETRY_ENDPOINT = getSupabaseFunctionBaseUrl('telemetry-sync');
 
 async function getAccessToken() {
   const { data } = await supabase.auth.getSession();

@@ -1,6 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
+import { getSupabaseFunctionBaseUrl } from '@/lib/supabase-functions';
 
-const FUNCTIONS_BASE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/audit-responses`;
+const FUNCTIONS_BASE_URL = getSupabaseFunctionBaseUrl('audit-responses');
 
 async function getAccessToken(): Promise<string | null> {
   const { data } = await supabase.auth.getSession();

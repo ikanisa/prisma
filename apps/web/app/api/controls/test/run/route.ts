@@ -1,21 +1,47 @@
 import { NextResponse } from 'next/server';
-import { ZodError } from 'zod';
-import { getServiceSupabaseClient } from '@/lib/supabase-server';
-import { runControlTestSchema } from '@/lib/audit/schemas';
-import { logAuditActivity } from '@/lib/audit/activity-log';
-import { ensureAuditRecordApprovalStage, upsertAuditModuleRecord } from '@/lib/audit/module-records';
-import { buildEvidenceManifest } from '@/lib/audit/evidence';
+import { ZodError, z } from 'zod';
 import { attachRequestId, getOrCreateRequestId } from '@/app/lib/observability';
 import { createApiGuard } from '@/app/lib/api-guard';
-import { resolveSamplingClient } from './sampling-factory';
+import { getServiceSupabaseClient } from '@/lib/supabase-server';
+import { getSamplingClient, SamplingServiceError } from '@/lib/audit/sampling-client';
+import { controlTestResultEnum } from '@/lib/audit/schemas';
+import { upsertTestRun, listTestRuns } from '@/lib/audit/test-run-store';
+import type { SamplingAttributeRequest, SamplingAttributeResult } from '@/lib/audit/types';
+import type { SamplingPlanItem } from '@/lib/audit/sampling-client';
+import { logger } from '@/lib/logger';
+
+const attributeSchema = z.object({
+  attributeKey: z.string().min(1),
+  population: z.number().int().positive(),
+  description: z.string().optional(),
+});
+
+const runRequestSchema = z.object({
+  orgId: z.string().min(1),
+  engagementId: z.string().min(1),
+  controlId: z.string().min(1),
+  userId: z.string().min(1),
+  testPlanId: z.string().min(1),
+  attributes: z.array(attributeSchema).min(1),
+  result: controlTestResultEnum,
+  runId: z.string().optional(),
+  samplePlanRef: z.string().optional(),
+});
+
+export async function GET(request: Request) {
+  const requestId = getOrCreateRequestId(request);
+  return NextResponse.json(
+    { runs: listTestRuns() },
+    attachRequestId({ status: 200 }, requestId),
+  );
+}
 
 export async function POST(request: Request) {
   const requestId = getOrCreateRequestId(request);
-  const supabase = await getServiceSupabaseClient();
   let payload;
 
   try {
-    payload = runControlTestSchema.parse(await request.json());
+    payload = runRequestSchema.parse(await request.json());
   } catch (error) {
     if (error instanceof ZodError) {
       return NextResponse.json(
@@ -34,13 +60,14 @@ export async function POST(request: Request) {
     engagementId,
     controlId,
     userId,
-    attributes,
     result,
     samplePlanRef,
-    deficiencyRecommendation,
-    deficiencySeverity,
+    testPlanId,
+    attributes,
+    runId,
   } = payload;
 
+  const supabase = await getServiceSupabaseClient();
   const guard = await createApiGuard({
     request,
     supabase,
@@ -52,186 +79,67 @@ export async function POST(request: Request) {
   if (guard.rateLimitResponse) return guard.rateLimitResponse;
   if (guard.replayResponse) return guard.replayResponse;
 
-  const { data: control, error: controlError } = await supabase
-    .from('controls')
-    .select('cycle, objective')
-    .eq('id', controlId)
-    .eq('org_id', orgId)
-    .maybeSingle();
-
-  if (controlError) {
-    return guard.json({ error: controlError.message }, { status: 500 });
-  }
-  if (!control) {
-    return guard.json({ error: 'Control not found for sampling.' }, { status: 404 });
-  }
-
-  // Use the (possibly injected) sampling client
-  const samplingClient = resolveSamplingClient();
-  const samplingPlan = await samplingClient.requestPlan({
-    orgId,
-    engagementId,
-    controlId,
-    requestedSampleSize: attributes.length,
-    cycle: control.cycle,
-    objective: control.objective,
-  });
-
-  const enrichedAttributes = attributes.map((attribute, index) => {
-    const planItem = samplingPlan.items[index];
-    return {
-      ...attribute,
-      sampleItemId: planItem?.id ?? null,
-      populationRef: planItem?.populationRef ?? null,
-      stratum: planItem?.stratum ?? null,
-      manualReference: samplePlanRef ?? null,
-    };
-  });
-
-  const { data: test, error: testError } = await supabase
-    .from('control_tests')
-    .insert({
-      org_id: orgId,
-      control_id: controlId,
-      attributes: enrichedAttributes,
-      result,
-      sample_plan_ref: samplingPlan.id,
-      performed_by: userId,
-    })
-    .select()
-    .maybeSingle();
-
-  if (testError || !test) {
-    return guard.json({ error: testError?.message ?? 'Failed to record control test.' }, { status: 500 });
-  }
-
-  const exceptionsCount = enrichedAttributes.filter(item => !item.passed).length;
-
-  await logAuditActivity(supabase, {
-    orgId,
-    userId,
-    action: 'CTRL_TEST_RUN',
-    entityId: controlId,
-    metadata: {
-      testId: test.id,
-      samplePlanRef: samplingPlan.id,
-      result: test.result,
-      sampleSize: enrichedAttributes.length,
-      exceptions: exceptionsCount,
-      samplingSource: samplingPlan.source,
-      requestId,
-    },
-  });
-
-  type DeficiencyRow = {
-    id: string;
-    org_id: string;
-    engagement_id: string;
-    control_id: string;
-    recommendation: string | null;
-    severity: string;
-  };
-  let deficiency: DeficiencyRow | null = null;
-  if (result === 'EXCEPTIONS') {
-    const severity = deficiencySeverity ?? 'MEDIUM';
-    const { data, error } = await supabase
-      .from('deficiencies')
-      .insert({
-        org_id: orgId,
-        engagement_id: engagementId,
-        control_id: controlId,
-        recommendation: deficiencyRecommendation!,
-        severity,
-      })
-      .select()
-      .maybeSingle();
-
-    if (error || !data) {
+  const samplingClient = getSamplingClient();
+  let plan;
+  try {
+    plan = await samplingClient.requestPlan({
+      orgId,
+      engagementId,
+      controlId,
+      requestedSampleSize: attributes.length,
+    });
+  } catch (error) {
+    if (error instanceof SamplingServiceError) {
+      logger.error('controls.test.run.sampling_failed', { error, requestId, orgId, engagementId, controlId });
       return guard.json(
-        { error: error?.message ?? 'Exceptions noted but deficiency creation failed.' },
-        { status: 500 },
+        { error: error.message },
+        { status: error.statusCode ?? 503 },
       );
     }
-    deficiency = data as DeficiencyRow;
-
-    await logAuditActivity(supabase, {
-      orgId,
-      userId,
-      action: 'CTRL_DEFICIENCY_RAISED',
-      entityId: controlId,
-      metadata: {
-        deficiencyId: data.id,
-        severity: data.severity,
-        requestId,
-      },
-    });
+    logger.error('controls.test.run.plan_unexpected_error', { error, requestId, orgId, engagementId, controlId });
+    return guard.json(
+      { error: 'Unable to request a sampling plan.' },
+      { status: 500 },
+    );
   }
 
-  try {
-    const manifest = buildEvidenceManifest({
-      moduleCode: 'CTRL1',
-      recordRef: controlId,
-      sampling: {
-        planId: samplingPlan.id,
-        size: enrichedAttributes.length,
-        source: samplingPlan.source,
-        items: samplingPlan.items,
-      },
-      metadata: {
-        result,
-        exceptions: exceptionsCount,
-      },
-    });
+  const run = upsertTestRun({
+    id: runId,
+    controlId,
+    testPlanId,
+    samplePlanRef: samplePlanRef ?? plan.id,
+    samplePlanUrl: plan.items.length ? plan.items[0]?.populationRef ?? plan.id : plan.id,
+    status: plan.source === 'service' ? 'completed' : 'partial',
+    attributes: mapAttributes(attributes, plan.items),
+    requestedAt: plan.generatedAt,
+  });
 
-    const metadata: Record<string, unknown> = {
-      lastTestRunAt: manifest.generatedAt,
-      samplePlanId: samplingPlan.id,
-      sampleSource: samplingPlan.source,
-      sampleSize: enrichedAttributes.length,
-      exceptions: exceptionsCount,
-      result,
-      manifest,
+  return guard.respond({
+    run,
+    samplingPlan: plan,
+    result,
+  }, { status: runId ? 200 : 201 });
+}
+
+function mapAttributes(source: SamplingAttributeRequest[], planItems: SamplingPlanItem[]): SamplingAttributeResult[] {
+  return source.map((attribute, index) => {
+    const planItem = planItems[index];
+    const samples: SamplingAttributeResult['samples'] = planItem
+      ? [
+          {
+            recordId: planItem.id,
+            description: planItem.description ?? planItem.populationRef ?? attribute.attributeKey,
+          },
+        ]
+      : [];
+
+    return {
+      attributeKey: attribute.attributeKey,
+      population: attribute.population,
+      description: attribute.description,
+      sampleSize: samples.length || 1,
+      status: 'sampled',
+      samples,
     };
-
-    if (deficiency) {
-      metadata.deficiencyId = deficiency.id;
-      metadata.deficiencySeverity = deficiency.severity;
-    }
-
-    await upsertAuditModuleRecord(supabase, {
-      orgId,
-      engagementId,
-      moduleCode: 'CTRL1',
-      recordRef: controlId,
-      recordStatus: 'READY_FOR_REVIEW',
-      approvalState: 'SUBMITTED',
-      currentStage: 'MANAGER',
-      currentReviewerUserId: null,
-      metadata,
-      updatedByUserId: userId,
-    });
-
-    await ensureAuditRecordApprovalStage(supabase, {
-      orgId,
-      engagementId,
-      moduleCode: 'CTRL1',
-      recordRef: controlId,
-      stage: 'MANAGER',
-      decision: 'PENDING',
-      metadata: {
-        samplePlanId: samplingPlan.id,
-        exceptions: exceptionsCount,
-        result,
-      },
-      userId,
-    });
-  } catch (moduleError) {
-    const message =
-      moduleError instanceof Error
-        ? moduleError.message
-        : 'Failed to flag audit module record for review.';
-    return guard.json({ error: message }, { status: 500 });
-  }
-
-  return guard.respond({ test, deficiency, samplingPlan });
+  });
 }
