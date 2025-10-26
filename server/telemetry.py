@@ -61,6 +61,12 @@ def configure_fastapi_tracing(
     global _configured_provider
     settings = get_system_settings()
     telemetry = settings.telemetry
+    if not telemetry.should_enable_tracing(environment=environment):
+        _logger.info(
+            "telemetry.disabled",
+            environment=environment or telemetry.resolve_environment(),
+        )
+        return trace.get_tracer(service_name)
     provider = trace.get_tracer_provider()
     if not isinstance(provider, TracerProvider):
         provider = _build_tracer_provider(

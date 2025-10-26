@@ -420,8 +420,19 @@ def get_workflow_definitions() -> Dict[str, Dict[str, Any]]:
                     continue
                 tool_registry.setdefault(key, []).append(agent_id)
     default_autonomy = get_default_autonomy_level()
+    definitions_source: Mapping[str, Any] | None = None
     if isinstance(workflows, Mapping):
-        for key, value in workflows.items():
+        candidate = workflows.get("definitions")
+        if isinstance(candidate, Mapping):
+            definitions_source = candidate
+        else:
+            definitions_source = {
+                key: value
+                for key, value in workflows.items()
+                if key not in {"enabled", "disabled_environments", "definitions"}
+            }
+    if isinstance(definitions_source, Mapping):
+        for key, value in definitions_source.items():
             if not isinstance(value, Mapping):
                 continue
             workflow_key = str(key or "").strip()
