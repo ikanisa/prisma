@@ -248,6 +248,59 @@ function getDataSourceSections(config) {
     const modern = isRecord(config?.datasources) ? config.datasources : undefined;
     return { legacy, modern };
 }
+const DEFAULT_ENCRYPTION_KEY_SETTINGS = Object.freeze({
+    provider: null,
+    keyReference: null,
+    rotationPeriodDays: null,
+});
+function normaliseEncryptionEntry(raw) {
+    if (!isRecord(raw)) {
+        return { ...DEFAULT_ENCRYPTION_KEY_SETTINGS };
+    }
+    const providerValue = raw.provider ?? raw.provider_id ?? raw.kms_provider;
+    const provider = typeof providerValue === 'string' && providerValue.trim() ? providerValue.trim() : null;
+    const keyValue = raw.key_reference ??
+        raw.keyReference ??
+        raw.reference ??
+        raw.resource ??
+        raw.kms_key ??
+        raw.kmsKey ??
+        null;
+    const keyReference = typeof keyValue === 'string' && keyValue.trim() ? keyValue.trim() : null;
+    const rotationValue = raw.rotation_days ??
+        raw.rotationDays ??
+        raw.rotation_period_days ??
+        raw.rotationPeriodDays ??
+        raw.rotation ??
+        null;
+    const rotation = coerceNumber(rotationValue);
+    const rotationPeriodDays = typeof rotation === 'number' && rotation > 0 ? rotation : null;
+    return {
+        provider,
+        keyReference,
+        rotationPeriodDays,
+    };
+}
+function resolveEncryptionSection(config) {
+    const section = isRecord(config.encryption) ? config.encryption : {};
+    const supabaseRaw = section.supabase ?? section.database;
+    const objectStorageRaw = section.object_storage ?? section.objectStorage ?? section.storage;
+    const jobQueueRaw = section.job_queue ?? section.jobQueue ?? section.queue;
+    return {
+        supabase: normaliseEncryptionEntry(supabaseRaw),
+        objectStorage: normaliseEncryptionEntry(objectStorageRaw),
+        jobQueue: normaliseEncryptionEntry(jobQueueRaw),
+    };
+}
+export async function getEncryptionConfig() {
+    const config = await loadSystemConfig();
+    const resolved = resolveEncryptionSection(config);
+    return {
+        supabase: { ...DEFAULT_ENCRYPTION_KEY_SETTINGS, ...resolved.supabase },
+        objectStorage: { ...DEFAULT_ENCRYPTION_KEY_SETTINGS, ...resolved.objectStorage },
+        jobQueue: { ...DEFAULT_ENCRYPTION_KEY_SETTINGS, ...resolved.jobQueue },
+    };
+}
 export async function getGoogleDriveSettings() {
     const config = await loadSystemConfig();
     const { legacy, modern } = getDataSourceSections(config);

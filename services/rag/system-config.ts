@@ -1,4 +1,6 @@
 export type {
+  EncryptionConfig,
+  EncryptionKeySettings,
   GoogleDriveSettings,
   SystemConfigAccessor,
   UrlSourceSettings,
@@ -10,6 +12,7 @@ export {
   createSystemConfigAccessor,
   getCachedSystemConfig,
   getGoogleDriveSettings,
+  getEncryptionConfig,
   getUrlSourceSettings,
   getBeforeAskingSequence,
   getRoleHierarchy,

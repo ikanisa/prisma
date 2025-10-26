@@ -107,6 +107,20 @@ datasources: &modern_datasources
   email_ingest:
     enabled: false
 
+encryption:
+  supabase:
+    provider: "${SUPABASE_ENCRYPTION_PROVIDER:-aws}"
+    key_reference: "${SUPABASE_ENCRYPTION_KEY_REFERENCE}"
+    rotation_days: 90
+  object_storage:
+    provider: "${OBJECT_STORAGE_ENCRYPTION_PROVIDER:-aws}"
+    key_reference: "${OBJECT_STORAGE_ENCRYPTION_KEY_REFERENCE}"
+    rotation_days: 90
+  job_queue:
+    provider: "${JOB_QUEUE_ENCRYPTION_PROVIDER:-aws}"
+    key_reference: "${JOB_QUEUE_ENCRYPTION_KEY_REFERENCE}"
+    rotation_days: 90
+
 data_sources:
   supabase:
     project_url: "${SUPABASE_URL}"
