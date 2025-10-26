@@ -5,7 +5,7 @@
 - **Primary app:** `apps/web` (Next.js 14 App Router)
 - **Supporting services:** `apps/gateway` (Express proxy), `services/rag` (RAG/worker service)
 - **Package manager:** pnpm 9.12.3 (pinned via `packageManager` field)
-- **Node version:** 18.20.4 (enforced via `.nvmrc` and `package.json` engines)
+- **Node version:** 22.12.0 (enforced via `.nvmrc` and `package.json` engines)
 
 ## Inventory Summary
 See [`audit/inventory.json`](audit/inventory.json) for the full machine-readable snapshot.

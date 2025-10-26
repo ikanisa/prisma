@@ -1,6 +1,6 @@
 -- pgTAP tests for RLS policies
 BEGIN;
-SELECT plan(102);
+SELECT plan(108);
 
 -- Phase A: ensure autonomy metadata columns exist
 SELECT ok(
@@ -131,6 +131,62 @@ SELECT ok(
           AND policyname = 'job_schedules_update'
     ),
     'job_schedules_update policy exists'
+);
+
+-- Notification fanout queue should be service-role gated
+SELECT ok(
+    (SELECT relrowsecurity FROM pg_class WHERE oid = 'public.notification_dispatch_queue'::regclass),
+    'RLS enabled on notification_dispatch_queue table'
+);
+SELECT ok(
+    EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE schemaname = 'public'
+          AND tablename = 'notification_dispatch_queue'
+          AND policyname = 'Service role notification dispatch queue'
+    ),
+    'Service role notification_dispatch_queue policy exists'
+);
+
+SELECT ok(
+    EXISTS (
+        SELECT 1
+        FROM pg_policy pol
+        WHERE pol.schemaname = 'public'
+          AND pol.tablename = 'notification_dispatch_queue'
+          AND pol.policyname = 'Service role notification dispatch queue'
+          AND pg_get_expr(pol.polqual, pol.polrelid) LIKE '%auth.role() = ''service_role''%'
+          AND pg_get_expr(pol.polwithcheck, pol.polrelid) LIKE '%auth.role() = ''service_role''%'
+    ),
+    'Service role notification_dispatch_queue policy enforces auth.role() = service_role'
+);
+
+-- System settings must remain locked to the service role
+SELECT ok(
+    (SELECT relrowsecurity FROM pg_class WHERE oid = 'public.system_settings'::regclass),
+    'RLS enabled on system_settings table'
+);
+SELECT ok(
+    EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE schemaname = 'public'
+          AND tablename = 'system_settings'
+          AND policyname = 'system_settings_service_role'
+    ),
+    'system_settings_service_role policy exists'
+);
+
+SELECT ok(
+    EXISTS (
+        SELECT 1
+        FROM pg_policy pol
+        WHERE pol.schemaname = 'public'
+          AND pol.tablename = 'system_settings'
+          AND pol.policyname = 'system_settings_service_role'
+          AND pg_get_expr(pol.polqual, pol.polrelid) LIKE '%auth.role() = ''service_role''%'
+          AND pg_get_expr(pol.polwithcheck, pol.polrelid) LIKE '%auth.role() = ''service_role''%'
+    ),
+    'system_settings_service_role policy enforces auth.role() = service_role'
 );
 
 SELECT ok(
@@ -497,6 +553,144 @@ SELECT ok(
 SELECT ok(
     EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'control_tests' AND policyname = 'control_tests_delete'),
     'control_tests_delete policy exists'
+);
+
+-- agent workspace tables
+SELECT ok(
+    (SELECT relrowsecurity FROM pg_class WHERE oid = 'public.agent_sessions'::regclass),
+    'RLS enabled on agent_sessions table'
+);
+SELECT ok(
+    EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'agent_sessions' AND policyname = 'sessions_rw'),
+    'sessions_rw policy exists on agent_sessions'
+);
+
+SELECT ok(
+    (SELECT relrowsecurity FROM pg_class WHERE oid = 'public.agent_logs'::regclass),
+    'RLS enabled on agent_logs table'
+);
+SELECT ok(
+    EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'agent_logs' AND policyname = 'logs_r'),
+    'logs_r policy exists on agent_logs'
+);
+
+SELECT ok(
+    (SELECT relrowsecurity FROM pg_class WHERE oid = 'public.agent_runs'::regclass),
+    'RLS enabled on agent_runs table'
+);
+SELECT ok(
+    EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'agent_runs' AND policyname = 'agent_runs_select'),
+    'agent_runs_select policy exists'
+);
+SELECT ok(
+    EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'agent_runs' AND policyname = 'agent_runs_insert'),
+    'agent_runs_insert policy exists'
+);
+SELECT ok(
+    EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'agent_runs' AND policyname = 'agent_runs_update'),
+    'agent_runs_update policy exists'
+);
+SELECT ok(
+    EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'agent_runs' AND policyname = 'agent_runs_delete'),
+    'agent_runs_delete policy exists'
+);
+
+SELECT ok(
+    (SELECT relrowsecurity FROM pg_class WHERE oid = 'public.agent_actions'::regclass),
+    'RLS enabled on agent_actions table'
+);
+SELECT ok(
+    EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'agent_actions' AND policyname = 'agent_actions_select'),
+    'agent_actions_select policy exists'
+);
+SELECT ok(
+    EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'agent_actions' AND policyname = 'agent_actions_insert'),
+    'agent_actions_insert policy exists'
+);
+SELECT ok(
+    EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'agent_actions' AND policyname = 'agent_actions_update'),
+    'agent_actions_update policy exists'
+);
+SELECT ok(
+    EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'agent_actions' AND policyname = 'agent_actions_delete'),
+    'agent_actions_delete policy exists'
+);
+
+SELECT ok(
+    (SELECT relrowsecurity FROM pg_class WHERE oid = 'public.agent_traces'::regclass),
+    'RLS enabled on agent_traces table'
+);
+SELECT ok(
+    EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'agent_traces' AND policyname = 'agent_traces_select'),
+    'agent_traces_select policy exists'
+);
+SELECT ok(
+    EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'agent_traces' AND policyname = 'agent_traces_insert'),
+    'agent_traces_insert policy exists'
+);
+SELECT ok(
+    EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'agent_traces' AND policyname = 'agent_traces_delete'),
+    'agent_traces_delete policy exists'
+);
+
+SELECT ok(
+    (SELECT relrowsecurity FROM pg_class WHERE oid = 'public.agent_policy_versions'::regclass),
+    'RLS enabled on agent_policy_versions table'
+);
+SELECT ok(
+    EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'agent_policy_versions' AND policyname = 'agent_policy_versions_read'),
+    'agent_policy_versions_read policy exists'
+);
+SELECT ok(
+    EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'agent_policy_versions' AND policyname = 'agent_policy_versions_write'),
+    'agent_policy_versions_write policy exists'
+);
+
+SELECT ok(
+    (SELECT relrowsecurity FROM pg_class WHERE oid = 'public.agent_feedback'::regclass),
+    'RLS enabled on agent_feedback table'
+);
+SELECT ok(
+    EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'agent_feedback' AND policyname = 'agent_feedback_org_read'),
+    'agent_feedback_org_read policy exists'
+);
+SELECT ok(
+    EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'agent_feedback' AND policyname = 'agent_feedback_org_write'),
+    'agent_feedback_org_write policy exists'
+);
+
+-- acceptance module
+SELECT ok(
+    (SELECT relrowsecurity FROM pg_class WHERE oid = 'public.acceptance_decisions'::regclass),
+    'RLS enabled on acceptance_decisions table'
+);
+SELECT ok(
+    EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'acceptance_decisions' AND policyname = 'acceptance_select'),
+    'acceptance_select policy exists'
+);
+SELECT ok(
+    EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'acceptance_decisions' AND policyname = 'acceptance_insert'),
+    'acceptance_insert policy exists'
+);
+SELECT ok(
+    EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'acceptance_decisions' AND policyname = 'acceptance_update'),
+    'acceptance_update policy exists'
+);
+SELECT ok(
+    EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'acceptance_decisions' AND policyname = 'acceptance_delete'),
+    'acceptance_delete policy exists'
+);
+
+-- ensure PUBLIC role lacks write privileges on the public schema
+SELECT ok(
+    NOT EXISTS (
+        SELECT 1
+        FROM information_schema.role_table_grants
+        WHERE grantee = 'PUBLIC'
+          AND table_schema = 'public'
+          AND privilege_type IN ('INSERT', 'UPDATE', 'DELETE')
+    ),
+    'PUBLIC role does not have write privileges on public tables'
 );
 
 SELECT ok(

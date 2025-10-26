@@ -149,7 +149,7 @@
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { NextResponse } from 'next/server';
 import { getServiceSupabaseClient } from '../../../../lib/supabase-server';
-import { attachRequestId, getOrCreateRequestId } from '../../lib/observability';
+import { attachRequestId, getOrCreateRequestId } from '@prisma-glow/lib/observability';
 &nbsp;
 export async function GET(request: Request) {
   const requestId = getOrCreateRequestId(request);

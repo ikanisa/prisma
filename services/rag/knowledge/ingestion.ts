@@ -13,8 +13,8 @@ import {
   type DriveSource,
   type DriveChangeQueueRow,
   type ManifestEntry,
-} from './drive';
-import { getSupabaseServiceRoleKey } from '../../../lib/secrets';
+} from './drive.js';
+import { getSupabaseServiceRoleKey } from '@prisma-glow/lib/secrets';
 
 let cachedSupabase: SupabaseClient | null = null;
 

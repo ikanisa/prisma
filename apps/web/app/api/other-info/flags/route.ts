@@ -3,7 +3,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { FLAG_SEVERITIES, FLAG_STATUSES } from '@/lib/other-info';
 import { logOiAction, tryGetServiceSupabase } from '@/lib/supabase';
 import { ensureOrgAccess, HttpError, resolveCurrentUser } from '../../soc/_common';
+import { logger } from '@/lib/logger';
 
+export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
@@ -59,7 +61,7 @@ function handleAuthorizationError(error: unknown): NextResponse {
     return NextResponse.json({ error: error.message }, { status: error.status });
   }
 
-  console.error('Failed to authorize other information flag request', error);
+  logger.error('other_info.flags_authorization_failed', { error });
   return NextResponse.json({ error: 'Failed to authorize request.' }, { status: 500 });
 }
 

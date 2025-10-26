@@ -1,4 +1,4 @@
-import { buildOpenAiUrl } from '../../lib/openai/url';
+import { buildOpenAiUrl } from '@prisma-glow/lib/openai/url';
 
 interface GenerateVideoOptions {
   prompt: string;

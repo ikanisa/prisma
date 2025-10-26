@@ -1,17 +1,20 @@
 /* eslint-env node */
 import { env } from './env.js';
+import type { Express } from 'express';
 import express, { type NextFunction, type Request, type Response } from 'express';
 import multer from 'multer';
 import pdfParse from 'pdf-parse';
 import Tesseract from 'tesseract.js';
 import { Client } from 'pg';
-import { vector } from 'pgvector';
+import { vector } from './vector.js';
 import NodeCache from 'node-cache';
 import jwt, { type JwtPayload } from 'jsonwebtoken';
 import { randomUUID, createHash } from 'crypto';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import * as Sentry from '@sentry/node';
 import { context, trace, SpanStatusCode } from '@opentelemetry/api';
+import type { Attributes, Span } from '@opentelemetry/api';
+import { createAnalyticsClient } from '@prisma-glow/analytics';
 import { NodeTracerProvider } from '@opentelemetry/sdk-trace-node';
 import { BatchSpanProcessor } from '@opentelemetry/sdk-trace-base';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
@@ -20,6 +23,14 @@ import { SemanticResourceAttributes } from '@opentelemetry/semantic-conventions'
 import { registerInstrumentations } from '@opentelemetry/instrumentation';
 import { HttpInstrumentation } from '@opentelemetry/instrumentation-http';
 import { ExpressInstrumentation } from '@opentelemetry/instrumentation-express';
+import {
+  AnalyticsEventValidationError,
+  buildAutonomyTelemetryEvent,
+  buildTelemetryAlertEvent,
+  autonomyTelemetryRowFromEvent,
+  telemetryAlertRowFromEvent,
+  recordEventOnSpan,
+} from '../../analytics/events/node.js';
 import { createClient } from '@supabase/supabase-js';
 import type {
   ChatCompletionChunk,
@@ -29,7 +40,7 @@ import type {
   ChatCompletionUpdateParams,
 } from 'openai/resources/chat/completions';
 import type { MessageListParams } from 'openai/resources/chat/completions/messages';
-import { getSignedUrlTTL } from '../../lib/security/signed-url-policy';
+import { getSignedUrlTTL } from '@prisma-glow/lib/security/signed-url-policy';
 import {
   scheduleLearningRun,
   getDriveConnectorMetadata,
@@ -43,17 +54,18 @@ import {
   parseManifestBuffer,
   type DriveChangeQueueRow,
   type ManifestEntry,
-} from './knowledge/ingestion';
-import type { DriveSource } from './knowledge/drive';
-import { listWebSources, getWebSource, type WebSourceRow } from './knowledge/web';
-import { getSupabaseJwtSecret, getSupabaseServiceRoleKey } from '../../lib/secrets';
-import { generateAgentPlan } from '../../lib/agents/runtime';
+} from './knowledge/ingestion.js';
+import type { DriveSource } from './knowledge/drive.js';
+import { listWebSources, getWebSource, type WebSourceRow } from './knowledge/web.js';
+import { getSupabaseJwtSecret, getSupabaseServiceRoleKey } from '@prisma-glow/lib/secrets';
+import { generateAgentPlan } from '@prisma-glow/agents/runtime';
 import {
   roleFromString,
   ROLE_PRIORITY,
   type AgentRequestContext,
+  type AgentRequestTool,
   type AgentRole,
-} from '../../lib/agents/types';
+} from '@prisma-glow/agents/types';
 import {
   upsertChatkitSession,
   cancelChatkitSession,
@@ -61,9 +73,9 @@ import {
   fetchChatkitSession,
   recordChatkitTranscript,
   listChatkitTranscripts,
-} from './chatkit-session-service';
-import { buildReadinessSummary } from './readiness';
-import { getUrlSourceSettings, type UrlSourceSettings } from './system-config';
+} from './chatkit-session-service.js';
+import { buildReadinessSummary } from './readiness.js';
+import { getUrlSourceSettings, type UrlSourceSettings } from './system-config.js';
 import {
   APPROVAL_ACTION_LABELS,
   createAgentActionApproval as supabaseCreateAgentActionApproval,
@@ -74,19 +86,19 @@ import {
   type ApprovalAction,
   type ApprovalDecision,
   type ApprovalEvidence,
-} from './approval-service';
-import { createOpenAiDebugLogger } from './openai-debug';
-import { getOpenAIClient } from '../../lib/openai/client';
-import { runOpenAiFileSearch } from '../../lib/openai/file-search';
-import { readOpenAiWorkloadEnv } from '../../lib/openai/workloads';
+} from './approval-service.js';
+import { createOpenAiDebugLogger, type OpenAiClientWithDebug } from './openai-debug.js';
+import { getOpenAIClient } from '@prisma-glow/lib/openai/client';
+import { runOpenAiFileSearch } from '@prisma-glow/lib/openai/file-search';
+import { readOpenAiWorkloadEnv } from '@prisma-glow/lib/openai/workloads';
 import {
   syncAgentToolsFromRegistry,
   isAgentPlatformEnabled,
   getOpenAiAgentId,
   createAgentThread,
   createAgentRun,
-} from './openai-agent-service';
-import { streamOpenAiResponse } from './openai-stream';
+} from './openai-agent-service.js';
+import { streamOpenAiResponse } from './openai-stream.js';
 import {
   createConversationItems,
   deleteConversation,
@@ -94,11 +106,11 @@ import {
   listConversationItems,
   listConversations,
   type ConversationItemInput,
-} from './openai-conversations';
-import { AgentConversationRecorder } from './agent-conversation-recorder';
-import { createRealtimeSession, getRealtimeTurnServers } from './openai-realtime';
-import { generateSoraVideo } from './openai-media';
-import { transcribeAudioBuffer, synthesizeSpeech } from './openai-audio';
+} from './openai-conversations.js';
+import { AgentConversationRecorder } from './agent-conversation-recorder.js';
+import { createRealtimeSession, getRealtimeTurnServers } from './openai-realtime.js';
+import { generateSoraVideo } from './openai-media.js';
+import { transcribeAudioBuffer, synthesizeSpeech } from './openai-audio.js';
 import {
   createChatCompletion,
   deleteChatCompletion,
@@ -107,21 +119,22 @@ import {
   retrieveChatCompletion,
   streamChatCompletion,
   updateChatCompletion,
-} from './openai-chat-completions';
-import { directorAgent as legacyDirectorAgent } from '../agents/director';
-import { DOMAIN_AGENT_LIST } from '../agents/domain-agents';
-import type { OrchestratorContext } from '../agents/types';
-import { AuditExecutionAgent } from '../agents/audit-execution';
-import type { Database } from '../../supabase/src/integrations/supabase/types';
-import type { OrchestrationTaskInput } from './mcp/types';
-import { initialiseMcpInfrastructure } from './mcp/bootstrap';
-import { createDirectorAgent as createMcpDirectorAgent } from './mcp/director';
-import { createSafetyAgent as createMcpSafetyAgent } from './mcp/safety';
-import { executeTaskWithExecutor } from './mcp/executors';
+} from './openai-chat-completions.js';
+import { directorAgent as legacyDirectorAgent } from '@prisma-glow/agents/director';
+import { DOMAIN_AGENT_LIST } from '@prisma-glow/agents/domain-agents';
+import type { OrchestratorContext } from '@prisma-glow/agents/types';
+import { AuditExecutionAgent } from '@prisma-glow/agents/audit-execution';
+import type { Database } from './types/supabase.js';
+import type { OrchestrationTaskInput } from './mcp/types.js';
+import { initialiseMcpInfrastructure } from './mcp/bootstrap.js';
+import { createDirectorAgent as createMcpDirectorAgent } from './mcp/director.js';
+import { createSafetyAgent as createMcpSafetyAgent } from './mcp/safety.js';
+import { executeTaskWithExecutor } from './mcp/executors.js';
+import type { TaskExecutorResult } from './mcp/executors.js';
 import {
   scheduleUrgentNotificationFanout,
   startNotificationFanoutWorker,
-} from './notifications/fanout';
+} from './notifications/fanout.js';
 
 type AgentPersona = 'AUDIT' | 'FINANCE' | 'TAX';
 type LearningMode = 'INITIAL' | 'CONTINUOUS';
@@ -134,6 +147,19 @@ const OTLP_ENDPOINT = process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
 let telemetryInitialised = false;
 const RUNTIME_ENVIRONMENT = process.env.ENVIRONMENT ?? process.env.NODE_ENV ?? 'development';
 const SERVICE_VERSION = process.env.SERVICE_VERSION ?? process.env.SENTRY_RELEASE ?? 'dev';
+const analyticsClient = createAnalyticsClient({
+  endpoint: process.env.ANALYTICS_SERVICE_URL,
+  apiKey: process.env.ANALYTICS_SERVICE_TOKEN,
+  service: SERVICE_NAME,
+  environment: RUNTIME_ENVIRONMENT,
+  onError: (error) => {
+    logError('analytics.event_failed', error instanceof Error ? error : new Error(String(error)));
+  },
+});
+
+const WEB_FETCH_CACHE_RETENTION_MS = Math.max(0, env.WEB_FETCH_CACHE_RETENTION_DAYS) * 24 * 60 * 60 * 1000;
+const WEB_FETCH_CACHE_PRUNE_INTERVAL_MS = 15 * 60 * 1000;
+let lastWebCachePruneAt = 0;
 
 function configureTelemetry(): void {
   if (telemetryInitialised) {
@@ -179,6 +205,17 @@ if (SENTRY_ENABLED) {
     release: SENTRY_RELEASE,
     tracesSampleRate: 1.0,
   });
+}
+
+function toSpanAdapter(span: Span | undefined) {
+  if (!span) {
+    return undefined;
+  }
+  return {
+    addEvent(name: string, attributes?: Record<string, unknown>) {
+      span.addEvent(name, attributes as Attributes | undefined);
+    },
+  };
 }
 
 type Primitive = string | number | boolean | null;
@@ -555,7 +592,7 @@ type KnowledgeSourceRow = {
 
 async function ensureWebSourceSyncForOrg(options: {
   orgId: string;
-  webSource: WebSourceRow;
+  webSource: Pick<WebSourceRow, 'id' | 'domain'>;
   corpusCache?: Map<string, CorpusRow>;
   initiatedBy?: string;
   force?: boolean;
@@ -614,7 +651,7 @@ async function ensureWebSourceSyncForOrg(options: {
 // Basic RAG service implementing ingest, search and reembed endpoints.
 // Documents are stored in PostgreSQL with pgvector embeddings.
 
-const app = express();
+const app: Express = express();
 
 if (SENTRY_ENABLED) {
   app.use(Sentry.Handlers.requestHandler());
@@ -1447,19 +1484,20 @@ async function executeAssignedOrchestrationTasks() {
     if (!assignedTasks || assignedTasks.length === 0) return;
 
     for (const task of assignedTasks) {
+      const existingMetadata =
+        (task.metadata && typeof task.metadata === 'object' && !Array.isArray(task.metadata)
+          ? (task.metadata as Record<string, unknown>)
+          : {}) ?? {};
+      const executorKey =
+        typeof existingMetadata.executor === 'string' && existingMetadata.executor.trim().length > 0
+          ? existingMetadata.executor
+          : undefined;
+      const taskInput =
+        task.input && typeof task.input === 'object' && !Array.isArray(task.input)
+          ? (task.input as Record<string, unknown>)
+          : undefined;
+
       try {
-        const existingMetadata =
-          (task.metadata && typeof task.metadata === 'object' && !Array.isArray(task.metadata)
-            ? (task.metadata as Record<string, unknown>)
-            : {}) ?? {};
-        const executorKey =
-          typeof existingMetadata.executor === 'string' && existingMetadata.executor.trim().length > 0
-            ? existingMetadata.executor
-            : undefined;
-        const taskInput =
-          task.input && typeof task.input === 'object' && !Array.isArray(task.input)
-            ? (task.input as Record<string, unknown>)
-            : undefined;
 
         const progressMetadata: Record<string, unknown> = {
           ...existingMetadata,
@@ -1473,7 +1511,7 @@ async function executeAssignedOrchestrationTasks() {
           metadata: progressMetadata,
         });
 
-        const result = await executeTaskWithExecutor({
+        const result: TaskExecutorResult = await executeTaskWithExecutor({
           executorKey,
           input: taskInput,
           sessionId: task.session_id,
@@ -2108,7 +2146,7 @@ function parseAgentRequestContext(raw: unknown): AgentRequestContext | undefined
   const requestedToolsSource = asArray(source.requestedTools) ?? asArray(source.tools);
   if (requestedToolsSource) {
     const requestedTools = requestedToolsSource
-      .map((tool) => {
+      .map<AgentRequestTool | null>((tool) => {
         if (!tool || typeof tool !== 'object') return null;
         const record = tool as Record<string, unknown>;
         const toolKey =
@@ -2122,11 +2160,9 @@ function parseAgentRequestContext(raw: unknown): AgentRequestContext | undefined
         return {
           toolKey,
           minRole: minRoleForTool ?? undefined,
-        };
+        } satisfies AgentRequestTool;
       })
-      .filter(
-        (entry): entry is { toolKey: string; minRole?: AgentRole } => Boolean(entry)
-      );
+      .filter((entry): entry is AgentRequestTool => Boolean(entry));
 
     if (requestedTools.length > 0) {
       context.requestedTools = requestedTools;
@@ -2298,17 +2334,17 @@ function authenticate(req: AuthenticatedRequest, res: Response, next: NextFuncti
 const db = new Client({ connectionString: process.env.DATABASE_URL });
 await db.connect();
 
-function resolveOpenAiClient(): OpenAI {
-  return getOpenAIClient();
+function resolveOpenAiClient(): OpenAiClientWithDebug {
+  return getOpenAIClient() as unknown as OpenAiClientWithDebug;
 }
 
-type OpenAiProxyTarget = OpenAI & Record<PropertyKey, unknown>;
+type OpenAiProxyTarget = OpenAiClientWithDebug & Record<PropertyKey, unknown>;
 
 function getOpenAiProxyTarget(): OpenAiProxyTarget {
   return resolveOpenAiClient() as OpenAiProxyTarget;
 }
 
-const openai: OpenAI = new Proxy(
+const openai: OpenAiClientWithDebug = new Proxy(
   {},
   {
     get(_target, property, receiver) {
@@ -2340,12 +2376,20 @@ const openai: OpenAI = new Proxy(
       return Reflect.set(client, property, value, receiver);
     },
   },
-) as OpenAI;
+) as OpenAiClientWithDebug;
 
-const OPENAI_WEB_SEARCH_ENABLED =
-  (process.env.OPENAI_WEB_SEARCH_ENABLED ?? 'false').toLowerCase() === 'true';
-const OPENAI_WEB_SEARCH_MODEL = process.env.OPENAI_WEB_SEARCH_MODEL ?? 'gpt-5';
-const OPENAI_SUMMARY_MODEL = process.env.OPENAI_SUMMARY_MODEL ?? 'gpt-5-mini';
+const OPENAI_WEB_SEARCH_ENABLED = env.OPENAI_WEB_SEARCH_ENABLED;
+const OPENAI_WEB_SEARCH_MODEL = env.OPENAI_WEB_SEARCH_MODEL ?? 'gpt-4.1-mini';
+const OPENAI_SUMMARY_MODEL = env.OPENAI_SUMMARY_MODEL ?? 'gpt-4.1-mini';
+
+const OPENAI_FILE_SEARCH_VECTOR_STORE_ID = env.OPENAI_FILE_SEARCH_VECTOR_STORE_ID?.trim() || null;
+const OPENAI_FILE_SEARCH_MODEL = env.OPENAI_FILE_SEARCH_MODEL ?? OPENAI_SUMMARY_MODEL;
+const OPENAI_FILE_SEARCH_MAX_RESULTS = env.OPENAI_FILE_SEARCH_MAX_RESULTS ?? undefined;
+const OPENAI_FILE_SEARCH_INCLUDE_RESULTS = env.OPENAI_FILE_SEARCH_INCLUDE_RESULTS ?? true;
+const OPENAI_FILE_SEARCH_FILTERS = parseJsonRecord(
+  env.OPENAI_FILE_SEARCH_FILTERS?.trim(),
+  'OPENAI_FILE_SEARCH_FILTERS',
+);
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 if (!SUPABASE_URL) {
@@ -2406,25 +2450,44 @@ async function notifyRateLimitBreach(meta: { userId: string; path: string; orgSl
     requestId: meta.requestId ?? null,
   };
 
-  await supabaseService
-    .from('telemetry_alerts')
-    .insert({
-      alert_type: 'RATE_LIMIT_BREACH',
+  let event;
+  try {
+    event = buildTelemetryAlertEvent({
+      alertType: 'RATE_LIMIT_BREACH',
       severity: 'WARNING',
       message: `Rate limit exceeded on ${meta.path}`,
+      orgId: null,
       context,
-    })
-    .catch((error) => logError('alerts.rate_limit_insert_failed', error, context));
+    });
+  } catch (error) {
+    if (error instanceof AnalyticsEventValidationError) {
+      logError('alerts.rate_limit_validation_failed', error, context);
+      return;
+    }
+    throw error;
+  }
+
+  recordEventOnSpan(event, toSpanAdapter(trace.getActiveSpan()));
+
+  try {
+    await supabaseService.from('telemetry_alerts').insert(telemetryAlertRowFromEvent(event));
+  } catch (error) {
+    logError('alerts.rate_limit_insert_failed', error, context);
+  }
 
   if (!RATE_LIMIT_ALERT_WEBHOOK) return;
 
-  await fetch(RATE_LIMIT_ALERT_WEBHOOK, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      text: `⚠️ Rate limit exceeded for ${meta.path} (user=${meta.userId})`,
-    }),
-  }).catch((error) => logError('alerts.rate_limit_webhook_failed', error, context));
+  try {
+    await fetch(RATE_LIMIT_ALERT_WEBHOOK, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text: `⚠️ Rate limit exceeded for ${meta.path} (user=${meta.userId})`,
+      }),
+    });
+  } catch (error) {
+    logError('alerts.rate_limit_webhook_failed', error, context);
+  }
 }
 
 async function notifyEmbeddingDeltaResult(payload: {
@@ -2490,15 +2553,30 @@ async function notifyEmbeddingDeltaResult(payload: {
     context.error = error instanceof Error ? error.message : String(error);
   }
 
-  await supabaseService
-    .from('telemetry_alerts')
-    .insert({
-      alert_type: alertType,
+  let alertEvent;
+  try {
+    alertEvent = buildTelemetryAlertEvent({
+      alertType,
       severity,
       message,
       context,
-    })
-    .catch((err) => logError('alerts.embedding_delta_insert_failed', err, { severity, actor }));
+      orgId: null,
+    });
+  } catch (error) {
+    if (error instanceof AnalyticsEventValidationError) {
+      logError('alerts.embedding_delta_validation_failed', error, { severity, actor });
+      return;
+    }
+    throw error;
+  }
+
+  recordEventOnSpan(alertEvent, toSpanAdapter(trace.getActiveSpan()));
+
+  try {
+    await supabaseService.from('telemetry_alerts').insert(telemetryAlertRowFromEvent(alertEvent));
+  } catch (err) {
+    logError('alerts.embedding_delta_insert_failed', err, { severity, actor });
+  }
 
   if (!EMBEDDING_ALERT_WEBHOOK) {
     return;
@@ -2523,11 +2601,15 @@ async function notifyEmbeddingDeltaResult(payload: {
 
   const text = [headline, totalsLine, breakdownLine, errorLine].filter(Boolean).join('\n');
 
-  await fetch(EMBEDDING_ALERT_WEBHOOK, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text }),
-  }).catch((err) => logError('alerts.embedding_delta_webhook_failed', err, { severity, actor }));
+  try {
+    await fetch(EMBEDDING_ALERT_WEBHOOK, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }),
+    });
+  } catch (err) {
+    logError('alerts.embedding_delta_webhook_failed', err, { severity, actor });
+  }
 }
 
 async function ensureDocumentsBucket() {
@@ -3113,17 +3195,22 @@ interface EmbeddingTelemetryEvent {
 
 async function recordEmbeddingTelemetry(event: EmbeddingTelemetryEvent): Promise<void> {
   try {
-    await supabaseService.from('autonomy_telemetry_events').insert({
-      org_id: event.orgId,
+    const metrics = {
+      ...event.metrics,
+      recorded_at: new Date().toISOString(),
+    };
+    const telemetryEvent = buildAutonomyTelemetryEvent({
+      orgId: event.orgId,
       module: 'knowledge_embeddings',
       scenario: event.scenario,
       decision: event.decision,
-      metrics: {
-        ...event.metrics,
-        recorded_at: new Date().toISOString(),
-      },
+      metrics,
       actor: event.actor ?? null,
     });
+    recordEventOnSpan(telemetryEvent, toSpanAdapter(trace.getActiveSpan()));
+    await supabaseService
+      .from('autonomy_telemetry_events')
+      .insert(autonomyTelemetryRowFromEvent(telemetryEvent));
   } catch (error) {
     logError('telemetry.embedding_log_failed', error, {
       orgId: event.orgId,
@@ -3155,7 +3242,7 @@ async function embed(texts: string[]): Promise<EmbedResult> {
     requestPayload: { size: texts.length, model: 'text-embedding-3-small' },
   });
   return {
-    vectors: res.data.map((d) => d.embedding),
+    vectors: res.data.map((d: { embedding: number[] }) => d.embedding),
     usage: res.usage ?? {},
     model: res.model,
   };
@@ -3295,6 +3382,7 @@ async function reembedDeltaForOrg(options: {
   documentLimit: number;
   policyLimit: number;
   initiatedBy: string;
+  lookbackHours: number;
 }): Promise<DeltaOrgResult> {
   const orgSummary: DeltaOrgResult = {
     documentsEmbedded: 0,
@@ -4273,7 +4361,7 @@ async function upsertDriveDocument(
     await supabaseService
       .from('gdrive_documents')
       .update({
-        document_id: documentId,
+        'document_id': documentId,
         checksum,
         size_bytes: fileSize,
         mime_type: download.mimeType,
@@ -4288,7 +4376,7 @@ async function upsertDriveDocument(
       file_id: change.file_id,
       org_id: change.org_id,
       connector_id: change.connector_id,
-      document_id,
+      'document_id': documentId,
       checksum,
       size_bytes: fileSize,
       mime_type: download.mimeType,
@@ -4445,85 +4533,105 @@ function extractResponseText(response: any): string {
   return '';
 }
 
+function extractCitationsFromResponse(response: any): Array<Record<string, unknown>> {
+  const citations: Array<Record<string, unknown>> = [];
+  const outputs = Array.isArray(response?.output) ? response.output : [];
+  for (const item of outputs) {
+    if (item && typeof item === 'object') {
+      if (Array.isArray((item as any).citations)) {
+        for (const citation of (item as any).citations) {
+          if (citation && typeof citation === 'object' && !Array.isArray(citation)) {
+            citations.push(citation as Record<string, unknown>);
+          }
+        }
+      }
+      const content = Array.isArray((item as any).content) ? (item as any).content : [];
+      for (const part of content) {
+        if (part && typeof part === 'object' && Array.isArray((part as any).citations)) {
+          for (const citation of (part as any).citations as Array<unknown>) {
+            if (citation && typeof citation === 'object' && !Array.isArray(citation)) {
+              citations.push(citation as Record<string, unknown>);
+            }
+          }
+        }
+      }
+    }
+  }
+  return citations;
+}
+
+function extractWebSearchSources(response: any): Array<Record<string, unknown>> {
+  const sources: Array<Record<string, unknown>> = [];
+  const calls = Array.isArray(response?.web_search_calls) ? response.web_search_calls : [];
+  for (const call of calls) {
+    const action = call && typeof call === 'object' ? (call as any).action : undefined;
+    if (action && Array.isArray(action.sources)) {
+      for (const source of action.sources) {
+        if (source && typeof source === 'object' && !Array.isArray(source)) {
+          sources.push(source as Record<string, unknown>);
+        }
+      }
+    }
+  }
+  return sources;
+}
+
+function extractFileSearchResults(response: any): Array<Record<string, unknown>> {
+  const results: Array<Record<string, unknown>> = [];
+  const calls = Array.isArray(response?.file_search_calls) ? response.file_search_calls : [];
+  for (const call of calls) {
+    const items = Array.isArray((call as any).results) ? (call as any).results : [];
+    for (const item of items) {
+      if (item && typeof item === 'object' && !Array.isArray(item)) {
+        results.push(item as Record<string, unknown>);
+      }
+    }
+  }
+  return results;
+}
+
 type ReasoningEffort = 'minimal' | 'low' | 'medium' | 'high';
 type ResponseVerbosity = 'low' | 'medium' | 'high';
 
-  if (OPENAI_WEB_SEARCH_ENABLED) {
-    try {
-      const response = await openai.responses.create(
-        withResponseDefaults(
-          {
-            model: OPENAI_WEB_SEARCH_MODEL,
-            input: [
-              {
-                role: 'system',
-                content:
-                  'You are a Big Four audit partner summarising authoritative accounting, audit, and tax technical content. Always highlight IFRS/ISA/Tax impacts and cite sections where possible.',
-              },
-              {
-                role: 'user',
-                content: [
-                  {
-                    type: 'input_text',
-                    text: `Use web search to review ${url} and provide a concise summary (<= 8 bullet points) covering accounting, audit, and tax implications relevant to Malta and IFRS/ISA frameworks.`,
-                  },
-                ],
-              },
-            ],
-            tools: [{ type: 'web_search' }],
-          },
-          { effort: SUMMARY_REASONING_EFFORT, verbosity: SUMMARY_VERBOSITY },
-        ),
-      );
-      await logOpenAIDebugEvent({
-        endpoint: 'responses.create',
-        response: response as any,
-        requestPayload: { url, model: OPENAI_WEB_SEARCH_MODEL, mode: 'web_search' },
-        metadata: { source: 'web_summary' },
-      });
-      const summary = extractResponseText(response)?.trim();
-      if (summary) {
-        return summary;
-      }
-    } catch (err) {
-      logError('web.harvest_summary_web_search_failed', err, { url });
-    }
+async function summariseWebDocument(orgId: string, url: string, text: string): Promise<string> {
+  if (!OPENAI_WEB_SEARCH_ENABLED) {
+    return '';
   }
+
+  const truncated = normalizeText(text, 10_000);
+  const prompt = formatResponsePrompt([
+    {
+      role: 'system',
+      content:
+        'You are a Big Four partner producing concise technical notes. Summaries must emphasise IFRS/ISA/TAX relevance, cite clauses when possible, and flag uncertainties.',
+    },
+    {
+      role: 'user',
+      content: `Source URL: ${url}
+
+Extracted Content (truncated):
+${truncated}
+
+Provide a bullet summary (<= 8 items) covering key accounting, auditing, and tax takeaways for Malta.`,
+    },
+  ]);
 
   try {
     const response = await openai.responses.create(
       withResponseDefaults(
         {
           model: OPENAI_SUMMARY_MODEL,
-          input: [
-            {
-              role: 'system',
-              content:
-                'You are a Big Four partner producing concise technical notes. Summaries must emphasise IFRS/ISA/TAX relevance, cite clauses when possible, and flag uncertainties.',
-            },
-            {
-              role: 'user',
-              content: [
-                {
-                  type: 'input_text',
-                  text: `Source URL: ${url}\n\nExtracted Content (truncated):\n${text}\n\nProvide a bullet summary (<= 8 items) covering key accounting, auditing, and tax takeaways for Malta.`,
-                },
-              ],
-            },
-          ],
-          response_format: { type: 'text' },
+          input: prompt,
         },
         { effort: SUMMARY_REASONING_EFFORT, verbosity: SUMMARY_VERBOSITY },
-      ),
+      ) as any,
     );
     await logOpenAIDebugEvent({
       endpoint: 'responses.create',
       response: response as any,
-      requestPayload: { url, model: OPENAI_SUMMARY_MODEL, mode: 'fallback' },
-      metadata: { source: 'web_summary' },
+      requestPayload: { url, model: OPENAI_SUMMARY_MODEL, prompt },
+      metadata: { scope: 'web_summary' },
       orgId,
-      tags: ['web_summary'],
-      requestLogPayload: { url, model: OPENAI_SUMMARY_MODEL },
     });
     const summary = extractResponseText(response)?.trim();
     if (summary) {
@@ -4533,8 +4641,10 @@ type ResponseVerbosity = 'low' | 'medium' | 'high';
     logError('web.harvest_summary_fallback_failed', err, { url });
   }
 
-  return ''; // caller will fallback further
+  return '';
 }
+
+
 
 async function processWebHarvest(options: {
   runId: string;
@@ -4547,6 +4657,7 @@ async function processWebHarvest(options: {
   let transactionStarted = false;
   let existingState: Record<string, any> = {};
   let webSource: WebSourceRow | null = null;
+  let chunks: string[] = [];
   try {
     const { data: linkRow } = await supabaseService
       .from('knowledge_sources')
@@ -4592,7 +4703,7 @@ async function processWebHarvest(options: {
     }
 
     const summary = await summariseWebDocument(options.orgId, webSource.url, cleaned);
-    const chunks = chunkText(cleaned, 700);
+    chunks = chunkText(cleaned, 700);
     if (chunks.length === 0) {
       throw new Error('No chunks generated from web content');
     }
@@ -4766,13 +4877,16 @@ async function processWebHarvest(options: {
   }
 }
 
-type ReasoningEffortLevel = 'minimal' | 'low' | 'medium' | 'high';
+type ReasoningEffortLevel = 'low' | 'medium' | 'high';
 type VerbosityLevel = 'low' | 'medium' | 'high';
 
 function resolveReasoningEffort(value: string | undefined, fallback: ReasoningEffortLevel): ReasoningEffortLevel {
   if (!value) return fallback;
   const normalised = value.trim().toLowerCase();
-  if (normalised === 'minimal' || normalised === 'low' || normalised === 'medium' || normalised === 'high') {
+  if (normalised === 'minimal') {
+    return 'low';
+  }
+  if (normalised === 'low' || normalised === 'medium' || normalised === 'high') {
     return normalised;
   }
   return fallback;
@@ -4785,6 +4899,27 @@ function resolveVerbosity(value: string | undefined, fallback: VerbosityLevel): 
     return normalised;
   }
   return fallback;
+}
+
+function normalizeReasoningEffort(value: unknown): ReasoningEffortLevel | undefined {
+  if (typeof value !== 'string') return undefined;
+  const normalised = value.trim().toLowerCase();
+  if (normalised === 'minimal') {
+    return 'low';
+  }
+  if (normalised === 'low' || normalised === 'medium' || normalised === 'high') {
+    return normalised as ReasoningEffortLevel;
+  }
+  return undefined;
+}
+
+function normalizeVerbosity(value: unknown): VerbosityLevel | undefined {
+  if (typeof value !== 'string') return undefined;
+  const normalised = value.trim().toLowerCase();
+  if (normalised === 'low' || normalised === 'medium' || normalised === 'high') {
+    return normalised as VerbosityLevel;
+  }
+  return undefined;
 }
 
 const DEFAULT_REASONING_EFFORT = resolveReasoningEffort(process.env.OPENAI_DEFAULT_REASONING_EFFORT, 'low');
@@ -4820,18 +4955,88 @@ function withResponseDefaults<T extends Record<string, unknown>>(
   return result as T & { reasoning?: { effort: ReasoningEffortLevel }; text?: { verbosity: VerbosityLevel } };
 }
 
-const AGENT_MODEL = process.env.AGENT_MODEL ?? 'gpt-5-mini';
+function formatResponsePrompt(messages: Array<{ role: string; content: unknown }>): string {
+  return messages
+    .map(({ role, content }) => `${role.toUpperCase()}: ${formatResponseContent(content)}`)
+    .join('\n\n');
+}
 
-const AGENT_SYSTEM_PROMPTS: Record<'AUDIT' | 'FINANCE' | 'TAX', string> = {
+function formatResponseContent(content: unknown): string {
+  if (typeof content === 'string') {
+    return content;
+  }
+  if (Array.isArray(content)) {
+    return content
+      .map((entry) => {
+        if (typeof entry === 'string') {
+          return entry;
+        }
+        if (entry && typeof entry === 'object' && 'text' in entry && typeof (entry as any).text === 'string') {
+          return (entry as any).text as string;
+        }
+        return JSON.stringify(entry);
+      })
+      .join('\n');
+  }
+  if (content && typeof content === 'object') {
+    if ('text' in (content as Record<string, unknown>) && typeof (content as any).text === 'string') {
+      return (content as any).text as string;
+    }
+    return JSON.stringify(content);
+  }
+  if (content === undefined || content === null) {
+    return '';
+  }
+  return String(content);
+}
+
+function parseJsonRecord(value: string | undefined, description: string): Record<string, unknown> | undefined {
+  if (!value) return undefined;
+  try {
+    const parsed = JSON.parse(value);
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      return parsed as Record<string, unknown>;
+    }
+    console.warn(`services/rag: ${description} is not a JSON object`);
+  } catch (error) {
+    console.warn(`services/rag: failed to parse ${description}: ${error instanceof Error ? error.message : String(error)}`);
+  }
+  return undefined;
+}
+
+const AGENT_MODEL = process.env.AGENT_MODEL ?? 'gpt-5-mini';
+const DOMAIN_TOOL_MODEL = process.env.OPENAI_DOMAIN_MODEL ?? AGENT_MODEL;
+const DOMAIN_IMAGE_MODEL = process.env.OPENAI_IMAGE_MODEL ?? 'gpt-image-1';
+
+type AgentPromptKey = AgentPersona | AgentTypeKey;
+
+const AGENT_SYSTEM_PROMPTS: Record<AgentPromptKey, string> = {
   AUDIT:
     'You are a Big Four audit partner with 30 years of experience (ACCA, CPA). Provide cautious, ISA-compliant guidance for Malta engagements. Cite evidence with document id and chunk index.',
   FINANCE:
     'You are a Big Four accounting and finance partner (ACCA, CFA, PhD). Provide IFRS/IAS compliant advice for Malta organisations. Cite evidence with document id and chunk index.',
   TAX:
     'You are a Malta tax partner (ACCA, CPA). Reference Malta legislation, EU VAT, and CFR guidance. Cite evidence with document id and chunk index and warn about jurisdiction limits.',
+  CLOSE:
+    'You lead global finance transformation programmes. Provide IFRS-compliant close guidance, highlight controls, and cite evidence with document id and chunk index.',
+  ADVISORY:
+    'You are a Big Four advisory partner. Deliver structured recommendations covering risk, controls, and change management. Cite evidence with document id and chunk index.',
+  CLIENT:
+    'You are a senior client success partner. Provide empathetic, action-oriented guidance referencing relevant evidence with document id and chunk index.',
 };
 
-function buildToolDefinitions() {
+function getAgentSystemPrompt(agentType: AgentPromptKey): string {
+  return AGENT_SYSTEM_PROMPTS[agentType] ?? AGENT_SYSTEM_PROMPTS.AUDIT;
+}
+
+function buildToolDefinitions(): Array<{
+  type: 'function';
+  function: {
+    name: string;
+    description: string;
+    parameters: Record<string, unknown>;
+  };
+}> {
   return [
     {
       type: 'function',
@@ -4893,7 +5098,7 @@ async function performRagSearch(orgId: string, queryInput: string, topK = 6) {
         : Math.max(1, requestedTopK);
 
       const fileSearchResult = await runOpenAiFileSearch({
-        client: openai,
+        client: openai as any,
         query: queryInput,
         vectorStoreId: OPENAI_FILE_SEARCH_VECTOR_STORE_ID,
         model: OPENAI_FILE_SEARCH_MODEL,
@@ -4940,7 +5145,8 @@ async function performRagSearch(orgId: string, queryInput: string, topK = 6) {
     }
   }
 
-  const [embedding] = await embed([queryInput]);
+  const { vectors } = await embed([queryInput]);
+  const [embedding] = vectors;
   const { rows } = await db.query(
     'SELECT doc_id, chunk_index, content, source, embedding <-> $1 AS distance FROM document_chunks WHERE org_id = $2 ORDER BY embedding <-> $1 LIMIT $3',
     [vector(embedding), orgId, topK]
@@ -4964,35 +5170,31 @@ async function performRagSearch(orgId: string, queryInput: string, topK = 6) {
 
 async function performPolicyCheck(orgId: string, statement: string, domain?: string) {
   try {
+    const prompt = formatResponsePrompt([
+      {
+        role: 'system',
+        content:
+          'You are a technical reviewer ensuring compliance with IFRS/IAS/ISA and Malta CFR guidance. Respond with either PASS, WARNING, or FAIL followed by reasoning.',
+      },
+      {
+        role: 'user',
+        content: `Domain: ${domain ?? 'general'}\nStatement:\n${statement}\n\nAssess compliance and cite any standards or regulations referenced. Keep it short (<=4 sentences).`,
+      },
+    ]);
+
     const response = await openai.responses.create(
       withResponseDefaults(
         {
           model: OPENAI_SUMMARY_MODEL,
-          input: [
-            {
-              role: 'system',
-              content:
-                'You are a technical reviewer ensuring compliance with IFRS/IAS/ISA and Malta CFR guidance. Respond with either PASS, WARNING, or FAIL followed by reasoning.',
-            },
-            {
-              role: 'user',
-              content: [
-                {
-                  type: 'input_text',
-                  text: `Domain: ${domain ?? 'general'}\nStatement:\n${statement}\n\nAssess compliance and cite any standards or regulations referenced. Keep it short (<=4 sentences).`,
-                },
-              ],
-            },
-          ],
-          response_format: { type: 'text' },
+          input: prompt,
         },
         { effort: SUMMARY_REASONING_EFFORT, verbosity: 'low' },
-      ),
+      ) as any,
     );
     await logOpenAIDebugEvent({
       endpoint: 'responses.create',
       response: response as any,
-      requestPayload: { model: OPENAI_SUMMARY_MODEL, domain: domain ?? 'general' },
+      requestPayload: { model: OPENAI_SUMMARY_MODEL, prompt, domain: domain ?? 'general' },
       metadata: { scope: 'policy_check' },
     });
     const answer = extractResponseText(response) || 'Policy review unavailable.';
@@ -5180,33 +5382,39 @@ app.get('/api/agent/stream', async (req: AuthenticatedRequest, res) => {
       return res.status(400).json({ error: 'question query param required' });
     }
 
+    const questionText = question;
     const normalizedType = normaliseAgentType(agentTypeRaw);
     const orgContext = await resolveOrgForUser(userId, orgSlug);
 
+    const systemPrompt = getAgentSystemPrompt(normalizedType);
     const messages = [
-      { role: 'system', content: AGENT_SYSTEM_PROMPTS[normalizedType] },
-      { role: 'user', content: context ? `${question}\n\nContext:\n${context}` : question },
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: context ? `${questionText}\n\nContext:\n${context}` : questionText },
     ];
+    const prompt = formatResponsePrompt(messages);
 
     try {
+      const streamMetadata: Record<string, string> = {
+        question_length: String(questionText.length),
+        stream_channel: 'sse',
+      };
+      if (context) {
+        streamMetadata.context_length = String(context.length);
+      }
       const conversationRecorder = await AgentConversationRecorder.start({
         orgId: orgContext.orgId,
         orgSlug,
         agentType: normalizedType,
         mode: 'plain',
-        systemPrompt: AGENT_SYSTEM_PROMPTS[normalizedType],
-        userPrompt: question,
+        systemPrompt,
+        userPrompt: questionText,
         context: context ?? undefined,
         source: 'agent_stream_plain',
         userId,
         agentSessionId: agentSessionId ?? undefined,
         engagementId: engagementId ?? undefined,
         supabaseRunId: supabaseRunId ?? undefined,
-        metadata: {
-          question_length: String(question.length),
-          context_length: context ? String(context.length) : undefined,
-          stream_channel: 'sse',
-        },
+        metadata: streamMetadata,
         logError,
         logInfo,
       });
@@ -5217,11 +5425,14 @@ app.get('/api/agent/stream', async (req: AuthenticatedRequest, res) => {
 
       await streamOpenAiResponse({
         res,
-        openai,
-        payload: {
-          model: AGENT_MODEL,
-          input: messages,
-        },
+        openai: { responses: { stream: openai.responses.stream.bind(openai.responses) } },
+        payload: withResponseDefaults(
+          {
+            model: AGENT_MODEL,
+            input: prompt,
+          },
+          { effort: AGENT_REASONING_EFFORT, verbosity: AGENT_VERBOSITY },
+        ) as any,
         endpoint: 'responses.stream',
         onStart: () => {
           const conversationId = conversationRecorder.conversationId;
@@ -5333,6 +5544,8 @@ app.get('/api/agent/stream/execute', async (req: AuthenticatedRequest, res) => {
     const agentTypeRaw = typeof req.query.agentType === 'string' ? (req.query.agentType as string) : 'AUDIT';
     const context = typeof req.query.context === 'string' ? (req.query.context as string) : undefined;
     const engagementId = typeof req.query.engagementId === 'string' ? (req.query.engagementId as string) : undefined;
+    const agentSessionId = typeof req.query.agentSessionId === 'string' ? (req.query.agentSessionId as string) : undefined;
+    const supabaseRunId = typeof req.query.supabaseRunId === 'string' ? (req.query.supabaseRunId as string) : undefined;
 
     if (!orgSlug) {
       return res.status(400).json({ error: 'orgSlug query param required' });
@@ -5341,6 +5554,7 @@ app.get('/api/agent/stream/execute', async (req: AuthenticatedRequest, res) => {
       return res.status(400).json({ error: 'question query param required' });
     }
 
+    const questionText = question;
     const normalizedType = normaliseAgentType(agentTypeRaw);
     const orgContext = await resolveOrgForUser(userId, orgSlug);
 
@@ -5355,15 +5569,17 @@ app.get('/api/agent/stream/execute', async (req: AuthenticatedRequest, res) => {
     });
 
     const tools = buildToolDefinitions();
+    const systemPrompt = getAgentSystemPrompt(normalizedType);
     const messages = [
-      { role: 'system', content: AGENT_SYSTEM_PROMPTS[normalizedType] },
-      { role: 'user', content: context ? `${question}\n\nContext:\n${context}` : question },
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: context ? `${questionText}\n\nContext:\n${context}` : questionText },
     ];
+    const prompt = formatResponsePrompt(messages);
 
     writeSse({
       type: 'started',
       data: {
-        question,
+        question: questionText,
         context,
         agentType: normalizedType,
         agentSessionId: agentSessionId ?? undefined,
@@ -5372,13 +5588,24 @@ app.get('/api/agent/stream/execute', async (req: AuthenticatedRequest, res) => {
     });
 
     const toolNames = tools.map((tool) => tool.function?.name).filter((name): name is string => Boolean(name));
+    const toolsMetadata: Record<string, string> = {
+      question_length: String(questionText.length),
+      stream_channel: 'sse',
+    };
+    if (context) {
+      toolsMetadata.context_length = String(context.length);
+    }
+    if (toolNames.length > 0) {
+      toolsMetadata.tool_count = String(toolNames.length);
+    }
+
     const conversationRecorder = await AgentConversationRecorder.start({
       orgId: orgContext.orgId,
       orgSlug,
       agentType: normalizedType,
       mode: 'tools',
-      systemPrompt: AGENT_SYSTEM_PROMPTS[normalizedType],
-      userPrompt: question,
+      systemPrompt,
+      userPrompt: questionText,
       context: context ?? undefined,
       source: 'agent_stream_tools',
       userId,
@@ -5386,12 +5613,7 @@ app.get('/api/agent/stream/execute', async (req: AuthenticatedRequest, res) => {
       engagementId: engagementId ?? undefined,
       supabaseRunId: supabaseRunId ?? undefined,
       toolNames,
-      metadata: {
-        question_length: String(question.length),
-        context_length: context ? String(context.length) : undefined,
-        stream_channel: 'sse',
-        tool_count: toolNames.length ? String(toolNames.length) : undefined,
-      },
+      metadata: toolsMetadata,
       logError,
       logInfo,
     });
@@ -5407,40 +5629,44 @@ app.get('/api/agent/stream/execute', async (req: AuthenticatedRequest, res) => {
       writeSse({ type: 'conversation-started', data: payload });
     }
 
-    let response = await openai.responses.create(
+    let response = (await openai.responses.create(
       withResponseDefaults(
         {
           model: AGENT_MODEL,
-          input: messages,
-          tools,
+          input: prompt,
+          tools: tools as any,
         },
         { effort: AGENT_REASONING_EFFORT, verbosity: AGENT_VERBOSITY },
-      ),
-    );
+      ) as any,
+    )) as any;
 
     let iteration = 0;
     await conversationRecorder.recordResponse({ response, stage: 'initial', iteration });
     iteration += 1;
 
-    await logOpenAIDebugEvent({
-      endpoint: 'responses.create',
-      response: response as any,
-      requestPayload: { model: AGENT_MODEL, messages, tools },
-      metadata: { scope: 'agent_stream_tools', stage: 'initial' },
-      orgId: orgContext.orgId,
-    });
+      await logOpenAIDebugEvent({
+        endpoint: 'responses.create',
+        response: response as any,
+        requestPayload: { model: AGENT_MODEL, prompt, tools },
+        metadata: { scope: 'agent_stream_tools', stage: 'initial' },
+        orgId: orgContext.orgId,
+      });
 
-    while (response.output?.some((item: any) => item.type === 'tool_call')) {
+    while (Array.isArray(response.output) && response.output.some((item: any) => item?.type === 'tool_call')) {
       if (closed) break;
       const toolOutputs: any[] = [];
-      for (const item of response.output ?? []) {
+      const outputItems = Array.isArray(response.output) ? (response.output as Array<Record<string, any>>) : [];
+      for (const item of outputItems) {
         if (item.type !== 'tool_call') continue;
         const call = item;
         const toolKey = call.function?.name ?? 'unknown';
         writeSse({ type: 'tool-start', data: { toolKey, callId: call.id } });
         try {
           const result = await executeToolCall(orgContext.orgId, call);
-          writeSse({ type: 'tool-result', data: { toolKey, callId: call.id, output: result.output, citations: result.citations ?? [] } });
+          const citations = 'citations' in result && Array.isArray((result as { citations?: any[] }).citations)
+            ? ((result as { citations?: any[] }).citations ?? [])
+            : [];
+          writeSse({ type: 'tool-result', data: { toolKey, callId: call.id, output: result.output, citations } });
           toolOutputs.push({ tool_call_id: call.id, output: result.output });
           await conversationRecorder.recordToolResult({
             callId: call.id,
@@ -5467,16 +5693,16 @@ app.get('/api/agent/stream/execute', async (req: AuthenticatedRequest, res) => {
         break;
       }
 
-      response = await openai.responses.create(
+      response = (await openai.responses.create(
         withResponseDefaults(
           {
             model: AGENT_MODEL,
             response_id: response.id,
-            tool_outputs: toolOutputs,
+            tool_outputs: toolOutputs as any,
           },
           { effort: AGENT_REASONING_EFFORT, verbosity: AGENT_VERBOSITY },
-        ),
-      );
+        ) as any,
+      )) as any;
 
       await logOpenAIDebugEvent({
         endpoint: 'responses.create',
@@ -6287,7 +6513,7 @@ function normaliseChatCompletionCreatePayload(
 
   if (options?.streaming) {
     cloned.stream = true;
-    return cloned as ChatCompletionCreateParamsStreaming;
+    return cloned as unknown as ChatCompletionCreateParamsStreaming;
   }
 
   if ('stream' in cloned) {
@@ -6298,7 +6524,7 @@ function normaliseChatCompletionCreatePayload(
     cloned.store = Boolean(cloned.store);
   }
 
-  return cloned as ChatCompletionCreateParamsNonStreaming;
+  return cloned as unknown as ChatCompletionCreateParamsNonStreaming;
 }
 
 function parseMetadataRecord(input: unknown): Record<string, unknown> | undefined {
@@ -6448,9 +6674,10 @@ app.post('/api/openai/chat-completions', async (req: AuthenticatedRequest, res) 
       };
 
       try {
+        const streamingPayload = payload as unknown as ChatCompletionCreateParamsStreaming;
         const { stream, logCompletion } = await streamChatCompletion({
           client: openai,
-          payload: payload as ChatCompletionCreateParamsStreaming,
+          payload: streamingPayload,
           debugLogger: logOpenAIDebugEvent,
           logError,
           metadata: metadataWithOrg,
@@ -6615,7 +6842,7 @@ app.post('/api/openai/chat-completions', async (req: AuthenticatedRequest, res) 
 
     const completion = await createChatCompletion({
       client: openai,
-      payload: payload as ChatCompletionCreateParamsNonStreaming,
+      payload: { ...(payload as unknown as ChatCompletionCreateParamsNonStreaming), stream: false } as any,
       debugLogger: logOpenAIDebugEvent,
       logError,
       metadata: metadataWithOrg,
@@ -6816,6 +7043,79 @@ app.get('/api/agent/orchestrator/agents', (req: AuthenticatedRequest, res) => {
   return res.json({ agents: DOMAIN_AGENT_LIST });
 });
 
+const DEFAULT_ATTRIBUTE_SAMPLE_SIZE = 25;
+const DEFAULT_ATTRIBUTE_PAGE_LIMIT = 25;
+
+function ensureDomainToolAgent(value: unknown): AgentTypeKey | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const candidate = value.trim().toUpperCase();
+  return SUPPORTED_AGENT_TYPES.has(candidate as AgentTypeKey) ? (candidate as AgentTypeKey) : null;
+}
+
+function extractQueryValue(value: unknown): string | undefined {
+  if (Array.isArray(value)) {
+    return value.length > 0 ? String(value[0]) : undefined;
+  }
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+  return String(value);
+}
+
+function parsePositiveInteger(value: string | undefined, { min, max }: { min: number; max: number }): number | null {
+  if (!value) return null;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return null;
+  const clamped = Math.max(min, Math.min(max, Math.floor(parsed)));
+  return clamped;
+}
+
+function parseAttributeSampleSizeParam(value?: string): number | null {
+  return parsePositiveInteger(value, { min: 1, max: 1000 });
+}
+
+function parseAttributePageLimitParam(value?: string): number | null {
+  return parsePositiveInteger(value, { min: 1, max: 200 });
+}
+
+type VectorStoreAttributeSummary = {
+  attributes: Array<{ name: string; values: string[] }>;
+  sampledCount: number;
+  hasMore: boolean;
+  nextCursor: string | null;
+};
+
+type VectorStoreCatalogEntry = {
+  id: string;
+  name: string;
+  description: string | null;
+  status: string;
+  fileCount: number;
+  createdAt: string;
+  metadata: Record<string, unknown> | null;
+  attributeSummary: VectorStoreAttributeSummary;
+};
+
+async function listAccessibleVectorStores(_options: {
+  attributeSampleSize: number | null;
+}): Promise<VectorStoreCatalogEntry[]> {
+  return [];
+}
+
+async function summariseVectorStoreAttributes(
+  _vectorStoreId: string,
+  _options: { maxFiles: number; pageSize: number; after: string | null },
+): Promise<{ attributes: Array<{ name: string; values: string[] }>; sampledCount: number; hasMore: boolean; nextCursor: string | null }> {
+  return {
+    attributes: [],
+    sampledCount: 0,
+    hasMore: false,
+    nextCursor: null,
+  };
+}
+
 app.get('/api/agent/domain-tools/vector-stores', async (req: AuthenticatedRequest, res) => {
   try {
     const userId = req.user?.sub;
@@ -6849,13 +7149,13 @@ app.get('/api/agent/domain-tools/vector-stores', async (req: AuthenticatedReques
       agentKey,
       storeCount: vectorStores.length,
       attributeSampleSize: attributeSampleSizeParam ?? DEFAULT_ATTRIBUTE_SAMPLE_SIZE,
-      storesWithAdditionalAttributes: vectorStores.filter((store) => store.attributeSummary.hasMore).length,
+      storesWithAdditionalAttributes: vectorStores.filter((store: VectorStoreCatalogEntry) => store.attributeSummary.hasMore).length,
     });
 
     return res.json({
-      attributeSampleSize,
+      attributeSampleSize: attributeSampleSizeParam ?? DEFAULT_ATTRIBUTE_SAMPLE_SIZE,
       attributePageLimit: DEFAULT_ATTRIBUTE_PAGE_LIMIT,
-      vectorStores: vectorStores.map((store) => ({
+      vectorStores: vectorStores.map((store: VectorStoreCatalogEntry) => ({
         id: store.id,
         name: store.name,
         description: store.description,
@@ -7017,11 +7317,11 @@ app.post('/api/agent/domain-tools/web-search', async (req: AuthenticatedRequest,
     const response = await openai.responses.create({
       model: DOMAIN_TOOL_MODEL,
       input: query,
-      tools: [webTool],
+      tools: [webTool as any],
       include: ['web_search_call.action.sources'],
-      tool_choice: { type: 'web_search' },
+      tool_choice: { type: 'web_search' } as any,
       ...(reasoningEffort ? { reasoning: { effort: reasoningEffort } } : {}),
-    });
+    } as any);
 
     const answer = extractResponseText(response) || 'No answer generated.';
     const citations = extractCitationsFromResponse(response);
@@ -7103,10 +7403,10 @@ app.post('/api/agent/domain-tools/file-search', async (req: AuthenticatedRequest
     const response = await openai.responses.create({
       model: DOMAIN_TOOL_MODEL,
       input: query,
-      tools: [toolSpec],
+      tools: [toolSpec as any],
       include: ['file_search_call.results'],
-      tool_choice: { type: 'file_search' },
-    });
+      tool_choice: { type: 'file_search' } as any,
+    } as any);
 
     const answer = extractResponseText(response) || 'No answer generated.';
     const citations = extractCitationsFromResponse(response);
@@ -7188,13 +7488,15 @@ app.post('/api/agent/domain-tools/retrieval', async (req: AuthenticatedRequest, 
       searchPayload.attribute_filter = attributeFilter;
     }
 
-    const searchResponse = await openai.vectorStores.search(vectorStoreId, searchPayload);
+    const searchResponse = await openai.vectorStores.search(vectorStoreId, searchPayload as any);
     const hits = Array.isArray(searchResponse.data) ? searchResponse.data : [];
-    const results = hits.map((hit) => ({
+    const results = hits.map((hit: Record<string, any>) => ({
       fileId: hit.file_id,
       filename: hit.filename,
       score: hit.score,
-      content: Array.isArray(hit.content) ? hit.content.map((entry) => entry?.text ?? '').filter(Boolean) : [],
+      content: Array.isArray(hit.content)
+        ? hit.content.map((entry: any) => (entry?.text ?? '')).filter((text: string) => text.length > 0)
+        : [],
       attributes: hit.attributes ?? null,
     }));
 
@@ -7260,13 +7562,13 @@ app.post('/api/agent/domain-tools/image-generation', async (req: AuthenticatedRe
     const response = await openai.responses.create({
       model: DOMAIN_IMAGE_MODEL,
       input: prompt,
-      tools: [toolOptions],
-      tool_choice: { type: 'image_generation' },
-    });
+      tools: [toolOptions as any],
+      tool_choice: { type: 'image_generation' } as any,
+    } as any);
 
     const outputItems = Array.isArray(response.output) ? response.output : [];
-    const imageCall = outputItems.find((item) => item?.type === 'image_generation_call');
-    const imageBase64 = typeof imageCall?.result === 'string' ? imageCall.result : null;
+    const imageCall = outputItems.find((item: any) => item?.type === 'image_generation_call');
+    const imageBase64 = imageCall && typeof (imageCall as any).result === 'string' ? (imageCall as any).result : null;
     if (!imageBase64) {
       logError('domain_tools.image_generation_missing_result', new Error('image result missing'), { userId });
       return res.status(502).json({ error: 'image_generation_failed' });
@@ -7274,7 +7576,7 @@ app.post('/api/agent/domain-tools/image-generation', async (req: AuthenticatedRe
 
     logInfo('domain_tools.image_generation_completed', { userId, agentKey, orgSlug });
 
-    return res.json({ imageBase64, revisedPrompt: imageCall?.revised_prompt ?? null });
+    return res.json({ imageBase64, revisedPrompt: imageCall ? (imageCall as any).revised_prompt ?? null : null });
   } catch (error) {
     logError('domain_tools.image_generation_failed', error, { userId: req.user?.sub });
     return res.status(500).json({ error: 'image_generation_failed' });
@@ -7335,7 +7637,7 @@ app.post('/api/agent/domain-tools/gpt5', async (req: AuthenticatedRequest, res) 
       requestPayload.max_output_tokens = maxOutputTokens;
     }
 
-    const response = await openai.responses.create(requestPayload);
+    const response = await openai.responses.create(requestPayload as any);
     const answer = extractResponseText(response) || 'No answer generated.';
     const citations = extractCitationsFromResponse(response);
 
@@ -7597,11 +7899,15 @@ app.post('/api/agent/orchestrator/tasks/:id/complete', async (req: Authenticated
 
     const safetyEvent = body.safetyEvent;
     if (safetyEvent && typeof safetyEvent === 'object' && !Array.isArray(safetyEvent) && typeof safetyEvent.ruleCode === 'string') {
+      const severityValue =
+        typeof safetyEvent.severity === 'string' ? safetyEvent.severity.trim().toUpperCase() : 'INFO';
+      const allowedSeverities = new Set(['INFO', 'WARN', 'BLOCKED']);
+      const severity = allowedSeverities.has(severityValue) ? (severityValue as 'INFO' | 'WARN' | 'BLOCKED') : 'INFO';
       await mcpSafety.recordEvent({
         sessionId: taskRow.session_id,
         taskId,
         ruleCode: safetyEvent.ruleCode,
-        severity: typeof safetyEvent.severity === 'string' ? safetyEvent.severity.toUpperCase() : 'INFO',
+        severity,
         details:
           safetyEvent.details && typeof safetyEvent.details === 'object' && !Array.isArray(safetyEvent.details)
             ? (safetyEvent.details as Record<string, unknown>)
@@ -7703,7 +8009,7 @@ app.post('/api/agent/plan', applyExpressIdempotency({
     const planResult = await generateAgentPlan({
       agentType,
       supabase: supabaseService,
-      openai,
+      openai: openai as any,
       userRole: orgContext.role,
       requestContext,
       enforceCitations: ENFORCE_CITATIONS,
@@ -7759,7 +8065,7 @@ app.post('/api/agent/plan', applyExpressIdempotency({
     let openaiRunInfo: { runId: string; responseId?: string } | null = null;
     let effectiveAgentId = sessionRow.openai_agent_id ?? null;
     if (!effectiveAgentId && isAgentPlatformEnabled()) {
-      effectiveAgentId = await resolveOpenAiAgentIdForType(normalizedType);
+      effectiveAgentId = await resolveOpenAiAgentIdForType(agentType);
     }
     if (isAgentPlatformEnabled() && effectiveAgentId && sessionRow.openai_thread_id) {
       const instructions = buildAgentPlanInstructions({
@@ -8001,7 +8307,7 @@ app.post('/api/agent/execute', async (req: AuthenticatedRequest, res) => {
 
     if (Array.isArray(planStep.toolIntents)) {
       normalizedTools = planStep.toolIntents
-        .map((intent: any) => {
+        .map((intent: { toolKey?: string; key?: string; inputs?: Record<string, unknown> }) => {
           const toolKey = typeof intent?.toolKey === 'string' ? intent.toolKey : intent?.key;
           if (typeof toolKey !== 'string' || toolKey.length === 0) {
             return null;
@@ -8011,10 +8317,10 @@ app.post('/api/agent/execute', async (req: AuthenticatedRequest, res) => {
             : {};
           return { key: toolKey, input: inputs };
         })
-        .filter((intent): intent is { key: string; input: Record<string, unknown> } => Boolean(intent));
+        .filter((intent: { key: string; input: Record<string, unknown> } | null): intent is { key: string; input: Record<string, unknown> } => Boolean(intent));
     } else if (Array.isArray(planStep.tools)) {
       normalizedTools = planStep.tools
-        .map((tool: any) => {
+        .map((tool: string | { key?: string; input?: Record<string, unknown> }) => {
           if (typeof tool === 'string') {
             return { key: tool, input: {} };
           }
@@ -8025,7 +8331,7 @@ app.post('/api/agent/execute', async (req: AuthenticatedRequest, res) => {
             : {};
           return { key, input };
         })
-        .filter((intent): intent is { key: string; input: Record<string, unknown> } => Boolean(intent));
+        .filter((intent: { key: string; input: Record<string, unknown> } | null): intent is { key: string; input: Record<string, unknown> } => Boolean(intent));
     }
 
     if (normalizedTools.length === 0) {
@@ -8625,8 +8931,9 @@ async function runAgentConversation(options: {
   context?: string;
 }): Promise<AgentRunResult> {
   const tools = buildToolDefinitions();
+  const systemPrompt = getAgentSystemPrompt(options.agentKind);
   const messages = [
-    { role: 'system', content: AGENT_SYSTEM_PROMPTS[options.agentKind] },
+    { role: 'system', content: systemPrompt },
     {
       role: 'user',
       content: options.context ? `${options.question}\n\nContext:\n${options.context}` : options.question,
@@ -8636,37 +8943,39 @@ async function runAgentConversation(options: {
   const toolInvocations: Array<{ name: string; args: Record<string, unknown> }> = [];
   const citations: any[] = [];
   const start = Date.now();
+  const prompt = formatResponsePrompt(messages);
 
-  let response = await openai.responses.create(
+  let response = (await openai.responses.create(
     withResponseDefaults(
       {
         model: AGENT_MODEL,
-        input: messages,
-        tools,
+        input: prompt,
+        tools: tools as any,
       },
       { effort: AGENT_REASONING_EFFORT, verbosity: AGENT_VERBOSITY },
-    ),
-  );
+    ) as any,
+  )) as any;
   await logOpenAIDebugEvent({
     endpoint: 'responses.create',
     response: response as any,
-    requestPayload: { model: AGENT_MODEL, messages },
+    requestPayload: { model: AGENT_MODEL, prompt, tools },
     metadata: { scope: 'agent_conversation', step: 'initial' },
     orgId: options.orgId,
   });
 
   while (response.output?.some((item: any) => item.type === 'tool_call')) {
     const toolOutputs: AgentToolResult[] = [];
+    const outputItems = Array.isArray(response.output) ? (response.output as Array<Record<string, any>>) : [];
 
-    for (const item of response.output ?? []) {
+    for (const item of outputItems) {
       if (item.type !== 'tool_call') continue;
       const name = item?.function?.name ?? 'unknown';
-      const callId = item.id;
+      const callId = typeof item.id === 'string' ? item.id : `call_${toolOutputs.length}`;
       try {
         const result = await executeToolCall(options.orgId, item);
         toolOutputs.push({ tool_call_id: callId, output: result.output });
-        if (result.citations) {
-          citations.push(...result.citations);
+        if ('citations' in result && Array.isArray((result as { citations?: any[] }).citations)) {
+          citations.push(...((result as { citations?: any[] }).citations ?? []));
         }
         const rawArgs = item?.function?.arguments ?? '{}';
         let parsedArgs: Record<string, unknown> = {};
@@ -8682,16 +8991,16 @@ async function runAgentConversation(options: {
       }
     }
 
-    response = await openai.responses.create(
+    response = (await openai.responses.create(
       withResponseDefaults(
         {
           model: AGENT_MODEL,
           response_id: response.id,
-          tool_outputs: toolOutputs,
+          tool_outputs: toolOutputs as any,
         },
         { effort: AGENT_REASONING_EFFORT, verbosity: AGENT_VERBOSITY },
-      ),
-    );
+      ) as any,
+    )) as any;
     await logOpenAIDebugEvent({
       endpoint: 'responses.create',
       response: response as any,
@@ -9063,6 +9372,23 @@ app.post('/v1/rag/search', async (req: AuthenticatedRequest, res) => {
     const cached = cache.get(cacheKey);
     if (cached) {
       logInfo('search.cache_hit', { userId, orgId: orgContext.orgId, query });
+      analyticsClient
+        .record({
+          event: 'rag.search.cache_hit',
+          source: 'rag.api',
+          orgId: orgContext.orgId,
+          actorId: userId,
+          properties: {
+            queryLength: query.length,
+            limit: numericLimit,
+            results: Array.isArray((cached as any).results) ? (cached as any).results.length : 0,
+          },
+          context: {
+            requestId: req.requestId,
+            traceId: req.header('traceparent') ?? undefined,
+          },
+        })
+        .catch((error) => logError('analytics.record_failed', error, { event: 'rag.search.cache_hit' }));
       return res.json(cached);
     }
 
@@ -9090,6 +9416,23 @@ app.post('/v1/rag/search', async (req: AuthenticatedRequest, res) => {
       query,
       results: parsedResults.length,
     });
+    analyticsClient
+      .record({
+        event: 'rag.search.completed',
+        source: 'rag.api',
+        orgId: orgContext.orgId,
+        actorId: userId,
+        properties: {
+          queryLength: query.length,
+          limit: numericLimit,
+          results: parsedResults.length,
+        },
+        context: {
+          requestId: req.requestId,
+          traceId: req.header('traceparent') ?? undefined,
+        },
+      })
+      .catch((error) => logError('analytics.record_failed', error, { event: 'rag.search.completed' }));
     res.json(response);
   } catch (err) {
     logError('search.failed', err, { userId: req.user?.sub });
@@ -9475,7 +9818,7 @@ app.delete('/v1/storage/documents/:id', async (req: AuthenticatedRequest, res) =
     const documentId = req.params.id;
     const { data: document, error: fetchError } = await supabaseService
       .from('documents')
-      .select('id, org_id, file_path, name')
+      .select('id, org_id, file_path, name, uploaded_by')
       .eq('id', documentId)
       .maybeSingle();
 
@@ -9737,38 +10080,40 @@ app.patch('/v1/engagements/:id', async (req: AuthenticatedRequest, res) => {
     let overrideApprovalId: string | null = null;
 
     if (independenceFieldsProvided) {
-      independenceAssessment = assessIndependence({
+      const assessment = assessIndependence({
         isAuditClient: targetIsAuditClient,
         independenceChecked: targetIndependenceChecked,
         services: targetServices,
         overrideNote: targetOverrideNote,
       });
 
-      if (!independenceAssessment.ok) {
-        if (independenceAssessment.error === 'independence_check_required') {
+      if (!assessment.ok) {
+        if (assessment.error === 'independence_check_required') {
           return res.status(400).json({ error: 'independence_check_required' });
         }
-        if (independenceAssessment.error === 'prohibited_nas') {
+        if (assessment.error === 'prohibited_nas') {
           return res.status(409).json({ error: 'prohibited_non_audit_services' });
         }
+        independenceAssessment = assessment;
       } else {
-        targetIndependenceChecked = independenceAssessment.checked;
-        targetOverrideNote = independenceAssessment.note;
-        targetServices = independenceAssessment.services;
+        independenceAssessment = assessment;
+        targetIndependenceChecked = assessment.checked;
+        targetOverrideNote = assessment.note;
+        targetServices = assessment.services;
 
-        updatePayload.independence_checked = independenceAssessment.checked;
-        updatePayload.independence_conclusion = independenceAssessment.conclusion;
-        updatePayload.independence_conclusion_note = independenceAssessment.note;
+        updatePayload.independence_checked = assessment.checked;
+        updatePayload.independence_conclusion = assessment.conclusion;
+        updatePayload.independence_conclusion_note = assessment.note;
         updatePayload.non_audit_services = targetServices.length > 0 ? targetServices : null;
         updatePayload.is_audit_client = targetIsAuditClient;
         updatePayload.requires_eqr = targetRequiresEqr;
 
-        if (independenceAssessment.needsApproval) {
+        if (assessment.needsApproval) {
           overrideApprovalId = await ensureIndependenceOverrideApproval({
             orgId: orgContext.orgId,
             engagementId,
             userId,
-            note: independenceAssessment.note ?? '',
+            note: assessment.note ?? '',
             services: targetServices,
             isAuditClient: targetIsAuditClient,
           });
@@ -10223,7 +10568,7 @@ app.get('/api/learning/jobs', async (req: AuthenticatedRequest, res) => {
 app.post('/api/learning/approve', async (req: AuthenticatedRequest, res) => {
   try {
     const userId = req.user?.sub;
-    const { orgSlug, jobId, note } = (await req.json()) as {
+    const { orgSlug, jobId, note } = (req.body ?? {}) as {
       orgSlug?: string;
       jobId?: string;
       note?: string;
@@ -10353,7 +10698,7 @@ app.get('/api/learning/metrics', async (req: AuthenticatedRequest, res) => {
 app.post('/api/learning/rollback', async (req: AuthenticatedRequest, res) => {
   try {
     const userId = req.user?.sub;
-    const { orgSlug, policyVersionId, note } = (await req.json()) as {
+    const { orgSlug, policyVersionId, note } = (req.body ?? {}) as {
       orgSlug?: string;
       policyVersionId?: string;
       note?: string;
@@ -10405,7 +10750,7 @@ app.get('/v1/knowledge/sources/:id/preview', async (req: AuthenticatedRequest, r
     const sourceId = req.params.id;
     const { data: source, error: sourceError } = await supabaseService
       .from('knowledge_sources')
-      .select('id, corpus_id, source_uri')
+      .select('id, corpus_id, source_uri, provider')
       .eq('id', sourceId)
       .maybeSingle();
 
@@ -11095,6 +11440,11 @@ app.post('/v1/engagements', authenticate, async (req: AuthenticatedRequest, res)
       }
     }
 
+    const approvedAssessment = independenceAssessment.ok ? independenceAssessment : null;
+    if (!approvedAssessment) {
+      return res.status(500).json({ error: 'independence_assessment_failed' });
+    }
+
     const payload = {
       org_id: orgContext.orgId,
       client_id: clientId,
@@ -11112,9 +11462,9 @@ app.post('/v1/engagements', authenticate, async (req: AuthenticatedRequest, res)
       is_audit_client: Boolean(isAuditClient),
       requires_eqr: Boolean(requiresEqr),
       non_audit_services: sanitizedServices.length > 0 ? sanitizedServices : null,
-      independence_checked: independenceAssessment.checked,
-      independence_conclusion: independenceAssessment.conclusion,
-      independence_conclusion_note: independenceAssessment.note,
+      independence_checked: approvedAssessment.checked,
+      independence_conclusion: approvedAssessment.conclusion,
+      independence_conclusion_note: approvedAssessment.note,
     };
 
     const { data: created, error } = await supabaseService
@@ -11130,12 +11480,12 @@ app.post('/v1/engagements', authenticate, async (req: AuthenticatedRequest, res)
     }
 
     let overrideApprovalId: string | null = null;
-    if (independenceAssessment.needsApproval) {
+    if (approvedAssessment.needsApproval) {
       overrideApprovalId = await ensureIndependenceOverrideApproval({
         orgId: orgContext.orgId,
         engagementId: created.id,
         userId,
-        note: independenceAssessment.note ?? '',
+        note: approvedAssessment.note ?? '',
         services: sanitizedServices,
         isAuditClient: Boolean(isAuditClient),
       });
@@ -11151,8 +11501,8 @@ app.post('/v1/engagements', authenticate, async (req: AuthenticatedRequest, res)
         title: created.title,
         client_id: created.client_id,
         status: created.status,
-        independence: {
-          conclusion: independenceAssessment.conclusion,
+          independence: {
+          conclusion: approvedAssessment.conclusion,
           overrideApprovalId,
         },
       },
@@ -11294,33 +11644,35 @@ app.patch('/v1/engagements/:id', authenticate, async (req: AuthenticatedRequest,
     let overrideApprovalId: string | null = null;
 
     if (independenceFieldsProvided) {
-      independenceAssessment = assessIndependence({
+      const assessment = assessIndependence({
         isAuditClient: targetIsAuditClient,
         independenceChecked: targetIndependenceChecked,
         services: targetServices,
         overrideNote: targetOverrideNote,
       });
 
-      if (!independenceAssessment.ok) {
-        if (independenceAssessment.error === 'independence_check_required') {
+      if (!assessment.ok) {
+        if (assessment.error === 'independence_check_required') {
           return res.status(400).json({ error: 'independence_check_required' });
         }
-        if (independenceAssessment.error === 'prohibited_nas') {
+        if (assessment.error === 'prohibited_nas') {
           return res.status(409).json({ error: 'prohibited_non_audit_services' });
         }
+        independenceAssessment = assessment;
       } else {
-        targetIndependenceChecked = independenceAssessment.checked;
-        targetOverrideNote = independenceAssessment.note;
-        targetServices = independenceAssessment.services;
+        independenceAssessment = assessment;
+        targetIndependenceChecked = assessment.checked;
+        targetOverrideNote = assessment.note;
+        targetServices = assessment.services;
 
-        updatePayload.independence_checked = independenceAssessment.checked;
-        updatePayload.independence_conclusion = independenceAssessment.conclusion;
-        updatePayload.independence_conclusion_note = independenceAssessment.note;
+        updatePayload.independence_checked = assessment.checked;
+        updatePayload.independence_conclusion = assessment.conclusion;
+        updatePayload.independence_conclusion_note = assessment.note;
         updatePayload.non_audit_services = targetServices.length > 0 ? targetServices : null;
         updatePayload.is_audit_client = targetIsAuditClient;
         updatePayload.requires_eqr = targetRequiresEqr;
 
-        if (independenceAssessment.needsApproval && targetOverrideNote) {
+        if (assessment.needsApproval && targetOverrideNote) {
           overrideApprovalId = await ensureIndependenceOverrideApproval({
             orgId: orgContext.orgId,
             engagementId,
@@ -11348,16 +11700,15 @@ app.patch('/v1/engagements/:id', authenticate, async (req: AuthenticatedRequest,
     const nextStatus = normalizedStatus && normalizedStatus.length > 0 ? normalizedStatus : currentStatus;
 
     const finalConclusion =
-      independenceAssessment && independenceAssessment.ok
+      independenceAssessment?.ok
         ? independenceAssessment.conclusion
         : typeof existing.independence_conclusion === 'string'
         ? existing.independence_conclusion
         : 'OK';
 
-    const finalIndependenceChecked =
-      independenceAssessment && independenceAssessment.ok
-        ? independenceAssessment.checked
-        : Boolean(existing.independence_checked);
+    const finalIndependenceChecked = independenceAssessment?.ok
+      ? independenceAssessment.checked
+      : Boolean(existing.independence_checked);
 
     const activating = currentStatus === 'PLANNING' && nextStatus !== 'PLANNING';
 

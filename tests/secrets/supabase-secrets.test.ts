@@ -4,9 +4,9 @@ import {
   getSupabaseJwtSecret,
   getSupabaseServiceRoleKey,
   resetSupabaseSecretManager,
-} from '../../lib/secrets/supabase';
+} from '@prisma-glow/lib/secrets/supabase';
 
-const baseUrl = 'https://vault.example.com';
+const baseUrl = 'https://vault.prismaglow.example.com';
 const token = 'test-token';
 
 function stubVault(payload: Record<string, unknown>) {

@@ -1,4 +1,4 @@
-FROM node:20-alpine AS builder
+FROM node:20.19.4-alpine AS builder
 ARG SERVICE_VERSION=dev
 ENV SERVICE_VERSION=${SERVICE_VERSION}
 LABEL org.opencontainers.image.revision=${SERVICE_VERSION}
@@ -8,7 +8,7 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
-FROM node:20-alpine
+FROM node:20.19.4-alpine
 WORKDIR /app
 RUN npm install -g serve && apk add --no-cache curl
 COPY --from=builder /app/dist ./dist

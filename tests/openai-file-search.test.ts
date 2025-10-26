@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { runOpenAiFileSearch } from '../lib/openai/file-search';
+import { runOpenAiFileSearch } from '@prisma-glow/lib/openai/file-search';
 
 describe('runOpenAiFileSearch', () => {
   it('builds the request and normalises results', async () => {

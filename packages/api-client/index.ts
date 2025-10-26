@@ -29,11 +29,51 @@ export class ApiClient {
     this.retryStatuses = new Set(options.retryStatuses && options.retryStatuses.length ? options.retryStatuses : Array.from(defaults));
   }
 
+  // #region Agent Orchestrator API
+  async listDomainAgents(): Promise<DomainAgentsResponse> {
+    return this.request(`/api/agent/orchestrator/agents`);
+  }
+
+  async generateOrchestratorPlan(payload: GeneratePlanPayload): Promise<OrchestratorPlanResponse> {
+    return this.request(`/api/agent/orchestrator/plan`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async listOrchestrationSessions(params: ListSessionsParams): Promise<OrchestrationSessionsResponse> {
+    const search = new URLSearchParams({ orgSlug: params.orgSlug });
+    if (typeof params.limit === 'number') {
+      search.set('limit', String(params.limit));
+    }
+    return this.request(`/api/agent/orchestrator/sessions?${search.toString()}`);
+  }
+
+  async getOrchestrationSession(sessionId: string): Promise<SessionBoard> {
+    return this.request(`/api/agent/orchestrator/session/${encodeURIComponent(sessionId)}`);
+  }
+
+  async createOrchestrationSession(payload: CreateSessionPayload): Promise<SessionBoard> {
+    return this.request(`/api/agent/orchestrator/session`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async completeOrchestrationTask(
+    taskId: string,
+    payload: CompleteTaskPayload,
+  ): Promise<SessionBoard> {
+    return this.request(`/api/agent/orchestrator/tasks/${encodeURIComponent(taskId)}/complete`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+  // #endregion
+
   private async request<T>(path: string, init?: RequestInit): Promise<T> {
     const url = `${this.baseUrl}${path}`;
-    let attempt = 0;
-    // eslint-disable-next-line no-constant-condition
-    while (true) {
+    for (let attempt = 0; ; attempt += 1) {
       const res = await this.fetchImpl(url, {
         ...init,
         headers: { 'Content-Type': 'application/json', ...this.defaultHeaders, ...(init?.headers ?? {}) },
@@ -47,8 +87,7 @@ export class ApiClient {
         const err = (body && (body.error || body.detail)) || `request_failed_${res.status}`;
         throw new Error(typeof err === 'string' ? err : JSON.stringify(err));
       }
-      attempt += 1;
-      const backoff = this.retryDelayMs * attempt;
+      const backoff = this.retryDelayMs * (attempt + 1);
       await new Promise((r) => setTimeout(r, backoff));
     }
   }
@@ -254,6 +293,136 @@ export class ApiClient {
   ): Promise<paths['/api/ada/run']['post']['responses']['200']['content']['application/json']> {
     return this.request(`/api/ada/run`, { method: 'POST', body: JSON.stringify(payload) });
   }
+}
+
+export type DomainAgentStatus = 'implemented' | 'in_progress' | 'planned';
+
+export interface DomainAgent {
+  key: string;
+  title: string;
+  description: string;
+  status: DomainAgentStatus;
+  owner: string;
+  capabilities: string[];
+  dependencies?: string[];
+  toolCatalog?: string[];
+  datasetKeys?: string[];
+  knowledgeBases?: string[];
+  tooling?: Array<{
+    name: string;
+    summary: string;
+    apis: string[];
+    notes?: string;
+  }>;
+  notes?: string;
+}
+
+export type OrchestrationSessionStatus =
+  | 'PENDING'
+  | 'RUNNING'
+  | 'WAITING_APPROVAL'
+  | 'COMPLETED'
+  | 'FAILED';
+
+export type OrchestrationTaskStatus =
+  | 'PENDING'
+  | 'ASSIGNED'
+  | 'IN_PROGRESS'
+  | 'AWAITING_APPROVAL'
+  | 'COMPLETED'
+  | 'FAILED';
+
+export interface OrchestrationSession {
+  id: string;
+  orgId: string;
+  objective: string;
+  status: OrchestrationSessionStatus;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface OrchestrationTask {
+  id: string;
+  sessionId: string;
+  agentManifestId: string | null;
+  title: string;
+  status: OrchestrationTaskStatus;
+  input: Record<string, unknown>;
+  output: Record<string, unknown> | null;
+  metadata: Record<string, unknown>;
+  dependsOn: string[];
+  startedAt: string | null;
+  completedAt: string | null;
+}
+
+export interface OrchestrationPlanTask {
+  id: string;
+  agentKey: string;
+  title: string;
+  description: string;
+  inputs?: Record<string, unknown>;
+  status: OrchestrationTaskStatus;
+  requiresHumanReview: boolean;
+  metadata?: Record<string, unknown>;
+}
+
+export interface OrchestrationPlan {
+  objective: string;
+  tasks: OrchestrationPlanTask[];
+  createdAt: string;
+  createdBy: string;
+}
+
+export interface SessionBoard {
+  session: OrchestrationSession | null;
+  tasks: OrchestrationTask[];
+}
+
+export interface DomainAgentsResponse {
+  agents: DomainAgent[];
+}
+
+export interface GeneratePlanPayload {
+  orgSlug: string;
+  objective: string;
+  priority?: 'LOW' | 'MEDIUM' | 'HIGH';
+  constraints?: string[];
+}
+
+export interface OrchestratorPlanResponse {
+  plan: OrchestrationPlan;
+}
+
+export interface ListSessionsParams {
+  orgSlug: string;
+  limit?: number;
+}
+
+export interface OrchestrationSessionsResponse {
+  sessions: OrchestrationSession[];
+}
+
+export interface CreateSessionPayload {
+  orgSlug: string;
+  objective: string;
+  engagementId?: string;
+  metadata?: Record<string, unknown>;
+  directorAgentKey?: string;
+  safetyAgentKey?: string;
+  tasks?: Array<{
+    agentKey: string;
+    title: string;
+    input?: Record<string, unknown>;
+    metadata: Record<string, unknown>;
+  }>;
+}
+
+export interface CompleteTaskPayload {
+  status: OrchestrationTaskStatus;
+  output?: Record<string, unknown> | null;
+  metadata?: Record<string, unknown>;
+  safetyEvent?: Record<string, unknown>;
 }
 
 export default ApiClient;

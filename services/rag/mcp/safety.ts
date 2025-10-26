@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { Database } from '../../supabase/src/integrations/supabase/types';
-import type { SafetyAgent, SafetyAgentOptions } from './types';
+import type { Database } from '../types/supabase.js';
+import type { SafetyAgent, SafetyAgentOptions } from './types.js';
 
 type SupabaseDb = SupabaseClient<Database>;
 
@@ -34,4 +34,3 @@ export function createSafetyAgent(options: SafetyAgentOptions): SafetyAgent {
     },
   } satisfies SafetyAgent;
 }
-

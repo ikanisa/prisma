@@ -7,6 +7,7 @@ import { getServiceSupabaseClient } from '@/lib/supabase-server';
 import { attachRequestId, getOrCreateRequestId } from '@/app/lib/observability';
 import { createApiGuard } from '@/app/lib/api-guard';
 import { env } from '@/src/env.server';
+import { logger } from '@/lib/logger';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -76,7 +77,7 @@ async function processPayload(rawPayload: string, requestId: string): Promise<Re
 
 export async function POST(request: NextRequest) {
   if (!webhookSecret) {
-    console.error('automation.webhook_secret_missing');
+    logger.error('automation.webhook_secret_missing');
     return NextResponse.json({ error: 'Webhook secret not configured' }, { status: 500 });
   }
 

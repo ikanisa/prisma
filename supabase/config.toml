@@ -21,6 +21,13 @@ port = 55324
 file_size_limit = 52428800
 
 [auth]
-site_url = "http://localhost:56321"
-additional_redirect_urls = []
+site_url = "https://app.prismaglow.com"
+additional_redirect_urls = [
+  "https://staging.prismaglow.com",
+  "http://localhost:3000",
+  "http://localhost:5173"
+]
 jwt_expiry = 3600
+
+[auth.passwords]
+hibp_enabled = true

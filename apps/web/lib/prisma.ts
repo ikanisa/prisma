@@ -1,28 +1,45 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-var-requires, @typescript-eslint/no-explicit-any, @typescript-eslint/no-require-imports */
+type PrismaClientLike = {
+  $connect(): Promise<void> | void;
+  $disconnect(): Promise<void> | void;
+};
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-var-requires
-let PrismaClientCtor: any;
+type PrismaClientConstructor = new (...args: unknown[]) => PrismaClientLike;
+
+const FallbackPrismaClient: PrismaClientConstructor = class implements PrismaClientLike {
+  constructor(..._args: unknown[]) {}
+
+  async $connect(): Promise<void> {
+    return Promise.resolve();
+  }
+
+  async $disconnect(): Promise<void> {
+    return Promise.resolve();
+  }
+};
+
+let PrismaClientCtor: PrismaClientConstructor = FallbackPrismaClient;
 
 try {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
   const PrismaPkg = require('@prisma/client');
-  PrismaClientCtor = PrismaPkg?.PrismaClient ?? PrismaPkg;
+  const candidate = PrismaPkg?.PrismaClient ?? PrismaPkg;
+  if (typeof candidate === 'function') {
+    PrismaClientCtor = candidate as PrismaClientConstructor;
+  }
 } catch {
-  PrismaClientCtor = class {
-    async $connect() {}
-    async $disconnect() {}
-  };
+  PrismaClientCtor = FallbackPrismaClient;
 }
 
-type PrismaClientInstance = InstanceType<typeof PrismaClientCtor>;
+type PrismaClientInstance = InstanceType<PrismaClientConstructor>;
 
 const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClientInstance;
 };
 
-export const prisma: PrismaClientInstance = (globalForPrisma.prisma ?? new PrismaClientCtor({
+const prismaInstance: PrismaClientInstance = globalForPrisma.prisma ?? new PrismaClientCtor({
   log: ['error', 'warn'],
-})) as PrismaClientInstance;
+});
+
+export const prisma: PrismaClientInstance = prismaInstance;
 
 if (process.env.NODE_ENV !== 'production') {
   globalForPrisma.prisma = prisma;

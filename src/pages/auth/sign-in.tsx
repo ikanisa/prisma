@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Eye, EyeOff, Sparkles, ArrowRight, Mail, UserPlus } from 'lucide-react';
@@ -20,6 +20,9 @@ export function SignIn() {
   const [name, setName] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [activeTab, setActiveTab] = useState('signin');
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const [captchaResetKey, setCaptchaResetKey] = useState(0);
+  const [captchaError, setCaptchaError] = useState<string | null>(null);
   
   const navigate = useNavigate();
   const { user, signIn, signUp, sendMagicLink, loading } = useAuth();
@@ -35,10 +38,16 @@ export function SignIn() {
     }
   }, [user, memberships, navigate]);
 
+  useEffect(() => {
+    resetCaptcha();
+    setCaptchaError(null);
+  }, [activeTab, resetCaptcha]);
+
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     
     const { error } = await signIn(email, password);
+    resetCaptcha();
     
     if (error) {
       toast({
@@ -57,10 +66,21 @@ export function SignIn() {
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (shouldRenderCaptcha && !captchaToken) {
+      setCaptchaError('Complete the verification challenge to continue.');
+      return;
+    }
     
-    const { error } = await signUp(email, password, name);
+    const { error } = await signUp(email, password, name, captchaToken);
+    resetCaptcha();
     
     if (error) {
+      if (['captcha_failed', 'captcha_required', 'captcha_verification_failed'].includes(error)) {
+        setCaptchaError('Verification failed. Please try again.');
+      } else if (error === 'captcha_verification_unavailable') {
+        setCaptchaError('Verification is currently unavailable. Please try again in a moment.');
+      }
       toast({
         variant: "destructive",
         title: "Registration failed",
@@ -76,10 +96,21 @@ export function SignIn() {
 
   const handleMagicLink = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (shouldRenderCaptcha && !captchaToken) {
+      setCaptchaError('Complete the verification challenge to continue.');
+      return;
+    }
     
-    const { error } = await sendMagicLink(email);
+    const { error } = await sendMagicLink(email, captchaToken);
+    resetCaptcha();
     
     if (error) {
+      if (['captcha_failed', 'captcha_required', 'captcha_verification_failed'].includes(error)) {
+        setCaptchaError('Verification failed. Please try again.');
+      } else if (error === 'captcha_verification_unavailable') {
+        setCaptchaError('Verification is currently unavailable. Please try again in a moment.');
+      }
       toast({
         variant: "destructive",
         title: "Failed to send magic link",
@@ -245,7 +276,37 @@ export function SignIn() {
                       </div>
                     </div>
 
-                    <Button type="submit" className="w-full" variant="gradient" loading={loading}>
+                    {shouldRenderCaptcha && (
+                      <div className="space-y-2">
+                        <Turnstile
+                          key={`${captchaResetKey}-signup`}
+                          siteKey={turnstileSiteKey}
+                          onSuccess={(token) => {
+                            setCaptchaToken(token);
+                            setCaptchaError(null);
+                          }}
+                          onError={() => {
+                            setCaptchaToken(null);
+                            setCaptchaError('Verification failed. Please try again.');
+                          }}
+                          onExpire={() => {
+                            setCaptchaToken(null);
+                          }}
+                          options={{ retry: 'auto' }}
+                        />
+                        {captchaError && (
+                          <p className="text-sm text-destructive">{captchaError}</p>
+                        )}
+                      </div>
+                    )}
+
+                    <Button
+                      type="submit"
+                      className="w-full"
+                      variant="gradient"
+                      loading={loading}
+                      disabled={loading || (shouldRenderCaptcha && !captchaToken)}
+                    >
                       {!loading && <UserPlus className="w-4 h-4 mr-2" />}
                       Create Account
                     </Button>
@@ -266,7 +327,37 @@ export function SignIn() {
                       />
                     </div>
 
-                    <Button type="submit" className="w-full" variant="gradient" loading={loading}>
+                    {shouldRenderCaptcha && (
+                      <div className="space-y-2">
+                        <Turnstile
+                          key={`${captchaResetKey}-magic`}
+                          siteKey={turnstileSiteKey}
+                          onSuccess={(token) => {
+                            setCaptchaToken(token);
+                            setCaptchaError(null);
+                          }}
+                          onError={() => {
+                            setCaptchaToken(null);
+                            setCaptchaError('Verification failed. Please try again.');
+                          }}
+                          onExpire={() => {
+                            setCaptchaToken(null);
+                          }}
+                          options={{ retry: 'auto' }}
+                        />
+                        {captchaError && (
+                          <p className="text-sm text-destructive">{captchaError}</p>
+                        )}
+                      </div>
+                    )}
+
+                    <Button
+                      type="submit"
+                      className="w-full"
+                      variant="gradient"
+                      loading={loading}
+                      disabled={loading || (shouldRenderCaptcha && !captchaToken)}
+                    >
                       {!loading && <Mail className="w-4 h-4 mr-2" />}
                       Send Magic Link
                     </Button>

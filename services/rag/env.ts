@@ -36,6 +36,15 @@ const envSchema = z.object({
   EMBEDDING_DELTA_POLICY_LIMIT: z.coerce.number().int().positive().default(25),
   TELEMETRY_ALERT_WEBHOOK: z.string().url().optional(),
   EMBEDDING_ALERT_WEBHOOK: z.string().url().optional(),
+  WEB_FETCH_CACHE_RETENTION_DAYS: z.coerce.number().int().nonnegative().default(14),
+  OPENAI_WEB_SEARCH_ENABLED: optionalBooleanish,
+  OPENAI_WEB_SEARCH_MODEL: z.string().optional(),
+  OPENAI_SUMMARY_MODEL: z.string().optional(),
+  OPENAI_FILE_SEARCH_VECTOR_STORE_ID: z.string().optional(),
+  OPENAI_FILE_SEARCH_MODEL: z.string().optional(),
+  OPENAI_FILE_SEARCH_MAX_RESULTS: z.coerce.number().int().positive().optional(),
+  OPENAI_FILE_SEARCH_FILTERS: z.string().optional(),
+  OPENAI_FILE_SEARCH_INCLUDE_RESULTS: optionalBooleanish,
 });
 
 const parsed = envSchema.safeParse({
@@ -62,6 +71,15 @@ const parsed = envSchema.safeParse({
   EMBEDDING_DELTA_POLICY_LIMIT: process.env.EMBEDDING_DELTA_POLICY_LIMIT,
   TELEMETRY_ALERT_WEBHOOK: process.env.TELEMETRY_ALERT_WEBHOOK,
   EMBEDDING_ALERT_WEBHOOK: process.env.EMBEDDING_ALERT_WEBHOOK,
+  WEB_FETCH_CACHE_RETENTION_DAYS: process.env.WEB_FETCH_CACHE_RETENTION_DAYS,
+  OPENAI_WEB_SEARCH_ENABLED: process.env.OPENAI_WEB_SEARCH_ENABLED,
+  OPENAI_WEB_SEARCH_MODEL: process.env.OPENAI_WEB_SEARCH_MODEL,
+  OPENAI_SUMMARY_MODEL: process.env.OPENAI_SUMMARY_MODEL,
+  OPENAI_FILE_SEARCH_VECTOR_STORE_ID: process.env.OPENAI_FILE_SEARCH_VECTOR_STORE_ID,
+  OPENAI_FILE_SEARCH_MODEL: process.env.OPENAI_FILE_SEARCH_MODEL,
+  OPENAI_FILE_SEARCH_MAX_RESULTS: process.env.OPENAI_FILE_SEARCH_MAX_RESULTS,
+  OPENAI_FILE_SEARCH_FILTERS: process.env.OPENAI_FILE_SEARCH_FILTERS,
+  OPENAI_FILE_SEARCH_INCLUDE_RESULTS: process.env.OPENAI_FILE_SEARCH_INCLUDE_RESULTS,
 });
 
 if (!parsed.success) {

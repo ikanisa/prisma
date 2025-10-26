@@ -54,6 +54,6 @@
   `CSP_ADDITIONAL_CONNECT_SRC` / `CSP_ADDITIONAL_IMG_SRC` environment variables when external
   services are required.
 - Cross-origin requests are limited to the values provided through `API_ALLOWED_ORIGINS`.
-  Set this list explicitly in production (for example `https://app.example.com`) and define
+  Set this list explicitly in production (for example `https://app.prismaglow.example.com`) and define
   `ENVIRONMENT=production` to prevent fallback behaviour. Development/test environments fall
   back to localhost origins for convenience.

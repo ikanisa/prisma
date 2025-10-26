@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import type { Router as ExpressRouter } from 'express';
 import ApiClient from '@prisma-glow/api-client';
 import { createOrgGuard } from '../middleware/org-guard.js';
 import { createIdempotencyMiddleware } from '../middleware/idempotency.js';
@@ -9,7 +10,7 @@ import type { Request } from 'express';
 import { scrubPii } from '../utils/pii.js';
 import { env, getRuntimeEnv } from '../env.js';
 
-const router = Router();
+const router: ExpressRouter = Router();
 
 function getApiBaseUrl(): string {
   const runtime = getRuntimeEnv();

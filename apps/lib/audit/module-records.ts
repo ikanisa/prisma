@@ -1,1 +1,1 @@
-export * from '../../web/lib/audit/module-records';
+export * from '@prisma-glow/lib/audit/module-records';

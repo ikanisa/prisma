@@ -2,6 +2,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { runtimeConfig } from '@/lib/runtime-config';
 
 export async function getAccessToken(): Promise<string> {
+  if (!isSupabaseConfigured) {
+    return 'demo-access-token';
+  }
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token;
   if (!token) {

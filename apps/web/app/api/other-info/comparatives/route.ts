@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { COMPARATIVE_STATUSES, DEFAULT_COMPARATIVE_CHECKS } from '@/lib/other-info';
 import { logOiAction, tryGetServiceSupabase } from '@/lib/supabase';
 
+export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
@@ -124,10 +125,6 @@ export async function POST(request: NextRequest) {
   if (!supabase) {
     return NextResponse.json({ error: 'Supabase not configured' }, { status: 503 });
   }
-  if (!supabase) {
-    return NextResponse.json({ error: 'Supabase not configured' }, { status: 503 });
-  }
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
   const { data, error } = await supabase
     .from('comparatives_checks')
     .upsert(

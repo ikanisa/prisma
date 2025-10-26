@@ -1,14 +1,15 @@
 import type { RequestHandler } from 'express';
 import { scrubPii } from '../utils/pii.js';
 import { getRequestContext } from '../utils/request-context.js';
+import { logger as sharedLogger } from '@prisma-glow/logger';
 
 export type PiiScrubberOptions = {
-  logger?: Pick<typeof console, 'info' | 'warn' | 'error'>;
+  logger?: Pick<typeof sharedLogger, 'info' | 'warn' | 'error'>;
   redactBody?: boolean;
 };
 
 export function createPiiScrubberMiddleware(options: PiiScrubberOptions = {}): RequestHandler {
-  const logger = options.logger ?? console;
+  const logger = options.logger ?? sharedLogger;
   const redactBody = options.redactBody ?? true;
 
   return (req, res, next) => {
@@ -21,12 +22,14 @@ export function createPiiScrubberMiddleware(options: PiiScrubberOptions = {}): R
       path: req.originalUrl,
     };
 
-    logger.info({ ...baseLog, event: 'gateway.request.received', body: redactBody ? scrubPii(req.body) : req.body });
+    logger.info('gateway.request.received', {
+      ...baseLog,
+      body: redactBody ? scrubPii(req.body) : req.body,
+    });
 
     res.on('finish', () => {
-      logger.info({
+      logger.info('gateway.request.completed', {
         ...baseLog,
-        event: 'gateway.request.completed',
         status: res.statusCode,
         durationMs: Date.now() - start,
       });

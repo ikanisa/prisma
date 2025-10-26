@@ -6,22 +6,22 @@ export type JwtAuthorizeOptions = {
 };
 
 export class JWT {
-  options: Record<string, unknown>;
+  email?: string;
+  key?: string;
+  scopes: string[];
 
-  constructor(options: Record<string, unknown> = {}) {
-    this.options = options;
+  constructor(options: { email?: string; key?: string; scopes?: string[] } = {}) {
+    this.email = options.email;
+    this.key = options.key;
+    this.scopes = Array.isArray(options.scopes) ? [...options.scopes] : [];
   }
 
   async authorize(): Promise<JwtAuthorizeOptions> {
-    const scopes = Array.isArray(this.options?.scopes)
-      ? [...(this.options.scopes as string[])]
-      : [];
-
     return {
       access_token: 'stub-token',
       token_type: 'Bearer',
       expiry_date: Date.now() + 60_000,
-      scopes,
+      scopes: [...this.scopes],
     };
   }
 }

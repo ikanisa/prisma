@@ -23,12 +23,20 @@
    archive the JSON summaries alongside release-control outputs.
 
 ## 3. Database / Supabase migrations
+- Run `supabase db lint --project-ref <ref>` (or via CI) to sanity-check the full migration set before touching remote projects. Attach the CLI output to the deployment record.
 - Apply migrations in chronological order using `supabase db push` or the CI workflow:
   1. `supabase/migrations/20250926090000_tasks_documents_notifications.sql`
   2. `supabase/migrations/20250926181500_activity_event_catalog_rls.sql`
   3. `supabase/migrations/20251115122000_web_fetch_cache.sql`
   4. `supabase/migrations/20251115123000_web_fetch_cache_retention.sql`
-- Run `SUPABASE_PROJECTS="preview=<ref>,production=<ref>" pnpm supabase:migrate:web-cache --dry-run` to verify CLI connectivity, then execute without `--dry-run` to commit the cache migrations to each Supabase project prior to code promotion. Capture CLI output in the deployment log.
+  5. `supabase/migrations/20251202120000_extensions_schema_reset.sql`
+  6. `supabase/migrations/20251202121000_role_search_path_extensions.sql`
+- Validate the two new extension/search-path migrations via the Supabase pipeline:
+  - Dry run the helper script with the extension files pinned:
+    ```bash
+    SUPABASE_PROJECTS="preview=<ref>,production=<ref>" pnpm supabase:migrate:web-cache --dry-run --extra=20251202120000_extensions_schema_reset.sql,20251202121000_role_search_path_extensions.sql
+    ```
+  - Review the generated plan, then rerun the same command without `--dry-run` (keeping the `--extra` flag) to propagate to preview/production. Capture both CLI runs in the deployment log for audit traceability.
 - Confirm helper functions exist (`supabase/migrations/20250821115406_.sql`) and storage policies (new migration from P1 task once merged).
 - Record migration hash in deployment log.
 

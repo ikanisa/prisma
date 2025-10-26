@@ -179,4 +179,12 @@ k6 run tests/perf/k6-group-audit.js
 |---|---|
 | 20.x | ubuntu-latest |
 
-Include steps: `npm ci`, `npm run lint`, `npm test`, integration tests behind flag, `npm audit --omit=dev`, and artifact test reports.
+Automation uses pnpm (`pnpm install --frozen-lockfile`) and the consolidated `pnpm run ci:verify` workflow. The script executes the
+workspace gates sequentially:
+
+1. `pnpm run lint:workspace` – lint every package/app via recursive pnpm execution.
+2. `pnpm run typecheck` – run `tsc -b` across the monorepo project references (gateway, shared packages, services) and clean the incremental build artefacts when the typecheck succeeds.
+3. `pnpm run test:workspace` – execute each workspace’s registered test task.
+4. `pnpm run build:workspace` – ensure every build target compiles after the typecheck has validated types.
+
+Integration tests and audit steps remain opt-in toggles on top of this base pipeline.

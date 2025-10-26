@@ -1,1 +1,1 @@
-export * from '../../web/lib/audit/activity-log';
+export * from '@prisma-glow/lib/audit/activity-log';

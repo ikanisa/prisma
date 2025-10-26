@@ -2,6 +2,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { env } from '@/src/env.server';
 import type { Json } from '../integrations/supabase/types';
 import { createSupabaseStub } from './supabase/stub';
+import { logger } from '@/lib/logger';
 
 type ServiceClient = SupabaseClient;
 
@@ -71,6 +72,6 @@ export async function logOiAction(
   });
 
   if (error) {
-    console.error('Failed to record OI activity log entry', error);
+    logger.error('supabase.oi_activity_insert_failed', { error, orgId, userId, action });
   }
 }

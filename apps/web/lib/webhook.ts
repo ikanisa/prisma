@@ -1,1 +1,1 @@
-export * from '../../../lib/webhook';
+export * from '@prisma-glow/lib/webhook';

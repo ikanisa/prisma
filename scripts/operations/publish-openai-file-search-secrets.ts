@@ -103,7 +103,7 @@ function setEnvironmentSecret(environment: EnvironmentName, name: string, value:
 }
 
 function publishForEnvironment(environment: EnvironmentName, config: EnvConfig): void {
-  console.log(`\n🚀 Publishing OpenAI file search secrets for ${environment}...`);
+  console.warn(`\n🚀 Publishing OpenAI file search secrets for ${environment}...`);
   setEnvironmentSecret(environment, 'OPENAI_FILE_SEARCH_VECTOR_STORE_ID', config.vectorStoreId);
 
   if (config.model) {
@@ -122,7 +122,7 @@ function publishForEnvironment(environment: EnvironmentName, config: EnvConfig):
     setEnvironmentSecret(environment, 'OPENAI_FILE_SEARCH_FILTERS', config.filters);
   }
 
-  console.log(`✅ Secrets updated for ${environment}.`);
+  console.warn(`✅ Secrets updated for ${environment}.`);
 }
 
 function main(): void {
@@ -135,7 +135,7 @@ function main(): void {
     if (config.production) {
       publishForEnvironment('production', config.production);
     }
-    console.log('\nAll requested environments updated successfully.');
+    console.warn('\nAll requested environments updated successfully.');
   } catch (error) {
     console.error('\n❌ Failed to publish OpenAI file search secrets');
     console.error(error instanceof Error ? error.message : error);

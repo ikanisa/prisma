@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { getSignedUrlTTL, sanitizeMetadata } from '../../lib/security/signed-url-policy';
+import { getSignedUrlTTL, sanitizeMetadata } from '@prisma-glow/lib/security/signed-url-policy';
 
 describe('getSignedUrlTTL', () => {
   afterEach(() => {
