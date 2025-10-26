@@ -1,4 +1,9 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type {
+  AuthChangeEvent,
+  Session,
+  SupabaseClient,
+  User,
+} from '@supabase/supabase-js';
 
 type QueryResult = { data: unknown; error: null };
 
@@ -93,13 +98,95 @@ function createQueryChain(): QueryChain {
   return chain;
 }
 
+function createStubUser(email: string): User {
+  const now = new Date().toISOString();
+  const idBase = email.replace(/[^a-z0-9]/gi, '-').toLowerCase();
+
+  return {
+    id: `stub-user-${idBase || 'anonymous'}`,
+    aud: 'authenticated',
+    email,
+    phone: '',
+    role: 'authenticated',
+    app_metadata: { provider: 'stub' },
+    user_metadata: { email },
+    created_at: now,
+    updated_at: now,
+    confirmation_sent_at: now,
+    email_confirmed_at: now,
+    last_sign_in_at: now,
+    identities: [],
+    is_anonymous: false,
+    factors: [],
+  } satisfies User;
+}
+
+function createStubSession(email: string): Session {
+  const user = createStubUser(email);
+  const expiresAt = Math.floor(Date.now() / 1000) + 3600;
+  const accessToken = `stub-access-${Math.random().toString(36).slice(2)}`;
+  const refreshToken = `stub-refresh-${Math.random().toString(36).slice(2)}`;
+
+  return {
+    access_token: accessToken,
+    refresh_token: refreshToken,
+    token_type: 'bearer',
+    expires_in: 3600,
+    expires_at: expiresAt,
+    provider_token: null,
+    provider_refresh_token: null,
+    user,
+  } satisfies Session;
+}
+
+type AuthListener = (event: AuthChangeEvent, session: Session | null) => void;
+
 export function createSupabaseStub(): SupabaseClient {
+  let currentSession: Session | null = null;
+  const listeners = new Set<AuthListener>();
+
+  const notify = (event: AuthChangeEvent, session: Session | null) => {
+    for (const listener of listeners) {
+      try {
+        listener(event, session);
+      } catch {
+        // ignore listener errors to keep stub resilient
+      }
+    }
+  };
+
   const client = {
     from: () => createQueryChain(),
     rpc: async () => ({ data: null, error: null }),
     auth: {
-      getUser: async () => ({ data: { user: null }, error: null }),
-      signOut: async () => ({ error: null }),
+      async getUser() {
+        return { data: { user: currentSession?.user ?? null }, error: null };
+      },
+      async getSession() {
+        return { data: { session: currentSession }, error: null };
+      },
+      onAuthStateChange(callback: AuthListener) {
+        listeners.add(callback);
+        callback('INITIAL_SESSION', currentSession);
+        const subscription = {
+          id: `stub-${Math.random().toString(36).slice(2)}`,
+          unsubscribe: () => {
+            listeners.delete(callback);
+          },
+        };
+        return { data: { subscription }, error: null };
+      },
+      async signInWithOtp({ email }: { email: string }) {
+        const normalisedEmail = email.trim().toLowerCase();
+        currentSession = createStubSession(normalisedEmail || 'user@example.com');
+        notify('SIGNED_IN', currentSession);
+        return { data: { user: currentSession.user, session: currentSession }, error: null };
+      },
+      async signOut() {
+        currentSession = null;
+        notify('SIGNED_OUT', null);
+        return { error: null };
+      },
     },
     storage: {
       from: () => ({

@@ -1,22 +1,9 @@
 'use client';
 
-import { createClient, type Session, type SupabaseClient } from '@supabase/supabase-js';
-import { clientEnv } from '@/src/env.client';
+import type { Session, SupabaseClient } from '@supabase/supabase-js';
+import { supabase } from '@/integrations/supabase/client';
 
-let browserClient: SupabaseClient | null = null;
-
-const resolveClient = (): SupabaseClient => {
-  if (!browserClient) {
-    browserClient = createClient(clientEnv.NEXT_PUBLIC_SUPABASE_URL, clientEnv.NEXT_PUBLIC_SUPABASE_ANON_KEY, {
-      auth: {
-        autoRefreshToken: true,
-        persistSession: true,
-        detectSessionInUrl: true,
-      },
-    });
-  }
-  return browserClient;
-};
+const resolveClient = (): SupabaseClient => supabase;
 
 export const getSupabaseClient = resolveClient;
 
