@@ -9,10 +9,18 @@ environments or investigating production issues.
   - `lib/openai/client.ts` for SDK-based calls.
   - `lib/openai/url.ts` (via `buildOpenAiUrl()`) for REST fetch calls to avoid
     duplicate `/v1` path segments.
+- For multi-tenant finance workloads, prefer the workload helpers:
+  - `getOpenAIClientForWorkload()` / `withOpenAIClientForWorkload()` select
+    keyed credentials (`default`, `finance-prod`, `finance-staging`).
+  - `readOpenAiWorkloadEnv()` exposes the active key, request tags, and quota
+    tag so edge functions or cron jobs can validate configuration without
+    instantiating the SDK.
 - Confirm environment variables:
   - `OPENAI_API_KEY` (`<environment>` scoped).
   - `OPENAI_BASE_URL` (optional override; the helper strips trailing `/v1`).
   - `OPENAI_ORG_ID` (for multi-org dashboards and quota partitioning).
+  - `OPENAI_FINANCE_WORKLOAD` (defaults to `finance-staging` when `NODE_ENV`
+    is not production). Override per environment if finance routing diverges.
 
 ## 2. Observability & Tagging
 - Toggle debug logging (`OPENAI_DEBUG_LOGGING=true`) to persist records in the
@@ -28,7 +36,9 @@ environments or investigating production issues.
   helper `lib/openai/workloads.ts` keeps service code synchronized with the
   selected workload.
 - Tags are automatically merged with contextual information (endpoint, model,
-  org) and stored as `metadata.tags` on each debug event.
+  org, HTTP status) and stored as `metadata.tags` on each debug event. Status
+  and model tags are now added by the logger—dashboards can filter on
+  `status:4xx` / `model:gpt-5.1` without manual enrichment.
 - ChatKit speech loops write transcripts to `chatkit_session_transcripts`; verify
   S2T/TTS metadata (voice, duration, language) is present when debugging audio
   issues.
@@ -46,7 +56,8 @@ environments or investigating production issues.
 1. Trigger a test request (embedding, response, realtime, or video) using the
    relevant service endpoint.
 2. Confirm the event appears in `openai_debug_events` with the expected tags and
-   quota tag:
+   quota tag. Finance workload runs should include `workload:finance-<env>` and
+   `quota:<tag>` entries thanks to the workload helpers:
    ```sql
    select request_id, endpoint, metadata->'tags', metadata->>'quota_tag'
    from openai_debug_events
@@ -77,3 +88,10 @@ environments or investigating production issues.
   `dist/agent_evaluations_report.json` and
   `dist/agent_evaluations_metrics.ndjson`; upload them to dashboards or Supabase
   for compliance review.
+
+## 7. Communications
+- When this runbook or `docs/openai-client-architecture.md` changes, post a
+  summary in `#audit-ops` and `#openai-integrations` including the new
+  configuration or instrumentation steps.
+- Mention the owning guild (Platform for SDK helpers, SRE for monitoring) so
+  on-call rotations can acknowledge the update and adjust playbooks.
