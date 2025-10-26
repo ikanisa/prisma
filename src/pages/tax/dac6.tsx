@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAppStore } from '@/stores/mock-data';
 import { isSupabaseConfigured } from '@/integrations/supabase/client';
-import { createDac6Arrangement, listDac6Arrangements, type Dac6Arrangement } from '@/lib/tax-mt-service';
+import { createDac6Arrangement, listDac6Arrangements, type Dac6Arrangement } from '@prisma-glow/tax-mt-service';
 import { logger } from '@/lib/logger';
 
 type ParticipantInput = {

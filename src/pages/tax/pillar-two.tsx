@@ -15,7 +15,7 @@ import {
   listPillarTwoComputations,
   type PillarTwoComputation,
   type PillarTwoSummary,
-} from '@/lib/tax-mt-service';
+} from '@prisma-glow/tax-mt-service';
 import { calculatePillarTwo } from '@/lib/tax/calculators';
 import { logger } from '@/lib/logger';
 

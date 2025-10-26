@@ -25,35 +25,49 @@
         "./packages/system-config/dist/index.d.ts",
         "./packages/system-config/dist/index.js"
       ],
+      "@prisma-glow/logger": [
+        "./packages/logger/dist/index.d.ts",
+        "./packages/logger/src/index.ts",
+        "./packages/logger/dist/index.js"
+      ],
       "@prisma-glow/ui": [
         "./packages/ui/src/index.ts"
       ],
       "@prisma-glow/lib/*": [
-        "./packages/lib/dist/*.d.ts",
-        "./packages/lib/dist/*",
-        "./packages/lib/dist/*/index.d.ts",
-        "./packages/lib/dist/*/index.js"
+        "./packages/lib/dist/*"
       ],
       "@prisma-glow/lib": [
-        "./packages/lib/dist/index.d.ts"
+        "./packages/lib/dist/index"
       ],
       "@prisma-glow/agents/*": [
-        "./packages/agents/dist/*.d.ts",
-        "./packages/agents/dist/*",
-        "./packages/agents/dist/*/index.d.ts",
-        "./packages/agents/dist/*/index.js"
+        "./packages/agents/dist/*"
       ],
       "@prisma-glow/agents": [
-        "./packages/agents/dist/index.d.ts"
+        "./packages/agents/dist/index"
+      ],
+      "@prisma-glow/platform/*": [
+        "./packages/platform/dist/*"
+      ],
+      "@prisma-glow/platform": [
+        "./packages/platform/dist/index"
+      ],
+      "@prisma-glow/tax/*": [
+        "./packages/tax/dist/*"
+      ],
+      "@prisma-glow/tax": [
+        "./packages/tax/dist/index"
       ]
     }
   },
   "references": [
     { "path": "./packages/api-client/tsconfig.json" },
     { "path": "./packages/system-config/tsconfig.json" },
+    { "path": "./packages/logger/tsconfig.json" },
     { "path": "./packages/ui/tsconfig.json" },
     { "path": "./packages/agents/tsconfig.json" },
     { "path": "./packages/lib/tsconfig.json" },
+    { "path": "./packages/platform/tsconfig.json" },
+    { "path": "./packages/tax/tsconfig.json" },
     { "path": "./services/rag/tsconfig.json" },
     { "path": "./apps/gateway/tsconfig.json" }
   ]

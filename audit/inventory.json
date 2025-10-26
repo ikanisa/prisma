@@ -5,10 +5,11 @@
     "lockfile": "pnpm-lock.yaml"
   },
   "node": {
-    "version": "18.20.4",
+    "version": "22.12.0",
     "constraints": [
       "package.json#engines.node",
-      ".nvmrc"
+      ".nvmrc",
+      ".node-version"
     ]
   },
   "apps": [

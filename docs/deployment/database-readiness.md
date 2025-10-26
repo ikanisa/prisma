@@ -19,7 +19,7 @@ Use this list to confirm the Supabase project is ready for Prisma migrations and
 - [ ] Store updated `supabase/migrations/*` artefacts under version control.
 
 ## 4. Connection Secrets
-- [ ] Rotate `DATABASE_URL`/`DIRECT_URL` secrets in Vercel & GitHub Actions if credentials changed.
+- [ ] Rotate `DATABASE_URL`/`DIRECT_URL` secrets in the hosting platform & GitHub Actions if credentials changed.
 - [ ] Confirm Supabase pooler (if used) allows migrations (set `transactional` mode).
 
 Attach logs/commands when each step completes; this file serves as audit evidence for Phase 3.

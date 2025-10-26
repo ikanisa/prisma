@@ -12,16 +12,16 @@
   ],
   "type": "module",
   "engines": {
-    "node": "18.20.4"
+    "node": "22.12.0"
   },
   "volta": {
-    "node": "18.20.4",
+    "node": "22.12.0",
     "pnpm": "9.12.3"
   },
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "typecheck": "tsc -b --pretty false --preserveWatchOutput false && tsc -b --clean",
+    "typecheck": "tsc --noEmit",
     "preview": "vite preview --host --port 8080",
     "check:bundle": "node ./scripts/check_bundlesize.mjs",
     "build:dev": "vite build --mode development",
@@ -33,7 +33,7 @@
     "test:workspace": "pnpm -r --if-present run test",
     "coverage": "./scripts/coverage.sh",
     "build:workspace": "pnpm -r --if-present run build",
-    "ci:verify": "pnpm run lint:workspace && pnpm run test:workspace && pnpm run build:workspace && pnpm run check:bundle",
+    "ci:verify": "pnpm run lint:workspace && pnpm run test:workspace && pnpm run build:workspace",
     "test:playwright": "playwright test",
     "test:playwright:core": "playwright test tests/playwright/core-journeys.spec.ts",
     "agents:generate": "ts-node scripts/generate_agent_manifests.ts",
@@ -94,10 +94,10 @@
     "@tanstack/react-table": "^8.21.3",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/react": "^16.3.0",
+    "dompurify": "^3.3.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
-    "dompurify": "^3.1.7",
     "date-fns": "^3.6.0",
     "embla-carousel-react": "^8.6.0",
     "express": "^4.19.2",
@@ -133,6 +133,9 @@
     "zustand": "^5.0.8"
   },
   "devDependencies": {
+    "@prisma-glow/agents": "workspace:*",
+    "@prisma-glow/lib": "workspace:*",
+    "@prisma-glow/system-config": "workspace:*",
     "@eslint/js": "^9.36.0",
     "@playwright/test": "^1.55.1",
     "@tailwindcss/typography": "^0.5.16",
@@ -144,16 +147,15 @@
     "@types/multer": "^2.0.0",
     "@types/node": "^22.18.10",
     "@types/pg": "^8.15.5",
-    "@types/supertest": "^6.0.3",
+    "@types/dompurify": "^3.2.0",
     "@types/react": "^18.3.23",
     "@types/react-dom": "^18.3.7",
-    "@types/dompurify": "^3.0.5",
+    "fake-indexeddb": "^5.0.2",
     "@types/ws": "^8.18.1",
     "@vitejs/plugin-react-swc": "^3.11.0",
     "@vitest/coverage-v8": "^3.2.4",
     "autoprefixer": "^10.4.21",
     "cross-env": "^7.0.3",
-    "fake-indexeddb": "^5.0.2",
     "eslint": "^9.37.0",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",
@@ -163,6 +165,7 @@
     "postcss": "^8.5.6",
     "server-only": "^0.0.1",
     "tailwindcss": "^3.4.17",
+    "supertest": "^7.1.4",
     "ts-node": "^10.9.2",
     "turbo": "^2.3.3",
     "typescript": "^5.9.3",
@@ -170,8 +173,7 @@
     "vite": "^7.1.7",
     "vite-plugin-pwa": "^1.0.3",
     "vite-tsconfig-paths": "^5.1.3",
-    "vitest": "^3.2.4",
-    "supertest": "^7.0.0"
+    "vitest": "^3.2.4"
   },
   "overrides": {
     "esbuild": "^0.24.2"

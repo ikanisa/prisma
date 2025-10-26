@@ -69,7 +69,12 @@ describe('enforceRateLimit', () => {
     const result = await enforceRateLimit({ client, orgId, resource });
 
     expect(result).toEqual({ allowed: true, requestCount: 0 });
-    expect(warnSpy).toHaveBeenCalledWith('rate_limit_rpc_failed', {
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+    const [payload] = warnSpy.mock.calls[0] ?? [];
+    expect(typeof payload).toBe('string');
+    const parsed = JSON.parse(payload as string);
+    expect(parsed).toMatchObject({
+      message: 'rate_limit.rpc_failed',
       resource,
       orgId,
       error: { message: 'permission denied' },

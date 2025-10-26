@@ -13,7 +13,7 @@ import {
   computeUsOverlay,
   listUsOverlayCalculations,
   type UsOverlayCalculation,
-} from '@/lib/tax-mt-service';
+} from '@prisma-glow/tax-mt-service';
 import {
   calculateGilti,
   calculateSection163J,

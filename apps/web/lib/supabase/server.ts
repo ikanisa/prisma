@@ -1,8 +1,9 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { env } from '@/src/env.server';
 import { createSupabaseStub } from './stub';
+import type { Database } from '@prisma-glow/platform/supabase/types';
 
-type DatabaseClient = SupabaseClient;
+type DatabaseClient = SupabaseClient<Database>;
 
 let cachedClient: DatabaseClient | null = null;
 const SUPABASE_ALLOW_STUB = env.SUPABASE_ALLOW_STUB;

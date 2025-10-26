@@ -2,11 +2,8 @@ import type { ReactNode } from 'react';
 import { render, cleanup } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import {
-  ChartContainer,
-  generateChartVariables,
-  type ChartConfig,
-} from '../chart';
+import { ChartContainer, type ChartConfig } from '../chart';
+import { generateChartVariables } from '../chart-config';
 
 const { useThemeMock } = vi.hoisted(() => ({
   useThemeMock: vi.fn(() => ({ resolvedTheme: undefined, theme: undefined })),

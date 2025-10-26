@@ -400,11 +400,20 @@ pwa:
     api_max_age: "60s"
 
 telemetry:
+  namespace: "prisma-glow"
+  default_service: "backend-api"
+  default_environment_env: "SENTRY_ENVIRONMENT"
   dashboards:
     - "assistant_adoption"
     - "doc_pipeline"
     - "compliance"
     - "security"
+  exporters:
+    traces:
+      - name: "default"
+        protocol: "otlp_http"
+        endpoint_env: "OTEL_EXPORTER_OTLP_ENDPOINT"
+        headers_env: "OTEL_EXPORTER_OTLP_HEADERS"
 
 open_workflows:
   onboarding_zero_typing: true

@@ -4,7 +4,7 @@ let handler: (request: Request) => Promise<Response>;
 
 const hoisted = vi.hoisted(() => {
   const envGetMock = vi.fn((key: string) => {
-    if (key === 'API_ALLOWED_ORIGINS') return 'https://app.prisma-cpa.vercel.app';
+    if (key === 'API_ALLOWED_ORIGINS') return 'https://app.prismaglow.example.com';
     return undefined;
   });
   const createSupabaseClientWithAuthMock = vi.fn();
@@ -196,7 +196,7 @@ describe('archive-sync edge function', () => {
   it('handles CORS preflight', async () => {
     const response = await handler(new Request('https://example.com', { method: 'OPTIONS' }));
     expect(response.status).toBe(200);
-    expect(response.headers.get('Access-Control-Allow-Origin')).toBe('https://app.prisma-cpa.vercel.app');
+    expect(response.headers.get('Access-Control-Allow-Origin')).toBe('https://app.prismaglow.example.com');
   });
 
   it('rejects missing authorization headers', async () => {

@@ -166,9 +166,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": true,
-                "title": "Payload"
+                "$ref": "#/components/schemas/ReleaseControlCheckRequest"
               }
             }
           }
@@ -179,9 +177,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Check Release Controls Api Release Controls Check Post"
+                  "$ref": "#/components/schemas/ReleaseControlCheckResponse"
                 }
               }
             }
@@ -970,9 +966,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "additionalProperties": {
-                    "type": "integer"
-                  },
+                  "additionalProperties": true,
                   "title": "Response Ingest V1 Rag Ingest Post"
                 }
               }
@@ -5156,7 +5150,8 @@
                 "type": "number"
               },
               {
-                "type": "string"
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
               }
             ],
             "title": "Externalbalance"
@@ -5189,7 +5184,8 @@
                 "type": "number"
               },
               {
-                "type": "string"
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
               },
               {
                 "type": "null"
@@ -5222,7 +5218,8 @@
                 "type": "number"
               },
               {
-                "type": "string"
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
               }
             ],
             "title": "Amount"
@@ -5284,6 +5281,75 @@
           "org_slug"
         ],
         "title": "ReembedRequest"
+      },
+      "ReleaseControlCheckRequest": {
+        "properties": {
+          "orgSlug": {
+            "type": "string",
+            "title": "Orgslug"
+          },
+          "engagementId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Engagementid"
+          },
+          "triggeredBy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Triggeredby"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "orgSlug"
+        ],
+        "title": "ReleaseControlCheckRequest",
+        "description": "Request payload for /api/release-controls/check."
+      },
+      "ReleaseControlCheckResponse": {
+        "properties": {
+          "requirements": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Requirements"
+          },
+          "status": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Status"
+          },
+          "environment": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Environment"
+          },
+          "generatedAt": {
+            "type": "string",
+            "title": "Generatedat"
+          }
+        },
+        "type": "object",
+        "required": [
+          "requirements",
+          "status",
+          "environment",
+          "generatedAt"
+        ],
+        "title": "ReleaseControlCheckResponse",
+        "description": "Response payload for /api/release-controls/check."
       },
       "RevokeInviteRequest": {
         "properties": {

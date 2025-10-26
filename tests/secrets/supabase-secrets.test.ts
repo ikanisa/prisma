@@ -6,7 +6,7 @@ import {
   resetSupabaseSecretManager,
 } from '@prisma-glow/lib/secrets/supabase';
 
-const baseUrl = 'https://vault.prisma-cpa.vercel.app';
+const baseUrl = 'https://vault.prismaglow.example.com';
 const token = 'test-token';
 
 function stubVault(payload: Record<string, unknown>) {

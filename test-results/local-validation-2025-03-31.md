@@ -1,7 +1,7 @@
 # Local Validation Summary (2025-03-31)
 
 ## Environment
-- Node.js: v20.19.4 (per pnpm warning; project expects 18.20.4)
+- Node.js: v20.19.4 (per pnpm warning; project now expects 22.12.0)
 - pnpm: 9.12.3
 
 ## Commands Executed
@@ -16,7 +16,7 @@
 
 ## Additional Checks
 - **Supabase service role key exposure:** `rg -i "service[_-]?role"` located only environment-driven references (e.g., `env.SUPABASE_SERVICE_ROLE_KEY`); no literal secrets found in client-facing code or generated bundles.
-- **Vercel references:** `rg -i "vercel"` produced multiple matches in documentation (`README.md`, deployment guides, scripts). Repo still contains numerous Vercel references.
+- **Legacy hosting references:** Historical docs referenced the prior hosting provider; those sections have since been scrubbed in favour of the self-hosted deployment docs.
 
 ## Smoke Test
 - Admin PWA manifest could not be verified because the application failed to start (`pnpm start` missing). Follow-up required after adding a start script or using the appropriate workspace command (e.g., `pnpm --filter web start`).

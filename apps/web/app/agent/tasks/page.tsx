@@ -1,16 +1,9 @@
-import { AsyncBoundary } from '@/src/components/async-boundary';
-import { LoadingStack } from '@/src/components/loading-skeleton';
 import { AgentTaskList } from '@/src/features/agents';
 
+// eslint-disable-next-line react-refresh/only-export-components -- Next.js metadata export required
 export const metadata = {
   title: 'Agent tasks overview',
 };
-
-const ErrorState = () => (
-  <div className="rounded-md border border-destructive bg-destructive/10 p-4 text-sm text-destructive" role="alert">
-    Unable to load tasks from the workflow API.
-  </div>
-);
 
 export default function AgentTasksPage() {
   return (
@@ -25,9 +18,7 @@ export default function AgentTasksPage() {
         </p>
       </header>
 
-      <AsyncBoundary pendingFallback={<LoadingStack rows={5} />} errorFallback={<ErrorState />}>
-        <AgentTaskList />
-      </AsyncBoundary>
+      <AgentTaskList />
     </main>
   );
 }

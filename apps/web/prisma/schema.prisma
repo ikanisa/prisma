@@ -1,5 +1,5 @@
 // Prisma schema aligning with the Supabase Postgres schema
-// The datasource uses DATABASE_URL / DIRECT_URL environment variables configured in CI and Vercel
+// The datasource uses DATABASE_URL / DIRECT_URL environment variables configured in CI and the hosting platform
 
 generator client {
   provider = "prisma-client-js"

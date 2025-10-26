@@ -1,8 +1,8 @@
-import express from 'express';
+import express, { type Express } from 'express';
 import * as Sentry from '@sentry/node';
 import type { Transport, TransportOptions } from '@sentry/types';
 import { initTracing } from './otel.js';
-import type { ErrorRequestHandler, Express } from 'express';
+import type { ErrorRequestHandler } from 'express';
 import { pathToFileURL } from 'url';
 import { traceMiddleware } from './middleware/trace.js';
 import { createPiiScrubberMiddleware } from './middleware/pii-scrubber.js';
@@ -12,9 +12,60 @@ import { scrubPii } from './utils/pii.js';
 import { getRequestContext } from './utils/request-context.js';
 import { env } from './env.js';
 import { createCorsMiddleware } from './middleware/cors.js';
+import { logger } from '@prisma-glow/logger';
 
-export function createGatewayServer(): Express {
-  initTracing();
+declare global {
+  // eslint-disable-next-line @typescript-eslint/consistent-type-definitions
+  interface GlobalThis {
+    __SENTRY_TRANSPORT__?: (options: TransportOptions) => Transport;
+  }
+}
+
+const getSentryTransport = (): (() => Transport) | undefined => {
+  if (typeof globalThis === 'undefined') {
+    return undefined;
+  }
+  const factory = globalThis.__SENTRY_TRANSPORT__;
+  return typeof factory === 'function' ? factory : undefined;
+};
+
+function initialiseSentry(): boolean {
+  const dsn = env.GATEWAY_SENTRY_DSN ?? env.SENTRY_DSN;
+  if (!dsn) {
+    if (env.ALLOW_SENTRY_DRY_RUN) {
+      logger.warn('gateway.sentry_disabled', { reason: 'missing_dsn' });
+    }
+    return false;
+  }
+
+  const environment = env.SENTRY_ENVIRONMENT ?? env.ENVIRONMENT ?? env.NODE_ENV;
+  const release = env.SENTRY_RELEASE ?? env.SERVICE_VERSION;
+  const tracesSampleRate =
+    env.SENTRY_TRACES_SAMPLE_RATE !== undefined
+      ? env.SENTRY_TRACES_SAMPLE_RATE
+      : environment === 'production'
+        ? 0.2
+        : 1.0;
+  const transport = getSentryTransport();
+
+  try {
+    Sentry.init({
+      dsn,
+      environment,
+      release,
+      tracesSampleRate,
+      transport,
+    });
+    logger.info('gateway.sentry_initialised', { environment, release, tracesSampleRate });
+    return true;
+  } catch (error) {
+    logger.error('gateway.sentry_initialisation_failed', { error });
+    return false;
+  }
+}
+
+export async function createGatewayServer(): Promise<Express> {
+  await initTracing();
   const sentryEnabled = initialiseSentry();
   const app = express();
 
@@ -63,7 +114,6 @@ export function createGatewayServer(): Express {
   });
 
   app.get('/readiness', (_req, res) => {
-    // Minimal readiness: gateway is stateless. Optionally, verify required envs.
     const missing: string[] = [];
     if (!env.OTEL_SERVICE_NAME) missing.push('OTEL_SERVICE_NAME');
     const context = getRequestContext();
@@ -105,9 +155,10 @@ const isEntrypoint = (() => {
 })();
 
 if (isEntrypoint) {
-  const app = createGatewayServer();
   const port = env.PORT;
-  app.listen(port, () => {
-    logger.info('gateway.listening', { port });
+  createGatewayServer().then((app) => {
+    app.listen(port, () => {
+      logger.info('gateway.listening', { port });
+    });
   });
 }

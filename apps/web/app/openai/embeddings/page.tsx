@@ -180,6 +180,7 @@ const outstandingItems = [
   'Fold deterministic corpus guidance into customer-facing onboarding docs so solution teams mirror QA workflows.',
 ] as const;
 
+// eslint-disable-next-line react-refresh/only-export-components -- Next.js metadata export required
 export const metadata = {
   title: 'Vector embeddings overview',
   description: 'Understand OpenAI embeddings, the new text-embedding-3 models, and practical workflows for search, clustering, and recommendations.'

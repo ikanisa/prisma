@@ -1,7 +1,7 @@
 # Environment Gap Analysis
 
 ## Overview
-This document compares the environment variable keys required by the application code with the shared `.env.example` template. It also captures the status of live secret exports from Vercel, Supabase, and Vault so that missing credentials can be backfilled quickly.
+This document compares the environment variable keys required by the application code with the shared `.env.example` template. It also captures the status of live secret exports from hosting platform, Supabase, and Vault so that missing credentials can be backfilled quickly.
 
 ## Key Inventory Comparison
 The table below shows whether each key is present in the source files that validate environment variables. A check mark means the key is required or consumed in that layer. A dot indicates that the key is optional in that layer but present in `.env.example` for completeness.
@@ -139,7 +139,7 @@ Live exports could not be generated from this workspace because the deployment m
 
 | Platform | Command | Normalization Notes |
 | --- | --- | --- |
-| Vercel | `vercel env pull --environment production --yes ./vercel.env` | Convert names to uppercase snake case and map aliases (e.g. NEXT_PUBLIC_SUPABASE_ANON_KEY). |
+| hosting platform | `<platform-cli> env pull --environment production --yes ./hosting.env` | Convert names to uppercase snake case and map aliases (e.g. NEXT_PUBLIC_SUPABASE_ANON_KEY). |
 | Supabase | `supabase secrets list --project-ref <project>` | Ensure secrets align with Supabase dashboard names; normalize to match the keys above. |
 | Vault | `vault kv get -format=json secret/apps/prisma-glow-15` | Flatten nested JSON keys and uppercase to match application expectations. |
 
