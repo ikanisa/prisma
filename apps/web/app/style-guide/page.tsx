@@ -4,6 +4,7 @@ const colorGroups = Object.entries(themeTokens.colors);
 const spacingTokens = Object.entries(themeTokens.spacing);
 const radiusTokens = Object.entries(themeTokens.radii);
 
+// eslint-disable-next-line react-refresh/only-export-components -- Next.js metadata export required
 export const metadata = {
   title: 'Design tokens',
 };

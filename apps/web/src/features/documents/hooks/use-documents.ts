@@ -2,29 +2,30 @@
 
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { fetchDocuments } from '../services/document-service';
+import { fetchDocuments, type DocumentResult } from '../services/document-service';
 import { queryKeys } from '../../common/query-keys';
 import { useAppStore } from '@/src/store/app-store';
 import { useAuthStore } from '@/src/store/auth-store';
 
 export function useDocuments(repo?: string | null) {
-  const orgSlug = useAppStore((state) => state.orgSlug);
+  const rawOrgSlug = useAppStore((state) => state.orgSlug);
+  const orgSlug = rawOrgSlug?.trim() || 'demo';
   const token = useAuthStore((state) => state.session?.access_token ?? null);
 
   const queryKey = useMemo(() => queryKeys.documents.list(orgSlug, repo), [orgSlug, repo]);
 
-  const query = useQuery({
+  const query = useQuery<DocumentResult>({
     queryKey,
-    queryFn: async () => fetchDocuments(orgSlug ?? 'demo', repo, token),
-    enabled: Boolean(orgSlug),
-    suspense: true,
-    useErrorBoundary: true,
+    queryFn: () => fetchDocuments(orgSlug, repo, token),
   });
 
+  const fallback: DocumentResult = { documents: [], total: 0, source: 'stub' };
+  const result = query.data ?? fallback;
+
   return {
-    documents: query.data?.documents ?? [],
-    total: query.data?.total ?? 0,
-    source: query.data?.source ?? 'stub',
+    documents: result.documents,
+    total: result.total,
+    source: result.source,
     ...query,
   };
 }

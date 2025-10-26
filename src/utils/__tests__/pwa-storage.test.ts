@@ -34,8 +34,8 @@ describe('offline queue IndexedDB storage', () => {
   it('persists large payloads without data loss', async () => {
     const largePayload = 'x'.repeat(1024 * 1024 * 3);
 
-    const length = await queueAction('upload-large-payload', { payload: largePayload });
-    expect(length).toBe(1);
+    const entry = await queueAction('upload-large-payload', { payload: largePayload });
+    expect(entry.action).toBe('upload-large-payload');
 
     const snapshot = await getOfflineQueueSnapshot();
     expect(snapshot).toHaveLength(1);
@@ -47,8 +47,7 @@ describe('offline queue IndexedDB storage', () => {
     const quotaError = new DOMException('Quota exceeded', 'QuotaExceededError');
     const setSpy = vi.spyOn(storage, 'setInIndexedDb').mockRejectedValue(quotaError);
 
-    const length = await queueAction('quota-test', { value: 'example' });
-    expect(length).toBe(0);
+    await expect(queueAction('quota-test', { value: 'example' })).rejects.toBe(quotaError);
 
     expect(logger.error).toHaveBeenCalledWith('pwa.offline_queue_quota_exceeded', quotaError);
     expect(recordClientError).toHaveBeenCalledWith(

@@ -7,7 +7,7 @@ import { Button } from '@/components/enhanced-button';
 import { Badge } from '@/components/ui/badge';
 import { useAppStore } from '@/stores/mock-data';
 import { isSupabaseConfigured } from '@/integrations/supabase/client';
-import { computeVatReturn, listVatFilings, type VatFiling } from '@/lib/tax-mt-service';
+import { computeVatReturn, listVatFilings, type VatFiling } from '@prisma-glow/tax-mt-service';
 import { logger } from '@/lib/logger';
 
 type VatFormState = {

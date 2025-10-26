@@ -51,9 +51,9 @@ Deno.serve(async (req) => {
 
     // Create users using admin auth API
     const users = [
-      { email: 'sophia@prismaglow.test', password: 'lovable123', name: 'Sophia Systems', role: 'SYSTEM_ADMIN' as const },
-      { email: 'mark@prismaglow.test', password: 'lovable123', name: 'Mark Manager', role: 'MANAGER' as const },
-      { email: 'eli@prismaglow.test', password: 'lovable123', name: 'Eli Employee', role: 'EMPLOYEE' as const }
+      { email: 'sophia@prismaglow.test', password: 'securepass123', name: 'Sophia Systems', role: 'SYSTEM_ADMIN' as const },
+      { email: 'mark@prismaglow.test', password: 'securepass123', name: 'Mark Manager', role: 'MANAGER' as const },
+      { email: 'eli@prismaglow.test', password: 'securepass123', name: 'Eli Employee', role: 'EMPLOYEE' as const }
     ]
 
     for (const userData of users) {

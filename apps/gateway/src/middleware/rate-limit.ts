@@ -2,10 +2,9 @@ import rateLimit, {
   type AugmentedRequest,
   type ClientRateLimitInfo,
   type Options,
-  type RequestHandler,
   type Store,
 } from 'express-rate-limit';
-import type { Request } from 'express';
+import type { Request, RequestHandler } from 'express';
 
 export interface RedisLikeClient {
   eval<T = unknown>(script: string, options: { keys: string[]; arguments: Array<string | number> }): Promise<T>;

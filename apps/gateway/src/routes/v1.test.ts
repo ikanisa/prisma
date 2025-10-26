@@ -1,4 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
+import type { Express } from 'express';
 import request from 'supertest';
 import type { Test } from 'supertest';
 import { createGatewayServer } from '../server.js';
@@ -47,9 +48,9 @@ vi.mock('@prisma-glow/api-client', () => {
 });
 
 describe('v1 gateway routes', () => {
-  let app: ReturnType<typeof createGatewayServer>;
-  beforeEach(() => {
-    app = createGatewayServer();
+  let app: Express;
+  beforeEach(async () => {
+    app = await createGatewayServer();
   });
 
   function withOrgHeaders<T extends Test>(req: T): T {

@@ -6,7 +6,7 @@ Modern AI-powered operations suite with Supabase, FastAPI, and multi-app pnpm wo
 
 1. **Install prerequisites**
    - Install [Homebrew](https://brew.sh) if it is missing.
-   - `brew install node@20 pnpm python@3.11 postgresql@15` provides the toolchain used in CI. Volta pins Node.js `18.20.4` for local parity; Node 20 is also validated in the workflows.
+   - `brew install node@22 pnpm python@3.11 postgresql@15` provides the toolchain used in CI. Volta pins Node.js `22.12.0` for local parity; stick to that version to avoid Vite/runtime regressions.
    - Optionally install [direnv](https://direnv.net) for environment variable management.
 2. **Clone the repository**
    ```bash
@@ -68,8 +68,7 @@ Required variables:
 ## Run Commands
 
 - `pnpm install --frozen-lockfile` – install workspace dependencies.
-- `pnpm run typecheck` – project-reference typecheck (`tsc -b`) for gateway, shared packages, and services; the script cleans the incremental build artefacts afterwards.
-- `pnpm --filter web typecheck` – Next.js typecheck (fails until the web workspace cleans up its outstanding TS debt).
+- `pnpm run typecheck` – ensure TypeScript projects compile without emitting files.
 - `pnpm run lint` – lint the monorepo.
 - `pnpm run test` or `pnpm run coverage` – execute Vitest suites (coverage gate lives in CI).
 - `pnpm run build` – build shared packages and the Vite bundle (`tsc -b` runs first).
@@ -85,15 +84,6 @@ Git hooks, CI, and deployment workflows now rely on pnpm exclusively; make sure 
 - Stub mode (`SUPABASE_ALLOW_STUB=true`) lets UI developers work without live Supabase credentials; gateway and FastAPI continue to guard privileged routes.
 - Policy tests reside in `scripts/test_policies.sql`. Run them with `pnpm run config:validate` + manual `psql` or trigger the GitHub Action with `run_pgtap=true` once pgTAP is installed.
 - Supabase client keys should stay in `.env.local` (or GitHub secrets) only; never commit Supabase secrets.
-
-## Summary of Vercel removal
-
-- All Vercel-specific GitHub workflows and preview deployments have been removed from this repository.
-- Continuous integration now standardises on pnpm for install/typecheck/lint/build gates via `pnpm run ci:verify` (which now calls the monorepo `typecheck`).
-- Production hosting is driven by Docker/Compose and manual GitHub Actions deployments (see `.github/workflows/compose-deploy.yml`).
-- Local preview flows are documented in [docs/local-hosting.md](docs/local-hosting.md); reverse proxies will be introduced there when ready.
-
-The sections below retain the deep-dive environment details and operational runbooks referenced throughout the monorepo.
 
 ### Agent learning & RAG additions
 
@@ -205,7 +195,7 @@ User agent and correlation:
 
 - Gateway forwards `Authorization`, `X-Request-ID`, `X-Trace-ID`, and W3C `traceparent`/`tracestate` headers to FastAPI.
 - Gateway sets a service user agent on upstream requests: `prisma-glow-gateway/<SERVICE_VERSION>`.
-- Ensure `SERVICE_VERSION` is set in runtime (CI uses the commit SHA). When running on a managed host (the retired Vercel deployment or future PaaS targets), set it as an environment variable so traces include `service.version`.
+- Ensure `SERVICE_VERSION` is set in runtime (CI uses the commit SHA). Inject it through your hosting provider so traces include `service.version`.
 
 Versioning for trace correlation:
 
@@ -298,82 +288,6 @@ Governance details live in `STANDARDS/POLICY/agent_hitl.md`, with execution guid
 - Gateway enforces idempotency for POST/PUT/PATCH when clients send `X-Idempotency-Key`.
 - Upstream calls from gateway to FastAPI include a small, bounded retry with backoff for transient statuses (429/502/503/504).
 - See `apps/gateway/src/middleware/idempotency.ts` and `packages/api-client/index.ts` for behavior.
-
-### Deploying Supabase credentials to Lovable
-
-Add the same values to your Lovable deployment under **Project → Settings → Environment** so the
-hosted app can connect to Supabase. Set `VITE_ENABLE_PWA=true` in production to restore the PWA
-bundle Lovable expects; locally it can remain `false` to avoid Workbox build failures when testing
-offline features.
-
-### Applying database migrations
-
-The SQL migrations in `supabase/migrations/` must be applied to the Supabase Postgres instance. If
-you have network access to the database you can run:
-
-```bash
-psql "postgresql://postgres:rnUor1Vzr06galzC@db.xzwowkxzgqigfuefmaji.supabase.co:5432/postgres" \
-  -f supabase/migrations/<timestamp>_<name>.sql
-```
-
-Apply the files in chronological order. (From this environment the Supabase endpoint is not
-reachable – DNS resolution fails – so run the commands from a machine with outbound access.)
-
-The repository now seeds `web_knowledge_sources` with a Malta-focused catalogue (IFRS/ISA/Tax/MFSA
-publications). The RAG service exposes `/v1/knowledge/web-sources` and `/v1/knowledge/web-harvest`
-so the UI can schedule OpenAI web-search powered ingestions once the feature is enabled.
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
-
-**Edit a file directly in GitHub**
-
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
-
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/1b81869f-f7ae-4d22-99d2-79a60a4ddbf8) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
 
 ## Testing
 

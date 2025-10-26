@@ -1,6 +1,6 @@
-# Configuration Audit – Vercel + Supabase (2025-10-18)
+# Configuration Audit – Supabase + CI (2025-10-18)
 
-This checklist inventories the environment variables and service integrations the platform expects in Phase 3. Use it to verify that Vercel, GitHub Actions, and Supabase secrets are populated _before_ the next deploy.
+This checklist inventories the environment variables and service integrations the platform expects in Phase 3. Use it to verify that the hosting platform, GitHub Actions, and Supabase secrets are populated _before_ the next deploy.
 
 ## 1. Authentication & CAPTCHA
 - [ ] `AUTH_CLIENT_ID`, `AUTH_CLIENT_SECRET`, `AUTH_ISSUER`
@@ -46,7 +46,7 @@ This checklist inventories the environment variables and service integrations th
 - [ ] WhatsApp OTP credentials (`whatsapp_otp_*` functions)
 
 ## Verification Steps
-1. **Vercel:** `vercel env ls` per environment → confirm entries above. Add new keys via `vercel env add`.
+1. **Hosting platform:** review each environment's variables and ensure entries above exist; add any missing keys via the provider's CLI/console.
 2. **Supabase:** `supabase secrets list` (requires appropriate privileges) → ensure server-side functions have access to SMTP and Turnstile secrets.
 3. **GitHub Actions:** Repository settings → Secrets & Variables → Actions → confirm `DATABASE_URL`, `DIRECT_URL`, Supabase tokens, and new SMTP/CAPTCHA keys for CI.
 

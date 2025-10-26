@@ -1,4 +1,5 @@
-import { isSupabaseConfigured, supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/client';
+import { runtimeConfig } from '@/lib/runtime-config';
 
 export async function getAccessToken(): Promise<string> {
   if (!isSupabaseConfigured) {
@@ -12,7 +13,7 @@ export async function getAccessToken(): Promise<string> {
   return token;
 }
 
-const DEFAULT_API_BASE = import.meta.env.VITE_API_BASE_URL;
+const DEFAULT_API_BASE = runtimeConfig.apiBaseUrl;
 
 export async function authorizedFetch(path: string, options: RequestInit = {}): Promise<Response> {
   const accessToken = await getAccessToken();

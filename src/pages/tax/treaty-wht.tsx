@@ -20,7 +20,7 @@ import {
   type TaxDisputeEvent,
   type TreatyWhtCalculation,
   type TreatyWhtSummary,
-} from '@/lib/tax-mt-service';
+} from '@prisma-glow/tax-mt-service';
 import { calculateTreatyWht } from '@/lib/tax/calculators';
 import { logger } from '@/lib/logger';
 

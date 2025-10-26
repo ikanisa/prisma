@@ -15,5 +15,5 @@
 - [ ] `npm run build`
 
 ## Deployment
-- [ ] Secrets required for this change are already stored in GitHub/Vercel (names only in code).
-- [ ] I verified the Vercel preview deployment or added context if verification is blocked.
+- [ ] Secrets required for this change are already stored in GitHub and the hosting platform (names only in code).
+- [ ] I verified the preview/staging deployment or added context if verification is blocked.

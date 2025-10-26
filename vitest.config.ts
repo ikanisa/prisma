@@ -241,11 +241,17 @@ export default defineConfig({
     css: true,
     include: [
       'src/**/*.{test,spec}.{js,ts,jsx,tsx}',
-      '@prisma-glow/lib/**/*.{test,spec}.{js,ts}',
+      'packages/lib/src/**/*.{test,spec}.{js,ts}',
       'services/**/*.{test,spec}.{js,ts}',
       'tests/**/*.{test,spec}.{js,ts,jsx,tsx}',
     ],
-    exclude: ['tests/playwright/**', 'node_modules/**', 'node_modules/.pnpm/**'],
+    exclude: [
+      'tests/playwright/**',
+      'node_modules/**',
+      'node_modules/.pnpm/**',
+      'packages/**/node_modules/**',
+      'services/**/node_modules/**',
+    ],
     testTimeout: 120000,
     hookTimeout: 60000,
     coverage: {
@@ -312,8 +318,31 @@ export default defineConfig({
         replacement: path.resolve(__dirname, './packages/api-client/index.ts'),
       },
       {
+        find: /^@prisma-glow\/lib\/(.*)/,
+        replacement: '',
+        customResolver(source) {
+          const match = /^@prisma-glow\/lib\/(.*)/.exec(source);
+          if (!match) return null;
+          const relativePath = match[1];
+          const withExtension = path.resolve(__dirname, './packages/lib/dist', `${relativePath}.js`);
+          if (existsSync(withExtension)) {
+            return { id: withExtension };
+          }
+          const fallbackPath = path.resolve(__dirname, './packages/lib/dist', relativePath);
+          return { id: fallbackPath };
+        },
+      },
+      {
+        find: '@prisma-glow/lib',
+        replacement: path.resolve(__dirname, './packages/lib/dist/index.js'),
+      },
+      {
+        find: '@prisma-glow/logger',
+        replacement: path.resolve(__dirname, './packages/logger/src/index.ts'),
+      },
+      {
         find: '@prisma-glow/system-config',
-        replacement: path.resolve(__dirname, './packages/system-config/src/index.js'),
+        replacement: path.resolve(__dirname, './packages/system-config/src/index.ts'),
       },
     ],
   },

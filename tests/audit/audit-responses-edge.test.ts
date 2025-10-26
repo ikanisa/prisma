@@ -6,7 +6,7 @@ let activityLogs: any[];
 
 const hoisted = vi.hoisted(() => {
   const envGetMock = vi.fn((key: string) => {
-    if (key === 'API_ALLOWED_ORIGINS') return 'https://app.prisma-cpa.vercel.app';
+    if (key === 'API_ALLOWED_ORIGINS') return 'https://app.prismaglow.example.com';
     return undefined;
   });
 

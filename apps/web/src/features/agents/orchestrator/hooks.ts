@@ -1,12 +1,17 @@
+import { useEffect } from 'react';
 import {
   type CreateSessionPayload,
-  OrchestrationTaskStatus,
   type OrchestrationPlan,
+  OrchestrationTaskStatus,
 } from '@prisma-glow/api-client';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { agentsApi } from '../api';
+import { useMutation, useQuery, useQueryClient, type UseQueryOptions } from '@tanstack/react-query';
+import { agentsApi, type SessionBoard } from '../api';
 import { convertPlanTaskToPayload } from '../utils';
 import { useOrchestratorStore } from './store';
+import type {
+  DomainAgentsResponse,
+  OrchestrationSessionsResponse,
+} from '@prisma-glow/api-client';
 
 const orchestratorKeys = {
   root: ['agents-orchestrator'] as const,
@@ -15,8 +20,13 @@ const orchestratorKeys = {
   session: (sessionId: string) => ['agents-orchestrator', 'session', sessionId] as const,
 };
 
+const emptySessionKey = ['agents-orchestrator', 'session', 'empty'] as const;
+type SessionQueryKey =
+  | ReturnType<typeof orchestratorKeys.session>
+  | typeof emptySessionKey;
+
 export function useDomainAgentsQuery() {
-  return useQuery({
+  return useQuery<DomainAgentsResponse>({
     queryKey: orchestratorKeys.agents,
     queryFn: () => agentsApi.listAgents(),
   });
@@ -24,7 +34,7 @@ export function useDomainAgentsQuery() {
 
 export function useSessionsQuery(orgSlug: string) {
   const trimmed = orgSlug.trim();
-  return useQuery({
+  return useQuery<OrchestrationSessionsResponse>({
     queryKey: orchestratorKeys.sessions(trimmed || 'unknown'),
     queryFn: () => agentsApi.listSessions(trimmed, 20),
     enabled: Boolean(trimmed),
@@ -32,20 +42,36 @@ export function useSessionsQuery(orgSlug: string) {
 }
 
 export function useSessionBoardQuery(sessionId: string | null) {
-  const store = useOrchestratorStore();
-  return useQuery({
-    queryKey: sessionId ? orchestratorKeys.session(sessionId) : ['agents-orchestrator', 'session', 'empty'],
-    queryFn: () => agentsApi.getSession(sessionId!),
+  const setTaskUpdates = useOrchestratorStore((state) => state.setTaskUpdates);
+  const queryKey: SessionQueryKey = sessionId ? orchestratorKeys.session(sessionId) : emptySessionKey;
+  const options: UseQueryOptions<
+    SessionBoard | undefined,
+    Error,
+    SessionBoard | undefined,
+    SessionQueryKey
+  > = {
+    queryKey,
+    queryFn: sessionId
+      ? () => agentsApi.getSession(sessionId)
+      : async () => undefined,
     enabled: Boolean(sessionId),
-    onSuccess: (board) => {
-      if (!board) return;
-      const updates: Record<string, OrchestrationTaskStatus> = {};
-      for (const task of board.tasks ?? []) {
-        updates[task.id] = task.status;
-      }
-      store.setTaskUpdates(updates);
-    },
-  });
+  };
+
+  const query = useQuery(options);
+
+  useEffect(() => {
+    const board = query.data;
+    if (!board) {
+      return;
+    }
+    const updates: Record<string, OrchestrationTaskStatus> = {};
+    for (const task of board.tasks ?? []) {
+      updates[task.id] = task.status;
+    }
+    setTaskUpdates(updates);
+  }, [query.data, setTaskUpdates]);
+
+  return query;
 }
 
 export function useGeneratePlanMutation() {
@@ -122,7 +148,7 @@ export function buildCreateSessionPayload(orgSlug: string, options: {
   includePlanTasks: boolean;
   planPreview: OrchestrationPlan | null;
 }): CreateSessionPayload {
-  const payload: Record<string, unknown> = {
+  const payload: CreateSessionPayload = {
     orgSlug: orgSlug.trim(),
     objective: options.objective.trim(),
   };

@@ -1,1 +1,3 @@
-export { default, default as KamReportingPage } from '../../../../src/pages/reporting/kam';
+import KamReportingPage from '../../../../src/pages/reporting/kam';
+
+export default KamReportingPage;

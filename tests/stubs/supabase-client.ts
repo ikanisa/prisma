@@ -57,6 +57,11 @@ class QueryBuilder {
     return this;
   }
 
+  lte(field: string, value: any) {
+    this.filters.push({ type: 'lte', field, value });
+    return this;
+  }
+
   in(field: string, values: any[]) {
     this.filters.push({ type: 'in', field, values });
     return this;
@@ -131,6 +136,10 @@ class QueryBuilder {
         if (filter.op === 'is' && filter.value === null) {
           return value === null;
         }
+      }
+      if (filter.type === 'lte') {
+        if (value === undefined || value === null) return false;
+        return value <= filter.value;
       }
       return true;
     });

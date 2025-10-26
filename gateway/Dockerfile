@@ -1,4 +1,4 @@
-FROM node:20-alpine
+FROM node:20.19.4-alpine
 ARG SERVICE_VERSION=dev
 ENV SERVICE_VERSION=${SERVICE_VERSION}
 LABEL org.opencontainers.image.revision=${SERVICE_VERSION}

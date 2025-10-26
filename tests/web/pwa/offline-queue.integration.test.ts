@@ -6,34 +6,38 @@ import {
   getOfflineQueueSnapshot,
   processQueuedActions,
   queueAction,
+  resetOfflineQueue,
 } from '@/utils/pwa';
 import * as apiClient from '@/lib/apiClient';
+import { deleteIndexedDb } from '@/lib/storage/indexed-db';
 
-const clearQueue = () => {
+const clearQueue = async () => {
+  await resetOfflineQueue();
   localStorage.removeItem(OFFLINE_QUEUE_STORAGE_KEY);
 };
 
 describe('offline action queue', () => {
-  beforeEach(() => {
-    clearQueue();
+  beforeEach(async () => {
+    await clearQueue();
   });
 
-  afterEach(() => {
-    clearQueue();
+  afterEach(async () => {
+    await clearQueue();
     vi.restoreAllMocks();
   });
 
-  it('persists queued actions to localStorage and notifies listeners', () => {
+  it('persists queued actions to localStorage and notifies listeners', async () => {
     const listener = vi.fn();
     window.addEventListener(OFFLINE_QUEUE_UPDATED_EVENT, listener);
 
-    const length = queueAction('/v1/tasks', { path: '/v1/tasks', method: 'POST', body: { name: 'Demo' } });
+    const entry = await queueAction('/v1/tasks', { path: '/v1/tasks', method: 'POST', body: { name: 'Demo' } });
 
-    expect(length).toBe(1);
+    expect(entry.action).toBe('/v1/tasks');
     const stored = window.localStorage.getItem(OFFLINE_QUEUE_STORAGE_KEY);
     expect(stored).not.toBeNull();
     expect(JSON.parse(stored!)).toHaveLength(1);
-    expect(getOfflineQueueSnapshot()).toHaveLength(1);
+    const snapshot = await getOfflineQueueSnapshot();
+    expect(snapshot).toHaveLength(1);
     expect(listener).toHaveBeenCalledTimes(1);
 
     window.removeEventListener(OFFLINE_QUEUE_UPDATED_EVENT, listener);
@@ -42,11 +46,12 @@ describe('offline action queue', () => {
   it('replays queued actions through the API client and clears them on success', async () => {
     const callApiSpy = vi.spyOn(apiClient, 'callApi').mockResolvedValueOnce({ ok: true } as any);
 
-    queueAction('POST /v1/tasks', { path: '/v1/tasks', method: 'POST', body: { name: 'Queued' } });
+    await queueAction('POST /v1/tasks', { path: '/v1/tasks', method: 'POST', body: { name: 'Queued' } });
 
-    const processed = await processQueuedActions();
+    const result = await processQueuedActions();
 
-    expect(processed).toBe(1);
+    expect(result.processed).toBe(1);
+    expect(result.remaining).toBe(0);
     expect(callApiSpy).toHaveBeenCalledTimes(1);
     expect(callApiSpy).toHaveBeenCalledWith({
       path: '/v1/tasks',
@@ -55,7 +60,7 @@ describe('offline action queue', () => {
       headers: undefined,
       query: undefined,
     });
-    expect(getOfflineQueueSnapshot()).toHaveLength(0);
+    expect(await getOfflineQueueSnapshot()).toHaveLength(0);
   });
 
   it('retries failed API calls before eventually succeeding', async () => {
@@ -64,10 +69,11 @@ describe('offline action queue', () => {
       .mockRejectedValueOnce(new Error('network down'))
       .mockResolvedValueOnce({ ok: true } as any);
 
-    queueAction('/v1/tasks', { path: '/v1/tasks', method: 'POST', body: { attempt: 1 } });
+    await queueAction('/v1/tasks', { path: '/v1/tasks', method: 'POST', body: { attempt: 1 } });
 
-    const processed = await processQueuedActions();
-    expect(processed).toBe(1);
+    const result = await processQueuedActions();
+    expect(result.processed).toBe(1);
+    expect(result.remaining).toBe(0);
     expect(callApiSpy).toHaveBeenCalledTimes(2);
     expect(callApiSpy).toHaveBeenNthCalledWith(1, {
       path: '/v1/tasks',
@@ -83,11 +89,13 @@ describe('offline action queue', () => {
       headers: undefined,
       query: undefined,
     });
-    expect(getOfflineQueueSnapshot()).toHaveLength(0);
+    expect(await getOfflineQueueSnapshot()).toHaveLength(0);
   });
 
   it('normalises legacy queue entries missing retry metadata before processing', async () => {
     const callApiSpy = vi.spyOn(apiClient, 'callApi').mockResolvedValueOnce({ ok: true } as any);
+
+    await deleteIndexedDb();
 
     const legacyEntry = {
       id: 'legacy-1',
@@ -98,9 +106,10 @@ describe('offline action queue', () => {
 
     window.localStorage.setItem(OFFLINE_QUEUE_STORAGE_KEY, JSON.stringify([legacyEntry]));
 
-    const processed = await processQueuedActions();
+    const result = await processQueuedActions();
 
-    expect(processed).toBe(1);
+    expect(result.processed).toBe(1);
+    expect(result.remaining).toBe(0);
     expect(callApiSpy).toHaveBeenCalledTimes(1);
     expect(callApiSpy).toHaveBeenCalledWith({
       path: '/v1/tasks',
@@ -109,6 +118,6 @@ describe('offline action queue', () => {
       headers: undefined,
       query: undefined,
     });
-    expect(getOfflineQueueSnapshot()).toHaveLength(0);
+    expect(await getOfflineQueueSnapshot()).toHaveLength(0);
   });
 });

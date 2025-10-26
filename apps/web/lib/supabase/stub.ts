@@ -110,5 +110,5 @@ export function createSupabaseStub(): SupabaseClient {
     },
   } satisfies Record<string, unknown>;
 
-  return client as SupabaseClient;
+  return client as unknown as SupabaseClient;
 }
