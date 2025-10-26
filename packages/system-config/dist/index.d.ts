@@ -28,10 +28,21 @@ export interface TelemetryConfig {
 export interface RawSystemConfig {
     data_sources?: Record<string, unknown>;
     datasources?: Record<string, unknown>;
+    encryption?: Record<string, unknown>;
     knowledge?: Record<string, unknown>;
     rag?: Record<string, unknown>;
     rbac?: Record<string, unknown>;
     [key: string]: unknown;
+}
+export interface EncryptionKeySettings {
+    provider: string | null;
+    keyReference: string | null;
+    rotationPeriodDays: number | null;
+}
+export interface EncryptionConfig {
+    supabase: EncryptionKeySettings;
+    objectStorage: EncryptionKeySettings;
+    jobQueue: EncryptionKeySettings;
 }
 export interface GoogleDriveSettings {
     enabled: boolean;
@@ -70,6 +81,7 @@ export declare function clearSystemConfigCache(): void;
 export declare function invalidateSystemConfigCache(): void;
 export declare function getResolvedConfigPath(): Promise<string>;
 export declare function refreshSystemConfig<TConfig extends RawSystemConfig = RawSystemConfig>(): Promise<TConfig>;
+export declare function getEncryptionConfig(): Promise<EncryptionConfig>;
 export declare function getGoogleDriveSettings(): Promise<GoogleDriveSettings>;
 export declare function getUrlSourceSettings(): Promise<UrlSourceSettings>;
 export declare function getBeforeAskingSequence(): Promise<string[]>;
