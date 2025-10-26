@@ -1,5 +1,8 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { PageHeader } from '@/components/ui/page-header';
+import { PageShell } from '@/components/ui/page-shell';
+import { cn } from '@/lib/utils';
 import { clientEnv } from '@/src/env.client';
 import {
   buildModelResponsePayload,
@@ -29,6 +32,30 @@ const DEFAULT_TOOL_OUTPUT = () =>
     outputType: 'json',
     output: JSON.stringify({ status: 'ok' }, null, 2),
   });
+
+const SECTION_CARD_CLASS =
+  'space-y-4 rounded-2xl border border-border/60 bg-card/90 p-6 shadow-sm shadow-brand-500/10 backdrop-blur';
+const FIELD_LABEL_CLASS = 'flex flex-col gap-2 text-sm font-medium text-foreground';
+const COMPACT_LABEL_CLASS =
+  'flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground';
+const INPUT_CLASS =
+  'rounded-xl border border-border/70 bg-background px-3 py-2 text-sm text-foreground shadow-sm transition focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-200 placeholder:text-muted-foreground';
+const COMPACT_INPUT_CLASS =
+  'rounded-lg border border-border/70 bg-background px-2 py-1 text-xs text-foreground transition focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-200 placeholder:text-muted-foreground';
+const TEXTAREA_CLASS =
+  'min-h-[120px] rounded-xl border border-border/70 bg-background px-3 py-2 text-sm text-foreground shadow-sm transition focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-200 placeholder:text-muted-foreground';
+const SMALL_TEXTAREA_CLASS =
+  'min-h-[90px] rounded-lg border border-border/70 bg-background px-2 py-1 text-xs text-foreground transition focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-200 placeholder:text-muted-foreground';
+const PRIMARY_BUTTON_CLASS =
+  'inline-flex items-center justify-center rounded-full bg-brand-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-200 disabled:cursor-not-allowed disabled:opacity-60';
+const SECONDARY_BUTTON_CLASS =
+  'inline-flex items-center justify-center rounded-full border border-border/70 bg-background px-3 py-1.5 text-xs font-medium text-foreground shadow-sm transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-200 disabled:cursor-not-allowed disabled:opacity-60';
+const DESTRUCTIVE_BUTTON_CLASS =
+  'inline-flex items-center justify-center rounded-full border border-destructive/40 bg-destructive/10 px-3 py-1.5 text-xs font-medium text-destructive transition hover:bg-destructive/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive/50 disabled:cursor-not-allowed disabled:opacity-60';
+const PILL_BADGE_CLASS =
+  'inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground';
+const EMPHASIS_BADGE_CLASS =
+  'inline-flex items-center rounded-full bg-success-100 px-2.5 py-1 text-[0.7rem] font-medium text-success-700';
 
 const parseStoredDrafts = <T,>(
   raw: unknown,
@@ -873,96 +900,92 @@ export default function AgentChat() {
   }, [orgSlug, responseMessages, responseModel, responseRequestJson, responseToolOutputs]);
 
   return (
-    <main className="space-y-6 p-6" aria-labelledby="chat-heading">
-      <header className="space-y-2">
-        <h1 id="chat-heading" className="text-2xl font-semibold">
-          Agent Streaming Playground
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Streams partial output from the OpenAI Responses API. Provide an organisation slug you have access to and a
-          prompt. This endpoint is gated by `OPENAI_STREAMING_ENABLED` on the backend.
-        </p>
-      </header>
+    <PageShell>
+      <PageHeader
+        eyebrow="Agent operations"
+        title="Agent streaming playground"
+        description="Streams partial output from the OpenAI Responses API. Provide an organisation slug you have access to, optional context, and prompts. This endpoint is gated by OPENAI_STREAMING_ENABLED on the backend."
+      />
 
-      <section aria-label="Stream controls" className="space-y-4 rounded-lg border p-4">
+      <section aria-label="Stream controls" className={SECTION_CARD_CLASS}>
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <label className="flex flex-col gap-2 text-sm font-medium">
+          <label className={FIELD_LABEL_CLASS}>
             Organisation slug
             <input
               value={orgSlug}
               onChange={(event) => setOrgSlug(event.target.value)}
-              className="rounded-md border px-3 py-2"
+              className={INPUT_CLASS}
               placeholder="org-slug"
             />
           </label>
-          <label className="flex flex-col gap-2 text-sm font-medium">
+          <label className={FIELD_LABEL_CLASS}>
             Agent persona
             <select
               value={agentType}
               onChange={(event) => setAgentType(event.target.value as typeof agentType)}
-              className="rounded-md border px-3 py-2"
+              className={INPUT_CLASS}
             >
               <option value="AUDIT">Audit</option>
               <option value="FINANCE">Finance</option>
               <option value="TAX">Tax</option>
             </select>
           </label>
-          <label className="flex flex-col gap-2 text-sm font-medium">
+          <label className={FIELD_LABEL_CLASS}>
             Engagement ID (optional)
             <input
               value={engagementId}
               onChange={(event) => setEngagementId(event.target.value)}
-              className="rounded-md border px-3 py-2"
+              className={INPUT_CLASS}
               placeholder="engagement-id"
             />
           </label>
-          <label className="flex flex-col gap-2 text-sm font-medium">
+          <label className={FIELD_LABEL_CLASS}>
             Supabase run ID (optional)
             <input
               value={supabaseRunId}
               onChange={(event) => setSupabaseRunId(event.target.value)}
-              className="rounded-md border px-3 py-2"
+              className={INPUT_CLASS}
               placeholder="run-uuid"
             />
           </label>
         </div>
 
-        <label className="flex flex-col gap-2 text-sm font-medium">
+        <label className={FIELD_LABEL_CLASS}>
           Question
           <textarea
             value={question}
             onChange={(event) => setQuestion(event.target.value)}
-            className="min-h-[120px] rounded-md border px-3 py-2"
+            className={TEXTAREA_CLASS}
             placeholder="Ask the agent..."
           />
         </label>
 
-        <label className="flex flex-col gap-2 text-sm font-medium">
+        <label className={FIELD_LABEL_CLASS}>
           Context (optional)
           <textarea
             value={context}
             onChange={(event) => setContext(event.target.value)}
-            className="min-h-[80px] rounded-md border px-3 py-2"
+            className={cn(TEXTAREA_CLASS, 'min-h-[80px]')}
             placeholder="Additional context that will be appended to the prompt"
           />
         </label>
 
-        <label className="flex flex-col gap-2 text-sm font-medium">
+        <label className={FIELD_LABEL_CLASS}>
           Realtime voice (optional)
           <input
             value={realtimeVoice}
             onChange={(event) => setRealtimeVoice(event.target.value)}
-            className="rounded-md border px-3 py-2"
+            className={INPUT_CLASS}
             placeholder="verse"
           />
         </label>
 
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-3">
           <button
             type="button"
             onClick={startAgentSession}
             disabled={startingSession}
-            className="rounded-md border border-slate-500 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+            className={PRIMARY_BUTTON_CLASS}
           >
             {startingSession ? 'Starting…' : agentSessionId ? 'Restart agent session' : 'Start agent session'}
           </button>
@@ -970,7 +993,7 @@ export default function AgentChat() {
             type="button"
             onClick={() => startStream('plain')}
             disabled={streaming}
-            className="rounded-md border border-blue-500 px-4 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-60"
+            className={cn(PRIMARY_BUTTON_CLASS, 'bg-brand-500 hover:bg-brand-600')}
           >
             {streaming && streamMode === 'plain' ? 'Streaming…' : 'Start stream'}
           </button>
@@ -978,7 +1001,7 @@ export default function AgentChat() {
             <button
               type="button"
               onClick={stopStream}
-              className="rounded-md border border-amber-500 px-4 py-2 text-sm font-medium text-amber-600 hover:bg-amber-50"
+              className={cn(DESTRUCTIVE_BUTTON_CLASS, 'text-destructive')}
             >
               Stop
             </button>
@@ -987,7 +1010,7 @@ export default function AgentChat() {
             type="button"
             onClick={() => startStream('tools')}
             disabled={streaming}
-            className="rounded-md border border-green-500 px-4 py-2 text-sm font-medium text-green-600 hover:bg-green-50 disabled:cursor-not-allowed disabled:opacity-60"
+            className={cn(PRIMARY_BUTTON_CLASS, 'bg-brand-500 hover:bg-brand-600')}
           >
             {streaming && streamMode === 'tools' ? 'Streaming tools…' : 'Start tool stream'}
           </button>
@@ -995,40 +1018,52 @@ export default function AgentChat() {
             type="button"
             onClick={requestRealtimeSession}
             disabled={!agentSessionId}
-            className="rounded-md border border-purple-500 px-4 py-2 text-sm font-medium text-purple-600 hover:bg-purple-50 disabled:cursor-not-allowed disabled:opacity-60"
+            className={cn(SECONDARY_BUTTON_CLASS, 'text-brand-700')}
           >
             Request realtime session
           </button>
         </div>
         {sessionError ? (
-          <p className="text-sm text-red-600" role="alert">
+          <p className="text-sm text-destructive" role="alert">
             {sessionError}
           </p>
         ) : null}
-        {sessionMessage ? <p className="text-sm text-emerald-600">{sessionMessage}</p> : null}
+        {sessionMessage ? <p className="text-sm text-success-600">{sessionMessage}</p> : null}
         {realtimeError ? (
-          <p className="text-sm text-red-600" role="alert">
+          <p className="text-sm text-destructive" role="alert">
             {realtimeError}
           </p>
         ) : null}
         {realtimeSession ? (
-          <div className="rounded-md border border-dashed p-3 text-xs">
-            <p className="font-semibold">Realtime Session</p>
-            <p>Client Secret: <code className="break-all">{realtimeSession.clientSecret}</code></p>
-            <p>Session ID: {realtimeSession.sessionId ?? 'n/a'}</p>
-            <p>Expires At: {realtimeSession.expiresAt ?? 'n/a'}</p>
+          <div className="space-y-2 rounded-2xl border border-dashed border-border/60 bg-muted/40 p-4 text-xs text-foreground">
+            <p className="text-sm font-semibold text-foreground">Realtime session</p>
+            <p>
+              Client Secret: <code className="break-all font-mono">{realtimeSession.clientSecret}</code>
+            </p>
+            <p>
+              Session ID:{' '}
+              <span className="font-mono">
+                {realtimeSession.sessionId ? realtimeSession.sessionId : 'n/a'}
+              </span>
+            </p>
+            <p>
+              Expires At:{' '}
+              {realtimeSession.expiresAt
+                ? new Date(realtimeSession.expiresAt).toLocaleString()
+                : 'n/a'}
+            </p>
             {realtimeSession.turnServers && realtimeSession.turnServers.length > 0 ? (
-              <div className="mt-2 space-y-1">
-                <p className="font-semibold">TURN Servers</p>
-                <ul className="space-y-1">
+              <div className="space-y-2">
+                <p className="text-sm font-semibold text-foreground">TURN servers</p>
+                <ul className="space-y-1 text-[0.7rem]">
                   {realtimeSession.turnServers.map((server, index) => (
                     <li key={`${server.urls}-${index}`} className="break-all">
-                      <span>{server.urls}</span>
+                      <span className="font-mono">{server.urls}</span>
                       {server.username ? (
-                        <>
-                          {' '}
-                          <span className="text-muted-foreground">(user: {server.username}{server.credential ? `, cred: ${server.credential}` : ''})</span>
-                        </>
+                        <span className="text-muted-foreground">
+                          {' '}(user: {server.username}
+                          {server.credential ? `, cred: ${server.credential}` : ''})
+                        </span>
                       ) : null}
                     </li>
                   ))}
@@ -1041,13 +1076,15 @@ export default function AgentChat() {
           </div>
         ) : null}
         {agentSessionId ? (
-          <div className="space-y-3 rounded-md border border-dashed p-3 text-xs">
-            <div>
-              <p className="font-semibold">Agent Session</p>
-              <p>Session ID: <code className="break-all">{agentSessionId}</code></p>
+          <div className="space-y-4 rounded-2xl border border-dashed border-border/60 bg-muted/30 p-4 text-xs text-foreground">
+            <div className="space-y-1">
+              <p className="text-sm font-semibold text-foreground">Agent session</p>
+              <p>
+                Session ID: <code className="break-all font-mono">{agentSessionId}</code>
+              </p>
               {supabaseRunIdDisplay ? (
                 <p>
-                  Supabase Run ID: <code className="break-all">{supabaseRunIdDisplay}</code>
+                  Supabase Run ID: <code className="break-all font-mono">{supabaseRunIdDisplay}</code>
                 </p>
               ) : null}
             </div>
@@ -1060,7 +1097,7 @@ export default function AgentChat() {
                   }
                 }}
                 disabled={!chatkitSessionIdForActions || chatkitLoading}
-                className="rounded-md border border-slate-400 px-3 py-1 font-medium text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                className={SECONDARY_BUTTON_CLASS}
               >
                 {chatkitLoading ? 'Refreshing…' : 'Refresh ChatKit session'}
               </button>
@@ -1068,7 +1105,7 @@ export default function AgentChat() {
                 type="button"
                 onClick={cancelChatkitSession}
                 disabled={!chatkitSessionIdForActions || chatkitActionInFlight === 'cancel'}
-                className="rounded-md border border-rose-400 px-3 py-1 font-medium text-rose-600 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
+                className={DESTRUCTIVE_BUTTON_CLASS}
               >
                 {chatkitActionInFlight === 'cancel' ? 'Cancelling…' : 'Cancel ChatKit session'}
               </button>
@@ -1076,48 +1113,54 @@ export default function AgentChat() {
                 type="button"
                 onClick={resumeChatkitSession}
                 disabled={!chatkitSessionIdForActions || chatkitActionInFlight === 'resume'}
-                className="rounded-md border border-emerald-400 px-3 py-1 font-medium text-emerald-600 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-60"
+                className={cn(SECONDARY_BUTTON_CLASS, 'text-brand-700')}
               >
                 {chatkitActionInFlight === 'resume' ? 'Resuming…' : 'Resume ChatKit session'}
               </button>
             </div>
             <div className="space-y-2">
-              <p>Status: <span className="font-semibold">{chatkitStatus}</span></p>
+              <p>
+                Status: <span className="font-semibold text-foreground">{chatkitStatus}</span>
+              </p>
               {chatkitSession?.metadata ? (
-                <details>
-                  <summary className="cursor-pointer select-none font-medium">Metadata</summary>
-                  <pre className="mt-1 whitespace-pre-wrap break-words rounded bg-muted/40 p-2">
+                <details className="rounded-2xl border border-border/60 bg-background/70 p-3 text-left text-[0.75rem]">
+                  <summary className="cursor-pointer select-none text-sm font-medium text-foreground">Metadata</summary>
+                  <pre className="mt-2 whitespace-pre-wrap break-words font-mono text-xs">
                     {JSON.stringify(chatkitSession.metadata, null, 2)}
                   </pre>
                 </details>
               ) : null}
-              <p>Updated at: {chatkitSession?.updated_at ? new Date(chatkitSession.updated_at).toLocaleString() : '—'}</p>
+              <p>
+                Updated at: {chatkitSession?.updated_at ? new Date(chatkitSession.updated_at).toLocaleString() : '—'}
+              </p>
             </div>
-            <label className="flex flex-col gap-2 text-[0.85rem] font-medium">
+            <label className="flex flex-col gap-2 text-sm font-medium">
               Resume note (optional)
               <input
                 value={resumeNote}
                 onChange={(event) => setResumeNote(event.target.value)}
-                className="rounded-md border px-2 py-1"
+                className={COMPACT_INPUT_CLASS}
                 placeholder="Add a note when resuming"
               />
             </label>
             {chatkitError ? (
-              <p className="text-[0.85rem] text-red-600" role="alert">
+              <p className="text-sm text-destructive" role="alert">
                 {chatkitError}
               </p>
             ) : null}
-            {chatkitMessage ? <p className="text-[0.85rem] text-emerald-600">{chatkitMessage}</p> : null}
+            {chatkitMessage ? <p className="text-sm text-success-600">{chatkitMessage}</p> : null}
           </div>
         ) : null}
       </section>
 
-      <section aria-label="Agent output" className="space-y-3 rounded-lg border p-4">
-        <h2 className="text-lg font-semibold">Output</h2>
-        <pre className="min-h-[160px] whitespace-pre-wrap rounded-md bg-muted/40 p-3 text-sm">{output || 'Awaiting output…'}</pre>
+      <section aria-label="Agent output" className={cn(SECTION_CARD_CLASS, 'space-y-3')}>
+        <h2 className="text-lg font-semibold text-foreground">Output</h2>
+        <pre className="min-h-[160px] whitespace-pre-wrap rounded-2xl border border-border/50 bg-background/90 p-4 text-sm">
+          {output || 'Awaiting output…'}
+        </pre>
       </section>
 
-      <section aria-label="Responses API" className="space-y-3 rounded-lg border p-4">
+      <section aria-label="Responses API" className={cn(SECTION_CARD_CLASS, 'space-y-4')}>
         <div className="space-y-2">
           <h2 className="text-lg font-semibold">Responses API (single request)</h2>
           <p className="text-sm text-muted-foreground">
@@ -1127,12 +1170,12 @@ export default function AgentChat() {
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
-          <label className="flex flex-col gap-2 text-sm font-medium">
+          <label className={FIELD_LABEL_CLASS}>
             Model (optional)
             <input
               value={responseModel}
               onChange={(event) => setResponseModel(event.target.value)}
-              className="rounded-md border px-3 py-2"
+              className={INPUT_CLASS}
               placeholder="gpt-4.1-mini"
             />
           </label>
@@ -1148,7 +1191,7 @@ export default function AgentChat() {
                       createMessageDraft({ role: 'user' }),
                     ])
                   }
-                  className="rounded border border-slate-400 px-3 py-1 font-medium text-slate-600 hover:bg-slate-50"
+                  className={SECONDARY_BUTTON_CLASS}
                 >
                   Add message
                 </button>
@@ -1160,12 +1203,15 @@ export default function AgentChat() {
             </p>
             <div className="space-y-3">
               {responseMessages.length === 0 ? (
-                <div className="rounded-md border border-dashed p-3 text-xs text-muted-foreground">
+                <div className="rounded-2xl border border-dashed border-border/60 bg-muted/30 p-4 text-xs text-muted-foreground">
                   No messages configured. Add one above to include prompt content.
                 </div>
               ) : null}
               {responseMessages.map((message, index) => (
-                <div key={message.id} className="space-y-3 rounded-md border p-3">
+                <div
+                  key={message.id}
+                  className="space-y-3 rounded-2xl border border-border/60 bg-background/90 p-4 shadow-sm"
+                >
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                       Message {index + 1}
@@ -1182,7 +1228,7 @@ export default function AgentChat() {
                               ),
                             )
                           }
-                          className="rounded border px-2 py-1 text-xs"
+                          className={COMPACT_INPUT_CLASS}
                         >
                           <option value="user">user</option>
                           <option value="assistant">assistant</option>
@@ -1204,7 +1250,7 @@ export default function AgentChat() {
                               ),
                             )
                           }
-                          className="rounded border px-2 py-1 text-xs"
+                          className={COMPACT_INPUT_CLASS}
                         >
                           <option value="text">Text</option>
                           <option value="json">JSON</option>
@@ -1214,7 +1260,7 @@ export default function AgentChat() {
                         <button
                           type="button"
                           onClick={() => duplicateResponseMessage(message.id)}
-                          className="rounded border border-slate-400 px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50"
+                          className={cn(SECONDARY_BUTTON_CLASS, 'px-2 py-1 text-xs')}
                           aria-label={`Duplicate message ${index + 1}`}
                         >
                           Duplicate
@@ -1223,7 +1269,7 @@ export default function AgentChat() {
                           type="button"
                           onClick={() => moveResponseMessage(message.id, -1)}
                           disabled={index === 0}
-                          className="rounded border border-slate-300 px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                          className={cn(SECONDARY_BUTTON_CLASS, 'px-2 py-1 text-xs')}
                           aria-label={`Move message ${index + 1} up`}
                         >
                           ↑
@@ -1232,7 +1278,7 @@ export default function AgentChat() {
                           type="button"
                           onClick={() => moveResponseMessage(message.id, 1)}
                           disabled={index === responseMessages.length - 1}
-                          className="rounded border border-slate-300 px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                          className={cn(SECONDARY_BUTTON_CLASS, 'px-2 py-1 text-xs')}
                           aria-label={`Move message ${index + 1} down`}
                         >
                           ↓
@@ -1243,14 +1289,14 @@ export default function AgentChat() {
                         onClick={() =>
                           setResponseMessages((prev) => prev.filter((entry) => entry.id !== message.id))
                         }
-                        className="rounded border border-red-200 px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
+                        className={cn(DESTRUCTIVE_BUTTON_CLASS, 'px-2 py-1 text-xs')}
                         aria-label={`Remove message ${index + 1}`}
                       >
                         Remove
                       </button>
                     </div>
                   </div>
-                  <label className="flex flex-col gap-1 text-xs font-medium">
+                  <label className={COMPACT_LABEL_CLASS}>
                     Name (optional)
                     <input
                       value={message.name}
@@ -1261,11 +1307,11 @@ export default function AgentChat() {
                           ),
                         )
                       }
-                      className="rounded border px-2 py-1 text-xs"
+                      className={COMPACT_INPUT_CLASS}
                       placeholder="function-helper"
                     />
                   </label>
-                  <label className="flex flex-col gap-1 text-xs font-medium">
+                  <label className={COMPACT_LABEL_CLASS}>
                     Message content
                     <textarea
                       value={message.content}
@@ -1276,7 +1322,7 @@ export default function AgentChat() {
                           ),
                         )
                       }
-                      className="min-h-[90px] rounded border px-2 py-1 text-xs"
+                      className={SMALL_TEXTAREA_CLASS}
                       placeholder={
                         message.contentType === 'json'
                           ? '[{"type":"text","text":"Hello"}]'
@@ -1293,7 +1339,7 @@ export default function AgentChat() {
             <textarea
               value={responseRequestJson}
               onChange={(event) => setResponseRequestJson(event.target.value)}
-              className="min-h-[140px] rounded-md border px-3 py-2 font-mono text-xs"
+              className={cn(TEXTAREA_CLASS, 'min-h-[140px] font-mono text-xs')}
               placeholder='{
   "temperature": 0.3,
   "metadata": { "debug": true }
@@ -1313,7 +1359,7 @@ export default function AgentChat() {
                   createToolOutputDraft(),
                 ])
               }
-              className="rounded border border-slate-400 px-3 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50"
+              className={SECONDARY_BUTTON_CLASS}
             >
               Add tool output
             </button>
@@ -1324,12 +1370,15 @@ export default function AgentChat() {
           </p>
           <div className="space-y-3">
             {responseToolOutputs.length === 0 ? (
-              <div className="rounded-md border border-dashed p-3 text-xs text-muted-foreground">
+              <div className="rounded-2xl border border-dashed border-border/60 bg-muted/30 p-4 text-xs text-muted-foreground">
                 No tool outputs configured.
               </div>
             ) : null}
             {responseToolOutputs.map((entry, index) => (
-              <div key={entry.id} className="space-y-3 rounded-md border p-3">
+              <div
+                key={entry.id}
+                className="space-y-3 rounded-2xl border border-border/60 bg-background/90 p-4 shadow-sm"
+              >
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Tool output {index + 1}
@@ -1339,13 +1388,13 @@ export default function AgentChat() {
                     onClick={() =>
                       setResponseToolOutputs((prev) => prev.filter((candidate) => candidate.id !== entry.id))
                     }
-                    className="rounded border border-red-200 px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
+                    className={DESTRUCTIVE_BUTTON_CLASS}
                     aria-label={`Remove tool output ${index + 1}`}
                   >
                     Remove
                   </button>
                 </div>
-                <label className="flex flex-col gap-1 text-xs font-medium">
+                <label className={COMPACT_LABEL_CLASS}>
                   Tool call ID
                   <input
                     value={entry.toolCallId}
@@ -1356,12 +1405,12 @@ export default function AgentChat() {
                         ),
                       )
                     }
-                    className="rounded border px-2 py-1 text-xs"
+                    className={COMPACT_INPUT_CLASS}
                     placeholder="call_abc123"
                   />
                 </label>
                 <div className="grid gap-2 md:grid-cols-[1fr_auto] md:items-start">
-                  <label className="flex flex-col gap-1 text-xs font-medium">
+                  <label className={COMPACT_LABEL_CLASS}>
                     Output
                     <textarea
                       value={entry.output}
@@ -1372,7 +1421,7 @@ export default function AgentChat() {
                           ),
                         )
                       }
-                      className="min-h-[90px] rounded border px-2 py-1 text-xs"
+                      className={SMALL_TEXTAREA_CLASS}
                       placeholder={
                         entry.outputType === 'json'
                           ? '{"result":"ok"}'
@@ -1380,7 +1429,7 @@ export default function AgentChat() {
                       }
                     />
                   </label>
-                  <label className="flex flex-col gap-1 text-xs font-medium">
+                  <label className={COMPACT_LABEL_CLASS}>
                     Output type
                     <select
                       value={entry.outputType}
@@ -1393,7 +1442,7 @@ export default function AgentChat() {
                           ),
                         )
                       }
-                      className="rounded border px-2 py-1 text-xs"
+                      className={COMPACT_INPUT_CLASS}
                     >
                       <option value="text">Text</option>
                       <option value="json">JSON</option>
@@ -1410,7 +1459,7 @@ export default function AgentChat() {
             type="button"
             onClick={sendModelResponse}
             disabled={responseInFlight}
-            className="rounded-md border border-indigo-500 px-4 py-2 text-sm font-medium text-indigo-600 hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-60"
+            className={cn(PRIMARY_BUTTON_CLASS, 'bg-brand-500 hover:bg-brand-600')}
           >
             {responseInFlight ? 'Sending…' : 'Send model request'}
           </button>
@@ -1420,7 +1469,7 @@ export default function AgentChat() {
         </div>
 
         {responseWarnings.length > 0 ? (
-          <div className="space-y-1 rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+          <div className="space-y-1 rounded-2xl border border-warning-200 bg-warning-50/80 p-4 text-xs text-warning-900">
             <p className="font-semibold">Request warnings</p>
             <ul className="list-disc space-y-1 pl-4">
               {responseWarnings.map((warning, index) => (
@@ -1431,7 +1480,7 @@ export default function AgentChat() {
         ) : null}
 
         {responseError ? (
-          <p className="text-sm text-red-600" role="alert">
+          <p className="text-sm text-destructive" role="alert">
             {responseError}
           </p>
         ) : null}
@@ -1439,22 +1488,22 @@ export default function AgentChat() {
         <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-2">
             <h3 className="text-sm font-semibold">Last request payload</h3>
-            <pre className="min-h-[120px] whitespace-pre-wrap break-words rounded-md bg-muted/40 p-3 text-xs">
+            <pre className="min-h-[120px] whitespace-pre-wrap break-words rounded-2xl border border-border/50 bg-background/90 p-4 text-xs">
               {lastResponsePayload ? JSON.stringify(lastResponsePayload, null, 2) : '—'}
             </pre>
           </div>
           <div className="space-y-2">
             <h3 className="text-sm font-semibold">Latest response</h3>
-            <pre className="min-h-[120px] whitespace-pre-wrap break-words rounded-md bg-muted/40 p-3 text-xs">
+            <pre className="min-h-[120px] whitespace-pre-wrap break-words rounded-2xl border border-border/50 bg-background/90 p-4 text-xs">
               {responseResult ? JSON.stringify(responseResult, null, 2) : responseInFlight ? 'Awaiting response…' : '—'}
             </pre>
           </div>
         </div>
       </section>
 
-      <section aria-label="Stream events" className="space-y-3 rounded-lg border p-4">
-        <h2 className="text-lg font-semibold">Stream Events</h2>
-        <div className="max-h-[240px] overflow-auto rounded-md bg-muted/30 p-3 text-xs">
+      <section aria-label="Stream events" className={cn(SECTION_CARD_CLASS, 'space-y-3')}>
+        <h2 className="text-lg font-semibold text-foreground">Stream events</h2>
+        <div className="max-h-[240px] overflow-auto rounded-2xl border border-border/50 bg-background/90 p-4 text-xs">
           {events.length === 0 ? <p>No events yet.</p> : null}
           {events.map((evt, index) => (
             <pre key={index} className="mb-2 whitespace-pre-wrap">
@@ -1464,24 +1513,24 @@ export default function AgentChat() {
         </div>
       </section>
 
-      <section aria-label="Stored conversations" className="space-y-4 rounded-lg border p-4">
+      <section aria-label="Stored conversations" className={cn(SECTION_CARD_CLASS, 'space-y-4')}>
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-lg font-semibold">Stored Conversations</h2>
+          <h2 className="text-lg font-semibold text-foreground">Stored conversations</h2>
           <button
             type="button"
             onClick={() => void loadConversations()}
-            className="rounded-md border border-slate-400 px-3 py-1 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            className={cn(SECONDARY_BUTTON_CLASS, 'text-sm')}
           >
             Refresh list
           </button>
         </div>
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
-          <label className="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <label className={COMPACT_LABEL_CLASS}>
             Mode
             <select
               value={conversationFilters.mode}
               onChange={(event) => updateConversationFilter('mode', event.target.value as ConversationFilters['mode'])}
-              className="rounded-md border px-2 py-1 text-sm"
+              className={COMPACT_INPUT_CLASS}
             >
               <option value="all">All</option>
               <option value="plain">Plain</option>
@@ -1489,12 +1538,12 @@ export default function AgentChat() {
               <option value="manual">Manual</option>
             </select>
           </label>
-          <label className="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <label className={COMPACT_LABEL_CLASS}>
             Agent Persona
             <select
               value={conversationFilters.agentType}
               onChange={(event) => updateConversationFilter('agentType', event.target.value as ConversationFilters['agentType'])}
-              className="rounded-md border px-2 py-1 text-sm"
+              className={COMPACT_INPUT_CLASS}
             >
               <option value="all">All personas</option>
               <option value="AUDIT">Audit</option>
@@ -1502,24 +1551,24 @@ export default function AgentChat() {
               <option value="TAX">Tax</option>
             </select>
           </label>
-          <label className="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <label className={COMPACT_LABEL_CLASS}>
             Context
             <select
               value={conversationFilters.hasContext}
               onChange={(event) => updateConversationFilter('hasContext', event.target.value as ConversationFilters['hasContext'])}
-              className="rounded-md border px-2 py-1 text-sm"
+              className={COMPACT_INPUT_CLASS}
             >
               <option value="any">Any</option>
               <option value="true">With context</option>
               <option value="false">No context</option>
             </select>
           </label>
-          <label className="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <label className={COMPACT_LABEL_CLASS}>
             Source
             <select
               value={conversationFilters.source}
               onChange={(event) => updateConversationFilter('source', event.target.value as ConversationFilters['source'])}
-              className="rounded-md border px-2 py-1 text-sm"
+              className={COMPACT_INPUT_CLASS}
             >
               <option value="all">All sources</option>
               <option value="agent_chat">Agent chat</option>
@@ -1528,12 +1577,12 @@ export default function AgentChat() {
               <option value="agent_manual">Manual</option>
             </select>
           </label>
-          <label className="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <label className={COMPACT_LABEL_CLASS}>
             Time range
             <select
               value={conversationFilters.timeRange}
               onChange={(event) => updateConversationFilter('timeRange', event.target.value as ConversationFilters['timeRange'])}
-              className="rounded-md border px-2 py-1 text-sm"
+              className={COMPACT_INPUT_CLASS}
             >
               <option value="all">All time</option>
               <option value="24h">Last 24 hours</option>
@@ -1547,30 +1596,30 @@ export default function AgentChat() {
               value={conversationFilters.search}
               onChange={(event) => updateConversationFilter('search', event.target.value)}
               placeholder="Search by id or prompt"
-              className="rounded-md border px-2 py-1 text-sm"
+              className={COMPACT_INPUT_CLASS}
             />
           </label>
         </div>
         <div className="flex flex-wrap items-center gap-3 text-sm">
-          <label className="inline-flex items-center gap-2">
+          <label className="inline-flex items-center gap-2 text-sm text-foreground">
             <input
               type="checkbox"
               checked={conversationFilters.mineOnly}
               onChange={(event) => updateConversationFilter('mineOnly', event.target.checked)}
-              className="h-4 w-4 rounded border"
+              className="h-4 w-4 rounded border border-border/60 text-brand-600 focus:ring-brand-200"
             />
             <span>Only show my runs</span>
           </label>
           <button
             type="button"
             onClick={resetConversationFilters}
-            className="text-sm font-medium text-slate-600 underline-offset-2 hover:underline"
+            className="text-sm font-medium text-brand-700 underline-offset-4 hover:underline"
           >
             Reset filters
           </button>
         </div>
         {conversationError ? (
-          <p className="text-sm text-red-600" role="alert">
+          <p className="text-sm text-destructive" role="alert">
             {conversationError}
           </p>
         ) : null}
@@ -1589,11 +1638,12 @@ export default function AgentChat() {
                     <button
                       type="button"
                       onClick={() => handleSelectConversation(conversation.id)}
-                      className={`w-full rounded-md border px-3 py-2 text-left text-sm transition hover:bg-muted/40 ${
+                      className={cn(
+                        'w-full rounded-2xl border px-3 py-2 text-left text-sm transition',
                         selectedConversationId === conversation.id
-                          ? 'border-blue-500 bg-blue-50 text-blue-700'
-                          : 'border-muted-foreground/30'
-                      }`}
+                          ? 'border-brand-400 bg-brand-50 text-brand-700 shadow-sm'
+                          : 'border-border/60 hover:bg-muted/40',
+                      )}
                     >
                       <div className="flex items-center justify-between text-xs text-muted-foreground">
                         <span>{conversation.metadata?.agent_type ?? 'unknown'} agent</span>
@@ -1601,12 +1651,12 @@ export default function AgentChat() {
                       </div>
                       <div className="truncate text-sm font-medium">{conversation.id}</div>
                       <div className="mt-1 flex flex-wrap gap-2 text-[0.7rem] uppercase tracking-wide text-muted-foreground">
-                        <span className="rounded bg-muted px-2 py-0.5">{conversation.metadata?.mode ?? 'unknown'}</span>
+                        <span className={PILL_BADGE_CLASS}>{conversation.metadata?.mode ?? 'unknown'}</span>
                         {conversation.metadata?.source ? (
-                          <span className="rounded bg-muted px-2 py-0.5">{conversation.metadata.source}</span>
+                          <span className={PILL_BADGE_CLASS}>{conversation.metadata.source}</span>
                         ) : null}
                         {conversation.metadata?.has_context === 'true' || conversation.metadata?.context_present === 'true' ? (
-                          <span className="rounded bg-emerald-100 px-2 py-0.5 text-emerald-700">context</span>
+                          <span className={EMPHASIS_BADGE_CLASS}>context</span>
                         ) : null}
                       </div>
                       {conversation.metadata?.initial_prompt_preview ? (
@@ -1633,18 +1683,18 @@ export default function AgentChat() {
                 ))}
               </ul>
             )}
-            {conversationHasMore ? (
-              <div className="pt-2">
-                <button
-                  type="button"
-                  onClick={loadMoreConversations}
-                  disabled={conversationLoadingMore || !conversationCursor}
-                  className="w-full rounded-md border border-slate-400 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {conversationLoadingMore ? 'Loading more…' : 'Load more'}
-                </button>
-              </div>
-            ) : null}
+        {conversationHasMore ? (
+          <div className="pt-2">
+            <button
+              type="button"
+              onClick={loadMoreConversations}
+              disabled={conversationLoadingMore || !conversationCursor}
+              className={cn(SECONDARY_BUTTON_CLASS, 'w-full text-sm')}
+            >
+              {conversationLoadingMore ? 'Loading more…' : 'Load more'}
+            </button>
+          </div>
+        ) : null}
           </div>
           <div className="space-y-2">
             <div className="flex items-center justify-between text-sm font-semibold">
@@ -1660,14 +1710,16 @@ export default function AgentChat() {
               <p className="text-sm text-muted-foreground">No items recorded yet.</p>
             ) : null}
             {conversationItems.length > 0 ? (
-              <ul className="max-h-[280px] space-y-2 overflow-auto rounded-md bg-muted/30 p-3 text-sm">
+              <ul className="max-h-[280px] space-y-2 overflow-auto rounded-2xl border border-border/50 bg-background/90 p-3 text-sm">
                 {conversationItems.map((item) => (
-                  <li key={item.id} className="rounded-md border border-muted-foreground/30 bg-background p-2">
+                  <li key={item.id} className="rounded-xl border border-border/50 bg-card/90 p-3">
                     <div className="flex items-center justify-between text-xs text-muted-foreground">
                       <span>{item.role ?? item.type}</span>
                       <span>{item.metadata?.stage ?? item.status ?? ''}</span>
                     </div>
-                    <pre className="mt-1 whitespace-pre-wrap break-words text-sm">{describeConversationItem(item)}</pre>
+                    <pre className="mt-2 whitespace-pre-wrap break-words rounded-lg bg-muted/30 p-2 text-sm">
+                      {describeConversationItem(item)}
+                    </pre>
                   </li>
                 ))}
               </ul>
@@ -1675,6 +1727,6 @@ export default function AgentChat() {
           </div>
         </div>
       </section>
-    </main>
+    </PageShell>
   );
 }

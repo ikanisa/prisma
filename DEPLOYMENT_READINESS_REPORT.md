@@ -31,6 +31,11 @@ Detailed notes in [`docs/deployment/prisma-supabase-deployment.md`](docs/deploym
 - Gateway and RAG services run as long-lived workloads; expose endpoints through environment variables consumed by the web app.
 - Prisma migrations execute via the `prisma-migrate` workflow, with manual approval required for production promotion.
 
+## Vercel UI readiness
+- Introduced shared `PageShell` and `PageHeader` wrappers so App Router pages render within a consistent glassmorphic card that respects Prisma Glow tokens during static prerendering.
+- Updated `/dashboard` and `/agent-chat` to consume the shared shell, harmonising gradients, spacing, and typography for preview deployments.
+- Normalised agent playground form controls and buttons to use token-driven Tailwind variants, avoiding ad-hoc colour values that previously caused snapshot and theming drift in Vercel previews.
+
 ## CI / Automation
 - `.github/workflows/ci.yml` covers lint/test/build for the monorepo.
 - `.github/workflows/prisma-migrate.yml` applies database migrations against Supabase environments.
