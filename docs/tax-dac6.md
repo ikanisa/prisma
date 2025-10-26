@@ -13,9 +13,9 @@
 ## Workflow
 1. Access `/tax/dac6` (manager role required).
 2. Enter arrangement details, hallmarks, and participants.
-3. The edge function `/functions/v1/tax-mt-nid` with `calculator=DAC6` assesses hallmarks via `@prisma-glow/tax/dac6` and persists the arrangement (`dac6_arrangements`, `dac6_hallmarks`, `dac6_participants`).
-4. Activity log `DAC6_ASSESSED` records status (draft vs ready for submission) and rationale.
-5. The history table shows recent arrangements with status tracking.
+3. The Next.js API route `POST /api/dac6/scan` validates payload shape, invokes `scanDac6()` from `apps/web/lib/tax/calculators.ts`, and returns the scoring summary to the UI. The Supabase edge function (`/functions/v1/tax-mt-nid`) remains available for bulk ingestion/export, but the UI scan no longer relies on it.
+4. `recordActivity()` writes an in-memory activity entry tagged with `module: 'tax.eu.dac6'`, summary `DAC6 scan executed`, metrics (`totalFlagged`, `highestScore`), and the optional preparer. These entries surface in the history pane so auditors can trace who ran the latest scan and what the outcome was.
+5. The history table shows recent arrangements with decision (`Proceed` / `Review`) derived from the scan result; database persistence happens only when the finance ops team promotes an arrangement via the Supabase function or direct SQL workflow.
 
 ## Testing
 - Hallmark logic covered by `tests/tax/dac6.test.ts`.

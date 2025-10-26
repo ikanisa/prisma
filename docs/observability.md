@@ -36,6 +36,11 @@ prisma-glow-15 so engineers can trace incidents end to end.
   from the FastAPI gateway, Express gateway, and RAG service. Use this table to
   correlate OTEL traces with business events (e.g., analytics run validations,
   cache hits, and job scheduling outcomes).
+- `openai_debug_events` captures every SDK call recorded through
+  `createOpenAiDebugLogger`. Tags now include endpoint, model, organisation, and
+  HTTP status dimensions in `metadata.tags`, plus optional quota routing via
+  `metadata.quota_tag`. Dashboards should treat those as first-class filters
+  (e.g., `status:4xx`, `workload:finance-prod`).
 - Grafana dashboards:
   - **Audit Platform Overview**: surface rate-limited requests, error counts
     from telemetry, and Supabase function failures.
@@ -66,6 +71,8 @@ prisma-glow-15 so engineers can trace incidents end to end.
     window.
 - Supabase log drains should trigger Slack notifications (`#audit-ops`) on any
   `supabase.organizations_error` or `EDGE_FUNCTION_ERROR` entry.
+- When OpenAI instrumentation changes, echo the update summary in
+  `#openai-integrations` so dashboard owners know to refresh filters or tags.
 - Container health probes should hit `/health` (liveness) and `/readiness`
   (readiness) for the FastAPI gateway and Express RAG API. Both endpoints return
   structured JSON with dependency statuses so orchestrators can gate rollout.
