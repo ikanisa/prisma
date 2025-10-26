@@ -771,6 +771,38 @@ export interface components {
       /** Org Slug */
       org_slug: string;
     };
+    /**
+     * ReleaseControlCheckRequest
+     * @description Request payload for /api/release-controls/check.
+     */
+    ReleaseControlCheckRequest: {
+      /** Orgslug */
+      orgSlug: string;
+      /** Engagementid */
+      engagementId?: string | null;
+      /** Triggeredby */
+      triggeredBy?: string | null;
+    };
+    /**
+     * ReleaseControlCheckResponse
+     * @description Response payload for /api/release-controls/check.
+     */
+    ReleaseControlCheckResponse: {
+      /** Requirements */
+      requirements: {
+        [key: string]: unknown;
+      };
+      /** Status */
+      status: {
+        [key: string]: unknown;
+      };
+      /** Environment */
+      environment: {
+        [key: string]: unknown;
+      };
+      /** Generatedat */
+      generatedAt: string;
+    };
     /** RevokeInviteRequest */
     RevokeInviteRequest: {
       /** Orgid */
@@ -1002,18 +1034,14 @@ export interface operations {
     };
     requestBody: {
       content: {
-        "application/json": {
-          [key: string]: unknown;
-        };
+        "application/json": components["schemas"]["ReleaseControlCheckRequest"];
       };
     };
     responses: {
       /** @description Successful Response */
       200: {
         content: {
-          "application/json": {
-            [key: string]: unknown;
-          };
+          "application/json": components["schemas"]["ReleaseControlCheckResponse"];
         };
       };
       /** @description Validation Error */
@@ -1436,7 +1464,7 @@ export interface operations {
       200: {
         content: {
           "application/json": {
-            [key: string]: number;
+            [key: string]: unknown;
           };
         };
       };

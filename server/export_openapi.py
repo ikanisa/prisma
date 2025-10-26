@@ -19,6 +19,7 @@ def _prepare_env_for_import() -> None:
     os.environ.setdefault("ENVIRONMENT", "codegen")
     os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
     os.environ.setdefault("DATABASE_URL", "postgresql+psycopg://postgres:postgres@localhost:5432/postgres")
+    os.environ.setdefault("API_ALLOWED_ORIGINS", "http://localhost:3000")
 
 
 _prepare_env_for_import()
