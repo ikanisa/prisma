@@ -28,7 +28,7 @@ export function useSupabaseAuth() {
     const { data } = client.auth.onAuthStateChange((_event, nextSession) => {
       setSession(nextSession ?? null);
       setStatus(nextSession ? 'authenticated' : 'idle');
-      queryClient.invalidateQueries({ queryKey: queryKeys.auth.session() });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.auth.session() });
     });
 
     return () => {

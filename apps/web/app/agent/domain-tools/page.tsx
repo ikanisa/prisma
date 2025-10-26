@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import type { DomainAgent } from '@prisma-glow/api-client';
 import { useDomainAgentsQuery } from '@/src/features/agents/hooks';
@@ -360,6 +361,7 @@ export default function DomainToolsPage() {
   }, [domainAgents, selectedAgentKey]);
 
   const selectedAgent = domainAgents.find((agent) => agent.key === selectedAgentKey) ?? null;
+  const selectedAgentTooling = selectedAgent?.tooling ?? [];
 
   useEffect(() => {
     let cancelled = false;
@@ -818,10 +820,10 @@ export default function DomainToolsPage() {
             <div className="text-xs text-muted-foreground">
               <span className="font-semibold">Capabilities:</span> {selectedAgent.capabilities.join(', ')}
             </div>
-            {selectedAgent.tooling?.length ? (
+            {selectedAgentTooling.length ? (
               <div className="text-xs text-muted-foreground">
                 <span className="font-semibold">Tooling:</span>{' '}
-                {selectedAgent.tooling.map((tool) => tool.name).join(', ')}
+                {selectedAgentTooling.map((tool) => tool.name).join(', ')}
               </div>
             ) : null}
           </div>
@@ -1389,10 +1391,14 @@ export default function DomainToolsPage() {
           <div className="mt-4 space-y-2">
             <h3 className="text-sm font-semibold">Preview</h3>
             <div className="overflow-hidden rounded border">
-              <img
+              <Image
                 src={`data:image/png;base64,${imageState.result.imageBase64}`}
                 alt="Generated visual"
+                width={1024}
+                height={1024}
                 className="h-auto w-full"
+                unoptimized
+                priority
               />
             </div>
             {imageState.result.revisedPrompt ? (

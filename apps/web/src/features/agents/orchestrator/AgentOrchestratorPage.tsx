@@ -14,7 +14,7 @@ import {
   useSessionsQuery,
 } from './hooks';
 import { useOrchestratorStore } from './store';
-import type { OrchestrationTaskStatus } from '@prisma-glow/api-client';
+import type { OrchestrationPlanTask, OrchestrationTask, OrchestrationTaskStatus } from '@prisma-glow/api-client';
 
 const DATE_FORMAT = new Intl.DateTimeFormat('en-US', {
   dateStyle: 'medium',
@@ -237,7 +237,7 @@ function OrchestratorContent() {
             <div className="space-y-3">
               <h3 className="text-sm font-semibold text-neutral-600">Suggested tasks ({planPreview.tasks.length})</h3>
               <ol className="space-y-3 text-sm">
-                {planPreview.tasks.map((task) => (
+                {planPreview.tasks.map((task: OrchestrationPlanTask) => (
                   <li key={task.id} className="rounded-md border border-neutral-200 p-3">
                     <div className="flex items-center justify-between gap-4">
                       <p className="font-medium text-neutral-800">{task.title}</p>
@@ -441,7 +441,7 @@ function OrchestratorContent() {
                   </tr>
                 </thead>
                 <tbody className="divide-y">
-                  {board.tasks.map((task) => (
+                  {board.tasks.map((task: OrchestrationTask) => (
                     <tr key={task.id}>
                       <td className="px-3 py-2">
                         <p className="font-medium text-neutral-800">{task.title}</p>

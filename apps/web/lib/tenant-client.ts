@@ -1,4 +1,18 @@
+import type { Database } from '@prisma-glow/platform/supabase/types';
 import { supabase, isSupabaseConfigured } from '@/integrations/supabase/client';
+
+type DatabaseTable = keyof Database['public']['Tables'];
+type SupabaseSelectResult = {
+  maybeSingle(): Promise<unknown>;
+  [key: string]: unknown;
+};
+
+type SupabaseTableOperations = {
+  select(columns?: string): { eq(column: string, value: string): SupabaseSelectResult };
+  insert(values: Record<string, unknown>): unknown;
+  update(values: Record<string, unknown>): { eq(column: string, value: string): unknown };
+  delete(): { eq(column: string, value: string): unknown };
+};
 
 const ORG_SCOPED_TABLES = [
   'clients',
@@ -61,30 +75,30 @@ export type OrgScopedTable = (typeof ORG_SCOPED_TABLES)[number];
 export class TenantClient {
   constructor(private readonly orgId: string) {}
 
-  private from(table: OrgScopedTable) {
+  private from<TableName extends OrgScopedTable>(table: TableName): SupabaseTableOperations {
     if (!ORG_SCOPED_TABLES.includes(table)) {
       throw new Error(`Table ${table as string} is not registered as org-scoped.`);
     }
-    return supabase.from(table as any) as any;
+    return supabase.from(table as DatabaseTable) as unknown as SupabaseTableOperations;
   }
 
-  select(table: OrgScopedTable, columns = '*') {
+  select<TableName extends OrgScopedTable>(table: TableName, columns = '*'): SupabaseSelectResult {
     return this.from(table).select(columns).eq('org_id', this.orgId);
   }
 
-  selectSingle(table: OrgScopedTable, columns = '*') {
+  selectSingle<TableName extends OrgScopedTable>(table: TableName, columns = '*'): Promise<unknown> {
     return this.from(table).select(columns).eq('org_id', this.orgId).maybeSingle();
   }
 
-  insert(table: OrgScopedTable, values: Record<string, unknown>) {
+  insert<TableName extends OrgScopedTable>(table: TableName, values: Record<string, unknown>): unknown {
     return this.from(table).insert({ ...values, org_id: this.orgId });
   }
 
-  update(table: OrgScopedTable, values: Record<string, unknown>) {
+  update<TableName extends OrgScopedTable>(table: TableName, values: Record<string, unknown>): unknown {
     return this.from(table).update(values).eq('org_id', this.orgId);
   }
 
-  delete(table: OrgScopedTable) {
+  delete<TableName extends OrgScopedTable>(table: TableName): unknown {
     return this.from(table).delete().eq('org_id', this.orgId);
   }
 }

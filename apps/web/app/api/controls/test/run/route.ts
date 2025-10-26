@@ -79,6 +79,15 @@ export async function POST(request: Request) {
   if (guard.rateLimitResponse) return guard.rateLimitResponse;
   if (guard.replayResponse) return guard.replayResponse;
 
+  logger.info('controls.test.run.requested', {
+    requestId,
+    orgId,
+    engagementId,
+    controlId,
+    userId,
+    attributeCount: attributes.length,
+  });
+
   const samplingClient = getSamplingClient();
   let plan;
   try {

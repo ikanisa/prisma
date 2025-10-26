@@ -5,10 +5,10 @@ import { lazy, type ComponentType, type LazyExoticComponent } from 'react';
 import { featureRoutes, type FeatureRoute } from '@/src/features/routes';
 
 export type LazyFeatureRoute = Omit<FeatureRoute, 'component'> & {
-  component: LazyExoticComponent<ComponentType<any>>;
+  component: LazyExoticComponent<ComponentType<unknown>>;
 };
 
-const componentLoaders: Record<string, () => Promise<{ default: ComponentType<any> }>> = {
+const componentLoaders: Record<string, () => Promise<{ default: ComponentType<unknown> }>> = {
   '@/src/features/agents/orchestrator/AgentOrchestratorPage': () =>
     import('@/src/features/agents/orchestrator/AgentOrchestratorPage'),
   '@/app/agent/domain-tools/page': () => import('@/app/agent/domain-tools/page'),
@@ -16,7 +16,7 @@ const componentLoaders: Record<string, () => Promise<{ default: ComponentType<an
   '@/app/dashboard/page': () => import('@/app/dashboard/page'),
 };
 
-const toLazyComponent = (loader: () => Promise<{ default: ComponentType<any> }>) => lazy(loader);
+const toLazyComponent = (loader: () => Promise<{ default: ComponentType<unknown> }>) => lazy(loader);
 
 export const lazyFeatureRoutes: LazyFeatureRoute[] = featureRoutes.map((route) => {
   const loader = componentLoaders[route.component];

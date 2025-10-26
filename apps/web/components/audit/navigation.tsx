@@ -18,12 +18,13 @@ const inactiveClasses = 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
 
 export function AuditNavigation({ items }: { items: AuditNavItem[] }) {
   const pathname = usePathname();
+  const currentPath = pathname ?? '';
 
   return (
     <nav aria-label="Audit workspace sections">
       <ul className="flex flex-wrap gap-2">
         {items.map(item => {
-          const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
+          const isActive = currentPath === item.href || currentPath.startsWith(`${item.href}/`);
           return (
             <li key={item.href}>
               <Link href={item.href} className={clsx(baseClasses, isActive ? activeClasses : inactiveClasses)}>
