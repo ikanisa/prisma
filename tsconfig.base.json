@@ -40,22 +40,16 @@
         "./packages/lib/dist/index"
       ],
       "@prisma-glow/agents/*": [
-        "./packages/agents/dist/*"
+        "./packages/agents/src/*.ts",
+        "./packages/agents/src/*/index.ts",
+        "./packages/agents/dist/*.d.ts",
+        "./packages/agents/dist/*",
+        "./packages/agents/dist/*/index.d.ts",
+        "./packages/agents/dist/*/index.js"
       ],
       "@prisma-glow/agents": [
-        "./packages/agents/dist/index"
-      ],
-      "@prisma-glow/platform/*": [
-        "./packages/platform/dist/*"
-      ],
-      "@prisma-glow/platform": [
-        "./packages/platform/dist/index"
-      ],
-      "@prisma-glow/tax/*": [
-        "./packages/tax/dist/*"
-      ],
-      "@prisma-glow/tax": [
-        "./packages/tax/dist/index"
+        "./packages/agents/src/index.ts",
+        "./packages/agents/dist/index.d.ts"
       ]
     }
   },

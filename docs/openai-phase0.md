@@ -13,11 +13,13 @@
    - Configure new environment toggles:
      - `OPENAI_DEBUG_LOGGING` – enables request logging to `openai_debug_events`.
      - `OPENAI_DEBUG_FETCH_DETAILS` – fetches enriched payloads from `/v1/requests/{id}/debug`.
+     - `OPENAI_FINANCE_WORKLOAD` – selects `finance-staging` vs `finance-prod` credentials; inherits request/quota tags when unset.
 
 2. **Observability Hooks**
    - `services/rag/openai-debug.ts` captures every Responses/Chat/Embedding call and persists result to Supabase (`openai_debug_events`).
    - Set up Grafana or Superset panel querying `openai_debug_events` (see `STANDARDS/TRACEABILITY/matrix.md`).
    - Configure request tags (`OPENAI_REQUEST_TAGS=service:rag,env:<env>,workload:finance`) and optional quota tag (`OPENAI_REQUEST_QUOTA_TAG=<billing-tag>`) so debug events, Datadog/Splunk routing, and OpenAI usage dashboards remain aligned.
+   - Use workload overrides (`OPENAI_REQUEST_TAGS_FINANCE_*`, `OPENAI_REQUEST_QUOTA_TAG_FINANCE_*`, `OPENAI_USER_AGENT_TAG_FINANCE`) when finance workloads require dedicated billing or routing.
    - Audit the Supabase retention policy for debug data (default infinite – adjust if necessary).
 
 3. **Tool Catalogue Sync Prototype**
