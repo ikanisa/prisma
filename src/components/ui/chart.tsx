@@ -5,80 +5,18 @@ import * as RechartsPrimitive from "recharts"
 import { useTheme } from "next-themes"
 
 import { cn } from "@/lib/utils"
-
-// Format: { THEME_NAME: CSS_SELECTOR }
-const THEMES = { light: "", dark: ".dark" } as const
-
-type ThemeName = keyof typeof THEMES
-
-type CSSVarStyles = React.CSSProperties & Record<string, string>
-
-type ChartVariableMap = {
-  base: CSSVarStyles
-  themes: Record<ThemeName, CSSVarStyles>
-  hasVariables: boolean
-}
-
-const THEME_NAMES = Object.keys(THEMES) as ThemeName[]
-
-function isThemeName(value: unknown): value is ThemeName {
-  return typeof value === "string" && value in THEMES
-}
+import {
+  generateChartVariables,
+  isThemeName,
+  type ChartConfig,
+  type ThemeName,
+} from "./chart-config"
 
 function useResolvedThemeName(): ThemeName | undefined {
   const { resolvedTheme, theme } = useTheme()
   const candidate = resolvedTheme ?? theme
 
   return isThemeName(candidate) ? candidate : undefined
-}
-
-function generateChartVariables(config: ChartConfig): ChartVariableMap {
-  const base: CSSVarStyles = {} as CSSVarStyles
-  const themes = THEME_NAMES.reduce(
-    (acc, theme) => {
-      acc[theme] = {} as CSSVarStyles
-      return acc
-    },
-    {} as Record<ThemeName, CSSVarStyles>
-  )
-
-  let hasVariables = false
-
-  for (const [key, itemConfig] of Object.entries(config)) {
-    const variable = `--color-${key}`
-
-    if ("theme" in itemConfig && itemConfig.theme) {
-      let fallbackAssigned = false
-
-      for (const themeName of THEME_NAMES) {
-        const value = itemConfig.theme?.[themeName]
-
-        if (!value) continue
-
-        themes[themeName][variable] = value
-        if (!fallbackAssigned) {
-          base[variable] = value
-          fallbackAssigned = true
-        }
-        hasVariables = true
-      }
-    } else if (itemConfig.color) {
-      base[variable] = itemConfig.color
-      hasVariables = true
-    }
-  }
-
-  return { base, themes, hasVariables }
-}
-
-export type ChartConfig = {
-  [k in string]: {
-    label?: React.ReactNode
-    icon?: React.ComponentType
-  } & (
-    | { color?: string; theme?: never }
-    | { color?: never; theme: Record<keyof typeof THEMES, string> }
-  )
 }
 
 type ChartContextProps = {
@@ -449,6 +387,8 @@ function getPayloadConfigFromPayload(
     : config[key as keyof typeof config]
 }
 
+export type { ChartConfig } from "./chart-config"
+
 export {
   ChartContainer,
   ChartTooltip,
@@ -456,5 +396,4 @@ export {
   ChartLegend,
   ChartLegendContent,
   ChartStyle,
-  generateChartVariables,
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, type Dispatch, type SetStateAction } from 'react';
-import type { CalculatorResult, ModuleKey, TaxActivity } from '@prisma-glow/lib/tax/types';
+import type { CalculatorResult, ModuleKey, TaxActivity, Decision } from '@/lib/tax/types';
 import {
   assessFiscalUnity,
   computeMaltaNid,
@@ -22,7 +22,6 @@ import {
   type VatPeriodInput,
   type VatPeriodMetrics,
 } from '@/lib/tax/calculators';
-import type { Decision } from '@prisma-glow/lib/tax/types';
 
 interface ApiResponse<TMetrics extends object> {
   scenario: string;

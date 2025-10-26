@@ -139,4 +139,7 @@ export const supabase = createClient<ExtendedDatabase>(resolvedSupabaseUrl, reso
     persistSession: true,
     autoRefreshToken: true,
   },
+  db: {
+    schema: runtimeConfig.supabaseSchema ?? 'public',
+  },
 });

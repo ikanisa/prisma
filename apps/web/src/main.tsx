@@ -1,10 +1,22 @@
 import * as Sentry from '@sentry/nextjs';
-import type { Transport, TransportOptions } from '@sentry/types';
+import type { BaseTransportOptions, Transport } from '@sentry/types';
 
 declare global {
-  // eslint-disable-next-line no-var
-  var __SENTRY_TRANSPORT__: ((options: TransportOptions) => Transport) | undefined;
+  interface GlobalThis {
+    __SENTRY_TRANSPORT__?: (options: BaseTransportOptions) => Transport;
+  }
 }
+
+type GlobalWithSentryTransport = typeof globalThis & {
+  __SENTRY_TRANSPORT__?: (options: BaseTransportOptions) => Transport;
+};
+
+const getTransportFactory = () => {
+  if (typeof globalThis === 'undefined') {
+    return undefined;
+  }
+  return (globalThis as GlobalWithSentryTransport).__SENTRY_TRANSPORT__;
+};
 
 const resolveDsn = () => {
   const specific = process.env.WEB_SENTRY_DSN;
@@ -60,7 +72,7 @@ const configureSentry = () => {
     process.env.SERVICE_VERSION ??
     undefined;
 
-  const transportFactory = globalThis?.__SENTRY_TRANSPORT__;
+  const transportFactory = getTransportFactory();
 
   Sentry.init({
     dsn,

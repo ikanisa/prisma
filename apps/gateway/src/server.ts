@@ -1,5 +1,6 @@
 import express from 'express';
 import * as Sentry from '@sentry/node';
+import type { Transport, TransportOptions } from '@sentry/types';
 import { initTracing } from './otel.js';
 import type { ErrorRequestHandler, Express } from 'express';
 import { pathToFileURL } from 'url';
@@ -12,6 +13,21 @@ import { getRequestContext } from './utils/request-context.js';
 import { env } from './env.js';
 import { createCorsMiddleware } from './middleware/cors.js';
 import { logger } from '@prisma-glow/logger';
+
+declare global {
+  // eslint-disable-next-line @typescript-eslint/consistent-type-definitions
+  interface GlobalThis {
+    __SENTRY_TRANSPORT__?: (options: TransportOptions) => Transport;
+  }
+}
+
+const getSentryTransport = (): (() => Transport) | undefined => {
+  if (typeof globalThis === 'undefined') {
+    return undefined;
+  }
+  const factory = globalThis.__SENTRY_TRANSPORT__;
+  return typeof factory === 'function' ? factory : undefined;
+};
 
 function initialiseSentry(): boolean {
   const dsn = env.GATEWAY_SENTRY_DSN ?? env.SENTRY_DSN;
@@ -30,10 +46,7 @@ function initialiseSentry(): boolean {
       : environment === 'production'
         ? 0.2
         : 1.0;
-  const transport =
-    typeof (globalThis as { __SENTRY_TRANSPORT__?: () => unknown }).__SENTRY_TRANSPORT__ === 'function'
-      ? (globalThis as { __SENTRY_TRANSPORT__?: () => unknown }).__SENTRY_TRANSPORT__
-      : undefined;
+  const transport = getSentryTransport();
 
   try {
     Sentry.init({
@@ -41,7 +54,7 @@ function initialiseSentry(): boolean {
       environment,
       release,
       tracesSampleRate,
-      transport: transport as any,
+      transport,
     });
     logger.info('gateway.sentry_initialised', { environment, release, tracesSampleRate });
     return true;

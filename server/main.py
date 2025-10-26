@@ -1525,6 +1525,7 @@ async def _emit_manifest_alert(job: Dict[str, Any], reason: str) -> None:
     org_id = job.get("org_id")
     if not org_id:
         return
+    event = None
     try:
         event = build_telemetry_alert_event(
             alert_type="DETERMINISTIC_MANIFEST_MISSING",
@@ -1545,24 +1546,48 @@ async def _emit_manifest_alert(job: Dict[str, Any], reason: str) -> None:
             reason=reason,
             errors=exc.errors,
         )
-        return
-
-    span = trace.get_current_span()
-    if span is not None:
-        span.add_event(
-            event.name,
-            {
-                "event.alert_type": event.properties["alertType"],
-                "event.severity": event.properties["severity"],
-                "event.reason": event.properties["context"].get("reason"),
-            },
+        event = None
+    except Exception as exc:  # pragma: no cover - defensive fallback
+        logger.error(
+            "autopilot.manifest_alert_unexpected_error",
+            job_id=job.get("id"),
+            org_id=org_id,
+            reason=reason,
+            error=str(exc),
         )
+        event = None
+
+    payload: Dict[str, Any]
+    if event is not None:
+        span = trace.get_current_span()
+        if span is not None:
+            span.add_event(
+                event.name,
+                {
+                    "event.alert_type": event.properties["alertType"],
+                    "event.severity": event.properties["severity"],
+                    "event.reason": event.properties["context"].get("reason"),
+                },
+            )
+        payload = telemetry_alert_row(event)
+    else:
+        payload = {
+            "org_id": org_id,
+            "alert_type": "DETERMINISTIC_MANIFEST_MISSING",
+            "severity": "CRITICAL",
+            "message": f"Deterministic manifest {reason} for {job.get('kind')}",
+            "context": {
+                "jobId": job.get("id"),
+                "kind": job.get("kind"),
+                "reason": reason,
+            },
+        }
 
     try:
         await supabase_table_request(
             "POST",
             "telemetry_alerts",
-            json=telemetry_alert_row(event),
+            json=payload,
             headers={"Prefer": "return=minimal"},
         )
     except Exception as exc:  # pragma: no cover - defensive logging

@@ -2,7 +2,9 @@
 
 import { formatDistanceToNow } from 'date-fns';
 import { useAgentTasks } from '../hooks/use-agent-tasks';
+import type { AgentTask } from '../services/task-service';
 import { logger } from '@/lib/logger';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const formatRelativeDate = (iso?: string | null) => {
   if (!iso) return 'No due date';
@@ -22,8 +24,53 @@ const priorityBadgeClass: Record<string, string> = {
   low: 'bg-muted text-muted-foreground',
 };
 
+const LOADING_PLACEHOLDERS = Array.from({ length: 4 });
+
 export function AgentTaskList() {
-  const { tasks, total, source } = useAgentTasks();
+  const { tasks, total, source, isPending } = useAgentTasks();
+
+  if (isPending) {
+    return (
+      <section
+        className="space-y-4 rounded-xl border border-border/60 bg-card p-6 shadow-sm"
+        aria-labelledby="agent-tasks-heading"
+        aria-busy="true"
+      >
+        <header className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-2">
+            <Skeleton className="h-6 w-48" />
+            <Skeleton className="h-4 w-64" />
+          </div>
+          <Skeleton className="h-6 w-20 rounded-full" />
+        </header>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          {LOADING_PLACEHOLDERS.map((_, index) => (
+            <article key={`agent-task-skeleton-${index}`} className="space-y-4 rounded-lg border border-border/80 bg-background p-4">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Skeleton className="h-3 w-24" />
+                  <Skeleton className="h-6 w-28 rounded-full" />
+                </div>
+                <Skeleton className="h-5 w-48" />
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Skeleton className="h-3 w-20" />
+                    <Skeleton className="h-4 w-28" />
+                  </div>
+                  <div className="space-y-1">
+                    <Skeleton className="h-3 w-20" />
+                    <Skeleton className="h-4 w-20" />
+                  </div>
+                </div>
+              </div>
+              <Skeleton className="h-3 w-32" />
+            </article>
+          ))}
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section aria-labelledby="agent-tasks-heading" className="space-y-4 rounded-xl border border-border/60 bg-card p-6 shadow-sm">
@@ -42,7 +89,7 @@ export function AgentTaskList() {
       </header>
 
       <div className="grid gap-4 md:grid-cols-2">
-        {tasks.map((task) => (
+        {tasks.map((task: AgentTask) => (
           <article key={task.id} className="flex flex-col justify-between rounded-lg border border-border/80 bg-background p-4">
             <div className="space-y-2">
               <div className="flex items-center justify-between">

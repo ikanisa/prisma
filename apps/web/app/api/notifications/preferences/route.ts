@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseServiceClient } from '@/lib/supabase/server';
+import type { Database } from '@prisma-glow/platform/supabase/types';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -50,7 +51,7 @@ function normalisePhone(value: unknown): string | null {
   return trimmed;
 }
 
-type SupabaseService = SupabaseClient<Record<string, unknown>, 'public', Record<string, unknown>>;
+type SupabaseService = SupabaseClient<Database>;
 
 export async function GET(request: NextRequest) {
   const actorId = getActorId(request);

@@ -1,5 +1,12 @@
 export declare const DEFAULT_BEFORE_ASKING_SEQUENCE: readonly string[];
 export declare const DEFAULT_ROLE_HIERARCHY: readonly string[];
+export declare const AUTONOMY_LEVELS: readonly ["L0", "L1", "L2", "L3"];
+export type AutonomyLevel = (typeof AUTONOMY_LEVELS)[number];
+export declare const AUTONOMY_LEVEL_ORDER: Record<AutonomyLevel, number>;
+export declare const DEFAULT_AUTONOMY_LEVEL = "L2";
+export declare const DEFAULT_AUTONOMY_LABELS: Record<AutonomyLevel, string>;
+export declare const DEFAULT_AUTOPILOT_ALLOWANCES: Record<AutonomyLevel, readonly string[]>;
+export declare const cloneDefaultAutopilotAllowances: () => Record<AutonomyLevel, string[]>;
 export interface RawSystemConfig {
     data_sources?: Record<string, unknown>;
     datasources?: Record<string, unknown>;

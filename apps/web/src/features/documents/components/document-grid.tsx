@@ -2,9 +2,12 @@
 
 import { formatDistanceToNow } from 'date-fns';
 import { useDocuments } from '../hooks/use-documents';
+import type { DocumentSummary } from '../services/document-service';
 import { logger } from '@/lib/logger';
+import { Skeleton } from '@/components/ui/skeleton';
 
-const formatUpdatedAt = (iso: string) => {
+const formatUpdatedAt = (iso?: string | null) => {
+  if (!iso) return 'recently';
   try {
     return formatDistanceToNow(new Date(iso), { addSuffix: true });
   } catch (error) {
@@ -20,8 +23,43 @@ export interface DocumentGridProps {
   title?: string;
 }
 
+const DOCUMENT_LOADING_PLACEHOLDERS = Array.from({ length: 6 });
+
 export function DocumentGrid({ repo = null, title = 'Recent knowledge base documents' }: DocumentGridProps) {
-  const { documents, total, source } = useDocuments(repo);
+  const { documents, total, source, isPending } = useDocuments(repo);
+
+  if (isPending) {
+    return (
+      <section
+        className="space-y-4 rounded-xl border border-border/60 bg-card p-6 shadow-sm"
+        aria-labelledby="documents-heading"
+        aria-busy="true"
+      >
+        <header className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-2">
+            <Skeleton className="h-6 w-56" />
+            <Skeleton className="h-4 w-64" />
+          </div>
+          <Skeleton className="h-6 w-24 rounded-full" />
+        </header>
+        <div className="grid gap-4 md:grid-cols-3">
+          {DOCUMENT_LOADING_PLACEHOLDERS.map((_, index) => (
+            <article key={`document-grid-skeleton-${index}`} className="space-y-3 rounded-lg border border-border/80 bg-background p-4">
+              <div className="space-y-2">
+                <Skeleton className="h-3 w-24" />
+                <Skeleton className="h-5 w-40" />
+              </div>
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-32" />
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="space-y-4 rounded-xl border border-border/60 bg-card p-6 shadow-sm" aria-labelledby="documents-heading">
@@ -39,7 +77,7 @@ export function DocumentGrid({ repo = null, title = 'Recent knowledge base docum
         </span>
       </header>
       <div className="grid gap-4 md:grid-cols-3">
-        {documents.map((doc) => (
+        {documents.map((doc: DocumentSummary) => (
           <article key={doc.id} className="space-y-3 rounded-lg border border-border/80 bg-background p-4">
             <header className="space-y-1">
               <p className="text-xs uppercase tracking-wide text-muted-foreground">{doc.category}</p>
