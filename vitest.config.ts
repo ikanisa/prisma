@@ -241,6 +241,7 @@ export default defineConfig({
     css: true,
     include: [
       'src/**/*.{test,spec}.{js,ts,jsx,tsx}',
+      'apps/web/**/*.{test,spec}.{js,ts,jsx,tsx}',
       'packages/lib/src/**/*.{test,spec}.{js,ts}',
       'services/**/*.{test,spec}.{js,ts}',
       'tests/**/*.{test,spec}.{js,ts,jsx,tsx}',

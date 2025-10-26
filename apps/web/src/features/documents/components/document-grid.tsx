@@ -5,18 +5,7 @@ import { useDocuments } from '../hooks/use-documents';
 import type { DocumentSummary } from '../services/document-service';
 import { logger } from '@/lib/logger';
 import { Skeleton } from '@/components/ui/skeleton';
-
-const formatUpdatedAt = (iso?: string | null) => {
-  if (!iso) return 'recently';
-  try {
-    return formatDistanceToNow(new Date(iso), { addSuffix: true });
-  } catch (error) {
-    if (process.env.NODE_ENV !== 'production') {
-      logger.warn('document_grid.timestamp_format_failed', { error, iso });
-    }
-    return 'recently';
-  }
-};
+import { useI18nContext } from '@/i18n/I18nProvider';
 
 export interface DocumentGridProps {
   repo?: string | null;
@@ -25,8 +14,31 @@ export interface DocumentGridProps {
 
 const DOCUMENT_LOADING_PLACEHOLDERS = Array.from({ length: 6 });
 
-export function DocumentGrid({ repo = null, title = 'Recent knowledge base documents' }: DocumentGridProps) {
+export function DocumentGrid({ repo = null, title }: DocumentGridProps) {
   const { documents, total, source, isPending } = useDocuments(repo);
+  const { t } = useI18nContext();
+
+  const fallbackRelativeLabel = t('common.time.recently');
+
+  const formatUpdatedAt = (iso?: string | null) => {
+    if (!iso) return fallbackRelativeLabel;
+    try {
+      return formatDistanceToNow(new Date(iso), { addSuffix: true });
+    } catch (error) {
+      if (process.env.NODE_ENV !== 'production') {
+        logger.warn('document_grid.timestamp_format_failed', { error, iso });
+      }
+      return fallbackRelativeLabel;
+    }
+  };
+
+  const heading = title ?? t('documents.grid.title');
+  const sampleTag = source === 'stub' ? ` ${t('common.sampleDataTag')}` : '';
+  const subtitle = t('documents.grid.subtitle', { sampleTag });
+  const totalLabel = t('documents.grid.total', {
+    count: String(total),
+    files: t(total === 1 ? 'common.file' : 'common.files'),
+  });
 
   if (isPending) {
     return (
@@ -66,14 +78,14 @@ export function DocumentGrid({ repo = null, title = 'Recent knowledge base docum
       <header className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 id="documents-heading" className="text-lg font-semibold text-foreground">
-            {title}
+            {heading}
           </h2>
           <p className="text-sm text-muted-foreground">
-            Synced from structured storage {source === 'stub' ? '(sample data)' : ''}.
+            {subtitle}
           </p>
         </div>
         <span className="rounded-full bg-muted px-3 py-1 text-xs font-medium text-muted-foreground" aria-live="polite">
-          {total} file{total === 1 ? '' : 's'}
+          {totalLabel}
         </span>
       </header>
       <div className="grid gap-4 md:grid-cols-3">
@@ -85,15 +97,15 @@ export function DocumentGrid({ repo = null, title = 'Recent knowledge base docum
             </header>
             <dl className="grid gap-2 text-xs text-muted-foreground">
               <div className="flex items-center justify-between">
-                <dt className="font-medium text-foreground">Owner</dt>
-                <dd>{doc.owner ?? 'Unassigned'}</dd>
+                <dt className="font-medium text-foreground">{t('common.owner')}</dt>
+                <dd>{doc.owner ?? t('common.unassigned')}</dd>
               </div>
               <div className="flex items-center justify-between">
-                <dt className="font-medium text-foreground">Status</dt>
+                <dt className="font-medium text-foreground">{t('common.status')}</dt>
                 <dd className="capitalize">{doc.state}</dd>
               </div>
               <div className="flex items-center justify-between">
-                <dt className="font-medium text-foreground">Updated</dt>
+                <dt className="font-medium text-foreground">{t('common.updated')}</dt>
                 <dd>{formatUpdatedAt(doc.updatedAt)}</dd>
               </div>
             </dl>
