@@ -51,15 +51,16 @@ function getMergeBase() {
 
 function getChangedFiles(baseSha) {
   try {
-    if (baseSha) {
-      const output = runGit(`git diff --name-only ${baseSha}...HEAD`);
-      return output ? output.split('\n').filter(Boolean) : [];
-    }
+    const diffTarget = baseSha ? baseSha : 'HEAD';
+    const diffOutput = runGit(`git diff --name-only ${diffTarget}`);
+    const diffFiles = diffOutput ? diffOutput.split('\n').filter(Boolean) : [];
 
-    const workingTreeDiff = runGit('git diff --name-only HEAD');
-    const untracked = runGit('git ls-files --others --exclude-standard');
-    const files = [...workingTreeDiff.split('\n'), ...untracked.split('\n')];
-    return files.filter((file) => file);
+    const untrackedOutput = runGit('git ls-files --others --exclude-standard');
+    const untrackedFiles = untrackedOutput
+      ? untrackedOutput.split('\n').filter(Boolean)
+      : [];
+
+    return [...new Set([...diffFiles, ...untrackedFiles])];
   } catch (error) {
     console.error('Failed to determine changed files:', error.message ?? error);
     process.exit(1);
