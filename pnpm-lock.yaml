@@ -541,6 +541,8 @@ importers:
 
   packages/api-client: {}
 
+  packages/dev-portal: {}
+
   packages/lib:
     devDependencies:
       tsconfig-paths-webpack-plugin:
