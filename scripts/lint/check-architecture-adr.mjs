@@ -52,8 +52,13 @@ function getMergeBase() {
 function getChangedFiles(baseSha) {
   try {
     if (baseSha) {
-      const output = runGit(`git diff --name-only ${baseSha}...HEAD`);
-      return output ? output.split('\n').filter(Boolean) : [];
+      const diffOutput = runGit(`git diff --name-only ${baseSha}`);
+      const untracked = runGit('git ls-files --others --exclude-standard');
+      const files = [
+        ...diffOutput.split('\n'),
+        ...untracked.split('\n')
+      ].filter((file) => file);
+      return [...new Set(files)];
     }
 
     const workingTreeDiff = runGit('git diff --name-only HEAD');
