@@ -1,5 +1,9 @@
 import type { PublicEnv } from './env.server';
 
+// Read env values at build-time for client code. This file must only surface
+// NEXT_PUBLIC_* variables. DO NOT export server-only secrets like
+// SUPABASE_SERVICE_ROLE_KEY, SUPABASE_JWT_SECRET, OPENAI_API_KEY, DATABASE_URL, etc.
+
 const read = (key: string): string | null => {
   const value = process.env[key as keyof NodeJS.ProcessEnv];
   if (value === undefined || value === '') return null;
@@ -23,3 +27,17 @@ export const clientEnv: PublicEnv = {
 };
 
 Object.freeze(clientEnv);
+
+// Runtime safeguard: warn in development if server-only env keys are present on the client.
+// This helps catch accidental leaks during local development.
+if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
+  try {
+    const leaked = ['SUPABASE_SERVICE_ROLE_KEY', 'SUPABASE_JWT_SECRET', 'OPENAI_API_KEY', 'DATABASE_URL'].filter((k) => (window as any)[k] !== undefined);
+    if (leaked.length) {
+      // eslint-disable-next-line no-console
+      console.warn('Detected server-only env keys present in client bundle:', leaked);
+    }
+  } catch (e) {
+    // ignore
+  }
+}
