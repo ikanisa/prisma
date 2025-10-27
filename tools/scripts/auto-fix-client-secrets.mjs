@@ -77,7 +77,13 @@ const modified = [];
 for (const dir of CLIENT_DIRS) {
   const full = path.join(ROOT, dir);
   if (!fs.existsSync(full)) continue;
-  const files = walk(full).filter((f) => /\.(js|ts|jsx|tsx|md|html|json|env|yaml|yml)$/.test(f));
+  const files = walk(full).filter((f) => {
+    const basename = path.basename(f);
+    return (
+      /\.(js|ts|jsx|tsx|md|html|json|env|yaml|yml)$/.test(f) ||
+      basename.includes('.env')
+    );
+  });
   for (const file of files) {
     for (const key of SERVER_ONLY_KEYS) {
       try {
