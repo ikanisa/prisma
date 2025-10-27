@@ -120,7 +120,8 @@ resource "aws_kms_key" "service_keys" {
 
   description              = each.value.description
   deletion_window_in_days  = var.deletion_window_in_days
-  enable_key_rotation      = true
+  # AWS does not support automatic rotation on multi-Region keys.
+  enable_key_rotation      = !var.multi_region
   is_enabled               = true
   key_usage                = "ENCRYPT_DECRYPT"
   multi_region             = var.multi_region
