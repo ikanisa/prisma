@@ -537,10 +537,14 @@ async function requestOfflineQueueSnapshot() {
         channel.port1.close();
         const { data } = event;
         if (data && typeof data === 'object' && data.type === 'OFFLINE_QUEUE_SNAPSHOT') {
-          if (hasSessionUnsyncedWorkerQueueEntries()) {
+          if (unsyncedWorkerQueueEntries.size > 0) {
+            const hasSessionPending = hasSessionUnsyncedWorkerQueueEntries();
             recordClientEvent({
               name: 'pwa:offlineQueueSnapshotSkipped',
-              data: { pending: unsyncedWorkerQueueEntries.size },
+              data: {
+                pending: unsyncedWorkerQueueEntries.size,
+                reason: hasSessionPending ? 'session_pending' : 'restored_pending',
+              },
             });
             channel.port1.close();
             resolve();
