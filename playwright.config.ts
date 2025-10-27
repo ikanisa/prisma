@@ -16,6 +16,7 @@ const webServerConfig = (() => {
       reuseExistingServer: true,
       stdout: 'pipe',
       stderr: 'pipe',
+      // Server-only env vars for test environment (these are only used in server-side Next.js code)
       env: {
         NEXT_TELEMETRY_DISABLED: '1',
         AUTH_CLIENT_ID: process.env.AUTH_CLIENT_ID ?? 'playwright-client-id',
