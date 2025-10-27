@@ -28,6 +28,11 @@ WORKDIR /app
 
 RUN apk add --no-cache wget
 
+# ⚠️ SECURITY WARNING: Environment Variables
+# - Prefer runtime secrets over build args for sensitive data
+# - NEVER pass long-lived secrets (API keys, passwords, tokens) as ARG or ENV in build stage
+# - Use secret managers (AWS Secrets Manager, HashiCorp Vault, Docker secrets)
+# - Mount secrets at runtime using --secret flag or secret managers
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 

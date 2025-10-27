@@ -21,10 +21,13 @@ const webServerConfig = (() => {
         AUTH_CLIENT_ID: process.env.AUTH_CLIENT_ID ?? 'playwright-client-id',
         AUTH_CLIENT_SECRET: process.env.AUTH_CLIENT_SECRET ?? 'playwright-client-secret',
         AUTH_ISSUER: process.env.AUTH_ISSUER ?? 'https://auth.playwright.test',
+        // ⚠️ SERVER-ONLY: These variables are used by the Next.js server process
+        // They are NOT exposed to the client bundle. Only NEXT_PUBLIC_* vars are client-accessible.
         SUPABASE_URL: process.env.SUPABASE_URL ?? 'https://supabase.playwright.test',
         SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY ?? 'playwright-service-role',
         SUPABASE_ALLOW_STUB: process.env.SUPABASE_ALLOW_STUB ?? 'true',
         SKIP_HEALTHCHECK_DB: process.env.SKIP_HEALTHCHECK_DB ?? 'true',
+        // Client-accessible public variables (NEXT_PUBLIC_ prefix):
         NEXT_PUBLIC_SUPABASE_URL:
           process.env.NEXT_PUBLIC_SUPABASE_URL ?? 'https://supabase.playwright.test',
         NEXT_PUBLIC_SUPABASE_ANON_KEY:

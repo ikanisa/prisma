@@ -13,12 +13,20 @@ This guide explains how to run the Prisma Glow stack without relying on managed 
    - `VITE_SUPABASE_URL`
    - `VITE_SUPABASE_PUBLISHABLE_KEY`
    - `SUPABASE_URL`
-   - `SUPABASE_SERVICE_ROLE_KEY`
-   - `SUPABASE_JWT_SECRET`
-   - `DATABASE_URL`
-   - `OPENAI_API_KEY`
-3. Optional toggles (`SUPABASE_ALLOW_STUB`, rate limits, telemetry webhooks) can remain unset locally.
-4. Restart any dev servers after editing `.env.local` so Vite/Next/Gateway pick up the changes.
+   - `SUPABASE_SERVICE_ROLE_KEY` ⚠️ **SERVER-ONLY** - Store in Vault, never in NEXT_PUBLIC_*
+   - `SUPABASE_JWT_SECRET` ⚠️ **SERVER-ONLY** - Store in Vault, never in NEXT_PUBLIC_*
+   - `DATABASE_URL` ⚠️ **SERVER-ONLY** - Store in Vault, never commit to git
+   - `OPENAI_API_KEY` ⚠️ **SERVER-ONLY** - Store in Vault, never expose to client
+
+3. **Critical Secret Management Rules:**
+   - ⛔ **NEVER** copy server-only secrets (SERVICE_ROLE_KEY, JWT_SECRET, API keys) to NEXT_PUBLIC_* variables
+   - ⛔ **NEVER** commit real secrets to version control
+   - ✅ **ALWAYS** use secret managers (Supabase Vault, AWS Secrets Manager, GitHub Actions secrets)
+   - ✅ **ALWAYS** use different secrets per environment (dev/staging/prod)
+   - ✅ **ALWAYS** verify no secrets leaked with: `node tools/scripts/check-client-secrets.mjs`
+
+4. Optional toggles (`SUPABASE_ALLOW_STUB`, rate limits, telemetry webhooks) can remain unset locally.
+5. Restart any dev servers after editing `.env.local` so Vite/Next/Gateway pick up the changes.
 
 ## 2. Install and build with pnpm
 
