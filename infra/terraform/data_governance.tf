@@ -33,7 +33,7 @@ resource "kubernetes_cron_job_v1" "data_anonymiser" {
     labels = {
       "app.kubernetes.io/managed-by" = "terraform"
       "app.kubernetes.io/component"  = "data-governance"
-      "data.prismaglow.io/dataset"   = regexreplace(lower(each.value.dataset), "\\s+", "-")
+      "data.prismaglow.io/dataset"   = regexreplace(lower(each.value.dataset), "\s+", "-")
     }
     annotations = {
       "data.prismaglow.io/retention-days" = tostring(each.value.retention)
@@ -53,7 +53,7 @@ resource "kubernetes_cron_job_v1" "data_anonymiser" {
         template {
           metadata {
             labels = {
-              "data.prismaglow.io/dataset" = regexreplace(lower(each.value.dataset), "\\s+", "-")
+              "data.prismaglow.io/dataset" = regexreplace(lower(each.value.dataset), "\s+", "-")
             }
           }
           spec {
