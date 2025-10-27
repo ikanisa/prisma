@@ -25,7 +25,8 @@ const webServerConfig = (() => {
         // ⚠️ SERVER-ONLY: These variables are used by the Next.js server process
         // They are NOT exposed to the client bundle. Only NEXT_PUBLIC_* vars are client-accessible.
         SUPABASE_URL: process.env.SUPABASE_URL ?? 'https://supabase.playwright.test',
-        SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY ?? 'playwright-service-role',
+        // Server-only key: prefer CI/secret manager. Use placeholder to avoid accidental checking into client bundles.
+        SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY ?? '<SET_ON_SERVER_OR_VAULT>',
         SUPABASE_ALLOW_STUB: process.env.SUPABASE_ALLOW_STUB ?? 'true',
         SKIP_HEALTHCHECK_DB: process.env.SKIP_HEALTHCHECK_DB ?? 'true',
         // Client-accessible public variables (NEXT_PUBLIC_ prefix):
