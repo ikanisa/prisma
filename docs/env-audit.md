@@ -49,3 +49,42 @@ The following variables are consumed in code or tests but absent from `.env.exam
 - `SERVICE_VERSION`, `NODE_ENV`, `CI` — release metadata across services. `server/main.py`, `index.js`
 
 Ensure each key is recorded in the shared `.env.example` (with safe placeholders) and in the appropriate secret store before deployment.
+
+## ⚠️ Secret Management Guidelines
+
+### Server-Only vs Client-Safe Variables
+
+**Server-Only Secrets** (NEVER expose to client bundle):
+- `SUPABASE_SERVICE_ROLE_KEY` - Full admin access to Supabase
+- `SUPABASE_JWT_SECRET` - Used to sign/verify JWT tokens
+- `DATABASE_URL` - Direct database connection string
+- `OPENAI_API_KEY` - OpenAI API credentials
+- `SMTP_PASSWORD` - Email service credentials
+- `STRIPE_SECRET_KEY` - Payment processing secrets
+- `KMS_DATA_KEY` - Encryption keys
+- `*_SECRET`, `*_PRIVATE_KEY`, `*_SERVICE_ROLE_KEY` - Any secret or private key
+
+**Client-Safe Variables** (prefixed with `NEXT_PUBLIC_`):
+- `NEXT_PUBLIC_SUPABASE_URL` - Public Supabase URL
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY` - Public anon key (rate-limited, RLS-protected)
+- `NEXT_PUBLIC_API_BASE` - Public API endpoints
+- `NEXT_PUBLIC_SENTRY_DSN` - Client-side error tracking
+
+### Storage Recommendations
+
+1. **Supabase Vault** - For Supabase-specific secrets (service role keys, JWT secrets)
+2. **AWS Secrets Manager / HashiCorp Vault** - For third-party API keys and credentials
+3. **GitHub Actions Secrets** - For CI/CD secrets
+4. **Environment Variables** - Only for non-sensitive configuration
+
+### Critical Rules
+
+⛔ **NEVER** copy server-only secrets to `NEXT_PUBLIC_*` variables
+⛔ **NEVER** commit real secrets to version control (use `.env.example` with placeholders)
+⛔ **NEVER** pass server secrets as Docker build args (use runtime secrets)
+⛔ **NEVER** log or expose server secrets in client-side code
+
+✅ **ALWAYS** use secret managers for production secrets
+✅ **ALWAYS** rotate secrets regularly
+✅ **ALWAYS** use different secrets per environment (dev/staging/prod)
+✅ **ALWAYS** verify secrets are not leaked using `tools/scripts/check-client-secrets.mjs`
