@@ -13,14 +13,14 @@ spec:
       rules:
         - record: slo:api:availability:error_ratio:5m
           expr: |
-            sum(rate(http_requests_total{job="api",status!~"2..", chaos_scenario!=""}[5m]))
+            sum by (chaos_scenario) (rate(http_requests_total{job="api",status!~"2..", chaos_scenario!=""}[5m]))
               /
-            sum(rate(http_requests_total{job="api", chaos_scenario!=""}[5m]))
+            sum by (chaos_scenario) (rate(http_requests_total{job="api", chaos_scenario!=""}[5m]))
         - record: slo:api:availability:error_ratio:1h
           expr: |
-            sum(rate(http_requests_total{job="api",status!~"2..", chaos_scenario!=""}[1h]))
+            sum by (chaos_scenario) (rate(http_requests_total{job="api",status!~"2..", chaos_scenario!=""}[1h]))
               /
-            sum(rate(http_requests_total{job="api", chaos_scenario!=""}[1h]))
+            sum by (chaos_scenario) (rate(http_requests_total{job="api", chaos_scenario!=""}[1h]))
         - alert: ApiAvailabilityErrorBudgetBurn
           annotations:
             summary: "API availability SLO burn-rate high during chaos"
@@ -44,7 +44,7 @@ spec:
               P95 latency exceeded the SLO while scenario {{ $labels.chaos_scenario }} is running.
               Investigate downstream dependencies impacted by the fault injection.
           expr: |
-            histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job="api", chaos_scenario!=""}[5m])) by (le))
+            histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job="api", chaos_scenario!=""}[5m])) by (le, chaos_scenario))
               > 0.8
           for: 5m
           labels:
