@@ -141,13 +141,59 @@ export function buildCSPHeader(
  * @returns Base64-encoded nonce
  */
 export function generateNonce(): string {
-  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-    // Modern browsers and Node 19+
-    return Buffer.from(crypto.randomUUID()).toString('base64');
+  const cryptoObj =
+    typeof globalThis !== 'undefined'
+      ? ((globalThis as unknown as {
+          crypto?: {
+            getRandomValues?: (array: Uint8Array) => Uint8Array;
+            randomUUID?: () => string;
+          };
+        }).crypto ?? undefined)
+      : undefined;
+
+  if (cryptoObj?.getRandomValues) {
+    const bytes = cryptoObj.getRandomValues(new Uint8Array(16));
+    return bytesToBase64(bytes);
   }
-  // Fallback for older Node versions
-  const { randomBytes } = require('crypto');
-  return randomBytes(16).toString('base64');
+
+  if (cryptoObj?.randomUUID) {
+    const uuid = cryptoObj.randomUUID().replace(/-/g, '');
+    const bytes = new Uint8Array(uuid.length / 2);
+
+    for (let i = 0; i < uuid.length; i += 2) {
+      bytes[i / 2] = parseInt(uuid.slice(i, i + 2), 16);
+    }
+
+    return bytesToBase64(bytes);
+  }
+
+  throw new Error('Secure nonce generation is not supported in this environment.');
+}
+
+function bytesToBase64(bytes: Uint8Array): string {
+  const globals = globalThis as unknown as {
+    Buffer?: {
+      from(
+        input: ArrayLike<number> | string,
+        encoding?: string
+      ): { toString(encoding: string): string };
+    };
+    btoa?: (data: string) => string;
+  };
+
+  if (globals.Buffer) {
+    return globals.Buffer.from(bytes).toString('base64');
+  }
+
+  if (globals.btoa) {
+    let binary = '';
+    bytes.forEach((byte) => {
+      binary += String.fromCharCode(byte);
+    });
+    return globals.btoa(binary);
+  }
+
+  throw new Error('No Base64 encoder available in this environment.');
 }
 
 /**
