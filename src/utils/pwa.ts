@@ -483,7 +483,7 @@ async function reconcileUnsyncedWorkerQueueEntries() {
   const snapshotIds = new Set(snapshot.map((job) => job.id));
   let cleared = false;
 
-  for (const id of Array.from(unsyncedWorkerQueueEntries)) {
+  for (const id of unsyncedWorkerQueueEntries.keys()) {
     if (snapshotIds.has(id)) {
       removeUnsyncedWorkerQueueEntry(id);
       cleared = true;
