@@ -24,6 +24,8 @@ jobs:
   discover-dockerfiles:
     name: Discover Dockerfiles
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
@@ -119,6 +121,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: scan-images
     if: always()
+    permissions:
+      contents: read
     steps:
       - name: Summary
         run: |

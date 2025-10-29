@@ -113,7 +113,7 @@ SBOMs may contain information about dependencies but should NOT contain:
 
 For questions about SBOMs:
 - See [Go-Live Readiness Report](../go-live-readiness-report.md)
-- Check [SBOM Workflow](.github/workflows/sbom.yml)
+- Check [SBOM Workflow](../../.github/workflows/sbom.yml)
 - Contact: devops@prismaglow.com
 
 ## References
@@ -126,4 +126,4 @@ For questions about SBOMs:
 ---
 
 **Last Updated**: 2025-10-29  
-**Workflow**: `.github/workflows/sbom.yml`
+**Workflow**: `../../.github/workflows/sbom.yml`
