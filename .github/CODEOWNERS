@@ -1,0 +1,133 @@
+# CODEOWNERS
+# 
+# Code ownership for the Prisma Glow monorepo.
+# 
+# Each line is a file pattern followed by one or more owners.
+# Owners will be requested for review when someone opens a pull request.
+# 
+# Order matters: the last matching pattern takes precedence.
+# 
+# Documentation: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default owners for everything in the repo
+* @ikanisa/prisma-maintainers
+
+# Root configuration and CI/CD
+/.github/ @ikanisa/devops
+/.github/workflows/ @ikanisa/devops
+/docker-compose*.yml @ikanisa/devops
+/Makefile @ikanisa/devops
+/renovate.json @ikanisa/devops
+/.dockerignore @ikanisa/devops
+/.gitignore @ikanisa/devops
+
+# Documentation
+/docs/ @ikanisa/documentation-team
+/docs/adr/ @ikanisa/architecture-team
+/docs/SECURITY/ @ikanisa/security-team
+/docs/deployment/ @ikanisa/devops
+/CONTRIBUTING.md @ikanisa/documentation-team
+/README.md @ikanisa/documentation-team
+/SECURITY.md @ikanisa/security-team
+
+# Backend (FastAPI)
+/server/ @ikanisa/backend-team
+/server/api/ @ikanisa/backend-team
+/server/workflows/ @ikanisa/backend-team
+/server/requirements*.txt @ikanisa/backend-team
+/pytest.ini @ikanisa/backend-team
+
+# Frontend - Next.js Web App
+/apps/web/ @ikanisa/frontend-team
+/apps/web/app/ @ikanisa/frontend-team
+/apps/web/components/ @ikanisa/frontend-team
+/apps/web/prisma/ @ikanisa/backend-team @ikanisa/frontend-team
+
+# Frontend - Legacy Vite UI
+/src/ @ikanisa/frontend-team
+/ui/ @ikanisa/frontend-team
+/public/ @ikanisa/frontend-team
+/index.html @ikanisa/frontend-team
+
+# Gateway Service
+/apps/gateway/ @ikanisa/backend-team @ikanisa/devops
+/gateway/ @ikanisa/backend-team @ikanisa/devops
+
+# RAG Service
+/services/rag/ @ikanisa/ai-team @ikanisa/backend-team
+/rag/ @ikanisa/ai-team @ikanisa/backend-team
+
+# Analytics Service
+/analytics/ @ikanisa/data-team
+/server/analytics_runner.py @ikanisa/data-team
+
+# Agent Platform
+/agent/ @ikanisa/ai-team
+/packages/agents/ @ikanisa/ai-team
+/packages/platform/ @ikanisa/ai-team
+
+# Shared Packages
+/packages/api-client/ @ikanisa/backend-team @ikanisa/frontend-team
+/packages/system-config/ @ikanisa/devops
+/packages/logger/ @ikanisa/backend-team
+/packages/lib/ @ikanisa/backend-team
+/packages/ui/ @ikanisa/frontend-team
+/packages/config/ @ikanisa/devops
+/packages/tax/ @ikanisa/domain-experts
+
+# Database Migrations
+/supabase/migrations/ @ikanisa/backend-team @ikanisa/database-admins
+/apps/web/prisma/migrations/ @ikanisa/backend-team @ikanisa/database-admins
+/migrations/ @ikanisa/backend-team @ikanisa/database-admins
+/db/ @ikanisa/backend-team @ikanisa/database-admins
+
+# Infrastructure & Configuration
+/infra/ @ikanisa/devops
+/config/ @ikanisa/devops
+/scripts/ @ikanisa/devops
+/scripts/perf/ @ikanisa/devops @ikanisa/backend-team
+/scripts/operations/ @ikanisa/devops
+
+# Testing
+/tests/ @ikanisa/qa-team
+/tests/playwright/ @ikanisa/qa-team @ikanisa/frontend-team
+/tests/load/ @ikanisa/qa-team @ikanisa/backend-team
+/playwright.config.ts @ikanisa/qa-team
+/vitest.config.ts @ikanisa/qa-team
+
+# Security & Compliance
+/.gitleaks.toml @ikanisa/security-team
+/.secret-scan-ignore @ikanisa/security-team
+/POLICY/ @ikanisa/compliance-team
+/docs/SECURITY/ @ikanisa/security-team
+/server/security.py @ikanisa/security-team
+/server/rate_limit.py @ikanisa/security-team
+
+# OpenAPI & API Specifications
+/openapi/ @ikanisa/backend-team @ikanisa/api-team
+/server/export_openapi.py @ikanisa/backend-team
+
+# Build & Package Configuration
+/package.json @ikanisa/devops @ikanisa/frontend-team
+/pnpm-workspace.yaml @ikanisa/devops
+/pnpm-lock.yaml @ikanisa/devops @ikanisa/frontend-team
+/turbo.json @ikanisa/devops
+/tsconfig*.json @ikanisa/frontend-team
+/vite.config.ts @ikanisa/frontend-team
+/eslint.config.js @ikanisa/frontend-team
+/tailwind.config.ts @ikanisa/frontend-team
+
+# Dockerfiles
+**/Dockerfile @ikanisa/devops
+**/.dockerignore @ikanisa/devops
+
+# Supabase Functions
+/supabase/functions/ @ikanisa/backend-team
+
+# Specific critical files requiring multiple approvals
+/server/main.py @ikanisa/backend-team @ikanisa/security-team
+/apps/web/app/api/ @ikanisa/backend-team @ikanisa/security-team
+/.github/workflows/ci.yml @ikanisa/devops @ikanisa/security-team
+/.github/workflows/workspace-ci.yml @ikanisa/devops @ikanisa/security-team
+/.env.example @ikanisa/devops @ikanisa/security-team
+/.env.production.example @ikanisa/devops @ikanisa/security-team

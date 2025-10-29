@@ -1,16 +1,210 @@
 version: 2
 updates:
+  # GitHub Actions
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
+      day: "monday"
+      time: "06:00"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "github-actions"
+      - "area:infra"
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
+
+  # Root workspace (npm/pnpm)
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
       interval: "weekly"
+      day: "tuesday"
+      time: "06:00"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "area:frontend"
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
+    # Allow security updates only for now
     ignore:
       - dependency-name: "*"
         update-types:
           - "version-update:semver-major"
           - "version-update:semver-minor"
           - "version-update:semver-patch"
+    # Always allow security updates
+    allow:
+      - dependency-type: "direct"
+        dependency-name: "*"
+        update-types: ["security"]
+      - dependency-type: "indirect"
+        dependency-name: "*"
+        update-types: ["security"]
+
+  # apps/web (Next.js)
+  - package-ecosystem: "npm"
+    directory: "/apps/web"
+    schedule:
+      interval: "weekly"
+      day: "tuesday"
+      time: "06:00"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "area:frontend"
+      - "web"
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - "version-update:semver-major"
+    allow:
+      - dependency-type: "direct"
+        update-types: ["security", "patch", "minor"]
+      - dependency-type: "indirect"
+        update-types: ["security"]
+
+  # apps/gateway (Express.js)
+  - package-ecosystem: "npm"
+    directory: "/apps/gateway"
+    schedule:
+      interval: "weekly"
+      day: "tuesday"
+      time: "06:00"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "area:backend"
+      - "gateway"
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - "version-update:semver-major"
+    allow:
+      - dependency-type: "direct"
+        update-types: ["security", "patch", "minor"]
+
+  # services/rag
+  - package-ecosystem: "npm"
+    directory: "/services/rag"
+    schedule:
+      interval: "weekly"
+      day: "tuesday"
+      time: "06:00"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "area:backend"
+      - "rag"
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
+    allow:
+      - dependency-type: "direct"
+        update-types: ["security", "patch", "minor"]
+
+  # Python (FastAPI backend)
+  - package-ecosystem: "pip"
+    directory: "/server"
+    schedule:
+      interval: "weekly"
+      day: "wednesday"
+      time: "06:00"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "area:backend"
+      - "python"
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
+    # Allow all updates for Python (review required)
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - "version-update:semver-major"
+    allow:
+      - dependency-type: "direct"
+        update-types: ["security", "patch", "minor"]
+      - dependency-type: "indirect"
+        update-types: ["security"]
+
+  # Docker base images
+  - package-ecosystem: "docker"
+    directory: "/agent"
+    schedule:
+      interval: "weekly"
+      day: "thursday"
+      time: "06:00"
+    labels:
+      - "dependencies"
+      - "area:infra"
+      - "docker"
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
+
+  - package-ecosystem: "docker"
+    directory: "/apps/web"
+    schedule:
+      interval: "weekly"
+      day: "thursday"
+      time: "06:00"
+    labels:
+      - "dependencies"
+      - "area:infra"
+      - "docker"
+
+  - package-ecosystem: "docker"
+    directory: "/ui"
+    schedule:
+      interval: "weekly"
+      day: "thursday"
+      time: "06:00"
+    labels:
+      - "dependencies"
+      - "area:infra"
+      - "docker"
+
+  - package-ecosystem: "docker"
+    directory: "/rag"
+    schedule:
+      interval: "weekly"
+      day: "thursday"
+      time: "06:00"
+    labels:
+      - "dependencies"
+      - "area:infra"
+      - "docker"
+
+  - package-ecosystem: "docker"
+    directory: "/analytics"
+    schedule:
+      interval: "weekly"
+      day: "thursday"
+      time: "06:00"
+    labels:
+      - "dependencies"
+      - "area:infra"
+      - "docker"
+
+  - package-ecosystem: "docker"
+    directory: "/gateway"
+    schedule:
+      interval: "weekly"
+      day: "thursday"
+      time: "06:00"
+    labels:
+      - "dependencies"
+      - "area:infra"
+      - "docker"
