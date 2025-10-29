@@ -25,6 +25,8 @@ dist/
 # Python
 __pycache__/
 *.pyc
+.venv/
+venv/
 
 # Next.js (web app)
 apps/web/.next/
