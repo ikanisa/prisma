@@ -1,961 +1,798 @@
-# Release Runbook
+# Release Runbook: Prisma Glow Platform
+
+**Version:** 1.0  
+**Last Updated:** 2025-10-29  
+**Owner:** DevOps Team  
+**Review Frequency:** Monthly  
+
+---
 
 ## Table of Contents
-- [Overview](#overview)
-- [Pre-Release Checklist](#pre-release-checklist)
-- [Build Process](#build-process)
-- [Testing Process](#testing-process)
-- [Staging Deployment](#staging-deployment)
-- [Production Deployment](#production-deployment)
-- [Smoke Tests](#smoke-tests)
-- [Rollback Procedures](#rollback-procedures)
-- [Post-Deployment](#post-deployment)
-- [On-Call Handoff](#on-call-handoff)
-- [Hotfix Process](#hotfix-process)
-- [Emergency Response](#emergency-response)
+
+1. [Overview](#overview)
+2. [Pre-Release Checklist](#pre-release-checklist)
+3. [Build & Package](#build--package)
+4. [Testing](#testing)
+5. [Staging Deployment](#staging-deployment)
+6. [Production Deployment](#production-deployment)
+7. [Smoke Tests](#smoke-tests)
+8. [Rollback Procedures](#rollback-procedures)
+9. [Post-Deployment](#post-deployment)
+10. [On-Call Handoff](#on-call-handoff)
+11. [Incident Response](#incident-response)
+
+---
 
 ## Overview
 
-This runbook documents the complete release process for Prisma Glow, from feature development through production deployment. It covers standard releases, hotfixes, and emergency rollback procedures.
+This runbook documents the end-to-end release process for the Prisma Glow platform, from build through production deployment, including smoke tests and rollback procedures.
 
 ### Release Cadence
+- **Major Releases:** Monthly (first Tuesday of month)
+- **Minor Releases:** Bi-weekly (every other Wednesday)
+- **Hotfixes:** As needed (within 24 hours of critical issue)
+- **Maintenance Windows:** Tuesdays 02:00-04:00 UTC
 
-- **Standard Releases**: Weekly (Thursdays, 10:00 UTC)
-- **Hotfixes**: As needed (follow expedited process)
-- **Emergency Patches**: Within 2 hours of critical issue discovery
+### Communication Channels
+- **Release Coordination:** #releases (Slack/Teams)
+- **Incidents:** #incidents (Slack/Teams)
+- **Status Page:** [status.prismaglow.com](https://status.prismaglow.com) (TBD)
 
-### Release Types
-
-| Type | Description | Approval Required | Testing Requirements |
-|------|-------------|-------------------|---------------------|
-| **Major** | Breaking changes, new features | Engineering Manager + Product | Full regression suite |
-| **Minor** | New features, backwards-compatible | Engineering Manager | Integration + smoke tests |
-| **Patch** | Bug fixes, no new features | Team Lead | Affected area tests + smoke |
-| **Hotfix** | Critical production bug fix | On-call + Team Lead | Targeted tests + smoke |
-
-### Roles and Responsibilities
-
-| Role | Responsibilities |
-|------|------------------|
-| **Release Manager** | Coordinates release, updates tracking, ensures checklist completion |
-| **On-Call Engineer** | Monitors deployment, responds to incidents |
-| **QA Lead** | Signs off on test results |
-| **DevOps** | Executes deployment, manages infrastructure |
-| **Engineering Manager** | Final approval for production deployment |
+---
 
 ## Pre-Release Checklist
 
-### Code Readiness
+**Owner:** Release Manager  
+**Timeline:** T-2 days before release
 
+### Code & Testing
 - [ ] All PRs merged to `main` branch
-- [ ] CI/CD pipeline passing (green builds)
-  - [ ] Lint checks passing
-  - [ ] TypeScript compilation successful
-  - [ ] All unit tests passing
-  - [ ] Integration tests passing
-  - [ ] Code coverage meets thresholds (≥45% Vitest, ≥60% pytest)
-  - [ ] No security vulnerabilities (CodeQL, dependency audit)
-- [ ] Code review approvals obtained (minimum 2 reviewers)
-- [ ] ADRs created for architectural changes
-- [ ] Documentation updated (README, API docs, runbooks)
-- [ ] CHANGELOG.md updated with release notes
+- [ ] CI/CD pipelines passing (green builds)
+  - [ ] ci.yml workflow (root lint/test/build/coverage)
+  - [ ] workspace-ci.yml workflow (all service tests)
+  - [ ] docker-build.yml workflow (multi-platform images)
+- [ ] Code review completed for all changes
+- [ ] CodeQL security scan passing (no critical/high findings)
+- [ ] Container image scans passing (Trivy/Grype)
+- [ ] Test coverage meets thresholds (45/40/45/45)
+- [ ] Python tests passing (60%+ coverage)
+- [ ] Playwright E2E tests passing
+- [ ] Load tests completed (Artillery/k6)
 
-### Database Migrations
+### Documentation & Communication
+- [ ] Release notes drafted (CHANGELOG.md updated)
+- [ ] ADRs updated for architectural changes
+- [ ] API documentation current (OpenAPI specs)
+- [ ] Deployment plan reviewed with team
+- [ ] Stakeholders notified of release window
+- [ ] Status page scheduled maintenance posted
 
-- [ ] Migration scripts reviewed and tested on staging
-  - [ ] Supabase migrations in `supabase/migrations/` validated
-  - [ ] Prisma migrations in `apps/web/prisma/migrations/` validated
-  - [ ] Migration rollback strategy documented
-- [ ] pgTAP policy tests passing
-- [ ] Database backup taken before migration
-- [ ] Migration dry-run completed on staging
-- [ ] Performance impact assessed (no blocking operations)
-- [ ] Data consistency verified post-migration
+### Infrastructure & Secrets
+- [ ] Staging environment validated
+- [ ] Production secrets verified (no rotation needed)
+- [ ] Database migrations reviewed and approved
+- [ ] Backup of production database completed
+- [ ] Capacity planning reviewed (expected load)
+- [ ] On-call engineer assigned
 
-### Configuration
+---
 
-- [ ] Environment variables documented in `.env.example`
-- [ ] Secrets rotated if needed (see `SECURITY.md`)
-- [ ] `config/system.yaml` validated
-- [ ] Rate limits reviewed and adjusted if needed
-- [ ] Feature flags configured appropriately
+## Build & Package
 
-### Dependencies
+**Owner:** CI/CD System (automated)  
+**Timeline:** Triggered on main branch merge
 
-- [ ] Dependency updates reviewed
-- [ ] `pnpm-lock.yaml` committed
-- [ ] `server/requirements.txt` pinned versions
-- [ ] No critical/high severity vulnerabilities
-- [ ] SBOM generated (if available)
+### Build Process
 
-### Testing
+1. **Version Tagging**
+   ```bash
+   # Create release tag
+   git tag -a v1.2.3 -m "Release v1.2.3: <description>"
+   git push origin v1.2.3
+   ```
 
-- [ ] All automated tests passing
-- [ ] Manual testing completed for new features
-- [ ] Playwright e2e tests passing
-- [ ] Load tests passing (Artillery/k6)
-- [ ] Regression testing completed
-- [ ] Accessibility testing completed (for UI changes)
+2. **Automated Build** (GitHub Actions)
+   - Workflow: `.github/workflows/docker-build.yml`
+   - Platforms: linux/amd64, linux/arm64
+   - Services built:
+     - `apps/web` (Next.js)
+     - `apps/gateway` (Express)
+     - `server` (FastAPI) - **Note: No Dockerfile in repo yet**
+     - `services/rag` (Node.js)
+     - `analytics` (Node.js)
+     - `agent` (Node.js)
+     - `ui` (Vite bundle)
 
-### Documentation
+3. **Image Tagging Convention**
+   - `ghcr.io/ikanisa/prisma-web:v1.2.3`
+   - `ghcr.io/ikanisa/prisma-web:latest`
+   - `ghcr.io/ikanisa/prisma-gateway:v1.2.3`
+   - etc.
 
-- [ ] User-facing changes documented
-- [ ] API changes documented (OpenAPI spec updated)
-- [ ] Deployment notes prepared
-- [ ] Known issues documented
-- [ ] Migration guide prepared (if breaking changes)
+4. **SBOM Generation** (Per Service)
+   ```bash
+   # Generate CycloneDX SBOM
+   pnpm dlx @cyclonedx/cyclonedx-npm --output-file docs/sbom/prisma-web-v1.2.3.json
+   
+   # For Python (FastAPI)
+   pip install cyclonedx-bom
+   cyclonedx-py -o docs/sbom/prisma-backend-v1.2.3.json
+   ```
 
-## Build Process
+5. **Image Signing** (Recommended)
+   ```bash
+   # Sign with cosign
+   cosign sign --key cosign.key ghcr.io/ikanisa/prisma-web:v1.2.3
+   ```
 
-### 1. Tag the Release
+### Artifacts
+- [ ] Docker images pushed to container registry
+- [ ] SBOMs generated and committed to `docs/sbom/`
+- [ ] Images signed (cosign signatures)
+- [ ] Git tag created and pushed
 
+---
+
+## Testing
+
+**Owner:** QA Team / Automated Tests  
+**Timeline:** Continuous (pre-merge) + Staging validation
+
+### Unit & Integration Tests
+
+Run locally before merging:
 ```bash
-# Fetch latest changes
-git fetch origin
-git checkout main
-git pull origin main
+# Install dependencies
+pnpm install --frozen-lockfile
 
-# Create release tag
-git tag -a v1.2.3 -m "Release v1.2.3: Description of changes"
-git push origin v1.2.3
-```
+# Typecheck
+pnpm run typecheck
 
-**Tag Format**: `v<major>.<minor>.<patch>` (semantic versioning)
+# Lint
+pnpm run lint
 
-### 2. Build Docker Images
-
-Docker images are built automatically by GitHub Actions (`.github/workflows/docker-build.yml`) on:
-- Push to `main` branch (tagged as `latest` and commit SHA)
-- Git tags matching `v*` (tagged as version number)
-
-**Manual Build** (if needed):
-```bash
-# Set version
-export SERVICE_VERSION=$(git rev-parse --short HEAD)
-
-# Build images
-docker build -t ghcr.io/ikanisa/prisma/gateway:${SERVICE_VERSION} ./gateway
-docker build -t ghcr.io/ikanisa/prisma/fastapi:${SERVICE_VERSION} ./server
-docker build -t ghcr.io/ikanisa/prisma/rag:${SERVICE_VERSION} ./rag
-docker build -t ghcr.io/ikanisa/prisma/agent:${SERVICE_VERSION} ./agent
-docker build -t ghcr.io/ikanisa/prisma/analytics:${SERVICE_VERSION} ./analytics
-docker build -t ghcr.io/ikanisa/prisma/web:${SERVICE_VERSION} ./apps/web
-
-# Push to registry
-docker push ghcr.io/ikanisa/prisma/gateway:${SERVICE_VERSION}
-# ... repeat for other services
-```
-
-### 3. Verify Build Artifacts
-
-- [ ] Docker images pushed to GHCR
-- [ ] Image tags correct (version, commit SHA, latest)
-- [ ] Image sizes reasonable (no bloat)
-- [ ] Health check CMD present in images
-- [ ] OCI labels include version metadata
-
-## Testing Process
-
-### 1. Unit Tests
-
-```bash
-# TypeScript tests
+# Unit tests
 pnpm run test
 
-# Python tests
-pytest
-
-# Coverage report
+# Coverage
 pnpm run coverage
+
+# Python tests
+source .venv/bin/activate
+pytest --cov=server --cov-report=term-missing
 ```
 
-**Acceptance Criteria**:
-- All tests pass
-- Coverage ≥45% (Vitest), ≥60% (pytest)
-- No flaky tests (run 3 times to confirm)
-
-### 2. Integration Tests
+### E2E Tests (Playwright)
 
 ```bash
-# Gateway integration tests
-pnpm --filter @prisma-glow/gateway test
-
-# Web app tests
-pnpm --filter web test
-
-# RAG service tests
-pnpm --filter @prisma-glow/rag test
-```
-
-**Acceptance Criteria**:
-- All integration tests pass
-- Database interactions validated
-- External API mocks working
-
-### 3. End-to-End Tests
-
-```bash
-# Start staging environment
-docker compose -f docker-compose.prod.yml --env-file .env.staging up -d
-
-# Run Playwright tests
-PLAYWRIGHT_BASE_URL=https://staging.example.com pnpm run test:playwright
-
-# Run core journeys
+# Core journeys
 pnpm run test:playwright:core
+
+# Full suite
+pnpm run test:playwright
 ```
 
-**Test Scenarios**:
-- User login/logout
-- Knowledge base search
-- Task creation and execution
-- Agent interactions
-- Document upload/download
-
-**Acceptance Criteria**:
-- All e2e tests pass
-- Screenshots/videos captured for failures
-- Performance within SLO (p95 < 1s)
-
-### 4. Load Tests
+### Load Testing
 
 ```bash
 # Artillery load test
 pnpm run load:test
 
-# k6 performance test
-./scripts/perf/run_k6.sh ada recon telemetry
+# k6 RAG smoke test
+k6 run scripts/perf/rag-smoke.js
 ```
 
-**Acceptance Criteria**:
-- Error rate < 1%
-- p95 latency < 1s
-- p99 latency < 3s
-- No memory leaks
-- Database connections stable
-
-### 5. Security Tests
-
-- [ ] Secret scanning passed (gitleaks)
-- [ ] Dependency audit clean (`pnpm audit`, `pip-audit`)
-- [ ] CodeQL analysis passed (if configured)
-- [ ] OWASP ZAP scan (for major releases)
-- [ ] Container vulnerability scan (Trivy, Snyk)
-
-## Staging Deployment
-
-### 1. Prepare Staging Environment
-
-```bash
-# SSH to staging server
-ssh deploy@staging.example.com
-
-# Navigate to deployment directory
-cd /opt/prisma-glow
-
-# Backup current configuration
-cp .env.compose .env.compose.backup
-cp docker-compose.prod.yml docker-compose.prod.yml.backup
-```
-
-### 2. Update Configuration
-
-```bash
-# Update .env.compose with new image tags
-nano .env.compose
-
-# Set image tags to new version
-# Example:
-# GATEWAY_IMAGE=ghcr.io/ikanisa/prisma/gateway:v1.2.3
-# FASTAPI_IMAGE=ghcr.io/ikanisa/prisma/fastapi:v1.2.3
-# ...
-```
-
-### 3. Apply Database Migrations
-
-```bash
-# Backup database
-pg_dump "$DATABASE_URL" > backup-$(date +%Y%m%d-%H%M%S).sql
-
-# Apply Supabase migrations
-for migration in supabase/migrations/*.sql; do
-  psql "$DATABASE_URL" -f "$migration"
-done
-
-# Verify migrations
-psql "$DATABASE_URL" -c "SELECT * FROM supabase_migrations.schema_migrations ORDER BY version DESC LIMIT 5;"
-
-# Apply Prisma migrations (if web app updated)
-docker compose run --rm web npx prisma migrate deploy
-```
-
-### 4. Deploy Services
-
-```bash
-# Pull new images
-docker compose --env-file .env.compose --profile web -f docker-compose.prod.yml pull
-
-# Stop old containers
-docker compose --env-file .env.compose --profile web -f docker-compose.prod.yml down
-
-# Start new containers
-docker compose --env-file .env.compose --profile web -f docker-compose.prod.yml up -d
-
-# Wait for services to be ready
-sleep 30
-
-# Check container status
-docker compose --env-file .env.compose --profile web -f docker-compose.prod.yml ps
-```
-
-### 5. Verify Staging Deployment
-
-```bash
-# Health checks
-curl -f https://staging.example.com/health || echo "Health check failed"
-curl -f https://staging.example.com/readiness || echo "Readiness check failed"
-
-# Check logs for errors
-docker compose --env-file .env.compose --profile web -f docker-compose.prod.yml logs --tail=100
-
-# Run smoke tests
-PLAYWRIGHT_BASE_URL=https://staging.example.com pnpm run test:playwright
-```
-
-**Acceptance Criteria**:
-- All services healthy
-- No errors in logs (first 5 minutes)
-- Smoke tests passing
-- Manual verification of key features
-
-### 6. Staging Soak Period
-
-**Wait Time**: Minimum 4 hours (24 hours for major releases)
-
-**Monitoring**:
-- [ ] Error rates stable
-- [ ] Latency within SLO
-- [ ] Memory usage stable (no leaks)
-- [ ] Database connection pool healthy
-- [ ] No unexpected errors in Sentry
-
-**Sign-Off**: QA Lead + Engineering Manager
-
-## Production Deployment
-
-### Prerequisites
-
-- [ ] Staging deployment successful and stable
-- [ ] Soak period completed
-- [ ] All stakeholders notified
-- [ ] Change window approved
-- [ ] On-call engineer available
-- [ ] Rollback plan confirmed
-
-### 1. Pre-Deployment Communication
-
-**Notification Template**:
-```
-Subject: Production Deployment - v1.2.3 (2025-10-29 10:00 UTC)
-
-Team,
-
-We will be deploying v1.2.3 to production on Thursday, Oct 29 at 10:00 UTC.
-
-Changes:
-- Feature: Knowledge base search improvements
-- Fix: Task execution timeout handling
-- Dependency: Upgrade OpenAI SDK to v6.6.0
-
-Expected downtime: None (rolling update)
-Impact: No user-facing changes
-
-Staging validation: Completed (4-hour soak)
-Rollback plan: Ready (tag v1.2.2)
-
-Release Manager: [Name]
-On-Call: [Name]
-
-Please confirm readiness or raise concerns by 09:30 UTC.
-
-Thanks,
-[Release Manager]
-```
-
-**Notification Channels**:
-- #engineering Slack channel
-- Email to stakeholders
-- Status page update (if user-facing changes)
-
-### 2. Freeze Deployments
-
-```bash
-# Set maintenance flag (if needed)
-# This prevents other deployments during the window
-touch /opt/prisma-glow/.maintenance
-```
-
-### 3. Backup Production
-
-```bash
-# Database backup
-pg_dump "$PROD_DATABASE_URL" > prod-backup-$(date +%Y%m%d-%H%M%S).sql
-gzip prod-backup-$(date +%Y%m%d-%H%M%S).sql
-
-# Upload to secure storage
-aws s3 cp prod-backup-$(date +%Y%m%d-%H%M%S).sql.gz s3://backups/prisma-glow/
-
-# Configuration backup
-tar czf config-backup-$(date +%Y%m%d-%H%M%S).tar.gz .env.compose docker-compose.prod.yml
-```
-
-### 4. Apply Database Migrations
-
-**For Supabase**:
-```bash
-# Apply migrations one at a time
-for migration in supabase/migrations/NEW_*.sql; do
-  echo "Applying $migration"
-  psql "$PROD_DATABASE_URL" -f "$migration"
-  
-  # Verify migration success
-  if [ $? -ne 0 ]; then
-    echo "Migration failed! Rolling back..."
-    # Execute rollback if available
-    # psql "$PROD_DATABASE_URL" -f "${migration/.sql/_rollback.sql}"
-    exit 1
-  fi
-done
-```
-
-**For Prisma**:
-```bash
-# Deploy Prisma migrations
-docker compose --env-file .env.compose --profile web run --rm web npx prisma migrate deploy
-```
-
-### 5. Deploy Using GitHub Actions
-
-**Option A: GitHub Actions Workflow**
-
-1. Navigate to GitHub Actions → "Compose Deploy (SSH)"
-2. Click "Run workflow"
-3. Fill in parameters:
-   - **profile**: `web` (or `ui` for legacy)
-   - **deploy_path**: `/opt/prisma-glow`
-   - **rollback_tag**: (leave empty for new deployment)
-4. Monitor workflow execution
-
-**Option B: Manual SSH Deployment**
-
-```bash
-# SSH to production
-ssh deploy@production.example.com
-cd /opt/prisma-glow
-
-# Update image tags in .env.compose
-nano .env.compose
-# Set all *_IMAGE variables to new version (e.g., v1.2.3)
-
-# Pull new images
-docker compose --env-file .env.compose --profile web -f docker-compose.prod.yml pull
-
-# Rolling update (zero downtime)
-docker compose --env-file .env.compose --profile web -f docker-compose.prod.yml up -d --no-deps --build gateway
-sleep 30
-docker compose --env-file .env.compose --profile web -f docker-compose.prod.yml up -d --no-deps --build fastapi
-sleep 30
-docker compose --env-file .env.compose --profile web -f docker-compose.prod.yml up -d --no-deps --build rag
-sleep 30
-docker compose --env-file .env.compose --profile web -f docker-compose.prod.yml up -d --no-deps --build web
-```
-
-### 6. Verify Production Deployment
-
-```bash
-# Health checks
-curl -f https://app.prismaglow.com/health || echo "ALERT: Health check failed!"
-curl -f https://app.prismaglow.com/readiness || echo "ALERT: Readiness check failed!"
-
-# Check all service health
-curl -f https://api.prismaglow.com/health
-curl -f https://rag.prismaglow.com/health
-curl -f https://analytics.prismaglow.com/health
-
-# Verify version
-curl https://app.prismaglow.com/api/version
-# Should return: {"version": "v1.2.3", "commit": "abc123", "deployed": "2025-10-29T10:00:00Z"}
-
-# Check logs for errors
-docker compose --env-file .env.compose --profile web -f docker-compose.prod.yml logs --tail=100 --timestamps
-
-# Check container status
-docker compose --env-file .env.compose --profile web -f docker-compose.prod.yml ps
-```
-
-**Acceptance Criteria**:
-- All services report healthy
-- Version endpoint returns correct version
-- No critical errors in logs
-- Container restart count = 0
-
-## Smoke Tests
-
-### Automated Smoke Tests
-
-```bash
-# Run synthetic checks
-./scripts/smoke/healthz-checks.sh production
-
-# Run Playwright smoke tests
-PLAYWRIGHT_BASE_URL=https://app.prismaglow.com \
-PLAYWRIGHT_SMOKE_PATHS="/, /login, /dashboard" \
-pnpm run test:playwright
-```
-
-### Manual Smoke Tests
-
-Perform these critical user journeys manually:
-
-#### 1. Authentication Flow
-- [ ] Navigate to https://app.prismaglow.com
-- [ ] Click "Login"
-- [ ] Enter credentials
-- [ ] Verify redirect to dashboard
-- [ ] Check user profile loads correctly
-
-#### 2. Knowledge Base Search
-- [ ] Navigate to Knowledge Base
-- [ ] Enter search query: "VAT rates UK"
-- [ ] Verify results returned within 2 seconds
-- [ ] Click on result to view document
-- [ ] Verify document content displays
-
-#### 3. Task Execution
-- [ ] Navigate to Tasks
-- [ ] Create new task: "Test task for deployment"
-- [ ] Assign to self
-- [ ] Click "Execute"
-- [ ] Verify task runs and completes
-- [ ] Check task output is correct
-
-#### 4. Document Upload
-- [ ] Navigate to Documents
-- [ ] Click "Upload"
-- [ ] Select test PDF file
-- [ ] Verify upload progress bar
-- [ ] Verify document appears in list
-- [ ] Download document and verify integrity
-
-#### 5. Agent Interaction
-- [ ] Navigate to Agent Chat
-- [ ] Enter prompt: "What is the current VAT rate in the UK?"
-- [ ] Verify agent responds within 5 seconds
-- [ ] Verify response is accurate
-- [ ] Check sources are cited
-
-**Acceptance Criteria**:
-- All smoke tests pass
-- Response times within SLO
-- No JavaScript errors in browser console
-- No 5xx errors in network tab
-
-## Rollback Procedures
-
-### When to Rollback
-
-Initiate rollback immediately if:
-- Critical functionality broken (P0 incident)
-- Data integrity issue detected
-- Security vulnerability exposed
-- Error rate > 5%
-- Service unavailable for > 5 minutes
-
-### Rollback Decision Tree
-
-```
-Is the issue critical? (P0/P1)
-├─ YES → Rollback immediately
-└─ NO
-   ├─ Can it be hotfixed in < 30 minutes?
-   │  ├─ YES → Attempt hotfix
-   │  └─ NO → Rollback
-   └─ Is workaround available?
-      ├─ YES → Apply workaround, schedule fix
-      └─ NO → Rollback
-```
-
-### Rollback Process
-
-#### 1. Declare Incident
-
-```bash
-# Notify team
-# Post in #incidents Slack channel:
-"🚨 INCIDENT: Rolling back production deployment v1.2.3 due to [reason]"
-
-# Assign Incident Commander
-# Update status page
-```
-
-#### 2. Identify Last Known Good Version
-
-```bash
-# Check deployment history
-docker compose --env-file .env.compose --profile web -f docker-compose.prod.yml images
-
-# Identify previous version (e.g., v1.2.2)
-ROLLBACK_VERSION="v1.2.2"
-```
-
-#### 3. Rollback Application
-
-**Option A: GitHub Actions**
-
-1. Navigate to GitHub Actions → "Compose Deploy (SSH)"
-2. Click "Run workflow"
-3. Fill in parameters:
-   - **profile**: `web`
-   - **deploy_path**: `/opt/prisma-glow`
-   - **rollback_tag**: `v1.2.2`
-4. Monitor workflow execution
-
-**Option B: Manual Rollback**
-
-```bash
-# SSH to production
-ssh deploy@production.example.com
-cd /opt/prisma-glow
-
-# Update .env.compose to previous version
-sed -i 's/:v1.2.3/:v1.2.2/g' .env.compose
-
-# Pull old images
-docker compose --env-file .env.compose --profile web -f docker-compose.prod.yml pull
-
-# Restart services
-docker compose --env-file .env.compose --profile web -f docker-compose.prod.yml down
-docker compose --env-file .env.compose --profile web -f docker-compose.prod.yml up -d
-
-# Verify rollback
-curl -f https://app.prismaglow.com/api/version
-```
-
-#### 4. Rollback Database (if needed)
-
-**⚠️ CAUTION**: Database rollback is risky. Only perform if absolutely necessary.
-
-```bash
-# Restore from backup
-gunzip prod-backup-YYYYMMDD-HHMMSS.sql.gz
-psql "$PROD_DATABASE_URL" < prod-backup-YYYYMMDD-HHMMSS.sql
-
-# Verify data integrity
-psql "$PROD_DATABASE_URL" -c "SELECT COUNT(*) FROM organizations;"
-```
-
-**Alternative: Rollback Specific Migration**
-
-```bash
-# If rollback script exists
-psql "$PROD_DATABASE_URL" -f supabase/migrations/YYYYMMDD_migration_rollback.sql
-```
-
-#### 5. Verify Rollback
-
-```bash
-# Run smoke tests
-./scripts/smoke/healthz-checks.sh production
-
-# Check logs
-docker compose --env-file .env.compose --profile web -f docker-compose.prod.yml logs --tail=200
-
-# Manual verification of critical features
-```
-
-#### 6. Post-Rollback Communication
-
-```
-Subject: Rollback Complete - v1.2.3 → v1.2.2
-
-Team,
-
-We have rolled back production from v1.2.3 to v1.2.2 due to [reason].
-
-Rollback completed at: [timestamp]
-Services verified: All systems operational
-
-Root cause: [brief description]
-Next steps:
-1. Post-mortem scheduled for [date/time]
-2. Fix will be deployed in next release cycle
-3. Tracking issue: #123
-
-Incident timeline:
-- 10:00 UTC: Deployment started (v1.2.3)
-- 10:15 UTC: Issue detected (error rate spike)
-- 10:20 UTC: Rollback initiated
-- 10:30 UTC: Rollback complete, services verified
-
-On-Call: [Name]
-Incident Commander: [Name]
-
-Thanks for your patience.
-[Release Manager]
-```
-
-## Post-Deployment
-
-### 1. Monitoring (First 2 Hours)
-
-**Watch for**:
-- Error rate spikes
-- Latency increases
-- Memory leaks
-- Database connection pool exhaustion
-- Increased error logs in Sentry
-
-**Dashboards to Monitor**:
-- Grafana: https://grafana.example.com/d/prisma-overview
-- Sentry: https://sentry.io/organizations/prisma-glow
-- Supabase Logs: https://supabase.com/dashboard/project/[project-id]/logs
-
-**Alert Thresholds**:
-- Error rate > 1%
-- p95 latency > 1.5s
-- Memory usage > 80%
-- CPU usage > 80%
-
-### 2. Verification Tasks
-
-- [ ] Run full smoke test suite
-- [ ] Verify Sentry release tagged correctly
-- [ ] Check OpenTelemetry traces for new version
-- [ ] Confirm metrics being collected
-- [ ] Verify database migrations applied
-- [ ] Check storage bucket policies (if changed)
-- [ ] Validate rate limits working
-- [ ] Test authentication flows
-- [ ] Verify external integrations (OpenAI, Google Drive)
-
-### 3. Update Tracking
-
-- [ ] Close release issue
-- [ ] Update CHANGELOG.md
-- [ ] Tag Sentry release
-- [ ] Update status page
-- [ ] Archive deployment notes
-
-### 4. Communication
-
-**Success Notification**:
-```
-Subject: Production Deployment Complete - v1.2.3 ✅
-
-Team,
-
-v1.2.3 has been successfully deployed to production.
-
-Deployment time: 10:00 - 10:30 UTC (30 minutes)
-Downtime: None
-Issues: None
-
-All systems operational. Monitoring for next 24 hours.
-
-Release notes: https://github.com/ikanisa/prisma/releases/tag/v1.2.3
-
-Thanks to everyone involved!
-[Release Manager]
-```
-
-### 5. Post-Deployment Review (Next Day)
-
-Schedule a 30-minute review meeting with:
-- Release Manager
-- On-Call Engineer
-- Team Lead
-- QA Lead
-
-**Agenda**:
-1. Review deployment metrics
-2. Discuss any issues or near-misses
-3. Identify process improvements
-4. Update runbook if needed
-
-## On-Call Handoff
-
-### Handoff Checklist
-
-The releasing engineer must brief the on-call engineer on:
-
-- [ ] Summary of changes in this release
-- [ ] Known issues or workarounds
-- [ ] Rollback procedure review
-- [ ] Monitoring dashboard overview
-- [ ] Recent alerts and false positives
-- [ ] Escalation contacts (if incident occurs)
-- [ ] Location of deployment artifacts (logs, configs)
-
-### Handoff Template
-
-```
-On-Call Handoff - v1.2.3 Deployment
-
-Deployed: 2025-10-29 10:30 UTC
-Version: v1.2.3
-Last Known Good: v1.2.2
-
-Changes:
-- [Brief list of key changes]
-
-Known Issues:
-- None (or list any)
-
-Watch For:
-- [Specific areas that might have issues]
-
-Rollback:
-- Process documented in docs/release-runbook.md
-- Images available: ghcr.io/ikanisa/prisma/*:v1.2.2
-
-Monitoring:
-- Grafana: https://grafana.example.com/d/prisma-overview
-- Sentry: https://sentry.io/organizations/prisma-glow
-- Logs: `docker compose logs -f`
-
-Escalation:
-- Primary: [Name] (+1-XXX-XXX-XXXX)
-- Secondary: [Name] (+1-XXX-XXX-XXXX)
-- Engineering Manager: [Name] (+1-XXX-XXX-XXXX)
-
-Questions? Ask in #oncall or ping me directly.
-
-[Release Manager]
-```
-
-## Hotfix Process
-
-### When to Use Hotfix Process
-
-Use hotfix process for:
-- Critical production bugs (P0/P1)
-- Security vulnerabilities
-- Data integrity issues
-- Service outages
-
-**Do NOT use for**:
-- Minor bugs (P2/P3)
-- Feature requests
-- Performance optimizations (unless critical)
-
-### Hotfix Steps
-
-#### 1. Create Hotfix Branch
-
-```bash
-# Branch from last production tag
-git checkout v1.2.3
-git checkout -b hotfix/critical-bug-fix
-
-# Make minimal changes (only what's needed to fix issue)
-# ... edit files ...
-
-# Commit with clear message
-git commit -m "Hotfix: Fix critical authentication bug"
-
-# Push branch
-git push origin hotfix/critical-bug-fix
-```
-
-#### 2. Fast-Track Review
-
-- Create PR with `[HOTFIX]` prefix
-- Request review from Team Lead or Engineering Manager
-- Skip normal review process if critical (get approval via Slack)
-- Ensure CI passes
-
-#### 3. Tag Hotfix
-
-```bash
-# Merge hotfix to main
-git checkout main
-git merge hotfix/critical-bug-fix
-
-# Tag with patch version bump
-git tag -a v1.2.4 -m "Hotfix v1.2.4: Critical authentication bug fix"
-git push origin v1.2.4
-```
-
-#### 4. Expedited Deployment
-
-- Skip staging soak (deploy directly to production)
-- Reduce monitoring window to 1 hour (instead of 4)
-- Follow same deployment process as standard release
-- Notify team immediately
-
-#### 5. Post-Hotfix
-
-- [ ] Backport to any active release branches
-- [ ] Update CHANGELOG.md
-- [ ] Document root cause in post-mortem
-- [ ] Create issue to prevent recurrence
-- [ ] Update tests to catch similar issues
-
-## Emergency Response
-
-### Incident Severity Levels
-
-| Severity | Description | Response Time | Escalation |
-|----------|-------------|--------------|------------|
-| **P0** | Complete outage, data loss risk | Immediate | All hands |
-| **P1** | Critical feature broken | < 30 minutes | On-call + Team Lead |
-| **P2** | Major feature degraded | < 2 hours | On-call |
-| **P3** | Minor issue, workaround exists | < 24 hours | Standard queue |
-
-### Emergency Contacts
-
-**Primary On-Call**: Rotates weekly (see PagerDuty schedule)
-
-**Escalation Chain**:
-1. On-Call Engineer
-2. Team Lead
-3. Engineering Manager
-4. CTO
-
-**Emergency Communication**:
-- Slack: #incidents (immediate)
-- PagerDuty: For automated alerts
-- Phone: For P0 incidents
-
-### Incident Response Process
-
-1. **Detect**: Alert fires, user report, monitoring dashboard
-2. **Acknowledge**: On-call engineer acknowledges incident within 5 minutes
-3. **Assess**: Determine severity (P0-P3)
-4. **Communicate**: Post in #incidents, update status page
-5. **Mitigate**: Apply immediate fix or rollback
-6. **Verify**: Confirm issue resolved
-7. **Document**: Record timeline and actions in `docs/OPERATIONS/incidents/`
-8. **Post-Mortem**: Schedule review within 5 business days
-
-See `docs/SECURITY/incident-response.md` for full incident response procedures.
-
-## Related Documentation
-
-- [Architecture Documentation](architecture.md) - System architecture overview
-- [Production Operations Runbook](PHASE5/production-operations-runbook.md) - Daily operations
-- [Deployment Guides](deployment/) - Environment-specific deployment instructions
-- [Security Guidelines](../SECURITY.md) - Security best practices
-- [Contributing Guide](../CONTRIBUTING.md) - Development workflow
-
-## Changelog
-
-| Date | Version | Changes | Author |
-|------|---------|---------|--------|
-| 2025-10-29 | 1.0 | Initial release runbook | Engineering Team |
+### Staging Validation
+- [ ] Deploy to staging environment
+- [ ] Run smoke tests (see [Smoke Tests](#smoke-tests))
+- [ ] Validate database migrations
+- [ ] Test critical user journeys
+- [ ] Verify integrations (OpenAI, Supabase, Google Drive)
+- [ ] Check observability (logs, traces, metrics)
 
 ---
 
-**Maintained By**: DevOps Team  
-**Review Cadence**: Quarterly or after major incidents  
-**Last Updated**: 2025-10-29
+## Staging Deployment
+
+**Owner:** DevOps  
+**Environment:** staging.prismaglow.com  
+**Timeline:** T-1 day before production
+
+### Deployment Steps
+
+1. **Pre-Deployment**
+   ```bash
+   # SSH to staging server
+   ssh deploy@staging.prismaglow.com
+   
+   # Navigate to deployment directory
+   cd /opt/prisma
+   
+   # Pull latest code (for config updates)
+   git pull origin main
+   ```
+
+2. **Database Migrations**
+   ```bash
+   # Supabase migrations (if any)
+   psql "$STAGING_DATABASE_URL" -f supabase/migrations/<new_migration>.sql
+   
+   # Prisma migrations
+   cd apps/web
+   pnpm run prisma:migrate:deploy
+   cd ../..
+   ```
+
+3. **Environment Variables**
+   ```bash
+   # Verify .env.production exists and is current
+   diff .env.production .env.production.example
+   
+   # Check for new required variables
+   grep -v '^#' .env.example | grep '=' | cut -d= -f1 | sort > /tmp/required.txt
+   grep -v '^#' .env.production | grep '=' | cut -d= -f1 | sort > /tmp/current.txt
+   diff /tmp/required.txt /tmp/current.txt
+   ```
+
+4. **Pull Images**
+   ```bash
+   # Set version
+   export SERVICE_VERSION=v1.2.3
+   
+   # Pull new images
+   docker compose --profile web --profile gateway -f docker-compose.prod.yml pull
+   ```
+
+5. **Deploy**
+   ```bash
+   # Deploy with new version
+   docker compose --profile web --profile gateway -f docker-compose.prod.yml up -d
+   ```
+
+6. **Verify Deployment**
+   ```bash
+   # Check container status
+   docker compose ps
+   
+   # Check logs
+   docker compose logs -f --tail=100
+   ```
+
+### Post-Deployment Checks
+- [ ] Health endpoints responding (200 OK)
+- [ ] Database connectivity verified
+- [ ] OpenTelemetry traces appearing in backend
+- [ ] Sentry error rate normal (<1%)
+- [ ] Application accessible via browser
+
+---
+
+## Production Deployment
+
+**Owner:** Release Manager + On-Call Engineer  
+**Environment:** app.prismaglow.com  
+**Timeline:** During maintenance window
+
+### Pre-Deployment
+
+1. **Notify Stakeholders**
+   ```
+   Subject: Production Deployment - Prisma Glow v1.2.3
+   
+   Maintenance Window: 2025-11-05 02:00-04:00 UTC
+   Expected Duration: 30 minutes
+   Impacted Services: All (brief downtime expected)
+   Rollback Plan: Available (see below)
+   
+   Changes:
+   - [Feature] New RAG search improvements
+   - [Fix] Resolved auth session timeout issue
+   - [Security] Upgraded Vite to 7.1.11 (CVE fix)
+   
+   Contact: #incidents channel for issues
+   ```
+
+2. **Backup Production Database**
+   ```bash
+   # Via Supabase dashboard or CLI
+   supabase db dump -f backups/prisma-$(date +%Y%m%d-%H%M).sql
+   
+   # Verify backup
+   ls -lh backups/prisma-$(date +%Y%m%d-%H%M).sql
+   ```
+
+3. **Enable Maintenance Mode** (Optional)
+   ```bash
+   # If maintenance page configured
+   # Enable at load balancer/CDN level
+   ```
+
+### Deployment Steps
+
+1. **SSH to Production**
+   ```bash
+   ssh deploy@app.prismaglow.com
+   cd /opt/prisma
+   ```
+
+2. **Pre-Flight Checks**
+   ```bash
+   # Verify current version
+   docker compose ps
+   
+   # Check current health status
+   curl -f http://localhost:8000/health || echo "Backend unhealthy"
+   curl -f http://localhost:3001/health || echo "Gateway unhealthy"
+   
+   # Verify disk space
+   df -h
+   
+   # Check memory
+   free -h
+   ```
+
+3. **Database Migrations**
+   ```bash
+   # Apply Supabase migrations
+   psql "$DATABASE_URL" -f supabase/migrations/<migration>.sql
+   
+   # Apply Prisma migrations
+   cd apps/web
+   pnpm run prisma:migrate:deploy
+   cd ../..
+   
+   # Verify migration success
+   psql "$DATABASE_URL" -c "SELECT * FROM _prisma_migrations ORDER BY finished_at DESC LIMIT 5;"
+   ```
+
+4. **Pull New Images**
+   ```bash
+   export SERVICE_VERSION=v1.2.3
+   docker compose --profile web --profile gateway -f docker-compose.prod.yml pull
+   ```
+
+5. **Deploy (Zero-Downtime)**
+   ```bash
+   # Rolling update (one service at a time)
+   docker compose --profile web --profile gateway -f docker-compose.prod.yml up -d --no-deps web
+   sleep 10
+   docker compose --profile web --profile gateway -f docker-compose.prod.yml up -d --no-deps gateway
+   sleep 10
+   docker compose --profile web --profile gateway -f docker-compose.prod.yml up -d
+   ```
+
+6. **Monitor Deployment**
+   ```bash
+   # Watch container status
+   watch -n 2 'docker compose ps'
+   
+   # Tail logs
+   docker compose logs -f --tail=50
+   ```
+
+### Post-Deployment Verification
+- [ ] All containers healthy (docker compose ps)
+- [ ] Health endpoints returning 200 OK
+- [ ] Database connections stable
+- [ ] Error rate in Sentry normal
+- [ ] Response times within SLO (p95 < 500ms)
+- [ ] No spike in error logs
+
+---
+
+## Smoke Tests
+
+**Owner:** On-Call Engineer  
+**Timeline:** Immediately after deployment
+
+### Automated Health Checks
+
+```bash
+#!/bin/bash
+# smoke-test.sh
+
+BASE_URL="${BASE_URL:-http://localhost:3000}"
+GATEWAY_URL="${GATEWAY_URL:-http://localhost:3001}"
+BACKEND_URL="${BACKEND_URL:-http://localhost:8000}"
+
+echo "🔍 Running smoke tests..."
+
+# Health endpoints
+echo "Testing health endpoints..."
+curl -f -s "${BACKEND_URL}/health" || { echo "❌ Backend health failed"; exit 1; }
+curl -f -s "${GATEWAY_URL}/health" || { echo "❌ Gateway health failed"; exit 1; }
+echo "✅ Health checks passed"
+
+# Database connectivity
+echo "Testing database connectivity..."
+curl -f -s "${BACKEND_URL}/api/v1/health/db" || { echo "❌ Database health failed"; exit 1; }
+echo "✅ Database connectivity passed"
+
+# Authentication (if token available)
+if [ -n "$AUTH_TOKEN" ]; then
+    echo "Testing authenticated endpoint..."
+    curl -f -s -H "Authorization: Bearer $AUTH_TOKEN" "${BACKEND_URL}/api/v1/me" || { echo "❌ Auth test failed"; exit 1; }
+    echo "✅ Authentication test passed"
+fi
+
+echo "🎉 All smoke tests passed!"
+```
+
+### Manual Verification Checklist
+
+- [ ] **Login Flow**
+  - Navigate to login page
+  - Enter valid credentials
+  - Verify successful authentication
+  - Check session persistence
+
+- [ ] **Core Features**
+  - [ ] Dashboard loads
+  - [ ] Organization data displayed
+  - [ ] Document upload works
+  - [ ] RAG search returns results
+  - [ ] Reports generate successfully
+  - [ ] Autopilot workflows execute
+
+- [ ] **Integrations**
+  - [ ] OpenAI API calls succeed
+  - [ ] Supabase storage accessible
+  - [ ] Email notifications sent (if applicable)
+  - [ ] Google Drive sync (if enabled)
+
+- [ ] **Performance**
+  - [ ] Page load time < 3s
+  - [ ] API response time < 500ms (p95)
+  - [ ] No JavaScript console errors
+
+### Critical User Journeys (Playwright)
+
+```bash
+# Run critical journeys
+pnpm run test:playwright:core
+
+# Journeys typically include:
+# - User login
+# - Document upload
+# - RAG search query
+# - Report generation
+# - Settings update
+```
+
+---
+
+## Rollback Procedures
+
+**Owner:** On-Call Engineer  
+**Timeline:** Immediate (if deployment fails)
+
+### When to Rollback
+
+Rollback immediately if:
+- Health checks fail after 5 minutes
+- Error rate > 5% for > 2 minutes
+- Critical functionality broken (login, data access)
+- Database migration failure (with data loss risk)
+- p95 latency > 2000ms for > 5 minutes
+
+### Rollback Steps
+
+1. **Identify Previous Version**
+   ```bash
+   # Check previous tag
+   git tag --sort=-creatordate | head -5
+   
+   # Identify previous image version
+   docker images | grep prisma-web | head -5
+   ```
+
+2. **Rollback Docker Images**
+   ```bash
+   # Set to previous version
+   export SERVICE_VERSION=v1.2.2  # Previous working version
+   
+   # Redeploy previous version
+   docker compose --profile web --profile gateway -f docker-compose.prod.yml up -d
+   
+   # Verify rollback
+   docker compose ps
+   docker compose logs --tail=50
+   ```
+
+3. **Rollback Database Migrations** (If Necessary)
+   ```bash
+   # WARNING: Only if migration is reversible and tested
+   
+   # Prisma migrations (use down migrations if available)
+   cd apps/web
+   # Prisma doesn't have automatic down migrations
+   # Manually revert using SQL if needed
+   psql "$DATABASE_URL" -f migrations/rollback/<migration>_down.sql
+   
+   # Supabase migrations
+   # Manually revert using prepared rollback SQL
+   psql "$DATABASE_URL" -f supabase/rollbacks/<migration>_rollback.sql
+   ```
+
+4. **Restore Database from Backup** (Last Resort)
+   ```bash
+   # WARNING: Data loss possible. Only for catastrophic failures.
+   
+   # Identify latest backup
+   ls -lt backups/ | head -5
+   
+   # Restore (requires downtime)
+   psql "$DATABASE_URL" < backups/prisma-YYYYMMDD-HHMM.sql
+   ```
+
+5. **Verify Rollback**
+   ```bash
+   # Run smoke tests
+   ./smoke-test.sh
+   
+   # Check error rates in Sentry
+   # Check response times in observability platform
+   ```
+
+6. **Communicate Rollback**
+   ```
+   Subject: ROLLBACK COMPLETED - Prisma Glow v1.2.3
+   
+   Rollback completed at: YYYY-MM-DD HH:MM UTC
+   Rolled back to: v1.2.2
+   Reason: [Health checks failed / Error rate spike / Database migration issue]
+   
+   Current status: STABLE
+   Next steps: Root cause analysis + fix + re-deploy
+   
+   Contact: #incidents
+   ```
+
+### Post-Rollback Actions
+- [ ] Root cause analysis initiated
+- [ ] Incident retrospective scheduled
+- [ ] Fix identified and tested in staging
+- [ ] Re-deployment plan created
+
+---
+
+## Post-Deployment
+
+**Owner:** Release Manager + DevOps  
+**Timeline:** T+1 hour after deployment
+
+### Monitoring (First 24 Hours)
+
+1. **Error Rates**
+   - Monitor Sentry error dashboard
+   - Alert threshold: > 2% error rate
+
+2. **Performance Metrics**
+   - p50 latency < 200ms
+   - p95 latency < 500ms
+   - p99 latency < 1000ms
+
+3. **Business Metrics**
+   - Successful logins per hour
+   - Document uploads per hour
+   - RAG queries per hour
+   - Autopilot jobs completed
+
+4. **Infrastructure Metrics**
+   - CPU usage < 70%
+   - Memory usage < 80%
+   - Disk usage < 80%
+   - Database connections < 80% of pool
+
+### Observability Dashboards
+
+Check the following dashboards:
+- **Application Dashboard** (Grafana/equivalent)
+  - Request rate, error rate, latency (RED metrics)
+  - Success rate by endpoint
+  
+- **Infrastructure Dashboard**
+  - CPU, memory, disk, network
+  - Container health status
+  
+- **Database Dashboard**
+  - Connection pool utilization
+  - Query performance
+  - Replication lag (if applicable)
+
+### Sign-Off
+
+Once stable for 24 hours:
+- [ ] Release notes published
+- [ ] Stakeholders notified of successful deployment
+- [ ] Monitoring confirmed normal
+- [ ] Post-deployment retrospective scheduled (if issues occurred)
+- [ ] Documentation updated (if needed)
+
+---
+
+## On-Call Handoff
+
+**Owner:** Release Manager → On-Call Engineer  
+**Timeline:** After deployment verification
+
+### Handoff Checklist
+
+- [ ] **Deployment Details**
+  - Version deployed: v1.2.3
+  - Deployment time: YYYY-MM-DD HH:MM UTC
+  - Services updated: [list]
+  - Database migrations: [list or "none"]
+
+- [ ] **Known Issues**
+  - List any non-critical issues detected
+  - Workarounds documented
+  - Tickets created for follow-up
+
+- [ ] **Monitoring Focus**
+  - Specific metrics to watch
+  - Alert thresholds
+  - Expected traffic patterns
+
+- [ ] **Rollback Plan**
+  - Previous version: v1.2.2
+  - Rollback tested: Yes/No
+  - Estimated rollback time: 10 minutes
+
+- [ ] **Contacts**
+  - Release Manager: [name, contact]
+  - Backend Lead: [name, contact]
+  - Frontend Lead: [name, contact]
+  - SRE: [name, contact]
+
+### On-Call Responsibilities
+
+During the first 24 hours post-deployment:
+- Monitor alerts and dashboards
+- Respond to incidents within 15 minutes
+- Escalate to Release Manager if rollback needed
+- Document any issues in #incidents channel
+
+---
+
+## Incident Response
+
+**Owner:** On-Call Engineer  
+**Timeline:** Immediate upon detection
+
+### Incident Severity Levels
+
+| Severity | Definition | Response Time | Example |
+|----------|------------|---------------|---------|
+| **P0 (Critical)** | Complete service outage | 15 minutes | Database down, all services unreachable |
+| **P1 (High)** | Major feature broken | 30 minutes | Login broken, data loss risk |
+| **P2 (Medium)** | Feature degraded | 2 hours | Slow performance, partial functionality |
+| **P3 (Low)** | Minor issue | Next business day | UI glitch, non-critical feature |
+
+### Incident Response Steps
+
+1. **Detect & Acknowledge**
+   - Alert triggered or manual detection
+   - Acknowledge in incident management system
+   - Post to #incidents channel
+
+2. **Assess Severity**
+   - Determine severity level (P0-P3)
+   - Decide if rollback needed
+   - Notify appropriate stakeholders
+
+3. **Mitigate**
+   - For P0/P1: Consider immediate rollback
+   - For P2/P3: Implement fix or workaround
+   - Document actions taken
+
+4. **Resolve & Verify**
+   - Verify incident resolved
+   - Run smoke tests
+   - Monitor for 30 minutes post-resolution
+
+5. **Post-Incident**
+   - Write incident report
+   - Schedule retrospective
+   - Implement preventive measures
+
+### Incident Communication Template
+
+```
+🚨 INCIDENT: [Title]
+
+Severity: P[0-3]
+Status: INVESTIGATING / MITIGATING / RESOLVED
+Started: YYYY-MM-DD HH:MM UTC
+Impact: [Description of user impact]
+
+Actions Taken:
+- [List actions]
+
+Next Steps:
+- [What's being done]
+
+Updates: Every 15 minutes (P0/P1), 1 hour (P2/P3)
+```
+
+---
+
+## Appendices
+
+### A. Contact List
+
+| Role | Name | Contact | Backup |
+|------|------|---------|--------|
+| Release Manager | TBD | TBD | TBD |
+| On-Call Engineer | TBD | TBD | TBD |
+| Backend Lead | TBD | TBD | TBD |
+| Frontend Lead | TBD | TBD | TBD |
+| Database Admin | TBD | TBD | TBD |
+| Security Lead | TBD | TBD | TBD |
+
+### B. Environment URLs
+
+| Environment | URL | Purpose |
+|-------------|-----|---------|
+| Development | http://localhost:3000 | Local development |
+| Staging | https://staging.prismaglow.com | Pre-production testing |
+| Production | https://app.prismaglow.com | Live production |
+
+### C. Key Metrics & SLOs
+
+| Metric | Target (SLO) | Measurement |
+|--------|--------------|-------------|
+| Availability | 99.9% | Monthly uptime |
+| p50 Latency | < 200ms | API response time |
+| p95 Latency | < 500ms | API response time |
+| p99 Latency | < 1000ms | API response time |
+| Error Rate | < 1% | HTTP 5xx / Total requests |
+| Success Rate | > 99% | HTTP 2xx / Total requests |
+
+### D. Useful Commands
+
+```bash
+# Check service status
+docker compose ps
+
+# View logs for specific service
+docker compose logs -f web
+
+# Restart service
+docker compose restart gateway
+
+# Check database migrations status
+psql "$DATABASE_URL" -c "SELECT * FROM _prisma_migrations ORDER BY finished_at DESC LIMIT 10;"
+
+# Check disk space
+df -h
+
+# Check memory
+free -h
+
+# Check active connections to database
+psql "$DATABASE_URL" -c "SELECT count(*) FROM pg_stat_activity;"
+
+# Check slow queries
+psql "$DATABASE_URL" -c "SELECT pid, now() - query_start AS duration, query FROM pg_stat_activity WHERE state = 'active' AND now() - query_start > interval '5 seconds';"
+```
+
+### E. References
+
+- [Go-Live Readiness Report](./go-live-readiness-report.md)
+- [Risk Register](./risk-register.csv)
+- [Architecture Decision Records](./adr/)
+- [Incident Response Plan](./incident-response.md)
+- [Backup & Restore Procedures](./backup-restore.md)
+
+---
+
+**Document Control**
+
+| Version | Date | Author | Changes |
+|---------|------|--------|---------|
+| 1.0 | 2025-10-29 | DevOps Automation | Initial release runbook |
+
+---
+
+**Next Review Date:** 2025-11-29

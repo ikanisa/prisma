@@ -2,84 +2,53 @@
 name: Feature Request
 about: Suggest a new feature or enhancement
 title: '[FEATURE] '
-labels: ['enhancement', 'triage']
-assignees: ''
+labels: ['feature', 'triage']
+assignees: []
 ---
-
-## Feature Description
-
-A clear and concise description of the feature you'd like to see.
 
 ## Problem Statement
 
-**Is your feature request related to a problem? Please describe.**
+**What problem are you trying to solve?**
 
-A clear and concise description of what the problem is. Ex. I'm always frustrated when [...]
+A clear and concise description of the problem or limitation you're experiencing.
 
 ## Proposed Solution
 
-**Describe the solution you'd like**
+**How would you like it to work?**
 
-A clear and concise description of what you want to happen. Include:
-- What should the feature do?
-- How should it work?
-- What would the user experience be?
+Describe your ideal solution or feature.
 
 ## Alternatives Considered
 
-**Describe alternatives you've considered**
+**What alternatives have you tried or considered?**
 
-A clear and concise description of any alternative solutions or features you've considered.
+Describe any workarounds or alternative solutions you've explored.
 
 ## Use Cases
 
-Describe the specific use cases this feature would address:
+**Who would benefit from this feature?**
 
-1. **Use Case 1**: [Description]
-2. **Use Case 2**: [Description]
-3. **Use Case 3**: [Description]
-
-## Benefits
-
-Why should this feature be implemented? What value does it provide?
-
-- **User Benefit**: [How does this help users?]
-- **Business Benefit**: [How does this help the business?]
-- **Technical Benefit**: [How does this improve the system?]
-
-## Implementation Suggestions
-
-If you have ideas about how this could be implemented, share them here:
-
-- Technical approach
-- Required dependencies
-- Integration points
-- Potential challenges
-
-## Acceptance Criteria
-
-What conditions must be met for this feature to be considered complete?
-
-- [ ] Criterion 1
-- [ ] Criterion 2
-- [ ] Criterion 3
+- Use case 1: ...
+- Use case 2: ...
+- Use case 3: ...
 
 ## Additional Context
 
-Add any other context, mockups, diagrams, or screenshots about the feature request here.
+**Any other context, mockups, or examples**
 
-## Priority
+## Acceptance Criteria
 
-What priority do you think this should have?
+**How will we know when this feature is complete?**
 
-- [ ] Critical - Blocking work
-- [ ] High - Important for upcoming release
-- [ ] Medium - Nice to have
-- [ ] Low - Future consideration
+- [ ] Criteria 1
+- [ ] Criteria 2
+- [ ] Criteria 3
+
+---
 
 ## Checklist
 
-- [ ] I have searched for similar feature requests
-- [ ] I have described a clear use case
-- [ ] I have considered alternative solutions
-- [ ] I have reviewed the roadmap to see if this is planned
+- [ ] I have searched existing feature requests to avoid duplicates
+- [ ] I have described the problem clearly
+- [ ] I have proposed a solution
+- [ ] I have identified who would benefit from this feature

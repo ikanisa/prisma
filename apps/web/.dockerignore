@@ -1,0 +1,62 @@
+# Node modules
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Build output (keep for multi-stage builds)
+# dist/
+# .next/
+
+# Development files
+*.md
+docs/
+README.md
+
+# Testing
+coverage/
+.nyc_output/
+tests/
+*.test.ts
+*.test.js
+*.spec.ts
+*.spec.js
+
+# Environment files
+.env
+.env.local
+.env.*.local
+.env.development
+.env.test
+
+# Editor directories
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# CI/CD
+.github/
+
+# Prisma development files (keep schema and migrations)
+# prisma/migrations/  # Keep for deploy
+# prisma/schema.prisma  # Keep
+
+# Source maps (production doesn't need these)
+*.map
+
+# Lock files (already in image)
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
