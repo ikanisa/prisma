@@ -1,0 +1,233 @@
+name: Container Security Scan
+
+on:
+  push:
+    branches: [ main, copilot/refactor/** ]
+    paths:
+      - '**/Dockerfile*'
+      - 'docker-compose*.yml'
+      - '.github/workflows/container-scan.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - '**/Dockerfile*'
+      - 'docker-compose*.yml'
+  schedule:
+    # Run weekly on Mondays at 6:00 AM UTC
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+concurrency:
+  group: container-scan-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  scan-dockerfiles:
+    name: Scan Dockerfiles
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        dockerfile:
+          - path: gateway/Dockerfile
+            context: gateway
+            name: gateway
+          - path: apps/web/Dockerfile
+            context: .
+            name: web
+          - path: ui/Dockerfile
+            context: ui
+            name: ui
+          - path: rag/Dockerfile
+            context: rag
+            name: rag
+          - path: agent/Dockerfile
+            context: agent
+            name: agent
+          - path: analytics/Dockerfile
+            context: analytics
+            name: analytics
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Scan Dockerfile with Hadolint
+      - name: Lint Dockerfile with Hadolint
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: ${{ matrix.dockerfile.path }}
+          failure-threshold: warning
+          format: sarif
+          output-file: hadolint-${{ matrix.dockerfile.name }}.sarif
+
+      - name: Upload Hadolint SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: hadolint-${{ matrix.dockerfile.name }}.sarif
+          category: hadolint-${{ matrix.dockerfile.name }}
+
+      # Build image for scanning
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ matrix.dockerfile.context }}
+          file: ${{ matrix.dockerfile.path }}
+          push: false
+          load: true
+          tags: ${{ matrix.dockerfile.name }}:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Scan image with Trivy
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ matrix.dockerfile.name }}:test
+          format: 'sarif'
+          output: 'trivy-${{ matrix.dockerfile.name }}.sarif'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+          vuln-type: 'os,library'
+          ignore-unfixed: false
+
+      - name: Upload Trivy SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-${{ matrix.dockerfile.name }}.sarif
+          category: trivy-${{ matrix.dockerfile.name }}
+
+      # Generate human-readable report
+      - name: Generate Trivy report
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ matrix.dockerfile.name }}:test
+          format: 'table'
+          output: 'trivy-report-${{ matrix.dockerfile.name }}.txt'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+
+      - name: Upload Trivy report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-report-${{ matrix.dockerfile.name }}
+          path: trivy-report-${{ matrix.dockerfile.name }}.txt
+          retention-days: 30
+
+  scan-base-images:
+    name: Scan Base Images
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - name: node-alpine
+            ref: node:20.19.4-alpine
+          - name: python-alpine
+            ref: python:3.11-alpine
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Pull base image
+        run: docker pull ${{ matrix.image.ref }}
+
+      - name: Scan base image with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ matrix.image.ref }}
+          format: 'sarif'
+          output: 'trivy-base-${{ matrix.image.name }}.sarif'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Upload Trivy SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-base-${{ matrix.image.name }}.sarif
+          category: trivy-base-${{ matrix.image.name }}
+
+  security-summary:
+    name: Security Summary
+    runs-on: ubuntu-latest
+    needs: [scan-dockerfiles, scan-base-images]
+    if: always()
+
+    steps:
+      - name: Generate summary
+        run: |
+          echo "# Container Security Scan Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Scan Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ needs.scan-dockerfiles.result }}" == "success" ]; then
+            echo "✅ Dockerfile scans completed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ Dockerfile scans: ${{ needs.scan-dockerfiles.result }}" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ "${{ needs.scan-base-images.result }}" == "success" ]; then
+            echo "✅ Base image scans completed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ Base image scans: ${{ needs.scan-base-images.result }}" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Next Steps" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "1. Review security alerts in the Security tab" >> $GITHUB_STEP_SUMMARY
+          echo "2. Check Trivy reports in workflow artifacts" >> $GITHUB_STEP_SUMMARY
+          echo "3. Update base images or dependencies as needed" >> $GITHUB_STEP_SUMMARY
+          echo "4. Re-run scan after fixes" >> $GITHUB_STEP_SUMMARY
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📊 Detailed reports available in workflow artifacts" >> $GITHUB_STEP_SUMMARY
+
+  # Optional: Fail the workflow if critical vulnerabilities are found
+  check-critical:
+    name: Check for Critical Issues
+    runs-on: ubuntu-latest
+    needs: [scan-dockerfiles]
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Check for critical vulnerabilities
+        run: |
+          echo "Checking for CRITICAL vulnerabilities in Trivy reports..."
+          CRITICAL_FOUND=0
+          
+          for report in trivy-report-*/trivy-report-*.txt; do
+            if [ -f "$report" ]; then
+              echo "Checking $report"
+              if grep -q "CRITICAL" "$report"; then
+                echo "❌ CRITICAL vulnerabilities found in $report"
+                cat "$report"
+                CRITICAL_FOUND=1
+              fi
+            fi
+          done
+          
+          if [ $CRITICAL_FOUND -eq 1 ]; then
+            echo "::error::Critical vulnerabilities found. Please fix before merging."
+            echo "Review the Trivy reports in the workflow artifacts for details."
+            exit 1
+          else
+            echo "✅ No critical vulnerabilities found"
+          fi
