@@ -1,0 +1,102 @@
+# CODEOWNERS
+# This file defines code ownership for automatic review requests
+# See: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default owners for everything in the repo
+# These owners will be requested for review when someone opens a PR
+* @ikanisa/engineering-team
+
+# Documentation
+/docs/ @ikanisa/engineering-managers
+/README.md @ikanisa/engineering-managers
+/CONTRIBUTING.md @ikanisa/engineering-managers
+/SECURITY.md @ikanisa/security-team
+/SUPPORT.md @ikanisa/support-team
+
+# Architecture Decision Records
+/docs/adr/ @ikanisa/architects
+
+# Infrastructure and DevOps
+/.github/workflows/ @ikanisa/devops-team
+/docker-compose*.yml @ikanisa/devops-team
+/Dockerfile* @ikanisa/devops-team
+/Makefile @ikanisa/devops-team
+/infra/ @ikanisa/devops-team
+/scripts/ @ikanisa/devops-team
+
+# Frontend Applications
+/apps/web/ @ikanisa/frontend-team
+/src/ @ikanisa/frontend-team
+/ui/ @ikanisa/frontend-team
+/public/ @ikanisa/frontend-team
+
+# Shared UI Components
+/packages/ui/ @ikanisa/frontend-team
+
+# API Gateway
+/apps/gateway/ @ikanisa/platform-team
+/gateway/ @ikanisa/platform-team
+
+# Backend Services
+/server/ @ikanisa/backend-team
+
+# RAG and AI Services
+/services/rag/ @ikanisa/ai-team
+/rag/ @ikanisa/ai-team
+/agent/ @ikanisa/ai-team
+/packages/agents/ @ikanisa/ai-team
+
+# Analytics
+/analytics/ @ikanisa/data-team
+
+# Shared Packages
+/packages/api-client/ @ikanisa/platform-team
+/packages/system-config/ @ikanisa/platform-team
+/packages/logger/ @ikanisa/platform-team
+/packages/lib/ @ikanisa/platform-team
+/packages/platform/ @ikanisa/platform-team
+
+# Database Migrations
+/supabase/migrations/ @ikanisa/backend-team @ikanisa/devops-team
+/apps/web/prisma/ @ikanisa/backend-team @ikanisa/frontend-team
+/migrations/ @ikanisa/backend-team
+
+# Configuration Files
+/config/ @ikanisa/platform-team @ikanisa/devops-team
+/.env.example @ikanisa/devops-team
+/.env.*.example @ikanisa/devops-team
+
+# Testing
+/tests/ @ikanisa/qa-team
+/tests/playwright/ @ikanisa/qa-team @ikanisa/frontend-team
+/tests/perf/ @ikanisa/qa-team @ikanisa/performance-team
+/tests/load/ @ikanisa/qa-team @ikanisa/performance-team
+vitest.config.ts @ikanisa/qa-team
+playwright.config.ts @ikanisa/qa-team
+
+# Security
+/SECURITY.md @ikanisa/security-team
+/.github/workflows/ci-secret-guard.yml @ikanisa/security-team
+/.gitleaks.toml @ikanisa/security-team
+/.secret-scan-ignore @ikanisa/security-team
+
+# Dependencies
+/package.json @ikanisa/platform-team
+/pnpm-lock.yaml @ikanisa/platform-team
+/pnpm-workspace.yaml @ikanisa/platform-team
+/server/requirements.txt @ikanisa/backend-team
+/renovate.json @ikanisa/devops-team
+
+# Build Configuration
+/tsconfig*.json @ikanisa/platform-team
+/vite.config.ts @ikanisa/frontend-team
+/turbo.json @ikanisa/platform-team
+/eslint.config.js @ikanisa/platform-team
+
+# Operational Documentation
+/docs/OPERATIONS/ @ikanisa/devops-team @ikanisa/engineering-managers
+/docs/PHASE5/ @ikanisa/engineering-managers
+/docs/deployment/ @ikanisa/devops-team
+
+# Note: Replace @ikanisa/* team handles with actual GitHub team handles
+# or individual usernames (e.g., @username) as appropriate
