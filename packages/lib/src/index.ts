@@ -8,6 +8,7 @@ export * from './supabase/stub.js';
 export * from './supabase-server.js';
 export * from './openai/client.js';
 export * from './openai/file-search.js';
+export * from './openai/web-search.js';
 export * from './openai/workloads.js';
 export * from './openai/url.js';
 export * from './audit/activity-log.js';
