@@ -438,11 +438,12 @@ Improve search quality with ranking options:
 
 ```json
 {
-  "ranker": "auto",  // or "default-2024-08-21"
-  "score_threshold": 0.6  // 0.0 to 1.0
+  "ranker": "auto",
+  "score_threshold": 0.6
 }
 ```
 
+Options:
 - **ranker**: Specifies the ranking algorithm
   - `auto` - Automatically selects the best ranker
   - `default-2024-08-21` - Specific ranker version
@@ -452,14 +453,22 @@ Improve search quality with ranking options:
 
 After performing a search, you can use OpenAI models to synthesize a response based on the results.
 
-**Example workflow:**
+**Example workflow using the API endpoint:**
 
 ```python
-# 1. Perform search
-search_results = await search_vector_store(
-    vector_store_id="vs_abc123",
-    query="What is the return policy?"
-)
+import httpx
+
+# 1. Perform search via API
+async with httpx.AsyncClient() as client:
+    response = await client.post(
+        "http://localhost:8000/v1/vector-stores/vs_abc123/search",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "query": "What is the return policy?",
+            "max_num_results": 10
+        }
+    )
+    search_results = response.json()
 
 # 2. Format results
 def format_results(results):
