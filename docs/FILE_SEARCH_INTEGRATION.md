@@ -191,8 +191,17 @@ export async function POST(request: NextRequest) {
     });
 
     // Process citations using RAG utilities
-    const citations = result.items.map((item) => item.citation);
-    const processedCitations = sortCitationsByIndex(deduplicateCitations(citations as any));
+    // Convert lib package citations to RAG citation format
+    const ragCitations = result.items
+      .map((item) => ({
+        type: 'file_citation' as const,
+        index: 0, // Will be sorted later if needed
+        file_id: item.citation.fileId || '',
+        filename: item.citation.filename || '',
+      }))
+      .filter((c) => c.file_id); // Only include valid citations
+    
+    const processedCitations = sortCitationsByIndex(deduplicateCitations(ragCitations));
 
     return NextResponse.json({
       items: result.items,
