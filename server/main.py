@@ -3021,6 +3021,43 @@ class ReembedRequest(BaseModel):
     org_slug: str = Field(..., min_length=1)
 
 
+class VectorStoreCreateRequest(BaseModel):
+    name: str = Field(..., min_length=1, max_length=256)
+    file_ids: Optional[List[str]] = Field(default=None)
+    expires_after: Optional[Dict[str, Any]] = Field(default=None)
+    chunking_strategy: Optional[Dict[str, Any]] = Field(default=None)
+    metadata: Optional[Dict[str, Any]] = Field(default=None)
+
+
+class VectorStoreUpdateRequest(BaseModel):
+    name: Optional[str] = Field(default=None)
+    expires_after: Optional[Dict[str, Any]] = Field(default=None)
+    metadata: Optional[Dict[str, Any]] = Field(default=None)
+
+
+class VectorStoreFileCreateRequest(BaseModel):
+    file_id: str = Field(..., min_length=1)
+    attributes: Optional[Dict[str, Any]] = Field(default=None)
+    chunking_strategy: Optional[Dict[str, Any]] = Field(default=None)
+
+
+class VectorStoreFileUpdateRequest(BaseModel):
+    attributes: Optional[Dict[str, Any]] = Field(default=None)
+
+
+class FileBatchCreateRequest(BaseModel):
+    file_ids: Optional[List[str]] = Field(default=None)
+    files: Optional[List[Dict[str, Any]]] = Field(default=None)
+
+
+class VectorStoreSearchRequest(BaseModel):
+    query: str = Field(..., min_length=1)
+    max_num_results: int = Field(10, ge=1, le=50)
+    rewrite_query: bool = Field(True)
+    attribute_filter: Optional[Dict[str, Any]] = Field(default=None)
+    ranking_options: Optional[Dict[str, Any]] = Field(default=None)
+
+
 class TaskCreateRequest(BaseModel):
     orgSlug: str = Field(..., min_length=1)
     title: str = Field(..., min_length=1, max_length=500)
@@ -4423,6 +4460,426 @@ async def reembed(request: ReembedRequest, auth: Dict[str, Any] = Depends(requir
     )
     return {"enqueued": len(request.chunks)}
 
+
+# Vector Store Management Endpoints
+@app.post("/v1/vector-stores", tags=["retrieval"])
+async def create_vector_store_endpoint(
+    request: VectorStoreCreateRequest,
+    auth: Dict[str, Any] = Depends(require_auth),
+) -> Dict[str, Any]:
+    """Create a new vector store."""
+    user_id = auth.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="missing subject claim")
+    
+    if not openai_retrieval.is_enabled():
+        raise HTTPException(status_code=503, detail="OpenAI Retrieval not configured")
+    
+    try:
+        result = await openai_retrieval.create_vector_store(
+            name=request.name,
+            file_ids=request.file_ids,
+            expires_after=request.expires_after,
+            chunking_strategy=request.chunking_strategy,
+            metadata=request.metadata,
+        )
+        logger.info("vector_store.created", user_id=user_id, vector_store_id=result.get("id"))
+        return result
+    except Exception as exc:
+        logger.error("vector_store.create_failed", user_id=user_id, error=str(exc))
+        raise HTTPException(status_code=500, detail="Failed to create vector store")
+
+
+@app.get("/v1/vector-stores/{vector_store_id}", tags=["retrieval"])
+async def get_vector_store_endpoint(
+    vector_store_id: str,
+    auth: Dict[str, Any] = Depends(require_auth),
+) -> Dict[str, Any]:
+    """Retrieve a vector store by ID."""
+    user_id = auth.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="missing subject claim")
+    
+    if not openai_retrieval.is_enabled():
+        raise HTTPException(status_code=503, detail="OpenAI Retrieval not configured")
+    
+    try:
+        result = await openai_retrieval.retrieve_vector_store(vector_store_id)
+        return result
+    except Exception as exc:
+        logger.error("vector_store.retrieve_failed", user_id=user_id, vector_store_id=vector_store_id, error=str(exc))
+        raise HTTPException(status_code=404, detail="Vector store not found")
+
+
+@app.post("/v1/vector-stores/{vector_store_id}", tags=["retrieval"])
+async def update_vector_store_endpoint(
+    vector_store_id: str,
+    request: VectorStoreUpdateRequest,
+    auth: Dict[str, Any] = Depends(require_auth),
+) -> Dict[str, Any]:
+    """Update a vector store."""
+    user_id = auth.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="missing subject claim")
+    
+    if not openai_retrieval.is_enabled():
+        raise HTTPException(status_code=503, detail="OpenAI Retrieval not configured")
+    
+    try:
+        result = await openai_retrieval.update_vector_store(
+            vector_store_id,
+            name=request.name,
+            expires_after=request.expires_after,
+            metadata=request.metadata,
+        )
+        logger.info("vector_store.updated", user_id=user_id, vector_store_id=vector_store_id)
+        return result
+    except Exception as exc:
+        logger.error("vector_store.update_failed", user_id=user_id, vector_store_id=vector_store_id, error=str(exc))
+        raise HTTPException(status_code=500, detail="Failed to update vector store")
+
+
+@app.delete("/v1/vector-stores/{vector_store_id}", tags=["retrieval"])
+async def delete_vector_store_endpoint(
+    vector_store_id: str,
+    auth: Dict[str, Any] = Depends(require_auth),
+) -> Dict[str, Any]:
+    """Delete a vector store."""
+    user_id = auth.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="missing subject claim")
+    
+    if not openai_retrieval.is_enabled():
+        raise HTTPException(status_code=503, detail="OpenAI Retrieval not configured")
+    
+    try:
+        result = await openai_retrieval.delete_vector_store(vector_store_id)
+        logger.info("vector_store.deleted", user_id=user_id, vector_store_id=vector_store_id)
+        return result
+    except Exception as exc:
+        logger.error("vector_store.delete_failed", user_id=user_id, vector_store_id=vector_store_id, error=str(exc))
+        raise HTTPException(status_code=500, detail="Failed to delete vector store")
+
+
+@app.get("/v1/vector-stores", tags=["retrieval"])
+async def list_vector_stores_endpoint(
+    limit: int = Query(20, ge=1, le=100),
+    order: str = Query("desc", regex="^(asc|desc)$"),
+    after: Optional[str] = Query(None),
+    before: Optional[str] = Query(None),
+    auth: Dict[str, Any] = Depends(require_auth),
+) -> Dict[str, Any]:
+    """List vector stores."""
+    user_id = auth.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="missing subject claim")
+    
+    if not openai_retrieval.is_enabled():
+        raise HTTPException(status_code=503, detail="OpenAI Retrieval not configured")
+    
+    try:
+        result = await openai_retrieval.list_vector_stores(
+            limit=limit,
+            order=order,
+            after=after,
+            before=before,
+        )
+        return result
+    except Exception as exc:
+        logger.error("vector_stores.list_failed", user_id=user_id, error=str(exc))
+        raise HTTPException(status_code=500, detail="Failed to list vector stores")
+
+
+# Vector Store File Endpoints
+@app.post("/v1/vector-stores/{vector_store_id}/files", tags=["retrieval"])
+async def create_vector_store_file_endpoint(
+    vector_store_id: str,
+    request: VectorStoreFileCreateRequest,
+    auth: Dict[str, Any] = Depends(require_auth),
+) -> Dict[str, Any]:
+    """Attach a file to a vector store."""
+    user_id = auth.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="missing subject claim")
+    
+    if not openai_retrieval.is_enabled():
+        raise HTTPException(status_code=503, detail="OpenAI Retrieval not configured")
+    
+    try:
+        result = await openai_retrieval.create_and_poll_vector_store_file(
+            vector_store_id,
+            request.file_id,
+            attributes=request.attributes,
+            chunking_strategy=request.chunking_strategy,
+        )
+        logger.info("vector_store_file.created", user_id=user_id, vector_store_id=vector_store_id, file_id=request.file_id)
+        return result
+    except Exception as exc:
+        logger.error("vector_store_file.create_failed", user_id=user_id, error=str(exc))
+        raise HTTPException(status_code=500, detail="Failed to create vector store file")
+
+
+@app.get("/v1/vector-stores/{vector_store_id}/files/{file_id}", tags=["retrieval"])
+async def get_vector_store_file_endpoint(
+    vector_store_id: str,
+    file_id: str,
+    auth: Dict[str, Any] = Depends(require_auth),
+) -> Dict[str, Any]:
+    """Retrieve a vector store file."""
+    user_id = auth.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="missing subject claim")
+    
+    if not openai_retrieval.is_enabled():
+        raise HTTPException(status_code=503, detail="OpenAI Retrieval not configured")
+    
+    try:
+        result = await openai_retrieval.retrieve_vector_store_file(vector_store_id, file_id)
+        return result
+    except Exception as exc:
+        logger.error("vector_store_file.retrieve_failed", user_id=user_id, error=str(exc))
+        raise HTTPException(status_code=404, detail="Vector store file not found")
+
+
+@app.post("/v1/vector-stores/{vector_store_id}/files/{file_id}", tags=["retrieval"])
+async def update_vector_store_file_endpoint(
+    vector_store_id: str,
+    file_id: str,
+    request: VectorStoreFileUpdateRequest,
+    auth: Dict[str, Any] = Depends(require_auth),
+) -> Dict[str, Any]:
+    """Update a vector store file's attributes."""
+    user_id = auth.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="missing subject claim")
+    
+    if not openai_retrieval.is_enabled():
+        raise HTTPException(status_code=503, detail="OpenAI Retrieval not configured")
+    
+    try:
+        result = await openai_retrieval.update_vector_store_file(
+            vector_store_id,
+            file_id,
+            attributes=request.attributes,
+        )
+        logger.info("vector_store_file.updated", user_id=user_id, vector_store_id=vector_store_id, file_id=file_id)
+        return result
+    except Exception as exc:
+        logger.error("vector_store_file.update_failed", user_id=user_id, error=str(exc))
+        raise HTTPException(status_code=500, detail="Failed to update vector store file")
+
+
+@app.delete("/v1/vector-stores/{vector_store_id}/files/{file_id}", tags=["retrieval"])
+async def delete_vector_store_file_endpoint(
+    vector_store_id: str,
+    file_id: str,
+    auth: Dict[str, Any] = Depends(require_auth),
+) -> Dict[str, Any]:
+    """Delete a vector store file."""
+    user_id = auth.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="missing subject claim")
+    
+    if not openai_retrieval.is_enabled():
+        raise HTTPException(status_code=503, detail="OpenAI Retrieval not configured")
+    
+    try:
+        result = await openai_retrieval.delete_vector_store_file(vector_store_id, file_id)
+        logger.info("vector_store_file.deleted", user_id=user_id, vector_store_id=vector_store_id, file_id=file_id)
+        return result
+    except Exception as exc:
+        logger.error("vector_store_file.delete_failed", user_id=user_id, error=str(exc))
+        raise HTTPException(status_code=500, detail="Failed to delete vector store file")
+
+
+@app.get("/v1/vector-stores/{vector_store_id}/files", tags=["retrieval"])
+async def list_vector_store_files_endpoint(
+    vector_store_id: str,
+    limit: int = Query(20, ge=1, le=100),
+    order: str = Query("desc", regex="^(asc|desc)$"),
+    after: Optional[str] = Query(None),
+    before: Optional[str] = Query(None),
+    filter_status: Optional[str] = Query(None),
+    auth: Dict[str, Any] = Depends(require_auth),
+) -> Dict[str, Any]:
+    """List files in a vector store."""
+    user_id = auth.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="missing subject claim")
+    
+    if not openai_retrieval.is_enabled():
+        raise HTTPException(status_code=503, detail="OpenAI Retrieval not configured")
+    
+    try:
+        result = await openai_retrieval.list_vector_store_files(
+            vector_store_id,
+            limit=limit,
+            order=order,
+            after=after,
+            before=before,
+            filter_status=filter_status,
+        )
+        return result
+    except Exception as exc:
+        logger.error("vector_store_files.list_failed", user_id=user_id, error=str(exc))
+        raise HTTPException(status_code=500, detail="Failed to list vector store files")
+
+
+# Batch Operations Endpoints
+@app.post("/v1/vector-stores/{vector_store_id}/file-batches", tags=["retrieval"])
+async def create_file_batch_endpoint(
+    vector_store_id: str,
+    request: FileBatchCreateRequest,
+    auth: Dict[str, Any] = Depends(require_auth),
+) -> Dict[str, Any]:
+    """Create a batch of files in a vector store."""
+    user_id = auth.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="missing subject claim")
+    
+    if not openai_retrieval.is_enabled():
+        raise HTTPException(status_code=503, detail="OpenAI Retrieval not configured")
+    
+    try:
+        result = await openai_retrieval.create_and_poll_file_batch(
+            vector_store_id,
+            file_ids=request.file_ids,
+            files=request.files,
+        )
+        logger.info("file_batch.created", user_id=user_id, vector_store_id=vector_store_id, batch_id=result.get("id"))
+        return result
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        logger.error("file_batch.create_failed", user_id=user_id, error=str(exc))
+        raise HTTPException(status_code=500, detail="Failed to create file batch")
+
+
+@app.get("/v1/vector-stores/{vector_store_id}/file-batches/{batch_id}", tags=["retrieval"])
+async def get_file_batch_endpoint(
+    vector_store_id: str,
+    batch_id: str,
+    auth: Dict[str, Any] = Depends(require_auth),
+) -> Dict[str, Any]:
+    """Retrieve a file batch."""
+    user_id = auth.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="missing subject claim")
+    
+    if not openai_retrieval.is_enabled():
+        raise HTTPException(status_code=503, detail="OpenAI Retrieval not configured")
+    
+    try:
+        result = await openai_retrieval.retrieve_file_batch(vector_store_id, batch_id)
+        return result
+    except Exception as exc:
+        logger.error("file_batch.retrieve_failed", user_id=user_id, error=str(exc))
+        raise HTTPException(status_code=404, detail="File batch not found")
+
+
+@app.post("/v1/vector-stores/{vector_store_id}/file-batches/{batch_id}/cancel", tags=["retrieval"])
+async def cancel_file_batch_endpoint(
+    vector_store_id: str,
+    batch_id: str,
+    auth: Dict[str, Any] = Depends(require_auth),
+) -> Dict[str, Any]:
+    """Cancel a file batch."""
+    user_id = auth.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="missing subject claim")
+    
+    if not openai_retrieval.is_enabled():
+        raise HTTPException(status_code=503, detail="OpenAI Retrieval not configured")
+    
+    try:
+        result = await openai_retrieval.cancel_file_batch(vector_store_id, batch_id)
+        logger.info("file_batch.cancelled", user_id=user_id, vector_store_id=vector_store_id, batch_id=batch_id)
+        return result
+    except Exception as exc:
+        logger.error("file_batch.cancel_failed", user_id=user_id, error=str(exc))
+        raise HTTPException(status_code=500, detail="Failed to cancel file batch")
+
+
+@app.get("/v1/vector-stores/{vector_store_id}/file-batches/{batch_id}/files", tags=["retrieval"])
+async def list_batch_files_endpoint(
+    vector_store_id: str,
+    batch_id: str,
+    limit: int = Query(20, ge=1, le=100),
+    order: str = Query("desc", regex="^(asc|desc)$"),
+    after: Optional[str] = Query(None),
+    before: Optional[str] = Query(None),
+    filter_status: Optional[str] = Query(None),
+    auth: Dict[str, Any] = Depends(require_auth),
+) -> Dict[str, Any]:
+    """List files in a batch."""
+    user_id = auth.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="missing subject claim")
+    
+    if not openai_retrieval.is_enabled():
+        raise HTTPException(status_code=503, detail="OpenAI Retrieval not configured")
+    
+    try:
+        result = await openai_retrieval.list_files_in_batch(
+            vector_store_id,
+            batch_id,
+            limit=limit,
+            order=order,
+            after=after,
+            before=before,
+            filter_status=filter_status,
+        )
+        return result
+    except Exception as exc:
+        logger.error("batch_files.list_failed", user_id=user_id, error=str(exc))
+        raise HTTPException(status_code=500, detail="Failed to list batch files")
+
+
+# Enhanced Search Endpoint
+@app.post("/v1/vector-stores/{vector_store_id}/search", tags=["retrieval"])
+async def search_vector_store_endpoint(
+    vector_store_id: str,
+    request: VectorStoreSearchRequest,
+    auth: Dict[str, Any] = Depends(require_auth),
+) -> Dict[str, Any]:
+    """Perform semantic search in a vector store."""
+    user_id = auth.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="missing subject claim")
+    
+    if not openai_retrieval.is_enabled():
+        raise HTTPException(status_code=503, detail="OpenAI Retrieval not configured")
+    
+    try:
+        client = openai_retrieval.get_openai_client()
+        
+        kwargs: Dict[str, Any] = {
+            "vector_store_id": vector_store_id,
+            "query": request.query,
+            "max_num_results": request.max_num_results,
+            "rewrite_query": request.rewrite_query,
+        }
+        
+        if request.attribute_filter:
+            kwargs["attribute_filter"] = request.attribute_filter
+        if request.ranking_options:
+            kwargs["ranking_options"] = request.ranking_options
+        
+        response = await client.vector_stores.search(**kwargs)
+        
+        logger.info(
+            "vector_store.search",
+            user_id=user_id,
+            vector_store_id=vector_store_id,
+            query=request.query,
+        )
+        
+        # Convert response to dict
+        response_dict = openai_retrieval._as_dict(response)
+        return response_dict
+    except Exception as exc:
+        logger.error("vector_store.search_failed", user_id=user_id, error=str(exc))
+        raise HTTPException(status_code=500, detail="Search failed")
 
 
 async def _update_reconciliation_difference(reconciliation_id: str) -> None:
