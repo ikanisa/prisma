@@ -127,6 +127,12 @@ import { AuditExecutionAgent } from '@prisma-glow/agents/audit-execution';
 import type { Database } from './types/supabase.js';
 import type { OrchestrationTaskInput } from './mcp/types.js';
 import { initialiseMcpInfrastructure } from './mcp/bootstrap.js';
+import type {
+  WebSearchTool,
+  WebSearchUserLocation,
+  WebSearchResponse,
+  ExtractedWebSearchResults,
+} from './types/web-search.js';
 import { createDirectorAgent as createMcpDirectorAgent } from './mcp/director.js';
 import { createSafetyAgent as createMcpSafetyAgent } from './mcp/safety.js';
 import { executeTaskWithExecutor } from './mcp/executors.js';
@@ -4538,6 +4544,7 @@ function extractCitationsFromResponse(response: any): Array<Record<string, unkno
   const outputs = Array.isArray(response?.output) ? response.output : [];
   for (const item of outputs) {
     if (item && typeof item === 'object') {
+      // Legacy citations format
       if (Array.isArray((item as any).citations)) {
         for (const citation of (item as any).citations) {
           if (citation && typeof citation === 'object' && !Array.isArray(citation)) {
@@ -4547,10 +4554,29 @@ function extractCitationsFromResponse(response: any): Array<Record<string, unkno
       }
       const content = Array.isArray((item as any).content) ? (item as any).content : [];
       for (const part of content) {
+        // Legacy citations in content parts
         if (part && typeof part === 'object' && Array.isArray((part as any).citations)) {
           for (const citation of (part as any).citations as Array<unknown>) {
             if (citation && typeof citation === 'object' && !Array.isArray(citation)) {
               citations.push(citation as Record<string, unknown>);
+            }
+          }
+        }
+        // URL citation annotations (new format from web search)
+        if (part && typeof part === 'object' && Array.isArray((part as any).annotations)) {
+          for (const annotation of (part as any).annotations as Array<unknown>) {
+            if (annotation && typeof annotation === 'object' && !Array.isArray(annotation)) {
+              const ann = annotation as Record<string, unknown>;
+              // Extract url_citation annotations
+              if (ann.type === 'url_citation') {
+                citations.push({
+                  type: 'url_citation',
+                  url: ann.url,
+                  title: ann.title,
+                  start_index: ann.start_index,
+                  end_index: ann.end_index,
+                });
+              }
             }
           }
         }
@@ -4562,6 +4588,8 @@ function extractCitationsFromResponse(response: any): Array<Record<string, unkno
 
 function extractWebSearchSources(response: any): Array<Record<string, unknown>> {
   const sources: Array<Record<string, unknown>> = [];
+  
+  // Check for web_search_calls in the flattened format
   const calls = Array.isArray(response?.web_search_calls) ? response.web_search_calls : [];
   for (const call of calls) {
     const action = call && typeof call === 'object' ? (call as any).action : undefined;
@@ -4573,6 +4601,28 @@ function extractWebSearchSources(response: any): Array<Record<string, unknown>> 
       }
     }
   }
+  
+  // Also check in the output array format (new Responses API format)
+  const outputs = Array.isArray(response?.output) ? response.output : [];
+  for (const item of outputs) {
+    if (item && typeof item === 'object' && (item as any).type === 'web_search_call') {
+      const action = (item as any).action;
+      if (action && Array.isArray(action.sources)) {
+        for (const source of action.sources) {
+          if (source && typeof source === 'object' && !Array.isArray(source)) {
+            // Avoid duplicates
+            const isDuplicate = sources.some(
+              (existing) => existing.url === source.url && existing.title === source.title
+            );
+            if (!isDuplicate) {
+              sources.push(source as Record<string, unknown>);
+            }
+          }
+        }
+      }
+    }
+  }
+  
   return sources;
 }
 
@@ -7251,7 +7301,8 @@ app.post('/api/agent/domain-tools/web-search', async (req: AuthenticatedRequest,
       query?: string;
       reasoningEffort?: string;
       allowedDomains?: unknown;
-      location?: { country?: string; city?: string; region?: string };
+      location?: { country?: string; city?: string; region?: string; timezone?: string };
+      externalWebAccess?: unknown;
     };
 
     const orgSlug = typeof body.orgSlug === 'string' ? body.orgSlug.trim() : '';
@@ -7288,7 +7339,7 @@ app.post('/api/agent/domain-tools/web-search', async (req: AuthenticatedRequest,
       body.location && typeof body.location === 'object' && !Array.isArray(body.location)
         ? body.location
         : undefined;
-    const userLocation = locationInput
+    const userLocation: WebSearchUserLocation | undefined = locationInput
       ? {
           type: 'approximate',
           country:
@@ -7303,15 +7354,23 @@ app.post('/api/agent/domain-tools/web-search', async (req: AuthenticatedRequest,
             typeof locationInput.region === 'string' && locationInput.region.trim().length
               ? locationInput.region.trim()
               : undefined,
+          timezone:
+            typeof locationInput.timezone === 'string' && locationInput.timezone.trim().length
+              ? locationInput.timezone.trim()
+              : undefined,
         }
       : undefined;
 
-    const webTool: Record<string, unknown> = { type: 'web_search' };
+    const webTool: WebSearchTool = { type: 'web_search' };
     if (allowedDomains.length) {
       webTool.filters = { allowed_domains: allowedDomains };
     }
-    if (userLocation && (userLocation.country || userLocation.city || userLocation.region)) {
+    if (userLocation && (userLocation.country || userLocation.city || userLocation.region || userLocation.timezone)) {
       webTool.user_location = userLocation;
+    }
+    // Support external_web_access parameter (default: true for live access)
+    if (typeof body.externalWebAccess === 'boolean') {
+      webTool.external_web_access = body.externalWebAccess;
     }
 
     const response = await openai.responses.create({
