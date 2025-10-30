@@ -293,4 +293,606 @@ async def search(
     }
 
 
-__all__ = ["ingest_document", "is_enabled", "search", "reset_cache"]
+async def create_vector_store(
+    *,
+    name: str,
+    file_ids: Optional[List[str]] = None,
+    expires_after: Optional[Dict[str, Any]] = None,
+    chunking_strategy: Optional[Dict[str, Any]] = None,
+    metadata: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Create a new vector store.
+
+    Args:
+        name: Name for the vector store
+        file_ids: Optional list of file IDs to attach
+        expires_after: Optional expiration policy, e.g. {"anchor": "last_active_at", "days": 7}
+        chunking_strategy: Optional chunking configuration
+        metadata: Optional metadata dictionary
+
+    Returns:
+        Dictionary with vector store details
+    """
+    client = get_openai_client()
+
+    kwargs: Dict[str, Any] = {"name": name}
+    if file_ids:
+        kwargs["file_ids"] = file_ids
+    if expires_after:
+        kwargs["expires_after"] = expires_after
+    if chunking_strategy:
+        kwargs["chunking_strategy"] = chunking_strategy
+    if metadata:
+        kwargs["metadata"] = metadata
+
+    try:
+        result = await client.vector_stores.create(**kwargs)
+    except Exception as exc:
+        logger.error("openai_retrieval.create_vector_store_failed", error=str(exc))
+        raise
+
+    result_dict = _as_dict(result)
+    return result_dict
+
+
+async def retrieve_vector_store(vector_store_id: str) -> Dict[str, Any]:
+    """Retrieve a vector store by ID.
+
+    Args:
+        vector_store_id: The ID of the vector store
+
+    Returns:
+        Dictionary with vector store details
+    """
+    client = get_openai_client()
+
+    try:
+        result = await client.vector_stores.retrieve(vector_store_id)
+    except Exception as exc:
+        logger.error(
+            "openai_retrieval.retrieve_vector_store_failed",
+            vector_store_id=vector_store_id,
+            error=str(exc),
+        )
+        raise
+
+    return _as_dict(result)
+
+
+async def update_vector_store(
+    vector_store_id: str,
+    *,
+    name: Optional[str] = None,
+    expires_after: Optional[Dict[str, Any]] = None,
+    metadata: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Update a vector store.
+
+    Args:
+        vector_store_id: The ID of the vector store
+        name: Optional new name
+        expires_after: Optional expiration policy
+        metadata: Optional metadata to update
+
+    Returns:
+        Dictionary with updated vector store details
+    """
+    client = get_openai_client()
+
+    kwargs: Dict[str, Any] = {}
+    if name is not None:
+        kwargs["name"] = name
+    if expires_after is not None:
+        kwargs["expires_after"] = expires_after
+    if metadata is not None:
+        kwargs["metadata"] = metadata
+
+    try:
+        result = await client.vector_stores.update(vector_store_id, **kwargs)
+    except Exception as exc:
+        logger.error(
+            "openai_retrieval.update_vector_store_failed",
+            vector_store_id=vector_store_id,
+            error=str(exc),
+        )
+        raise
+
+    return _as_dict(result)
+
+
+async def delete_vector_store(vector_store_id: str) -> Dict[str, Any]:
+    """Delete a vector store.
+
+    Args:
+        vector_store_id: The ID of the vector store
+
+    Returns:
+        Dictionary with deletion status
+    """
+    client = get_openai_client()
+
+    try:
+        result = await client.vector_stores.delete(vector_store_id)
+    except Exception as exc:
+        logger.error(
+            "openai_retrieval.delete_vector_store_failed",
+            vector_store_id=vector_store_id,
+            error=str(exc),
+        )
+        raise
+
+    return _as_dict(result)
+
+
+async def list_vector_stores(
+    *,
+    limit: int = 20,
+    order: str = "desc",
+    after: Optional[str] = None,
+    before: Optional[str] = None,
+) -> Dict[str, Any]:
+    """List vector stores.
+
+    Args:
+        limit: Number of stores to return (max 100)
+        order: Sort order ("asc" or "desc")
+        after: Cursor for pagination
+        before: Cursor for pagination
+
+    Returns:
+        Dictionary with list of vector stores and pagination info
+    """
+    client = get_openai_client()
+
+    kwargs: Dict[str, Any] = {"limit": max(1, min(limit, 100)), "order": order}
+    if after:
+        kwargs["after"] = after
+    if before:
+        kwargs["before"] = before
+
+    try:
+        result = await client.vector_stores.list(**kwargs)
+    except Exception as exc:
+        logger.error("openai_retrieval.list_vector_stores_failed", error=str(exc))
+        raise
+
+    return _as_dict(result)
+
+
+async def create_vector_store_file(
+    vector_store_id: str,
+    file_id: str,
+    *,
+    attributes: Optional[Dict[str, Any]] = None,
+    chunking_strategy: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Create a vector store file (attach a file to a vector store).
+
+    Args:
+        vector_store_id: The ID of the vector store
+        file_id: The ID of the file to attach
+        attributes: Optional attributes for filtering
+        chunking_strategy: Optional chunking configuration
+
+    Returns:
+        Dictionary with vector store file details
+    """
+    client = get_openai_client()
+
+    kwargs: Dict[str, Any] = {"file_id": file_id}
+    if attributes:
+        kwargs["attributes"] = attributes
+    if chunking_strategy:
+        kwargs["chunking_strategy"] = chunking_strategy
+
+    try:
+        result = await client.vector_stores.files.create(vector_store_id, **kwargs)
+    except Exception as exc:
+        logger.error(
+            "openai_retrieval.create_vector_store_file_failed",
+            vector_store_id=vector_store_id,
+            file_id=file_id,
+            error=str(exc),
+        )
+        raise
+
+    return _as_dict(result)
+
+
+async def create_and_poll_vector_store_file(
+    vector_store_id: str,
+    file_id: str,
+    *,
+    attributes: Optional[Dict[str, Any]] = None,
+    chunking_strategy: Optional[Dict[str, Any]] = None,
+    poll_interval_ms: int = 1000,
+) -> Dict[str, Any]:
+    """Create a vector store file and poll until processing completes.
+
+    Args:
+        vector_store_id: The ID of the vector store
+        file_id: The ID of the file to attach
+        attributes: Optional attributes for filtering
+        chunking_strategy: Optional chunking configuration
+        poll_interval_ms: Polling interval in milliseconds
+
+    Returns:
+        Dictionary with vector store file details
+    """
+    client = get_openai_client()
+
+    kwargs: Dict[str, Any] = {"file_id": file_id}
+    if attributes:
+        kwargs["attributes"] = attributes
+    if chunking_strategy:
+        kwargs["chunking_strategy"] = chunking_strategy
+
+    try:
+        result = await client.vector_stores.files.create_and_poll(
+            vector_store_id, poll_interval_ms=poll_interval_ms, **kwargs
+        )
+    except Exception as exc:
+        logger.error(
+            "openai_retrieval.create_and_poll_vector_store_file_failed",
+            vector_store_id=vector_store_id,
+            file_id=file_id,
+            error=str(exc),
+        )
+        raise
+
+    return _as_dict(result)
+
+
+async def retrieve_vector_store_file(
+    vector_store_id: str, file_id: str
+) -> Dict[str, Any]:
+    """Retrieve a vector store file.
+
+    Args:
+        vector_store_id: The ID of the vector store
+        file_id: The ID of the file
+
+    Returns:
+        Dictionary with vector store file details
+    """
+    client = get_openai_client()
+
+    try:
+        result = await client.vector_stores.files.retrieve(vector_store_id, file_id)
+    except Exception as exc:
+        logger.error(
+            "openai_retrieval.retrieve_vector_store_file_failed",
+            vector_store_id=vector_store_id,
+            file_id=file_id,
+            error=str(exc),
+        )
+        raise
+
+    return _as_dict(result)
+
+
+async def update_vector_store_file(
+    vector_store_id: str,
+    file_id: str,
+    *,
+    attributes: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Update a vector store file's attributes.
+
+    Args:
+        vector_store_id: The ID of the vector store
+        file_id: The ID of the file
+        attributes: Attributes to update
+
+    Returns:
+        Dictionary with updated vector store file details
+    """
+    client = get_openai_client()
+
+    kwargs: Dict[str, Any] = {}
+    if attributes is not None:
+        kwargs["attributes"] = attributes
+
+    try:
+        result = await client.vector_stores.files.update(
+            vector_store_id, file_id, **kwargs
+        )
+    except Exception as exc:
+        logger.error(
+            "openai_retrieval.update_vector_store_file_failed",
+            vector_store_id=vector_store_id,
+            file_id=file_id,
+            error=str(exc),
+        )
+        raise
+
+    return _as_dict(result)
+
+
+async def delete_vector_store_file(
+    vector_store_id: str, file_id: str
+) -> Dict[str, Any]:
+    """Delete a vector store file.
+
+    Args:
+        vector_store_id: The ID of the vector store
+        file_id: The ID of the file
+
+    Returns:
+        Dictionary with deletion status
+    """
+    client = get_openai_client()
+
+    try:
+        result = await client.vector_stores.files.delete(vector_store_id, file_id)
+    except Exception as exc:
+        logger.error(
+            "openai_retrieval.delete_vector_store_file_failed",
+            vector_store_id=vector_store_id,
+            file_id=file_id,
+            error=str(exc),
+        )
+        raise
+
+    return _as_dict(result)
+
+
+async def list_vector_store_files(
+    vector_store_id: str,
+    *,
+    limit: int = 20,
+    order: str = "desc",
+    after: Optional[str] = None,
+    before: Optional[str] = None,
+    filter_status: Optional[str] = None,
+) -> Dict[str, Any]:
+    """List files in a vector store.
+
+    Args:
+        vector_store_id: The ID of the vector store
+        limit: Number of files to return (max 100)
+        order: Sort order ("asc" or "desc")
+        after: Cursor for pagination
+        before: Cursor for pagination
+        filter_status: Optional status filter (e.g., "completed", "in_progress", "failed")
+
+    Returns:
+        Dictionary with list of files and pagination info
+    """
+    client = get_openai_client()
+
+    kwargs: Dict[str, Any] = {"limit": max(1, min(limit, 100)), "order": order}
+    if after:
+        kwargs["after"] = after
+    if before:
+        kwargs["before"] = before
+    if filter_status:
+        kwargs["filter"] = filter_status
+
+    try:
+        result = await client.vector_stores.files.list(vector_store_id, **kwargs)
+    except Exception as exc:
+        logger.error(
+            "openai_retrieval.list_vector_store_files_failed",
+            vector_store_id=vector_store_id,
+            error=str(exc),
+        )
+        raise
+
+    return _as_dict(result)
+
+
+async def create_file_batch(
+    vector_store_id: str,
+    *,
+    file_ids: Optional[List[str]] = None,
+    files: Optional[List[Dict[str, Any]]] = None,
+) -> Dict[str, Any]:
+    """Create a batch of files in a vector store.
+
+    Args:
+        vector_store_id: The ID of the vector store
+        file_ids: Optional list of file IDs (mutually exclusive with files)
+        files: Optional list of file objects with file_id, attributes, and chunking_strategy
+
+    Returns:
+        Dictionary with batch details
+    """
+    client = get_openai_client()
+
+    kwargs: Dict[str, Any] = {}
+    if file_ids:
+        kwargs["file_ids"] = file_ids
+    elif files:
+        kwargs["files"] = files
+    else:
+        raise ValueError("Either file_ids or files must be provided")
+
+    try:
+        result = await client.vector_stores.file_batches.create(
+            vector_store_id, **kwargs
+        )
+    except Exception as exc:
+        logger.error(
+            "openai_retrieval.create_file_batch_failed",
+            vector_store_id=vector_store_id,
+            error=str(exc),
+        )
+        raise
+
+    return _as_dict(result)
+
+
+async def create_and_poll_file_batch(
+    vector_store_id: str,
+    *,
+    file_ids: Optional[List[str]] = None,
+    files: Optional[List[Dict[str, Any]]] = None,
+    poll_interval_ms: int = 1000,
+) -> Dict[str, Any]:
+    """Create a batch of files and poll until processing completes.
+
+    Args:
+        vector_store_id: The ID of the vector store
+        file_ids: Optional list of file IDs (mutually exclusive with files)
+        files: Optional list of file objects with file_id, attributes, and chunking_strategy
+        poll_interval_ms: Polling interval in milliseconds
+
+    Returns:
+        Dictionary with batch details
+    """
+    client = get_openai_client()
+
+    kwargs: Dict[str, Any] = {}
+    if file_ids:
+        kwargs["file_ids"] = file_ids
+    elif files:
+        kwargs["files"] = files
+    else:
+        raise ValueError("Either file_ids or files must be provided")
+
+    try:
+        result = await client.vector_stores.file_batches.create_and_poll(
+            vector_store_id, poll_interval_ms=poll_interval_ms, **kwargs
+        )
+    except Exception as exc:
+        logger.error(
+            "openai_retrieval.create_and_poll_file_batch_failed",
+            vector_store_id=vector_store_id,
+            error=str(exc),
+        )
+        raise
+
+    return _as_dict(result)
+
+
+async def retrieve_file_batch(
+    vector_store_id: str, batch_id: str
+) -> Dict[str, Any]:
+    """Retrieve a file batch.
+
+    Args:
+        vector_store_id: The ID of the vector store
+        batch_id: The ID of the batch
+
+    Returns:
+        Dictionary with batch details
+    """
+    client = get_openai_client()
+
+    try:
+        result = await client.vector_stores.file_batches.retrieve(
+            vector_store_id, batch_id
+        )
+    except Exception as exc:
+        logger.error(
+            "openai_retrieval.retrieve_file_batch_failed",
+            vector_store_id=vector_store_id,
+            batch_id=batch_id,
+            error=str(exc),
+        )
+        raise
+
+    return _as_dict(result)
+
+
+async def cancel_file_batch(vector_store_id: str, batch_id: str) -> Dict[str, Any]:
+    """Cancel a file batch.
+
+    Args:
+        vector_store_id: The ID of the vector store
+        batch_id: The ID of the batch
+
+    Returns:
+        Dictionary with cancellation status
+    """
+    client = get_openai_client()
+
+    try:
+        result = await client.vector_stores.file_batches.cancel(
+            vector_store_id, batch_id
+        )
+    except Exception as exc:
+        logger.error(
+            "openai_retrieval.cancel_file_batch_failed",
+            vector_store_id=vector_store_id,
+            batch_id=batch_id,
+            error=str(exc),
+        )
+        raise
+
+    return _as_dict(result)
+
+
+async def list_files_in_batch(
+    vector_store_id: str,
+    batch_id: str,
+    *,
+    limit: int = 20,
+    order: str = "desc",
+    after: Optional[str] = None,
+    before: Optional[str] = None,
+    filter_status: Optional[str] = None,
+) -> Dict[str, Any]:
+    """List files in a batch.
+
+    Args:
+        vector_store_id: The ID of the vector store
+        batch_id: The ID of the batch
+        limit: Number of files to return (max 100)
+        order: Sort order ("asc" or "desc")
+        after: Cursor for pagination
+        before: Cursor for pagination
+        filter_status: Optional status filter
+
+    Returns:
+        Dictionary with list of files and pagination info
+    """
+    client = get_openai_client()
+
+    kwargs: Dict[str, Any] = {"limit": max(1, min(limit, 100)), "order": order}
+    if after:
+        kwargs["after"] = after
+    if before:
+        kwargs["before"] = before
+    if filter_status:
+        kwargs["filter"] = filter_status
+
+    try:
+        result = await client.vector_stores.file_batches.list_files(
+            vector_store_id, batch_id, **kwargs
+        )
+    except Exception as exc:
+        logger.error(
+            "openai_retrieval.list_files_in_batch_failed",
+            vector_store_id=vector_store_id,
+            batch_id=batch_id,
+            error=str(exc),
+        )
+        raise
+
+    return _as_dict(result)
+
+
+__all__ = [
+    "ingest_document",
+    "is_enabled",
+    "search",
+    "reset_cache",
+    "create_vector_store",
+    "retrieve_vector_store",
+    "update_vector_store",
+    "delete_vector_store",
+    "list_vector_stores",
+    "create_vector_store_file",
+    "create_and_poll_vector_store_file",
+    "retrieve_vector_store_file",
+    "update_vector_store_file",
+    "delete_vector_store_file",
+    "list_vector_store_files",
+    "create_file_batch",
+    "create_and_poll_file_batch",
+    "retrieve_file_batch",
+    "cancel_file_batch",
+    "list_files_in_batch",
+]
