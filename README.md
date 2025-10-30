@@ -111,6 +111,20 @@ and deployment environments (values may remain blank until Google Drive access i
 > web search access are connected. The production environment has live credentials with `OPENAI_WEB_SEARCH_ENABLED=true`
 > and a 14-day cache retention policy driven by `WEB_FETCH_CACHE_RETENTION_DAYS`.
 
+### OpenAI Retrieval API
+
+The OpenAI Retrieval API enables semantic search over documents using vector stores. This is an alternative to the local pgvector implementation. Configure it with:
+
+- `OPENAI_RETRIEVAL_VECTOR_STORE_ID` – ID of an existing vector store
+- `OPENAI_RETRIEVAL_VECTOR_STORE_NAME` – Name to create/locate a vector store
+
+See [docs/openai-retrieval-api.md](docs/openai-retrieval-api.md) for comprehensive API documentation including:
+- Vector store management (CRUD operations)
+- File operations with attributes for filtering
+- Batch processing for bulk uploads
+- Advanced semantic search with query rewriting, attribute filtering, and ranking options
+- Integration with OpenAI models for synthesized responses
+
 ### OpenAI agent platform & streaming toggles
 
 The HITL agent rollout introduces additional OpenAI flags. Enable them progressively alongside the
