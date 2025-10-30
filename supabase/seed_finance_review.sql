@@ -58,6 +58,8 @@ comment on column support_docs.ocr_text is 'Extracted text from OCR for RAG sear
 -- Tax Mapping Table
 -- =====================================================
 -- Define tax treatment rules per account and jurisdiction
+-- Note: Removed unique constraint to allow multiple treatments per account-jurisdiction
+-- (e.g., different rates based on transaction type, date ranges, or amount thresholds)
 create table if not exists tax_maps (
   id uuid primary key default gen_random_uuid(),
   org_id uuid not null,
@@ -68,11 +70,14 @@ create table if not exists tax_maps (
   vat_rate numeric(5,2),
   withholding_rate numeric(5,2),
   notes text,
-  unique(org_id, account, jurisdiction)
+  valid_from date,
+  valid_to date
 );
 
 comment on table tax_maps is 'Tax treatment mapping for accounts by jurisdiction';
 comment on column tax_maps.rule_ref is 'Reference to tax regulation or ruling';
+comment on column tax_maps.valid_from is 'Optional: Start date for this tax treatment';
+comment on column tax_maps.valid_to is 'Optional: End date for this tax treatment';
 
 -- =====================================================
 -- Controls Log Table
@@ -103,7 +108,8 @@ create table if not exists embeddings (
   object_id uuid not null,
   vector vector(1536),
   chunk_text text,
-  created_at timestamptz default now()
+  created_at timestamptz default now(),
+  unique(org_id, object_type, object_id)
 );
 
 comment on table embeddings is 'Vector embeddings for semantic search over ledger and document text';

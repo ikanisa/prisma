@@ -56,6 +56,8 @@ export async function upsertEmbedding(params: UpsertEmbeddingParams): Promise<vo
   const vector = await embedText(text);
   
   // Upsert to database (using service role to bypass RLS)
+  // Use composite conflict resolution on org_id, object_type, object_id
+  // to properly handle updates to existing embeddings for the same object
   const { error } = await supabaseAdmin
     .from('embeddings')
     .upsert({
@@ -65,7 +67,7 @@ export async function upsertEmbedding(params: UpsertEmbeddingParams): Promise<vo
       chunk_text: text,
       vector,
     }, {
-      onConflict: 'id',
+      onConflict: 'org_id,object_type,object_id',
     });
   
   if (error) {

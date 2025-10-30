@@ -109,6 +109,8 @@ export interface FinanceReviewDatabase {
           vat_rate: number | null;
           withholding_rate: number | null;
           notes: string | null;
+          valid_from: string | null;
+          valid_to: string | null;
         };
         Insert: {
           id?: string;
@@ -120,6 +122,8 @@ export interface FinanceReviewDatabase {
           vat_rate?: number | null;
           withholding_rate?: number | null;
           notes?: string | null;
+          valid_from?: string | null;
+          valid_to?: string | null;
         };
         Update: Partial<{
           id: string;
@@ -131,6 +135,8 @@ export interface FinanceReviewDatabase {
           vat_rate: number | null;
           withholding_rate: number | null;
           notes: string | null;
+          valid_from: string | null;
+          valid_to: string | null;
         }>;
       };
       controls_logs: {
