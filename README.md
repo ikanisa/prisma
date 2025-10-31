@@ -423,6 +423,9 @@ If you encounter errors with workspace packages (especially `@prisma-glow/logger
    # Remove stale .tsbuildinfo files that can confuse incremental builds
    find packages -name "tsconfig.tsbuildinfo" -delete
    find apps -name "tsconfig.tsbuildinfo" -delete
+   
+   # Or clean and rebuild a specific package
+   cd packages/logger && rm -f tsconfig.tsbuildinfo && pnpm exec tsc -b
    ```
 
 ### Common Issues
