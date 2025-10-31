@@ -17,6 +17,14 @@ Modern AI-powered operations suite with Supabase, FastAPI, and multi-app pnpm wo
    ```bash
    pnpm install --frozen-lockfile
    ```
+   
+   **Note:** If you encounter build errors during installation (especially related to workspace packages), use the alternative installation method:
+   ```bash
+   pnpm -w install --frozen-lockfile --ignore-scripts
+   pnpm -w run build:workspace
+   ```
+   This approach skips lifecycle scripts during installation and then builds packages explicitly in the correct order.
+
 4. **Create your local environment file** by copying `.env.example` to `.env.local` and filling in credentials. See [docs/local-hosting.md](docs/local-hosting.md) for details.
 5. **Start developing**
    - Web (Vite) shell: `pnpm dev`
@@ -382,3 +390,47 @@ curl -X POST http://localhost:8000/process -H "Idempotency-Key: test-1" -d '{"pa
 # Rate limit check
 curl -I http://localhost:8000/ratelimit/test
 ```
+
+## Troubleshooting
+
+### Workspace Package Build Issues
+
+If you encounter errors with workspace packages (especially `@prisma-glow/logger` or other packages) not being found or resolved:
+
+1. **Clean install approach:**
+   ```bash
+   # Remove all build artifacts and node_modules
+   rm -rf node_modules packages/*/dist packages/*/node_modules apps/*/node_modules services/*/node_modules
+   
+   # Install without running lifecycle scripts
+   pnpm -w install --frozen-lockfile --ignore-scripts
+   
+   # Build workspace packages explicitly
+   pnpm -w run build:workspace
+   ```
+
+2. **Build individual packages:**
+   ```bash
+   # If only a specific package is missing (e.g., logger)
+   pnpm --filter @prisma-glow/logger build
+   
+   # For the web app
+   pnpm --filter web build
+   ```
+
+3. **Clear TypeScript build cache:**
+   ```bash
+   # Remove stale .tsbuildinfo files that can confuse incremental builds
+   find packages -name "tsconfig.tsbuildinfo" -delete
+   find apps -name "tsconfig.tsbuildinfo" -delete
+   
+   # Or clean and rebuild a specific package
+   cd packages/logger && rm -f tsconfig.tsbuildinfo && pnpm exec tsc -b
+   ```
+
+### Common Issues
+
+- **"Cannot find module '@prisma-glow/logger'"**: The logger package needs to be built before dependent packages can use it. Run `pnpm --filter @prisma-glow/logger build`.
+- **"workspace:* unsupported protocol"**: You're using npm instead of pnpm. Always use `pnpm` for this workspace.
+- **Sentry CLI download failures**: Network issue during postinstall. This is non-fatal and doesn't affect local development.
+- **Node version warnings**: The project expects Node.js 22.12.0. CI uses 20.19.5, but local development works best with 22.12.0.
