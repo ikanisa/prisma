@@ -56,7 +56,7 @@ const webServerConfig = (() => {
 })();
 
 export default defineConfig({
-  testDir: './tests/playwright',
+  testDir: '.',
   timeout: 60_000,
   expect: {
     timeout: 10_000,
@@ -70,7 +70,18 @@ export default defineConfig({
   reporter: process.env.CI ? [['html', { outputFolder: 'playwright-report' }]] : 'list',
   projects: [
     {
-      name: 'Chromium',
+      name: 'web-ui',
+      testDir: './tests/playwright',
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      name: 'staff-offline',
+      testDir: './apps/staff/tests/pwa',
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      name: 'admin-offline',
+      testDir: './apps/admin/tests/pwa',
       use: { ...devices['Desktop Chrome'] },
     },
   ],

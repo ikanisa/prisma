@@ -14,3 +14,4 @@ export * from './openai/url.js';
 export * from './audit/activity-log.js';
 export * from './audit/evidence.js';
 export * from './audit/module-records.js';
+export * from './offline/index.js';
