@@ -17,5 +17,8 @@
     "noEmit": false
   },
   "include": ["src/**/*.ts"],
-  "exclude": ["dist"]
+  "exclude": ["dist"],
+  "references": [
+    { "path": "../logging/tsconfig.json" }
+  ]
 }

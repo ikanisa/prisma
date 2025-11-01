@@ -1,14 +1,16 @@
 import { Router } from 'express';
-import type { Router as ExpressRouter } from 'express';
+import type { Router as ExpressRouter, Request, Response, NextFunction } from 'express';
 import ApiClient from '@prisma-glow/api-client';
 import { createOrgGuard } from '../middleware/org-guard.js';
 import { createIdempotencyMiddleware } from '../middleware/idempotency.js';
 import { createRateLimitMiddleware } from '../middleware/rate-limit.js';
 import { getRequestContext } from '../utils/request-context.js';
 import { buildTraceparent, isValidTraceparent } from '../utils/trace.js';
-import type { Request } from 'express';
 import { scrubPii } from '../utils/pii.js';
 import { env, getRuntimeEnv } from '../env.js';
+import { withSpan } from '@prisma-glow/otel';
+import type { Span } from '@opentelemetry/api';
+import { SpanStatusCode } from '@opentelemetry/api';
 
 const router: ExpressRouter = Router();
 
@@ -39,6 +41,26 @@ function buildForwardHeaders(req: Request): Record<string, string> {
 
 function createApiClient(req: Request): ApiClient {
   return new ApiClient({ baseUrl: getApiBaseUrl(), defaultHeaders: buildForwardHeaders(req) });
+}
+
+type SpanHandler = (req: Request, res: Response, span: Span) =>
+  | Promise<void | Response>
+  | void
+  | Response;
+
+function spanRoute(name: string, handler: SpanHandler) {
+  return async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      await withSpan(name, async (span) => {
+        span.setAttribute('http.route', req.route?.path ?? req.path ?? name);
+        span.setAttribute('http.method', req.method);
+        span.setAttribute('http.target', req.originalUrl ?? req.url ?? name);
+        await handler(req, res, span);
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
 }
 
 router.use(createOrgGuard());
@@ -91,27 +113,48 @@ router.post('/jobs', (req, res) => {
 });
 
 // Proxy helper routes to backend API using the typed client
-router.get('/autonomy/status', async (req, res) => {
-  const orgSlug = String(req.query.orgSlug || req.query.org || '').trim();
-  if (!orgSlug) return res.status(400).json({ error: 'orgSlug_required' });
-  try {
-    const payload = await createApiClient(req).getAutonomyStatus(orgSlug);
-    res.json(payload);
-  } catch (error) {
-    res.status(502).json({ error: (error as Error).message });
-  }
-});
+router.get(
+  '/autonomy/status',
+  spanRoute('gateway.autonomy.status', async (req, res, span) => {
+    const orgSlug = String(req.query.orgSlug || req.query.org || '').trim();
+    if (!orgSlug) {
+      span.setStatus({ code: SpanStatusCode.ERROR, message: 'orgSlug_required' });
+      return res.status(400).json({ error: 'orgSlug_required' });
+    }
+    span.setAttribute('gateway.org_slug', orgSlug);
+    try {
+      const payload = await createApiClient(req).getAutonomyStatus(orgSlug);
+      res.json(payload);
+    } catch (error) {
+      span.recordException(error as Error);
+      span.setStatus({ code: SpanStatusCode.ERROR, message: (error as Error).message });
+      res.status(502).json({ error: (error as Error).message });
+    }
+  }),
+);
 
-router.post('/release-controls/check', async (req, res) => {
-  const { orgSlug, engagementId } = req.body || {};
-  if (!orgSlug) return res.status(400).json({ error: 'orgSlug_required' });
-  try {
-    const payload = await createApiClient(req).checkReleaseControls({ orgSlug, engagementId });
-    res.json(payload);
-  } catch (error) {
-    res.status(502).json({ error: (error as Error).message });
-  }
-});
+router.post(
+  '/release-controls/check',
+  spanRoute('gateway.release_controls.check', async (req, res, span) => {
+    const { orgSlug, engagementId } = req.body || {};
+    if (!orgSlug) {
+      span.setStatus({ code: SpanStatusCode.ERROR, message: 'orgSlug_required' });
+      return res.status(400).json({ error: 'orgSlug_required' });
+    }
+    span.setAttribute('gateway.org_slug', orgSlug);
+    if (engagementId) {
+      span.setAttribute('gateway.engagement_id', String(engagementId));
+    }
+    try {
+      const payload = await createApiClient(req).checkReleaseControls({ orgSlug, engagementId });
+      res.json(payload);
+    } catch (error) {
+      span.recordException(error as Error);
+      span.setStatus({ code: SpanStatusCode.ERROR, message: (error as Error).message });
+      res.status(502).json({ error: (error as Error).message });
+    }
+  }),
+);
 
 router.get('/storage/documents', async (req, res) => {
   const orgSlug = String(req.query.orgSlug || '').trim();
@@ -129,70 +172,121 @@ router.get('/storage/documents', async (req, res) => {
 });
 
 // Knowledge endpoints
-router.get('/knowledge/web-sources', async (req, res) => {
-  const orgSlug = String(req.query.orgSlug || '').trim();
-  if (!orgSlug) return res.status(400).json({ error: 'orgSlug_required' });
-  try {
-    const payload = await createApiClient(req).listWebSources(orgSlug);
-    res.json(payload);
-  } catch (error) {
-    res.status(502).json({ error: (error as Error).message });
-  }
-});
+router.get(
+  '/knowledge/web-sources',
+  spanRoute('gateway.knowledge.web_sources', async (req, res, span) => {
+    const orgSlug = String(req.query.orgSlug || '').trim();
+    if (!orgSlug) {
+      span.setStatus({ code: SpanStatusCode.ERROR, message: 'orgSlug_required' });
+      return res.status(400).json({ error: 'orgSlug_required' });
+    }
+    span.setAttribute('gateway.org_slug', orgSlug);
+    try {
+      const payload = await createApiClient(req).listWebSources(orgSlug);
+      res.json(payload);
+    } catch (error) {
+      span.recordException(error as Error);
+      span.setStatus({ code: SpanStatusCode.ERROR, message: (error as Error).message });
+      res.status(502).json({ error: (error as Error).message });
+    }
+  }),
+);
 
-router.get('/knowledge/drive/metadata', async (req, res) => {
-  const orgSlug = String(req.query.orgSlug || '').trim();
-  if (!orgSlug) return res.status(400).json({ error: 'orgSlug_required' });
-  try {
-    const payload = await createApiClient(req).getDriveMetadata(orgSlug);
-    res.json(payload);
-  } catch (error) {
-    res.status(502).json({ error: (error as Error).message });
-  }
-});
+router.get(
+  '/knowledge/drive/metadata',
+  spanRoute('gateway.knowledge.drive_metadata', async (req, res, span) => {
+    const orgSlug = String(req.query.orgSlug || '').trim();
+    if (!orgSlug) {
+      span.setStatus({ code: SpanStatusCode.ERROR, message: 'orgSlug_required' });
+      return res.status(400).json({ error: 'orgSlug_required' });
+    }
+    span.setAttribute('gateway.org_slug', orgSlug);
+    try {
+      const payload = await createApiClient(req).getDriveMetadata(orgSlug);
+      res.json(payload);
+    } catch (error) {
+      span.recordException(error as Error);
+      span.setStatus({ code: SpanStatusCode.ERROR, message: (error as Error).message });
+      res.status(502).json({ error: (error as Error).message });
+    }
+  }),
+);
 
-router.get('/knowledge/drive/status', async (req, res) => {
-  const orgSlug = String(req.query.orgSlug || '').trim();
-  if (!orgSlug) return res.status(400).json({ error: 'orgSlug_required' });
-  try {
-    const payload = await createApiClient(req).getDriveStatus(orgSlug);
-    res.json(payload);
-  } catch (error) {
-    res.status(502).json({ error: (error as Error).message });
-  }
-});
+router.get(
+  '/knowledge/drive/status',
+  spanRoute('gateway.knowledge.drive_status', async (req, res, span) => {
+    const orgSlug = String(req.query.orgSlug || '').trim();
+    if (!orgSlug) {
+      span.setStatus({ code: SpanStatusCode.ERROR, message: 'orgSlug_required' });
+      return res.status(400).json({ error: 'orgSlug_required' });
+    }
+    span.setAttribute('gateway.org_slug', orgSlug);
+    try {
+      const payload = await createApiClient(req).getDriveStatus(orgSlug);
+      res.json(payload);
+    } catch (error) {
+      span.recordException(error as Error);
+      span.setStatus({ code: SpanStatusCode.ERROR, message: (error as Error).message });
+      res.status(502).json({ error: (error as Error).message });
+    }
+  }),
+);
 
 // Tasks proxy endpoints
-router.get('/tasks', async (req, res) => {
-  const orgSlug = String(req.query.orgSlug || '').trim();
-  if (!orgSlug) return res.status(400).json({ error: 'orgSlug_required' });
-  try {
-    const payload = await createApiClient(req).listTasks(orgSlug);
-    res.json(payload);
-  } catch (error) {
-    res.status(502).json({ error: (error as Error).message });
-  }
-});
+router.get(
+  '/tasks',
+  spanRoute('gateway.tasks.list', async (req, res, span) => {
+    const orgSlug = String(req.query.orgSlug || '').trim();
+    if (!orgSlug) {
+      span.setStatus({ code: SpanStatusCode.ERROR, message: 'orgSlug_required' });
+      return res.status(400).json({ error: 'orgSlug_required' });
+    }
+    span.setAttribute('gateway.org_slug', orgSlug);
+    try {
+      const payload = await createApiClient(req).listTasks(orgSlug);
+      res.json(payload);
+    } catch (error) {
+      span.recordException(error as Error);
+      span.setStatus({ code: SpanStatusCode.ERROR, message: (error as Error).message });
+      res.status(502).json({ error: (error as Error).message });
+    }
+  }),
+);
 
-router.post('/tasks', async (req, res) => {
-  try {
-    const payload = await createApiClient(req).createTask(req.body);
-    res.json(payload);
-  } catch (error) {
-    res.status(502).json({ error: (error as Error).message });
-  }
-});
+router.post(
+  '/tasks',
+  spanRoute('gateway.tasks.create', async (req, res, span) => {
+    span.setAttribute('gateway.payload.kind', req.body?.kind ?? 'unknown');
+    try {
+      const payload = await createApiClient(req).createTask(req.body);
+      res.json(payload);
+    } catch (error) {
+      span.recordException(error as Error);
+      span.setStatus({ code: SpanStatusCode.ERROR, message: (error as Error).message });
+      res.status(502).json({ error: (error as Error).message });
+    }
+  }),
+);
 
-router.patch('/tasks/:taskId', async (req, res) => {
-  const taskId = String(req.params.taskId || '').trim();
-  if (!taskId) return res.status(400).json({ error: 'taskId_required' });
-  try {
-    const payload = await createApiClient(req).updateTask(taskId, req.body);
-    res.json(payload);
-  } catch (error) {
-    res.status(502).json({ error: (error as Error).message });
-  }
-});
+router.patch(
+  '/tasks/:taskId',
+  spanRoute('gateway.tasks.update', async (req, res, span) => {
+    const taskId = String(req.params.taskId || '').trim();
+    if (!taskId) {
+      span.setStatus({ code: SpanStatusCode.ERROR, message: 'taskId_required' });
+      return res.status(400).json({ error: 'taskId_required' });
+    }
+    span.setAttribute('gateway.task_id', taskId);
+    try {
+      const payload = await createApiClient(req).updateTask(taskId, req.body);
+      res.json(payload);
+    } catch (error) {
+      span.recordException(error as Error);
+      span.setStatus({ code: SpanStatusCode.ERROR, message: (error as Error).message });
+      res.status(502).json({ error: (error as Error).message });
+    }
+  }),
+);
 
 router.get('/tasks/:taskId/comments', async (req, res) => {
   const taskId = String(req.params.taskId || '').trim();

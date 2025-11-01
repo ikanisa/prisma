@@ -19,6 +19,8 @@ export default defineConfig(({ mode }) => {
       alias: {
         '@': path.resolve(__dirname, './src'),
         '@prisma-glow/logger': path.resolve(__dirname, './packages/logger/src/index.ts'),
+        '@prisma-glow/logging': path.resolve(__dirname, './packages/logging/src/index.ts'),
+        '@prisma-glow/otel': path.resolve(__dirname, './services/otel/src/index.ts'),
       },
     },
     build: {

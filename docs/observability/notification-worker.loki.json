@@ -1,0 +1,88 @@
+{
+  "title": "Notification Fanout Worker",
+  "tags": ["notifications", "loki", "observability"],
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "1m",
+  "panels": [
+    {
+      "id": 10,
+      "type": "logs",
+      "title": "Recent Worker Errors",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki-default"
+      },
+      "targets": [
+        {
+          "expr": "{app='rag-service', level='error'} |= 'notification_fanout'",
+          "legendFormat": "{{level}} {{event}}"
+        }
+      ],
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Dispatch Queue Depth",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-default"
+      },
+      "targets": [
+        {
+          "expr": "sum(notification_dispatch_queue_depth{service='rag-service'})",
+          "legendFormat": "Queue Depth"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "items"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 9
+      }
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "Fanout Duration p90",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus-default"
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.90, sum by (le) (rate(notification_fanout_duration_bucket{service='rag-service'}[5m])))",
+          "legendFormat": "p90"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 9
+      }
+    }
+  ],
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  }
+}

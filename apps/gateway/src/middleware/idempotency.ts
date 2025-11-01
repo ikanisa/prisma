@@ -1,6 +1,6 @@
 import type { Request, RequestHandler, Response } from 'express';
 import { getRequestContext } from '../utils/request-context.js';
-import { logger } from '@prisma-glow/logger';
+import { logger } from '@prisma-glow/logging';
 
 export interface IdempotencyStore {
   get(key: string): Promise<{ status: number; body: unknown } | null>;

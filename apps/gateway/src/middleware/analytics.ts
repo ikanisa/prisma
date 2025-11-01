@@ -2,7 +2,7 @@ import type { RequestHandler } from 'express';
 import { createAnalyticsClient } from '@prisma-glow/analytics';
 import { env } from '../env.js';
 import { getRequestContext } from '../utils/request-context.js';
-import { logger } from '@prisma-glow/logger';
+import { logger } from '@prisma-glow/logging';
 
 const analyticsClient = createAnalyticsClient({
   endpoint: env.ANALYTICS_SERVICE_URL,

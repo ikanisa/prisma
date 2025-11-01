@@ -41,7 +41,11 @@ prisma-glow-15 so engineers can trace incidents end to end.
   HTTP status dimensions in `metadata.tags`, plus optional quota routing via
   `metadata.quota_tag`. Dashboards should treat those as first-class filters
   (e.g., `status:4xx`, `workload:finance-prod`).
-- Grafana dashboards:
+- Grafana dashboards (exported JSON under `docs/observability/`):
+  - **Gateway OTEL Overview** ([JSON](./observability/gateway-traces.dashboard.json)): surface request latency
+    quantiles, HTTP status breakdowns, and active span counts by route.
+  - **Notification Fanout Worker** ([JSON](./observability/notification-worker.loki.json)): correlate dispatch queue
+    depth, fanout duration, and Loki log samples for `notification_fanout.*` events.
   - **Audit Platform Overview**: surface rate-limited requests, error counts
     from telemetry, and Supabase function failures.
   - **Tax Workbench**: chart treaty/US overlay coverage ratios and outstanding

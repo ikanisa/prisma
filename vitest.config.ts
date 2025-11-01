@@ -343,6 +343,14 @@ export default defineConfig({
         replacement: path.resolve(__dirname, './packages/logger/src/index.ts'),
       },
       {
+        find: '@prisma-glow/logging',
+        replacement: path.resolve(__dirname, './packages/logging/src/index.ts'),
+      },
+      {
+        find: '@prisma-glow/otel',
+        replacement: path.resolve(__dirname, './services/otel/src/index.ts'),
+      },
+      {
         find: '@prisma-glow/system-config',
         replacement: path.resolve(__dirname, './packages/system-config/src/index.ts'),
       },
