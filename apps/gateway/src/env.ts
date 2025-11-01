@@ -1,6 +1,6 @@
 import { inspect } from 'node:util';
 import { z } from 'zod';
-import { logger } from '@prisma-glow/logger';
+import { logger } from '@prisma-glow/logging';
 
 const booleanish = z
   .union([z.string(), z.boolean(), z.number()])

@@ -1,6 +1,6 @@
 import express, { type Express } from 'express';
 import * as Sentry from '@sentry/node';
-import type { Transport, TransportOptions } from '@sentry/types';
+import type { Transport } from '@sentry/types';
 import { initTracing } from './otel.js';
 import type { ErrorRequestHandler } from 'express';
 import { pathToFileURL } from 'url';
@@ -12,20 +12,29 @@ import { scrubPii } from './utils/pii.js';
 import { getRequestContext } from './utils/request-context.js';
 import { env } from './env.js';
 import { createCorsMiddleware } from './middleware/cors.js';
-import { logger } from '@prisma-glow/logger';
+import { logger, setLogContextProvider } from '@prisma-glow/logging';
 
-declare global {
-  // eslint-disable-next-line @typescript-eslint/consistent-type-definitions
-  interface GlobalThis {
-    __SENTRY_TRANSPORT__?: (options: TransportOptions) => Transport;
-  }
-}
+setLogContextProvider(() => {
+  const context = getRequestContext();
+  if (!context) return {};
+  return {
+    requestId: context.requestId,
+    traceId: context.traceId,
+    orgId: context.orgId,
+    userId: context.userId,
+  };
+});
+
+type SentryTransportFactory = () => Transport;
 
 const getSentryTransport = (): (() => Transport) | undefined => {
   if (typeof globalThis === 'undefined') {
     return undefined;
   }
-  const factory = globalThis.__SENTRY_TRANSPORT__;
+  const globalWithTransport = globalThis as typeof globalThis & {
+    __SENTRY_TRANSPORT__?: SentryTransportFactory;
+  };
+  const factory = globalWithTransport.__SENTRY_TRANSPORT__;
   return typeof factory === 'function' ? factory : undefined;
 };
 
