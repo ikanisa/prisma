@@ -131,11 +131,11 @@ We support the latest major version and provide security updates for critical is
 - Run Snyk in CI for deep dependency scanning.
 
 ## Recommended Tools
-- **Secret scanning**: `gitleaks`
-- **Static analysis**: `eslint`, `typescript`
-- **Dependency scanning**: `npm audit`, Snyk
-- **Runtime monitoring**: Supabase logs, telemetry dashboards
-- **Access controls**: Supabase RLS
+- **Secret scanning**: `gitleaks`, GitHub Advanced Security secret scans
+- **Static analysis**: `eslint`, `typescript`, GitHub CodeQL (`.github/workflows/security.yml`)
+- **Dependency scanning**: `npm audit`, Snyk, CycloneDX SBOM validation
+- **Runtime monitoring**: Supabase logs, OpenTelemetry pipelines, Grafana dashboards
+- **Access controls**: Supabase RLS, policy engine documented in `AGENT-GUARDRAILS.md`
 
 ## Access Controls
 - Supabase row level security policies protect tenant data.

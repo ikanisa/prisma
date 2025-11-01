@@ -1,0 +1,81 @@
+name: Security Scans
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    - cron: '0 3 * * *'
+
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
+jobs:
+  codeql:
+    name: CodeQL (TypeScript)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 2
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: javascript
+          queries: security-and-quality
+      - uses: github/codeql-action/autobuild@v3
+      - uses: github/codeql-action/analyze@v3
+        with:
+          category: 'security'
+
+  zap:
+    name: OWASP ZAP Baseline
+    runs-on: ubuntu-latest
+    needs: codeql
+    steps:
+      - uses: actions/checkout@v5
+      - name: Start Preview Server
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm run build
+          pnpm run preview -- --host 0.0.0.0 --port 4173 &
+          echo $! > preview.pid
+          sleep 10
+      - name: Run ZAP Baseline
+        uses: zaproxy/action-baseline@v0.11.0
+        with:
+          target: 'http://127.0.0.1:4173'
+          rules_file_name: '.zap/rules.tsv'
+          cmd_options: '-a'
+      - name: Stop Preview Server
+        if: always()
+        run: |
+          if [ -f preview.pid ]; then
+            kill $(cat preview.pid)
+          fi
+
+  dependency:
+    name: Dependency Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          run_install: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20.19.4
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - name: pnpm audit (prod only)
+        run: pnpm audit --prod --audit-level=high
+      - name: Generate SBOM (CycloneDX)
+        run: npx @cyclonedx/cyclonedx-npm --output-file sbom.json
+      - name: Upload SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-cyclonedx
+          path: sbom.json

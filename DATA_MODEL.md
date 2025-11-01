@@ -3,6 +3,8 @@
 ## Table of Contents
 - [Supabase Schema](#supabase-schema)
 - [Google Sheets](#google-sheets)
+- [Financial Invariants](#financial-invariants)
+- [PII Classification](#pii-classification)
 
 ## Supabase Schema
 The following tables are defined in migrations:
@@ -87,3 +89,22 @@ Row Level Security is enabled on all tables with helper functions `is_member_of`
 No schemas were found in the repository. Define tabs/columns and primary keys before production use. Suggested tabs:
 - `tasks` (task exports)
 - `clients` (client registry)
+
+## Financial Invariants
+- **Money Representation:** All monetary values must use the shared `Money` type from `packages/types-finance` with integer minor units or Decimal.js. Floating point types are prohibited.
+- **JournalEntry:** Each entry must balance debits and credits. Prisma schema should enforce this via check constraints; application layer must validate before persisting.
+- **LedgerAccount:** Accounts declare currency, jurisdiction, and posting rules. Cross-currency postings require explicit FX rates stored alongside the transaction.
+- **TaxRule:** Rules are versioned with effective dates, jurisdiction codes, and traceable source references. Adjustments create append-only records with parent pointers.
+- **AuditTrailEvent:** Every mutation on financial data records actor, trace_id, hash of payload, and reason code. Events are immutable.
+
+## PII Classification
+The following data classes must be tagged in code and infrastructure metadata to support GDPR requests and SOC 2 evidence collection:
+
+| Data Element | Classification | Location | Notes |
+|--------------|----------------|----------|-------|
+| User profile (name, email) | Personal Data | `users`, `memberships` | Redact in logs; encrypted at rest |
+| Client legal identifiers (TIN, VAT) | Sensitive Personal Data | `clients`, `tax_rules` | Access restricted to Admin role |
+| Journal attachments | Confidential | Object storage `documents` | Virus-scan and run DLP before distribution |
+| Agent conversation transcripts | Personal Data | `openai_debug_events` | Retain max 30 days; redact sensitive fields |
+
+Tagging metadata should be reflected in IaC modules and synced with the data catalog. Update `security-privacy-checklist.md` when new fields are introduced.

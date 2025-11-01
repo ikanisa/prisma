@@ -45,10 +45,10 @@ jobs:
 
       - name: Unit tests with coverage (Vitest)
         env:
-          TARGET_STATEMENTS: 45
-          TARGET_BRANCHES: 40
-          TARGET_FUNCTIONS: 45
-          TARGET_LINES: 45
+          TARGET_STATEMENTS: 85
+          TARGET_BRANCHES: 80
+          TARGET_FUNCTIONS: 85
+          TARGET_LINES: 85
         run: |
           pnpm run config:validate
           pnpm run coverage
