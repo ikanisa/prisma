@@ -1,0 +1,18 @@
+{
+  "version": "2025-01-15",
+  "checksumAlgorithm": "sha256",
+  "prompts": [
+    {
+      "id": "director.system",
+      "path": "director/system.txt",
+      "checksum": "9d6057b15d9e4e702689c8bc798a56ff4374cd7ed8bf3357eba4b5934eb0a86f",
+      "description": "System instructions for the director engagement planner."
+    },
+    {
+      "id": "director.request",
+      "path": "director/request.txt",
+      "checksum": "61823125368737623c5ead7166c8ddd630642092d55c4e8b9747d750d871559f",
+      "description": "Structured user prompt template for director planning calls."
+    }
+  ]
+}
