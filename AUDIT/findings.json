@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Static Analysis Findings Report",
+  "type": "object",
+  "properties": {
+    "generatedAt": {
+      "description": "ISO timestamp indicating when the findings were generated.",
+      "type": "string",
+      "format": "date-time"
+    },
+    "runs": {
+      "type": "array",
+      "description": "List of tools executed as part of the static analysis run and their associated findings.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "tool": {
+            "type": "string",
+            "description": "Identifier for the tool that produced these findings."
+          },
+          "command": {
+            "type": "array",
+            "description": "Command invocation used to produce the findings.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "exitCode": {
+            "type": "integer",
+            "description": "Exit code returned by the tool process."
+          },
+          "summary": {
+            "type": "object",
+            "properties": {
+              "total": { "type": "integer", "minimum": 0 },
+              "errors": { "type": "integer", "minimum": 0 },
+              "warnings": { "type": "integer", "minimum": 0 },
+              "infos": { "type": "integer", "minimum": 0 }
+            },
+            "required": ["total", "errors", "warnings", "infos"],
+            "additionalProperties": false
+          },
+          "rawOutput": {
+            "type": "string",
+            "description": "Raw stdout/stderr emitted by the tool for traceability."
+          },
+          "findings": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "description": "Stable identifier for the finding."
+                },
+                "tool": {
+                  "type": "string",
+                  "description": "Tool that surfaced the finding."
+                },
+                "severity": {
+                  "type": "string",
+                  "enum": ["info", "warning", "error"]
+                },
+                "title": { "type": "string" },
+                "message": { "type": "string" },
+                "rule": {
+                  "type": "string",
+                  "description": "Rule identifier or error code when available."
+                },
+                "docsUrl": {
+                  "type": ["string", "null"],
+                  "description": "Optional documentation link for the finding."
+                },
+                "metadata": {
+                  "type": "object",
+                  "description": "Tool specific supplemental data keyed by field name.",
+                  "additionalProperties": true
+                },
+                "location": {
+                  "type": "object",
+                  "description": "File and positional metadata describing where the finding occurred.",
+                  "properties": {
+                    "file": { "type": "string" },
+                    "line": { "type": "integer", "minimum": 1 },
+                    "column": { "type": "integer", "minimum": 1 },
+                    "endLine": { "type": "integer", "minimum": 1 },
+                    "endColumn": { "type": "integer", "minimum": 1 }
+                  },
+                  "required": ["file"],
+                  "additionalProperties": false
+                }
+              },
+              "required": ["id", "tool", "severity", "title", "message"],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": ["tool", "command", "exitCode", "summary", "findings", "rawOutput"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["generatedAt", "runs"],
+  "additionalProperties": false
+}
