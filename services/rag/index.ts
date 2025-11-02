@@ -32,6 +32,11 @@ import {
   recordEventOnSpan,
 } from '../../analytics/events/node.js';
 import { createClient } from '@supabase/supabase-js';
+import { instrumentSupabaseClient } from './prisma/query-logger.js';
+import {
+  createTaskDependencyLoader,
+  resolveAssignableTaskIds,
+} from './prisma/task-dependency-loader.js';
 import type {
   ChatCompletionChunk,
   ChatCompletionCreateParamsNonStreaming,
@@ -1419,23 +1424,6 @@ async function evaluateTaskSafety(params: {
   return { status: 'COMPLETED', metadata: baseMetadata };
 }
 
-async function areDependenciesCompleted(dependencyIds: string[]): Promise<boolean> {
-  if (!dependencyIds || dependencyIds.length === 0) return true;
-
-  const { data, error } = await supabaseService
-    .from('agent_orchestration_tasks')
-    .select('id, status')
-    .in('id', dependencyIds)
-    .eq('status', 'COMPLETED');
-
-  if (error) {
-    logError('mcp.dependencies_lookup_failed', error, { dependencyIds });
-    return false;
-  }
-
-  return (data ?? []).length === dependencyIds.length;
-}
-
 async function processPendingOrchestrationTasks() {
   if (!OPENAI_ORCHESTRATOR_ENABLED) return;
   try {
@@ -1448,14 +1436,15 @@ async function processPendingOrchestrationTasks() {
     if (error) throw error;
     if (!pendingTasks || pendingTasks.length === 0) return;
 
-    const assignable: string[] = [];
-    for (const task of pendingTasks) {
-      const dependencies = Array.isArray(task.depends_on) ? task.depends_on : [];
-      const ready = await areDependenciesCompleted(dependencies);
-      if (ready) {
-        assignable.push(task.id);
-      }
-    }
+    const assignable = await resolveAssignableTaskIds(
+      pendingTasks,
+      taskDependencyLoader,
+      (dependencyError, context) => {
+        logError('mcp.dependencies_lookup_failed', dependencyError, {
+          dependencyCount: context.dependencyCount,
+        });
+      },
+    );
 
     if (assignable.length === 0) return;
 
@@ -1467,6 +1456,8 @@ async function processPendingOrchestrationTasks() {
       .select('id, session_id');
 
     if (updateError) throw updateError;
+
+    taskDependencyLoader.clear(assignable);
 
     for (const task of updatedTasks ?? []) {
       logInfo('mcp.scheduler_assigned', { taskId: task.id, sessionId: task.session_id });
@@ -2404,8 +2395,36 @@ if (!SUPABASE_URL) {
 
 const SUPABASE_SERVICE_ROLE_KEY = await getSupabaseServiceRoleKey();
 
-const supabaseService = createClient<Database>(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+const rawSupabaseService = createClient<Database>(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
   auth: { persistSession: false },
+});
+
+const SUPABASE_QUERY_LOGGING_ENABLED =
+  (process.env.SUPABASE_QUERY_LOGGING ?? process.env.PRISMA_LOG_QUERIES ?? 'false').toLowerCase() ===
+  'true';
+
+const supabaseService = instrumentSupabaseClient(rawSupabaseService, {
+  enabled: SUPABASE_QUERY_LOGGING_ENABLED,
+  logger: (event) => {
+    if (!SUPABASE_QUERY_LOGGING_ENABLED) return;
+    logInfo('db.query', {
+      table: event.table,
+      action: event.action,
+      args: event.args,
+    });
+  },
+});
+
+const taskDependencyLoader = createTaskDependencyLoader({
+  supabase: supabaseService,
+  onBatchResolved: ({ ids, completedCount }) => {
+    if (!SUPABASE_QUERY_LOGGING_ENABLED) return;
+    logInfo('db.batch_dependency_lookup', {
+      table: 'agent_orchestration_tasks',
+      dependencyCount: ids.length,
+      completedCount,
+    });
+  },
 });
 
 startNotificationFanoutWorker({ supabase: supabaseService, logInfo, logError });

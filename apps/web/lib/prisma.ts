@@ -2,6 +2,10 @@ type PrismaClientLike = {
   $connect(): Promise<void> | void;
   $disconnect(): Promise<void> | void;
   $queryRaw<T = unknown>(...args: unknown[]): Promise<T> | T;
+  $on?(
+    event: 'query' | 'error' | 'warn' | 'info',
+    callback: (payload: Record<string, unknown>) => void,
+  ): void;
 };
 
 type PrismaClientConstructor = new (...args: unknown[]) => PrismaClientLike;
@@ -19,6 +23,11 @@ const FallbackPrismaClient: PrismaClientConstructor = class implements PrismaCli
 
   async $queryRaw<T = unknown>(): Promise<T> {
     return Promise.resolve(undefined as T);
+  }
+
+  // eslint-disable-next-line class-methods-use-this
+  $on(): void {
+    // no-op for fallback implementation
   }
 };
 
@@ -46,10 +55,31 @@ const prismaInstance: PrismaClientInstance = (() => {
     return globalForPrisma.prisma;
   }
 
+  const shouldLogQueries =
+    (process.env.PRISMA_LOG_QUERIES ?? process.env.SUPABASE_QUERY_LOGGING ?? 'false').toLowerCase() ===
+    'true';
+
   try {
-    return new PrismaClientCtor({
-      log: ['error', 'warn'],
-    });
+    const client = new PrismaClientCtor({
+      log: shouldLogQueries
+        ? ['error', 'warn', { level: 'query', emit: 'event' }]
+        : ['error', 'warn'],
+    } as Record<string, unknown>);
+
+    if (shouldLogQueries && typeof client.$on === 'function') {
+      client.$on('query', (event: Record<string, unknown>) => {
+        const payload = {
+          level: 'debug',
+          msg: 'prisma.query',
+          query: event.query ?? event['query'],
+          params: event.params ?? event['params'],
+          durationMs: event.duration ?? event['duration'],
+        };
+        console.log(JSON.stringify(payload));
+      });
+    }
+
+    return client;
   } catch (error) {
     const message = error instanceof Error ? error.message : '';
     const needsFallback =

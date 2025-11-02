@@ -20,6 +20,17 @@ enum RoleLevel {
   @@map("role_level")
 }
 
+enum AgentTaskStatus {
+  PENDING
+  ASSIGNED
+  IN_PROGRESS
+  AWAITING_APPROVAL
+  COMPLETED
+  FAILED
+
+  @@map("agent_task_status")
+}
+
 enum Dac6HallmarkCategory {
   A
   B
@@ -247,6 +258,26 @@ model AgentSession {
   user         User?        @relation(fields: [userId], references: [id])
 
   @@map("agent_sessions")
+}
+
+model AgentOrchestrationTask {
+  id          String           @id @db.Uuid
+  sessionId   String           @map("session_id") @db.Uuid
+  agentManifestId String?      @map("agent_manifest_id") @db.Uuid
+  title       String
+  input       Json             @default("{}")
+  output      Json?
+  status      AgentTaskStatus  @default(PENDING)
+  dependsOn   String[]         @map("depends_on") @db.Uuid
+  metadata    Json             @default("{}")
+  startedAt   DateTime?        @map("started_at") @db.Timestamptz(6)
+  completedAt DateTime?        @map("completed_at") @db.Timestamptz(6)
+  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime         @default(now()) @map("updated_at") @db.Timestamptz(6)
+
+  @@map("agent_orchestration_tasks")
+  @@index([sessionId, status], map: "idx_agent_orch_tasks_session_status")
+  @@index([status, id], map: "idx_agent_orch_tasks_status_id")
 }
 
 model Audit {

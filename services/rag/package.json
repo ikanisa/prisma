@@ -6,7 +6,8 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc -b tsconfig.json",
-    "lint": "eslint . --ext .ts"
+    "lint": "eslint . --ext .ts",
+    "test": "vitest run --dir tests --config ../../vitest.config.ts"
   },
   "dependencies": {
     "@prisma-glow/analytics": "file:../../analytics",
