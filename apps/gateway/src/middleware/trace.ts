@@ -28,12 +28,18 @@ export const traceMiddleware: RequestHandler = (req, res, next) => {
   const requestId = (incomingRequestId ?? '').trim() || createRequestId();
 
   const extractedContext = propagation.extract(context.active(), req.headers, headerGetter);
+  const extractedSpanContext = trace.getSpanContext(extractedContext);
+  const hasExtractedTrace =
+    extractedSpanContext !== undefined && trace.isSpanContextValid(extractedSpanContext);
+  const incomingTraceId = ((req.headers[TRACE_ID_HEADER] as string | undefined) ?? '').trim();
+  const fallbackTraceId = incomingTraceId || undefined;
   const tracer = trace.getTracer(getTracerServiceName());
   const spanName = `${req.method} ${req.originalUrl || req.url || '/'}`;
   const start = process.hrtime.bigint();
   const span = tracer.startSpan(spanName, undefined, extractedContext);
   let spanEnded = false;
-  let activeTraceId = span.spanContext().traceId || createTraceId();
+  let activeTraceId = fallbackTraceId ?? createTraceId();
+  const shouldUpdateTraceIdFromSpan = hasExtractedTrace || !fallbackTraceId;
 
   const endSpan = () => {
     if (spanEnded) return;
@@ -44,8 +50,10 @@ export const traceMiddleware: RequestHandler = (req, res, next) => {
   const recordFinish = () => {
     if (spanEnded) return;
     const durationMs = Number(process.hrtime.bigint() - start) / 1_000_000;
-    const spanContext = span.spanContext();
-    activeTraceId = spanContext.traceId || activeTraceId;
+    if (shouldUpdateTraceIdFromSpan) {
+      const spanContext = span.spanContext();
+      activeTraceId = spanContext.traceId || activeTraceId;
+    }
     span.setAttribute('http.method', req.method);
     span.setAttribute('http.route', req.route?.path ?? req.path ?? req.url ?? '/');
     span.setAttribute('http.target', req.originalUrl || req.url || '/');
@@ -69,8 +77,10 @@ export const traceMiddleware: RequestHandler = (req, res, next) => {
     if (spanEnded) return;
     span.recordException(error);
     span.setStatus({ code: SpanStatusCode.ERROR, message: error.message });
-    const spanContext = span.spanContext();
-    activeTraceId = spanContext.traceId || activeTraceId;
+    if (shouldUpdateTraceIdFromSpan) {
+      const spanContext = span.spanContext();
+      activeTraceId = spanContext.traceId || activeTraceId;
+    }
     logger.error('http.request_error', {
       method: req.method,
       path: req.originalUrl || req.url,
@@ -84,8 +94,10 @@ export const traceMiddleware: RequestHandler = (req, res, next) => {
   context.with(trace.setSpan(extractedContext, span), () => {
     runWithRequestContext({ traceId: activeTraceId, requestId }, () => {
       res.setHeader(REQUEST_ID_HEADER, requestId);
-      const spanContext = span.spanContext();
-      activeTraceId = spanContext.traceId || activeTraceId;
+      if (shouldUpdateTraceIdFromSpan) {
+        const spanContext = span.spanContext();
+        activeTraceId = spanContext.traceId || activeTraceId;
+      }
       res.setHeader(TRACE_ID_HEADER, activeTraceId);
       if (incomingRequestId && !req.headers[TRACE_ID_HEADER]) {
         res.setHeader(CORRELATION_ID_HEADER, incomingRequestId);
