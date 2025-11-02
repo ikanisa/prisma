@@ -4,8 +4,16 @@ import { getServiceSupabaseClient } from '@/lib/supabase-server';
 import { createControlSchema } from '@/lib/audit/schemas';
 import { logAuditActivity } from '@/lib/audit/activity-log';
 import { upsertAuditModuleRecord } from '@/lib/audit/module-records';
+import { invalidateRouteCache, withRouteCache } from '@/lib/cache/route-cache';
+import { logger } from '@/lib/logger';
 import { attachRequestId, getOrCreateRequestId } from '@/app/lib/observability';
 import { createApiGuard } from '@/app/lib/api-guard';
+
+class RouteDataError extends Error {
+  constructor(message: string, public readonly status: number) {
+    super(message);
+  }
+}
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -16,36 +24,55 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'orgId and engagementId are required query parameters.' }, { status: 400 });
   }
 
-  const supabase = await getServiceSupabaseClient();
+  try {
+    const payload = await withRouteCache('controls', [orgId, engagementId], async () => {
+      const supabase = await getServiceSupabaseClient();
 
-  const [{ data: controls, error: controlsError }, { data: itgcGroups, error: itgcError }, { data: deficiencies, error: defError }] =
-    await Promise.all([
-      supabase
-        .from('controls')
-        .select('*, control_walkthroughs(*), control_tests(*)')
-        .eq('org_id', orgId)
-        .eq('engagement_id', engagementId)
-        .order('cycle', { ascending: true }),
-      supabase
-        .from('itgc_groups')
-        .select('*')
-        .eq('org_id', orgId)
-        .eq('engagement_id', engagementId)
-        .order('type', { ascending: true }),
-      supabase
-        .from('deficiencies')
-        .select('*')
-        .eq('org_id', orgId)
-        .eq('engagement_id', engagementId)
-        .order('created_at', { ascending: false }),
-    ]);
+      const [
+        { data: controls, error: controlsError },
+        { data: itgcGroups, error: itgcError },
+        { data: deficiencies, error: defError },
+      ] = await Promise.all([
+        supabase
+          .from('controls')
+          .select('*, control_walkthroughs(*), control_tests(*)')
+          .eq('org_id', orgId)
+          .eq('engagement_id', engagementId)
+          .order('cycle', { ascending: true }),
+        supabase
+          .from('itgc_groups')
+          .select('*')
+          .eq('org_id', orgId)
+          .eq('engagement_id', engagementId)
+          .order('type', { ascending: true }),
+        supabase
+          .from('deficiencies')
+          .select('*')
+          .eq('org_id', orgId)
+          .eq('engagement_id', engagementId)
+          .order('created_at', { ascending: false }),
+      ]);
 
-  if (controlsError || itgcError || defError) {
-    const message = controlsError?.message ?? itgcError?.message ?? defError?.message ?? 'Unable to load control data';
-    return NextResponse.json({ error: message }, { status: 500 });
+      if (controlsError || itgcError || defError) {
+        const message =
+          controlsError?.message ?? itgcError?.message ?? defError?.message ?? 'Unable to load control data';
+        throw new RouteDataError(message, 500);
+      }
+
+      return {
+        controls: controls ?? [],
+        itgcGroups: itgcGroups ?? [],
+        deficiencies: deficiencies ?? [],
+      };
+    });
+
+    return NextResponse.json(payload);
+  } catch (error) {
+    if (error instanceof RouteDataError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+    throw error;
   }
-
-  return NextResponse.json({ controls, itgcGroups, deficiencies });
 }
 
 export async function POST(request: Request) {
@@ -140,6 +167,14 @@ export async function POST(request: Request) {
       requestId,
     },
   });
+
+  try {
+    await invalidateRouteCache('controls', [orgId, engagementId]);
+  } catch (error) {
+    // Intentionally swallow cache invalidation errors; mutation already succeeded.
+    const message = error instanceof Error ? error.message : String(error);
+    logger.warn('apps.web.cache_invalidate_failed', { message, orgId, engagementId });
+  }
 
   return guard.respond({ control: data });
 }

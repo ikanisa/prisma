@@ -1,0 +1,17 @@
+{
+  "name": "@prisma-glow/ledger-service-tests",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:integration": "vitest run --config vitest.config.ts"
+  },
+  "devDependencies": {
+    "@types/supertest": "^6.0.3",
+    "express": "^4.19.2",
+    "next": "14.2.33",
+    "supertest": "^7.1.4",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
+  }
+}

@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseServiceClient } from '@/lib/supabase/server';
 import { recordSpecialistActivity } from '@/lib/supabase/activity';
+import { invalidateSpecialistsCache } from '@/lib/specialists/cache';
 
 const STANDARD_INTERNAL = 'ISA 610';
 const ALLOWED_STATUSES = new Set(['draft', 'in_review', 'final']);
@@ -105,6 +106,8 @@ export async function POST(request: NextRequest) {
       type: 'internal_audit',
     },
   });
+
+  await invalidateSpecialistsCache(orgId, engagementId);
 
   return NextResponse.json({ internal: data }, { status: 201 });
 }

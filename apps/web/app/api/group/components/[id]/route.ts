@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logGroupActivity } from '@/lib/group/activity';
+import { invalidateGroupComponentsCache } from '@/lib/group/cache';
 import { getOrgIdFromRequest, isUuid, resolveUserId, toJsonRecord } from '@/lib/group/request';
 import { getSupabaseServerClient } from '@/lib/supabase/server';
 
@@ -168,6 +169,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     },
   });
 
+  await invalidateGroupComponentsCache(orgId, data.engagement_id);
+
   return NextResponse.json({ component: data });
 }
 
@@ -229,6 +232,8 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
       risk_level: data.risk_level ?? null,
     },
   });
+
+  await invalidateGroupComponentsCache(orgId, data.engagement_id);
 
   return NextResponse.json({ component: data });
 }

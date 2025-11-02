@@ -32,12 +32,14 @@ Object.freeze(clientEnv);
 // This helps catch accidental leaks during local development.
 if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
   try {
-    const leaked = ['SUPABASE_SERVICE_ROLE_KEY', 'SUPABASE_JWT_SECRET', 'OPENAI_API_KEY', 'DATABASE_URL'].filter((k) => (window as any)[k] !== undefined);
+    const globalWindow = window as Record<string, unknown>;
+    const leakedKeys = ['SUPABASE_SERVICE_ROLE_KEY', 'SUPABASE_JWT_SECRET', 'OPENAI_API_KEY', 'DATABASE_URL'];
+    const leaked = leakedKeys.filter((key) => globalWindow[key] !== undefined);
     if (leaked.length) {
       // eslint-disable-next-line no-console
       console.warn('Detected server-only env keys present in client bundle:', leaked);
     }
-  } catch (e) {
+  } catch {
     // ignore
   }
 }

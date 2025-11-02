@@ -1,0 +1,77 @@
+name: Vercel Deploy
+
+# Required secrets:
+# - VERCEL_TOKEN: Personal/token for CLI authentication.
+# - VERCEL_ORG_ID: Vercel organization/team identifier (used for scope).
+# - DEV_VERCEL_PROJECT_ID: Project ID for preview deployments (dev branch).
+# - STAGING_VERCEL_PROJECT_ID: Project ID for staging deployments.
+# - PROD_VERCEL_PROJECT_ID: Project ID for production deployments (main branch).
+# - DEV_BACKEND_PIPELINES (optional): Comma-separated URLs for dev backend triggers.
+# - STAGING_BACKEND_PIPELINES (optional): Comma-separated URLs for staging backend triggers.
+# - PROD_BACKEND_PIPELINES (optional): Comma-separated URLs for production backend triggers.
+# - BACKEND_BEARER_TOKEN or environment-specific variants for authenticating pipeline triggers.
+
+on:
+  push:
+    branches:
+      - dev
+      - staging
+      - main
+    tags:
+      - 'staging-*'
+      - 'release-*'
+
+concurrency:
+  group: vercel-deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Deploy to Vercel
+    runs-on: ubuntu-latest
+    if: ${{ secrets.VERCEL_TOKEN != '' }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          run_install: false
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20.19.4
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Deploy to development (preview)
+        if: github.ref == 'refs/heads/dev'
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          DEV_VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          DEV_VERCEL_PROJECT_ID: ${{ secrets.DEV_VERCEL_PROJECT_ID }}
+          DEV_BACKEND_ENDPOINTS: ${{ secrets.DEV_BACKEND_PIPELINES }}
+          DEV_BACKEND_BEARER_TOKEN: ${{ secrets.DEV_BACKEND_BEARER_TOKEN }}
+        run: node scripts/deploy/dev.js
+
+      - name: Deploy to staging
+        if: startsWith(github.ref, 'refs/heads/staging') || startsWith(github.ref, 'refs/tags/staging-')
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          STAGING_VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          STAGING_VERCEL_PROJECT_ID: ${{ secrets.STAGING_VERCEL_PROJECT_ID }}
+          STAGING_BACKEND_ENDPOINTS: ${{ secrets.STAGING_BACKEND_PIPELINES }}
+          STAGING_BACKEND_BEARER_TOKEN: ${{ secrets.STAGING_BACKEND_BEARER_TOKEN }}
+        run: node scripts/deploy/staging.js
+
+      - name: Deploy to production
+        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/release-')
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          PROD_VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          PROD_VERCEL_PROJECT_ID: ${{ secrets.PROD_VERCEL_PROJECT_ID }}
+          PROD_BACKEND_ENDPOINTS: ${{ secrets.PROD_BACKEND_PIPELINES }}
+          PROD_BACKEND_BEARER_TOKEN: ${{ secrets.PROD_BACKEND_BEARER_TOKEN }}
+        run: node scripts/deploy/prod.js

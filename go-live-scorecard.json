@@ -1,0 +1,36 @@
+{
+  "version": "1.0",
+  "weights": {
+    "security": 0.25,
+    "privacy_compliance": 0.10,
+    "data_integrity": 0.15,
+    "pwa": 0.10,
+    "performance": 0.10,
+    "testing": 0.10,
+    "ci_cd_release": 0.08,
+    "observability": 0.07,
+    "ai_agent_safety": 0.05
+  },
+  "scores": {
+    "security": 2.5,
+    "privacy_compliance": 2.0,
+    "data_integrity": 2.0,
+    "pwa": 2.0,
+    "performance": 2.5,
+    "testing": 2.0,
+    "ci_cd_release": 3.0,
+    "observability": 2.5,
+    "ai_agent_safety": 1.5
+  },
+  "total": 45.6,
+  "blockers": [
+    "Lack of enforced financial invariants and Money/Decimal primitives",
+    "Agent guardrails incomplete; prompt injection protections missing",
+    "Offline conflict resolution and audit trail immutability not fully implemented"
+  ],
+  "non_blockers": [
+    "Performance budgets require automated enforcement per bundle",
+    "Lighthouse CI thresholds pending automation",
+    "Coverage gates below policy target of 85/80 lines/branches"
+  ]
+}

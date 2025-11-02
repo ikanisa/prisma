@@ -1,0 +1,30 @@
+const repositoryUrl = process.env.SEMANTIC_RELEASE_REPOSITORY_URL;
+
+export default {
+  ...(repositoryUrl ? { repositoryUrl } : {}),
+  branches: ["main"],
+  plugins: [
+    "@semantic-release/commit-analyzer",
+    "@semantic-release/release-notes-generator",
+    [
+      "@semantic-release/changelog",
+      {
+        changelogFile: "CHANGELOG.md",
+      },
+    ],
+    [
+      "@semantic-release/npm",
+      {
+        npmPublish: false,
+      },
+    ],
+    "@semantic-release/github",
+    [
+      "@semantic-release/git",
+      {
+        assets: ["package.json", "CHANGELOG.md"],
+        message: "chore(release): ${nextRelease.version}\n\n${nextRelease.notes}",
+      },
+    ],
+  ],
+};
