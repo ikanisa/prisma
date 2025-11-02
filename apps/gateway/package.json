@@ -10,6 +10,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@prisma-glow/api": "workspace:*",
     "@prisma-glow/analytics": "file:../../analytics",
     "@prisma-glow/logger": "workspace:*",
     "@prisma-glow/system-config": "file:../../packages/system-config",
