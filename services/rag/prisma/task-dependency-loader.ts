@@ -6,6 +6,12 @@ export interface TaskDependencyLoaderOptions {
   onBatchResolved?: (payload: { ids: string[]; completedCount: number }) => void;
   onBatchError?: (error: unknown, context: { ids: string[] }) => void;
   cacheSize?: number;
+  /**
+   * Maximum amount of time (in milliseconds) to keep cache entries before forcing
+   * a refetch. Defaults to one minute to ensure reopened dependencies are
+   * re-evaluated.
+   */
+  cacheTtlMs?: number;
 }
 
 export interface TaskDependencyLoader {
@@ -25,10 +31,44 @@ const normaliseIds = (ids: string[]): string[] => {
   return Array.from(unique);
 };
 
+type CacheEntry = { value: boolean; expiresAt: number };
+
 export function createTaskDependencyLoader(options: TaskDependencyLoaderOptions): TaskDependencyLoader {
-  const cache = new Map<string, boolean>();
+  const cache = new Map<string, CacheEntry>();
   const order: string[] = [];
   const maxSize = options.cacheSize ?? 500;
+  const ttl = options.cacheTtlMs ?? 60_000;
+
+  const removeFromOrder = (key: string) => {
+    const index = order.indexOf(key);
+    if (index >= 0) {
+      order.splice(index, 1);
+    }
+  };
+
+  const setCache = (key: string, value: boolean) => {
+    const expiresAt = ttl === Infinity ? Infinity : Date.now() + ttl;
+    cache.set(key, { value, expiresAt });
+    removeFromOrder(key);
+    order.push(key);
+  };
+
+  const isEntryExpired = (entry: CacheEntry | undefined) => {
+    if (!entry) return true;
+    if (entry.expiresAt === Infinity) return false;
+    if (entry.expiresAt > Date.now()) return false;
+    return true;
+  };
+
+  const getCachedValue = (key: string): boolean | undefined => {
+    const entry = cache.get(key);
+    if (isEntryExpired(entry)) {
+      cache.delete(key);
+      removeFromOrder(key);
+      return undefined;
+    }
+    return entry?.value;
+  };
 
   const applyCacheLimit = () => {
     while (order.length > maxSize) {
@@ -61,8 +101,7 @@ export function createTaskDependencyLoader(options: TaskDependencyLoaderOptions)
 
       for (const id of normalised) {
         const isCompleted = completed.has(id);
-        cache.set(id, isCompleted);
-        order.push(id);
+        setCache(id, isCompleted);
         result.set(id, isCompleted);
       }
 
@@ -78,7 +117,7 @@ export function createTaskDependencyLoader(options: TaskDependencyLoaderOptions)
 
   const loadMany = async (ids: string[]): Promise<Map<string, boolean>> => {
     const normalised = normaliseIds(ids);
-    const missing = normalised.filter((id) => !cache.has(id));
+    const missing = normalised.filter((id) => getCachedValue(id) === undefined);
 
     if (missing.length > 0) {
       await fetchBatch(missing);
@@ -86,7 +125,8 @@ export function createTaskDependencyLoader(options: TaskDependencyLoaderOptions)
 
     const result = new Map<string, boolean>();
     for (const id of normalised) {
-      result.set(id, cache.get(id) ?? false);
+      const value = getCachedValue(id);
+      result.set(id, value ?? false);
     }
 
     return result;
@@ -96,8 +136,7 @@ export function createTaskDependencyLoader(options: TaskDependencyLoaderOptions)
     const normalised = normaliseIds([id]);
     if (normalised.length === 0) return;
     const key = normalised[0];
-    cache.set(key, completed);
-    order.push(key);
+    setCache(key, completed);
     applyCacheLimit();
   };
 
@@ -114,10 +153,7 @@ export function createTaskDependencyLoader(options: TaskDependencyLoaderOptions)
       if (normalised.length === 0) continue;
       const key = normalised[0];
       cache.delete(key);
-      const index = order.indexOf(key);
-      if (index >= 0) {
-        order.splice(index, 1);
-      }
+      removeFromOrder(key);
     }
   };
 

@@ -55,6 +55,43 @@ describe('task dependency loader', () => {
     expect(result.get('DEP-1')).toBe(false);
   });
 
+  it('refreshes cached dependencies after the TTL expires', async () => {
+    vi.useFakeTimers();
+
+    const eq = vi
+      .fn()
+      .mockResolvedValueOnce({
+        data: [{ id: 'dep-1', status: 'COMPLETED' }],
+        error: null,
+      })
+      .mockResolvedValue({ data: [], error: null });
+
+    const builder: any = {
+      select: vi.fn().mockImplementation(() => builder),
+      in: vi.fn().mockImplementation(() => builder),
+      eq,
+    };
+
+    const from = vi.fn().mockReturnValue(builder);
+
+    const loader = createTaskDependencyLoader({
+      supabase: { from } as any,
+      cacheTtlMs: 1000,
+    });
+
+    const first = await loader.loadMany(['dep-1']);
+    expect(first.get('dep-1')).toBe(true);
+    expect(from).toHaveBeenCalledTimes(1);
+
+    vi.advanceTimersByTime(1500);
+
+    const second = await loader.loadMany(['dep-1']);
+    expect(second.get('dep-1')).toBe(false);
+    expect(from).toHaveBeenCalledTimes(2);
+
+    vi.useRealTimers();
+  });
+
   it('determines assignable task identifiers with dependency batches', async () => {
     const loadMany = vi.fn().mockResolvedValue(
       new Map<string, boolean>([
