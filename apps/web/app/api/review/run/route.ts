@@ -62,8 +62,8 @@ export async function POST(request: NextRequest) {
     // Resolve user ID from email if not directly available
     if (!userId && sessionUser?.email) {
       const email = sessionUser.email.toLowerCase();
-      const supabaseService = supabaseAdmin as any;
-      const { data: lookup, error: lookupError } = await supabaseService
+      // Note: supabaseAdmin typing is complex; using runtime type for database operations
+      const { data: lookup, error: lookupError } = await supabaseAdmin
         .from('app_users')
         .select('user_id')
         .eq('email', email)
@@ -96,8 +96,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Authorization: Verify org membership
-    const supabaseService = supabaseAdmin as any;
-    const { data: membership, error: membershipError } = await supabaseService
+    const { data: membership, error: membershipError } = await supabaseAdmin
       .from('memberships')
       .select('role')
       .eq('org_id', targetOrgId)

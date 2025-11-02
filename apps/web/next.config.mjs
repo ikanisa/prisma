@@ -28,7 +28,7 @@ export default withPWA({
     remotePatterns: [
       { protocol: 'https', hostname: 'images.prismaglow.test' },
       { protocol: 'https', hostname: 'cdn.prismaglow.test' },
-      { protocol: 'https', hostname: '*.supabase.co' },
+      { protocol: 'https', hostname: 'xzwowkxzgqigfuefmaji.supabase.co' },
     ],
   },
   async headers() {
