@@ -34,6 +34,7 @@
     "coverage": "./scripts/coverage.sh",
     "build:workspace": "pnpm -r --if-present run build",
     "ci:verify": "pnpm run lint:workspace && pnpm run test:workspace && pnpm run build:workspace",
+    "bundle:check": "node ./tools/bundle/check-next-bundle.mjs --app apps/web",
     "test:playwright": "playwright test",
     "test:playwright:core": "playwright test tests/playwright/core-journeys.spec.ts",
     "policy:verify": "node scripts/maintenance/verify_policy_docs.mjs",

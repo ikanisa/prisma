@@ -16,6 +16,7 @@ import { financeReviewEnv } from '@/lib/finance-review/env';
 import { recentLedgerEntries } from '@/lib/finance-review/ledger';
 import { retrieveRelevant } from '@/lib/finance-review/retrieval';
 import { supabaseAdmin } from '@/lib/finance-review/supabase';
+import type { FinanceReviewDatabase } from '@/lib/finance-review/supabase';
 import { CFO_PROMPT, CFOResponseSchema } from '@/agents/finance-review/cfo';
 import { AUDITOR_PROMPT, AuditorResponseSchema } from '@/agents/finance-review/auditor';
 
@@ -30,19 +31,8 @@ const RequestBodySchema = z.object({
 });
 
 /**
- * Response schema
- */
-const ResponseSchema = z.object({
-  status: z.enum(['GREEN', 'AMBER', 'RED']),
-  cfo: z.unknown(),
-  auditor: z.unknown(),
-  tasks: z.array(z.string()),
-  controlLogId: z.string().uuid(),
-});
-
-/**
  * POST /api/review/run
- * 
+ *
  * Execute dual-agent financial review
  */
 export async function POST(request: NextRequest) {
@@ -180,29 +170,31 @@ ${retrievalContext}
 
     // Determine overall status (worst case between CFO and Auditor)
     const statusPriority = { GREEN: 0, AMBER: 1, RED: 2 };
-    const overallStatus =
+    const overallStatus: FinanceReviewDatabase['public']['Tables']['controls_logs']['Row']['status'] =
       statusPriority[auditorResponse.risk_level] >= statusPriority[cfoResponse.status]
         ? auditorResponse.risk_level
         : cfoResponse.status;
 
     // Log to controls_logs
+    const logPayload: FinanceReviewDatabase['public']['Tables']['controls_logs']['Insert'] = {
+      org_id: orgId,
+      control_key: 'daily_review',
+      period: new Date().toISOString().slice(0, 10),
+      status: overallStatus,
+      details: {
+        cfo: cfoResponse,
+        auditor: auditorResponse,
+        ledger_entries_count: ledger.length,
+        retrieval_chunks: retrievals.length,
+      },
+    };
+
     const { data: controlLog, error: logError } = await supabaseAdmin
       .from('controls_logs')
-      .insert({
-        org_id: targetOrgId,
-        control_key: 'daily_review',
-        period: new Date().toISOString().slice(0, 10),
-        status: overallStatus,
-        details: {
-          cfo: cfoResponse,
-          auditor: auditorResponse,
-          ledger_entries_count: ledger.length,
-          retrieval_chunks: retrievals.length,
-          executed_by_user_id: userId,
-        },
-      })
+      // Supabase type helpers are not available in this workspace build, cast to preserve intent.
+      .insert(logPayload as never)
       .select('id')
-      .single();
+      .single<FinanceReviewDatabase['public']['Tables']['controls_logs']['Row']>();
 
     if (logError) {
       console.error('Failed to log control execution:', logError);

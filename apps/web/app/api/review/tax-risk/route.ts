@@ -31,6 +31,16 @@ export async function POST(request: NextRequest) {
     const { orgId = financeReviewEnv.DEFAULT_ORG_ID, limit } = RequestBodySchema.parse(body);
 
     // Get distinct accounts from recent ledger entries
+    type LedgerEntry = {
+      id: string;
+      account: string;
+      date: string;
+      memo: string | null;
+      currency: string | null;
+      debit: number | null;
+      credit: number | null;
+    };
+
     const { data: entries, error: entriesError } = await supabaseAdmin
       .from('ledger_entries')
       .select('id, account, date, memo, currency, debit, credit')
@@ -42,11 +52,19 @@ export async function POST(request: NextRequest) {
       throw new Error(`Failed to fetch ledger entries: ${entriesError.message}`);
     }
 
-    const gaps = [];
+    const ledgerEntries = (entries ?? []) as LedgerEntry[];
+    const gaps: {
+      account: string;
+      sample_entry_id: string;
+      sample_date: string;
+      sample_amount: number;
+      currency: string | null;
+      memo: string | null;
+    }[] = [];
     const checkedAccounts = new Set<string>();
 
     // Check each unique account for tax mapping
-    for (const entry of entries || []) {
+    for (const entry of ledgerEntries) {
       // Skip if we've already checked this account
       if (checkedAccounts.has(entry.account)) {
         continue;

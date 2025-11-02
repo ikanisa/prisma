@@ -1,7 +1,10 @@
 import { notFound } from 'next/navigation';
 import { SupabaseAuthDemo } from '@/src/features/auth/components/supabase-auth-demo';
 
-if (process.env.NODE_ENV === 'production') {
+const shouldHideDemo =
+  process.env.NODE_ENV === 'production' && process.env.STYLE_GUIDE_SUPABASE_ENABLED !== 'true';
+
+if (shouldHideDemo) {
   notFound();
 }
 
