@@ -574,6 +574,15 @@ importers:
 
   packages/tax: {}
 
+  packages/types-finance:
+    devDependencies:
+      '@types/node':
+        specifier: ^22.18.10
+        version: 22.18.10
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.4(@types/node@22.18.10)(jiti@1.21.7)(jsdom@26.1.0)(terser@5.44.0)(yaml@2.8.1)
+
   packages/ui:
     dependencies:
       react:
