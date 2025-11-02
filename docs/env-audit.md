@@ -25,6 +25,7 @@ The following variables are consumed in code or tests but absent from `.env.exam
 - `OPENAI_AGENT_MODEL`, `OPENAI_AGENT_REASONING_EFFORT`, `OPENAI_AGENT_VERBOSITY`, `OPENAI_SUMMARY_MODEL`, `OPENAI_SUMMARY_REASONING_EFFORT`, `OPENAI_SUMMARY_VERBOSITY`, `OPENAI_VISION_MODEL`, `OPENAI_WHISPER_MODEL`, `OPENAI_FINANCE_WORKLOAD`, `OPENAI_ORG_ID`, `OPENAI_REQUEST_TAGS`, `OPENAI_REQUEST_QUOTA_TAG`, `OPENAI_BASE_URL` — agent + reporting workloads. `services/rag/index.ts`, `lib/agents/runtime.ts`
 - `PRODUCTION_OPENAI_FILE_SEARCH_*`, `STAGING_OPENAI_FILE_SEARCH_*` — secret publishing automation. `scripts/operations/publish-openai-file-search-secrets.ts`
 - `WEB_HARVEST_INTERVAL_MS`, `CHAT_COMPLETIONS_STREAM_HEARTBEAT_INTERVAL_MS`, `DOCUMENT_SIGN_TTL` — ingestion throttles and RAG helpers. `services/rag/index.ts`
+- `CACHE_TTL_RAG_SEARCH_SECONDS`, `CACHE_TTL_RAG_IDEMPOTENCY_SECONDS`, `CACHE_TTL_RAG_ORG_LOOKUP_SECONDS`, `CACHE_TTL_RAG_DRIVE_UPLOADER_SECONDS` — Redis cache TTLs for search, idempotency, and org lookups. `services/rag/index.ts`, `services/cache/src/config.ts`
 
 ### Embedding & Analytics Jobs
 - `EMBEDDING_ALERT_WEBHOOK`, `EMBEDDING_CRON_SECRET`, `EMBEDDING_DELTA_DOCUMENT_LIMIT`, `EMBEDDING_DELTA_LOOKBACK_HOURS`, `EMBEDDING_DELTA_POLICY_LIMIT` — analytics cron configuration. `services/analytics/jobs.py`, `services/rag/env.ts`
