@@ -1,0 +1,44 @@
+name: Gitleaks Secret Scanning
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  gitleaks-scan:
+    name: Scan for Secrets with Gitleaks
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0  # Full history for comprehensive scanning
+      
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_CONFIG: .gitleaks.toml
+          GITLEAKS_ENABLE_COMMENTS: true
+      
+      - name: Report scan results
+        if: failure()
+        run: |
+          echo "❌ Gitleaks detected potential secrets!"
+          echo "Review the scan results above and remove any sensitive data."
+          echo "See .gitleaks.toml for configuration and allowlist rules."
+          exit 1
+      
+      - name: Success message
+        if: success()
+        run: |
+          echo "✅ No secrets detected by Gitleaks"
+          echo "All commits in this PR are clear of hardcoded secrets."
