@@ -1,0 +1,470 @@
+meta:
+  name: "AI Agents Configuration"
+  version: "1.0.0"
+  description: "Agent orchestration, tool whitelisting, and persona configuration"
+
+# ──────────────────────────────────────────────────────────────────────────────
+# OpenAI Agents SDK Integration
+# ──────────────────────────────────────────────────────────────────────────────
+openai:
+  platform_enabled: true
+  base_url: "${OPENAI_BASE_URL:-https://api.openai.com/v1}"
+  api_key: "${OPENAI_API_KEY}"
+  
+  # Agent platform configuration
+  agent:
+    enabled: "${OPENAI_AGENT_PLATFORM_ENABLED:-false}"
+    agent_id: "${OPENAI_AGENT_ID}"
+  
+  # Model configuration
+  models:
+    default: "gpt-4o"
+    reasoning: "gpt-4o"
+    fast: "gpt-4o-mini"
+    embedding: "text-embedding-3-small"
+    vision: "gpt-4o"
+    audio_transcription: "whisper-1"
+    audio_tts: "tts-1"
+    audio_realtime: "gpt-4o-realtime-preview"
+  
+  # Rate limiting
+  rate_limit:
+    requests_per_minute: 60
+    tokens_per_minute: 90000
+  
+  # Feature flags
+  features:
+    streaming: true
+    structured_outputs: true
+    vision: true
+    audio: true
+    realtime: false
+    file_search: true
+    code_interpreter: false
+    web_search: false
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Tool Proxy Configuration (Server-Side Only)
+# ──────────────────────────────────────────────────────────────────────────────
+tool_proxy:
+  enabled: true
+  namespace: "/api/tools"
+  require_auth: true
+  
+  # Tool whitelist - Only these tools can be called by agents
+  whitelist:
+    # Document & Knowledge Management
+    - "search_documents"
+    - "get_document"
+    - "upload_document"
+    - "extract_document_data"
+    - "get_document_metadata"
+    - "search_knowledge_base"
+    - "get_citations"
+    
+    # Task Management
+    - "create_task"
+    - "get_task"
+    - "update_task"
+    - "list_tasks"
+    - "assign_task"
+    
+    # Accounting & Finance
+    - "get_trial_balance"
+    - "get_journal_entries"
+    - "create_journal_entry"
+    - "get_account_details"
+    - "get_reconciliation_status"
+    - "calculate_depreciation"
+    - "validate_journal_entry"
+    
+    # Audit
+    - "get_audit_plan"
+    - "get_audit_procedures"
+    - "get_audit_samples"
+    - "record_audit_evidence"
+    - "get_audit_confirmations"
+    - "assess_audit_risk"
+    
+    # Tax
+    - "calculate_corporate_tax"
+    - "calculate_vat"
+    - "get_tax_rules"
+    - "validate_tax_return"
+    - "check_dac6_reporting"
+    - "calculate_pillar_two"
+    
+    # Analytics & Reporting
+    - "get_financial_metrics"
+    - "generate_report"
+    - "get_dashboard_data"
+    - "export_data"
+    
+    # Compliance & Policy
+    - "check_policy_compliance"
+    - "get_approval_requirements"
+    - "request_approval"
+    - "get_retention_policy"
+    
+    # Communication
+    - "send_notification"
+    - "send_email"
+    - "create_reminder"
+  
+  # Rate limits per tool category
+  rate_limits:
+    document_operations:
+      limit: 12
+      window_seconds: 300
+    knowledge_operations:
+      limit: 30
+      window_seconds: 60
+    task_operations:
+      limit: 20
+      window_seconds: 60
+    finance_operations:
+      limit: 40
+      window_seconds: 60
+    audit_operations:
+      limit: 30
+      window_seconds: 60
+    tax_operations:
+      limit: 30
+      window_seconds: 60
+    analytics_operations:
+      limit: 20
+      window_seconds: 60
+    communication_operations:
+      limit: 10
+      window_seconds: 60
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Agent Personas & Policy Packs
+# ──────────────────────────────────────────────────────────────────────────────
+personas:
+  accounting_assistant:
+    name: "Accounting Assistant"
+    description: "Helps with bookkeeping, journal entries, and period close"
+    model: "gpt-4o"
+    temperature: 0.1
+    tools:
+      - "search_documents"
+      - "get_journal_entries"
+      - "create_journal_entry"
+      - "get_account_details"
+      - "validate_journal_entry"
+      - "get_trial_balance"
+      - "get_reconciliation_status"
+    policy_pack: "accounting"
+    instructions: |
+      You are an accounting assistant helping with bookkeeping and financial reporting.
+      - Always validate journal entries before posting
+      - Require approval for entries over $10,000
+      - Check for balanced debits and credits
+      - Verify account codes exist
+      - Flag unusual transactions
+      - Cite source documents for all entries
+  
+  audit_assistant:
+    name: "Audit Assistant"
+    description: "Supports audit planning, testing, and evidence gathering"
+    model: "gpt-4o"
+    temperature: 0.0
+    tools:
+      - "search_documents"
+      - "get_audit_plan"
+      - "get_audit_procedures"
+      - "get_audit_samples"
+      - "record_audit_evidence"
+      - "get_audit_confirmations"
+      - "assess_audit_risk"
+      - "search_knowledge_base"
+    policy_pack: "audit"
+    instructions: |
+      You are an audit assistant helping with audit procedures and documentation.
+      - Follow ISA/GAAS standards
+      - Document all evidence sources
+      - Assess materiality and risk
+      - Flag control deficiencies
+      - Require partner review for significant matters
+      - Maintain independence and objectivity
+      - Cite audit standards for all procedures
+  
+  tax_assistant:
+    name: "Tax Assistant"
+    description: "Assists with tax compliance, planning, and filings"
+    model: "gpt-4o"
+    temperature: 0.1
+    tools:
+      - "search_documents"
+      - "calculate_corporate_tax"
+      - "calculate_vat"
+      - "get_tax_rules"
+      - "validate_tax_return"
+      - "check_dac6_reporting"
+      - "calculate_pillar_two"
+      - "search_knowledge_base"
+    policy_pack: "tax"
+    instructions: |
+      You are a tax assistant helping with tax compliance and planning.
+      - Follow applicable tax laws and regulations
+      - Check for tax optimization opportunities
+      - Flag compliance risks
+      - Verify calculations against tax code
+      - Require manager approval before filing
+      - Cite tax authority guidance
+      - Check cross-border implications
+  
+  document_processor:
+    name: "Document Processor"
+    description: "Extracts and classifies documents, performs OCR"
+    model: "gpt-4o"
+    temperature: 0.0
+    tools:
+      - "search_documents"
+      - "get_document"
+      - "extract_document_data"
+      - "get_document_metadata"
+      - "upload_document"
+      - "create_task"
+    policy_pack: "document_processing"
+    instructions: |
+      You are a document processing assistant.
+      - Extract structured data from documents
+      - Classify documents by type
+      - Identify key information (dates, amounts, entities)
+      - Flag documents requiring human review
+      - Maintain document integrity
+      - Handle PII with care
+      - Create follow-up tasks for missing information
+  
+  analyst:
+    name: "Financial Analyst"
+    description: "Generates insights, reports, and analysis"
+    model: "gpt-4o"
+    temperature: 0.2
+    tools:
+      - "get_financial_metrics"
+      - "get_trial_balance"
+      - "get_journal_entries"
+      - "generate_report"
+      - "get_dashboard_data"
+      - "search_knowledge_base"
+    policy_pack: "analytics"
+    instructions: |
+      You are a financial analyst providing insights and analysis.
+      - Identify trends and anomalies
+      - Provide context and explanations
+      - Suggest areas for improvement
+      - Use clear, concise language
+      - Cite data sources
+      - Flag risks and opportunities
+      - Support recommendations with evidence
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Policy Packs (Guardrails & Constraints)
+# ──────────────────────────────────────────────────────────────────────────────
+policy_packs:
+  accounting:
+    name: "Accounting Policy Pack"
+    rules:
+      - "Journal entries must balance (debits = credits)"
+      - "Entries over $10,000 require manager approval"
+      - "All entries must have source document citations"
+      - "Account codes must exist in chart of accounts"
+      - "Period must be open (not locked)"
+      - "No backdating without partner approval"
+    approval_required:
+      - action: "journal.post"
+        condition: "amount > 10000"
+        min_role: "MANAGER"
+      - action: "close.lock"
+        condition: "always"
+        min_role: "PARTNER"
+    
+  audit:
+    name: "Audit Policy Pack"
+    rules:
+      - "All procedures must follow ISA/GAAS standards"
+      - "Evidence must be documented with citations"
+      - "Significant matters require partner review"
+      - "Independence must be maintained"
+      - "Materiality thresholds must be respected"
+      - "Audit plan must be frozen before fieldwork"
+    approval_required:
+      - action: "audit.plan.freeze"
+        condition: "always"
+        min_role: "PARTNER"
+      - action: "audit.report.release"
+        condition: "always"
+        min_role: "PARTNER"
+      - action: "eqr.signoff"
+        condition: "always"
+        min_role: "EQR"
+  
+  tax:
+    name: "Tax Policy Pack"
+    rules:
+      - "Tax calculations must cite tax authority guidance"
+      - "Cross-border transactions require specialist review"
+      - "Returns must be validated before filing"
+      - "DAC6 reporting requirements must be checked"
+      - "Pillar Two compliance required for large groups"
+      - "Transfer pricing documentation required for related parties"
+    approval_required:
+      - action: "tax.return.submit"
+        condition: "always"
+        min_role: "MANAGER"
+  
+  document_processing:
+    name: "Document Processing Policy Pack"
+    rules:
+      - "PII must be redacted in logs"
+      - "Documents must be classified by type"
+      - "Sensitive documents require encryption"
+      - "Retention policies must be applied"
+      - "Version control must be maintained"
+    approval_required: []
+  
+  analytics:
+    name: "Analytics Policy Pack"
+    rules:
+      - "Data sources must be cited"
+      - "Calculations must be transparent"
+      - "Assumptions must be documented"
+      - "Sensitive data must be masked for non-authorized users"
+    approval_required: []
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Agent Orchestration
+# ──────────────────────────────────────────────────────────────────────────────
+orchestration:
+  # Plan-Act-Observe loop configuration
+  plan_act_observe:
+    enabled: true
+    max_iterations: 10
+    require_plan_approval: false
+    require_action_approval: true
+    log_observations: true
+  
+  # Multi-agent collaboration
+  collaboration:
+    enabled: false
+    allow_agent_to_agent: false
+  
+  # Error handling
+  error_handling:
+    max_retries: 3
+    retry_delay_ms: 1000
+    fallback_to_human: true
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Citations & Provenance (Required for Regulated Outputs)
+# ──────────────────────────────────────────────────────────────────────────────
+citations:
+  required: true
+  enforcement: "strict"
+  
+  # Citation sources
+  allowed_sources:
+    - "supabase_storage"
+    - "vector_store"
+    - "google_drive"
+    - "tax_authority_db"
+    - "audit_standards_db"
+    - "accounting_standards_db"
+  
+  # Citation format
+  format:
+    include_url: true
+    include_page_number: true
+    include_retrieved_at: true
+    include_confidence: true
+  
+  # Validation
+  validation:
+    check_source_exists: true
+    check_source_accessible: true
+    check_source_current: true
+    min_confidence: 0.7
+
+# ──────────────────────────────────────────────────────────────────────────────
+# RAG Configuration
+# ──────────────────────────────────────────────────────────────────────────────
+rag:
+  enabled: true
+  vector_store_id: "${OPENAI_RETRIEVAL_VECTOR_STORE_ID}"
+  vector_store_name: "${OPENAI_RETRIEVAL_VECTOR_STORE_NAME:-prisma-glow-knowledge}"
+  
+  # Search configuration
+  search:
+    max_results: 8
+    min_score: 0.7
+    rerank: true
+    include_metadata: true
+  
+  # Embedding configuration
+  embedding:
+    model: "text-embedding-3-small"
+    dimensions: 1536
+    batch_size: 100
+  
+  # Ingestion pipeline
+  ingestion:
+    auto_ingest: true
+    supported_formats:
+      - "pdf"
+      - "docx"
+      - "xlsx"
+      - "txt"
+      - "md"
+    extract_tables: true
+    extract_images: true
+    ocr_enabled: true
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Monitoring & Observability
+# ──────────────────────────────────────────────────────────────────────────────
+monitoring:
+  # Logging
+  log_level: "info"
+  log_format: "json"
+  log_tool_calls: true
+  log_agent_responses: true
+  
+  # Metrics
+  metrics:
+    enabled: true
+    track_token_usage: true
+    track_latency: true
+    track_errors: true
+    track_tool_calls: true
+  
+  # Alerts
+  alerts:
+    cost_threshold_usd: 100
+    error_rate_threshold: 0.05
+    latency_p99_threshold_ms: 5000
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Security
+# ──────────────────────────────────────────────────────────────────────────────
+security:
+  # Input validation
+  validate_inputs: true
+  sanitize_outputs: true
+  max_input_length: 50000
+  max_output_length: 100000
+  
+  # Content filtering
+  content_filter:
+    enabled: true
+    block_pii: false  # Handled at logging level
+    block_profanity: true
+    block_injection_attempts: true
+  
+  # Rate limiting (application-wide)
+  rate_limiting:
+    enabled: true
+    per_user: true
+    per_organization: true
