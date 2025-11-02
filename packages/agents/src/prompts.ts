@@ -22,7 +22,24 @@ export interface PromptRecord extends PromptManifestEntry {
 
 const require = createRequire(import.meta.url);
 const manifestPath = require.resolve('../prompts/manifest.json');
-const manifest: PromptManifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+function deepFreeze<T>(value: T): T {
+  if (value === null || typeof value !== 'object') {
+    return value;
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      deepFreeze(item);
+    }
+    return Object.freeze(value);
+  }
+  for (const key of Object.keys(value)) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    deepFreeze((value as Record<string, any>)[key]);
+  }
+  return Object.freeze(value);
+}
+
+const manifest: PromptManifest = deepFreeze(JSON.parse(readFileSync(manifestPath, 'utf8')));
 const promptDirectory = path.dirname(manifestPath);
 
 function computeChecksum(contents: string): string {
@@ -35,8 +52,15 @@ function resolvePromptPath(entry: PromptManifestEntry): string {
   return path.resolve(promptDirectory, entry.path);
 }
 
+function cloneManifest(manifestToClone: PromptManifest): PromptManifest {
+  return {
+    ...manifestToClone,
+    prompts: manifestToClone.prompts.map((prompt) => ({ ...prompt })),
+  };
+}
+
 export function listPromptManifest(): PromptManifest {
-  return manifest;
+  return cloneManifest(manifest);
 }
 
 export function loadPromptById(id: string): PromptRecord {
