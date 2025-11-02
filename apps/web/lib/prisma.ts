@@ -50,6 +50,37 @@ const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClientInstance;
 };
 
+const shouldLogQueries = (): boolean => {
+  const explicit = process.env.PRISMA_LOG_QUERIES ?? process.env.NEXT_PUBLIC_PRISMA_LOG_QUERIES;
+  if (typeof explicit === 'string') {
+    if (explicit.trim().length === 0) {
+      return false;
+    }
+    const normalized = explicit.trim().toLowerCase();
+    return normalized === '1' || normalized === 'true' || normalized === 'yes';
+  }
+
+  return process.env.NODE_ENV !== 'production';
+};
+
+type PrismaLogDefinition = {
+  level: 'query' | 'warn' | 'error';
+  emit: 'stdout' | 'event';
+};
+
+const createLogConfiguration = (): PrismaLogDefinition[] => {
+  const levels: PrismaLogDefinition[] = [
+    { level: 'error', emit: 'stdout' },
+    { level: 'warn', emit: 'stdout' },
+  ];
+
+  if (shouldLogQueries()) {
+    levels.push({ level: 'query', emit: 'event' });
+  }
+
+  return levels;
+};
+
 const prismaInstance: PrismaClientInstance = (() => {
   if (globalForPrisma.prisma) {
     return globalForPrisma.prisma;

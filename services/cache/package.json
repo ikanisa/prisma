@@ -1,0 +1,25 @@
+{
+  "name": "@prisma-glow/cache",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -b tsconfig.json"
+  },
+  "dependencies": {
+    "ioredis": "^5.4.1",
+    "node-cache": "^5.1.2"
+  },
+  "devDependencies": {
+    "ioredis-mock": "^8.13.1"
+  }
+}
