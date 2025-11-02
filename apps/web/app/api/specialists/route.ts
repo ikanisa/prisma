@@ -1,6 +1,13 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseServiceClient } from '@/lib/supabase/server';
+import { withRouteCache } from '@/lib/cache/route-cache';
+
+class RouteDataError extends Error {
+  constructor(message: string, public readonly status: number) {
+    super(message);
+  }
+}
 
 const STANDARD_EXPERT = 'ISA 620';
 const STANDARD_INTERNAL = 'ISA 610';
@@ -16,80 +23,91 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'orgId query parameter is required' }, { status: 400 });
   }
 
-  const expertsQuery = supabaseUnsafe
-    .from('audit_specialist_experts')
-    .select('*')
-    .eq('org_id', orgId);
+  try {
+    const payload = await withRouteCache('specialists', [orgId, engagementId ?? 'all'], async () => {
+      const expertsQuery = supabaseUnsafe
+        .from('audit_specialist_experts')
+        .select('*')
+        .eq('org_id', orgId);
 
-  if (engagementId) {
-    expertsQuery.eq('engagement_id', engagementId);
-  }
+      if (engagementId) {
+        expertsQuery.eq('engagement_id', engagementId);
+      }
 
-  const internalQuery = supabaseUnsafe
-    .from('audit_specialist_internal')
-    .select('*')
-    .eq('org_id', orgId);
+      const internalQuery = supabaseUnsafe
+        .from('audit_specialist_internal')
+        .select('*')
+        .eq('org_id', orgId);
 
-  if (engagementId) {
-    internalQuery.eq('engagement_id', engagementId);
-  }
+      if (engagementId) {
+        internalQuery.eq('engagement_id', engagementId);
+      }
 
-  const evidenceQuery = supabaseUnsafe
-    .from('audit_specialist_evidence')
-    .select('*')
-    .eq('org_id', orgId);
+      const evidenceQuery = supabaseUnsafe
+        .from('audit_specialist_evidence')
+        .select('*')
+        .eq('org_id', orgId);
 
-  if (engagementId) {
-    evidenceQuery.eq('engagement_id', engagementId);
-  }
+      if (engagementId) {
+        evidenceQuery.eq('engagement_id', engagementId);
+      }
 
-  const [expertsResult, internalResult, evidenceResult] = await Promise.all([
-    expertsQuery,
-    internalQuery,
-    evidenceQuery,
-  ]);
+      const [expertsResult, internalResult, evidenceResult] = await Promise.all([
+        expertsQuery,
+        internalQuery,
+        evidenceQuery,
+      ]);
 
-  if (expertsResult.error) {
-    return NextResponse.json({ error: expertsResult.error.message }, { status: 500 });
-  }
+      if (expertsResult.error) {
+        throw new RouteDataError(expertsResult.error.message ?? 'Failed to load external specialists.', 500);
+      }
 
-  if (internalResult.error) {
-    return NextResponse.json({ error: internalResult.error.message }, { status: 500 });
-  }
+      if (internalResult.error) {
+        throw new RouteDataError(internalResult.error.message ?? 'Failed to load internal specialists.', 500);
+      }
 
-  if (evidenceResult.error) {
-    return NextResponse.json({ error: evidenceResult.error.message }, { status: 500 });
-  }
+      if (evidenceResult.error) {
+        throw new RouteDataError(evidenceResult.error.message ?? 'Failed to load specialist evidence.', 500);
+      }
 
-  const evidenceRows = evidenceResult.data ?? [];
-  const expertEvidence = new Map<string, typeof evidenceRows>();
-  const internalEvidence = new Map<string, typeof evidenceRows>();
+      const evidenceRows = evidenceResult.data ?? [];
+      const expertEvidence = new Map<string, typeof evidenceRows>();
+      const internalEvidence = new Map<string, typeof evidenceRows>();
 
-  evidenceRows.forEach((item) => {
-    if (item.expert_assessment_id) {
-      const existing = expertEvidence.get(item.expert_assessment_id) ?? [];
-      expertEvidence.set(item.expert_assessment_id, [...existing, item]);
+      evidenceRows.forEach((item) => {
+        if (item.expert_assessment_id) {
+          const existing = expertEvidence.get(item.expert_assessment_id) ?? [];
+          expertEvidence.set(item.expert_assessment_id, [...existing, item]);
+        }
+        if (item.internal_assessment_id) {
+          const existing = internalEvidence.get(item.internal_assessment_id) ?? [];
+          internalEvidence.set(item.internal_assessment_id, [...existing, item]);
+        }
+      });
+
+      const expertsWithEvidence = (expertsResult.data ?? []).map((entry) => ({
+        ...entry,
+        standard_refs: Array.from(new Set([STANDARD_EXPERT, ...(entry.standard_refs ?? [])])),
+        evidence: expertEvidence.get(entry.id) ?? [],
+      }));
+
+      const internalWithEvidence = (internalResult.data ?? []).map((entry) => ({
+        ...entry,
+        standard_refs: Array.from(new Set([STANDARD_INTERNAL, ...(entry.standard_refs ?? [])])),
+        evidence: internalEvidence.get(entry.id) ?? [],
+      }));
+
+      return {
+        experts: expertsWithEvidence,
+        internal: internalWithEvidence,
+      };
+    });
+
+    return NextResponse.json(payload);
+  } catch (error) {
+    if (error instanceof RouteDataError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
     }
-    if (item.internal_assessment_id) {
-      const existing = internalEvidence.get(item.internal_assessment_id) ?? [];
-      internalEvidence.set(item.internal_assessment_id, [...existing, item]);
-    }
-  });
-
-  const expertsWithEvidence = (expertsResult.data ?? []).map((entry) => ({
-    ...entry,
-    standard_refs: Array.from(new Set([STANDARD_EXPERT, ...(entry.standard_refs ?? [])])),
-    evidence: expertEvidence.get(entry.id) ?? [],
-  }));
-
-  const internalWithEvidence = (internalResult.data ?? []).map((entry) => ({
-    ...entry,
-    standard_refs: Array.from(new Set([STANDARD_INTERNAL, ...(entry.standard_refs ?? [])])),
-    evidence: internalEvidence.get(entry.id) ?? [],
-  }));
-
-  return NextResponse.json({
-    experts: expertsWithEvidence,
-    internal: internalWithEvidence,
-  });
+    throw error;
+  }
 }

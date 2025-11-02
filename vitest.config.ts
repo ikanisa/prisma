@@ -351,6 +351,18 @@ export default defineConfig({
         find: '@prisma-glow/agents',
         replacement: path.resolve(__dirname, './packages/agents/src'),
       },
+      {
+        find: '@prisma-glow/api/schemas',
+        replacement: path.resolve(__dirname, './packages/api/src/schemas/index.ts'),
+      },
+      {
+        find: '@prisma-glow/api',
+        replacement: path.resolve(__dirname, './packages/api/src/index.ts'),
+      },
+      {
+        find: '@prisma-glow/config/env/security',
+        replacement: path.resolve(__dirname, './config/env/security.ts'),
+      },
     ],
   },
 })
