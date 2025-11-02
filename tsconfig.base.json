@@ -20,6 +20,19 @@
         "./packages/api-client/dist/index.d.ts",
         "./packages/api-client/dist/index.js"
       ],
+      "@prisma-glow/api/schemas": [
+        "./packages/api/src/schemas/index.ts",
+        "./packages/api/dist/schemas/index.d.ts",
+        "./packages/api/dist/schemas/index.js"
+      ],
+      "@prisma-glow/api": [
+        "./packages/api/src/index.ts",
+        "./packages/api/dist/index.d.ts",
+        "./packages/api/dist/index.js"
+      ],
+      "@prisma-glow/config/env/security": [
+        "./config/env/security.ts"
+      ],
       "@prisma-glow/system-config": [
         "./packages/system-config/src/index.ts",
         "./packages/system-config/dist/index.d.ts",
@@ -55,6 +68,7 @@
   },
   "references": [
     { "path": "./packages/api-client/tsconfig.json" },
+    { "path": "./packages/api/tsconfig.json" },
     { "path": "./packages/system-config/tsconfig.json" },
     { "path": "./packages/logger/tsconfig.json" },
     { "path": "./packages/ui/tsconfig.json" },
@@ -63,6 +77,7 @@
     { "path": "./packages/platform/tsconfig.json" },
     { "path": "./packages/tax/tsconfig.json" },
     { "path": "./services/rag/tsconfig.json" },
+    { "path": "./services/api/tsconfig.json" },
     { "path": "./apps/gateway/tsconfig.json" }
   ]
 }
