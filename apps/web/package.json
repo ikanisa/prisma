@@ -5,6 +5,9 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "analyze": "ANALYZE=true next build",
+    "analyze:json": "NEXT_DISABLE_ESLINT=1 NEXT_DISABLE_TYPE_CHECK=1 ANALYZE=true ANALYZE_MODE=json SUPABASE_URL=https://supabase.test.local SUPABASE_ANON_KEY=dummy-anon SUPABASE_SERVICE_ROLE_KEY=dummy-service OPENAI_API_KEY=dummy-openai DEFAULT_ORG_ID=00000000-0000-0000-0000-000000000000 next build",
+    "bundle:check": "pnpm run analyze:json && node ../../tools/check-next-bundle.mjs .next/analyze/client.json ../../config/web-bundle-budgets.json",
     "start": "next start",
     "typecheck": "pnpm exec tsc --noEmit",
     "lint": "pnpm exec next lint",
@@ -47,6 +50,7 @@
     "@types/node": "^20.12.7",
     "@types/react": "^18.2.45",
     "@types/dompurify": "^3.0.5",
+    "@next/bundle-analyzer": "^15.0.3",
     "autoprefixer": "^10.4.16",
     "eslint": "^8.44.0",
     "eslint-config-next": "14.2.33",

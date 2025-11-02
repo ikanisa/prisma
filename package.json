@@ -24,6 +24,7 @@
     "typecheck": "tsc --noEmit",
     "preview": "vite preview --host --port 8080",
     "check:bundle": "node ./scripts/check_bundlesize.mjs",
+    "check:bundle:web": "pnpm --filter web bundle:check",
     "build:dev": "vite build --mode development",
     "lint": "node ./scripts/lint/check-architecture-adr.mjs && eslint .",
     "lint:workspace": "pnpm -r --if-present run lint",
