@@ -4,6 +4,8 @@ import { getServiceSupabaseClient } from '@/lib/supabase-server';
 import { updateControlSchema } from '@/lib/audit/schemas';
 import { logAuditActivity } from '@/lib/audit/activity-log';
 import { upsertAuditModuleRecord } from '@/lib/audit/module-records';
+import { invalidateRouteCache } from '@/lib/cache/route-cache';
+import { logger } from '@/lib/logger';
 import { attachRequestId, getOrCreateRequestId } from '@/app/lib/observability';
 import { createApiGuard } from '@/app/lib/api-guard';
 
@@ -96,6 +98,13 @@ export async function PATCH(request: Request, context: { params: { id: string } 
   } catch (moduleError) {
     const message = moduleError instanceof Error ? moduleError.message : 'Failed to sync audit module record.';
     return guard.json({ error: message }, { status: 500 });
+  }
+
+  try {
+    await invalidateRouteCache('controls', [orgId, engagementId]);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    logger.warn('apps.web.cache_invalidate_failed', { message, orgId, engagementId, controlId });
   }
 
   return guard.respond({ control: data });

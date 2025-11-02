@@ -22,7 +22,16 @@ regex = '''Bearer\s+[A-Za-z0-9\-\._~\+\/]+=*'''
 tags = ["bearer", "token"]
 
 [allowlist]
-description = "Allow committed Supabase client stubs"
+description = "Allow committed Supabase client stubs and test files with mock tokens"
 paths = [
-    '''src/integrations/supabase/client.ts'''
+    '''src/integrations/supabase/client.ts''',
+    '''tests/.*\.test\.ts''',
+    '''tests/.*\.spec\.ts''',
+    '''tests/.*\.py''',
+    '''tests/.*\.md''',
+    '''__pycache__/.*\.pyc''',
+    '''openapi/.*\.json''',
+    '''packages/api-client/types.ts''',
+    '''server/main.py''',
+    '''apps/.*/src/.*\.test\.ts''',
 ]

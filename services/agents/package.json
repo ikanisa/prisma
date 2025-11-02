@@ -1,0 +1,15 @@
+{
+  "name": "@prisma-glow/agent-service",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc -b tsconfig.json",
+    "lint": "eslint . --ext .ts"
+  },
+  "dependencies": {
+    "@opentelemetry/api": "^1.9.0",
+    "@prisma-glow/agents": "workspace:*"
+  }
+}

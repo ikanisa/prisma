@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseServiceClient } from '@/lib/supabase/server';
 import { recordSpecialistActivity } from '@/lib/supabase/activity';
+import { invalidateSpecialistsCache } from '@/lib/specialists/cache';
 
 const STANDARD_EXPERT = 'ISA 620';
 const ALLOWED_STATUSES = new Set(['draft', 'in_review', 'final']);
@@ -155,6 +156,8 @@ export async function PUT(
       type: 'expert',
     },
   });
+
+  await invalidateSpecialistsCache(data.org_id, data.engagement_id);
 
   return NextResponse.json({ expert: data });
 }

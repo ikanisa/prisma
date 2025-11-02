@@ -4,6 +4,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { getServiceSupabaseClient } from '@/lib/supabase-server';
 import { ensureAuditRecordApprovalStage, upsertAuditModuleRecord } from '@/lib/audit/module-records';
 import { logAuditActivity } from '@/lib/audit/activity-log';
+import { invalidateGroupComponentsCache } from '@/lib/group/cache';
 import { attachRequestId, getOrCreateRequestId } from '@/app/lib/observability';
 import { createApiGuard } from '@/app/lib/api-guard';
 
@@ -146,6 +147,8 @@ export async function POST(request: Request) {
       },
     });
   }
+
+  await invalidateGroupComponentsCache(payload.orgId, payload.engagementId);
 
   return guard.respond({ instruction: data });
 }
