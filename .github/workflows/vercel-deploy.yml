@@ -57,7 +57,7 @@ jobs:
         run: node scripts/deploy/dev.js
 
       - name: Deploy to staging
-        if: startsWith(github.ref, 'refs/heads/staging') || startsWith(github.ref, 'refs/tags/staging-') || startsWith(github.ref, 'refs/tags/release-')
+        if: startsWith(github.ref, 'refs/heads/staging') || startsWith(github.ref, 'refs/tags/staging-')
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           STAGING_VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
@@ -67,7 +67,7 @@ jobs:
         run: node scripts/deploy/staging.js
 
       - name: Deploy to production
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/release-')
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           PROD_VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
