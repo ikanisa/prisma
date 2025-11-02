@@ -50,6 +50,16 @@
       "@prisma-glow/agents": [
         "./packages/agents/src/index.ts",
         "./packages/agents/dist/index.d.ts"
+      ],
+      "@prisma-glow/cache": [
+        "./services/cache/src/index.ts",
+        "./services/cache/dist/index.d.ts",
+        "./services/cache/dist/index.js"
+      ],
+      "@prisma-glow/cache/*": [
+        "./services/cache/src/*.ts",
+        "./services/cache/dist/*.d.ts",
+        "./services/cache/dist/*.js"
       ]
     }
   },
@@ -63,6 +73,7 @@
     { "path": "./packages/platform/tsconfig.json" },
     { "path": "./packages/tax/tsconfig.json" },
     { "path": "./services/rag/tsconfig.json" },
+    { "path": "./services/cache/tsconfig.json" },
     { "path": "./apps/gateway/tsconfig.json" }
   ]
 }
