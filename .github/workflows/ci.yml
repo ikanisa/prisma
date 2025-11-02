@@ -16,23 +16,17 @@ jobs:
   build-test:
     name: Root lint/test/build (+coverage/policy/audit)
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [20.19.4]
     permissions:
       contents: read
     steps:
       - uses: actions/checkout@v5
 
-      - uses: pnpm/action-setup@v4
+      - uses: ./.github/actions/setup-pnpm
         with:
-          version: 9
-          run_install: false
-
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 20.19.4
-          cache: 'pnpm'
-
-      - name: Install deps
-        run: pnpm install --frozen-lockfile
+          node-version: ${{ matrix.node-version }}
 
       - name: Validate system config
         run: pnpm run config:validate
@@ -45,10 +39,10 @@ jobs:
 
       - name: Unit tests with coverage (Vitest)
         env:
-          TARGET_STATEMENTS: 45
-          TARGET_BRANCHES: 40
-          TARGET_FUNCTIONS: 45
-          TARGET_LINES: 45
+          TARGET_STATEMENTS: 85
+          TARGET_BRANCHES: 80
+          TARGET_FUNCTIONS: 85
+          TARGET_LINES: 85
         run: |
           pnpm run config:validate
           pnpm run coverage
@@ -145,26 +139,23 @@ jobs:
     name: OpenAPI codegen + client build
     runs-on: ubuntu-latest
     needs: [build-test, migration-smoke]
+    strategy:
+      matrix:
+        node-version: [20.19.4]
     steps:
       - uses: actions/checkout@v5
 
-      - uses: pnpm/action-setup@v4
+      - uses: ./.github/actions/setup-pnpm
         with:
-          version: 9
-          run_install: false
-
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 20.19.4
-          cache: 'pnpm'
+          node-version: ${{ matrix.node-version }}
 
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
           cache: 'pip'
-
-      - name: Install root deps
-        run: pnpm install --frozen-lockfile
+          cache-dependency-path: |
+            server/requirements.txt
+            server/requirements.offline.txt
 
       - name: Install backend deps for OpenAPI export
         run: |
@@ -191,6 +182,9 @@ jobs:
     name: Next.js + Prisma
     runs-on: ubuntu-latest
     needs: [build-test, migration-smoke]
+    strategy:
+      matrix:
+        node-version: [20.19.4]
     env:
       DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/postgres
       DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/postgres
@@ -198,18 +192,9 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - uses: pnpm/action-setup@v4
+      - uses: ./.github/actions/setup-pnpm
         with:
-          version: 9
-          run_install: false
-
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 20.19.4
-          cache: 'pnpm'
-
-      - name: Install dependencies (Next.js app)
-        run: pnpm install --frozen-lockfile
+          node-version: ${{ matrix.node-version }}
 
       - name: Prisma validate
         run: pnpm --filter web exec prisma validate
@@ -230,21 +215,15 @@ jobs:
     name: UI smoke (Playwright)
     runs-on: ubuntu-latest
     needs: [build-test, next-web]
+    strategy:
+      matrix:
+        node-version: [20.19.4]
     steps:
       - uses: actions/checkout@v5
 
-      - uses: pnpm/action-setup@v4
+      - uses: ./.github/actions/setup-pnpm
         with:
-          version: 9
-          run_install: false
-
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 20.19.4
-          cache: 'pnpm'
-
-      - name: Install deps
-        run: pnpm install --frozen-lockfile
+          node-version: ${{ matrix.node-version }}
 
       - name: Install Playwright browsers
         run: pnpm exec playwright install --with-deps
@@ -265,21 +244,15 @@ jobs:
     runs-on: ubuntu-latest
     needs: build-test
     if: github.ref == 'refs/heads/main' || github.event_name == 'pull_request'
+    strategy:
+      matrix:
+        node-version: [20.19.4]
     steps:
       - uses: actions/checkout@v5
 
-      - uses: pnpm/action-setup@v4
+      - uses: ./.github/actions/setup-pnpm
         with:
-          version: 9
-          run_install: false
-
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 20.19.4
-          cache: 'pnpm'
-
-      - name: Install deps
-        run: pnpm install --frozen-lockfile
+          node-version: ${{ matrix.node-version }}
 
       - name: Dry-run manifest publish
         if: github.event_name == 'pull_request'
@@ -299,21 +272,15 @@ jobs:
     runs-on: ubuntu-latest
     needs: build-test
     if: github.event_name == 'schedule'
+    strategy:
+      matrix:
+        node-version: [20.19.4]
     steps:
       - uses: actions/checkout@v5
 
-      - uses: pnpm/action-setup@v4
+      - uses: ./.github/actions/setup-pnpm
         with:
-          version: 9
-          run_install: false
-
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 20.19.4
-          cache: 'pnpm'
-
-      - name: Install deps
-        run: pnpm install --frozen-lockfile
+          node-version: ${{ matrix.node-version }}
 
       - name: Run agent evaluations
         env:
@@ -389,3 +356,97 @@ jobs:
         if: always()
         run: |
           if [ -f api.pid ]; then kill $(cat api.pid) || true; fi
+
+  verify-sbom-generation:
+    name: Verify SBOM Generation
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+      pull-requests: write
+    
+    steps:
+      - uses: actions/checkout@v5
+      
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          run_install: false
+      
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20.19.4
+          cache: 'pnpm'
+      
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          pnpm install --frozen-lockfile || pnpm install --no-frozen-lockfile
+          pip install --upgrade pip
+          pip install cyclonedx-bom
+      
+      - name: Test SBOM generation
+        run: |
+          echo "🧪 Testing SBOM generation workflow..."
+          mkdir -p docs/sbom
+          
+          # Generate root SBOM
+          npx @cyclonedx/cyclonedx-npm \
+            --output-format JSON \
+            --output-file docs/sbom/prisma-root-node.json \
+            --short-PURLs \
+            --package-lock-only
+          
+          # Generate Python SBOM
+          cd server
+          cyclonedx-py \
+            --format json \
+            --output ../docs/sbom/prisma-backend-python.json \
+            --requirements requirements.txt
+          cd ..
+      
+      - name: Verify generated SBOMs
+        run: |
+          echo "✅ Verifying SBOM generation..."
+          
+          # Check files exist
+          if [ ! -f docs/sbom/prisma-root-node.json ]; then
+            echo "❌ Root SBOM not generated"
+            exit 1
+          fi
+          
+          if [ ! -f docs/sbom/prisma-backend-python.json ]; then
+            echo "❌ Python SBOM not generated"
+            exit 1
+          fi
+          
+          # Validate JSON
+          jq empty docs/sbom/prisma-root-node.json || exit 1
+          jq empty docs/sbom/prisma-backend-python.json || exit 1
+          
+          # Check CycloneDX format
+          if ! jq -e '.bomFormat == "CycloneDX"' docs/sbom/prisma-root-node.json > /dev/null; then
+            echo "❌ Root SBOM missing bomFormat"
+            exit 1
+          fi
+          
+          echo "✅ SBOM generation verified successfully"
+          
+          # Report to PR
+          echo "## ✅ SBOM Generation Verified" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Successfully generated and validated SBOMs:" >> $GITHUB_STEP_SUMMARY
+          echo "- Root Node.js dependencies" >> $GITHUB_STEP_SUMMARY
+          echo "- Python backend dependencies" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          root_components=$(jq '.components | length' docs/sbom/prisma-root-node.json)
+          python_components=$(jq '.components | length' docs/sbom/prisma-backend-python.json)
+          
+          echo "**Component Counts:**" >> $GITHUB_STEP_SUMMARY
+          echo "- Node.js: $root_components components" >> $GITHUB_STEP_SUMMARY
+          echo "- Python: $python_components components" >> $GITHUB_STEP_SUMMARY

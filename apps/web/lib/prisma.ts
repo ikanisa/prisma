@@ -2,6 +2,10 @@ type PrismaClientLike = {
   $connect(): Promise<void> | void;
   $disconnect(): Promise<void> | void;
   $queryRaw<T = unknown>(...args: unknown[]): Promise<T> | T;
+  $on?(
+    event: 'query' | 'error' | 'warn' | 'info',
+    callback: (payload: Record<string, unknown>) => void,
+  ): void;
 };
 
 type PrismaClientConstructor = new (...args: unknown[]) => PrismaClientLike;
@@ -19,6 +23,11 @@ const FallbackPrismaClient: PrismaClientConstructor = class implements PrismaCli
 
   async $queryRaw<T = unknown>(): Promise<T> {
     return Promise.resolve(undefined as T);
+  }
+
+  // eslint-disable-next-line class-methods-use-this
+  $on(): void {
+    // no-op for fallback implementation
   }
 };
 
@@ -41,15 +50,67 @@ const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClientInstance;
 };
 
+const shouldLogQueries = (): boolean => {
+  const explicit = process.env.PRISMA_LOG_QUERIES ?? process.env.NEXT_PUBLIC_PRISMA_LOG_QUERIES;
+  if (typeof explicit === 'string') {
+    if (explicit.trim().length === 0) {
+      return false;
+    }
+    const normalized = explicit.trim().toLowerCase();
+    return normalized === '1' || normalized === 'true' || normalized === 'yes';
+  }
+
+  return process.env.NODE_ENV !== 'production';
+};
+
+type PrismaLogDefinition = {
+  level: 'query' | 'warn' | 'error';
+  emit: 'stdout' | 'event';
+};
+
+const createLogConfiguration = (): PrismaLogDefinition[] => {
+  const levels: PrismaLogDefinition[] = [
+    { level: 'error', emit: 'stdout' },
+    { level: 'warn', emit: 'stdout' },
+  ];
+
+  if (shouldLogQueries()) {
+    levels.push({ level: 'query', emit: 'event' });
+  }
+
+  return levels;
+};
+
 const prismaInstance: PrismaClientInstance = (() => {
   if (globalForPrisma.prisma) {
     return globalForPrisma.prisma;
   }
 
+  const shouldLogQueries =
+    (process.env.PRISMA_LOG_QUERIES ?? process.env.SUPABASE_QUERY_LOGGING ?? 'false').toLowerCase() ===
+    'true';
+
   try {
-    return new PrismaClientCtor({
-      log: ['error', 'warn'],
-    });
+    const client = new PrismaClientCtor({
+      log: shouldLogQueries
+        ? ['error', 'warn', { level: 'query', emit: 'event' }]
+        : ['error', 'warn'],
+    } as Record<string, unknown>);
+
+    if (shouldLogQueries && typeof client.$on === 'function') {
+      client.$on('query', (event: Record<string, unknown>) => {
+        const payload = {
+          level: 'debug',
+          msg: 'prisma.query',
+          query: event.query ?? event['query'],
+          params: event.params ?? event['params'],
+          durationMs: event.duration ?? event['duration'],
+        };
+        console.log(JSON.stringify(payload));
+      });
+    }
+
+    return client;
   } catch (error) {
     const message = error instanceof Error ? error.message : '';
     const needsFallback =

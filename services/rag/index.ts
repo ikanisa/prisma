@@ -7,7 +7,7 @@ import pdfParse from 'pdf-parse';
 import Tesseract from 'tesseract.js';
 import { Client } from 'pg';
 import { vector } from './vector.js';
-import NodeCache from 'node-cache';
+import { createCacheClient, resolveCacheTtl } from '@prisma-glow/cache';
 import jwt, { type JwtPayload } from 'jsonwebtoken';
 import { randomUUID, createHash } from 'crypto';
 import { AsyncLocalStorage } from 'node:async_hooks';
@@ -15,14 +15,10 @@ import * as Sentry from '@sentry/node';
 import { context, trace, SpanStatusCode } from '@opentelemetry/api';
 import type { Attributes, Span } from '@opentelemetry/api';
 import { createAnalyticsClient } from '@prisma-glow/analytics';
-import { NodeTracerProvider } from '@opentelemetry/sdk-trace-node';
-import { BatchSpanProcessor } from '@opentelemetry/sdk-trace-base';
-import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
-import { Resource } from '@opentelemetry/resources';
-import { SemanticResourceAttributes } from '@opentelemetry/semantic-conventions';
-import { registerInstrumentations } from '@opentelemetry/instrumentation';
 import { HttpInstrumentation } from '@opentelemetry/instrumentation-http';
 import { ExpressInstrumentation } from '@opentelemetry/instrumentation-express';
+import { setupNodeOtel } from '@prisma-glow/otel';
+import { createLogger, setLogContextProvider } from '@prisma-glow/logging';
 import {
   AnalyticsEventValidationError,
   buildAutonomyTelemetryEvent,
@@ -32,6 +28,11 @@ import {
   recordEventOnSpan,
 } from '../../analytics/events/node.js';
 import { createClient } from '@supabase/supabase-js';
+import { instrumentSupabaseClient } from './prisma/query-logger.js';
+import {
+  createTaskDependencyLoader,
+  resolveAssignableTaskIds,
+} from './prisma/task-dependency-loader.js';
 import type {
   ChatCompletionChunk,
   ChatCompletionCreateParamsNonStreaming,
@@ -153,6 +154,12 @@ const OTLP_ENDPOINT = process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
 let telemetryInitialised = false;
 const RUNTIME_ENVIRONMENT = process.env.ENVIRONMENT ?? process.env.NODE_ENV ?? 'development';
 const SERVICE_VERSION = process.env.SERVICE_VERSION ?? process.env.SENTRY_RELEASE ?? 'dev';
+
+const serviceLogger = createLogger({
+  scope: 'rag-service',
+  defaultMeta: { service: SERVICE_NAME, environment: RUNTIME_ENVIRONMENT },
+});
+
 const analyticsClient = createAnalyticsClient({
   endpoint: process.env.ANALYTICS_SERVICE_URL,
   apiKey: process.env.ANALYTICS_SERVICE_TOKEN,
@@ -167,37 +174,37 @@ const WEB_FETCH_CACHE_RETENTION_MS = Math.max(0, env.WEB_FETCH_CACHE_RETENTION_D
 const WEB_FETCH_CACHE_PRUNE_INTERVAL_MS = 15 * 60 * 1000;
 let lastWebCachePruneAt = 0;
 
-function configureTelemetry(): void {
+let tracer = trace.getTracer(SERVICE_NAME);
+
+async function configureTelemetry(): Promise<void> {
   if (telemetryInitialised) {
     return;
   }
 
-  const resource = new Resource({
-    [SemanticResourceAttributes.SERVICE_NAME]: SERVICE_NAME,
-    'service.namespace': 'prisma-glow',
-    'deployment.environment': RUNTIME_ENVIRONMENT,
-    'service.version': SERVICE_VERSION,
-  });
-
-  const provider = new NodeTracerProvider({ resource });
-  if (OTLP_ENDPOINT) {
-    provider.addSpanProcessor(
-      new BatchSpanProcessor(
-        new OTLPTraceExporter({ url: OTLP_ENDPOINT }),
-      ),
-    );
+  try {
+    const result = await setupNodeOtel({
+      serviceName: SERVICE_NAME,
+      environment: RUNTIME_ENVIRONMENT,
+      version: SERVICE_VERSION,
+      exporterEndpoint: OTLP_ENDPOINT,
+      instrumentations: [new HttpInstrumentation(), new ExpressInstrumentation()],
+      logger: serviceLogger.child({ scope: 'rag-service.telemetry' }),
+    });
+    tracer = trace.getTracer(result.serviceName);
+    serviceLogger.info('rag.telemetry.initialised', {
+      exporter: result.exporter?.name ?? null,
+      endpoint: result.exporter?.endpoint ?? OTLP_ENDPOINT ?? null,
+    });
+  } catch (error) {
+    serviceLogger.warn('rag.telemetry.init_failed', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+  } finally {
+    telemetryInitialised = true;
   }
-  provider.register();
-
-  registerInstrumentations({
-    instrumentations: [new HttpInstrumentation(), new ExpressInstrumentation()],
-  });
-
-  telemetryInitialised = true;
 }
 
-configureTelemetry();
-const tracer = trace.getTracer(SERVICE_NAME);
+void configureTelemetry();
 
 const SENTRY_RELEASE = process.env.SENTRY_RELEASE;
 const SENTRY_ENVIRONMENT = process.env.SENTRY_ENVIRONMENT ?? RUNTIME_ENVIRONMENT;
@@ -720,6 +727,12 @@ app.use(express.json({ limit: '10mb' }));
 const HEADER_REQUEST_ID = 'x-request-id';
 const requestContext = new AsyncLocalStorage<{ requestId: string }>();
 
+setLogContextProvider(() => {
+  const context = requestContext.getStore();
+  if (!context) return {};
+  return { requestId: context.requestId };
+});
+
 app.use((req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   const existing = req.header(HEADER_REQUEST_ID);
   const requestId = existing && existing.trim().length > 0 ? existing : randomUUID();
@@ -746,59 +759,123 @@ if (!JWT_SECRET) {
 }
 
 const upload = multer();
-const cache = new NodeCache({ stdTTL: 60 });
-const idempotencyCache = new NodeCache();
+
+const cacheClient = await createCacheClient({ namespace: 'rag-service' });
+const SEARCH_CACHE_PREFIX = 'search';
+const IDEMPOTENCY_CACHE_PREFIX = 'idempotency';
+const ORG_CONTEXT_CACHE_PREFIX = 'org-context';
+const DRIVE_UPLOADER_CACHE_PREFIX = 'drive-uploader';
+
+const ragSearchTtlSeconds = resolveCacheTtl('ragSearch');
+const idempotencyCacheTtlSeconds = resolveCacheTtl('ragIdempotency');
+const orgLookupTtlSeconds = resolveCacheTtl('ragOrgLookup');
+const driveUploaderCacheTtlSeconds = resolveCacheTtl('ragDriveUploader');
 
 type IdempotencyCacheEntry = {
   status: number;
   body: unknown;
 };
 
+function buildSearchCacheKey(orgId: string, limit: number, query: string) {
+  const digest = createHash('sha1').update(query).digest('hex');
+  return `${SEARCH_CACHE_PREFIX}:${orgId}:${limit}:${digest}`;
+}
+
+function buildSearchCachePrefix(orgId: string) {
+  return `${SEARCH_CACHE_PREFIX}:${orgId}:`;
+}
+
+function buildIdempotencyCacheKey(rawKey: string) {
+  return `${IDEMPOTENCY_CACHE_PREFIX}:${createHash('sha1').update(rawKey).digest('hex')}`;
+}
+
+function normaliseOrgSlug(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+function buildOrgContextCacheKey(userId: string, orgSlug: string) {
+  const normalized = normaliseOrgSlug(orgSlug);
+  const digest = createHash('sha1').update(`${userId}:${normalized}`).digest('hex');
+  return `${ORG_CONTEXT_CACHE_PREFIX}:${normalized}:${digest}`;
+}
+
+function buildDriveUploaderCacheKey(orgId: string) {
+  return `${DRIVE_UPLOADER_CACHE_PREFIX}:${orgId}`;
+}
+
+async function invalidateSearchCacheForOrg(orgId: string) {
+  try {
+    await cacheClient.deleteByPrefix(buildSearchCachePrefix(orgId));
+  } catch (error) {
+    logError('search.cache_invalidate_failed', error, { orgId });
+  }
+}
+
+
 function applyExpressIdempotency(options: {
   keyBuilder: (req: AuthenticatedRequest) => string | null | undefined;
   ttlSeconds?: number;
 }) {
-  const ttl = options.ttlSeconds ?? 300;
+  const ttlValue = options.ttlSeconds ?? idempotencyCacheTtlSeconds;
+  const parsedTtl = Number(ttlValue);
+  const ttlSeconds = Number.isFinite(parsedTtl) ? Math.max(0, Math.trunc(parsedTtl)) : 0;
 
   return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-    let key: string | null | undefined;
-    try {
-      key = options.keyBuilder(req);
-    } catch (error) {
-      logError('idempotency.key_builder_failed', error, { path: req.path });
-      return next();
-    }
-
-    if (!key || key.length === 0) {
-      return next();
-    }
-
-    const cached = idempotencyCache.get<IdempotencyCacheEntry>(key);
-    if (cached) {
-      res.setHeader('X-Idempotency-Key', key);
-      res.setHeader('X-Idempotency-Cache', 'HIT');
-      return res.status(cached.status).json(cached.body);
-    }
-
-    res.setHeader('X-Idempotency-Key', key);
-    res.setHeader('X-Idempotency-Cache', 'MISS');
-
-    let responseBody: unknown | undefined;
-    const originalJson = res.json.bind(res);
-
-    res.json = (body: unknown) => {
-      responseBody = body;
-      return originalJson(body);
-    };
-
-    res.on('finish', () => {
-      if (!responseBody) return;
-      if (res.statusCode >= 200 && res.statusCode < 300) {
-        idempotencyCache.set(key as string, { status: res.statusCode, body: responseBody }, ttl);
+    void (async () => {
+      let key: string | null | undefined;
+      try {
+        key = options.keyBuilder(req);
+      } catch (error) {
+        logError('idempotency.key_builder_failed', error, { path: req.path });
+        next();
+        return;
       }
-    });
 
-    return next();
+      if (!key || key.length === 0) {
+        next();
+        return;
+      }
+
+      const cacheKey = buildIdempotencyCacheKey(key);
+
+      try {
+        const cached = await cacheClient.get<IdempotencyCacheEntry>(cacheKey);
+        if (cached) {
+          res.setHeader('X-Idempotency-Key', key);
+          res.setHeader('X-Idempotency-Cache', 'HIT');
+          res.status(cached.status).json(cached.body);
+          return;
+        }
+      } catch (error) {
+        logError('idempotency.cache_read_failed', error, { path: req.path });
+      }
+
+      res.setHeader('X-Idempotency-Key', key);
+      res.setHeader('X-Idempotency-Cache', 'MISS');
+
+      let responseBody: unknown | undefined;
+      const originalJson = res.json.bind(res);
+
+      res.json = (body: unknown) => {
+        responseBody = body;
+        return originalJson(body);
+      };
+
+      res.on('finish', () => {
+        if (!responseBody) return;
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          const setOptions = ttlSeconds > 0 ? { ttlSeconds } : undefined;
+          void cacheClient
+            .set(cacheKey, { status: res.statusCode, body: responseBody }, setOptions)
+            .catch((error) => logError('idempotency.cache_write_failed', error, { path: req.path }));
+        }
+      });
+
+      next();
+    })().catch((error) => {
+      logError('idempotency.middleware_failed', error, { path: req.path });
+      next();
+    });
   };
 }
 
@@ -807,7 +884,6 @@ const RATE_WINDOW_MS = Number(process.env.API_RATE_WINDOW_SECONDS ?? '60') * 100
 const requestBuckets = new Map<string, number[]>();
 
 const GDRIVE_QUEUE_PROCESS_LIMIT = Number(process.env.GDRIVE_PROCESS_BATCH_LIMIT ?? '10');
-const driveUploaderCache = new Map<string, string>();
 type DriveFileMetadata = { metadata: Record<string, unknown>; allowlisted_domain: boolean };
 
 type AgentTypeKey = 'CLOSE' | 'TAX' | 'AUDIT' | 'ADVISORY' | 'CLIENT';
@@ -1419,23 +1495,6 @@ async function evaluateTaskSafety(params: {
   return { status: 'COMPLETED', metadata: baseMetadata };
 }
 
-async function areDependenciesCompleted(dependencyIds: string[]): Promise<boolean> {
-  if (!dependencyIds || dependencyIds.length === 0) return true;
-
-  const { data, error } = await supabaseService
-    .from('agent_orchestration_tasks')
-    .select('id, status')
-    .in('id', dependencyIds)
-    .eq('status', 'COMPLETED');
-
-  if (error) {
-    logError('mcp.dependencies_lookup_failed', error, { dependencyIds });
-    return false;
-  }
-
-  return (data ?? []).length === dependencyIds.length;
-}
-
 async function processPendingOrchestrationTasks() {
   if (!OPENAI_ORCHESTRATOR_ENABLED) return;
   try {
@@ -1448,14 +1507,15 @@ async function processPendingOrchestrationTasks() {
     if (error) throw error;
     if (!pendingTasks || pendingTasks.length === 0) return;
 
-    const assignable: string[] = [];
-    for (const task of pendingTasks) {
-      const dependencies = Array.isArray(task.depends_on) ? task.depends_on : [];
-      const ready = await areDependenciesCompleted(dependencies);
-      if (ready) {
-        assignable.push(task.id);
-      }
-    }
+    const assignable = await resolveAssignableTaskIds(
+      pendingTasks,
+      taskDependencyLoader,
+      (dependencyError, context) => {
+        logError('mcp.dependencies_lookup_failed', dependencyError, {
+          dependencyCount: context.dependencyCount,
+        });
+      },
+    );
 
     if (assignable.length === 0) return;
 
@@ -1467,6 +1527,8 @@ async function processPendingOrchestrationTasks() {
       .select('id, session_id');
 
     if (updateError) throw updateError;
+
+    taskDependencyLoader.clear(assignable);
 
     for (const task of updatedTasks ?? []) {
       logInfo('mcp.scheduler_assigned', { taskId: task.id, sessionId: task.session_id });
@@ -2074,19 +2136,11 @@ function enrichMeta(meta: Record<string, unknown> = {}): Record<string, unknown>
 }
 
 function logInfo(message: string, meta: Record<string, unknown> = {}) {
-  console.log(JSON.stringify({ level: 'info', msg: message, ...enrichMeta(meta) }));
+  serviceLogger.info(message, enrichMeta(meta));
 }
 
 function logError(message: string, error: unknown, meta: Record<string, unknown> = {}) {
-  console.error(
-    JSON.stringify({
-      level: 'error',
-      msg: message,
-      error: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined,
-      ...enrichMeta(meta),
-    })
-  );
+  serviceLogger.error(message, { ...enrichMeta(meta), error });
   if (SENTRY_ENABLED) {
     Sentry.captureException(error);
   }
@@ -2404,8 +2458,36 @@ if (!SUPABASE_URL) {
 
 const SUPABASE_SERVICE_ROLE_KEY = await getSupabaseServiceRoleKey();
 
-const supabaseService = createClient<Database>(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+const rawSupabaseService = createClient<Database>(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
   auth: { persistSession: false },
+});
+
+const SUPABASE_QUERY_LOGGING_ENABLED =
+  (process.env.SUPABASE_QUERY_LOGGING ?? process.env.PRISMA_LOG_QUERIES ?? 'false').toLowerCase() ===
+  'true';
+
+const supabaseService = instrumentSupabaseClient(rawSupabaseService, {
+  enabled: SUPABASE_QUERY_LOGGING_ENABLED,
+  logger: (event) => {
+    if (!SUPABASE_QUERY_LOGGING_ENABLED) return;
+    logInfo('db.query', {
+      table: event.table,
+      action: event.action,
+      args: event.args,
+    });
+  },
+});
+
+const taskDependencyLoader = createTaskDependencyLoader({
+  supabase: supabaseService,
+  onBatchResolved: ({ ids, completedCount }) => {
+    if (!SUPABASE_QUERY_LOGGING_ENABLED) return;
+    logInfo('db.batch_dependency_lookup', {
+      table: 'agent_orchestration_tasks',
+      dependencyCount: ids.length,
+      completedCount,
+    });
+  },
 });
 
 startNotificationFanoutWorker({ supabase: supabaseService, logInfo, logError });
@@ -2810,20 +2892,40 @@ app.post('/internal/knowledge/embeddings/reembed-delta', async (req, res) => {
 app.use(authenticate);
 
 async function resolveOrgForUser(userId: string, orgSlug: string) {
-  const { data: org, error: orgError } = await supabaseService
-    .from('organizations')
-    .select('id, slug')
-    .eq('slug', orgSlug)
-    .maybeSingle();
+  const normalizedSlug = normaliseOrgSlug(orgSlug);
+  const cacheKey = buildOrgContextCacheKey(userId, normalizedSlug);
+  const setOptions = orgLookupTtlSeconds > 0 ? { ttlSeconds: orgLookupTtlSeconds } : undefined;
 
-  if (orgError || !org) {
-    throw new Error('organization_not_found');
+  let orgRecord: { id: string; slug: string } | null = null;
+
+  try {
+    const cached = await cacheClient.get<{ orgId: string; orgSlug: string }>(cacheKey);
+    if (cached) {
+      orgRecord = { id: cached.orgId, slug: cached.orgSlug };
+    }
+  } catch (error) {
+    logError('org.cache_read_failed', error, { userId, orgSlug: normalizedSlug });
+  }
+
+  if (!orgRecord) {
+    const trimmedSlug = orgSlug.trim();
+    const { data: org, error: orgError } = await supabaseService
+      .from('organizations')
+      .select('id, slug')
+      .eq('slug', trimmedSlug)
+      .maybeSingle();
+
+    if (orgError || !org) {
+      throw new Error('organization_not_found');
+    }
+
+    orgRecord = org;
   }
 
   const { data: membership, error: membershipError } = await supabaseService
     .from('memberships')
     .select('role')
-    .eq('org_id', org.id)
+    .eq('org_id', orgRecord.id)
     .eq('user_id', userId)
     .maybeSingle();
 
@@ -2831,11 +2933,19 @@ async function resolveOrgForUser(userId: string, orgSlug: string) {
     throw new Error('not_a_member');
   }
 
-  return {
-    orgId: org.id,
-    orgSlug: org.slug,
+  const context = {
+    orgId: orgRecord.id,
+    orgSlug: orgRecord.slug,
     role: membership.role as AgentRole,
   };
+
+  if (orgRecord) {
+    void cacheClient
+      .set(cacheKey, { orgId: orgRecord.id, orgSlug: orgRecord.slug }, setOptions)
+      .catch((error) => logError('org.cache_write_failed', error, { userId, orgSlug: normalizedSlug }));
+  }
+
+  return context;
 }
 
 async function loadAgentSessionForUser(userId: string, sessionId: string) {
@@ -4162,8 +4272,14 @@ async function fetchLearningJob(jobId: string): Promise<LearningJob | null> {
 }
 
 async function resolveDriveUploaderId(orgId: string): Promise<string> {
-  if (driveUploaderCache.has(orgId)) {
-    return driveUploaderCache.get(orgId)!;
+  const cacheKey = buildDriveUploaderCacheKey(orgId);
+  try {
+    const cached = await cacheClient.get<string>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+  } catch (error) {
+    logError('drive.cache_read_failed', error, { orgId });
   }
 
   const { data, error } = await supabaseService
@@ -4192,7 +4308,10 @@ async function resolveDriveUploaderId(orgId: string): Promise<string> {
     throw new Error('no_uploader_for_org');
   }
 
-  driveUploaderCache.set(orgId, uploader);
+  const setOptions = driveUploaderCacheTtlSeconds > 0 ? { ttlSeconds: driveUploaderCacheTtlSeconds } : undefined;
+  void cacheClient
+    .set(cacheKey, uploader, setOptions)
+    .catch((error) => logError('drive.cache_write_failed', error, { orgId }));
   return uploader;
 }
 
@@ -9353,6 +9472,8 @@ app.post('/v1/rag/ingest', upload.single('file'), async (req: AuthenticatedReque
     }
     await db.query('COMMIT');
 
+    await invalidateSearchCacheForOrg(orgContext.orgId);
+
     logInfo('ingest.complete', {
       userId,
       documentId: docId,
@@ -9427,8 +9548,15 @@ app.post('/v1/rag/search', async (req: AuthenticatedRequest, res) => {
 
     const numericLimit = Math.max(1, Math.min(12, Number(limit ?? 5)));
 
-    const cacheKey = `search:${orgContext.orgId}:${numericLimit}:${query}`;
-    const cached = cache.get(cacheKey);
+    type SearchCachePayload = { results: Array<Record<string, unknown>> };
+    const cacheKey = buildSearchCacheKey(orgContext.orgId, numericLimit, query);
+    let cached: SearchCachePayload | null = null;
+    try {
+      cached = await cacheClient.get<SearchCachePayload>(cacheKey);
+    } catch (error) {
+      logError('search.cache_read_failed', error, { orgId: orgContext.orgId });
+    }
+
     if (cached) {
       logInfo('search.cache_hit', { userId, orgId: orgContext.orgId, query });
       analyticsClient
@@ -9440,7 +9568,7 @@ app.post('/v1/rag/search', async (req: AuthenticatedRequest, res) => {
           properties: {
             queryLength: query.length,
             limit: numericLimit,
-            results: Array.isArray((cached as any).results) ? (cached as any).results.length : 0,
+            results: cached.results.length,
           },
           context: {
             requestId: req.requestId,
@@ -9467,8 +9595,11 @@ app.post('/v1/rag/search', async (req: AuthenticatedRequest, res) => {
       parsedResults = [];
     }
 
-    const response = { results: parsedResults };
-    cache.set(cacheKey, response);
+    const response: SearchCachePayload = { results: parsedResults };
+    const setOptions = ragSearchTtlSeconds > 0 ? { ttlSeconds: ragSearchTtlSeconds } : undefined;
+    void cacheClient
+      .set(cacheKey, response, setOptions)
+      .catch((error) => logError('search.cache_write_failed', error, { orgId: orgContext.orgId }));
     logInfo('search.complete', {
       userId,
       orgId: orgContext.orgId,
@@ -9543,6 +9674,7 @@ app.post('/v1/rag/reembed', async (req: AuthenticatedRequest, res) => {
     for (let i = 0; i < rows.length; i++) {
       await db.query('UPDATE document_chunks SET embedding = $1 WHERE id = $2', [vector(embeddings[i]), rows[i].id]);
     }
+    await invalidateSearchCacheForOrg(orgContext.orgId);
     logInfo('reembed.complete', {
       userId,
       documentId,
@@ -9707,6 +9839,8 @@ app.post('/v1/storage/documents', upload.single('file'), async (req: Authenticat
         size: req.file.size,
       },
     });
+
+    await invalidateSearchCacheForOrg(orgContext.orgId);
 
     logInfo('documents.uploaded', { userId, documentId: document.id, path: storagePath });
     return res.status(201).json({ document });
@@ -9936,6 +10070,8 @@ app.delete('/v1/storage/documents/:id', async (req: AuthenticatedRequest, res) =
     if (deleteError) {
       throw deleteError;
     }
+
+    await invalidateSearchCacheForOrg(document.org_id);
 
     await supabaseService.from('activity_log').insert({
       org_id: document.org_id,

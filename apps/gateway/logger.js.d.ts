@@ -1,4 +1,4 @@
-import type { Logger } from '@prisma-glow/logger';
+import type { Logger } from '@prisma-glow/logging';
 
 export type LogFunction = (message: string, details?: unknown) => void;
 
@@ -11,3 +11,18 @@ export function logError(
   error: unknown,
   meta?: Record<string, unknown>
 ): void;
+
+declare module './logger.js' {
+  export type { LogFunction };
+  export { logger, logInfo, logWarn, logError };
+}
+
+declare module '../logger.js' {
+  export type { LogFunction };
+  export { logger, logInfo, logWarn, logError };
+}
+
+declare module '../../logger.js' {
+  export type { LogFunction };
+  export { logger, logInfo, logWarn, logError };
+}

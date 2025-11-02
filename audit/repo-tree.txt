@@ -1,0 +1,2885 @@
+.
+├── .changeset
+│   └── README.md
+├── .coverage
+├── .dockerignore
+├── .editorconfig
+├── .env.development.example
+├── .env.example
+├── .env.production.example
+├── .env.template
+├── .github
+│   ├── CODEOWNERS
+│   ├── ISSUE_TEMPLATE
+│   │   ├── bug_report.md
+│   │   ├── config.yml
+│   │   ├── feature_request.md
+│   │   ├── question.md
+│   │   └── security_vulnerability.md
+│   ├── PULL_REQUEST_TEMPLATE.md
+│   ├── SUPPORT.md
+│   ├── copilot-instructions.md
+│   ├── dependabot.yml
+│   ├── pull_request_template.md
+│   └── workflows
+│       ├── README.md
+│       ├── ci-secret-guard.yml
+│       ├── ci.yml
+│       ├── codeql.yml
+│       ├── compose-deploy.yml
+│       ├── container-scan.yml
+│       ├── docker-build.yml
+│       ├── healthz-smoke.yml
+│       ├── prisma-migrate.yml
+│       ├── pwa-audit.yml
+│       ├── sbom.yml
+│       ├── supabase-migrate.yml
+│       └── workspace-ci.yml
+├── .gitignore
+├── .gitleaks.toml
+├── .node-version
+├── .nvmrc
+├── .secret-scan-ignore
+├── .venv
+│   ├── bin
+│   │   ├── Activate.ps1
+│   │   ├── activate
+│   │   ├── activate.csh
+│   │   ├── activate.fish
+│   │   ├── pip
+│   │   ├── pip3
+│   │   ├── pip3.12
+│   │   ├── python -> python3
+│   │   ├── python3 -> /usr/bin/python3
+│   │   └── python3.12 -> python3
+│   ├── lib
+│   │   └── python3.12
+│   │       └── site-packages
+│   │           ├── pip
+│   │           │   ├── __init__.py
+│   │           │   ├── __main__.py
+│   │           │   ├── __pip-runner__.py
+│   │           │   ├── _internal
+│   │           │   │   ├── __init__.py
+│   │           │   │   ├── build_env.py
+│   │           │   │   ├── cache.py
+│   │           │   │   ├── cli
+│   │           │   │   │   ├── __init__.py
+│   │           │   │   │   ├── autocompletion.py
+│   │           │   │   │   ├── base_command.py
+│   │           │   │   │   ├── cmdoptions.py
+│   │           │   │   │   ├── command_context.py
+│   │           │   │   │   ├── main.py
+│   │           │   │   │   ├── main_parser.py
+│   │           │   │   │   ├── parser.py
+│   │           │   │   │   ├── progress_bars.py
+│   │           │   │   │   ├── req_command.py
+│   │           │   │   │   ├── spinners.py
+│   │           │   │   │   └── status_codes.py
+│   │           │   │   ├── commands
+│   │           │   │   │   ├── __init__.py
+│   │           │   │   │   ├── cache.py
+│   │           │   │   │   ├── check.py
+│   │           │   │   │   ├── completion.py
+│   │           │   │   │   ├── configuration.py
+│   │           │   │   │   ├── debug.py
+│   │           │   │   │   ├── download.py
+│   │           │   │   │   ├── freeze.py
+│   │           │   │   │   ├── hash.py
+│   │           │   │   │   ├── help.py
+│   │           │   │   │   ├── index.py
+│   │           │   │   │   ├── inspect.py
+│   │           │   │   │   ├── install.py
+│   │           │   │   │   ├── list.py
+│   │           │   │   │   ├── search.py
+│   │           │   │   │   ├── show.py
+│   │           │   │   │   ├── uninstall.py
+│   │           │   │   │   └── wheel.py
+│   │           │   │   ├── configuration.py
+│   │           │   │   ├── distributions
+│   │           │   │   │   ├── __init__.py
+│   │           │   │   │   ├── base.py
+│   │           │   │   │   ├── installed.py
+│   │           │   │   │   ├── sdist.py
+│   │           │   │   │   └── wheel.py
+│   │           │   │   ├── exceptions.py
+│   │           │   │   ├── index
+│   │           │   │   │   ├── __init__.py
+│   │           │   │   │   ├── collector.py
+│   │           │   │   │   ├── package_finder.py
+│   │           │   │   │   └── sources.py
+│   │           │   │   ├── locations
+│   │           │   │   │   ├── __init__.py
+│   │           │   │   │   ├── _distutils.py
+│   │           │   │   │   ├── _sysconfig.py
+│   │           │   │   │   └── base.py
+│   │           │   │   ├── main.py
+│   │           │   │   ├── metadata
+│   │           │   │   │   ├── __init__.py
+│   │           │   │   │   ├── _json.py
+│   │           │   │   │   ├── base.py
+│   │           │   │   │   ├── importlib
+│   │           │   │   │   │   ├── __init__.py
+│   │           │   │   │   │   ├── _compat.py
+│   │           │   │   │   │   ├── _dists.py
+│   │           │   │   │   │   └── _envs.py
+│   │           │   │   │   └── pkg_resources.py
+│   │           │   │   ├── models
+│   │           │   │   │   ├── __init__.py
+│   │           │   │   │   ├── candidate.py
+│   │           │   │   │   ├── direct_url.py
+│   │           │   │   │   ├── format_control.py
+│   │           │   │   │   ├── index.py
+│   │           │   │   │   ├── installation_report.py
+│   │           │   │   │   ├── link.py
+│   │           │   │   │   ├── scheme.py
+│   │           │   │   │   ├── search_scope.py
+│   │           │   │   │   ├── selection_prefs.py
+│   │           │   │   │   ├── target_python.py
+│   │           │   │   │   └── wheel.py
+│   │           │   │   ├── network
+│   │           │   │   │   ├── __init__.py
+│   │           │   │   │   ├── auth.py
+│   │           │   │   │   ├── cache.py
+│   │           │   │   │   ├── download.py
+│   │           │   │   │   ├── lazy_wheel.py
+│   │           │   │   │   ├── session.py
+│   │           │   │   │   ├── utils.py
+│   │           │   │   │   └── xmlrpc.py
+│   │           │   │   ├── operations
+│   │           │   │   │   ├── __init__.py
+│   │           │   │   │   ├── check.py
+│   │           │   │   │   ├── freeze.py
+│   │           │   │   │   ├── install
+│   │           │   │   │   │   ├── __init__.py
+│   │           │   │   │   │   ├── editable_legacy.py
+│   │           │   │   │   │   └── wheel.py
+│   │           │   │   │   └── prepare.py
+│   │           │   │   ├── pyproject.py
+│   │           │   │   ├── req
+│   │           │   │   │   ├── __init__.py
+│   │           │   │   │   ├── constructors.py
+│   │           │   │   │   ├── req_file.py
+│   │           │   │   │   ├── req_install.py
+│   │           │   │   │   ├── req_set.py
+│   │           │   │   │   └── req_uninstall.py
+│   │           │   │   ├── resolution
+│   │           │   │   │   ├── __init__.py
+│   │           │   │   │   ├── base.py
+│   │           │   │   │   ├── legacy
+│   │           │   │   │   │   ├── __init__.py
+│   │           │   │   │   │   └── resolver.py
+│   │           │   │   │   └── resolvelib
+│   │           │   │   │       ├── __init__.py
+│   │           │   │   │       ├── base.py
+│   │           │   │   │       ├── candidates.py
+│   │           │   │   │       ├── factory.py
+│   │           │   │   │       ├── found_candidates.py
+│   │           │   │   │       ├── provider.py
+│   │           │   │   │       ├── reporter.py
+│   │           │   │   │       ├── requirements.py
+│   │           │   │   │       └── resolver.py
+│   │           │   │   ├── self_outdated_check.py
+│   │           │   │   ├── utils
+│   │           │   │   │   ├── __init__.py
+│   │           │   │   │   ├── _jaraco_text.py
+│   │           │   │   │   ├── _log.py
+│   │           │   │   │   ├── appdirs.py
+│   │           │   │   │   ├── compat.py
+│   │           │   │   │   ├── compatibility_tags.py
+│   │           │   │   │   ├── datetime.py
+│   │           │   │   │   ├── deprecation.py
+│   │           │   │   │   ├── direct_url_helpers.py
+│   │           │   │   │   ├── egg_link.py
+│   │           │   │   │   ├── encoding.py
+│   │           │   │   │   ├── entrypoints.py
+│   │           │   │   │   ├── filesystem.py
+│   │           │   │   │   ├── filetypes.py
+│   │           │   │   │   ├── glibc.py
+│   │           │   │   │   ├── hashes.py
+│   │           │   │   │   ├── logging.py
+│   │           │   │   │   ├── misc.py
+│   │           │   │   │   ├── models.py
+│   │           │   │   │   ├── packaging.py
+│   │           │   │   │   ├── setuptools_build.py
+│   │           │   │   │   ├── subprocess.py
+│   │           │   │   │   ├── temp_dir.py
+│   │           │   │   │   ├── unpacking.py
+│   │           │   │   │   ├── urls.py
+│   │           │   │   │   ├── virtualenv.py
+│   │           │   │   │   └── wheel.py
+│   │           │   │   ├── vcs
+│   │           │   │   │   ├── __init__.py
+│   │           │   │   │   ├── bazaar.py
+│   │           │   │   │   ├── git.py
+│   │           │   │   │   ├── mercurial.py
+│   │           │   │   │   ├── subversion.py
+│   │           │   │   │   └── versioncontrol.py
+│   │           │   │   └── wheel_builder.py
+│   │           │   ├── _vendor
+│   │           │   │   ├── __init__.py
+│   │           │   │   ├── cachecontrol
+│   │           │   │   │   ├── __init__.py
+│   │           │   │   │   ├── _cmd.py
+│   │           │   │   │   ├── adapter.py
+│   │           │   │   │   ├── cache.py
+│   │           │   │   │   ├── caches
+│   │           │   │   │   │   ├── __init__.py
+│   │           │   │   │   │   ├── file_cache.py
+│   │           │   │   │   │   └── redis_cache.py
+│   │           │   │   │   ├── controller.py
+│   │           │   │   │   ├── filewrapper.py
+│   │           │   │   │   ├── heuristics.py
+│   │           │   │   │   ├── serialize.py
+│   │           │   │   │   └── wrapper.py
+│   │           │   │   ├── certifi
+│   │           │   │   │   ├── __init__.py
+│   │           │   │   │   ├── __main__.py
+│   │           │   │   │   ├── cacert.pem
+│   │           │   │   │   └── core.py
+│   │           │   │   ├── chardet
+│   │           │   │   │   ├── __init__.py
+│   │           │   │   │   ├── big5freq.py
+│   │           │   │   │   ├── big5prober.py
+│   │           │   │   │   ├── chardistribution.py
+│   │           │   │   │   ├── charsetgroupprober.py
+│   │           │   │   │   ├── charsetprober.py
+│   │           │   │   │   ├── cli
+│   │           │   │   │   │   ├── __init__.py
+│   │           │   │   │   │   └── chardetect.py
+│   │           │   │   │   ├── codingstatemachine.py
+│   │           │   │   │   ├── codingstatemachinedict.py
+│   │           │   │   │   ├── cp949prober.py
+│   │           │   │   │   ├── enums.py
+│   │           │   │   │   ├── escprober.py
+│   │           │   │   │   ├── escsm.py
+│   │           │   │   │   ├── eucjpprober.py
+│   │           │   │   │   ├── euckrfreq.py
+│   │           │   │   │   ├── euckrprober.py
+│   │           │   │   │   ├── euctwfreq.py
+│   │           │   │   │   ├── euctwprober.py
+│   │           │   │   │   ├── gb2312freq.py
+│   │           │   │   │   ├── gb2312prober.py
+│   │           │   │   │   ├── hebrewprober.py
+│   │           │   │   │   ├── jisfreq.py
+│   │           │   │   │   ├── johabfreq.py
+│   │           │   │   │   ├── johabprober.py
+│   │           │   │   │   ├── jpcntx.py
+│   │           │   │   │   ├── langbulgarianmodel.py
+│   │           │   │   │   ├── langgreekmodel.py
+│   │           │   │   │   ├── langhebrewmodel.py
+│   │           │   │   │   ├── langhungarianmodel.py
+│   │           │   │   │   ├── langrussianmodel.py
+│   │           │   │   │   ├── langthaimodel.py
+│   │           │   │   │   ├── langturkishmodel.py
+│   │           │   │   │   ├── latin1prober.py
+│   │           │   │   │   ├── macromanprober.py
+│   │           │   │   │   ├── mbcharsetprober.py
+│   │           │   │   │   ├── mbcsgroupprober.py
+│   │           │   │   │   ├── mbcssm.py
+│   │           │   │   │   ├── metadata
+│   │           │   │   │   │   ├── __init__.py
+│   │           │   │   │   │   └── languages.py
+│   │           │   │   │   ├── resultdict.py
+│   │           │   │   │   ├── sbcharsetprober.py
+│   │           │   │   │   ├── sbcsgroupprober.py
+│   │           │   │   │   ├── sjisprober.py
+│   │           │   │   │   ├── universaldetector.py
+│   │           │   │   │   ├── utf1632prober.py
+│   │           │   │   │   ├── utf8prober.py
+│   │           │   │   │   └── version.py
+│   │           │   │   ├── colorama
+│   │           │   │   │   ├── __init__.py
+│   │           │   │   │   ├── ansi.py
+│   │           │   │   │   ├── ansitowin32.py
+│   │           │   │   │   ├── initialise.py
+│   │           │   │   │   ├── tests
+│   │           │   │   │   │   ├── __init__.py
+│   │           │   │   │   │   ├── ansi_test.py
+│   │           │   │   │   │   ├── ansitowin32_test.py
+│   │           │   │   │   │   ├── initialise_test.py
+│   │           │   │   │   │   ├── isatty_test.py
+│   │           │   │   │   │   ├── utils.py
+│   │           │   │   │   │   └── winterm_test.py
+│   │           │   │   │   ├── win32.py
+│   │           │   │   │   └── winterm.py
+│   │           │   │   ├── distlib
+│   │           │   │   │   ├── __init__.py
+│   │           │   │   │   ├── compat.py
+│   │           │   │   │   ├── database.py
+│   │           │   │   │   ├── index.py
+│   │           │   │   │   ├── locators.py
+│   │           │   │   │   ├── manifest.py
+│   │           │   │   │   ├── markers.py
+│   │           │   │   │   ├── metadata.py
+│   │           │   │   │   ├── resources.py
+│   │           │   │   │   ├── scripts.py
+│   │           │   │   │   ├── util.py
+│   │           │   │   │   ├── version.py
+│   │           │   │   │   └── wheel.py
+│   │           │   │   ├── distro
+│   │           │   │   │   ├── __init__.py
+│   │           │   │   │   ├── __main__.py
+│   │           │   │   │   └── distro.py
+│   │           │   │   ├── idna
+│   │           │   │   │   ├── __init__.py
+│   │           │   │   │   ├── codec.py
+│   │           │   │   │   ├── compat.py
+│   │           │   │   │   ├── core.py
+│   │           │   │   │   ├── idnadata.py
+│   │           │   │   │   ├── intranges.py
+│   │           │   │   │   ├── package_data.py
+│   │           │   │   │   └── uts46data.py
+│   │           │   │   ├── msgpack
+│   │           │   │   │   ├── __init__.py
+│   │           │   │   │   ├── exceptions.py
+│   │           │   │   │   ├── ext.py
+│   │           │   │   │   └── fallback.py
+│   │           │   │   ├── packaging
+│   │           │   │   │   ├── __about__.py
+│   │           │   │   │   ├── __init__.py
+│   │           │   │   │   ├── _manylinux.py
+│   │           │   │   │   ├── _musllinux.py
+│   │           │   │   │   ├── _structures.py
+│   │           │   │   │   ├── markers.py
+│   │           │   │   │   ├── requirements.py
+│   │           │   │   │   ├── specifiers.py
+│   │           │   │   │   ├── tags.py
+│   │           │   │   │   ├── utils.py
+│   │           │   │   │   └── version.py
+│   │           │   │   ├── pkg_resources
+│   │           │   │   │   └── __init__.py
+│   │           │   │   ├── platformdirs
+│   │           │   │   │   ├── __init__.py
+│   │           │   │   │   ├── __main__.py
+│   │           │   │   │   ├── android.py
+│   │           │   │   │   ├── api.py
+│   │           │   │   │   ├── macos.py
+│   │           │   │   │   ├── unix.py
+│   │           │   │   │   ├── version.py
+│   │           │   │   │   └── windows.py
+│   │           │   │   ├── pygments
+│   │           │   │   │   ├── __init__.py
+│   │           │   │   │   ├── __main__.py
+│   │           │   │   │   ├── cmdline.py
+│   │           │   │   │   ├── console.py
+│   │           │   │   │   ├── filter.py
+│   │           │   │   │   ├── filters
+│   │           │   │   │   │   └── __init__.py
+│   │           │   │   │   ├── formatter.py
+│   │           │   │   │   ├── formatters
+│   │           │   │   │   │   ├── __init__.py
+│   │           │   │   │   │   ├── _mapping.py
+│   │           │   │   │   │   ├── bbcode.py
+│   │           │   │   │   │   ├── groff.py
+│   │           │   │   │   │   ├── html.py
+│   │           │   │   │   │   ├── img.py
+│   │           │   │   │   │   ├── irc.py
+│   │           │   │   │   │   ├── latex.py
+│   │           │   │   │   │   ├── other.py
+│   │           │   │   │   │   ├── pangomarkup.py
+│   │           │   │   │   │   ├── rtf.py
+│   │           │   │   │   │   ├── svg.py
+│   │           │   │   │   │   ├── terminal.py
+│   │           │   │   │   │   └── terminal256.py
+│   │           │   │   │   ├── lexer.py
+│   │           │   │   │   ├── lexers
+│   │           │   │   │   │   ├── __init__.py
+│   │           │   │   │   │   ├── _mapping.py
+│   │           │   │   │   │   └── python.py
+│   │           │   │   │   ├── modeline.py
+│   │           │   │   │   ├── plugin.py
+│   │           │   │   │   ├── regexopt.py
+│   │           │   │   │   ├── scanner.py
+│   │           │   │   │   ├── sphinxext.py
+│   │           │   │   │   ├── style.py
+│   │           │   │   │   ├── styles
+│   │           │   │   │   │   └── __init__.py
+│   │           │   │   │   ├── token.py
+│   │           │   │   │   ├── unistring.py
+│   │           │   │   │   └── util.py
+│   │           │   │   ├── pyparsing
+│   │           │   │   │   ├── __init__.py
+│   │           │   │   │   ├── actions.py
+│   │           │   │   │   ├── common.py
+│   │           │   │   │   ├── core.py
+│   │           │   │   │   ├── diagram
+│   │           │   │   │   │   └── __init__.py
+│   │           │   │   │   ├── exceptions.py
+│   │           │   │   │   ├── helpers.py
+│   │           │   │   │   ├── results.py
+│   │           │   │   │   ├── testing.py
+│   │           │   │   │   ├── unicode.py
+│   │           │   │   │   └── util.py
+│   │           │   │   ├── pyproject_hooks
+│   │           │   │   │   ├── __init__.py
+│   │           │   │   │   ├── _compat.py
+│   │           │   │   │   ├── _impl.py
+│   │           │   │   │   └── _in_process
+│   │           │   │   │       ├── __init__.py
+│   │           │   │   │       └── _in_process.py
+│   │           │   │   ├── requests
+│   │           │   │   │   ├── __init__.py
+│   │           │   │   │   ├── __version__.py
+│   │           │   │   │   ├── _internal_utils.py
+│   │           │   │   │   ├── adapters.py
+│   │           │   │   │   ├── api.py
+│   │           │   │   │   ├── auth.py
+│   │           │   │   │   ├── certs.py
+│   │           │   │   │   ├── compat.py
+│   │           │   │   │   ├── cookies.py
+│   │           │   │   │   ├── exceptions.py
+│   │           │   │   │   ├── help.py
+│   │           │   │   │   ├── hooks.py
+│   │           │   │   │   ├── models.py
+│   │           │   │   │   ├── packages.py
+│   │           │   │   │   ├── sessions.py
+│   │           │   │   │   ├── status_codes.py
+│   │           │   │   │   ├── structures.py
+│   │           │   │   │   └── utils.py
+│   │           │   │   ├── resolvelib
+│   │           │   │   │   ├── __init__.py
+│   │           │   │   │   ├── compat
+│   │           │   │   │   │   ├── __init__.py
+│   │           │   │   │   │   └── collections_abc.py
+│   │           │   │   │   ├── providers.py
+│   │           │   │   │   ├── reporters.py
+│   │           │   │   │   ├── resolvers.py
+│   │           │   │   │   └── structs.py
+│   │           │   │   ├── rich
+│   │           │   │   │   ├── __init__.py
+│   │           │   │   │   ├── __main__.py
+│   │           │   │   │   ├── _cell_widths.py
+│   │           │   │   │   ├── _emoji_codes.py
+│   │           │   │   │   ├── _emoji_replace.py
+│   │           │   │   │   ├── _export_format.py
+│   │           │   │   │   ├── _extension.py
+│   │           │   │   │   ├── _fileno.py
+│   │           │   │   │   ├── _inspect.py
+│   │           │   │   │   ├── _log_render.py
+│   │           │   │   │   ├── _loop.py
+│   │           │   │   │   ├── _null_file.py
+│   │           │   │   │   ├── _palettes.py
+│   │           │   │   │   ├── _pick.py
+│   │           │   │   │   ├── _ratio.py
+│   │           │   │   │   ├── _spinners.py
+│   │           │   │   │   ├── _stack.py
+│   │           │   │   │   ├── _timer.py
+│   │           │   │   │   ├── _win32_console.py
+│   │           │   │   │   ├── _windows.py
+│   │           │   │   │   ├── _windows_renderer.py
+│   │           │   │   │   ├── _wrap.py
+│   │           │   │   │   ├── abc.py
+│   │           │   │   │   ├── align.py
+│   │           │   │   │   ├── ansi.py
+│   │           │   │   │   ├── bar.py
+│   │           │   │   │   ├── box.py
+│   │           │   │   │   ├── cells.py
+│   │           │   │   │   ├── color.py
+│   │           │   │   │   ├── color_triplet.py
+│   │           │   │   │   ├── columns.py
+│   │           │   │   │   ├── console.py
+│   │           │   │   │   ├── constrain.py
+│   │           │   │   │   ├── containers.py
+│   │           │   │   │   ├── control.py
+│   │           │   │   │   ├── default_styles.py
+│   │           │   │   │   ├── diagnose.py
+│   │           │   │   │   ├── emoji.py
+│   │           │   │   │   ├── errors.py
+│   │           │   │   │   ├── file_proxy.py
+│   │           │   │   │   ├── filesize.py
+│   │           │   │   │   ├── highlighter.py
+│   │           │   │   │   ├── json.py
+│   │           │   │   │   ├── jupyter.py
+│   │           │   │   │   ├── layout.py
+│   │           │   │   │   ├── live.py
+│   │           │   │   │   ├── live_render.py
+│   │           │   │   │   ├── logging.py
+│   │           │   │   │   ├── markup.py
+│   │           │   │   │   ├── measure.py
+│   │           │   │   │   ├── padding.py
+│   │           │   │   │   ├── pager.py
+│   │           │   │   │   ├── palette.py
+│   │           │   │   │   ├── panel.py
+│   │           │   │   │   ├── pretty.py
+│   │           │   │   │   ├── progress.py
+│   │           │   │   │   ├── progress_bar.py
+│   │           │   │   │   ├── prompt.py
+│   │           │   │   │   ├── protocol.py
+│   │           │   │   │   ├── region.py
+│   │           │   │   │   ├── repr.py
+│   │           │   │   │   ├── rule.py
+│   │           │   │   │   ├── scope.py
+│   │           │   │   │   ├── screen.py
+│   │           │   │   │   ├── segment.py
+│   │           │   │   │   ├── spinner.py
+│   │           │   │   │   ├── status.py
+│   │           │   │   │   ├── style.py
+│   │           │   │   │   ├── styled.py
+│   │           │   │   │   ├── syntax.py
+│   │           │   │   │   ├── table.py
+│   │           │   │   │   ├── terminal_theme.py
+│   │           │   │   │   ├── text.py
+│   │           │   │   │   ├── theme.py
+│   │           │   │   │   ├── themes.py
+│   │           │   │   │   ├── traceback.py
+│   │           │   │   │   └── tree.py
+│   │           │   │   ├── six.py
+│   │           │   │   ├── tenacity
+│   │           │   │   │   ├── __init__.py
+│   │           │   │   │   ├── _asyncio.py
+│   │           │   │   │   ├── _utils.py
+│   │           │   │   │   ├── after.py
+│   │           │   │   │   ├── before.py
+│   │           │   │   │   ├── before_sleep.py
+│   │           │   │   │   ├── nap.py
+│   │           │   │   │   ├── retry.py
+│   │           │   │   │   ├── stop.py
+│   │           │   │   │   ├── tornadoweb.py
+│   │           │   │   │   └── wait.py
+│   │           │   │   ├── tomli
+│   │           │   │   │   ├── __init__.py
+│   │           │   │   │   ├── _parser.py
+│   │           │   │   │   ├── _re.py
+│   │           │   │   │   └── _types.py
+│   │           │   │   ├── truststore
+│   │           │   │   │   ├── __init__.py
+│   │           │   │   │   ├── _api.py
+│   │           │   │   │   ├── _macos.py
+│   │           │   │   │   ├── _openssl.py
+│   │           │   │   │   ├── _ssl_constants.py
+│   │           │   │   │   └── _windows.py
+│   │           │   │   ├── typing_extensions.py
+│   │           │   │   ├── urllib3
+│   │           │   │   │   ├── __init__.py
+│   │           │   │   │   ├── _collections.py
+│   │           │   │   │   ├── _version.py
+│   │           │   │   │   ├── connection.py
+│   │           │   │   │   ├── connectionpool.py
+│   │           │   │   │   ├── contrib
+│   │           │   │   │   │   ├── __init__.py
+│   │           │   │   │   │   ├── _appengine_environ.py
+│   │           │   │   │   │   ├── _securetransport
+│   │           │   │   │   │   │   ├── __init__.py
+│   │           │   │   │   │   │   ├── bindings.py
+│   │           │   │   │   │   │   └── low_level.py
+│   │           │   │   │   │   ├── appengine.py
+│   │           │   │   │   │   ├── ntlmpool.py
+│   │           │   │   │   │   ├── pyopenssl.py
+│   │           │   │   │   │   ├── securetransport.py
+│   │           │   │   │   │   └── socks.py
+│   │           │   │   │   ├── exceptions.py
+│   │           │   │   │   ├── fields.py
+│   │           │   │   │   ├── filepost.py
+│   │           │   │   │   ├── packages
+│   │           │   │   │   │   ├── __init__.py
+│   │           │   │   │   │   ├── backports
+│   │           │   │   │   │   │   ├── __init__.py
+│   │           │   │   │   │   │   ├── makefile.py
+│   │           │   │   │   │   │   └── weakref_finalize.py
+│   │           │   │   │   │   └── six.py
+│   │           │   │   │   ├── poolmanager.py
+│   │           │   │   │   ├── request.py
+│   │           │   │   │   ├── response.py
+│   │           │   │   │   └── util
+│   │           │   │   │       ├── __init__.py
+│   │           │   │   │       ├── connection.py
+│   │           │   │   │       ├── proxy.py
+│   │           │   │   │       ├── queue.py
+│   │           │   │   │       ├── request.py
+│   │           │   │   │       ├── response.py
+│   │           │   │   │       ├── retry.py
+│   │           │   │   │       ├── ssl_.py
+│   │           │   │   │       ├── ssl_match_hostname.py
+│   │           │   │   │       ├── ssltransport.py
+│   │           │   │   │       ├── timeout.py
+│   │           │   │   │       ├── url.py
+│   │           │   │   │       └── wait.py
+│   │           │   │   ├── vendor.txt
+│   │           │   │   └── webencodings
+│   │           │   │       ├── __init__.py
+│   │           │   │       ├── labels.py
+│   │           │   │       ├── mklabels.py
+│   │           │   │       ├── tests.py
+│   │           │   │       └── x_user_defined.py
+│   │           │   └── py.typed
+│   │           └── pip-24.0.dist-info
+│   │               ├── AUTHORS.txt
+│   │               ├── INSTALLER
+│   │               ├── LICENSE.txt
+│   │               ├── METADATA
+│   │               ├── RECORD
+│   │               ├── REQUESTED
+│   │               ├── WHEEL
+│   │               ├── entry_points.txt
+│   │               └── top_level.txt
+│   ├── lib64 -> lib
+│   └── pyvenv.cfg
+├── AUDIT
+│   ├── CHANGELOG_AUDIT.md
+│   ├── EXECUTIVE_SUMMARY.md
+│   ├── FULLSTACK_AUDIT_REPORT.md
+│   ├── REFACTOR_PLAN.md
+│   ├── TRACEABILITY_MATRIX.md
+│   └── inventory.md
+├── AUDIT_REPORT.md
+├── CHANGELOG.md
+├── CHECKLISTS
+│   ├── ACCOUNTING
+│   │   └── close_pbc_template.yaml
+│   └── AGENT
+│       ├── agent_hitl_acceptance.md
+│       ├── agent_openai_rollout.md
+│       └── validation_checklist.md
+├── CONTRIBUTING.md
+├── DATA_MODEL.md
+├── DEPLOYMENT_READINESS_REPORT.md
+├── ENDPOINTS_AND_WORKFLOWS.md
+├── GO-LIVE
+│   ├── GO-LIVE_SCORECARD.md
+│   ├── OPEN_ISSUES.md
+│   ├── RELEASE_RUNBOOK.md
+│   ├── REMEDIATION_PLAN.md
+│   ├── RISK_REGISTER.md
+│   ├── ROLLBACK_PLAN.md
+│   └── a11y-report.md
+├── IMPLEMENTATION_PLAN.md
+├── INTEGRATIONS
+│   └── whatsapp
+│       └── README.md
+├── Makefile
+├── POLICY
+│   ├── data-retention-policy.json
+│   ├── permissions.json
+│   └── roles.md
+├── PRODUCTION_AUDIT_REPORT.md
+├── PRODUCTION_READINESS_CHECKLIST.md
+├── README.md
+├── SECURITY.md
+├── STANDARDS
+│   ├── POLICY
+│   │   ├── README.md
+│   │   ├── accounting_governance_pack.md
+│   │   ├── agent_hitl.md
+│   │   ├── approvals_matrix.md
+│   │   ├── audit_analytics_kernel.md
+│   │   ├── audit_controls_itgc.md
+│   │   ├── audit_governance_pack.md
+│   │   ├── audit_group_audits.md
+│   │   ├── audit_other_information.md
+│   │   ├── audit_plan_strategy_materiality.md
+│   │   ├── audit_reconciliations.md
+│   │   ├── audit_service_orgs.md
+│   │   ├── audit_specialists.md
+│   │   ├── autonomy-controls.md
+│   │   ├── cashflow.md
+│   │   ├── close_governance.md
+│   │   ├── consolidation.md
+│   │   ├── disclosures.md
+│   │   ├── ecl.md
+│   │   ├── esef.md
+│   │   ├── gapsme.md
+│   │   ├── impairment.md
+│   │   ├── industry.md
+│   │   ├── isa701_kam_policy.md
+│   │   ├── leases.md
+│   │   ├── report_decision_tree.md
+│   │   ├── revenue.md
+│   │   ├── specialised.md
+│   │   ├── tax-governance.md
+│   │   ├── tax.md
+│   │   ├── tax_governance_pack.md
+│   │   ├── tax_mt_cit_imputation.md
+│   │   ├── tcwg_communications.md
+│   │   └── telemetry.md
+│   ├── TEMPLATES
+│   │   ├── isa701_kam_notes.md
+│   │   ├── report
+│   │   │   ├── eom_om_guidance.md
+│   │   │   ├── modified_opinion_library.md
+│   │   │   └── report_shell.md
+│   │   └── tcwg
+│   │       ├── cover_letter.md
+│   │       ├── deficiencies_template.md
+│   │       ├── independence_statement.md
+│   │       └── tcwg_pack_shell.md
+│   └── TRACEABILITY
+│       ├── matrix.md
+│       └── matrix_delta.md
+├── SUMMARY.md
+├── SUPPORT.md
+├── TEST_AND_RECORD_REQUIRED.md
+├── TEST_PLAN.md
+├── TRACEABILITY.md
+├── agent
+│   ├── .dockerignore
+│   ├── Dockerfile
+│   ├── README.md
+│   ├── policies
+│   │   ├── ALLOWLIST.json
+│   │   ├── GUARDRAILS.md
+│   │   └── README.md
+│   └── tools
+│       └── README.md
+├── analytics
+│   ├── .dockerignore
+│   ├── Dockerfile
+│   ├── __init__.py
+│   ├── events
+│   │   ├── __init__.py
+│   │   ├── node.d.ts
+│   │   ├── node.js
+│   │   └── schema.json
+│   ├── index.d.ts
+│   ├── index.js
+│   ├── package.json
+│   ├── python
+│   │   ├── __init__.py
+│   │   ├── client.py
+│   │   └── events.py
+│   └── schema
+│       └── analytics-event.schema.json
+├── app
+│   └── README.md
+├── apps
+│   ├── gateway
+│   │   ├── .dockerignore
+│   │   ├── .env.example
+│   │   ├── README.md
+│   │   ├── api-key.js
+│   │   ├── idempotency-middleware.js
+│   │   ├── idempotency-store.js
+│   │   ├── logger.js
+│   │   ├── logger.js.d.ts
+│   │   ├── org-guard.js
+│   │   ├── package.json
+│   │   ├── rate-limit.js
+│   │   ├── request-context.js
+│   │   ├── routes
+│   │   │   ├── agent.js
+│   │   │   └── rag.js
+│   │   ├── server.js
+│   │   ├── src
+│   │   │   ├── env.ts
+│   │   │   ├── middleware
+│   │   │   │   ├── analytics.ts
+│   │   │   │   ├── cors.ts
+│   │   │   │   ├── idempotency.ts
+│   │   │   │   ├── org-guard.ts
+│   │   │   │   ├── pii-scrubber.ts
+│   │   │   │   ├── rate-limit.ts
+│   │   │   │   └── trace.ts
+│   │   │   ├── otel.ts
+│   │   │   ├── routes
+│   │   │   │   ├── v1.contract.test.ts
+│   │   │   │   ├── v1.test.ts
+│   │   │   │   └── v1.ts
+│   │   │   ├── server.ts
+│   │   │   ├── test
+│   │   │   │   └── setup.ts
+│   │   │   └── utils
+│   │   │       ├── ids.ts
+│   │   │       ├── pii.ts
+│   │   │       ├── request-context.ts
+│   │   │       └── trace.ts
+│   │   └── tsconfig.json
+│   ├── lib
+│   │   ├── audit
+│   │   │   ├── activity-log.ts
+│   │   │   ├── evidence.ts
+│   │   │   └── module-records.ts
+│   │   └── supabase-server.ts
+│   └── web
+│       ├── .dockerignore
+│       ├── .env.example
+│       ├── .env.local.example
+│       ├── .eslintrc.json
+│       ├── Dockerfile
+│       ├── app
+│       │   ├── accounting
+│       │   │   └── page.tsx
+│       │   ├── agent
+│       │   │   ├── approvals
+│       │   │   │   └── page.tsx
+│       │   │   ├── domain-tools
+│       │   │   │   └── page.tsx
+│       │   │   ├── orchestrator
+│       │   │   │   └── page.tsx
+│       │   │   └── tasks
+│       │   │       └── page.tsx
+│       │   ├── agent-chat
+│       │   │   ├── page.tsx
+│       │   │   └── respond-helpers.ts
+│       │   ├── api
+│       │   │   ├── accounting
+│       │   │   │   ├── cashflow
+│       │   │   │   │   └── route.ts
+│       │   │   │   ├── consolidation
+│       │   │   │   │   └── route.ts
+│       │   │   │   ├── disclosures
+│       │   │   │   │   └── route.ts
+│       │   │   │   ├── ecl
+│       │   │   │   │   └── route.ts
+│       │   │   │   ├── esef
+│       │   │   │   │   └── route.ts
+│       │   │   │   ├── gapsme
+│       │   │   │   │   └── route.ts
+│       │   │   │   ├── impairment
+│       │   │   │   │   └── route.ts
+│       │   │   │   ├── industry
+│       │   │   │   │   └── route.ts
+│       │   │   │   ├── leases
+│       │   │   │   │   └── route.ts
+│       │   │   │   ├── revenue
+│       │   │   │   │   └── route.ts
+│       │   │   │   ├── specialised
+│       │   │   │   │   └── route.ts
+│       │   │   │   ├── tax
+│       │   │   │   │   └── route.ts
+│       │   │   │   └── telemetry
+│       │   │   │       └── route.ts
+│       │   │   ├── ada
+│       │   │   │   ├── exception
+│       │   │   │   │   └── update
+│       │   │   │   │       └── route.ts
+│       │   │   │   └── run
+│       │   │   │       └── route.ts
+│       │   │   ├── agent
+│       │   │   │   ├── approvals
+│       │   │   │   │   ├── [id]
+│       │   │   │   │   │   └── decision
+│       │   │   │   │   │       └── route.ts
+│       │   │   │   │   └── route.ts
+│       │   │   │   ├── chatkit
+│       │   │   │   │   └── session
+│       │   │   │   │       └── [id]
+│       │   │   │   │           ├── cancel
+│       │   │   │   │           │   └── route.ts
+│       │   │   │   │           ├── resume
+│       │   │   │   │           │   └── route.ts
+│       │   │   │   │           └── route.ts
+│       │   │   │   ├── conversations
+│       │   │   │   │   ├── [id]
+│       │   │   │   │   │   ├── items
+│       │   │   │   │   │   │   └── route.ts
+│       │   │   │   │   │   └── route.ts
+│       │   │   │   │   └── route.ts
+│       │   │   │   ├── domain-tools
+│       │   │   │   │   ├── file-search
+│       │   │   │   │   │   └── route.ts
+│       │   │   │   │   ├── gpt5
+│       │   │   │   │   │   └── route.ts
+│       │   │   │   │   ├── image-generation
+│       │   │   │   │   │   └── route.ts
+│       │   │   │   │   ├── retrieval
+│       │   │   │   │   │   └── route.ts
+│       │   │   │   │   ├── vector-stores
+│       │   │   │   │   │   ├── [vectorStoreId]
+│       │   │   │   │   │   │   └── attributes
+│       │   │   │   │   │   │       └── route.ts
+│       │   │   │   │   │   └── route.ts
+│       │   │   │   │   └── web-search
+│       │   │   │   │       └── route.ts
+│       │   │   │   ├── media
+│       │   │   │   │   └── video
+│       │   │   │   │       └── route.ts
+│       │   │   │   ├── orchestrator
+│       │   │   │   │   ├── agents
+│       │   │   │   │   │   └── route.ts
+│       │   │   │   │   ├── plan
+│       │   │   │   │   │   └── route.ts
+│       │   │   │   │   ├── session
+│       │   │   │   │   │   ├── [id]
+│       │   │   │   │   │   │   └── route.ts
+│       │   │   │   │   │   └── route.ts
+│       │   │   │   │   ├── sessions
+│       │   │   │   │   │   └── route.ts
+│       │   │   │   │   └── tasks
+│       │   │   │   │       └── [id]
+│       │   │   │   │           └── complete
+│       │   │   │   │               └── route.ts
+│       │   │   │   ├── realtime
+│       │   │   │   │   └── session
+│       │   │   │   │       └── route.ts
+│       │   │   │   ├── respond
+│       │   │   │   │   └── route.ts
+│       │   │   │   ├── start
+│       │   │   │   │   └── route.ts
+│       │   │   │   ├── stream
+│       │   │   │   │   ├── execute
+│       │   │   │   │   │   └── route.ts
+│       │   │   │   │   └── route.ts
+│       │   │   │   ├── tool-registry
+│       │   │   │   │   └── route.ts
+│       │   │   │   └── utils.ts
+│       │   │   ├── analytics
+│       │   │   │   ├── nps
+│       │   │   │   │   └── route.ts
+│       │   │   │   └── overview
+│       │   │   │       └── route.ts
+│       │   │   ├── auth
+│       │   │   │   └── [...nextauth]
+│       │   │   │       └── route.ts
+│       │   │   ├── close
+│       │   │   │   ├── advance
+│       │   │   │   │   └── route.ts
+│       │   │   │   └── lock
+│       │   │   │       └── route.ts
+│       │   │   ├── closepbc
+│       │   │   │   └── template
+│       │   │   │       └── instantiate
+│       │   │   │           └── route.ts
+│       │   │   ├── compliance
+│       │   │   │   └── eval
+│       │   │   │       └── route.ts
+│       │   │   ├── controls
+│       │   │   │   ├── [id]
+│       │   │   │   │   └── route.ts
+│       │   │   │   ├── route.ts
+│       │   │   │   ├── test
+│       │   │   │   │   └── run
+│       │   │   │   │       ├── __tests__
+│       │   │   │   │       │   └── route.test.ts
+│       │   │   │   │       └── route.ts
+│       │   │   │   └── walkthrough
+│       │   │   │       └── route.ts
+│       │   │   ├── dac6
+│       │   │   │   └── scan
+│       │   │   │       └── route.ts
+│       │   │   ├── deficiency
+│       │   │   │   └── create
+│       │   │   │       └── route.ts
+│       │   │   ├── exp
+│       │   │   │   └── assessments
+│       │   │   │       ├── conclude
+│       │   │   │       │   └── route.ts
+│       │   │   │       └── route.ts
+│       │   │   ├── financials
+│       │   │   │   ├── consolidation
+│       │   │   │   │   └── route.ts
+│       │   │   │   ├── draft
+│       │   │   │   │   └── route.ts
+│       │   │   │   ├── esef
+│       │   │   │   │   └── route.ts
+│       │   │   │   └── notes
+│       │   │   │       └── route.ts
+│       │   │   ├── fsmap
+│       │   │   │   └── apply
+│       │   │   │       └── route.ts
+│       │   │   ├── fx
+│       │   │   │   └── remeasure
+│       │   │   │       └── route.ts
+│       │   │   ├── gl
+│       │   │   │   ├── accounts
+│       │   │   │   │   └── import
+│       │   │   │   │       └── route.ts
+│       │   │   │   └── entries
+│       │   │   │       └── import
+│       │   │   │           └── route.ts
+│       │   │   ├── group
+│       │   │   │   ├── component
+│       │   │   │   │   └── route.ts
+│       │   │   │   ├── components
+│       │   │   │   │   ├── [id]
+│       │   │   │   │   │   └── route.ts
+│       │   │   │   │   └── route.ts
+│       │   │   │   ├── instruction
+│       │   │   │   │   └── route.ts
+│       │   │   │   ├── instructions
+│       │   │   │   │   ├── [id]
+│       │   │   │   │   │   └── ack
+│       │   │   │   │   │       └── route.ts
+│       │   │   │   │   └── route.ts
+│       │   │   │   ├── review
+│       │   │   │   │   └── route.ts
+│       │   │   │   ├── reviews
+│       │   │   │   │   ├── [id]
+│       │   │   │   │   │   └── signoff
+│       │   │   │   │   │       └── route.ts
+│       │   │   │   │   └── route.ts
+│       │   │   │   ├── route.ts
+│       │   │   │   ├── workpaper
+│       │   │   │   │   └── route.ts
+│       │   │   │   └── workpapers
+│       │   │   │       └── route.ts
+│       │   │   ├── healthz
+│       │   │   │   └── route.ts
+│       │   │   ├── journal
+│       │   │   │   ├── add-lines
+│       │   │   │   │   └── route.ts
+│       │   │   │   ├── approve
+│       │   │   │   │   └── route.ts
+│       │   │   │   ├── create-batch
+│       │   │   │   │   └── route.ts
+│       │   │   │   ├── post
+│       │   │   │   │   └── route.ts
+│       │   │   │   └── submit
+│       │   │   │       └── route.ts
+│       │   │   ├── notifications
+│       │   │   │   └── preferences
+│       │   │   │       └── route.ts
+│       │   │   ├── oi
+│       │   │   │   ├── comparatives
+│       │   │   │   │   └── route.ts
+│       │   │   │   ├── doc
+│       │   │   │   │   └── route.ts
+│       │   │   │   ├── flag
+│       │   │   │   │   ├── resolve
+│       │   │   │   │   │   └── route.ts
+│       │   │   │   │   └── route.ts
+│       │   │   │   └── route.ts
+│       │   │   ├── openai
+│       │   │   │   └── embeddings
+│       │   │   │       └── route.ts
+│       │   │   ├── other-info
+│       │   │   │   ├── comparatives
+│       │   │   │   │   └── route.ts
+│       │   │   │   ├── documents
+│       │   │   │   │   └── route.ts
+│       │   │   │   ├── flags
+│       │   │   │   │   └── route.ts
+│       │   │   │   └── report-wording
+│       │   │   │       └── route.ts
+│       │   │   ├── p2
+│       │   │   │   └── compute
+│       │   │   │       └── route.ts
+│       │   │   ├── recon
+│       │   │   │   ├── [id]
+│       │   │   │   │   ├── close
+│       │   │   │   │   │   └── route.ts
+│       │   │   │   │   ├── match
+│       │   │   │   │   │   └── route.ts
+│       │   │   │   │   ├── route.ts
+│       │   │   │   │   └── statements
+│       │   │   │   │       └── route.ts
+│       │   │   │   ├── add-item
+│       │   │   │   │   └── route.ts
+│       │   │   │   ├── close
+│       │   │   │   │   └── route.ts
+│       │   │   │   ├── create
+│       │   │   │   │   └── route.ts
+│       │   │   │   ├── items
+│       │   │   │   │   └── [itemId]
+│       │   │   │   │       └── resolve
+│       │   │   │   │           └── route.ts
+│       │   │   │   └── route.ts
+│       │   │   ├── review
+│       │   │   │   ├── float-breaks
+│       │   │   │   │   └── route.ts
+│       │   │   │   ├── missing-docs
+│       │   │   │   │   └── route.ts
+│       │   │   │   ├── run
+│       │   │   │   │   └── route.ts
+│       │   │   │   └── tax-risk
+│       │   │   │       └── route.ts
+│       │   │   ├── soc
+│       │   │   │   ├── _common.ts
+│       │   │   │   ├── cuec
+│       │   │   │   │   └── route.ts
+│       │   │   │   ├── cuecs
+│       │   │   │   │   └── route.ts
+│       │   │   │   ├── overview
+│       │   │   │   │   └── route.ts
+│       │   │   │   ├── report
+│       │   │   │   │   └── route.ts
+│       │   │   │   ├── reports
+│       │   │   │   │   └── route.ts
+│       │   │   │   ├── residual-risk
+│       │   │   │   │   └── route.ts
+│       │   │   │   └── service-orgs
+│       │   │   │       └── route.ts
+│       │   │   ├── specialists
+│       │   │   │   ├── evidence
+│       │   │   │   │   ├── [id]
+│       │   │   │   │   │   └── route.ts
+│       │   │   │   │   └── route.ts
+│       │   │   │   ├── experts
+│       │   │   │   │   ├── [id]
+│       │   │   │   │   │   └── route.ts
+│       │   │   │   │   └── route.ts
+│       │   │   │   ├── internal
+│       │   │   │   │   ├── [id]
+│       │   │   │   │   │   └── route.ts
+│       │   │   │   │   └── route.ts
+│       │   │   │   └── route.ts
+│       │   │   ├── tax
+│       │   │   │   ├── cit
+│       │   │   │   │   └── common.ts
+│       │   │   │   └── mt
+│       │   │   │       └── cit
+│       │   │   │           └── compute
+│       │   │   │               └── route.ts
+│       │   │   ├── tb
+│       │   │   │   └── snapshot
+│       │   │   │       └── route.ts
+│       │   │   ├── telemetry
+│       │   │   │   ├── embeddings
+│       │   │   │   │   └── route.ts
+│       │   │   │   └── summary
+│       │   │   │       └── route.ts
+│       │   │   ├── treaty
+│       │   │   │   └── resolve
+│       │   │   │       └── route.ts
+│       │   │   ├── us
+│       │   │   │   └── gilti
+│       │   │   │       └── compute
+│       │   │   │           └── route.ts
+│       │   │   ├── variance
+│       │   │   │   └── run
+│       │   │   │       └── route.ts
+│       │   │   └── vat
+│       │   │       └── period
+│       │   │           └── prepare
+│       │   │               └── route.ts
+│       │   ├── audit
+│       │   │   ├── analytics
+│       │   │   │   └── page.tsx
+│       │   │   ├── controls
+│       │   │   │   └── page.tsx
+│       │   │   ├── group
+│       │   │   │   └── page.tsx
+│       │   │   ├── layout.tsx
+│       │   │   ├── other-info
+│       │   │   │   └── page.tsx
+│       │   │   ├── other-information
+│       │   │   │   └── page.tsx
+│       │   │   ├── page.tsx
+│       │   │   ├── reconciliations
+│       │   │   │   └── page.tsx
+│       │   │   ├── service-orgs
+│       │   │   │   └── page.tsx
+│       │   │   ├── soc
+│       │   │   │   └── page.tsx
+│       │   │   └── specialists
+│       │   │       └── page.tsx
+│       │   ├── client-portal
+│       │   │   ├── notifications
+│       │   │   │   └── page.tsx
+│       │   │   ├── page.tsx
+│       │   │   └── upload-service.ts
+│       │   ├── compliance
+│       │   │   └── page.tsx
+│       │   ├── dashboard
+│       │   │   └── page.tsx
+│       │   ├── engagements
+│       │   │   └── page.tsx
+│       │   ├── globals.css
+│       │   ├── layout.tsx
+│       │   ├── lib
+│       │   │   ├── api-guard.ts
+│       │   │   ├── idempotency.ts
+│       │   │   ├── observability.ts
+│       │   │   ├── rate-limit.ts
+│       │   │   └── supabase-server.ts
+│       │   ├── openai
+│       │   │   └── embeddings
+│       │   │       ├── components
+│       │   │       │   ├── model-options.ts
+│       │   │       │   ├── playground.tsx
+│       │   │       │   └── similarity-explorer.tsx
+│       │   │       └── page.tsx
+│       │   ├── page.tsx
+│       │   ├── style-guide
+│       │   │   ├── page.tsx
+│       │   │   └── supabase-auth
+│       │   │       └── page.tsx
+│       │   └── tax
+│       │       └── page.tsx
+│       ├── auth.ts
+│       ├── components
+│       │   ├── audit
+│       │   │   ├── approvals-banner.tsx
+│       │   │   └── navigation.tsx
+│       │   ├── clients
+│       │   │   └── client-onboarding-helpers.ts
+│       │   ├── error-boundary.tsx
+│       │   ├── providers.tsx
+│       │   └── ui
+│       │       ├── __tests__
+│       │       │   └── toast.test.tsx
+│       │       ├── button.tsx
+│       │       ├── page-header.tsx
+│       │       ├── page-shell.tsx
+│       │       ├── skeleton.tsx
+│       │       └── toast.tsx
+│       ├── hooks
+│       │   ├── use-auth.ts
+│       │   ├── use-organizations.ts
+│       │   └── use-toast.ts
+│       ├── i18n
+│       │   ├── I18nProvider.tsx
+│       │   └── translations.ts
+│       ├── integrations
+│       │   └── supabase
+│       │       ├── client.ts
+│       │       └── types.ts
+│       ├── lib
+│       │   ├── accounting
+│       │   │   ├── activity-log.ts
+│       │   │   ├── api.ts
+│       │   │   ├── constants.ts
+│       │   │   ├── index.ts
+│       │   │   ├── journal.ts
+│       │   │   ├── metadata.ts
+│       │   │   ├── schemas.ts
+│       │   │   ├── types.ts
+│       │   │   └── workflows.ts
+│       │   ├── accounting-close-service.ts
+│       │   ├── assistant-style-policy.ts
+│       │   ├── audit
+│       │   │   ├── __tests__
+│       │   │   │   └── sampling-client.test.ts
+│       │   │   ├── activity-log.ts
+│       │   │   ├── analytics-engine.ts
+│       │   │   ├── approvals.ts
+│       │   │   ├── evidence.ts
+│       │   │   ├── module-records.ts
+│       │   │   ├── reconciliation-store.ts
+│       │   │   ├── reconciliation-types.ts
+│       │   │   ├── sampling-client.ts
+│       │   │   ├── schemas.ts
+│       │   │   ├── test-run-store.ts
+│       │   │   └── types.ts
+│       │   ├── audit-plan-service.ts
+│       │   ├── audit-responses-service.ts
+│       │   ├── audit-risk-service.ts
+│       │   ├── client-events.ts
+│       │   ├── compliance
+│       │   │   └── evaluator.ts
+│       │   ├── config
+│       │   │   └── constants.ts
+│       │   ├── consolidation-service.ts
+│       │   ├── error-notify.ts
+│       │   ├── financial-report-service.ts
+│       │   ├── group
+│       │   │   ├── activity.ts
+│       │   │   └── request.ts
+│       │   ├── kam-service.ts
+│       │   ├── logger.ts
+│       │   ├── openai
+│       │   │   └── client.ts
+│       │   ├── other-info.ts
+│       │   ├── prisma.ts
+│       │   ├── secrets.ts
+│       │   ├── supabase
+│       │   │   ├── activity.ts
+│       │   │   ├── server.ts
+│       │   │   └── stub.ts
+│       │   ├── supabase-server.ts
+│       │   ├── supabase-types.ts
+│       │   ├── supabase.ts
+│       │   ├── system-config.ts
+│       │   ├── tax
+│       │   │   ├── activity.ts
+│       │   │   ├── calculators.ts
+│       │   │   ├── dac6.ts
+│       │   │   └── types.ts
+│       │   ├── telemetry-service.ts
+│       │   ├── tenant-client.ts
+│       │   ├── utils.ts
+│       │   └── webhook.ts
+│       ├── next-env.d.ts
+│       ├── next.config.mjs
+│       ├── package.json
+│       ├── pages
+│       │   ├── reporting
+│       │   │   ├── consolidation.tsx
+│       │   │   ├── controls.tsx
+│       │   │   ├── kam.tsx
+│       │   │   ├── pbc.tsx
+│       │   │   ├── report.tsx
+│       │   │   └── tcwg.tsx
+│       │   └── telemetry
+│       │       └── dashboard.tsx
+│       ├── postcss.config.js
+│       ├── prisma
+│       │   ├── README.md
+│       │   ├── migrations
+│       │   │   ├── 0001_init
+│       │   │   │   └── migration.sql
+│       │   │   └── 0002_tax_calculators
+│       │   │       └── migration.sql
+│       │   └── schema.prisma
+│       ├── public
+│       │   ├── configs
+│       │   │   └── compliance
+│       │   │       ├── gap_sme_2025.json
+│       │   │       ├── malta_cit_2025.json
+│       │   │       └── malta_vat_2025.json
+│       │   ├── manifest.json
+│       │   ├── offline.html
+│       │   └── sw.js
+│       ├── src
+│       │   ├── components
+│       │   │   ├── async-boundary.tsx
+│       │   │   └── loading-skeleton.tsx
+│       │   ├── env.client.ts
+│       │   ├── env.server.ts
+│       │   ├── features
+│       │   │   ├── agents
+│       │   │   │   ├── api
+│       │   │   │   │   └── index.ts
+│       │   │   │   ├── components
+│       │   │   │   │   └── agent-task-list.tsx
+│       │   │   │   ├── hooks
+│       │   │   │   │   └── use-agent-tasks.ts
+│       │   │   │   ├── hooks.ts
+│       │   │   │   ├── index.ts
+│       │   │   │   ├── orchestrator
+│       │   │   │   │   ├── AgentOrchestratorPage.tsx
+│       │   │   │   │   ├── hooks.ts
+│       │   │   │   │   └── store.ts
+│       │   │   │   ├── services
+│       │   │   │   │   └── task-service.ts
+│       │   │   │   └── utils.ts
+│       │   │   ├── auth
+│       │   │   │   ├── components
+│       │   │   │   │   ├── supabase-auth-demo.tsx
+│       │   │   │   │   └── supabase-session-bridge.tsx
+│       │   │   │   ├── hooks
+│       │   │   │   │   └── use-supabase-auth.ts
+│       │   │   │   ├── index.ts
+│       │   │   │   ├── services
+│       │   │   │   │   └── supabase-client.ts
+│       │   │   │   └── supabase-auth.ts
+│       │   │   ├── common
+│       │   │   │   └── query-keys.ts
+│       │   │   ├── documents
+│       │   │   │   ├── components
+│       │   │   │   │   └── document-grid.tsx
+│       │   │   │   ├── hooks
+│       │   │   │   │   └── use-documents.ts
+│       │   │   │   ├── index.ts
+│       │   │   │   └── services
+│       │   │   │       └── document-service.ts
+│       │   │   ├── index.ts
+│       │   │   └── routes.ts
+│       │   ├── lib
+│       │   │   ├── api-client.ts
+│       │   │   ├── query-client.ts
+│       │   │   └── storage
+│       │   │       └── indexed-db.ts
+│       │   ├── main.tsx
+│       │   ├── routes
+│       │   │   └── index.tsx
+│       │   ├── routes-map.ts
+│       │   └── store
+│       │       ├── app-store.ts
+│       │       ├── auth-store.ts
+│       │       └── query-client.ts
+│       ├── stores
+│       │   └── mock-data.ts
+│       ├── tailwind.config.ts
+│       ├── tsconfig.eslint.json
+│       ├── tsconfig.json
+│       ├── types
+│       │   └── env.d.ts
+│       └── utils
+│           ├── kam-export.ts
+│           ├── pbc.ts
+│           ├── report-evaluation.ts
+│           └── tcwg-pack.ts
+├── audit
+│   ├── deps.json
+│   ├── detect-secrets.baseline
+│   ├── env-matrix.csv
+│   ├── inventory.json
+│   └── repo-tree.txt
+├── codex_jobs
+│   ├── 01_bootstrap_blueprint.md
+│   ├── _GLOBAL_RULES.md
+│   └── _TEMPLATE_TASK.md
+├── components.json
+├── config
+│   ├── secrets
+│   │   ├── .gitignore
+│   │   ├── firehydrant.example.json
+│   │   └── pagerduty.example.json
+│   └── system.yaml
+├── db
+│   ├── migrations
+│   │   └── 001_init.sql
+│   └── seeds
+│       └── seed.sql
+├── docker-compose.dev.yml
+├── docker-compose.prod.yml
+├── docker-compose.yml
+├── docs
+│   ├── ADR_TEMPLATE.md
+│   ├── DECISIONS.md
+│   ├── FILE_SEARCH_INTEGRATION.md
+│   ├── FINANCE-REVIEW-RUNBOOK.md
+│   ├── GDRIVE_INGESTION_RUNBOOK.md
+│   ├── IMPLEMENTATION_SUMMARY_WEB_SEARCH.md
+│   ├── LEARNING_OVERVIEW.md
+│   ├── LEARNING_POLICY_GUARDRAILS.md
+│   ├── LEARNING_RUNBOOK_ROLLBACK.md
+│   ├── OPERATIONS
+│   │   ├── continuous-improvement.md
+│   │   ├── daily-checklist.md
+│   │   ├── hotfix-outstanding-items.md
+│   │   ├── hotfix-release-branch-runbook.md
+│   │   ├── hotfix-status.json
+│   │   ├── observability-checklist.md
+│   │   ├── openai-operations-runbook.md
+│   │   ├── traceability-upkeep.md
+│   │   └── traceability.md
+│   ├── PHASE4
+│   │   ├── performance-runbook.md
+│   │   ├── release-readiness-checklist.md
+│   │   ├── security-review-checklist.md
+│   │   └── uat-signoff-template.md
+│   ├── PHASE5
+│   │   ├── fullstack-source-audit.md
+│   │   └── production-operations-runbook.md
+│   ├── POST_IMPLEMENTATION_CHECKLIST.md
+│   ├── README.md
+│   ├── REFACTOR_SUMMARY.md
+│   ├── RFC_FULLSTACK_REFACTOR.md
+│   ├── SECURITY
+│   │   ├── KEY_ROTATION.md
+│   │   ├── edge-function-review.md
+│   │   ├── oauth-scopes.md
+│   │   ├── penetration-testing.md
+│   │   ├── policy-test-config.md
+│   │   └── rls-policies.md
+│   ├── TRACEABILITY_MATRIX.md
+│   ├── UAT
+│   │   ├── autonomy-uat-guide.md
+│   │   ├── day-1-audit.md
+│   │   ├── day-2-tax.md
+│   │   └── day-3-accounting.md
+│   ├── WEB_SEARCH.md
+│   ├── access-control.md
+│   ├── activity-event-catalog.md
+│   ├── adr
+│   │   ├── 000-template.md
+│   │   ├── 001-cfo-auditor-ai-review-loop.md
+│   │   └── 002-web-search-module.md
+│   ├── agent-evaluations.md
+│   ├── agent-platform-manifests.md
+│   ├── agents
+│   │   ├── architecture.md
+│   │   ├── finance-network.md
+│   │   ├── mcp.md
+│   │   └── tools.md
+│   ├── architecture.md
+│   ├── archive-manifest.md
+│   ├── audit-responses-matrix.md
+│   ├── audit-risk-register.md
+│   ├── autonomous-finance-suite-outstanding-plan.md
+│   ├── autonomous-finance-suite-plan.md
+│   ├── backup-restore.md
+│   ├── baseline
+│   │   ├── express-status.json
+│   │   ├── express_status.txt
+│   │   ├── fastapi-health.json
+│   │   ├── fastapi_health.txt
+│   │   ├── supabase-rpc.json
+│   │   └── supabase_rpc_healthcheck.txt
+│   ├── branch-inventory.md
+│   ├── checklists
+│   │   └── agent_manifest_staging.md
+│   ├── compliance
+│   │   └── data-flow-diagrams.md
+│   ├── db
+│   │   └── README.md
+│   ├── dependency-freeze.md
+│   ├── deployment
+│   │   ├── branch-protection.md
+│   │   ├── configuration-audit.md
+│   │   ├── database-readiness.md
+│   │   ├── dry-run-plan.md
+│   │   ├── hotfix-operations.md
+│   │   └── prisma-supabase-deployment.md
+│   ├── env-audit.md
+│   ├── env-gap-analysis.md
+│   ├── env-next-actions.md
+│   ├── examples
+│   │   ├── FILE_SEARCH_EXAMPLES.md
+│   │   └── WEB_SEARCH_EXAMPLES.md
+│   ├── financial-reporting.md
+│   ├── fraud-plan-je-strategy.md
+│   ├── go-live-readiness-report.md
+│   ├── guides
+│   │   └── web-search-usage.md
+│   ├── i18n.md
+│   ├── iam
+│   │   ├── PERMISSION_ENFORCEMENT_NOTES.md
+│   │   └── USER_MANAGEMENT.md
+│   ├── incident-response.md
+│   ├── local-caddy-cloudflare-tunnel.md
+│   ├── local-hosting.md
+│   ├── merge-tracking-board.md
+│   ├── migration-guide.md
+│   ├── observability.md
+│   ├── openai-chat-completions.md
+│   ├── openai-client-architecture.md
+│   ├── openai-conversations.md
+│   ├── openai-file-search.md
+│   ├── openai-finance-project-scaffolding.md
+│   ├── openai-gpt5-guide.md
+│   ├── openai-phase0.md
+│   ├── openai-phase1.md
+│   ├── openai-phase2.md
+│   ├── openai-phase3.md
+│   ├── openai-phase4.md
+│   ├── openai-retrieval-api.md
+│   ├── openai-retrieval.md
+│   ├── openai-tool-manifest-schema.md
+│   ├── performance-budgets.md
+│   ├── performance-uat-plan.md
+│   ├── phase-one-discovery.md
+│   ├── privacy.md
+│   ├── release-runbook.md
+│   ├── risk-register.csv
+│   ├── sbom
+│   │   ├── README.md
+│   │   └── prisma-backend-python.json
+│   ├── security
+│   │   ├── auth-passwords.md
+│   │   └── key-rotation.md
+│   ├── tax-atad-ilr-cfc.md
+│   ├── tax-dac6.md
+│   ├── tax-nid-patent-box.md
+│   ├── tax-pillar-two.md
+│   ├── tax-treaty-wht.md
+│   ├── tax-us-overlays.md
+│   ├── tax-vat-oss.md
+│   ├── telemetry.md
+│   ├── test-logs
+│   │   ├── playwright-test.log
+│   │   ├── pnpm-install.log
+│   │   ├── pnpm-lint.log
+│   │   ├── pnpm-playwright.log
+│   │   ├── pnpm-test.log
+│   │   └── pytest.log
+│   └── web-search.md
+├── eslint.config.js
+├── examples
+│   └── web-search-example.ts
+├── gateway
+│   ├── .dockerignore
+│   └── Dockerfile
+├── index.html
+├── index.js
+├── infra
+│   ├── caddy
+│   │   ├── .gitkeep
+│   │   └── Caddyfile
+│   ├── chaos
+│   │   ├── README.md
+│   │   ├── chaos-mesh
+│   │   │   ├── README.md
+│   │   │   ├── dashboard.yaml
+│   │   │   ├── experiments
+│   │   │   │   ├── db-throttle.yaml
+│   │   │   │   ├── network-latency.yaml
+│   │   │   │   └── pod-kill.yaml
+│   │   │   ├── kustomization.yaml
+│   │   │   ├── kustomizeconfig.yaml
+│   │   │   ├── namespace.yaml
+│   │   │   ├── rbac.yaml
+│   │   │   └── values.yaml
+│   │   └── monitoring
+│   │       ├── README.md
+│   │       ├── kustomization.yaml
+│   │       └── prometheus-rules.yaml
+│   ├── cloudflared
+│   │   ├── .gitkeep
+│   │   └── config.yml.example
+│   ├── mac
+│   │   ├── .gitkeep
+│   │   └── Brewfile
+│   └── terraform
+│       ├── README.md
+│       ├── data_governance.tf
+│       ├── main.tf
+│       ├── modules
+│       │   ├── aws_kms
+│       │   │   ├── main.tf
+│       │   │   ├── outputs.tf
+│       │   │   └── variables.tf
+│       │   └── gcp_kms
+│       │       ├── main.tf
+│       │       ├── outputs.tf
+│       │       └── variables.tf
+│       ├── outputs.tf
+│       └── variables.tf
+├── migrations
+│   └── sql
+│       ├── 002_vat_rules_seed.sql
+│       ├── 003_indexes.sql
+│       ├── 202501010000_idempotency.sql
+│       ├── 202501010000_rls_enable.sql
+│       ├── 20250821115117_.sql
+│       ├── 20250821115118_c8efec61-c52e-4db8-ac92-82c3ca0a7579.sql
+│       ├── 20250821115348_878f265d-a747-47a8-aade-2f2d66847d8c.sql
+│       ├── 20250821115406_.sql
+│       ├── 20250821115407_50fe85e1-e606-4424-960d-acc41a893410.sql
+│       ├── 20250824073858_.sql
+│       ├── 20250824073859_c20167a1-9343-4056-b103-4f304e6e26eb.sql
+│       ├── 20250824085632_c57fe3ce-db8b-4f21-863e-e37b10dab301.sql
+│       ├── 20250824085652_.sql
+│       ├── 20250824085654_4fe24341-a008-498b-b4f5-7743d2a57904.sql
+│       ├── 20250825140114_857b5b5b-3328-448c-b83b-a9aca978a9d6.sql
+│       ├── 20250829090000_5ea29147-38dc-4b92-9f17-7dc59a6c4647.sql
+│       ├── 20250830125235_4127fb8d-0f84-4062-a3cc-b5d8933cb1ad.sql
+│       ├── 20250830125452_e57a401c-384b-4441-8bbe-327d78068c55.sql
+│       ├── 20250830125628_64a6aad4-6a40-4125-bb4e-b62341ab9a29.sql
+│       ├── 20250830125648_f73e809f-f983-405f-9ed8-e17d84d48869.sql
+│       ├── 20250830125703_5bf2f541-dcd5-4c5e-a182-de2328149a5f.sql
+│       ├── 20250830125719_.sql
+│       ├── 20250830125720_1b779663-4991-4f79-83e6-f963458284ae.sql
+│       ├── 20250830125735_.sql
+│       ├── 20250830125736_e118852a-6ecd-46c6-9c5d-53935d524f61.sql
+│       ├── 20250830125756_a814a60a-2361-4a22-86ab-243f73b901ba.sql
+│       ├── 20250830125839_.sql
+│       ├── 20250830125841_9195bd32-1de7-41d9-ac3c-d017d0dbe16a.sql
+│       ├── 20250901062854_.sql
+│       ├── 20250901062855_139c4e89-6510-4395-988c-25ffdf993c21.sql
+│       ├── 20250901063007_ebc6d971-3a9c-401b-adc0-7724a804337f.sql
+│       ├── 20250901063516_7f4819a8-9228-40f0-bf32-0d505706a781.sql
+│       ├── 20250901063531_d0005ee4-6492-4483-95b9-3667e8add347.sql
+│       ├── 20250901063555_b1189972-8c30-46ba-bce4-a3ef9d6da79a.sql
+│       ├── 20250901063818_.sql
+│       ├── 20250901063819_ee277649-5eb7-4b4c-95f7-f2acb23209dc.sql
+│       ├── 20250902094731_.sql
+│       ├── 20250902094733_6d37821e-f5a7-4a21-8a7c-ff8c208c2d2a.sql
+│       ├── 20250902094839_.sql
+│       ├── 20250902094840_6ab1627f-247f-4a0b-98d0-d2e86d4c0dcb.sql
+│       ├── 20250921090000_org_indexes.sql
+│       ├── 20250921090001_backfill_core_tables.sql
+│       ├── 20250923093000_agent_learning_tables.sql
+│       ├── 20250923095000_web_knowledge_sources.sql
+│       ├── 20250923114622_.sql
+│       ├── 20250923234623_42c1555f-baf3-4228-a6c4-93cbd60ffda8.sql
+│       ├── 20250924014606_remote_schema.sql
+│       ├── 20250924095000_audit_plan_strategy_materiality.sql
+│       ├── 20250924095001_audit_plan_strategy_materiality_rls.sql
+│       ├── 20250924100500_tax_mt_cit_imputation.sql
+│       ├── 20250924100501_tax_mt_cit_imputation_rls.sql
+│       ├── 20250924103000_accounting_close_gl.sql
+│       ├── 20250924103001_accounting_close_gl_rls.sql
+│       ├── 20250924112000_activity_log_enrichment.sql
+│       ├── 20250924113000_telemetry_schema.sql
+│       ├── 20250924113001_telemetry_schema_rls.sql
+│       ├── 20250924120000_audit_risk_register.sql
+│       ├── 20250924120001_audit_risk_register_rls.sql
+│       ├── 20250924124000_audit_responses_matrix.sql
+│       ├── 20250924124001_audit_responses_matrix_rls.sql
+│       ├── 20250924130000_fraud_plan_je_strategy.sql
+│       ├── 20250924130001_fraud_plan_je_strategy_rls.sql
+│       ├── 20250924134000_activity_log_catalog_audit_modules.sql
+│       ├── 20250924135000_audit_kam_schema.sql
+│       ├── 20250924135001_audit_kam_rls.sql
+│       ├── 20250924141000_tax_mt_nid_patent_box.sql
+│       ├── 20250924141001_tax_mt_nid_patent_box_rls.sql
+│       ├── 20250924152000_tax_mt_atad_ilr_cfc.sql
+│       ├── 20250924152001_tax_mt_atad_ilr_cfc_rls.sql
+│       ├── 20250924164000_tax_mt_fiscal_unity.sql
+│       ├── 20250924164001_tax_mt_fiscal_unity_rls.sql
+│       ├── 20250924173000_tax_vat_returns.sql
+│       ├── 20250924173001_tax_vat_returns_rls.sql
+│       ├── 20250924182000_tax_dac6_schema.sql
+│       ├── 20250924182001_tax_dac6_rls.sql
+│       ├── 20250924200000_tax_pillar_two_schema.sql
+│       ├── 20250924200001_tax_pillar_two_rls.sql
+│       ├── 20250924210000_tax_treaty_wht.sql
+│       ├── 20250924210001_tax_treaty_wht_rls.sql
+│       ├── 20250924213000_tax_us_overlays.sql
+│       ├── 20250924213001_tax_us_overlays_rls.sql
+│       ├── 20250924214000_archive_manifest_event.sql
+│       ├── 20250924225000_idempotency_keys.sql
+│       ├── 20250924231000_rate_limits.sql
+│       ├── 20250925220000_app_is_member_of_wrapper.sql
+│       ├── 20250925221000_idempotency_keys_patch.sql
+│       ├── 20250925222000_rate_limits_policy_patch.sql
+│       ├── 20250926090000_tasks_documents_notifications.sql
+│       ├── 20250926181500_activity_event_catalog_rls.sql
+│       ├── 20250927100000_documents_storage_policy.sql
+│       ├── 20250927113000_gdrive_ingestion_tables.sql
+│       ├── 20250927114500_learning_loop_tables.sql
+│       ├── 20250930120000_nps_responses.sql
+│       ├── 20251004112226_e845fcd6-6600-469d-91ac-00f716b13d33.sql
+│       ├── 20251005104500_phase_a_foundation.sql
+│       ├── 20251007180000_engagement_independence.sql
+│       ├── 20251018101620_remote_schema.sql
+│       ├── 20251111090000_audit_ctrl1_ada1_rec1.sql
+│       ├── 20251113093000_audit_acceptance_foundation.sql
+│       ├── 20251115090000_notification_fanout.sql
+│       ├── 20251115093000_agent_hitl_extensions.sql
+│       ├── 20251115100000_openai_debug_events.sql
+│       ├── 20251115104500_agent_openai_columns.sql
+│       ├── 20251115110000_agent_mcp_schema.sql
+│       ├── 20251115113000_chatkit_sessions.sql
+│       ├── 20251115114000_system_settings.sql
+│       ├── 20251115114500_chatkit_turn_config.sql
+│       ├── 20251115121500_chatkit_session_transcripts.sql
+│       ├── 20251115122000_web_fetch_cache.sql
+│       ├── 20251115123000_web_fetch_cache_retention.sql
+│       ├── 20251120090000_telemetry_alerts.sql
+│       ├── 20251120090500_autonomy_telemetry_events.sql
+│       ├── 20251201090000_analytics_events.sql
+│       └── 20251215120000_notification_dispatch_queue_system_settings_rls.sql
+├── openapi
+│   ├── aat_agent_api.yaml
+│   └── fastapi.json
+├── ops
+│   └── runbooks
+│       ├── README.md
+│       ├── automation
+│       │   └── incident-integrations.ts
+│       └── database-outage.yaml
+├── package.json
+├── packages
+│   ├── README.md
+│   ├── agents
+│   │   ├── package.json
+│   │   ├── src
+│   │   │   ├── __tests__
+│   │   │   │   └── audit-execution.test.ts
+│   │   │   ├── audit-execution.ts
+│   │   │   ├── director.ts
+│   │   │   ├── domain-agents.ts
+│   │   │   ├── index.ts
+│   │   │   ├── risk-analysis.ts
+│   │   │   ├── runtime.ts
+│   │   │   └── types.ts
+│   │   ├── tsconfig.json
+│   │   ├── tsconfig.tsbuildinfo
+│   │   └── v8-compile-cache-0
+│   │       └── x64
+│   │           └── 11.3.244.8-node.29
+│   │               ├── zSrootzS.nvmzSversionszSnodezSv20.19.4zSlibzSnode_moduleszScorepackzSdistzSpnpm.js.BLOB
+│   │               └── zSrootzS.nvmzSversionszSnodezSv20.19.4zSlibzSnode_moduleszScorepackzSdistzSpnpm.js.MAP
+│   ├── api-client
+│   │   ├── README.md
+│   │   ├── index.ts
+│   │   ├── openapi-shim.d.ts
+│   │   ├── package.json
+│   │   ├── tests
+│   │   │   └── client.test.ts
+│   │   ├── tsconfig.json
+│   │   └── types.ts
+│   ├── config
+│   │   ├── README.md
+│   │   ├── package.json
+│   │   ├── src
+│   │   │   ├── csp.ts
+│   │   │   ├── env.ts
+│   │   │   └── index.ts
+│   │   └── tsconfig.json
+│   ├── dev-portal
+│   │   ├── README.md
+│   │   ├── app-config.yaml
+│   │   ├── catalog-info.yaml
+│   │   └── package.json
+│   ├── lib
+│   │   ├── package.json
+│   │   ├── src
+│   │   │   ├── __tests__
+│   │   │   │   ├── retry.test.ts
+│   │   │   │   └── webhook.test.ts
+│   │   │   ├── audit
+│   │   │   │   ├── activity-log.ts
+│   │   │   │   ├── evidence.ts
+│   │   │   │   └── module-records.ts
+│   │   │   ├── idempotency.ts
+│   │   │   ├── index.ts
+│   │   │   ├── openai
+│   │   │   │   ├── README.md
+│   │   │   │   ├── __tests__
+│   │   │   │   │   └── web-search.test.ts
+│   │   │   │   ├── client.d.ts
+│   │   │   │   ├── client.d.ts.map
+│   │   │   │   ├── client.js
+│   │   │   │   ├── client.ts
+│   │   │   │   ├── file-search.d.ts
+│   │   │   │   ├── file-search.d.ts.map
+│   │   │   │   ├── file-search.js
+│   │   │   │   ├── file-search.ts
+│   │   │   │   ├── url.d.ts
+│   │   │   │   ├── url.d.ts.map
+│   │   │   │   ├── url.js
+│   │   │   │   ├── url.ts
+│   │   │   │   ├── web-search.ts
+│   │   │   │   ├── workloads.d.ts
+│   │   │   │   ├── workloads.d.ts.map
+│   │   │   │   ├── workloads.js
+│   │   │   │   └── workloads.ts
+│   │   │   ├── retry.ts
+│   │   │   ├── secrets
+│   │   │   │   ├── index.d.ts
+│   │   │   │   ├── index.d.ts.map
+│   │   │   │   ├── index.js
+│   │   │   │   ├── index.ts
+│   │   │   │   ├── secret-manager.d.ts
+│   │   │   │   ├── secret-manager.d.ts.map
+│   │   │   │   ├── secret-manager.js
+│   │   │   │   ├── secret-manager.ts
+│   │   │   │   ├── supabase.d.ts
+│   │   │   │   ├── supabase.d.ts.map
+│   │   │   │   ├── supabase.js
+│   │   │   │   ├── supabase.ts
+│   │   │   │   ├── vault-client.d.ts
+│   │   │   │   ├── vault-client.d.ts.map
+│   │   │   │   ├── vault-client.js
+│   │   │   │   └── vault-client.ts
+│   │   │   ├── security
+│   │   │   │   ├── signed-url-policy.d.ts
+│   │   │   │   ├── signed-url-policy.d.ts.map
+│   │   │   │   ├── signed-url-policy.js
+│   │   │   │   └── signed-url-policy.ts
+│   │   │   ├── supabase
+│   │   │   │   └── stub.ts
+│   │   │   ├── supabase-server.ts
+│   │   │   ├── verifySignature.ts
+│   │   │   └── webhook.ts
+│   │   ├── tsconfig.json
+│   │   ├── tsconfig.tsbuildinfo
+│   │   └── v8-compile-cache-0
+│   │       └── x64
+│   │           └── 11.3.244.8-node.29
+│   │               ├── zSrootzS.nvmzSversionszSnodezSv20.19.4zSlibzSnode_moduleszScorepackzSdistzSpnpm.js.BLOB
+│   │               └── zSrootzS.nvmzSversionszSnodezSv20.19.4zSlibzSnode_moduleszScorepackzSdistzSpnpm.js.MAP
+│   ├── logger
+│   │   ├── README.md
+│   │   ├── package.json
+│   │   ├── src
+│   │   │   └── index.ts
+│   │   ├── tsconfig.json
+│   │   ├── tsconfig.tsbuildinfo
+│   │   └── v8-compile-cache-0
+│   │       └── x64
+│   │           └── 11.3.244.8-node.29
+│   │               ├── zSrootzS.nvmzSversionszSnodezSv20.19.4zSlibzSnode_moduleszScorepackzSdistzSpnpm.js.BLOB
+│   │               └── zSrootzS.nvmzSversionszSnodezSv20.19.4zSlibzSnode_moduleszScorepackzSdistzSpnpm.js.MAP
+│   ├── platform
+│   │   ├── package.json
+│   │   ├── src
+│   │   │   ├── env.ts
+│   │   │   ├── index.ts
+│   │   │   └── supabase
+│   │   │       ├── client.test.ts
+│   │   │       ├── client.ts
+│   │   │       └── types.ts
+│   │   ├── tsconfig.json
+│   │   ├── tsconfig.tsbuildinfo
+│   │   └── v8-compile-cache-0
+│   │       └── x64
+│   │           └── 11.3.244.8-node.29
+│   │               ├── zSrootzS.nvmzSversionszSnodezSv20.19.4zSlibzSnode_moduleszScorepackzSdistzSpnpm.js.BLOB
+│   │               └── zSrootzS.nvmzSversionszSnodezSv20.19.4zSlibzSnode_moduleszScorepackzSdistzSpnpm.js.MAP
+│   ├── prompts
+│   │   ├── README.md
+│   │   ├── anomaly_explain.json
+│   │   ├── audit_planning.json
+│   │   ├── autocat.json
+│   │   ├── materiality.json
+│   │   ├── rag_qa.json
+│   │   ├── schema.json
+│   │   └── vat_determine.json
+│   ├── system-config
+│   │   ├── README.md
+│   │   ├── index.d.ts
+│   │   ├── index.js
+│   │   ├── package.json
+│   │   ├── src
+│   │   │   ├── index.d.ts
+│   │   │   ├── index.d.ts.map
+│   │   │   ├── index.js
+│   │   │   └── index.ts
+│   │   └── tsconfig.json
+│   ├── tax
+│   │   ├── package.json
+│   │   ├── src
+│   │   │   ├── calculators.ts
+│   │   │   ├── dac6.ts
+│   │   │   └── index.ts
+│   │   ├── tsconfig.json
+│   │   ├── tsconfig.tsbuildinfo
+│   │   └── v8-compile-cache-0
+│   │       └── x64
+│   │           └── 11.3.244.8-node.29
+│   │               ├── zSrootzS.nvmzSversionszSnodezSv20.19.4zSlibzSnode_moduleszScorepackzSdistzSpnpm.js.BLOB
+│   │               └── zSrootzS.nvmzSversionszSnodezSv20.19.4zSlibzSnode_moduleszScorepackzSdistzSpnpm.js.MAP
+│   └── ui
+│       ├── package.json
+│       ├── src
+│       │   ├── components
+│       │   │   ├── Badge.tsx
+│       │   │   ├── Button.tsx
+│       │   │   ├── Skeleton.tsx
+│       │   │   └── utils
+│       │   │       └── cn.ts
+│       │   ├── index.ts
+│       │   ├── tokens
+│       │   │   └── index.ts
+│       │   └── tokens.ts
+│       ├── tsconfig.json
+│       └── v8-compile-cache-0
+│           └── x64
+│               └── 11.3.244.8-node.29
+│                   ├── zSrootzS.nvmzSversionszSnodezSv20.19.4zSlibzSnode_moduleszScorepackzSdistzSpnpm.js.BLOB
+│                   └── zSrootzS.nvmzSversionszSnodezSv20.19.4zSlibzSnode_moduleszScorepackzSdistzSpnpm.js.MAP
+├── playwright.config.ts
+├── pnpm-lock.yaml
+├── pnpm-workspace.yaml
+├── postcss.config.js
+├── public
+│   ├── favicon.ico
+│   ├── icons
+│   │   ├── icon-192x192.png
+│   │   └── icon-512x512.png
+│   ├── manifest.json
+│   ├── placeholder.svg
+│   ├── robots.txt
+│   └── service-worker.js
+├── pytest.ini
+├── rag
+│   └── Dockerfile
+├── renovate.json
+├── scripts
+│   ├── audit
+│   │   ├── generate-tree.sh
+│   │   ├── run-depcruise.sh
+│   │   ├── run-detect-secrets.sh
+│   │   └── run-inventory.sh
+│   ├── chaos
+│   │   ├── README.md
+│   │   ├── run_db_throttle.sh
+│   │   ├── run_network_latency.sh
+│   │   ├── run_pod_kill.sh
+│   │   └── verify_slo_alerts.sh
+│   ├── check-service-ownership.mjs
+│   ├── check_bundlesize.mjs
+│   ├── config
+│   │   └── validate-config.mjs
+│   ├── coverage.sh
+│   ├── cron.md
+│   ├── db
+│   │   ├── bootstrap_supabase_stub.sql
+│   │   ├── extract_search_path_functions.py
+│   │   └── migration-smoke.sh
+│   ├── deploy
+│   │   ├── trigger_prisma_migrate.sh
+│   │   └── update-compose-env.sh
+│   ├── finance-review
+│   │   └── run-daily-review.ts
+│   ├── generate_agent_manifests.ts
+│   ├── k6-autopilot-smoke.sh
+│   ├── lint
+│   │   └── check-architecture-adr.mjs
+│   ├── mac
+│   │   ├── caddy_bg.sh
+│   │   ├── caddy_down.sh
+│   │   ├── caddy_up.sh
+│   │   ├── install_caddy_cloudflared.sh
+│   │   ├── install_cloudflared.sh
+│   │   ├── tunnel_bg.sh
+│   │   ├── tunnel_down.sh
+│   │   └── tunnel_up.sh
+│   ├── maintenance
+│   │   ├── jobs
+│   │   │   ├── README.md
+│   │   │   ├── activity-log-anonymizer.mjs
+│   │   │   ├── document-attachment-rotator.mjs
+│   │   │   ├── job-runner.mjs
+│   │   │   ├── journal-ledger-sanitizer.mjs
+│   │   │   └── support-transcript-purger.mjs
+│   │   ├── run_data_retention.mjs
+│   │   ├── update_retention_docs.mjs
+│   │   └── verify_policy_docs.mjs
+│   ├── operations
+│   │   ├── apply-web-cache-migrations.mjs
+│   │   ├── archive-phase4.sh
+│   │   ├── backfill_openai_retrieval.py
+│   │   ├── hotfix-release-manager.ts
+│   │   ├── migration-smoke.sh
+│   │   └── publish-openai-file-search-secrets.ts
+│   ├── perf
+│   │   ├── k6
+│   │   │   └── rag_search_smoke.js
+│   │   └── run_k6.sh
+│   ├── publish_agent_manifests.ts
+│   ├── run_agent_evaluations.js
+│   ├── secrets_scan.sh
+│   ├── test_policies.sql
+│   └── update_agent_manifest_ids.ts
+├── server
+│   ├── __init__.py
+│   ├── analytics_runner.py
+│   ├── api
+│   │   └── schemas
+│   │       ├── __init__.py
+│   │       └── release_controls.py
+│   ├── autopilot_handlers.py
+│   ├── config_loader.py
+│   ├── db.py
+│   ├── deterministic_contract.py
+│   ├── document_ai.py
+│   ├── email.py
+│   ├── export_openapi.py
+│   ├── health.py
+│   ├── health_app.py
+│   ├── main.py
+│   ├── onboarding_mapper.py
+│   ├── openai
+│   │   ├── __init__.py
+│   │   └── client.py
+│   ├── openai_debug.py
+│   ├── openai_retrieval.py
+│   ├── rag.py
+│   ├── rate_limit.py
+│   ├── release_controls.py
+│   ├── requirements.offline.txt
+│   ├── requirements.txt
+│   ├── security.py
+│   ├── settings.py
+│   ├── telemetry.py
+│   ├── worker.py
+│   └── workflows
+│       ├── __init__.py
+│       └── service.py
+├── services
+│   ├── analytics
+│   │   ├── __init__.py
+│   │   ├── api.py
+│   │   ├── app.py
+│   │   ├── jobs.py
+│   │   ├── requirements.txt
+│   │   └── scheduler.py
+│   └── rag
+│       ├── .dockerignore
+│       ├── .env.example
+│       ├── agent-conversation-recorder.ts
+│       ├── ambient.d.ts
+│       ├── approval-service.ts
+│       ├── chatkit-session-service.ts
+│       ├── env.ts
+│       ├── file-search-utils.ts
+│       ├── index.ts
+│       ├── knowledge
+│       │   ├── drive.ts
+│       │   ├── google-drive-client.ts
+│       │   ├── ingestion.ts
+│       │   └── web.ts
+│       ├── mcp
+│       │   ├── bootstrap.ts
+│       │   ├── director.ts
+│       │   ├── executors
+│       │   │   └── accounting.ts
+│       │   ├── executors.ts
+│       │   ├── safety.ts
+│       │   └── types.ts
+│       ├── notifications
+│       │   └── fanout.ts
+│       ├── openai-agent-service.ts
+│       ├── openai-audio.ts
+│       ├── openai-chat-completions.ts
+│       ├── openai-conversations.ts
+│       ├── openai-debug.ts
+│       ├── openai-media.ts
+│       ├── openai-realtime.ts
+│       ├── openai-stream.ts
+│       ├── openai-vision.ts
+│       ├── package.json
+│       ├── readiness.ts
+│       ├── system-config.ts
+│       ├── tsconfig.json
+│       ├── types
+│       │   ├── README.md
+│       │   ├── file-search.ts
+│       │   ├── supabase.ts
+│       │   └── web-search.ts
+│       ├── vector.ts
+│       └── web-search-utils.ts
+├── src
+│   ├── App.css
+│   ├── App.tsx
+│   ├── agents
+│   │   └── finance-review
+│   │       ├── auditor.ts
+│   │       └── cfo.ts
+│   ├── components
+│   │   ├── __tests__
+│   │   │   └── enhanced-button.test.tsx
+│   │   ├── assistant
+│   │   │   ├── assistant-dock.tsx
+│   │   │   └── index.ts
+│   │   ├── audit
+│   │   │   ├── approvals-banner.tsx
+│   │   │   └── navigation.tsx
+│   │   ├── auth
+│   │   │   └── protected-route.tsx
+│   │   ├── autonomy
+│   │   │   └── autonomy-hud.tsx
+│   │   ├── clients
+│   │   │   ├── client-onboarding-agent.tsx
+│   │   │   └── client-onboarding-helpers.ts
+│   │   ├── command-palette.tsx
+│   │   ├── enhanced-button.tsx
+│   │   ├── fallback-redirect.tsx
+│   │   ├── file-upload.tsx
+│   │   ├── forms
+│   │   │   ├── client-form.tsx
+│   │   │   ├── engagement-form.tsx
+│   │   │   └── task-form.tsx
+│   │   ├── layout
+│   │   │   ├── app-shell.tsx
+│   │   │   ├── header.tsx
+│   │   │   └── sidebar.tsx
+│   │   ├── locale-switcher.tsx
+│   │   ├── nps
+│   │   │   └── nps-prompt.tsx
+│   │   ├── organization-switcher.tsx
+│   │   ├── privacy
+│   │   │   └── CookieConsent.tsx
+│   │   ├── pwa-install-prompt.tsx
+│   │   ├── settings
+│   │   │   └── whatsapp-mfa-card.tsx
+│   │   ├── theme-provider.tsx
+│   │   └── ui
+│   │       ├── __tests__
+│   │       │   └── chart.test.tsx
+│   │       ├── accordion.tsx
+│   │       ├── alert-dialog.tsx
+│   │       ├── alert.tsx
+│   │       ├── aspect-ratio.tsx
+│   │       ├── assistant-chip.tsx
+│   │       ├── avatar.tsx
+│   │       ├── badge.tsx
+│   │       ├── breadcrumb.tsx
+│   │       ├── button.tsx
+│   │       ├── calendar.tsx
+│   │       ├── card.tsx
+│   │       ├── carousel.tsx
+│   │       ├── chart-config.ts
+│   │       ├── chart.stories.tsx
+│   │       ├── chart.tsx
+│   │       ├── checkbox.tsx
+│   │       ├── collapsible.tsx
+│   │       ├── command.tsx
+│   │       ├── context-menu.tsx
+│   │       ├── dialog.tsx
+│   │       ├── drawer.tsx
+│   │       ├── dropdown-menu.tsx
+│   │       ├── form.tsx
+│   │       ├── hover-card.tsx
+│   │       ├── input-otp.tsx
+│   │       ├── input.tsx
+│   │       ├── label.tsx
+│   │       ├── menubar.tsx
+│   │       ├── navigation-menu.tsx
+│   │       ├── pagination.tsx
+│   │       ├── popover.tsx
+│   │       ├── progress.tsx
+│   │       ├── radio-group.tsx
+│   │       ├── resizable.tsx
+│   │       ├── route-suspense.tsx
+│   │       ├── scroll-area.tsx
+│   │       ├── select.tsx
+│   │       ├── separator.tsx
+│   │       ├── sheet.tsx
+│   │       ├── skeleton.tsx
+│   │       ├── slider.tsx
+│   │       ├── sonner.tsx
+│   │       ├── switch.tsx
+│   │       ├── table.tsx
+│   │       ├── tabs.tsx
+│   │       ├── textarea.tsx
+│   │       ├── toast.tsx
+│   │       ├── toaster.tsx
+│   │       ├── toggle-group.tsx
+│   │       ├── toggle.tsx
+│   │       ├── tooltip.tsx
+│   │       └── use-toast.ts
+│   ├── hooks
+│   │   ├── use-acceptance-status.ts
+│   │   ├── use-acceptance.ts
+│   │   ├── use-accounting-close-dashboard.ts
+│   │   ├── use-agent-profiles.ts
+│   │   ├── use-auth.ts
+│   │   ├── use-autonomy-status.ts
+│   │   ├── use-autopilot.ts
+│   │   ├── use-consent.ts
+│   │   ├── use-controls.ts
+│   │   ├── use-crud.ts
+│   │   ├── use-i18n.ts
+│   │   ├── use-kam-module.ts
+│   │   ├── use-knowledge.ts
+│   │   ├── use-mobile.tsx
+│   │   ├── use-offline-support.ts
+│   │   ├── use-organizations.ts
+│   │   ├── use-pbc.ts
+│   │   ├── use-report-builder.ts
+│   │   ├── use-tcwg-pack.ts
+│   │   ├── use-toast.ts
+│   │   └── use-whatsapp-mfa.ts
+│   ├── i18n
+│   │   ├── I18nProvider.tsx
+│   │   └── translations.ts
+│   ├── index.css
+│   ├── integrations
+│   │   ├── aat-agent
+│   │   │   └── types.ts
+│   │   └── supabase
+│   │       ├── client.ts
+│   │       └── types.ts
+│   ├── lib
+│   │   ├── acceptance-service.ts
+│   │   ├── accounting-close-service.ts
+│   │   ├── admin.ts
+│   │   ├── analytics.ts
+│   │   ├── api.ts
+│   │   ├── apiClient.ts
+│   │   ├── archive-service.ts
+│   │   ├── assistant-style-policy.ts
+│   │   ├── audit-plan-service.ts
+│   │   ├── audit-responses-service.ts
+│   │   ├── audit-risk-service.ts
+│   │   ├── autonomy.ts
+│   │   ├── autopilot.ts
+│   │   ├── client-events.ts
+│   │   ├── clients.ts
+│   │   ├── config
+│   │   │   └── constants.ts
+│   │   ├── consolidation-service.ts
+│   │   ├── controls-service.ts
+│   │   ├── documents.ts
+│   │   ├── engagements.ts
+│   │   ├── error-notify.ts
+│   │   ├── finance-review
+│   │   │   ├── embeddings.ts
+│   │   │   ├── env.ts
+│   │   │   ├── ledger.ts
+│   │   │   ├── retrieval.ts
+│   │   │   └── supabase.ts
+│   │   ├── financial-report-service.ts
+│   │   ├── fraud-plan-service.ts
+│   │   ├── iam.ts
+│   │   ├── kam-service.ts
+│   │   ├── knowledge.ts
+│   │   ├── logger.js
+│   │   ├── logger.ts
+│   │   ├── mfa.ts
+│   │   ├── notifications.ts
+│   │   ├── onboarding.ts
+│   │   ├── pbc-service.ts
+│   │   ├── report-service.ts
+│   │   ├── runtime-config.ts
+│   │   ├── security
+│   │   │   ├── password.test.ts
+│   │   │   └── password.ts
+│   │   ├── storage
+│   │   │   └── indexed-db.ts
+│   │   ├── supabase-functions.ts
+│   │   ├── system-config.ts
+│   │   ├── tasks.ts
+│   │   ├── tax
+│   │   │   ├── calculators.ts
+│   │   │   └── dac6.ts
+│   │   ├── tax-mt-service.ts
+│   │   ├── tcwg-service.ts
+│   │   ├── telemetry-service.ts
+│   │   ├── tenant-client.ts
+│   │   └── utils.ts
+│   ├── main.tsx
+│   ├── pages
+│   │   ├── Index.tsx
+│   │   ├── NotFound.tsx
+│   │   ├── Unauthorized.tsx
+│   │   ├── acceptance.tsx
+│   │   ├── accounting
+│   │   │   └── index.tsx
+│   │   ├── activity.tsx
+│   │   ├── admin
+│   │   │   ├── index.tsx
+│   │   │   ├── teams.tsx
+│   │   │   └── users.tsx
+│   │   ├── agents
+│   │   │   ├── configuration.tsx
+│   │   │   └── learning.tsx
+│   │   ├── analytics
+│   │   │   └── overview.tsx
+│   │   ├── audit
+│   │   │   ├── fraud-plan.tsx
+│   │   │   ├── plan.tsx
+│   │   │   ├── responses.tsx
+│   │   │   ├── risk-register.tsx
+│   │   │   └── workspace
+│   │   │       ├── analytics.tsx
+│   │   │       ├── controls.tsx
+│   │   │       ├── group.tsx
+│   │   │       ├── index.tsx
+│   │   │       ├── layout.tsx
+│   │   │       ├── other-information.tsx
+│   │   │       ├── reconciliations.tsx
+│   │   │       ├── service-orgs.tsx
+│   │   │       └── specialists.tsx
+│   │   ├── auth
+│   │   │   └── sign-in.tsx
+│   │   ├── autopilot
+│   │   │   └── index.tsx
+│   │   ├── clients.tsx
+│   │   ├── dashboard.tsx
+│   │   ├── documents.tsx
+│   │   ├── engagements.tsx
+│   │   ├── independence.tsx
+│   │   ├── knowledge
+│   │   │   ├── repositories.tsx
+│   │   │   └── runs.tsx
+│   │   ├── notifications.tsx
+│   │   ├── onboarding
+│   │   │   └── index.tsx
+│   │   ├── privacy.tsx
+│   │   ├── reporting
+│   │   │   ├── consolidation.tsx
+│   │   │   ├── controls.tsx
+│   │   │   ├── kam.tsx
+│   │   │   ├── pbc.tsx
+│   │   │   ├── report.tsx
+│   │   │   └── tcwg.tsx
+│   │   ├── settings.tsx
+│   │   ├── tasks.tsx
+│   │   ├── tax
+│   │   │   ├── dac6.tsx
+│   │   │   ├── malta-cit.tsx
+│   │   │   ├── pillar-two.tsx
+│   │   │   ├── treaty-wht.tsx
+│   │   │   ├── us-overlays.tsx
+│   │   │   └── vat-oss.tsx
+│   │   └── telemetry
+│   │       └── dashboard.tsx
+│   ├── stores
+│   │   └── mock-data.ts
+│   ├── test
+│   │   └── setup.ts
+│   ├── types
+│   │   └── yaml.d.ts
+│   ├── utils
+│   │   ├── __tests__
+│   │   │   └── pwa-storage.test.ts
+│   │   ├── kam-export.ts
+│   │   ├── pbc.ts
+│   │   ├── pwa.ts
+│   │   ├── report-evaluation.ts
+│   │   └── tcwg-pack.ts
+│   └── vite-env.d.ts
+├── supabase
+│   ├── accounting_A2_schema.sql
+│   ├── blueprint.sql
+│   ├── config.toml
+│   ├── functions
+│   │   ├── _shared
+│   │   │   ├── acceptance.ts
+│   │   │   ├── controls.ts
+│   │   │   ├── error-notify.ts
+│   │   │   ├── pbc.ts
+│   │   │   ├── supabase-client.ts
+│   │   │   ├── testing.ts
+│   │   │   └── vault.ts
+│   │   ├── accounting-close
+│   │   │   └── index.ts
+│   │   ├── archive-sync
+│   │   │   └── index.ts
+│   │   ├── audit-acceptance
+│   │   │   └── index.ts
+│   │   ├── audit-controls
+│   │   │   └── index.ts
+│   │   ├── audit-fraud
+│   │   │   └── index.ts
+│   │   ├── audit-kam
+│   │   │   └── index.ts
+│   │   ├── audit-pbc
+│   │   │   └── index.ts
+│   │   ├── audit-plan
+│   │   │   └── index.ts
+│   │   ├── audit-report
+│   │   │   └── index.ts
+│   │   ├── audit-responses
+│   │   │   └── index.ts
+│   │   ├── audit-risk
+│   │   │   └── index.ts
+│   │   ├── audit-tcwg
+│   │   │   └── index.ts
+│   │   ├── connectors-callback
+│   │   │   └── index.ts
+│   │   ├── connectors-oauth-url
+│   │   │   └── index.ts
+│   │   ├── connectors-sync
+│   │   │   └── index.ts
+│   │   ├── create-demo-users
+│   │   │   └── index.ts
+│   │   ├── error-notify
+│   │   │   └── index.ts
+│   │   ├── knowledge-ingest
+│   │   │   └── index.ts
+│   │   ├── learning-applier
+│   │   │   └── index.ts
+│   │   ├── learning-collector
+│   │   │   └── index.ts
+│   │   ├── learning-diagnoser
+│   │   │   └── index.ts
+│   │   ├── learning-evaluate
+│   │   │   └── index.ts
+│   │   ├── seed-data
+│   │   │   └── index.ts
+│   │   ├── services
+│   │   │   ├── _tests
+│   │   │   │   ├── connectors-callback.test.ts
+│   │   │   │   ├── connectors-oauth-url.test.ts
+│   │   │   │   ├── telemetry-sync-options-auth.test.ts
+│   │   │   │   └── whatsapp-otp-send.test.ts
+│   │   │   ├── connectors
+│   │   │   │   ├── callback
+│   │   │   │   │   └── index.ts
+│   │   │   │   ├── oauth-url
+│   │   │   │   │   └── index.ts
+│   │   │   │   ├── sync
+│   │   │   │   │   └── index.ts
+│   │   │   │   └── token-vault.ts
+│   │   │   ├── learning
+│   │   │   │   ├── applier
+│   │   │   │   │   └── index.ts
+│   │   │   │   ├── collector
+│   │   │   │   │   └── index.ts
+│   │   │   │   ├── diagnoser
+│   │   │   │   │   └── index.ts
+│   │   │   │   └── evaluate
+│   │   │   │       └── index.ts
+│   │   │   ├── token-vault.ts
+│   │   │   └── whatsapp
+│   │   │       ├── otp-send
+│   │   │       │   └── index.ts
+│   │   │       └── otp-verify
+│   │   │           └── index.ts
+│   │   ├── tax-mt-cit
+│   │   │   └── index.ts
+│   │   ├── tax-mt-nid
+│   │   │   ├── access.ts
+│   │   │   ├── activity.ts
+│   │   │   └── index.ts
+│   │   ├── telemetry-sync
+│   │   │   └── index.ts
+│   │   ├── whatsapp_otp_send
+│   │   │   └── index.ts
+│   │   └── whatsapp_otp_verify
+│   │       └── index.ts
+│   ├── migrations
+│   │   ├── .keep
+│   │   ├── 002_vat_rules_seed.sql
+│   │   ├── 003_indexes.sql
+│   │   ├── 20250821115117_.sql
+│   │   ├── 20250821115118_c8efec61-c52e-4db8-ac92-82c3ca0a7579.sql
+│   │   ├── 20250821115348_878f265d-a747-47a8-aade-2f2d66847d8c.sql
+│   │   ├── 20250821115406_.sql
+│   │   ├── 20250821115407_50fe85e1-e606-4424-960d-acc41a893410.sql
+│   │   ├── 20250824073858_.sql
+│   │   ├── 20250824073859_c20167a1-9343-4056-b103-4f304e6e26eb.sql
+│   │   ├── 20250824085632_c57fe3ce-db8b-4f21-863e-e37b10dab301.sql
+│   │   ├── 20250824085652_.sql
+│   │   ├── 20250824085654_4fe24341-a008-498b-b4f5-7743d2a57904.sql
+│   │   ├── 20250825140114_857b5b5b-3328-448c-b83b-a9aca978a9d6.sql
+│   │   ├── 20250829090000_5ea29147-38dc-4b92-9f17-7dc59a6c4647.sql
+│   │   ├── 20250830125235_4127fb8d-0f84-4062-a3cc-b5d8933cb1ad.sql
+│   │   ├── 20250830125452_e57a401c-384b-4441-8bbe-327d78068c55.sql
+│   │   ├── 20250830125628_64a6aad4-6a40-4125-bb4e-b62341ab9a29.sql
+│   │   ├── 20250830125648_f73e809f-f983-405f-9ed8-e17d84d48869.sql
+│   │   ├── 20250830125703_5bf2f541-dcd5-4c5e-a182-de2328149a5f.sql
+│   │   ├── 20250830125719_.sql
+│   │   ├── 20250830125720_1b779663-4991-4f79-83e6-f963458284ae.sql
+│   │   ├── 20250830125735_.sql
+│   │   ├── 20250830125736_e118852a-6ecd-46c6-9c5d-53935d524f61.sql
+│   │   ├── 20250830125756_a814a60a-2361-4a22-86ab-243f73b901ba.sql
+│   │   ├── 20250830125839_.sql
+│   │   ├── 20250830125841_9195bd32-1de7-41d9-ac3c-d017d0dbe16a.sql
+│   │   ├── 20250901062854_.sql
+│   │   ├── 20250901062855_139c4e89-6510-4395-988c-25ffdf993c21.sql
+│   │   ├── 20250901063007_ebc6d971-3a9c-401b-adc0-7724a804337f.sql
+│   │   ├── 20250901063516_7f4819a8-9228-40f0-bf32-0d505706a781.sql
+│   │   ├── 20250901063531_d0005ee4-6492-4483-95b9-3667e8add347.sql
+│   │   ├── 20250901063555_b1189972-8c30-46ba-bce4-a3ef9d6da79a.sql
+│   │   ├── 20250901063818_.sql
+│   │   ├── 20250901063819_ee277649-5eb7-4b4c-95f7-f2acb23209dc.sql
+│   │   ├── 20250902094731_.sql
+│   │   ├── 20250902094733_6d37821e-f5a7-4a21-8a7c-ff8c208c2d2a.sql
+│   │   ├── 20250902094839_.sql
+│   │   ├── 20250902094840_6ab1627f-247f-4a0b-98d0-d2e86d4c0dcb.sql
+│   │   ├── 20250921090000_org_indexes.sql
+│   │   ├── 20250921090001_backfill_core_tables.sql
+│   │   ├── 20250923093000_agent_learning_tables.sql
+│   │   ├── 20250923095000_web_knowledge_sources.sql
+│   │   ├── 20250923114622_.sql
+│   │   ├── 20250923234623_42c1555f-baf3-4228-a6c4-93cbd60ffda8.sql
+│   │   ├── 20250924014606_remote_schema.sql
+│   │   ├── 20250924095000_audit_plan_strategy_materiality.sql
+│   │   ├── 20250924095001_audit_plan_strategy_materiality_rls.sql
+│   │   ├── 20250924100500_tax_mt_cit_imputation.sql
+│   │   ├── 20250924100501_tax_mt_cit_imputation_rls.sql
+│   │   ├── 20250924103000_accounting_close_gl.sql
+│   │   ├── 20250924103001_accounting_close_gl_rls.sql
+│   │   ├── 20250924112000_activity_log_enrichment.sql
+│   │   ├── 20250924113000_telemetry_schema.sql
+│   │   ├── 20250924113001_telemetry_schema_rls.sql
+│   │   ├── 20250924120000_audit_risk_register.sql
+│   │   ├── 20250924120001_audit_risk_register_rls.sql
+│   │   ├── 20250924124000_audit_responses_matrix.sql
+│   │   ├── 20250924124001_audit_responses_matrix_rls.sql
+│   │   ├── 20250924130000_fraud_plan_je_strategy.sql
+│   │   ├── 20250924130001_fraud_plan_je_strategy_rls.sql
+│   │   ├── 20250924134000_activity_log_catalog_audit_modules.sql
+│   │   ├── 20250924135000_audit_kam_schema.sql
+│   │   ├── 20250924135001_audit_kam_rls.sql
+│   │   ├── 20250924141000_tax_mt_nid_patent_box.sql
+│   │   ├── 20250924141001_tax_mt_nid_patent_box_rls.sql
+│   │   ├── 20250924152000_tax_mt_atad_ilr_cfc.sql
+│   │   ├── 20250924152001_tax_mt_atad_ilr_cfc_rls.sql
+│   │   ├── 20250924164000_tax_mt_fiscal_unity.sql
+│   │   ├── 20250924164001_tax_mt_fiscal_unity_rls.sql
+│   │   ├── 20250924173000_tax_vat_returns.sql
+│   │   ├── 20250924173001_tax_vat_returns_rls.sql
+│   │   ├── 20250924182000_tax_dac6_schema.sql
+│   │   ├── 20250924182001_tax_dac6_rls.sql
+│   │   ├── 20250924200000_tax_pillar_two_schema.sql
+│   │   ├── 20250924200001_tax_pillar_two_rls.sql
+│   │   ├── 20250924210000_tax_treaty_wht.sql
+│   │   ├── 20250924210001_tax_treaty_wht_rls.sql
+│   │   ├── 20250924213000_tax_us_overlays.sql
+│   │   ├── 20250924213001_tax_us_overlays_rls.sql
+│   │   ├── 20250924214000_archive_manifest_event.sql
+│   │   ├── 20250924225000_idempotency_keys.sql
+│   │   ├── 20250924231000_rate_limits.sql
+│   │   ├── 20250925220000_app_is_member_of_wrapper.sql
+│   │   ├── 20250925221000_idempotency_keys_patch.sql
+│   │   ├── 20250925222000_rate_limits_policy_patch.sql
+│   │   ├── 20250926090000_tasks_documents_notifications.sql
+│   │   ├── 20250926181500_activity_event_catalog_rls.sql
+│   │   ├── 20250927100000_documents_storage_policy.sql
+│   │   ├── 20250927113000_gdrive_ingestion_tables.sql
+│   │   ├── 20250927114500_learning_loop_tables.sql
+│   │   ├── 20250930120000_nps_responses.sql
+│   │   ├── 20251004112226_e845fcd6-6600-469d-91ac-00f716b13d33.sql
+│   │   ├── 20251005104500_phase_a_foundation.sql
+│   │   ├── 20251007180000_engagement_independence.sql
+│   │   ├── 20251018101620_remote_schema.sql
+│   │   ├── 20251018133000_phase1_rls_hardening.sql
+│   │   ├── 20251018133100_storage_bucket_lockdown.sql
+│   │   ├── 20251018133250_lock_public_role.sql
+│   │   ├── 20251018133340_function_search_path.sql
+│   │   ├── 20251111090000_audit_ctrl1_ada1_rec1.sql
+│   │   ├── 20251113093000_audit_acceptance_foundation.sql
+│   │   ├── 20251115090000_notification_fanout.sql
+│   │   ├── 20251115093000_agent_hitl_extensions.sql
+│   │   ├── 20251115100000_openai_debug_events.sql
+│   │   ├── 20251115104500_agent_openai_columns.sql
+│   │   ├── 20251115110000_agent_mcp_schema.sql
+│   │   ├── 20251115113000_chatkit_sessions.sql
+│   │   ├── 20251115114000_system_settings.sql
+│   │   ├── 20251115114500_chatkit_turn_config.sql
+│   │   ├── 20251115121500_chatkit_session_transcripts.sql
+│   │   ├── 20251115122000_web_fetch_cache.sql
+│   │   ├── 20251115123000_web_fetch_cache_retention.sql
+│   │   ├── 20251201090000_analytics_events.sql
+│   │   ├── 20251202120000_extensions_schema_reset.sql
+│   │   ├── 20251202121000_role_search_path_extensions.sql
+│   │   └── 20251215120000_notification_dispatch_queue_system_settings_rls.sql
+│   ├── policies_finance_review.sql
+│   ├── seed
+│   │   ├── .keep
+│   │   ├── 001_tool_registry.sql
+│   │   └── 002_tool_registry_metadata.sql
+│   ├── seed_finance_review.sql
+│   ├── sql
+│   │   ├── accounting_A1_rls.sql
+│   │   ├── accounting_A1_schema.sql
+│   │   ├── audit_AC1_rls.sql
+│   │   ├── audit_AC1_schema.sql
+│   │   ├── audit_ADA1_rls.sql
+│   │   ├── audit_ADA1_schema.sql
+│   │   ├── audit_CTRL1_rls.sql
+│   │   ├── audit_CTRL1_schema.sql
+│   │   ├── audit_E1_rls.sql
+│   │   ├── audit_E1_schema.sql
+│   │   ├── audit_E2_rls.sql
+│   │   ├── audit_E2_schema.sql
+│   │   ├── audit_E3_rls.sql
+│   │   ├── audit_E3_schema.sql
+│   │   ├── audit_EXP1_rls.sql
+│   │   ├── audit_EXP1_schema.sql
+│   │   ├── audit_GRP1_rls.sql
+│   │   ├── audit_GRP1_schema.sql
+│   │   ├── audit_OI1_schema.sql
+│   │   ├── audit_PBC1_rls.sql
+│   │   ├── audit_PBC1_schema.sql
+│   │   ├── audit_REC1_schema.sql
+│   │   ├── audit_SOC1_rls.sql
+│   │   ├── audit_SOC1_schema.sql
+│   │   ├── audit_base_rls.sql
+│   │   ├── audit_base_schema.sql
+│   │   ├── autonomy_controls.sql
+│   │   ├── data_sources_phase3_migration.sql
+│   │   ├── document_ai_phase4_migration.sql
+│   │   ├── eu_overlays.sql
+│   │   ├── iam_IAM1_rls.sql
+│   │   ├── iam_IAM1_schema.sql
+│   │   ├── iam_IAM2_autonomy_migration.sql
+│   │   ├── iam_IAM3_rls.sql
+│   │   ├── iam_IAM3_schema.sql
+│   │   ├── iam_IAM4_rls.sql
+│   │   ├── iam_IAM4_schema.sql
+│   │   ├── iam_IAM5_rls.sql
+│   │   ├── iam_IAM5_schema.sql
+│   │   ├── international_tools.sql
+│   │   ├── knowledge_phase5_migration.sql
+│   │   ├── mt_core_engines.sql
+│   │   └── workflow_phase6_migration.sql
+│   └── src
+│       ├── integrations
+│       │   └── supabase
+│       │       ├── types.d.ts
+│       │       ├── types.d.ts.map
+│       │       ├── types.js
+│       │       └── types.ts
+│       └── utils
+│           ├── report-evaluation.ts
+│           └── tcwg-pack.ts
+├── tailwind.config.ts
+├── test-results
+│   ├── .last-run.json
+│   ├── local-validation-2025-03-31.md
+│   └── supabase
+│       ├── search_path_apply.txt
+│       ├── search_path_functions.sql
+│       └── search_path_schema_diff.patch
+├── tests
+│   ├── accounting
+│   │   ├── accounting-close-service.test.ts
+│   │   ├── test_docs.py
+│   │   ├── test_registry.py
+│   │   ├── test_sql_schema.py
+│   │   └── test_workspace.py
+│   ├── agent-conversation-recorder.test.ts
+│   ├── agents
+│   │   ├── director.test.ts
+│   │   └── scenarios
+│   │       └── sample-plan.json
+│   ├── analytics
+│   │   └── analytics-overview-page.test.tsx
+│   ├── api
+│   │   ├── __pycache__
+│   │   │   └── test_core_smoke.cpython-313-pytest-8.4.1.pyc
+│   │   ├── analytics-overview-route.test.ts
+│   │   ├── api-guard.test.ts
+│   │   ├── exp-assessments-conclude-route.test.ts
+│   │   ├── exp-assessments-route.test.ts
+│   │   ├── financials-consolidation-route.test.ts
+│   │   ├── group-component-route.test.ts
+│   │   ├── group-instruction-route.test.ts
+│   │   ├── group-review-route.test.ts
+│   │   ├── group-route.test.ts
+│   │   ├── group-workpaper-route.test.ts
+│   │   ├── helpers
+│   │   │   └── rate-limit.ts
+│   │   ├── learning-endpoints.test.ts
+│   │   ├── nps-route.test.ts
+│   │   ├── openai-chat-completions-endpoints.test.ts
+│   │   ├── soc-routes.test.ts
+│   │   └── test_core_smoke.py
+│   ├── approval-service.test.ts
+│   ├── apps
+│   │   └── web
+│   │       └── app
+│   │           └── lib
+│   │               ├── observability.test.ts
+│   │               └── rate-limit.test.ts
+│   ├── archive
+│   │   └── archive-sync-edge.test.ts
+│   ├── assistant
+│   │   └── style-policy.test.ts
+│   ├── audit
+│   │   ├── activity-log.test.ts
+│   │   ├── analytics-engine.test.ts
+│   │   ├── approvals.test.ts
+│   │   ├── audit-controls-edge.test.ts
+│   │   ├── audit-plan-edge.test.ts
+│   │   ├── audit-plan-service.test.ts
+│   │   ├── audit-responses-edge.test.ts
+│   │   ├── evidence.test.ts
+│   │   ├── idempotency.test.ts
+│   │   ├── knowledge-ingest-edge.test.ts
+│   │   ├── module-records.test.ts
+│   │   ├── sampling-client.test.ts
+│   │   ├── schemas.test.ts
+│   │   ├── telemetry-sync-edge.test.ts
+│   │   └── tenant-client.test.ts
+│   ├── clients
+│   │   └── client-onboarding-agent.test.ts
+│   ├── config
+│   │   ├── env.common
+│   │   ├── supabase.env
+│   │   └── system-config.test.ts
+│   ├── conftest.py
+│   ├── drive
+│   │   └── drive-utils.test.ts
+│   ├── error-notify.test.ts
+│   ├── file-search-utils.test.ts
+│   ├── finance-review
+│   │   ├── agents.spec.ts
+│   │   ├── db.spec.ts
+│   │   └── retrieval.spec.ts
+│   ├── financials
+│   │   ├── consolidation-service.test.ts
+│   │   └── financial-report-service.test.ts
+│   ├── gateway
+│   │   ├── integration.test.ts
+│   │   ├── middleware.test.ts
+│   │   └── sentry-breadcrumbs.test.ts
+│   ├── golden
+│   │   ├── isa_qa.json
+│   │   ├── ledger_snippets.json
+│   │   └── vat_qa.json
+│   ├── kam-export.test.ts
+│   ├── load
+│   │   └── artillery
+│   │       ├── core-journeys.yml
+│   │       ├── fixtures
+│   │       │   ├── personas.csv
+│   │       │   └── sample.pdf
+│   │       └── processors
+│   │           └── core-journeys.mjs
+│   ├── openai-agent-service.test.ts
+│   ├── openai-audio.test.ts
+│   ├── openai-chat-completions.test.ts
+│   ├── openai-conversations.test.ts
+│   ├── openai-debug.test.ts
+│   ├── openai-file-search.test.ts
+│   ├── openai-media.test.ts
+│   ├── openai-realtime.test.ts
+│   ├── openai-stream-tools.test.ts
+│   ├── openai-stream.test.ts
+│   ├── openai-workloads.test.ts
+│   ├── pbc-manager.test.ts
+│   ├── perf
+│   │   ├── README.md
+│   │   ├── ada-k6.js
+│   │   ├── agent-chat-load.js
+│   │   ├── archive-rebuild.js
+│   │   ├── autonomy-burst.js
+│   │   ├── autopilot-smoke.js
+│   │   ├── disclosure-sync.js
+│   │   ├── doc-ingestion-spike.js
+│   │   ├── jest.k6.config.cjs
+│   │   ├── k6-group-audit.js
+│   │   ├── recon-k6.js
+│   │   └── telemetry-sync.js
+│   ├── playwright
+│   │   ├── a11y.spec.ts
+│   │   ├── auth-supabase.spec.ts
+│   │   ├── consent-screenshot.spec.ts
+│   │   ├── core-journeys.spec.ts
+│   │   ├── embeddings-playground.spec.ts
+│   │   └── smoke.spec.ts
+│   ├── rag
+│   │   └── openai-client-lazy-load.test.ts
+│   ├── rag-readiness.test.ts
+│   ├── report-decision.test.ts
+│   ├── reporting
+│   │   ├── consolidation-page.test.tsx
+│   │   ├── controls-matrix-page.test.tsx
+│   │   ├── kam-reporting-page.test.tsx
+│   │   ├── pbc-manager-page.test.tsx
+│   │   └── report-builder-page.test.tsx
+│   ├── runbooks
+│   │   └── runbook-simulation.test.ts
+│   ├── secrets
+│   │   ├── secret-manager.test.ts
+│   │   ├── supabase-secrets.test.ts
+│   │   └── vault-client.test.ts
+│   ├── security
+│   │   └── signed-url-policy.test.ts
+│   ├── stubs
+│   │   ├── analytics-events.ts
+│   │   ├── google-auth-library.ts
+│   │   ├── next-server.ts
+│   │   ├── server-only.ts
+│   │   └── supabase-client.ts
+│   ├── supabase
+│   │   └── tax-mt-nid
+│   │       └── guards.test.ts
+│   ├── system-config-loader.node.test.ts
+│   ├── tax
+│   │   ├── calculators.test.ts
+│   │   ├── dac6.test.ts
+│   │   ├── test_calculators.py
+│   │   ├── test_telemetry_payloads.py
+│   │   └── test_vat_workflow.py
+│   ├── tcwg-pack.test.ts
+│   ├── telemetry
+│   │   ├── dashboard-page.test.tsx
+│   │   ├── error-notify-edge.test.ts
+│   │   ├── summary-route.test.ts
+│   │   └── telemetry-sync-edge.test.ts
+│   ├── telemetry-service.test.ts
+│   ├── test_agent_routing.py
+│   ├── test_analytics_events.py
+│   ├── test_analytics_module.py
+│   ├── test_analytics_normalisation.py
+│   ├── test_analytics_runner.py
+│   ├── test_autonomy_controls.py
+│   ├── test_autonomy_status.py
+│   ├── test_autopilot_phase_c.py
+│   ├── test_autopilot_worker.py
+│   ├── test_controls_module.py
+│   ├── test_csp_and_cors.py
+│   ├── test_data_sources.py
+│   ├── test_documents_permissions.py
+│   ├── test_documents_signing.py
+│   ├── test_health_readiness.py
+│   ├── test_idempotency.py
+│   ├── test_knowledge_retrieval.py
+│   ├── test_mfa_enforcement.py
+│   ├── test_onboarding_phase_b.py
+│   ├── test_openai_backfill.py
+│   ├── test_openai_retrieval.py
+│   ├── test_permissions_alignment.py
+│   ├── test_policy_pack_permissions.py
+│   ├── test_rag.py
+│   ├── test_rate_limit.py
+│   ├── test_reconciliations_module.py
+│   ├── test_release_controls.py
+│   ├── test_request_id.py
+│   ├── test_security_headers.py
+│   ├── test_sentry_dry_run.py
+│   ├── test_system_config_loader.py
+│   ├── test_vat_evaluator.py
+│   ├── test_workflows.py
+│   ├── web
+│   │   ├── agent-api.test.ts
+│   │   ├── agent-proxy.test.ts
+│   │   ├── client-portal-upload-service.test.ts
+│   │   ├── lazy-feature-routes.test.ts
+│   │   ├── pwa
+│   │   │   └── offline-queue.integration.test.ts
+│   │   ├── respond-helpers.test.ts
+│   │   └── sentry-breadcrumbs.test.ts
+│   ├── web-search-endpoint.test.ts
+│   └── web-search-utils.test.ts
+├── tools
+│   └── scripts
+│       ├── README.md
+│       ├── auto-fix-client-secrets.mjs
+│       └── check-client-secrets.mjs
+├── tsconfig.app.json
+├── tsconfig.base.json
+├── tsconfig.json
+├── tsconfig.node.json
+├── turbo.json
+├── ui
+│   └── Dockerfile
+├── vite.config.ts
+├── vitest.config.ts
+└── vitest.setup.ts
+
+644 directories, 2239 files

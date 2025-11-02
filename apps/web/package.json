@@ -5,18 +5,24 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "analyze": "ANALYZE=true next build",
+    "analyze:json": "NEXT_DISABLE_ESLINT=1 NEXT_DISABLE_TYPE_CHECK=1 ANALYZE=true ANALYZE_MODE=json SUPABASE_URL=https://supabase.test.local SUPABASE_ANON_KEY=dummy-anon SUPABASE_SERVICE_ROLE_KEY=dummy-service OPENAI_API_KEY=dummy-openai DEFAULT_ORG_ID=00000000-0000-0000-0000-000000000000 next build",
+    "bundle:check": "pnpm run analyze:json && node ../../tools/check-next-bundle.mjs .next/analyze/client.json ../../config/web-bundle-budgets.json",
     "start": "next start",
+    "test:e2e": "cross-env PLAYWRIGHT_APP_TARGET=next NEXT_PUBLIC_SUPABASE_ALLOW_STUB=true SUPABASE_ALLOW_STUB=true pnpm exec playwright test --config playwright.config.ts",
     "typecheck": "pnpm exec tsc --noEmit",
     "lint": "pnpm exec next lint",
     "prisma:generate": "prisma generate",
     "prisma:migrate:dev": "prisma migrate dev",
     "prisma:migrate:deploy": "prisma migrate deploy",
-    "prisma:format": "prisma format"
+    "prisma:format": "prisma format",
+    "test:e2e": "cross-env PLAYWRIGHT_APP_TARGET=next NEXT_PUBLIC_RECONCILIATION_MODE=memory RECONCILIATION_MODE=memory pnpm exec playwright test -c ./playwright.config.ts"
   },
   "dependencies": {
     "@marsidev/react-turnstile": "^1.3.1",
     "@prisma-glow/api-client": "workspace:*",
     "@prisma-glow/lib": "workspace:*",
+    "@prisma-glow/cache": "workspace:*",
     "@prisma-glow/platform": "workspace:*",
     "@prisma-glow/logger": "workspace:*",
     "@prisma-glow/ui": "workspace:*",
@@ -42,11 +48,13 @@
     "zustand": "^5.0.8"
   },
   "devDependencies": {
+    "@next/bundle-analyzer": "^16.0.1",
     "@tailwindcss/forms": "^0.5.7",
     "@tailwindcss/typography": "^0.5.10",
     "@types/node": "^20.12.7",
     "@types/react": "^18.2.45",
     "@types/dompurify": "^3.0.5",
+    "@next/bundle-analyzer": "^15.0.3",
     "autoprefixer": "^10.4.16",
     "eslint": "^8.44.0",
     "eslint-config-next": "14.2.33",

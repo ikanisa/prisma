@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import { SupabaseAuthDemo } from '@/src/features/auth/components/supabase-auth-demo';
 
-if (process.env.NODE_ENV === 'production') {
+if (process.env.NODE_ENV === 'production' && process.env.ANALYZE !== 'true') {
   notFound();
 }
 
