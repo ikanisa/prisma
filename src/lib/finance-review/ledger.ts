@@ -119,6 +119,11 @@ export async function ledgerEntriesByAccount(
 /**
  * Calculate account balance
  * 
+ * WARNING: This function currently uses JavaScript Number for calculations
+ * which can lead to floating-point precision errors. For production use,
+ * this should be replaced with decimal-safe arithmetic using decimal.js
+ * or similar library to ensure deterministic financial calculations.
+ * 
  * @param account - Account name/code
  * @param orgId - Organization ID
  * @returns Net balance (debits - credits)
@@ -129,6 +134,8 @@ export async function calculateAccountBalance(
 ): Promise<number> {
   const entries = await ledgerEntriesByAccount(account, orgId);
   
+  // TODO: Replace with decimal-safe arithmetic (e.g., decimal.js)
+  // to avoid floating-point precision errors in financial calculations
   return entries.reduce((balance, entry) => {
     const debit = Number(entry.debit || 0);
     const credit = Number(entry.credit || 0);

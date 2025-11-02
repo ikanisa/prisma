@@ -25,8 +25,14 @@ Modern AI-powered operations suite with Supabase, FastAPI, and multi-app pnpm wo
    ```
    This approach skips lifecycle scripts during installation and then builds packages explicitly in the correct order.
 
-4. **Create your local environment file** by copying `.env.example` to `.env.local` and filling in credentials. See [docs/local-hosting.md](docs/local-hosting.md) for details.
-5. **Start developing**
+4. **Setup security hooks** (Recommended)
+   ```bash
+   ./scripts/setup-git-hooks.sh
+   ```
+   This installs a pre-commit hook that scans for secrets before each commit. See [docs/SECURITY_IMPLEMENTATION.md](docs/SECURITY_IMPLEMENTATION.md) for details.
+
+5. **Create your local environment file** by copying `.env.example` to `.env.local` and filling in credentials. See [docs/local-hosting.md](docs/local-hosting.md) for details.
+6. **Start developing**
    - Web (Vite) shell: `pnpm dev`
    - Next.js app: `pnpm --filter web dev`
    - Gateway service: `pnpm --filter @prisma-glow/gateway dev`
@@ -62,6 +68,10 @@ Required variables:
   `ERROR_NOTIFY_WEBHOOK` if unset).
 - Optional security headers: `ALLOWED_HOSTS` (comma-separated) to enable trusted host
   enforcement at the FastAPI layer.
+- Caching configuration: `REDIS_URL` enables shared caching; tune `CACHE_DEFAULT_TTL_SECONDS`
+  or per-route overrides (`CACHE_CONTROLS_TTL_SECONDS`, `CACHE_GROUP_COMPONENTS_TTL_SECONDS`,
+  `CACHE_OTHER_INFORMATION_TTL_SECONDS`, `CACHE_SPECIALISTS_TTL_SECONDS`) to balance freshness
+  and load for expensive API queries.
 - Optional assistant/knowledge throttles: `ASSISTANT_RATE_LIMIT`,
   `ASSISTANT_RATE_WINDOW_SECONDS`, `DOCUMENT_UPLOAD_RATE_LIMIT`,
   `DOCUMENT_UPLOAD_RATE_WINDOW_SECONDS`, `KNOWLEDGE_RUN_RATE_LIMIT`,
@@ -72,6 +82,16 @@ Required variables:
   `RAG_SEARCH_RATE_WINDOW_SECONDS`, `AUTOPILOT_SCHEDULE_RATE_LIMIT`,
   `AUTOPILOT_SCHEDULE_RATE_WINDOW_SECONDS`, `AUTOPILOT_JOB_RATE_LIMIT`, and
   `AUTOPILOT_JOB_RATE_WINDOW_SECONDS`.
+
+### Caching
+
+- `REDIS_URL` is required to enable shared caching; defaults to in-memory caches when
+  unset for development.
+- Optional tuning knobs:
+  - `CACHE_KEY_PREFIX` (defaults to `cache:`) to isolate keys per environment.
+  - `CACHE_DEFAULT_TTL_SECONDS` to set the global fallback expiry for cache entries.
+  - `CACHE_TTL_GROUP_INSTRUCTIONS` and `CACHE_TTL_GROUP_INSTRUCTIONS_INDEX` to control
+    the lifetime of cached group instruction listings and their invalidation index.
 
 ## Run Commands
 

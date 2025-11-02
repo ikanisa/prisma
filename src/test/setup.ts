@@ -65,5 +65,6 @@ ensureEnv('SUPABASE_URL', 'https://supabase.example.test');
 ensureEnv('SUPABASE_SERVICE_ROLE_KEY', 'test-service-role-key');
 ensureEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://supabase.example.test');
 ensureEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY', 'test-anon-key');
+ensureEnv('SESSION_COOKIE_SECRET', 'test-session-secret-value-1234567890');
 
 vi.mock('../../analytics/events/node.js', () => import('../../tests/stubs/analytics-events.ts'));
