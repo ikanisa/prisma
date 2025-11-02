@@ -5,6 +5,7 @@ import { getServiceSupabaseClient } from '@/lib/supabase-server';
 import { ensureEvidenceDocument } from '@/lib/audit/evidence';
 import { upsertAuditModuleRecord } from '@/lib/audit/module-records';
 import { logAuditActivity } from '@/lib/audit/activity-log';
+import { invalidateGroupComponentsCache } from '@/lib/group/cache';
 import { attachRequestId, getOrCreateRequestId } from '@/app/lib/observability';
 import { createApiGuard } from '@/app/lib/api-guard';
 
@@ -131,6 +132,8 @@ export async function POST(request: Request) {
       requestId,
     },
   });
+
+  await invalidateGroupComponentsCache(payload.orgId, payload.engagementId);
 
   return guard.respond({ workpaper: data, signedUrl });
 }
