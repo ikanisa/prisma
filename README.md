@@ -357,18 +357,23 @@ PR so the CI job matches your results.
 
 ## Performance harness
 
-Gateway smoke profiles powered by [k6](https://k6.io/) live in `tests/performance/`.
-Use the orchestration script to execute all scenarios and capture JSON + HTML
-summaries:
+Artillery scenarios that reflect production telemetry hotspots now live under
+`tests/performance/`. Use the orchestration script to execute the suite and
+generate JSON/HTML reports:
 
 ```bash
-pnpm run test:performance
+pnpm run test:performance          # defaults to ARTILLERY_ENV=local
+ARTILLERY_ENV=ci pnpm run test:performance  # runs the CI-sized profile locally
 ```
 
-Configure the required environment (`PERF_BASE_URL`, `PERF_SERVICE_TOKEN`, org
-headers) via `tests/performance/.env` or CI secrets. Reports are written to
-`test-results/performance/` and should be archived with the performance
-evidence pack described in `docs/performance-uat-plan.md`.
+Configure the `PERF_*` environment variables (see [`.env.example`](.env.example))
+so the tests can authenticate and target the correct org/engagement. Outputs are
+written to `test-results/performance/` and can be inspected via the generated
+HTML files. For deeper guidance—including CI integration and persona rotation—see
+[`docs/performance-testing.md`](docs/performance-testing.md).
+
+Legacy k6 scripts remain in `tests/perf/` should you need to reproduce Phase 4
+evidence packs, but new load scenarios should be implemented with Artillery.
 
 ## Playwright smoke tests
 
