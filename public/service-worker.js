@@ -14,6 +14,7 @@ const OFFLINE_STORE_NAME = 'offline-actions';
 const MAX_JOB_RETRIES = 3;
 const RETRY_BASE_DELAY_MS = 30 * 1000;
 const MAX_RETRY_BACKOFF_MS = 12 * 60 * 60 * 1000; // 12 hours
+const STATIC_ASSET_PATHS = [/^\/assets\//, /^\/icons\//, /^\/(manifest\.json|favicon\.ico)$/];
 
 function generateJobId() {
   if (self.crypto && typeof self.crypto.randomUUID === 'function') {
@@ -27,8 +28,15 @@ function normalizeHeaders(headers) {
     return null;
   }
 
+  const SENSITIVE_HEADERS = ['authorization', 'cookie', 'x-api-key', 'x-auth-token'];
   const normalized = {};
+  
   for (const key of Object.keys(headers)) {
+    // Skip sensitive headers to prevent token leakage
+    if (SENSITIVE_HEADERS.includes(key.toLowerCase())) {
+      continue;
+    }
+    
     const value = headers[key];
     if (typeof value === 'string') {
       normalized[key] = value;
@@ -495,7 +503,24 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  if (request.mode === 'navigate') {
+  const url = new URL(request.url);
+
+  // Only cache same-origin requests
+  if (url.origin !== self.location.origin) {
+    return;
+  }
+
+  const isNavigation = request.mode === 'navigate';
+  const isStaticAsset =
+    ['style', 'script', 'font', 'image'].includes(request.destination) ||
+    STATIC_ASSET_PATHS.some((pattern) => pattern.test(url.pathname));
+
+  // Only cache navigation and static assets; skip API responses
+  if (!isNavigation && !isStaticAsset) {
+    return;
+  }
+
+  if (isNavigation) {
     event.respondWith(
       fetch(request)
         .then((response) => {
@@ -508,6 +533,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Static asset caching with cache-first strategy
   event.respondWith(
     caches.match(request).then((cached) => {
       if (cached) {
@@ -515,6 +541,11 @@ self.addEventListener('fetch', (event) => {
       }
 
       return fetch(request).then((response) => {
+        // Only cache successful responses
+        if (!response || response.status !== 200) {
+          return response;
+        }
+
         const copy = response.clone();
         caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
         return response;
