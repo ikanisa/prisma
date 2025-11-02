@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import OpenAI from 'openai';
 
+import { auth } from '@/auth';
 import { financeReviewEnv } from '@/lib/finance-review/env';
 import { recentLedgerEntries } from '@/lib/finance-review/ledger';
 import { retrieveRelevant } from '@/lib/finance-review/retrieval';
@@ -48,15 +49,83 @@ export async function POST(request: NextRequest) {
   try {
     // Parse and validate request body
     const body = await request.json();
-    const { orgId = financeReviewEnv.DEFAULT_ORG_ID, hours } = RequestBodySchema.parse(body);
+    const { orgId: requestedOrgId, hours } = RequestBodySchema.parse(body);
+    const targetOrgId = requestedOrgId ?? financeReviewEnv.DEFAULT_ORG_ID;
+
+    // Authentication: Verify user session
+    const session = await auth();
+    const sessionUser = session?.user as { id?: string | null; email?: string | null } | undefined;
+    const headerUserId = request.headers.get('x-user-id');
+
+    let userId: string | null = sessionUser?.id ?? null;
+
+    // Resolve user ID from email if not directly available
+    if (!userId && sessionUser?.email) {
+      const email = sessionUser.email.toLowerCase();
+      const supabaseService = supabaseAdmin as any;
+      const { data: lookup, error: lookupError } = await supabaseService
+        .from('app_users')
+        .select('user_id')
+        .eq('email', email)
+        .maybeSingle<{ user_id: string }>();
+      
+      if (lookupError) {
+        console.error('finance-review.resolve-user-failed', lookupError);
+        return NextResponse.json(
+          { error: 'Unable to resolve user identity' },
+          { status: 500 }
+        );
+      }
+      
+      if (lookup?.user_id) {
+        userId = lookup.user_id;
+      }
+    }
+
+    // Fallback to header-based user ID (for service-to-service calls)
+    if (!userId && headerUserId) {
+      userId = headerUserId;
+    }
+
+    // Require authentication
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
+    // Authorization: Verify org membership
+    const supabaseService = supabaseAdmin as any;
+    const { data: membership, error: membershipError } = await supabaseService
+      .from('memberships')
+      .select('role')
+      .eq('org_id', targetOrgId)
+      .eq('user_id', userId)
+      .maybeSingle<{ role: string }>();
+
+    if (membershipError) {
+      console.error('finance-review.membership-check-failed', membershipError);
+      return NextResponse.json(
+        { error: 'Unable to verify organisation access' },
+        { status: 500 }
+      );
+    }
+
+    if (!membership) {
+      return NextResponse.json(
+        { error: 'User not authorised for organisation', orgId: targetOrgId },
+        { status: 403 }
+      );
+    }
 
     // Fetch recent ledger entries
-    const ledger = await recentLedgerEntries(hours, orgId);
+    const ledger = await recentLedgerEntries(hours, targetOrgId);
 
     // Retrieve relevant context via RAG
     const retrievals = await retrieveRelevant(
       'daily close risk review for finance data, SACCO float reconciliation, MoMo settlement',
-      orgId,
+      targetOrgId,
       12
     );
 
@@ -121,7 +190,7 @@ ${retrievalContext}
     const { data: controlLog, error: logError } = await supabaseAdmin
       .from('controls_logs')
       .insert({
-        org_id: orgId,
+        org_id: targetOrgId,
         control_key: 'daily_review',
         period: new Date().toISOString().slice(0, 10),
         status: overallStatus,
@@ -130,6 +199,7 @@ ${retrievalContext}
           auditor: auditorResponse,
           ledger_entries_count: ledger.length,
           retrieval_chunks: retrievals.length,
+          executed_by_user_id: userId,
         },
       })
       .select('id')
