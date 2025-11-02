@@ -36,6 +36,14 @@ jobs:
     needs: codeql
     steps:
       - uses: actions/checkout@v5
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20.19.4
+          cache: 'pnpm'
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          run_install: false
       - name: Start Preview Server
         run: |
           pnpm install --frozen-lockfile
