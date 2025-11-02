@@ -54,11 +54,21 @@ const shouldLogQueries = (): boolean => {
   return process.env.NODE_ENV !== 'production';
 };
 
-const createLogConfiguration = (): Array<'query' | 'warn' | 'error'> => {
-  const levels: Array<'query' | 'warn' | 'error'> = ['error', 'warn'];
+type PrismaLogDefinition = {
+  level: 'query' | 'warn' | 'error';
+  emit: 'stdout' | 'event';
+};
+
+const createLogConfiguration = (): PrismaLogDefinition[] => {
+  const levels: PrismaLogDefinition[] = [
+    { level: 'error', emit: 'stdout' },
+    { level: 'warn', emit: 'stdout' },
+  ];
+
   if (shouldLogQueries()) {
-    levels.push('query');
+    levels.push({ level: 'query', emit: 'event' });
   }
+
   return levels;
 };
 

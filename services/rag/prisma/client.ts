@@ -73,6 +73,18 @@ export const determineLogLevels = (explicit?: boolean): Array<'query' | 'warn' |
   return levels;
 };
 
+type PrismaLogDefinition = {
+  level: 'query' | 'warn' | 'error';
+  emit: 'stdout' | 'event';
+};
+
+const toLogDefinitions = (levels: Array<'query' | 'warn' | 'error'>): PrismaLogDefinition[] =>
+  levels.map((level) =>
+    level === 'query'
+      ? { level, emit: 'event' }
+      : { level, emit: 'stdout' },
+  );
+
 export const attachQueryLogger = (
   client: PrismaClientLike,
   logger?: QueryLogger,
@@ -125,10 +137,15 @@ export const createServicePrismaClient = (
   options: ServicePrismaClientOptions = {},
 ): PrismaClientLike => {
   const PrismaCtor = options.clientCtor ?? loadPrismaClientConstructor();
-  const log = determineLogLevels(options.logQueries);
+  const baseLevels = determineLogLevels(options.logQueries);
+  const shouldCaptureQueries = baseLevels.includes('query') || Boolean(options.queryLogger);
+  const effectiveLevels = shouldCaptureQueries && !baseLevels.includes('query')
+    ? [...baseLevels, 'query']
+    : baseLevels;
+  const log = toLogDefinitions(effectiveLevels);
   const client = new PrismaCtor({ log });
 
-  if (log.includes('query') || options.queryLogger) {
+  if (shouldCaptureQueries) {
     attachQueryLogger(client, options.queryLogger);
   }
 

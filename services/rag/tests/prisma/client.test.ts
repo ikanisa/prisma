@@ -62,8 +62,31 @@ describe('createServicePrismaClient', () => {
 
     const client = createServicePrismaClient({ logQueries: true });
 
-    expect(ctor).toHaveBeenCalledWith({ log: ['error', 'warn', 'query'] });
+    expect(ctor).toHaveBeenCalledWith({
+      log: [
+        { level: 'error', emit: 'stdout' },
+        { level: 'warn', emit: 'stdout' },
+        { level: 'query', emit: 'event' },
+      ],
+    });
     expect(client).toEqual({ $on: on });
+    expect(on).toHaveBeenCalledWith('query', expect.any(Function));
+  });
+
+  it('forces query event emission when a logger is provided', () => {
+    const on = vi.fn();
+    const ctor: PrismaClientConstructor = vi.fn(() => ({ $on: on }));
+    __setPrismaClientConstructorForTests(ctor);
+
+    createServicePrismaClient({ logQueries: false, queryLogger: vi.fn() });
+
+    expect(ctor).toHaveBeenCalledWith({
+      log: [
+        { level: 'error', emit: 'stdout' },
+        { level: 'warn', emit: 'stdout' },
+        { level: 'query', emit: 'event' },
+      ],
+    });
     expect(on).toHaveBeenCalledWith('query', expect.any(Function));
   });
 });
