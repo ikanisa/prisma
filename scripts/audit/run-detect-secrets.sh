@@ -28,7 +28,7 @@ if [ ${#SELECTED[@]} -eq 0 ]; then
 fi
 
 "${DETECT_CMD}" scan \
-  --exclude-files '(^|/)(node_modules|.git|.turbo|dist|build|coverage|.next|.vercel|.pnpm-store|audit|.cache|tmp|test-results)/' \
+  --exclude-files '(^audit/)|((^|/)(node_modules|.git|.turbo|dist|build|coverage|.next|.vercel|.pnpm-store|.cache|tmp|test-results)/)' \
   "${SELECTED[@]}" > "${OUTPUT_DIR}/detect-secrets.baseline"
 
 echo "detect-secrets baseline written to ${OUTPUT_DIR}/detect-secrets.baseline"
