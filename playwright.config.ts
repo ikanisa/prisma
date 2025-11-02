@@ -27,10 +27,15 @@ const webServerConfig = (() => {
         SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY ?? '<REMOVED_SERVER_SECRET>',
         SUPABASE_ALLOW_STUB: process.env.SUPABASE_ALLOW_STUB ?? 'true',
         SKIP_HEALTHCHECK_DB: process.env.SKIP_HEALTHCHECK_DB ?? 'true',
+        VITE_SUPABASE_URL: process.env.VITE_SUPABASE_URL ?? 'REPLACE_WITH_SUPABASE_URL',
+        VITE_SUPABASE_PUBLISHABLE_KEY:
+          process.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? 'REPLACE_WITH_SUPABASE_KEY',
         NEXT_PUBLIC_SUPABASE_URL:
           process.env.NEXT_PUBLIC_SUPABASE_URL ?? 'https://supabase.playwright.test',
         NEXT_PUBLIC_SUPABASE_ANON_KEY:
           process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? 'playwright-anon-key',
+        NEXT_PUBLIC_SUPABASE_ALLOW_STUB:
+          process.env.NEXT_PUBLIC_SUPABASE_ALLOW_STUB ?? 'true',
         NEXT_PUBLIC_API_BASE: process.env.NEXT_PUBLIC_API_BASE ?? baseURL,
         NEXT_PUBLIC_ACCOUNTING_MODE: process.env.NEXT_PUBLIC_ACCOUNTING_MODE ?? 'close',
         NEXT_PUBLIC_RECONCILIATION_MODE:

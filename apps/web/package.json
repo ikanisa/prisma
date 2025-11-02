@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "test:e2e": "cross-env PLAYWRIGHT_APP_TARGET=next NEXT_PUBLIC_SUPABASE_ALLOW_STUB=true SUPABASE_ALLOW_STUB=true pnpm exec playwright test --config playwright.config.ts",
     "typecheck": "pnpm exec tsc --noEmit",
     "lint": "pnpm exec next lint",
     "prisma:generate": "prisma generate",
