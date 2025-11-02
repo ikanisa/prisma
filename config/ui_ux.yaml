@@ -1,0 +1,572 @@
+meta:
+  name: "UI/UX Configuration"
+  version: "1.0.0"
+  description: "Design system, patterns, accessibility, and PWA configuration"
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Design System Tokens
+# ──────────────────────────────────────────────────────────────────────────────
+design_tokens:
+  # Color palette
+  colors:
+    # Core brand colors
+    ink: "#0B1022"
+    
+    # Gradient hero colors
+    gradient_hero:
+      - "#06B6D4"  # Cyan
+      - "#8B5CF6"  # Purple
+      - "#EC4899"  # Pink
+    
+    # Semantic colors
+    success: "#10B981"
+    warning: "#F59E0B"
+    danger: "#EF4444"
+    info: "#3B82F6"
+    
+    # Glass/frosted UI
+    glass_panel_bg: "rgba(255, 255, 255, 0.08)"
+    glass_stroke: "rgba(255, 255, 255, 0.12)"
+    glass_hover: "rgba(255, 255, 255, 0.12)"
+    glass_active: "rgba(255, 255, 255, 0.16)"
+    
+    # Backgrounds
+    bg_primary: "#0B1022"
+    bg_secondary: "#1A1F3A"
+    bg_tertiary: "#252A45"
+    
+    # Text colors
+    text_primary: "#F9FAFB"
+    text_secondary: "#D1D5DB"
+    text_tertiary: "#9CA3AF"
+    text_disabled: "#6B7280"
+    
+    # Border colors
+    border_subtle: "rgba(255, 255, 255, 0.08)"
+    border_default: "rgba(255, 255, 255, 0.12)"
+    border_strong: "rgba(255, 255, 255, 0.20)"
+    
+    # Focus states
+    focus_ring: "#3B82F6"
+    focus_ring_error: "#EF4444"
+  
+  # Typography
+  typography:
+    # Font families
+    font_family:
+      sans: "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif"
+      mono: "IBM Plex Mono, ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace"
+    
+    # Font sizes
+    font_size:
+      xs: "0.75rem"      # 12px
+      sm: "0.875rem"     # 14px
+      base: "1rem"       # 16px
+      lg: "1.125rem"     # 18px
+      xl: "1.25rem"      # 20px
+      "2xl": "1.5rem"    # 24px
+      "3xl": "1.875rem"  # 30px
+      "4xl": "2.25rem"   # 36px
+      "5xl": "3rem"      # 48px
+    
+    # Font weights
+    font_weight:
+      normal: 400
+      medium: 500
+      semibold: 600
+      bold: 700
+    
+    # Line heights
+    line_height:
+      tight: 1.25
+      normal: 1.5
+      relaxed: 1.75
+    
+    # Letter spacing
+    letter_spacing:
+      tight: "-0.025em"
+      normal: "0"
+      wide: "0.025em"
+  
+  # Spacing scale
+  spacing:
+    "0": "0"
+    "1": "0.25rem"    # 4px
+    "2": "0.5rem"     # 8px
+    "3": "0.75rem"    # 12px
+    "4": "1rem"       # 16px
+    "5": "1.25rem"    # 20px
+    "6": "1.5rem"     # 24px
+    "8": "2rem"       # 32px
+    "10": "2.5rem"    # 40px
+    "12": "3rem"      # 48px
+    "16": "4rem"      # 64px
+    "20": "5rem"      # 80px
+    "24": "6rem"      # 96px
+  
+  # Border radius
+  border_radius:
+    none: "0"
+    sm: "0.25rem"     # 4px
+    base: "0.5rem"    # 8px
+    md: "0.75rem"     # 12px
+    lg: "1rem"        # 16px
+    xl: "1.5rem"      # 24px
+    "2xl": "2rem"     # 32px
+    full: "9999px"
+  
+  # Shadows
+  shadows:
+    sm: "0 1px 2px 0 rgba(0, 0, 0, 0.05)"
+    base: "0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1)"
+    md: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1)"
+    lg: "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1)"
+    xl: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)"
+    "2xl": "0 25px 50px -12px rgba(0, 0, 0, 0.25)"
+    glass: "0 8px 32px 0 rgba(31, 38, 135, 0.37)"
+  
+  # Motion/Animation
+  motion:
+    # Durations
+    durations:
+      fast: "120ms"
+      base: "220ms"
+      slow: "420ms"
+    
+    # Easing functions
+    easing:
+      default: "cubic-bezier(0.4, 0, 0.2, 1)"
+      in: "cubic-bezier(0.4, 0, 1, 1)"
+      out: "cubic-bezier(0, 0, 0.2, 1)"
+      in_out: "cubic-bezier(0.4, 0, 0.2, 1)"
+      spring: "cubic-bezier(0.68, -0.55, 0.265, 1.55)"
+  
+  # Layout
+  layout:
+    sidebar_width: 280
+    sidebar_collapsed_width: 64
+    header_height: 64
+    footer_height: 48
+    max_content_width: 1280
+    
+    # Z-index scale
+    z_index:
+      dropdown: 1000
+      sticky: 1020
+      fixed: 1030
+      modal_backdrop: 1040
+      modal: 1050
+      popover: 1060
+      tooltip: 1070
+
+# ──────────────────────────────────────────────────────────────────────────────
+# UI Patterns
+# ──────────────────────────────────────────────────────────────────────────────
+patterns:
+  # Liquid glass effect
+  liquid_glass:
+    enabled: true
+    blur: "18px"
+    saturate: "160%"
+    backdrop_filter: "blur(18px) saturate(160%)"
+    background: "rgba(255, 255, 255, 0.08)"
+    border: "1px solid rgba(255, 255, 255, 0.12)"
+  
+  # Gradient overlays
+  gradients:
+    hero:
+      type: "linear"
+      angle: "135deg"
+      stops:
+        - color: "#06B6D4"
+          position: "0%"
+        - color: "#8B5CF6"
+          position: "50%"
+        - color: "#EC4899"
+          position: "100%"
+    
+    subtle:
+      type: "linear"
+      angle: "180deg"
+      stops:
+        - color: "rgba(59, 130, 246, 0.1)"
+          position: "0%"
+        - color: "rgba(139, 92, 246, 0.1)"
+          position: "100%"
+  
+  # Interactive states
+  states:
+    hover:
+      scale: 1.02
+      opacity: 0.9
+      transition_duration: "base"
+    
+    active:
+      scale: 0.98
+      transition_duration: "fast"
+    
+    disabled:
+      opacity: 0.5
+      cursor: "not-allowed"
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Accessibility (a11y)
+# ──────────────────────────────────────────────────────────────────────────────
+accessibility:
+  # WCAG compliance
+  wcag_level: "AA"
+  wcag_version: "2.1"
+  
+  # Contrast requirements
+  contrast:
+    min_normal_text: 4.5
+    min_large_text: 3.0
+    min_ui_components: 3.0
+  
+  # Focus management
+  focus:
+    visible: true
+    outline_width: "2px"
+    outline_offset: "2px"
+    outline_color: "focus_ring"
+  
+  # Keyboard navigation
+  keyboard_nav:
+    enabled: true
+    skip_links: true
+    focus_trap_modals: true
+    arrow_key_navigation: true
+  
+  # Screen readers
+  screen_readers:
+    announce_changes: true
+    live_regions: true
+    aria_labels_required: true
+  
+  # Reduced motion
+  reduced_motion:
+    respect_preference: true
+    disable_animations: true
+    use_instant_transitions: true
+  
+  # Color blindness
+  color_blindness:
+    never_rely_on_color_alone: true
+    use_patterns_and_labels: true
+  
+  # Text
+  text:
+    min_font_size: "14px"
+    max_line_length: "80ch"
+    resizable: true
+  
+  # Targets
+  touch_targets:
+    min_size: "44px"
+    min_spacing: "8px"
+  
+  # Validation
+  validation:
+    axe_critical_allowed: 0
+    lighthouse_a11y_min: 90
+
+# ──────────────────────────────────────────────────────────────────────────────
+# PWA Configuration
+# ──────────────────────────────────────────────────────────────────────────────
+pwa:
+  # Manifest
+  manifest:
+    name: "Prisma Glow"
+    short_name: "Prisma"
+    description: "AI-powered operations suite for accounting, audit, and tax"
+    theme_color: "#0B1022"
+    background_color: "#0B1022"
+    display: "standalone"
+    orientation: "any"
+    scope: "/"
+    start_url: "/"
+    
+    # Icons
+    icons:
+      - src: "/icon-192.png"
+        sizes: "192x192"
+        type: "image/png"
+      - src: "/icon-512.png"
+        sizes: "512x512"
+        type: "image/png"
+      - src: "/icon-maskable-192.png"
+        sizes: "192x192"
+        type: "image/png"
+        purpose: "maskable"
+      - src: "/icon-maskable-512.png"
+        sizes: "512x512"
+        type: "image/png"
+        purpose: "maskable"
+  
+  # Service Worker
+  service_worker:
+    enabled: true
+    strategy: "stale-while-revalidate"
+    cache_name: "prisma-glow-v1"
+    
+    # Cache strategies
+    caching:
+      static_assets:
+        strategy: "cache-first"
+        max_age: "30d"
+      
+      api_responses:
+        strategy: "network-first"
+        max_age: "60s"
+        fallback_cache: true
+      
+      images:
+        strategy: "cache-first"
+        max_age: "7d"
+      
+      fonts:
+        strategy: "cache-first"
+        max_age: "365d"
+    
+    # Offline fallback
+    offline:
+      enabled: true
+      page: "/offline.html"
+  
+  # Performance budgets
+  budgets:
+    # JavaScript
+    route_js_kb_max: 250
+    total_js_kb_max: 700
+    
+    # CSS
+    route_css_kb_max: 50
+    total_css_kb_max: 150
+    
+    # Images
+    route_image_kb_max: 200
+    total_image_kb_max: 1000
+    
+    # Fonts
+    total_font_kb_max: 200
+    
+    # Performance metrics
+    lcp_ms_target: 1800
+    fid_ms_target: 100
+    cls_target: 0.1
+    fcp_ms_target: 1200
+    ttfb_ms_target: 600
+  
+  # Install prompt
+  install_prompt:
+    enabled: true
+    delay_days: 3
+    dismissible: true
+    show_again_after_days: 30
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Component Library
+# ──────────────────────────────────────────────────────────────────────────────
+components:
+  # Button variants
+  button:
+    variants:
+      - primary
+      - secondary
+      - tertiary
+      - ghost
+      - danger
+      - success
+    sizes:
+      - xs
+      - sm
+      - md
+      - lg
+      - xl
+    
+  # Input variants
+  input:
+    variants:
+      - default
+      - error
+      - success
+      - disabled
+    sizes:
+      - sm
+      - md
+      - lg
+  
+  # Card variants
+  card:
+    variants:
+      - default
+      - glass
+      - elevated
+      - outlined
+  
+  # Modal variants
+  modal:
+    sizes:
+      - sm: "400px"
+      - md: "600px"
+      - lg: "800px"
+      - xl: "1200px"
+      - full: "100%"
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Layout Templates
+# ──────────────────────────────────────────────────────────────────────────────
+layouts:
+  # Client app layout
+  client:
+    sidebar: true
+    header: true
+    footer: false
+    chat_dock: true
+    
+    # Sidebar configuration
+    sidebar:
+      width: 280
+      collapsible: true
+      position: "left"
+    
+    # Header configuration
+    header:
+      height: 64
+      sticky: true
+      show_org_switcher: true
+      show_search: true
+      show_notifications: true
+      show_user_menu: true
+    
+    # Chat dock
+    chat_dock:
+      enabled: true
+      hotkey: "cmd+k"
+      position: "right"
+      width: 400
+      voice_enabled: true
+      push_to_talk: true
+  
+  # Admin layout
+  admin:
+    sidebar: true
+    header: true
+    footer: false
+    
+    # Sidebar configuration
+    sidebar:
+      width: 280
+      collapsible: true
+      position: "left"
+      navigation:
+        - label: "Overview"
+          path: "/"
+          icon: "dashboard"
+        - label: "Identity & Access"
+          path: "/iam"
+          icon: "users"
+        - label: "Permissions"
+          path: "/permissions"
+          icon: "shield"
+        - label: "Agents & Tools"
+          path: "/agents"
+          icon: "bot"
+        - label: "Knowledge & Search"
+          path: "/knowledge"
+          icon: "book"
+        - label: "Workflows & Approvals"
+          path: "/workflows"
+          icon: "workflow"
+        - label: "Domain Settings"
+          path: "/domain"
+          icon: "settings"
+        - label: "Jobs & Integrations"
+          path: "/jobs"
+          icon: "clock"
+        - label: "Settings"
+          path: "/settings"
+          icon: "cog"
+        - label: "Telemetry"
+          path: "/telemetry"
+          icon: "chart"
+        - label: "Traceability"
+          path: "/traceability"
+          icon: "list"
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Quality Gates
+# ──────────────────────────────────────────────────────────────────────────────
+quality_gates:
+  # Lighthouse scores
+  lighthouse:
+    performance: 90
+    accessibility: 90
+    best_practices: 90
+    seo: 90
+    pwa: 90
+  
+  # Accessibility
+  axe:
+    critical: 0
+    serious: 0
+    moderate: "warn"
+    minor: "warn"
+  
+  # Bundle size
+  bundle:
+    enforce: true
+    fail_on_exceed: true
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Internationalization (i18n)
+# ──────────────────────────────────────────────────────────────────────────────
+i18n:
+  enabled: true
+  default_locale: "en"
+  fallback_locale: "en"
+  
+  supported_locales:
+    - code: "en"
+      name: "English"
+      flag: "🇺🇸"
+    - code: "fr"
+      name: "Français"
+      flag: "🇫🇷"
+    - code: "es"
+      name: "Español"
+      flag: "🇪🇸"
+    - code: "de"
+      name: "Deutsch"
+      flag: "🇩🇪"
+  
+  # Date/time formats
+  date_formats:
+    short: "MM/DD/YYYY"
+    medium: "MMM D, YYYY"
+    long: "MMMM D, YYYY"
+    full: "dddd, MMMM D, YYYY"
+  
+  # Number formats
+  number_formats:
+    decimal: "1,234.56"
+    currency: "$1,234.56"
+    percent: "12.34%"
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Dark Mode / Theme
+# ──────────────────────────────────────────────────────────────────────────────
+theme:
+  default: "dark"
+  allow_user_override: true
+  respect_system_preference: true
+  
+  modes:
+    - dark
+    - light
+  
+  # Theme switching
+  switch:
+    enabled: true
+    transition: true
+    persist: true
