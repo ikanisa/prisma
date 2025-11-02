@@ -1,6 +1,7 @@
 import express, { type Express } from 'express';
 import * as Sentry from '@sentry/node';
 import type { Transport, TransportOptions } from '@sentry/types';
+import helmet, { type HelmetContentSecurityPolicyOptions, type HelmetOptions } from 'helmet';
 import { initTracing } from './otel.js';
 import type { ErrorRequestHandler } from 'express';
 import { pathToFileURL } from 'url';
@@ -13,6 +14,67 @@ import { getRequestContext } from './utils/request-context.js';
 import { env } from './env.js';
 import { createCorsMiddleware } from './middleware/cors.js';
 import { logger } from '@prisma-glow/logger';
+type CSPDirectives = NonNullable<HelmetContentSecurityPolicyOptions['directives']>;
+
+function buildContentSecurityPolicy(allowedOrigins: readonly string[]): CSPDirectives {
+  const connectSrc = new Set<string>(["'self'"]);
+  const imgSrc = new Set<string>(["'self'", 'data:', 'blob:']);
+  const scriptSrc = new Set<string>(["'self'"]);
+  const styleSrc = new Set<string>(["'self'"]);
+  const fontSrc = new Set<string>(["'self'", 'data:']);
+  const mediaSrc = new Set<string>(["'self'", 'blob:']);
+  const workerSrc = new Set<string>(["'self'", 'blob:']);
+
+  const allowAllOrigins = allowedOrigins.some((origin) => origin === '*');
+  if (allowAllOrigins) {
+    connectSrc.clear();
+    connectSrc.add('*');
+  } else {
+    for (const origin of allowedOrigins) {
+      const trimmed = origin.trim();
+      if (!trimmed || trimmed === "'") continue;
+      connectSrc.add(trimmed);
+      imgSrc.add(trimmed);
+    }
+  }
+
+  return {
+    defaultSrc: ["'self'"],
+    baseUri: ["'self'"],
+    formAction: ["'self'"],
+    frameAncestors: ["'none'"],
+    objectSrc: ["'none'"],
+    connectSrc: Array.from(connectSrc),
+    imgSrc: Array.from(imgSrc),
+    scriptSrc: Array.from(scriptSrc),
+    styleSrc: Array.from(styleSrc),
+    fontSrc: Array.from(fontSrc),
+    mediaSrc: Array.from(mediaSrc),
+    workerSrc: Array.from(workerSrc),
+  } satisfies CSPDirectives;
+}
+
+function createHelmetOptions(allowedOrigins: readonly string[]): HelmetOptions {
+  const directives = buildContentSecurityPolicy(allowedOrigins);
+  return {
+    contentSecurityPolicy: {
+      useDefaults: false,
+      directives,
+    },
+    referrerPolicy: { policy: 'no-referrer' },
+    frameguard: { action: 'deny' },
+    crossOriginEmbedderPolicy: false,
+    crossOriginOpenerPolicy: { policy: 'same-origin' },
+    crossOriginResourcePolicy: { policy: 'same-site' },
+    dnsPrefetchControl: { allow: false },
+    hidePoweredBy: true,
+    hsts:
+      env.NODE_ENV === 'production'
+        ? { maxAge: 31536000, includeSubDomains: true, preload: true }
+        : false,
+    permittedCrossDomainPolicies: { permittedPolicies: 'none' },
+  } satisfies HelmetOptions;
+}
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/consistent-type-definitions
@@ -74,6 +136,13 @@ export async function createGatewayServer(): Promise<Express> {
     app.use(Sentry.Handlers.requestHandler({ user: false }));
     app.use(Sentry.Handlers.tracingHandler());
   }
+
+  const helmetOptions = createHelmetOptions(env.allowedOrigins);
+  app.use(helmet(helmetOptions));
+  app.use((_req, res, next) => {
+    res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+    next();
+  });
 
   app.use(express.json({ limit: '5mb' }));
   const corsMiddleware = createCorsMiddleware(env.allowedOrigins);

@@ -7,6 +7,12 @@ import { queryKeys } from '../../common/query-keys';
 import { useAppStore } from '@/src/store/app-store';
 import { useAuthStore } from '@/src/store/auth-store';
 
+const EMPTY_AGENT_TASK_RESULT: AgentTaskResult = Object.freeze({
+  tasks: [],
+  total: 0,
+  source: 'stub',
+});
+
 export function useAgentTasks() {
   const rawOrgSlug = useAppStore((state) => state.orgSlug);
   const orgSlug = rawOrgSlug?.trim() || 'demo';
@@ -19,8 +25,7 @@ export function useAgentTasks() {
     queryFn: () => fetchAgentTasks(orgSlug, token),
   });
 
-  const fallback: AgentTaskResult = { tasks: [], total: 0, source: 'stub' };
-  const result = query.data ?? fallback;
+  const result = query.data ?? EMPTY_AGENT_TASK_RESULT;
 
   return {
     tasks: result.tasks,

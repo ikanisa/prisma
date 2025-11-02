@@ -10,6 +10,7 @@
 import OpenAI from 'openai';
 import { financeReviewEnv } from './env';
 import { supabaseAdmin } from './supabase';
+import type { FinanceReviewDatabase } from './supabase';
 
 const openai = new OpenAI({ apiKey: financeReviewEnv.OPENAI_API_KEY });
 
@@ -58,15 +59,18 @@ export async function upsertEmbedding(params: UpsertEmbeddingParams): Promise<vo
   // Upsert to database (using service role to bypass RLS)
   // Use composite conflict resolution on org_id, object_type, object_id
   // to properly handle updates to existing embeddings for the same object
+  const payload: FinanceReviewDatabase['public']['Tables']['embeddings']['Insert'] = {
+    org_id: orgId,
+    object_type: objectType,
+    object_id: objectId,
+    chunk_text: text,
+    vector,
+  };
+
   const { error } = await supabaseAdmin
     .from('embeddings')
-    .upsert({
-      org_id: orgId,
-      object_type: objectType,
-      object_id: objectId,
-      chunk_text: text,
-      vector,
-    }, {
+    // Supabase type support relies on generated types; cast to satisfy the runtime client.
+    .upsert(payload as never, {
       onConflict: 'org_id,object_type,object_id',
     });
   

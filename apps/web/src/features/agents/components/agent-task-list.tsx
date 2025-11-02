@@ -142,11 +142,11 @@ function AgentTaskListComponent() {
                 </div>
               </dl>
             </div>
-            <p className="mt-4 text-xs text-muted-foreground">
-              {t('agents.tasks.updated', {
-                when: formatRelativeDate(task.updatedAt, t('common.time.recently')),
-              })}
-            </p>
+              <p className="mt-4 text-xs text-muted-foreground">
+                {t('agents.tasks.updated', {
+                  when: formatRelativeDate(task.updatedAt),
+                })}
+              </p>
           </article>
         ))}
       </div>
