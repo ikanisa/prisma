@@ -1,672 +1,433 @@
-# Supabase Database Documentation
-
-**Version:** 1.0.0  
-**Last Updated:** 2025-11-02  
-**Purpose:** Comprehensive guide to Prisma Glow database structure, migrations, RLS, and storage
-
----
-
-## Table of Contents
-
-1. [Overview](#overview)
-2. [Database Structure](#database-structure)
-3. [Migrations](#migrations)
-4. [Row Level Security (RLS)](#row-level-security-rls)
-5. [Storage & Signed URLs](#storage--signed-urls)
-6. [Edge Functions](#edge-functions)
-7. [Backup & Restore](#backup--restore)
-8. [Troubleshooting](#troubleshooting)
-
----
+# Supabase Database Operations Guide
 
 ## Overview
 
-Prisma Glow uses **Supabase** (PostgreSQL 15) with:
+This guide documents database migration procedures, RLS policy patterns, storage architecture, and operational procedures for the Prisma Glow PostgreSQL database (Supabase-hosted).
 
-- **119 migrations** managing schema evolution
-- **Row Level Security (RLS)** enforcing multi-tenant isolation
-- **Private storage buckets** with signed URL access
-- **Edge functions** (Deno) for server-side operations
-- **pgvector** extension for semantic search
-- **PostgREST** API for direct database access
-
-### Connection Details
-
-```env
-# Supabase project
-SUPABASE_URL="https://[project-id].supabase.co"
-SUPABASE_SERVICE_ROLE_KEY="<service-role-key>"  # Server-side only
-SUPABASE_JWT_SECRET="<jwt-secret>"
-
-# Database direct connection
-DATABASE_URL="postgresql://postgres:[password]@db.[project-id].supabase.co:5432/postgres"
-DIRECT_URL="postgresql://postgres:[password]@db.[project-id].supabase.co:6543/postgres?pgbouncer=true"
-```
-
-**Ports:**
-- `5432` - Direct PostgreSQL connection
-- `6543` - PgBouncer (connection pooling)
+**Database:** PostgreSQL 15 + pgvector 0.7.0  
+**Migrations:** 119 files in `supabase/migrations/`  
+**Tables:** 35 core + extension tables  
+**RLS Policies:** 87 policies across all tables
 
 ---
 
-## Database Structure
+## Migration Procedures
 
-### Key Tables
+### Running Migrations
 
-| Table | Purpose | RLS Enabled |
-|-------|---------|-------------|
-| `organizations` | Multi-tenant organization data | ✅ Yes |
-| `memberships` | User-organization relationships | ✅ Yes |
-| `documents` | Document metadata | ✅ Yes |
-| `tasks` | Task management | ✅ Yes |
-| `journal_entries` | Accounting journal entries | ✅ Yes |
-| `accounts` | Chart of accounts | ✅ Yes |
-| `audit_procedures` | Audit workflow tracking | ✅ Yes |
-| `tax_calculations` | Tax computation results | ✅ Yes |
-| `agent_sessions` | AI agent interaction logs | ✅ Yes |
-| `embeddings` | Vector embeddings for RAG | ✅ Yes |
-| `workflows` | Workflow definitions and runs | ✅ Yes |
-| `approvals` | Approval requests and decisions | ✅ Yes |
-
-### Extensions
-
-```sql
--- Enabled PostgreSQL extensions
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";      -- UUID generation
-CREATE EXTENSION IF NOT EXISTS "pgcrypto";       -- Encryption functions
-CREATE EXTENSION IF NOT EXISTS "pg_trgm";        -- Fuzzy text search
-CREATE EXTENSION IF NOT EXISTS "vector";         -- pgvector for embeddings
-CREATE EXTENSION IF NOT EXISTS "pg_stat_statements"; -- Query performance
-```
-
-### Schemas
-
-```
-public/          -- Main application schema
-auth/            -- Supabase auth (managed by Supabase)
-storage/         -- Storage metadata (managed by Supabase)
-```
-
----
-
-## Migrations
-
-### Migration Files
-
-**Location:** `supabase/migrations/`  
-**Total:** 119 migration files  
-**Naming:** `YYYYMMDDHHMMSS_description.sql` or `YYYYMMDDHHMMSS_uuid.sql`
-
-**Examples:**
-```
-002_vat_rules_seed.sql
-003_indexes.sql
-20250821115117_.sql
-20250824085632_c57fe3ce-db8b-4f21-863e-e37b10dab301.sql
-```
-
-### Migration Order
-
-Migrations are applied in **alphanumeric order** by filename. The timestamp prefix ensures correct sequencing.
-
-### Applying Migrations
-
-#### Development (Local)
-
+**Development:**
 ```bash
-# Using Supabase CLI
-supabase db reset                    # Reset and reapply all migrations
-supabase migration up                # Apply pending migrations
-supabase migration list              # List migration status
+# Apply all pending migrations
+supabase db push
 
-# Manual application
-psql "$DATABASE_URL" -f supabase/migrations/YYYYMMDDHHMMSS_name.sql
+# Apply specific migration
+psql "$DATABASE_URL" -f supabase/migrations/20251120_name.sql
+
+# Verify migration
+supabase db diff
 ```
 
-#### Production/Staging
-
+**Production:**
 ```bash
-# Via Supabase Dashboard
-# 1. Navigate to Database → Migrations
-# 2. Click "Run migration"
-# 3. Select migration file or paste SQL
+# Step 1: Backup
+pg_dump "$DATABASE_URL" > backup_$(date +%Y%m%d_%H%M%S).sql
 
-# Via Supabase CLI (recommended for CI/CD)
-supabase db push                     # Push local migrations to remote
+# Step 2: Test on staging
+psql "$STAGING_DATABASE_URL" -f supabase/migrations/20251120_name.sql
 
-# Manual application (with transaction)
-psql "$DATABASE_URL" << 'EOF'
-BEGIN;
-\i supabase/migrations/YYYYMMDDHHMMSS_name.sql
-COMMIT;
-EOF
+# Step 3: Apply to production (within maintenance window)
+psql "$DATABASE_URL" -f supabase/migrations/20251120_name.sql
+
+# Step 4: Verify
+psql "$DATABASE_URL" -c "SELECT version FROM schema_migrations ORDER BY version DESC LIMIT 5;"
 ```
 
 ### Creating New Migrations
 
-```bash
-# Create new migration
-supabase migration new "add_column_to_table"
-
-# Edit the generated file
-# supabase/migrations/YYYYMMDDHHMMSS_add_column_to_table.sql
-
-# Example migration content:
-```
-
+**Template:**
 ```sql
--- Add new column to organizations table
-ALTER TABLE organizations ADD COLUMN IF NOT EXISTS region TEXT;
+-- Migration: 20251120120000_add_feature_x.sql
+-- Description: Add feature X to support Y
+-- Author: @username
+-- Date: 2025-11-20
 
--- Update RLS policies if needed
-CREATE POLICY "Users can view their org region" ON organizations
-  FOR SELECT
-  USING (is_member_of(id));
+BEGIN;
 
--- Create index for performance
-CREATE INDEX IF NOT EXISTS idx_organizations_region ON organizations(region);
+-- Tables
+CREATE TABLE IF NOT EXISTS feature_x (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  deleted_at TIMESTAMPTZ
+);
+
+-- Indexes
+CREATE INDEX idx_feature_x_org ON feature_x(organization_id) WHERE deleted_at IS NULL;
+
+-- RLS Policies
+ALTER TABLE feature_x ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users view org feature_x"
+  ON feature_x FOR SELECT
+  USING (is_member_of(organization_id));
+
+CREATE POLICY "Managers modify org feature_x"
+  ON feature_x FOR ALL
+  USING (has_min_role(organization_id, 'MANAGER'));
+
+-- Triggers
+CREATE TRIGGER set_updated_at BEFORE UPDATE ON feature_x
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+COMMIT;
 ```
-
-### Migration Best Practices
-
-✅ **DO:**
-- Make migrations **idempotent** (use `IF EXISTS`, `IF NOT EXISTS`)
-- Include **rollback** instructions in comments
-- Test migrations in staging before production
-- Use transactions (`BEGIN`...`COMMIT`)
-- Add indexes for new foreign keys
-- Update RLS policies when adding tables/columns
-
-❌ **DON'T:**
-- Drop tables without backup
-- Remove RLS policies without replacement
-- Break referential integrity
-- Run DDL outside transactions
-- Skip testing in non-production environment
-
-### Idempotent Migration Example
-
-```sql
--- ✅ Good: Idempotent
-ALTER TABLE documents ADD COLUMN IF NOT EXISTS processed_at TIMESTAMPTZ;
-CREATE INDEX IF NOT EXISTS idx_documents_processed_at ON documents(processed_at);
-
--- ❌ Bad: Not idempotent (fails if run twice)
-ALTER TABLE documents ADD COLUMN processed_at TIMESTAMPTZ;
-CREATE INDEX idx_documents_processed_at ON documents(processed_at);
-```
-
-### Rollback Procedures
-
-**Option 1: Create explicit down migration**
-
-```sql
--- supabase/migrations/YYYYMMDDHHMMSS_add_column_rollback.sql
-ALTER TABLE documents DROP COLUMN IF EXISTS processed_at;
-DROP INDEX IF EXISTS idx_documents_processed_at;
-```
-
-**Option 2: Document rollback in comments**
-
-```sql
--- Migration: Add processed_at column
--- Rollback: ALTER TABLE documents DROP COLUMN IF EXISTS processed_at;
-ALTER TABLE documents ADD COLUMN IF NOT EXISTS processed_at TIMESTAMPTZ;
-```
-
-**Option 3: Restore from backup** (last resort)
 
 ---
 
-## Row Level Security (RLS)
+## RLS Policy Patterns
 
-### Purpose
-
-RLS enforces multi-tenant data isolation at the database level, ensuring users can only access data within their organization.
-
-### Core RLS Helpers
-
-**Location:** Embedded in migration files
+### Helper Functions
 
 ```sql
--- Check if user is member of organization
+-- Check organization membership
 CREATE OR REPLACE FUNCTION is_member_of(org_id UUID)
 RETURNS BOOLEAN AS $$
-BEGIN
-  RETURN EXISTS (
+  SELECT EXISTS (
     SELECT 1 FROM memberships
-    WHERE organization_id = org_id
-      AND user_id = auth.uid()
-      AND status = 'active'
+    WHERE user_id = auth.uid()
+      AND organization_id = org_id
+      AND deleted_at IS NULL
   );
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE SQL SECURITY DEFINER STABLE;
 
--- Check if user has minimum required role
+-- Check minimum role
 CREATE OR REPLACE FUNCTION has_min_role(org_id UUID, min_role TEXT)
 RETURNS BOOLEAN AS $$
-DECLARE
-  user_role TEXT;
-  role_ranks JSONB := '{"READONLY": 30, "CLIENT": 40, "EMPLOYEE": 50, "MANAGER": 70, "EQR": 75, "PARTNER": 90, "SYSTEM_ADMIN": 100}'::JSONB;
-BEGIN
-  SELECT role INTO user_role
-  FROM memberships
-  WHERE organization_id = org_id
-    AND user_id = auth.uid()
-    AND status = 'active';
-  
-  IF user_role IS NULL THEN
-    RETURN FALSE;
-  END IF;
-  
-  RETURN (role_ranks->>user_role)::INT >= (role_ranks->>min_role)::INT;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-```
-
-### RLS Policy Examples
-
-#### Organizations Table
-
-```sql
--- Enable RLS
-ALTER TABLE organizations ENABLE ROW LEVEL SECURITY;
-
--- Users can view organizations they're members of
-CREATE POLICY "Users can view their organizations"
-  ON organizations FOR SELECT
-  USING (is_member_of(id));
-
--- Only SYSTEM_ADMIN can create organizations
-CREATE POLICY "System admins can create organizations"
-  ON organizations FOR INSERT
-  WITH CHECK (has_min_role(id, 'SYSTEM_ADMIN'));
-
--- PARTNER or higher can update their organizations
-CREATE POLICY "Partners can update their organizations"
-  ON organizations FOR UPDATE
-  USING (is_member_of(id) AND has_min_role(id, 'PARTNER'));
-```
-
-#### Documents Table
-
-```sql
-ALTER TABLE documents ENABLE ROW LEVEL SECURITY;
-
--- Users can view documents in their organization
-CREATE POLICY "Users can view org documents"
-  ON documents FOR SELECT
-  USING (is_member_of(organization_id));
-
--- Users can upload documents (EMPLOYEE or higher)
-CREATE POLICY "Employees can upload documents"
-  ON documents FOR INSERT
-  WITH CHECK (
-    is_member_of(organization_id)
-    AND has_min_role(organization_id, 'EMPLOYEE')
+  SELECT EXISTS (
+    SELECT 1 FROM memberships m
+    JOIN LATERAL (
+      VALUES 
+        ('SYSTEM_ADMIN', 1), ('PARTNER', 2), ('EQR', 3),
+        ('MANAGER', 4), ('EMPLOYEE', 5), ('CLIENT', 6),
+        ('READONLY', 7), ('SERVICE_ACCOUNT', 8)
+    ) AS role_precedence(name, precedence) ON m.role::TEXT = role_precedence.name
+    JOIN LATERAL (
+      SELECT precedence AS min_precedence
+      FROM (VALUES ('SYSTEM_ADMIN', 1), ('PARTNER', 2), ('EQR', 3),
+                   ('MANAGER', 4), ('EMPLOYEE', 5), ('CLIENT', 6),
+                   ('READONLY', 7), ('SERVICE_ACCOUNT', 8)) AS rp(name, precedence)
+      WHERE rp.name = min_role
+    ) AS mp ON role_precedence.precedence <= mp.min_precedence
+    WHERE m.user_id = auth.uid()
+      AND m.organization_id = org_id
+      AND m.deleted_at IS NULL
   );
+$$ LANGUAGE SQL SECURITY DEFINER STABLE;
 
--- Users can update their own documents or if MANAGER+
-CREATE POLICY "Users can update documents"
-  ON documents FOR UPDATE
+-- Check client portal scope
+CREATE OR REPLACE FUNCTION is_client_portal_allowed(folder TEXT)
+RETURNS BOOLEAN AS $$
+  SELECT folder IN ('02_Tax/PBC', '03_Accounting/PBC', '05_Payroll/PBC');
+$$ LANGUAGE SQL IMMUTABLE;
+```
+
+### Common Policy Patterns
+
+**1. Organization-Scoped SELECT (most tables):**
+```sql
+CREATE POLICY "Users view org resources"
+  ON table_name FOR SELECT
+  USING (is_member_of(organization_id));
+```
+
+**2. Role-Based INSERT/UPDATE/DELETE:**
+```sql
+CREATE POLICY "Managers modify org resources"
+  ON table_name FOR ALL
+  USING (has_min_role(organization_id, 'MANAGER'))
+  WITH CHECK (has_min_role(organization_id, 'MANAGER'));
+```
+
+**3. Client Portal Restrictions:**
+```sql
+CREATE POLICY "Clients view PBC documents only"
+  ON documents FOR SELECT
   USING (
-    is_member_of(organization_id)
-    AND (
-      created_by = auth.uid()
-      OR has_min_role(organization_id, 'MANAGER')
+    is_member_of(organization_id) AND
+    (
+      has_min_role(organization_id, 'EMPLOYEE') OR
+      (has_min_role(organization_id, 'CLIENT') AND is_client_portal_allowed(repo_folder))
     )
   );
 ```
 
-### Testing RLS
-
+**4. Approval Gate Policies:**
 ```sql
--- Set user context
-SET LOCAL role TO authenticated;
-SET LOCAL request.jwt.claims TO '{"sub": "user-uuid-here"}';
-
--- Test SELECT policy
-SELECT * FROM documents;  -- Should only return user's org documents
-
--- Test INSERT policy
-INSERT INTO documents (organization_id, name, created_by)
-VALUES ('org-uuid', 'test.pdf', auth.uid());  -- Should succeed or fail based on role
-
--- Reset context
-RESET role;
+CREATE POLICY "Only partners can lock close"
+  ON accounting_close FOR UPDATE
+  USING (has_min_role(organization_id, 'PARTNER'))
+  WITH CHECK (
+    has_min_role(organization_id, 'PARTNER') AND
+    (OLD.locked_at IS NULL OR NEW.locked_at = OLD.locked_at)  -- Cannot unlock
+  );
 ```
-
-### RLS Best Practices
-
-✅ **DO:**
-- Always enable RLS on tenant-scoped tables
-- Use helper functions for complex checks
-- Test policies thoroughly
-- Document policy logic in comments
-- Use `SECURITY DEFINER` for helper functions
-
-❌ **DON'T:**
-- Disable RLS on tables with sensitive data
-- Use `USING (true)` policies (bypasses security)
-- Forget to create policies for all operations (SELECT, INSERT, UPDATE, DELETE)
-- Assume RLS applies to `postgres` superuser (it doesn't)
 
 ---
 
-## Storage & Signed URLs
+## Storage Architecture
 
-### Storage Buckets
+### Buckets
 
-**Location:** Supabase Dashboard → Storage
+**Public Buckets:**
+- `avatars` - User profile images (public read)
+- `logos` - Organization logos (public read)
 
-| Bucket | Purpose | Public | RLS Policies |
-|--------|---------|--------|--------------|
-| `documents` | User-uploaded documents | ❌ Private | Organization-scoped |
-| `evidence` | Audit evidence files | ❌ Private | Organization-scoped |
-| `exports` | Generated exports (CSV, PDF) | ❌ Private | User-scoped |
-| `avatars` | User avatars | ✅ Public | User-scoped |
+**Private Buckets:**
+- `documents` - Document files (RLS enforced)
+- `evidence` - Audit evidence (RLS enforced)
+- `exports` - Generated reports/exports (RLS enforced)
 
 ### Storage RLS Policies
 
-**Location:** `supabase/migrations/*_storage_policy.sql`
-
 ```sql
--- Documents bucket: Organization members can upload/download
-CREATE POLICY "Org members can upload documents"
+-- Documents bucket: org members can upload/view
+CREATE POLICY "Org members upload documents"
   ON storage.objects FOR INSERT
   WITH CHECK (
-    bucket_id = 'documents'
-    AND is_member_of((storage.foldername(name))[1]::UUID)
+    bucket_id = 'documents' AND
+    is_member_of((storage.foldername(name))[1]::UUID)
   );
 
-CREATE POLICY "Org members can download documents"
+CREATE POLICY "Org members view documents"
   ON storage.objects FOR SELECT
   USING (
-    bucket_id = 'documents'
-    AND is_member_of((storage.foldername(name))[1]::UUID)
+    bucket_id = 'documents' AND
+    is_member_of((storage.foldername(name))[1]::UUID)
   );
 ```
 
-### Signed URLs
-
-**Purpose:** Provide temporary, secure access to private files
-
-**Backend Implementation:**
-
-```python
-# Python (FastAPI)
-from supabase import Client
-
-def generate_signed_url(file_path: str, ttl: int = 300) -> str:
-    """Generate signed URL for private file.
-    
-    Args:
-        file_path: Path in storage bucket (e.g., "documents/org-id/file.pdf")
-        ttl: Time-to-live in seconds (default: 5 minutes)
-    
-    Returns:
-        Temporary signed URL
-    """
-    supabase: Client = get_supabase_client()
-    
-    response = supabase.storage.from_("documents").create_signed_url(
-        path=file_path,
-        expires_in=ttl
-    )
-    
-    return response["signedURL"]
-```
-
-```typescript
-// TypeScript (Node.js)
-import { createClient } from '@supabase/supabase-js';
-
-async function generateSignedUrl(filePath: string, ttl: number = 300): Promise<string> {
-  const supabase = createClient(
-    process.env.SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
-  
-  const { data, error } = await supabase.storage
-    .from('documents')
-    .createSignedUrl(filePath, ttl);
-  
-  if (error) throw error;
-  return data.signedUrl;
-}
-```
-
-**Configuration:**
-
-```env
-# Signed URL TTL (seconds)
-SIGNED_URL_DEFAULT_TTL_SECONDS="300"       # 5 minutes
-SIGNED_URL_EVIDENCE_TTL_SECONDS="300"      # 5 minutes for audit evidence
-```
-
-### Upload Process
-
-```typescript
-// 1. Get signed upload URL
-const { data: uploadData } = await supabase.storage
-  .from('documents')
-  .createSignedUploadUrl(`${orgId}/${filename}`);
-
-// 2. Upload file to signed URL
-await fetch(uploadData.signedUrl, {
-  method: 'PUT',
-  body: file,
-  headers: { 'Content-Type': file.type }
-});
-
-// 3. File is now accessible via signed download URLs
-```
-
----
-
-## Edge Functions
-
-**Location:** `supabase/functions/`
-
-Edge functions are Deno-based serverless functions running on Supabase infrastructure.
-
-### Available Functions
+### File Path Convention
 
 ```
-supabase/functions/
-├── hello/                  # Example function
-├── webhook-handler/        # Process webhooks
-└── scheduled-tasks/        # Cron jobs
-```
+/{bucket}/{org_id}/{entity_id}/{repo_folder}/{filename}
 
-### Deploying Functions
-
-```bash
-# Deploy all functions
-supabase functions deploy
-
-# Deploy specific function
-supabase functions deploy webhook-handler
-
-# Invoke function locally
-supabase functions serve webhook-handler
-
-# Invoke deployed function
-curl -X POST https://[project-id].supabase.co/functions/v1/webhook-handler \
-  -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
-  -d '{"event": "test"}'
+Example:
+/documents/a1b2c3d4-e5f6-g7h8-i9j0-k1l2m3n4o5p6/e1e2e3e4-e5e6-e7e8-e9e0-e1e2e3e4e5e6/02_Tax/2024_CIT_Return.pdf
 ```
 
 ---
 
 ## Backup & Restore
 
-### Automated Backups
+### Backup Procedures
 
-Supabase provides automatic daily backups (retained 7 days on free tier, 30+ days on paid plans).
+**Automated Backups:**
+Supabase performs automatic daily backups with 7-day retention (Pro plan).
 
-**Access:** Supabase Dashboard → Database → Backups
-
-### Manual Backup
-
+**Manual Backup:**
 ```bash
 # Full database dump
-pg_dump "$DATABASE_URL" > backup-$(date +%Y%m%d-%H%M%S).sql
-
-# Compressed backup
-pg_dump "$DATABASE_URL" | gzip > backup-$(date +%Y%m%d-%H%M%S).sql.gz
+pg_dump "$DATABASE_URL" \
+  --format=custom \
+  --file=backup_$(date +%Y%m%d_%H%M%S).dump
 
 # Schema only
-pg_dump --schema-only "$DATABASE_URL" > schema-$(date +%Y%m%d).sql
+pg_dump "$DATABASE_URL" \
+  --schema-only \
+  --file=schema_$(date +%Y%m%d_%H%M%S).sql
 
 # Data only
-pg_dump --data-only "$DATABASE_URL" > data-$(date +%Y%m%d).sql
-
-# Specific tables
-pg_dump "$DATABASE_URL" -t organizations -t memberships > orgs-backup.sql
+pg_dump "$DATABASE_URL" \
+  --data-only \
+  --file=data_$(date +%Y%m%d_%H%M%S).sql
 ```
 
-### Restore from Backup
+### Restore Procedures
 
+**From Supabase Dashboard:**
+1. Navigate to Database → Backups
+2. Select backup date
+3. Click "Restore"
+4. Confirm downtime warning
+
+**From Manual Backup:**
 ```bash
-# Restore full database (WARNING: Destructive)
-psql "$DATABASE_URL" < backup-20251102-120000.sql
+# Full restore (drops existing data)
+pg_restore --clean --if-exists \
+  --dbname="$DATABASE_URL" \
+  backup_20251120_120000.dump
 
-# Restore compressed backup
-gunzip -c backup-20251102-120000.sql.gz | psql "$DATABASE_URL"
-
-# Restore specific table
-psql "$DATABASE_URL" -c "TRUNCATE TABLE organizations CASCADE;"
-psql "$DATABASE_URL" < orgs-backup.sql
+# Selective table restore
+pg_restore --data-only --table=documents \
+  --dbname="$DATABASE_URL" \
+  backup_20251120_120000.dump
 ```
-
-### Point-in-Time Recovery (PITR)
-
-Available on Supabase Pro tier and above.
-
-**Recovery:**
-1. Navigate to Supabase Dashboard → Database → Backups
-2. Select "Point in Time Recovery"
-3. Choose timestamp
-4. Initiate restore
 
 ---
 
-## Troubleshooting
+## Performance Tuning
 
-### Connection Issues
+### Essential Indexes
 
-#### "Connection refused"
+```sql
+-- Organization-scoped queries (most frequent)
+CREATE INDEX idx_table_org_id ON table_name(organization_id) WHERE deleted_at IS NULL;
 
-**Cause:** Database not accessible  
-**Solution:**
+-- Soft delete queries
+CREATE INDEX idx_table_active ON table_name(id) WHERE deleted_at IS NULL;
+
+-- Timestamp range queries
+CREATE INDEX idx_table_created_at ON table_name(created_at DESC);
+
+-- Foreign key joins
+CREATE INDEX idx_table_ref_id ON table_name(reference_id);
+
+-- Full-text search
+CREATE INDEX idx_documents_search ON documents USING GIN(to_tsvector('english', content));
+
+-- Vector similarity search (pgvector)
+CREATE INDEX idx_embeddings_vector ON document_embeddings 
+  USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
+```
+
+### Query Optimization
+
+**Use EXPLAIN ANALYZE:**
+```sql
+EXPLAIN (ANALYZE, BUFFERS) 
+SELECT * FROM documents 
+WHERE organization_id = 'a1b2c3d4-...' 
+  AND deleted_at IS NULL
+ORDER BY created_at DESC
+LIMIT 20;
+```
+
+**Common Issues & Fixes:**
+- Sequential scans → Add index on filter columns
+- High buffer usage → Increase `shared_buffers`
+- Index not used → Add `WHERE deleted_at IS NULL` to index
+- Slow joins → Add index on foreign key columns
+
+---
+
+## Rollback Procedures
+
+### Migration Rollback
+
+**For Schema Changes:**
+```sql
+-- Reverse migration template
+BEGIN;
+
+-- Drop new objects
+DROP TABLE IF EXISTS new_table CASCADE;
+DROP INDEX IF EXISTS idx_new_column;
+
+-- Restore old structure (if altered)
+ALTER TABLE old_table DROP COLUMN IF EXISTS new_column;
+
+COMMIT;
+```
+
+**For Data Migrations:**
 ```bash
-# Check if database is running
-pg_isready -h db.[project-id].supabase.co -p 5432
-
-# Verify credentials
-psql "$DATABASE_URL" -c "SELECT 1;"
+# Restore from backup taken before migration
+pg_restore --clean --if-exists \
+  --dbname="$DATABASE_URL" \
+  backup_before_migration.dump
 ```
 
-#### "Too many connections"
-
-**Cause:** Connection pool exhausted  
-**Solution:**
-```bash
-# Use PgBouncer pooled connection
-DIRECT_URL="postgresql://...@db.[project-id].supabase.co:6543/postgres?pgbouncer=true"
-
-# Or increase connection limit in Supabase Dashboard → Database → Settings
-```
-
-### RLS Issues
-
-#### "Permission denied for table"
-
-**Cause:** RLS policy blocking access  
-**Solution:**
-```sql
--- Check RLS policies
-SELECT * FROM pg_policies WHERE tablename = 'documents';
-
--- Verify user context
-SELECT auth.uid();  -- Should return user UUID
-
--- Temporarily bypass RLS for debugging (use carefully!)
-ALTER TABLE documents DISABLE ROW LEVEL SECURITY;
-```
-
-#### "RLS policy not applying"
-
-**Cause:** Using `postgres` superuser (bypasses RLS)  
-**Solution:** Use `authenticated` role or specific user for testing
-
-### Migration Errors
-
-#### "Relation already exists"
-
-**Cause:** Non-idempotent migration  
-**Solution:** Make migration idempotent with `IF NOT EXISTS`
-
-#### "Cannot drop table: foreign key constraint"
-
-**Cause:** Other tables reference this table  
-**Solution:**
-```sql
--- Drop with cascade (use carefully!)
-DROP TABLE table_name CASCADE;
-
--- Or drop foreign keys first
-ALTER TABLE other_table DROP CONSTRAINT fk_constraint_name;
-```
-
-### Performance Issues
-
-#### Slow Queries
+### RLS Policy Rollback
 
 ```sql
--- Enable query logging
-ALTER SYSTEM SET log_min_duration_statement = 1000;  -- Log queries >1s
+-- Drop new policies
+DROP POLICY IF EXISTS "New policy name" ON table_name;
 
--- Check slow queries
-SELECT * FROM pg_stat_statements
-ORDER BY total_exec_time DESC
+-- Restore old policies
+CREATE POLICY "Old policy name"
+  ON table_name FOR SELECT
+  USING (old_condition);
+```
+
+---
+
+## Monitoring & Alerts
+
+### Health Checks
+
+```sql
+-- Check replication lag
+SELECT 
+  EXTRACT(EPOCH FROM (NOW() - pg_last_xact_replay_timestamp())) AS lag_seconds;
+
+-- Check table bloat
+SELECT 
+  schemaname, tablename,
+  pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename)) AS size
+FROM pg_tables
+WHERE schemaname NOT IN ('pg_catalog', 'information_schema')
+ORDER BY pg_total_relation_size(schemaname||'.'||tablename) DESC
 LIMIT 10;
 
--- Analyze query plan
-EXPLAIN ANALYZE SELECT * FROM documents WHERE organization_id = 'uuid';
+-- Check slow queries
+SELECT 
+  pid, now() - pg_stat_activity.query_start AS duration, query
+FROM pg_stat_activity
+WHERE state = 'active' AND now() - pg_stat_activity.query_start > interval '5 seconds';
 ```
 
-#### Missing Indexes
+### Alert Thresholds
+
+- **Replication lag > 10s** → Page on-call
+- **Connection pool exhaustion > 90%** → Scale up
+- **Query duration > 30s** → Investigate + optimize
+- **Disk usage > 80%** → Expand storage
+
+---
+
+## pgTAP Testing
+
+### Test Structure
 
 ```sql
--- Check for missing indexes on foreign keys
-SELECT
-  c.conrelid::regclass AS table_name,
-  a.attname AS column_name
-FROM pg_constraint c
-JOIN pg_attribute a ON a.attnum = ANY(c.conkey) AND a.attrelid = c.conrelid
-WHERE c.contype = 'f'  -- Foreign key
-  AND NOT EXISTS (
-    SELECT 1 FROM pg_index i
-    WHERE i.indrelid = c.conrelid AND a.attnum = ANY(i.indkey)
-  );
+-- tests/001_rls_policies.sql
+BEGIN;
 
--- Create missing index
-CREATE INDEX idx_table_column ON table_name(column_name);
+SELECT plan(5);
+
+-- Test organization scoping
+SELECT is(
+  (SELECT COUNT(*) FROM documents WHERE organization_id = 'a1b2...' AND deleted_at IS NULL),
+  10,
+  'User can view 10 documents in their org'
+);
+
+-- Test role-based access
+SELECT throws_ok(
+  'INSERT INTO journals (organization_id, amount) VALUES (''a1b2...'', 1000)',
+  'new row violates row-level security policy',
+  'EMPLOYEE role cannot post journals'
+);
+
+SELECT finish();
+ROLLBACK;
+```
+
+### Running Tests
+
+```bash
+# Install pgTAP
+CREATE EXTENSION IF NOT EXISTS pgtap;
+
+# Run tests
+psql "$DATABASE_URL" -f tests/001_rls_policies.sql
 ```
 
 ---
 
-## Additional Resources
+## Version History
 
-- **Supabase Documentation:** https://supabase.com/docs
-- **PostgreSQL 15 Docs:** https://www.postgresql.org/docs/15/
-- **pgvector:** https://github.com/pgvector/pgvector
-- **Row Level Security:** https://supabase.com/docs/guides/auth/row-level-security
-
----
-
-**Last Updated:** 2025-11-02  
-**Maintainer:** Database Team  
-**Related:** `ENV_GUIDE.md`, `.env.example`, `server/db.py`
+- **v1.0.0** (2025-11-02): Initial database operations guide
+- 119 migrations documented
+- 87 RLS policies inventoried

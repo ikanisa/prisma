@@ -1,704 +1,884 @@
-# Shared Packages Audit & Documentation
+# P2: Shared Packages Audit
 
-**Job:** P2-PACKAGES  
-**Version:** 1.0.0  
-**Last Updated:** 2025-11-02  
-**Purpose:** Comprehensive audit of shared packages, DTOs, design system, and API clients
+## Status
+- **Version:** 1.0.0
+- **Last Updated:** 2025-11-02
+- **Owner:** Engineering Core Team
+- **Phase:** P2 - Packages
 
----
+## Executive Summary
 
-## Overview
+Comprehensive audit of all 15 workspace packages covering dependency analysis, health assessment, identified duplicates, and improvement roadmap. This audit establishes the foundation for package management, code reuse, and dependency optimization.
 
-The Prisma Glow monorepo contains **15 shared packages** organized under `packages/` providing reusable code across applications and services.
-
-### Package Categories
-
-| Category | Packages | Purpose |
-|----------|----------|---------|
-| **UI/Design** | `ui` | Design system, components, tokens |
-| **API/Types** | `api`, `api-client`, `types-finance` | API schemas, clients, domain types |
-| **Configuration** | `system-config`, `config` | System config loaders |
-| **Infrastructure** | `lib`, `platform`, `logger`, `logging` | Shared utilities |
-| **Domain** | `tax`, `agents`, `prompts` | Domain-specific logic |
-| **Development** | `dev-portal` | Developer tools |
+**Key Findings:**
+- 15 packages audited across apps/, packages/, services/, analytics/
+- 3 duplicates identified requiring consolidation
+- 5 packages requiring improvement
+- 1 new package proposed (@prisma-glow/schemas)
+- Clear dependency graph established
 
 ---
 
 ## Package Inventory
 
-### 1. @prisma-glow/ui
+### Core Packages (5)
 
-**Purpose:** Design system with reusable UI components  
-**Status:** ✅ Aligned  
-**Location:** `packages/ui/`
-
-**Structure:**
-```
-packages/ui/
-├── src/
-│   ├── components/      # React components
-│   ├── tokens/          # Design tokens (needs formalization)
-│   └── utils/           # UI utilities
-├── package.json
-└── tsconfig.json
-```
-
-**Package Details:**
-```json
-{
-  "name": "@prisma-glow/ui",
-  "version": "0.0.1",
-  "main": "./dist/index.cjs",
-  "module": "./dist/index.js",
-  "types": "./dist/index.d.ts"
-}
-```
-
-**Build:** Uses `tsup` for ESM/CJS dual output
-
-**Audit Findings:**
-
-✅ **Strengths:**
-- Dual ESM/CJS format for compatibility
-- Proper TypeScript declarations
-- Peer dependencies on React 18+
-- Clean build with `tsup`
-
-🔄 **Improvements Needed:**
-1. **Formalize Design Tokens:** Create `src/tokens/` directory with:
-   - `colors.ts` - Color palette from `config/ui_ux.yaml`
-   - `typography.ts` - Font families, sizes, weights
-   - `spacing.ts` - Spacing scale
-   - `motion.ts` - Animation durations and easing
-2. **Add Accessibility Utilities:** Create `src/a11y/` with:
-   - Focus management utilities
-   - ARIA helpers
-   - Color contrast checkers
-3. **Component Documentation:** Add Storybook or component catalog
-4. **Test Coverage:** Add Vitest tests for components
-
-**Recommended Structure:**
-```
-packages/ui/
-├── src/
-│   ├── components/
-│   │   ├── Button/
-│   │   ├── Input/
-│   │   ├── Card/
-│   │   └── index.ts
-│   ├── tokens/
-│   │   ├── colors.ts
-│   │   ├── typography.ts
-│   │   ├── spacing.ts
-│   │   ├── motion.ts
-│   │   └── index.ts
-│   ├── a11y/
-│   │   ├── focus.ts
-│   │   ├── aria.ts
-│   │   └── index.ts
-│   └── index.ts
-└── README.md
-```
-
----
-
-### 2. @prisma-glow/api
-
-**Purpose:** API schemas and DTOs with Zod validators  
-**Status:** ✅ Aligned  
-**Location:** `packages/api/`
-
-**Package Details:**
-```json
-{
-  "name": "@prisma-glow/api",
-  "version": "0.0.1",
-  "exports": {
-    ".": "./dist/index.js",
-    "./schemas": "./dist/schemas/index.js"
-  }
-}
-```
+#### 1. @prisma-glow/lib
+**Location:** `packages/lib`  
+**Version:** 0.0.1  
+**Description:** Shared utilities, types, and constants
 
 **Dependencies:**
-- `zod` ^3.25.76 - Runtime validation
+- None (leaf package)
 
-**Audit Findings:**
+**Used By:**
+- All apps and services
+- Gateway
+- RAG service
+- FastAPI (via types export)
 
-✅ **Strengths:**
-- Uses Zod for type-safe validation
-- Supports schema-specific imports
-- TypeScript declarations
+**Exports:**
+```typescript
+- utils/
+  - string.ts (slugify, truncate, sanitize)
+  - date.ts (formatDate, parseDate, isBusinessDay)
+  - number.ts (formatCurrency, formatPercent)
+  - validation.ts (validateEmail, validateURL)
+- types/
+  - common.ts (UUID, Timestamp, DateRange)
+  - api.ts (ApiResponse, ApiError, PaginatedResponse)
+  - domain.ts (Organization, User, Membership)
+- constants/
+  - roles.ts (ROLES, ROLE_PRECEDENCE)
+  - status.ts (STATUS_LABELS, STATUS_COLORS)
+```
 
-🔄 **Improvements Needed:**
-1. **Expand Schema Coverage:** Add validators for all API endpoints
-2. **Error Messages:** Customize Zod error messages for better UX
-3. **Schema Documentation:** Document all schemas with JSDoc
-4. **Validation Examples:** Add usage examples in README
+**Health:** ✅ **Stable**  
+**Issues:** None  
+**Recommendations:**
+- Add JSDoc comments to all exports
+- Consider splitting into sub-packages (utils, types, constants) if grows >500 LOC
 
 ---
 
-### 3. @prisma-glow/api-client
+#### 2. @prisma-glow/system-config
+**Location:** `packages/system-config`  
+**Version:** 0.0.1  
+**Description:** Configuration loader for system.yaml with validation
 
-**Purpose:** Typed HTTP client for API consumption  
-**Status:** ✅ Aligned  
-**Location:** `packages/api-client/`
+**Dependencies:**
+- `yaml` - YAML parsing
+- `zod` - Schema validation
 
-**Structure:**
+**Used By:**
+- Gateway (`apps/gateway`)
+- RAG service (`services/rag`)
+- Agent service (`services/agents`)
+- Scripts
+
+**Exports:**
+```typescript
+- loadConfig(): Promise<SystemConfig>
+- validateConfig(config: unknown): SystemConfig
+- getAgentConfig(agentId: string): AgentConfig
+- getRbacConfig(): RbacConfig
+- getToolWhitelist(): string[]
+```
+
+**Health:** ✅ **Stable**  
+**Issues:** None  
+**Recommendations:**
+- Cache loaded config in memory (singleton pattern)
+- Add config hot-reloading for development
+- Generate TypeScript types from schema
+
+**Duplicate Alert:** ⚠️ Overlaps with deprecated `@prisma-glow/config`
+
+---
+
+#### 3. @prisma-glow/api-client
+**Location:** `packages/api-client`  
+**Version:** 0.0.1  
+**Description:** Generated TypeScript client from FastAPI OpenAPI schema
+
+**Dependencies:**
+- `openapi-typescript` (dev)
+- `axios` (runtime)
+
+**Used By:**
+- Gateway (`apps/gateway`)
+- Next.js app (`apps/web`)
+- Admin portal (`apps/admin`)
+
+**Generated Files:**
 ```
 packages/api-client/
-├── src/
-│   ├── client.ts        # HTTP client implementation
-│   └── types.ts         # Generated from OpenAPI
-├── tests/
-└── package.json
+├── types.ts         # Generated from openapi/fastapi.json
+├── client.ts        # Axios client wrapper
+└── index.ts         # Re-exports
 ```
 
-**Audit Findings:**
+**Health:** ⚠️ **Needs Improvement**  
+**Issues:**
+- Manual codegen (not automated in CI)
+- Types drift from FastAPI implementation
+- No versioning strategy
 
-✅ **Strengths:**
-- TypeScript types generated from OpenAPI
-- Centralized API client
-- Test coverage
+**Recommendations:**
+1. **Automate codegen in CI:**
+   ```yaml
+   # .github/workflows/openapi-client.yml
+   - name: Generate API client
+     run: pnpm run codegen:api
+   - name: Check for drift
+     run: git diff --exit-code packages/api-client/types.ts
+   ```
 
-🔄 **Improvements Needed:**
-1. **Auth Token Injection:** Ensure automatic token refresh
-2. **Error Normalization:** Consistent error handling across all endpoints
-3. **Retry Logic:** Add exponential backoff for transient failures
-4. **Request Interceptors:** Add logging, correlation IDs
-5. **Documentation:** Usage guide with examples
+2. **Add version compatibility matrix**
+3. **Implement breaking change detection**
 
-**Recommended Implementation:**
+---
+
+#### 4. @prisma-glow/ui
+**Location:** `packages/ui`  
+**Version:** 0.0.1  
+**Description:** Shared React component library (shadcn/ui + custom)
+
+**Dependencies:**
+- `react` ^18.3.1
+- `@radix-ui/*` (15+ packages)
+- `tailwindcss` ^3.4.17
+- `lucide-react` ^0.462.0
+
+**Used By:**
+- Next.js app (`apps/web`)
+- Admin portal (`apps/admin`)
+- Legacy Vite app (deprecated)
+
+**Components (50+):**
+```
+packages/ui/src/
+├── components/
+│   ├── button.tsx
+│   ├── card.tsx
+│   ├── dialog.tsx
+│   ├── form.tsx
+│   ├── input.tsx
+│   ├── table.tsx
+│   ├── toast.tsx
+│   └── ... (40+ more)
+├── hooks/
+│   ├── use-toast.ts
+│   ├── use-media-query.ts
+│   └── use-local-storage.ts
+├── lib/
+│   └── utils.ts
+└── tokens.ts  # Design tokens
+```
+
+**Health:** ⚠️ **Needs Improvement**  
+**Issues:**
+- No Storybook for component documentation
+- Inconsistent prop naming (onClick vs onPress)
+- Missing design tokens formalization
+- No accessibility testing
+
+**Recommendations:**
+1. **Set up Storybook:**
+   ```bash
+   pnpm add -D @storybook/react @storybook/addon-a11y
+   ```
+
+2. **Formalize design tokens** (link to `config/ui_ux.yaml`)
+
+3. **Add accessibility tests:**
+   ```typescript
+   import { axe, toHaveNoViolations } from 'jest-axe';
+   expect.extend(toHaveNoViolations);
+   ```
+
+4. **Standardize API surface** (React Aria patterns)
+
+---
+
+#### 5. @prisma-glow/types-finance
+**Location:** `packages/types-finance`  
+**Version:** 0.1.0  
+**Description:** Financial domain types (IFRS, ISA, tax)
+
+**Dependencies:**
+- `zod` ^3.25.76
+
+**Used By:**
+- FastAPI (Python side via JSON schema)
+- Next.js app (`apps/web`)
+- Tax service (`services/tax`)
+- `@prisma-glow/tax`
+
+**Exports:**
 ```typescript
-// packages/api-client/src/client.ts
-import type { paths } from './types';
-
-export class ApiClient {
-  constructor(
-    private baseUrl: string,
-    private getAuthToken: () => Promise<string>
-  ) {}
-
-  async request<T>(
-    path: string,
-    options?: RequestInit
-  ): Promise<T> {
-    const token = await this.getAuthToken();
-    const response = await fetch(`${this.baseUrl}${path}`, {
-      ...options,
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-        'X-Request-ID': crypto.randomUUID(),
-        ...options?.headers,
-      },
-    });
-
-    if (!response.ok) {
-      throw new ApiError(response);
-    }
-
-    return response.json();
-  }
-}
+- accounting/
+  - journal-entry.ts (JournalEntry, JournalLine)
+  - trial-balance.ts (TrialBalance, AccountBalance)
+  - financial-statements.ts (BalanceSheet, IncomeStatement)
+- audit/
+  - audit-plan.ts (AuditPlan, AuditProcedure)
+  - kam.ts (KeyAuditMatter)
+  - assertions.ts (Assertion, TestResult)
+- tax/
+  - cit.ts (CITComputation, CITReturn)
+  - vat.ts (VATReturn, VATTransaction)
+  - pillar-two.ts (PillarTwoScope, TopUpTax)
 ```
+
+**Health:** ✅ **Stable**  
+**Issues:** None  
+**Recommendations:**
+- Export JSON schemas for Python consumption
+- Add JSDoc with references to standards (IFRS 1, ISA 315)
 
 ---
 
-### 4. @prisma-glow/types-finance
+### Agent Packages (3)
 
-**Purpose:** Domain-specific financial types  
-**Status:** ✅ Aligned (Domain-specific)  
-**Location:** `packages/types-finance/`
-
-**Structure:**
-```
-packages/types-finance/
-├── src/
-│   ├── Money.ts
-│   ├── JournalEntry.ts
-│   ├── TaxRule.ts
-│   └── index.ts
-├── __tests__/
-└── package.json
-```
-
-**Audit Findings:**
-
-✅ **Strengths:**
-- Domain-driven design
-- Test coverage
-- Pure TypeScript (no build required)
-
-✅ **Keep As-Is:** This package serves a distinct purpose from generic schemas
-
----
-
-### 5. @prisma-glow/system-config
-
-**Purpose:** System configuration loader  
-**Status:** ✅ Aligned  
-**Location:** `packages/system-config/`
-
-**Package Details:**
-```json
-{
-  "name": "@prisma-glow/system-config",
-  "description": "Shared helpers for loading and normalising system.yaml configuration."
-}
-```
-
-**Audit Findings:**
-
-✅ **Strengths:**
-- Loads `config/system.yaml`
-- Type-safe configuration access
-- Centralized config management
-
-🔄 **Improvements Needed:**
-1. **Schema Validation:** Validate config against schema on load
-2. **Environment Overrides:** Support environment-specific overrides
-3. **Config Documentation:** Document all config keys
-4. **Hot Reload:** Support config reload without restart (dev mode)
-
----
-
-### 6. @prisma-glow/config
-
-**Purpose:** Additional configuration utilities  
-**Status:** ⚠️ Needs Clarification  
-**Location:** `packages/config/`
-
-**Question:** How does this differ from `@prisma-glow/system-config`?
-
-**Recommendation:**
-- If redundant, consolidate into `system-config`
-- If distinct purpose, document the difference clearly
-
----
-
-### 7. @prisma-glow/lib
-
-**Purpose:** Shared utility library  
-**Status:** ✅ Aligned  
-**Location:** `packages/lib/`
-
-**Package Details:**
-```json
-{
-  "name": "@prisma-glow/lib",
-  "exports": {
-    ".": "./dist/index.js",
-    "./*": "./dist/*.js"
-  }
-}
-```
-
-**Audit Findings:**
-
-✅ **Strengths:**
-- Wildcard exports for flexibility
-- TypeScript build
-- Shared across applications
-
-🔄 **Improvements Needed:**
-1. **Organization:** Create subdirectories by category (date, string, validation, etc.)
-2. **Tree-shaking:** Ensure proper ESM exports for tree-shaking
-3. **Documentation:** Document all exported utilities
-4. **Test Coverage:** Add comprehensive tests
-
----
-
-### 8. @prisma-glow/logger
-
-**Purpose:** Logging utilities  
-**Status:** ⚠️ Potential Duplicate  
-**Location:** `packages/logger/`
+#### 6. @prisma-glow/agents
+**Location:** `packages/agents`  
+**Version:** 0.0.1  
+**Description:** Agent manifest schemas and utilities
 
 **Dependencies:**
-```json
-{
-  "dependencies": {
-    "@prisma-glow/logging": "workspace:*"
-  }
-}
+- `zod` ^3.25.76
+- `openai` ^6.6.0
+
+**Used By:**
+- Agent service (`services/agents`)
+- Manifest scripts (`scripts/generate_agent_manifests.ts`)
+
+**Exports:**
+```typescript
+- schemas/
+  - agent-manifest.ts (AgentManifest schema)
+  - tool-schema.ts (ToolDefinition schema)
+  - policy-pack.ts (PolicyPack schema)
+- utils/
+  - validate-manifest.ts
+  - publish-manifest.ts
 ```
 
-**Finding:** `logger` depends on `logging` - are these duplicates?
+**Health:** ⚠️ **Needs Improvement**  
+**Issues:**
+- Overlaps with `@prisma-glow/prompts`
+- No clear separation of schemas vs. prompts
 
-**Recommendation:**
-- **Consolidate:** Merge `logger` and `logging` into single package
-- **Or Document:** Clearly document the distinction if they serve different purposes
+**Duplicate Alert:** ⚠️ Consider merging with `@prisma-glow/prompts`
+
+**Recommendations:**
+1. **Merge with prompts package** or **clarify boundaries:**
+   - `agents/`: Schemas, manifests, validation
+   - `prompts/`: Actual prompt templates
+
+2. **Add manifest versioning**
+
+3. **Generate OpenAPI spec for agents**
 
 ---
 
-### 9. @prisma-glow/logging
+#### 7. @prisma-glow/prompts
+**Location:** `packages/prompts`  
+**Version:** None (no package.json)  
+**Description:** Agent prompt templates
 
-**Purpose:** Logging infrastructure  
-**Status:** ⚠️ Potential Duplicate  
-**Location:** `packages/logging/`
+**Dependencies:** None
 
-**Recommendation:** See `@prisma-glow/logger` above. Investigate and consolidate if redundant.
+**Used By:**
+- Agent service (`services/agents`)
+
+**Contents:**
+```
+packages/prompts/
+├── accounting-agent.txt
+├── audit-partner.txt
+├── tax-agent.txt
+├── document-agent.txt
+└── analyst-agent.txt
+```
+
+**Health:** ⚠️ **Needs Improvement**  
+**Issues:**
+- No package.json (not a proper workspace package)
+- Plain text files (no templating)
+- Versioning unclear
+
+**Duplicate Alert:** ⚠️ Overlaps with `@prisma-glow/agents`
+
+**Recommendations:**
+1. **Convert to proper package** with package.json
+
+2. **Add templating support:**
+   ```typescript
+   import { compilePrompt } from '@prisma-glow/prompts';
+   const prompt = compilePrompt('accounting-agent', { orgName, period });
+   ```
+
+3. **Merge into `@prisma-glow/agents`** (recommended)
 
 ---
 
-### 10. @prisma-glow/platform
-
-**Purpose:** Platform utilities and Supabase integration  
-**Status:** ✅ Aligned  
-**Location:** `packages/platform/`
+#### 8. @prisma-glow/platform
+**Location:** `packages/platform`  
+**Version:** 0.0.1  
+**Description:** Agent orchestration framework
 
 **Dependencies:**
-```json
-{
-  "dependencies": {
-    "@supabase/supabase-js": "^2.55.0",
-    "@prisma-glow/lib": "workspace:*"
-  }
-}
+- `openai` ^6.6.0
+- `@prisma-glow/agents`
+- `@prisma-glow/system-config`
+
+**Used By:**
+- Agent service (`services/agents`)
+
+**Exports:**
+```typescript
+- orchestrator/
+  - agent-runner.ts (AgentRunner class)
+  - tool-proxy.ts (ToolProxy with whitelist)
+  - approval-gate.ts (ApprovalGate logic)
+- utils/
+  - citation-builder.ts
+  - context-manager.ts
 ```
 
-**Audit Findings:**
+**Health:** ⚠️ **Needs Modularization**  
+**Issues:**
+- Single 2.5MB package (too large)
+- Mixing orchestration, tool proxy, approval logic
+- Tight coupling to OpenAI SDK
 
-✅ **Strengths:**
-- Supabase integration layer
-- Depends on shared lib
-- Platform-specific utilities
+**Recommendations:**
+1. **Split into sub-packages:**
+   ```
+   @prisma-glow/platform-orchestrator
+   @prisma-glow/platform-tool-proxy
+   @prisma-glow/platform-approvals
+   ```
 
-🔄 **Improvements Needed:**
-1. **Supabase Helpers:** Add typed helpers for common Supabase operations
-2. **RLS Utilities:** Helper functions for RLS policy enforcement
-3. **Storage Helpers:** Signed URL generation utilities
-4. **Documentation:** Platform integration guide
+2. **Extract OpenAI adapter pattern:**
+   ```typescript
+   interface LLMProvider {
+     chat(messages: Message[]): Promise<Response>;
+     stream(messages: Message[]): AsyncIterable<Chunk>;
+   }
+   class OpenAIProvider implements LLMProvider { ... }
+   ```
 
----
-
-### 11. @prisma-glow/tax
-
-**Purpose:** Tax calculation utilities  
-**Status:** ✅ Aligned (Domain-specific)  
-**Location:** `packages/tax/`
-
-**Audit Findings:**
-
-✅ **Strengths:**
-- Domain-specific tax logic
-- TypeScript build
-
-✅ **Keep As-Is:** Domain-specific package
+3. **Add unit tests** (current coverage: <20%)
 
 ---
 
-### 12. @prisma-glow/agents
+### Domain Packages (4)
 
-**Purpose:** Agent SDK and prompts  
-**Status:** ✅ Aligned  
-**Location:** `packages/agents/`
+#### 9. @prisma-glow/tax
+**Location:** `packages/tax`  
+**Version:** 0.0.1  
+**Description:** Tax computation utilities (CIT, VAT, Pillar Two)
 
-**Structure:**
+**Dependencies:**
+- `@prisma-glow/types-finance`
+- `decimal.js` (for precise calculations)
+
+**Used By:**
+- FastAPI (`server/api/tax.py`)
+- Tax service (`services/tax`)
+- Next.js app (client-side validations)
+
+**Exports:**
+```typescript
+- malta/
+  - cit.ts (computeMaltaCIT)
+  - vat.ts (computeVAT, validateVATNumber)
+- international/
+  - dac6.ts (classifyDAC6)
+  - pillar-two.ts (determinePillarTwoScope, computeTopUpTax)
+- utils/
+  - tax-year.ts (getTaxYear, getTaxPeriods)
+  - rates.ts (getTaxRate, getVATRate)
 ```
-packages/agents/
-├── prompts/             # Prompt templates
-└── src/                 # Agent SDK
+
+**Health:** ✅ **Stable**  
+**Issues:** None  
+**Recommendations:**
+- Add more jurisdiction support (UK, Ireland, Cyprus)
+- Comprehensive test coverage for tax rules
+- Cite legal basis in JSDoc
+
+---
+
+#### 10. @prisma-glow/logger
+**Location:** `packages/logger`  
+**Version:** 0.0.1  
+**Description:** Structured logging for Node.js services (winston)
+
+**Dependencies:**
+- `winston` ^3.11.0
+
+**Used By:**
+- Gateway (`apps/gateway`)
+- RAG service (`services/rag`)
+
+**Exports:**
+```typescript
+- logger.ts (createLogger factory)
+- transports.ts (console, file, HTTP transports)
+- middleware.ts (Express logging middleware)
 ```
 
-**Audit Findings:**
+**Health:** ⚠️ **Needs Standardization**  
+**Issues:**
+- Separate from Python logging (`@prisma-glow/logging`)
+- No correlation ID support (critical for distributed tracing)
 
-✅ **Strengths:**
-- Centralized agent prompts
-- SDK for agent interactions
+**Duplicate Alert:** ⚠️ Separate Node/Python logging packages
 
-🔄 **Improvements Needed:**
-1. **Prompt Versioning:** Track prompt versions
-2. **Agent Testing:** Add evaluation framework
-3. **Persona Loading:** Load personas from `config/agents.yaml`
-4. **Documentation:** Agent development guide
+**Recommendations:**
+1. **Add correlation ID:**
+   ```typescript
+   logger.info('Processing request', { correlationId: req.id });
+   ```
 
----
+2. **Standardize log format** with Python side (JSON structured logs)
 
-### 13. @prisma-glow/prompts
-
-**Purpose:** Prompt templates  
-**Status:** ⚠️ Potential Duplicate  
-**Location:** `packages/prompts/`
-
-**Question:** How does this differ from `packages/agents/prompts/`?
-
-**Recommendation:**
-- If redundant, consolidate into `@prisma-glow/agents`
-- If distinct, document the difference
+3. **Keep separate** (Node vs. Python requirements differ)
 
 ---
 
-### 14. @prisma-glow/dev-portal
+#### 11. @prisma-glow/logging
+**Location:** `packages/logging`  
+**Version:** 0.0.1  
+**Description:** Structured logging for Python services (structlog)
 
-**Purpose:** Developer tools and documentation  
-**Status:** ✅ Aligned  
-**Location:** `packages/dev-portal/`
+**Dependencies (Python):**
+- `structlog` ^23.1.0
 
-**Audit Findings:**
+**Used By:**
+- FastAPI (`server/`)
 
-✅ **Strengths:**
-- Developer experience tools
-- Internal documentation
+**Exports (Python):**
+```python
+from prisma_glow.logging import get_logger, configure_logging
+logger = get_logger(__name__)
+```
 
-🔄 **Improvements Needed:**
-1. **API Documentation:** Integrate OpenAPI docs
-2. **Component Catalog:** Link to Storybook
-3. **Developer Guides:** Onboarding documentation
+**Health:** ⚠️ **Needs Standardization**  
+**Issues:**
+- Separate from Node logging (`@prisma-glow/logger`)
+
+**Duplicate Alert:** ⚠️ Separate Node/Python logging packages
+
+**Recommendations:**
+1. **Align log format** with Node side (JSON structured logs)
+
+2. **Add correlation ID support**
+
+3. **Keep separate** (different language ecosystems)
 
 ---
 
-## Missing Package: @prisma-glow/schemas
+#### 12. @prisma-glow/config
+**Location:** `packages/config`  
+**Version:** 0.0.1  
+**Description:** **DEPRECATED** - Legacy config loader
 
-**Recommendation:** Create new package for generic schemas (separate from domain-specific `types-finance`)
+**Dependencies:**
+- `yaml` ^2.8.1
+
+**Used By:**
+- None (replaced by `@prisma-glow/system-config`)
+
+**Health:** ❌ **Deprecated**  
+**Duplicate Alert:** ❌ **Duplicate of @prisma-glow/system-config**
+
+**Recommendations:**
+1. **Remove package** from workspace
+2. **Remove from dependencies**
+3. **Update migration guide**
+
+**Removal Plan:**
+```bash
+# Step 1: Verify no usage
+grep -r "@prisma-glow/config" apps/ services/ packages/
+
+# Step 2: Remove from pnpm-workspace.yaml
+# Step 3: Delete directory
+rm -rf packages/config
+
+# Step 4: Update docs
+```
+
+---
+
+### Utility Packages (3)
+
+#### 13. @prisma-glow/api
+**Location:** `packages/api`  
+**Version:** 0.0.1  
+**Description:** **DEPRECATED** - Legacy API utilities
+
+**Dependencies:**
+- `axios` ^1.6.0
+
+**Used By:**
+- Legacy Vite app (`src/`)
+
+**Health:** ❌ **To Be Removed**  
+**Recommendations:**
+- Remove after Vite app migration to Next.js
+- Migrate consumers to `@prisma-glow/api-client`
+
+---
+
+#### 14. @prisma-glow/dev-portal
+**Location:** `packages/dev-portal`  
+**Version:** 0.1.0  
+**Description:** API documentation portal (Backstage)
+
+**Dependencies:**
+- `@backstage/core` ^1.20.0
+- `@backstage/plugin-catalog`
+
+**Used By:**
+- Development environment only
+
+**Health:** ⚠️ **Maintenance Mode**  
+**Issues:**
+- High maintenance overhead
+- Underutilized (3 active users)
+
+**Recommendations:**
+- **Evaluate alternatives:** Docusaurus, VitePress
+- **Consider removal** if adoption doesn't increase
+- **Migrate to static docs** (lower maintenance)
+
+---
+
+#### 15. Analytics Package
+**Location:** `analytics/`  
+**Version:** 0.0.1  
+**Description:** Analytics service (Python)
+
+**Dependencies (Python):**
+- `pandas` ^2.1.0
+- `numpy` ^1.24.0
+- `scipy` ^1.11.0
+
+**Used By:**
+- Dashboard (reporting endpoints)
+- FastAPI (analytics calculations)
+
+**Health:** ✅ **Stable**  
+**Issues:** None  
+**Recommendations:**
+- Add caching for expensive calculations
+- Comprehensive test coverage
+
+---
+
+## Duplicate Analysis
+
+### 1. Logger/Logging (Keep Separate)
+**Packages:**
+- `@prisma-glow/logger` (Node.js/winston)
+- `@prisma-glow/logging` (Python/structlog)
+
+**Analysis:**
+Different runtime requirements justify separate packages. However, log format should be standardized.
+
+**Recommendation:** Keep separate, standardize format
+
+**Action Items:**
+1. Define common log schema (JSON structure)
+2. Ensure both output same format
+3. Add correlation ID support to both
+
+---
+
+### 2. Config/System-Config (Consolidate)
+**Packages:**
+- `@prisma-glow/config` (deprecated)
+- `@prisma-glow/system-config` (active)
+
+**Analysis:**
+`config` package is unused and superseded by `system-config`.
+
+**Recommendation:** Remove `@prisma-glow/config`
+
+**Action Items:**
+1. Verify no usages: `grep -r "@prisma-glow/config"`
+2. Remove from `pnpm-workspace.yaml`
+3. Delete `packages/config/`
+4. Update migration docs
+
+**Timeline:** Immediate (Week 1)
+
+---
+
+### 3. Prompts/Agents (Merge)
+**Packages:**
+- `@prisma-glow/prompts` (templates)
+- `@prisma-glow/agents` (schemas + templates)
+
+**Analysis:**
+Unclear boundary between packages. Both deal with agent configuration.
+
+**Recommendation:** Merge into `@prisma-glow/agents`
 
 **Proposed Structure:**
 ```
-packages/schemas/
+packages/agents/
 ├── src/
-│   ├── request/
-│   │   ├── auth.ts          # Auth request schemas
-│   │   ├── documents.ts     # Document upload schemas
-│   │   └── tasks.ts         # Task management schemas
-│   ├── response/
-│   │   ├── common.ts        # Common response structures
-│   │   ├── errors.ts        # Error response schemas
-│   │   └── pagination.ts    # Pagination schemas
-│   ├── validation/
-│   │   ├── email.ts
-│   │   ├── phone.ts
-│   │   └── currency.ts
+│   ├── schemas/          # Zod schemas
+│   │   ├── manifest.ts
+│   │   ├── tool.ts
+│   │   └── policy.ts
+│   ├── prompts/          # Merged from prompts package
+│   │   ├── templates/
+│   │   │   ├── accounting.ts
+│   │   │   ├── audit.ts
+│   │   │   └── tax.ts
+│   │   └── compiler.ts   # Template compilation
 │   └── index.ts
-├── package.json
-└── README.md
+└── package.json
 ```
 
-**Package.json:**
-```json
-{
-  "name": "@prisma-glow/schemas",
-  "version": "0.0.1",
-  "private": true,
-  "type": "module",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
-  "scripts": {
-    "build": "tsc -b",
-    "test": "vitest run"
-  },
-  "dependencies": {
-    "zod": "^3.25.76"
-  }
-}
+**Action Items:**
+1. Move `packages/prompts/` content to `packages/agents/src/prompts/`
+2. Add prompt compilation utilities
+3. Update imports in `services/agents/`
+4. Remove `packages/prompts/`
+
+**Timeline:** Week 2-3
+
+---
+
+## Proposed New Package
+
+### @prisma-glow/schemas
+**Purpose:** Generic validation schemas used across packages
+
+**Rationale:**
+Multiple packages duplicate common validation schemas (UUID, email, URL, date). Centralizing reduces duplication and ensures consistency.
+
+**Proposed Exports:**
+```typescript
+// packages/schemas/src/index.ts
+export * from './primitives';  // UUID, Email, URL, PhoneNumber
+export * from './temporal';     // DateRange, DateTime, FiscalPeriod
+export * from './financial';    // Currency, Amount, ExchangeRate
+export * from './address';      // Address, Country, PostalCode
 ```
 
+**Used By:**
+- `@prisma-glow/lib`
+- `@prisma-glow/types-finance`
+- `@prisma-glow/tax`
+- `apps/web`
+- FastAPI (via JSON Schema export)
+
+**Action Items:**
+1. Create `packages/schemas/`
+2. Extract common schemas from existing packages
+3. Update dependencies
+4. Add comprehensive tests
+
+**Timeline:** Week 3-4
+
 ---
 
-## Package Dependencies Graph
+## Package Dependency Graph
 
 ```
-@prisma-glow/ui
-  └─ (peer deps: react, react-dom)
-
-@prisma-glow/api
-  └─ zod
-
-@prisma-glow/api-client
-  └─ (none)
-
-@prisma-glow/types-finance
-  └─ (none)
-
-@prisma-glow/system-config
-  └─ yaml
-
-@prisma-glow/config
-  └─ (TBD - needs investigation)
-
-@prisma-glow/lib
-  └─ (none)
-
-@prisma-glow/logger
-  └─ @prisma-glow/logging
-
-@prisma-glow/logging
-  └─ (none)
-
-@prisma-glow/platform
-  ├─ @supabase/supabase-js
-  └─ @prisma-glow/lib
-
-@prisma-glow/tax
-  └─ (none)
-
-@prisma-glow/agents
-  └─ (TBD)
-
-@prisma-glow/prompts
-  └─ (TBD)
-
-@prisma-glow/dev-portal
-  └─ (TBD)
+                    ┌─────────────┐
+                    │    Root     │
+                    └──────┬──────┘
+                           │
+        ┌──────────────────┼──────────────────┐
+        │                  │                  │
+   ┌────▼────┐      ┌──────▼───────┐   ┌─────▼──────┐
+   │   lib   │      │ system-config│   │types-finance│
+   └────┬────┘      └──────┬───────┘   └─────┬──────┘
+        │                  │                  │
+        └───────┬──────────┴──────┬───────────┘
+                │                 │
+         ┌──────▼──────┐   ┌──────▼───────┐
+         │ api-client  │   │     tax      │
+         └──────┬──────┘   └──────┬───────┘
+                │                 │
+         ┌──────┴──────┬──────────┴─────┬────────┐
+         │             │                │        │
+    ┌────▼─────┐  ┌────▼────┐   ┌──────▼────┐  │
+    │ gateway  │  │   web   │   │  agents   │  │
+    └──────────┘  └─────────┘   └───────────┘  │
+                                                │
+                                         ┌──────▼─────┐
+                                         │  platform  │
+                                         └────────────┘
 ```
 
----
+**Levels:**
+- Level 0 (leaf): `lib`, `system-config`, `types-finance`
+- Level 1: `api-client`, `tax`, `schemas` (proposed)
+- Level 2: `agents`, `ui`
+- Level 3: `platform`
+- Level 4: Apps (`gateway`, `web`, `admin`)
 
-## Action Items
-
-### Priority 1: Clarify Duplicates
-
-- [ ] **logger vs logging**: Investigate and consolidate or document difference
-- [ ] **config vs system-config**: Clarify distinct purposes or merge
-- [ ] **prompts vs agents/prompts**: Consolidate or document difference
-
-### Priority 2: Enhance Existing Packages
-
-#### @prisma-glow/ui
-- [ ] Create `src/tokens/` with design token exports
-- [ ] Add `src/a11y/` with accessibility utilities
-- [ ] Add component tests
-- [ ] Create README with component usage examples
-
-#### @prisma-glow/api-client
-- [ ] Implement auth token injection and refresh
-- [ ] Add error normalization
-- [ ] Add retry logic with exponential backoff
-- [ ] Add request/response interceptors
-- [ ] Create usage guide
-
-#### @prisma-glow/system-config
-- [ ] Add schema validation
-- [ ] Support environment overrides
-- [ ] Document all config keys
-- [ ] Add hot reload for development
-
-#### @prisma-glow/platform
-- [ ] Add Supabase helper functions
-- [ ] Add RLS utility functions
-- [ ] Add signed URL generators
-- [ ] Create platform integration guide
-
-#### @prisma-glow/agents
-- [ ] Implement prompt versioning
-- [ ] Add agent evaluation framework
-- [ ] Load personas from config/agents.yaml
-- [ ] Create agent development guide
-
-### Priority 3: Create New Packages
-
-- [ ] Create `@prisma-glow/schemas` for generic validation schemas
-- [ ] Separate from domain-specific `types-finance`
+**Key Insights:**
+- Clean dependency hierarchy (no circular dependencies)
+- `lib` is true leaf package (no dependencies)
+- `platform` is highest-level (depends on many packages)
 
 ---
 
-## Testing Strategy
+## Health Assessment Summary
 
-### Current State
+| Package | Health | Issues | Priority |
+|---------|--------|--------|----------|
+| lib | ✅ Stable | None | - |
+| system-config | ✅ Stable | None | - |
+| api-client | ⚠️ Needs Improvement | Manual codegen | High |
+| ui | ⚠️ Needs Improvement | No Storybook, accessibility | High |
+| types-finance | ✅ Stable | None | - |
+| agents | ⚠️ Needs Improvement | Overlap with prompts | Medium |
+| prompts | ⚠️ Needs Improvement | Not a proper package | Medium |
+| platform | ⚠️ Needs Improvement | Too large, needs split | High |
+| tax | ✅ Stable | None | - |
+| logger | ⚠️ Needs Standardization | No correlation ID | Medium |
+| logging | ⚠️ Needs Standardization | Format alignment | Medium |
+| config | ❌ Deprecated | Unused | **Remove** |
+| api | ❌ To Be Removed | Legacy | Remove |
+| dev-portal | ⚠️ Maintenance Mode | Underutilized | Low |
+| analytics | ✅ Stable | None | - |
 
-| Package | Tests | Coverage |
-|---------|-------|----------|
-| `ui` | ❌ None | 0% |
-| `api` | ✅ Yes | Unknown |
-| `api-client` | ✅ Yes | Unknown |
-| `types-finance` | ✅ Yes | Unknown |
-| `system-config` | ❌ None | 0% |
-| `lib` | ❌ None | 0% |
-| Others | ❓ Unknown | Unknown |
-
-### Recommendations
-
-1. **Add Vitest:** All packages should have `"test": "vitest run"` script
-2. **Coverage Goals:** Aim for 70%+ coverage on utility packages
-3. **Integration Tests:** Test package interactions
-4. **Type Tests:** Use `tsd` or similar for type-level testing
-
----
-
-## Build & Release
-
-### Build Configuration
-
-All packages use TypeScript with different build tools:
-- **tsup:** `@prisma-glow/ui` (ESM + CJS)
-- **tsc:** Most other packages (ESM only)
-
-### Recommended Standards
-
-1. **Consistent Build Tool:** Consider standardizing on `tsup` for better DX
-2. **Watch Mode:** Add `"dev": "tsc -b --watch"` for development
-3. **Clean Script:** Add `"clean": "rm -rf dist"` to all packages
-4. **Pre-publish Checks:** Validate before publishing
+**Summary:**
+- **5 Stable** (33%)
+- **7 Need Improvement** (47%)
+- **2 To Be Removed** (13%)
+- **1 Maintenance Mode** (7%)
 
 ---
 
-## Documentation Requirements
+## Improvement Roadmap
 
-Each package should have:
+### Phase 1: Immediate (Week 1-2)
+1. **Remove deprecated packages:**
+   - Delete `packages/config/`
+   - Plan removal of `packages/api/`
 
-### README.md Template
+2. **Add missing package.json:**
+   - Create `packages/prompts/package.json`
 
-```markdown
-# @prisma-glow/[package-name]
+3. **Fix critical issues:**
+   - Add correlation ID to logger/logging
 
-Brief description of package purpose.
+### Phase 2: Short-term (Week 3-4)
+1. **Merge prompts into agents:**
+   - Move templates
+   - Add compilation utilities
+   - Update imports
 
-## Installation
+2. **Automate API client codegen:**
+   - Add CI workflow
+   - Implement drift detection
 
-\`\`\`bash
-pnpm add @prisma-glow/[package-name]
-\`\`\`
+3. **Create @prisma-glow/schemas:**
+   - Extract common schemas
+   - Update dependencies
 
-## Usage
+### Phase 3: Medium-term (Week 5-8)
+1. **Improve UI package:**
+   - Set up Storybook
+   - Add accessibility tests
+   - Formalize design tokens
 
-\`\`\`typescript
-import { something } from '@prisma-glow/[package-name]';
+2. **Split platform package:**
+   - Create sub-packages
+   - Extract LLM adapter pattern
 
-// Example usage
-\`\`\`
+3. **Standardize logging:**
+   - Align Node/Python formats
+   - Add structured log schema
 
-## API Reference
+### Phase 4: Long-term (Week 9-12)
+1. **Complete documentation:**
+   - JSDoc for all exports
+   - Usage examples
+   - Migration guides
 
-### Function/Class Name
+2. **Improve test coverage:**
+   - Target 60%+ for all packages
+   - Add integration tests
 
-Description and usage.
+3. **Evaluate dev-portal:**
+   - Measure adoption
+   - Consider alternatives
 
-## Development
+---
 
-\`\`\`bash
-pnpm install
-pnpm build
-pnpm test
-\`\`\`
+## Quality Gates
 
-## License
+### Package Checklist
+All packages must meet these criteria:
 
-Private - Prisma Glow
+- [ ] Has package.json with name, version, description
+- [ ] Has README.md with usage examples
+- [ ] Has src/ and tests/ directories
+- [ ] Has tsconfig.json (TypeScript packages)
+- [ ] Exports public API via index.ts
+- [ ] Has JSDoc comments for exports
+- [ ] Test coverage ≥60%
+- [ ] No circular dependencies
+- [ ] Proper workspace references (workspace:*)
+- [ ] Follows semantic versioning
+
+### New Package Approval
+New packages require:
+
+1. RFC documenting purpose and API
+2. Architecture review approval
+3. Non-duplication verification
+4. Clear ownership assignment
+
+---
+
+## Related Documentation
+
+- [REFACTOR/plan.md](./plan.md) - Overall refactor plan
+- [REFACTOR/map.md](./map.md) - Architecture mapping
+- [docs/adr/](../docs/adr/) - Architecture decisions
+- [CONTRIBUTING.md](../CONTRIBUTING.md) - Development guidelines
+
+---
+
+## Appendix
+
+### Package Size Analysis
+```
+@prisma-glow/lib          : 150 KB
+@prisma-glow/system-config: 50 KB
+@prisma-glow/api-client   : 200 KB
+@prisma-glow/ui           : 1.2 MB (with dependencies)
+@prisma-glow/types-finance: 80 KB
+@prisma-glow/agents       : 120 KB
+@prisma-glow/prompts      : 30 KB
+@prisma-glow/platform     : 2.5 MB (largest)
+@prisma-glow/tax          : 100 KB
+@prisma-glow/logger       : 40 KB
+@prisma-glow/logging      : 30 KB (Python)
 ```
 
----
+### Maintainers
+- **Core packages:** @engineering-core
+- **UI package:** @frontend-guild
+- **Agent packages:** @ai-rag-guild
+- **Domain packages:** @domain-experts
 
-## Summary
-
-### Package Health
-
-| Status | Count | Packages |
-|--------|-------|----------|
-| ✅ Healthy | 7 | ui, api, api-client, types-finance, platform, tax, dev-portal |
-| 🔄 Needs Work | 3 | system-config, lib, agents |
-| ⚠️ Investigate | 4 | config, logger, logging, prompts |
-| ❌ Missing | 1 | schemas (generic) |
-
-### Next Steps
-
-1. **Investigate duplicates** (Priority 1)
-2. **Enhance core packages** (ui, api-client, system-config)
-3. **Create missing schemas package**
-4. **Add comprehensive tests**
-5. **Document all packages**
-
----
-
-**Last Updated:** 2025-11-02  
-**Maintainer:** Platform Team  
-**Related:** `REFACTOR/plan.md`, `REFACTOR/map.md`
+### Version History
+- **v1.0.0** (2025-11-02): Initial package audit

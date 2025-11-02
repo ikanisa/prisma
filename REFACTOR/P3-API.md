@@ -1,766 +1,781 @@
-# Service/API Layer & Tool Proxy Review
+# P3: Service/API Layer & Tool Proxy
 
-**Job:** P3-API  
-**Version:** 1.0.0  
-**Last Updated:** 2025-11-02  
-**Purpose:** Document API architecture, tool proxy implementation, and RBAC enforcement
+## Status
+- **Version:** 1.0.0
+- **Last Updated:** 2025-11-02
+- **Owner:** Engineering Core Team & Gateway Guild
+- **Phase:** P3 - API Architecture
+
+## Executive Summary
+
+Complete documentation of the API architecture covering layered design (Client → Gateway → FastAPI), tool proxy implementation with whitelist enforcement, RBAC with 8 roles, structured error handling, and OpenAPI schema generation.
+
+**Architecture:**
+- **3-tier:** Client → Express Gateway → FastAPI Backend
+- **Tool Proxy:** Server-side enforcement with 30+ whitelisted tools
+- **RBAC:** 8 roles with precedence-based permissions
+- **Error Handling:** Structured responses with correlation IDs
+- **API Contracts:** OpenAPI → TypeScript types (automated)
 
 ---
 
-## Overview
+## Layered Architecture
 
-The Prisma Glow API layer consists of:
-1. **FastAPI Backend** (`server/main.py`) - Python 3.11+ API with 285KB main file
-2. **Express Gateway** (`apps/gateway/`) - Node.js API gateway with proxy and routing
-3. **Service Layer** (`services/api/`) - TypeScript service abstractions
-
----
-
-## Architecture Pattern
-
-### Layered Architecture
-
+### Overview
 ```
-┌─────────────────────────────────────────┐
-│         Client Applications             │
-│  (apps/web, apps/admin, apps/staff)    │
-└─────────────────┬───────────────────────┘
+┌──────────────────────────────────────────────────────┐
+│              Client Layer (Browser)                  │
+│  Next.js App (apps/web) + Admin Portal (apps/admin) │
+│  - React components                                  │
+│  - TanStack Query for data fetching                  │
+│  - Generated TypeScript API client                   │
+└─────────────────┬────────────────────────────────────┘
+                  │ HTTPS
                   │
-                  ▼
-┌─────────────────────────────────────────┐
-│       Express Gateway (Node.js)         │
-│  • Route handling                       │
-│  • CORS/Auth middleware                 │
-│  • Rate limiting                        │
-│  • Request correlation                  │
-└─────────────────┬───────────────────────┘
+┌─────────────────▼────────────────────────────────────┐
+│           Gateway Layer (Node.js/Express)            │
+│                 apps/gateway                         │
+│  - Request routing & load balancing                  │
+│  - Authentication & session management               │
+│  - Tool proxy with whitelist enforcement             │
+│  - RBAC permission checks                            │
+│  - Rate limiting (Redis-backed)                      │
+│  - OpenTelemetry tracing                             │
+│  - Request/response logging                          │
+└─────────────────┬────────────────────────────────────┘
+                  │ HTTP (internal)
                   │
-                  ▼
-┌─────────────────────────────────────────┐
-│       FastAPI Backend (Python)          │
-│  • Controllers (HTTP handlers)          │
-│  • Services (business logic)            │
-│  • Adapters (external integrations)     │
-│  • Tool Proxy (/api/tools/*)            │
-└─────────────────┬───────────────────────┘
+    ┌─────────────┼─────────────┐
+    │             │             │
+┌───▼───┐   ┌─────▼──────┐  ┌──▼────┐
+│FastAPI│   │    RAG     │  │Agents │
+│Backend│   │  Service   │  │Service│
+│server/│   │services/rag│  │svc/ag.│
+└───────┘   └────────────┘  └───────┘
+    │             │             │
+    └─────────────┼─────────────┘
                   │
-        ┌─────────┴──────────┐
-        ▼                    ▼
-┌───────────────┐    ┌──────────────┐
-│   Supabase    │    │   OpenAI     │
-│   PostgreSQL  │    │   Platform   │
-└───────────────┘    └──────────────┘
+          ┌───────▼────────┐
+          │   Supabase     │
+          │ PostgreSQL 15  │
+          │   + pgvector   │
+          └────────────────┘
 ```
 
----
+### Responsibilities by Layer
 
-## FastAPI Backend (server/main.py)
+#### Client Layer
+**Responsibilities:**
+- Render UI components
+- Handle user interactions
+- Form validation (client-side)
+- Optimistic UI updates
+- Token management (localStorage)
+- Route-based code splitting
 
-### Current State
+**Technology:**
+- Next.js 14 (App Router)
+- React 18
+- TanStack Query v5
+- Supabase JS Client
+- Generated API Client
 
-**File Size:** 285,027 bytes (285KB)  
-**Complexity:** Very high - single file with extensive logic
+**Example:**
+```typescript
+// apps/web/app/documents/page.tsx
+import { useQuery } from '@tanstack/react-query';
+import { apiClient } from '@prisma-glow/api-client';
 
-**Key Components:**
-- HTTP endpoint handlers
-- JWT verification
-- RBAC enforcement
-- CORS/CSP middleware
-- Rate limiting
-- Document processing
-- Agent orchestration
-- RAG operations
-- Workflow management
-
-### Concerns
-
-⚠️ **Large Monolithic File:** `main.py` is extremely large (285KB)
-
-**Recommendation:**
-```
-server/
-├── main.py                    # FastAPI app + startup
-├── api/
-│   ├── v1/
-│   │   ├── __init__.py
-│   │   ├── auth.py            # Auth endpoints
-│   │   ├── documents.py       # Document endpoints
-│   │   ├── tasks.py           # Task endpoints
-│   │   ├── accounting.py      # Accounting endpoints
-│   │   ├── audit.py           # Audit endpoints
-│   │   ├── tax.py             # Tax endpoints
-│   │   └── tools.py           # Tool proxy endpoints
-│   └── deps.py                # Shared dependencies
-├── services/
-│   ├── auth_service.py
-│   ├── document_service.py
-│   ├── task_service.py
-│   └── ...
-├── adapters/
-│   ├── supabase_adapter.py
-│   ├── openai_adapter.py
-│   └── ...
-└── middleware/
-    ├── cors.py
-    ├── rbac.py
-    └── rate_limit.py
-```
-
----
-
-## Tool Proxy Implementation
-
-### Purpose
-
-The Tool Proxy enforces server-side tool whitelisting, preventing direct client→OpenAI tool calls and ensuring all tool invocations go through validated backend logic.
-
-### Configuration
-
-**Source:** `config/agents.yaml`
-
-```yaml
-tool_proxy:
-  enabled: true
-  namespace: "/api/tools"
-  require_auth: true
+export default function DocumentsPage() {
+  const { data, isLoading } = useQuery({
+    queryKey: ['documents', orgId],
+    queryFn: () => apiClient.documents.list({ orgId }),
+  });
   
-  whitelist:
-    # Document & Knowledge
-    - "search_documents"
-    - "get_document"
-    - "upload_document"
-    - "extract_document_data"
-    - "search_knowledge_base"
-    - "get_citations"
-    
-    # Task Management
-    - "create_task"
-    - "get_task"
-    - "update_task"
-    - "list_tasks"
-    
-    # Accounting
-    - "get_trial_balance"
-    - "get_journal_entries"
-    - "create_journal_entry"
-    - "validate_journal_entry"
-    
-    # Audit
-    - "get_audit_plan"
-    - "get_audit_procedures"
-    - "record_audit_evidence"
-    
-    # Tax
-    - "calculate_corporate_tax"
-    - "calculate_vat"
-    - "validate_tax_return"
-    
-    # Analytics
-    - "get_financial_metrics"
-    - "generate_report"
+  return <DocumentTable documents={data} />;
+}
 ```
 
-### Endpoint Structure
+---
 
-**Namespace:** `/api/tools/*`
+#### Gateway Layer
+**Responsibilities:**
+- **Routing:** Forward requests to appropriate backend service
+- **Auth:** Validate JWTs, manage sessions
+- **RBAC:** Check user permissions before forwarding
+- **Tool Proxy:** Enforce whitelist for agent tool calls
+- **Rate Limiting:** Per-user, per-endpoint limits
+- **Tracing:** Add correlation IDs, OpenTelemetry spans
+- **Logging:** Request/response logs with PII masking
+- **Error Translation:** Convert backend errors to API responses
 
-**Example Endpoints:**
+**Technology:**
+- Express.js
+- express-session
+- ioredis (rate limiting + cache)
+- @opentelemetry/sdk-node
+- @sentry/node
+
+**Port:** 3001 (default)
+
+**Example:**
+```typescript
+// apps/gateway/src/server.ts
+import express from 'express';
+import { authMiddleware, rbacMiddleware, rateLimitMiddleware } from './middleware';
+import { toolProxyRouter } from './routers/tool-proxy';
+
+const app = express();
+
+app.use(authMiddleware);
+app.use(rateLimitMiddleware);
+
+app.use('/api/tools', rbacMiddleware, toolProxyRouter);
+app.use('/api/documents', proxyToFastAPI('/documents'));
+app.use('/api/rag', proxyToRAGService);
+
+app.listen(3001);
 ```
-POST /api/tools/search_documents
-POST /api/tools/create_task
-POST /api/tools/get_trial_balance
-POST /api/tools/calculate_vat
-```
 
-### Implementation Pattern
+---
 
+#### Backend Layer (FastAPI)
+**Responsibilities:**
+- **Business Logic:** Accounting, audit, tax computations
+- **Database Access:** Prisma-style ORM (SQLAlchemy)
+- **Validation:** Pydantic v2 models
+- **Background Jobs:** Celery tasks
+- **OpenAPI Schema:** Auto-generated from Pydantic models
+- **RLS Enforcement:** Row-level security via Supabase client
+
+**Technology:**
+- FastAPI
+- Pydantic v2
+- SQLAlchemy
+- asyncpg
+- Supabase Python Client
+
+**Port:** 8000 (default)
+
+**Example:**
 ```python
-# server/api/v1/tools.py
-from fastapi import APIRouter, Depends, HTTPException
-from ..deps import get_current_user, check_tool_permission
+# server/api/documents.py
+from fastapi import APIRouter, Depends
+from server.models import Document, DocumentListRequest
+from server.auth import get_current_user
 
-router = APIRouter(prefix="/api/tools", tags=["tools"])
+router = APIRouter(prefix="/documents")
 
-TOOL_WHITELIST = [
-    "search_documents",
-    "get_document",
-    # ... (load from config/agents.yaml)
-]
-
-@router.post("/{tool_name}")
-async def invoke_tool(
-    tool_name: str,
-    payload: dict,
+@router.post("/list")
+async def list_documents(
+    request: DocumentListRequest,
     user = Depends(get_current_user)
 ):
-    # 1. Validate tool is whitelisted
-    if tool_name not in TOOL_WHITELIST:
-        raise HTTPException(
-            status_code=403,
-            detail=f"Tool '{tool_name}' is not whitelisted"
-        )
+    # RLS enforced via Supabase
+    documents = await supabase
+        .from_("documents")
+        .select("*")
+        .eq("organization_id", request.org_id)
+        .execute()
     
-    # 2. Check user permissions
-    await check_tool_permission(user, tool_name)
-    
-    # 3. Rate limit check
-    await check_rate_limit(user, tool_name)
-    
-    # 4. Invoke tool handler
-    handler = get_tool_handler(tool_name)
-    result = await handler(payload, user)
-    
-    # 5. Log tool invocation
-    await log_tool_call(user, tool_name, payload, result)
-    
-    return result
-```
-
-### Tool Handler Registry
-
-```python
-# server/services/tools.py
-from typing import Callable, Dict
-
-ToolHandler = Callable[[dict, User], Awaitable[dict]]
-
-TOOL_HANDLERS: Dict[str, ToolHandler] = {
-    "search_documents": handle_search_documents,
-    "create_task": handle_create_task,
-    "get_trial_balance": handle_get_trial_balance,
-    # ...
-}
-
-def get_tool_handler(tool_name: str) -> ToolHandler:
-    if tool_name not in TOOL_HANDLERS:
-        raise ValueError(f"No handler for tool: {tool_name}")
-    return TOOL_HANDLERS[tool_name]
-```
-
-### Rate Limiting per Tool
-
-```python
-# From config/agents.yaml
-TOOL_RATE_LIMITS = {
-    "document_operations": {"limit": 12, "window": 300},
-    "knowledge_operations": {"limit": 30, "window": 60},
-    "task_operations": {"limit": 20, "window": 60},
-    "finance_operations": {"limit": 40, "window": 60},
-}
-
-def get_tool_category(tool_name: str) -> str:
-    """Map tool to rate limit category."""
-    if tool_name in ["search_documents", "get_document", "upload_document"]:
-        return "document_operations"
-    elif tool_name in ["search_knowledge_base", "get_citations"]:
-        return "knowledge_operations"
-    # ...
+    return {"documents": documents.data}
 ```
 
 ---
 
-## RBAC Enforcement
+## Tool Proxy Architecture
 
-### Role Hierarchy
+### Purpose
+Prevent direct client→OpenAI tool calls. All tools must be server-side with explicit whitelist approval.
 
-**Source:** `config/system.yaml`
+**Security Goals:**
+1. Prevent unauthorized data access
+2. Enforce approval gates (HITL)
+3. Audit all tool invocations
+4. Rate limit tool usage
 
-```yaml
-rbac:
-  roles:
-    - SYSTEM_ADMIN    # Precedence: 100
-    - PARTNER         # Precedence: 90
-    - EQR             # Precedence: 75
-    - MANAGER         # Precedence: 70
-    - EMPLOYEE        # Precedence: 50
-    - CLIENT          # Precedence: 40
-    - READONLY        # Precedence: 30
-    - SERVICE_ACCOUNT # Precedence: 20
+### Implementation
+
+**Endpoint:** `POST /api/tools/:toolName`
+
+**Flow:**
 ```
+Client Request
+    │
+    ▼
+Gateway: Check whitelist
+    │
+    ├─ Not whitelisted? → 403 Forbidden
+    │
+    ▼ Whitelisted
+Check RBAC permissions
+    │
+    ├─ No permission? → 403 Forbidden
+    │
+    ▼ Authorized
+Check rate limit
+    │
+    ├─ Exceeded? → 429 Too Many Requests
+    │
+    ▼ Within limit
+Check approval gate
+    │
+    ├─ Approval required? → 202 Pending Approval
+    │
+    ▼ No approval OR already approved
+Execute tool (FastAPI/RAG/Agent service)
+    │
+    ▼
+Log tool call (audit trail)
+    │
+    ▼
+Return response
+```
+
+**Whitelist Configuration:**
+See `config/agents.yaml` for full 30+ tool whitelist.
+
+**Example:**
+```typescript
+// apps/gateway/src/routers/tool-proxy.ts
+import { Router } from 'express';
+import { loadConfig } from '@prisma-glow/system-config';
+
+const router = Router();
+const config = await loadConfig();
+const whitelist = new Set(config.tool_proxy.whitelist.map(t => t.name));
+
+router.post('/:toolName', async (req, res) => {
+  const { toolName } = req.params;
+  
+  // 1. Whitelist check
+  if (!whitelist.has(toolName)) {
+    return res.status(403).json({
+      error: 'Tool not whitelisted',
+      tool: toolName,
+      correlation_id: req.correlationId,
+    });
+  }
+  
+  // 2. RBAC check
+  const toolConfig = config.tool_proxy.whitelist.find(t => t.name === toolName);
+  if (!hasPermission(req.user, toolConfig)) {
+    return res.status(403).json({
+      error: 'Insufficient permissions',
+      required_role: toolConfig.min_role,
+      correlation_id: req.correlationId,
+    });
+  }
+  
+  // 3. Rate limit check
+  const rateLimitKey = `tool:${toolName}:${req.user.id}`;
+  const allowed = await checkRateLimit(rateLimitKey, toolConfig.rate_limit);
+  if (!allowed) {
+    return res.status(429).json({
+      error: 'Rate limit exceeded',
+      retry_after: await getRateLimitReset(rateLimitKey),
+      correlation_id: req.correlationId,
+    });
+  }
+  
+  // 4. Approval gate check
+  if (toolConfig.approval_required) {
+    const approval = await getApproval(req.user, toolName, req.body);
+    if (!approval) {
+      return res.status(202).json({
+        status: 'pending_approval',
+        approval_id: await createApprovalRequest(req.user, toolName, req.body),
+        correlation_id: req.correlationId,
+      });
+    }
+  }
+  
+  // 5. Execute tool
+  const result = await executeToolOnBackend(toolName, req.body);
+  
+  // 6. Audit log
+  await logToolCall({
+    tool: toolName,
+    user: req.user.id,
+    org: req.user.orgId,
+    params: req.body,
+    result: result,
+    correlation_id: req.correlationId,
+    timestamp: new Date(),
+  });
+  
+  return res.json(result);
+});
+
+export default router;
+```
+
+---
+
+## RBAC Implementation
+
+### 8 Roles with Precedence
+
+**Role Precedence (1 = highest):**
+1. **SYSTEM_ADMIN** - All permissions
+2. **PARTNER** - Can lock close, freeze audit plan, release reports
+3. **EQR** - Can sign off on audit reports
+4. **MANAGER** - Can post journals, assign tasks, submit tax returns
+5. **EMPLOYEE** - Can create tasks, upload documents
+6. **CLIENT** - Can view PBC folders, upload to PBC
+7. **READONLY** - Can view internal documents, tasks
+8. **SERVICE_ACCOUNT** - API access only
 
 ### Permission Matrix
 
-```yaml
-rbac:
-  matrix:
-    close.lock: PARTNER
-    journal.post: MANAGER
-    audit.plan.freeze: PARTNER
-    audit.report.release: PARTNER
-    eqr.signoff: EQR
-    tax.return.submit: MANAGER
-```
+| Permission | SYSTEM_ADMIN | PARTNER | EQR | MANAGER | EMPLOYEE | CLIENT | READONLY |
+|------------|--------------|---------|-----|---------|----------|--------|----------|
+| close.lock | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| journal.post | ✅ | ✅ | ❌ | ✅ | ❌ | ❌ | ❌ |
+| audit.plan.freeze | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| audit.report.release | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| eqr.signoff | ✅ | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| tax.return.submit | ✅ | ✅ | ❌ | ✅ | ❌ | ❌ | ❌ |
+| tasks.create | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ |
+| tasks.assign | ✅ | ✅ | ❌ | ✅ | ❌ | ❌ | ❌ |
+| documents.upload | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ (PBC only) | ❌ |
+| documents.view_internal | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ |
+| documents.view_pbc | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
 
-### RBAC Middleware
+### Permission Check Implementation
 
-```python
-# server/middleware/rbac.py
-from functools import wraps
+```typescript
+// apps/gateway/src/middleware/rbac.ts
+import { loadConfig } from '@prisma-glow/system-config';
 
-ROLE_PRECEDENCE = {
-    "SYSTEM_ADMIN": 100,
-    "PARTNER": 90,
-    "EQR": 75,
-    "MANAGER": 70,
-    "EMPLOYEE": 50,
-    "CLIENT": 40,
-    "READONLY": 30,
-    "SERVICE_ACCOUNT": 20,
-}
-
-def require_role(min_role: str):
-    """Decorator to enforce minimum role requirement."""
-    def decorator(func):
-        @wraps(func)
-        async def wrapper(*args, **kwargs):
-            user = kwargs.get('user') or args[0]
-            if not user:
-                raise HTTPException(401, "Authentication required")
-            
-            user_precedence = ROLE_PRECEDENCE.get(user.role, 0)
-            required_precedence = ROLE_PRECEDENCE.get(min_role, 100)
-            
-            if user_precedence < required_precedence:
-                raise HTTPException(
-                    403,
-                    f"Requires {min_role} role or higher"
-                )
-            
-            return await func(*args, **kwargs)
-        return wrapper
-    return decorator
-
-# Usage
-@router.post("/journal/post")
-@require_role("MANAGER")
-async def post_journal_entry(entry: JournalEntry, user = Depends(get_current_user)):
-    # Only MANAGER or higher can access
-    pass
-```
-
-### Organization-Scoped Permissions
-
-```python
-def require_org_permission(org_id: str, action: str):
-    """Check if user has permission for action in organization."""
-    async def check(user = Depends(get_current_user)):
-        # 1. Verify user is member of org
-        membership = await get_membership(user.id, org_id)
-        if not membership or membership.status != "active":
-            raise HTTPException(403, "Not a member of organization")
-        
-        # 2. Check role has permission for action
-        required_role = PERMISSION_MATRIX.get(action)
-        if required_role:
-            user_precedence = ROLE_PRECEDENCE[membership.role]
-            required_precedence = ROLE_PRECEDENCE[required_role]
-            
-            if user_precedence < required_precedence:
-                raise HTTPException(
-                    403,
-                    f"Action '{action}' requires {required_role} role"
-                )
-        
-        return membership
+export function requirePermission(permission: string) {
+  return async (req, res, next) => {
+    const user = req.user;
+    const config = await loadConfig();
     
-    return check
-```
-
----
-
-## Structured Errors
-
-### Error Response Schema
-
-```python
-# server/api/schemas.py
-from pydantic import BaseModel
-from typing import Optional, List
-
-class ErrorDetail(BaseModel):
-    field: Optional[str] = None
-    message: str
-    code: str
-
-class ErrorResponse(BaseModel):
-    error: str
-    message: str
-    status_code: int
-    details: Optional[List[ErrorDetail]] = None
-    request_id: str
-    timestamp: str
-```
-
-### Error Handling
-
-```python
-# server/main.py
-from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
-import structlog
-
-logger = structlog.get_logger()
-
-@app.exception_handler(HTTPException)
-async def http_exception_handler(request: Request, exc: HTTPException):
-    request_id = request.headers.get("x-request-id", "unknown")
-    
-    error_response = {
-        "error": exc.__class__.__name__,
-        "message": exc.detail,
-        "status_code": exc.status_code,
-        "request_id": request_id,
-        "timestamp": datetime.utcnow().isoformat(),
+    // Get user's role
+    const membership = await getMembership(user.id, req.orgId);
+    if (!membership) {
+      return res.status(403).json({ error: 'Not a member of organization' });
     }
     
-    logger.error(
-        "http_error",
-        status_code=exc.status_code,
-        message=exc.detail,
-        request_id=request_id,
-    )
+    // Check permission
+    const roleConfig = config.rbac.roles.find(r => r.id === membership.role);
+    if (!roleConfig) {
+      return res.status(500).json({ error: 'Invalid role configuration' });
+    }
     
-    return JSONResponse(
-        status_code=exc.status_code,
-        content=error_response,
-    )
+    // SYSTEM_ADMIN has all permissions
+    if (roleConfig.permissions.includes('*')) {
+      return next();
+    }
+    
+    // Check specific permission
+    if (!roleConfig.permissions.includes(permission)) {
+      return res.status(403).json({
+        error: 'Insufficient permissions',
+        required: permission,
+        role: membership.role,
+        correlation_id: req.correlationId,
+      });
+    }
+    
+    next();
+  };
+}
 
-@app.exception_handler(Exception)
-async def general_exception_handler(request: Request, exc: Exception):
-    request_id = request.headers.get("x-request-id", "unknown")
-    
-    logger.exception(
-        "unhandled_exception",
-        error=str(exc),
-        request_id=request_id,
-    )
-    
-    return JSONResponse(
-        status_code=500,
-        content={
-            "error": "InternalServerError",
-            "message": "An unexpected error occurred",
-            "status_code": 500,
-            "request_id": request_id,
-            "timestamp": datetime.utcnow().isoformat(),
-        },
-    )
+// Usage
+app.post('/api/close/lock', requirePermission('close.lock'), async (req, res) => {
+  // Implementation
+});
 ```
 
 ---
 
-## Correlation IDs
+## Structured Error Handling
 
-### Request ID Middleware
+### Error Response Format
 
-```python
-# server/middleware/correlation.py
-from fastapi import Request
-import uuid
-
-async def correlation_id_middleware(request: Request, call_next):
-    # Get or generate correlation ID
-    request_id = request.headers.get("x-request-id") or str(uuid.uuid4())
-    
-    # Store in context for logging
-    request.state.request_id = request_id
-    
-    # Call next middleware/handler
-    response = await call_next(request)
-    
-    # Add to response headers
-    response.headers["x-request-id"] = request_id
-    
-    return response
-
-# Add to app
-app.middleware("http")(correlation_id_middleware)
+```typescript
+interface ApiError {
+  error: string;              // Human-readable error message
+  error_code: string;         // Machine-readable error code
+  correlation_id: string;     // Request correlation ID
+  details?: Record<string, any>; // Optional error details
+  stack?: string;             // Stack trace (development only)
+  timestamp: string;          // ISO 8601 timestamp
+}
 ```
 
-### Logging with Correlation IDs
+**Example:**
+```json
+{
+  "error": "Insufficient permissions to lock accounting close period",
+  "error_code": "PERMISSION_DENIED",
+  "correlation_id": "req_abc123def456",
+  "details": {
+    "required_permission": "close.lock",
+    "user_role": "EMPLOYEE",
+    "min_required_role": "PARTNER"
+  },
+  "timestamp": "2025-11-02T16:30:00.000Z"
+}
+```
 
-```python
-import structlog
+### Error Codes
 
-logger = structlog.get_logger()
+| Code | HTTP Status | Description |
+|------|-------------|-------------|
+| `AUTHENTICATION_REQUIRED` | 401 | User not authenticated |
+| `PERMISSION_DENIED` | 403 | User lacks required permission |
+| `RATE_LIMIT_EXCEEDED` | 429 | Too many requests |
+| `TOOL_NOT_WHITELISTED` | 403 | Tool not in whitelist |
+| `APPROVAL_REQUIRED` | 202 | Action requires approval |
+| `VALIDATION_ERROR` | 400 | Request validation failed |
+| `NOT_FOUND` | 404 | Resource not found |
+| `CONFLICT` | 409 | Resource conflict (e.g., duplicate) |
+| `INTERNAL_ERROR` | 500 | Server error |
 
-# In endpoint handler
-@router.get("/documents/{doc_id}")
-async def get_document(doc_id: str, request: Request):
-    logger.info(
-        "get_document",
-        doc_id=doc_id,
-        request_id=request.state.request_id,
-    )
-    
-    # ... logic ...
+### Error Handler Implementation
+
+```typescript
+// apps/gateway/src/middleware/error-handler.ts
+import { Request, Response, NextFunction } from 'express';
+
+export class ApiError extends Error {
+  constructor(
+    public message: string,
+    public statusCode: number,
+    public errorCode: string,
+    public details?: Record<string, any>
+  ) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
+export function errorHandler(
+  err: Error | ApiError,
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  // Log error
+  logger.error('Request error', {
+    error: err.message,
+    stack: err.stack,
+    correlation_id: req.correlationId,
+    url: req.url,
+    method: req.method,
+  });
+  
+  // Send Sentry error (production)
+  if (process.env.NODE_ENV === 'production') {
+    Sentry.captureException(err);
+  }
+  
+  // Format response
+  if (err instanceof ApiError) {
+    return res.status(err.statusCode).json({
+      error: err.message,
+      error_code: err.errorCode,
+      correlation_id: req.correlationId,
+      details: err.details,
+      timestamp: new Date().toISOString(),
+    });
+  }
+  
+  // Unknown error
+  return res.status(500).json({
+    error: process.env.NODE_ENV === 'production' 
+      ? 'Internal server error' 
+      : err.message,
+    error_code: 'INTERNAL_ERROR',
+    correlation_id: req.correlationId,
+    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
+    timestamp: new Date().toISOString(),
+  });
+}
 ```
 
 ---
 
-## OpenAPI Documentation
+## OpenAPI Schema Generation
 
-### Current Status
+### Process
 
-**Location:** `openapi/fastapi.json`
-
-**Generation:**
-```bash
-# Export OpenAPI schema
-python3 server/export_openapi.py
-
-# Generate TypeScript types
-openapi-typescript openapi/fastapi.json -o packages/api-client/types.ts
+```
+FastAPI (Python)
+    │
+    ▼
+Generate OpenAPI JSON
+    │ (server/export_openapi.py)
+    ▼
+openapi/fastapi.json
+    │
+    ▼ (openapi-typescript)
+packages/api-client/types.ts
+    │
+    ▼
+Gateway & Next.js (consume)
 ```
 
-### OpenAPI Configuration
+### Automation (CI Workflow)
 
-```python
-# server/main.py
-app = FastAPI(
-    title="Prisma Glow API",
-    description="AI-powered operations suite API",
-    version="1.0.0",
-    openapi_url="/api/openapi.json",
-    docs_url="/api/docs",
-    redoc_url="/api/redoc",
-)
+**File:** `.github/workflows/openapi-client.yml`
+
+```yaml
+name: OpenAPI Client Generation
+
+on:
+  push:
+    paths:
+      - 'server/**/*.py'
+      - 'server/export_openapi.py'
+  pull_request:
+    paths:
+      - 'server/**/*.py'
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          pip install -r server/requirements.txt
+      
+      - name: Generate OpenAPI JSON
+        run: python3 server/export_openapi.py
+      
+      - name: Generate TypeScript types
+        run: |
+          pnpm install
+          pnpm run codegen:api
+      
+      - name: Check for drift
+        run: |
+          if ! git diff --exit-code packages/api-client/types.ts openapi/fastapi.json; then
+            echo "ERROR: OpenAPI or types drift detected"
+            echo "Run 'pnpm run codegen:api' and commit the changes"
+            exit 1
+          fi
 ```
 
-### Schema Export
+### FastAPI OpenAPI Export
 
 ```python
 # server/export_openapi.py
+from fastapi.openapi.utils import get_openapi
+from server.main import app
 import json
-from pathlib import Path
-from .main import app
 
 def export_openapi():
-    """Export OpenAPI schema to JSON file."""
-    schema = app.openapi()
+    openapi_schema = get_openapi(
+        title="Prisma Glow API",
+        version="1.0.0",
+        description="Autonomous Finance Suite Backend API",
+        routes=app.routes,
+    )
     
-    output_path = Path(__file__).parent.parent / "openapi" / "fastapi.json"
-    output_path.parent.mkdir(exist_ok=True)
+    with open("openapi/fastapi.json", "w") as f:
+        json.dump(openapi_schema, f, indent=2)
     
-    with open(output_path, "w") as f:
-        json.dump(schema, f, indent=2)
-    
-    print(f"OpenAPI schema exported to {output_path}")
+    print("OpenAPI schema exported to openapi/fastapi.json")
 
 if __name__ == "__main__":
     export_openapi()
 ```
 
+### TypeScript Client Generation
+
+```bash
+# Generate types from OpenAPI
+pnpm exec openapi-typescript openapi/fastapi.json -o packages/api-client/types.ts
+```
+
+**Generated types example:**
+```typescript
+// packages/api-client/types.ts (generated)
+export interface paths {
+  "/documents/list": {
+    post: {
+      requestBody: {
+        content: {
+          "application/json": {
+            org_id: string;
+            folder?: string;
+            limit?: number;
+          };
+        };
+      };
+      responses: {
+        200: {
+          content: {
+            "application/json": {
+              documents: Document[];
+            };
+          };
+        };
+      };
+    };
+  };
+}
+```
+
 ---
 
-## Express Gateway (apps/gateway)
+## Rate Limiting
 
-### Purpose
+### Configuration
 
-Node.js API gateway providing:
-- Reverse proxy to FastAPI
-- CORS handling
-- Session management
-- Rate limiting
-- Request logging
+**Storage:** Redis  
+**Strategy:** Token bucket per user per endpoint  
+**Granularity:** Per-minute and per-hour windows
 
-### Structure
+**Example Limits:**
+- Global API: 60 req/min per user
+- Document upload: 12 req/5min per user
+- Assistant queries: 20 req/min per user
+- RAG search: 40 req/min per user
 
-```
-apps/gateway/
-├── src/
-│   ├── server.js          # Express app
-│   ├── middleware/
-│   │   ├── auth.js
-│   │   ├── cors.js
-│   │   └── rateLimit.js
-│   └── routes/
-│       └── proxy.js
-├── package.json
-└── tsconfig.json
-```
+### Implementation
 
-### Gateway Configuration
+```typescript
+// apps/gateway/src/middleware/rate-limit.ts
+import rateLimit from 'express-rate-limit';
+import RedisStore from 'rate-limit-redis';
+import Redis from 'ioredis';
 
-```javascript
-// apps/gateway/src/server.js
-import express from 'express';
-import cors from 'cors';
-import { createProxyMiddleware } from 'http-proxy-middleware';
+const redis = new Redis(process.env.REDIS_URL);
 
-const app = express();
+export function createRateLimiter(options: {
+  windowMs: number;
+  max: number;
+  keyGenerator?: (req: Request) => string;
+}) {
+  return rateLimit({
+    store: new RedisStore({
+      client: redis,
+      prefix: 'rl:',
+    }),
+    windowMs: options.windowMs,
+    max: options.max,
+    keyGenerator: options.keyGenerator || ((req) => {
+      return `${req.user?.id || req.ip}:${req.path}`;
+    }),
+    handler: (req, res) => {
+      res.status(429).json({
+        error: 'Too many requests',
+        error_code: 'RATE_LIMIT_EXCEEDED',
+        retry_after: Math.ceil(options.windowMs / 1000),
+        correlation_id: req.correlationId,
+      });
+    },
+  });
+}
 
-// CORS
-app.use(cors({
-  origin: process.env.API_ALLOWED_ORIGINS?.split(','),
-  credentials: true,
+// Apply to routes
+app.use('/api/documents/upload', createRateLimiter({
+  windowMs: 5 * 60 * 1000,  // 5 minutes
+  max: 12,
 }));
 
-// Proxy to FastAPI
-app.use('/api', createProxyMiddleware({
-  target: process.env.FASTAPI_BASE_URL,
-  changeOrigin: true,
-  onProxyReq: (proxyReq, req) => {
-    // Add correlation ID
-    const requestId = req.headers['x-request-id'] || uuidv4();
-    proxyReq.setHeader('x-request-id', requestId);
-  },
+app.use('/api/assistant', createRateLimiter({
+  windowMs: 60 * 1000,  // 1 minute
+  max: 20,
 }));
 ```
 
 ---
 
-## Services Layer (services/api)
+## OpenTelemetry Tracing
 
-### Current State
+### Instrumentation
 
-**Location:** `services/api/src/`
+```typescript
+// apps/gateway/src/tracing.ts
+import { NodeSDK } from '@opentelemetry/sdk-node';
+import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentations-node';
+import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 
-**Files:**
-- `index.ts` - Main exports
-- `cookies.ts` - Cookie utilities
+const sdk = new NodeSDK({
+  traceExporter: new OTLPTraceExporter({
+    url: process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
+  }),
+  instrumentations: [
+    getNodeAutoInstrumentations({
+      '@opentelemetry/instrumentation-fs': { enabled: false },
+    }),
+  ],
+  serviceName: process.env.OTEL_SERVICE_NAME || 'gateway',
+});
 
-### Recommendation
+sdk.start();
 
-Expand services layer to match backend structure:
-
-```
-services/api/
-├── src/
-│   ├── services/
-│   │   ├── AuthService.ts
-│   │   ├── DocumentService.ts
-│   │   ├── TaskService.ts
-│   │   └── ...
-│   ├── adapters/
-│   │   ├── SupabaseAdapter.ts
-│   │   ├── OpenAIAdapter.ts
-│   │   └── ...
-│   ├── utils/
-│   │   ├── cookies.ts
-│   │   ├── validation.ts
-│   │   └── ...
-│   └── index.ts
-└── package.json
+process.on('SIGTERM', () => {
+  sdk.shutdown().finally(() => process.exit(0));
+});
 ```
 
----
+### Correlation IDs
 
-## Action Items
+```typescript
+// apps/gateway/src/middleware/correlation-id.ts
+import { v4 as uuidv4 } from 'uuid';
 
-### Priority 1: Refactor Large Files
-
-- [ ] **Split server/main.py:** Break into api/v1/ modules
-- [ ] Create separate service modules
-- [ ] Create adapter modules
-- [ ] Extract middleware to separate files
-
-### Priority 2: Tool Proxy
-
-- [ ] **Document current implementation:** Where are tool endpoints?
-- [ ] **Implement whitelist enforcement:** Load from config/agents.yaml
-- [ ] **Add rate limiting per tool category**
-- [ ] **Add tool invocation logging**
-- [ ] **Create tool handler registry**
-
-### Priority 3: RBAC
-
-- [ ] **Document RBAC implementation:** Current guards and checks
-- [ ] **Consolidate RBAC logic:** Create reusable decorators
-- [ ] **Add org-scoped permission checks**
-- [ ] **Create permission matrix loader from config/system.yaml**
-
-### Priority 4: API Documentation
-
-- [ ] **Enhance OpenAPI schemas:** Add examples and descriptions
-- [ ] **Document all endpoints:** Purpose, request/response schemas
-- [ ] **Create API usage guide:** For frontend developers
-- [ ] **Add Postman collection:** For API testing
-
-### Priority 5: Error Handling
-
-- [ ] **Standardize error responses:** Use ErrorResponse schema
-- [ ] **Add error codes:** For client-side handling
-- [ ] **Improve error messages:** User-friendly descriptions
-- [ ] **Add error tracking:** Correlation with Sentry
+export function correlationIdMiddleware(req, res, next) {
+  req.correlationId = req.headers['x-correlation-id'] || `req_${uuidv4()}`;
+  res.setHeader('x-correlation-id', req.correlationId);
+  next();
+}
+```
 
 ---
 
-## Testing Strategy
+## Related Documentation
 
-### Current Status
-
-- **API smoke tests:** `tests/api/test_core_smoke.py`
-- **Health checks:** `/health` endpoint
-
-### Recommendations
-
-1. **Unit Tests:** Test service and adapter logic
-2. **Integration Tests:** Test API endpoints with test database
-3. **Tool Proxy Tests:** Verify whitelist enforcement
-4. **RBAC Tests:** Verify permission checks at all levels
-5. **Load Tests:** Use k6 or Artillery for performance testing
+- [REFACTOR/plan.md](./plan.md) - Overall refactor plan
+- [REFACTOR/map.md](./map.md) - Architecture mapping
+- [ENV_GUIDE.md](../ENV_GUIDE.md) - Environment variables
+- [config/agents.yaml](../config/agents.yaml) - Tool proxy whitelist
+- [SECURITY.md](../SECURITY.md) - Security policies
 
 ---
 
-## Security Considerations
+## Appendix
 
-### Current Measures
+### API Endpoints Summary
 
-✅ **JWT Verification:** Token validation on protected endpoints  
-✅ **CORS:** Configured allowed origins  
-✅ **Rate Limiting:** Basic rate limits in place  
-✅ **CSP/HSTS:** Security headers configured  
+**Gateway (apps/gateway):**
+- `/api/tools/*` - Tool proxy (30+ tools)
+- `/api/documents/*` - Document management
+- `/api/tasks/*` - Task management
+- `/api/close/*` - Accounting close
+- `/api/audit/*` - Audit procedures
+- `/api/tax/*` - Tax computations
+- `/api/rag/*` - RAG search
+- `/api/assistant/*` - Assistant queries
 
-### Improvements Needed
+**FastAPI (server/):**
+- `/docs` - Interactive API docs (Swagger UI)
+- `/redoc` - Alternative API docs (ReDoc)
+- `/openapi.json` - OpenAPI schema
+- `/health` - Health check
+- `/metrics` - Prometheus metrics
 
-🔄 **Input Validation:** Validate all request bodies with Pydantic/Zod  
-🔄 **SQL Injection Prevention:** Use parameterized queries (already using SQLAlchemy)  
-🔄 **XSS Prevention:** Sanitize outputs (HTML responses)  
-🔄 **CSRF Protection:** Add CSRF tokens for state-changing operations  
-🔄 **API Key Rotation:** Regular rotation schedule (see SECURITY/keys_rotation.md)  
+### Performance Targets
 
----
+- **Gateway Response Time:** p50 < 50ms, p95 < 200ms, p99 < 500ms
+- **Tool Proxy Latency:** +10-30ms overhead
+- **Rate Limit Check:** < 5ms (Redis)
+- **RBAC Check:** < 10ms (cached)
 
-## Monitoring & Observability
-
-### Current Infrastructure
-
-- **Correlation IDs:** `x-request-id` header propagation
-- **Structured Logging:** `structlog` for JSON logs
-- **Error Tracking:** Sentry integration
-- **OpenTelemetry:** OTEL_* environment variables configured
-
-### Recommendations
-
-1. **API Metrics:** Track request count, latency, error rate per endpoint
-2. **Tool Metrics:** Track tool invocations, success rate, latency
-3. **RBAC Metrics:** Track permission denials (security alerts)
-4. **Alerts:** Set up alerts for error rate spikes, high latency
-
----
-
-## Summary
-
-### Current State
-
-✅ **Functional API:** FastAPI backend with comprehensive endpoints  
-✅ **Gateway Layer:** Express gateway with proxy and middleware  
-⚠️ **Large Monolith:** 285KB main.py needs refactoring  
-⚠️ **Tool Proxy:** Needs explicit documentation and implementation  
-✅ **RBAC:** Role hierarchy and permissions in place  
-✅ **Error Handling:** Structured errors with correlation IDs  
-
-### Key Improvements
-
-1. **Refactor main.py** into modular API structure
-2. **Document and enhance tool proxy** with whitelist enforcement
-3. **Consolidate RBAC logic** into reusable guards
-4. **Expand OpenAPI documentation** with examples
-5. **Add comprehensive testing** for all layers
-
----
-
-**Last Updated:** 2025-11-02  
-**Maintainer:** API Team  
-**Related:** `config/agents.yaml`, `config/system.yaml`, `REFACTOR/plan.md`
+### Version History
+- **v1.0.0** (2025-11-02): Initial API architecture documentation
