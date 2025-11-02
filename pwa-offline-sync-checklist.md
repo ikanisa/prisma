@@ -1,27 +1,23 @@
-# PWA Offline & Sync Checklist
+# PWA & Offline Sync Checklist
 
-Use this checklist to validate the offline experience for the staff and admin apps before each release.
+_Last updated: 2025-11-04_
 
-## Build & Registration
-- [ ] Build each app and confirm `service-worker.ts` compiles without type errors.
-- [ ] Verify the Workbox service worker registers successfully and precaches the offline fallback page.
-- [ ] Confirm `SKIP_WAITING` messages trigger immediate activation during smoke tests.
+## Service Worker
+- [x] Precache manifest includes shell, icons, and manifest resources.
+- [x] Background sync queue stores jobs in IndexedDB with bounded retries.
+- [ ] Validate sync replay against staging API after simulated outage.
+- [ ] Capture browser console trace (Chrome DevTools) showing successful sync replay.
 
-## Runtime Caching
-- [ ] Validate navigation requests fall back to the network-first cache strategy when offline.
-- [ ] Ensure static assets (scripts/styles) use a stale-while-revalidate policy and update on refresh.
-- [ ] Confirm media assets honor cache eviction rules (30 days for staff, 14 days for admin).
+## Client Queue
+- [x] Offline queue normalises headers + payloads before persistence.
+- [x] Exponential backoff configured for client retries with 12h cap.
+- [ ] Document retention policy for queued payloads and purge cadence.
 
-## Offline Draft Storage
-- [ ] Run `pnpm exec playwright test --project staff-offline` to validate staff IndexedDB draft flows.
-- [ ] Run `pnpm exec playwright test --project admin-offline` to validate admin IndexedDB draft flows.
-- [ ] Manually queue a draft change, reload offline, and confirm the draft persists.
+## User Experience
+- [x] Install prompt available via PWA install hook.
+- [ ] Provide support runbook for offline troubleshooting scenarios.
 
-## Sync & Conflict Resolution
-- [ ] Trigger a remote update and verify deterministic merges prefer the most recent metadata.
-- [ ] Inspect conflict logs to ensure `winner` fields surface for product analytics.
-- [ ] After a successful sync, confirm clean drafts are removed from pending queues.
-
-## Regression Tests
-- [ ] Execute `pnpm exec playwright test --project web-ui` to cover the baseline UI journeys.
-- [ ] Capture a Lighthouse PWA audit for each app to track installability and offline readiness.
+## Evidence to Attach
+- `public/service-worker.js` snapshot with cache + background sync configuration.
+- `src/utils/pwa.ts` snippet demonstrating retry/backoff behaviour.
+- API smoke run log showing replayed queued actions.
