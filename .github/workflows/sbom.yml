@@ -152,16 +152,16 @@ jobs:
           path: docs/sbom/*.json
           retention-days: 90
 
-      - name: Commit SBOMs (on main branch)
+      - name: Commit SBOMs and Provenance (on main branch)
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add docs/sbom/
+          git add docs/sbom/ docs/provenance/
           if git diff --staged --quiet; then
-            echo "No SBOM changes to commit"
+            echo "No SBOM or provenance changes to commit"
           else
-            git commit -m "chore: update SBOMs [skip ci]"
+            git commit -m "chore: update SBOMs and build provenance [skip ci]"
             git push
           fi
 
@@ -194,6 +194,60 @@ jobs:
           echo "- License compliance verification" >> $GITHUB_STEP_SUMMARY
           echo "- Vulnerability tracking" >> $GITHUB_STEP_SUMMARY
           echo "- Dependency audits" >> $GITHUB_STEP_SUMMARY
+
+      - name: Generate build provenance
+        run: |
+          mkdir -p docs/provenance
+          cat > docs/provenance/build-provenance-${{ github.sha }}.json << EOF
+          {
+            "buildType": "https://github.com/ikanisa/prisma/sbom@v1",
+            "builder": {
+              "id": "https://github.com/actions/runner/${{ runner.name }}"
+            },
+            "invocation": {
+              "configSource": {
+                "uri": "${{ github.server_url }}/${{ github.repository }}",
+                "digest": {
+                  "sha1": "${{ github.sha }}"
+                },
+                "entryPoint": ".github/workflows/sbom.yml"
+              }
+            },
+            "metadata": {
+              "buildStartedOn": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+              "buildFinishedOn": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+              "completeness": {
+                "parameters": true,
+                "environment": false,
+                "materials": true
+              },
+              "reproducible": false
+            },
+            "materials": [
+              {
+                "uri": "${{ github.server_url }}/${{ github.repository }}",
+                "digest": {
+                  "sha1": "${{ github.sha }}"
+                }
+              }
+            ],
+            "sboms": [
+              $(for sbom in docs/sbom/*.json; do
+                if [ -f "$sbom" ]; then
+                  echo "      {\"uri\": \"$(basename $sbom)\"},"
+                fi
+              done | sed '$ s/,$//')
+            ]
+          }
+          EOF
+          echo "✅ Build provenance generated at docs/provenance/build-provenance-${{ github.sha }}.json"
+
+      - name: Upload provenance as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-provenance-${{ github.sha }}
+          path: docs/provenance/*.json
+          retention-days: 90
 
   generate-spdx:
     name: Generate SPDX SBOMs (Optional)
