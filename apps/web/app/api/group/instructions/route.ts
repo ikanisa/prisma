@@ -4,9 +4,14 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { logGroupActivity } from '@/lib/group/activity';
 import { getOrgIdFromRequest, isUuid, resolveUserId, toJsonRecord } from '@/lib/group/request';
 import { getSupabaseServerClient } from '@/lib/supabase/server';
+import { buildCacheKey, getCacheClient, getCacheTtlSeconds, type CacheClient } from '@services/cache';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
+
+const CACHE_NAMESPACE = 'group:instructions';
+const CACHE_TTL_SECONDS = getCacheTtlSeconds('group_instructions', 120);
+const CACHE_INDEX_TTL_SECONDS = getCacheTtlSeconds('group_instructions_index', CACHE_TTL_SECONDS);
 
 type GroupInstructionInsert = {
   org_id: string;
@@ -24,6 +29,50 @@ type GroupInstructionInsert = {
 function getSupabaseClients() {
   const supabase = getSupabaseServerClient();
   return { supabase, supabaseUnsafe: supabase as SupabaseClient };
+}
+
+function buildInstructionsCacheKey(
+  orgId: string,
+  filters: { engagementId?: string | null; componentId?: string | null; status?: string | null },
+) {
+  return buildCacheKey([
+    CACHE_NAMESPACE,
+    orgId,
+    filters.engagementId ?? null,
+    filters.componentId ?? null,
+    filters.status ?? null,
+  ]);
+}
+
+function buildIndexKey(orgId: string) {
+  return `${CACHE_NAMESPACE}:index:${orgId}`;
+}
+
+async function registerCacheKey(client: CacheClient, orgId: string, key: string) {
+  try {
+    const indexKey = buildIndexKey(orgId);
+    const existing = (await client.get<string[]>(indexKey)) ?? [];
+    if (!existing.includes(key)) {
+      existing.push(key);
+    }
+    const ttl = Math.max(CACHE_INDEX_TTL_SECONDS, CACHE_TTL_SECONDS);
+    await client.set(indexKey, existing, { ttlSeconds: ttl > 0 ? ttl : undefined });
+  } catch (error) {
+    console.warn('group.instructions.cache_register_failed', { error });
+  }
+}
+
+async function invalidateInstructionCache(client: CacheClient, orgId: string) {
+  try {
+    const indexKey = buildIndexKey(orgId);
+    const keys = (await client.get<string[]>(indexKey)) ?? [];
+    if (keys.length > 0) {
+      await client.del(keys);
+    }
+    await client.del(indexKey);
+  } catch (error) {
+    console.warn('group.instructions.cache_invalidate_failed', { error });
+  }
 }
 
 function buildInsertPayload(orgId: string, userId: string, body: Record<string, unknown>): GroupInstructionInsert {
@@ -76,6 +125,17 @@ export async function GET(request: NextRequest) {
   const componentId = url.searchParams.get('componentId');
   const status = url.searchParams.get('status');
 
+  const cacheClient = getCacheClient();
+  const shouldUseCache = Boolean(cacheClient) && CACHE_TTL_SECONDS > 0;
+  const cacheKey = buildInstructionsCacheKey(orgId, { engagementId, componentId, status });
+
+  if (shouldUseCache && cacheClient) {
+    const cached = await cacheClient.get<{ instructions: unknown[] }>(cacheKey);
+    if (cached !== undefined) {
+      return NextResponse.json(cached);
+    }
+  }
+
   const query = supabaseUnsafe
     .from('group_instructions')
     .select('*')
@@ -102,12 +162,19 @@ export async function GET(request: NextRequest) {
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
+  const response = { instructions: data ?? [] };
 
-  return NextResponse.json({ instructions: data ?? [] });
+  if (shouldUseCache && cacheClient) {
+    await cacheClient.set(cacheKey, response, { ttlSeconds: CACHE_TTL_SECONDS });
+    await registerCacheKey(cacheClient, orgId, cacheKey);
+  }
+
+  return NextResponse.json(response);
 }
 
 export async function POST(request: NextRequest) {
   const { supabase, supabaseUnsafe } = getSupabaseClients();
+  const cacheClient = getCacheClient();
   let payload: unknown;
   try {
     payload = await request.json();
@@ -159,6 +226,10 @@ export async function POST(request: NextRequest) {
       component_id: data?.component_id ?? null,
     },
   });
+
+  if (cacheClient && CACHE_TTL_SECONDS > 0) {
+    await invalidateInstructionCache(cacheClient, orgId);
+  }
 
   return NextResponse.json({ instruction: data });
 }
