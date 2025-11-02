@@ -298,6 +298,65 @@ jobs:
             dist/agent_evaluations_report.json
             dist/agent_evaluations_metrics.ndjson
 
+  performance-tests:
+    name: Nightly performance smoke
+    runs-on: ubuntu-latest
+    needs: build-test
+    if: github.event_name == 'schedule'
+    env:
+      PERF_BASE_URL: ${{ secrets.PERF_BASE_URL }}
+      PERF_EMAIL: ${{ secrets.PERF_EMAIL }}
+      PERF_PASSWORD: ${{ secrets.PERF_PASSWORD }}
+      PERF_ORG_SLUG: ${{ secrets.PERF_ORG_SLUG }}
+      PERF_ENGAGEMENT_ID: ${{ secrets.PERF_ENGAGEMENT_ID }}
+      PERF_BEARER_TOKEN: ${{ secrets.PERF_BEARER_TOKEN }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          run_install: false
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20.19.4
+          cache: 'pnpm'
+
+      - name: Evaluate performance test secrets
+        id: perf_env
+        run: |
+          missing=()
+          for var in PERF_BASE_URL PERF_EMAIL PERF_PASSWORD PERF_ORG_SLUG; do
+            if [ -z "${!var}" ]; then
+              missing+=("$var")
+            fi
+          done
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "Required performance secrets missing: ${missing[*]}. Skipping performance tests." >&2
+            echo "should_run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install dependencies
+        if: steps.perf_env.outputs.should_run == 'true'
+        run: pnpm install --frozen-lockfile
+
+      - name: Run performance smoke tests
+        if: steps.perf_env.outputs.should_run == 'true'
+        env:
+          ARTILLERY_ENV: ci
+          ARTILLERY_NO_TELEMETRY: '1'
+        run: pnpm run test:performance:ci
+
+      - name: Upload performance reports
+        if: steps.perf_env.outputs.should_run == 'true' && always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: performance-reports
+          path: test-results/performance/
+
   fastapi-smoke:
     name: FastAPI health smoke
     runs-on: ubuntu-latest

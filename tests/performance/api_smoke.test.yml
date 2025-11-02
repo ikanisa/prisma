@@ -1,0 +1,92 @@
+config:
+  target: "{{ $processEnvironment.PERF_BASE_URL || 'http://127.0.0.1:3000' }}"
+  phases:
+    - duration: 30
+      arrivalRate: 2
+      name: smoke-warmup
+    - duration: 60
+      arrivalRate: 4
+      name: smoke-steady
+  defaults:
+    headers:
+      User-Agent: prisma-performance-smoke
+      Cache-Control: 'no-cache'
+  plugins:
+    ensure:
+      thresholds:
+        http.response_time:
+          - p(95) < 900
+        http.codes.5xx:
+          - max == 0
+  environments:
+    local:
+      target: "{{ $processEnvironment.PERF_BASE_URL || 'http://127.0.0.1:3000' }}"
+      phases:
+        - duration: 15
+          arrivalRate: 1
+          name: local-check
+    ci:
+      target: "{{ $processEnvironment.PERF_BASE_URL || 'https://staging.prismaglow.example.com' }}"
+      phases:
+        - duration: 20
+          arrivalRate: 1
+          name: ci-verify
+    ramp:
+      target: "{{ $processEnvironment.PERF_BASE_URL || 'https://staging.prismaglow.example.com' }}"
+      phases:
+        - duration: 60
+          arrivalRate: 5
+          rampTo: 10
+          name: ramp-to-10rps
+  variables:
+    orgSlug: "{{ $processEnvironment.PERF_ORG_SLUG || 'demo' }}"
+    engagementId: "{{ $processEnvironment.PERF_ENGAGEMENT_ID || 'demo-engagement' }}"
+  processor: ./processors/common.mjs
+  payload:
+    path: ./fixtures/personas.csv
+    order: sequence
+    fields:
+      - email
+      - password
+      - orgSlug
+      - engagementId
+scenarios:
+  - name: API smoke across telemetry hotspots
+    flow:
+      - post:
+          url: /api/auth/token/issue
+          json:
+            email: "{{ email }}"
+            password: "{{ password }}"
+          capture:
+            - json: $.accessToken
+              as: token
+          expect:
+            - statusCode: 200
+      - think: 1
+      - get:
+          url: /api/healthz
+          expect:
+            - statusCode: 200
+      - think: 1
+      - get:
+          url: /api/readiness
+          expect:
+            - statusCode: 200
+      - think: 1
+      - get:
+          url: "/api/agent/telemetry?orgSlug={{ orgSlug }}"
+          expect:
+            - statusCode: 200
+      - think: 1
+      - get:
+          url: "/v1/approvals?orgSlug={{ orgSlug }}"
+          expect:
+            - statusCode: 200
+      - think: 1
+      - post:
+          url: /functions/v1/telemetry-sync
+          json:
+            orgSlug: "{{ orgSlug }}"
+          expect:
+            - statusCode: 200
