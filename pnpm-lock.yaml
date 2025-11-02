@@ -661,6 +661,9 @@ importers:
       '@prisma-glow/system-config':
         specifier: file:../../packages/system-config
         version: link:../../packages/system-config
+      '@prisma/client':
+        specifier: ^5.22.0
+        version: 5.22.0(prisma@5.22.0)
       '@sentry/node':
         specifier: ^7.120.0
         version: 7.120.4
@@ -670,6 +673,9 @@ importers:
       ajv:
         specifier: ^8.17.1
         version: 8.17.1
+      dataloader:
+        specifier: ^2.2.3
+        version: 2.2.3
       express:
         specifier: ^4.19.2
         version: 4.21.2
@@ -5231,6 +5237,9 @@ packages:
 
   datadog-metrics@0.9.3:
     resolution: {integrity: sha512-BVsBX2t+4yA3tHs7DnB5H01cHVNiGJ/bHA8y6JppJDyXG7s2DLm6JaozPGpgsgVGd42Is1CHRG/yMDQpt877Xg==}
+
+  dataloader@2.2.3:
+    resolution: {integrity: sha512-y2krtASINtPFS1rSDjacrFgn1dcUuoREVabwlOGOe4SdxenREqwjwjElAdwvbGM7kgZz9a3KVicWR7vcz8rnzA==}
 
   date-fns@3.6.0:
     resolution: {integrity: sha512-fRHTG8g/Gif+kSh50gaGEdToemgfj74aRX3swtiouboip5JDLAyDE9F11nHMIcvOaXeOC6D7SpNhi7uFyB7Uww==}
@@ -15193,6 +15202,8 @@ snapshots:
       dogapi: 2.8.4
     transitivePeerDependencies:
       - supports-color
+
+  dataloader@2.2.3: {}
 
   date-fns@3.6.0: {}
 
