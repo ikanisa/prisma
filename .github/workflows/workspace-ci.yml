@@ -455,9 +455,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Validate load test scenario
-        env:
-          ARTILLERY_NO_TELEMETRY: '1'
-        run: pnpm run load:test:ci
+        run: pnpm run test:performance:ci
 
   analytics-tests:
     name: Analytics pytest suite
