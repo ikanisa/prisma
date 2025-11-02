@@ -33,9 +33,20 @@ export async function POST(request: NextRequest) {
     const since = new Date(Date.now() - days * 86400 * 1000).toISOString();
 
     // Fetch ledger entries with source_txn_id
+    type LedgerEntry = {
+      id: string;
+      date: string;
+      account: string;
+      debit: number | null;
+      credit: number | null;
+      currency: string | null;
+      source_txn_id: string | null;
+      memo: string | null;
+    };
+
     const { data: entries, error: entriesError } = await supabaseAdmin
       .from('ledger_entries')
-      .select('*')
+      .select('id, date, account, debit, credit, currency, source_txn_id, memo')
       .eq('org_id', orgId)
       .gte('created_at', since)
       .not('source_txn_id', 'is', null);
@@ -44,10 +55,22 @@ export async function POST(request: NextRequest) {
       throw new Error(`Failed to fetch ledger entries: ${entriesError.message}`);
     }
 
-    const missing = [];
+    const missing: {
+      id: string;
+      date: string;
+      account: string;
+      amount: number;
+      currency: string | null;
+      source_txn_id: string | null;
+      memo: string | null;
+    }[] = [];
 
     // Check each entry for supporting documents
-    for (const entry of entries || []) {
+    for (const entry of (entries ?? []) as LedgerEntry[]) {
+      if (!entry.source_txn_id) {
+        continue;
+      }
+
       const { data: docs, error: docsError } = await supabaseAdmin
         .from('support_docs')
         .select('id')

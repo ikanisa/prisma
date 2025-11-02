@@ -1,6 +1,7 @@
 'use client';
 
 import { formatDistanceToNow } from 'date-fns';
+import { memo, useCallback, useMemo } from 'react';
 import { useDocuments } from '../hooks/use-documents';
 import type { DocumentSummary } from '../services/document-service';
 import { logger } from '@/lib/logger';
@@ -14,31 +15,40 @@ export interface DocumentGridProps {
 
 const DOCUMENT_LOADING_PLACEHOLDERS = Array.from({ length: 6 });
 
-export function DocumentGrid({ repo = null, title }: DocumentGridProps) {
+const formatUpdatedAtSafe = (iso: string | null | undefined, fallback: string) => {
+  if (!iso) return fallback;
+  try {
+    return formatDistanceToNow(new Date(iso), { addSuffix: true });
+  } catch (error) {
+    if (process.env.NODE_ENV !== 'production') {
+      logger.warn('document_grid.timestamp_format_failed', { error, iso });
+    }
+    return fallback;
+  }
+};
+
+function DocumentGridComponent({ repo = null, title }: DocumentGridProps) {
   const { documents, total, source, isPending } = useDocuments(repo);
   const { t } = useI18nContext();
 
-  const fallbackRelativeLabel = t('common.time.recently');
+  const fallbackRelativeLabel = useMemo(() => t('common.time.recently'), [t]);
 
-  const formatUpdatedAt = (iso?: string | null) => {
-    if (!iso) return fallbackRelativeLabel;
-    try {
-      return formatDistanceToNow(new Date(iso), { addSuffix: true });
-    } catch (error) {
-      if (process.env.NODE_ENV !== 'production') {
-        logger.warn('document_grid.timestamp_format_failed', { error, iso });
-      }
-      return fallbackRelativeLabel;
-    }
-  };
+  const formatUpdatedAt = useCallback(
+    (iso?: string | null) => formatUpdatedAtSafe(iso, fallbackRelativeLabel),
+    [fallbackRelativeLabel],
+  );
 
-  const heading = title ?? t('documents.grid.title');
-  const sampleTag = source === 'stub' ? ` ${t('common.sampleDataTag')}` : '';
-  const subtitle = t('documents.grid.subtitle', { sampleTag });
-  const totalLabel = t('documents.grid.total', {
-    count: String(total),
-    files: t(total === 1 ? 'common.file' : 'common.files'),
-  });
+  const { heading, subtitle, totalLabel } = useMemo(() => {
+    const sampleTag = source === 'stub' ? ` ${t('common.sampleDataTag')}` : '';
+    return {
+      heading: title ?? t('documents.grid.title'),
+      subtitle: t('documents.grid.subtitle', { sampleTag }),
+      totalLabel: t('documents.grid.total', {
+        count: String(total),
+        files: t(total === 1 ? 'common.file' : 'common.files'),
+      }),
+    };
+  }, [source, t, title, total]);
 
   if (isPending) {
     return (
@@ -115,3 +125,5 @@ export function DocumentGrid({ repo = null, title }: DocumentGridProps) {
     </section>
   );
 }
+
+export const DocumentGrid = memo(DocumentGridComponent);

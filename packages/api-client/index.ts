@@ -1,4 +1,4 @@
-import type { paths } from './types.js';
+import type { paths } from './types';
 
 export type FetchLike = (input: RequestInfo, init?: RequestInit) => Promise<Response>;
 

@@ -1,0 +1,89 @@
+name: Staging Authentication Tests
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      staging_url:
+        description: 'Staging environment URL'
+        required: false
+        default: 'https://staging.prismaglow.example.com'
+
+concurrency:
+  group: staging-auth-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  auth-flow-tests:
+    name: Test Authentication Flows
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20.19.4
+      
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.3
+      
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      
+      - name: Run authentication flow tests
+        env:
+          STAGING_BASE_URL: ${{ inputs.staging_url || 'https://staging.prismaglow.example.com' }}
+          TEST_USER_EMAIL: ${{ secrets.STAGING_TEST_USER_EMAIL }}
+          TEST_USER_PASSWORD: ${{ secrets.STAGING_TEST_USER_PASSWORD }}
+          TEST_ORG_ID: ${{ secrets.STAGING_TEST_ORG_ID }}
+        run: |
+          echo "🧪 Testing authentication flows on staging..."
+          echo "Base URL: $STAGING_BASE_URL"
+          
+          # Run auth-specific tests
+          pnpm exec vitest run tests/e2e/auth-flows.test.ts --reporter=verbose
+      
+      - name: Test finance review API authentication
+        env:
+          STAGING_BASE_URL: ${{ inputs.staging_url || 'https://staging.prismaglow.example.com' }}
+          TEST_USER_EMAIL: ${{ secrets.STAGING_TEST_USER_EMAIL }}
+          TEST_USER_PASSWORD: ${{ secrets.STAGING_TEST_USER_PASSWORD }}
+          TEST_ORG_ID: ${{ secrets.STAGING_TEST_ORG_ID }}
+        run: |
+          echo "🧪 Testing finance review API authentication..."
+          node scripts/test-auth/test-review-api-auth.js
+      
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: staging-auth-test-results
+          path: |
+            test-results/
+            playwright-report/
+          retention-days: 7
+      
+      - name: Report test summary
+        if: always()
+        run: |
+          echo "## 🧪 Authentication Flow Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ -f test-results/summary.json ]; then
+            cat test-results/summary.json >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Test Environment" >> $GITHUB_STEP_SUMMARY
+          echo "- **URL**: ${STAGING_BASE_URL:-https://staging.prismaglow.example.com}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branch**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY

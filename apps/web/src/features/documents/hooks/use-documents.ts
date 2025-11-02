@@ -7,6 +7,12 @@ import { queryKeys } from '../../common/query-keys';
 import { useAppStore } from '@/src/store/app-store';
 import { useAuthStore } from '@/src/store/auth-store';
 
+const EMPTY_DOCUMENT_RESULT: DocumentResult = Object.freeze({
+  documents: [],
+  total: 0,
+  source: 'stub',
+});
+
 export function useDocuments(repo?: string | null) {
   const rawOrgSlug = useAppStore((state) => state.orgSlug);
   const orgSlug = rawOrgSlug?.trim() || 'demo';
@@ -19,8 +25,7 @@ export function useDocuments(repo?: string | null) {
     queryFn: () => fetchDocuments(orgSlug, repo, token),
   });
 
-  const fallback: DocumentResult = { documents: [], total: 0, source: 'stub' };
-  const result = query.data ?? fallback;
+  const result = query.data ?? EMPTY_DOCUMENT_RESULT;
 
   return {
     documents: result.documents,
