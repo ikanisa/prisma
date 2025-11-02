@@ -1,6 +1,7 @@
 'use client';
 
 import { formatDistanceToNow } from 'date-fns';
+import { memo, useCallback, useMemo } from 'react';
 import { useAgentTasks } from '../hooks/use-agent-tasks';
 import type { AgentTask } from '../services/task-service';
 import { logger } from '@/lib/logger';
@@ -15,43 +16,61 @@ const priorityBadgeClass: Record<string, string> = {
 
 const LOADING_PLACEHOLDERS = Array.from({ length: 4 });
 
-export function AgentTaskList() {
+const formatRelativeDateSafe = (iso: string | null | undefined, fallback: string) => {
+  if (!iso) return fallback;
+  try {
+    return formatDistanceToNow(new Date(iso), { addSuffix: true });
+  } catch (error) {
+    if (process.env.NODE_ENV !== 'production') {
+      logger.warn('agent_task_list.date_format_failed', { error, iso });
+    }
+    return fallback;
+  }
+};
+
+function AgentTaskListComponent() {
   const { tasks, total, source, isPending } = useAgentTasks();
   const { t } = useI18nContext();
 
-  const formatRelativeDate = (iso: string | null | undefined, fallback: string) => {
-    if (!iso) return fallback;
-    try {
-      return formatDistanceToNow(new Date(iso), { addSuffix: true });
-    } catch (error) {
-      if (process.env.NODE_ENV !== 'production') {
-        logger.warn('agent_task_list.date_format_failed', { error, iso });
+  const priorityMap = useMemo(
+    () => ({
+      high: 'agents.tasks.priority.high',
+      medium: 'agents.tasks.priority.medium',
+      low: 'agents.tasks.priority.low',
+    }),
+    [],
+  );
+
+  const resolvePriorityLabel = useCallback(
+    (priority?: string | null) => {
+      const fallbackRaw = (priority ?? 'medium').toLowerCase();
+      const normalized = fallbackRaw as keyof typeof priorityMap;
+      const key = priorityMap[normalized] ?? priorityMap.medium;
+      const translated = t(key);
+      if (translated === key) {
+        return fallbackRaw.charAt(0).toUpperCase() + fallbackRaw.slice(1);
       }
-      return fallback;
-    }
-  };
+      return translated;
+    },
+    [priorityMap, t],
+  );
 
-  const priorityTranslationMap: Record<'high' | 'medium' | 'low', string> = {
-    high: 'agents.tasks.priority.high',
-    medium: 'agents.tasks.priority.medium',
-    low: 'agents.tasks.priority.low',
-  };
+  const fallbackRelativeLabel = useMemo(() => t('common.time.recently'), [t]);
 
-  const resolvePriorityLabel = (priority?: string | null) => {
-    const fallbackRaw = (priority ?? 'medium').toLowerCase();
-    const normalized = fallbackRaw as keyof typeof priorityTranslationMap;
-    const key = priorityTranslationMap[normalized] ?? priorityTranslationMap.medium;
-    const translated = t(key);
-    if (translated === key) {
-      return fallbackRaw.charAt(0).toUpperCase() + fallbackRaw.slice(1);
-    }
-    return translated;
-  };
+  const formatRelativeDate = useCallback(
+    (iso: string | null | undefined, fallback?: string) =>
+      formatRelativeDateSafe(iso, fallback ?? fallbackRelativeLabel),
+    [fallbackRelativeLabel],
+  );
 
-  const heading = t('agents.tasks.title');
-  const sampleTag = source === 'stub' ? ` ${t('common.sampleDataTag')}` : '';
-  const subtitle = t('agents.tasks.subtitle', { sampleTag });
-  const totalLabel = t('agents.tasks.total', { count: String(total) });
+  const { heading, subtitle, totalLabel } = useMemo(() => {
+    const sampleTag = source === 'stub' ? ` ${t('common.sampleDataTag')}` : '';
+    return {
+      heading: t('agents.tasks.title'),
+      subtitle: t('agents.tasks.subtitle', { sampleTag }),
+      totalLabel: t('agents.tasks.total', { count: String(total) }),
+    };
+  }, [source, t, total]);
 
   if (isPending) {
     return (
@@ -138,14 +157,16 @@ export function AgentTaskList() {
                 </div>
               </dl>
             </div>
-            <p className="mt-4 text-xs text-muted-foreground">
-              {t('agents.tasks.updated', {
-                when: formatRelativeDate(task.updatedAt, t('common.time.recently')),
-              })}
-            </p>
+              <p className="mt-4 text-xs text-muted-foreground">
+                {t('agents.tasks.updated', {
+                  when: formatRelativeDate(task.updatedAt),
+                })}
+              </p>
           </article>
         ))}
       </div>
     </section>
   );
 }
+
+export const AgentTaskList = memo(AgentTaskListComponent);

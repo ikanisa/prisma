@@ -1,0 +1,13 @@
+{
+  "apps/web": {
+    "pages": {
+      "/dashboard/page": 320,
+      "/agent-chat/page": 340,
+      "/agent/domain-tools/page": 340,
+      "/agent/orchestrator/page": 340
+    },
+    "shared": {
+      "client": 260
+    }
+  }
+}
