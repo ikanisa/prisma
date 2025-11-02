@@ -389,6 +389,16 @@ function normaliseStep(step: unknown, fallbackIndex: number): AgentPlanStep | un
   };
 }
 
+// Approved tool keys that agents are allowed to use
+const APPROVED_TOOL_KEYS = [
+  'rag.search',
+  'docs.sign_url',
+  'notify.user',
+  'trial_balance.get',
+  'ledger.query',
+  'analytics.export',
+] as const;
+
 function normaliseToolIntent(intent: unknown): AgentPlanToolIntent | undefined {
   if (!intent || typeof intent !== 'object') return undefined;
   const record = intent as Record<string, unknown>;
@@ -398,6 +408,12 @@ function normaliseToolIntent(intent: unknown): AgentPlanToolIntent | undefined {
     ? record.key
     : undefined;
   if (!toolKey) return undefined;
+
+  // Enforce tool allowlist - reject unknown tools
+  if (!APPROVED_TOOL_KEYS.includes(toolKey as any)) {
+    console.warn(`agent.planner.rejected_tool: Tool key "${toolKey}" is not in the approved allowlist`);
+    return undefined;
+  }
 
   const purposeRaw = record.purpose ?? record.reason ?? record.summary;
   const purpose = typeof purposeRaw === 'string' ? purposeRaw.trim() : 'Run tool for this step.';
