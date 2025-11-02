@@ -68,6 +68,10 @@ Required variables:
   `ERROR_NOTIFY_WEBHOOK` if unset).
 - Optional security headers: `ALLOWED_HOSTS` (comma-separated) to enable trusted host
   enforcement at the FastAPI layer.
+- Caching configuration: `REDIS_URL` enables shared caching; tune `CACHE_DEFAULT_TTL_SECONDS`
+  or per-route overrides (`CACHE_CONTROLS_TTL_SECONDS`, `CACHE_GROUP_COMPONENTS_TTL_SECONDS`,
+  `CACHE_OTHER_INFORMATION_TTL_SECONDS`, `CACHE_SPECIALISTS_TTL_SECONDS`) to balance freshness
+  and load for expensive API queries.
 - Optional assistant/knowledge throttles: `ASSISTANT_RATE_LIMIT`,
   `ASSISTANT_RATE_WINDOW_SECONDS`, `DOCUMENT_UPLOAD_RATE_LIMIT`,
   `DOCUMENT_UPLOAD_RATE_WINDOW_SECONDS`, `KNOWLEDGE_RUN_RATE_LIMIT`,

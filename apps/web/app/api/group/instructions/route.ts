@@ -3,6 +3,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logGroupActivity } from '@/lib/group/activity';
+import { invalidateGroupComponentsCache } from '@/lib/group/cache';
 import { getOrgIdFromRequest, isUuid, resolveUserId, toJsonRecord } from '@/lib/group/request';
 import { getSupabaseServerClient } from '@/lib/supabase/server';
 import { buildCacheKey, getCacheClient, getCacheTtlSeconds, type CacheClient } from '@services/cache';
@@ -240,9 +241,7 @@ export async function POST(request: NextRequest) {
     },
   });
 
-  if (cacheClient && CACHE_TTL_SECONDS > 0) {
-    await invalidateInstructionCache(cacheClient, orgId);
-  }
+  await invalidateGroupComponentsCache(orgId, insertPayload.engagement_id);
 
   return NextResponse.json({ instruction: data });
 }

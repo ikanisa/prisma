@@ -1,35 +1,43 @@
-import { afterEach, beforeAll, describe, expect, it } from 'vitest'
-import RedisMock from 'ioredis-mock'
-import { RedisCacheClient } from '../src/adapters/redis-adapter.js'
+import { describe, expect, test, vi } from 'vitest';
+import type Redis from 'ioredis';
+import { RedisCacheClient } from '../src/redis-adapter.js';
+
+const createRedisMock = () => {
+  return {
+    get: vi.fn().mockResolvedValue(null),
+    set: vi.fn().mockResolvedValue('OK'),
+    del: vi.fn().mockResolvedValue(1),
+    ttl: vi.fn().mockResolvedValue(-2),
+    quit: vi.fn().mockResolvedValue('OK'),
+  } as unknown as Redis;
+};
 
 describe('RedisCacheClient', () => {
-  let client: RedisMock
-  let cache: RedisCacheClient
+  test('prefixes keys and writes ttl', async () => {
+    const redis = createRedisMock();
+    const client = new RedisCacheClient({ client: redis, keyPrefix: 'app' });
 
-  beforeAll(async () => {
-    client = new RedisMock()
-    cache = new RedisCacheClient(client as unknown as any, { namespace: 'test', manageClient: false })
-  })
+    await client.set('controls:1', 'value', { ttlSeconds: 30 });
+    expect(redis.set).toHaveBeenCalledWith('app:controls:1', 'value', 'EX', 30);
 
-  afterEach(async () => {
-    await client.flushall()
-  })
+    await client.get('controls:1');
+    expect(redis.get).toHaveBeenCalledWith('app:controls:1');
 
-  it('stores values with TTL and expires them', async () => {
-    await cache.set('foo', { hello: 'world' }, { ttlSeconds: 1 })
-    expect(await cache.get('foo')).toEqual({ hello: 'world' })
-    await new Promise((resolve) => setTimeout(resolve, 1200))
-    expect(await cache.get('foo')).toBeNull()
-  })
+    await client.del('controls:1');
+    expect(redis.del).toHaveBeenCalledWith('app:controls:1');
+  });
 
-  it('deletes entries by prefix', async () => {
-    await cache.set('prefix:a', 1)
-    await cache.set('prefix:b', 2)
-    await cache.set('other:c', 3)
+  test('ttl returns null when redis indicates missing key', async () => {
+    const redis = createRedisMock();
+    const client = new RedisCacheClient({ client: redis, keyPrefix: 'app' });
 
-    const deleted = await cache.deleteByPrefix('prefix:')
-    expect(deleted).toBe(2)
-    expect(await cache.get('prefix:a')).toBeNull()
-    expect(await cache.get('other:c')).toBe(3)
-  })
-})
+    redis.ttl = vi.fn().mockResolvedValue(-2);
+    await expect(client.ttl('missing')).resolves.toBeNull();
+
+    redis.ttl = vi.fn().mockResolvedValue(-1);
+    await expect(client.ttl('no-expiry')).resolves.toBeNull();
+
+    redis.ttl = vi.fn().mockResolvedValue(15);
+    await expect(client.ttl('exists')).resolves.toBe(15);
+  });
+});

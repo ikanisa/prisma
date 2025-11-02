@@ -3,6 +3,8 @@ import { ZodError } from 'zod';
 import { getServiceSupabaseClient } from '@/lib/supabase-server';
 import { createWalkthroughSchema } from '@/lib/audit/schemas';
 import { logAuditActivity } from '@/lib/audit/activity-log';
+import { invalidateRouteCache } from '@/lib/cache/route-cache';
+import { logger } from '@/lib/logger';
 import { attachRequestId, getOrCreateRequestId } from '@/app/lib/observability';
 import { createApiGuard } from '@/app/lib/api-guard';
 
@@ -63,6 +65,22 @@ export async function POST(request: Request) {
       requestId,
     },
   });
+
+  try {
+    const { data: control } = await supabase
+      .from('controls')
+      .select('engagement_id')
+      .eq('id', controlId)
+      .eq('org_id', orgId)
+      .maybeSingle<{ engagement_id: string | null }>();
+
+    if (control?.engagement_id) {
+      await invalidateRouteCache('controls', [orgId, control.engagement_id]);
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    logger.warn('apps.web.cache_invalidate_failed', { message, orgId, controlId });
+  }
 
   return guard.respond({ walkthrough: data });
 }

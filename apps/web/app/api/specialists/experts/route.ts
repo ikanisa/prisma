@@ -3,6 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { auth } from '@/auth';
 import { getSupabaseServiceClient } from '@/lib/supabase/server';
 import { recordSpecialistActivity } from '@/lib/supabase/activity';
+import { invalidateSpecialistsCache } from '@/lib/specialists/cache';
 import { logger } from '@/lib/logger';
 
 type ServiceClient = ReturnType<typeof getSupabaseServiceClient>;
@@ -240,6 +241,8 @@ export async function POST(request: NextRequest) {
       type: 'expert',
     },
   });
+
+  await invalidateSpecialistsCache(orgId, engagementId);
 
   return NextResponse.json({ expert: data }, { status: 201 });
 }

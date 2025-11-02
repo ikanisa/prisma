@@ -430,6 +430,9 @@ importers:
       '@prisma-glow/api-client':
         specifier: workspace:*
         version: link:../../packages/api-client
+      '@prisma-glow/cache':
+        specifier: workspace:*
+        version: link:../../services/cache
       '@prisma-glow/lib':
         specifier: workspace:*
         version: link:../../packages/lib
@@ -607,9 +610,12 @@ importers:
 
   services/api:
     dependencies:
-      '@prisma-glow/config':
-        specifier: workspace:*
-        version: link:../../packages/config
+      ioredis:
+        specifier: ^5.4.1
+        version: 5.8.1
+      zod:
+        specifier: ^3.25.76
+        version: 3.25.76
 
   services/rag:
     dependencies:

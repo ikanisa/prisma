@@ -1,26 +1,34 @@
-import type { CacheSerializer } from './types.js'
+import type { CacheSerializer } from './types.js';
 
-export const jsonSerializer: CacheSerializer = {
-  serialize(value: unknown): string {
-    return JSON.stringify(value ?? null)
-  },
-  deserialize<T>(payload: string): T {
-    return JSON.parse(payload) as T
-  },
-}
-
-export function safeDeserialize<T>(serializer: CacheSerializer, payload: string): T | null {
-  try {
-    return serializer.deserialize<T>(payload)
-  } catch {
-    return null
+export class CacheSerializationError extends Error {
+  constructor(message: string, public readonly cause?: unknown) {
+    super(message);
+    this.name = 'CacheSerializationError';
   }
 }
 
-export function safeSerialize(serializer: CacheSerializer, value: unknown): string | null {
-  try {
-    return serializer.serialize(value)
-  } catch {
-    return null
-  }
-}
+export const jsonSerializer: CacheSerializer<unknown> = {
+  serialize(value) {
+    try {
+      return JSON.stringify(value);
+    } catch (error) {
+      throw new CacheSerializationError('Failed to serialize value to JSON', error);
+    }
+  },
+  deserialize(payload) {
+    try {
+      return JSON.parse(payload) as unknown;
+    } catch (error) {
+      throw new CacheSerializationError('Failed to deserialize JSON payload', error);
+    }
+  },
+};
+
+export const stringSerializer: CacheSerializer<string> = {
+  serialize(value) {
+    return value;
+  },
+  deserialize(payload) {
+    return payload;
+  },
+};

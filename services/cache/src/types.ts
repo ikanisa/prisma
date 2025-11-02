@@ -1,36 +1,48 @@
-import type { Redis as RedisClient } from 'ioredis'
+export type CacheKeySegment = string | number | boolean | null | undefined;
 
-export type CacheKey = string
-
-export interface CacheSetOptions {
-  /**
-   * TTL in seconds. When omitted or set to a value <= 0 the entry will be stored without expiry.
-   */
-  ttlSeconds?: number
+export interface CacheClientSetOptions {
+  ttlSeconds?: number | null;
 }
 
 export interface CacheClient {
-  get<T>(key: CacheKey): Promise<T | null>
-  set<T>(key: CacheKey, value: T, options?: CacheSetOptions): Promise<void>
-  del(key: CacheKey): Promise<number>
-  ttl(key: CacheKey): Promise<number>
-  deleteByPrefix(prefix: string): Promise<number>
-  close(): Promise<void>
+  get(key: string): Promise<string | null>;
+  set(key: string, value: string, options?: CacheClientSetOptions): Promise<void>;
+  del(keys: string | string[]): Promise<void>;
+  ttl(key: string): Promise<number | null>;
+  disconnect(): Promise<void>;
 }
 
-export interface CacheSerializer {
-  serialize(value: unknown): string
-  deserialize<T>(payload: string): T
+export interface CacheSerializer<T> {
+  serialize(value: T): string;
+  deserialize(payload: string): T;
 }
 
-export type CacheFactoryAdapter = 'auto' | 'redis' | 'memory'
+export interface CacheManagerOptions {
+  client: CacheClient;
+  keyPrefix?: string;
+  defaultSerializer?: CacheSerializer<unknown>;
+  defaultTtlSeconds?: number | null;
+}
 
-export interface CacheFactoryOptions {
-  namespace?: string
-  separator?: string
-  serializer?: CacheSerializer
-  adapter?: CacheFactoryAdapter
-  redisUrl?: string
-  redisInstance?: RedisClient | null
-  allowFallback?: boolean
+export interface CachePolicy {
+  useCase: CacheUseCase;
+  ttlSeconds: number;
+}
+
+export type CacheUseCase =
+  | 'controls'
+  | 'groupComponents'
+  | 'otherInformationDocs'
+  | 'specialists';
+
+export interface CacheWithLoaderOptions<T> {
+  key: CacheKeySegment[];
+  loader: () => Promise<T>;
+  serializer?: CacheSerializer<T>;
+  ttlSeconds?: number | null;
+  skipCache?: boolean;
+}
+
+export interface CacheInvalidateOptions {
+  key: CacheKeySegment[];
 }
