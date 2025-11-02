@@ -22,4 +22,4 @@ while IFS= read -r line; do
   export "$line"
 done <<< "$env_lines"
 
-pnpm exec vitest run --coverage
+node ./node_modules/vitest/vitest.mjs run --coverage

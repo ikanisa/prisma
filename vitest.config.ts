@@ -249,8 +249,9 @@ export default defineConfig({
     ],
     exclude: [
       'tests/playwright/**',
-      '**/node_modules/**',
-      '**/node_modules/.pnpm/**',
+      'node_modules/**',
+      'node_modules/.pnpm/**',
+      'apps/**/node_modules/**',
       'packages/**/node_modules/**',
       'services/**/node_modules/**',
     ],
