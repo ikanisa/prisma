@@ -1,155 +1,147 @@
-import { roundAmount } from './ledger.js'
+/**
+ * Deterministic tax calculation helpers.
+ *
+ * Functions provided here avoid I/O so unit tests can exercise tax boundary
+ * conditions and rounding behaviour with predictable results.
+ */
 
-export type TaxComputationOptions = {
+export interface TaxBracket {
+  /** Upper bound for the bracket. Undefined implies no upper limit. */
+  upTo?: number
+  /** Rate applied to the taxable income within this bracket (0-1 inclusive). */
+  rate: number
+}
+
+export interface ProgressiveTaxOptions {
+  /** Amount removed from income before applying brackets. */
+  deductions?: number
+  /** Decimal precision for returned values. */
   precision?: number
 }
 
-export type TaxLiability = {
+export interface ProgressiveTaxBreakdownEntry {
+  bracket: TaxBracket
   taxableAmount: number
-  rate: number
-  taxDue: number
-}
-
-export type TaxBracket = {
-  upTo?: number
-  rate: number
-}
-
-export type ProgressiveTaxBreakdown = {
-  taxable: number
-  rate: number
   tax: number
-  upTo?: number
 }
 
-export type ProgressiveTaxResult = {
-  taxDue: number
+export interface ProgressiveTaxResult {
+  tax: number
+  taxableIncome: number
   effectiveRate: number
-  breakdown: ProgressiveTaxBreakdown[]
+  marginalRate: number
+  breakdown: ProgressiveTaxBreakdownEntry[]
 }
 
 const DEFAULT_PRECISION = 2
 
-export function normalizeTaxRate(rate: number): number {
-  const numericRate = Number(rate)
-  if (!Number.isFinite(numericRate)) {
-    throw new TypeError('Tax rate must be a finite number')
-  }
-  if (numericRate < 0) {
-    throw new RangeError('Tax rate cannot be negative')
-  }
-  if (numericRate <= 1) {
-    return numericRate
-  }
-  if (numericRate <= 100) {
-    return numericRate / 100
-  }
-  throw new RangeError('Tax rate must not exceed 100%')
-}
-
-export function calculateTaxLiability(
-  baseAmount: number,
-  rate: number,
-  options: TaxComputationOptions = {},
-): TaxLiability {
-  const precision = Number.isInteger(options.precision) ? Number(options.precision) : DEFAULT_PRECISION
-  const taxableAmount = Math.max(Number(baseAmount) || 0, 0)
-  const normalizedRate = normalizeTaxRate(rate)
-
-  const taxDue = roundAmount(taxableAmount * normalizedRate, precision)
-  return {
-    taxableAmount: roundAmount(taxableAmount, precision),
-    rate: normalizedRate,
-    taxDue,
+export class TaxComputationError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'TaxComputationError'
   }
 }
 
-export function calculateProgressiveTax(
+const isFiniteNumber = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isFinite(value)
+
+export const validateTaxBrackets = (brackets: TaxBracket[]): void => {
+  if (brackets.length === 0) {
+    throw new TaxComputationError('At least one tax bracket is required')
+  }
+
+  let lastLimit = 0
+  for (const bracket of brackets) {
+    if (!isFiniteNumber(bracket.rate)) {
+      throw new TaxComputationError('Tax rates must be finite numbers')
+    }
+
+    if (bracket.rate < 0 || bracket.rate > 1) {
+      throw new TaxComputationError('Tax rates must fall within [0, 1]')
+    }
+
+    if (bracket.upTo !== undefined) {
+      if (!isFiniteNumber(bracket.upTo)) {
+        throw new TaxComputationError('Bracket thresholds must be finite numbers')
+      }
+
+      if (bracket.upTo <= lastLimit) {
+        throw new TaxComputationError('Bracket thresholds must be strictly increasing')
+      }
+
+      lastLimit = bracket.upTo
+    } else {
+      lastLimit = Number.POSITIVE_INFINITY
+    }
+  }
+}
+
+const round = (value: number, precision: number): number => {
+  const factor = 10 ** precision
+  return Math.round((value + Number.EPSILON) * factor) / factor
+}
+
+export const calculateProgressiveTax = (
   income: number,
   brackets: TaxBracket[],
-  options: TaxComputationOptions = {},
-): ProgressiveTaxResult {
-  if (!Array.isArray(brackets) || brackets.length === 0) {
-    return { taxDue: 0, effectiveRate: 0, breakdown: [] }
+  options: ProgressiveTaxOptions = {}
+): ProgressiveTaxResult => {
+  if (!isFiniteNumber(income)) {
+    throw new TaxComputationError('Income must be a finite number')
   }
 
-  const precision = Number.isInteger(options.precision) ? Number(options.precision) : DEFAULT_PRECISION
-  const taxableIncome = Math.max(Number(income) || 0, 0)
-  let remainingIncome = taxableIncome
-  let lowerBound = 0
-  let totalTax = 0
-  const breakdown: ProgressiveTaxBreakdown[] = []
+  validateTaxBrackets(brackets)
+
+  const precision = options.precision ?? DEFAULT_PRECISION
+  const deductions = options.deductions ?? 0
+
+  if (!isFiniteNumber(deductions) || deductions < 0) {
+    throw new TaxComputationError('Deductions must be a non-negative finite number')
+  }
+
+  const taxableIncome = Math.max(0, income - deductions)
+  const breakdown: ProgressiveTaxBreakdownEntry[] = []
+
+  let tax = 0
+  let remaining = taxableIncome
+  let previousLimit = 0
+  let marginalRate = 0
 
   for (const bracket of brackets) {
-    const upperBound = typeof bracket.upTo === 'number' ? bracket.upTo : Number.POSITIVE_INFINITY
-    if (!Number.isFinite(upperBound) && bracket.upTo !== undefined) {
-      throw new TypeError('Bracket upper bound must be finite when provided')
-    }
-    if (upperBound <= lowerBound) {
-      throw new RangeError('Tax brackets must be provided in ascending order with unique thresholds')
-    }
-
-    if (remainingIncome <= 0) {
+    if (remaining <= 0) {
       break
     }
 
-    const span = Math.min(remainingIncome, upperBound - lowerBound)
-    if (span > 0) {
-      const normalizedRate = normalizeTaxRate(bracket.rate)
-      const taxForBracket = roundAmount(span * normalizedRate, precision)
-      totalTax += taxForBracket
-      breakdown.push({
-        taxable: roundAmount(span, precision),
-        rate: normalizedRate,
-        tax: taxForBracket,
-        upTo: Number.isFinite(upperBound) ? upperBound : undefined,
-      })
-      remainingIncome -= span
+    const bracketLimit = bracket.upTo ?? Number.POSITIVE_INFINITY
+    const span = Math.min(remaining, bracketLimit - previousLimit)
+
+    if (span < 0) {
+      continue
     }
 
-    lowerBound = upperBound
+    const taxForBracket = span * bracket.rate
+    breakdown.push({ bracket, taxableAmount: span, tax: taxForBracket })
+    tax += taxForBracket
+    remaining -= span
+    previousLimit = bracket.upTo ?? previousLimit + span
+    if (span > 0) {
+      marginalRate = bracket.rate
+    }
   }
 
-  if (remainingIncome > 0) {
-    const lastBracket = brackets[brackets.length - 1]
-    const normalizedRate = normalizeTaxRate(lastBracket.rate)
-    const taxForRemainder = roundAmount(remainingIncome * normalizedRate, precision)
-    totalTax += taxForRemainder
-    breakdown.push({
-      taxable: roundAmount(remainingIncome, precision),
-      rate: normalizedRate,
-      tax: taxForRemainder,
-      upTo: undefined,
-    })
-  }
-
-  const effectiveRate = taxableIncome > 0 ? roundAmount(totalTax / taxableIncome, Math.max(precision, 4)) : 0
+  const roundedTax = round(tax, precision)
+  const roundedTaxableIncome = round(taxableIncome, precision)
+  const effectiveRate = taxableIncome === 0 ? 0 : round(tax / taxableIncome, precision + 2)
 
   return {
-    taxDue: roundAmount(totalTax, precision),
+    tax: roundedTax,
+    taxableIncome: roundedTaxableIncome,
     effectiveRate,
-    breakdown,
-  }
-}
-
-export function applyTaxCredits(
-  taxDue: number,
-  credits: number | number[],
-  options: TaxComputationOptions = {},
-): { netTax: number; creditsApplied: number; unusedCredits: number } {
-  const precision = Number.isInteger(options.precision) ? Number(options.precision) : DEFAULT_PRECISION
-  const numericTaxDue = Math.max(Number(taxDue) || 0, 0)
-  const totalCredits = Array.isArray(credits)
-    ? credits.reduce((sum, value) => sum + Math.max(Number(value) || 0, 0), 0)
-    : Math.max(Number(credits) || 0, 0)
-
-  const netTax = Math.max(numericTaxDue - totalCredits, 0)
-  const creditsApplied = Math.min(numericTaxDue, totalCredits)
-  const unusedCredits = Math.max(totalCredits - numericTaxDue, 0)
-
-  return {
-    netTax: roundAmount(netTax, precision),
-    creditsApplied: roundAmount(creditsApplied, precision),
-    unusedCredits: roundAmount(unusedCredits, precision),
+    marginalRate,
+    breakdown: breakdown.map((entry) => ({
+      bracket: entry.bracket,
+      taxableAmount: round(entry.taxableAmount, precision),
+      tax: round(entry.tax, precision),
+    })),
   }
 }

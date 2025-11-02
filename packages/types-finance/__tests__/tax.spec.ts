@@ -1,69 +1,75 @@
-import { describe, expect, it } from 'vitest'
-
-import {
-  applyTaxCredits,
-  calculateProgressiveTax,
-  calculateTaxLiability,
-  normalizeTaxRate,
-  type TaxBracket,
-} from '../src/tax.js'
+import { calculateProgressiveTax, TaxComputationError, validateTaxBrackets } from '../src/tax'
 
 describe('tax utilities', () => {
-  it('calculates liabilities across boundary tax rates', () => {
-    const zeroRate = calculateTaxLiability(1000, 0)
-    expect(zeroRate.taxDue).toBe(0)
-    expect(zeroRate.rate).toBe(0)
+  const baseBrackets = [
+    { upTo: 50_000, rate: 0.1 },
+    { upTo: 100_000, rate: 0.2 },
+    { rate: 0.3 },
+  ] as const
 
-    const fullRate = calculateTaxLiability(500, 1)
-    expect(fullRate.taxDue).toBe(500)
-    expect(fullRate.rate).toBe(1)
+  it('returns zero tax for zero or fully deducted income', () => {
+    const zeroIncome = calculateProgressiveTax(0, baseBrackets)
+    expect(zeroIncome.tax).toBe(0)
+    expect(zeroIncome.effectiveRate).toBe(0)
 
-    const twentyPercent = calculateTaxLiability(200, 20)
-    expect(twentyPercent.taxDue).toBe(40)
-    expect(twentyPercent.rate).toBeCloseTo(0.2, 6)
-
-    expect(() => calculateTaxLiability(100, 150)).toThrow(/100%/i)
+    const fullyDeducted = calculateProgressiveTax(40_000, baseBrackets, { deductions: 40_000 })
+    expect(fullyDeducted.tax).toBe(0)
+    expect(fullyDeducted.taxableIncome).toBe(0)
   })
 
-  it('normalizes tax rates expressed as percentages or decimals', () => {
-    expect(normalizeTaxRate(0.25)).toBeCloseTo(0.25, 6)
-    expect(normalizeTaxRate(25)).toBeCloseTo(0.25, 6)
-    expect(() => normalizeTaxRate(-0.1)).toThrow(/negative/i)
+  it('applies bracket boundaries without double-counting income', () => {
+    const fiftyK = calculateProgressiveTax(50_000, baseBrackets)
+    expect(fiftyK.tax).toBe(5_000)
+    expect(fiftyK.effectiveRate).toBeCloseTo(0.1, 4)
+    expect(fiftyK.breakdown).toHaveLength(1)
+
+    const oneHundredK = calculateProgressiveTax(100_000, baseBrackets)
+    expect(oneHundredK.tax).toBe(15_000)
+    expect(oneHundredK.breakdown).toHaveLength(2)
+
+    const twoHundredK = calculateProgressiveTax(200_000, baseBrackets)
+    const expectedTax = 50_000 * 0.1 + 50_000 * 0.2 + 100_000 * 0.3
+    expect(twoHundredK.tax).toBe(expectedTax)
+    expect(twoHundredK.marginalRate).toBe(0.3)
   })
 
-  it('computes progressive tax with rounding and validates brackets', () => {
-    const brackets: TaxBracket[] = [
-      { upTo: 50000, rate: 10 },
-      { upTo: 100000, rate: 0.2 },
-      { rate: 0.32 },
-    ]
+  it('respects rounding precision for tax and breakdown entries', () => {
+    const result = calculateProgressiveTax(
+      87_654.321,
+      [
+        { upTo: 10_000, rate: 0.12 },
+        { upTo: 80_000, rate: 0.22 },
+        { rate: 0.33 },
+      ],
+      { precision: 3 }
+    )
 
-    const result = calculateProgressiveTax(125000, brackets, { precision: 2 })
+    expect(result.tax).toBeCloseTo(19_125.926, 3)
+    for (const entry of result.breakdown) {
+      expect(entry.taxableAmount * 1000).toBeCloseTo(Math.round(entry.taxableAmount * 1000), 6)
+      expect(entry.tax * 1000).toBeCloseTo(Math.round(entry.tax * 1000), 6)
+    }
+  })
 
-    expect(result.taxDue).toBeCloseTo(50000 * 0.1 + 50000 * 0.2 + 25000 * 0.32, 2)
-    expect(result.breakdown).toHaveLength(3)
-    expect(result.breakdown[0]).toMatchObject({ taxable: 50000, rate: 0.1, tax: 5000 })
-    expect(result.breakdown[2]).toMatchObject({ taxable: 25000, rate: 0.32 })
-    expect(result.effectiveRate).toBeCloseTo(23000 / 125000, 3)
+  it('validates tax bracket inputs before computation', () => {
+    expect(() => validateTaxBrackets([])).toThrow(TaxComputationError)
+    expect(() =>
+      calculateProgressiveTax(10_000, [
+        { upTo: 20_000, rate: -0.1 },
+      ])
+    ).toThrow(TaxComputationError)
 
     expect(() =>
-      calculateProgressiveTax(50000, [
-        { upTo: 40000, rate: 0.15 },
-        { upTo: 30000, rate: 0.2 },
-      ]),
-    ).toThrow(/ascending order/i)
+      calculateProgressiveTax(10_000, [
+        { upTo: 20_000, rate: 0.1 },
+        { upTo: 10_000, rate: 0.2 },
+      ])
+    ).toThrow(TaxComputationError)
   })
 
-  it('applies tax credits without allowing negative liabilities', () => {
-    const liability = calculateTaxLiability(10000, 0.25)
-    const credits = applyTaxCredits(liability.taxDue, [500, 3000], { precision: 2 })
-
-    expect(credits.netTax).toBeCloseTo(Math.max(liability.taxDue - 3500, 0), 2)
-    expect(credits.creditsApplied).toBeLessThanOrEqual(liability.taxDue)
-    expect(credits.unusedCredits).toBeGreaterThanOrEqual(0)
-
-    const excessCredits = applyTaxCredits(100, 500)
-    expect(excessCredits.netTax).toBe(0)
-    expect(excessCredits.unusedCredits).toBe(400)
+  it('rejects invalid deduction inputs', () => {
+    expect(() => calculateProgressiveTax(50_000, baseBrackets, { deductions: -1 })).toThrow(
+      TaxComputationError
+    )
   })
 })
