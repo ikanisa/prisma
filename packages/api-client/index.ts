@@ -424,4 +424,4 @@ export interface CompleteTaskPayload {
 }
 
 export default ApiClient;
-export * as ApiTypes from './types';
+export * as ApiTypes from './types.js';
