@@ -20,6 +20,17 @@ enum RoleLevel {
   @@map("role_level")
 }
 
+enum AgentTaskStatus {
+  PENDING
+  ASSIGNED
+  IN_PROGRESS
+  AWAITING_APPROVAL
+  COMPLETED
+  FAILED
+
+  @@map("agent_task_status")
+}
+
 enum Dac6HallmarkCategory {
   A
   B
@@ -51,11 +62,32 @@ enum TaxDisputeStatus {
 
 enum UsOverlayType {
   GILTI
-  _163J @map("163J")
+  US_163J @map("163J")
   CAMT
   EXCISE_4501
 
   @@map("us_overlay_type")
+}
+
+enum AgentOrchestrationStatus {
+  PENDING
+  RUNNING
+  WAITING_APPROVAL
+  COMPLETED
+  FAILED
+
+  @@map("agent_orchestration_status")
+}
+
+enum AgentTaskStatus {
+  PENDING
+  ASSIGNED
+  IN_PROGRESS
+  AWAITING_APPROVAL
+  COMPLETED
+  FAILED
+
+  @@map("agent_task_status")
 }
 
 model User {
@@ -96,10 +128,15 @@ model Organization {
   notifications Notification[]
   activityLogs  ActivityLog[]
   agentSessions AgentSession[]
+  agentOrchestrationSessions AgentOrchestrationSession[]
   audits        Audit[]
   accounting    Accounting[]   @relation("AccountingOrganization")
   taxRules      Tax[]
   analyticsEvents AnalyticsEvent[]
+  telemetryServiceLevels TelemetryServiceLevel[]
+  telemetryCoverageMetrics TelemetryCoverageMetric[]
+  telemetryRefusalEvents TelemetryRefusalEvent[]
+  openAiDebugEvents OpenAiDebugEvent[]
 
   @@map("organizations")
 }
@@ -249,6 +286,26 @@ model AgentSession {
   @@map("agent_sessions")
 }
 
+model AgentOrchestrationTask {
+  id          String           @id @db.Uuid
+  sessionId   String           @map("session_id") @db.Uuid
+  agentManifestId String?      @map("agent_manifest_id") @db.Uuid
+  title       String
+  input       Json             @default("{}")
+  output      Json?
+  status      AgentTaskStatus  @default(PENDING)
+  dependsOn   String[]         @map("depends_on") @db.Uuid
+  metadata    Json             @default("{}")
+  startedAt   DateTime?        @map("started_at") @db.Timestamptz(6)
+  completedAt DateTime?        @map("completed_at") @db.Timestamptz(6)
+  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime         @default(now()) @map("updated_at") @db.Timestamptz(6)
+
+  @@map("agent_orchestration_tasks")
+  @@index([sessionId, status], map: "idx_agent_orch_tasks_session_status")
+  @@index([status, id], map: "idx_agent_orch_tasks_status_id")
+}
+
 model Audit {
   id        String   @id @db.Uuid
   orgId     String   @map("org_id") @db.Uuid
@@ -373,7 +430,7 @@ model AnalyticsEvent {
   orgId      String?   @map("org_id") @db.Uuid
   actorId    String?   @map("actor_id") @db.Uuid
   properties Json      @default("{}")
-  tags       String[]  @db.TextArray
+  tags       String[]
   context    Json      @default("{}")
   metadata   Json      @default("{}")
   occurredAt DateTime  @default(now()) @map("occurred_at") @db.Timestamptz(6)

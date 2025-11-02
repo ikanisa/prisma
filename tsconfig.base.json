@@ -20,6 +20,19 @@
         "./packages/api-client/dist/index.d.ts",
         "./packages/api-client/dist/index.js"
       ],
+      "@prisma-glow/api/schemas": [
+        "./packages/api/src/schemas/index.ts",
+        "./packages/api/dist/schemas/index.d.ts",
+        "./packages/api/dist/schemas/index.js"
+      ],
+      "@prisma-glow/api": [
+        "./packages/api/src/index.ts",
+        "./packages/api/dist/index.d.ts",
+        "./packages/api/dist/index.js"
+      ],
+      "@prisma-glow/config/env/security": [
+        "./config/env/security.ts"
+      ],
       "@prisma-glow/system-config": [
         "./packages/system-config/src/index.ts",
         "./packages/system-config/dist/index.d.ts",
@@ -29,6 +42,16 @@
         "./packages/logger/dist/index.d.ts",
         "./packages/logger/src/index.ts",
         "./packages/logger/dist/index.js"
+      ],
+      "@prisma-glow/logging": [
+        "./packages/logging/src/index.ts",
+        "./packages/logging/dist/index.d.ts",
+        "./packages/logging/dist/index.js"
+      ],
+      "@prisma-glow/otel": [
+        "./services/otel/src/index.ts",
+        "./services/otel/dist/index.d.ts",
+        "./services/otel/dist/index.js"
       ],
       "@prisma-glow/ui": [
         "./packages/ui/src/index.ts"
@@ -50,19 +73,33 @@
       "@prisma-glow/agents": [
         "./packages/agents/src/index.ts",
         "./packages/agents/dist/index.d.ts"
+      ],
+      "@prisma-glow/cache": [
+        "./services/cache/src/index.ts",
+        "./services/cache/dist/index.d.ts",
+        "./services/cache/dist/index.js"
+      ],
+      "@prisma-glow/cache/*": [
+        "./services/cache/src/*.ts",
+        "./services/cache/dist/*.d.ts",
+        "./services/cache/dist/*.js"
       ]
     }
   },
   "references": [
     { "path": "./packages/api-client/tsconfig.json" },
+    { "path": "./packages/api/tsconfig.json" },
     { "path": "./packages/system-config/tsconfig.json" },
     { "path": "./packages/logger/tsconfig.json" },
+    { "path": "./packages/logging/tsconfig.json" },
     { "path": "./packages/ui/tsconfig.json" },
     { "path": "./packages/agents/tsconfig.json" },
     { "path": "./packages/lib/tsconfig.json" },
     { "path": "./packages/platform/tsconfig.json" },
     { "path": "./packages/tax/tsconfig.json" },
+    { "path": "./services/cache/tsconfig.json" },
     { "path": "./services/rag/tsconfig.json" },
+    { "path": "./services/otel/tsconfig.json" },
     { "path": "./apps/gateway/tsconfig.json" }
   ]
 }

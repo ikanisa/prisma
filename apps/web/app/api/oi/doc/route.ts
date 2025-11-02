@@ -5,6 +5,8 @@ import { getServiceSupabaseClient } from '@/lib/supabase-server';
 import { ensureEvidenceDocument, buildEvidenceManifest } from '@/lib/audit/evidence';
 import { upsertAuditModuleRecord } from '@/lib/audit/module-records';
 import { logAuditActivity } from '@/lib/audit/activity-log';
+import { invalidateRouteCache } from '@/lib/cache/route-cache';
+import { logger } from '@/lib/logger';
 import { attachRequestId, getOrCreateRequestId } from '@/app/lib/observability';
 import { createApiGuard } from '@/app/lib/api-guard';
 
@@ -137,6 +139,18 @@ export async function POST(request: Request) {
       requestId,
     },
   });
+
+  try {
+    await invalidateRouteCache('otherInformationDocs', [payload.orgId, payload.engagementId]);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    logger.warn('apps.web.cache_invalidate_failed', {
+      message,
+      orgId: payload.orgId,
+      engagementId: payload.engagementId,
+      documentId: data.id,
+    });
+  }
 
   return guard.respond({ document: data, signedUrl });
 }

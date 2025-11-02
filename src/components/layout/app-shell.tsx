@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Header } from "./header";
 import { Sidebar } from "./sidebar";
 import { CommandPalette } from "@/components/command-palette";
@@ -18,9 +18,10 @@ export function AppShell() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const { orgSlug } = useParams();
   const shellTheme = useShellThemeTokens();
-  const targetMembership = orgSlug
-    ? memberships.find((membership) => membership.organization.slug === orgSlug)
-    : undefined;
+  const targetMembership = useMemo(
+    () => (orgSlug ? memberships.find((membership) => membership.organization.slug === orgSlug) : undefined),
+    [memberships, orgSlug],
+  );
 
   // Auto-switch to the organization based on URL slug
   useEffect(() => {

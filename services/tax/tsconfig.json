@@ -1,0 +1,13 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": false,
+    "rootDir": ".",
+    "types": ["vitest/globals"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "resolveJsonModule": true,
+    "baseUrl": "."
+  },
+  "include": ["tests/**/*.ts", "vitest.config.ts"]
+}

@@ -14,11 +14,14 @@
     "composite": true
   },
   "include": [
-    "src"
+    "src",
+    "logger.js.d.ts"
   ],
   "references": [
     { "path": "../../packages/api-client" },
     { "path": "../../packages/system-config" },
-    { "path": "../../packages/logger" }
+    { "path": "../../packages/logger" },
+    { "path": "../../packages/logging" },
+    { "path": "../../services/otel" }
   ]
 }

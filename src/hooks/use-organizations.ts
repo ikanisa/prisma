@@ -39,14 +39,28 @@ export interface Membership {
   organization: Organization;
 }
 
+const ROLE_HIERARCHY: Record<OrgRole, number> = {
+  SERVICE_ACCOUNT: 10,
+  READONLY: 20,
+  CLIENT: 30,
+  EMPLOYEE: 40,
+  MANAGER: 70,
+  EQR: 80,
+  PARTNER: 90,
+  SYSTEM_ADMIN: 100,
+};
+
 export function useOrganizations() {
   const { user } = useAuth();
   const [memberships, setMemberships] = useState<Membership[]>([]);
   const [currentOrgId, setCurrentOrgId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const currentOrg = memberships.find((m) => m.org_id === currentOrgId)?.organization || null;
-  const currentMembership = memberships.find((m) => m.org_id === currentOrgId) || null;
+  const currentMembership = useMemo(
+    () => memberships.find((membership) => membership.org_id === currentOrgId) ?? null,
+    [memberships, currentOrgId],
+  );
+  const currentOrg = currentMembership?.organization ?? null;
   const currentRole = currentMembership?.role ?? null;
   const tenantClient = useMemo<TenantClient | null>(() => {
     if (!currentOrg) return null;
@@ -230,25 +244,15 @@ export function useOrganizations() {
     }
   }, []);
 
-  const roleHierarchy: Record<OrgRole, number> = {
-    SERVICE_ACCOUNT: 10,
-    READONLY: 20,
-    CLIENT: 30,
-    EMPLOYEE: 40,
-    MANAGER: 70,
-    EQR: 80,
-    PARTNER: 90,
-    SYSTEM_ADMIN: 100,
-  };
+  const hasRole = useCallback(
+    (minRole: OrgRole) => {
+      if (!currentMembership) return false;
+      return ROLE_HIERARCHY[currentMembership.role] >= ROLE_HIERARCHY[minRole];
+    },
+    [currentMembership],
+  );
 
-  const hasRole = (minRole: OrgRole) => {
-    if (!currentOrg) return false;
-    if (!currentMembership) return false;
-
-    return roleHierarchy[currentMembership.role] >= roleHierarchy[minRole];
-  };
-
-  const isSystemAdmin = () => memberships.some((m) => m.role === 'SYSTEM_ADMIN');
+  const isSystemAdmin = useCallback(() => memberships.some((membership) => membership.role === 'SYSTEM_ADMIN'), [memberships]);
 
   return {
     memberships,
