@@ -1,24 +1,15 @@
-import { describe, expect, it } from 'vitest'
-import { jsonSerializer, safeDeserialize, safeSerialize } from '../src/serialization.js'
+import { describe, expect, it } from 'vitest';
+import { deserializeValue, serializeValue } from '../serialization';
 
-describe('serialization helpers', () => {
-  it('round-trips objects using jsonSerializer', () => {
-    const payload = { foo: 'bar', count: 3, nested: { value: true } }
-    const encoded = jsonSerializer.serialize(payload)
-    expect(encoded).toBeTypeOf('string')
-    const decoded = jsonSerializer.deserialize<typeof payload>(encoded)
-    expect(decoded).toEqual(payload)
-  })
+describe('cache serialization helpers', () => {
+  it('round-trips complex payloads', () => {
+    const payload = { foo: 'bar', nested: { count: 2 }, list: [1, 2, 3], flag: false };
+    const encoded = serializeValue(payload);
+    expect(deserializeValue<typeof payload>(encoded)).toEqual(payload);
+  });
 
-  it('returns null when safeDeserialize encounters invalid JSON', () => {
-    const result = safeDeserialize(jsonSerializer, '{invalid')
-    expect(result).toBeNull()
-  })
-
-  it('returns null when safeSerialize throws', () => {
-    const cyclic: Record<string, unknown> = {}
-    cyclic.self = cyclic
-    const result = safeSerialize(jsonSerializer, cyclic)
-    expect(result).toBeNull()
-  })
-})
+  it('returns undefined for malformed data', () => {
+    expect(deserializeValue('not-json')).toBeUndefined();
+    expect(deserializeValue(null)).toBeUndefined();
+  });
+});

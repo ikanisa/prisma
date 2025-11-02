@@ -79,6 +79,16 @@ Required variables:
   `AUTOPILOT_SCHEDULE_RATE_WINDOW_SECONDS`, `AUTOPILOT_JOB_RATE_LIMIT`, and
   `AUTOPILOT_JOB_RATE_WINDOW_SECONDS`.
 
+### Caching
+
+- `REDIS_URL` is required to enable shared caching; defaults to in-memory caches when
+  unset for development.
+- Optional tuning knobs:
+  - `CACHE_KEY_PREFIX` (defaults to `cache:`) to isolate keys per environment.
+  - `CACHE_DEFAULT_TTL_SECONDS` to set the global fallback expiry for cache entries.
+  - `CACHE_TTL_GROUP_INSTRUCTIONS` and `CACHE_TTL_GROUP_INSTRUCTIONS_INDEX` to control
+    the lifetime of cached group instruction listings and their invalidation index.
+
 ## Run Commands
 
 - `pnpm install --frozen-lockfile` – install workspace dependencies.

@@ -1,12 +1,18 @@
+import { randomUUID } from 'crypto';
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logGroupActivity } from '@/lib/group/activity';
 import { getOrgIdFromRequest, isUuid, resolveUserId, toJsonRecord } from '@/lib/group/request';
 import { getSupabaseServerClient } from '@/lib/supabase/server';
+import { buildCacheKey, getCacheClient, getCacheTtlSeconds, type CacheClient } from '@services/cache';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
+
+const CACHE_NAMESPACE = 'group:instructions';
+const CACHE_TTL_SECONDS = getCacheTtlSeconds('group_instructions', 120);
+const CACHE_INDEX_TTL_SECONDS = getCacheTtlSeconds('group_instructions_index', CACHE_TTL_SECONDS);
 
 type GroupInstructionInsert = {
   org_id: string;
@@ -24,6 +30,53 @@ type GroupInstructionInsert = {
 function getSupabaseClients() {
   const supabase = getSupabaseServerClient();
   return { supabase, supabaseUnsafe: supabase as SupabaseClient };
+}
+
+function buildInstructionsCacheKey(
+  orgId: string,
+  filters: { engagementId?: string | null; componentId?: string | null; status?: string | null },
+  version: string,
+) {
+  return buildCacheKey([
+    CACHE_NAMESPACE,
+    orgId,
+    filters.engagementId ?? null,
+    filters.componentId ?? null,
+    filters.status ?? null,
+    version,
+  ]);
+}
+
+function buildVersionKey(orgId: string) {
+  return `${CACHE_NAMESPACE}:version:${orgId}`;
+}
+
+function resolveIndexTtlSeconds() {
+  const ttl = Math.max(CACHE_INDEX_TTL_SECONDS, CACHE_TTL_SECONDS);
+  return ttl > 0 ? ttl : undefined;
+}
+
+async function getCacheVersion(client: CacheClient, orgId: string) {
+  try {
+    const versionKey = buildVersionKey(orgId);
+    const version = await client.get<string>(versionKey);
+    if (typeof version === 'string' && version.length > 0) {
+      return version;
+    }
+  } catch (error) {
+    console.warn('group.instructions.cache_version_read_failed', { error });
+  }
+  return '0';
+}
+
+async function invalidateInstructionCache(client: CacheClient, orgId: string) {
+  try {
+    const versionKey = buildVersionKey(orgId);
+    const ttlSeconds = resolveIndexTtlSeconds();
+    await client.set(versionKey, randomUUID(), { ttlSeconds });
+  } catch (error) {
+    console.warn('group.instructions.cache_invalidate_failed', { error });
+  }
 }
 
 function buildInsertPayload(orgId: string, userId: string, body: Record<string, unknown>): GroupInstructionInsert {
@@ -76,6 +129,27 @@ export async function GET(request: NextRequest) {
   const componentId = url.searchParams.get('componentId');
   const status = url.searchParams.get('status');
 
+  const cacheClient = getCacheClient();
+  const shouldUseCache = Boolean(cacheClient) && CACHE_TTL_SECONDS > 0;
+  let cacheVersion = '0';
+
+  if (shouldUseCache && cacheClient) {
+    cacheVersion = await getCacheVersion(cacheClient, orgId);
+  }
+
+  const cacheKey = buildInstructionsCacheKey(
+    orgId,
+    { engagementId, componentId, status },
+    cacheVersion,
+  );
+
+  if (shouldUseCache && cacheClient) {
+    const cached = await cacheClient.get<{ instructions: unknown[] }>(cacheKey);
+    if (cached !== undefined) {
+      return NextResponse.json(cached);
+    }
+  }
+
   const query = supabaseUnsafe
     .from('group_instructions')
     .select('*')
@@ -102,12 +176,18 @@ export async function GET(request: NextRequest) {
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
+  const response = { instructions: data ?? [] };
 
-  return NextResponse.json({ instructions: data ?? [] });
+  if (shouldUseCache && cacheClient) {
+    await cacheClient.set(cacheKey, response, { ttlSeconds: CACHE_TTL_SECONDS });
+  }
+
+  return NextResponse.json(response);
 }
 
 export async function POST(request: NextRequest) {
   const { supabase, supabaseUnsafe } = getSupabaseClients();
+  const cacheClient = getCacheClient();
   let payload: unknown;
   try {
     payload = await request.json();
@@ -159,6 +239,10 @@ export async function POST(request: NextRequest) {
       component_id: data?.component_id ?? null,
     },
   });
+
+  if (cacheClient && CACHE_TTL_SECONDS > 0) {
+    await invalidateInstructionCache(cacheClient, orgId);
+  }
 
   return NextResponse.json({ instruction: data });
 }
