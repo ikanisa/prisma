@@ -17,6 +17,10 @@
     "test": {
       "dependsOn": ["^build"],
       "outputs": []
+    },
+    "performance": {
+      "cache": false,
+      "outputs": ["test-results/performance/**"]
     }
   }
 }

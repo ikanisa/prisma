@@ -7,6 +7,7 @@ on:
     branches: [ main ]
   schedule:
     - cron: '30 2 * * *'
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -389,3 +390,47 @@ jobs:
         if: always()
         run: |
           if [ -f api.pid ]; then kill $(cat api.pid) || true; fi
+
+  performance-smoke:
+    name: k6 gateway smoke
+    needs: build-test
+    runs-on: ubuntu-latest
+    if: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && secrets.PERF_BASE_URL != '' && secrets.PERF_SERVICE_TOKEN != '' }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          run_install: false
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20.19.4
+          cache: 'pnpm'
+
+      - uses: grafana/setup-k6-action@v0.2
+        with:
+          version: v0.49.0
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run performance smoke suite
+        env:
+          PERF_BASE_URL: ${{ secrets.PERF_BASE_URL }}
+          PERF_SERVICE_TOKEN: ${{ secrets.PERF_SERVICE_TOKEN }}
+          PERF_ORG_SLUG: ${{ secrets.PERF_ORG_SLUG }}
+          PERF_ORG_ID: ${{ secrets.PERF_ORG_ID }}
+          PERF_ORG_MEMBERSHIPS: ${{ secrets.PERF_ORG_MEMBERSHIPS }}
+          PERF_USER_ID: ${{ secrets.PERF_USER_ID }}
+          PERF_AUTOPILOT_TOKEN: ${{ secrets.PERF_AUTOPILOT_TOKEN }}
+          PERF_ENVIRONMENT_TAG: production
+        run: pnpm run test:performance:ci
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: k6-performance-reports
+          path: test-results/performance
+          if-no-files-found: warn
