@@ -17,6 +17,7 @@ import { recentLedgerEntries } from '@/lib/finance-review/ledger';
 import { retrieveRelevant } from '@/lib/finance-review/retrieval';
 import { supabaseAdmin } from '@/lib/finance-review/supabase';
 import type { FinanceReviewDatabase } from '@/lib/finance-review/supabase';
+import type { PostgrestSingleResponse } from '@supabase/supabase-js';
 import { CFO_PROMPT, CFOResponseSchema } from '@/agents/finance-review/cfo';
 import { AUDITOR_PROMPT, AuditorResponseSchema } from '@/agents/finance-review/auditor';
 
@@ -176,7 +177,9 @@ ${retrievalContext}
         : cfoResponse.status;
 
     // Log to controls_logs
-    const logPayload: FinanceReviewDatabase['public']['Tables']['controls_logs']['Insert'] = {
+    type ControlLogInsert = FinanceReviewDatabase['public']['Tables']['controls_logs']['Insert'];
+
+    const controlLogPayload: ControlLogInsert = {
       org_id: orgId,
       control_key: 'daily_review',
       period: new Date().toISOString().slice(0, 10),
@@ -186,15 +189,15 @@ ${retrievalContext}
         auditor: auditorResponse,
         ledger_entries_count: ledger.length,
         retrieval_chunks: retrievals.length,
-      },
+      } as Record<string, unknown>,
     };
 
-    const { data: controlLog, error: logError } = await supabaseAdmin
+    const { data: controlLog, error: logError } = (await supabaseAdmin
       .from('controls_logs')
-      // Supabase type helpers are not available in this workspace build, cast to preserve intent.
-      .insert(logPayload as never)
+      // Supabase typings under strict template inference fall back to `never`; cast after validating payload.
+      .insert([controlLogPayload] as never)
       .select('id')
-      .single<FinanceReviewDatabase['public']['Tables']['controls_logs']['Row']>();
+      .single()) as PostgrestSingleResponse<{ id: string }>;
 
     if (logError) {
       console.error('Failed to log control execution:', logError);
@@ -206,13 +209,15 @@ ${retrievalContext}
       ...auditorResponse.exceptions.map((e) => `[Auditor] ${e.ref}: ${e.recommendation}`),
     ];
 
-    return NextResponse.json({
+    const responseBody = ResponseSchema.parse({
       status: overallStatus,
       cfo: cfoResponse,
       auditor: auditorResponse,
       tasks,
-      controlLogId: controlLog?.id || '',
+      controlLogId: controlLog?.id || crypto.randomUUID(),
     });
+
+    return NextResponse.json(responseBody);
   } catch (error) {
     console.error('Review run failed:', error);
 

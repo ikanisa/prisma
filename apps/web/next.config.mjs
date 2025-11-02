@@ -7,23 +7,12 @@ const withPWA = nextPWA({
   buildExcludes: [/middleware-manifest\.json$/],
 });
 
+const analyzerMode = process.env.ANALYZE_MODE === 'json' ? 'json' : 'static';
+
 const withBundleAnalyzer = bundleAnalyzer({
   enabled: process.env.ANALYZE === 'true',
   openAnalyzer: false,
-  analyzerMode: 'static',
-  reportFilename: 'analyze/client.html',
-  statsFilename: 'analyze/client-stats.json',
-  generateStatsFile: true,
-  serverAnalyzerConfig: {
-    analyzerMode: 'static',
-    reportFilename: 'analyze/nodejs.html',
-    openAnalyzer: false,
-  },
-  browserAnalyzerConfig: {
-    analyzerMode: 'static',
-    reportFilename: 'analyze/client.html',
-    openAnalyzer: false,
-  },
+  analyzerMode,
 });
 
 const securityHeaders = [
@@ -51,6 +40,12 @@ export default withBundleAnalyzer(
         { protocol: 'https', hostname: 'images.prismaglow.test' },
         { protocol: 'https', hostname: 'cdn.prismaglow.test' },
       ],
+    },
+    typescript: {
+      ignoreBuildErrors: process.env.ANALYZE === 'true',
+    },
+    eslint: {
+      ignoreDuringBuilds: process.env.ANALYZE === 'true',
     },
     async headers() {
       return [

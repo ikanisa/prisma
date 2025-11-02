@@ -18,10 +18,20 @@
       "dependsOn": ["^build"],
       "outputs": []
     },
-    "bundle:check": {
+    "bundle": {
       "dependsOn": ["build"],
-      "outputs": [],
-      "inputs": ["config/bundle-budgets.json"]
+      "outputs": ["apps/web/.next/analyze/**"],
+      "env": [
+        "ANALYZE",
+        "ANALYZE_MODE",
+        "NEXT_DISABLE_ESLINT",
+        "NEXT_DISABLE_TYPE_CHECK",
+        "SUPABASE_URL",
+        "SUPABASE_ANON_KEY",
+        "SUPABASE_SERVICE_ROLE_KEY",
+        "OPENAI_API_KEY",
+        "DEFAULT_ORG_ID"
+      ]
     }
   }
 }

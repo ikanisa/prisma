@@ -8,69 +8,54 @@ import { logger } from '@/lib/logger';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useI18nContext } from '@/i18n/I18nProvider';
 
-const priorityBadgeClass: Record<string, string> = {
+const PRIORITY_BADGE_CLASS: Record<string, string> = {
   high: 'bg-destructive/10 text-destructive',
   medium: 'bg-brand/10 text-brand-900',
   low: 'bg-muted text-muted-foreground',
 };
 
-const LOADING_PLACEHOLDERS = Array.from({ length: 4 });
-
-const formatRelativeDateSafe = (iso: string | null | undefined, fallback: string) => {
-  if (!iso) return fallback;
-  try {
-    return formatDistanceToNow(new Date(iso), { addSuffix: true });
-  } catch (error) {
-    if (process.env.NODE_ENV !== 'production') {
-      logger.warn('agent_task_list.date_format_failed', { error, iso });
-    }
-    return fallback;
-  }
+const PRIORITY_TRANSLATION_KEYS: Record<'high' | 'medium' | 'low', string> = {
+  high: 'agents.tasks.priority.high',
+  medium: 'agents.tasks.priority.medium',
+  low: 'agents.tasks.priority.low',
 };
+
+const LOADING_PLACEHOLDERS = Array.from({ length: 4 });
 
 function AgentTaskListComponent() {
   const { tasks, total, source, isPending } = useAgentTasks();
   const { t } = useI18nContext();
 
-  const priorityMap = useMemo(
-    () => ({
-      high: 'agents.tasks.priority.high',
-      medium: 'agents.tasks.priority.medium',
-      low: 'agents.tasks.priority.low',
-    }),
-    [],
-  );
+  const formatRelativeDate = useCallback((iso: string | null | undefined, fallback: string) => {
+    if (!iso) return fallback;
+    try {
+      return formatDistanceToNow(new Date(iso), { addSuffix: true });
+    } catch (error) {
+      if (process.env.NODE_ENV !== 'production') {
+        logger.warn('agent_task_list.date_format_failed', { error, iso });
+      }
+      return fallback;
+    }
+  }, []);
 
   const resolvePriorityLabel = useCallback(
     (priority?: string | null) => {
       const fallbackRaw = (priority ?? 'medium').toLowerCase();
-      const normalized = fallbackRaw as keyof typeof priorityMap;
-      const key = priorityMap[normalized] ?? priorityMap.medium;
+      const normalized = fallbackRaw as keyof typeof PRIORITY_TRANSLATION_KEYS;
+      const key = PRIORITY_TRANSLATION_KEYS[normalized] ?? PRIORITY_TRANSLATION_KEYS.medium;
       const translated = t(key);
       if (translated === key) {
         return fallbackRaw.charAt(0).toUpperCase() + fallbackRaw.slice(1);
       }
       return translated;
     },
-    [priorityMap, t],
+    [t],
   );
 
-  const fallbackRelativeLabel = useMemo(() => t('common.time.recently'), [t]);
-
-  const formatRelativeDate = useCallback(
-    (iso: string | null | undefined, fallback?: string) =>
-      formatRelativeDateSafe(iso, fallback ?? fallbackRelativeLabel),
-    [fallbackRelativeLabel],
-  );
-
-  const { heading, subtitle, totalLabel } = useMemo(() => {
-    const sampleTag = source === 'stub' ? ` ${t('common.sampleDataTag')}` : '';
-    return {
-      heading: t('agents.tasks.title'),
-      subtitle: t('agents.tasks.subtitle', { sampleTag }),
-      totalLabel: t('agents.tasks.total', { count: String(total) }),
-    };
-  }, [source, t, total]);
+  const heading = useMemo(() => t('agents.tasks.title'), [t]);
+  const sampleTag = useMemo(() => (source === 'stub' ? ` ${t('common.sampleDataTag')}` : ''), [source, t]);
+  const subtitle = useMemo(() => t('agents.tasks.subtitle', { sampleTag }), [sampleTag, t]);
+  const totalLabel = useMemo(() => t('agents.tasks.total', { count: String(total) }), [t, total]);
 
   if (isPending) {
     return (
@@ -122,9 +107,7 @@ function AgentTaskListComponent() {
           <h2 id="agent-tasks-heading" className="text-lg font-semibold text-foreground">
             {heading}
           </h2>
-          <p className="text-sm text-muted-foreground">
-            {subtitle}
-          </p>
+          <p className="text-sm text-muted-foreground">{subtitle}</p>
         </div>
         <span className="rounded-full bg-muted px-3 py-1 text-xs font-medium text-muted-foreground" aria-live="polite">
           {totalLabel}
@@ -138,7 +121,9 @@ function AgentTaskListComponent() {
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{task.status}</span>
                 <span
-                  className={`rounded-full px-2 py-1 text-xs font-medium ${priorityBadgeClass[task.priority ?? 'medium'] ?? priorityBadgeClass.medium}`}
+                  className={`rounded-full px-2 py-1 text-xs font-medium ${
+                    PRIORITY_BADGE_CLASS[task.priority ?? 'medium'] ?? PRIORITY_BADGE_CLASS.medium
+                  }`}
                 >
                   {t('agents.tasks.priorityLabel', {
                     priority: resolvePriorityLabel(task.priority),
@@ -170,3 +155,4 @@ function AgentTaskListComponent() {
 }
 
 export const AgentTaskList = memo(AgentTaskListComponent);
+AgentTaskList.displayName = 'AgentTaskList';
