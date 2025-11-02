@@ -8,6 +8,7 @@
  */
 
 import { supabaseAdmin } from './supabase';
+import type { FinanceReviewDatabase } from './supabase';
 import { embedText } from './embeddings';
 import { financeReviewEnv } from './env';
 
@@ -47,18 +48,21 @@ export async function retrieveRelevant(
   const queryVector = await embedText(query);
   
   // Call RPC function for vector search
-  const { data, error } = await supabaseAdmin.rpc('match_embeddings', {
-    p_org_id: orgId,
-    query_vector: queryVector,
-    match_threshold: threshold,
-    match_count: limit,
-  });
-  
+  const { data, error } = await supabaseAdmin.rpc(
+    'match_embeddings',
+    {
+      p_org_id: orgId,
+      query_vector: queryVector,
+      match_threshold: threshold,
+      match_count: limit,
+    } as never,
+  );
+
   if (error) {
     throw new Error(`Vector search failed: ${error.message}`);
   }
-  
-  return (data || []) as RetrievalResult[];
+
+  return ((data || []) as FinanceReviewDatabase['public']['Functions']['match_embeddings']['Returns']) as RetrievalResult[];
 }
 
 /**

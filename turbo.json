@@ -17,6 +17,11 @@
     "test": {
       "dependsOn": ["^build"],
       "outputs": []
+    },
+    "bundle:check": {
+      "dependsOn": ["build"],
+      "outputs": [],
+      "inputs": ["config/bundle-budgets.json"]
     }
   }
 }

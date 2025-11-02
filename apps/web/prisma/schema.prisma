@@ -62,11 +62,32 @@ enum TaxDisputeStatus {
 
 enum UsOverlayType {
   GILTI
-  _163J @map("163J")
+  US_163J @map("163J")
   CAMT
   EXCISE_4501
 
   @@map("us_overlay_type")
+}
+
+enum AgentOrchestrationStatus {
+  PENDING
+  RUNNING
+  WAITING_APPROVAL
+  COMPLETED
+  FAILED
+
+  @@map("agent_orchestration_status")
+}
+
+enum AgentTaskStatus {
+  PENDING
+  ASSIGNED
+  IN_PROGRESS
+  AWAITING_APPROVAL
+  COMPLETED
+  FAILED
+
+  @@map("agent_task_status")
 }
 
 model User {
@@ -107,10 +128,15 @@ model Organization {
   notifications Notification[]
   activityLogs  ActivityLog[]
   agentSessions AgentSession[]
+  agentOrchestrationSessions AgentOrchestrationSession[]
   audits        Audit[]
   accounting    Accounting[]   @relation("AccountingOrganization")
   taxRules      Tax[]
   analyticsEvents AnalyticsEvent[]
+  telemetryServiceLevels TelemetryServiceLevel[]
+  telemetryCoverageMetrics TelemetryCoverageMetric[]
+  telemetryRefusalEvents TelemetryRefusalEvent[]
+  openAiDebugEvents OpenAiDebugEvent[]
 
   @@map("organizations")
 }
@@ -404,7 +430,7 @@ model AnalyticsEvent {
   orgId      String?   @map("org_id") @db.Uuid
   actorId    String?   @map("actor_id") @db.Uuid
   properties Json      @default("{}")
-  tags       String[]  @db.TextArray
+  tags       String[]
   context    Json      @default("{}")
   metadata   Json      @default("{}")
   occurredAt DateTime  @default(now()) @map("occurred_at") @db.Timestamptz(6)
