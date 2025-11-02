@@ -7,7 +7,7 @@
   "scripts": {
     "build": "tsc -b tsconfig.json",
     "lint": "eslint . --ext .ts",
-    "test": "vitest run --dir tests --config ../../vitest.config.ts"
+    "test:integration": "vitest run --config tests/vitest.config.ts"
   },
   "dependencies": {
     "@prisma-glow/analytics": "file:../../analytics",
@@ -40,5 +40,10 @@
     "pgvector": "^0.2.1",
     "tesseract.js": "^4.0.2",
     "yaml": "^2.8.1"
+  },
+  "devDependencies": {
+    "@types/supertest": "^2.0.16",
+    "supertest": "^7.1.4",
+    "vitest": "^3.2.4"
   }
 }

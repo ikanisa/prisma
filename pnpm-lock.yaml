@@ -715,6 +715,16 @@ importers:
       yaml:
         specifier: ^2.8.1
         version: 2.8.1
+    devDependencies:
+      '@types/supertest':
+        specifier: ^2.0.16
+        version: 2.0.16
+      supertest:
+        specifier: ^7.1.4
+        version: 7.1.4
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.4(@types/node@22.18.10)(jiti@1.21.7)(jsdom@26.1.0)(terser@5.44.0)(yaml@2.8.1)
 
   services/tax:
     devDependencies:
@@ -4204,6 +4214,9 @@ packages:
 
   '@types/superagent@8.1.9':
     resolution: {integrity: sha512-pTVjI73witn+9ILmoJdajHGW2jkSaOzhiFYF1Rd3EQ94kymLqB9PjD9ISg7WaALC7+dCHT0FGe9T2LktLq/3GQ==}
+
+  '@types/supertest@2.0.16':
+    resolution: {integrity: sha512-6c2ogktZ06tr2ENoZivgm7YnprnhYE4ZoXGMY+oA7IuAf17M8FWvujXZGmxLv8y0PTyts4x5A+erSwVUFA8XSg==}
 
   '@types/supertest@6.0.3':
     resolution: {integrity: sha512-8WzXq62EXFhJ7QsH3Ocb/iKQ/Ty9ZVWnVzoTKc9tyyFRRF3a74Tk2+TLFgaFFw364Ere+npzHKEJ6ga2LzIL7w==}
@@ -14001,6 +14014,10 @@ snapshots:
       '@types/methods': 1.1.4
       '@types/node': 22.18.10
       form-data: 4.0.4
+
+  '@types/supertest@2.0.16':
+    dependencies:
+      '@types/superagent': 8.1.9
 
   '@types/supertest@6.0.3':
     dependencies:
