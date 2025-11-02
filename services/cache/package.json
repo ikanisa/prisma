@@ -1,0 +1,22 @@
+{
+  "name": "@prisma-glow/cache",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b tsconfig.json",
+    "lint": "eslint . --ext .ts"
+  },
+  "dependencies": {
+    "ioredis": "^5.4.1",
+    "zod": "^3.25.76"
+  }
+}

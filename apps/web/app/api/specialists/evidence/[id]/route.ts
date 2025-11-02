@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseServiceClient } from '@/lib/supabase/server';
 import { recordSpecialistActivity } from '@/lib/supabase/activity';
+import { invalidateSpecialistsCache } from '@/lib/specialists/cache';
 
 const STANDARD_EXPERT = 'ISA 620';
 const STANDARD_INTERNAL = 'ISA 610';
@@ -146,6 +147,8 @@ export async function PUT(
       evidenceUrl: data.evidence_url,
     },
   });
+
+  await invalidateSpecialistsCache(data.org_id, data.engagement_id);
 
   return NextResponse.json({ evidence: data });
 }
