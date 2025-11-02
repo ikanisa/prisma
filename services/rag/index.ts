@@ -2877,30 +2877,36 @@ async function resolveOrgForUser(userId: string, orgSlug: string) {
   const cacheKey = buildOrgContextCacheKey(userId, normalizedSlug);
   const setOptions = orgLookupTtlSeconds > 0 ? { ttlSeconds: orgLookupTtlSeconds } : undefined;
 
+  let orgRecord: { id: string; slug: string } | null = null;
+
   try {
-    const cached = await cacheClient.get<{ orgId: string; orgSlug: string; role: AgentRole }>(cacheKey);
+    const cached = await cacheClient.get<{ orgId: string; orgSlug: string }>(cacheKey);
     if (cached) {
-      return cached;
+      orgRecord = { id: cached.orgId, slug: cached.orgSlug };
     }
   } catch (error) {
     logError('org.cache_read_failed', error, { userId, orgSlug: normalizedSlug });
   }
 
-  const trimmedSlug = orgSlug.trim();
-  const { data: org, error: orgError } = await supabaseService
-    .from('organizations')
-    .select('id, slug')
-    .eq('slug', trimmedSlug)
-    .maybeSingle();
+  if (!orgRecord) {
+    const trimmedSlug = orgSlug.trim();
+    const { data: org, error: orgError } = await supabaseService
+      .from('organizations')
+      .select('id, slug')
+      .eq('slug', trimmedSlug)
+      .maybeSingle();
 
-  if (orgError || !org) {
-    throw new Error('organization_not_found');
+    if (orgError || !org) {
+      throw new Error('organization_not_found');
+    }
+
+    orgRecord = org;
   }
 
   const { data: membership, error: membershipError } = await supabaseService
     .from('memberships')
     .select('role')
-    .eq('org_id', org.id)
+    .eq('org_id', orgRecord.id)
     .eq('user_id', userId)
     .maybeSingle();
 
@@ -2909,14 +2915,16 @@ async function resolveOrgForUser(userId: string, orgSlug: string) {
   }
 
   const context = {
-    orgId: org.id,
-    orgSlug: org.slug,
+    orgId: orgRecord.id,
+    orgSlug: orgRecord.slug,
     role: membership.role as AgentRole,
   };
 
-  void cacheClient
-    .set(cacheKey, context, setOptions)
-    .catch((error) => logError('org.cache_write_failed', error, { userId, orgSlug: normalizedSlug }));
+  if (orgRecord) {
+    void cacheClient
+      .set(cacheKey, { orgId: orgRecord.id, orgSlug: orgRecord.slug }, setOptions)
+      .catch((error) => logError('org.cache_write_failed', error, { userId, orgSlug: normalizedSlug }));
+  }
 
   return context;
 }
