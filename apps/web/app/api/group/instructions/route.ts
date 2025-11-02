@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -34,6 +35,7 @@ function getSupabaseClients() {
 function buildInstructionsCacheKey(
   orgId: string,
   filters: { engagementId?: string | null; componentId?: string | null; status?: string | null },
+  version: string,
 ) {
   return buildCacheKey([
     CACHE_NAMESPACE,
@@ -41,35 +43,37 @@ function buildInstructionsCacheKey(
     filters.engagementId ?? null,
     filters.componentId ?? null,
     filters.status ?? null,
+    version,
   ]);
 }
 
-function buildIndexKey(orgId: string) {
-  return `${CACHE_NAMESPACE}:index:${orgId}`;
+function buildVersionKey(orgId: string) {
+  return `${CACHE_NAMESPACE}:version:${orgId}`;
 }
 
-async function registerCacheKey(client: CacheClient, orgId: string, key: string) {
+function resolveIndexTtlSeconds() {
+  const ttl = Math.max(CACHE_INDEX_TTL_SECONDS, CACHE_TTL_SECONDS);
+  return ttl > 0 ? ttl : undefined;
+}
+
+async function getCacheVersion(client: CacheClient, orgId: string) {
   try {
-    const indexKey = buildIndexKey(orgId);
-    const existing = (await client.get<string[]>(indexKey)) ?? [];
-    if (!existing.includes(key)) {
-      existing.push(key);
+    const versionKey = buildVersionKey(orgId);
+    const version = await client.get<string>(versionKey);
+    if (typeof version === 'string' && version.length > 0) {
+      return version;
     }
-    const ttl = Math.max(CACHE_INDEX_TTL_SECONDS, CACHE_TTL_SECONDS);
-    await client.set(indexKey, existing, { ttlSeconds: ttl > 0 ? ttl : undefined });
   } catch (error) {
-    console.warn('group.instructions.cache_register_failed', { error });
+    console.warn('group.instructions.cache_version_read_failed', { error });
   }
+  return '0';
 }
 
 async function invalidateInstructionCache(client: CacheClient, orgId: string) {
   try {
-    const indexKey = buildIndexKey(orgId);
-    const keys = (await client.get<string[]>(indexKey)) ?? [];
-    if (keys.length > 0) {
-      await client.del(keys);
-    }
-    await client.del(indexKey);
+    const versionKey = buildVersionKey(orgId);
+    const ttlSeconds = resolveIndexTtlSeconds();
+    await client.set(versionKey, randomUUID(), { ttlSeconds });
   } catch (error) {
     console.warn('group.instructions.cache_invalidate_failed', { error });
   }
@@ -127,7 +131,17 @@ export async function GET(request: NextRequest) {
 
   const cacheClient = getCacheClient();
   const shouldUseCache = Boolean(cacheClient) && CACHE_TTL_SECONDS > 0;
-  const cacheKey = buildInstructionsCacheKey(orgId, { engagementId, componentId, status });
+  let cacheVersion = '0';
+
+  if (shouldUseCache && cacheClient) {
+    cacheVersion = await getCacheVersion(cacheClient, orgId);
+  }
+
+  const cacheKey = buildInstructionsCacheKey(
+    orgId,
+    { engagementId, componentId, status },
+    cacheVersion,
+  );
 
   if (shouldUseCache && cacheClient) {
     const cached = await cacheClient.get<{ instructions: unknown[] }>(cacheKey);
@@ -166,7 +180,6 @@ export async function GET(request: NextRequest) {
 
   if (shouldUseCache && cacheClient) {
     await cacheClient.set(cacheKey, response, { ttlSeconds: CACHE_TTL_SECONDS });
-    await registerCacheKey(cacheClient, orgId, cacheKey);
   }
 
   return NextResponse.json(response);
