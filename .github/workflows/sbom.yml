@@ -145,6 +145,83 @@ jobs:
           done
           echo "✅ All SBOMs are valid JSON"
 
+      - name: Verify SBOM completeness
+        run: |
+          echo "🔍 Verifying SBOM completeness..."
+          
+          # Check that expected SBOMs were generated
+          expected_sboms=(
+            "prisma-root-node.json"
+            "prisma-backend-python.json"
+          )
+          
+          missing_sboms=()
+          for sbom in "${expected_sboms[@]}"; do
+            if [ ! -f "docs/sbom/$sbom" ]; then
+              missing_sboms+=("$sbom")
+            fi
+          done
+          
+          if [ ${#missing_sboms[@]} -gt 0 ]; then
+            echo "❌ Missing required SBOMs:"
+            printf '   - %s\n' "${missing_sboms[@]}"
+            exit 1
+          fi
+          
+          echo "✅ All required SBOMs generated"
+      
+      - name: Verify SBOM schema compliance
+        run: |
+          echo "🔍 Verifying CycloneDX schema compliance..."
+          
+          for sbom in docs/sbom/*.json; do
+            if [ -f "$sbom" ]; then
+              echo "Checking $(basename $sbom)..."
+              
+              # Verify required CycloneDX fields
+              if ! jq -e '.bomFormat == "CycloneDX"' "$sbom" > /dev/null; then
+                echo "❌ Missing or invalid bomFormat in $(basename $sbom)"
+                exit 1
+              fi
+              
+              if ! jq -e '.specVersion' "$sbom" > /dev/null; then
+                echo "❌ Missing specVersion in $(basename $sbom)"
+                exit 1
+              fi
+              
+              if ! jq -e '.components | length > 0' "$sbom" > /dev/null; then
+                echo "⚠️  Warning: $(basename $sbom) has no components"
+              fi
+            fi
+          done
+          
+          echo "✅ All SBOMs comply with CycloneDX schema"
+      
+      - name: Generate SBOM quality report
+        run: |
+          echo "📊 SBOM Quality Metrics:" > sbom-quality-report.txt
+          echo "" >> sbom-quality-report.txt
+          
+          for sbom in docs/sbom/*.json; do
+            if [ -f "$sbom" ]; then
+              name=$(basename "$sbom")
+              components=$(jq '.components | length' "$sbom" 2>/dev/null || echo "0")
+              licenses=$(jq '[.components[].licenses // []] | flatten | length' "$sbom" 2>/dev/null || echo "0")
+              
+              echo "File: $name" >> sbom-quality-report.txt
+              echo "  Components: $components" >> sbom-quality-report.txt
+              echo "  Licenses: $licenses" >> sbom-quality-report.txt
+              echo "" >> sbom-quality-report.txt
+            fi
+          done
+          
+          cat sbom-quality-report.txt
+          
+          echo "## 📊 SBOM Quality Report" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          cat sbom-quality-report.txt >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+
       - name: Upload SBOMs as artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -152,16 +229,16 @@ jobs:
           path: docs/sbom/*.json
           retention-days: 90
 
-      - name: Commit SBOMs (on main branch)
+      - name: Commit SBOMs and Provenance (on main branch)
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add docs/sbom/
+          git add docs/sbom/ docs/provenance/
           if git diff --staged --quiet; then
-            echo "No SBOM changes to commit"
+            echo "No SBOM or provenance changes to commit"
           else
-            git commit -m "chore: update SBOMs [skip ci]"
+            git commit -m "chore: update SBOMs and build provenance [skip ci]"
             git push
           fi
 
@@ -194,6 +271,60 @@ jobs:
           echo "- License compliance verification" >> $GITHUB_STEP_SUMMARY
           echo "- Vulnerability tracking" >> $GITHUB_STEP_SUMMARY
           echo "- Dependency audits" >> $GITHUB_STEP_SUMMARY
+
+      - name: Generate build provenance
+        run: |
+          mkdir -p docs/provenance
+          cat > docs/provenance/build-provenance-${{ github.sha }}.json << EOF
+          {
+            "buildType": "https://github.com/ikanisa/prisma/sbom@v1",
+            "builder": {
+              "id": "https://github.com/actions/runner/${{ runner.name }}"
+            },
+            "invocation": {
+              "configSource": {
+                "uri": "${{ github.server_url }}/${{ github.repository }}",
+                "digest": {
+                  "sha1": "${{ github.sha }}"
+                },
+                "entryPoint": ".github/workflows/sbom.yml"
+              }
+            },
+            "metadata": {
+              "buildStartedOn": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+              "buildFinishedOn": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+              "completeness": {
+                "parameters": true,
+                "environment": false,
+                "materials": true
+              },
+              "reproducible": false
+            },
+            "materials": [
+              {
+                "uri": "${{ github.server_url }}/${{ github.repository }}",
+                "digest": {
+                  "sha1": "${{ github.sha }}"
+                }
+              }
+            ],
+            "sboms": [
+              $(for sbom in docs/sbom/*.json; do
+                if [ -f "$sbom" ]; then
+                  echo "      {\"uri\": \"$(basename $sbom)\"},"
+                fi
+              done | sed '$ s/,$//')
+            ]
+          }
+          EOF
+          echo "✅ Build provenance generated at docs/provenance/build-provenance-${{ github.sha }}.json"
+
+      - name: Upload provenance as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-provenance-${{ github.sha }}
+          path: docs/provenance/*.json
+          retention-days: 90
 
   generate-spdx:
     name: Generate SPDX SBOMs (Optional)

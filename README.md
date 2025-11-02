@@ -25,8 +25,14 @@ Modern AI-powered operations suite with Supabase, FastAPI, and multi-app pnpm wo
    ```
    This approach skips lifecycle scripts during installation and then builds packages explicitly in the correct order.
 
-4. **Create your local environment file** by copying `.env.example` to `.env.local` and filling in credentials. See [docs/local-hosting.md](docs/local-hosting.md) for details.
-5. **Start developing**
+4. **Setup security hooks** (Recommended)
+   ```bash
+   ./scripts/setup-git-hooks.sh
+   ```
+   This installs a pre-commit hook that scans for secrets before each commit. See [docs/SECURITY_IMPLEMENTATION.md](docs/SECURITY_IMPLEMENTATION.md) for details.
+
+5. **Create your local environment file** by copying `.env.example` to `.env.local` and filling in credentials. See [docs/local-hosting.md](docs/local-hosting.md) for details.
+6. **Start developing**
    - Web (Vite) shell: `pnpm dev`
    - Next.js app: `pnpm --filter web dev`
    - Gateway service: `pnpm --filter @prisma-glow/gateway dev`
