@@ -55,7 +55,6 @@ export async function POST(request: NextRequest) {
     // Authentication: Verify user session
     const session = await auth();
     const sessionUser = session?.user as { id?: string | null; email?: string | null } | undefined;
-    const headerUserId = request.headers.get('x-user-id');
 
     let userId: string | null = sessionUser?.id ?? null;
 
@@ -80,11 +79,6 @@ export async function POST(request: NextRequest) {
       if (lookup?.user_id) {
         userId = lookup.user_id;
       }
-    }
-
-    // Fallback to header-based user ID (for service-to-service calls)
-    if (!userId && headerUserId) {
-      userId = headerUserId;
     }
 
     // Require authentication
