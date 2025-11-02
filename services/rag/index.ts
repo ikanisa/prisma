@@ -7,7 +7,7 @@ import pdfParse from 'pdf-parse';
 import Tesseract from 'tesseract.js';
 import { Client } from 'pg';
 import { vector } from './vector.js';
-import NodeCache from 'node-cache';
+import { createCacheClient, resolveCacheTtl } from '@prisma-glow/cache';
 import jwt, { type JwtPayload } from 'jsonwebtoken';
 import { randomUUID, createHash } from 'crypto';
 import { AsyncLocalStorage } from 'node:async_hooks';
@@ -746,59 +746,123 @@ if (!JWT_SECRET) {
 }
 
 const upload = multer();
-const cache = new NodeCache({ stdTTL: 60 });
-const idempotencyCache = new NodeCache();
+
+const cacheClient = await createCacheClient({ namespace: 'rag-service' });
+const SEARCH_CACHE_PREFIX = 'search';
+const IDEMPOTENCY_CACHE_PREFIX = 'idempotency';
+const ORG_CONTEXT_CACHE_PREFIX = 'org-context';
+const DRIVE_UPLOADER_CACHE_PREFIX = 'drive-uploader';
+
+const ragSearchTtlSeconds = resolveCacheTtl('ragSearch');
+const idempotencyCacheTtlSeconds = resolveCacheTtl('ragIdempotency');
+const orgLookupTtlSeconds = resolveCacheTtl('ragOrgLookup');
+const driveUploaderCacheTtlSeconds = resolveCacheTtl('ragDriveUploader');
 
 type IdempotencyCacheEntry = {
   status: number;
   body: unknown;
 };
 
+function buildSearchCacheKey(orgId: string, limit: number, query: string) {
+  const digest = createHash('sha1').update(query).digest('hex');
+  return `${SEARCH_CACHE_PREFIX}:${orgId}:${limit}:${digest}`;
+}
+
+function buildSearchCachePrefix(orgId: string) {
+  return `${SEARCH_CACHE_PREFIX}:${orgId}:`;
+}
+
+function buildIdempotencyCacheKey(rawKey: string) {
+  return `${IDEMPOTENCY_CACHE_PREFIX}:${createHash('sha1').update(rawKey).digest('hex')}`;
+}
+
+function normaliseOrgSlug(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+function buildOrgContextCacheKey(userId: string, orgSlug: string) {
+  const normalized = normaliseOrgSlug(orgSlug);
+  const digest = createHash('sha1').update(`${userId}:${normalized}`).digest('hex');
+  return `${ORG_CONTEXT_CACHE_PREFIX}:${normalized}:${digest}`;
+}
+
+function buildDriveUploaderCacheKey(orgId: string) {
+  return `${DRIVE_UPLOADER_CACHE_PREFIX}:${orgId}`;
+}
+
+async function invalidateSearchCacheForOrg(orgId: string) {
+  try {
+    await cacheClient.deleteByPrefix(buildSearchCachePrefix(orgId));
+  } catch (error) {
+    logError('search.cache_invalidate_failed', error, { orgId });
+  }
+}
+
+
 function applyExpressIdempotency(options: {
   keyBuilder: (req: AuthenticatedRequest) => string | null | undefined;
   ttlSeconds?: number;
 }) {
-  const ttl = options.ttlSeconds ?? 300;
+  const ttlValue = options.ttlSeconds ?? idempotencyCacheTtlSeconds;
+  const parsedTtl = Number(ttlValue);
+  const ttlSeconds = Number.isFinite(parsedTtl) ? Math.max(0, Math.trunc(parsedTtl)) : 0;
 
   return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-    let key: string | null | undefined;
-    try {
-      key = options.keyBuilder(req);
-    } catch (error) {
-      logError('idempotency.key_builder_failed', error, { path: req.path });
-      return next();
-    }
-
-    if (!key || key.length === 0) {
-      return next();
-    }
-
-    const cached = idempotencyCache.get<IdempotencyCacheEntry>(key);
-    if (cached) {
-      res.setHeader('X-Idempotency-Key', key);
-      res.setHeader('X-Idempotency-Cache', 'HIT');
-      return res.status(cached.status).json(cached.body);
-    }
-
-    res.setHeader('X-Idempotency-Key', key);
-    res.setHeader('X-Idempotency-Cache', 'MISS');
-
-    let responseBody: unknown | undefined;
-    const originalJson = res.json.bind(res);
-
-    res.json = (body: unknown) => {
-      responseBody = body;
-      return originalJson(body);
-    };
-
-    res.on('finish', () => {
-      if (!responseBody) return;
-      if (res.statusCode >= 200 && res.statusCode < 300) {
-        idempotencyCache.set(key as string, { status: res.statusCode, body: responseBody }, ttl);
+    void (async () => {
+      let key: string | null | undefined;
+      try {
+        key = options.keyBuilder(req);
+      } catch (error) {
+        logError('idempotency.key_builder_failed', error, { path: req.path });
+        next();
+        return;
       }
-    });
 
-    return next();
+      if (!key || key.length === 0) {
+        next();
+        return;
+      }
+
+      const cacheKey = buildIdempotencyCacheKey(key);
+
+      try {
+        const cached = await cacheClient.get<IdempotencyCacheEntry>(cacheKey);
+        if (cached) {
+          res.setHeader('X-Idempotency-Key', key);
+          res.setHeader('X-Idempotency-Cache', 'HIT');
+          res.status(cached.status).json(cached.body);
+          return;
+        }
+      } catch (error) {
+        logError('idempotency.cache_read_failed', error, { path: req.path });
+      }
+
+      res.setHeader('X-Idempotency-Key', key);
+      res.setHeader('X-Idempotency-Cache', 'MISS');
+
+      let responseBody: unknown | undefined;
+      const originalJson = res.json.bind(res);
+
+      res.json = (body: unknown) => {
+        responseBody = body;
+        return originalJson(body);
+      };
+
+      res.on('finish', () => {
+        if (!responseBody) return;
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          const setOptions = ttlSeconds > 0 ? { ttlSeconds } : undefined;
+          void cacheClient
+            .set(cacheKey, { status: res.statusCode, body: responseBody }, setOptions)
+            .catch((error) => logError('idempotency.cache_write_failed', error, { path: req.path }));
+        }
+      });
+
+      next();
+    })().catch((error) => {
+      logError('idempotency.middleware_failed', error, { path: req.path });
+      next();
+    });
   };
 }
 
@@ -807,7 +871,6 @@ const RATE_WINDOW_MS = Number(process.env.API_RATE_WINDOW_SECONDS ?? '60') * 100
 const requestBuckets = new Map<string, number[]>();
 
 const GDRIVE_QUEUE_PROCESS_LIMIT = Number(process.env.GDRIVE_PROCESS_BATCH_LIMIT ?? '10');
-const driveUploaderCache = new Map<string, string>();
 type DriveFileMetadata = { metadata: Record<string, unknown>; allowlisted_domain: boolean };
 
 type AgentTypeKey = 'CLOSE' | 'TAX' | 'AUDIT' | 'ADVISORY' | 'CLIENT';
@@ -2810,10 +2873,24 @@ app.post('/internal/knowledge/embeddings/reembed-delta', async (req, res) => {
 app.use(authenticate);
 
 async function resolveOrgForUser(userId: string, orgSlug: string) {
+  const normalizedSlug = normaliseOrgSlug(orgSlug);
+  const cacheKey = buildOrgContextCacheKey(userId, normalizedSlug);
+  const setOptions = orgLookupTtlSeconds > 0 ? { ttlSeconds: orgLookupTtlSeconds } : undefined;
+
+  try {
+    const cached = await cacheClient.get<{ orgId: string; orgSlug: string; role: AgentRole }>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+  } catch (error) {
+    logError('org.cache_read_failed', error, { userId, orgSlug: normalizedSlug });
+  }
+
+  const trimmedSlug = orgSlug.trim();
   const { data: org, error: orgError } = await supabaseService
     .from('organizations')
     .select('id, slug')
-    .eq('slug', orgSlug)
+    .eq('slug', trimmedSlug)
     .maybeSingle();
 
   if (orgError || !org) {
@@ -2831,11 +2908,17 @@ async function resolveOrgForUser(userId: string, orgSlug: string) {
     throw new Error('not_a_member');
   }
 
-  return {
+  const context = {
     orgId: org.id,
     orgSlug: org.slug,
     role: membership.role as AgentRole,
   };
+
+  void cacheClient
+    .set(cacheKey, context, setOptions)
+    .catch((error) => logError('org.cache_write_failed', error, { userId, orgSlug: normalizedSlug }));
+
+  return context;
 }
 
 async function loadAgentSessionForUser(userId: string, sessionId: string) {
@@ -4162,8 +4245,14 @@ async function fetchLearningJob(jobId: string): Promise<LearningJob | null> {
 }
 
 async function resolveDriveUploaderId(orgId: string): Promise<string> {
-  if (driveUploaderCache.has(orgId)) {
-    return driveUploaderCache.get(orgId)!;
+  const cacheKey = buildDriveUploaderCacheKey(orgId);
+  try {
+    const cached = await cacheClient.get<string>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+  } catch (error) {
+    logError('drive.cache_read_failed', error, { orgId });
   }
 
   const { data, error } = await supabaseService
@@ -4192,7 +4281,10 @@ async function resolveDriveUploaderId(orgId: string): Promise<string> {
     throw new Error('no_uploader_for_org');
   }
 
-  driveUploaderCache.set(orgId, uploader);
+  const setOptions = driveUploaderCacheTtlSeconds > 0 ? { ttlSeconds: driveUploaderCacheTtlSeconds } : undefined;
+  void cacheClient
+    .set(cacheKey, uploader, setOptions)
+    .catch((error) => logError('drive.cache_write_failed', error, { orgId }));
   return uploader;
 }
 
@@ -9353,6 +9445,8 @@ app.post('/v1/rag/ingest', upload.single('file'), async (req: AuthenticatedReque
     }
     await db.query('COMMIT');
 
+    await invalidateSearchCacheForOrg(orgContext.orgId);
+
     logInfo('ingest.complete', {
       userId,
       documentId: docId,
@@ -9427,8 +9521,15 @@ app.post('/v1/rag/search', async (req: AuthenticatedRequest, res) => {
 
     const numericLimit = Math.max(1, Math.min(12, Number(limit ?? 5)));
 
-    const cacheKey = `search:${orgContext.orgId}:${numericLimit}:${query}`;
-    const cached = cache.get(cacheKey);
+    type SearchCachePayload = { results: Array<Record<string, unknown>> };
+    const cacheKey = buildSearchCacheKey(orgContext.orgId, numericLimit, query);
+    let cached: SearchCachePayload | null = null;
+    try {
+      cached = await cacheClient.get<SearchCachePayload>(cacheKey);
+    } catch (error) {
+      logError('search.cache_read_failed', error, { orgId: orgContext.orgId });
+    }
+
     if (cached) {
       logInfo('search.cache_hit', { userId, orgId: orgContext.orgId, query });
       analyticsClient
@@ -9440,7 +9541,7 @@ app.post('/v1/rag/search', async (req: AuthenticatedRequest, res) => {
           properties: {
             queryLength: query.length,
             limit: numericLimit,
-            results: Array.isArray((cached as any).results) ? (cached as any).results.length : 0,
+            results: cached.results.length,
           },
           context: {
             requestId: req.requestId,
@@ -9467,8 +9568,11 @@ app.post('/v1/rag/search', async (req: AuthenticatedRequest, res) => {
       parsedResults = [];
     }
 
-    const response = { results: parsedResults };
-    cache.set(cacheKey, response);
+    const response: SearchCachePayload = { results: parsedResults };
+    const setOptions = ragSearchTtlSeconds > 0 ? { ttlSeconds: ragSearchTtlSeconds } : undefined;
+    void cacheClient
+      .set(cacheKey, response, setOptions)
+      .catch((error) => logError('search.cache_write_failed', error, { orgId: orgContext.orgId }));
     logInfo('search.complete', {
       userId,
       orgId: orgContext.orgId,
@@ -9543,6 +9647,7 @@ app.post('/v1/rag/reembed', async (req: AuthenticatedRequest, res) => {
     for (let i = 0; i < rows.length; i++) {
       await db.query('UPDATE document_chunks SET embedding = $1 WHERE id = $2', [vector(embeddings[i]), rows[i].id]);
     }
+    await invalidateSearchCacheForOrg(orgContext.orgId);
     logInfo('reembed.complete', {
       userId,
       documentId,
@@ -9707,6 +9812,8 @@ app.post('/v1/storage/documents', upload.single('file'), async (req: Authenticat
         size: req.file.size,
       },
     });
+
+    await invalidateSearchCacheForOrg(orgContext.orgId);
 
     logInfo('documents.uploaded', { userId, documentId: document.id, path: storagePath });
     return res.status(201).json({ document });
@@ -9936,6 +10043,8 @@ app.delete('/v1/storage/documents/:id', async (req: AuthenticatedRequest, res) =
     if (deleteError) {
       throw deleteError;
     }
+
+    await invalidateSearchCacheForOrg(document.org_id);
 
     await supabaseService.from('activity_log').insert({
       org_id: document.org_id,
