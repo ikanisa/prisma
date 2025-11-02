@@ -1,15 +1,17 @@
-import { test } from './fixtures/base';
+import { test } from './fixtures';
 
-const TEST_EMAIL = 'playwright-auth@example.com';
+const demoEmail = 'finance.lead@example.com';
 
 test.describe('Authentication demo', () => {
-  test('allows signing in and out with the Supabase stub', async ({ authDemoPage }) => {
+  test('allows users to sign in and sign out via Supabase OTP', async ({ authDemoPage }) => {
     await authDemoPage.goto();
 
-    await authDemoPage.signIn(TEST_EMAIL);
-    await authDemoPage.expectSignedIn(TEST_EMAIL);
+    await authDemoPage.signIn(demoEmail);
+    await authDemoPage.expectFeedback('Sign-in request sent.');
+    await authDemoPage.expectSessionEmail(demoEmail);
 
     await authDemoPage.signOut();
-    await authDemoPage.expectSignedOut();
+    await authDemoPage.expectFeedback('Signed out successfully.');
+    await authDemoPage.expectNoActiveSession();
   });
 });

@@ -1,9 +1,7 @@
-import { defineConfig, type PlaywrightTestConfig } from '@playwright/test';
 import baseConfig from '../../playwright.config';
+import { defineConfig } from '@playwright/test';
 
-const config: PlaywrightTestConfig = {
+export default defineConfig({
   ...baseConfig,
   testDir: './tests/e2e',
-};
-
-export default defineConfig(config);
+});

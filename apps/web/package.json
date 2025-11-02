@@ -9,6 +9,7 @@
     "analyze:json": "NEXT_DISABLE_ESLINT=1 NEXT_DISABLE_TYPE_CHECK=1 ANALYZE=true ANALYZE_MODE=json SUPABASE_URL=https://supabase.test.local SUPABASE_ANON_KEY=dummy-anon SUPABASE_SERVICE_ROLE_KEY=dummy-service OPENAI_API_KEY=dummy-openai DEFAULT_ORG_ID=00000000-0000-0000-0000-000000000000 next build",
     "bundle:check": "pnpm run analyze:json && node ../../tools/check-next-bundle.mjs .next/analyze/client.json ../../config/web-bundle-budgets.json",
     "start": "next start",
+    "test:e2e": "cross-env PLAYWRIGHT_APP_TARGET=next NEXT_PUBLIC_SUPABASE_ALLOW_STUB=true SUPABASE_ALLOW_STUB=true pnpm exec playwright test --config playwright.config.ts",
     "typecheck": "pnpm exec tsc --noEmit",
     "lint": "pnpm exec next lint",
     "prisma:generate": "prisma generate",

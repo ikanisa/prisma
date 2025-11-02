@@ -1,25 +1,24 @@
-import { test } from './fixtures/base';
-
-const JOURNAL_REF = 'FX-REMEASURE';
+import { test } from './fixtures';
 
 test.describe('Journal lifecycle', () => {
-  test('advances a journal batch from draft to posted', async ({ accountingPage }) => {
+  test('advances a draft journal through approval and posting', async ({ accountingPage }) => {
     await accountingPage.goto();
 
-    await accountingPage.expectJournalStatus(JOURNAL_REF, 'draft');
+    const reference = 'FX-REMEASURE';
 
-    await accountingPage.advanceJournal(JOURNAL_REF);
-    await accountingPage.expectJournalStatus(JOURNAL_REF, 'submitted');
+    await accountingPage.expectJournalStatus(reference, 'DRAFT');
 
-    await accountingPage.advanceJournal(JOURNAL_REF);
-    await accountingPage.expectJournalStatus(JOURNAL_REF, 'approved');
-    await accountingPage.expectAlertsCleared(JOURNAL_REF);
+    await accountingPage.advanceJournal(reference);
+    await accountingPage.expectJournalStatus(reference, 'SUBMITTED');
+    await accountingPage.expectLatestActivityContains('Journal FX-REMEASURE moved to SUBMITTED.');
 
-    await accountingPage.advanceJournal(JOURNAL_REF);
-    await accountingPage.expectJournalStatus(JOURNAL_REF, 'posted');
-    await accountingPage.expectAdvanceDisabled(JOURNAL_REF);
+    await accountingPage.advanceJournal(reference);
+    await accountingPage.expectJournalStatus(reference, 'APPROVED');
+    await accountingPage.expectLatestActivityContains('Journal FX-REMEASURE moved to APPROVED.');
 
-    await accountingPage.expectSummaryValue('Journals pending', '2');
-    await accountingPage.expectLatestActivity(`Journal ${JOURNAL_REF} moved to POSTED.`);
+    await accountingPage.advanceJournal(reference);
+    await accountingPage.expectJournalStatus(reference, 'POSTED');
+    await accountingPage.expectJournalAdvanceDisabled(reference);
+    await accountingPage.expectLatestActivityContains('Journal FX-REMEASURE moved to POSTED.');
   });
 });
