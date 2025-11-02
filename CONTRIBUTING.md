@@ -6,7 +6,8 @@ Thanks for helping to improve this project! The guidelines below describe how we
 
 1. Ensure you are using the Node.js and pnpm versions declared in [`package.json`](package.json).
 2. Install dependencies with `pnpm install` and run `pnpm run lint` and `pnpm run test` locally before opening a pull request.
-3. Prefer small, focused pull requests that are easy to review.
+3. **Setup security hooks**: Run `./scripts/setup-git-hooks.sh` to install pre-commit secret scanning. See [docs/SECURITY_IMPLEMENTATION.md](docs/SECURITY_IMPLEMENTATION.md) for details.
+4. Prefer small, focused pull requests that are easy to review.
 
 ## Development Workflow
 
