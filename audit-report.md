@@ -1,45 +1,87 @@
-# Prisma Glow Readiness Audit Report
+# Audit Report: Staff & Admin PWAs
 
-**Date:** 2025-11-04  
-**Scope:** Prisma Glow production cutover readiness  
-**Auditor:** Platform Governance Guild
+## Executive Summary
+The prisma monorepo already centralizes Staff and Admin PWAs alongside shared backend and infrastructure code, but the production controls remain partially implemented. Our audit identified solid groundwork—pnpm-based workspaces, Supabase migrations, and numerous operational playbooks—yet gaps persist in automated verification, strict type safety, offline conflict handling, and agent guardrails. The recommended remediation program focuses on stabilizing financial invariants, enforcing comprehensive CI/CD gates (coverage, SAST/DAST, SBOM, Lighthouse), and documenting operational responses so the teams can meet SOC 2 and GDPR expectations prior to launch.
 
----
+## Go-Live Readiness Score
+| Domain               | Weight | Score (0-5) | Weighted |
+|----------------------|--------|-------------|----------|
+| Security             | 0.25   | 2.5         | 0.63     |
+| Privacy/Compliance   | 0.10   | 2.0         | 0.20     |
+| Data Integrity       | 0.15   | 2.0         | 0.30     |
+| PWA                  | 0.10   | 2.0         | 0.20     |
+| Performance          | 0.10   | 2.5         | 0.25     |
+| Testing              | 0.10   | 2.0         | 0.20     |
+| CI/CD & Release      | 0.08   | 3.0         | 0.24     |
+| Observability        | 0.07   | 2.5         | 0.18     |
+| AI Agent Safety      | 0.05   | 1.5         | 0.08     |
+| **TOTAL**            | **1.00**|             | **2.28** |
 
-## 1. Scorecard Summary
-| Pillar | Score (0-5) | Trend | Highlights |
-| --- | --- | --- | --- |
-| Security | 4 | ▲ | CSP/CORS hardened across FastAPI gateway with mandatory trusted hosts and Sentry telemetry initialised for every request. |
-| Reliability | 4 | ▲ | Request tracing middleware and release-control evaluations run on every build, ensuring regression gates are continuously enforced. |
-| Observability | 4 | ▲ | Request telemetry spans exported with service metadata and version tagging for Sentry/OTel ingestion. |
-| Performance | 3 | ▲ | Offline queue retries capped with exponential backoff and service worker background sync to de-risk burst workloads. |
-| Maintainability | 4 | ▲ | Release runbook, automation jobs, and modular storage wrappers centralise change management across services. |
-| Compliance | 4 | ▲ | Document storage policies and release-control evidence codified for ledger-grade traceability. |
+## Top Risks, Mitigations, and Owners
+1. **Financial Data Integrity (Likelihood: Medium, Impact: Critical)**  
+   *Mitigation:* Introduce Money/Decimal primitives, enforce balanced journal entries, and add invariant tests in `packages/domain-ledger`.  
+   *Owner:* Ledger Engineering Lead.
+2. **Agent Prompt Safety (Likelihood: Medium, Impact: High)**  
+   *Mitigation:* Centralize prompts with signed manifests, add prompt-injection regression tests, and enforce tool allow-lists via `AGENT-GUARDRAILS.md`.  
+   *Owner:* AI Platform Owner.
+3. **Offline Sync Conflicts (Likelihood: High, Impact: Medium)**  
+   *Mitigation:* Implement deterministic merge policy and background sync tests for Staff PWA drafts in `apps/staff`.  
+   *Owner:* Staff PWA Tech Lead.
+4. **Regulatory Evidence & Audit Trail Gaps (Likelihood: Medium, Impact: High)**  
+   *Mitigation:* Harden audit trail schema with trace IDs, ensure immutable append-only storage, and document export procedures in `RUNBOOK.md`.  
+   *Owner:* Compliance Program Manager.
 
-**Overall Readiness:** 3.8 / 5 (↑ from 3.0) – Trending GREEN after remediating prior stop-ship items.
+## Architecture Map with Trust Boundaries
+```mermaid
+flowchart LR
+  subgraph Client Zone
+    A[Staff PWA]
+    B[Admin PWA]
+  end
+  subgraph Zero-Trust Edge
+    C[CloudFront / CDN]
+    D[WAF]
+  end
+  subgraph Control Plane
+    E[API Gateway]
+    F[Next/Nest Services]
+    G[Auth Service (OIDC)]
+  end
+  subgraph Data Plane
+    H[(Postgres + Prisma)]
+    I[(Redis Cache)]
+    J[(BullMQ Workers)]
+    K[(Object Storage / Evidence Vault)]
+  end
+  subgraph Agent Zone
+    L[Agent Orchestrator]
+    M[LLM Provider]
+  end
+  subgraph Observability & Governance
+    N[OpenTelemetry Collector]
+    O[SIEM / Alerting]
+    P[Secrets Manager]
+  end
 
----
+  A -->|HTTPS| C --> D --> E
+  B -->|HTTPS| C
+  E --> F --> H
+  F --> I
+  F --> J
+  F --> K
+  F --> G
+  L --> F
+  L --> M
+  F --> N --> O
+  P --> F
+  P --> L
+```
 
-## 2. Mitigation Status
-- ✅ **S0-001 – Request Telemetry Coverage**: FastAPI now wraps each request with `RequestTelemetryMiddleware`, exporting trace IDs and release metadata to downstream sinks, closing the observability gap identified in the last audit.
-- ✅ **S0-002 – Release Control Drift**: The `evaluate_release_controls` workflow is executed during readiness checks, blocking deployments when environment preconditions fail.
-- ✅ **S1-004 – Offline Sync Robustness**: Background sync routines persist queue state in IndexedDB with deterministic retries, preventing data loss during offline submissions.
-- 🟡 **S1-008 – Incident Drill Evidence**: Sentry release tagging and PagerDuty routing dry run scheduled for 2025-11-06; awaiting attached evidence.
-- 🟠 **S0-005 – Secret Management Runbook**: Drafted handoff notes, final production rotation walkthrough pending CISO sign-off.
-- 🟠 **S2-011 – Storage Policy Backfill**: Migration applied in staging but negative download test still pending sign-off.
-
----
-
-## 3. Architecture Updates Since Last Review
-1. **Gateway Telemetry Upgrade** – Application bootstrap configures OTEL tracer, service version tagging, and Sentry SDK initialisation guarded by environment-aware toggles.
-2. **Release Controls Enforcement** – Readiness endpoint now surfaces structured release-control checks, feeding governance dashboards while blocking non-compliant deployments.
-3. **PWA Offline Resilience** – Service worker and client queue modules share retry semantics, ensuring offline submissions are retried with bounded backoff and durable IndexedDB storage.
-4. **Ledger Integrity Automation** – Background jobs sanitise journal ledgers before ingestion, reducing manual reconciliation time.
-
----
-
-## 4. Recommendations
-1. Complete Sentry/PagerDuty dry run and attach outputs to `/GO-LIVE/artifacts/2025-11-06/` before go-live.
-2. Execute Supabase negative download test with staging credentials and archive logs under `/GO-LIVE/artifacts/storage/`.
-3. Capture Lighthouse + axe runs using the updated workflow and store JSON reports alongside bundle hashes.
-4. Schedule quarterly ledger integrity verification using the sanitiser job outputs as baseline evidence.
+## Open Questions & Assumptions
+- Tenancy model clarification: current migrations suggest shared schema; confirm isolation guarantees.
+- Filing jurisdictions list remains incomplete; need definitive localization requirements.
+- Data retention/erasure SLA for GDPR subject requests is unspecified.
+- Offline conflict policy (last-write wins vs. merge) requires product decision.
+- Approved LLM provider list and DPAs are pending confirmation.
+- Regions with data residency mandates are not captured in infra manifests.
+- SLA for reconciliation completion and filing deadlines needs executive sign-off.

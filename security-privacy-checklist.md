@@ -1,22 +1,33 @@
 # Security & Privacy Checklist
 
-_Last updated: 2025-11-04_
+## Identity and Access
+- [ ] Enforce OIDC/OAuth flows with MFA for Admin roles
+- [ ] RBAC/ABAC policies validated with automated tests
+- [ ] Session management reviewed for inactivity timeout and device binding
 
-## Security Controls
-- [x] Content Security Policy and CORS origin allow-list enforced in FastAPI middleware.
-- [x] Trusted host middleware prevents host header injection.
-- [x] JWT auth flow validated with structured role hierarchy checks.
-- [ ] Complete Sentry release drill and attach alert transcript.
-- [ ] Rotate Supabase service role key and record rotation evidence.
+## Application Security
+- [ ] Helmet CSP, HSTS, and secure headers enabled in gateway
+- [ ] Input validation via Zod/AJV at API boundaries
+- [ ] SSRF and injection mitigations documented and tested
+- [ ] CSRF protections verified for state-changing requests
 
-## Privacy Controls
-- [x] Cookie consent component surfaced on initial load with explicit opt-in tracking.
-- [x] Privacy notice linked from footer and onboarding surfaces.
-- [x] Document signing flow enforces least-privilege via Supabase policies.
-- [ ] Finalise data retention schedule for offline queue payloads.
+## Secrets & Infrastructure
+- [ ] Secret manager references confirmed in IaC manifests
+- [ ] No plaintext secrets committed; detect-secrets baseline updated
+- [ ] Database, cache, queue networks restricted by security groups
 
-## Evidence to Attach
-- FastAPI security configuration snapshot (`server/main.py`).
-- Cookie consent capture (`src/components/privacy/CookieConsent.tsx`).
-- Supabase storage policy migration hash + negative test log.
-- Sentry drill output (release tag + PagerDuty notification screenshot).
+## Data Protection
+- [ ] PII classification map updated in `DATA-MODEL.md`
+- [ ] Encryption at rest verified for Postgres, Redis, and storage buckets
+- [ ] TLS certificates monitored with automated expiry alerts
+- [ ] Data retention/erasure workflows tested in staging
+
+## Monitoring & Response
+- [ ] Security alerts integrated with SIEM and on-call rotations
+- [ ] Incident response runbook tabletop exercise completed
+- [ ] Audit logs exported to immutable storage with integrity checks
+
+## Compliance
+- [ ] SOC 2 control evidence stored in governance repository
+- [ ] GDPR DPIA reviewed and signed off by DPO
+- [ ] PCI DSS scoping reviewed (confirm non-applicability or controls)

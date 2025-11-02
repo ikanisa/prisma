@@ -1,22 +1,26 @@
-# Agent Safety & Governance Checklist
+# Agent Safety Checklist
 
-_Last updated: 2025-11-04_
+## Policy & Governance
+- [ ] Agent guardrails documented and versioned in `AGENT-GUARDRAILS.md`
+- [ ] Tool allow-list reviewed with security and compliance
+- [ ] Cost and latency budgets approved by product leadership
 
-## Policy & Configuration
-- [x] Agent registry normalises autonomy defaults and tool bindings before runtime resolution.
-- [x] Release-control evaluation blocks autopilot execution when approvals or autonomy gates are unmet.
-- [ ] Document autonomy override escalation path and publish in operations handbook.
+## Prompt & Context Controls
+- [ ] System/developer/user prompts separated with checksum validation
+- [ ] Sensitive data redaction applied before prompts leave secure boundary
+- [ ] Prompt-injection regression tests executed in CI
 
-## Runtime Safeguards
-- [x] Autopilot document extraction pipeline enforces provenance tracking and quarantines failed documents.
-- [x] Workflow suggestions limited to two high-confidence actions per request to minimise overreach.
-- [ ] Capture red-team transcript exercising escalation and refusal flows.
+## Runtime Enforcement
+- [ ] Function-calling schemas validated; reject unknown tool invocations
+- [ ] Rate limits and circuit breakers configured per tenant/user
+- [ ] Retry policies deterministic; no infinite retries without human approval
 
-## Audit Trail
-- [x] Provenance metadata appended to processed documents with timestamps and job identifiers.
-- [ ] Export weekly agent action log sample and attach to `/GO-LIVE/artifacts/agents/`.
+## Monitoring & Telemetry
+- [ ] Agent actions logged with trace_id, user_id, tenant_id, agent_id
+- [ ] Cost telemetry exported to observability stack with alert thresholds
+- [ ] Golden task evaluation harness tracks win-rate and regressions per model version
 
-## Evidence to Attach
-- Configuration snapshot from `server/config_loader.py` (agent registry + autonomy levels).
-- Autopilot handler execution log demonstrating quarantine path in `server/autopilot_handlers.py`.
-- Release-control check response showing blocked state when approvals missing.
+## Incident Response
+- [ ] Fallback workflows defined when agents fail or violate policy
+- [ ] Rollback / disable switch tested (feature flag or kill-switch)
+- [ ] Post-incident review template aligned with SOC 2 requirements

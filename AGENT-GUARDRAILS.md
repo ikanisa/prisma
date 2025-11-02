@@ -1,47 +1,59 @@
 # Agent Guardrails
 
-This document captures the policy gates, telemetry hooks, and validation routines that protect the Prisma Glow agent runtime.
+## Overview
+Autonomous accounting agents accelerate reconciliations and reviews but must operate under strict guardrails to prevent financial misstatements, privacy incidents, and policy violations. This document defines the control framework spanning prompt hygiene, tool usage, monitoring, and incident response.
 
-## Tool allow list enforcement
+## Roles & Responsibilities
+- **AI Platform Owner:** Maintains guardrail policy, approves prompt revisions, and coordinates security reviews.
+- **Finance Systems Lead:** Verifies agent outputs for ledger-affecting actions and ensures audit trail completeness.
+- **Security Engineering:** Reviews new tools and data sources, manages secret distribution, and monitors anomalies.
+- **On-Call SRE:** Owns runtime kill-switches and mitigations when guardrails trigger.
 
-Tool usage is governed by the allow-list definitions in `services/agents/policy/allow-list.ts`. Each entry specifies the
-roles that may invoke a tool alongside contextual flags that must be present (or absent) before execution. The
-`enforceToolPolicy` helper filters disallowed tool intents from generated plans and emits structured violations for review.
+## Prompt Lifecycle
+1. **Version Control:** All prompts stored in `packages/agents/prompts` with semantic version tags and checksums recorded in `agents-manifest.json`.
+2. **Change Management:** Pull requests modifying prompts require approval from AI Platform Owner and Security Engineering.
+3. **Testing:** Run regression suite `pnpm run test:agents` including prompt-injection, red-team scenarios, and deterministic output checks.
+4. **Deployment:** Promote new prompt versions behind feature flags; monitor golden tasks before broad rollout.
 
-When updating the allow list:
+## Tool Allow-List
+| Tool | Purpose | Data Scope | Notes |
+|------|---------|------------|-------|
+| `ledger.query` | Read-only ledger analytics | Tenant-scoped financial data | Enforces row-level security and read-only role |
+| `journal.post` | Create/update journal entries | Tenant financial records | Requires idempotency key and balanced entry validation |
+| `evidence.attach` | Upload supporting documents | Object storage (per-tenant) | Sanitizes metadata; PII redaction required |
+| `notify.review` | Send alerts to humans | Email/Slack endpoints | Logs template, recipients, and trace_id |
 
-1. Document the new capability and expected role requirements in `allow-list.ts`.
-2. Extend the golden task coverage in `services/agents/tests/golden-plan.test.ts` to exercise the new rules.
-3. Re-run the harness with `pnpm test --filter "services/agents/tests"` to ensure the regression suite stays green.
+Any new tool must undergo STRIDE threat modeling and be added to this allow-list with documented scopes.
 
-## Prompt manifest workflow
+## Data Minimization & Redaction
+- Mask PII (SSNs, tax IDs, bank accounts) using the `redactSensitiveFields` utility before prompts exit the secure boundary.
+- Summaries must exclude raw document contents unless explicitly approved.
+- Financial values sent to LLMs must be rounded to reporting precision and tagged with currency.
 
-Planner prompts now live under `packages/agents/prompts/` and are tracked through a manifest with immutable checksums. The
-utilities in `packages/agents/src/prompts.ts` verify the manifest before the guardrail harness instantiates, preventing
-accidental edits from bypassing code review. When editing a prompt:
+## Runtime Enforcement
+- **Policy Engine:** Agents must call the policy check endpoint before executing side-effectful tools; responses include approval, deny, or require-human-review states.
+- **Rate Limits:** Default 60 requests/minute per agent per tenant; override requires security approval.
+- **Circuit Breakers:** Automatic disable when error rate exceeds 5% over 5 minutes or when policy denies exceed 3 in a row.
+- **Observation Hooks:** Emit structured logs `{ trace_id, agent_id, tool, cost_usd, latency_ms, outcome }` via OpenTelemetry spans.
 
-1. Update the prompt file in `packages/agents/prompts/`.
-2. Recalculate the SHA-256 checksum (`sha256sum <file>`) and update `manifest.json`.
-3. Commit both the prompt change and the manifest update together so the checksum verification remains consistent.
+## Monitoring & Evaluation
+- Golden task suite stored in `agents/evals` with expected outputs.
+- Weekly evaluation reports share win-rate trends, cost per task, and anomalies.
+- Integrate evaluation metrics into Grafana dashboard with alerts when win-rate drops by >5% week-over-week.
 
-## Guardrail telemetry
+## Incident Response
+1. Trigger kill-switch (`AGENT_SAFE_MODE=1`) via feature flag service.
+2. Notify security, compliance, and finance owners.
+3. Collect prompt, inputs, tool outputs, and logs for forensic review.
+4. File incident ticket with severity classification (S0–S3) and follow SOC 2 post-incident workflow.
+5. Conduct root cause analysis, update guardrails, and document lessons learned.
 
-Guardrail outcomes are sent to the OpenTelemetry pipeline via `emitGuardrailTelemetry`. The helper annotates the active span
-(or creates a new one) with violation counts and detailed events, and forwards structured logs through the optional logger
-interface. Instrumentation ensures downstream dashboards capture the distinction between successful policy evaluations and
-blocked tool usage.
+## Compliance Alignment
+- SOC 2: Controls cover CC7 (Monitoring), CC8 (Change Management), and A1 (Availability) for agent components.
+- GDPR: Ensure agents process minimum necessary personal data; maintain processing records.
+- IFRS/GAAP: Human review remains required for material journal postings; agent outputs must be traceable to reviewers.
 
-Operational steps for telemetry updates:
-
-1. Provide a logger that implements `info`/`warn` when integrating with application services so guardrail decisions are traced
-   in application logs.
-2. Ensure the OTEL exporter for the service is configured (see `services/rag/index.ts` for an example) so span attributes and
-   events propagate to the observability stack.
-3. Tag spans with meaningful metadata (e.g., organization, engagement, persona) through the `additionalAttributes` option
-   when invoking `enforceToolPolicy`.
-
-## Evaluation harness
-
-The guardrail evaluation harness (`services/agents/tests/harness.ts`) validates prompt integrity, detects common prompt
-injection phrases, and executes golden tasks to confirm allow-list enforcement. The suite must pass before deploying any
-changes that touch agent prompts, policy definitions, or telemetry wiring.
+## Roadmap (NICE-TO-HAVE)
+- Differential privacy fine-tuning for summarization prompts.
+- Cost anomaly detection using budget envelopes per feature flag cohort.
+- Automated red-team LLM to continuously probe guardrails.

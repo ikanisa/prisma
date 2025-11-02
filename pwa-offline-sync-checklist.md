@@ -1,23 +1,27 @@
-# PWA & Offline Sync Checklist
+# PWA Offline & Sync Checklist
 
-_Last updated: 2025-11-04_
+## Manifest & Installability
+- [ ] `manifest.json` includes name, icons, theme, background color, and start URL
+- [ ] Display mode set to `standalone` with orientation preferences captured
+- [ ] Maskable icons provided for Android/Chrome install surfaces
 
 ## Service Worker
-- [x] Precache manifest includes shell, icons, and manifest resources.
-- [x] Background sync queue stores jobs in IndexedDB with bounded retries.
-- [ ] Validate sync replay against staging API after simulated outage.
-- [ ] Capture browser console trace (Chrome DevTools) showing successful sync replay.
+- [ ] Generated via Workbox with cache-first for static assets, network-first for APIs
+- [ ] Stale-while-revalidate strategy for user-generated content
+- [ ] Versioned cache names with cleanup of obsolete caches
+- [ ] Background sync queue configured for draft journal entries and approvals
 
-## Client Queue
-- [x] Offline queue normalises headers + payloads before persistence.
-- [x] Exponential backoff configured for client retries with 12h cap.
-- [ ] Document retention policy for queued payloads and purge cadence.
+## Offline Data Strategy
+- [ ] IndexedDB schema defined with migration plan
+- [ ] Conflict resolution policy documented (deterministic merge rules)
+- [ ] Sync telemetry emitted for success/failure with trace IDs
+
+## Testing
+- [ ] Playwright/Lighthouse offline tests pass for Staff and Admin flows
+- [ ] Snapshot tests cover service worker routing and cache manifests
+- [ ] Manual QA scenarios: cold install, soft reload, offline submission, recovery
 
 ## User Experience
-- [x] Install prompt available via PWA install hook.
-- [ ] Provide support runbook for offline troubleshooting scenarios.
-
-## Evidence to Attach
-- `public/service-worker.js` snapshot with cache + background sync configuration.
-- `src/utils/pwa.ts` snippet demonstrating retry/backoff behaviour.
-- API smoke run log showing replayed queued actions.
+- [ ] Offline banners and retry UX localized across supported languages
+- [ ] Push notification consent surfaces comply with privacy policy
+- [ ] Sync status indicators accessible (WCAG 2.1 AA)

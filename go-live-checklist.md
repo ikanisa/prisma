@@ -1,31 +1,37 @@
-# Go-Live Verification Checklist
+# Go-Live Checklist
 
-_Last updated: 2025-11-04_
+## Governance
+- [ ] Executive approval for launch scope and risk acceptance
+- [ ] Branch protection rules enforced on `main`
+- [ ] CODEOWNERS entries validated for all critical paths
 
-## 1. Platform Controls
-- [x] FastAPI gateway enforces trusted hosts, strict CORS, and CSP defaults.
-- [x] Request telemetry middleware enabled with OTEL tracer + Sentry release metadata.
-- [x] Release control evaluations executed via `/api/release-controls/check` with environment gating.
-- [ ] Attach Sentry release drill outputs (tagged release + PagerDuty notification transcript).
-- [ ] Upload Lighthouse + axe artefacts from the PWA audit workflow.
+## Security & Privacy
+- [ ] Secrets sourced from managed vault; `.env.example` updated
+- [ ] CodeQL, ZAP, dependency scans passing in CI
+- [ ] Security review sign-off logged in `SECURITY.md`
+- [ ] Data retention and erasure playbooks validated
 
-## 2. Data & Storage
-- [x] Supabase document storage policies deployed with migration hash recorded in runbook.
-- [ ] Negative download attempt captured against staging bucket to confirm policy enforcement.
-- [ ] Archive Supabase CLI output (`supabase db push`) alongside deployment record.
+## Data Integrity
+- [ ] Money/Decimal primitives and journal invariants enforced
+- [ ] Ledger backfill dry-run completed in staging
+- [ ] Audit trail immutability verified with append-only tests
 
-## 3. Client Experience
-- [x] PWA manifest and service worker precache verified in staging build.
-- [x] Offline queue retries bounded with IndexedDB durability across reloads.
-- [ ] Bundle size and Lighthouse budgets signed off by performance lead.
+## PWA Readiness
+- [ ] Lighthouse CI scores meet thresholds (Perf ≥90, A11y ≥95, BP ≥95, SEO ≥90)
+- [ ] Web manifest and service worker validated for installability
+- [ ] Offline sync conflict tests pass for Staff and Admin flows
 
-## 4. Quality Gates
-- [x] Lint, unit, API smoke, and Playwright suites run clean on latest main.
-- [x] Release runbook reviewed and signed off by SRE + product.
-- [ ] Observability dashboard links (APM, logs, uptime) added to release record.
+## Observability & Operations
+- [ ] OpenTelemetry traces flowing to observability backend
+- [ ] Dashboard and alerts reviewed with on-call rotation
+- [ ] RUNBOOK drills completed; pager escalation tested
 
-## 5. Approvals
-- [x] Security: ✅ (CISO)
-- [x] Product: ✅ (GM, Prisma Glow)
-- [x] Engineering: ✅ (Head of Platform)
-- [ ] Operations: ⏳ pending Sentry drill evidence
+## Release Engineering
+- [ ] Release candidate tag (`RC_TAG`) created
+- [ ] Canary deployment verified with smoke tests
+- [ ] Rollback plan rehearsed and documented in `RUNBOOK.md`
+
+## Compliance
+- [ ] SOC 2 evidence package assembled
+- [ ] GDPR Subject Rights workflow tested end-to-end
+- [ ] Financial reporting sign-off per IFRS/GAAP
