@@ -62,6 +62,7 @@
     { "path": "./packages/lib/tsconfig.json" },
     { "path": "./packages/platform/tsconfig.json" },
     { "path": "./packages/tax/tsconfig.json" },
+    { "path": "./services/cache/tsconfig.json" },
     { "path": "./services/rag/tsconfig.json" },
     { "path": "./apps/gateway/tsconfig.json" }
   ]
