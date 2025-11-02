@@ -357,18 +357,18 @@ PR so the CI job matches your results.
 
 ## Performance harness
 
-The Phase 4 load scenarios live in `tests/perf/*.js`. The helper script
-`scripts/perf/run_k6.sh` wraps k6 execution, exporting JSON summaries under
-`docs/PERF/<timestamp>/`:
+Gateway smoke profiles powered by [k6](https://k6.io/) live in `tests/performance/`.
+Use the orchestration script to execute all scenarios and capture JSON + HTML
+summaries:
 
 ```bash
-./scripts/perf/run_k6.sh ada recon telemetry
+pnpm run test:performance
 ```
 
-Set the environment variables referenced inside each scenario (for example
-`K6_BASE_URL`, `ACCESS_TOKEN`, `K6_ORG_ID`, `K6_ENG_ID`). The exported JSON files
-should be attached to the performance evidence pack described in
-`docs/performance-uat-plan.md`.
+Configure the required environment (`PERF_BASE_URL`, `PERF_SERVICE_TOKEN`, org
+headers) via `tests/performance/.env` or CI secrets. Reports are written to
+`test-results/performance/` and should be archived with the performance
+evidence pack described in `docs/performance-uat-plan.md`.
 
 ## Playwright smoke tests
 

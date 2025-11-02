@@ -18,20 +18,9 @@
       "dependsOn": ["^build"],
       "outputs": []
     },
-    "bundle": {
-      "dependsOn": ["build"],
-      "outputs": ["apps/web/.next/analyze/**"],
-      "env": [
-        "ANALYZE",
-        "ANALYZE_MODE",
-        "NEXT_DISABLE_ESLINT",
-        "NEXT_DISABLE_TYPE_CHECK",
-        "SUPABASE_URL",
-        "SUPABASE_ANON_KEY",
-        "SUPABASE_SERVICE_ROLE_KEY",
-        "OPENAI_API_KEY",
-        "DEFAULT_ORG_ID"
-      ]
+    "performance": {
+      "cache": false,
+      "outputs": ["test-results/performance/**"]
     }
   }
 }
