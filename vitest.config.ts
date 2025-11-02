@@ -249,8 +249,8 @@ export default defineConfig({
     ],
     exclude: [
       'tests/playwright/**',
-      'node_modules/**',
-      'node_modules/.pnpm/**',
+      '**/node_modules/**',
+      '**/node_modules/.pnpm/**',
       'packages/**/node_modules/**',
       'services/**/node_modules/**',
     ],
@@ -267,9 +267,9 @@ export default defineConfig({
       ],
       thresholds: {
         statements: Number(process.env.VITEST_COVERAGE_STATEMENTS ?? '45'),
-        branches: Number(process.env.VITEST_COVERAGE_BRANCHES ?? '40'),
+        branches: Number(process.env.VITEST_COVERAGE_BRANCHES ?? '80'),
         functions: Number(process.env.VITEST_COVERAGE_FUNCTIONS ?? '45'),
-        lines: Number(process.env.VITEST_COVERAGE_LINES ?? '45'),
+        lines: Number(process.env.VITEST_COVERAGE_LINES ?? '85'),
       },
     },
   },

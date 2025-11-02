@@ -41,15 +41,72 @@ const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClientInstance;
 };
 
+const shouldLogQueries = (): boolean => {
+  const explicit = process.env.PRISMA_LOG_QUERIES ?? process.env.NEXT_PUBLIC_PRISMA_LOG_QUERIES;
+  if (typeof explicit === 'string') {
+    if (explicit.trim().length === 0) {
+      return false;
+    }
+    const normalized = explicit.trim().toLowerCase();
+    return normalized === '1' || normalized === 'true' || normalized === 'yes';
+  }
+
+  return process.env.NODE_ENV !== 'production';
+};
+
+type PrismaLogDefinition = {
+  level: 'query' | 'warn' | 'error';
+  emit: 'stdout' | 'event';
+};
+
+const createLogConfiguration = (): PrismaLogDefinition[] => {
+  const levels: PrismaLogDefinition[] = [
+    { level: 'error', emit: 'stdout' },
+    { level: 'warn', emit: 'stdout' },
+  ];
+
+  if (shouldLogQueries()) {
+    levels.push({ level: 'query', emit: 'event' });
+  }
+
+  return levels;
+};
+
 const prismaInstance: PrismaClientInstance = (() => {
   if (globalForPrisma.prisma) {
     return globalForPrisma.prisma;
   }
 
   try {
-    return new PrismaClientCtor({
-      log: ['error', 'warn'],
+    const instance = new PrismaClientCtor({
+      log: createLogConfiguration(),
     });
+
+    if (shouldLogQueries() && typeof (instance as { $on?: unknown }).$on === 'function') {
+      const listener = (event: unknown) => {
+        if (!event || typeof event !== 'object') {
+          return;
+        }
+
+        const { query, params, duration } = event as {
+          query?: string;
+          params?: string;
+          duration?: number;
+        };
+
+        const formattedDuration = typeof duration === 'number' ? `${duration.toFixed(2)}ms` : 'n/a';
+        const parameters = typeof params === 'string' && params.length > 0 ? ` params=${params}` : '';
+        console.info(`[prisma] ${formattedDuration} ${query ?? '<unknown query>'}${parameters}`);
+      };
+
+      try {
+        (instance as { $on: (event: string, cb: (payload: unknown) => void) => void }).$on('query', listener);
+      } catch {
+        // Best effort logging; Prisma implementations without $on support are ignored.
+      }
+    }
+
+    return instance;
   } catch (error) {
     const message = error instanceof Error ? error.message : '';
     const needsFallback =
