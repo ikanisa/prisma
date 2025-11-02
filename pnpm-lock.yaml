@@ -405,10 +405,16 @@ importers:
       express-rate-limit:
         specifier: ^8.1.0
         version: 8.1.0(express@4.21.2)
+      helmet:
+        specifier: ^8.1.0
+        version: 8.1.0
     devDependencies:
       '@types/express':
         specifier: ^4.17.23
         version: 4.17.23
+      '@types/helmet':
+        specifier: ^4.0.0
+        version: 4.0.0
       '@types/supertest':
         specifier: ^6.0.3
         version: 6.0.3
@@ -542,6 +548,12 @@ importers:
 
   packages/agents: {}
 
+  packages/api:
+    dependencies:
+      zod:
+        specifier: ^3.25.76
+        version: 3.25.76
+
   packages/api-client: {}
 
   packages/config:
@@ -593,26 +605,11 @@ importers:
         specifier: ^5.8.3
         version: 5.9.3
 
-  services/ledger:
-    devDependencies:
-      '@types/supertest':
-        specifier: ^6.0.3
-        version: 6.0.3
-      express:
-        specifier: ^4.19.2
-        version: 4.21.2
-      next:
-        specifier: 14.2.33
-        version: 14.2.33(@opentelemetry/api@1.9.0)(@playwright/test@1.56.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      supertest:
-        specifier: ^7.1.4
-        version: 7.1.4
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
-      vitest:
-        specifier: ^3.2.4
-        version: 3.2.4(@types/node@22.18.10)(jiti@1.21.7)(jsdom@26.1.0)(terser@5.44.0)(yaml@2.8.1)
+  services/api:
+    dependencies:
+      '@prisma-glow/config':
+        specifier: workspace:*
+        version: link:../../packages/config
 
   services/rag:
     dependencies:
@@ -4091,6 +4088,10 @@ packages:
   '@types/glob@7.2.0':
     resolution: {integrity: sha512-ZUxbzKl0IfJILTS6t7ip5fQQM/J3TJYubDm3nMbgubNNYS62eXeUpoLUC8/7fJNiFYHTrGPQn7hspDUzIHX3UA==}
 
+  '@types/helmet@4.0.0':
+    resolution: {integrity: sha512-ONIn/nSNQA57yRge3oaMQESef/6QhoeX7llWeDli0UZIfz8TQMkfNPTXA8VnnyeA1WUjG2pGqdjEIueYonMdfQ==}
+    deprecated: This is a stub types definition. helmet provides its own type definitions, so you do not need this installed.
+
   '@types/http-cache-semantics@4.0.4':
     resolution: {integrity: sha512-1m0bIFVc7eJWyve9S0RnuRgcQqF/Xd5QsUZAZeQFr1Q3/p9JWoQQEqmVy+DPTNpGXwhgIetAoYF8JSc33q29QA==}
 
@@ -6258,6 +6259,10 @@ packages:
   hasown@2.0.2:
     resolution: {integrity: sha512-0hJU9SCPvmMzIBdZFqNPXWa6dqh7WdH0cII9y+CyS8rG3nL48Bclra9HmKhVVUHyPWNH5Y7xDwAB7bfgSjkUMQ==}
     engines: {node: '>= 0.4'}
+
+  helmet@8.1.0:
+    resolution: {integrity: sha512-jOiHyAZsmnr8LqoPGmCjYAaiuWwjAPLgY8ZX2XrmHawt99/u1y6RgrZMTeoPfpUbV96HOalYgz1qzkRbw54Pmg==}
+    engines: {node: '>=18.0.0'}
 
   hoist-non-react-statics@3.3.2:
     resolution: {integrity: sha512-/gGivxi8JPKWNm/W0jSmzcMPpfpPLc3dY/6GxhX2hQ9iGj3aDfklV4ET7NjKpSinLpJ5vafa9iiGIEZg10SfBw==}
@@ -13759,6 +13764,10 @@ snapshots:
       '@types/minimatch': 6.0.0
       '@types/node': 22.18.10
 
+  '@types/helmet@4.0.0':
+    dependencies:
+      helmet: 8.1.0
+
   '@types/http-cache-semantics@4.0.4': {}
 
   '@types/http-errors@2.0.5': {}
@@ -16540,6 +16549,8 @@ snapshots:
   hasown@2.0.2:
     dependencies:
       function-bind: 1.1.2
+
+  helmet@8.1.0: {}
 
   hoist-non-react-statics@3.3.2:
     dependencies:
