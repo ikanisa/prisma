@@ -42,10 +42,10 @@ describe('createAgentManifestLoader', () => {
     expect(safetyId).toBe('v3');
   });
 
-  it('returns null for missing manifests and caches results', async () => {
+  it('returns null for missing manifests and caches results when enabled', async () => {
     const manifests = [{ id: 'v1', agentKey: 'agent.alpha', createdAt: new Date('2024-11-01T00:00:00Z') }];
     const prisma = createPrismaStub(manifests);
-    const loader = createAgentManifestLoader({ prisma, maxBatchSize: 10 });
+    const loader = createAgentManifestLoader({ prisma, maxBatchSize: 10, cache: true });
 
     const first = await loader.load('agent.alpha');
     const missing = await loader.load('agent.beta');

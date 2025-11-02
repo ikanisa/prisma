@@ -14,6 +14,7 @@ type LoaderOptions = {
   prisma?: PrismaClient;
   enableQueryLogging?: boolean;
   maxBatchSize?: number;
+  cache?: boolean;
 };
 
 type LoaderResult = {
@@ -65,7 +66,7 @@ export function createAgentManifestLoader(options?: LoaderOptions): LoaderResult
     },
     {
       maxBatchSize: options?.maxBatchSize ?? 50,
-      cache: true,
+      cache: options?.cache ?? false,
     },
   );
 
