@@ -29,14 +29,20 @@ function readPersonaFile() {
     const orgSlugIndex = headers.indexOf('orgSlug');
     const engagementIdIndex = headers.indexOf('engagementId');
 
+    // Validate required columns exist
+    if (emailIndex === -1 || passwordIndex === -1) {
+      console.warn(`PERF_PERSONA_FILE missing required columns (email, password) in ${personaFile}`);
+      return null;
+    }
+
     for (const row of rows) {
       const cols = row.split(',').map((value) => value.trim());
       if (cols[emailIndex] && cols[passwordIndex]) {
         return {
           email: cols[emailIndex],
           password: cols[passwordIndex],
-          orgSlug: cols[orgSlugIndex] || undefined,
-          engagementId: cols[engagementIdIndex] || undefined,
+          orgSlug: orgSlugIndex >= 0 ? (cols[orgSlugIndex] || undefined) : undefined,
+          engagementId: engagementIdIndex >= 0 ? (cols[engagementIdIndex] || undefined) : undefined,
         };
       }
     }
