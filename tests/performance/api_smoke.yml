@@ -1,0 +1,97 @@
+config:
+  target: "{{ $processEnvironment.PERF_BASE_URL }}"
+  phases:
+    - duration: 60
+      arrivalRate: 2
+      name: warm-up
+    - duration: 180
+      arrivalRate: 5
+      rampTo: 10
+      name: steady-load
+    - duration: 60
+      arrivalRate: 2
+      name: cool-down
+  processor: "./processors/api_smoke.cjs"
+  defaults:
+    headers:
+      Authorization: "Bearer {{ $processEnvironment.PERF_AUTH_TOKEN }}"
+      apikey: "{{ $processEnvironment.PERF_SUPABASE_SERVICE_KEY }}"
+      Content-Type: "application/json"
+      Accept: "application/json"
+  environments:
+    smoke:
+      config:
+        phases:
+          - duration: 30
+            arrivalRate: 1
+            name: smoke-check
+    stress:
+      config:
+        phases:
+          - duration: 120
+            arrivalRate: 10
+            rampTo: 25
+            name: stress
+    ci:
+      config:
+        phases:
+          - duration: 5
+            arrivalRate: 1
+            name: ci-validation
+  ensure:
+    - expression: "!!$processEnvironment.PERF_BASE_URL"
+      message: "PERF_BASE_URL is required"
+    - expression: "!!$processEnvironment.PERF_AUTH_TOKEN"
+      message: "PERF_AUTH_TOKEN is required"
+    - expression: "!!$processEnvironment.PERF_SUPABASE_SERVICE_KEY"
+      message: "PERF_SUPABASE_SERVICE_KEY is required"
+    - expression: "!!$processEnvironment.PERF_ORG_SLUG"
+      message: "PERF_ORG_SLUG is required"
+    - expression: "!!$processEnvironment.PERF_ENGAGEMENT_ID"
+      message: "PERF_ENGAGEMENT_ID is required"
+scenarios:
+  - name: agent_session_planning
+    weight: 3
+    flow:
+      - post:
+          url: "/api/agent/start"
+          json:
+            orgSlug: "{{ $processEnvironment.PERF_ORG_SLUG }}"
+            agentType: "{{ agentType }}"
+          capture:
+            - json: "$.sessionId"
+              as: sessionId
+      - function: "waitForSession"
+      - post:
+          url: "/api/agent/plan"
+          json:
+            sessionId: "{{ sessionId }}"
+            request:
+              question: "{{ agentPrompt }}"
+      - think: 2
+      - post:
+          url: "/api/agent/respond"
+          json:
+            sessionId: "{{ sessionId }}"
+            request:
+              prompt: "{{ agentPrompt }}"
+  - name: audit_snapshot_requests
+    weight: 2
+    flow:
+      - get:
+          url: "/functions/v1/audit-kam/list"
+          query:
+            orgSlug: "{{ $processEnvironment.PERF_ORG_SLUG }}"
+            engagementId: "{{ $processEnvironment.PERF_ENGAGEMENT_ID }}"
+      - think: 1
+      - get:
+          url: "/functions/v1/audit-plan/status"
+          query:
+            orgSlug: "{{ $processEnvironment.PERF_ORG_SLUG }}"
+            engagementId: "{{ $processEnvironment.PERF_ENGAGEMENT_ID }}"
+      - think: 1
+      - get:
+          url: "/functions/v1/audit-report/get"
+          query:
+            orgSlug: "{{ $processEnvironment.PERF_ORG_SLUG }}"
+            engagementId: "{{ $processEnvironment.PERF_ENGAGEMENT_ID }}"
