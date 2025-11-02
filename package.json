@@ -56,7 +56,8 @@
     "supabase:migrate:web-cache": "node ./scripts/operations/apply-web-cache-migrations.mjs",
     "codegen:api": "python3 server/export_openapi.py && openapi-typescript openapi/fastapi.json -o packages/api-client/types.ts",
     "typecheck:web": "pnpm --filter web typecheck",
-    "fix:client-secrets": "node tools/scripts/auto-fix-client-secrets.mjs"
+    "fix:client-secrets": "node tools/scripts/auto-fix-client-secrets.mjs",
+    "audit:inventory": "./scripts/audit/run-inventory.sh"
   },
   "dependencies": {
     "@googleapis/drive": "^4.0.0",
@@ -166,6 +167,7 @@
     "artillery": "^2.0.21",
     "autoprefixer": "^10.4.21",
     "cross-env": "^7.0.3",
+    "dependency-cruiser": "^16.6.2",
     "eslint": "^9.37.0",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",
