@@ -10,15 +10,18 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@prisma-glow/logger": "workspace:*",
+    "@prisma-glow/api": "workspace:*",
     "@prisma-glow/analytics": "file:../../analytics",
+    "@prisma-glow/logger": "workspace:*",
     "@prisma-glow/system-config": "file:../../packages/system-config",
     "cors": "^2.8.5",
     "express": "^4.19.2",
-    "express-rate-limit": "^8.1.0"
+    "express-rate-limit": "^8.1.0",
+    "helmet": "^8.1.0"
   },
   "devDependencies": {
     "@types/express": "^4.17.23",
+    "@types/helmet": "^4.0.0",
     "@types/supertest": "^6.0.3",
     "supertest": "^7.0.0"
   }

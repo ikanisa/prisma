@@ -28,6 +28,7 @@
       "@lib/*": ["./lib/*"],
       "@/integrations/*": ["./integrations/*"],
       "@/features/*": ["./src/features/*"],
+      "@services/*": ["../../services/*"],
       "@prisma-glow/api-client": [
         "../../packages/api-client/dist/index.d.ts",
         "../../packages/api-client/dist/index.js"
