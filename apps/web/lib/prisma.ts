@@ -2,6 +2,10 @@ type PrismaClientLike = {
   $connect(): Promise<void> | void;
   $disconnect(): Promise<void> | void;
   $queryRaw<T = unknown>(...args: unknown[]): Promise<T> | T;
+  $on?(
+    event: 'query' | 'error' | 'warn' | 'info',
+    callback: (payload: Record<string, unknown>) => void,
+  ): void;
 };
 
 type PrismaClientConstructor = new (...args: unknown[]) => PrismaClientLike;
@@ -19,6 +23,11 @@ const FallbackPrismaClient: PrismaClientConstructor = class implements PrismaCli
 
   async $queryRaw<T = unknown>(): Promise<T> {
     return Promise.resolve(undefined as T);
+  }
+
+  // eslint-disable-next-line class-methods-use-this
+  $on(): void {
+    // no-op for fallback implementation
   }
 };
 
@@ -77,36 +86,31 @@ const prismaInstance: PrismaClientInstance = (() => {
     return globalForPrisma.prisma;
   }
 
+  const shouldLogQueries =
+    (process.env.PRISMA_LOG_QUERIES ?? process.env.SUPABASE_QUERY_LOGGING ?? 'false').toLowerCase() ===
+    'true';
+
   try {
-    const instance = new PrismaClientCtor({
-      log: createLogConfiguration(),
-    });
+    const client = new PrismaClientCtor({
+      log: shouldLogQueries
+        ? ['error', 'warn', { level: 'query', emit: 'event' }]
+        : ['error', 'warn'],
+    } as Record<string, unknown>);
 
-    if (shouldLogQueries() && typeof (instance as { $on?: unknown }).$on === 'function') {
-      const listener = (event: unknown) => {
-        if (!event || typeof event !== 'object') {
-          return;
-        }
-
-        const { query, params, duration } = event as {
-          query?: string;
-          params?: string;
-          duration?: number;
+    if (shouldLogQueries && typeof client.$on === 'function') {
+      client.$on('query', (event: Record<string, unknown>) => {
+        const payload = {
+          level: 'debug',
+          msg: 'prisma.query',
+          query: event.query ?? event['query'],
+          params: event.params ?? event['params'],
+          durationMs: event.duration ?? event['duration'],
         };
-
-        const formattedDuration = typeof duration === 'number' ? `${duration.toFixed(2)}ms` : 'n/a';
-        const parameters = typeof params === 'string' && params.length > 0 ? ` params=${params}` : '';
-        console.info(`[prisma] ${formattedDuration} ${query ?? '<unknown query>'}${parameters}`);
-      };
-
-      try {
-        (instance as { $on: (event: string, cb: (payload: unknown) => void) => void }).$on('query', listener);
-      } catch {
-        // Best effort logging; Prisma implementations without $on support are ignored.
-      }
+        console.log(JSON.stringify(payload));
+      });
     }
 
-    return instance;
+    return client;
   } catch (error) {
     const message = error instanceof Error ? error.message : '';
     const needsFallback =

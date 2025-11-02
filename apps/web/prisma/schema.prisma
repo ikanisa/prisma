@@ -20,6 +20,17 @@ enum RoleLevel {
   @@map("role_level")
 }
 
+enum AgentTaskStatus {
+  PENDING
+  ASSIGNED
+  IN_PROGRESS
+  AWAITING_APPROVAL
+  COMPLETED
+  FAILED
+
+  @@map("agent_task_status")
+}
+
 enum Dac6HallmarkCategory {
   A
   B
@@ -275,87 +286,24 @@ model AgentSession {
   @@map("agent_sessions")
 }
 
-model AgentManifest {
-  id            String    @id @db.Uuid
-  agentKey      String    @map("agent_key")
-  version       String
-  persona       String
-  promptTemplate String   @map("prompt_template")
-  toolIds       String[]  @default([]) @map("tool_ids") @db.Uuid
-  defaultRole   String    @default("EMPLOYEE") @map("default_role")
-  safetyLevel   String    @default("LOW") @map("safety_level")
-  metadata      Json      @default("{}")
-  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt     DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
-
-  directorSessions AgentOrchestrationSession[] @relation("DirectorManifest")
-  safetySessions   AgentOrchestrationSession[] @relation("SafetyManifest")
-  tasks            AgentOrchestrationTask[]
-
-  @@unique([agentKey, version], map: "uq_agent_manifests_key_version")
-  @@index([agentKey, createdAt(sort: Desc)], map: "idx_agent_manifests_key_created_at")
-  @@map("agent_manifests")
-}
-
-model AgentOrchestrationSession {
-  id              String                     @id @db.Uuid
-  orgId           String                     @map("org_id") @db.Uuid
-  createdByUserId String?                    @map("created_by_user_id") @db.Uuid
-  status          AgentOrchestrationStatus   @default(PENDING)
-  objective       String
-  directorAgentId String?                    @map("director_agent_id") @db.Uuid
-  safetyAgentId   String?                    @map("safety_agent_id") @db.Uuid
-  metadata        Json                       @default("{}")
-  createdAt       DateTime                   @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime                   @default(now()) @map("updated_at") @db.Timestamptz(6)
-
-  organization Organization               @relation(fields: [orgId], references: [id])
-  directorAgent AgentManifest?            @relation("DirectorManifest", fields: [directorAgentId], references: [id])
-  safetyAgent   AgentManifest?            @relation("SafetyManifest", fields: [safetyAgentId], references: [id])
-  tasks         AgentOrchestrationTask[]
-  safetyEvents  AgentSafetyEvent[]
-
-  @@index([orgId, createdAt(sort: Desc)], map: "idx_agent_orch_sessions_org")
-  @@map("agent_orchestration_sessions")
-}
-
 model AgentOrchestrationTask {
-  id              String           @id @db.Uuid
-  sessionId       String           @map("session_id") @db.Uuid
-  agentManifestId String?          @map("agent_manifest_id") @db.Uuid
-  title           String
-  input           Json             @default("{}")
-  output          Json?
-  status          AgentTaskStatus  @default(PENDING)
-  dependsOn       String[]         @default([]) @map("depends_on") @db.Uuid
-  metadata        Json             @default("{}")
-  startedAt       DateTime?        @map("started_at") @db.Timestamptz(6)
-  completedAt     DateTime?        @map("completed_at") @db.Timestamptz(6)
-  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime         @default(now()) @map("updated_at") @db.Timestamptz(6)
+  id          String           @id @db.Uuid
+  sessionId   String           @map("session_id") @db.Uuid
+  agentManifestId String?      @map("agent_manifest_id") @db.Uuid
+  title       String
+  input       Json             @default("{}")
+  output      Json?
+  status      AgentTaskStatus  @default(PENDING)
+  dependsOn   String[]         @map("depends_on") @db.Uuid
+  metadata    Json             @default("{}")
+  startedAt   DateTime?        @map("started_at") @db.Timestamptz(6)
+  completedAt DateTime?        @map("completed_at") @db.Timestamptz(6)
+  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime         @default(now()) @map("updated_at") @db.Timestamptz(6)
 
-  session       AgentOrchestrationSession @relation(fields: [sessionId], references: [id])
-  agentManifest AgentManifest?            @relation(fields: [agentManifestId], references: [id])
-  safetyEvents  AgentSafetyEvent[]
-
-  @@index([sessionId, status], map: "idx_agent_orch_tasks_session_status")
   @@map("agent_orchestration_tasks")
-}
-
-model AgentSafetyEvent {
-  id        String   @id @db.Uuid
-  sessionId String   @map("session_id") @db.Uuid
-  taskId    String?  @map("task_id") @db.Uuid
-  severity  String
-  ruleCode  String   @map("rule_code")
-  details   Json     @default("{}")
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-
-  session AgentOrchestrationSession @relation(fields: [sessionId], references: [id])
-  task    AgentOrchestrationTask?   @relation(fields: [taskId], references: [id])
-
-  @@index([sessionId, createdAt(sort: Desc)], map: "idx_agent_safety_events_session")
-  @@map("agent_safety_events")
+  @@index([sessionId, status], map: "idx_agent_orch_tasks_session_status")
+  @@index([status, id], map: "idx_agent_orch_tasks_status_id")
 }
 
 model Audit {
