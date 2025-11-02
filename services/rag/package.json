@@ -41,7 +41,7 @@
   },
   "devDependencies": {
     "@types/supertest": "^2.0.16",
-    "supertest": "workspace:*",
-    "vitest": "workspace:*"
+    "supertest": "^7.1.4",
+    "vitest": "^3.2.4"
   }
 }
