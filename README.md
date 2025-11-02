@@ -337,18 +337,23 @@ PR so the CI job matches your results.
 
 ## Performance harness
 
-The Phase 4 load scenarios live in `tests/perf/*.js`. The helper script
-`scripts/perf/run_k6.sh` wraps k6 execution, exporting JSON summaries under
-`docs/PERF/<timestamp>/`:
+Artillery scenarios that reflect production telemetry hotspots now live under
+`tests/performance/`. Use the orchestration script to execute the suite and
+generate JSON/HTML reports:
 
 ```bash
-./scripts/perf/run_k6.sh ada recon telemetry
+pnpm run test:performance          # defaults to ARTILLERY_ENV=local
+ARTILLERY_ENV=ci pnpm run test:performance  # runs the CI-sized profile locally
 ```
 
-Set the environment variables referenced inside each scenario (for example
-`K6_BASE_URL`, `ACCESS_TOKEN`, `K6_ORG_ID`, `K6_ENG_ID`). The exported JSON files
-should be attached to the performance evidence pack described in
-`docs/performance-uat-plan.md`.
+Configure the `PERF_*` environment variables (see [`.env.example`](.env.example))
+so the tests can authenticate and target the correct org/engagement. Outputs are
+written to `test-results/performance/` and can be inspected via the generated
+HTML files. For deeper guidance—including CI integration and persona rotation—see
+[`docs/performance-testing.md`](docs/performance-testing.md).
+
+Legacy k6 scripts remain in `tests/perf/` should you need to reproduce Phase 4
+evidence packs, but new load scenarios should be implemented with Artillery.
 
 ## Playwright smoke tests
 

@@ -1,0 +1,129 @@
+config:
+  target: "{{ $processEnvironment.PERF_BASE_URL || 'http://127.0.0.1:3000' }}"
+  phases:
+    - duration: 30
+      arrivalRate: 1
+      name: init
+    - duration: 120
+      arrivalRate: 3
+      rampTo: 8
+      name: burst-critical-journeys
+  defaults:
+    headers:
+      User-Agent: prisma-agent-journey
+      Cache-Control: 'no-cache'
+  plugins:
+    ensure:
+      thresholds:
+        http.response_time:
+          - p(95) < 1200
+        http.codes.5xx:
+          - max == 0
+        http.codes.429:
+          - max == 0
+  environments:
+    local:
+      target: "{{ $processEnvironment.PERF_BASE_URL || 'http://127.0.0.1:3000' }}"
+      phases:
+        - duration: 30
+          arrivalRate: 1
+          rampTo: 2
+          name: local-agent-check
+    ci:
+      target: "{{ $processEnvironment.PERF_BASE_URL || 'https://staging.prismaglow.example.com' }}"
+      phases:
+        - duration: 45
+          arrivalRate: 1
+          rampTo: 3
+          name: ci-agent-verification
+  processor: ./processors/agent-flows.mjs
+  payload:
+    path: ./fixtures/personas.csv
+    order: sequence
+    fields:
+      - email
+      - password
+      - orgSlug
+      - engagementId
+scenarios:
+  - name: Agent plan and execution core flow
+    weight: 3
+    flow:
+      - function: preparePersona
+      - post:
+          url: /api/auth/token/issue
+          json:
+            email: "{{ email }}"
+            password: "{{ password }}"
+          capture:
+            - json: $.accessToken
+              as: token
+          expect:
+            - statusCode: 200
+      - think: 1
+      - post:
+          url: /api/agent/start
+          json:
+            orgSlug: "{{ orgSlug }}"
+            agentType: AUDIT
+            engagementId: "{{ engagementId }}"
+          capture:
+            - json: $.sessionId
+              as: sessionId
+          expect:
+            - statusCode: 200
+      - think: 1
+      - post:
+          url: /api/agent/plan
+          json:
+            sessionId: "{{ sessionId }}"
+          capture:
+            - json: $.plan.steps[0].id
+              as: firstStepId
+          expect:
+            - statusCode: 200
+      - think: 1
+      - post:
+          url: /api/agent/respond
+          json:
+            orgSlug: "{{ orgSlug }}"
+            input:
+              question: "Summarise engagement progress for leadership update."
+              context:
+                sessionId: "{{ sessionId }}"
+          expect:
+            - statusCode: 200
+      - think: 1
+      - get:
+          url: /api/rate-limit/status
+          expect:
+            - statusCode: 200
+  - name: Document telemetry sync after agent run
+    weight: 1
+    flow:
+      - function: preparePersona
+      - post:
+          url: /api/auth/token/issue
+          json:
+            email: "{{ email }}"
+            password: "{{ password }}"
+          capture:
+            - json: $.accessToken
+              as: token
+          expect:
+            - statusCode: 200
+      - think: 1
+      - post:
+          url: /functions/v1/archive-sync
+          json:
+            orgSlug: "{{ orgSlug }}"
+            engagementId: "{{ engagementId }}"
+          expect:
+            - statusCode: 200
+      - think: 1
+      - post:
+          url: /functions/v1/telemetry-sync
+          json:
+            orgSlug: "{{ orgSlug }}"
+          expect:
+            - statusCode: 200
