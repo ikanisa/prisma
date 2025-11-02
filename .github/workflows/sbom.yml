@@ -145,6 +145,83 @@ jobs:
           done
           echo "✅ All SBOMs are valid JSON"
 
+      - name: Verify SBOM completeness
+        run: |
+          echo "🔍 Verifying SBOM completeness..."
+          
+          # Check that expected SBOMs were generated
+          expected_sboms=(
+            "prisma-root-node.json"
+            "prisma-backend-python.json"
+          )
+          
+          missing_sboms=()
+          for sbom in "${expected_sboms[@]}"; do
+            if [ ! -f "docs/sbom/$sbom" ]; then
+              missing_sboms+=("$sbom")
+            fi
+          done
+          
+          if [ ${#missing_sboms[@]} -gt 0 ]; then
+            echo "❌ Missing required SBOMs:"
+            printf '   - %s\n' "${missing_sboms[@]}"
+            exit 1
+          fi
+          
+          echo "✅ All required SBOMs generated"
+      
+      - name: Verify SBOM schema compliance
+        run: |
+          echo "🔍 Verifying CycloneDX schema compliance..."
+          
+          for sbom in docs/sbom/*.json; do
+            if [ -f "$sbom" ]; then
+              echo "Checking $(basename $sbom)..."
+              
+              # Verify required CycloneDX fields
+              if ! jq -e '.bomFormat == "CycloneDX"' "$sbom" > /dev/null; then
+                echo "❌ Missing or invalid bomFormat in $(basename $sbom)"
+                exit 1
+              fi
+              
+              if ! jq -e '.specVersion' "$sbom" > /dev/null; then
+                echo "❌ Missing specVersion in $(basename $sbom)"
+                exit 1
+              fi
+              
+              if ! jq -e '.components | length > 0' "$sbom" > /dev/null; then
+                echo "⚠️  Warning: $(basename $sbom) has no components"
+              fi
+            fi
+          done
+          
+          echo "✅ All SBOMs comply with CycloneDX schema"
+      
+      - name: Generate SBOM quality report
+        run: |
+          echo "📊 SBOM Quality Metrics:" > sbom-quality-report.txt
+          echo "" >> sbom-quality-report.txt
+          
+          for sbom in docs/sbom/*.json; do
+            if [ -f "$sbom" ]; then
+              name=$(basename "$sbom")
+              components=$(jq '.components | length' "$sbom" 2>/dev/null || echo "0")
+              licenses=$(jq '[.components[].licenses // []] | flatten | length' "$sbom" 2>/dev/null || echo "0")
+              
+              echo "File: $name" >> sbom-quality-report.txt
+              echo "  Components: $components" >> sbom-quality-report.txt
+              echo "  Licenses: $licenses" >> sbom-quality-report.txt
+              echo "" >> sbom-quality-report.txt
+            fi
+          done
+          
+          cat sbom-quality-report.txt
+          
+          echo "## 📊 SBOM Quality Report" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          cat sbom-quality-report.txt >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+
       - name: Upload SBOMs as artifacts
         uses: actions/upload-artifact@v4
         with:
