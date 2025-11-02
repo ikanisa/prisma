@@ -1,0 +1,25 @@
+{
+  "name": "@prisma-glow/api-service",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./cookies": {
+      "import": "./dist/cookies.js",
+      "types": "./dist/cookies.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@prisma-glow/config": "workspace:*"
+  }
+}

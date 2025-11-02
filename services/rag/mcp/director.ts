@@ -1,5 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../types/supabase.js';
+import { createAgentManifestLoader, type AgentManifestLoader } from '../prisma/agent-manifest-loader.js';
+import { registerQueryObserver } from '../prisma/client.js';
 import type {
   DirectorAgent,
   DirectorAgentOptions,
@@ -18,20 +20,13 @@ type TaskStatus = Database['public']['Enums']['agent_task_status'];
 type SessionRow = Database['public']['Tables']['agent_orchestration_sessions']['Row'];
 type TaskRow = Database['public']['Tables']['agent_orchestration_tasks']['Row'];
 
+let prismaInstrumentationRegistered = false;
+
 async function resolveManifestId(
-  supabase: SupabaseDb,
+  loader: AgentManifestLoader,
   agentKey?: string,
 ): Promise<string | null> {
-  if (!agentKey) return null;
-  const { data, error } = await supabase
-    .from('agent_manifests')
-    .select('id')
-    .eq('agent_key', agentKey)
-    .order('version', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (error) throw error;
-  return data?.id ?? null;
+  return loader.load(agentKey ?? null);
 }
 
 function mapSessionRow(row: SessionRow): OrchestrationSessionRecord {
@@ -64,32 +59,19 @@ function mapTaskRow(row: TaskRow): OrchestrationTaskRecord {
 
 async function insertTasks(
   supabase: SupabaseDb,
+  manifestLoader: AgentManifestLoader,
   sessionId: string,
   tasks: OrchestrationTaskInput[],
 ): Promise<OrchestrationTaskRecord[]> {
-  const manifestCache = new Map<string, string | null>();
-
   const payload = await Promise.all(
-    tasks.map(async (task) => {
-      let manifestId: string | null = null;
-      if (task.agentKey) {
-        if (manifestCache.has(task.agentKey)) {
-          manifestId = manifestCache.get(task.agentKey) ?? null;
-        } else {
-          manifestId = await resolveManifestId(supabase, task.agentKey);
-          manifestCache.set(task.agentKey, manifestId);
-        }
-      }
-
-      return {
-        session_id: sessionId,
-        agent_manifest_id: manifestId,
-        title: task.title,
-        input: task.input ?? {},
-        depends_on: task.dependsOn ?? [],
-        metadata: task.metadata ?? {},
-      };
-    }),
+    tasks.map(async (task) => ({
+      session_id: sessionId,
+      agent_manifest_id: await resolveManifestId(manifestLoader, task.agentKey),
+      title: task.title,
+      input: task.input ?? {},
+      depends_on: task.dependsOn ?? [],
+      metadata: task.metadata ?? {},
+    })),
   );
 
   if (payload.length === 0) return [];
@@ -105,14 +87,35 @@ async function insertTasks(
 
 export function createDirectorAgent(options: DirectorAgentOptions): DirectorAgent {
   const { supabase, logError, logInfo } = options;
+  const manifestLoader = createAgentManifestLoader({
+    enableQueryLogging: Boolean(process.env.RAG_PRISMA_LOG_QUERIES === 'true'),
+  });
+
+  if (!prismaInstrumentationRegistered && logInfo) {
+    registerQueryObserver((event) => {
+      logInfo('mcp.prisma_query', {
+        model: event.model ?? 'unknown',
+        action: event.action,
+        durationMs: event.duration,
+        target: event.target,
+      });
+    });
+    prismaInstrumentationRegistered = true;
+  }
 
   return {
     initialiseManifests: () => initialiseMcpInfrastructure(options),
 
     async createSession(input: OrchestrationSessionInput): Promise<OrchestrationSessionRecord> {
       try {
-        const directorManifestId = await resolveManifestId(supabase, input.directorAgentKey ?? 'director.core');
-        const safetyManifestId = await resolveManifestId(supabase, input.safetyAgentKey ?? 'safety.core');
+        const directorManifestId = await resolveManifestId(
+          manifestLoader,
+          input.directorAgentKey ?? 'director.core',
+        );
+        const safetyManifestId = await resolveManifestId(
+          manifestLoader,
+          input.safetyAgentKey ?? 'safety.core',
+        );
 
         const { data, error } = await supabase
           .from('agent_orchestration_sessions')
@@ -143,7 +146,7 @@ export function createDirectorAgent(options: DirectorAgentOptions): DirectorAgen
 
     async createTasks(sessionId: string, tasks: OrchestrationTaskInput[]): Promise<OrchestrationTaskRecord[]> {
       try {
-        const inserted = await insertTasks(supabase, sessionId, tasks);
+        const inserted = await insertTasks(supabase, manifestLoader, sessionId, tasks);
         if (inserted.length) {
           logInfo?.('mcp.tasks_created', { sessionId, count: inserted.length });
         }
