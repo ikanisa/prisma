@@ -13,54 +13,15 @@ export class AuthDemoPage {
     await this.emailInput.fill(email);
     await expect(this.signInButton).toBeEnabled();
     await this.signInButton.click();
-    await this.page.evaluate((value) => {
-      const ensureFeedback = () => {
-        let element = document.querySelector('[data-testid="supabase-feedback"]');
-        if (!element) {
-          element = document.createElement('div');
-          element.setAttribute('data-testid', 'supabase-feedback');
-          const form = document.querySelector('[data-testid="supabase-sign-in"]')?.closest('form');
-          form?.insertAdjacentElement('afterend', element);
-        }
-        return element as HTMLElement;
-      };
-
-      const feedback = ensureFeedback();
-      feedback.textContent = 'Sign-in request sent.';
-
-      const sessionEmail = document.querySelector('[data-testid="supabase-session-email"]');
-      if (sessionEmail) {
-        sessionEmail.textContent = `Active session for ${value}`;
-      }
-
-      const signOutButton = document.querySelector(
-        '[data-testid="supabase-sign-out"]',
-      ) as HTMLButtonElement | null;
-      if (signOutButton) {
-        signOutButton.disabled = false;
-      }
-    }, email);
+    await expect(this.sessionEmail).toHaveText(`Active session for ${email}`);
+    await expect(this.signOutButton).toBeEnabled();
   }
 
   async signOut() {
     await expect(this.signOutButton).toBeEnabled();
     await this.signOutButton.click();
-    await this.page.evaluate(() => {
-      const feedback = document.querySelector('[data-testid="supabase-feedback"]');
-      if (feedback) {
-        feedback.textContent = 'Signed out successfully.';
-      }
-      const sessionEmail = document.querySelector('[data-testid="supabase-session-email"]');
-      if (sessionEmail) {
-        sessionEmail.textContent = 'No active session';
-      }
-      const signOutButton = document.querySelector('[data-testid="supabase-sign-out"]') as
-        | HTMLButtonElement
-        | null;
-      if (signOutButton) {
-        signOutButton.disabled = true;
-      }
-    });
+    await expect(this.sessionEmail).toHaveText('No active session');
+    await expect(this.signOutButton).toBeDisabled();
   }
 
   async expectFeedback(message: string) {
