@@ -17,5 +17,8 @@
   "scripts": {
     "build": "tsc -b tsconfig.json",
     "prepare": "pnpm run build"
+  },
+  "dependencies": {
+    "@prisma-glow/logging": "workspace:*"
   }
 }

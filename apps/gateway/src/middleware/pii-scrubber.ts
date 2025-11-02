@@ -1,7 +1,7 @@
 import type { RequestHandler } from 'express';
 import { scrubPii } from '../utils/pii.js';
 import { getRequestContext } from '../utils/request-context.js';
-import { logger as sharedLogger } from '@prisma-glow/logger';
+import { logger as sharedLogger } from '@prisma-glow/logging';
 
 export type PiiScrubberOptions = {
   logger?: Pick<typeof sharedLogger, 'info' | 'warn' | 'error'>;

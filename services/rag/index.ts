@@ -15,14 +15,10 @@ import * as Sentry from '@sentry/node';
 import { context, trace, SpanStatusCode } from '@opentelemetry/api';
 import type { Attributes, Span } from '@opentelemetry/api';
 import { createAnalyticsClient } from '@prisma-glow/analytics';
-import { NodeTracerProvider } from '@opentelemetry/sdk-trace-node';
-import { BatchSpanProcessor } from '@opentelemetry/sdk-trace-base';
-import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
-import { Resource } from '@opentelemetry/resources';
-import { SemanticResourceAttributes } from '@opentelemetry/semantic-conventions';
-import { registerInstrumentations } from '@opentelemetry/instrumentation';
 import { HttpInstrumentation } from '@opentelemetry/instrumentation-http';
 import { ExpressInstrumentation } from '@opentelemetry/instrumentation-express';
+import { setupNodeOtel } from '@prisma-glow/otel';
+import { createLogger, setLogContextProvider } from '@prisma-glow/logging';
 import {
   AnalyticsEventValidationError,
   buildAutonomyTelemetryEvent,
@@ -158,6 +154,12 @@ const OTLP_ENDPOINT = process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
 let telemetryInitialised = false;
 const RUNTIME_ENVIRONMENT = process.env.ENVIRONMENT ?? process.env.NODE_ENV ?? 'development';
 const SERVICE_VERSION = process.env.SERVICE_VERSION ?? process.env.SENTRY_RELEASE ?? 'dev';
+
+const serviceLogger = createLogger({
+  scope: 'rag-service',
+  defaultMeta: { service: SERVICE_NAME, environment: RUNTIME_ENVIRONMENT },
+});
+
 const analyticsClient = createAnalyticsClient({
   endpoint: process.env.ANALYTICS_SERVICE_URL,
   apiKey: process.env.ANALYTICS_SERVICE_TOKEN,
@@ -172,37 +174,37 @@ const WEB_FETCH_CACHE_RETENTION_MS = Math.max(0, env.WEB_FETCH_CACHE_RETENTION_D
 const WEB_FETCH_CACHE_PRUNE_INTERVAL_MS = 15 * 60 * 1000;
 let lastWebCachePruneAt = 0;
 
-function configureTelemetry(): void {
+let tracer = trace.getTracer(SERVICE_NAME);
+
+async function configureTelemetry(): Promise<void> {
   if (telemetryInitialised) {
     return;
   }
 
-  const resource = new Resource({
-    [SemanticResourceAttributes.SERVICE_NAME]: SERVICE_NAME,
-    'service.namespace': 'prisma-glow',
-    'deployment.environment': RUNTIME_ENVIRONMENT,
-    'service.version': SERVICE_VERSION,
-  });
-
-  const provider = new NodeTracerProvider({ resource });
-  if (OTLP_ENDPOINT) {
-    provider.addSpanProcessor(
-      new BatchSpanProcessor(
-        new OTLPTraceExporter({ url: OTLP_ENDPOINT }),
-      ),
-    );
+  try {
+    const result = await setupNodeOtel({
+      serviceName: SERVICE_NAME,
+      environment: RUNTIME_ENVIRONMENT,
+      version: SERVICE_VERSION,
+      exporterEndpoint: OTLP_ENDPOINT,
+      instrumentations: [new HttpInstrumentation(), new ExpressInstrumentation()],
+      logger: serviceLogger.child({ scope: 'rag-service.telemetry' }),
+    });
+    tracer = trace.getTracer(result.serviceName);
+    serviceLogger.info('rag.telemetry.initialised', {
+      exporter: result.exporter?.name ?? null,
+      endpoint: result.exporter?.endpoint ?? OTLP_ENDPOINT ?? null,
+    });
+  } catch (error) {
+    serviceLogger.warn('rag.telemetry.init_failed', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+  } finally {
+    telemetryInitialised = true;
   }
-  provider.register();
-
-  registerInstrumentations({
-    instrumentations: [new HttpInstrumentation(), new ExpressInstrumentation()],
-  });
-
-  telemetryInitialised = true;
 }
 
-configureTelemetry();
-const tracer = trace.getTracer(SERVICE_NAME);
+void configureTelemetry();
 
 const SENTRY_RELEASE = process.env.SENTRY_RELEASE;
 const SENTRY_ENVIRONMENT = process.env.SENTRY_ENVIRONMENT ?? RUNTIME_ENVIRONMENT;
@@ -724,6 +726,12 @@ app.use(express.json({ limit: '10mb' }));
 
 const HEADER_REQUEST_ID = 'x-request-id';
 const requestContext = new AsyncLocalStorage<{ requestId: string }>();
+
+setLogContextProvider(() => {
+  const context = requestContext.getStore();
+  if (!context) return {};
+  return { requestId: context.requestId };
+});
 
 app.use((req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   const existing = req.header(HEADER_REQUEST_ID);
@@ -2128,19 +2136,11 @@ function enrichMeta(meta: Record<string, unknown> = {}): Record<string, unknown>
 }
 
 function logInfo(message: string, meta: Record<string, unknown> = {}) {
-  console.log(JSON.stringify({ level: 'info', msg: message, ...enrichMeta(meta) }));
+  serviceLogger.info(message, enrichMeta(meta));
 }
 
 function logError(message: string, error: unknown, meta: Record<string, unknown> = {}) {
-  console.error(
-    JSON.stringify({
-      level: 'error',
-      msg: message,
-      error: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined,
-      ...enrichMeta(meta),
-    })
-  );
+  serviceLogger.error(message, { ...enrichMeta(meta), error });
   if (SENTRY_ENABLED) {
     Sentry.captureException(error);
   }

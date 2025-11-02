@@ -182,6 +182,23 @@ jobs:
       - name: Test gateway
         run: pnpm --filter @prisma-glow/gateway test
 
+  observability-smoke:
+    name: Observability OTEL smoke tests
+    runs-on: ubuntu-latest
+    needs: setup
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20.19.4
+          cache: 'pnpm'
+      - name: Install pnpm
+        run: npm install -g pnpm@9
+      - name: Install workspace deps
+        run: pnpm install --frozen-lockfile
+      - name: Run observability smoke tests
+        run: pnpm vitest run tests/observability/otel-smoke.test.ts
+
   fastapi-smoke:
     name: FastAPI health smoke
     runs-on: ubuntu-latest

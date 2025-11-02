@@ -1,4 +1,4 @@
-import { logger } from '@prisma-glow/logger';
+import { logger } from '@prisma-glow/logging';
 
 const SENSITIVE_KEYS = new Set(['authorization', 'api-key', 'api_key', 'token', 'password', 'secret']);
 
