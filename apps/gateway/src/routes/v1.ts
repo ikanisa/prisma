@@ -14,6 +14,42 @@ import { SpanStatusCode } from '@opentelemetry/api';
 
 const router: ExpressRouter = Router();
 
+function parseOrRespond<T>(res: Response, result: SafeParseReturnType<unknown, T>): T | null {
+  if (result.success) {
+    return result.data;
+  }
+  res.status(400).json({ error: 'invalid_request', details: formatValidationErrors(result.error) });
+  return null;
+}
+
+function getFirstString(value: unknown): string | undefined {
+  if (typeof value === 'string') return value;
+  if (Array.isArray(value)) {
+    for (const entry of value) {
+      if (typeof entry === 'string') return entry;
+    }
+  }
+  return undefined;
+}
+
+function buildOrgSlugQuery(req: Request): { orgSlug?: string } {
+  const query = req.query as Record<string, unknown>;
+  return {
+    orgSlug: getFirstString(query.orgSlug) ?? getFirstString(query.org),
+  };
+}
+
+function buildDocumentListQuery(req: Request) {
+  const query = req.query as Record<string, unknown>;
+  return {
+    orgSlug: getFirstString(query.orgSlug) ?? getFirstString(query.org),
+    limit: getFirstString(query.limit),
+    offset: getFirstString(query.offset),
+    repo: getFirstString(query.repo),
+    state: getFirstString(query.state),
+  };
+}
+
 function getApiBaseUrl(): string {
   const runtime = getRuntimeEnv();
   const raw = runtime.FASTAPI_BASE_URL ?? runtime.API_BASE_URL ?? '';
@@ -157,14 +193,10 @@ router.post(
 );
 
 router.get('/storage/documents', async (req, res) => {
-  const orgSlug = String(req.query.orgSlug || '').trim();
-  if (!orgSlug) return res.status(400).json({ error: 'orgSlug_required' });
-  const limit = req.query.limit ? Number(req.query.limit) : undefined;
-  const offset = req.query.offset ? Number(req.query.offset) : undefined;
-  const repo = req.query.repo ? String(req.query.repo) : undefined;
-  const state = req.query.state ? (String(req.query.state) as 'active' | 'archived' | 'all') : undefined;
+  const query = parseOrRespond(res, DocumentListQuerySchema.safeParse(buildDocumentListQuery(req)));
+  if (!query) return;
   try {
-    const payload = await createApiClient(req).listDocuments({ orgSlug, limit, offset, repo, state });
+    const payload = await createApiClient(req).listDocuments(query);
     res.json(payload);
   } catch (error) {
     res.status(502).json({ error: (error as Error).message });
@@ -289,10 +321,10 @@ router.patch(
 );
 
 router.get('/tasks/:taskId/comments', async (req, res) => {
-  const taskId = String(req.params.taskId || '').trim();
-  if (!taskId) return res.status(400).json({ error: 'taskId_required' });
+  const params = parseOrRespond(res, TaskIdParamsSchema.safeParse(req.params));
+  if (!params) return;
   try {
-    const payload = await createApiClient(req).listTaskComments(taskId);
+    const payload = await createApiClient(req).listTaskComments(params.taskId);
     res.json(payload);
   } catch (error) {
     res.status(502).json({ error: (error as Error).message });
@@ -300,10 +332,12 @@ router.get('/tasks/:taskId/comments', async (req, res) => {
 });
 
 router.post('/tasks/:taskId/comments', async (req, res) => {
-  const taskId = String(req.params.taskId || '').trim();
-  if (!taskId) return res.status(400).json({ error: 'taskId_required' });
+  const params = parseOrRespond(res, TaskIdParamsSchema.safeParse(req.params));
+  if (!params) return;
+  const body = parseOrRespond(res, CommentBodySchema.safeParse(req.body));
+  if (!body) return;
   try {
-    const payload = await createApiClient(req).addTaskComment(taskId, req.body);
+    const payload = await createApiClient(req).addTaskComment(params.taskId, body);
     res.json(payload);
   } catch (error) {
     res.status(502).json({ error: (error as Error).message });
@@ -312,8 +346,10 @@ router.post('/tasks/:taskId/comments', async (req, res) => {
 
 // Document signing
 router.post('/storage/sign', async (req, res) => {
+  const body = parseOrRespond(res, DocumentSignBodySchema.safeParse(req.body));
+  if (!body) return;
   try {
-    const payload = await createApiClient(req).signDocument(req.body);
+    const payload = await createApiClient(req).signDocument(body);
     res.json(payload);
   } catch (error) {
     res.status(502).json({ error: (error as Error).message });
@@ -322,10 +358,7 @@ router.post('/storage/sign', async (req, res) => {
 
 // Observability dry-run: intentionally raise an error to exercise alerting
 router.post('/observability/dry-run', (req, res) => {
-  const allow =
-    process.env.ALLOW_SENTRY_DRY_RUN !== undefined
-      ? ['true', '1', 'yes'].includes(String(process.env.ALLOW_SENTRY_DRY_RUN).toLowerCase())
-      : env.ALLOW_SENTRY_DRY_RUN;
+  const allow = securityEnv.allowSentryDryRun || env.ALLOW_SENTRY_DRY_RUN;
   if (!allow) return res.status(404).json({ error: 'not_found' });
   const rid = req.headers['x-request-id'] || null;
   // Unhandled error will be caught by the server error handler and logged
@@ -334,10 +367,10 @@ router.post('/observability/dry-run', (req, res) => {
 
 // Notifications proxy endpoints
 router.get('/notifications', async (req, res) => {
-  const orgSlug = String(req.query.orgSlug || '').trim();
-  if (!orgSlug) return res.status(400).json({ error: 'orgSlug_required' });
+  const query = parseOrRespond(res, NotificationListQuerySchema.safeParse(buildOrgSlugQuery(req)));
+  if (!query) return;
   try {
-    const payload = await createApiClient(req).listNotifications(orgSlug);
+    const payload = await createApiClient(req).listNotifications(query.orgSlug);
     res.json(payload);
   } catch (error) {
     res.status(502).json({ error: (error as Error).message });
@@ -345,10 +378,12 @@ router.get('/notifications', async (req, res) => {
 });
 
 router.patch('/notifications/:notificationId', async (req, res) => {
-  const notificationId = String(req.params.notificationId || '').trim();
-  if (!notificationId) return res.status(400).json({ error: 'notificationId_required' });
+  const params = parseOrRespond(res, NotificationIdParamsSchema.safeParse(req.params));
+  if (!params) return;
+  const body = parseOrRespond(res, GenericMutationBodySchema.safeParse(req.body));
+  if (!body) return;
   try {
-    const payload = await createApiClient(req).updateNotification(notificationId, req.body);
+    const payload = await createApiClient(req).updateNotification(params.notificationId, body);
     res.json(payload);
   } catch (error) {
     res.status(502).json({ error: (error as Error).message });
@@ -356,8 +391,10 @@ router.patch('/notifications/:notificationId', async (req, res) => {
 });
 
 router.post('/notifications/mark-all', async (req, res) => {
+  const body = parseOrRespond(res, OrgScopedBodySchema.safeParse(req.body));
+  if (!body) return;
   try {
-    const payload = await createApiClient(req).markAllNotifications(req.body);
+    const payload = await createApiClient(req).markAllNotifications(body);
     res.json(payload);
   } catch (error) {
     res.status(502).json({ error: (error as Error).message });
@@ -366,10 +403,10 @@ router.post('/notifications/mark-all', async (req, res) => {
 
 // Documents management
 router.delete('/storage/documents/:documentId', async (req, res) => {
-  const id = String(req.params.documentId || '').trim();
-  if (!id) return res.status(400).json({ error: 'documentId_required' });
+  const params = parseOrRespond(res, DocumentIdParamsSchema.safeParse(req.params));
+  if (!params) return;
   try {
-    const payload = await createApiClient(req).deleteDocument(id);
+    const payload = await createApiClient(req).deleteDocument(params.documentId);
     res.json(payload);
   } catch (error) {
     res.status(502).json({ error: (error as Error).message });
@@ -377,10 +414,10 @@ router.delete('/storage/documents/:documentId', async (req, res) => {
 });
 
 router.post('/storage/documents/:documentId/restore', async (req, res) => {
-  const id = String(req.params.documentId || '').trim();
-  if (!id) return res.status(400).json({ error: 'documentId_required' });
+  const params = parseOrRespond(res, DocumentIdParamsSchema.safeParse(req.params));
+  if (!params) return;
   try {
-    const payload = await createApiClient(req).restoreDocument(id);
+    const payload = await createApiClient(req).restoreDocument(params.documentId);
     res.json(payload);
   } catch (error) {
     res.status(502).json({ error: (error as Error).message });
@@ -388,10 +425,12 @@ router.post('/storage/documents/:documentId/restore', async (req, res) => {
 });
 
 router.post('/documents/:documentId/extraction', async (req, res) => {
-  const id = String(req.params.documentId || '').trim();
-  if (!id) return res.status(400).json({ error: 'documentId_required' });
+  const params = parseOrRespond(res, DocumentIdParamsSchema.safeParse(req.params));
+  if (!params) return;
+  const body = parseOrRespond(res, GenericMutationBodySchema.safeParse(req.body));
+  if (!body) return;
   try {
-    const payload = await createApiClient(req).updateDocumentExtraction(id, req.body);
+    const payload = await createApiClient(req).updateDocumentExtraction(params.documentId, body);
     res.json(payload);
   } catch (error) {
     res.status(502).json({ error: (error as Error).message });
@@ -409,8 +448,10 @@ router.get('/analytics/run', async (req, res) => {
 });
 
 router.post('/analytics/run', async (req, res) => {
+  const body = parseOrRespond(res, GenericMutationBodySchema.safeParse(req.body));
+  if (!body) return;
   try {
-    const payload = await createApiClient(req).runAnalytics(req.body);
+    const payload = await createApiClient(req).runAnalytics(body);
     res.json(payload);
   } catch (error) {
     res.status(502).json({ error: (error as Error).message });
@@ -419,8 +460,10 @@ router.post('/analytics/run', async (req, res) => {
 
 // Onboarding proxies
 router.post('/onboarding/start', async (req, res) => {
+  const body = parseOrRespond(res, OrgScopedBodySchema.safeParse(req.body));
+  if (!body) return;
   try {
-    const payload = await createApiClient(req).onboardingStart(req.body);
+    const payload = await createApiClient(req).onboardingStart(body);
     res.json(payload);
   } catch (error) {
     res.status(502).json({ error: (error as Error).message });
@@ -428,8 +471,10 @@ router.post('/onboarding/start', async (req, res) => {
 });
 
 router.post('/onboarding/link-doc', async (req, res) => {
+  const body = parseOrRespond(res, GenericMutationBodySchema.safeParse(req.body));
+  if (!body) return;
   try {
-    const payload = await createApiClient(req).onboardingLinkDoc(req.body);
+    const payload = await createApiClient(req).onboardingLinkDoc(body);
     res.json(payload);
   } catch (error) {
     res.status(502).json({ error: (error as Error).message });
@@ -437,8 +482,10 @@ router.post('/onboarding/link-doc', async (req, res) => {
 });
 
 router.post('/onboarding/commit', async (req, res) => {
+  const body = parseOrRespond(res, OrgScopedBodySchema.safeParse(req.body));
+  if (!body) return;
   try {
-    const payload = await createApiClient(req).onboardingCommit(req.body);
+    const payload = await createApiClient(req).onboardingCommit(body);
     res.json(payload);
   } catch (error) {
     res.status(502).json({ error: (error as Error).message });

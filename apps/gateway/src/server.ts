@@ -84,6 +84,13 @@ export async function createGatewayServer(): Promise<Express> {
     app.use(Sentry.Handlers.tracingHandler());
   }
 
+  const helmetOptions = createHelmetOptions(env.allowedOrigins);
+  app.use(helmet(helmetOptions));
+  app.use((_req, res, next) => {
+    res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+    next();
+  });
+
   app.use(express.json({ limit: '5mb' }));
   const corsMiddleware = createCorsMiddleware(env.allowedOrigins);
   app.use(corsMiddleware);

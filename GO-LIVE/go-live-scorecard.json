@@ -1,0 +1,104 @@
+{
+  "generated_at": "2025-11-04T09:00:00Z",
+  "overall": {
+    "score": 0.83,
+    "status": "green",
+    "summary": "Amber downgraded to green after closing stop-ship controls; remaining actions are verification artefacts.",
+    "resolved_blockers": [
+      "Closed CSP/CORS regressions in FastAPI gateway",
+      "Enabled release-control gating within readiness checks",
+      "Landed offline sync retry hardening for queued client actions"
+    ],
+    "open_items": [
+      "Capture Sentry release drill evidence",
+      "Attach Supabase negative download validation logs"
+    ]
+  },
+  "pillars": [
+    {
+      "name": "Frontend / PWA",
+      "weight": 0.15,
+      "score": 0.9,
+      "status": "green",
+      "notes": "PWA manifest, install prompt, and service worker precache validated; Lighthouse evidence pending archival.",
+      "evidence": [
+        "public/manifest.json",
+        "public/service-worker.js",
+        "src/utils/pwa.ts"
+      ]
+    },
+    {
+      "name": "Backend / API",
+      "weight": 0.2,
+      "score": 0.9,
+      "status": "green",
+      "notes": "CORS/CSP hardened with trusted hosts and structured release-control evaluation surfaced via readiness endpoints.",
+      "evidence": [
+        "server/main.py",
+        "GO-LIVE/RELEASE_RUNBOOK.md"
+      ]
+    },
+    {
+      "name": "Database / Supabase",
+      "weight": 0.15,
+      "score": 0.75,
+      "status": "amber",
+      "notes": "New storage policies applied; awaiting negative download verification artefacts before greenlighting.",
+      "evidence": [
+        "supabase/migrations/20250927100000_documents_storage_policy.sql",
+        "tests/test_documents_signing.py"
+      ],
+      "blockers": [
+        "Pending storage negative test evidence"
+      ]
+    },
+    {
+      "name": "Auth & RBAC",
+      "weight": 0.1,
+      "score": 0.7,
+      "status": "amber",
+      "notes": "JWT verification and role hierarchy stable; verbose logging cleanup and additional claim tests scheduled for the next sprint.",
+      "evidence": [
+        "server/main.py",
+        "src/components/auth/protected-route.tsx"
+      ]
+    },
+    {
+      "name": "Security & Privacy",
+      "weight": 0.1,
+      "score": 0.9,
+      "status": "green",
+      "notes": "Strict CSP and cookie consent banner enforced; awaiting final accessibility snapshot uploads.",
+      "evidence": [
+        "server/main.py",
+        "SECURITY.md"
+      ]
+    },
+    {
+      "name": "Observability & Ops",
+      "weight": 0.15,
+      "score": 0.75,
+      "status": "amber",
+      "notes": "Request telemetry emitted with release metadata; Sentry/PagerDuty drill scheduled for completion.",
+      "evidence": [
+        "server/main.py",
+        "docs/observability.md"
+      ],
+      "blockers": [
+        "Attach Sentry release drill evidence"
+      ]
+    },
+    {
+      "name": "Quality & Testing",
+      "weight": 0.15,
+      "score": 0.85,
+      "status": "green",
+      "notes": "Lint, unit, API smoke, and Playwright suites run clean; Lighthouse artefacts targeted before cutover.",
+      "evidence": [
+        "package.json",
+        "tests/api/test_core_smoke.py",
+        "tests/playwright/a11y.spec.ts"
+      ]
+    }
+  ]
+}

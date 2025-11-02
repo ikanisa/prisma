@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logGroupActivity } from '@/lib/group/activity';
+import { invalidateGroupComponentsCache } from '@/lib/group/cache';
 import { getOrgIdFromRequest, isUuid, resolveUserId, toJsonRecord } from '@/lib/group/request';
 import { getSupabaseServerClient } from '@/lib/supabase/server';
 
@@ -185,6 +186,8 @@ export async function POST(request: NextRequest) {
       component_id: data?.component_id ?? null,
     },
   });
+
+  await invalidateGroupComponentsCache(orgId, insertPayload.engagement_id);
 
   return NextResponse.json({ workpaper: data });
 }

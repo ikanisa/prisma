@@ -6,21 +6,17 @@ on:
 jobs:
   lighthouse-axe:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [20.19.4]
     permissions:
       contents: write
       pull-requests: write
     steps:
       - uses: actions/checkout@v5
-      - uses: pnpm/action-setup@v4
+      - uses: ./.github/actions/setup-pnpm
         with:
-          version: 9
-          run_install: false
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 20.19.4
-          cache: 'pnpm'
-      - name: Install deps
-        run: pnpm install --frozen-lockfile
+          node-version: ${{ matrix.node-version }}
       - name: Build web bundle
         run: pnpm run build
       - name: Start static server

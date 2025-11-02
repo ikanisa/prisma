@@ -251,6 +251,7 @@ export default defineConfig({
       'tests/playwright/**',
       'node_modules/**',
       'node_modules/.pnpm/**',
+      'apps/**/node_modules/**',
       'packages/**/node_modules/**',
       'services/**/node_modules/**',
     ],
@@ -267,9 +268,9 @@ export default defineConfig({
       ],
       thresholds: {
         statements: Number(process.env.VITEST_COVERAGE_STATEMENTS ?? '45'),
-        branches: Number(process.env.VITEST_COVERAGE_BRANCHES ?? '40'),
+        branches: Number(process.env.VITEST_COVERAGE_BRANCHES ?? '80'),
         functions: Number(process.env.VITEST_COVERAGE_FUNCTIONS ?? '45'),
-        lines: Number(process.env.VITEST_COVERAGE_LINES ?? '45'),
+        lines: Number(process.env.VITEST_COVERAGE_LINES ?? '85'),
       },
     },
   },
@@ -357,6 +358,18 @@ export default defineConfig({
       {
         find: '@prisma-glow/agents',
         replacement: path.resolve(__dirname, './packages/agents/src'),
+      },
+      {
+        find: '@prisma-glow/api/schemas',
+        replacement: path.resolve(__dirname, './packages/api/src/schemas/index.ts'),
+      },
+      {
+        find: '@prisma-glow/api',
+        replacement: path.resolve(__dirname, './packages/api/src/index.ts'),
+      },
+      {
+        find: '@prisma-glow/config/env/security',
+        replacement: path.resolve(__dirname, './config/env/security.ts'),
       },
     ],
   },
