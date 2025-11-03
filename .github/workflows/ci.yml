@@ -437,7 +437,7 @@ jobs:
           node-version: 20.19.4
           cache: 'pnpm'
 
-      - uses: grafana/setup-k6-action@v0.2
+      - uses: grafana/setup-k6-action@v1
         with:
           version: v0.49.0
 

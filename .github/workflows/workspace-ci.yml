@@ -441,7 +441,7 @@ jobs:
       - name: Install pnpm
         run: npm install -g pnpm@9
 
-      - uses: grafana/setup-k6-action@v0.2
+      - uses: grafana/setup-k6-action@v1
         with:
           version: v0.49.0
 
