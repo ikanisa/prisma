@@ -224,7 +224,7 @@ jobs:
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
 
       - name: Upload SBOMs as artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: sbom-files-${{ github.sha }}
           path: docs/sbom/*.json
@@ -321,7 +321,7 @@ jobs:
           echo "✅ Build provenance generated at docs/provenance/build-provenance-${{ github.sha }}.json"
 
       - name: Upload provenance as artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: build-provenance-${{ github.sha }}
           path: docs/provenance/*.json
@@ -354,7 +354,7 @@ jobs:
             --output-file docs/sbom/prisma-spdx.xml
 
       - name: Upload SPDX SBOM
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: spdx-sbom-${{ github.sha }}
           path: docs/sbom/prisma-spdx.xml
