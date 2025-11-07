@@ -91,7 +91,7 @@ pnpm run test || echo -e "${YELLOW}  ⚠ Test failures found (review required)${
 # Step 6: Database migration check
 echo -e "${YELLOW}💾 Step 6: Checking database migrations...${NC}"
 if [ -d "supabase/migrations" ]; then
-  MIGRATION_COUNT=$(find supabase/migrations -name "*.sql" | wc -l)
+  MIGRATION_COUNT=$(find supabase/migrations -name '[0-9]*_*.sql' 2>/dev/null | wc -l)
   echo -e "${GREEN}  ✓ Found $MIGRATION_COUNT migration(s)${NC}"
   echo "  ➜ Remember to apply migrations to Supabase before deploying"
 else

@@ -24,7 +24,7 @@ This guide covers the complete deployment process for Prisma Glow on Netlify wit
 ## Prerequisites
 
 ### Required Tools
-- Node.js 20.19.4 or higher
+- Node.js 20.19.4 (matches Netlify and CI/CD)
 - pnpm 9.12.3
 - Git
 - Netlify CLI (optional): `npm install -g netlify-cli`

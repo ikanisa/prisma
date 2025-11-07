@@ -83,7 +83,8 @@
   [plugins.inputs]
     output_path = "lighthouse-reports"
 
-# Edge Functions configuration (optional, for enhanced performance)
-[[edge_functions]]
-  path = "/*"
-  function = "geo-routing"
+# Edge Functions configuration (optional, for future implementation)
+# Uncomment when edge function is implemented
+# [[edge_functions]]
+#   path = "/*"
+#   function = "geo-routing"
