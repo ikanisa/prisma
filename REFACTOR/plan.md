@@ -287,9 +287,9 @@ This playbook implements a systematic approach to production-readiness for multi
 ## Dependencies
 
 ### External Dependencies
-- Supabase (PostgreSQL 15, pgvector)
+- Supabase (PostgreSQL 15, pgvector, Edge Functions)
 - OpenAI API (GPT-4, embeddings, file search)
-- Cloudflare Tunnel (production ingress)
+- Netlify CDN (production frontend hosting)
 - Sentry (error tracking)
 - OpenTelemetry Collector (traces/metrics)
 

@@ -23,7 +23,7 @@ Prisma Glow is a modern AI-powered operations suite built as a **monorepo worksp
 | **Backend** | FastAPI (Python 3.11+), Express.js (API Gateway) |
 | **Database** | PostgreSQL 15 via Supabase, Prisma ORM |
 | **AI/RAG** | OpenAI GPT-4/5, text-embedding-3-small, pgvector |
-| **Infrastructure** | Docker Compose, Cloudflare Tunnel, GitHub Actions |
+| **Infrastructure** | Netlify, Supabase, GitHub Actions |
 | **Observability** | OpenTelemetry, Sentry, structured logging |
 
 ### Key Metrics
@@ -111,8 +111,8 @@ graph TB
     end
     
     subgraph "Edge Layer"
-        CF[Cloudflare Tunnel]
-        Gateway[Express Gateway<br/>:3001]
+        Netlify[Netlify CDN]
+        Supabase[Supabase Edge Functions]
     end
     
     subgraph "Application Layer"
@@ -389,8 +389,8 @@ sequenceDiagram
 
 ```mermaid
 graph LR
-    A[Client] --> B[Cloudflare]
-    B --> C[Rate Limiting]
+    A[Client] --> B[Netlify CDN]
+    B --> C[Supabase Edge]
     C --> D[JWT Auth]
     D --> E[RLS Policies]
     E --> F[Business Logic]
@@ -404,7 +404,7 @@ graph LR
 
 ### Security Layers
 
-1. **Network**: Cloudflare Tunnel, TLS 1.3
+1. **Network**: Netlify CDN, TLS 1.3
 2. **Rate Limiting**: API_RATE_LIMIT (default 60 req/min per IP)
 3. **Authentication**: JWT tokens issued by Supabase Auth
 4. **Authorization**: Supabase Row Level Security (RLS) policies
@@ -464,7 +464,7 @@ services:
 **Production** (`docker-compose.prod.yml`):
 - Uses pre-built images from GHCR
 - Environment loaded from `.env.compose`
-- Cloudflare Tunnel for ingress
+- Netlify for frontend hosting and CDN
 
 ### CI/CD Pipelines
 
@@ -559,7 +559,7 @@ Major architectural decisions are documented in `docs/adr/` using the MADR templ
 1. **System Config**: 60-second in-memory cache
 2. **Supabase Client**: Connection pooling (default pool size)
 3. **Redis**: Optional caching for expensive queries (configured via `REDIS_URL`)
-4. **CDN**: Static assets served via Cloudflare
+4. **CDN**: Static assets served via Netlify CDN
 
 ### Scalability Patterns
 

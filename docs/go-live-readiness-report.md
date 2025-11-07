@@ -60,12 +60,12 @@ Prisma Glow is a monorepo-based full-stack application with the following compon
 └──────────────┬──────────────────────────────────────────────┘
                │
        ┌───────▼────────┐
-       │  Cloudflare    │  (Optional reverse proxy/tunnel)
-       │    Tunnel      │
+       │  Netlify CDN   │  (Frontend hosting)
+       │  + Supabase    │  (Backend services)
        └───────┬────────┘
                │
        ┌───────▼────────┐
-       │  Next.js Web   │  Port 3000 (apps/web)
+       │  Next.js PWA   │  Netlify deployment
        │  Application   │  - App Router
        └───────┬────────┘  - Prisma Client
                │           - Server Actions
@@ -125,11 +125,11 @@ Prisma Glow is a monorepo-based full-stack application with the following compon
 
 ### 1.3 Deployment Model
 
-- **Container Orchestration**: Docker Compose (development & production)
-- **Profiles**: Separate profiles for ui, web, agent, rag, analytics, gateway
-- **Reverse Proxy**: Cloudflare Tunnel (optional, documented in docs/local-caddy-cloudflare-tunnel.md)
+- **Container Orchestration**: Docker Compose (development only)
+- **Production Hosting**: Netlify (frontend PWA), Supabase (backend services)
+- **CDN**: Netlify Edge Network
 - **Database**: Supabase managed PostgreSQL
-- **Secrets**: Environment variables (production), optional HashiCorp Vault integration
+- **Secrets**: Netlify environment variables, Supabase secrets
 
 ### 1.4 Service Inventory
 
@@ -291,9 +291,9 @@ USER app  # ✅ Runs as non-root
 - ✅ Environment-specific behavior (dev vs. production)
 
 #### TLS/SSL:
-- ⚠️ Application expects TLS termination at reverse proxy (Cloudflare/Caddy)
-- ⚠️ No explicit TLS enforcement in application code
-- **Recommendation**: Document TLS requirements in deployment guide
+- ✅ TLS termination handled by Netlify CDN (automatic)
+- ✅ Automatic SSL certificate provisioning via Let's Encrypt
+- **Recommendation**: HTTPS enforced by default on Netlify
 
 ### 2.8 Secrets Management
 
@@ -894,7 +894,8 @@ With these mitigations in place, the platform can safely proceed to production d
 - Docker (containerization analysis)
 
 ### C. Assumptions
-- Production deployment will use managed Supabase (not self-hosted PostgreSQL)
-- TLS termination handled by reverse proxy (Cloudflare/Caddy)
+- Production deployment uses Netlify for frontend hosting
+- Backend services run on Supabase (managed PostgreSQL, Edge Functions, Auth)
+- TLS termination handled automatically by Netlify CDN
 - Observability backend (Jaeger/Honeycomb) will be configured separately
 - On-call rotation will be established before production launch

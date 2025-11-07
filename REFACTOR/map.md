@@ -458,9 +458,9 @@ CREATE POLICY "Managers can post journals"
     - Duration: ~5-10 minutes
     - Critical Path: Yes
 
-12. **vercel-deploy.yml** - Vercel deployment (apps/web)
-    - Environments: preview, production
-    - Triggers: push to develop/main
+12. **deploy-netlify.yml** - Netlify deployment (PWA frontend)
+    - Environments: preview, staging, production
+    - Triggers: push to dev/staging/main, PRs
     - Duration: ~3-5 minutes
     - Critical Path: No (alternative deployment)
 
@@ -526,8 +526,8 @@ Push to main
     │                    │
     │             All pass? ──> docker-build.yml
     │                              │
-    │                              ├─> compose-deploy.yml
-    │                              └─> vercel-deploy.yml
+    │                              ├─> compose-deploy.yml (deprecated)
+    │                              └─> deploy-netlify.yml
     │
     ├─> supabase-migrate.yml (if migrations/)
     ├─> prisma-migrate.yml (if prisma/)
