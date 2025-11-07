@@ -67,20 +67,15 @@ Choose the process that matches your target surface:
 
 Open http://localhost:5173 for the Vite app, http://localhost:3000 for the Next.js app, and http://localhost:3001 for the gateway default port.
 
-## 4. Cloudflare tunnel helpers
+## 4. Remote Access (Deprecated)
 
-Some teams expose the local admin app through a Cloudflare tunnel for remote demos. The repository ships helper scripts under `scripts/mac` to manage the tunnel:
+**Note:** Cloudflare tunnel helpers have been removed as part of the migration to Netlify + Supabase architecture. For remote access during development, use:
 
-- `tunnel_up.sh` runs the tunnel in the foreground for ad-hoc use.
-- `tunnel_bg.sh` starts the tunnel in the background and tails logs to `infra/cloudflared/cloudflared.log`.
-- `tunnel_down.sh` stops the background tunnel using the PID stored alongside the log file.
-
-Before running any of the scripts:
-
-1. Copy `infra/cloudflared/config.yml.example` to `infra/cloudflared/config.yml` and replace the placeholders with your tunnel details. The `${ADMIN_HOSTNAME}` placeholder expects an environment variable so that the same config can serve multiple hostnames.
-2. Run `cloudflared login` and choose the zone that owns `${ADMIN_HOSTNAME}`. The login flow writes the credentials JSON referenced by the config file.
+1. **Netlify Preview Deployments**: Push to a branch to get automatic preview URLs
+2. **ngrok or similar**: For ad-hoc local sharing
+3. **Supabase Local Development**: `supabase start` for local backend
 
 ## 5. Future reverse-proxy plans
 
-When you need an externally accessible reverse proxy, follow [`docs/local-caddy-cloudflare-tunnel.md`](./local-caddy-cloudflare-tunnel.md). It provides the Caddy configuration, Cloudflare Tunnel setup, Access policies, Supabase CORS updates, and rollback steps tailored for macOS. Future changes to the proxy workflow will be documented there.
+For production deployments, follow [`docs/deployment/netlify-supabase.md`](./deployment/netlify-supabase.md). This guide covers Netlify configuration, Supabase setup, and CI/CD integration.
 

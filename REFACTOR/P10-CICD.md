@@ -19,9 +19,9 @@ Comprehensive CI/CD documentation covering all 19 GitHub Actions workflows, main
 9. **ci-secret-guard.yml** - Secret exposure guard
 
 ### Deployment (4)
-10. **docker-build.yml** - Multi-platform Docker builds
-11. **compose-deploy.yml** - Docker Compose deployment
-12. **vercel-deploy.yml** - Vercel deployment
+10. **docker-build.yml** - Multi-platform Docker builds (for development)
+11. **compose-deploy.yml** - Docker Compose deployment (deprecated)
+12. **deploy-netlify.yml** - Netlify deployment (production)
 13. **release.yml** - Semantic release
 
 ### Testing (3)
