@@ -1,90 +1,59 @@
-# Netlify deployment configuration for Prisma Glow
-# Optimized for PWA deployment with Supabase backend
-
+# Netlify deployment configuration
 [build]
-  # Build command for client PWA
   command = "pnpm run build:netlify"
   publish = "dist"
-  # Use Node.js 20 for compatibility
-  node_version = "20"
+  environment = { NODE_VERSION = "22.12.0", PNPM_VERSION = "9.12.3" }
 
-# Build environment variables
-[build.environment]
-  NODE_ENV = "production"
-  PNPM_VERSION = "9.12.3"
-
-# Client PWA (primary deployment)
+# Client PWA routing
 [[redirects]]
-  from = "/*"
-  to = "/index.html"
+  from = "/"
+  to = "/client/index.html"
   status = 200
 
-# Security headers for PWA
+[[redirects]]
+  from = "/client/*"
+  to = "/client/index.html"
+  status = 200
+
+# Admin PWA routing
+[[redirects]]
+  from = "/admin/*"
+  to = "/admin/index.html"
+  status = 200
+
+# API proxy to Supabase Edge Functions
+[[redirects]]
+  from = "/api/*"
+  to = "https://:SUPABASE_PROJECT_ID.supabase.co/functions/v1/:splat"
+  status = 200
+  headers = {X-Custom-Header = "Netlify-Proxy"}
+
+# Plugins
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+[[plugins]]
+  package = "netlify-plugin-cache-nextjs"
+
+# Security Headers
 [[headers]]
   for = "/*"
   [headers.values]
-    Strict-Transport-Security = "max-age=63072000; includeSubDomains; preload"
-    X-Content-Type-Options = "nosniff"
     X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
     X-XSS-Protection = "1; mode=block"
     Referrer-Policy = "strict-origin-when-cross-origin"
-    Permissions-Policy = "geolocation=(), microphone=(), camera=()"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=()"
 
-# Cache static assets
-[[headers]]
-  for = "/assets/*"
-  [headers.values]
-    Cache-Control = "public, max-age=31536000, immutable"
-
-# Cache service worker
-[[headers]]
-  for = "/sw.js"
-  [headers.values]
-    Cache-Control = "public, max-age=0, must-revalidate"
-
-# PWA manifest cache
+# PWA headers
 [[headers]]
   for = "/manifest.json"
   [headers.values]
+    Content-Type = "application/manifest+json"
     Cache-Control = "public, max-age=3600"
 
-# Production context (main branch)
-[context.production]
-  command = "pnpm run build:netlify"
-  publish = "dist"
-  [context.production.environment]
-    NODE_ENV = "production"
-
-# Branch deploy context
-[context.branch-deploy]
-  command = "pnpm run build:netlify"
-  publish = "dist"
-
-# Deploy preview context
-[context.deploy-preview]
-  command = "pnpm run build:netlify"
-  publish = "dist"
-
-# Development context
-[context.dev]
-  command = "pnpm run build:netlify"
-  publish = "dist"
-  [context.dev.environment]
-    NODE_ENV = "development"
-
-# Functions configuration (for future Netlify Functions if needed)
-[functions]
-  directory = "netlify/functions"
-  node_bundler = "esbuild"
-
-# Plugin configuration
-[[plugins]]
-  package = "@netlify/plugin-lighthouse"
-  [plugins.inputs]
-    output_path = "lighthouse-reports"
-
-# Edge Functions configuration (optional, for future implementation)
-# Uncomment when edge function is implemented
-# [[edge_functions]]
-#   path = "/*"
-#   function = "geo-routing"
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache"
+    Service-Worker-Allowed = "/"

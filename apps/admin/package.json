@@ -1,0 +1,36 @@
+{
+  "name": "@prisma-glow/admin",
+  "version": "2.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "npx serve out",
+    "lint": "eslint --ext .ts,.tsx .",
+    "typecheck": "tsc --noEmit",
+    "test": "echo \"No tests\""
+  },
+  "dependencies": {
+    "next": "14.2.0",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0",
+    "@supabase/supabase-js": "^2.45.0",
+    "@supabase/ssr": "^0.5.0",
+    "@tanstack/react-query": "^5.62.0",
+    "framer-motion": "^11.0.0",
+    "lucide-react": "^0.460.0",
+    "next-pwa": "^5.6.0",
+    "@prisma-glow/ui": "workspace:*",
+    "@prisma-glow/supabase-client": "workspace:*",
+    "@prisma-glow/types": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "@types/node": "^22.12.0",
+    "typescript": "^5.7.3",
+    "tailwindcss": "^3.4.0",
+    "postcss": "^8.4.0",
+    "autoprefixer": "^10.4.0"
+  }
+}

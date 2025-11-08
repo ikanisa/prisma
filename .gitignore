@@ -35,3 +35,14 @@ apps/web/public/workbox-*.js
 # Misc
 *.swp
 apps/web/.turbo/
+
+# Next.js PWAs
+apps/client/.next/
+apps/client/out/
+apps/client/public/sw.js
+apps/client/public/workbox-*.js
+apps/admin/.next/
+apps/admin/out/
+apps/admin/public/sw.js
+apps/admin/public/workbox-*.js
+.turbo/

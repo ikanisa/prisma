@@ -2,29 +2,14 @@
   "extends": "./tsconfig.base.json",
   "files": [],
   "references": [
-    { "path": "./packages/api-client" },
-    { "path": "./packages/system-config" },
+    { "path": "./packages/types" },
+    { "path": "./packages/supabase-client" },
+    { "path": "./packages/database" },
     { "path": "./packages/ui" },
-    { "path": "./packages/logger" },
-    { "path": "./services/rag" },
-    { "path": "./apps/gateway/tsconfig.json" }
+    { "path": "./apps/client" },
+    { "path": "./apps/admin" }
   ],
   "compilerOptions": {
-    "baseUrl": ".",
-    "paths": {
-      "@/*": ["./src/*"],
-      "@prisma-glow/agents": [
-        "./packages/agents/src/index.ts",
-        "./packages/agents/dist/index.d.ts"
-      ],
-      "@prisma-glow/agents/*": [
-        "./packages/agents/src/*.ts",
-        "./packages/agents/src/*/index.ts",
-        "./packages/agents/dist/*.d.ts",
-        "./packages/agents/dist/*",
-        "./packages/agents/dist/*/index.d.ts",
-        "./packages/agents/dist/*/index.js"
-      ]
-    }
+    "baseUrl": "."
   }
 }

@@ -1,26 +1,42 @@
 {
   "$schema": "https://turbo.build/schema.json",
-  "globalDependencies": [
-    "package.json",
-    "pnpm-lock.yaml",
-    "tsconfig.base.json",
-    "turbo.json"
+  "ui": "tui",
+  "globalDependencies": ["**/.env.*local", "**/.env"],
+  "globalEnv": [
+    "NEXT_PUBLIC_SUPABASE_URL",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+    "SUPABASE_SERVICE_KEY",
+    "NODE_ENV"
   ],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": ["dist/**", "build/**", "*.tsbuildinfo", "!dist/.tsbuildinfo"]
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "outputs": ["out/**", "dist/**", ".next/**"],
+      "env": [
+        "NEXT_PUBLIC_SUPABASE_URL",
+        "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+        "NEXT_PUBLIC_APP_URL"
+      ]
     },
-    "lint": {
-      "outputs": []
+    "dev": {
+      "cache": false,
+      "persistent": true
     },
     "test": {
       "dependsOn": ["^build"],
-      "outputs": []
+      "inputs": ["src/**", "tests/**", "*.config.*"],
+      "outputs": ["coverage/**"]
     },
-    "performance": {
-      "cache": false,
-      "outputs": ["test-results/performance/**"]
+    "lint": {
+      "inputs": ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx"]
+    },
+    "typecheck": {
+      "dependsOn": ["^build"],
+      "inputs": ["**/*.ts", "**/*.tsx", "tsconfig.json"]
+    },
+    "clean": {
+      "cache": false
     }
   }
 }
