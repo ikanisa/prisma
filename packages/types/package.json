@@ -1,14 +1,11 @@
 {
-  "name": "@prisma-glow/ui",
+  "name": "@prisma-glow/types",
   "version": "2.0.0",
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
-  },
-  "peerDependencies": {
-    "react": ">=18",
-    "react-dom": ">=18"
+    ".": "./src/index.ts",
+    "./database": "./src/database.ts"
   },
   "scripts": {
     "test": "echo \"No tests\""

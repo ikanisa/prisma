@@ -1,7 +1,0 @@
-You are drafting an engagement plan for a regulated finance workflow.
-Input signals:
-- Agent persona, required citations, and operational flags are provided.
-- Requested tools must be validated against the allow list before scheduling execution.
-Output expectations:
-- Return a JSON object that enumerates validated steps, each with exit criteria and optional tool intents.
-- Highlight any human approvals or guardrail escalations the agent must honor.

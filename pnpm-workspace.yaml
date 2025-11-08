@@ -1,7 +1,4 @@
-# Temporary workspace scaffold; individual packages will be migrated gradually.
 packages:
-  - analytics
-  - apps/gateway
-  - apps/web
-  - services/**
-  - packages/**
+  - 'apps/*'
+  - 'packages/*'
+  - 'supabase/functions/*'
