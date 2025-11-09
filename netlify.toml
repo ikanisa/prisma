@@ -24,7 +24,7 @@
 # API proxy to Supabase Edge Functions
 [[redirects]]
   from = "/api/*"
-  to = "https://:SUPABASE_PROJECT_ID.supabase.co/functions/v1/:splat"
+  to = "https://xzwowkxzgqigfuefmaji.supabase.co/functions/v1/:splat"
   status = 200
   headers = {X-Custom-Header = "Netlify-Proxy"}
 
