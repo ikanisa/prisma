@@ -171,13 +171,6 @@ class RAGTrainer:
             'expanded_terms': [],
             'confidence': 0.8
         }
-            
-            await self._update_ranking_model(feedback)
-            improvements['ranking_model_updates'] += 1
-        
-        if await self._should_fine_tune_embeddings():
-            await self._fine_tune_embeddings()
-            improvements['embedding_adjustments'] += 1
         
         return improvements
     
