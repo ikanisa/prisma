@@ -3,14 +3,15 @@ Learning API Endpoints
 FastAPI routes for the agent learning system
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
 from datetime import datetime
+from uuid import UUID
 import json
 
 from server.db import get_db
-from server.security import get_current_user
+from server.security import get_current_user, require_role
 from server.learning import (
     FeedbackCollector,
     PromptOptimizer,
