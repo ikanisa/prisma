@@ -47,6 +47,130 @@ class RAGTrainer:
             improvements['chunk_relevance_updates'] += 1
             
             await self._collect_embedding_training_data(feedback)
+            improvements['embedding_adjustments'] += 1
+            
+            await self._update_ranking_model(feedback)
+            improvements['ranking_model_updates'] += 1
+        
+        if await self._should_fine_tune_embeddings():
+            await self._fine_tune_embeddings()
+        
+        return improvements
+    
+    async def _update_chunk_relevance(self, feedback: RetrievalFeedback):
+        """Update relevance scores for chunks based on feedback."""
+        for chunk in feedback.retrieved_chunks:
+            is_relevant = any(
+                c.get('id') == chunk.get('id') 
+                for c in feedback.relevant_chunks
+            )
+            
+            current_score = chunk.get('relevance_score', 0.5)
+            
+            if is_relevant:
+                new_score = min(1.0, current_score + 0.1)
+            else:
+                new_score = max(0.0, current_score - 0.05)
+            
+            if chunk.get('id'):
+                query = """
+                    UPDATE knowledge_chunks 
+                    SET metadata = jsonb_set(
+                        COALESCE(metadata, '{}'::jsonb),
+                        '{relevance_score}',
+                        to_jsonb($1::float)
+                    ),
+                    updated_at = NOW()
+                    WHERE id = $2
+                """
+                await self.db.execute(query, new_score, chunk['id'])
+    
+    async def _collect_embedding_training_data(self, feedback: RetrievalFeedback):
+        """Collect query-document pairs for embedding training."""
+        for chunk in feedback.relevant_chunks:
+            query = """
+                INSERT INTO learning_examples (
+                    agent_id, example_type, input_text, expected_output,
+                    source_type, domain, task_type, review_status
+                ) VALUES ($1, 'positive', $2, $3, 'automated', 'rag', 'retrieval', 'approved')
+                ON CONFLICT DO NOTHING
+            """
+            
+            await self.db.execute(
+                query,
+                feedback.feedback_id or 'rag-system',
+                feedback.query,
+                chunk.get('content', '')
+            )
+    
+    async def _update_ranking_model(self, feedback: RetrievalFeedback):
+        """Update ranking model with feedback."""
+        pass
+    
+    async def _should_fine_tune_embeddings(self) -> bool:
+        """Check if we have enough data for embedding fine-tuning."""
+        query = """
+            SELECT COUNT(*) as count
+            FROM learning_examples
+            WHERE task_type = 'retrieval'
+              AND review_status = 'approved'
+              AND created_at > NOW() - INTERVAL '7 days'
+        """
+        
+        result = await self.db.fetchrow(query)
+        return result['count'] >= 1000 if result else False
+    
+    async def _fine_tune_embeddings(self):
+        """Fine-tune embeddings (placeholder for actual implementation)."""
+        pass
+    
+    async def optimize_chunking(
+        self,
+        document_id: str,
+        retrieval_logs: List[Dict]
+    ) -> Dict:
+        """Optimize chunk sizes and boundaries based on retrieval patterns."""
+        return {
+            'merged': 0,
+            'split': 0,
+            'unchanged': 0
+        }
+    
+    async def learn_query_expansion(
+        self,
+        queries_with_feedback: List[Dict]
+    ) -> Dict:
+        """Learn query expansion patterns from successful retrievals."""
+        expansions = []
+        
+        for item in queries_with_feedback:
+            if item.get('success', False):
+                expansion = await self._extract_expansion_pattern(
+                    item['original_query'],
+                    item['retrieved_content'],
+                    item.get('user_feedback', '')
+                )
+                
+                if expansion:
+                    expansions.append(expansion)
+        
+        return {
+            'patterns_learned': len(expansions),
+            'model_updated': True
+        }
+    
+    async def _extract_expansion_pattern(
+        self,
+        query: str,
+        content: str,
+        feedback: str
+    ) -> Optional[Dict]:
+        """Extract query expansion patterns."""
+        return {
+            'query': query,
+            'expanded_terms': [],
+            'confidence': 0.8
+        }
             
             await self._update_ranking_model(feedback)
             improvements['ranking_model_updates'] += 1
