@@ -1,0 +1,40 @@
+{
+  "name": "@prisma-glow/tax",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Tax agent specialists for multi-jurisdiction tax compliance and advisory",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "dev": "tsc --watch",
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest",
+    "test:watch": "vitest --watch",
+    "test:coverage": "vitest --coverage",
+    "lint": "eslint src --ext .ts,.tsx",
+    "lint:fix": "eslint src --ext .ts,.tsx --fix"
+  },
+  "dependencies": {
+    "@prisma-glow/types": "workspace:*",
+    "@prisma-glow/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.3.0",
+    "vitest": "^1.0.0",
+    "eslint": "^8.0.0"
+  },
+  "keywords": [
+    "tax",
+    "ai-agents",
+    "compliance",
+    "corporate-tax",
+    "vat",
+    "transfer-pricing",
+    "eu-tax",
+    "us-tax",
+    "international-tax"
+  ]
+}
