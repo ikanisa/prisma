@@ -72,3 +72,40 @@ export function Skeleton({
     />
   );
 }
+
+/**
+ * Skeleton Card
+ * Pre-built skeleton for card layouts
+ */
+export function SkeletonCard() {
+  return (
+    <div className="space-y-3 p-4 border rounded-lg">
+      <Skeleton className="h-4 w-3/4" />
+      <Skeleton className="h-4 w-1/2" />
+      <Skeleton className="h-20 w-full" />
+    </div>
+  );
+}
+
+/**
+ * Loading Progress
+ * Progress bar for long-running operations
+ */
+export function LoadingProgress({ progress }: { progress: number }) {
+  return (
+    <div className="w-full bg-muted rounded-full h-2">
+      <div 
+        className="bg-primary h-2 rounded-full transition-all duration-300"
+        style={{ width: `${Math.min(100, Math.max(0, progress))}%` }}
+      />
+    </div>
+  );
+}
+
+/**
+ * Button Loader
+ * Inline loader for button loading states
+ */
+export function ButtonLoader() {
+  return <Loader2 className="h-4 w-4 animate-spin" />;
+}
