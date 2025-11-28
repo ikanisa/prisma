@@ -5,8 +5,8 @@
  * Handles request routing, streaming, and error handling.
  */
 
+import { AgentProvider } from './types.js';
 import type {
-  AgentProvider,
   AgentRequest,
   AgentResponse,
   AgentConfig,
@@ -74,7 +74,13 @@ export class UnifiedAgentGateway {
       throw new Error(`Agent execution failed: ${error}`);
     }
 
-    const data = await response.json();
+    const data = await response.json() as {
+      content: string;
+      tool_calls?: Array<{ id?: string; name: string; arguments: Record<string, unknown> }>;
+      usage?: { input_tokens?: number; output_tokens?: number; total_tokens?: number };
+      provider: string;
+      metadata?: Record<string, unknown>;
+    };
 
     return {
       content: data.content,
@@ -84,7 +90,7 @@ export class UnifiedAgentGateway {
         outputTokens: data.usage?.output_tokens || 0,
         totalTokens: data.usage?.total_tokens || 0,
       },
-      provider: data.provider,
+      provider: data.provider as AgentProvider,
       metadata: data.metadata || {},
     };
   }
@@ -137,10 +143,16 @@ export class UnifiedAgentGateway {
           if (line.trim() === '') continue;
 
           try {
-            const data = JSON.parse(line);
+            const data = JSON.parse(line) as {
+              content: string;
+              tool_calls?: Array<{ id?: string; name: string; arguments: Record<string, unknown> }>;
+              usage?: { input_tokens?: number; output_tokens?: number; total_tokens?: number };
+              provider: string;
+              metadata?: Record<string, unknown>;
+            };
 
             yield {
-              type: data.metadata?.event_type || 'content_delta',
+              type: (data.metadata?.event_type as 'content_delta' | 'tool_call' | 'done' | 'error') || 'content_delta',
               data: {
                 content: data.content,
                 toolCalls: data.tool_calls || [],
@@ -149,7 +161,7 @@ export class UnifiedAgentGateway {
                   outputTokens: data.usage?.output_tokens || 0,
                   totalTokens: data.usage?.total_tokens || 0,
                 },
-                provider: data.provider,
+                provider: data.provider as AgentProvider,
                 metadata: data.metadata || {},
               },
             };
@@ -200,7 +212,7 @@ export class UnifiedAgentGateway {
       throw new Error(`Agent creation failed: ${error}`);
     }
 
-    const data = await response.json();
+    const data = await response.json() as { agent_id: string };
     return data.agent_id;
   }
 }
@@ -214,6 +226,6 @@ export function createAgentGateway(
   return new UnifiedAgentGateway({
     defaultProvider: options?.defaultProvider || AgentProvider.OPENAI,
     fallbackProviders: options?.fallbackProviders || [AgentProvider.GEMINI],
-    providerConfigs: options?.providerConfigs || {},
+    providerConfigs: options?.providerConfigs,
   });
 }
