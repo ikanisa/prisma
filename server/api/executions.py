@@ -5,6 +5,7 @@ Handles execution of AI agents and retrieval of execution history.
 """
 
 from fastapi import APIRouter, HTTPException, BackgroundTasks
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
 from datetime import datetime
@@ -122,43 +123,54 @@ async def _execute_agent_async(execution_id: UUID, slug: str, request: ExecuteAg
     Background task to actually execute the agent.
     
     This will:
-    1. Load the agent from TypeScript package
-    2. Execute with OpenAI
+    1. Get OpenAI service
+    2. Execute agent with real OpenAI API
     3. Store results in database
     4. Update execution record
     """
-    import time
+    from server.services.openai_service import get_openai_service, AgentExecutionConfig
     
     try:
         # Update status to running
         _executions_db[execution_id]["status"] = ExecutionStatus.RUNNING
         
-        # Simulate agent execution
-        # TODO: Actually call the TypeScript agent via subprocess or Node integration
-        start_time = time.time()
+        # Get OpenAI service
+        openai_service = get_openai_service()
         
-        # Mock execution delay
-        time.sleep(1)
+        # Configure execution
+        config = AgentExecutionConfig(
+            model="gpt-4o-mini",  # Use mini for cost efficiency
+            temperature=0.7,
+            max_tokens=2000,
+            stream=request.stream
+        )
         
-        # Mock response
+        # Execute agent with real OpenAI
+        result = await openai_service.execute_agent(
+            agent_slug=slug,
+            query=request.query,
+            context=request.context,
+            config=config
+        )
+        
+        # Build output
         output = {
-            "answer": f"Based on your query about {request.query}, here's the tax guidance...",
-            "sources": ["IRC Section 1", "OECD Guidelines"],
-            "confidence": 0.95,
-            "warnings": [],
-            "recommendations": ["Consult with tax advisor"]
+            "answer": result.answer,
+            "sources": result.sources or [],
+            "confidence": result.confidence or 0.0,
+            "warnings": result.warnings or [],
+            "recommendations": result.recommendations or [],
+            "model": result.model,
+            "finish_reason": result.finish_reason
         }
         
-        end_time = time.time()
-        duration_ms = int((end_time - start_time) * 1000)
-        
-        # Update execution with results
+        # Update execution with real results
         _executions_db[execution_id].update({
             "status": ExecutionStatus.COMPLETED,
             "output_data": output,
-            "tokens_used": 850,  # Mock
-            "cost_usd": 0.0034,  # Mock: $0.02/1K tokens * 0.85K tokens / 2
-            "duration_ms": duration_ms,
+            "tokens_used": result.tokens_used,
+            "cost_usd": result.cost_usd,
+            "duration_ms": result.duration_ms,
             "completed_at": datetime.now()
         })
         
@@ -352,3 +364,72 @@ async def get_execution_analytics(
         "total_tokens": total_tokens,
         "agent_slug": agent_slug
     }
+
+
+@router.post("/{slug}/execute/stream")
+async def execute_agent_streaming(
+    slug: str,
+    request: ExecuteAgentRequest
+):
+    """
+    Execute an AI agent with streaming response (Server-Sent Events).
+    
+    Returns a stream of response chunks as they arrive from OpenAI.
+    Useful for real-time UI updates.
+    
+    Connect using EventSource in JavaScript:
+    ```javascript
+    const source = new EventSource('/api/executions/tax-corp-eu-022/execute/stream');
+    source.onmessage = (event) => {
+        console.log(event.data);
+    };
+    ```
+    """
+    from server.services.openai_service import get_openai_service, AgentExecutionConfig
+    
+    # Validate agent exists
+    valid_agents = [
+        "tax-corp-eu-022", "tax-corp-us-023", "tax-corp-uk-024",
+        "tax-corp-ca-025", "tax-corp-mt-026", "tax-corp-rw-027",
+        "tax-vat-028", "tax-tp-029", "tax-personal-030",
+        "tax-provision-031", "tax-contro-032", "tax-research-033"
+    ]
+    
+    if slug not in valid_agents:
+        raise HTTPException(status_code=404, detail=f"Agent not found: {slug}")
+    
+    async def generate():
+        """Generate SSE stream"""
+        try:
+            openai_service = get_openai_service()
+            config = AgentExecutionConfig(
+                model="gpt-4o-mini",
+                temperature=0.7,
+                max_tokens=2000,
+                stream=True
+            )
+            
+            async for chunk in openai_service.execute_agent_streaming(
+                agent_slug=slug,
+                query=request.query,
+                context=request.context,
+                config=config
+            ):
+                # Send as Server-Sent Event
+                yield f"data: {chunk}\n\n"
+            
+            # Send completion marker
+            yield "data: [DONE]\n\n"
+            
+        except Exception as e:
+            yield f"data: [ERROR] {str(e)}\n\n"
+    
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+        }
+    )
+
