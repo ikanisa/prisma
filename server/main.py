@@ -81,6 +81,8 @@ from .email import send_member_invite_email
 from .api.schemas import ReleaseControlCheckRequest, ReleaseControlCheckResponse
 from .telemetry import RequestTelemetryMiddleware, configure_fastapi_tracing
 from .settings import get_system_settings
+from .api.learning import router as learning_router
+from .metrics import metrics_router, MetricsMiddleware
 
 app = FastAPI()
 
@@ -7792,3 +7794,17 @@ def clear_permission_map_cache() -> None:
 
 def get_org_role_values() -> Set[str]:
     return set(get_role_rank_map_config().keys())
+
+
+# Include Learning System Router
+app.include_router(learning_router)
+
+# Include Metrics Router
+app.include_router(metrics_router)
+
+# Include Agent System Routers
+from .api.agents import router as agents_router
+from .api.executions import router as executions_router
+
+app.include_router(agents_router)
+app.include_router(executions_router)
