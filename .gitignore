@@ -27,6 +27,10 @@ __pycache__/
 *.pyc
 .venv/
 venv/
+.coverage
+*.coverage
+htmlcov/
+.pytest_cache/
 
 # Next.js (web app)
 apps/web/.next/
