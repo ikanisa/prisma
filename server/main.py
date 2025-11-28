@@ -41,6 +41,7 @@ from .deterministic_contract import build_manifest, validate_manifest
 from .analytics_runner import AnalyticsValidationError, run_analytics
 from .onboarding_mapper import map_document_fields
 from .db import AsyncSessionLocal, Chunk, init_db
+from .cache import get_cache, CacheService
 from .rag import (
     chunk_text,
     embed_chunks,
@@ -84,7 +85,20 @@ from .settings import get_system_settings
 from .api.learning import router as learning_router
 from .metrics import metrics_router, MetricsMiddleware
 
-app = FastAPI()
+@contextlib.asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Manage application lifespan - startup and shutdown"""
+    logger = structlog.get_logger(__name__)
+    # Startup: Initialize cache
+    cache = get_cache()
+    await cache.connect()
+    logger.info("Cache service started")
+    yield
+    # Shutdown: Close cache connection
+    await cache.close()
+    logger.info("Cache service stopped")
+
+app = FastAPI(lifespan=lifespan)
 
 
 def _bool_env(name: str, default: bool = False) -> bool:

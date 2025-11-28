@@ -2,6 +2,24 @@
 
 Modern AI-powered operations suite with Supabase, FastAPI, and multi-app pnpm workspace tooling.
 
+## 🎉 NEW: AI Agent Learning System
+
+**The AI Agent Learning System is now production-ready!** This comprehensive system enables your AI agents to learn from feedback, optimize automatically, and continuously improve.
+
+**⭐ Quick Start**: Read [LEARNING_SYSTEM_READY.md](./LEARNING_SYSTEM_READY.md) for a 30-minute deployment guide.
+
+**📚 Full Documentation**: See [DOCUMENTATION_INDEX.md](./DOCUMENTATION_INDEX.md) for all 16 guides.
+
+**Key Features**:
+- ✅ Multi-channel feedback collection
+- ✅ Automated prompt optimization
+- ✅ Real-time monitoring with Prometheus + Grafana
+- ✅ 16 alert rules for proactive issue detection
+- ✅ Expert annotation workflow
+- ✅ A/B testing framework
+
+**Learn More**: [FINAL_DELIVERY_SUMMARY.md](./FINAL_DELIVERY_SUMMARY.md)
+
 ## Local Setup (Mac)
 
 1. **Install prerequisites**

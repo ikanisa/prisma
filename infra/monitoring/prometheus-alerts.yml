@@ -1,0 +1,202 @@
+groups:
+  - name: learning_system_alerts
+    interval: 30s
+    rules:
+      # Worker Status Alerts
+      - alert: LearningWorkerDown
+        expr: up{job="learning-worker"} == 0
+        for: 5m
+        labels:
+          severity: critical
+          component: worker
+        annotations:
+          summary: "Learning system worker is down"
+          description: "The RQ worker for learning jobs has been down for more than 5 minutes."
+          runbook: "Check worker logs: docker logs learning-worker"
+
+      # Queue Length Alerts
+      - alert: HighQueueLength
+        expr: sum by(queue) (rq_queue_length) > 100
+        for: 10m
+        labels:
+          severity: warning
+          component: queue
+        annotations:
+          summary: "High queue length detected: {{ $labels.queue }}"
+          description: "Queue {{ $labels.queue }} has {{ $value }} jobs pending for over 10 minutes."
+          runbook: "Scale workers or investigate job failures"
+
+      - alert: CriticalQueueLength
+        expr: sum by(queue) (rq_queue_length) > 500
+        for: 5m
+        labels:
+          severity: critical
+          component: queue
+        annotations:
+          summary: "CRITICAL: Very high queue length: {{ $labels.queue }}"
+          description: "Queue {{ $labels.queue }} has {{ $value }} jobs pending. System may be overwhelmed."
+          runbook: "Immediately scale workers and investigate bottlenecks"
+
+      # Job Failure Alerts
+      - alert: HighJobFailureRate
+        expr: |
+          sum(rate(rq_jobs_total{status="failed"}[5m])) 
+          / 
+          sum(rate(rq_jobs_total[5m])) > 0.1
+        for: 10m
+        labels:
+          severity: warning
+          component: jobs
+        annotations:
+          summary: "High job failure rate"
+          description: "More than 10% of jobs are failing in the last 10 minutes."
+          runbook: "Check worker logs and job error details"
+
+      - alert: NoJobsCompleting
+        expr: sum(rate(rq_jobs_total{status="completed"}[1h])) == 0
+        for: 1h
+        labels:
+          severity: critical
+          component: jobs
+        annotations:
+          summary: "No jobs completing"
+          description: "No jobs have completed successfully in the last hour."
+          runbook: "Check if worker is processing jobs, verify queue connections"
+
+      # Feedback Collection Alerts
+      - alert: LowFeedbackRate
+        expr: sum(rate(agent_feedback_total[1h])) < 0.01
+        for: 24h
+        labels:
+          severity: info
+          component: feedback
+        annotations:
+          summary: "Low feedback collection rate"
+          description: "Feedback rate is very low. Users may not be seeing feedback UI."
+          runbook: "Verify FeedbackCollector is deployed to all agent UIs"
+
+      - alert: NoFeedbackSubmissions
+        expr: sum(increase(agent_feedback_total[6h])) == 0
+        for: 6h
+        labels:
+          severity: warning
+          component: feedback
+        annotations:
+          summary: "No feedback submissions in 6 hours"
+          description: "No feedback has been submitted in the last 6 hours."
+          runbook: "Check if feedback endpoints are working, verify UI is deployed"
+
+      # Learning Examples Alerts
+      - alert: HighPendingAnnotations
+        expr: sum(learning_examples_pending) > 100
+        for: 1h
+        labels:
+          severity: warning
+          component: annotations
+        annotations:
+          summary: "High number of pending annotations"
+          description: "{{ $value }} learning examples are pending expert review."
+          runbook: "Notify annotation team to review pending examples"
+
+      - alert: VeryHighPendingAnnotations
+        expr: sum(learning_examples_pending) > 500
+        for: 30m
+        labels:
+          severity: critical
+          component: annotations
+        annotations:
+          summary: "CRITICAL: Very high number of pending annotations"
+          description: "{{ $value }} learning examples are pending. Annotation queue may be backlogged."
+          runbook: "Scale annotation team or implement auto-approval for high-quality examples"
+
+      # Job Duration Alerts
+      - alert: SlowJobExecution
+        expr: |
+          histogram_quantile(0.95, 
+            sum(rate(rq_job_duration_seconds_bucket[5m])) by (le, job_type)
+          ) > 3600
+        for: 10m
+        labels:
+          severity: warning
+          component: performance
+        annotations:
+          summary: "Slow job execution: {{ $labels.job_type }}"
+          description: "Job {{ $labels.job_type }} is taking more than 1 hour at p95."
+          runbook: "Investigate job performance, check for database or API bottlenecks"
+
+      # Database Alerts
+      - alert: HighDatabaseConnections
+        expr: pg_stat_database_numbackends > 80
+        for: 5m
+        labels:
+          severity: warning
+          component: database
+        annotations:
+          summary: "High number of database connections"
+          description: "Database has {{ $value }} active connections."
+          runbook: "Check for connection leaks, scale database if needed"
+
+      # API Performance Alerts
+      - alert: HighAPILatency
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(http_request_duration_seconds_bucket{path=~"/api/learning/.*"}[5m])) by (le)
+          ) > 2
+        for: 10m
+        labels:
+          severity: warning
+          component: api
+        annotations:
+          summary: "High API latency"
+          description: "Learning API p95 latency is {{ $value }}s."
+          runbook: "Check database query performance, investigate slow endpoints"
+
+      # System Resource Alerts
+      - alert: HighMemoryUsage
+        expr: |
+          (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) 
+          / node_memory_MemTotal_bytes > 0.9
+        for: 5m
+        labels:
+          severity: warning
+          component: system
+        annotations:
+          summary: "High memory usage"
+          description: "Memory usage is above 90%."
+          runbook: "Check for memory leaks, scale instance if needed"
+
+      - alert: HighCPUUsage
+        expr: 100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 10m
+        labels:
+          severity: warning
+          component: system
+        annotations:
+          summary: "High CPU usage"
+          description: "CPU usage is above 80% for 10 minutes."
+          runbook: "Investigate CPU-intensive jobs, scale workers if needed"
+
+      # Optimization Health Alerts
+      - alert: NoPromptOptimizationsRunning
+        expr: |
+          time() - max(rq_job_last_run_timestamp{job_type="prompt_optimization"}) > 604800
+        for: 1d
+        labels:
+          severity: info
+          component: optimization
+        annotations:
+          summary: "No prompt optimizations in last week"
+          description: "Prompt optimization job hasn't run in over a week."
+          runbook: "Check scheduler is running, verify cron schedule"
+
+      - alert: OptimizationJobFailing
+        expr: |
+          sum(increase(rq_jobs_total{status="failed", job_type=~".*optimization"}[24h])) > 3
+        for: 1h
+        labels:
+          severity: warning
+          component: optimization
+        annotations:
+          summary: "Optimization jobs failing repeatedly"
+          description: "{{ $value }} optimization jobs have failed in the last 24 hours."
+          runbook: "Check job logs for errors, verify OpenAI API key and credits"

@@ -23,5 +23,7 @@ def reembed_chunk(chunk_id: int):
 
 if __name__ == "__main__":
     with Connection(conn):
-        worker = Worker(["reembed"])
+        # Support multiple queues including learning queues
+        queues = ["reembed", "learning", "optimization"]
+        worker = Worker(queues)
         worker.work()

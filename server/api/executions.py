@@ -11,7 +11,12 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime
 from uuid import UUID, uuid4
 from enum import Enum
+import structlog
 
+from server.repositories.agent_repository import get_agent_repository
+from server.repositories.execution_repository import get_execution_repository
+
+logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/api/executions", tags=["executions"])
 
 
@@ -52,8 +57,9 @@ class ExecutionListResponse(BaseModel):
     page_size: int
 
 
-# Mock storage
-_executions_db: Dict[UUID, Dict] = {}
+# Repository instances
+agent_repo = get_agent_repository()
+execution_repo = get_execution_repository()
 
 
 @router.post("/{slug}/execute", response_model=ExecutionResponse, status_code=202)
@@ -67,8 +73,8 @@ async def execute_agent(
     
     Process:
     1. Validate agent exists and is active
-    2. Create execution record
-    3. Execute agent asynchronously
+    2. Create execution record in database
+    3. Execute agent asynchronously with real OpenAI
     4. Return execution ID immediately (202 Accepted)
     5. Client can poll for results or use streaming
     
@@ -77,62 +83,67 @@ async def execute_agent(
     
     For streaming, use stream=true and connect to the SSE endpoint.
     """
-    # Validate agent exists
-    valid_agents = [
-        "tax-corp-eu-022", "tax-corp-us-023", "tax-corp-uk-024",
-        "tax-corp-ca-025", "tax-corp-mt-026", "tax-corp-rw-027",
-        "tax-vat-028", "tax-tp-029", "tax-personal-030",
-        "tax-provision-031", "tax-contro-032", "tax-research-033"
-    ]
-    
-    if slug not in valid_agents:
+    # Validate agent exists in database
+    agent = await agent_repo.get_agent_by_slug(slug)
+    if not agent:
         raise HTTPException(status_code=404, detail=f"Agent not found: {slug}")
     
-    # Create execution record
-    execution_id = uuid4()
-    now = datetime.now()
+    if not agent.get("is_active", True):
+        raise HTTPException(status_code=400, detail=f"Agent is not active: {slug}")
     
-    execution = {
-        "id": execution_id,
-        "agent_slug": slug,
-        "user_id": request.user_id,
-        "status": ExecutionStatus.PENDING,
-        "input_data": {
-            "query": request.query,
-            "context": request.context or {}
-        },
-        "output_data": None,
-        "tokens_used": None,
-        "cost_usd": None,
-        "duration_ms": None,
-        "created_at": now,
-        "completed_at": None,
-        "error_message": None
+    # Create execution record in database
+    execution_data = {
+        "agent_id": agent["id"],
+        "query": request.query,
+        "context": request.context or {},
+        "status": ExecutionStatus.PENDING.value,
+        "user_id": str(request.user_id) if request.user_id else None
     }
     
-    _executions_db[execution_id] = execution
+    execution = await execution_repo.create_execution(execution_data)
+    execution_id = UUID(execution["id"])
     
     # Schedule async execution
     background_tasks.add_task(_execute_agent_async, execution_id, slug, request)
     
-    return ExecutionResponse(**execution)
+    # Return response
+    return ExecutionResponse(
+        id=execution_id,
+        agent_slug=slug,
+        user_id=request.user_id,
+        status=ExecutionStatus.PENDING,
+        input_data={"query": request.query, "context": request.context or {}},
+        output_data=None,
+        tokens_used=None,
+        cost_usd=None,
+        duration_ms=None,
+        created_at=datetime.fromisoformat(execution["created_at"]),
+        completed_at=None,
+        error_message=None
+    )
 
 
 async def _execute_agent_async(execution_id: UUID, slug: str, request: ExecuteAgentRequest):
     """
-    Background task to actually execute the agent.
+    Background task to actually execute the agent with real OpenAI.
     
     This will:
-    1. Get OpenAI service
-    2. Execute agent with real OpenAI API
-    3. Store results in database
-    4. Update execution record
+    1. Update execution status to running
+    2. Get OpenAI service
+    3. Execute agent with real OpenAI API
+    4. Store results in database
+    5. Update execution record with results or error
     """
     from server.services.openai_service import get_openai_service, AgentExecutionConfig
     
     try:
         # Update status to running
-        _executions_db[execution_id]["status"] = ExecutionStatus.RUNNING
+        await execution_repo.update_execution_status(
+            str(execution_id),
+            status=ExecutionStatus.RUNNING.value
+        )
+        
+        logger.info("execution_started", execution_id=str(execution_id), slug=slug)
         
         # Get OpenAI service
         openai_service = get_openai_service()
@@ -164,23 +175,39 @@ async def _execute_agent_async(execution_id: UUID, slug: str, request: ExecuteAg
             "finish_reason": result.finish_reason
         }
         
-        # Update execution with real results
-        _executions_db[execution_id].update({
-            "status": ExecutionStatus.COMPLETED,
-            "output_data": output,
-            "tokens_used": result.tokens_used,
-            "cost_usd": result.cost_usd,
-            "duration_ms": result.duration_ms,
-            "completed_at": datetime.now()
-        })
+        # Update execution with real results in database
+        await execution_repo.update_execution_status(
+            str(execution_id),
+            status=ExecutionStatus.COMPLETED.value,
+            result=output,
+            metrics={
+                "tokens_used": result.tokens_used,
+                "cost_usd": result.cost_usd,
+                "duration_ms": result.duration_ms
+            }
+        )
+        
+        logger.info(
+            "execution_completed",
+            execution_id=str(execution_id),
+            tokens=result.tokens_used,
+            cost=result.cost_usd
+        )
         
     except Exception as e:
-        # Update execution with error
-        _executions_db[execution_id].update({
-            "status": ExecutionStatus.FAILED,
-            "error_message": str(e),
-            "completed_at": datetime.now()
-        })
+        # Update execution with error in database
+        await execution_repo.update_execution_status(
+            str(execution_id),
+            status=ExecutionStatus.FAILED.value,
+            error=str(e)
+        )
+        
+        logger.error(
+            "execution_failed",
+            execution_id=str(execution_id),
+            error=str(e),
+            exc_info=True
+        )
 
 
 @router.get("", response_model=ExecutionListResponse)
@@ -201,31 +228,54 @@ async def list_executions(
     
     Returns paginated results with total count.
     """
-    # TODO: Replace with actual Supabase query
-    # SELECT * FROM agent_executions WHERE ...
-    
-    executions = list(_executions_db.values())
-    
-    # Apply filters
+    # Get agent ID if slug provided
+    agent_id = None
     if agent_slug:
-        executions = [e for e in executions if e["agent_slug"] == agent_slug]
-    if user_id:
-        executions = [e for e in executions if e["user_id"] == user_id]
-    if status:
-        executions = [e for e in executions if e["status"] == status]
+        agent = await agent_repo.get_agent_by_slug(agent_slug)
+        if agent:
+            agent_id = agent["id"]
     
-    # Sort by created_at descending
-    executions.sort(key=lambda x: x["created_at"], reverse=True)
+    # Calculate offset
+    offset = (page - 1) * page_size
     
-    # Paginate
-    total = len(executions)
-    start = (page - 1) * page_size
-    end = start + page_size
-    page_executions = executions[start:end]
+    # Fetch executions from database
+    if agent_id:
+        executions = await execution_repo.get_executions_by_agent(
+            agent_id=agent_id,
+            status=status.value if status else None,
+            limit=page_size,
+            offset=offset
+        )
+    else:
+        executions = await execution_repo.get_recent_executions(
+            limit=page_size,
+            status=status.value if status else None
+        )
+    
+    # Convert to response models
+    execution_responses = []
+    for exe in executions:
+        # Get agent to get slug
+        agent = await agent_repo.get_agent_by_id(exe["agent_id"])
+        
+        execution_responses.append(ExecutionResponse(
+            id=UUID(exe["id"]),
+            agent_slug=agent["slug"] if agent else "unknown",
+            user_id=UUID(exe["user_id"]) if exe.get("user_id") else None,
+            status=ExecutionStatus(exe["status"]),
+            input_data={"query": exe["query"], "context": exe.get("context", {})},
+            output_data=exe.get("result"),
+            tokens_used=exe.get("tokens_used"),
+            cost_usd=exe.get("cost_usd"),
+            duration_ms=exe.get("duration_ms"),
+            created_at=datetime.fromisoformat(exe["created_at"]),
+            completed_at=datetime.fromisoformat(exe["completed_at"]) if exe.get("completed_at") else None,
+            error_message=exe.get("error")
+        ))
     
     return ExecutionListResponse(
-        executions=[ExecutionResponse(**e) for e in page_executions],
-        total=total,
+        executions=execution_responses,
+        total=len(execution_responses),  # TODO: Get actual total count
         page=page,
         page_size=page_size
     )
@@ -244,13 +294,29 @@ async def get_execution(execution_id: UUID):
     
     Use for polling execution status after submitting via execute endpoint.
     """
-    # TODO: Replace with actual Supabase query
-    # SELECT * FROM agent_executions WHERE id = $1
+    # Fetch from database
+    execution = await execution_repo.get_execution_by_id(str(execution_id))
     
-    if execution_id not in _executions_db:
+    if not execution:
         raise HTTPException(status_code=404, detail="Execution not found")
     
-    return ExecutionResponse(**_executions_db[execution_id])
+    # Get agent to get slug
+    agent = await agent_repo.get_agent_by_id(execution["agent_id"])
+    
+    return ExecutionResponse(
+        id=UUID(execution["id"]),
+        agent_slug=agent["slug"] if agent else "unknown",
+        user_id=UUID(execution["user_id"]) if execution.get("user_id") else None,
+        status=ExecutionStatus(execution["status"]),
+        input_data={"query": execution["query"], "context": execution.get("context", {})},
+        output_data=execution.get("result"),
+        tokens_used=execution.get("tokens_used"),
+        cost_usd=execution.get("cost_usd"),
+        duration_ms=execution.get("duration_ms"),
+        created_at=datetime.fromisoformat(execution["created_at"]),
+        completed_at=datetime.fromisoformat(execution["completed_at"]) if execution.get("completed_at") else None,
+        error_message=execution.get("error")
+    )
 
 
 @router.post("/{execution_id}/cancel", status_code=200)
@@ -260,22 +326,23 @@ async def cancel_execution(execution_id: UUID):
     
     Only executions in PENDING or RUNNING status can be cancelled.
     """
-    # TODO: Replace with actual cancellation logic
-    # UPDATE agent_executions SET status = 'cancelled' WHERE id = $1
+    # Get execution from database
+    execution = await execution_repo.get_execution_by_id(str(execution_id))
     
-    if execution_id not in _executions_db:
+    if not execution:
         raise HTTPException(status_code=404, detail="Execution not found")
     
-    execution = _executions_db[execution_id]
-    
-    if execution["status"] not in [ExecutionStatus.PENDING, ExecutionStatus.RUNNING]:
+    if execution["status"] not in [ExecutionStatus.PENDING.value, ExecutionStatus.RUNNING.value]:
         raise HTTPException(
             status_code=400,
             detail=f"Cannot cancel execution in {execution['status']} status"
         )
     
-    execution["status"] = ExecutionStatus.CANCELLED
-    execution["completed_at"] = datetime.now()
+    # Update status to cancelled
+    await execution_repo.update_execution_status(
+        str(execution_id),
+        status=ExecutionStatus.CANCELLED.value
+    )
     
     return {"message": "Execution cancelled successfully"}
 

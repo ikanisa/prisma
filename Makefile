@@ -88,3 +88,66 @@ caddy-bg: caddy-up
 
 caddy-down:
 	docker compose rm -sf caddy
+
+
+# Learning System Jobs
+.PHONY: learning-worker learning-scheduler learning-optimize learning-report learning-status
+
+learning-worker:
+@echo "Starting RQ worker for learning jobs..."
+python -m server.worker
+
+learning-scheduler:
+@echo "Starting learning job scheduler..."
+python -m server.learning_scheduler setup
+
+learning-optimize:
+@echo "Running prompt optimization..."
+python -m server.learning_jobs optimize_prompts
+
+learning-report:
+@echo "Generating learning report..."
+python -m server.learning_jobs report
+
+learning-status:
+@echo "Checking learning job status..."
+python -m server.learning_scheduler status
+
+learning-test-all:
+@echo "Testing all learning jobs..."
+@echo "1. Running cleanup..."
+python -m server.learning_jobs cleanup
+@echo "2. Generating report..."
+python -m server.learning_jobs report
+@echo "3. Analyzing A/B tests..."
+python -m server.learning_jobs analyze_tests
+@echo "✅ All jobs tested successfully"
+
+# Monitoring Stack
+.PHONY: monitoring-up monitoring-down monitoring-logs monitoring-status
+
+monitoring-up:
+	@echo "Starting monitoring stack..."
+	cd infra/monitoring && docker-compose up -d
+	@echo "✅ Monitoring stack started"
+	@echo "Grafana: http://localhost:3001 (admin/admin)"
+	@echo "Prometheus: http://localhost:9090"
+	@echo "Alertmanager: http://localhost:9093"
+
+monitoring-down:
+	@echo "Stopping monitoring stack..."
+	cd infra/monitoring && docker-compose down
+	@echo "✅ Monitoring stack stopped"
+
+monitoring-logs:
+	@echo "Showing monitoring stack logs..."
+	cd infra/monitoring && docker-compose logs -f
+
+monitoring-status:
+	@echo "Checking monitoring stack status..."
+	cd infra/monitoring && docker-compose ps
+	@echo ""
+	@echo "Testing endpoints..."
+	@curl -f http://localhost:9090/-/healthy && echo "✅ Prometheus healthy" || echo "✗ Prometheus down"
+	@curl -f http://localhost:3001/api/health && echo "✅ Grafana healthy" || echo "✗ Grafana down"
+	@curl -f http://localhost:9093/-/healthy && echo "✅ Alertmanager healthy" || echo "✗ Alertmanager down"

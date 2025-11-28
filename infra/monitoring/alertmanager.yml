@@ -1,0 +1,155 @@
+global:
+  resolve_timeout: 5m
+  slack_api_url: 'YOUR_SLACK_WEBHOOK_URL'  # Replace with actual webhook
+
+# Templates for alert messages
+templates:
+  - '/etc/alertmanager/templates/*.tmpl'
+
+# Route configuration
+route:
+  # Default receiver
+  receiver: 'default'
+  
+  # Group alerts by these labels
+  group_by: ['alertname', 'cluster', 'component']
+  
+  # How long to wait before sending notification
+  group_wait: 10s
+  
+  # How long to wait before sending notification about new alerts in group
+  group_interval: 10s
+  
+  # How long to wait before sending notification again
+  repeat_interval: 4h
+  
+  # Child routes
+  routes:
+    # Critical alerts go to PagerDuty/on-call
+    - match:
+        severity: critical
+      receiver: 'pagerduty'
+      continue: true
+      
+    # Critical alerts also go to Slack
+    - match:
+        severity: critical
+      receiver: 'slack-critical'
+      
+    # Warning alerts go to Slack
+    - match:
+        severity: warning
+      receiver: 'slack-warnings'
+      
+    # Info alerts go to email
+    - match:
+        severity: info
+      receiver: 'email-team'
+      
+    # Component-specific routing
+    - match:
+        component: worker
+      receiver: 'slack-ops'
+      
+    - match:
+        component: database
+      receiver: 'slack-database'
+
+# Notification receivers
+receivers:
+  # Default receiver (fallback)
+  - name: 'default'
+    slack_configs:
+      - channel: '#learning-alerts'
+        title: 'Learning System Alert'
+        text: '{{ range .Alerts }}{{ .Annotations.summary }}\n{{ end }}'
+        send_resolved: true
+
+  # Critical alerts to PagerDuty
+  - name: 'pagerduty'
+    pagerduty_configs:
+      - service_key: 'YOUR_PAGERDUTY_SERVICE_KEY'
+        description: '{{ .GroupLabels.alertname }}: {{ .GroupLabels.instance }}'
+        details:
+          severity: '{{ .GroupLabels.severity }}'
+          component: '{{ .GroupLabels.component }}'
+          description: '{{ range .Alerts }}{{ .Annotations.description }}{{ end }}'
+          runbook: '{{ range .Alerts }}{{ .Annotations.runbook }}{{ end }}'
+
+  # Critical alerts to Slack
+  - name: 'slack-critical'
+    slack_configs:
+      - channel: '#learning-critical'
+        title: '🚨 CRITICAL: {{ .GroupLabels.alertname }}'
+        text: |
+          {{ range .Alerts }}
+          *Summary:* {{ .Annotations.summary }}
+          *Description:* {{ .Annotations.description }}
+          *Runbook:* {{ .Annotations.runbook }}
+          *Severity:* {{ .Labels.severity }}
+          {{ end }}
+        color: 'danger'
+        send_resolved: true
+
+  # Warning alerts to Slack
+  - name: 'slack-warnings'
+    slack_configs:
+      - channel: '#learning-alerts'
+        title: '⚠️ Warning: {{ .GroupLabels.alertname }}'
+        text: |
+          {{ range .Alerts }}
+          *Summary:* {{ .Annotations.summary }}
+          *Description:* {{ .Annotations.description }}
+          {{ end }}
+        color: 'warning'
+        send_resolved: true
+
+  # Ops team notifications
+  - name: 'slack-ops'
+    slack_configs:
+      - channel: '#ops-team'
+        title: '🔧 Ops Alert: {{ .GroupLabels.alertname }}'
+        text: '{{ range .Alerts }}{{ .Annotations.summary }}{{ end }}'
+        send_resolved: true
+
+  # Database team notifications
+  - name: 'slack-database'
+    slack_configs:
+      - channel: '#database-alerts'
+        title: '🗄️ Database Alert: {{ .GroupLabels.alertname }}'
+        text: '{{ range .Alerts }}{{ .Annotations.summary }}{{ end }}'
+        send_resolved: true
+
+  # Email notifications
+  - name: 'email-team'
+    email_configs:
+      - to: 'learning-team@example.com'
+        from: 'alerts@example.com'
+        smarthost: 'smtp.gmail.com:587'
+        auth_username: 'alerts@example.com'
+        auth_password: 'YOUR_EMAIL_PASSWORD'
+        headers:
+          Subject: '[Learning System] {{ .GroupLabels.alertname }}'
+        html: |
+          <h2>{{ .GroupLabels.alertname }}</h2>
+          {{ range .Alerts }}
+          <p><strong>Summary:</strong> {{ .Annotations.summary }}</p>
+          <p><strong>Description:</strong> {{ .Annotations.description }}</p>
+          <p><strong>Runbook:</strong> {{ .Annotations.runbook }}</p>
+          {{ end }}
+
+# Inhibition rules (prevent duplicate alerts)
+inhibit_rules:
+  # If critical alert is firing, don't send warning for same component
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['component', 'alertname']
+    
+  # If worker is down, don't alert on queue length
+  - source_match:
+      alertname: 'LearningWorkerDown'
+    target_match:
+      alertname: 'HighQueueLength'
+    equal: ['instance']

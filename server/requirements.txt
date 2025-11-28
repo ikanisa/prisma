@@ -26,3 +26,5 @@ pytest-cov>=5.0,<6
 aiosmtplib>=2.0,<3
 slowapi>=0.1.9,<1
 redis>=5.0.0,<6
+rq-scheduler>=0.13
+prometheus-client>=0.19
