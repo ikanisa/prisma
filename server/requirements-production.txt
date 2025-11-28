@@ -1,0 +1,28 @@
+# Production dependencies
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+pydantic==2.5.3
+python-multipart==0.0.6
+
+# AI/ML
+google-generativeai>=0.3.0
+openai>=1.6.0
+
+# Security
+slowapi==0.1.9
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+cryptography==42.0.0
+
+# Monitoring
+sentry-sdk[fastapi]==1.40.0
+prometheus-fastapi-instrumentator==6.1.0
+
+# Performance
+redis==5.0.1
+aioredis==2.0.1
+orjson==3.9.12
+
+# Database
+psycopg2-binary==2.9.9
+asyncpg==0.29.0
