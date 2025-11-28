@@ -1,184 +1,461 @@
-# PRISMA GLOW - AI AGENT ECOSYSTEM
+# Prisma Glow Workspace
 
-**World-Class Autonomous AI Agent System for Professional Services**
+Modern AI-powered operations suite with Supabase, FastAPI, and multi-app pnpm workspace tooling.
 
-Global Coverage: Europe, US, Canada, Malta, Rwanda, UK
+## Local Setup (Mac)
 
-## 🎯 Overview
+1. **Install prerequisites**
+   - Install [Homebrew](https://brew.sh) if it is missing.
+   - `brew install node@22 pnpm python@3.11 postgresql@15` provides the toolchain used in CI. Volta pins Node.js `22.12.0` for local parity; stick to that version to avoid Vite/runtime regressions.
+   - Optionally install [direnv](https://direnv.net) for environment variable management.
+2. **Clone the repository**
+   ```bash
+   git clone <your-fork-url>
+   cd prisma
+   ```
+3. **Install dependencies**
+   ```bash
+   pnpm install --frozen-lockfile
+   ```
+   
+   **Note:** If you encounter build errors during installation (especially related to workspace packages), use the alternative installation method:
+   ```bash
+   pnpm -w install --frozen-lockfile --ignore-scripts
+   pnpm -w run build:workspace
+   ```
+   This approach skips lifecycle scripts during installation and then builds packages explicitly in the correct order.
 
-Prisma Glow features 47 specialized AI agents organized into 8 functional domains, providing comprehensive coverage for:
-- 🧾 **Accounting** (8 agents)
-- 🔍 **Audit** (10 agents)  
-- 💰 **Tax** (12 agents)
-- 🏢 **Corporate Services** (6 agents)
-- 🎭 **Orchestrators** (3 agents)
-- 📄 **Document Processing** (4 agents)
-- ✅ **Quality Control** (3 agents)
-- 🛡️ **Support** (1 agent)
+4. **Setup security hooks** (Recommended)
+   ```bash
+   ./scripts/setup-git-hooks.sh
+   ```
+   This installs a pre-commit hook that scans for secrets before each commit. See [docs/SECURITY_IMPLEMENTATION.md](docs/SECURITY_IMPLEMENTATION.md) for details.
 
-## 🏗️ Architecture
+5. **Create your local environment file** by copying `.env.example` to `.env.local` and filling in credentials. See [docs/local-hosting.md](docs/local-hosting.md) for details.
+6. **Start developing**
+   - Web (Vite) shell: `pnpm dev`
+   - Next.js app: `pnpm --filter web dev`
+   - Gateway service: `pnpm --filter @prisma-glow/gateway dev`
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                        AI AGENT HIERARCHY                                    │
-├─────────────────────────────────────────────────────────────────────────────┤
-│  TIER 1: ORCHESTRATORS (Strategic Decision Making)                          │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │  • Master Orchestrator Agent                                         │    │
-│  │  • Engagement Orchestrator                                           │    │
-│  │  • Compliance Orchestrator                                           │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-│                              │                                               │
-│  TIER 2: DOMAIN SPECIALISTS (Deep Expertise)                                │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │  • Accounting Agents (8)                                             │    │
-│  │  • Audit Agents (10)                                                 │    │
-│  │  • Tax Agents (12)                                                   │    │
-│  │  • Corporate Services Agents (6)                                     │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-│                              │                                               │
-│  TIER 3: OPERATIONAL AGENTS (Task Execution)                                │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │  • Document Processing Agents (4)                                    │    │
-│  │  • Quality Control Agents (3)                                        │    │
-│  │  • Communication Agents (2)                                          │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-│                              │                                               │
-│  TIER 4: SUPPORT AGENTS (Enabling Functions)                                │
-│  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │  • Knowledge Management Agent                                        │    │
-│  │  • Learning & Improvement Agent                                      │    │
-│  │  • Security & Compliance Agent                                       │    │
-│  └─────────────────────────────────────────────────────────────────────┘    │
-└─────────────────────────────────────────────────────────────────────────────┘
+More context on running the stack locally, including reverse-proxy plans, lives in [docs/local-hosting.md](docs/local-hosting.md).
+
+## Environment Variables
+
+The project loads configuration from `.env.local` for local runs and GitHub Actions/Compose secrets in automation. Copy the template first:
+
+```sh
+cp .env.example .env.local
 ```
 
-## 📦 Package Structure
+### Core application
 
-```
-prisma-glow-ai-agents/
-├── packages/
-│   ├── core/                    # Core agent framework & types
-│   ├── orchestrators/           # 3 Tier-1 orchestrators
-│   ├── accounting/              # 8 accounting specialists
-│   ├── audit/                   # 10 audit specialists
-│   ├── tax/                     # 12 tax specialists
-│   ├── corporate-services/      # 6 corporate service agents
-│   ├── operational/             # Document & QC agents
-│   └── support/                 # Support agents
-```
+Required variables:
 
-## 🚀 Quick Start
+- `VITE_SUPABASE_PROJECT_ID`
+- `VITE_SUPABASE_PUBLISHABLE_KEY` (Supabase *anon* key – **replace the placeholder**)
+- `VITE_SUPABASE_URL`
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `SUPABASE_ALLOW_STUB` (optional; set to `true` locally to enable the stub Supabase client when credentials are missing)
+- `SUPABASE_JWT_SECRET`
+- `DATABASE_URL` (Postgres connection string for the Supabase instance)
+- `OPENAI_API_KEY` (RAG embedding service)
+- Optional: `API_RATE_LIMIT` (default 60 req/min), `API_RATE_WINDOW_SECONDS`,
+  `SIGNED_URL_DEFAULT_TTL_SECONDS` (default 300s) and `SIGNED_URL_EVIDENCE_TTL_SECONDS`
+  to control signed URL expiry windows.
+- Optional alerts: `RATE_LIMIT_ALERT_WEBHOOK` for Express rate-limit breaches and
+  `TELEMETRY_ALERT_WEBHOOK` for telemetry/SLA warnings (fallbacks to
+  `ERROR_NOTIFY_WEBHOOK` if unset).
+- Optional security headers: `ALLOWED_HOSTS` (comma-separated) to enable trusted host
+  enforcement at the FastAPI layer.
+- Caching configuration: `REDIS_URL` enables shared caching; tune `CACHE_DEFAULT_TTL_SECONDS`
+  or per-route overrides (`CACHE_CONTROLS_TTL_SECONDS`, `CACHE_GROUP_COMPONENTS_TTL_SECONDS`,
+  `CACHE_OTHER_INFORMATION_TTL_SECONDS`, `CACHE_SPECIALISTS_TTL_SECONDS`) to balance freshness
+  and load for expensive API queries.
+- Optional assistant/knowledge throttles: `ASSISTANT_RATE_LIMIT`,
+  `ASSISTANT_RATE_WINDOW_SECONDS`, `DOCUMENT_UPLOAD_RATE_LIMIT`,
+  `DOCUMENT_UPLOAD_RATE_WINDOW_SECONDS`, `KNOWLEDGE_RUN_RATE_LIMIT`,
+  `KNOWLEDGE_RUN_RATE_WINDOW_SECONDS`, `KNOWLEDGE_PREVIEW_RATE_LIMIT`,
+  `KNOWLEDGE_PREVIEW_RATE_WINDOW_SECONDS`, `RAG_INGEST_RATE_LIMIT`,
+  `RAG_INGEST_RATE_WINDOW_SECONDS`, `RAG_REEMBED_RATE_LIMIT`,
+  `RAG_REEMBED_RATE_WINDOW_SECONDS`, `RAG_SEARCH_RATE_LIMIT`,
+  `RAG_SEARCH_RATE_WINDOW_SECONDS`, `AUTOPILOT_SCHEDULE_RATE_LIMIT`,
+  `AUTOPILOT_SCHEDULE_RATE_WINDOW_SECONDS`, `AUTOPILOT_JOB_RATE_LIMIT`, and
+  `AUTOPILOT_JOB_RATE_WINDOW_SECONDS`.
+
+### Caching
+
+- `REDIS_URL` is required to enable shared caching; defaults to in-memory caches when
+  unset for development.
+- Optional tuning knobs:
+  - `CACHE_KEY_PREFIX` (defaults to `cache:`) to isolate keys per environment.
+  - `CACHE_DEFAULT_TTL_SECONDS` to set the global fallback expiry for cache entries.
+  - `CACHE_TTL_GROUP_INSTRUCTIONS` and `CACHE_TTL_GROUP_INSTRUCTIONS_INDEX` to control
+    the lifetime of cached group instruction listings and their invalidation index.
+
+## Run Commands
+
+- `pnpm install --frozen-lockfile` – install workspace dependencies.
+- `pnpm run typecheck` – ensure TypeScript projects compile without emitting files.
+- `pnpm run lint` – lint the monorepo.
+- `pnpm run test` or `pnpm run coverage` – execute Vitest suites (coverage gate lives in CI).
+- `pnpm run build` – build shared packages and the Vite bundle (`tsc -b` runs first).
+- `pnpm run preview` – serve the production bundle locally.
+- `pnpm --filter <workspace>` – scope commands to a specific app (e.g. `pnpm --filter web build`).
+- `pnpm --filter @prisma-glow/gateway dev` – start the Express gateway for local API smoke tests.
+
+Git hooks, CI, and deployment workflows now rely on pnpm exclusively; make sure your local environment mirrors the lockfile versions.
+
+## Supabase Notes
+
+- Database migrations live in `supabase/migrations` (SQL) and `apps/web/prisma/migrations` (Prisma). Use `pnpm --filter web run prisma:migrate:dev` for iterative schema work and `pnpm --filter web run prisma:migrate:deploy` in CI.
+- Stub mode (`SUPABASE_ALLOW_STUB=true`) lets UI developers work without live Supabase credentials; gateway and FastAPI continue to guard privileged routes.
+- Policy tests reside in `scripts/test_policies.sql`. Run them with `pnpm run config:validate` + manual `psql` or trigger the GitHub Action with `run_pgtap=true` once pgTAP is installed.
+- Supabase client keys should stay in `.env.local` (or GitHub secrets) only; never commit Supabase secrets.
+
+### Agent learning & RAG additions
+
+The agent-learning revamp introduces additional placeholders that must be configured before the
+initial/continuous learning loops can run end-to-end. Add the following to your local `.env.local`
+and deployment environments (values may remain blank until Google Drive access is provided):
+
+- `GOOGLE_DRIVE_CLIENT_ID` – placeholder OAuth client id (configure when Drive access is ready)
+- `GOOGLE_DRIVE_CLIENT_SECRET` – placeholder secret
+- `GOOGLE_DRIVE_REFRESH_TOKEN` – placeholder refresh token (Drive sync disabled without it)
+- `EMBED_MODEL` – defaults to `text-embedding-3-small`
+- `AGENT_MODEL` – defaults to `gpt-5-mini`
+- `RAG_SEARCH_TOP_K` – optional override for hybrid retrieval fan-out (default 12)
+- `OPENAI_WEB_SEARCH_ENABLED` – set to `true` once OpenAI web search credentials are provisioned
+- `OPENAI_WEB_SEARCH_MODEL` – optional custom web search model id (default `gpt-5`)
+- `OPENAI_DEFAULT_REASONING_EFFORT` – optional global Responses API reasoning effort (`minimal`/`low`/`medium`/`high`; default `low`)
+- `OPENAI_DEFAULT_VERBOSITY` – optional global verbosity control (`low`/`medium`/`high`; default `medium`)
+- `OPENAI_AGENT_REASONING_EFFORT` / `OPENAI_AGENT_VERBOSITY` – override agent run behaviour when GPT-5 handles multi-step workflows
+- `OPENAI_SUMMARY_REASONING_EFFORT` / `OPENAI_SUMMARY_VERBOSITY` – override summarisation and policy-check defaults
+
+> Until Google Drive credentials are supplied the ingestion pipeline runs in placeholder mode. The
+> new endpoints/edge function will queue learning runs and emit knowledge events without fetching
+> real documents. Web harvests also operate in placeholder mode until OpenAI web search is
+> available. Swap the environment variables above with live credentials when the Drive workspace and
+> web search access are connected. The production environment has live credentials with `OPENAI_WEB_SEARCH_ENABLED=true`
+> and a 14-day cache retention policy driven by `WEB_FETCH_CACHE_RETENTION_DAYS`.
+
+### OpenAI Retrieval API
+
+The OpenAI Retrieval API enables semantic search over documents using vector stores. This is an alternative to the local pgvector implementation. Configure it with:
+
+- `OPENAI_RETRIEVAL_VECTOR_STORE_ID` – ID of an existing vector store
+- `OPENAI_RETRIEVAL_VECTOR_STORE_NAME` – Name to create/locate a vector store
+
+See [docs/openai-retrieval-api.md](docs/openai-retrieval-api.md) for comprehensive API documentation including:
+- Vector store management (CRUD operations)
+- File operations with attributes for filtering
+- Batch processing for bulk uploads
+- Advanced semantic search with query rewriting, attribute filtering, and ranking options
+- Integration with OpenAI models for synthesized responses
+
+### OpenAI agent platform & streaming toggles
+
+The HITL agent rollout introduces additional OpenAI flags. Enable them progressively alongside the
+phase guides (`docs/openai-phase0.md` → `docs/openai-phase4.md`):
+
+- `OPENAI_AGENT_PLATFORM_ENABLED`, `OPENAI_AGENT_ID` – synchronise the Supabase tool registry with
+  an OpenAI Agent when Platform access is granted (Phase 1).
+- `OPENAI_DEBUG_LOGGING`, `OPENAI_DEBUG_FETCH_DETAILS` – persist OpenAI request metadata to
+  `openai_debug_events` and optionally call the Debugging Requests API for enriched payloads
+  (Phase 0 observability).
+- `OPENAI_STREAMING_ENABLED` – unlocks `/api/agent/stream` and the streaming playground in
+  `/agent-chat` (Phase 2).
+- `OPENAI_STREAMING_TOOL_ENABLED` – emits tool start/result events alongside text deltas (Phase 4
+  preview; requires the base streaming flag).
+- `OPENAI_REALTIME_ENABLED`, `OPENAI_REALTIME_MODEL`, `OPENAI_REALTIME_VOICE`, `OPENAI_REALTIME_TURN_SERVERS` – allow
+  `/api/agent/realtime/session` to issue ephemeral secrets for Realtime experiments (Phase 3).
+- `OPENAI_TRANSCRIPTION_MODEL`, `OPENAI_TTS_MODEL`, `OPENAI_TTS_VOICE`, `OPENAI_TTS_FORMAT` – configure speech-to-text and text-to-speech loops for ChatKit sessions.
+- `OPENAI_SORA_ENABLED`, `OPENAI_SORA_MODEL`, `OPENAI_SORA_ASPECT_RATIO` – enable the Sora preview
+  route (`/api/agent/media/video`) when video access is available (Phase 4 optional).
+- `OPENAI_ORCHESTRATOR_ENABLED` – exposes multi-agent planning routes
+  (`/api/agent/orchestrator/*`).
+- `ORCHESTRATION_POLL_INTERVAL_MS` – controls how frequently the MCP scheduler assigns pending
+  tasks (default 15000ms); set to `0` to disable background polling.
+
+### System configuration overrides
+
+Backend services read `config/system.yaml` for autonomy, RLS, and agent policy defaults. Set
+`SYSTEM_CONFIG_PATH` to point to an alternate file or directory containing `system.yaml` whenever
+you need to test or run with a customised configuration bundle.
+
+### Backend development environment
+
+The FastAPI/RQ services depend on the packages listed in `server/requirements.txt`. To run `pytest`
+or start the API locally, create a virtualenv and install them once:
 
 ```bash
-# Install dependencies
-pnpm install
-
-# Build all packages
-pnpm build
-
-# Run development mode
-pnpm dev
-
-# Run tests
-pnpm test
+python -m venv .venv
+source .venv/bin/activate
+pip install -r server/requirements.txt
 ```
 
-## 🌍 Jurisdiction Coverage
+The repository ships with `pytest.ini` so running `pytest` from the repo root works without extra
+`PYTHONPATH` tweaks. Install the requirements before invoking the tests to avoid import errors
+(e.g. missing `fastapi`).
 
-- **European Union**: All 27 member states
-- **United Kingdom**: Full post-Brexit compliance
-- **United States**: Federal + 50 states
-- **Canada**: Federal + 13 provinces/territories
-- **Malta**: Specialized tax & corporate expertise
-- **Rwanda**: EAC compliance
+#### Shared system configuration loader
 
-## 📋 Complete Agent Catalog
+Node services load `config/system.yaml` through the shared helpers in
+`packages/system-config/`. Import `getGoogleDriveSettings`, `getUrlSourceSettings`, or
+`getBeforeAskingSequence` to access normalised settings. The helpers honour `SYSTEM_CONFIG_PATH`
+and cache results for 60 seconds.
 
-### Tier 1: Orchestrators (3 agents)
-1. **PRISMA-CORE-001**: Master Orchestrator
-2. **ENGAGEMENT-ORCH-002**: Engagement Orchestrator
-3. **COMPLIANCE-ORCH-003**: Regulatory Compliance Orchestrator
+> Optional: AI features (RAG reranker) attempt to load `sentence-transformers`. Install it alongside
+> PyTorch if you need reranking locally; otherwise the code will fall back gracefully.
 
-### Tier 2: Accounting Specialists (8 agents)
-4. **ACCOUNTING-FS-004**: Financial Statements Specialist
-5. **ACCOUNTING-REV-005**: Revenue Recognition Specialist (IFRS 15/ASC 606)
-6. **ACCOUNTING-LEASE-006**: Lease Accounting Specialist (IFRS 16/ASC 842)
-7. **ACCOUNTING-FI-007**: Financial Instruments Specialist (IFRS 9/ASC 326)
-8. **ACCOUNTING-CONSOL-008**: Group Consolidation Specialist
-9. **ACCOUNTING-CLOSE-009**: Period Close Specialist
-10. **ACCOUNTING-MGMT-010**: Management Reporting Specialist
-11. **ACCOUNTING-BOOK-011**: Bookkeeping Automation Agent
+### Node workspace layout
 
-### Tier 2: Audit Specialists (10 agents)
-12. **AUDIT-PLAN-012**: Audit Planning Specialist
-13. **AUDIT-RISK-013**: Risk Assessment Specialist (ISA 315)
-14. **AUDIT-SUBST-014**: Substantive Testing Specialist
-15. **AUDIT-CONTROL-015**: Internal Controls Specialist (COSO)
-16. **AUDIT-FRAUD-016**: Fraud Risk Assessment Specialist (ISA 240)
-17. **AUDIT-ANALYTICS-017**: Audit Data Analytics Specialist
-18. **AUDIT-GROUP-018**: Group Audit Specialist (ISA 600)
-19. **AUDIT-COMPLETE-019**: Audit Completion Specialist
-20. **AUDIT-QUALITY-020**: Engagement Quality Reviewer (ISQM 2)
-21. **AUDIT-REPORT-021**: Audit Report Specialist (ISA 700-706)
+The repository now uses a pnpm workspace (see `pnpm-workspace.yaml`). Packages live under:
 
-### Tier 2: Tax Specialists (12 agents)
-22. **TAX-CORP-EU-022**: EU Corporate Tax Specialist (ATAD, Pillar Two)
-23. **TAX-CORP-US-023**: US Corporate Tax Specialist (GILTI, FDII, BEAT)
-24. **TAX-CORP-UK-024**: UK Corporate Tax Specialist
-25. **TAX-CORP-CA-025**: Canadian Corporate Tax Specialist (SR&ED)
-26. **TAX-CORP-MT-026**: Malta Corporate Tax Specialist
-27. **TAX-CORP-RW-027**: Rwanda Corporate Tax Specialist (EAC)
-28. **TAX-VAT-028**: VAT/GST Specialist
-29. **TAX-TP-029**: Transfer Pricing Specialist (OECD Guidelines)
-30. **TAX-PERSONAL-030**: Personal Tax Specialist
-31. **TAX-PROVISION-031**: Tax Provision Specialist (ASC 740/IAS 12)
-32. **TAX-CONTRO-032**: Tax Controversy Specialist
-33. **TAX-RESEARCH-033**: Tax Research Specialist
+- `apps/gateway` – Express edge service (depends on `@prisma-glow/system-config`)
+- `apps/web` – Front-end (Vite/React)
+- `services/rag` – Node agent/RAG runtime
+- `packages/system-config` – Shared configuration helper for system.yaml
+- `packages/api-client` – Typed client generated from FastAPI OpenAPI
+- `packages/ui` – Minimal shared UI components for reuse across apps
 
-### Tier 2: Corporate Services (6 agents)
-34. **CORP-FORM-034**: Company Formation Specialist
-35. **CORP-GOV-035**: Corporate Governance Specialist
-36. **CORP-ENTITY-036**: Entity Management Specialist
-37. **CORP-AGENT-037**: Registered Agent Services
-38. **CORP-CAL-038**: Compliance Calendar Agent
-39. **CORP-RESTR-039**: Corporate Restructuring Specialist
+Install dependencies with `pnpm install` (or continue using npm for the front-end if preferred).
+Workspace packages expose `build` scripts that rely on the top-level TypeScript toolchain.
 
-### Tier 3: Operational Agents (7 agents)
-40. **DOC-OCR-040**: OCR & Document Extraction Agent
-41. **DOC-CLASS-041**: Document Classification Agent
-42. **DOC-GEN-042**: Document Generation Agent
-43. **DOC-ARCH-043**: Document Archive & Retrieval Agent
-44. **QC-REVIEW-044**: Quality Control Review Agent
-45. **QC-COMP-045**: Compliance Check Agent
-46. **COMM-CLIENT-046**: Client Communication Agent
+### Observability
 
-### Tier 4: Support (1 agent)
-47. **SUPPORT-KM-047**: Knowledge Management Agent
+All services support OpenTelemetry and Sentry. Recommended environment variables:
 
-## 🛠️ Technology Stack
+- `OTEL_SERVICE_NAME` (e.g. `gateway`, `rag-service`, `fastapi-api`)
+- `OTEL_EXPORTER_OTLP_ENDPOINT` (e.g. `https://otel-collector:4318/v1/traces`)
+- `OTEL_TRACES_SAMPLER` (e.g. `parentbased_always_on`, `parentbased_traceidratio`)
+- `OTEL_TRACES_SAMPLER_ARG` (e.g. `0.1` when using ratio sampler)
+- `SENTRY_DSN`, `SENTRY_ENVIRONMENT`, `SENTRY_RELEASE`
+- Resource attributes are standardised across services: `service.name`, `service.namespace=prisma-glow`, `deployment.environment`, `service.version`.
 
-- **Runtime**: Node.js 18+
-- **Language**: TypeScript 5.2+
-- **Package Manager**: pnpm
-- **Build System**: Turbo
-- **AI Framework**: LangChain / Custom
-- **Standards**: IFRS, ISA, IESBA, OECD
+User agent and correlation:
 
-## 🎓 Professional Standards Compliance
+- Gateway forwards `Authorization`, `X-Request-ID`, `X-Trace-ID`, and W3C `traceparent`/`tracestate` headers to FastAPI.
+- Gateway sets a service user agent on upstream requests: `prisma-glow-gateway/<SERVICE_VERSION>`.
+- Ensure `SERVICE_VERSION` is set in runtime (CI uses the commit SHA). Inject it through your hosting provider so traces include `service.version`.
 
-- **IFRS**: International Financial Reporting Standards
-- **ISA**: International Standards on Auditing
-- **ISQM**: International Standards on Quality Management
-- **IESBA**: International Ethics Standards Board for Accountants
-- **OECD**: Transfer Pricing Guidelines, BEPS Framework
-- **US GAAP**: ASC Codification
-- **PCAOB**: Public Company Accounting Oversight Board
+Versioning for trace correlation:
 
-## 📄 License
+- `SERVICE_VERSION` is included in emitted traces as `service.version`.
+- In CI, it is set to the commit SHA. In Docker builds, it is passed as a build arg and baked as an OCI label.
+- For local/dev, set `SERVICE_VERSION=$(git rev-parse --short HEAD)` or leave it unset to default to `dev`.
 
-Proprietary - Prisma Glow © 2024
+### Local Docker (compose)
 
-## 🤝 Support
+Use the provided Makefile targets to run the local stack with version metadata:
 
-For enterprise inquiries: contact@prismaglow.com
+- `make print-version` — prints derived `SERVICE_VERSION` (short git SHA or `dev`).
+- `make compose-dev-up` — builds and starts the dev stack with `SERVICE_VERSION` propagated to images.
+- `make compose-dev-down` — stops and removes the dev stack.
+- `make compose-dev-logs` — tails logs for gateway, rag, agent, analytics.
+
+You can override the version explicitly: `SERVICE_VERSION=feature123 make compose-dev-up`.
+
+Frontend selection with profiles:
+
+- Legacy Vite UI (default previously): `docker compose --profile ui up -d`
+- New Next.js web app: `docker compose --profile web up -d`
+
+Only one of `ui` or `web` should be active at a time since both bind to port 3000.
+The compose files mark these services under distinct profiles so you can choose during `up`.
+
+### Production Compose
+
+Use the provided `docker-compose.prod.yml` with an env file describing image tags and version:
+
+1) Prepare `.env.compose` from `.env.compose.example` and set image refs (e.g., GHCR):
+
+```
+cp .env.compose.example .env.compose
+# edit to set ghcr.io/<owner>/<repo>/<service>:<tag>
+```
+
+2) Launch with your chosen frontend profile (`web` for Next.js, `ui` for legacy Vite):
+
+```
+docker compose --env-file .env.compose --profile web -f docker-compose.prod.yml up -d
+```
+
+3) To switch frontends, stop the current profile and start the other:
+
+```
+docker compose --env-file .env.compose --profile web -f docker-compose.prod.yml down
+docker compose --env-file .env.compose --profile ui  -f docker-compose.prod.yml up -d
+```
+
+Compose Deploy via GitHub Actions (optional)
+
+- Create repository secrets:
+  - `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_SSH_KEY` (private key for SSH), and `COMPOSE_ENV` (contents of your `.env.compose`).
+- Trigger the workflow "Compose Deploy (SSH)" manually and select `profile` (web/ui) and `deploy_path`.
+- The workflow uploads `docker-compose.prod.yml` and the env to the remote host and runs `docker compose pull && up -d`.
+
+Rollback support: provide `rollback_tag` (commit SHA or tag) when triggering the workflow to update all image tags in the remote env file before deploy. Locally, use:
+
+```
+make compose-prod-rollback ROLLBACK_TAG=<sha> FRONTEND_PROFILE=web
+```
+
+
+Gateway → FastAPI proxying uses `FASTAPI_BASE_URL` (or `API_BASE_URL`) to target the Python API.
+
+Gateway exposes `/health` and `/readiness`; the RAG service and FastAPI expose the same. CI includes
+synthetic checks that will hit these endpoints when `SYNTHETIC_*_URL` secrets are provided.
+
+Sentry dry-run endpoints (guarded by `ALLOW_SENTRY_DRY_RUN=true`):
+
+- Gateway: `POST /v1/observability/dry-run`
+- RAG: `POST /v1/observability/dry-run`
+- FastAPI: `POST /v1/observability/dry-run`
+
+### API Contracts (OpenAPI → TS Types)
+
+- FastAPI OpenAPI is exported to `openapi/fastapi.json` using `server/export_openapi.py`.
+- TypeScript types for the API client are generated into `packages/api-client/types.ts` via `openapi-typescript`.
+- CI enforces that OpenAPI export and generated types are drift-free. If either changes, the job fails so PR authors can commit the updates.
+- Gateway consumes the typed client for core proxies (autonomy, release-controls, tasks, files, knowledge) and forwards auth + trace headers end-to-end.
+
+The Agent Approvals UI (`/agent/approvals`) surfaces pending tool reviews and tool registry toggles.
+Governance details live in `STANDARDS/POLICY/agent_hitl.md`, with execution guidance captured in
+`CHECKLISTS/AGENT/agent_hitl_acceptance.md` and the validation steps under
+`TEST_PLAN.md#agent-hitl-hitl-1`.
+
+### Idempotency and Retries
+
+- Gateway enforces idempotency for POST/PUT/PATCH when clients send `X-Idempotency-Key`.
+- Upstream calls from gateway to FastAPI include a small, bounded retry with backoff for transient statuses (429/502/503/504).
+- See `apps/gateway/src/middleware/idempotency.ts` and `packages/api-client/index.ts` for behavior.
+
+## Testing
+
+Run the Python test suites:
+
+```bash
+pytest
+```
+
+## CI gating & RLS policy tests
+
+GitHub Actions (`.github/workflows/ci.yml`) runs linting, Vitest (with coverage thresholds), and
+pgTAP policy tests. The policy step connects to a staging database via the
+`STAGING_DATABASE_URL` secret. Without this secret the workflow fails fast, so be sure to configure
+it in the repository/organization secrets. Locally you can run the same check with:
+
+```bash
+psql "$STAGING_DATABASE_URL" -f scripts/test_policies.sql
+```
+
+Vitest coverage thresholds are enforced through `npm run coverage`, which
+honours `TARGET_STATEMENTS`, `TARGET_BRANCHES`, `TARGET_FUNCTIONS`, and
+`TARGET_LINES` (defaults 45/40/45/45). Run the script locally before opening a
+PR so the CI job matches your results.
+
+## Performance harness
+
+Artillery scenarios that reflect production telemetry hotspots now live under
+`tests/performance/`. Use the orchestration script to execute the suite and
+generate JSON/HTML reports:
+
+```bash
+pnpm run test:performance          # defaults to ARTILLERY_ENV=local
+ARTILLERY_ENV=ci pnpm run test:performance  # runs the CI-sized profile locally
+```
+
+Configure the `PERF_*` environment variables (see [`.env.example`](.env.example))
+so the tests can authenticate and target the correct org/engagement. Outputs are
+written to `test-results/performance/` and can be inspected via the generated
+HTML files. For deeper guidance—including CI integration and persona rotation—see
+[`docs/performance-testing.md`](docs/performance-testing.md).
+
+Legacy k6 scripts remain in `tests/perf/` should you need to reproduce Phase 4
+evidence packs, but new load scenarios should be implemented with Artillery.
+
+## Playwright smoke tests
+
+UI smokes can be executed against any environment with:
+
+```bash
+PLAYWRIGHT_BASE_URL="https://staging.example.com" \
+PLAYWRIGHT_SMOKE_PATHS="/,/login" \
+npm run test:playwright
+```
+
+The suite defaults to `http://localhost:3000` and probes the provided routes,
+skipping gracefully if the target environment is unreachable. HTML reports are
+written to `playwright-report/` when running in CI.
+
+> CI expects the `PLAYWRIGHT_BASE_URL` secret (and optional
+> `PLAYWRIGHT_SMOKE_PATHS`) so the GitHub Action can run the smoke job.
+
+## Curl smoke tests
+
+Assuming the service is running locally on port 8000:
+
+```bash
+# RAG ingest
+curl -X POST http://localhost:8000/rag/ingest -H "Content-Type: application/json" -d '{"text":"sample"}'
+
+# RAG search
+curl "http://localhost:8000/rag/search?q=VAT"
+
+# Agent routing
+curl "http://localhost:8000/route?q=What%20is%20the%20current%20VAT%20rate%20in%20the%20UK?"
+
+# VAT evaluator
+curl -X POST http://localhost:8000/vat/evaluate -H "Content-Type: application/json" -d '{"question":"What is the current VAT rate in the UK?"}'
+
+# Idempotent request
+curl -X POST http://localhost:8000/process -H "Idempotency-Key: test-1" -d '{"payload":"data"}'
+
+# Rate limit check
+curl -I http://localhost:8000/ratelimit/test
+```
+
+## Troubleshooting
+
+### Workspace Package Build Issues
+
+If you encounter errors with workspace packages (especially `@prisma-glow/logger` or other packages) not being found or resolved:
+
+1. **Clean install approach:**
+   ```bash
+   # Remove all build artifacts and node_modules
+   rm -rf node_modules packages/*/dist packages/*/node_modules apps/*/node_modules services/*/node_modules
+   
+   # Install without running lifecycle scripts
+   pnpm -w install --frozen-lockfile --ignore-scripts
+   
+   # Build workspace packages explicitly
+   pnpm -w run build:workspace
+   ```
+
+2. **Build individual packages:**
+   ```bash
+   # If only a specific package is missing (e.g., logger)
+   pnpm --filter @prisma-glow/logger build
+   
+   # For the web app
+   pnpm --filter web build
+   ```
+
+3. **Clear TypeScript build cache:**
+   ```bash
+   # Remove stale .tsbuildinfo files that can confuse incremental builds
+   find packages -name "tsconfig.tsbuildinfo" -delete
+   find apps -name "tsconfig.tsbuildinfo" -delete
+   
+   # Or clean and rebuild a specific package
+   cd packages/logger && rm -f tsconfig.tsbuildinfo && pnpm exec tsc -b
+   ```
+
+### Common Issues
+
+- **"Cannot find module '@prisma-glow/logger'"**: The logger package needs to be built before dependent packages can use it. Run `pnpm --filter @prisma-glow/logger build`.
+- **"workspace:* unsupported protocol"**: You're using npm instead of pnpm. Always use `pnpm` for this workspace.
+- **Sentry CLI download failures**: Network issue during postinstall. This is non-fatal and doesn't affect local development.
+- **Node version warnings**: The project expects Node.js 22.12.0. CI uses 20.19.5, but local development works best with 22.12.0.

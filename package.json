@@ -1,25 +1,56 @@
 {
-  "name": "prisma-glow-ai-agents",
-  "version": "1.0.0",
-  "description": "Comprehensive AI Agent Ecosystem for Professional Services - 47 Specialized Agents",
+  "name": "@prisma-glow/workspace",
+  "version": "2.0.0",
   "private": true,
-  "workspaces": [
-    "packages/*"
-  ],
+  "type": "module",
+  "packageManager": "pnpm@9.12.3",
+  "engines": {
+    "node": ">=22.12.0",
+    "pnpm": ">=9.12.3"
+  },
   "scripts": {
-    "build": "turbo run build",
-    "dev": "turbo run dev",
-    "test": "turbo run test",
-    "lint": "turbo run lint",
-    "clean": "turbo run clean"
+    "dev": "turbo dev --filter=!@prisma-glow/docs",
+    "dev:client": "pnpm --filter @prisma-glow/client dev",
+    "dev:admin": "pnpm --filter @prisma-glow/admin dev",
+    "build": "turbo build",
+    "build:netlify": "turbo build --filter=@prisma-glow/client --filter=@prisma-glow/admin && pnpm run postbuild:netlify",
+    "postbuild:netlify": "mkdir -p dist && cp -r apps/client/out dist/client && cp -r apps/admin/out dist/admin",
+    "test": "turbo test",
+    "test:e2e": "turbo test:e2e",
+    "lint": "turbo lint",
+    "format": "prettier --write \"**/*.{ts,tsx,md,json}\"",
+    "typecheck": "turbo typecheck",
+    "clean": "turbo clean && rm -rf node_modules .turbo dist",
+    "db:generate": "node scripts/db-generate.mjs",
+    "db:migrate": "node scripts/db-migrate.mjs",
+    "db:seed": "tsx packages/database/seed.ts",
+    "analyze": "turbo run analyze",
+    "lighthouse": "lighthouse https://prisma-glow.netlify.app --output html --view",
+    "setup": "node scripts/setup.js"
   },
   "devDependencies": {
-    "turbo": "^1.10.0",
-    "typescript": "^5.2.0"
-  },
-  "engines": {
-    "node": ">=18.0.0",
-    "pnpm": ">=8.0.0"
-  },
-  "packageManager": "pnpm@8.10.0"
+    "@biomejs/biome": "^1.9.4",
+    "@commitlint/cli": "^19.6.1",
+    "@commitlint/config-conventional": "^19.6.0",
+    "@eslint/js": "^9.4.0",
+    "@types/node": "^22.12.0",
+    "dompurify": "^3.2.2",
+    "@types/dompurify": "^3.2.0",
+    "eslint-plugin-react-hooks": "^5.1.0",
+    "eslint-plugin-react-refresh": "^0.4.12",
+    "eslint": "^9.18.0",
+    "globals": "^13.24.0",
+    "husky": "^9.1.7",
+    "lighthouse": "^12.2.1",
+    "lint-staged": "^15.3.0",
+    "prettier": "^3.4.2",
+    "turbo": "^2.3.3",
+    "typescript": "^5.7.3",
+    "typescript-eslint": "^8.6.0",
+    "vitest": "^2.1.8",
+    "@netlify/build": "^29.0.0",
+    "@netlify/plugin-nextjs": "^5.0.0",
+    "netlify-plugin-cache-nextjs": "^1.0.0",
+    "supabase": "^2.54.11"
+  }
 }

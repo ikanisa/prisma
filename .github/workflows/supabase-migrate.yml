@@ -1,0 +1,63 @@
+name: Supabase DB Migrate
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Target database environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options: [ 'staging', 'production' ]
+      run_pgtap:
+        description: 'Run pgTAP policy tests after migrations (requires pgTAP installed)'
+        required: true
+        default: 'false'
+        type: choice
+        options: [ 'true', 'false' ]
+
+concurrency:
+  group: supabase-migrate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  migrate:
+    name: Apply Supabase migrations
+    runs-on: ubuntu-latest
+    env:
+      # Resolve DATABASE_URL from selected target
+      DATABASE_URL: ${{ inputs.target == 'production' && secrets.PRODUCTION_DATABASE_URL || secrets.STAGING_DATABASE_URL }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Verify DATABASE_URL provided
+        run: |
+          if [ -z "${DATABASE_URL}" ]; then
+            echo "DATABASE_URL secret is missing for target=${{ inputs.target }}" >&2
+            exit 1
+          fi
+
+      - name: Show pending migrations
+        run: |
+          ls -1 supabase/migrations/*.sql | sort || true
+
+      - name: Apply migrations (in order)
+        env:
+          PGPASSWORD: ${{ env.DATABASE_URL != '' && 'set-in-url' || '' }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          for file in $(ls -1 supabase/migrations/*.sql | sort); do
+            echo "Applying $file"
+            psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$file"
+          done
+
+      - name: Run pgTAP policy tests (optional)
+        if: ${{ inputs.run_pgtap == 'true' && hashFiles('scripts/test_policies.sql') != '' }}
+        env:
+          PGPASSWORD: ${{ env.DATABASE_URL != '' && 'set-in-url' || '' }}
+        run: |
+          set -euo pipefail
+          echo "Running pgTAP tests; ensure pgTAP is installed on the database."
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/test_policies.sql
+

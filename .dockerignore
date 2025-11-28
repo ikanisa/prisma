@@ -1,0 +1,33 @@
+# Node & general build output
+node_modules
+**/node_modules
+.next
+**/.next
+dist
+build
+coverage
+
+# VCS metadata
+.git
+.gitignore
+
+# Environment & secrets
+.env*
+*.local
+.supabase
+
+# Package manager caches
+.pnpm-store
+.yarn/cache
+pnpm-lock.yaml.#tmp
+
+# Docker artifacts
+Dockerfile*
+docker-compose*.yml
+
+# Logs & misc
+npm-debug.log*
+.DS_Store
+
+# Project-specific
+**/v8-compile-cache-*/

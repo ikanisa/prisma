@@ -1,0 +1,256 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Prisma Glow Design System - Professional gradients with playful touches */
+
+@layer base {
+  :root {
+    /* Base colors - soft, sophisticated palette */
+    --background: 0 0% 100%;
+    --foreground: 220 20% 10%;
+
+    /* Glass morphism and cards */
+    --card: 0 0% 100%;
+    --card-foreground: 220 20% 10%;
+    --glass: 0 0% 100% / 0.8;
+    --glass-border: 220 20% 90% / 0.3;
+
+    /* Popover system */
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 20% 10%;
+
+    /* Prisma Glow gradient system - luminous blue to violet */
+    --primary: 186 100% 32%; /* Darkened for WCAG contrast */
+    --primary-foreground: 0 0% 100%;
+    --primary-light: 186 100% 48%;
+    --primary-dark: 186 100% 24%;
+
+    /* Secondary gradient - blue to purple */
+    --secondary: 220 100% 95%;
+    --secondary-foreground: 220 30% 22%;
+    --secondary-accent: 240 100% 70%;
+
+    /* Tertiary - violet accents */
+    --tertiary: 270 100% 70%;
+    --tertiary-foreground: 0 0% 100%;
+
+    /* Muted system */
+    --muted: 220 20% 96%;
+    --muted-foreground: 220 15% 32%;
+
+    /* Accent system */
+    --accent: 220 20% 96%;
+    --accent-foreground: 220 20% 20%;
+
+    /* Status colors */
+    --success: 142 76% 36%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Interactive elements */
+    --border: 220 20% 90%;
+    --input: 220 20% 96%;
+    --ring: 186 100% 40%;
+
+    /* Gradient definitions */
+    --gradient-primary: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--secondary-accent)));
+    --gradient-glow: linear-gradient(135deg, hsl(186 100% 40%), hsl(220 100% 70%), hsl(270 100% 70%));
+    --gradient-glass: linear-gradient(135deg, hsl(0 0% 100% / 0.1), hsl(0 0% 100% / 0.05));
+    --gradient-subtle: linear-gradient(180deg, hsl(var(--background)), hsl(220 20% 98%));
+
+    /* Shadows with brand colors */
+    --shadow-primary: 0 10px 30px -10px hsl(var(--primary) / 0.3);
+    --shadow-glass: 0 8px 32px 0 hsl(0 0% 0% / 0.08);
+    --shadow-elegant: 0 20px 25px -5px hsl(0 0% 0% / 0.1), 0 10px 10px -5px hsl(0 0% 0% / 0.04);
+
+    /* Spacing and sizing */
+    --radius: 0.75rem;
+
+    --sidebar-background: 0 0% 98%;
+
+    --sidebar-foreground: 240 5.3% 26.1%;
+
+    --sidebar-primary: 240 5.9% 10%;
+
+    --sidebar-primary-foreground: 0 0% 98%;
+
+    --sidebar-accent: 240 4.8% 95.9%;
+
+    --sidebar-accent-foreground: 240 5.9% 10%;
+
+    --sidebar-border: 220 13% 91%;
+
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    /* Dark mode - deep space with Prisma Glow accents */
+    --background: 220 30% 6%;
+    --foreground: 220 20% 95%;
+
+    /* Dark glass system */
+    --card: 220 30% 8%;
+    --card-foreground: 220 20% 95%;
+    --glass: 220 30% 10% / 0.8;
+    --glass-border: 220 20% 30% / 0.3;
+
+    --popover: 220 30% 8%;
+    --popover-foreground: 220 20% 95%;
+
+    /* Prisma Glow in dark mode - more vibrant */
+    --primary: 186 100% 50%;
+    --primary-foreground: 220 30% 6%;
+    --primary-light: 186 100% 70%;
+    --primary-dark: 186 100% 40%;
+
+    --secondary: 220 30% 15%;
+    --secondary-foreground: 220 20% 95%;
+    --secondary-accent: 240 100% 80%;
+
+    --tertiary: 270 100% 80%;
+    --tertiary-foreground: 220 30% 6%;
+
+    --muted: 220 30% 15%;
+    --muted-foreground: 220 10% 60%;
+
+    --accent: 220 30% 15%;
+    --accent-foreground: 220 20% 95%;
+
+    /* Dark status colors */
+    --success: 142 76% 50%;
+    --success-foreground: 220 30% 6%;
+    --warning: 38 92% 60%;
+    --warning-foreground: 220 30% 6%;
+    --destructive: 0 84% 70%;
+    --destructive-foreground: 220 30% 6%;
+
+    --border: 220 30% 20%;
+    --input: 220 30% 15%;
+    --ring: 186 100% 50%;
+
+    /* Dark gradients - more vibrant */
+    --gradient-primary: linear-gradient(135deg, hsl(186 100% 50%), hsl(240 100% 80%));
+    --gradient-glow: linear-gradient(135deg, hsl(186 100% 50%), hsl(220 100% 80%), hsl(270 100% 80%));
+    --gradient-glass: linear-gradient(135deg, hsl(220 30% 15% / 0.2), hsl(220 30% 10% / 0.1));
+    --gradient-subtle: linear-gradient(180deg, hsl(var(--background)), hsl(220 30% 8%));
+
+    /* Dark shadows with glow */
+    --shadow-primary: 0 10px 30px -10px hsl(var(--primary) / 0.4);
+    --shadow-glass: 0 8px 32px 0 hsl(0 0% 0% / 0.3);
+    --shadow-elegant: 0 20px 25px -5px hsl(0 0% 0% / 0.4), 0 10px 10px -5px hsl(0 0% 0% / 0.2);
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    background: hsl(var(--background));
+    background-image: var(--gradient-subtle);
+    background-attachment: fixed;
+  }
+
+  /* Beautiful scrollbars */
+  ::-webkit-scrollbar {
+    @apply w-2;
+  }
+  
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    @apply bg-muted-foreground/20 rounded-full;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-muted-foreground/30;
+  }
+}
+
+@layer components {
+  /* Glass morphism utilities */
+  .glass {
+    background: hsl(var(--glass));
+    backdrop-filter: blur(20px);
+    border: 1px solid hsl(var(--glass-border));
+  }
+
+  /* Gradient utilities */
+  .gradient-primary {
+    background: var(--gradient-primary);
+  }
+
+.gradient-glow, .bg-gradient-glow {
+  background: var(--gradient-glow);
+}
+
+  .gradient-text {
+    background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Shadow utilities */
+  .shadow-primary {
+    box-shadow: var(--shadow-primary);
+  }
+
+  .shadow-glass {
+    box-shadow: var(--shadow-glass);
+  }
+
+  .shadow-elegant {
+    box-shadow: var(--shadow-elegant);
+  }
+
+  /* Animation utilities */
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-10px); }
+  }
+
+  .animate-glow {
+    animation: glow 2s ease-in-out infinite alternate;
+  }
+
+  @keyframes glow {
+    from { filter: drop-shadow(0 0 5px hsl(var(--primary) / 0.3)); }
+    to { filter: drop-shadow(0 0 20px hsl(var(--primary) / 0.6)); }
+  }
+
+  /* Interactive hover effects */
+  .hover-lift {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .hover-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-elegant);
+  }
+
+  /* Focus rings with brand colors */
+  .focus-ring {
+    @apply focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-2 focus:ring-offset-background;
+  }
+}

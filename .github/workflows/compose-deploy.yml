@@ -1,0 +1,64 @@
+name: Compose Deploy (SSH)
+
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: 'Frontend profile to deploy (web or ui)'
+        required: true
+        default: 'web'
+        type: choice
+        options: [ 'web', 'ui' ]
+      deploy_path:
+        description: 'Remote deployment path'
+        required: true
+        default: '/opt/prisma-glow-15'
+        type: string
+      rollback_tag:
+        description: 'Optional tag (SHA) to roll back to; updates image tags in env before deploy'
+        required: false
+        default: ''
+        type: string
+
+concurrency:
+  group: compose-deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Deploy to remote host via SSH
+    runs-on: ubuntu-latest
+    if: ${{ secrets.DEPLOY_HOST != '' && secrets.DEPLOY_USER != '' && secrets.DEPLOY_SSH_KEY != '' && secrets.COMPOSE_ENV != '' }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Write compose env file
+        run: |
+          echo "${{ secrets.COMPOSE_ENV }}" > compose.env
+
+      - name: Upload compose files
+        uses: appleboy/scp-action@v1.0.0
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          source: |
+            docker-compose.prod.yml
+            compose.env
+            scripts/deploy/update-compose-env.sh
+          target: ${{ inputs.deploy_path }}
+
+      - name: Run docker compose on remote
+        uses: appleboy/ssh-action@v1.2.3
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            set -euo pipefail
+            cd '${{ inputs.deploy_path }}'
+            if [[ -n "${{ inputs.rollback_tag }}" ]]; then
+              bash scripts/deploy/update-compose-env.sh compose.env '${{ inputs.rollback_tag }}'
+            fi
+            docker compose --env-file compose.env --profile '${{ inputs.profile }}' -f docker-compose.prod.yml pull
+            docker compose --env-file compose.env --profile '${{ inputs.profile }}' -f docker-compose.prod.yml up -d

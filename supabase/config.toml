@@ -1,0 +1,33 @@
+project_id = "xzwowkxzgqigfuefmaji"
+
+[api]
+port = 56321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 57432
+shadow_port = 57433
+major_version = 17
+
+[studio]
+port = 55323
+
+[inbucket]
+port = 55324
+
+[storage]
+file_size_limit = 52428800
+
+[auth]
+site_url = "https://app.prismaglow.com"
+additional_redirect_urls = [
+  "https://staging.prismaglow.com",
+  "http://localhost:3000",
+  "http://localhost:5173"
+]
+jwt_expiry = 3600
+
+[auth.passwords]
+hibp_enabled = true

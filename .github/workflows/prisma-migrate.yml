@@ -1,0 +1,64 @@
+name: Supabase Prisma Deploy
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'apps/web/prisma/**'
+      - '.github/workflows/prisma-migrate.yml'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: preview
+        type: choice
+        options:
+          - preview
+          - production
+
+jobs:
+  deploy-preview:
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'preview')
+    name: Deploy migrations to Supabase (preview)
+    runs-on: ubuntu-latest
+    environment: preview
+    strategy:
+      matrix:
+        node-version: [20.19.4]
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DIRECT_URL: ${{ secrets.DIRECT_URL }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-pnpm
+        with:
+          node-version: ${{ matrix.node-version }}
+      - name: Mark Prisma baseline as applied (idempotent)
+        run: |
+          pnpm --filter web exec prisma migrate resolve --applied 0001_init || true
+      - name: Prisma migrate deploy (preview)
+        run: pnpm --filter web run prisma:migrate:deploy
+
+  deploy-production:
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production'
+    name: Deploy migrations to Supabase (production)
+    runs-on: ubuntu-latest
+    environment: production
+    strategy:
+      matrix:
+        node-version: [20.19.4]
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DIRECT_URL: ${{ secrets.DIRECT_URL }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-pnpm
+        with:
+          node-version: ${{ matrix.node-version }}
+      - name: Mark Prisma baseline as applied (idempotent)
+        run: |
+          pnpm --filter web exec prisma migrate resolve --applied 0001_init || true
+      - name: Prisma migrate deploy (production)
+        run: pnpm --filter web run prisma:migrate:deploy

@@ -1,0 +1,45 @@
+{
+  "datasets": [
+    {
+      "name": "Activity Log Events",
+      "storage": ["Primary Postgres", "Analytics Warehouse"],
+      "retention_window_days": 365,
+      "retention_notes": "roll-off after archival",
+      "anonymisation_job": "activity-log-anonymizer",
+      "schedule": "0 2 * * *",
+      "owner": "data-platform"
+    },
+    {
+      "name": "Document Attachments",
+      "storage": ["Object Storage"],
+      "retention_window_days": 730,
+      "retention_notes": "soft delete after 180 days",
+      "anonymisation_job": "document-attachment-rotator",
+      "schedule": "0 3 * * 0",
+      "owner": "security-compliance"
+    },
+    {
+      "name": "Engagement Journals",
+      "storage": ["Primary Postgres"],
+      "retention_window_days": 2555,
+      "retention_notes": "7 years",
+      "anonymisation_job": "journal-ledger-sanitizer",
+      "schedule": "30 1 * * 0",
+      "owner": "finance-operations"
+    },
+    {
+      "name": "Support Transcripts",
+      "storage": ["Analytics Warehouse"],
+      "retention_window_days": 180,
+      "retention_notes": null,
+      "anonymisation_job": "support-transcript-purger",
+      "schedule": "0 */6 * * *",
+      "owner": "support-operations"
+    }
+  ],
+  "metadata": {
+    "version": "2025-02-12",
+    "source": "Data Governance Council",
+    "contact": "governance@prismaglow.example"
+  }
+}

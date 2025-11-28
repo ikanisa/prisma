@@ -1,0 +1,23 @@
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: throttle-postgres
+  namespace: chaos-testing
+  labels:
+    chaos-mesh.org/experiment: db-throttle
+spec:
+  action: bandwidth
+  mode: all
+  selector:
+    namespaces:
+      - data-plane
+    labelSelectors:
+      app.kubernetes.io/name: postgres
+  bandwidth:
+    rate: "1mbps"
+    limit: 100
+    buffer: 1000
+  direction: to
+  duration: 5m
+  scheduler:
+    cron: "0 */2 * * *"

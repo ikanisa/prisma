@@ -1,0 +1,638 @@
+# Agent Platform Configuration
+# Defines tool proxy whitelist, personas, policy packs, and RAG pipeline
+
+version: "1.0.0"
+last_updated: "2025-11-02"
+
+# Tool Proxy Configuration
+# Server-side tool whitelist prevents direct client→OpenAI tool calls
+# All tools must be explicitly approved and implemented server-side
+tool_proxy:
+  enabled: true
+  deny_by_default: true
+  
+  # Whitelisted server-side tools (30+ tools)
+  whitelist:
+    # Document Management
+    - name: "documents.list"
+      description: "List documents with filters"
+      endpoint: "/api/tools/documents/list"
+      method: "POST"
+      auth_required: true
+      rate_limit: 40  # requests per minute
+      
+    - name: "documents.upload_url"
+      description: "Generate signed upload URL"
+      endpoint: "/api/tools/documents/upload-url"
+      method: "POST"
+      auth_required: true
+      rate_limit: 12
+      
+    - name: "documents.get"
+      description: "Get document metadata by ID"
+      endpoint: "/api/tools/documents/get"
+      method: "GET"
+      auth_required: true
+      rate_limit: 60
+      
+    - name: "documents.search"
+      description: "Full-text search across documents"
+      endpoint: "/api/tools/documents/search"
+      method: "POST"
+      auth_required: true
+      rate_limit: 30
+      
+    # RAG & Knowledge
+    - name: "rag.search"
+      description: "Semantic search via RAG service"
+      endpoint: "/api/tools/rag/search"
+      method: "POST"
+      auth_required: true
+      rate_limit: 40
+      
+    - name: "rag.ingest"
+      description: "Ingest document into vector store"
+      endpoint: "/api/tools/rag/ingest"
+      method: "POST"
+      auth_required: true
+      rate_limit: 5
+      approval_required: false
+      
+    - name: "knowledge.list_sources"
+      description: "List available knowledge sources"
+      endpoint: "/api/tools/knowledge/sources"
+      method: "GET"
+      auth_required: true
+      rate_limit: 60
+      
+    # Task Management
+    - name: "tasks.create"
+      description: "Create new task"
+      endpoint: "/api/tools/tasks/create"
+      method: "POST"
+      auth_required: true
+      rate_limit: 30
+      
+    - name: "tasks.update"
+      description: "Update task status/details"
+      endpoint: "/api/tools/tasks/update"
+      method: "PUT"
+      auth_required: true
+      rate_limit: 30
+      
+    - name: "tasks.assign"
+      description: "Assign task to user"
+      endpoint: "/api/tools/tasks/assign"
+      method: "POST"
+      auth_required: true
+      rate_limit: 30
+      approval_required: true  # Requires manager role
+      
+    # Onboarding
+    - name: "onboarding.start"
+      description: "Initialize onboarding workflow"
+      endpoint: "/api/tools/onboarding/start"
+      method: "POST"
+      auth_required: true
+      rate_limit: 10
+      
+    - name: "onboarding.link_doc"
+      description: "Link document to onboarding entity"
+      endpoint: "/api/tools/onboarding/link-doc"
+      method: "POST"
+      auth_required: true
+      rate_limit: 20
+      
+    - name: "onboarding.commit"
+      description: "Commit onboarding data to database"
+      endpoint: "/api/tools/onboarding/commit"
+      method: "POST"
+      auth_required: true
+      rate_limit: 10
+      approval_required: true  # Requires manager role
+      
+    # Accounting Close
+    - name: "close.snapshot_tb"
+      description: "Snapshot trial balance for period"
+      endpoint: "/api/tools/close/snapshot-tb"
+      method: "POST"
+      auth_required: true
+      rate_limit: 10
+      
+    - name: "recon.bank"
+      description: "Run bank reconciliation"
+      endpoint: "/api/tools/recon/bank"
+      method: "POST"
+      auth_required: true
+      rate_limit: 10
+      
+    - name: "journals.propose"
+      description: "Propose journal entries"
+      endpoint: "/api/tools/journals/propose"
+      method: "POST"
+      auth_required: true
+      rate_limit: 20
+      
+    - name: "journals.post"
+      description: "Post journal entries to ledger"
+      endpoint: "/api/tools/journals/post"
+      method: "POST"
+      auth_required: true
+      rate_limit: 10
+      approval_required: true  # Requires manager role
+      
+    - name: "variance.analyze"
+      description: "Analyze period-over-period variances"
+      endpoint: "/api/tools/variance/analyze"
+      method: "POST"
+      auth_required: true
+      rate_limit: 20
+      
+    - name: "cashflow.build_indirect"
+      description: "Build indirect cash flow statement"
+      endpoint: "/api/tools/cashflow/build"
+      method: "POST"
+      auth_required: true
+      rate_limit: 10
+      
+    # Audit
+    - name: "audit.plan"
+      description: "Create audit plan"
+      endpoint: "/api/tools/audit/plan"
+      method: "POST"
+      auth_required: true
+      rate_limit: 5
+      
+    - name: "sampling.design"
+      description: "Design audit sample"
+      endpoint: "/api/tools/audit/sampling"
+      method: "POST"
+      auth_required: true
+      rate_limit: 10
+      
+    - name: "confirmations.manage"
+      description: "Manage external confirmations"
+      endpoint: "/api/tools/audit/confirmations"
+      method: "POST"
+      auth_required: true
+      rate_limit: 10
+      
+    - name: "estimates.evaluate"
+      description: "Evaluate accounting estimates"
+      endpoint: "/api/tools/audit/estimates"
+      method: "POST"
+      auth_required: true
+      rate_limit: 10
+      
+    - name: "gc.assess"
+      description: "Assess going concern"
+      endpoint: "/api/tools/audit/going-concern"
+      method: "POST"
+      auth_required: true
+      rate_limit: 5
+      
+    - name: "se.review"
+      description: "Review subsequent events"
+      endpoint: "/api/tools/audit/subsequent-events"
+      method: "POST"
+      auth_required: true
+      rate_limit: 10
+      
+    - name: "kam.draft"
+      description: "Draft key audit matters"
+      endpoint: "/api/tools/audit/kam"
+      method: "POST"
+      auth_required: true
+      rate_limit: 10
+      
+    - name: "report.assemble"
+      description: "Assemble audit report"
+      endpoint: "/api/tools/audit/report"
+      method: "POST"
+      auth_required: true
+      rate_limit: 5
+      
+    - name: "tcwg.pack"
+      description: "Prepare TCWG communication pack"
+      endpoint: "/api/tools/audit/tcwg"
+      method: "POST"
+      auth_required: true
+      rate_limit: 5
+      
+    # Tax
+    - name: "mt.cit.compute"
+      description: "Compute Malta CIT"
+      endpoint: "/api/tools/tax/mt-cit"
+      method: "POST"
+      auth_required: true
+      rate_limit: 10
+      
+    - name: "mt.vat.prepare"
+      description: "Prepare Malta VAT return"
+      endpoint: "/api/tools/tax/mt-vat"
+      method: "POST"
+      auth_required: true
+      rate_limit: 10
+      
+    - name: "dac6.classify"
+      description: "Classify DAC6 reportable arrangements"
+      endpoint: "/api/tools/tax/dac6"
+      method: "POST"
+      auth_required: true
+      rate_limit: 5
+      
+    - name: "p2.scope"
+      description: "Determine Pillar Two scope"
+      endpoint: "/api/tools/tax/pillar-two-scope"
+      method: "POST"
+      auth_required: true
+      rate_limit: 5
+      
+    - name: "p2.compute"
+      description: "Compute Pillar Two top-up tax"
+      endpoint: "/api/tools/tax/pillar-two-compute"
+      method: "POST"
+      auth_required: true
+      rate_limit: 5
+      
+    # Notifications & Search
+    - name: "notifications.send"
+      description: "Send notification to user"
+      endpoint: "/api/tools/notifications/send"
+      method: "POST"
+      auth_required: true
+      rate_limit: 30
+      
+    - name: "web_search"
+      description: "Search the web for current information"
+      endpoint: "/api/tools/web/search"
+      method: "POST"
+      auth_required: true
+      rate_limit: 20
+      
+    # Document AI
+    - name: "doc_ai.extract"
+      description: "Extract structured data from document"
+      endpoint: "/api/tools/doc-ai/extract"
+      method: "POST"
+      auth_required: true
+      rate_limit: 12
+
+# Agent Personas
+# Defines 5 personas with distinct capabilities and constraints
+personas:
+  - id: "accounting_agent"
+    name: "Accounting Agent"
+    description: "Handles month-end close, reconciliations, journal entries"
+    autonomy_level: "L2"  # Auto-prepare; user approves to submit
+    capabilities:
+      - "close.snapshot_tb"
+      - "recon.bank"
+      - "journals.propose"
+      - "journals.post"
+      - "variance.analyze"
+      - "cashflow.build_indirect"
+      - "documents.list"
+      - "documents.search"
+      - "rag.search"
+      - "tasks.create"
+      - "notifications.send"
+    approval_gates:
+      - action: "journals.post"
+        min_role: "MANAGER"
+      - action: "close.lock"
+        min_role: "PARTNER"
+    constraints:
+      max_je_amount: 50000  # Auto-approve JEs up to €50k
+      require_citation: true
+      deterministic_math: true
+      
+  - id: "audit_agent"
+    name: "Audit Partner Agent"
+    description: "Conducts audit procedures, drafts reports"
+    autonomy_level: "L1"  # Suggest; user approves every action
+    capabilities:
+      - "audit.plan"
+      - "sampling.design"
+      - "confirmations.manage"
+      - "estimates.evaluate"
+      - "gc.assess"
+      - "se.review"
+      - "kam.draft"
+      - "report.assemble"
+      - "tcwg.pack"
+      - "documents.list"
+      - "documents.search"
+      - "rag.search"
+      - "web_search"
+    approval_gates:
+      - action: "audit.plan.freeze"
+        min_role: "PARTNER"
+      - action: "audit.report.release"
+        min_role: "PARTNER"
+      - action: "eqr.signoff"
+        min_role: "EQR"
+    constraints:
+      require_citation: true
+      require_evidence: true
+      professional_skepticism: true
+      
+  - id: "tax_agent"
+    name: "Tax Agent"
+    description: "Computes tax positions, prepares returns"
+    autonomy_level: "L1"  # Suggest; user approves
+    capabilities:
+      - "mt.cit.compute"
+      - "mt.vat.prepare"
+      - "dac6.classify"
+      - "p2.scope"
+      - "p2.compute"
+      - "documents.list"
+      - "documents.search"
+      - "rag.search"
+      - "web_search"
+      - "tasks.create"
+    approval_gates:
+      - action: "tax.return.submit"
+        min_role: "MANAGER"
+    constraints:
+      require_citation: true
+      cite_legal_basis: true
+      uncertainty_disclosure: true
+      
+  - id: "document_agent"
+    name: "Document Intelligence Agent"
+    description: "Extracts, classifies, links documents"
+    autonomy_level: "L2"  # Auto-prepare
+    capabilities:
+      - "documents.list"
+      - "documents.upload_url"
+      - "documents.get"
+      - "documents.search"
+      - "doc_ai.extract"
+      - "rag.ingest"
+      - "rag.search"
+      - "tasks.create"
+    approval_gates: []  # No approval required for document ops
+    constraints:
+      max_file_size_mb: 50
+      allowed_mime_types:
+        - "application/pdf"
+        - "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        - "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        - "text/csv"
+        - "image/png"
+        - "image/jpeg"
+        
+  - id: "analyst_agent"
+    name: "Financial Analyst Agent"
+    description: "Performs variance analysis, forecasting, KPIs"
+    autonomy_level: "L2"  # Auto-prepare
+    capabilities:
+      - "variance.analyze"
+      - "cashflow.build_indirect"
+      - "documents.list"
+      - "documents.search"
+      - "rag.search"
+      - "web_search"
+      - "tasks.create"
+      - "notifications.send"
+    approval_gates: []
+    constraints:
+      require_citation: true
+      show_calculation_steps: true
+
+# Policy Packs
+# Defines approval gates and RBAC enforcement
+policy_packs:
+  - id: "release_controls"
+    name: "Release Controls Policy"
+    description: "Approval gates for close, audit, tax release"
+    rules:
+      - action: "close.lock"
+        approval_required: true
+        min_role: "PARTNER"
+        justification_required: true
+        
+      - action: "audit.plan.freeze"
+        approval_required: true
+        min_role: "PARTNER"
+        justification_required: true
+        
+      - action: "audit.report.release"
+        approval_required: true
+        min_role: "PARTNER"
+        concurrent_approvals: 2  # Partner + EQR
+        
+      - action: "eqr.signoff"
+        approval_required: true
+        min_role: "EQR"
+        independence_check: true
+        
+      - action: "tax.return.submit"
+        approval_required: true
+        min_role: "MANAGER"
+        partner_review_if_material: true
+        
+  - id: "high_value_transactions"
+    name: "High-Value Transaction Policy"
+    description: "Approval for large journal entries and payments"
+    rules:
+      - action: "journals.post"
+        approval_required_if:
+          amount_exceeds: 50000  # €50k
+        min_role: "PARTNER"
+        
+      - action: "payment.initiate"
+        approval_required_if:
+          amount_exceeds: 10000  # €10k
+        min_role: "MANAGER"
+        
+  - id: "data_access_controls"
+    name: "Data Access Controls"
+    description: "RLS enforcement and data scoping"
+    rules:
+      - scope: "organization"
+        enforcement: "RLS"
+        fallback: "deny"
+        
+      - scope: "client_portal"
+        allowed_folders:
+          - "02_Tax/PBC"
+          - "03_Accounting/PBC"
+          - "05_Payroll/PBC"
+        denied_actions:
+          - "documents.view_internal"
+          - "close.lock"
+          - "audit.plan.freeze"
+          
+  - id: "autonomy_guardrails"
+    name: "Autonomy Level Guardrails"
+    description: "Prevents over-autonomous agent behavior"
+    rules:
+      - level: "L0"
+        allowed_actions: []  # Manual only
+        
+      - level: "L1"
+        allowed_actions:
+          - "suggest"
+        approval_required: true
+        
+      - level: "L2"
+        allowed_actions:
+          - "suggest"
+          - "auto_prepare"
+        approval_required_for:
+          - "submit"
+          - "file"
+          - "release"
+          
+      - level: "L3"
+        allowed_actions:
+          - "suggest"
+          - "auto_prepare"
+          - "auto_execute"
+        approval_required_for:
+          - "file"
+          - "release"
+        ask_if_missing:
+          - "evidence"
+
+# RBAC Configuration
+# Defines 8 roles with precedence-based permissions
+rbac:
+  roles:
+    - id: "SYSTEM_ADMIN"
+      precedence: 1
+      permissions:
+        - "*"  # All permissions
+        
+    - id: "PARTNER"
+      precedence: 2
+      permissions:
+        - "close.lock"
+        - "audit.plan.freeze"
+        - "audit.report.release"
+        - "journals.post"
+        - "tax.return.submit"
+        - "policy.pack.edit"
+        
+    - id: "EQR"
+      precedence: 3
+      permissions:
+        - "audit.eqr.signoff"
+        - "audit.plan.review"
+        - "audit.report.review"
+        
+    - id: "MANAGER"
+      precedence: 4
+      permissions:
+        - "journals.post"
+        - "tasks.assign"
+        - "onboarding.commit"
+        - "tax.return.submit"
+        
+    - id: "EMPLOYEE"
+      precedence: 5
+      permissions:
+        - "tasks.create"
+        - "tasks.update"
+        - "documents.upload"
+        - "documents.view_internal"
+        - "onboarding.start"
+        
+    - id: "CLIENT"
+      precedence: 6
+      permissions:
+        - "documents.view_pbc"
+        - "documents.upload_pbc"
+        - "tasks.view_assigned"
+        
+    - id: "READONLY"
+      precedence: 7
+      permissions:
+        - "documents.view_internal"
+        - "tasks.view"
+        
+    - id: "SERVICE_ACCOUNT"
+      precedence: 8
+      permissions:
+        - "api.*"  # API access only
+  
+  # Permission precedence: higher role can override lower role restrictions
+  precedence_rules:
+    - higher_role_inherits: true
+    - explicit_deny_wins: true
+
+# RAG Pipeline Configuration
+rag:
+  citation_requirements:
+    enabled: true
+    min_confidence: 0.60
+    max_results: 8
+    include_page_numbers: true
+    include_excerpts: true
+    
+  embedding:
+    model: "text-embedding-3-large"
+    chunk_size: 1200
+    overlap: 150
+    
+  search:
+    reranker: "mini-lm-re-ranker-v2"
+    filters:
+      - "orgId"
+      - "entityId"
+      - "repoFolder"
+      - "docType"
+    
+  knowledge_sources:
+    order:
+      - "documents"        # User-uploaded documents first
+      - "google_drive"     # Then Google Drive
+      - "url_sources"      # Then web sources
+      - "web_search"       # Web search last resort
+    
+    fallback_behavior: "ask_user"  # Ask for evidence if not found
+    
+  response_requirements:
+    citations_required: true
+    show_confidence: true
+    explain_gaps: true
+    suggest_missing_docs: true
+
+# Observability
+observability:
+  tool_calls:
+    log_requests: true
+    log_responses: false  # PII risk
+    log_errors: true
+    correlation_id: true
+    
+  metrics:
+    - tool_call_count
+    - tool_call_duration_ms
+    - tool_call_success_rate
+    - approval_request_count
+    - approval_granted_rate
+    
+  alerts:
+    - condition: "tool_call_error_rate > 0.05"
+      action: "notify_ops"
+      
+    - condition: "approval_request_denied > 10/hour"
+      action: "notify_security"
+      
+    - condition: "rate_limit_exceeded > 5/minute"
+      action: "notify_ops"
+
+# Feature Flags
+feature_flags:
+  agent_platform_enabled: true
+  tool_proxy_enforcement: true
+  approval_gates_enabled: true
+  citation_enforcement: true
+  rbac_enabled: true
+  autonomy_guardrails_enabled: true
+  web_search_enabled: false  # Disabled by default
+  realtime_voice_enabled: false  # Beta feature

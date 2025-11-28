@@ -1,0 +1,39 @@
+name: Healthz Smoke
+
+on:
+  workflow_dispatch:
+    inputs:
+      app_url:
+        description: 'Full health endpoint URL (e.g., https://app.prisma-cpa.vercel.app/api/healthz)'
+        required: true
+        type: string
+
+jobs:
+  smoke:
+    name: Check /api/healthz
+    runs-on: ubuntu-latest
+    steps:
+      - name: Curl health endpoint
+        id: curl
+        run: |
+          set -euo pipefail
+          URL="${{ inputs.app_url }}"
+          echo "Checking ${URL}"
+          # Capture HTTP status and body
+          STATUS=$(curl -s -o body.json -w '%{http_code}' "$URL")
+          echo "status=${STATUS}" >> $GITHUB_OUTPUT
+          echo "HTTP ${STATUS}" && cat body.json || true
+          if [ "$STATUS" -ne 200 ]; then
+            echo "Non-200 from health endpoint" >&2
+            exit 1
+          fi
+          # Validate JSON `status` field equals "ok"
+          if command -v jq >/dev/null 2>&1; then
+            STATUS_FIELD=$(jq -r '.status // empty' body.json)
+            if [ "$STATUS_FIELD" != "ok" ]; then
+              echo "Health JSON status != ok (got: ${STATUS_FIELD})" >&2
+              exit 1
+            fi
+          fi
+          echo "Health check passed"
+

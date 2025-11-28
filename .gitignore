@@ -1,9 +1,52 @@
-node_modules/
-dist/
-coverage/
-.turbo/
-*.log
-.DS_Store
+# Supabase local artifacts
+.supabase/
+supabase/.branches/
+supabase/.temp/
+supabase/config.toml.bak
+
+# Env & logs
 .env
-.env.local
+.env.*
+!.env.example
+!**/.env.example
+!**/.env.*.example
+!.env.template
+*.log
+.logs/
+.logs/*.pid
+.logs/*.log
+
+# Build & deps
+**/node_modules/
+dist/
 *.tsbuildinfo
+**/v8-compile-cache-*/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.coverage
+*.coverage
+htmlcov/
+.pytest_cache/
+
+# Next.js (web app)
+apps/web/.next/
+apps/web/public/workbox-*.js
+
+# Misc
+*.swp
+apps/web/.turbo/
+
+# Next.js PWAs
+apps/client/.next/
+apps/client/out/
+apps/client/public/sw.js
+apps/client/public/workbox-*.js
+apps/admin/.next/
+apps/admin/out/
+apps/admin/public/sw.js
+apps/admin/public/workbox-*.js
+.turbo/

@@ -1,0 +1,34 @@
+# OpenAI Client Architecture
+
+## Node / TypeScript Services
+- `lib/openai/client.ts` exposes `getOpenAIClient`, `refreshOpenAIClient`, and `withOpenAIClient` utility helpers.
+- Standard configuration pulls from env (`OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_ORG_ID`, `OPENAI_USER_AGENT_TAG`).
+- Default timeout is 60s with singleton reuse to prevent redundant TCP handshakes and allow shared instrumentation.
+- Consumers (RAG service, upcoming workers, Next.js API routes) should import `getOpenAIClient()` instead of instantiating `new OpenAI()`.
+- Workload-aware helpers live in `lib/openai/workloads.ts`:
+  - `getOpenAIClientForWorkload()` / `withOpenAIClientForWorkload()` select keyed credentials (`default`, `finance-prod`, `finance-staging`).
+  - `readOpenAiWorkloadEnv()` exposes request/quota tags and user-agent tags so lambdas/edge functions can mirror finance routing without importing the SDK client.
+  - `OPENAI_FINANCE_WORKLOAD` toggles the active finance key in non-prod versus prod while still inheriting base env vars (`OPENAI_REQUEST_TAGS`, `OPENAI_REQUEST_QUOTA_TAG`). Override per environment with `OPENAI_REQUEST_TAGS_FINANCE_*` / `_QUOTA_TAG_FINANCE_*`.
+- `services/rag/index.ts` lazily resolves the shared client via a proxy so module import no longer demands configured credentials during tests.
+- Debug logging hooks (`createOpenAiDebugLogger`) receive the shared client instance so Requests API metadata flows into `openai_debug_events` consistently.
+- `services/rag/openai-vision.ts` and `services/rag/openai-audio.ts` wrap the Vision/S2T/TTS APIs so agents share consistent logging and error handling.
+- `lib/openai/url.ts` normalises `OPENAI_BASE_URL` (removing trailing `/v1` or slashes) and exposes `buildOpenAiUrl()` for composing REST fetch calls without duplicating the version prefix.
+
+## Python Services
+- `server/openai/` now provides `get_openai_client` / `refresh_openai_client` helpers backed by a configurable factory.
+- Embedding calls in `server/rag.py` use the shared client and emit `openai_debug_events` records (with optional Requests API enrichment when `OPENAI_DEBUG_FETCH_DETAILS=true`).
+- FastAPI and worker entry points rely on the shared helper via the shared RAG module; no ad-hoc `AsyncOpenAI()` instantiations remain.
+- When additional assistant workflows are re-enabled, import the helper and invoke `log_openai_debug_event` to retain parity with Phase 0 observability.
+
+## Observability & Runbooks
+- Phase 0 now covers debug logging for both Node and Python embeddings; extend dashboards to include the new event stream.
+- `createOpenAiDebugLogger` attaches `endpoint`, `model`, `org`, and HTTP `status` dimensions to `metadata.tags` automatically in `openai_debug_events`. Downstream dashboards can pivot on those without extra parsing.
+- Update datadog/Splunk routing instructions to reference the shared helpers so rate/usage dashboards remain consistent across environments. Include finance workload tags when filtering (`workload:finance-prod`, `quota:<tag>`).
+- Finance-specific project scaffolding is described in `docs/openai-finance-project-scaffolding.md`; reference it when promoting environments and when rotating keys for the dedicated finance workloads.
+- Configure request tagging via `OPENAI_REQUEST_TAGS=service:rag,env:prod` (comma-separated) and optional quota routing via `OPENAI_REQUEST_QUOTA_TAG=<billing-tag>`. Workload overrides (`OPENAI_REQUEST_TAGS_FINANCE_*`, `OPENAI_REQUEST_QUOTA_TAG_FINANCE_*`) cascade through `readOpenAiWorkloadEnv()` so debug events, Datadog/Splunk, and quota monitors align with OpenAI dashboards.
+
+## Deterministic corpora & offline testing
+- The embeddings playground ships with a deterministic similarity explorer that avoids live API calls. The curated corpus and L2-normalised vectors live in `apps/web/app/openai/embeddings/components/similarity-explorer.tsx`; edit the `SAMPLE_DOCUMENTS` array to tweak scenarios or titles, and regenerate the vocabulary by saving the file (the helper recomputes the set at runtime).
+- Playwright coverage (`tests/playwright/embeddings-playground.spec.ts`) asserts that the offline toggle ranks the deterministic corpus. When adjusting the sample documents, update expectations in this spec to keep snapshots aligned.
+- To exercise the full pipeline locally without OpenAI access, leave the “Use deterministic corpus (offline)” toggle enabled in the similarity explorer UI. Disable it only when you have configured `OPENAI_API_KEY` workloads or the `/api/openai/embeddings` proxy in local development.
+- Document QA workflows that rely on deterministic corpora in team runbooks so solution engineers and SREs know how to validate ranking changes before promoting them to environments that hit live OpenAI endpoints.

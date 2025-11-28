@@ -1,0 +1,6 @@
+fastapi
+apscheduler
+sentry-sdk
+opentelemetry-api
+httpx
+asyncpg

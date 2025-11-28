@@ -1,0 +1,107 @@
+app,variable,scope,required,default,description
+apps/web,AUTH_CLIENT_ID,server,true,,OIDC client ID for Keycloak/NextAuth.
+apps/web,AUTH_CLIENT_SECRET,server,true,,OIDC client secret for Keycloak/NextAuth.
+apps/web,AUTH_ISSUER,server,true,,Issuer URL for Keycloak OpenID discovery.
+apps/web,SUPABASE_URL,server,true,,Supabase project URL used for privileged service access.
+apps/web,SUPABASE_SERVICE_ROLE_KEY,server,true,,Service role key for Supabase APIs invoked on the server.
+apps/web,SUPABASE_ALLOW_STUB,server,false,false,Allows fall back to in-memory Supabase stub when true (local demos/tests).
+apps/web,AGENT_SERVICE_URL,server,false,,Optional override for Agent Gateway URL used by API routes.
+apps/web,SAMPLING_C1_BASE_URL,server,false,,Optional upstream sampling service URL.
+apps/web,SAMPLING_C1_API_KEY,server,false,,API key for sampling service when enabled.
+apps/web,AUTOMATION_WEBHOOK_SECRET,server,false,,Shared secret for compliance automation webhook validation.
+apps/web,N8N_WEBHOOK_SECRET,server,false,,Legacy automation webhook secret fallback.
+apps/web,DATABASE_URL,server,false,,PostgreSQL connection string used by Prisma and health checks.
+apps/web,SKIP_HEALTHCHECK_DB,server,false,false,Bypass database connectivity check on the `/api/healthz` endpoint.
+apps/web,RECONCILIATION_MODE,server,false,db,Server-side reconciliation handler (`db` or experimental `memory`).
+apps/web,WEB_SENTRY_DSN,server,false,,Sentry DSN for Next.js server error reporting.
+apps/web,NEXT_PUBLIC_SUPABASE_URL,client,true,,Public Supabase URL surfaced to the browser.
+apps/web,NEXT_PUBLIC_SUPABASE_ANON_KEY,client,true,,Anon/publishable Supabase key for browser access.
+apps/web,NEXT_PUBLIC_API_BASE,client,false,,External API base URL for client fetches (falls back to same origin when empty).
+apps/web,NEXT_PUBLIC_ACCOUNTING_MODE,client,false,close,Feature flag for accounting UI (`close` or `modules`).
+apps/web,NEXT_PUBLIC_RECONCILIATION_MODE,client,false,db,Feature flag for reconciliation UI (`db` or `memory`).
+apps/web,NEXT_PUBLIC_GROUP_AUDIT_MODE,client,false,workspace,Feature flag for group audit UI (`workspace` or `dashboard`).
+apps/web,NEXT_PUBLIC_DEMO_ORG_ID,client,false,,Optional default organisation slug for demo views.
+apps/web,NEXT_PUBLIC_DEMO_ENGAGEMENT_ID,client,false,,Optional default engagement identifier for demo views.
+apps/web,NEXT_PUBLIC_DEMO_USER_ID,client,false,,Optional default user identifier for demo/demo analytics cards.
+apps/web,NEXT_PUBLIC_SENTRY_DSN,client,false,,Browser Sentry DSN mirroring WEB_SENTRY_DSN for telemetry.
+apps/web,OPENAI_DEFAULT_REASONING_EFFORT,server,false,low,Global Responses API reasoning effort (minimal/low/medium/high) forwarded to the agent guard.
+apps/web,OPENAI_DEFAULT_VERBOSITY,server,false,medium,Verbosity defaults for Responses API requests issued by web API routes.
+apps/web,OPENAI_AGENT_REASONING_EFFORT,server,false,low,Override reasoning effort used by createApiGuard agent flows.
+apps/web,OPENAI_AGENT_VERBOSITY,server,false,medium,Override verbosity used by createApiGuard agent flows.
+apps/web,OPENAI_SUMMARY_REASONING_EFFORT,server,false,minimal,Override reasoning effort for policy/summarisation routes on web.
+apps/web,OPENAI_SUMMARY_VERBOSITY,server,false,low,Override verbosity for policy/summarisation routes on web.
+
+apps/gateway,PORT,server,false,3000,Runtime port when running standalone (ignored in serverless mode).
+apps/gateway,OTEL_SERVICE_NAME,server,false,gateway,OpenTelemetry service name for tracing spans.
+apps/gateway,OTEL_EXPORTER_OTLP_ENDPOINT,server,false,,OTLP HTTP endpoint for exporting traces.
+apps/gateway,ENVIRONMENT,server,false,,Optional runtime environment label when OTEL env missing.
+apps/gateway,NODE_ENV,server,false,development,Node environment indicator used for logging.
+apps/gateway,SERVICE_VERSION,server,false,,Deployed version string surfaced in headers/user-agent.
+apps/gateway,SENTRY_RELEASE,server,false,,Sentry release identifier used when reporting errors.
+apps/gateway,SENTRY_ENVIRONMENT,server,false,,Sentry environment name.
+apps/gateway,SENTRY_DSN,server,false,,Sentry DSN for gateway error reporting.
+apps/gateway,API_BASE_URL,server,false,,Fallback FastAPI base URL for proxy routes.
+apps/gateway,FASTAPI_BASE_URL,server,false,,Preferred FastAPI base URL for proxy routes.
+apps/gateway,ALLOW_SENTRY_DRY_RUN,server,false,false,Enables Sentry dry-run endpoints when true.
+apps/gateway,REDIS_URL,server,false,,Redis connection string for rate limiting + idempotency cache.
+apps/gateway,DATABASE_URL,server,false,,PostgreSQL connection string for idempotency store.
+apps/gateway,GATEWAY_API_KEYS,server,false,,Comma-separated API keys accepted by the gateway (preferred).
+apps/gateway,API_KEYS,server,false,,Legacy comma-separated API keys fallback.
+apps/gateway,AGENT_SERVICE_URL,server,false,,Agent service base URL proxied by the gateway.
+apps/gateway,AGENT_SERVICE_API_KEY,server,false,,API key for upstream agent service.
+apps/gateway,RAG_SERVICE_URL,server,false,,RAG service base URL proxied by the gateway.
+apps/gateway,RAG_SERVICE_API_KEY,server,false,,API key for upstream RAG service.
+
+services/rag,SUPABASE_URL,server,true,,Supabase project URL for persistence + auth checks.
+services/rag,SUPABASE_SERVICE_ROLE_KEY,server,true,,Service role key used for privileged Supabase access.
+services/rag,SUPABASE_JWT_SECRET,server,false,,JWT secret for Supabase auth helpers.
+services/rag,OPENAI_API_KEY,server,true,,Primary OpenAI API key for completions, embeddings, and audio APIs.
+services/rag,OPENAI_AGENT_MODEL,server,false,gpt-5-mini,Default model for agent orchestration.
+services/rag,OPENAI_WEB_SEARCH_ENABLED,server,false,false,Enables web search augmentation feature flag.
+services/rag,OPENAI_WEB_SEARCH_MODEL,server,false,gpt-5,Model for web search summarisation when enabled.
+services/rag,OPENAI_SUMMARY_MODEL,server,false,gpt-5-mini,Model for summarisation workloads when enabled.
+services/rag,OPENAI_DEFAULT_REASONING_EFFORT,server,false,low,Global Responses API reasoning effort (minimal/low/medium/high).
+services/rag,OPENAI_DEFAULT_VERBOSITY,server,false,medium,Global verbosity control for GPT-5 Responses API (low/medium/high).
+services/rag,OPENAI_AGENT_REASONING_EFFORT,server,false,low,Override reasoning effort for agent conversations.
+services/rag,OPENAI_AGENT_VERBOSITY,server,false,medium,Override verbosity for agent conversations.
+services/rag,OPENAI_SUMMARY_REASONING_EFFORT,server,false,minimal,Override reasoning effort for summarisation/policy checks.
+services/rag,OPENAI_SUMMARY_VERBOSITY,server,false,low,Override verbosity for summarisation/policy checks.
+services/rag,OPENAI_STREAMING_ENABLED,server,false,false,Enable streaming responses from OpenAI completions.
+services/rag,OPENAI_REALTIME_ENABLED,server,false,false,Enable OpenAI realtime sessions.
+services/rag,OPENAI_REALTIME_MODEL,server,false,gpt-4o-realtime-preview,Realtime model identifier.
+services/rag,OPENAI_REALTIME_TURN_SERVERS,server,false,,JSON payload describing TURN servers for realtime API.
+services/rag,OPENAI_REALTIME_VOICE,server,false,verse,Preferred realtime voice preset.
+services/rag,OPENAI_TTS_MODEL,server,false,gpt-4o-mini-tts,Text-to-speech model for audio generation.
+services/rag,OPENAI_TTS_VOICE,server,false,alloy,Voice preset for TTS API.
+services/rag,OPENAI_TTS_FORMAT,server,false,mp3,Audio format for generated speech.
+services/rag,OPENAI_TRANSCRIPTION_MODEL,server,false,,Override transcription model (defaults to Whisper API).
+services/rag,OPENAI_WHISPER_MODEL,server,false,,Legacy override for Whisper transcription model.
+services/rag,OPENAI_FILE_SEARCH_VECTOR_STORE_ID,server,false,,Vector store identifier for hosted file search queries (staging/production).
+services/rag,OPENAI_FILE_SEARCH_MODEL,server,false,gpt-4.1-mini,Override the model invoked with the hosted file search tool.
+services/rag,OPENAI_FILE_SEARCH_MAX_RESULTS,server,false,,Maximum hosted file search results returned per query.
+services/rag,OPENAI_FILE_SEARCH_FILTERS,server,false,,JSON metadata filters applied to hosted file search results.
+services/rag,OPENAI_FILE_SEARCH_INCLUDE_RESULTS,server,false,true,Include raw hosted file search hits for debugging and QA.
+services/rag,DATABASE_URL,server,false,,PostgreSQL connection string for job + rate limit persistence.
+services/rag,OTEL_EXPORTER_OTLP_ENDPOINT,server,false,,OTLP endpoint for tracing spans.
+services/rag,OTEL_SERVICE_NAME,server,false,rag-service,Service name reported to OTEL exporters.
+services/rag,ENVIRONMENT,server,false,development,Runtime environment label used in logs.
+services/rag,SERVICE_VERSION,server,false,dev,Deployed version identifier for telemetry payloads.
+services/rag,SENTRY_DSN,server,false,,Sentry DSN for error reporting.
+services/rag,SENTRY_ENVIRONMENT,server,false,,Sentry environment label.
+services/rag,SENTRY_RELEASE,server,false,,Sentry release identifier.
+services/rag,RATE_LIMIT_ALERT_WEBHOOK,server,false,,Webhook notified when rate limiting triggers alarms.
+services/rag,API_RATE_LIMIT,server,false,60,Requests allowed per window for public endpoints.
+services/rag,API_RATE_WINDOW_SECONDS,server,false,60,Rate limiting window (seconds).
+services/rag,WEB_HARVEST_INTERVAL_MS,server,false,3600000,Interval between scheduled web crawls.
+services/rag,GDRIVE_SERVICE_ACCOUNT_EMAIL,server,false,,Service account email for Google Drive ingestion.
+services/rag,GDRIVE_SERVICE_ACCOUNT_KEY,server,false,,Base64 encoded private key for Google Drive ingestion.
+services/rag,GDRIVE_SHARED_DRIVE_ID,server,false,,Optional shared drive identifier for Drive ingestion.
+services/rag,GDRIVE_FOLDER_ID,server,false,,Optional folder scope for Drive ingestion.
+services/rag,DOCUMENT_SIGN_TTL,server,false,120,TTL in seconds for generated document signing URLs.
+services/rag,SUPABASE_JWT_AUDIENCE,server,false,authenticated,Supabase JWT audience claim expected by service.
+services/rag,ALLOW_SENTRY_DRY_RUN,server,false,false,Enable dry-run logging for Sentry webhooks.
+services/rag,ERROR_NOTIFY_WEBHOOK,server,false,,Webhook target for error notifications.
+services/rag,ORCHESTRATION_POLL_INTERVAL_MS,server,false,15000,Polling interval for orchestration workers.
+services/rag,AGENT_MODEL,server,false,gpt-5-mini,Default agent LLM selection.
+services/rag,RATE_LIMIT,server,false,60,Legacy alias for API rate limit (per minute).
+services/rag,RATE_WINDOW_MS,server,false,60000,Legacy alias for API rate window (ms).

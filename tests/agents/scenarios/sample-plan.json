@@ -1,0 +1,28 @@
+{
+  "id": "sample.plan",
+  "name": "Sample plan scenario (documentation)",
+  "description": "Demonstrates the agent evaluation schema without running against a live environment.",
+  "skip": true,
+  "skipReason": "Provide a real scenario without skip to enable evaluations.",
+  "tags": ["documentation", "placeholder"],
+  "request": {
+    "method": "POST",
+    "path": "/api/agent/plan",
+    "body": {
+      "orgSlug": "demo",
+      "objective": "Walk through the agent evaluation harness.",
+      "priority": "MEDIUM"
+    }
+  },
+  "assertions": [
+    {
+      "type": "status",
+      "equals": 200
+    },
+    {
+      "type": "jsonPath",
+      "path": "plan.tasks",
+      "lengthGte": 1
+    }
+  ]
+}

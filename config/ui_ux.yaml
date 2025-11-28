@@ -1,0 +1,642 @@
+# UI/UX Design System Configuration
+# Formalizes design tokens, liquid glass pattern, PWA budgets, and accessibility requirements
+
+version: "1.0.0"
+last_updated: "2025-11-02"
+
+# Design System Metadata
+meta:
+  name: "Prisma Glow Design System"
+  description: "Autonomous Finance Suite UI/UX guidelines and token system"
+  theme: "liquid-glass-modern"
+  supports:
+    - "Progressive Web App (PWA)"
+    - "Dark/Light Mode"
+    - "Responsive Design"
+    - "WCAG 2.1 AA Accessibility"
+
+# Color Tokens
+colors:
+  # Primary Palette (Brand)
+  primary:
+    50: "hsl(220, 70%, 97%)"    # lightest
+    100: "hsl(220, 70%, 95%)"
+    200: "hsl(220, 70%, 90%)"
+    300: "hsl(220, 70%, 80%)"
+    400: "hsl(220, 70%, 70%)"
+    500: "hsl(220, 70%, 60%)"   # base
+    600: "hsl(220, 70%, 50%)"   # DEFAULT
+    700: "hsl(220, 70%, 40%)"
+    800: "hsl(220, 70%, 30%)"
+    900: "hsl(220, 70%, 20%)"
+    950: "hsl(220, 70%, 10%)"   # darkest
+    
+  # Secondary Palette (Accent)
+  secondary:
+    50: "hsl(280, 60%, 97%)"
+    100: "hsl(280, 60%, 95%)"
+    200: "hsl(280, 60%, 90%)"
+    300: "hsl(280, 60%, 80%)"
+    400: "hsl(280, 60%, 70%)"
+    500: "hsl(280, 60%, 60%)"
+    600: "hsl(280, 60%, 50%)"   # DEFAULT
+    700: "hsl(280, 60%, 40%)"
+    800: "hsl(280, 60%, 30%)"
+    900: "hsl(280, 60%, 20%)"
+    950: "hsl(280, 60%, 10%)"
+    
+  # Semantic Colors
+  semantic:
+    success:
+      light: "hsl(142, 70%, 45%)"
+      DEFAULT: "hsl(142, 70%, 40%)"
+      dark: "hsl(142, 70%, 35%)"
+      foreground: "hsl(0, 0%, 100%)"
+      
+    warning:
+      light: "hsl(38, 90%, 55%)"
+      DEFAULT: "hsl(38, 90%, 50%)"
+      dark: "hsl(38, 90%, 45%)"
+      foreground: "hsl(0, 0%, 0%)"
+      
+    error:
+      light: "hsl(0, 70%, 55%)"
+      DEFAULT: "hsl(0, 70%, 50%)"
+      dark: "hsl(0, 70%, 45%)"
+      foreground: "hsl(0, 0%, 100%)"
+      
+    info:
+      light: "hsl(200, 90%, 55%)"
+      DEFAULT: "hsl(200, 90%, 50%)"
+      dark: "hsl(200, 90%, 45%)"
+      foreground: "hsl(0, 0%, 100%)"
+      
+  # Neutral Palette (Grays)
+  neutral:
+    50: "hsl(0, 0%, 98%)"
+    100: "hsl(0, 0%, 96%)"
+    200: "hsl(0, 0%, 93%)"
+    300: "hsl(0, 0%, 87%)"
+    400: "hsl(0, 0%, 73%)"
+    500: "hsl(0, 0%, 60%)"
+    600: "hsl(0, 0%, 47%)"
+    700: "hsl(0, 0%, 33%)"
+    800: "hsl(0, 0%, 20%)"
+    900: "hsl(0, 0%, 10%)"
+    950: "hsl(0, 0%, 5%)"
+    
+  # Background Colors
+  background:
+    light: "hsl(0, 0%, 100%)"
+    DEFAULT: "hsl(0, 0%, 98%)"
+    dark: "hsl(220, 20%, 10%)"
+    
+  foreground:
+    light: "hsl(0, 0%, 10%)"
+    DEFAULT: "hsl(0, 0%, 5%)"
+    dark: "hsl(0, 0%, 95%)"
+    
+  # Component-Specific Colors
+  components:
+    border:
+      light: "hsl(0, 0%, 90%)"
+      DEFAULT: "hsl(0, 0%, 85%)"
+      dark: "hsl(220, 20%, 25%)"
+      
+    card:
+      light: "hsl(0, 0%, 100%)"
+      DEFAULT: "hsl(0, 0%, 99%)"
+      dark: "hsl(220, 20%, 12%)"
+      
+    input:
+      light: "hsl(0, 0%, 100%)"
+      DEFAULT: "hsl(0, 0%, 97%)"
+      dark: "hsl(220, 20%, 15%)"
+      
+    popover:
+      light: "hsl(0, 0%, 100%)"
+      DEFAULT: "hsl(0, 0%, 99%)"
+      dark: "hsl(220, 20%, 12%)"
+      
+    sidebar:
+      light: "hsl(0, 0%, 98%)"
+      DEFAULT: "hsl(0, 0%, 96%)"
+      dark: "hsl(220, 20%, 8%)"
+      border:
+        light: "hsl(0, 0%, 92%)"
+        DEFAULT: "hsl(0, 0%, 88%)"
+        dark: "hsl(220, 20%, 18%)"
+
+# Typography Tokens
+typography:
+  # Font Families
+  fonts:
+    sans: ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif']
+    mono: ['Fira Code', 'Monaco', 'Consolas', 'Courier New', 'monospace']
+    display: ['Manrope', 'Inter', 'system-ui', 'sans-serif']
+    
+  # Font Sizes
+  sizes:
+    xs: "0.75rem"      # 12px
+    sm: "0.875rem"     # 14px
+    base: "1rem"       # 16px
+    lg: "1.125rem"     # 18px
+    xl: "1.25rem"      # 20px
+    "2xl": "1.5rem"    # 24px
+    "3xl": "1.875rem"  # 30px
+    "4xl": "2.25rem"   # 36px
+    "5xl": "3rem"      # 48px
+    "6xl": "3.75rem"   # 60px
+    "7xl": "4.5rem"    # 72px
+    
+  # Line Heights
+  leading:
+    none: 1
+    tight: 1.25
+    snug: 1.375
+    normal: 1.5
+    relaxed: 1.625
+    loose: 2
+    
+  # Font Weights
+  weights:
+    thin: 100
+    extralight: 200
+    light: 300
+    normal: 400
+    medium: 500
+    semibold: 600
+    bold: 700
+    extrabold: 800
+    black: 900
+    
+  # Letter Spacing
+  tracking:
+    tighter: "-0.05em"
+    tight: "-0.025em"
+    normal: "0em"
+    wide: "0.025em"
+    wider: "0.05em"
+    widest: "0.1em"
+
+# Spacing Tokens
+spacing:
+  # Base spacing scale (rem units)
+  scale:
+    "0": "0"
+    "0.5": "0.125rem"   # 2px
+    "1": "0.25rem"      # 4px
+    "1.5": "0.375rem"   # 6px
+    "2": "0.5rem"       # 8px
+    "2.5": "0.625rem"   # 10px
+    "3": "0.75rem"      # 12px
+    "3.5": "0.875rem"   # 14px
+    "4": "1rem"         # 16px
+    "5": "1.25rem"      # 20px
+    "6": "1.5rem"       # 24px
+    "7": "1.75rem"      # 28px
+    "8": "2rem"         # 32px
+    "9": "2.25rem"      # 36px
+    "10": "2.5rem"      # 40px
+    "11": "2.75rem"     # 44px
+    "12": "3rem"        # 48px
+    "14": "3.5rem"      # 56px
+    "16": "4rem"        # 64px
+    "20": "5rem"        # 80px
+    "24": "6rem"        # 96px
+    "28": "7rem"        # 112px
+    "32": "8rem"        # 128px
+    
+  # Semantic spacing
+  semantic:
+    page_padding: "1.5rem"      # 24px
+    section_gap: "3rem"         # 48px
+    card_padding: "1.5rem"      # 24px
+    form_field_gap: "1rem"      # 16px
+    button_padding_x: "1.5rem"  # 24px
+    button_padding_y: "0.75rem" # 12px
+
+# Border Radius Tokens
+radius:
+  none: "0"
+  sm: "0.25rem"     # 4px
+  DEFAULT: "0.5rem" # 8px
+  md: "0.5rem"      # 8px
+  lg: "0.75rem"     # 12px
+  xl: "1rem"        # 16px
+  "2xl": "1.5rem"   # 24px
+  "3xl": "2rem"     # 32px
+  full: "9999px"
+  
+# Shadow Tokens
+shadows:
+  # Standard shadows
+  sm: "0 1px 2px 0 rgba(0, 0, 0, 0.05)"
+  DEFAULT: "0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1)"
+  md: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1)"
+  lg: "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1)"
+  xl: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)"
+  "2xl": "0 25px 50px -12px rgba(0, 0, 0, 0.25)"
+  
+  # Themed shadows
+  primary: "0 10px 40px -10px hsla(220, 70%, 50%, 0.3)"
+  glass: "0 8px 32px 0 rgba(31, 38, 135, 0.15)"
+  elegant: "0 8px 16px rgba(0, 0, 0, 0.08)"
+  
+  # Inner shadows
+  inner: "inset 0 2px 4px 0 rgba(0, 0, 0, 0.05)"
+  
+# Liquid Glass Pattern Specification
+liquid_glass:
+  description: "Modern glassmorphism with subtle gradients and blur"
+  
+  properties:
+    background:
+      base: "hsla(0, 0%, 100%, 0.7)"
+      dark: "hsla(220, 20%, 12%, 0.7)"
+    backdrop_filter: "blur(12px) saturate(180%)"
+    border: "1px solid hsla(0, 0%, 100%, 0.18)"
+    box_shadow: "0 8px 32px 0 rgba(31, 38, 135, 0.15)"
+    
+  gradients:
+    primary: "linear-gradient(135deg, hsla(220, 70%, 60%, 0.1) 0%, hsla(280, 60%, 50%, 0.1) 100%)"
+    glow: "radial-gradient(circle at 50% 0%, hsla(220, 70%, 60%, 0.15) 0%, transparent 50%)"
+    subtle: "linear-gradient(180deg, hsla(0, 0%, 100%, 0.05) 0%, transparent 100%)"
+    
+  usage:
+    cards: true
+    modals: true
+    sidebar: true
+    navigation: true
+    
+  accessibility_considerations:
+    - "Ensure 4.5:1 contrast ratio for text on glass backgrounds"
+    - "Provide solid fallback for reduced transparency preferences"
+    - "Test with prefers-reduced-motion"
+
+# Motion & Animation Tokens
+motion:
+  # Duration
+  duration:
+    instant: "50ms"
+    fast: "150ms"
+    normal: "300ms"
+    slow: "500ms"
+    slower: "700ms"
+    
+  # Easing
+  easing:
+    linear: "cubic-bezier(0, 0, 1, 1)"
+    ease_in: "cubic-bezier(0.4, 0, 1, 1)"
+    ease_out: "cubic-bezier(0, 0, 0.2, 1)"
+    ease_in_out: "cubic-bezier(0.4, 0, 0.2, 1)"
+    bounce: "cubic-bezier(0.68, -0.55, 0.265, 1.55)"
+    
+  # Presets
+  presets:
+    fade:
+      duration: "300ms"
+      easing: "ease_out"
+      property: "opacity"
+      
+    scale:
+      duration: "200ms"
+      easing: "ease_out"
+      property: "transform"
+      from: "scale(0.95)"
+      to: "scale(1)"
+      
+    slide_up:
+      duration: "400ms"
+      easing: "ease_out"
+      property: "transform"
+      from: "translateY(100%)"
+      to: "translateY(0)"
+      
+    slide_down:
+      duration: "400ms"
+      easing: "ease_out"
+      property: "transform"
+      from: "translateY(-100%)"
+      to: "translateY(0)"
+      
+  # Accessibility
+  respect_prefers_reduced_motion: true
+  reduced_motion_alternatives:
+    animations: "instant"
+    transitions: "instant"
+
+# Breakpoints (Mobile-First)
+breakpoints:
+  xs: "320px"    # Small phones
+  sm: "640px"    # Large phones
+  md: "768px"    # Tablets
+  lg: "1024px"   # Laptops
+  xl: "1280px"   # Desktops
+  "2xl": "1536px" # Large desktops
+
+# PWA Configuration & Budgets
+pwa:
+  manifest:
+    name: "Prisma Glow - Autonomous Finance Suite"
+    short_name: "Prisma Glow"
+    description: "AI-powered accounting, audit, and tax platform"
+    theme_color: "hsl(220, 70%, 50%)"
+    background_color: "hsl(0, 0%, 100%)"
+    display: "standalone"
+    orientation: "any"
+    scope: "/"
+    start_url: "/"
+    icons:
+      - src: "/icons/icon-72x72.png"
+        sizes: "72x72"
+        type: "image/png"
+      - src: "/icons/icon-96x96.png"
+        sizes: "96x96"
+        type: "image/png"
+      - src: "/icons/icon-128x128.png"
+        sizes: "128x128"
+        type: "image/png"
+      - src: "/icons/icon-144x144.png"
+        sizes: "144x144"
+        type: "image/png"
+      - src: "/icons/icon-152x152.png"
+        sizes: "152x152"
+        type: "image/png"
+      - src: "/icons/icon-192x192.png"
+        sizes: "192x192"
+        type: "image/png"
+        purpose: "any"
+      - src: "/icons/icon-384x384.png"
+        sizes: "384x384"
+        type: "image/png"
+      - src: "/icons/icon-512x512.png"
+        sizes: "512x512"
+        type: "image/png"
+        purpose: "maskable"
+        
+  # Performance Budgets
+  budgets:
+    route_js_max_kb: 250       # Max JS per route
+    total_js_max_kb: 700       # Max total JS
+    total_css_max_kb: 100      # Max total CSS
+    images_max_kb: 500         # Max images per route
+    fonts_max_kb: 150          # Max fonts
+    
+    # Web Vitals Targets
+    lcp_max_ms: 1800           # Largest Contentful Paint
+    fid_max_ms: 100            # First Input Delay
+    cls_max: 0.1               # Cumulative Layout Shift
+    fcp_max_ms: 1200           # First Contentful Paint
+    ttfb_max_ms: 600           # Time to First Byte
+    
+  # Service Worker Strategy
+  service_worker:
+    strategy: "stale-while-revalidate"
+    cache:
+      static_assets:
+        strategy: "cache-first"
+        max_age_days: 30
+      api_responses:
+        strategy: "network-first"
+        max_age_seconds: 60
+      images:
+        strategy: "cache-first"
+        max_age_days: 7
+    offline_fallback:
+      enabled: true
+      page: "/offline.html"
+
+# Accessibility Requirements (WCAG 2.1 AA)
+accessibility:
+  wcag_level: "AA"
+  requirements:
+    # Color Contrast
+    contrast:
+      normal_text: 4.5          # 4.5:1 minimum
+      large_text: 3.0           # 3:1 minimum (18pt+ or 14pt+ bold)
+      ui_components: 3.0        # 3:1 minimum
+      
+    # Focus Indicators
+    focus:
+      visible: true
+      outline_width: "2px"
+      outline_color: "primary"
+      outline_offset: "2px"
+      
+    # Touch Targets
+    touch_targets:
+      min_size: "44px"          # Minimum touch target size
+      spacing: "8px"            # Minimum spacing between targets
+      
+    # Keyboard Navigation
+    keyboard:
+      all_interactive_focusable: true
+      logical_tab_order: true
+      skip_links: true
+      
+    # Screen Reader Support
+    aria:
+      landmarks_required: true
+      labels_required: true
+      descriptions_for_complex: true
+      live_regions_for_updates: true
+      
+    # Content
+    content:
+      heading_hierarchy: true   # h1 -> h2 -> h3 (no skipping)
+      alt_text_required: true
+      captions_for_video: true
+      transcripts_for_audio: true
+      
+    # Forms
+    forms:
+      labels_required: true
+      error_messages_descriptive: true
+      success_confirmation: true
+      
+  # Testing Requirements
+  testing:
+    automated:
+      - tool: "axe-core"
+        critical_violations: 0
+        serious_violations: 0
+      - tool: "Lighthouse Accessibility"
+        min_score: 90
+    manual:
+      - screen_reader_testing: true
+      - keyboard_only_testing: true
+      - zoom_testing: "200%"
+
+# Component Library Standards
+components:
+  # Button Variants
+  button:
+    variants:
+      - primary       # Solid primary color
+      - secondary     # Outline
+      - ghost         # Transparent
+      - destructive   # Error state
+      - link          # Text only
+    sizes:
+      - sm: { height: "32px", padding_x: "12px", font_size: "sm" }
+      - md: { height: "40px", padding_x: "16px", font_size: "base" }
+      - lg: { height: "48px", padding_x: "24px", font_size: "lg" }
+    states:
+      - default
+      - hover
+      - active
+      - focus
+      - disabled
+      - loading
+      
+  # Card Component
+  card:
+    variants:
+      - default       # Standard card
+      - glass         # Glassmorphic
+      - elevated      # With shadow
+      - outlined      # Border only
+    padding: "24px"
+    radius: "lg"
+    
+  # Input Fields
+  input:
+    height: "40px"
+    padding_x: "12px"
+    radius: "md"
+    border_width: "1px"
+    focus_ring_width: "2px"
+    states:
+      - default
+      - focus
+      - error
+      - disabled
+      - readonly
+      
+  # Modal/Dialog
+  modal:
+    backdrop: "rgba(0, 0, 0, 0.5)"
+    max_width: "600px"
+    padding: "24px"
+    radius: "xl"
+    animation: "scale"
+    
+  # Toast/Notification
+  toast:
+    position: "bottom-right"
+    max_width: "400px"
+    padding: "16px"
+    radius: "lg"
+    duration_ms: 5000
+    animation: "slide_up"
+
+# Layout Patterns
+layout:
+  # Grid System
+  grid:
+    columns: 12
+    gutter: "24px"
+    
+  # Container Widths
+  container:
+    sm: "640px"
+    md: "768px"
+    lg: "1024px"
+    xl: "1280px"
+    "2xl": "1536px"
+    padding: "24px"
+    
+  # Sidebar
+  sidebar:
+    width_collapsed: "64px"
+    width_expanded: "280px"
+    transition: "300ms"
+    
+  # Header
+  header:
+    height: "64px"
+    sticky: true
+
+# Dark Mode Configuration
+dark_mode:
+  enabled: true
+  default: "system"  # system | light | dark
+  toggle_position: "header"
+  respect_system_preference: true
+  
+  # Color Overrides for Dark Mode
+  colors:
+    background: "hsl(220, 20%, 10%)"
+    foreground: "hsl(0, 0%, 95%)"
+    card: "hsl(220, 20%, 12%)"
+    border: "hsl(220, 20%, 25%)"
+    
+  # Component Adjustments
+  adjustments:
+    shadow_opacity_multiplier: 0.5
+    border_opacity_multiplier: 0.7
+
+# Responsive Design Strategy
+responsive:
+  approach: "mobile-first"
+  
+  # Breakpoint-Specific Adjustments
+  adjustments:
+    xs:
+      font_size_scale: 0.9
+      spacing_scale: 0.9
+      button_height_scale: 0.9
+    sm:
+      font_size_scale: 0.95
+      spacing_scale: 0.95
+    md:
+      font_size_scale: 1.0
+      spacing_scale: 1.0
+    lg:
+      font_size_scale: 1.0
+      spacing_scale: 1.0
+    xl:
+      font_size_scale: 1.0
+      spacing_scale: 1.0
+      
+  # Content Reflow
+  reflow:
+    max_width: "100%"
+    no_horizontal_scroll: true
+    readable_line_length: "65ch"
+
+# Icon System
+icons:
+  library: "lucide-react"
+  default_size: "24px"
+  stroke_width: "2"
+  
+  sizes:
+    xs: "16px"
+    sm: "20px"
+    md: "24px"
+    lg: "32px"
+    xl: "48px"
+
+# Documentation & Usage
+documentation:
+  storybook_url: "https://storybook.prismaglow.com"
+  figma_library: "https://figma.com/@prismaglow/design-system"
+  changelog: "/docs/design-system/CHANGELOG.md"
+  
+  contribution:
+    new_tokens_require_review: true
+    breaking_changes_require_rfc: true
+    deprecation_timeline_days: 90
+
+# Version & Changelog
+changelog:
+  - version: "1.0.0"
+    date: "2025-11-02"
+    changes:
+      - "Initial design system formalization"
+      - "Complete token system (colors, typography, spacing, motion)"
+      - "Liquid glass pattern specifications"
+      - "PWA budgets (≤250KB route JS, ≤700KB total, LCP ≤1800ms)"
+      - "WCAG 2.1 AA accessibility gates"

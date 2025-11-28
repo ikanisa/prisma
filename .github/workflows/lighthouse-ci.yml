@@ -1,0 +1,34 @@
+name: Lighthouse CI
+
+on:
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  lhci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          run_install: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20.19.4
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - name: Build Staff PWA
+        run: pnpm --filter apps/staff build
+      - name: Build Admin PWA
+        run: pnpm --filter apps/admin build
+      - name: Run Lighthouse CI
+        env:
+          LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}
+        run: npx @lhci/cli autorun --config=./lighthouserc.json
+      - name: Upload Lighthouse Results
+        uses: actions/upload-artifact@v5
+        with:
+          name: lighthouse-results
+          path: .lighthouseci

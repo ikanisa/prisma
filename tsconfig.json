@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.base.json",
+  "files": [],
+  "references": [
+    { "path": "./packages/types" },
+    { "path": "./packages/supabase-client" },
+    { "path": "./packages/database" },
+    { "path": "./packages/ui" },
+    { "path": "./apps/client" },
+    { "path": "./apps/admin" }
+  ],
+  "compilerOptions": {
+    "baseUrl": "."
+  }
+}

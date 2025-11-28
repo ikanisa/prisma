@@ -1,0 +1,111 @@
+version: '3.9'
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+  redis:
+    image: redis:7
+  minio:
+    image: minio/minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+  sentry:
+    image: getsentry/sentry:latest
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      SENTRY_SECRET_KEY: ${SENTRY_SECRET_KEY}
+      SENTRY_DB_USER: ${SENTRY_DB_USER}
+      SENTRY_DB_PASSWORD: ${SENTRY_DB_PASSWORD}
+      SENTRY_DB_HOST: ${SENTRY_DB_HOST}
+      SENTRY_REDIS_HOST: ${SENTRY_REDIS_HOST}
+  jaeger:
+    image: jaegertracing/all-in-one:1.60
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "16686:16686"
+      - "4317:4317"
+      - "4318:4318"
+  gateway:
+    image: ${GATEWAY_IMAGE}
+    depends_on:
+      - postgres
+      - redis
+      - jaeger
+    environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318/v1/traces
+      OTEL_SERVICE_NAME: gateway
+      OTEL_TRACES_SAMPLER: ${OTEL_TRACES_SAMPLER}
+      OTEL_TRACES_SAMPLER_ARG: ${OTEL_TRACES_SAMPLER_ARG}
+      SERVICE_VERSION: ${SERVICE_VERSION}
+  rag:
+    image: ${RAG_IMAGE}
+    depends_on:
+      - postgres
+      - redis
+      - jaeger
+    environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318/v1/traces
+      OTEL_SERVICE_NAME: rag
+      OTEL_TRACES_SAMPLER: ${OTEL_TRACES_SAMPLER}
+      OTEL_TRACES_SAMPLER_ARG: ${OTEL_TRACES_SAMPLER_ARG}
+      SERVICE_VERSION: ${SERVICE_VERSION}
+      OPENAI_DEFAULT_REASONING_EFFORT: ${OPENAI_DEFAULT_REASONING_EFFORT}
+      OPENAI_DEFAULT_VERBOSITY: ${OPENAI_DEFAULT_VERBOSITY}
+      OPENAI_AGENT_REASONING_EFFORT: ${OPENAI_AGENT_REASONING_EFFORT}
+      OPENAI_AGENT_VERBOSITY: ${OPENAI_AGENT_VERBOSITY}
+      OPENAI_SUMMARY_REASONING_EFFORT: ${OPENAI_SUMMARY_REASONING_EFFORT}
+      OPENAI_SUMMARY_VERBOSITY: ${OPENAI_SUMMARY_VERBOSITY}
+      CACHE_TTL_RAG_SEARCH_SECONDS: ${CACHE_TTL_RAG_SEARCH_SECONDS}
+      CACHE_TTL_RAG_IDEMPOTENCY_SECONDS: ${CACHE_TTL_RAG_IDEMPOTENCY_SECONDS}
+      CACHE_TTL_RAG_ORG_LOOKUP_SECONDS: ${CACHE_TTL_RAG_ORG_LOOKUP_SECONDS}
+      CACHE_TTL_RAG_DRIVE_UPLOADER_SECONDS: ${CACHE_TTL_RAG_DRIVE_UPLOADER_SECONDS}
+  agent:
+    image: ${AGENT_IMAGE}
+    depends_on:
+      - postgres
+      - redis
+      - jaeger
+    environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318/v1/traces
+      OTEL_SERVICE_NAME: agent
+      OTEL_TRACES_SAMPLER: ${OTEL_TRACES_SAMPLER}
+      OTEL_TRACES_SAMPLER_ARG: ${OTEL_TRACES_SAMPLER_ARG}
+      SERVICE_VERSION: ${SERVICE_VERSION}
+  analytics:
+    image: ${ANALYTICS_IMAGE}
+    depends_on:
+      - postgres
+      - redis
+      - jaeger
+    environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318/v1/traces
+      OTEL_SERVICE_NAME: analytics
+      OTEL_TRACES_SAMPLER: ${OTEL_TRACES_SAMPLER}
+      OTEL_TRACES_SAMPLER_ARG: ${OTEL_TRACES_SAMPLER_ARG}
+      SERVICE_VERSION: ${SERVICE_VERSION}
+  ui:
+    profiles: ["ui"]
+    image: ${UI_IMAGE}
+    depends_on:
+      - gateway
+    ports:
+      - "3000:3000"
+  web:
+    profiles: ["web"]
+    image: ${WEB_IMAGE}
+    depends_on:
+      - gateway
+    ports:
+      - "3000:3000"
+volumes:
+  postgres-data:
