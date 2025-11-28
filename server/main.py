@@ -83,6 +83,7 @@ from .api.schemas import ReleaseControlCheckRequest, ReleaseControlCheckResponse
 from .telemetry import RequestTelemetryMiddleware, configure_fastapi_tracing
 from .settings import get_system_settings
 from .api.learning import router as learning_router
+from .api.gemini_chat import router as gemini_chat_router
 from .metrics import metrics_router, MetricsMiddleware
 
 @contextlib.asynccontextmanager
@@ -7812,6 +7813,9 @@ def get_org_role_values() -> Set[str]:
 
 # Include Learning System Router
 app.include_router(learning_router)
+
+# Include Gemini Chat Router
+app.include_router(gemini_chat_router)
 
 # Include Metrics Router
 app.include_router(metrics_router)
