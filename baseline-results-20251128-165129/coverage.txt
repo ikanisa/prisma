@@ -1,0 +1,6 @@
+==========================================================
+ WARN  Unsupported engine: wanted: {"node":">=22.12.0"} (current: {"node":"v20.19.5","pnpm":"9.12.3"})
+ WARN  Unsupported engine: wanted: {"node":">=22.12.0"} (current: {"node":"v20.19.5","pnpm":"9.12.3"})
+ ERR_PNPM_NO_SCRIPT  Missing script: coverage
+
+Command "coverage" not found.

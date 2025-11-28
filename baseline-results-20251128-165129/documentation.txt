@@ -1,0 +1,11 @@
+===================================
+AGENT_*.md files:
+      34
+IMPLEMENTATION_*.md files:
+      29
+PHASE_*.md files:
+      18
+START_HERE*.md files:
+      11
+Total .md files:
+     252
