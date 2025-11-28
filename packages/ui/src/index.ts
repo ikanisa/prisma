@@ -16,3 +16,6 @@ export const Button: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement>> = (
     {children}
   </button>
 );
+
+export { VirtualList } from './VirtualList';
+export { LazyRoute } from './LazyRoute';

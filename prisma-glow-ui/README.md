@@ -1,23 +1,44 @@
-# Prisma Glow UI - Complete UI/UX Redesign
+# Prisma Glow UI - Modern AI-First Design System
 
-**Minimalist • Responsive • Fluid • Smart • Intelligent**
+**Minimalist • Responsive • Fluid • Smart • AI-Powered**
+
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.3-blue)](https://www.typescriptlang.org/)
+[![React](https://img.shields.io/badge/React-18.2-blue)](https://react.dev/)
+[![Tailwind](https://img.shields.io/badge/Tailwind-3.4-06B6D4)](https://tailwindcss.com/)
+[![Framer Motion](https://img.shields.io/badge/Framer_Motion-10.16-FF0055)](https://www.framer.com/motion/)
 
 ## 🎨 Design Philosophy
 
 ### Core Principles
-1. **CLARITY** - Every element serves a purpose
-2. **BREATHING** - Generous whitespace, no cramming
-3. **FOCUS** - One primary action per view
-4. **DELIGHT** - Subtle animations, smooth transitions
+1. **CLARITY** - Every element serves a purpose, no visual noise
+2. **BREATHING** - Generous whitespace, comfortable reading experience
+3. **FOCUS** - One primary action per view, clear hierarchy
+4. **DELIGHT** - Subtle animations, smooth 60fps transitions
 5. **INTELLIGENCE** - AI predicts & suggests, user confirms
+
+## 🚀 Quick Start
+
+```bash
+# Install dependencies
+npm install
+
+# Start development server
+npm run dev
+
+# Build for production
+npm run build
+
+# Run tests
+npm run test
+```
 
 ## 📦 What's Included
 
-### Design System
+### Design System Foundation
 - ✅ **Design Tokens** (`src/design/tokens.ts`) - Spacing, typography, shadows, breakpoints
-- ✅ **Color Palette** (`src/design/colors.ts`) - Minimalist purple primary + neutrals
-- ✅ **Animation Library** (`src/lib/animations.ts`) - Reusable motion variants
-- ✅ **Utilities** (`src/lib/utils.ts`) - Helpers for formatting, debouncing, etc.
+- ✅ **Color Palette** (`src/design/colors.ts`) - Purple primary + semantic neutrals
+- ✅ **Animation Library** (`src/lib/animations.ts`) - Page transitions, stagger, slide-in
+- ✅ **Utilities** (`src/lib/utils.ts`) - cn() helper, formatters, validators
 
 ### Custom Hooks
 - ✅ **useResponsive** - Detect breakpoints & window size

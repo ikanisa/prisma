@@ -1,0 +1,81 @@
+{
+  "name": "@prisma-glow/audit-agents",
+  "version": "1.0.0",
+  "description": "AI Audit Specialist Agents for Prisma Glow - ISA-compliant audit automation",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./planning": {
+      "types": "./dist/agents/planning.d.ts",
+      "import": "./dist/agents/planning.js"
+    },
+    "./risk-assessment": {
+      "types": "./dist/agents/risk-assessment.d.ts",
+      "import": "./dist/agents/risk-assessment.js"
+    },
+    "./substantive-testing": {
+      "types": "./dist/agents/substantive-testing.d.ts",
+      "import": "./dist/agents/substantive-testing.js"
+    },
+    "./internal-controls": {
+      "types": "./dist/agents/internal-controls.d.ts",
+      "import": "./dist/agents/internal-controls.js"
+    },
+    "./fraud-risk": {
+      "types": "./dist/agents/fraud-risk.d.ts",
+      "import": "./dist/agents/fraud-risk.js"
+    },
+    "./analytics": {
+      "types": "./dist/agents/analytics.d.ts",
+      "import": "./dist/agents/analytics.js"
+    },
+    "./group-audit": {
+      "types": "./dist/agents/group-audit.d.ts",
+      "import": "./dist/agents/group-audit.js"
+    },
+    "./completion": {
+      "types": "./dist/agents/completion.d.ts",
+      "import": "./dist/agents/completion.js"
+    },
+    "./quality-review": {
+      "types": "./dist/agents/quality-review.d.ts",
+      "import": "./dist/agents/quality-review.js"
+    },
+    "./report": {
+      "types": "./dist/agents/report.d.ts",
+      "import": "./dist/agents/report.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "dev": "tsc -b --watch",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest"
+  },
+  "dependencies": {
+    "@prisma-glow/types": "workspace:*",
+    "openai": "^4.67.3",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.12.0",
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.8"
+  },
+  "keywords": [
+    "audit",
+    "ai-agents",
+    "isa",
+    "risk-assessment",
+    "internal-controls",
+    "fraud-detection",
+    "audit-analytics"
+  ]
+}

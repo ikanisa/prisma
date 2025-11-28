@@ -12,5 +12,9 @@
   },
   "scripts": {
     "test": "echo \"No tests\""
+  },
+  "dependencies": {
+    "@next/bundle-analyzer": "^16.0.5",
+    "@tanstack/react-virtual": "^3.13.12"
   }
 }
