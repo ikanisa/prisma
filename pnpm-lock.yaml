@@ -96,6 +96,9 @@ importers:
 
   apps/admin:
     dependencies:
+      '@prisma-glow/security':
+        specifier: workspace:*
+        version: link:../../packages/security
       '@prisma-glow/supabase-client':
         specifier: workspace:*
         version: link:../../packages/supabase-client
@@ -157,6 +160,9 @@ importers:
 
   apps/client:
     dependencies:
+      '@prisma-glow/security':
+        specifier: workspace:*
+        version: link:../../packages/security
       '@prisma-glow/supabase-client':
         specifier: workspace:*
         version: link:../../packages/supabase-client

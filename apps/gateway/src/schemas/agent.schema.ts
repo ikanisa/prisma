@@ -86,13 +86,8 @@ export const AgentFiltersSchema = z.object({
 
 export type AgentFilters = z.infer<typeof AgentFiltersSchema>;
 
-// Paginated result
-export interface PaginatedResult<T> {
-  items: T[];
-  total: number;
-  page: number;
-  page_size: number;
-}
+// Import PaginatedResult from shared
+export { PaginatedResult } from './shared.js';
 
 // Test input
 export const TestInputSchema = z.object({
