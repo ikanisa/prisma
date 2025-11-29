@@ -7835,3 +7835,14 @@ from server.api.knowledge import router as knowledge_router
 app.include_router(personas_router)
 app.include_router(tools_router)
 app.include_router(knowledge_router)
+
+# Week 6-7: Advanced Features
+from server.api.learning_api import router as learning_api_router
+from server.api.workflows_api import router as workflows_api_router
+from server.api.websocket_api import router as websocket_api_router
+from server.api.collaboration_api import router as collaboration_api_router
+
+app.include_router(learning_api_router)
+app.include_router(workflows_api_router)
+app.include_router(websocket_api_router)
+app.include_router(collaboration_api_router)
