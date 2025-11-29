@@ -187,6 +187,7 @@ function LoginPageContent() {
               </button>
             </div>
           </div>
+          {/* Note: "Remember me" is managed by Supabase session persistence settings */}
           <div className="flex items-center space-x-2">
             <input
               type="checkbox"

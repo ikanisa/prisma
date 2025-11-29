@@ -61,10 +61,6 @@ function ResetPasswordContent() {
         setError(error.message);
       } else {
         setSuccess(true);
-        // Redirect to login after 3 seconds
-        setTimeout(() => {
-          router.push('/login?password_reset=true');
-        }, 3000);
       }
     } catch {
       setError('An unexpected error occurred');
@@ -72,6 +68,16 @@ function ResetPasswordContent() {
       setIsLoading(false);
     }
   };
+
+  // Redirect to login after successful password reset
+  useEffect(() => {
+    if (success) {
+      const timeoutId = setTimeout(() => {
+        router.push('/login?password_reset=true');
+      }, 3000);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [success, router]);
 
   if (success) {
     return (

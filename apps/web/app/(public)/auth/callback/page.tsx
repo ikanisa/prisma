@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
 import { Loader2 } from 'lucide-react';
@@ -17,20 +17,32 @@ function AuthCallbackContent() {
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
+  const isMountedRef = useRef(true);
 
   useEffect(() => {
-    const handleAuthCallback = async () => {
-      const supabase = createClient();
+    isMountedRef.current = true;
+    
+    const supabase = createClient();
+    
+    // Set up auth state change listener for handling the callback
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!isMountedRef.current) return;
       
+      if (event === 'SIGNED_IN' && session) {
+        const next = searchParams.get('next') ?? '/dashboard';
+        router.push(next);
+      }
+    });
+
+    const handleAuthCallback = async () => {
       // Check for error in URL (from Supabase redirect)
       const errorParam = searchParams.get('error');
       const errorDescription = searchParams.get('error_description');
       
       if (errorParam) {
-        setError(errorDescription || errorParam);
-        setTimeout(() => {
-          router.push('/login?error=auth_callback_error');
-        }, 3000);
+        if (isMountedRef.current) {
+          setError(errorDescription || errorParam);
+        }
         return;
       }
 
@@ -40,37 +52,46 @@ function AuthCallbackContent() {
       // Try to get session (Supabase client library handles the code exchange automatically)
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
+      if (!isMountedRef.current) return;
+      
       if (sessionError) {
         setError(sessionError.message);
-        setTimeout(() => {
-          router.push('/login?error=auth_callback_error');
-        }, 3000);
         return;
       }
 
       if (session) {
         router.push(next);
       } else {
-        // No session - might be waiting for email confirmation or other flow
-        // Check if we have a hash fragment with access_token (magic link flow)
-        if (typeof window !== 'undefined' && window.location.hash) {
-          // The Supabase client should handle this, but let's wait a moment
-          setTimeout(async () => {
-            const { data: { session: newSession } } = await supabase.auth.getSession();
-            if (newSession) {
-              router.push(next);
-            } else {
-              router.push('/login');
-            }
-          }, 1000);
-        } else {
-          router.push('/login');
-        }
+        // No session found - this might be an invalid or expired link
+        // The auth state change listener will handle successful logins
+        // If no session comes through after a brief wait, redirect to login
+        const timeoutId = setTimeout(() => {
+          if (isMountedRef.current && !session) {
+            router.push('/login');
+          }
+        }, 5000);
+        
+        return () => clearTimeout(timeoutId);
       }
     };
 
     handleAuthCallback();
+
+    return () => {
+      isMountedRef.current = false;
+      subscription.unsubscribe();
+    };
   }, [router, searchParams]);
+
+  // Redirect on error after a delay
+  useEffect(() => {
+    if (error) {
+      const timeoutId = setTimeout(() => {
+        router.push('/login?error=auth_callback_error');
+      }, 3000);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [error, router]);
 
   if (error) {
     return (

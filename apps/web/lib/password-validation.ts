@@ -6,6 +6,11 @@ export const passwordRequirements = {
   requireSpecialChars: true,
 };
 
+// Password strength thresholds (based on requirements met out of 5)
+const WEAK_MAX_SCORE = 2;
+const MEDIUM_MAX_SCORE = 4;
+const TOTAL_REQUIREMENTS = 5;
+
 export function validatePassword(password: string): {
   valid: boolean;
   errors: string[];
@@ -44,7 +49,13 @@ export function validatePassword(password: string): {
     score++;
   }
 
-  const strength = score <= 2 ? 'weak' : score <= 4 ? 'medium' : 'strong';
+  // Calculate strength based on score thresholds
+  const strength: 'weak' | 'medium' | 'strong' = 
+    score <= WEAK_MAX_SCORE 
+      ? 'weak' 
+      : score <= MEDIUM_MAX_SCORE 
+        ? 'medium' 
+        : 'strong';
 
   return {
     valid: errors.length === 0,
