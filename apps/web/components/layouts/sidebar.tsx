@@ -2,72 +2,11 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import {
-  Home,
-  FileText,
-  CheckSquare,
-  Users,
-  Calculator,
-  ClipboardCheck,
-  Settings,
-  Bot,
-  GitBranch,
-  BarChart,
-  Shield,
-  BookOpen,
-  LogOut,
-  type LucideIcon,
-} from 'lucide-react';
-import { useAuth, type UserRole } from '@/components/features/auth/auth-provider';
+import { Users, LogOut } from 'lucide-react';
+import { useAuth } from '@/components/features/auth/auth-provider';
+import { getNavigationForRole, isNavItemActive } from '@/lib/navigation';
 import { cn } from '@/lib/utils/cn';
 import { Button } from '@/components/ui/button';
-
-interface NavItem {
-  label: string;
-  href: string;
-  icon: LucideIcon;
-}
-
-const staffNavigation: NavItem[] = [
-  { label: 'Dashboard', href: '/dashboard', icon: Home },
-  { label: 'Documents', href: '/documents', icon: FileText },
-  { label: 'Tasks', href: '/tasks', icon: CheckSquare },
-  { label: 'Clients', href: '/clients', icon: Users },
-  { label: 'Accounting', href: '/accounting', icon: Calculator },
-  { label: 'Audit', href: '/audit', icon: ClipboardCheck },
-  { label: 'Settings', href: '/settings', icon: Settings },
-];
-
-const adminNavigation: NavItem[] = [
-  { label: 'Admin Dashboard', href: '/admin', icon: Shield },
-  { label: 'IAM', href: '/admin/iam', icon: Users },
-  { label: 'Agents', href: '/admin/agents', icon: Bot },
-  { label: 'Workflows', href: '/admin/workflows', icon: GitBranch },
-  { label: 'Telemetry', href: '/admin/telemetry', icon: BarChart },
-  { label: 'Knowledge', href: '/admin/knowledge', icon: BookOpen },
-];
-
-const clientNavigation: NavItem[] = [
-  { label: 'Portal Home', href: '/portal', icon: Home },
-  { label: 'Documents', href: '/portal/documents', icon: FileText },
-  { label: 'Requests', href: '/portal/requests', icon: CheckSquare },
-];
-
-function getNavigationForRole(role: UserRole): {
-  main: NavItem[];
-  admin?: NavItem[];
-} {
-  switch (role) {
-    case 'admin':
-      return { main: staffNavigation, admin: adminNavigation };
-    case 'staff':
-      return { main: staffNavigation };
-    case 'client':
-      return { main: clientNavigation };
-    default:
-      return { main: staffNavigation };
-  }
-}
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -95,8 +34,7 @@ export function Sidebar() {
       <nav className="flex-1 space-y-1 p-4">
         <div className="space-y-1">
           {navigation.main.map((item) => {
-            const isActive =
-              pathname === item.href || pathname.startsWith(`${item.href}/`);
+            const isActive = isNavItemActive(pathname, item.href);
             const Icon = item.icon;
 
             return (
@@ -125,9 +63,7 @@ export function Sidebar() {
             </p>
             <div className="space-y-1">
               {navigation.admin.map((item) => {
-                const isActive =
-                  pathname === item.href ||
-                  pathname.startsWith(`${item.href}/`);
+                const isActive = isNavItemActive(pathname, item.href);
                 const Icon = item.icon;
 
                 return (
