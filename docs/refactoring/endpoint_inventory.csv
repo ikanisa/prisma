@@ -1,0 +1,151 @@
+Line,Method,Path,Function,Category,Status
+3307,POST,/v1/security/verify-captcha,verify_turnstile_token,security,pending
+3365,POST,/api/iam/org/create,create_organization,auth,pending
+3439,GET,/api/iam/members/list,list_members,auth,pending
+3494,POST,/api/iam/members/invite,invite_member,auth,pending
+3575,POST,/api/release-controls/check,check_release_controls,unknown,pending
+3624,POST,/api/iam/members/accept,accept_invite,auth,pending
+3732,POST,/api/iam/members/revoke-invite,revoke_invite,auth,pending
+3776,GET,/api/admin/org/settings,get_admin_org_settings,organizations,pending
+3816,POST,/api/admin/org/settings,update_admin_org_settings,organizations,pending
+3869,GET,/api/admin/auditlog/list,list_admin_audit_log,workflows,pending
+3898,GET,/api/admin/impersonation/list,list_impersonation_grants,auth,pending
+3921,POST,/api/admin/impersonation/request,request_impersonation,auth,pending
+3969,POST,/api/admin/impersonation/approve,approve_impersonation,auth,pending
+4029,POST,/api/admin/impersonation/revoke,revoke_impersonation,auth,pending
+4056,POST,/api/iam/members/update-role,update_member_role,auth,pending
+4117,GET,/api/iam/profile/get,get_profile,auth,pending
+4147,POST,/api/iam/profile/update,update_profile,auth,pending
+4230,POST,/api/iam/teams/create,create_team,auth,pending
+4265,POST,/api/iam/teams/add-member,add_team_member,auth,pending
+4310,POST,/api/iam/teams/remove-member,remove_team_member,auth,pending
+4345,POST,/v1/rag/ingest,ingest,unknown,pending
+4413,POST,/v1/rag/search,search,unknown,pending
+4447,POST,/v1/rag/reembed,reembed,unknown,pending
+4482,POST,/v1/vector-stores,create_vector_store_endpoint,unknown,pending
+4510,GET,/v1/vector-stores/{vector_store_id},get_vector_store_endpoint,unknown,pending
+4531,POST,/v1/vector-stores/{vector_store_id},update_vector_store_endpoint,unknown,pending
+4559,DELETE,/v1/vector-stores/{vector_store_id},delete_vector_store_endpoint,unknown,pending
+4581,GET,/v1/vector-stores,list_vector_stores_endpoint,unknown,pending
+4611,POST,/v1/vector-stores/{vector_store_id}/files,create_vector_store_file_endpoint,unknown,pending
+4639,GET,/v1/vector-stores/{vector_store_id}/files/{file_id},get_vector_store_file_endpoint,unknown,pending
+4661,POST,/v1/vector-stores/{vector_store_id}/files/{file_id},update_vector_store_file_endpoint,unknown,pending
+4689,DELETE,/v1/vector-stores/{vector_store_id}/files/{file_id},delete_vector_store_file_endpoint,unknown,pending
+4712,GET,/v1/vector-stores/{vector_store_id}/files,list_vector_store_files_endpoint,unknown,pending
+4746,POST,/v1/vector-stores/{vector_store_id}/file-batches,create_file_batch_endpoint,unknown,pending
+4775,GET,/v1/vector-stores/{vector_store_id}/file-batches/{batch_id},get_file_batch_endpoint,unknown,pending
+4797,POST,/v1/vector-stores/{vector_store_id}/file-batches/{batch_id}/cancel,cancel_file_batch_endpoint,unknown,pending
+4820,GET,/v1/vector-stores/{vector_store_id}/file-batches/{batch_id}/files,list_batch_files_endpoint,unknown,pending
+4856,POST,/v1/vector-stores/{vector_store_id}/search,search_vector_store_endpoint,unknown,pending
+4940,GET,/api/ada/run,list_ada_runs,documents,pending
+4973,POST,/api/ada/run,create_ada_run,documents,pending
+5131,POST,/api/ada/exception/update,update_ada_exception,documents,pending
+5231,GET,/api/controls,get_controls,workflows,pending
+5290,POST,/api/controls,create_control,workflows,pending
+5332,POST,/api/controls/walkthrough,create_control_walkthrough,workflows,pending
+5373,POST,/api/controls/test/run,run_control_test,workflows,pending
+5463,GET,/api/recon,list_reconciliations,unknown,pending
+5489,POST,/api/recon/create,create_reconciliation,unknown,pending
+5535,POST,/api/recon/add-item,add_reconciliation_item,unknown,pending
+5569,POST,/api/recon/close,close_reconciliation,unknown,pending
+5606,GET,/v1/tasks,list_tasks,unknown,pending
+5645,POST,/v1/tasks,create_task,unknown,pending
+5676,PATCH,/v1/tasks/{task_id},update_task,unknown,pending
+5751,GET,/v1/tasks/{task_id}/comments,list_task_comments,unknown,pending
+5779,POST,/v1/tasks/{task_id}/comments,create_task_comment,unknown,pending
+5813,POST,/v1/tasks/{task_id}/attachments,attach_document_to_task,unknown,pending
+5859,GET,/v1/storage/documents,list_documents_endpoint,unknown,pending
+5924,POST,/v1/storage/documents,upload_document_endpoint,unknown,pending
+6045,DELETE,/v1/storage/documents/{document_id},delete_document_endpoint,unknown,pending
+6080,POST,/v1/storage/documents/{document_id}/restore,restore_document_endpoint,unknown,pending
+6115,POST,/v1/storage/sign,sign_document_endpoint,unknown,pending
+6156,POST,/v1/documents/{document_id}/extraction,document_extraction_update,unknown,pending
+6233,GET,/v1/notifications,list_notifications,unknown,pending
+6277,PATCH,/v1/notifications/{notification_id},update_notification,unknown,pending
+6320,POST,/v1/notifications/mark-all,mark_all_notifications,unknown,pending
+6346,POST,/v1/onboarding/start,onboarding_start,unknown,pending
+6415,POST,/v1/policy-packs/update,update_policy_pack_endpoint,unknown,pending
+6472,POST,/v1/onboarding/link-doc,onboarding_link_document,unknown,pending
+6529,POST,/v1/onboarding/commit,onboarding_commit,unknown,pending
+6695,GET,/v1/autonomy/status,autonomy_status,unknown,pending
+6827,GET,/v1/knowledge/drive/metadata,knowledge_drive_metadata,unknown,pending
+6881,GET,/v1/knowledge/drive/status,knowledge_drive_status,unknown,pending
+7044,GET,/v1/knowledge/web-sources,knowledge_web_sources,unknown,pending
+7130,POST,/v1/knowledge/corpora,knowledge_create_corpus,unknown,pending
+7170,POST,/v1/knowledge/sources,knowledge_create_source,unknown,pending
+7230,GET,/v1/knowledge/sources/{source_id}/preview,knowledge_preview_source,unknown,pending
+7350,POST,/v1/knowledge/runs,knowledge_schedule_run,unknown,pending
+7403,POST,/v1/knowledge/web-harvest,knowledge_schedule_web_harvest,unknown,pending
+7452,POST,/v1/assistant/message,assistant_message,unknown,pending
+7499,GET,/v1/autopilot/schedules,list_job_schedules,unknown,pending
+7523,POST,/v1/autopilot/schedules,create_job_schedule,unknown,pending
+7584,GET,/v1/autopilot/jobs,list_jobs,unknown,pending
+7614,POST,/v1/autopilot/jobs/run,enqueue_job,unknown,pending
+7674,POST,/v1/observability/dry-run,sentry_dry_run,unknown,pending
+7696,GET,/health,health,health,pending
+7701,GET,/healthz,healthz,unknown,pending
+7706,GET,/readiness,readiness_probe,health,pending
+
+
+================================================================================
+ENDPOINT CATEGORIZATION SUMMARY
+================================================================================
+
+✅ ALREADY MIGRATED (0 endpoints):
+   - agents              :   0 endpoints (server/api/agents.py)
+   - analytics           :   0 endpoints (server/api/analytics.py)
+   - executions          :   0 endpoints (server/api/executions.py)
+   - gemini_chat         :   0 endpoints (server/api/gemini_chat.py)
+   - learning            :   0 endpoints (server/api/learning.py)
+
+⏳ TO BE MIGRATED (86 endpoints):
+   - auth                :  15 endpoints  ⏳ Pending
+   - documents           :   3 endpoints  ⏳ Pending
+   - health              :   2 endpoints  ⏳ Pending
+   - organizations       :   2 endpoints  ⏳ Pending
+   - security            :   1 endpoints  ⏳ Pending
+   - unknown             :  58 endpoints  ⏳ Pending
+   - workflows           :   5 endpoints  ⏳ Pending
+
+================================================================================
+TOTAL ENDPOINTS: 86
+Already Migrated: 0
+Remaining: 86
+================================================================================
+
+EXAMPLES BY CATEGORY:
+================================================================================
+
+AUTH:
+  POST   /api/iam/org/create
+  GET    /api/iam/members/list
+  POST   /api/iam/members/invite
+  ... and 12 more
+
+DOCUMENTS:
+  GET    /api/ada/run
+  POST   /api/ada/run
+  POST   /api/ada/exception/update
+
+HEALTH:
+  GET    /health
+  GET    /readiness
+
+ORGANIZATIONS:
+  GET    /api/admin/org/settings
+  POST   /api/admin/org/settings
+
+SECURITY:
+  POST   /v1/security/verify-captcha
+
+UNKNOWN:
+  POST   /api/release-controls/check
+  POST   /v1/rag/ingest
+  POST   /v1/rag/search
+  ... and 55 more
+
+WORKFLOWS:
+  GET    /api/admin/auditlog/list
+  GET    /api/controls
+  POST   /api/controls
+  ... and 2 more
