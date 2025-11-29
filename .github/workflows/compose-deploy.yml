@@ -30,7 +30,7 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ secrets.DEPLOY_HOST != '' && secrets.DEPLOY_USER != '' && secrets.DEPLOY_SSH_KEY != '' && secrets.COMPOSE_ENV != '' }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Write compose env file
         run: |
