@@ -254,7 +254,7 @@ export async function evaluateTestResults(
   misstatementAmount: number,
   populationSize: number,
   materiality: number
-): Promise<AgentResponse<{ conclusion: string; further ProceduresNeeded: boolean }>> {
+): Promise<AgentResponse<{ conclusion: string; furtherProceduresNeeded: boolean }>> {
   try {
     const errorRate = (errors / tested) * 100;
     const projected = projectMisstatement(misstatementAmount, tested, populationSize);
