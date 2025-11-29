@@ -1,0 +1,106 @@
+{
+  "$schema": "https://schema.tauri.app/config/1.5",
+  "build": {
+    "beforeDevCommand": "pnpm dev:client",
+    "beforeBuildCommand": "pnpm build:client",
+    "devPath": "http://localhost:3000",
+    "distDir": "../apps/client/out"
+  },
+  "package": {
+    "productName": "Prisma Glow",
+    "version": "2.0.0"
+  },
+  "tauri": {
+    "allowlist": {
+      "all": false,
+      "fs": {
+        "all": true,
+        "scope": ["$HOME/**", "$DOCUMENT/**", "$DOWNLOAD/**", "$APPDATA/**"]
+      },
+      "dialog": {
+        "all": true
+      },
+      "shell": {
+        "all": false,
+        "open": true
+      },
+      "path": {
+        "all": true
+      },
+      "os": {
+        "all": true
+      },
+      "notification": {
+        "all": true
+      },
+      "window": {
+        "all": true
+      }
+    },
+    "bundle": {
+      "active": true,
+      "category": "Productivity",
+      "copyright": "© 2025 Prisma Glow",
+      "deb": {
+        "depends": []
+      },
+      "externalBin": [],
+      "icon": [
+        "icons/32x32.png",
+        "icons/128x128.png",
+        "icons/128x128@2x.png",
+        "icons/icon.icns",
+        "icons/icon.ico"
+      ],
+      "identifier": "com.prismaglow.desktop",
+      "longDescription": "AI-powered operations platform for modern teams - Desktop Edition",
+      "macOS": {
+        "entitlements": null,
+        "exceptionDomain": "",
+        "frameworks": [],
+        "minimumSystemVersion": "10.15",
+        "providerShortName": null,
+        "signingIdentity": null
+      },
+      "resources": [],
+      "shortDescription": "Prisma Glow Desktop",
+      "targets": "all",
+      "windows": {
+        "certificateThumbprint": null,
+        "digestAlgorithm": "sha256",
+        "timestampUrl": "",
+        "wix": null
+      }
+    },
+    "security": {
+      "csp": "default-src 'self'; img-src 'self' data: https:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://api.prisma-glow.com https://*.supabase.co wss://*.supabase.co"
+    },
+    "updater": {
+      "active": true,
+      "endpoints": [
+        "https://releases.prisma-glow.com/desktop/{{target}}/{{current_version}}"
+      ],
+      "dialog": true,
+      "pubkey": ""
+    },
+    "windows": [
+      {
+        "fullscreen": false,
+        "height": 900,
+        "width": 1400,
+        "minWidth": 800,
+        "minHeight": 600,
+        "resizable": true,
+        "title": "Prisma Glow",
+        "decorations": false,
+        "transparent": true,
+        "center": true
+      }
+    ],
+    "systemTray": {
+      "iconPath": "icons/icon.png",
+      "iconAsTemplate": true,
+      "menuOnLeftClick": false
+    }
+  }
+}
