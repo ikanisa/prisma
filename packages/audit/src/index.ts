@@ -13,6 +13,19 @@
  * @license MIT
  */
 
+// Internal imports for getAuditAgentHandler function
+import { handlePlanningRequest } from './agents/planning';
+import { handleRiskRequest } from './agents/risk-assessment';
+import { handleSubstantiveRequest } from './agents/substantive-testing';
+import { handleControlsRequest } from './agents/internal-controls';
+import { handleFraudRequest } from './agents/fraud-risk';
+import { handleAnalyticsRequest } from './agents/analytics';
+import { handleGroupAuditRequest } from './agents/group-audit';
+import { handleCompletionRequest } from './agents/completion';
+import { handleQualityReviewRequest } from './agents/quality-review';
+import { handleReportRequest } from './agents/report';
+import type { AgentResponse } from './types';
+
 // Agent Configurations
 export {
   PLANNING_AGENT_CONFIG,
