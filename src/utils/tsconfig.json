@@ -12,7 +12,11 @@
     "noImplicitThis": true,
     "alwaysStrict": true,
     "noUncheckedIndexedAccess": true,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
+    "baseUrl": "../..",
+    "paths": {
+      "@/*": ["src/*"]
+    }
   },
   "include": ["./**/*"]
 }
