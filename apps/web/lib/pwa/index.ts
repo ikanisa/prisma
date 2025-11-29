@@ -14,14 +14,51 @@ export interface QueuedOfflineAction {
 const OFFLINE_QUEUE_STORAGE_KEY = 'queuedActions';
 
 /**
+ * Generate a unique ID with fallback for environments without crypto.randomUUID
+ */
+function generateUniqueId(): string {
+  // Try crypto.randomUUID first (available in secure contexts)
+  if (
+    typeof crypto !== 'undefined' &&
+    typeof crypto.randomUUID === 'function'
+  ) {
+    try {
+      return crypto.randomUUID();
+    } catch {
+      // Fall through to fallback
+    }
+  }
+
+  // Fallback using crypto.getRandomValues
+  if (
+    typeof crypto !== 'undefined' &&
+    typeof crypto.getRandomValues === 'function'
+  ) {
+    const bytes = new Uint8Array(16);
+    crypto.getRandomValues(bytes);
+    // Format as UUID v4
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    const hex = Array.from(bytes)
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('');
+    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+  }
+
+  // Last resort fallback using Math.random
+  return `${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 15)}`;
+}
+
+/**
  * Check if the app is running as an installed PWA
  */
 export function isStandaloneMode(): boolean {
   if (typeof window === 'undefined') return false;
-  
+
   return (
     window.matchMedia('(display-mode: standalone)').matches ||
-    (window.navigator as Navigator & { standalone?: boolean }).standalone === true
+    (window.navigator as Navigator & { standalone?: boolean }).standalone ===
+      true
   );
 }
 
@@ -72,7 +109,7 @@ export async function queueOfflineAction(
     return { id: '', action, data, timestamp: Date.now(), retries: 0 };
   }
 
-  const id = crypto.randomUUID();
+  const id = generateUniqueId();
   const entry: QueuedOfflineAction = {
     id,
     action,
@@ -83,7 +120,7 @@ export async function queueOfflineAction(
 
   const queue = await getOfflineQueue();
   queue.push(entry);
-  
+
   try {
     localStorage.setItem(OFFLINE_QUEUE_STORAGE_KEY, JSON.stringify(queue));
   } catch (error) {
