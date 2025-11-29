@@ -1,210 +1,86 @@
 /**
- * Tauri Desktop Integration Hooks
- * 
- * React hooks for interacting with Tauri backend commands.
+ * Hook to detect Tauri environment and provide access to Tauri APIs.
+ * Falls back gracefully in web environments.
  */
 
-import { useState, useEffect, useCallback } from 'react';
-import { invoke } from '@tauri-apps/api/core';
-import { open, save } from '@tauri-apps/plugin-dialog';
-import { readTextFile, writeTextFile } from '@tauri-apps/plugin-fs';
+import { useCallback, useEffect, useState } from 'react';
 
-/**
- * Check if running in Tauri environment
- */
-export function useTauri() {
+interface TauriHook {
+  /** Whether we're running in a Tauri environment */
+  isTauri: boolean;
+  /** Invoke a Tauri command */
+  invoke: <T>(cmd: string, args?: Record<string, unknown>) => Promise<T>;
+  /** Listen to Tauri events */
+  listen: <T>(event: string, callback: (event: { payload: T }) => void) => Promise<() => void>;
+  /** Emit a Tauri event */
+  emit: (event: string, payload?: unknown) => Promise<void>;
+}
+
+export function useTauri(): TauriHook {
   const [isTauri, setIsTauri] = useState(false);
-  const [platform, setPlatform] = useState<string>('web');
-  const [version, setVersion] = useState<string>('');
 
   useEffect(() => {
-    const checkTauri = async () => {
-      try {
-        // Check if __TAURI__ global is available
-        if (typeof window !== 'undefined' && '__TAURI__' in window) {
-          setIsTauri(true);
-          
-          // Get platform info
-          const platformInfo = await invoke<string>('get_platform');
-          setPlatform(platformInfo);
-          
-          // Get app version
-          const appVersion = await invoke<string>('get_app_version');
-          setVersion(appVersion);
-        }
-      } catch (error) {
-        setIsTauri(false);
-      }
+    // Check if we're in a Tauri environment
+    const checkTauri = () => {
+      // @ts-expect-error - __TAURI__ is injected by Tauri
+      return typeof window !== 'undefined' && typeof window.__TAURI__ !== 'undefined';
     };
-
-    checkTauri();
+    setIsTauri(checkTauri());
   }, []);
 
-  return { isTauri, platform, version };
-}
+  const invoke = useCallback(async <T,>(cmd: string, args?: Record<string, unknown>): Promise<T> => {
+    if (!isTauri) {
+      console.warn(`Tauri command '${cmd}' called but not in Tauri environment`);
+      throw new Error('Not in Tauri environment');
+    }
 
-/**
- * File system operations
- */
-export function useFileSystem() {
-  const selectFile = useCallback(async (options?: {
-    multiple?: boolean;
-    filters?: Array<{ name: string; extensions: string[] }>;
-  }) => {
     try {
-      const selected = await open({
-        multiple: options?.multiple ?? false,
-        filters: options?.filters,
-      });
-      return selected;
+      const { invoke: tauriInvoke } = await import('@tauri-apps/api/tauri');
+      return await tauriInvoke<T>(cmd, args);
     } catch (error) {
-      console.error('Error selecting file:', error);
+      console.error(`Failed to invoke Tauri command '${cmd}':`, error);
       throw error;
     }
-  }, []);
+  }, [isTauri]);
 
-  const selectSaveFile = useCallback(async (options?: {
-    defaultPath?: string;
-    filters?: Array<{ name: string; extensions: string[] }>;
-  }) => {
-    try {
-      const path = await save({
-        defaultPath: options?.defaultPath,
-        filters: options?.filters,
-      });
-      return path;
-    } catch (error) {
-      console.error('Error selecting save location:', error);
-      throw error;
+  const listen = useCallback(async <T,>(
+    event: string,
+    callback: (event: { payload: T }) => void
+  ): Promise<() => void> => {
+    if (!isTauri) {
+      console.warn(`Tauri event '${event}' listener registered but not in Tauri environment`);
+      return () => {};
     }
-  }, []);
 
-  const readFile = useCallback(async (path: string) => {
     try {
-      const contents = await readTextFile(path);
-      return contents;
+      const { listen: tauriListen } = await import('@tauri-apps/api/event');
+      return await tauriListen<T>(event, callback);
     } catch (error) {
-      console.error('Error reading file:', error);
-      throw error;
+      console.error(`Failed to listen to Tauri event '${event}':`, error);
+      return () => {};
     }
-  }, []);
+  }, [isTauri]);
 
-  const writeFile = useCallback(async (path: string, contents: string) => {
-    try {
-      await writeTextFile(path, contents);
-    } catch (error) {
-      console.error('Error writing file:', error);
-      throw error;
+  const emit = useCallback(async (event: string, payload?: unknown): Promise<void> => {
+    if (!isTauri) {
+      console.warn(`Tauri event '${event}' emitted but not in Tauri environment`);
+      return;
     }
-  }, []);
+
+    try {
+      const { emit: tauriEmit } = await import('@tauri-apps/api/event');
+      await tauriEmit(event, payload);
+    } catch (error) {
+      console.error(`Failed to emit Tauri event '${event}':`, error);
+    }
+  }, [isTauri]);
 
   return {
-    selectFile,
-    selectSaveFile,
-    readFile,
-    writeFile,
+    isTauri,
+    invoke,
+    listen,
+    emit,
   };
 }
 
-/**
- * App window controls
- */
-export function useWindow() {
-  const [isFullscreen, setIsFullscreen] = useState(false);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined' && '__TAURI__' in window) {
-      // Listen for fullscreen changes
-      const checkFullscreen = () => {
-        setIsFullscreen(document.fullscreenElement !== null);
-      };
-
-      document.addEventListener('fullscreenchange', checkFullscreen);
-      return () => {
-        document.removeEventListener('fullscreenchange', checkFullscreen);
-      };
-    }
-  }, []);
-
-  const toggleFullscreen = useCallback(async () => {
-    if (!document.fullscreenElement) {
-      await document.documentElement.requestFullscreen();
-    } else {
-      await document.exitFullscreen();
-    }
-  }, []);
-
-  return {
-    isFullscreen,
-    toggleFullscreen,
-  };
-}
-
-/**
- * Auto-update functionality
- */
-export function useAutoUpdate() {
-  const [updateAvailable, setUpdateAvailable] = useState(false);
-  const [updateInfo, setUpdateInfo] = useState<any>(null);
-  const [isChecking, setIsChecking] = useState(false);
-  const [isInstalling, setIsInstalling] = useState(false);
-
-  const checkForUpdate = useCallback(async () => {
-    setIsChecking(true);
-    try {
-      // Auto-update implementation would go here
-      // This requires tauri-plugin-updater
-      setUpdateAvailable(false);
-    } catch (error) {
-      console.error('Error checking for updates:', error);
-    } finally {
-      setIsChecking(false);
-    }
-  }, []);
-
-  const installUpdate = useCallback(async () => {
-    setIsInstalling(true);
-    try {
-      // Install update implementation
-    } catch (error) {
-      console.error('Error installing update:', error);
-    } finally {
-      setIsInstalling(false);
-    }
-  }, []);
-
-  return {
-    updateAvailable,
-    updateInfo,
-    isChecking,
-    isInstalling,
-    checkForUpdate,
-    installUpdate,
-  };
-}
-
-/**
- * System tray functionality
- */
-export function useSystemTray() {
-  const setTrayIcon = useCallback(async (icon: string) => {
-    try {
-      // Tray icon implementation
-    } catch (error) {
-      console.error('Error setting tray icon:', error);
-    }
-  }, []);
-
-  const setTrayTooltip = useCallback(async (tooltip: string) => {
-    try {
-      // Tray tooltip implementation
-    } catch (error) {
-      console.error('Error setting tray tooltip:', error);
-    }
-  }, []);
-
-  return {
-    setTrayIcon,
-    setTrayTooltip,
-  };
-}
+export default useTauri;
