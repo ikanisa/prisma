@@ -8,7 +8,8 @@ import {
   Bot,
   GitBranch,
   BarChart,
-  Settings,
+  Shield,
+  BookOpen,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -19,10 +20,12 @@ interface NavItem {
 }
 
 const navigation: NavItem[] = [
+  { label: 'Dashboard', href: '/admin', icon: Shield },
   { label: 'IAM', href: '/admin/iam', icon: Users },
   { label: 'Agents', href: '/admin/agents', icon: Bot },
   { label: 'Workflows', href: '/admin/workflows', icon: GitBranch },
   { label: 'Telemetry', href: '/admin/telemetry', icon: BarChart },
+  { label: 'Knowledge', href: '/admin/knowledge', icon: BookOpen },
 ];
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
@@ -42,7 +45,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         </div>
         <nav className="flex flex-col gap-1 p-4">
           {navigation.map((item) => {
-            const isActive = pathname.startsWith(item.href);
+            const isActive = pathname === item.href || (item.href !== '/admin' && pathname.startsWith(item.href));
             const Icon = item.icon;
 
             return (

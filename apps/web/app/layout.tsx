@@ -1,10 +1,11 @@
 import type { Metadata, Viewport } from 'next';
 import { Providers } from './providers';
+import { Toaster } from '@/components/ui/toaster';
 import './globals.css';
 
 export const metadata: Metadata = {
   title: 'Prisma Glow',
-  description: 'AI-powered operations suite',
+  description: 'AI-powered audit, tax, and accounting operations platform',
   manifest: '/manifest.json',
   metadataBase: new URL(
     process.env.NEXT_PUBLIC_APP_URL || 'https://prisma-glow.netlify.app'
@@ -16,7 +17,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: 'Prisma Glow',
-    description: 'AI-powered operations suite',
+    description: 'AI-powered audit, tax, and accounting operations platform',
     url: process.env.NEXT_PUBLIC_APP_URL || 'https://prisma-glow.netlify.app',
     siteName: 'Prisma Glow',
     type: 'website',
@@ -24,7 +25,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'Prisma Glow',
-    description: 'AI-powered operations suite',
+    description: 'AI-powered audit, tax, and accounting operations platform',
   },
 };
 
@@ -34,7 +35,7 @@ export const viewport: Viewport = {
   maximumScale: 1,
   userScalable: false,
   viewportFit: 'cover',
-  themeColor: '#7C3AED',
+  themeColor: '#4A90E2',
 };
 
 export default function RootLayout({
@@ -45,10 +46,15 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
+        <link rel="apple-touch-icon" href="/icons/icon-192.png" />
       </head>
-      <body className="min-h-screen bg-background text-foreground antialiased">
-        <Providers>{children}</Providers>
+      <body
+        className="min-h-screen bg-background font-sans text-foreground antialiased"
+      >
+        <Providers>
+          {children}
+          <Toaster />
+        </Providers>
       </body>
     </html>
   );

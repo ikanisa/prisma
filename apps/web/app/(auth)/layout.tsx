@@ -8,6 +8,9 @@ import {
   FileText,
   CheckSquare,
   Users,
+  Calculator,
+  ClipboardCheck,
+  Settings,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -21,7 +24,10 @@ const navigation: NavItem[] = [
   { label: 'Dashboard', href: '/dashboard', icon: Home },
   { label: 'Documents', href: '/documents', icon: FileText },
   { label: 'Tasks', href: '/tasks', icon: CheckSquare },
-  { label: 'Onboarding', href: '/onboarding', icon: Users },
+  { label: 'Clients', href: '/clients', icon: Users },
+  { label: 'Accounting', href: '/accounting', icon: Calculator },
+  { label: 'Audit', href: '/audit', icon: ClipboardCheck },
+  { label: 'Settings', href: '/settings', icon: Settings },
 ];
 
 export default function AuthLayout({ children }: { children: ReactNode }) {
@@ -38,7 +44,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
         </div>
         <nav className="flex flex-col gap-1 p-4">
           {navigation.map((item) => {
-            const isActive = pathname === item.href;
+            const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
             const Icon = item.icon;
 
             return (
@@ -60,7 +66,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
 
         <div className="mt-auto border-t border-border p-4">
           <Link
-            href="/admin/iam"
+            href="/admin"
             className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
           >
             Admin Console →
