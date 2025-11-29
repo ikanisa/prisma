@@ -34,6 +34,8 @@ htmlcov/
 
 # Next.js (web app)
 apps/web/.next/
+apps/web/out/
+apps/web/public/sw.js
 apps/web/public/workbox-*.js
 
 # Misc

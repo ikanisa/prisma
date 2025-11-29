@@ -1,0 +1,76 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Primary colors */
+  --primary: #7C3AED;
+  --primary-foreground: #ffffff;
+  
+  /* Background colors */
+  --background: #ffffff;
+  --foreground: #0f172a;
+  
+  /* Muted colors */
+  --muted: #f1f5f9;
+  --muted-foreground: #64748b;
+  
+  /* Border colors */
+  --border: #e2e8f0;
+  
+  /* Accent colors */
+  --accent: #f1f5f9;
+  --accent-foreground: #0f172a;
+  
+  /* Card colors */
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  
+  /* Destructive colors */
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  
+  /* Input colors */
+  --input: #e2e8f0;
+  --ring: #7C3AED;
+  
+  /* Spacing scale */
+  --spacing-xs: 0.25rem;
+  --spacing-sm: 0.5rem;
+  --spacing-md: 1rem;
+  --spacing-lg: 1.5rem;
+  --spacing-xl: 2rem;
+  
+  /* Border radius */
+  --radius: 0.5rem;
+}
+
+.dark {
+  --background: #0f172a;
+  --foreground: #f8fafc;
+  --muted: #1e293b;
+  --muted-foreground: #94a3b8;
+  --border: #334155;
+  --accent: #1e293b;
+  --accent-foreground: #f8fafc;
+  --card: #1e293b;
+  --card-foreground: #f8fafc;
+  --input: #334155;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+@layer utilities {
+  .min-h-screen {
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+}
