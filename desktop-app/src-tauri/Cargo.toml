@@ -1,0 +1,25 @@
+[package]
+name = "prisma-glow-desktop"
+version = "1.0.0"
+description = "Prisma Glow Desktop Application"
+authors = ["Prisma Glow Team"]
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { version = "2.0", features = [] }
+
+[dependencies]
+tauri = { version = "2.0", features = ["protocol-asset", "shell-open"] }
+tauri-plugin-shell = "2.0"
+tauri-plugin-dialog = "2.0"
+tauri-plugin-fs = "2.0"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[features]
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]
+
+[[bin]]
+name = "prisma-glow-desktop"
+path = "src/main.rs"
