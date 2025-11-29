@@ -1,68 +1,55 @@
 """
 Health Check API Router
 Handles health, readiness, and liveness endpoints
+
+Migrated from server/main.py lines 7696-7710
 """
-from fastapi import APIRouter, Depends
-from pydantic import BaseModel
+from fastapi import APIRouter, status
+from fastapi.responses import JSONResponse
 from typing import Dict, Any
-import asyncio
+import redis
 
-router = APIRouter(tags=["health"])
+from ..health import build_readiness_report
+from ..db import AsyncSessionLocal
 
-
-class HealthResponse(BaseModel):
-    """Health check response model"""
-    status: str
-    version: str
-    timestamp: str
-    checks: Dict[str, Any]
+router = APIRouter(tags=["observability"])
 
 
 @router.get("/health")
-async def health_check() -> Dict[str, str]:
+async def health() -> Dict[str, str]:
     """
     Basic health check endpoint
     Returns 200 if service is running
+    
+    Migrated from main.py line 7696
     """
-    return {
-        "status": "healthy",
-        "service": "prisma-glow-api"
-    }
+    return {"status": "ok"}
+
+
+@router.get("/healthz")
+async def healthz() -> Dict[str, str]:
+    """
+    Kubernetes health check endpoint
+    Returns 200 if service is running
+    
+    Migrated from main.py line 7701
+    """
+    return {"status": "ok"}
 
 
 @router.get("/readiness")
-async def readiness_check() -> HealthResponse:
+async def readiness_probe():
     """
     Readiness check endpoint
     Returns 200 if service is ready to handle requests
     Checks database, cache, and external dependencies
-    """
-    # TODO: Import actual health check from server.health
-    # from server.health import build_readiness_report
     
-    # Placeholder response
-    from datetime import datetime, timezone
-    
-    checks = {
-        "database": "healthy",
-        "cache": "healthy",
-        "external_apis": "healthy"
-    }
-    
-    return HealthResponse(
-        status="ready",
-        version="1.0.0",
-        timestamp=datetime.now(timezone.utc).isoformat(),
-        checks=checks
-    )
-
-
-@router.get("/live")
-async def liveness_check() -> Dict[str, str]:
+    Migrated from main.py line 7706
     """
-    Liveness check endpoint
-    Returns 200 if service is alive (for Kubernetes liveness probes)
-    """
-    return {
-        "status": "alive"
-    }
+    # Get redis connection from main app context
+    # TODO: Inject redis_conn as dependency instead of importing
+    from ..main import redis_conn
+    
+    report = await build_readiness_report(AsyncSessionLocal, redis_conn)
+    status_code = status.HTTP_200_OK if report["status"] == "ok" else status.HTTP_503_SERVICE_UNAVAILABLE
+    return JSONResponse(report, status_code=status_code)
