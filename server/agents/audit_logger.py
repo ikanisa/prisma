@@ -4,7 +4,7 @@ Comprehensive audit logging for AI agent operations.
 """
 from typing import Dict, Any, List, Optional
 from dataclasses import dataclass, field, asdict
-from datetime import datetime
+from datetime import datetime, timedelta
 from enum import Enum
 import json
 import logging
@@ -108,6 +108,7 @@ class AuditLogger:
         This logs the execution without storing raw input/output
         for privacy compliance.
         """
+        # Lazy import to avoid circular dependency with security module
         from server.agents.security import get_security_service
         security = get_security_service()
         
@@ -151,6 +152,7 @@ class AuditLogger:
         error_message: Optional[str] = None,
     ) -> AuditEvent:
         """Log a tool invocation event"""
+        # Lazy import to avoid circular dependency
         from server.agents.security import get_security_service
         security = get_security_service()
         
@@ -445,8 +447,6 @@ class AuditLogger:
         """
         Get audit summary for an organization.
         """
-        from datetime import timedelta
-        
         start_time = datetime.utcnow() - timedelta(hours=period_hours)
         events = self.get_events(org_id=org_id, start_time=start_time, limit=10000)
         

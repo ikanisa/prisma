@@ -197,7 +197,11 @@ class AgentSecurityService:
         if pii_type == PIIType.EMAIL:
             parts = value.split('@')
             if len(parts) == 2:
-                return f"{parts[0][0]}***@{parts[1]}"
+                username = parts[0]
+                # Handle short usernames (1-2 chars)
+                if len(username) <= 2:
+                    return f"***@{parts[1]}"
+                return f"{username[0]}***@{parts[1]}"
         elif pii_type == PIIType.PHONE:
             return re.sub(r'\d', '*', value[:-4]) + value[-4:]
         elif pii_type in (PIIType.SSN, PIIType.TAX_ID):

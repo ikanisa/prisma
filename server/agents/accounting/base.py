@@ -124,6 +124,7 @@ class BaseAccountingAgent(ABC):
         Subclasses can override for specialized behavior.
         """
         try:
+            # Lazy import to avoid dependency issues if Gemini not configured
             from server.services.gemini_service import get_gemini_service
             gemini = get_gemini_service()
             persona = self.get_persona()

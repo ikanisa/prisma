@@ -24,7 +24,10 @@ class TestPIIDetection:
         
         assert result.contains_pii
         assert PIIType.EMAIL in result.detected_types
-        assert "@example.com" not in result.masked_text or "j***@" in result.masked_text
+        # Original email should be masked
+        assert "john.doe@example.com" not in result.masked_text
+        # Masked format should be present
+        assert "j***@example.com" in result.masked_text
     
     def test_detect_phone(self):
         """Test phone number detection"""

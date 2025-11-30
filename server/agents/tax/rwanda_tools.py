@@ -22,6 +22,7 @@ RWANDA_VAT_RATE = Decimal("0.18")  # 18% VAT
 RWANDA_MICRO_THRESHOLD = Decimal("12000000")  # RWF 12M micro enterprise threshold
 RWANDA_SME_THRESHOLD = Decimal("50000000")  # RWF 50M SME threshold
 RWANDA_THIN_CAP_RATIO = Decimal("4")  # 4:1 debt-to-equity ratio
+INFINITE_RATIO = Decimal("Infinity")  # Used when equity is zero
 
 
 @dataclass
@@ -221,7 +222,7 @@ def calculate_thin_capitalization(
     if equity > 0:
         actual_ratio = debt / equity
     else:
-        actual_ratio = Decimal("999")  # Effectively infinite
+        actual_ratio = INFINITE_RATIO
     
     # Maximum allowed debt under 4:1 ratio
     max_allowed_debt = equity * RWANDA_THIN_CAP_RATIO
