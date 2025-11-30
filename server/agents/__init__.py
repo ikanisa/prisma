@@ -12,11 +12,27 @@ from .base import (
     BaseAgentProvider,
     AgentOrchestrator,
 )
+from .registry import (
+    AgentRegistry,
+    AgentMetadata,
+    AgentDomain,
+    get_agent_registry,
+    list_all_agents,
+    discover_agents,
+)
 
 __all__ = [
+    # Base classes
     "AgentProvider",
     "AgentToolDefinition",
     "AgentResponse",
     "BaseAgentProvider",
     "AgentOrchestrator",
+    # Registry
+    "AgentRegistry",
+    "AgentMetadata",
+    "AgentDomain",
+    "get_agent_registry",
+    "list_all_agents",
+    "discover_agents",
 ]
