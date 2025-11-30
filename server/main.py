@@ -85,6 +85,8 @@ from .settings import get_system_settings
 from .api.learning import router as learning_router
 from .api.gemini_chat import router as gemini_chat_router
 from .metrics import metrics_router, MetricsMiddleware
+from .routers.organization import router as organization_router
+from .routers.ada import router as ada_router
 
 @contextlib.asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -311,6 +313,13 @@ def _load_permission_map() -> Dict[str, str]:
 
 
 ALLOWED_ORIGINS = normalise_allowed_origins(os.getenv("API_ALLOWED_ORIGINS"))
+
+# Apply security middleware (CORS is already configured above)
+# Import rate limiting middleware
+from .security_middleware import setup_rate_limiting
+
+# Setup rate limiting
+limiter = setup_rate_limiting(app)
 
 app.add_middleware(
     CORSMiddleware,
@@ -3305,7 +3314,8 @@ class WebHarvestRequest(BaseModel):
 
 
 @app.post("/v1/security/verify-captcha", tags=["security"])
-async def verify_turnstile_token(payload: CaptchaVerificationRequest, request: Request) -> Dict[str, str]:
+@limiter.limit("5/minute")
+async def verify_turnstile_token(request: Request, payload: CaptchaVerificationRequest) -> Dict[str, str]:
     if not TURNSTILE_SECRET_KEY:
         logger.info("captcha.verification_skipped", reason="secret_not_configured")
         return {"status": "skipped"}
@@ -3363,7 +3373,12 @@ async def shutdown() -> None:
 
 
 @app.post("/api/iam/org/create")
-async def create_organization(payload: CreateOrgRequest, auth: Dict[str, Any] = Depends(require_auth)):
+@limiter.limit("3/hour")
+async def create_organization(
+    request: Request,
+    payload: CreateOrgRequest,
+    auth: Dict[str, Any] = Depends(require_auth)
+):
     actor_id = auth.get("sub")
     if not actor_id:
         raise HTTPException(status_code=401, detail="unauthenticated")
@@ -3492,7 +3507,12 @@ async def list_members(org: str = Query(..., alias="orgId", min_length=1), auth:
 
 
 @app.post("/api/iam/members/invite")
-async def invite_member(payload: InviteMemberRequest, auth: Dict[str, Any] = Depends(require_auth)):
+@limiter.limit("10/hour")
+async def invite_member(
+    request: Request,
+    payload: InviteMemberRequest,
+    auth: Dict[str, Any] = Depends(require_auth)
+):
     actor_id = auth.get("sub")
     if not actor_id:
         raise HTTPException(status_code=401, detail="unauthenticated")
@@ -7819,6 +7839,10 @@ app.include_router(gemini_chat_router)
 
 # Include Metrics Router
 app.include_router(metrics_router)
+
+# Include Organization and ADA Routers (Phase 1 Refactoring)
+app.include_router(organization_router, prefix="/api/iam/org", tags=["organization"])
+app.include_router(ada_router, prefix="/api/ada", tags=["analytics"])
 
 # Include Agent System Routers
 from .api.agents import router as agents_router

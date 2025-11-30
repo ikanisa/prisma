@@ -22,7 +22,8 @@
     "next-pwa": "^5.6.0",
     "@prisma-glow/ui": "workspace:*",
     "@prisma-glow/supabase-client": "workspace:*",
-    "@prisma-glow/types": "workspace:*"
+    "@prisma-glow/types": "workspace:*",
+    "@prisma-glow/security": "workspace:*"
   },
   "devDependencies": {
     "@types/react": "^18.3.0",

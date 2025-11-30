@@ -12,6 +12,13 @@ from .base import (
     BaseAgentProvider,
     AgentOrchestrator,
 )
+from .registry import (
+    AgentRegistry,
+    AgentMetadata,
+    AgentDomain,
+    AgentCapability,
+    get_registry,
+)
 
 __all__ = [
     "AgentProvider",
@@ -19,4 +26,9 @@ __all__ = [
     "AgentResponse",
     "BaseAgentProvider",
     "AgentOrchestrator",
+    "AgentRegistry",
+    "AgentMetadata",
+    "AgentDomain",
+    "AgentCapability",
+    "get_registry",
 ]

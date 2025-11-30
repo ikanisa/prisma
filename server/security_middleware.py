@@ -3,6 +3,7 @@ FastAPI Security Middleware
 Implements CORS, rate limiting, and security headers
 """
 
+import os
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
@@ -101,9 +102,13 @@ def configure_security(app: FastAPI, allowed_origins: list[str] = None):
         ]
     
     # 1. Trusted Host Middleware (must be first)
+    # Get allowed hosts from environment or use secure defaults
+    allowed_hosts = os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+    allowed_hosts = [host.strip() for host in allowed_hosts if host.strip()]
+    
     app.add_middleware(
         TrustedHostMiddleware,
-        allowed_hosts=["*"]  # Configure for production
+        allowed_hosts=allowed_hosts or ["localhost", "127.0.0.1"]
     )
     
     # 2. CORS Middleware
