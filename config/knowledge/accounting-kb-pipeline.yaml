@@ -1,0 +1,300 @@
+pipeline:
+  name: accounting_knowledge_ingest
+  version: 1.0
+  description: >
+    Ingest IFRS/IAS/ISA/GAAP/Tax Laws/ACCA/CPA resources into Supabase
+    as chunked documents with embeddings for DeepSearch and AccountantAI agents.
+
+  config:
+    embedding_model: "text-embedding-3-small"  # or "text-embedding-3-large" (3072 dims)
+    embedding_dimension: 1536
+    max_chunk_chars: 1500
+    overlap_chars: 200
+    batch_size: 50  # for embedding API calls
+
+  steps:
+    - id: discover_sources
+      type: static_list
+      description: "Define knowledge sources to ingest"
+      outputs:
+        sources:
+          # IFRS Standards
+          - name: "IFRS Foundation - IFRS 9 Financial Instruments"
+            type: "IFRS"
+            jurisdiction_code: "GLOBAL"
+            authority_level: "PRIMARY"
+            url: "https://www.ifrs.org/issued-standards/list-of-standards/ifrs-9-financial-instruments/"
+            code: "IFRS 9"
+
+          - name: "IFRS Foundation - IFRS 15 Revenue from Contracts with Customers"
+            type: "IFRS"
+            jurisdiction_code: "GLOBAL"
+            authority_level: "PRIMARY"
+            url: "https://www.ifrs.org/issued-standards/list-of-standards/ifrs-15-revenue-from-contracts-with-customers/"
+            code: "IFRS 15"
+
+          - name: "IFRS Foundation - IFRS 16 Leases"
+            type: "IFRS"
+            jurisdiction_code: "GLOBAL"
+            authority_level: "PRIMARY"
+            url: "https://www.ifrs.org/issued-standards/list-of-standards/ifrs-16-leases/"
+            code: "IFRS 16"
+
+          # IAS Standards
+          - name: "IFRS Foundation - IAS 1 Presentation of Financial Statements"
+            type: "IAS"
+            jurisdiction_code: "GLOBAL"
+            authority_level: "PRIMARY"
+            url: "https://www.ifrs.org/issued-standards/list-of-standards/ias-1-presentation-of-financial-statements/"
+            code: "IAS 1"
+
+          - name: "IFRS Foundation - IAS 12 Income Taxes"
+            type: "IAS"
+            jurisdiction_code: "GLOBAL"
+            authority_level: "PRIMARY"
+            url: "https://www.ifrs.org/issued-standards/list-of-standards/ias-12-income-taxes/"
+            code: "IAS 12"
+
+          - name: "IFRS Foundation - IAS 21 The Effects of Changes in Foreign Exchange Rates"
+            type: "IAS"
+            jurisdiction_code: "GLOBAL"
+            authority_level: "PRIMARY"
+            url: "https://www.ifrs.org/issued-standards/list-of-standards/ias-21-the-effects-of-changes-in-foreign-exchange-rates/"
+            code: "IAS 21"
+
+          - name: "IFRS Foundation - IAS 36 Impairment of Assets"
+            type: "IAS"
+            jurisdiction_code: "GLOBAL"
+            authority_level: "PRIMARY"
+            url: "https://www.ifrs.org/issued-standards/list-of-standards/ias-36-impairment-of-assets/"
+            code: "IAS 36"
+
+          - name: "IFRS Foundation - IAS 37 Provisions Contingent Liabilities and Contingent Assets"
+            type: "IAS"
+            jurisdiction_code: "GLOBAL"
+            authority_level: "PRIMARY"
+            url: "https://www.ifrs.org/issued-standards/list-of-standards/ias-37-provisions-contingent-liabilities-and-contingent-assets/"
+            code: "IAS 37"
+
+          # ISA Standards
+          - name: "IAASB - ISA 200 Overall Objectives of the Independent Auditor"
+            type: "ISA"
+            jurisdiction_code: "GLOBAL"
+            authority_level: "PRIMARY"
+            url: "https://www.iaasb.org/publications/isa-200-overall-objectives-independent-auditor-and-conduct-audit-accordance-international"
+            code: "ISA 200"
+
+          - name: "IAASB - ISA 315 Identifying and Assessing the Risks of Material Misstatement"
+            type: "ISA"
+            jurisdiction_code: "GLOBAL"
+            authority_level: "PRIMARY"
+            url: "https://www.iaasb.org/publications/isa-315-revised-2019-identifying-and-assessing-risks-material-misstatement"
+            code: "ISA 315"
+
+          - name: "IAASB - ISA 320 Materiality in Planning and Performing an Audit"
+            type: "ISA"
+            jurisdiction_code: "GLOBAL"
+            authority_level: "PRIMARY"
+            url: "https://www.iaasb.org/publications/isa-320-materiality-planning-and-performing-audit"
+            code: "ISA 320"
+
+          - name: "IAASB - ISA 530 Audit Sampling"
+            type: "ISA"
+            jurisdiction_code: "GLOBAL"
+            authority_level: "PRIMARY"
+            url: "https://www.iaasb.org/publications/isa-530-audit-sampling"
+            code: "ISA 530"
+
+          # Rwanda Tax Laws
+          - name: "Rwanda Income Tax Law 2018"
+            type: "TAX_LAW"
+            jurisdiction_code: "RW"
+            authority_level: "PRIMARY"
+            url: "https://www.rra.gov.rw/fileadmin/user_upload/laws/LAW_N_16_2018_OF_13_04_2018_ON_INCOME_TAX.pdf"
+            code: "RW-INCOME-TAX-2018"
+
+          - name: "Rwanda VAT Law 2001"
+            type: "TAX_LAW"
+            jurisdiction_code: "RW"
+            authority_level: "PRIMARY"
+            url: "https://www.rra.gov.rw/fileadmin/user_upload/laws/VAT_LAW_N_06_2001_OF_20_01_2001.pdf"
+            code: "RW-VAT-2001"
+
+          # Malta Tax Laws
+          - name: "Malta Income Tax Act"
+            type: "TAX_LAW"
+            jurisdiction_code: "MT"
+            authority_level: "PRIMARY"
+            url: "https://legislation.mt/eli/cap/123/eng"
+            code: "MT-INCOME-TAX"
+
+          # ACCA Resources
+          - name: "ACCA Technical Articles - Revenue Recognition"
+            type: "ACCA"
+            jurisdiction_code: "GLOBAL"
+            authority_level: "SECONDARY"
+            url: "https://www.accaglobal.com/gb/en/technical-activities/technical-resources-search.html"
+            code: "ACCA-REVENUE"
+
+          - name: "ACCA Technical Articles - Deferred Tax"
+            type: "ACCA"
+            jurisdiction_code: "GLOBAL"
+            authority_level: "SECONDARY"
+            url: "https://www.accaglobal.com/gb/en/technical-activities/technical-resources-search.html"
+            code: "ACCA-DEFERRED-TAX"
+
+    - id: ensure_jurisdictions
+      type: supabase_upsert
+      input: sources
+      config:
+        table: jurisdictions
+        key_field: code
+        mapping:
+          code: jurisdiction_code
+          name:
+            transform: auto_name_from_code  # RW → "Rwanda", MT → "Malta", etc.
+
+    - id: ensure_sources
+      type: supabase_upsert
+      input: sources
+      config:
+        table: knowledge_sources
+        key_fields: [name, type]
+        mapping:
+          name: name
+          type: type
+          authority_level: authority_level
+          url: url
+          jurisdiction_id:
+            lookup:
+              table: jurisdictions
+              by_field: code
+              from_input: jurisdiction_code
+
+    - id: download_documents
+      type: http_fetch
+      input: sources
+      config:
+        user_agent: "PrismaGlow/1.0 Accounting Knowledge Ingestion"
+        timeout_seconds: 120
+        retry_attempts: 3
+      outputs:
+        downloaded_files:
+          - source_name: name
+            url: url
+            local_path: "/tmp/kb_{{ name | slugify }}.pdf"
+            status: "DOWNLOADED"
+
+    - id: parse_documents
+      type: pdf_to_text
+      input: downloaded_files
+      config:
+        extract_metadata: true
+      outputs:
+        parsed_docs:
+          - source_name: source_name
+            url: url
+            local_path: local_path
+            text: "<full_text>"
+            pages: "<page_count>"
+            metadata:
+              author: "<pdf_author>"
+              creation_date: "<pdf_creation_date>"
+
+    - id: create_documents
+      type: supabase_insert
+      input: parsed_docs
+      config:
+        table: knowledge_documents
+        mapping:
+          source_id:
+            lookup:
+              table: knowledge_sources
+              by_field: name
+              from_input: source_name
+          title: source_name
+          code:
+            transform: extract_code_from_title  # Extract "IAS 21" from title
+          metadata:
+            url: url
+            local_path: local_path
+            pages: pages
+
+    - id: chunk_documents
+      type: text_chunker
+      input: parsed_docs
+      config:
+        max_chars: 1500
+        overlap_chars: 200
+        preserve_paragraphs: true
+        extract_headings: true
+      outputs:
+        chunks:
+          - document_title: source_name
+            chunk_index: "<index>"
+            section_path: "<derived_section>"   # e.g. "IAS 21.8-12"
+            heading: "<heading>"
+            content: "<chunk_text>"
+            tokens: "<estimated_tokens>"
+
+    - id: insert_chunks
+      type: supabase_insert
+      input: chunks
+      config:
+        table: knowledge_chunks
+        mapping:
+          document_id:
+            lookup:
+              table: knowledge_documents
+              by_field: title
+              from_input: document_title
+          chunk_index: chunk_index
+          section_path: section_path
+          heading: heading
+          content: content
+          tokens: tokens
+
+    - id: embed_chunks
+      type: embeddings
+      input: chunks
+      config:
+        model: "text-embedding-3-small"
+        batch_size: 50
+        rate_limit_rpm: 3000
+      outputs:
+        embeddings:
+          - chunk_ref:
+              document_title: document_title
+              chunk_index: chunk_index
+            embedding: "<vector>"
+            model: "text-embedding-3-small"
+
+    - id: insert_embeddings
+      type: supabase_insert
+      input: embeddings
+      config:
+        table: knowledge_embeddings
+        mapping:
+          chunk_id:
+            lookup:
+              table: knowledge_chunks
+              by_fields:
+                document_id:
+                  lookup:
+                    table: knowledge_documents
+                    by_field: title
+                    from_input: chunk_ref.document_title
+                chunk_index: chunk_ref.chunk_index
+          embedding: embedding
+          model: model
+
+    - id: update_job_stats
+      type: supabase_update
+      config:
+        table: ingestion_jobs
+        stats:
+          total_sources: "{{ sources | length }}"
+          total_files: "{{ downloaded_files | length }}"
+          total_chunks: "{{ chunks | length }}"
+          total_embeddings: "{{ embeddings | length }}"
+          completed_at: "{{ now() }}"

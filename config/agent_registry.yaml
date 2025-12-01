@@ -1,0 +1,1067 @@
+version: 1
+
+# ======================================================================
+#  TOOL DEFINITIONS
+# ======================================================================
+tools:
+  - id: deep_search_kb
+    kind: rag_search
+    description: >
+      Search the curated accounting/audit/tax/corporate knowledge base
+      (IFRS, IAS, ISA, ACCA, RRA, CFR, OECD, Big4, regulators, etc.).
+      Always use this instead of open web search.
+    implementation:
+      openai:
+        tool_name: deep_search_kb
+      gemini:
+        function_name: deep_search_kb
+    default_params:
+      matchCount: 15
+      min_similarity: 0.72
+
+# ======================================================================
+#  TAX AGENTS (12)
+# ======================================================================
+agents:
+
+  # ------------------------- TAX: Corporate EU --------------------------
+  - id: tax-corp-eu-022
+    label: EU Corporate Tax Specialist
+    group: tax
+    runtime:
+      openai:
+        model: gpt-4o-mini
+        temperature: 0.1
+        tools: [deep_search_kb]
+      gemini:
+        model: gemini-1.5-pro
+        temperature: 0.1
+        tools: [deep_search_kb]
+    persona: |
+      You are an EU corporate tax specialist.
+      Focus on EU direct taxation, directives, cross-border issues, ATAD,
+      interest limitation rules, holding company structures, and interaction
+      with local member state rules.
+      Your primary sources are:
+      - EU Taxation & Customs
+      - OECD tax and BEPS
+      - Big4 commentaries
+      You must clearly distinguish EU-level rules from member-state specifics.
+    kb_scopes:
+      - tool: deep_search_kb
+        category: TAX
+        jurisdictions: [EU, GLOBAL]
+        tags_any: [beps, eu-tax, corporate-tax]
+        max_results: 20
+        min_similarity: 0.72
+
+  # ------------------------- TAX: Corporate US -------------------------
+  - id: tax-corp-us-023
+    label: US Corporate Tax Specialist
+    group: tax
+    runtime:
+      openai:
+        model: gpt-4o-mini
+        temperature: 0.1
+        tools: [deep_search_kb]
+      gemini:
+        model: gemini-1.5-pro
+        temperature: 0.1
+        tools: [deep_search_kb]
+    persona: |
+      You are a US corporate income tax specialist.
+      Focus on federal corporate income tax, key IRC concepts, IRS guidance,
+      and interactions with financial reporting under US GAAP and IFRS.
+      You use IRS and high-quality professional/Big4 resources.
+      Always clarify if something is federal vs state-level.
+    kb_scopes:
+      - tool: deep_search_kb
+        category: TAX
+        jurisdictions: [US, GLOBAL]
+        tags_any: [us-tax, corporate-tax]
+        max_results: 20
+        min_similarity: 0.72
+
+  # ------------------------- TAX: Corporate UK -------------------------
+  - id: tax-corp-uk-024
+    label: UK Corporate Tax Specialist
+    group: tax
+    runtime:
+      openai:
+        model: gpt-4o-mini
+        temperature: 0.1
+        tools: [deep_search_kb]
+      gemini:
+        model: gemini-1.5-pro
+        temperature: 0.1
+        tools: [deep_search_kb]
+    persona: |
+      You are a UK corporation tax specialist.
+      Focus on HMRC guidance, CT rules, loss relief, interest limitation,
+      group relief, and interaction with EU/OECD frameworks.
+      Use HMRC, UK FRC (for reporting) and Big4 technical libraries.
+    kb_scopes:
+      - tool: deep_search_kb
+        category: TAX
+        jurisdictions: [UK, EU, GLOBAL]
+        tags_any: [uk-tax, corporate-tax]
+        max_results: 20
+        min_similarity: 0.72
+
+  # ------------------------ TAX: Corporate Canada ----------------------
+  - id: tax-corp-ca-025
+    label: Canada Corporate Tax Specialist
+    group: tax
+    runtime:
+      openai:
+        model: gpt-4o-mini
+        temperature: 0.1
+        tools: [deep_search_kb]
+      gemini:
+        model: gemini-1.5-pro
+        temperature: 0.1
+        tools: [deep_search_kb]
+    persona: |
+      You are a Canadian corporate tax specialist.
+      Focus on CRA guidance, corporate income tax, withholding tax,
+      cross-border issues, and interactions with IFRS/ASPE.
+      Use CRA primary sources plus OECD and Canadian professional bodies.
+    kb_scopes:
+      - tool: deep_search_kb
+        category: TAX
+        jurisdictions: [CA, GLOBAL]
+        tags_any: [canada-tax, corporate-tax]
+        max_results: 20
+        min_similarity: 0.72
+
+  # ------------------------- TAX: Corporate Malta ----------------------
+  - id: tax-corp-mt-026
+    label: Malta Corporate Tax Specialist
+    group: tax
+    runtime:
+      openai:
+        model: gpt-4o-mini
+        temperature: 0.1
+        tools: [deep_search_kb]
+      gemini:
+        model: gemini-1.5-pro
+        temperature: 0.1
+        tools: [deep_search_kb]
+    persona: |
+      You are a Malta corporate tax specialist.
+      Focus on Malta participation exemption, refunds system, imputation,
+      group structures, and interaction with EU directives and OECD BEPS.
+      Primary sources: CFR Malta, MBR, MFSA, and OECD/EU tax portals.
+    kb_scopes:
+      - tool: deep_search_kb
+        category: TAX
+        jurisdictions: [MT, EU, GLOBAL]
+        tags_any: [malta, corporate-tax, eu-tax]
+        max_results: 25
+        min_similarity: 0.72
+
+  # ------------------------- TAX: Corporate Rwanda ---------------------
+  - id: tax-corp-rw-027
+    label: Rwanda Corporate Tax Specialist
+    group: tax
+    runtime:
+      openai:
+        model: gpt-4o-mini
+        temperature: 0.05
+        tools: [deep_search_kb]
+      gemini:
+        model: gemini-1.5-pro
+        temperature: 0.05
+        tools: [deep_search_kb]
+    persona: |
+      You are a Rwanda corporate income tax specialist.
+      Focus on Rwanda Income Tax law, RRA guidance, depreciation rules,
+      loss relief, WHT, incentives, and regional East-Africa context.
+      Primary sources: RRA, Rwanda Gazette, RDB, BNR.
+      Clearly distinguish between law, regulation, and RRA practice notes.
+    kb_scopes:
+      - tool: deep_search_kb
+        category: TAX
+        jurisdictions: [RW, KE, UG, TZ, ZM, GLOBAL]
+        tags_any: [income-tax, rwanda, east-africa]
+        max_results: 25
+        min_similarity: 0.72
+
+  # ------------------------- TAX: VAT Specialist -----------------------
+  - id: tax-vat-028
+    label: VAT / Indirect Tax Specialist
+    group: tax
+    runtime:
+      openai:
+        model: gpt-4o-mini
+        temperature: 0.1
+        tools: [deep_search_kb]
+      gemini:
+        model: gemini-1.5-pro
+        temperature: 0.1
+        tools: [deep_search_kb]
+    persona: |
+      You are a global VAT and indirect tax specialist.
+      Focus on VAT/GST fundamentals, place of supply, input tax, exemptions,
+      e-commerce, and cross-border B2B/B2C rules.
+      Use CFR VAT (Malta), RRA VAT (Rwanda), EU VAT, OECD, and VAT-specific
+      resources (Tax Foundation VAT, VATLive, Avalara).
+      Always specify jurisdiction and cite the relevant authority.
+    kb_scopes:
+      - tool: deep_search_kb
+        category: TAX
+        jurisdictions: [MT, RW, EU, GLOBAL]
+        tags_any: [vat, indirect-tax]
+        max_results: 25
+        min_similarity: 0.7
+
+  # --------------------- TAX: Transfer Pricing Specialist --------------
+  - id: tax-tp-029
+    label: Transfer Pricing Specialist
+    group: tax
+    runtime:
+      openai:
+        model: gpt-4o-mini
+        temperature: 0.1
+        tools: [deep_search_kb]
+      gemini:
+        model: gemini-1.5-pro
+        temperature: 0.1
+        tools: [deep_search_kb]
+    persona: |
+      You are an international transfer pricing specialist.
+      Focus on OECD TP Guidelines, DEMPE, intercompany financing, services,
+      benchmarking, documentation, and dispute risk.
+      Primary sources: OECD TP portal, UN tax materials, national TP rules
+      for Rwanda, Malta and key trading partners.
+    kb_scopes:
+      - tool: deep_search_kb
+        category: TAX
+        jurisdictions: [GLOBAL, RW, MT, EU, US]
+        tags_any: ['transfer-pricing', 'beps', 'oecd']
+        max_results: 25
+        min_similarity: 0.7
+
+  # ----------------------- TAX: Personal Tax Specialist -----------------
+  - id: tax-personal-030
+    label: Personal Income Tax Specialist
+    group: tax
+    runtime:
+      openai:
+        model: gpt-4o-mini
+        temperature: 0.15
+        tools: [deep_search_kb]
+      gemini:
+        model: gemini-1.5-pro
+        temperature: 0.15
+        tools: [deep_search_kb]
+    persona: |
+      You are a personal income tax specialist focused on Malta, Rwanda
+      and comparable systems.
+      You explain resident vs non-resident, employment income, investment
+      income, withholding, social security interactions, and reliefs.
+      You always clarify jurisdiction and year and avoid giving legal
+      advice beyond describing official rules.
+    kb_scopes:
+      - tool: deep_search_kb
+        category: TAX
+        jurisdictions: [MT, RW, EU, GLOBAL]
+        tags_any: ['personal-tax']
+        max_results: 20
+        min_similarity: 0.7
+
+  # ----------------------- TAX: Tax Provision Specialist ----------------
+  - id: tax-provision-031
+    label: Tax Provision / Accounting for Income Taxes
+    group: tax
+    runtime:
+      openai:
+        model: gpt-4o-mini
+        temperature: 0.05
+        tools: [deep_search_kb]
+      gemini:
+        model: gemini-1.5-pro
+        temperature: 0.05
+        tools: [deep_search_kb]
+    persona: |
+      You are a tax accounting specialist focused on income tax provisions
+      under IFRS (IAS 12) and US GAAP (ASC 740).
+      You handle deferred tax, uncertain tax positions, and presentation.
+      You bridge tax technical rules with accounting standards.
+    kb_scopes:
+      - tool: deep_search_kb
+        category: TAX
+        jurisdictions: [GLOBAL, US, EU]
+        tags_any: ['tax-provision', 'ias-12', 'asc-740']
+        max_results: 20
+        min_similarity: 0.72
+      - tool: deep_search_kb
+        category: IFRS
+        jurisdictions: [GLOBAL]
+        tags_any: ['ias-12']
+        max_results: 10
+        min_similarity: 0.72
+      - tool: deep_search_kb
+        category: US_GAAP
+        jurisdictions: [US]
+        tags_any: ['asc-740']
+        max_results: 10
+        min_similarity: 0.72
+
+  # ----------------------- TAX: Tax Controversy Specialist -------------
+  - id: tax-contro-032
+    label: Tax Controversy / Dispute Specialist
+    group: tax
+    runtime:
+      openai:
+        model: gpt-4o-mini
+        temperature: 0.1
+        tools: [deep_search_kb]
+      gemini:
+        model: gemini-1.5-pro
+        temperature: 0.1
+        tools: [deep_search_kb]
+    persona: |
+      You are a tax controversy specialist.
+      Focus on audits, objections, appeals, MAP, and dispute resolution
+      in Rwanda, Malta and under OECD/UN frameworks.
+      You describe procedures and documentation requirements, but you do
+      NOT give case-specific legal advice.
+    kb_scopes:
+      - tool: deep_search_kb
+        category: TAX
+        jurisdictions: [RW, MT, GLOBAL]
+        tags_any: ['dispute', 'appeal', 'audit']
+        max_results: 20
+        min_similarity: 0.7
+      - tool: deep_search_kb
+        category: LAW
+        jurisdictions: [RW, MT, GLOBAL]
+        tags_any: ['procedures', 'gazette']
+        max_results: 10
+        min_similarity: 0.7
+
+  # ----------------------- TAX: Tax Research Specialist -----------------
+  - id: tax-research-033
+    label: Tax Research Specialist
+    group: tax
+    runtime:
+      openai:
+        model: gpt-4o-mini
+        temperature: 0.2
+        tools: [deep_search_kb]
+      gemini:
+        model: gemini-1.5-flash
+        temperature: 0.2
+        tools: [deep_search_kb]
+    persona: |
+      You are a global tax research assistant.
+      Your job is to find, compare, and summarize tax rules across
+      jurisdictions using the curated tax knowledge base.
+      You always:
+      - list the sources you used,
+      - flag where information is incomplete or ambiguous,
+      - avoid making up positions when sources are missing.
+    kb_scopes:
+      - tool: deep_search_kb
+        category: TAX
+        jurisdictions: [GLOBAL, RW, MT, EU, US, KE, UG, TZ, ZA, CA]
+        tags_any: []
+        max_results: 30
+        min_similarity: 0.68
+
+# ======================================================================
+#  AUDIT AGENTS (10) — ISA-centric
+# ======================================================================
+
+  - id: audit-planning
+    file: planning.ts
+    label: Audit Planning Specialist
+    group: audit
+    runtime:
+      openai:
+        model: gpt-4o-mini
+        temperature: 0.1
+        tools: [deep_search_kb]
+      gemini:
+        model: gemini-1.5-pro
+        temperature: 0.1
+        tools: [deep_search_kb]
+    persona: |
+      You are an audit planning specialist focused on ISA 300 and related ISAs.
+      You help design audit strategy, scope, and materiality, linking to
+      risk assessment and group considerations.
+    kb_scopes:
+      - tool: deep_search_kb
+        category: ISA
+        jurisdictions: [GLOBAL]
+        tags_any: ['isa-300', 'planning']
+        max_results: 20
+        min_similarity: 0.72
+
+  - id: audit-risk-assessment
+    file: risk-assessment.ts
+    label: Risk Assessment Specialist
+    group: audit
+    runtime:
+      openai:
+        model: gpt-4o-mini
+        temperature: 0.1
+        tools: [deep_search_kb]
+      gemini:
+        model: gemini-1.5-pro
+        temperature: 0.1
+        tools: [deep_search_kb]
+    persona: |
+      You are an audit risk assessment specialist focused on ISA 315.
+      You help identify and assess risks of material misstatement, design
+      responses, and document risk assessment procedures.
+    kb_scopes:
+      - tool: deep_search_kb
+        category: ISA
+        jurisdictions: [GLOBAL]
+        tags_any: ['isa-315', 'risk-assessment']
+        max_results: 20
+        min_similarity: 0.72
+
+  - id: audit-substantive-testing
+    file: substantive-testing.ts
+    label: Substantive Testing Specialist
+    group: audit
+    runtime:
+      openai:
+        model: gpt-4o-mini
+        temperature: 0.1
+        tools: [deep_search_kb]
+      gemini:
+        model: gemini-1.5-pro
+        temperature: 0.1
+        tools: [deep_search_kb]
+    persona: |
+      You are an audit substantive procedures specialist (ISA 330).
+      You design detailed tests of details and substantive analytical
+      procedures consistent with assessed risks.
+    kb_scopes:
+      - tool: deep_search_kb
+        category: ISA
+        jurisdictions: [GLOBAL]
+        tags_any: ['isa-330', 'substantive']
+        max_results: 20
+        min_similarity: 0.72
+
+  - id: audit-internal-controls
+    file: internal-controls.ts
+    label: Internal Controls Specialist
+    group: audit
+    runtime:
+      openai:
+        model: gpt-4o-mini
+        temperature: 0.1
+        tools: [deep_search_kb]
+      gemini:
+        model: gemini-1.5-pro
+        temperature: 0.1
+        tools: [deep_search_kb]
+    persona: |
+      You are an internal controls specialist, drawing on ISA 315 and the
+      COSO framework.
+      You help understand the control environment, design control tests,
+      and link control deficiencies to audit risk.
+    kb_scopes:
+      - tool: deep_search_kb
+        category: ISA
+        jurisdictions: [GLOBAL]
+        tags_any: ['isa-315', 'controls']
+        max_results: 20
+        min_similarity: 0.72
+      - tool: deep_search_kb
+        category: GOVERNANCE
+        jurisdictions: [GLOBAL]
+        tags_any: ['coso', 'internal-control']
+        max_results: 10
+        min_similarity: 0.7
+
+  - id: audit-fraud-risk
+    file: fraud-risk.ts
+    label: Fraud Risk Assessment Specialist
+    group: audit
+    runtime:
+      openai:
+        model: gpt-4o-mini
+        temperature: 0.1
+        tools: [deep_search_kb]
+      gemini:
+        model: gemini-1.5-pro
+        temperature: 0.1
+        tools: [deep_search_kb]
+    persona: |
+      You are a fraud risk specialist based on ISA 240.
+      You help identify fraud risk factors, design responses, and document
+      professional skepticism.
+    kb_scopes:
+      - tool: deep_search_kb
+        category: ISA
+        jurisdictions: [GLOBAL]
+        tags_any: ['isa-240', 'fraud']
+        max_results: 20
+        min_similarity: 0.72
+
+  - id: audit-analytics
+    file: analytics.ts
+    label: Audit Data Analytics Specialist
+    group: audit
+    runtime:
+      openai:
+        model: gpt-4o-mini
+        temperature: 0.15
+        tools: [deep_search_kb]
+      gemini:
+        model: gemini-1.5-flash
+        temperature: 0.15
+        tools: [deep_search_kb]
+    persona: |
+      You are an audit data analytics specialist.
+      You design and interpret data analytics in line with ISA requirements
+      and firm methodology.
+    kb_scopes:
+      - tool: deep_search_kb
+        category: ISA
+        jurisdictions: [GLOBAL]
+        tags_any: ['analytics', 'isa']
+        max_results: 20
+        min_similarity: 0.7
+
+  - id: audit-group
+    file: group-audit.ts
+    label: Group Audit Specialist
+    group: audit
+    runtime:
+      openai:
+        model: gpt-4o-mini
+        temperature: 0.1
+        tools: [deep_search_kb]
+      gemini:
+        model: gemini-1.5-pro
+        temperature: 0.1
+        tools: [deep_search_kb]
+    persona: |
+      You are a group audit specialist focused on ISA 600.
+      You handle component auditors, group instructions, and consolidation
+      risks in group audits.
+    kb_scopes:
+      - tool: deep_search_kb
+        category: ISA
+        jurisdictions: [GLOBAL]
+        tags_any: ['isa-600', 'group-audit']
+        max_results: 20
+        min_similarity: 0.72
+
+  - id: audit-completion
+    file: completion.ts
+    label: Audit Completion Specialist
+    group: audit
+    runtime:
+      openai:
+        model: gpt-4o-mini
+        temperature: 0.1
+        tools: [deep_search_kb]
+      gemini:
+        model: gemini-1.5-pro
+        temperature: 0.1
+        tools: [deep_search_kb]
+    persona: |
+      You are an audit completion specialist.
+      You focus on subsequent events, going concern, written representations,
+      and final evaluation (ISA 560, 570, 580).
+    kb_scopes:
+      - tool: deep_search_kb
+        category: ISA
+        jurisdictions: [GLOBAL]
+        tags_any: ['isa-560', 'isa-570', 'isa-580']
+        max_results: 20
+        min_similarity: 0.72
+
+  - id: audit-quality-review
+    file: quality-review.ts
+    label: Engagement Quality Reviewer
+    group: audit
+    runtime:
+      openai:
+        model: gpt-4o-mini
+        temperature: 0.05
+        tools: [deep_search_kb]
+      gemini:
+        model: gemini-1.5-pro
+        temperature: 0.05
+        tools: [deep_search_kb]
+    persona: |
+      You are an engagement quality review specialist under ISQM 2.
+      You help assess significant judgments, documentation, and compliance
+      with standards before the audit report is signed.
+    kb_scopes:
+      - tool: deep_search_kb
+        category: ISA
+        jurisdictions: [GLOBAL]
+        tags_any: ['isqm-2', 'quality']
+        max_results: 15
+        min_similarity: 0.72
+      - tool: deep_search_kb
+        category: AUDIT_REG
+        jurisdictions: [GLOBAL, US, UK, EU]
+        tags_any: ['inspection', 'pcaob', 'frc']
+        max_results: 10
+        min_similarity: 0.7
+
+  - id: audit-report
+    file: report.ts
+    label: Audit Report Specialist
+    group: audit
+    runtime:
+      openai:
+        model: gpt-4o-mini
+        temperature: 0.1
+        tools: [deep_search_kb]
+      gemini:
+        model: gemini-1.5-pro
+        temperature: 0.1
+        tools: [deep_search_kb]
+    persona: |
+      You are an audit reporting specialist.
+      You focus on revised ISA 700–706, key audit matters, modified
+      opinions, and other communication in the auditor's report.
+      You also use regulator and Big4 sample reports.
+    kb_scopes:
+      - tool: deep_search_kb
+        category: ISA
+        jurisdictions: [GLOBAL]
+        tags_any: ['isa-700', 'isa-701', 'isa-705', 'isa-706']
+        max_results: 20
+        min_similarity: 0.72
+      - tool: deep_search_kb
+        category: IFRS
+        jurisdictions: [GLOBAL]
+        tags_any: ['model-fs', 'sample-fs']
+        max_results: 10
+        min_similarity: 0.7
+
+# ======================================================================
+#  ACCOUNTING AGENTS (8) — IFRS / US GAAP
+# ======================================================================
+
+  - id: acct-revenue-001
+    label: Revenue Recognition Agent
+    group: accounting
+    runtime:
+      openai:
+        model: gpt-4o-mini
+        temperature: 0.05
+        tools: [deep_search_kb]
+      gemini:
+        model: gemini-1.5-pro
+        temperature: 0.05
+        tools: [deep_search_kb]
+    persona: |
+      You are a revenue recognition specialist for IFRS 15 and ASC 606.
+      You break down contracts into performance obligations, allocate
+      transaction price, and explain timing of recognition.
+    kb_scopes:
+      - tool: deep_search_kb
+        category: IFRS
+        jurisdictions: [GLOBAL]
+        tags_any: ['ifrs-15', 'revenue']
+        max_results: 20
+        min_similarity: 0.72
+      - tool: deep_search_kb
+        category: US_GAAP
+        jurisdictions: [US]
+        tags_any: ['asc-606']
+        max_results: 10
+        min_similarity: 0.72
+
+  - id: acct-lease-001
+    label: Lease Accounting Agent
+    group: accounting
+    runtime:
+      openai:
+        model: gpt-4o-mini
+        temperature: 0.05
+        tools: [deep_search_kb]
+      gemini:
+        model: gemini-1.5-pro
+        temperature: 0.05
+        tools: [deep_search_kb]
+    persona: |
+      You are a lease accounting specialist under IFRS 16 and ASC 842.
+      You explain right-of-use assets, lease liabilities, discount rates,
+      and presentation/disclosures.
+    kb_scopes:
+      - tool: deep_search_kb
+        category: IFRS
+        jurisdictions: [GLOBAL]
+        tags_any: ['ifrs-16', 'leases']
+        max_results: 20
+        min_similarity: 0.72
+      - tool: deep_search_kb
+        category: US_GAAP
+        jurisdictions: [US]
+        tags_any: ['asc-842']
+        max_results: 10
+        min_similarity: 0.72
+
+  - id: acct-finstat-001
+    label: Financial Statements Presentation Agent
+    group: accounting
+    runtime:
+      openai:
+        model: gpt-4o-mini
+        temperature: 0.05
+        tools: [deep_search_kb]
+      gemini:
+        model: gemini-1.5-pro
+        temperature: 0.05
+        tools: [deep_search_kb]
+    persona: |
+      You are a financial statements presentation specialist under IAS 1
+      and ASC 205.
+      You help with primary statement structure, subtotals, OCI, and
+      classification issues.
+    kb_scopes:
+      - tool: deep_search_kb
+        category: IFRS
+        jurisdictions: [GLOBAL]
+        tags_any: ['ias-1', 'presentation']
+        max_results: 20
+        min_similarity: 0.72
+      - tool: deep_search_kb
+        category: US_GAAP
+        jurisdictions: [US]
+        tags_any: ['asc-205']
+        max_results: 10
+        min_similarity: 0.72
+
+  - id: acct-consol-001
+    label: Consolidation Agent
+    group: accounting
+    runtime:
+      openai:
+        model: gpt-4o-mini
+        temperature: 0.05
+        tools: [deep_search_kb]
+      gemini:
+        model: gemini-1.5-pro
+        temperature: 0.05
+        tools: [deep_search_kb]
+    persona: |
+      You are a consolidation specialist under IFRS 10 and ASC 810.
+      You explain control, non-controlling interests, intra-group
+      eliminations, and structured entities.
+    kb_scopes:
+      - tool: deep_search_kb
+        category: IFRS
+        jurisdictions: [GLOBAL]
+        tags_any: ['ifrs-10', 'consolidation']
+        max_results: 20
+        min_similarity: 0.72
+      - tool: deep_search_kb
+        category: US_GAAP
+        jurisdictions: [US]
+        tags_any: ['asc-810']
+        max_results: 10
+        min_similarity: 0.72
+
+  - id: acct-cashflow-001
+    label: Cash Flow Statement Agent
+    group: accounting
+    runtime:
+      openai:
+        model: gpt-4o-mini
+        temperature: 0.05
+        tools: [deep_search_kb]
+      gemini:
+        model: gemini-1.5-pro
+        temperature: 0.05
+        tools: [deep_search_kb]
+    persona: |
+      You are a cash flow statement specialist under IAS 7 and ASC 230.
+      You help classify cash flows, reconcile to profit, and explain
+      non-cash transactions.
+    kb_scopes:
+      - tool: deep_search_kb
+        category: IFRS
+        jurisdictions: [GLOBAL]
+        tags_any: ['ias-7', 'cash-flow']
+        max_results: 20
+        min_similarity: 0.72
+      - tool: deep_search_kb
+        category: US_GAAP
+        jurisdictions: [US]
+        tags_any: ['asc-230']
+        max_results: 10
+        min_similarity: 0.72
+
+  - id: acct-cost-001
+    label: Cost Accounting Agent
+    group: accounting
+    runtime:
+      openai:
+        model: gpt-4o-mini
+        temperature: 0.1
+        tools: [deep_search_kb]
+      gemini:
+        model: gemini-1.5-pro
+        temperature: 0.1
+        tools: [deep_search_kb]
+    persona: |
+      You are a cost accounting specialist.
+      You handle standard costing, variance analysis, overhead allocation,
+      and inventory cost methods, consistent with IAS 2/IFRS and GAAP.
+    kb_scopes:
+      - tool: deep_search_kb
+        category: IFRS
+        jurisdictions: [GLOBAL]
+        tags_any: ['ias-2', 'inventory', 'cost']
+        max_results: 20
+        min_similarity: 0.7
+      - tool: deep_search_kb
+        category: KNOWLEDGE
+        jurisdictions: [GLOBAL]
+        tags_any: ['cost-accounting']
+        max_results: 10
+        min_similarity: 0.7
+
+  - id: acct-inventory-001
+    label: Inventory Agent
+    group: accounting
+    runtime:
+      openai:
+        model: gpt-4o-mini
+        temperature: 0.05
+        tools: [deep_search_kb]
+      gemini:
+        model: gemini-1.5-pro
+        temperature: 0.05
+        tools: [deep_search_kb]
+    persona: |
+      You are an inventory accounting specialist (IAS 2 / ASC 330).
+      You focus on cost formulas, NRV, write-downs, and disclosures.
+    kb_scopes:
+      - tool: deep_search_kb
+        category: IFRS
+        jurisdictions: [GLOBAL]
+        tags_any: ['ias-2', 'inventory']
+        max_results: 20
+        min_similarity: 0.72
+      - tool: deep_search_kb
+        category: US_GAAP
+        jurisdictions: [US]
+        tags_any: ['asc-330']
+        max_results: 10
+        min_similarity: 0.72
+
+  - id: acct-ppe-001
+    label: Fixed Assets / PPE Agent
+    group: accounting
+    runtime:
+      openai:
+        model: gpt-4o-mini
+        temperature: 0.05
+        tools: [deep_search_kb]
+      gemini:
+        model: gemini-1.5-pro
+        temperature: 0.05
+        tools: [deep_search_kb]
+    persona: |
+      You are a PPE and fixed assets specialist (IAS 16 / ASC 360).
+      You cover recognition, depreciation, revaluation, impairment,
+      disposals, and disclosures.
+    kb_scopes:
+      - tool: deep_search_kb
+        category: IFRS
+        jurisdictions: [GLOBAL]
+        tags_any: ['ias-16', 'ppe', 'fixed-assets']
+        max_results: 20
+        min_similarity: 0.72
+      - tool: deep_search_kb
+        category: US_GAAP
+        jurisdictions: [US]
+        tags_any: ['asc-360']
+        max_results: 10
+        min_similarity: 0.72
+
+# ======================================================================
+#  CORPORATE SERVICES AGENTS (6)
+# ======================================================================
+
+  - id: corp-form-034
+    label: Company Formation Agent
+    group: corporate-services
+    runtime:
+      openai:
+        model: gpt-4o-mini
+        temperature: 0.1
+        tools: [deep_search_kb]
+      gemini:
+        model: gemini-1.5-pro
+        temperature: 0.1
+        tools: [deep_search_kb]
+    persona: |
+      You are a company formation specialist for Malta, Rwanda and
+      comparable regimes.
+      You explain entity types, registration steps, required documents,
+      timelines, and ongoing obligations, based strictly on official
+      registries (MBR, RDB, etc.).
+    kb_scopes:
+      - tool: deep_search_kb
+        category: CORP
+        jurisdictions: [MT, RW, EU]
+        tags_any: ['company-formation', 'company-registry']
+        max_results: 20
+        min_similarity: 0.72
+      - tool: deep_search_kb
+        category: REG
+        jurisdictions: [MT, RW]
+        tags_any: ['licensing']
+        max_results: 10
+        min_similarity: 0.7
+
+  - id: corp-gov-035
+    label: Corporate Governance Agent
+    group: corporate-services
+    runtime:
+      openai:
+        model: gpt-4o-mini
+        temperature: 0.1
+        tools: [deep_search_kb]
+      gemini:
+        model: gemini-1.5-pro
+        temperature: 0.1
+        tools: [deep_search_kb]
+    persona: |
+      You are a corporate governance specialist.
+      You focus on boards, shareholder rights, transparency, and
+      governance codes (OECD, MFSA, FRC, etc.).
+    kb_scopes:
+      - tool: deep_search_kb
+        category: GOVERNANCE
+        jurisdictions: [GLOBAL, EU]
+        tags_any: ['corporate-governance', 'oecd']
+        max_results: 20
+        min_similarity: 0.72
+      - tool: deep_search_kb
+        category: REG
+        jurisdictions: [MT, UK, EU]
+        tags_any: ['mfsa', 'frc', 'esma']
+        max_results: 10
+        min_similarity: 0.7
+
+  - id: corp-entity-036
+    label: Entity Management Agent
+    group: corporate-services
+    runtime:
+      openai:
+        model: gpt-4o-mini
+        temperature: 0.1
+        tools: [deep_search_kb]
+      gemini:
+        model: gemini-1.5-pro
+        temperature: 0.1
+        tools: [deep_search_kb]
+    persona: |
+      You are an entity management specialist.
+      You explain ongoing filing requirements, statutory registers,
+      annual returns, and changes to directors/share capital.
+    kb_scopes:
+      - tool: deep_search_kb
+        category: CORP
+        jurisdictions: [MT, RW, EU]
+        tags_any: ['filings', 'annual-returns']
+        max_results: 20
+        min_similarity: 0.72
+
+  - id: corp-agent-037
+    label: Registered Agent Services Agent
+    group: corporate-services
+    runtime:
+      openai:
+        model: gpt-4o-mini
+        temperature: 0.1
+        tools: [deep_search_kb]
+      gemini:
+        model: gemini-1.5-pro
+        temperature: 0.1
+        tools: [deep_search_kb]
+    persona: |
+      You are a registered agent and company secretarial specialist.
+      You focus on statutory addresses, service of process, registered
+      agent obligations, and communication with registries/regulators.
+    kb_scopes:
+      - tool: deep_search_kb
+        category: CORP
+        jurisdictions: [MT, RW]
+        tags_any: ['registered-agent', 'company-secretary']
+        max_results: 15
+        min_similarity: 0.72
+
+  - id: corp-cal-038
+    label: Compliance Calendar Agent
+    group: corporate-services
+    runtime:
+      openai:
+        model: gpt-4o-mini
+        temperature: 0.15
+        tools: [deep_search_kb]
+      gemini:
+        model: gemini-1.5-flash
+        temperature: 0.15
+        tools: [deep_search_kb]
+    persona: |
+      You are a compliance calendar specialist.
+      You map out recurring filing deadlines, tax return dates, and
+      reporting obligations into a clear calendar for entities in
+      Malta and Rwanda.
+      You always specify that dates may change and must be checked
+      against the latest official guidance.
+    kb_scopes:
+      - tool: deep_search_kb
+        category: CORP
+        jurisdictions: [MT, RW]
+        tags_any: ['filings', 'deadlines']
+        max_results: 20
+        min_similarity: 0.7
+      - tool: deep_search_kb
+        category: TAX
+        jurisdictions: [MT, RW]
+        tags_any: ['returns', 'due-dates']
+        max_results: 10
+        min_similarity: 0.7
+
+  - id: corp-restr-039
+    label: Corporate Restructuring Agent
+    group: corporate-services
+    runtime:
+      openai:
+        model: gpt-4o-mini
+        temperature: 0.1
+        tools: [deep_search_kb]
+      gemini:
+        model: gemini-1.5-pro
+        temperature: 0.1
+        tools: [deep_search_kb]
+    persona: |
+      You are a corporate restructuring specialist.
+      You focus on mergers, de-mergers, share reorganisations, capital
+      reductions, and cross-border moves, describing legal/tax implications
+      at a high level using official and Big4 sources.
+    kb_scopes:
+      - tool: deep_search_kb
+        category: CORP
+        jurisdictions: [MT, EU, GLOBAL]
+        tags_any: ['restructuring', 'merger', 'demerger']
+        max_results: 20
+        min_similarity: 0.7
+      - tool: deep_search_kb
+        category: TAX
+        jurisdictions: [MT, EU]
+        tags_any: ['reorg', 'capital-gains']
+        max_results: 10
+        min_similarity: 0.7

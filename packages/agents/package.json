@@ -21,7 +21,10 @@
     "test:watch": "vitest --watch",
     "test:coverage": "vitest --coverage",
     "lint": "eslint src --ext .ts,.tsx",
-    "lint:fix": "eslint src --ext .ts,.tsx --fix"
+    "lint:fix": "eslint src --ext .ts,.tsx --fix",
+    "validate:registry": "node scripts/validate-registry.js",
+    "validate:verbose": "node scripts/validate-registry.js --verbose",
+    "validate:full": "node scripts/validate-registry.js --verbose --check-scopes --check-models"
   },
   "dependencies": {
     "@prisma-glow/core": "workspace:*",

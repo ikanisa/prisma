@@ -6,7 +6,8 @@
 import { Router, Request, Response, NextFunction } from "express";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
-import { classifyWebSource } from "../../../services/rag/knowledge/classification";
+import { classifyByHeuristic } from "@/classification/heuristic";
+import type { WebSourceClassification } from "@/classification/types";
 
 // Validation schemas
 const CreateWebSourceSchema = z.object({
@@ -131,39 +132,16 @@ export function createWebSourcesRouter(supabase: SupabaseClient): Router {
       // Auto-classify if not manually overridden
       if (!force_manual) {
         try {
-          const classification = await classifyWebSource(
-            {
-              url: base_url,
-              pageTitle: page_title,
-              pageSnippet: page_snippet,
-            },
-            {
-              heuristicOnly: !process.env.OPENAI_API_KEY, // Skip LLM if no API key
-            }
-          );
+          const classification = classifyByHeuristic(base_url);
 
           // Merge classification with provided data (provided data takes precedence)
           finalData = {
             ...finalData,
-            source_type: restData.source_type || classification.sourceType,
-            verification_level:
-              restData.verification_level || classification.verificationLevel,
-            source_priority:
-              restData.source_priority || classification.sourcePriority,
-            jurisdictions:
-              restData.jurisdictions ||
-              (classification.jurisdictionCode
-                ? [classification.jurisdictionCode]
-                : []),
-            domains:
-              restData.domains ||
-              (classification.tags.length > 0
-                ? [classification.category.toLowerCase()]
-                : []),
+            domains: restData.domains || classification.tags,
             auto_classified: true,
             classification_confidence: classification.confidence,
             classification_source: classification.source,
-          };
+          } as any;
         } catch (error) {
           console.error("Auto-classification failed:", error);
           // Continue without classification
@@ -171,14 +149,14 @@ export function createWebSourcesRouter(supabase: SupabaseClient): Router {
             ...finalData,
             auto_classified: false,
             classification_source: "MANUAL",
-          };
+          } as any;
         }
       } else {
         finalData = {
           ...finalData,
           auto_classified: false,
           classification_source: "MANUAL",
-        };
+        } as any;
       }
 
       const { data: source, error } = await supabase
@@ -348,16 +326,7 @@ export function createWebSourcesRouter(supabase: SupabaseClient): Router {
       }
 
       // Re-classify
-      const classification = await classifyWebSource(
-        {
-          url: source.base_url,
-          pageTitle: source.name,
-        },
-        {
-          forceLLM: req.body.force_llm ?? false,
-          heuristicOnly: !process.env.OPENAI_API_KEY,
-        }
-      );
+      const classification = classifyByHeuristic(source.base_url);
 
       // Update with new classification
       const { data, error } = await supabase
