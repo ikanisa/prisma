@@ -73,12 +73,12 @@ CREATE TABLE IF NOT EXISTS analytics_events (
 );
 
 -- Indexes
-CREATE INDEX idx_documents_embedding ON documents USING ivfflat (embedding vector_cosine_ops);
-CREATE INDEX idx_documents_organization ON documents(organization_id);
-CREATE INDEX idx_chat_sessions_user ON chat_sessions(user_id);
-CREATE INDEX idx_chat_messages_session ON chat_messages(session_id);
-CREATE INDEX idx_analytics_events_timestamp ON analytics_events(timestamp DESC);
-CREATE INDEX idx_documents_content ON documents USING gin(to_tsvector('english', content));
+CREATE INDEX IF NOT EXISTS idx_documents_embedding ON documents USING ivfflat (embedding vector_cosine_ops);
+CREATE INDEX IF NOT EXISTS idx_documents_organization ON documents(organization_id);
+CREATE INDEX IF NOT EXISTS idx_chat_sessions_user ON chat_sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_chat_messages_session ON chat_messages(session_id);
+CREATE INDEX IF NOT EXISTS idx_analytics_events_timestamp ON analytics_events(timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_documents_content ON documents USING gin(to_tsvector('english', content));
 
 -- Enable RLS
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
