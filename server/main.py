@@ -7831,6 +7831,7 @@ app.include_router(executions_router)
 from server.api.personas import router as personas_router
 from server.api.tools import router as tools_router
 from server.api.knowledge import router as knowledge_router
+from server.api.deep_search import router as deep_search_router
 
 app.include_router(personas_router)
 app.include_router(tools_router)
@@ -7840,3 +7841,4 @@ app.include_router(knowledge_router)
 from server.api.agents_sdk import router as agents_sdk_router
 
 app.include_router(agents_sdk_router)
+app.include_router(deep_search_router)

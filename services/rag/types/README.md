@@ -1,6 +1,6 @@
 # OpenAI Responses API Types
 
-TypeScript type definitions for OpenAI's Responses API tools, including Web Search and File Search.
+TypeScript type definitions for OpenAI's Responses API tools, including Web Search, File Search, and Curated Knowledge Base.
 
 ## Overview
 
@@ -18,6 +18,14 @@ This directory contains comprehensive type definitions for working with OpenAI's
 - File citation and annotation types
 - Search result types
 - Metadata filtering types
+
+### Curated Knowledge Base (`curated-knowledge-base.ts`)
+- Knowledge standard types (IFRS, IAS, ISA, GAAP, etc.)
+- Verification levels (primary, secondary, tertiary)
+- Deep Search source types
+- Retrieval guardrail types
+- Reasoning trace types
+- Agent knowledge access types
 
 ## Key Types
 
