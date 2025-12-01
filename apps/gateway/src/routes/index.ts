@@ -3,3 +3,4 @@ export { createPersonaRouter, createStandalonePersonaRouter } from './personas.j
 export { createToolRouter, createAgentToolRouter } from './tools.js';
 export { createKnowledgeRouter, createAgentKnowledgeRouter } from './knowledge.js';
 export { createWebSourcesRouter } from './web-sources.js';
+export { createSpecialistAgentsRouter } from './specialist-agents.js';

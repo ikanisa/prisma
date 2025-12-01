@@ -8,6 +8,7 @@ import express, { Request, Response, NextFunction, Express } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import { createClient } from '@supabase/supabase-js';
+import { validateEnv, getSafeEnvConfig } from './config/env.js';
 
 import {
   createAgentRouter,
@@ -17,9 +18,21 @@ import {
   createAgentToolRouter,
   createKnowledgeRouter,
   createAgentKnowledgeRouter,
+  createSpecialistAgentsRouter,
 } from './routes/index.js';
 import { verifySupabaseToken } from './middleware/auth.js';
 import { apiLimiter } from './middleware/rateLimit.js';
+import { agentExecutionLimiter, autoRouteLimiter } from './middleware/agentRateLimit.js';
+
+// Validate environment on startup
+try {
+  validateEnv();
+  const safeConfig = getSafeEnvConfig();
+  console.log('📋 Configuration:', safeConfig);
+} catch (error) {
+  console.error('Failed to start gateway:', error);
+  process.exit(1);
+}
 
 // Environment variables
 const PORT = process.env.PORT || 3001;
@@ -82,9 +95,40 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   next();
 });
 
-// Health check
-app.get('/health', (req: Request, res: Response) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+// Health check - enhanced
+app.get('/health', async (req: Request, res: Response) => {
+  const health = {
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    environment: process.env.NODE_ENV || 'development',
+    services: {
+      supabase: 'unknown',
+      rag: 'unknown',
+    },
+  };
+
+  // Check Supabase connection
+  try {
+    const { error } = await supabase.from('agents').select('count').limit(1);
+    health.services.supabase = error ? 'error' : 'ok';
+  } catch {
+    health.services.supabase = 'error';
+  }
+
+  // Check RAG service
+  try {
+    const ragUrl = process.env.RAG_SERVICE_URL;
+    if (ragUrl) {
+      const response = await fetch(`${ragUrl}/health`, { signal: AbortSignal.timeout(2000) });
+      health.services.rag = response.ok ? 'ok' : 'error';
+    }
+  } catch {
+    health.services.rag = 'error';
+  }
+
+  const statusCode = health.services.supabase === 'ok' ? 200 : 503;
+  res.status(statusCode).json(health);
 });
 
 // API v1 routes
@@ -97,7 +141,13 @@ apiV1.use(apiLimiter);
 // This ensures all requests are authenticated before reaching route handlers
 apiV1.use(verifySupabaseToken);
 
-// Agent routes
+// Specialist agents routes (new AI-powered agents with tool calling)
+const specialistAgentsRouter = createSpecialistAgentsRouter(supabase);
+specialistAgentsRouter.use('/:agentId/execute', agentExecutionLimiter);
+specialistAgentsRouter.use('/auto-route', autoRouteLimiter);
+apiV1.use('/specialist-agents', specialistAgentsRouter);
+
+// Agent routes (legacy CRUD operations)
 apiV1.use('/agents', createAgentRouter(supabase));
 
 // Nested agent routes

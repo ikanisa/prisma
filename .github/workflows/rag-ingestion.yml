@@ -1,0 +1,100 @@
+name: RAG Ingestion Pipeline
+
+on:
+  # Run daily at 2 AM UTC
+  schedule:
+    - cron: '0 2 * * *'
+  
+  # Allow manual trigger
+  workflow_dispatch:
+    inputs:
+      max_pages:
+        description: 'Max pages to process (default: 25)'
+        required: false
+        default: '25'
+
+jobs:
+  ingest-knowledge:
+    name: Ingest Knowledge Web Sources
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 9.12.3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run RAG ingestion
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: pnpm run ingest:web
+
+      - name: Query ingestion stats
+        if: always()
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          echo "📊 Ingestion Statistics:"
+          psql "$DATABASE_URL" -c "
+            select 
+              status, 
+              count(*) as count
+            from knowledge_web_pages 
+            group by status 
+            order by count desc;
+          "
+          
+          echo ""
+          echo "📦 Chunk Statistics:"
+          psql "$DATABASE_URL" -c "
+            select 
+              category,
+              jurisdiction_code,
+              count(*) as chunks,
+              round(avg(length(content))) as avg_chunk_size
+            from knowledge_chunks
+            group by category, jurisdiction_code
+            order by chunks desc
+            limit 10;
+          "
+          
+          echo ""
+          echo "⚠️ Recent Errors (last 5):"
+          psql "$DATABASE_URL" -c "
+            select 
+              url, 
+              fetch_error, 
+              last_fetched_at 
+            from knowledge_web_pages 
+            where status = 'ERROR' 
+            order by last_fetched_at desc 
+            limit 5;
+          " || echo "No errors found"
+
+      - name: Notify on failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: '🚨 RAG Ingestion Failed',
+              body: `RAG ingestion pipeline failed on ${new Date().toISOString()}\n\nWorkflow: ${context.workflow}\nRun: ${context.runId}`,
+              labels: ['bug', 'rag', 'automated']
+            })
