@@ -8,7 +8,7 @@ import { Button } from '@/components/enhanced-button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { isSupabaseConfigured } from '@/integrations/supabase/client';
-import { useAppStore } from '@/stores/mock-data';
+import { useOrganizations } from '@/hooks/use-organizations';
 import {
   addTaxDisputeEvent,
   computeTreatyWht,
@@ -47,7 +47,7 @@ const toNumberString = (value: string) => value.replace(/[^0-9.]/g, '');
 
 export default function TreatyWhtPage() {
   const { toast } = useToast();
-  const { currentOrg } = useAppStore();
+  const { currentOrg } = useOrganizations();
   const [taxEntityId, setTaxEntityId] = useState('');
 
   const [whtForm, setWhtForm] = useState({

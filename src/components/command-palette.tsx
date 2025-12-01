@@ -27,7 +27,10 @@ import {
   ClipboardCheck,
   AlarmClock,
 } from "lucide-react";
-import { useAppStore } from "@/stores/mock-data";
+import { useOrganizations } from "@/hooks/use-organizations";
+import { useClients } from "@/hooks/use-clients";
+import { useEngagements } from "@/hooks/use-engagements";
+import { useTasks } from "@/hooks/use-tasks";
 
 interface CommandPaletteProps {
   open: boolean;
@@ -37,11 +40,12 @@ interface CommandPaletteProps {
 export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
   const navigate = useNavigate();
   const { orgSlug } = useParams();
-  const { getOrgClients, getOrgEngagements, getOrgTasks, currentOrg } = useAppStore();
-  
-  const clients = getOrgClients(currentOrg?.id || '');
-  const engagements = getOrgEngagements(currentOrg?.id || '');
-  const tasks = getOrgTasks(currentOrg?.id || '');
+  const { currentOrg } = useOrganizations();
+  const activeOrgId = currentOrg?.id ?? undefined;
+  const { data: clients = [] } = useClients(activeOrgId);
+  const { data: engagements = [] } = useEngagements(activeOrgId);
+  const { data: tasks = [] } = useTasks(activeOrgId);
+  const resolvedSlug = orgSlug ?? currentOrg?.slug ?? "";
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -64,67 +68,67 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
     {
       name: "Dashboard",
       icon: BarChart3,
-      action: () => navigate(`/${orgSlug}/dashboard`),
+      action: () => navigate(`/${resolvedSlug}/dashboard`),
     },
     {
       name: "Clients",
       icon: Users,
-      action: () => navigate(`/${orgSlug}/clients`),
+      action: () => navigate(`/${resolvedSlug}/clients`),
     },
     {
       name: "Engagements",
       icon: Briefcase,
-      action: () => navigate(`/${orgSlug}/engagements`),
+      action: () => navigate(`/${resolvedSlug}/engagements`),
     },
     {
       name: "Audit Workspace",
       icon: ShieldCheck,
-      action: () => navigate(`/${orgSlug}/audit/controls`),
+      action: () => navigate(`/${resolvedSlug}/audit/controls`),
     },
     {
       name: "Accounting Close",
       icon: Calculator,
-      action: () => navigate(`/${orgSlug}/accounting`),
+      action: () => navigate(`/${resolvedSlug}/accounting`),
     },
     {
       name: "Onboarding Checklist",
       icon: ClipboardCheck,
-      action: () => navigate(`/${orgSlug}/onboarding`),
+      action: () => navigate(`/${resolvedSlug}/onboarding`),
     },
     {
       name: "Autopilot",
       icon: AlarmClock,
-      action: () => navigate(`/${orgSlug}/autopilot`),
+      action: () => navigate(`/${resolvedSlug}/autopilot`),
     },
     {
       name: "Agent Configuration",
       icon: ShieldCheck,
-      action: () => navigate(`/${orgSlug}/agents/configuration`),
+      action: () => navigate(`/${resolvedSlug}/agents/configuration`),
     },
     {
       name: "Tasks",
       icon: CheckSquare,
-      action: () => navigate(`/${orgSlug}/tasks`),
+      action: () => navigate(`/${resolvedSlug}/tasks`),
     },
     {
       name: "Documents",
       icon: FileText,
-      action: () => navigate(`/${orgSlug}/documents`),
+      action: () => navigate(`/${resolvedSlug}/documents`),
     },
     {
       name: "Notifications",
       icon: Bell,
-      action: () => navigate(`/${orgSlug}/notifications`),
+      action: () => navigate(`/${resolvedSlug}/notifications`),
     },
     {
       name: "Activity",
       icon: Activity,
-      action: () => navigate(`/${orgSlug}/activity`),
+      action: () => navigate(`/${resolvedSlug}/activity`),
     },
     {
       name: "Settings",
       icon: Settings,
-      action: () => navigate(`/${orgSlug}/settings`),
+      action: () => navigate(`/${resolvedSlug}/settings`),
     },
   ];
 
@@ -132,17 +136,17 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
     {
       name: "Add New Client",
       icon: Plus,
-      action: () => navigate(`/${orgSlug}/clients?action=create`),
+      action: () => navigate(`/${resolvedSlug}/clients?action=create`),
     },
     {
       name: "Create Engagement",
       icon: Plus,
-      action: () => navigate(`/${orgSlug}/engagements?action=create`),
+      action: () => navigate(`/${resolvedSlug}/engagements?action=create`),
     },
     {
       name: "New Task",
       icon: Plus,
-      action: () => navigate(`/${orgSlug}/tasks?action=create`),
+      action: () => navigate(`/${resolvedSlug}/tasks?action=create`),
     },
   ];
 

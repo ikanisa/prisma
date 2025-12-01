@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -28,7 +28,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/enhanced-button";
 import { useToast } from "@/hooks/use-toast";
-import { useAppStore, Engagement, EngagementType, EngagementStatus } from "@/stores/mock-data";
+import { useOrganizations } from "@/hooks/use-organizations";
+import { useClients } from "@/hooks/use-clients";
+import {
+  useCreateEngagement,
+  useUpdateEngagement,
+  type EngagementRecord,
+} from "@/hooks/use-engagements";
 
 const engagementSchema = z.object({
   clientId: z.string().min(1, "Client is required"),
@@ -45,16 +51,28 @@ type EngagementFormData = z.infer<typeof engagementSchema>;
 interface EngagementFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  engagement?: Engagement | null;
+  engagement?: EngagementRecord | null;
 }
 
 export function EngagementForm({ open, onOpenChange, engagement }: EngagementFormProps) {
-  const [loading, setLoading] = useState(false);
-  const { currentOrg, getOrgClients, engagements, setEngagements, users } = useAppStore();
+  const { currentOrg, memberships } = useOrganizations();
+  const orgId = currentOrg?.id ?? null;
+  const { data: clients = [], isLoading: clientsLoading } = useClients(orgId ?? undefined);
+  const createEngagementMutation = useCreateEngagement();
+  const updateEngagementMutation = useUpdateEngagement();
+  const isSaving = createEngagementMutation.isPending || updateEngagementMutation.isPending;
   const { toast } = useToast();
 
-  const clients = getOrgClients(currentOrg?.id || '');
-  const managers = users.filter(u => u.name.includes('Manager') || u.name.includes('System'));
+  const managerOptions = useMemo(() => {
+    return memberships
+      .filter((membership) =>
+        ["MANAGER", "PARTNER", "SYSTEM_ADMIN"].includes(membership.role),
+      )
+      .map((membership) => ({
+        id: membership.user_id,
+        label: membership.role.replace("_", " "),
+      }));
+  }, [memberships]);
 
   const form = useForm<EngagementFormData>({
     resolver: zodResolver(engagementSchema),
@@ -65,57 +83,62 @@ export function EngagementForm({ open, onOpenChange, engagement }: EngagementFor
       periodStart: engagement?.periodStart || "",
       periodEnd: engagement?.periodEnd || "",
       status: engagement?.status || "PLANNING",
-      managerId: engagement?.managerId || managers[0]?.id || "",
+      managerId: engagement?.managerId || managerOptions[0]?.id || "",
     },
   });
 
-  const onSubmit = async (data: EngagementFormData) => {
-    if (!currentOrg) return;
-    
-    setLoading(true);
-    
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
+  useEffect(() => {
+    form.reset({
+      clientId: engagement?.clientId || "",
+      title: engagement?.title || "",
+      type: engagement?.type || "ACCOUNTING",
+      periodStart: engagement?.periodStart || "",
+      periodEnd: engagement?.periodEnd || "",
+      status: engagement?.status || "PLANNING",
+      managerId: engagement?.managerId || managerOptions[0]?.id || "",
+    });
+  }, [engagement, managerOptions, form]);
 
-    if (engagement) {
-      // Update existing engagement
-      const updatedEngagements = engagements.map(e => 
-        e.id === engagement.id 
-          ? { ...e, ...data }
-          : e
-      );
-      setEngagements(updatedEngagements);
-      
+  const onSubmit = async (data: EngagementFormData) => {
+    if (!currentOrg?.id) {
       toast({
-        title: "Engagement updated",
-        description: "Engagement has been updated successfully.",
+        variant: "destructive",
+        title: "Select an organization",
+        description: "Choose an organization before managing engagements.",
       });
-    } else {
-      // Create new engagement
-      const newEngagement: Engagement = {
-        id: Math.random().toString(36).substr(2, 9),
-        orgId: currentOrg.id,
-        clientId: data.clientId,
-        title: data.title,
-        type: data.type,
-        periodStart: data.periodStart,
-        periodEnd: data.periodEnd,
-        status: data.status,
-        managerId: data.managerId,
-        createdAt: new Date().toISOString(),
-      };
-      
-      setEngagements([...engagements, newEngagement]);
-      
+      return;
+    }
+
+    try {
+      if (engagement) {
+        await updateEngagementMutation.mutateAsync({
+          id: engagement.id,
+          orgId: currentOrg.id,
+          updates: data,
+        });
+        toast({
+          title: "Engagement updated",
+          description: "Engagement has been updated successfully.",
+        });
+      } else {
+        await createEngagementMutation.mutateAsync({
+          orgId: currentOrg.id,
+          ...data,
+        });
+        toast({
+          title: "Engagement created",
+          description: "New engagement has been created successfully.",
+        });
+      }
+      onOpenChange(false);
+      form.reset();
+    } catch (error) {
       toast({
-        title: "Engagement created",
-        description: "New engagement has been created successfully.",
+        variant: "destructive",
+        title: "Unable to save engagement",
+        description: error instanceof Error ? error.message : "Unknown error",
       });
     }
-    
-    setLoading(false);
-    onOpenChange(false);
-    form.reset();
   };
 
   const handleClose = () => {
@@ -145,10 +168,10 @@ export function EngagementForm({ open, onOpenChange, engagement }: EngagementFor
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Client</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select a client" />
+                          <SelectValue placeholder={clientsLoading ? "Loading..." : "Select a client"} />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
@@ -236,18 +259,24 @@ export function EngagementForm({ open, onOpenChange, engagement }: EngagementFor
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Manager</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select a manager" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {managers.map((manager) => (
-                          <SelectItem key={manager.id} value={manager.id}>
-                            {manager.name}
-                          </SelectItem>
-                        ))}
+                        {managerOptions.length === 0 ? (
+                          <div className="px-3 py-2 text-sm text-muted-foreground">
+                            No managers available. Update memberships to assign roles.
+                          </div>
+                        ) : (
+                          managerOptions.map((manager) => (
+                            <SelectItem key={manager.id} value={manager.id}>
+                              {manager.label}
+                            </SelectItem>
+                          ))
+                        )}
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -292,7 +321,7 @@ export function EngagementForm({ open, onOpenChange, engagement }: EngagementFor
                 <Button
                   type="submit"
                   variant="gradient"
-                  loading={loading}
+                  loading={isSaving}
                   className="flex-1"
                 >
                   <Save className="w-4 h-4 mr-2" />

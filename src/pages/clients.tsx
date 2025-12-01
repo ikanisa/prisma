@@ -4,15 +4,19 @@ import { ClientOnboardingAgent } from '@/components/clients/client-onboarding-ag
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { useAppStore } from '@/stores/mock-data';
+import { useClients } from '@/hooks/use-clients';
 import { useOrganizations } from '@/hooks/use-organizations';
 
 export function Clients() {
-  const { currentOrg: storeOrg, getOrgClients } = useAppStore();
-  const { currentOrg: membershipOrg } = useOrganizations();
-  const activeOrgId = storeOrg?.id ?? membershipOrg?.id ?? '';
-  const activeOrgName = storeOrg?.name ?? membershipOrg?.name ?? 'Select an organisation to continue';
-  const clients = getOrgClients(activeOrgId);
+  const { currentOrg } = useOrganizations();
+  const activeOrgId = currentOrg?.id ?? '';
+  const activeOrgName = currentOrg?.name ?? 'Select an organisation to continue';
+  const {
+    data: clients = [],
+    isLoading,
+    isFetching,
+  } = useClients(activeOrgId);
+  const isBusy = isLoading || isFetching;
 
   return (
     <motion.div
@@ -44,7 +48,7 @@ export function Clients() {
               <div className="mt-4 rounded-2xl border border-dashed border-primary/30 bg-primary/10 p-4 text-sm">
                 <div className="flex items-center justify-between">
                   <span>Total clients</span>
-                  <Badge variant="secondary">{clients.length}</Badge>
+                  <Badge variant="secondary">{isBusy ? '—' : clients.length}</Badge>
                 </div>
                 <div className="mt-2 flex items-center gap-2 text-muted-foreground">
                   <Globe2 className="h-4 w-4" />
@@ -64,7 +68,15 @@ export function Clients() {
             <CardContent>
               <ScrollArea className="h-[18rem] pr-3">
                 <div className="space-y-3">
-                  {clients.length === 0 && (
+                  {!activeOrgId && (
+                    <p className="text-sm text-muted-foreground">
+                      Select an organisation to view its clients.
+                    </p>
+                  )}
+                  {activeOrgId && isBusy && (
+                    <p className="text-sm text-muted-foreground">Loading clients…</p>
+                  )}
+                  {activeOrgId && !isBusy && clients.length === 0 && (
                     <p className="text-sm text-muted-foreground">
                       You have not added any clients yet. The agent will populate this section once a client is created.
                     </p>

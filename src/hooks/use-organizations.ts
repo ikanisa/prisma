@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase, isSupabaseConfigured } from '@/integrations/supabase/client';
 import { useAuth } from './use-auth';
 import { createTenantClient, TenantClient } from '@/lib/tenant-client';
-import { useAppStore, mockMemberships } from '@/stores/mock-data';
+import { mockMemberships, mockOrganizations } from '@/stores/mock-data';
 import { recordClientEvent, recordClientError } from '@/lib/client-events';
 import { getDefaultAutonomyLevel } from '@/lib/system-config';
 
@@ -115,8 +115,7 @@ export function useOrganizations() {
   useEffect(() => {
     if (!isSupabaseConfigured) {
       // Demo mode: hydrate from mock data and match the demo user
-      const appStore = useAppStore.getState();
-      const orgMap = new Map(appStore.organizations.map((org) => [org.id, org]));
+      const orgMap = new Map(mockOrganizations.map((org) => [org.id, org]));
       const targetUserId = '1';
 
       const defaultAutonomy = getDefaultAutonomyLevel();

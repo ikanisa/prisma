@@ -4,6 +4,8 @@
     "packages/**",
     "supabase/migrations/**",
     "supabase/seed/**",
+    "config/**",
+    "scripts/**",
     "agent/**",
     "docs/**",
     ".github/workflows/**"
@@ -14,4 +16,3 @@
     "**/.env*"
   ]
 }
-

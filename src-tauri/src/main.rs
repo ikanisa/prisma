@@ -32,6 +32,7 @@ fn main() {
 
     tauri::Builder::default()
         .system_tray(system_tray)
+        .plugin(tauri_plugin_store::Builder::default().build())
         .on_system_tray_event(|app, event| match event {
             SystemTrayEvent::LeftClick {
                 position: _,

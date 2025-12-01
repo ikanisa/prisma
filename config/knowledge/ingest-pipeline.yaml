@@ -1,0 +1,281 @@
+# Accounting Knowledge Ingestion Pipeline
+# Ingests IFRS/IAS/ISA/GAAP/Tax Laws/ACCA/CPA resources into Supabase
+# as chunked documents with embeddings for DeepSearch agent
+
+pipeline:
+  name: accounting_knowledge_ingest
+  version: 1.0.0
+  description: >
+    Ingest IFRS/IAS/ISA/GAAP/Tax Laws/ACCA/CPA resources into Supabase
+    as chunked documents with embeddings for DeepSearch.
+
+  settings:
+    chunk_size: 1500
+    chunk_overlap: 200
+    embedding_model: text-embedding-3-small
+    embedding_dimension: 1536
+    batch_size: 50
+
+  steps:
+    - id: discover_sources
+      type: static_list
+      description: Define knowledge sources to ingest
+      outputs:
+        sources:
+          # IFRS Standards
+          - name: "IFRS Foundation - IAS 21 Foreign Exchange"
+            type: "IAS"
+            jurisdiction_code: "GLOBAL"
+            authority_level: "PRIMARY"
+            url: "https://www.ifrs.org/issued-standards/list-of-standards/ias-21/"
+            code: "IAS 21"
+            description: "The Effects of Changes in Foreign Exchange Rates"
+
+          - name: "IFRS Foundation - IFRS 15 Revenue"
+            type: "IFRS"
+            jurisdiction_code: "GLOBAL"
+            authority_level: "PRIMARY"
+            url: "https://www.ifrs.org/issued-standards/list-of-standards/ifrs-15/"
+            code: "IFRS 15"
+            description: "Revenue from Contracts with Customers"
+
+          - name: "IFRS Foundation - IFRS 16 Leases"
+            type: "IFRS"
+            jurisdiction_code: "GLOBAL"
+            authority_level: "PRIMARY"
+            url: "https://www.ifrs.org/issued-standards/list-of-standards/ifrs-16/"
+            code: "IFRS 16"
+            description: "Leases"
+
+          - name: "IFRS Foundation - IAS 12 Income Taxes"
+            type: "IAS"
+            jurisdiction_code: "GLOBAL"
+            authority_level: "PRIMARY"
+            url: "https://www.ifrs.org/issued-standards/list-of-standards/ias-12/"
+            code: "IAS 12"
+            description: "Income Taxes"
+
+          # ISA Standards
+          - name: "IAASB - ISA 315 Risk Assessment"
+            type: "ISA"
+            jurisdiction_code: "GLOBAL"
+            authority_level: "PRIMARY"
+            url: "https://www.iaasb.org/publications/isa-315-revised-2019"
+            code: "ISA 315"
+            description: "Identifying and Assessing the Risks of Material Misstatement"
+
+          - name: "IAASB - ISA 330 Audit Evidence"
+            type: "ISA"
+            jurisdiction_code: "GLOBAL"
+            authority_level: "PRIMARY"
+            url: "https://www.iaasb.org/publications/isa-330"
+            code: "ISA 330"
+            description: "The Auditor's Responses to Assessed Risks"
+
+          # Rwanda Tax Laws
+          - name: "Rwanda Income Tax Act 2023"
+            type: "TAX_LAW"
+            jurisdiction_code: "RW"
+            authority_level: "PRIMARY"
+            url: "https://www.rra.gov.rw/fileadmin/user_upload/laws/Income_Tax_Act_2023.pdf"
+            code: "RW-ITA-2023"
+            description: "Rwanda Income Tax Act 2023"
+
+          - name: "Rwanda VAT Law 2022"
+            type: "TAX_LAW"
+            jurisdiction_code: "RW"
+            authority_level: "PRIMARY"
+            url: "https://www.rra.gov.rw/fileadmin/user_upload/laws/VAT_Law_2022.pdf"
+            code: "RW-VAT-2022"
+            description: "Rwanda Value Added Tax Law"
+
+          # ACCA Resources
+          - name: "ACCA Technical Articles - Revenue Recognition"
+            type: "ACCA"
+            jurisdiction_code: "GLOBAL"
+            authority_level: "SECONDARY"
+            url: "https://www.accaglobal.com/gb/en/technical-activities/technical-resources-search/2018/june/ifrs-15-revenue-from-contracts-with-customers.html"
+            code: "ACCA-REVENUE"
+            description: "ACCA guidance on IFRS 15 Revenue Recognition"
+
+          - name: "ACCA Technical Articles - Leasing"
+            type: "ACCA"
+            jurisdiction_code: "GLOBAL"
+            authority_level: "SECONDARY"
+            url: "https://www.accaglobal.com/gb/en/technical-activities/technical-resources-search/2016/january/ifrs-16-leases.html"
+            code: "ACCA-LEASES"
+            description: "ACCA guidance on IFRS 16 Leases"
+
+    - id: ensure_jurisdictions
+      type: supabase_upsert
+      description: Ensure jurisdictions exist in database
+      input: sources
+      config:
+        table: jurisdictions
+        key_field: code
+        mapping:
+          code: jurisdiction_code
+          name: AUTO_FROM_CODE
+
+    - id: ensure_sources
+      type: supabase_upsert
+      description: Ensure knowledge sources exist in database
+      input: sources
+      config:
+        table: knowledge_sources
+        key_fields: [name, type]
+        mapping:
+          name: name
+          type: type
+          authority_level: authority_level
+          url: url
+          description: description
+          jurisdiction_id:
+            lookup:
+              table: jurisdictions
+              by_field: code
+              from_input: jurisdiction_code
+
+    - id: download_documents
+      type: http_fetch
+      description: Download PDF/HTML documents
+      input: sources
+      config:
+        timeout: 60
+        retry_count: 3
+        user_agent: "PrismaGlow-KnowledgeIngestion/1.0"
+      outputs:
+        downloaded_files:
+          - source_name: name
+            url: url
+            local_path: "/tmp/knowledge/{{ name | slugify }}.pdf"
+            code: code
+
+    - id: parse_documents
+      type: pdf_to_text
+      description: Extract text from PDFs
+      input: downloaded_files
+      config:
+        extract_metadata: true
+        preserve_layout: false
+      outputs:
+        parsed_docs:
+          - source_name: source_name
+            url: url
+            local_path: local_path
+            code: code
+            text: "<full_text>"
+            pages: "<page_count>"
+
+    - id: create_documents
+      type: supabase_insert
+      description: Create knowledge document records
+      input: parsed_docs
+      config:
+        table: knowledge_documents
+        mapping:
+          source_id:
+            lookup:
+              table: knowledge_sources
+              by_field: name
+              from_input: source_name
+          title: source_name
+          code: code
+          metadata:
+            url: url
+            local_path: local_path
+            pages: pages
+
+    - id: chunk_documents
+      type: text_chunker
+      description: Split documents into chunks
+      input: parsed_docs
+      config:
+        max_chars: 1500
+        overlap_chars: 200
+        respect_paragraphs: true
+        extract_headings: true
+      outputs:
+        chunks:
+          - document_title: source_name
+            document_code: code
+            chunk_index: "<index>"
+            section_path: "<derived_section>"
+            heading: "<heading>"
+            content: "<chunk_text>"
+            tokens: "<estimated_tokens>"
+
+    - id: insert_chunks
+      type: supabase_insert
+      description: Insert knowledge chunks
+      input: chunks
+      config:
+        table: knowledge_chunks
+        mapping:
+          document_id:
+            lookup:
+              table: knowledge_documents
+              by_field: code
+              from_input: document_code
+          chunk_index: chunk_index
+          section_path: section_path
+          heading: heading
+          content: content
+          tokens: tokens
+
+    - id: embed_chunks
+      type: embeddings
+      description: Generate embeddings for chunks
+      model: text-embedding-3-small
+      input: chunks
+      config:
+        batch_size: 50
+        dimension: 1536
+      outputs:
+        embeddings:
+          - chunk_ref:
+              document_code: document_code
+              chunk_index: chunk_index
+            embedding: "<vector>"
+            model: "text-embedding-3-small"
+
+    - id: insert_embeddings
+      type: supabase_insert
+      description: Insert embeddings
+      input: embeddings
+      config:
+        table: knowledge_embeddings
+        mapping:
+          chunk_id:
+            lookup:
+              table: knowledge_chunks
+              by_fields:
+                document_id:
+                  lookup:
+                    table: knowledge_documents
+                    by_field: code
+                    from_input: chunk_ref.document_code
+                chunk_index: chunk_ref.chunk_index
+          embedding: embedding
+          model: model
+
+  error_handling:
+    on_step_failure:
+      action: CONTINUE
+      log: true
+    on_pipeline_failure:
+      action: ROLLBACK_JOB
+      notify: admin
+
+  monitoring:
+    metrics:
+      - documents_processed
+      - chunks_created
+      - embeddings_generated
+      - total_tokens
+      - duration_seconds
+    alerts:
+      - condition: "failure_rate > 0.1"
+        action: EMAIL_ADMIN
+      - condition: "duration_seconds > 3600"
+        action: LOG_WARNING

@@ -5,7 +5,7 @@
  * Shows categories, usage statistics, and allows tool configuration.
  */
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -48,80 +48,9 @@ import {
   CheckCircle,
   Loader2,
 } from 'lucide-react';
-
-// Mock tools data - in production, this would come from the API
-const MOCK_TOOLS = [
-  {
-    id: '1',
-    name: 'Web Search',
-    slug: 'web-search',
-    description: 'Search the web for information using various search engines',
-    category: 'Search',
-    implementation_type: 'api_call',
-    is_destructive: false,
-    requires_confirmation: false,
-    status: 'active',
-    usage_count: 1250,
-    avg_latency_ms: 450,
-    created_at: '2024-01-15T00:00:00Z',
-  },
-  {
-    id: '2',
-    name: 'Document Analysis',
-    slug: 'document-analysis',
-    description: 'Analyze and extract information from uploaded documents',
-    category: 'Analysis',
-    implementation_type: 'function',
-    is_destructive: false,
-    requires_confirmation: false,
-    status: 'active',
-    usage_count: 890,
-    avg_latency_ms: 1200,
-    created_at: '2024-01-20T00:00:00Z',
-  },
-  {
-    id: '3',
-    name: 'Email Sender',
-    slug: 'email-sender',
-    description: 'Send emails to specified recipients',
-    category: 'Communication',
-    implementation_type: 'api_call',
-    is_destructive: true,
-    requires_confirmation: true,
-    status: 'active',
-    usage_count: 340,
-    avg_latency_ms: 200,
-    created_at: '2024-02-01T00:00:00Z',
-  },
-  {
-    id: '4',
-    name: 'Task Creator',
-    slug: 'task-creator',
-    description: 'Create tasks and assign them to team members',
-    category: 'Productivity',
-    implementation_type: 'database_query',
-    is_destructive: false,
-    requires_confirmation: false,
-    status: 'active',
-    usage_count: 567,
-    avg_latency_ms: 150,
-    created_at: '2024-02-10T00:00:00Z',
-  },
-  {
-    id: '5',
-    name: 'Calculator',
-    slug: 'calculator',
-    description: 'Perform mathematical calculations',
-    category: 'Utility',
-    implementation_type: 'function',
-    is_destructive: false,
-    requires_confirmation: false,
-    status: 'active',
-    usage_count: 2100,
-    avg_latency_ms: 50,
-    created_at: '2024-01-10T00:00:00Z',
-  },
-];
+import { useAgentTools } from '@/hooks/use-agent-tools';
+import type { AgentToolRecord } from '@/services/agent-tools.service';
+import { useOrganizations } from '@/hooks/use-organizations';
 
 const CATEGORIES = ['All', 'Search', 'Analysis', 'Communication', 'Productivity', 'Utility'];
 
@@ -133,26 +62,11 @@ const IMPLEMENTATION_TYPE_LABELS: Record<string, string> = {
   workflow: 'Workflow',
 };
 
-interface Tool {
-  id: string;
-  name: string;
-  slug: string;
-  description: string;
-  category: string;
-  implementation_type: string;
-  is_destructive: boolean;
-  requires_confirmation: boolean;
-  status: string;
-  usage_count: number;
-  avg_latency_ms: number;
-  created_at: string;
-}
-
 function ToolCard({ tool, onTest, onEdit, onDelete }: {
-  tool: Tool;
-  onTest: (tool: Tool) => void;
-  onEdit: (tool: Tool) => void;
-  onDelete: (tool: Tool) => void;
+  tool: AgentToolRecord;
+  onTest: (tool: AgentToolRecord) => void;
+  onEdit: (tool: AgentToolRecord) => void;
+  onDelete: (tool: AgentToolRecord) => void;
 }) {
   return (
     <Card className="hover:shadow-md transition-shadow">
@@ -165,12 +79,12 @@ function ToolCard({ tool, onTest, onEdit, onDelete }: {
             <div>
               <CardTitle className="text-base flex items-center gap-2">
                 {tool.name}
-                {tool.is_destructive && (
+                {tool.isDestructive && (
                   <AlertTriangle className="h-4 w-4 text-orange-500" title="Destructive" />
                 )}
               </CardTitle>
               <CardDescription className="text-xs">
-                {IMPLEMENTATION_TYPE_LABELS[tool.implementation_type]} • {tool.category}
+                {IMPLEMENTATION_TYPE_LABELS[tool.implementationType] ?? tool.implementationType} • {tool.category}
               </CardDescription>
             </div>
           </div>
@@ -206,8 +120,8 @@ function ToolCard({ tool, onTest, onEdit, onDelete }: {
           {tool.description}
         </p>
         <div className="flex items-center justify-between text-xs text-muted-foreground">
-          <span>{tool.usage_count.toLocaleString()} uses</span>
-          <span>{tool.avg_latency_ms}ms avg</span>
+          <span>{(tool.usage_count ?? 0).toLocaleString()} uses</span>
+          <span>{tool.avg_latency_ms ? `${tool.avg_latency_ms}ms avg` : 'No latency data'}</span>
         </div>
       </CardContent>
     </Card>
@@ -215,7 +129,7 @@ function ToolCard({ tool, onTest, onEdit, onDelete }: {
 }
 
 function TestToolDialog({ tool, open, onOpenChange }: {
-  tool: Tool | null;
+  tool: AgentToolRecord | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
@@ -280,28 +194,39 @@ function TestToolDialog({ tool, open, onOpenChange }: {
 export default function ToolHubPage() {
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('All');
-  const [testTool, setTestTool] = useState<Tool | null>(null);
+  const [testTool, setTestTool] = useState<AgentToolRecord | null>(null);
   const [testDialogOpen, setTestDialogOpen] = useState(false);
+  const { currentOrg } = useOrganizations();
+  const { data: tools = [], isLoading, isFetching, error } = useAgentTools(currentOrg?.id);
 
-  const filteredTools = MOCK_TOOLS.filter((tool) => {
-    const matchesSearch = tool.name.toLowerCase().includes(search.toLowerCase()) ||
-      tool.description.toLowerCase().includes(search.toLowerCase());
-    const matchesCategory = category === 'All' || tool.category === category;
-    return matchesSearch && matchesCategory;
-  });
+  const filteredTools = useMemo(() => {
+    return tools.filter((tool) => {
+      const matchesSearch = tool.name.toLowerCase().includes(search.toLowerCase()) ||
+        tool.description.toLowerCase().includes(search.toLowerCase());
+      const matchesCategory = category === 'All' || tool.category === category;
+      return matchesSearch && matchesCategory;
+    });
+  }, [tools, search, category]);
 
-  const handleTest = (tool: Tool) => {
+  const handleTest = (tool: AgentToolRecord) => {
     setTestTool(tool);
     setTestDialogOpen(true);
   };
 
-  const handleEdit = (tool: Tool) => {
+  const handleEdit = (tool: AgentToolRecord) => {
     console.log('Edit tool:', tool.id);
   };
 
-  const handleDelete = (tool: Tool) => {
+  const handleDelete = (tool: AgentToolRecord) => {
     console.log('Delete tool:', tool.id);
   };
+
+  const totalTools = tools.length;
+  const totalExecutions = tools.reduce((sum, t) => sum + (t.usage_count ?? 0), 0);
+  const averageLatency = tools.length
+    ? Math.round(tools.reduce((sum, t) => sum + (t.avg_latency_ms ?? 0), 0) / tools.length)
+    : 0;
+  const isBusy = isLoading || isFetching;
 
   return (
     <main className="space-y-6 p-6">
@@ -325,14 +250,14 @@ export default function ToolHubPage() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardContent className="pt-6">
-            <div className="text-2xl font-bold">{MOCK_TOOLS.length}</div>
+            <div className="text-2xl font-bold">{isBusy ? '—' : totalTools}</div>
             <p className="text-sm text-muted-foreground">Total Tools</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6">
             <div className="text-2xl font-bold">
-              {MOCK_TOOLS.reduce((sum, t) => sum + t.usage_count, 0).toLocaleString()}
+              {isBusy ? '—' : totalExecutions.toLocaleString()}
             </div>
             <p className="text-sm text-muted-foreground">Total Executions</p>
           </CardContent>
@@ -340,7 +265,7 @@ export default function ToolHubPage() {
         <Card>
           <CardContent className="pt-6">
             <div className="text-2xl font-bold">
-              {Math.round(MOCK_TOOLS.reduce((sum, t) => sum + t.avg_latency_ms, 0) / MOCK_TOOLS.length)}ms
+              {isBusy ? '—' : `${averageLatency}ms`}
             </div>
             <p className="text-sm text-muted-foreground">Avg Latency</p>
           </CardContent>
@@ -391,7 +316,31 @@ export default function ToolHubPage() {
         ))}
       </div>
 
-      {filteredTools.length === 0 && (
+      {!currentOrg && (
+        <Card>
+          <CardContent className="py-12 text-center">
+            <Wrench className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+            <h3 className="text-lg font-medium mb-2">Select an organization</h3>
+            <p className="text-muted-foreground">
+              Choose an organization to load its agent tools.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {currentOrg && error && (
+        <Card>
+          <CardContent className="py-12 text-center text-destructive">
+            <AlertTriangle className="h-12 w-12 mx-auto mb-4" />
+            <h3 className="text-lg font-medium mb-2">Unable to load tools</h3>
+            <p className="text-muted-foreground">
+              {error.message}
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {currentOrg && !error && !isBusy && filteredTools.length === 0 && (
         <Card>
           <CardContent className="py-12 text-center">
             <Wrench className="h-12 w-12 mx-auto text-muted-foreground mb-4" />

@@ -1,0 +1,37 @@
+{
+  "name": "@prisma-glow/knowledge-base",
+  "version": "1.1.0",
+  "description": "Accounting Knowledge Base System for Prisma Glow",
+  "private": true,
+  "scripts": {
+    "knowledge:setup": "cd scripts/knowledge && make kb-setup",
+    "knowledge:migrate": "cd scripts/knowledge && make kb-migrate",
+    "knowledge:ingest": "tsx scripts/knowledge/ingest.ts",
+    "knowledge:search": "tsx scripts/knowledge/test-search.ts",
+    "knowledge:stats": "tsx scripts/knowledge/test-search.ts --stats",
+    "knowledge:test-all": "tsx scripts/knowledge/test-search.ts --test-all",
+    "knowledge:examples": "tsx scripts/knowledge/examples.ts",
+    "knowledge:manage": "tsx scripts/knowledge/manage.ts",
+    "knowledge:list": "tsx scripts/knowledge/manage.ts list-sources",
+    "knowledge:cleanup": "tsx scripts/knowledge/manage.ts cleanup --dry-run",
+    "knowledge:freshness": "tsx scripts/knowledge/manage.ts check-freshness",
+    "knowledge:backup": "tsx scripts/knowledge/manage.ts export-sources"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.39.0",
+    "openai": "^4.20.0",
+    "pdf-parse": "^1.1.1",
+    "yaml": "^2.3.4",
+    "commander": "^11.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/pdf-parse": "^1.1.4",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=8.0.0"
+  }
+}

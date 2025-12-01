@@ -6,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/enhanced-button';
 import { Badge } from '@/components/ui/badge';
-import { useAppStore } from '@/stores/mock-data';
+import { useOrganizations } from '@/hooks/use-organizations';
 import {
   computeCit,
   prepareCitReturn,
@@ -39,7 +39,7 @@ const REFUND_OPTIONS = [
 ];
 
 export default function MaltaCitPage() {
-  const { currentOrg } = useAppStore();
+  const { currentOrg } = useOrganizations();
   const { toast } = useToast();
 
   const [taxEntityId, setTaxEntityId] = useState('');

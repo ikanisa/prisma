@@ -1,0 +1,2030 @@
+version: 1
+sources:
+  # A. IFRS / IAS / IFRIC (1-12)
+  - name: 'IFRS Foundation - Home'
+    url: 'https://www.ifrs.org'
+    domain: 'ifrs.org'
+    category: 'IFRS'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 1
+    tags: ['ifrs', 'foundation']
+    notes: ''
+  - name: 'IFRS - Issued Standards'
+    url: 'https://www.ifrs.org/issued-standards/'
+    domain: 'ifrs.org'
+    category: 'IFRS'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 1
+    tags: ['ifrs', 'standards']
+    notes: ''
+  - name: 'IFRS - List of Standards'
+    url: 'https://www.ifrs.org/issued-standards/list-of-standards/'
+    domain: 'ifrs.org'
+    category: 'IFRS'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 1
+    tags: ['ifrs', 'ias', 'ifrs']
+    notes: ''
+  - name: 'IFRS - Work Plan'
+    url: 'https://www.ifrs.org/projects/work-plan/'
+    domain: 'ifrs.org'
+    category: 'IFRS'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 2
+    tags: ['ifrs', 'projects', 'work-plan']
+    notes: ''
+  - name: 'IFRS - News and Events'
+    url: 'https://www.ifrs.org/news-and-events/'
+    domain: 'ifrs.org'
+    category: 'IFRS'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 3
+    tags: ['news', 'updates']
+    notes: ''
+  - name: 'IFRS - IFRIC Interpretations'
+    url: 'https://www.ifrs.org/issued-standards/ifric-interpretations/'
+    domain: 'ifrs.org'
+    category: 'IFRS'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 1
+    tags: ['ifric', 'interpretations']
+    notes: ''
+  - name: 'IFRS - Supporting Implementation'
+    url: 'https://www.ifrs.org/supporting-implementation/'
+    domain: 'ifrs.org'
+    category: 'IFRS'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 2
+    tags: ['guidance', 'implementation']
+    notes: ''
+  - name: 'IFRS - About Us'
+    url: 'https://www.ifrs.org/about-us/'
+    domain: 'ifrs.org'
+    category: 'IFRS'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 3
+    tags: ['about', 'governance']
+    notes: ''
+  - name: 'IFRS Taxonomy'
+    url: 'https://www.ifrs.org/content/dam/ifrs/project/ifrs-taxonomy/'
+    domain: 'ifrs.org'
+    category: 'IFRS'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 3
+    tags: ['taxonomy']
+    notes: ''
+  - name: 'IFRS for SMEs'
+    url: 'https://www.ifrs.org/ifrs-for-smes/'
+    domain: 'ifrs.org'
+    category: 'IFRS'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 2
+    tags: ['smes']
+    notes: ''
+  - name: 'IFRS for SMEs - Issued'
+    url: 'https://www.ifrs.org/issued-standards/ifrs-for-smes/'
+    domain: 'ifrs.org'
+    category: 'IFRS'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 2
+    tags: ['smes', 'standards']
+    notes: ''
+  - name: 'IFRS - Open for Comment'
+    url: 'https://www.ifrs.org/projects/open-for-comment/'
+    domain: 'ifrs.org'
+    category: 'IFRS'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 3
+    tags: ['exposure-drafts', 'consultation']
+    notes: ''
+  # B. IAASB / IESBA / IFAC (13-26)
+  - name: 'IAASB - Home'
+    url: 'https://www.iaasb.org'
+    domain: 'iaasb.org'
+    category: 'ISA'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 1
+    tags: ['isa', 'audit']
+    notes: ''
+  - name: 'IAASB - ISA Focus Area'
+    url: 'https://www.iaasb.org/focus-areas/international-standards-auditing-isa'
+    domain: 'iaasb.org'
+    category: 'ISA'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 1
+    tags: ['isa', 'standards']
+    notes: ''
+  - name: 'IAASB - Guidance'
+    url: 'https://www.iaasb.org/guidance'
+    domain: 'iaasb.org'
+    category: 'ISA'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 2
+    tags: ['guidance']
+    notes: ''
+  - name: 'IAASB - Publications'
+    url: 'https://www.iaasb.org/publications'
+    domain: 'iaasb.org'
+    category: 'ISA'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 2
+    tags: ['publications']
+    notes: ''
+  - name: 'IAASB - ISA Clarity'
+    url: 'https://www.iaasb.org/isa-clarity'
+    domain: 'iaasb.org'
+    category: 'ISA'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 2
+    tags: ['clarity']
+    notes: ''
+  - name: 'IAASB - Strengthening International Auditing'
+    url: 'https://www.iaasb.org/strengthening-international-auditing'
+    domain: 'iaasb.org'
+    category: 'ISA'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 3
+    tags: ['audit-quality']
+    notes: ''
+  - name: 'IFAC - IAASB Standards'
+    url: 'https://www.ifac.org/iaasb/standards'
+    domain: 'ifac.org'
+    category: 'ISA'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 2
+    tags: ['isa', 'ifac']
+    notes: ''
+  - name: 'IFAC - Home'
+    url: 'https://www.ifac.org'
+    domain: 'ifac.org'
+    category: 'IFRS'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 2
+    tags: ['ifac', 'global']
+    notes: ''
+  - name: 'IFAC - Knowledge Gateway'
+    url: 'https://www.ifac.org/knowledge-gateway'
+    domain: 'ifac.org'
+    category: 'KNOWLEDGE'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 3
+    tags: ['articles', 'guidance']
+    notes: ''
+  - name: 'IFAC - Publications & Resources'
+    url: 'https://www.ifac.org/publications-resources'
+    domain: 'ifac.org'
+    category: 'KNOWLEDGE'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 3
+    tags: ['resources']
+    notes: ''
+  - name: 'IESBA - Home'
+    url: 'https://www.ethicsboard.org'
+    domain: 'ethicsboard.org'
+    category: 'ETHICS'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 1
+    tags: ['iesba', 'ethics']
+    notes: ''
+  - name: 'IESBA - Code of Ethics'
+    url: 'https://www.ethicsboard.org/iesba-code'
+    domain: 'ethicsboard.org'
+    category: 'ETHICS'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 1
+    tags: ['code-of-ethics']
+    notes: ''
+  - name: 'IESBA - Standards'
+    url: 'https://www.ethicsboard.org/standards'
+    domain: 'ethicsboard.org'
+    category: 'ETHICS'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 2
+    tags: ['standards']
+    notes: ''
+  - name: 'IFAC - Ethics'
+    url: 'https://www.ifac.org/ethics'
+    domain: 'ifac.org'
+    category: 'ETHICS'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 3
+    tags: ['ethics', 'iesba']
+    notes: ''
+  # C. Big 4 - KPMG / PwC / Deloitte / EY (27-50)
+  - name: 'KPMG - Home'
+    url: 'https://kpmg.com'
+    domain: 'kpmg.com'
+    category: 'BIG4'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 2
+    tags: ['audit', 'tax', 'advisory']
+    notes: ''
+  - name: 'KPMG - IFRS in Focus'
+    url: 'https://kpmg.com/xx/en/home/services/audit/ifrs-in-focus.html'
+    domain: 'kpmg.com'
+    category: 'BIG4'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 1
+    tags: ['ifrs', 'interpretation']
+    notes: ''
+  - name: 'KPMG - Insights'
+    url: 'https://kpmg.com/xx/en/home/insights.html'
+    domain: 'kpmg.com'
+    category: 'BIG4'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 2
+    tags: ['insights', 'articles']
+    notes: ''
+  - name: 'KPMG - Audit Services'
+    url: 'https://kpmg.com/xx/en/home/services/audit.html'
+    domain: 'kpmg.com'
+    category: 'BIG4'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 3
+    tags: ['audit']
+    notes: ''
+  - name: 'KPMG - IFRS Reporting'
+    url: 'https://kpmg.com/xx/en/home/services/audit/international-financial-reporting-standards.html'
+    domain: 'kpmg.com'
+    category: 'BIG4'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 2
+    tags: ['ifrs', 'technical']
+    notes: ''
+  - name: 'KPMG - ISA Resources'
+    url: 'https://kpmg.com/xx/en/home/services/audit/international-standards-on-auditing.html'
+    domain: 'kpmg.com'
+    category: 'BIG4'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 2
+    tags: ['isa', 'guidance']
+    notes: ''
+  - name: 'KPMG - Tax Services'
+    url: 'https://kpmg.com/xx/en/home/services/tax.html'
+    domain: 'kpmg.com'
+    category: 'BIG4'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 3
+    tags: ['tax']
+    notes: ''
+  - name: 'PwC - Home'
+    url: 'https://www.pwc.com'
+    domain: 'pwc.com'
+    category: 'BIG4'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 2
+    tags: ['audit', 'tax', 'consulting']
+    notes: ''
+  - name: 'PwC - Viewpoint'
+    url: 'https://viewpoint.pwc.com'
+    domain: 'viewpoint.pwc.com'
+    category: 'BIG4'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 1
+    tags: ['ifrs', 'us-gaap', 'library']
+    notes: ''
+  - name: 'PwC - Accounting Guides'
+    url: 'https://viewpoint.pwc.com/dt/us/en/pwc/accounting_guides.html'
+    domain: 'viewpoint.pwc.com'
+    category: 'BIG4'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 2
+    tags: ['guides', 'ifrs', 'gaap']
+    notes: ''
+  - name: 'PwC - Audit Guides'
+    url: 'https://viewpoint.pwc.com/dt/us/en/audit_guides.html'
+    domain: 'viewpoint.pwc.com'
+    category: 'BIG4'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 2
+    tags: ['audit', 'guides']
+    notes: ''
+  - name: 'PwC - IFRS Reporting Services'
+    url: 'https://www.pwc.com/gx/en/services/assurance/capital-markets/services/ifrs-reporting.html'
+    domain: 'pwc.com'
+    category: 'BIG4'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 2
+    tags: ['ifrs', 'assurance']
+    notes: ''
+  - name: 'Deloitte - Global'
+    url: 'https://www2.deloitte.com/global/en.html'
+    domain: 'deloitte.com'
+    category: 'BIG4'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 2
+    tags: ['audit', 'tax']
+    notes: ''
+  - name: 'IAS Plus - Home'
+    url: 'https://www.iasplus.com'
+    domain: 'iasplus.com'
+    category: 'IFRS'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 1
+    tags: ['ifrs', 'iasplus']
+    notes: ''
+  - name: 'IAS Plus - Standards'
+    url: 'https://www.iasplus.com/en/standards'
+    domain: 'iasplus.com'
+    category: 'IFRS'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 1
+    tags: ['standards', 'ifrs', 'ias']
+    notes: ''
+  - name: 'IAS Plus - News'
+    url: 'https://www.iasplus.com/en/news'
+    domain: 'iasplus.com'
+    category: 'IFRS'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 2
+    tags: ['news', 'updates']
+    notes: ''
+  - name: 'IAS Plus - Projects'
+    url: 'https://www.iasplus.com/en/projects'
+    domain: 'iasplus.com'
+    category: 'IFRS'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 2
+    tags: ['projects']
+    notes: ''
+  - name: 'IAS Plus - Publications'
+    url: 'https://www.iasplus.com/en/publications'
+    domain: 'iasplus.com'
+    category: 'IFRS'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 2
+    tags: ['publications', 'guides']
+    notes: ''
+  - name: 'IAS Plus - IFRS Topical'
+    url: 'https://www.iasplus.com/en/resources/ifrs-topical'
+    domain: 'iasplus.com'
+    category: 'IFRS'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 2
+    tags: ['topics', 'ifrs']
+    notes: ''
+  - name: 'Deloitte - Tax'
+    url: 'https://www2.deloitte.com/global/en/services/tax.html'
+    domain: 'deloitte.com'
+    category: 'BIG4'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 3
+    tags: ['tax']
+    notes: ''
+  - name: 'EY - Home'
+    url: 'https://www.ey.com'
+    domain: 'ey.com'
+    category: 'BIG4'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 2
+    tags: ['audit', 'advisory']
+    notes: ''
+  - name: 'EY - IFRS'
+    url: 'https://www.ey.com/en_gl/ifrs'
+    domain: 'ey.com'
+    category: 'IFRS'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 2
+    tags: ['ifrs']
+    notes: ''
+  - name: 'EY - Assurance'
+    url: 'https://www.ey.com/en_gl/assurance'
+    domain: 'ey.com'
+    category: 'BIG4'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 2
+    tags: ['assurance', 'audit']
+    notes: ''
+  - name: 'EY - Tax'
+    url: 'https://www.ey.com/en_gl/tax'
+    domain: 'ey.com'
+    category: 'BIG4'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 2
+    tags: ['tax']
+    notes: ''
+  - name: 'EY - Insights'
+    url: 'https://www.ey.com/en_gl/insights'
+    domain: 'ey.com'
+    category: 'BIG4'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 3
+    tags: ['insights', 'articles']
+    notes: ''
+  # D. OECD Tax (51-58)
+  - name: 'OECD - Home'
+    url: 'https://www.oecd.org'
+    domain: 'oecd.org'
+    category: 'TAX'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 1
+    tags: ['oecd', 'policy']
+    notes: ''
+  - name: 'OECD - Tax'
+    url: 'https://www.oecd.org/tax/'
+    domain: 'oecd.org'
+    category: 'TAX'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 1
+    tags: ['tax', 'global']
+    notes: ''
+  - name: 'OECD - BEPS'
+    url: 'https://www.oecd.org/tax/beps/'
+    domain: 'oecd.org'
+    category: 'TAX'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 1
+    tags: ['beps', 'base-erosion']
+    notes: ''
+  - name: 'OECD - Transfer Pricing'
+    url: 'https://www.oecd.org/tax/transfer-pricing/'
+    domain: 'oecd.org'
+    category: 'TAX'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 1
+    tags: ['transfer-pricing']
+    notes: ''
+  - name: 'OECD - Tax Policy'
+    url: 'https://www.oecd.org/ctp/tax-policy/'
+    domain: 'oecd.org'
+    category: 'TAX'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 2
+    tags: ['tax-policy']
+    notes: ''
+  - name: 'OECD - Exchange of Information'
+    url: 'https://www.oecd.org/ctp/exchange-of-information/'
+    domain: 'oecd.org'
+    category: 'TAX'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 2
+    tags: ['exchange-of-information']
+    notes: ''
+  - name: 'OECD - Automatic Exchange'
+    url: 'https://www.oecd.org/tax/automatic-exchange/'
+    domain: 'oecd.org'
+    category: 'TAX'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 2
+    tags: ['automatic-exchange']
+    notes: ''
+  - name: 'OECD - Tax Administration'
+    url: 'https://www.oecd.org/tax/administration/'
+    domain: 'oecd.org'
+    category: 'TAX'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 2
+    tags: ['tax-administration']
+    notes: ''
+  # E. Malta Tax / Corporate (59-77)
+  - name: 'CFR Malta - Home'
+    url: 'https://cfr.gov.mt/en/Pages/Home.aspx'
+    domain: 'cfr.gov.mt'
+    category: 'TAX'
+    jurisdiction_code: 'MT'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 1
+    tags: ['tax', 'malta']
+    notes: ''
+  - name: 'CFR Malta - eServices'
+    url: 'https://cfr.gov.mt/en/eServices/Pages/default.aspx'
+    domain: 'cfr.gov.mt'
+    category: 'TAX'
+    jurisdiction_code: 'MT'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 2
+    tags: ['eservices', 'returns']
+    notes: ''
+  - name: 'CFR Malta - Inland Revenue Guides'
+    url: 'https://cfr.gov.mt/en/inlandrevenue/taxguides/Pages/default.aspx'
+    domain: 'cfr.gov.mt'
+    category: 'TAX'
+    jurisdiction_code: 'MT'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 1
+    tags: ['guides', 'income-tax']
+    notes: ''
+  - name: 'CFR Malta - VAT'
+    url: 'https://cfr.gov.mt/en/vat/Pages/default.aspx'
+    domain: 'cfr.gov.mt'
+    category: 'TAX'
+    jurisdiction_code: 'MT'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 1
+    tags: ['vat']
+    notes: ''
+  - name: 'CFR Malta - Customs'
+    url: 'https://cfr.gov.mt/en/customs/Pages/default.aspx'
+    domain: 'cfr.gov.mt'
+    category: 'TAX'
+    jurisdiction_code: 'MT'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 2
+    tags: ['customs', 'excise']
+    notes: ''
+  - name: 'CFR Malta - Personal Tax'
+    url: 'https://cfr.gov.mt/en/inlandrevenue/personal/Pages/default.aspx'
+    domain: 'cfr.gov.mt'
+    category: 'TAX'
+    jurisdiction_code: 'MT'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 2
+    tags: ['personal-tax']
+    notes: ''
+  - name: 'CFR Malta - Corporate Tax'
+    url: 'https://cfr.gov.mt/en/inlandrevenue/corporate/Pages/default.aspx'
+    domain: 'cfr.gov.mt'
+    category: 'TAX'
+    jurisdiction_code: 'MT'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 2
+    tags: ['corporate-tax']
+    notes: ''
+  - name: 'Malta Business Registry - Home'
+    url: 'https://mbr.mt'
+    domain: 'mbr.mt'
+    category: 'CORP'
+    jurisdiction_code: 'MT'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 1
+    tags: ['company-registry']
+    notes: ''
+  - name: 'Malta Business Registry - Legislation'
+    url: 'https://mbr.mt/legislation/'
+    domain: 'mbr.mt'
+    category: 'CORP'
+    jurisdiction_code: 'MT'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 1
+    tags: ['company-law']
+    notes: ''
+  - name: 'Malta Business Registry - Services'
+    url: 'https://mbr.mt/services/'
+    domain: 'mbr.mt'
+    category: 'CORP'
+    jurisdiction_code: 'MT'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 2
+    tags: ['filings', 'services']
+    notes: ''
+  - name: 'MFSA - Home'
+    url: 'https://www.mfsa.mt'
+    domain: 'mfsa.mt'
+    category: 'REG'
+    jurisdiction_code: 'MT'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 1
+    tags: ['regulator', 'financial-services']
+    notes: ''
+  - name: 'MFSA - Publications'
+    url: 'https://www.mfsa.mt/publications/'
+    domain: 'mfsa.mt'
+    category: 'REG'
+    jurisdiction_code: 'MT'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 2
+    tags: ['rules', 'guidance']
+    notes: ''
+  - name: 'MFSA - Consumers'
+    url: 'https://www.mfsa.mt/consumers/'
+    domain: 'mfsa.mt'
+    category: 'REG'
+    jurisdiction_code: 'MT'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 3
+    tags: ['consumers']
+    notes: ''
+  - name: 'MFSA - Industry'
+    url: 'https://www.mfsa.mt/industry/'
+    domain: 'mfsa.mt'
+    category: 'REG'
+    jurisdiction_code: 'MT'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 2
+    tags: ['industry']
+    notes: ''
+  - name: 'MFSA - Authorisation'
+    url: 'https://www.mfsa.mt/industry/authorisation/'
+    domain: 'mfsa.mt'
+    category: 'REG'
+    jurisdiction_code: 'MT'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 2
+    tags: ['licensing', 'authorisation']
+    notes: ''
+  - name: 'FIAU Malta - Home'
+    url: 'https://fiaumalta.org'
+    domain: 'fiaumalta.org'
+    category: 'AML'
+    jurisdiction_code: 'MT'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 1
+    tags: ['aml', 'kyc']
+    notes: ''
+  - name: 'FIAU Malta - Publications'
+    url: 'https://fiaumalta.org/publications/'
+    domain: 'fiaumalta.org'
+    category: 'AML'
+    jurisdiction_code: 'MT'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 2
+    tags: ['publications']
+    notes: ''
+  - name: 'FIAU Malta - Guidance Notes'
+    url: 'https://fiaumalta.org/guidance-notes/'
+    domain: 'fiaumalta.org'
+    category: 'AML'
+    jurisdiction_code: 'MT'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 2
+    tags: ['guidance', 'aml']
+    notes: ''
+  # F. Rwanda Tax / Corporate (78-92)
+  - name: 'RRA - Home'
+    url: 'https://www.rra.gov.rw'
+    domain: 'rra.gov.rw'
+    category: 'TAX'
+    jurisdiction_code: 'RW'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 1
+    tags: ['tax', 'rwanda']
+    notes: ''
+  - name: 'RRA - Income Tax'
+    url: 'https://www.rra.gov.rw/tax-information/income-tax'
+    domain: 'rra.gov.rw'
+    category: 'TAX'
+    jurisdiction_code: 'RW'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 1
+    tags: ['income-tax']
+    notes: ''
+  - name: 'RRA - VAT'
+    url: 'https://www.rra.gov.rw/tax-information/vat'
+    domain: 'rra.gov.rw'
+    category: 'TAX'
+    jurisdiction_code: 'RW'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 1
+    tags: ['vat']
+    notes: ''
+  - name: 'RRA - Excise'
+    url: 'https://www.rra.gov.rw/tax-information/excise'
+    domain: 'rra.gov.rw'
+    category: 'TAX'
+    jurisdiction_code: 'RW'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 2
+    tags: ['excise']
+    notes: ''
+  - name: 'RRA - eServices'
+    url: 'https://www.rra.gov.rw/e-services'
+    domain: 'rra.gov.rw'
+    category: 'TAX'
+    jurisdiction_code: 'RW'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 2
+    tags: ['eservices', 'returns']
+    notes: ''
+  - name: 'RRA - News'
+    url: 'https://www.rra.gov.rw/news'
+    domain: 'rra.gov.rw'
+    category: 'TAX'
+    jurisdiction_code: 'RW'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 3
+    tags: ['news']
+    notes: ''
+  - name: 'RRA - Regulations'
+    url: 'https://www.rra.gov.rw/regulations'
+    domain: 'rra.gov.rw'
+    category: 'TAX'
+    jurisdiction_code: 'RW'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 2
+    tags: ['regulations']
+    notes: ''
+  - name: 'RRA - Forms'
+    url: 'https://www.rra.gov.rw/forms'
+    domain: 'rra.gov.rw'
+    category: 'TAX'
+    jurisdiction_code: 'RW'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 2
+    tags: ['forms']
+    notes: ''
+  - name: 'Rwanda Gazette via gazettes.africa'
+    url: 'https://gazettes.africa/gazettes/rw'
+    domain: 'gazettes.africa'
+    category: 'LAW'
+    jurisdiction_code: 'RW'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 2
+    tags: ['gazette', 'acts']
+    notes: ''
+  - name: 'Rwanda Parliament'
+    url: 'https://rwandaparliament.gov.rw/'
+    domain: 'rwandaparliament.gov.rw'
+    category: 'LAW'
+    jurisdiction_code: 'RW'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 3
+    tags: ['laws']
+    notes: ''
+  - name: 'Rwanda MINICOM'
+    url: 'https://www.minicom.gov.rw/'
+    domain: 'minicom.gov.rw'
+    category: 'REG'
+    jurisdiction_code: 'RW'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 3
+    tags: ['commerce']
+    notes: ''
+  - name: 'National Bank of Rwanda'
+    url: 'https://www.bnr.rw/'
+    domain: 'bnr.rw'
+    category: 'REG'
+    jurisdiction_code: 'RW'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 2
+    tags: ['banking', 'regulation']
+    notes: ''
+  - name: 'Rwanda Development Board - Home'
+    url: 'https://rdb.rw'
+    domain: 'rdb.rw'
+    category: 'CORP'
+    jurisdiction_code: 'RW'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 1
+    tags: ['business', 'investment']
+    notes: ''
+  - name: 'RDB - Investment'
+    url: 'https://rdb.rw/investment/'
+    domain: 'rdb.rw'
+    category: 'CORP'
+    jurisdiction_code: 'RW'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 2
+    tags: ['investment']
+    notes: ''
+  - name: 'RDB - Business Registration'
+    url: 'https://rdb.rw/services/business-registration/'
+    domain: 'rdb.rw'
+    category: 'CORP'
+    jurisdiction_code: 'RW'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 2
+    tags: ['company-formation']
+    notes: ''
+  # G. Global tax authorities (93-100)
+  - name: 'US IRS - Home'
+    url: 'https://www.irs.gov'
+    domain: 'irs.gov'
+    category: 'TAX'
+    jurisdiction_code: 'US'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 2
+    tags: ['us-tax']
+    notes: ''
+  - name: 'UK HMRC'
+    url: 'https://www.gov.uk/government/organisations/hm-revenue-customs'
+    domain: 'gov.uk'
+    category: 'TAX'
+    jurisdiction_code: 'UK'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 2
+    tags: ['uk-tax', 'hmrc']
+    notes: ''
+  - name: 'Canada Revenue Agency'
+    url: 'https://www.canada.ca/en/revenue-agency.html'
+    domain: 'canada.ca'
+    category: 'TAX'
+    jurisdiction_code: 'CA'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 3
+    tags: ['canada-tax']
+    notes: ''
+  - name: 'Australian Taxation Office'
+    url: 'https://www.ato.gov.au'
+    domain: 'ato.gov.au'
+    category: 'TAX'
+    jurisdiction_code: 'AU'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 3
+    tags: ['australia-tax']
+    notes: ''
+  - name: 'Income Tax India'
+    url: 'https://www.incometaxindia.gov.in'
+    domain: 'incometaxindia.gov.in'
+    category: 'TAX'
+    jurisdiction_code: 'IN'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 3
+    tags: ['india-tax']
+    notes: ''
+  - name: 'Hong Kong Inland Revenue Department'
+    url: 'https://www.ird.gov.hk'
+    domain: 'ird.gov.hk'
+    category: 'TAX'
+    jurisdiction_code: 'HK'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 3
+    tags: ['hk-tax']
+    notes: ''
+  - name: 'UK Government Tax Service'
+    url: 'https://www.tax.service.gov.uk'
+    domain: 'tax.service.gov.uk'
+    category: 'TAX'
+    jurisdiction_code: 'UK'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 3
+    tags: ['online-tax-service']
+    notes: ''
+  - name: 'South African Revenue Service'
+    url: 'https://www.sars.gov.za'
+    domain: 'sars.gov.za'
+    category: 'TAX'
+    jurisdiction_code: 'ZA'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 3
+    tags: ['south-africa-tax']
+    notes: ''
+  # H. Professional bodies (101-111)
+  - name: 'ACCA - Home'
+    url: 'https://www.accaglobal.com'
+    domain: 'accaglobal.com'
+    category: 'PRO'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 1
+    tags: ['acca']
+    notes: ''
+  - name: 'ACCA - Exam Support'
+    url: 'https://www.accaglobal.com/an/en/student/exam-support-resources.html'
+    domain: 'accaglobal.com'
+    category: 'PRO'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 2
+    tags: ['exam-support']
+    notes: ''
+  - name: 'ACCA - Technical Activities'
+    url: 'https://www.accaglobal.com/gb/en/technical/activities.html'
+    domain: 'accaglobal.com'
+    category: 'PRO'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 2
+    tags: ['technical']
+    notes: ''
+  - name: 'ACCA - Professional Exam Resources'
+    url: 'https://www.accaglobal.com/gb/en/student/exam-support-resources/professional.html'
+    domain: 'accaglobal.com'
+    category: 'PRO'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 2
+    tags: ['acca', 'professional']
+    notes: ''
+  - name: 'AICPA - Home'
+    url: 'https://www.aicpa.org'
+    domain: 'aicpa.org'
+    category: 'PRO'
+    jurisdiction_code: 'US'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 1
+    tags: ['cpa', 'audit']
+    notes: ''
+  - name: 'Journal of Accountancy'
+    url: 'https://www.journalofaccountancy.com'
+    domain: 'journalofaccountancy.com'
+    category: 'KNOWLEDGE'
+    jurisdiction_code: 'US'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 2
+    tags: ['articles']
+    notes: ''
+  - name: 'CPA Canada - Home'
+    url: 'https://www.cpacanada.ca'
+    domain: 'cpacanada.ca'
+    category: 'PRO'
+    jurisdiction_code: 'CA'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 1
+    tags: ['cpa-canada']
+    notes: ''
+  - name: 'CPA Canada - Resources'
+    url: 'https://www.cpacanada.ca/en/business-and-accounting-resources'
+    domain: 'cpacanada.ca'
+    category: 'PRO'
+    jurisdiction_code: 'CA'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 2
+    tags: ['resources']
+    notes: ''
+  - name: 'ICAEW - Home'
+    url: 'https://www.icaew.com'
+    domain: 'icaew.com'
+    category: 'PRO'
+    jurisdiction_code: 'UK'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 2
+    tags: ['icaew']
+    notes: ''
+  - name: 'ICAEW - Technical'
+    url: 'https://www.icaew.com/technical'
+    domain: 'icaew.com'
+    category: 'PRO'
+    jurisdiction_code: 'UK'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 2
+    tags: ['technical']
+    notes: ''
+  - name: 'CIMA Global'
+    url: 'https://www.cimaglobal.com'
+    domain: 'cimaglobal.com'
+    category: 'PRO'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 3
+    tags: ['cima', 'management-accounting']
+    notes: ''
+  # I. US GAAP / FASB (112-115)
+  - name: 'ASC - Codification'
+    url: 'https://asc.fasb.org'
+    domain: 'fasb.org'
+    category: 'US_GAAP'
+    jurisdiction_code: 'US'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 1
+    tags: ['us-gaap', 'asc']
+    notes: ''
+  - name: 'FASB - Home'
+    url: 'https://www.fasb.org'
+    domain: 'fasb.org'
+    category: 'US_GAAP'
+    jurisdiction_code: 'US'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 2
+    tags: ['fasb']
+    notes: ''
+  - name: 'FASB - Standards'
+    url: 'https://www.fasb.org/standards'
+    domain: 'fasb.org'
+    category: 'US_GAAP'
+    jurisdiction_code: 'US'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 2
+    tags: ['standards']
+    notes: ''
+  - name: 'FASB - Getting Started'
+    url: 'https://www.fasb.org/page/getting-started'
+    domain: 'fasb.org'
+    category: 'US_GAAP'
+    jurisdiction_code: 'US'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 3
+    tags: ['getting-started']
+    notes: ''
+  # J. Academic / research (116-120)
+  - name: 'Google Scholar'
+    url: 'https://scholar.google.com'
+    domain: 'scholar.google.com'
+    category: 'RESEARCH'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 3
+    tags: ['scholar']
+    notes: ''
+  - name: 'ResearchGate'
+    url: 'https://www.researchgate.net'
+    domain: 'researchgate.net'
+    category: 'RESEARCH'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 3
+    tags: ['research']
+    notes: ''
+  - name: 'SSRN'
+    url: 'https://papers.ssrn.com'
+    domain: 'ssrn.com'
+    category: 'RESEARCH'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 3
+    tags: ['papers']
+    notes: ''
+  - name: 'JSTOR'
+    url: 'https://www.jstor.org'
+    domain: 'jstor.org'
+    category: 'RESEARCH'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 3
+    tags: ['journals']
+    notes: ''
+  - name: 'ScienceDirect'
+    url: 'https://www.sciencedirect.com'
+    domain: 'sciencedirect.com'
+    category: 'RESEARCH'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 3
+    tags: ['science', 'articles']
+    notes: ''
+  # K. Audit regulators (121-126)
+  - name: 'PCAOB - Home'
+    url: 'https://www.pcaobus.org'
+    domain: 'pcaobus.org'
+    category: 'AUDIT_REG'
+    jurisdiction_code: 'US'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 2
+    tags: ['audit', 'oversight']
+    notes: ''
+  - name: 'PCAOB - Inspections'
+    url: 'https://www.pcaobus.org/oversight/inspections'
+    domain: 'pcaobus.org'
+    category: 'AUDIT_REG'
+    jurisdiction_code: 'US'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 2
+    tags: ['inspections']
+    notes: ''
+  - name: 'UK FRC - Home'
+    url: 'https://www.frc.org.uk'
+    domain: 'frc.org.uk'
+    category: 'AUDIT_REG'
+    jurisdiction_code: 'UK'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 2
+    tags: ['regulator']
+    notes: ''
+  - name: 'UK FRC - Accountants'
+    url: 'https://www.frc.org.uk/accountants'
+    domain: 'frc.org.uk'
+    category: 'AUDIT_REG'
+    jurisdiction_code: 'UK'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 3
+    tags: ['accountants']
+    notes: ''
+  - name: 'UK FRC - Auditors'
+    url: 'https://www.frc.org.uk/auditors'
+    domain: 'frc.org.uk'
+    category: 'AUDIT_REG'
+    jurisdiction_code: 'UK'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 3
+    tags: ['auditors']
+    notes: ''
+  - name: 'IFIAR'
+    url: 'https://www.ifiar.org'
+    domain: 'ifiar.org'
+    category: 'AUDIT_REG'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 3
+    tags: ['global-regulators']
+    notes: ''
+  # L. Corporate / EU / OECD governance (127-130)
+  - name: 'EU Single Market & Economy'
+    url: 'https://single-market-economy.ec.europa.eu/'
+    domain: 'ec.europa.eu'
+    category: 'CORP'
+    jurisdiction_code: 'EU'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 3
+    tags: ['company-law', 'eu']
+    notes: ''
+  - name: 'EUR-Lex'
+    url: 'https://eur-lex.europa.eu/'
+    domain: 'eur-lex.europa.eu'
+    category: 'LAW'
+    jurisdiction_code: 'EU'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 2
+    tags: ['eu-law']
+    notes: ''
+  - name: 'OECD - Corporate Governance'
+    url: 'https://www.oecd.org/corporate/'
+    domain: 'oecd.org'
+    category: 'GOVERNANCE'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 3
+    tags: ['corporate-governance']
+    notes: ''
+  - name: 'World Bank - Doing Business (archived)'
+    url: 'https://www.doingbusiness.org'
+    domain: 'doingbusiness.org'
+    category: 'CORP'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 3
+    tags: ['business-environment']
+    notes: ''
+  # M. Banking / Insurance / Public sector / ESG (131-139)
+  - name: 'BIS - Home'
+    url: 'https://www.bis.org'
+    domain: 'bis.org'
+    category: 'BANKING'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 3
+    tags: ['banking']
+    notes: ''
+  - name: 'BIS - Regulations'
+    url: 'https://www.bis.org/regulations.htm'
+    domain: 'bis.org'
+    category: 'BANKING'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 3
+    tags: ['regulation']
+    notes: ''
+  - name: 'IFRS - Financial Instruments Projects'
+    url: 'https://www.ifrs.org/projects/financial-instruments/'
+    domain: 'ifrs.org'
+    category: 'IFRS'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 3
+    tags: ['financial-instruments']
+    notes: ''
+  - name: 'IAIS'
+    url: 'https://www.iaisweb.org'
+    domain: 'iaisweb.org'
+    category: 'INSURANCE'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 3
+    tags: ['insurance-supervision']
+    notes: ''
+  - name: 'IPSASB - Home'
+    url: 'https://www.ipsasb.org'
+    domain: 'ipsasb.org'
+    category: 'PUBLIC_SECTOR'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 2
+    tags: ['ipsas']
+    notes: ''
+  - name: 'IFAC - IPSASB Standards'
+    url: 'https://www.ifac.org/ipsasb/standards'
+    domain: 'ifac.org'
+    category: 'PUBLIC_SECTOR'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 2
+    tags: ['public-sector-standards']
+    notes: ''
+  - name: 'IFRS - Sustainability'
+    url: 'https://www.ifrs.org/sustainability/'
+    domain: 'ifrs.org'
+    category: 'ESG'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 2
+    tags: ['sustainability', 'esg']
+    notes: ''
+  - name: 'ESMA - Home'
+    url: 'https://www.esma.europa.eu'
+    domain: 'esma.europa.eu'
+    category: 'REG'
+    jurisdiction_code: 'EU'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 2
+    tags: ['markets']
+    notes: ''
+  - name: 'ESG Standards Board'
+    url: 'https://www.esgstandardsboard.org'
+    domain: 'esgstandardsboard.org'
+    category: 'ESG'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 3
+    tags: ['esg', 'standards']
+    notes: ''
+  # N. More global firms (140-144)
+  - name: 'Grant Thornton Global - Home'
+    url: 'https://www.grantthornton.global'
+    domain: 'grantthornton.global'
+    category: 'FIRM'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 3
+    tags: ['audit', 'tax']
+    notes: ''
+  - name: 'Grant Thornton - Insights'
+    url: 'https://www.grantthornton.global/en/insights/'
+    domain: 'grantthornton.global'
+    category: 'FIRM'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 3
+    tags: ['insights']
+    notes: ''
+  - name: 'BDO Global - Home'
+    url: 'https://www.bdo.global'
+    domain: 'bdo.global'
+    category: 'FIRM'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 3
+    tags: ['audit', 'tax']
+    notes: ''
+  - name: 'BDO - Insights'
+    url: 'https://www.bdo.global/en-gb/insights'
+    domain: 'bdo.global'
+    category: 'FIRM'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 3
+    tags: ['insights']
+    notes: ''
+  - name: 'Mazars - Home'
+    url: 'https://www.mazars.com'
+    domain: 'mazars.com'
+    category: 'FIRM'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 3
+    tags: ['audit', 'tax']
+    notes: ''
+  # O. Cross-border TP / treaties (145-148)
+  - name: 'UN Tax Committee'
+    url: 'https://www.un.org/development/desa/financing/tax'
+    domain: 'un.org'
+    category: 'TAX'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 3
+    tags: ['un-tax']
+    notes: ''
+  - name: 'IBFD (International Bureau of Fiscal Documentation)'
+    url: 'https://www.ibfd.org'
+    domain: 'ibfd.org'
+    category: 'TAX'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 3
+    tags: ['tax-research']
+    notes: ''
+  - name: 'International Tax Review'
+    url: 'https://www.internationaltaxreview.com'
+    domain: 'internationaltaxreview.com'
+    category: 'TAX'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 3
+    tags: ['tax-news']
+    notes: ''
+  - name: 'Tax Treaties Info (generic)'
+    url: 'https://www.taxtreaties.com'
+    domain: 'taxtreaties.com'
+    category: 'TAX'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 3
+    tags: ['treaties']
+    notes: ''
+  # P. Rwanda additional regulators (149-151)
+  - name: 'RURA - Home'
+    url: 'https://www.rura.rw'
+    domain: 'rura.rw'
+    category: 'REG'
+    jurisdiction_code: 'RW'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 3
+    tags: ['utilities', 'regulator']
+    notes: ''
+  - name: 'RDB - Old org domain'
+    url: 'https://org.rdb.rw'
+    domain: 'rdb.rw'
+    category: 'CORP'
+    jurisdiction_code: 'RW'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 3
+    tags: ['legacy']
+    notes: ''
+  - name: 'MINIJUST Rwanda'
+    url: 'https://minijust.gov.rw'
+    domain: 'minijust.gov.rw'
+    category: 'LAW'
+    jurisdiction_code: 'RW'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 3
+    tags: ['justice']
+    notes: ''
+  # Q. Malta additional (152-155)
+  - name: 'Identity Malta'
+    url: 'https://identitymalta.com'
+    domain: 'identitymalta.com'
+    category: 'CORP'
+    jurisdiction_code: 'MT'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 3
+    tags: ['immigration', 'residence']
+    notes: ''
+  - name: 'Maltese Government Portal'
+    url: 'https://www.gov.mt'
+    domain: 'gov.mt'
+    category: 'GOV'
+    jurisdiction_code: 'MT'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 3
+    tags: ['government']
+    notes: ''
+  - name: 'Malta Ministry for Justice'
+    url: 'https://justice.gov.mt'
+    domain: 'justice.gov.mt'
+    category: 'LAW'
+    jurisdiction_code: 'MT'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 3
+    tags: ['justice']
+    notes: ''
+  - name: 'Malta Customs'
+    url: 'https://customs.gov.mt'
+    domain: 'customs.gov.mt'
+    category: 'TAX'
+    jurisdiction_code: 'MT'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 3
+    tags: ['customs']
+    notes: ''
+  # R. Accounting education / practice (156-159)
+  - name: 'AccountingTools'
+    url: 'https://www.accountingtools.com'
+    domain: 'accountingtools.com'
+    category: 'KNOWLEDGE'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 3
+    tags: ['learning']
+    notes: ''
+  - name: 'CPA Journal'
+    url: 'https://www.cpajournal.com'
+    domain: 'cpajournal.com'
+    category: 'KNOWLEDGE'
+    jurisdiction_code: 'US'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 3
+    tags: ['articles']
+    notes: ''
+  - name: 'FEE (Federation of European Accountants) / Accountancy Europe'
+    url: 'https://www.accountancyeurope.eu'
+    domain: 'accountancyeurope.eu'
+    category: 'PRO'
+    jurisdiction_code: 'EU'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 3
+    tags: ['europe', 'accountancy']
+    notes: ''
+  - name: 'The Wire (generic knowledge - optional)'
+    url: 'https://www.thewire.org'
+    domain: 'thewire.org'
+    category: 'KNOWLEDGE'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 4
+    tags: ['misc']
+    notes: ''
+  # S. Transfer Pricing specialization (160-163)
+  - name: 'OECD - Transfer Pricing Guidelines'
+    url: 'https://www.oecd.org/tax/transfer-pricing/oecd-transfer-pricing-guidelines.htm'
+    domain: 'oecd.org'
+    category: 'TAX'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 1
+    tags: ['transfer-pricing', 'guidelines']
+    notes: ''
+  - name: 'Tax Foundation'
+    url: 'https://taxfoundation.org'
+    domain: 'taxfoundation.org'
+    category: 'TAX'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 3
+    tags: ['tax-analysis']
+    notes: ''
+  - name: 'TransferPricing.com'
+    url: 'https://transferpricing.com'
+    domain: 'transferpricing.com'
+    category: 'TAX'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 4
+    tags: ['tp']
+    notes: ''
+  - name: 'EY Tax Insights'
+    url: 'https://taxinsights.ey.com'
+    domain: 'ey.com'
+    category: 'TAX'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 3
+    tags: ['tax-insights']
+    notes: ''
+  # T. VAT / indirect tax (164-167)
+  - name: 'Tax Foundation - VAT'
+    url: 'https://taxfoundation.org/value-added-tax/'
+    domain: 'taxfoundation.org'
+    category: 'TAX'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 3
+    tags: ['vat']
+    notes: ''
+  - name: 'VATLive (Avalara VAT resource)'
+    url: 'https://www.vatlive.com'
+    domain: 'vatlive.com'
+    category: 'TAX'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 3
+    tags: ['vat', 'indirect-tax']
+    notes: ''
+  - name: 'Avalara - Home'
+    url: 'https://www.avalara.com'
+    domain: 'avalara.com'
+    category: 'TAX'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 4
+    tags: ['vat', 'compliance']
+    notes: ''
+  - name: 'TMS VAT Guides (example)'
+    url: 'https://www.tmsconsulting.com/vat-guides/'
+    domain: 'tmsconsulting.com'
+    category: 'TAX'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 4
+    tags: ['vat-guides']
+    notes: ''
+  # U. Law libraries (168-171)
+  - name: 'LexisNexis'
+    url: 'https://www.lexisnexis.com'
+    domain: 'lexisnexis.com'
+    category: 'LAW'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 4
+    tags: ['legal-db']
+    notes: ''
+  - name: 'Westlaw'
+    url: 'https://www.westlaw.com'
+    domain: 'westlaw.com'
+    category: 'LAW'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 4
+    tags: ['legal-db']
+    notes: ''
+  - name: 'Cornell LII'
+    url: 'https://www.law.cornell.edu'
+    domain: 'law.cornell.edu'
+    category: 'LAW'
+    jurisdiction_code: 'US'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 3
+    tags: ['legal-reference']
+    notes: ''
+  - name: 'International Labour Organization'
+    url: 'https://www.ilo.org'
+    domain: 'ilo.org'
+    category: 'LAW'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 3
+    tags: ['labour-law']
+    notes: ''
+  # V. IFRS interpretation & presentation (172-175)
+  - name: 'IFRSbox'
+    url: 'https://www.ifrsbox.com'
+    domain: 'ifrsbox.com'
+    category: 'IFRS'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 3
+    tags: ['ifrs', 'examples']
+    notes: ''
+  - name: 'AccountingWEB'
+    url: 'https://www.accountingweb.com'
+    domain: 'accountingweb.com'
+    category: 'KNOWLEDGE'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 3
+    tags: ['practice', 'forum']
+    notes: ''
+  - name: 'CFO.com'
+    url: 'https://www.cfo.com'
+    domain: 'cfo.com'
+    category: 'KNOWLEDGE'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 4
+    tags: ['finance']
+    notes: ''
+  - name: 'Journal of Accountancy - News'
+    url: 'https://www.journalofaccountancy.com/news.html'
+    domain: 'journalofaccountancy.com'
+    category: 'KNOWLEDGE'
+    jurisdiction_code: 'US'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 3
+    tags: ['magazine', 'news']
+    notes: ''
+  # W. Fair value / valuation (176-180)
+  - name: 'PwC Canada - Valuation'
+    url: 'https://www.pwccanada.com/en/services/valuation.html'
+    domain: 'pwccanada.com'
+    category: 'VALUATION'
+    jurisdiction_code: 'CA'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 3
+    tags: ['valuation']
+    notes: ''
+  - name: 'IVSC - International Valuation Standards Council'
+    url: 'https://www.ivsc.org'
+    domain: 'ivsc.org'
+    category: 'VALUATION'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 3
+    tags: ['valuation-standards']
+    notes: ''
+  - name: 'CFA Volunteer / Example portal'
+    url: 'https://www.cfavolunteer.com'
+    domain: 'cfavolunteer.com'
+    category: 'VALUATION'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 4
+    tags: ['cfa']
+    notes: ''
+  - name: 'CFA Institute'
+    url: 'https://www.cfainstitute.org'
+    domain: 'cfainstitute.org'
+    category: 'VALUATION'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 3
+    tags: ['cfa']
+    notes: ''
+  - name: 'ASA - American Society of Appraisers'
+    url: 'https://www.appraisers.org'
+    domain: 'appraisers.org'
+    category: 'VALUATION'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 3
+    tags: ['appraisal']
+    notes: ''
+  # X. Governance & risk (181-185)
+  - name: 'COSO - Home'
+    url: 'https://www.coso.org'
+    domain: 'coso.org'
+    category: 'GOVERNANCE'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 2
+    tags: ['internal-control', 'erm']
+    notes: ''
+  - name: 'NCUA'
+    url: 'https://www.ncua.gov'
+    domain: 'ncua.gov'
+    category: 'REG'
+    jurisdiction_code: 'US'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 4
+    tags: ['credit-unions']
+    notes: ''
+  - name: 'FINRA'
+    url: 'https://www.finra.org'
+    domain: 'finra.org'
+    category: 'REG'
+    jurisdiction_code: 'US'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 3
+    tags: ['securities-reg']
+    notes: ''
+  - name: 'US SEC'
+    url: 'https://www.sec.gov'
+    domain: 'sec.gov'
+    category: 'REG'
+    jurisdiction_code: 'US'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 2
+    tags: ['sec', 'filings']
+    notes: ''
+  - name: 'ESMA - Markets Supervision'
+    url: 'https://www.esma.europa.eu/markets'
+    domain: 'esma.europa.eu'
+    category: 'REG'
+    jurisdiction_code: 'EU'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 2
+    tags: ['markets-regulation']
+    notes: ''
+  # Y. Example financial statements (186-189)
+  - name: 'Deloitte - IFRS Model Financial Statements'
+    url: 'https://www2.deloitte.com/global/en/services/audit/example-financial-statements.html'
+    domain: 'deloitte.com'
+    category: 'IFRS'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 2
+    tags: ['model-fs']
+    notes: ''
+  - name: 'PwC - Example FS'
+    url: 'https://www.pwc.com/us/en/cfodirect/publications/financial-statements.html'
+    domain: 'pwc.com'
+    category: 'IFRS'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 2
+    tags: ['example-fs']
+    notes: ''
+  - name: 'EY - IFRS Sample FS'
+    url: 'https://www.ey.com/en_gl/assurance/ifrs-sample-financial-statements'
+    domain: 'ey.com'
+    category: 'IFRS'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 2
+    tags: ['sample-fs']
+    notes: ''
+  - name: 'KPMG - IFRS Model FS'
+    url: 'https://kpmg.com/xx/en/home/insights/2023/ifrs-model-financial-statements.html'
+    domain: 'kpmg.com'
+    category: 'IFRS'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 2
+    tags: ['model-fs']
+    notes: ''
+  # Z. AI / tech docs (190-192)
+  - name: 'Google Developers'
+    url: 'https://developers.google.com'
+    domain: 'developers.google.com'
+    category: 'TECH'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 4
+    tags: ['api', 'google']
+    notes: ''
+  - name: 'OpenAI Docs'
+    url: 'https://platform.openai.com/docs'
+    domain: 'platform.openai.com'
+    category: 'TECH'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 4
+    tags: ['openai']
+    notes: ''
+  - name: 'Supabase Docs'
+    url: 'https://supabase.com/docs'
+    domain: 'supabase.com'
+    category: 'TECH'
+    jurisdiction_code: 'GLOBAL'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 4
+    tags: ['supabase']
+    notes: ''
+  # AA. East Africa regional (193-197)
+  - name: 'Kenya Revenue Authority'
+    url: 'https://www.kra.go.ke'
+    domain: 'kra.go.ke'
+    category: 'TAX'
+    jurisdiction_code: 'KE'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 3
+    tags: ['east-africa-tax']
+    notes: ''
+  - name: 'Uganda Revenue Authority'
+    url: 'https://www.ura.go.ug'
+    domain: 'ura.go.ug'
+    category: 'TAX'
+    jurisdiction_code: 'UG'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 3
+    tags: ['east-africa-tax']
+    notes: ''
+  - name: 'Tanzania Revenue Authority'
+    url: 'https://www.tra.go.tz'
+    domain: 'tra.go.tz'
+    category: 'TAX'
+    jurisdiction_code: 'TZ'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 3
+    tags: ['east-africa-tax']
+    notes: ''
+  - name: 'Zambia Revenue Authority'
+    url: 'https://www.zra.org.zm'
+    domain: 'zra.org.zm'
+    category: 'TAX'
+    jurisdiction_code: 'ZM'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 3
+    tags: ['east-africa-tax']
+    notes: ''
+  - name: 'Kampala Capital City Authority (example local gov)'
+    url: 'https://www.kcca.go.ug'
+    domain: 'kcca.go.ug'
+    category: 'GOV'
+    jurisdiction_code: 'UG'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 4
+    tags: ['municipal']
+    notes: ''
+  # AB. EU tax/customs (198-200)
+  - name: 'EU Taxation & Customs'
+    url: 'https://ec.europa.eu/taxation_customs'
+    domain: 'ec.europa.eu'
+    category: 'TAX'
+    jurisdiction_code: 'EU'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 2
+    tags: ['eu-tax']
+    notes: ''
+  - name: 'European Commission - Info'
+    url: 'https://ec.europa.eu/info/index_en'
+    domain: 'ec.europa.eu'
+    category: 'GOV'
+    jurisdiction_code: 'EU'
+    authority_level: 'SECONDARY'
+    status: 'ACTIVE'
+    priority: 3
+    tags: ['eu-info']
+    notes: ''
+  - name: 'EU Tax & Customs - Portal'
+    url: 'https://taxation-customs.ec.europa.eu'
+    domain: 'taxation-customs.ec.europa.eu'
+    category: 'TAX'
+    jurisdiction_code: 'EU'
+    authority_level: 'PRIMARY'
+    status: 'ACTIVE'
+    priority: 2
+    tags: ['tax', 'customs']
+    notes: ''

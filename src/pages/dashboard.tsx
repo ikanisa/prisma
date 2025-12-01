@@ -1,15 +1,21 @@
 import { motion } from 'framer-motion';
 import { BarChart3, Users, Briefcase, CheckSquare, TrendingUp, TrendingDown, Clock, Calendar } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { useAppStore } from '@/stores/mock-data';
+import { useOrganizations } from '@/hooks/use-organizations';
+import { useClients } from '@/hooks/use-clients';
+import { useEngagements } from '@/hooks/use-engagements';
+import { useTasks } from '@/hooks/use-tasks';
+import { isSupabaseConfigured } from '@/integrations/supabase/client';
 
 export function Dashboard() {
-  const { currentOrg, getCurrentUserRole, getOrgClients, getOrgEngagements, getOrgTasks } = useAppStore();
-  const userRole = getCurrentUserRole();
-  
-  const clients = getOrgClients(currentOrg?.id || '');
-  const engagements = getOrgEngagements(currentOrg?.id || '');
-  const tasks = getOrgTasks(currentOrg?.id || '');
+  const { currentOrg, currentRole } = useOrganizations();
+  const activeOrgId = currentOrg?.id ?? null;
+  const { data: clients = [], isLoading: clientsLoading } = useClients(activeOrgId ?? undefined);
+  const { data: engagements = [], isLoading: engagementsLoading } = useEngagements(activeOrgId ?? undefined);
+  const { data: tasks = [], isLoading: tasksLoading } = useTasks(activeOrgId ?? undefined);
+  const userRole = currentRole;
+  const isBusy = clientsLoading || engagementsLoading || tasksLoading;
+  const requiresOrgSelection = isSupabaseConfigured && !activeOrgId;
 
   // Calculate stats
   const completedTasks = tasks.filter(t => t.status === 'COMPLETED').length;
@@ -56,6 +62,14 @@ export function Dashboard() {
         <p className="text-muted-foreground">Welcome back to Prisma Glow</p>
       </div>
 
+      {requiresOrgSelection && (
+        <Card>
+          <CardContent className="py-6 text-center text-sm text-muted-foreground">
+            Select an organization to load live dashboard metrics.
+          </CardContent>
+        </Card>
+      )}
+
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat, index) => (
           <motion.div
@@ -70,7 +84,7 @@ export function Dashboard() {
                 <stat.icon className={`h-4 w-4 ${stat.color}`} />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{stat.value}</div>
+                <div className="text-2xl font-bold">{isBusy ? '—' : stat.value}</div>
                 <div className="flex items-center space-x-1 mt-1">
                   <TrendingUp className="h-3 w-3 text-green-500" />
                   <span className="text-xs text-green-500 font-medium">{stat.trend}</span>

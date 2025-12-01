@@ -15,9 +15,9 @@ import { Button } from '@/components/enhanced-button';
 import { Card } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { useAppStore, Client } from '@/stores/mock-data';
 import { useOrganizations } from '@/hooks/use-organizations';
 import { useToast } from '@/hooks/use-toast';
+import { useClients, useCreateClient, type ClientRecord } from '@/hooks/use-clients';
 import { cn } from '@/lib/utils';
 import {
   ClientDraft,
@@ -50,7 +50,7 @@ const friendlyId = () =>
     ? crypto.randomUUID()
     : Math.random().toString(36).slice(2, 11);
 interface ClientOnboardingAgentProps {
-  onCreated?: (client: Client) => void;
+  onCreated?: (client: ClientRecord) => void;
 }
 
 export function ClientOnboardingAgent({ onCreated }: ClientOnboardingAgentProps) {
@@ -63,11 +63,14 @@ export function ClientOnboardingAgent({ onCreated }: ClientOnboardingAgentProps)
   const [awaitingConfirmation, setAwaitingConfirmation] = useState(false);
   const [pendingFiles, setPendingFiles] = useState<UploadedFile[]>([]);
   const [createdClientId, setCreatedClientId] = useState<string | null>(null);
-  const objectUrlsRef = useRef<string[]>([]);
   const { toast } = useToast();
-  const { currentOrg: storeOrg, currentUser, clients, setClients, addDocument } = useAppStore();
-  const { currentOrg: membershipOrg } = useOrganizations();
-  const resolvedOrgId = storeOrg?.id ?? membershipOrg?.id ?? null;
+  const { currentOrg } = useOrganizations();
+  const resolvedOrgId = currentOrg?.id ?? null;
+  const {
+    data: clients = [],
+    isLoading: clientsLoading,
+  } = useClients(resolvedOrgId);
+  const createClientMutation = useCreateClient();
 
   const missingFields = useMemo(
     () => REQUIRED_FIELDS.filter((field) => !draft[field]),
@@ -85,6 +88,9 @@ export function ClientOnboardingAgent({ onCreated }: ClientOnboardingAgentProps)
   }, [messages, scrollToBottom]);
 
   useEffect(() => {
+    if (clientsLoading) {
+      return;
+    }
     const introId = friendlyId();
     const welcome = `Hi, I'm the Prisma Glow onboarding agent. Let's add a new client together. Upload financial statements, engagement letters, or simply tell me about the client and I'll build the profile for you.`;
     const existing = clients.slice(0, 3).map((client) => `• ${client.name} (${client.industry}, ${client.country})`).join('\n');
@@ -93,7 +99,7 @@ export function ClientOnboardingAgent({ onCreated }: ClientOnboardingAgentProps)
       { id: introId, sender: 'agent', content: welcome },
       { id: friendlyId(), sender: 'agent', content: summary },
     ]);
-  }, [clients]);
+  }, [clients, clientsLoading]);
 
   const pushMessage = useCallback((message: ChatMessage) => {
     setMessages((prev) => [...prev, message]);
@@ -227,19 +233,6 @@ export function ClientOnboardingAgent({ onCreated }: ClientOnboardingAgentProps)
       uploads.push(uploaded);
       const { next } = mergeDraft(aggregatedUpdates, derived);
       Object.assign(aggregatedUpdates, next);
-      if (resolvedOrgId) {
-        const url = URL.createObjectURL(file);
-        objectUrlsRef.current.push(url);
-        addDocument({
-          id: friendlyId(),
-          orgId: resolvedOrgId,
-          name: file.name,
-          type: file.type || 'application/octet-stream',
-          url,
-          uploadedById: currentUser?.id ?? 'system',
-          createdAt: new Date().toISOString(),
-        });
-      }
     }
 
     pushUserMessage(`Uploaded ${uploads.length} document${uploads.length > 1 ? 's' : ''}.`, uploads);
@@ -255,7 +248,7 @@ export function ClientOnboardingAgent({ onCreated }: ClientOnboardingAgentProps)
     }
   };
 
-  const createClient = () => {
+  const createClient = async () => {
     if (!resolvedOrgId) {
       pushAgentMessage('Please select an organisation before creating a client.');
       return;
@@ -264,29 +257,37 @@ export function ClientOnboardingAgent({ onCreated }: ClientOnboardingAgentProps)
       pushAgentMessage('I still need more information before I can create the client.');
       return;
     }
-    const client: Client = {
-      id: friendlyId(),
-      orgId: resolvedOrgId,
-      name: draft.name ?? '',
-      industry: draft.industry ?? '',
-      country: draft.country ?? '',
-      fiscalYearEnd: draft.fiscalYearEnd ?? '',
-      contactName: draft.contactName ?? '',
-      contactEmail: draft.contactEmail ?? '',
-      createdAt: new Date().toISOString(),
-    };
-    setClients([...clients, client]);
-    setCreatedClientId(client.id);
-    setAwaitingConfirmation(false);
-    setDraft({});
-    setPendingFiles([]);
-    pushAgentMessage(`All set! ${client.name} has been added to your client list. Let me know if you would like to onboard another organisation.`);
-    onCreated?.(client);
+    try {
+      const client = await createClientMutation.mutateAsync({
+        orgId: resolvedOrgId,
+        name: draft.name ?? '',
+        industry: draft.industry ?? '',
+        country: draft.country ?? '',
+        fiscalYearEnd: draft.fiscalYearEnd ?? '',
+        contactName: draft.contactName ?? '',
+        contactEmail: draft.contactEmail ?? '',
+      });
+      setCreatedClientId(client.id);
+      setAwaitingConfirmation(false);
+      setDraft({});
+      setPendingFiles([]);
+      pushAgentMessage(`All set! ${client.name} has been added to your client list. Let me know if you would like to onboard another organisation.`);
+      onCreated?.(client);
+    } catch (error) {
+      const description =
+        error instanceof Error ? error.message : 'The agent could not save the client profile.';
+      toast({
+        variant: 'destructive',
+        title: 'Unable to create client',
+        description,
+      });
+      pushAgentMessage('I could not save that client yet. Please try again in a moment or check your Supabase configuration.');
+    }
   };
 
   const handleConfirmation = (decision: 'confirm' | 'revise') => {
     if (decision === 'confirm') {
-      createClient();
+      void createClient();
     } else {
       setAwaitingConfirmation(false);
       pushAgentMessage('No problem. Tell me what needs to change or upload an updated document.');
@@ -297,13 +298,6 @@ export function ClientOnboardingAgent({ onCreated }: ClientOnboardingAgentProps)
     if (!missingFields.length || awaitingConfirmation) return undefined;
     return missingFields.map((field) => FIELD_LABELS[field]).join(', ');
   }, [awaitingConfirmation, missingFields]);
-
-  useEffect(
-    () => () => {
-      objectUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
-    },
-    [],
-  );
 
   return (
     <Card className="glass h-full overflow-hidden border border-white/10">
@@ -401,11 +395,21 @@ export function ClientOnboardingAgent({ onCreated }: ClientOnboardingAgentProps)
               <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/30 bg-primary/10 px-4 py-3 text-sm">
                 <span>Ready to create this client?</span>
                 <div className="flex gap-2">
-                  <Button type="button" variant="gradient" onClick={() => handleConfirmation('confirm')}>
+                  <Button
+                    type="button"
+                    variant="gradient"
+                    loading={createClientMutation.isPending}
+                    onClick={() => handleConfirmation('confirm')}
+                  >
                     <CheckCircle2 className="mr-2 h-4 w-4" />
                     Create client
                   </Button>
-                  <Button type="button" variant="outline" onClick={() => handleConfirmation('revise')}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={createClientMutation.isPending}
+                    onClick={() => handleConfirmation('revise')}
+                  >
                     <RefreshCw className="mr-2 h-4 w-4" />
                     Revise details
                   </Button>
@@ -444,4 +448,3 @@ function formatBytes(bytes: number) {
   const value = bytes / Math.pow(1024, index);
   return `${value.toFixed(value >= 10 || index === 0 ? 0 : 1)} ${units[index]}`;
 }
-

@@ -1,0 +1,143 @@
+retrieval_rules:
+  version: 1.0
+  description: Logic rules for combining DeepSearch results and answering queries
+
+  ranking:
+    base_metric: "cosine_similarity"
+    fields:
+      - embedding_score
+      - authority_weight
+      - recency_weight
+      - jurisdiction_match_weight
+
+    authority_weights:
+      PRIMARY: 1.0
+      INTERNAL: 0.9
+      SECONDARY: 0.7
+
+    recency:
+      decay_half_life_days: 365
+      no_decay_for_types:
+        - IFRS
+        - IAS
+        - ISA
+      accelerated_decay_for_types:
+        - TAX_LAW    # Tax laws change more frequently
+
+    jurisdiction:
+      exact_match_bonus: 0.15
+      regional_match_bonus: 0.08
+      global_fallback_bonus: 0.05
+      
+      regional_groupings:
+        EAC:
+          - RW
+          - KE
+          - UG
+          - TZ
+        EU:
+          - UK
+          - EU
+
+  thresholds:
+    min_score_for_use: 0.75
+    min_primary_score_for_standards: 0.78
+    min_secondary_score: 0.70
+    max_chunks: 6
+    min_chunks: 2
+
+  selection_strategy:
+    - step: "group_by_document"
+      description: "Prefer multiple chunks from the same relevant document to maintain context."
+      max_chunks_per_document: 3
+    
+    - step: "diversify_sources"
+      description: "If multiple documents are similarly relevant, include at least one secondary commentary for explanation."
+      min_unique_sources: 2
+    
+    - step: "prioritize_primary"
+      description: "Always include at least one PRIMARY source if available above threshold"
+      required_primary_count: 1
+    
+    - step: "balance_depth_breadth"
+      description: "Mix detailed chunks with overview chunks when available"
+
+  fallback_logic:
+    - condition: "no_chunk_above_threshold"
+      action: "ask_user_for_more_context"
+      message: "I couldn't find sufficiently relevant guidance. Could you provide more details about your specific situation?"
+    
+    - condition: "primary_sources_found_but_outdated"
+      action: "trigger_external_freshness_check"
+      threshold_days: 180
+    
+    - condition: "conflicting_primary_sources"
+      action: "rank_by_effective_date_and_jurisdiction"
+      explain_conflict: true
+    
+    - condition: "only_secondary_sources_found"
+      action: "warn_user_and_proceed"
+      message: "Note: This guidance is based on secondary sources (commentary) rather than primary standards."
+    
+    - condition: "jurisdiction_mismatch"
+      action: "use_global_guidance_with_warning"
+      message: "Applying global guidance; please verify jurisdiction-specific requirements."
+
+  citation_policy:
+    minimum_citations: 2
+    preferred_citation_fields:
+      - document_code    # e.g. "IAS 21"
+      - section_path     # e.g. "IAS 21.8-12"
+      - source_url
+      - effective_date
+    format: >
+      Use in-text references like: (IAS 21.8-12, IFRS Foundation).
+      Include full citations at the end with URLs.
+    
+    citation_format_template: |
+      {document_code} {section_path}, "{title}", {source_name}, effective {effective_from}.
+      Available at: {source_url}
+
+  quality_gates:
+    - gate: "authority_coverage"
+      requirement: "At least one PRIMARY source for standards/law questions"
+      fail_action: "warn_user"
+    
+    - gate: "jurisdiction_alignment"
+      requirement: "Jurisdiction-specific guidance for tax questions"
+      fail_action: "flag_and_use_global"
+    
+    - gate: "recency_check"
+      requirement: "Tax law sources less than 2 years old"
+      fail_action: "trigger_external_search"
+    
+    - gate: "confidence_threshold"
+      requirement: "Average score >= 0.75"
+      fail_action: "request_clarification"
+
+  context_enrichment:
+    - include_document_metadata: true
+    - include_adjacent_chunks: false  # Set to true if you want context from neighboring chunks
+    - include_cross_references: true
+    - include_definitions: true       # Pull definition chunks when technical terms are used
+
+  caching:
+    enable: true
+    ttl_seconds: 3600
+    cache_key_includes:
+      - query_text
+      - jurisdiction_code
+      - types_filter
+    invalidate_on:
+      - new_document_ingested
+      - document_status_changed
+
+  monitoring:
+    log_all_queries: true
+    log_chunks_used: true
+    track_metrics:
+      - average_relevance_score
+      - authority_level_distribution
+      - jurisdiction_match_rate
+      - cache_hit_rate
+      - response_latency

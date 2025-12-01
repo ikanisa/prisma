@@ -4,13 +4,15 @@ Agent Repository
 Provides CRUD operations for agents using the database service.
 """
 
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Tuple, Union
 from functools import lru_cache
+from datetime import datetime
 import structlog
 
 from server.services.database_service import get_database_service, DatabaseService
 
 logger = structlog.get_logger(__name__)
+AGENT_TABLE = "agents"
 
 
 class AgentRepository:
@@ -30,8 +32,13 @@ class AgentRepository:
         category: Optional[str] = None,
         is_active: Optional[bool] = None,
         limit: Optional[int] = None,
-        offset: Optional[int] = None
-    ) -> List[Dict[str, Any]]:
+        offset: Optional[int] = None,
+        organization_id: Optional[str] = None,
+        agent_type: Optional[str] = None,
+        status: Optional[str] = None,
+        search: Optional[str] = None,
+        include_count: bool = False
+    ) -> Union[List[Dict[str, Any]], Tuple[List[Dict[str, Any]], int]]:
         """
         Get all agents with optional filtering.
         
@@ -44,30 +51,61 @@ class AgentRepository:
         Returns:
             List of agent records
         """
-        filters = {}
+        filters: Dict[str, Any] = {}
         
         if category:
             filters["category"] = category
         if is_active is not None:
-            filters["is_active"] = is_active
+            filters["status"] = "active" if is_active else "archived"
+        if organization_id:
+            filters["organization_id"] = organization_id
+        if agent_type:
+            filters["type"] = agent_type
+        if status:
+            filters["status"] = status
+        if search:
+            filters["name"] = {"ilike": f"%{search}%"}
         
         try:
+            if include_count:
+                agents, total = await self.db.query_with_count(
+                    table=AGENT_TABLE,
+                    select="*",
+                    filters=filters,
+                    order="updated_at.desc",
+                    limit=limit,
+                    offset=offset
+                )
+                logger.info(
+                    "agents_fetched",
+                    count=len(agents),
+                    category=category,
+                    organization_id=organization_id,
+                    include_count=True,
+                )
+                return agents, total
+
             agents = await self.db.query(
-                table="agent_profiles",
+                table=AGENT_TABLE,
                 select="*",
                 filters=filters,
-                order="name.asc",
+                order="updated_at.desc",
                 limit=limit,
                 offset=offset
             )
             
-            logger.info("agents_fetched", count=len(agents), category=category)
+            logger.info(
+                "agents_fetched",
+                count=len(agents),
+                category=category,
+                organization_id=organization_id,
+            )
             return agents
         except Exception as e:
             logger.error("failed_to_fetch_agents", error=str(e))
             raise
     
-    async def get_agent_by_slug(self, slug: str) -> Optional[Dict[str, Any]]:
+    async def get_agent_by_slug(self, slug: str, organization_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """
         Get a single agent by slug.
         
@@ -77,11 +115,15 @@ class AgentRepository:
         Returns:
             Agent record or None if not found
         """
+        filters = {"slug": slug}
+        if organization_id:
+            filters["organization_id"] = organization_id
+
         try:
             agents = await self.db.query(
-                table="agent_profiles",
+                table=AGENT_TABLE,
                 select="*",
-                filters={"slug": slug},
+                filters=filters,
                 limit=1
             )
             
@@ -95,7 +137,7 @@ class AgentRepository:
             logger.error("failed_to_fetch_agent", slug=slug, error=str(e))
             raise
     
-    async def get_agent_by_id(self, agent_id: str) -> Optional[Dict[str, Any]]:
+    async def get_agent_by_id(self, agent_id: str, organization_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """
         Get a single agent by ID.
         
@@ -105,11 +147,15 @@ class AgentRepository:
         Returns:
             Agent record or None if not found
         """
+        filters = {"id": agent_id}
+        if organization_id:
+            filters["organization_id"] = organization_id
+
         try:
             agents = await self.db.query(
-                table="agent_profiles",
+                table=AGENT_TABLE,
                 select="*",
-                filters={"id": agent_id},
+                filters=filters,
                 limit=1
             )
             
@@ -135,7 +181,7 @@ class AgentRepository:
         """
         try:
             agents = await self.db.insert(
-                table="agent_profiles",
+                table=AGENT_TABLE,
                 data=agent_data
             )
             
@@ -149,38 +195,31 @@ class AgentRepository:
     
     async def update_agent(
         self,
-        slug: str,
+        agent_id: str,
         updates: Dict[str, Any]
     ) -> Optional[Dict[str, Any]]:
-        """
-        Update an agent by slug.
-        
-        Args:
-            slug: Agent slug
-            updates: Fields to update
-            
-        Returns:
-            Updated agent record or None if not found
-        """
+        """Update an agent by ID."""
         try:
+            updates["updated_at"] = datetime.utcnow().isoformat()
+
             agents = await self.db.update(
-                table="agent_profiles",
-                filters={"slug": slug},
+                table=AGENT_TABLE,
+                filters={"id": agent_id},
                 data=updates
             )
             
             if agents:
                 agent = agents[0] if isinstance(agents, list) else agents
-                logger.info("agent_updated", slug=slug, id=agent.get("id"))
+                logger.info("agent_updated", agent_id=agent_id)
                 return agent
             
-            logger.warning("agent_not_found_for_update", slug=slug)
+            logger.warning("agent_not_found_for_update", agent_id=agent_id)
             return None
         except Exception as e:
-            logger.error("failed_to_update_agent", slug=slug, error=str(e))
+            logger.error("failed_to_update_agent", agent_id=agent_id, error=str(e))
             raise
     
-    async def delete_agent(self, slug: str) -> bool:
+    async def delete_agent(self, agent_id: str) -> bool:
         """
         Delete an agent by slug.
         
@@ -191,19 +230,24 @@ class AgentRepository:
             True if deleted, False if not found
         """
         try:
-            agents = await self.db.delete(
-                table="agent_profiles",
-                filters={"slug": slug}
+            agents = await self.db.update(
+                table=AGENT_TABLE,
+                filters={"id": agent_id},
+                data={
+                    "status": "archived",
+                    "is_public": False,
+                    "updated_at": datetime.utcnow().isoformat(),
+                },
             )
-            
+
             if agents:
-                logger.info("agent_deleted", slug=slug)
+                logger.info("agent_deleted", agent_id=agent_id)
                 return True
             
-            logger.warning("agent_not_found_for_delete", slug=slug)
+            logger.warning("agent_not_found_for_delete", agent_id=agent_id)
             return False
         except Exception as e:
-            logger.error("failed_to_delete_agent", slug=slug, error=str(e))
+            logger.error("failed_to_delete_agent", agent_id=agent_id, error=str(e))
             raise
     
     async def get_agents_by_category(self, category: str) -> List[Dict[str, Any]]:

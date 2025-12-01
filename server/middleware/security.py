@@ -15,11 +15,13 @@ logger = logging.getLogger(__name__)
 limiter = Limiter(key_func=get_remote_address, default_limits=["100/minute"])
 
 # CORS configuration
+# This is a reference configuration - actual CORS is configured in main.py
+# using API_ALLOWED_ORIGINS environment variable
 CORS_CONFIG = {
-    "allow_origins": ["http://localhost:3000", "http://localhost:5173"],  # Update for production
+    "allow_origins": ["http://localhost:3000", "http://localhost:5173"],  # Development only
     "allow_credentials": True,
     "allow_methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    "allow_headers": ["*"],
+    "allow_headers": ["Authorization", "Content-Type", "X-Request-ID"],
 }
 
 # Security headers

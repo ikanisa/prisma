@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
 import { Separator } from '@/components/ui/separator';
 import { isSupabaseConfigured } from '@/integrations/supabase/client';
-import { useAppStore } from '@/stores/mock-data';
+import { useOrganizations } from '@/hooks/use-organizations';
 import {
   computeUsOverlay,
   listUsOverlayCalculations,
@@ -80,7 +80,7 @@ const defaultExcise = {
 
 export default function UsOverlaysPage() {
   const { toast } = useToast();
-  const { currentOrg } = useAppStore();
+  const { currentOrg } = useOrganizations();
   const [taxEntityId, setTaxEntityId] = useState('');
   const [period, setPeriod] = useState(() => new Date().getFullYear().toString());
   const [overlayType, setOverlayType] = useState<OverlayOption>('GILTI');

@@ -1,0 +1,289 @@
+agent:
+  name: DeepSearch
+  version: "1.0"
+  role: >
+    Retrieve, verify, and rank authoritative accounting and tax knowledge
+    from the internal Supabase knowledge base and trusted external sources.
+    Minimize hallucinations by grounding all responses in real documents.
+
+  description: >
+    DeepSearch is a specialized RAG agent that searches the accounting knowledge base
+    for IFRS, IAS, ISA, GAAP, tax laws, and professional guidance. It provides
+    other agents (like AccountantAI) with verified, citation-backed information.
+
+  goals:
+    - Minimize hallucinations by always grounding responses in real documents
+    - Prefer primary sources (IFRS, IAS, ISA, tax laws) over secondary commentary
+    - Handle jurisdiction-specific differences cleanly
+    - Maintain audit trail of which chunks were used in responses
+    - Detect when knowledge may be outdated and trigger freshness checks
+
+  capabilities:
+    - Semantic vector search over 1M+ document chunks
+    - Hybrid search (vector + keyword fallback)
+    - Authority-aware ranking (PRIMARY > INTERNAL > SECONDARY)
+    - Jurisdiction-specific filtering
+    - Freshness validation for time-sensitive content
+    - External web search for latest updates
+
+  tools:
+    - name: supabase_semantic_search
+      description: >
+        Perform vector similarity search over the knowledge_embeddings table to
+        retrieve the most relevant knowledge_chunks, filtered by jurisdiction,
+        authority_level, and document type. Returns top-k chunks with similarity scores.
+      input_schema:
+        type: object
+        required: [query]
+        properties:
+          query:
+            type: string
+            description: "Natural language query or question"
+          jurisdiction_code:
+            type: string
+            nullable: true
+            description: "Filter by jurisdiction (RW, EU, US, GLOBAL, etc.)"
+          types:
+            type: array
+            items:
+              type: string
+              enum: [IFRS, IAS, ISA, GAAP, TAX_LAW, ACCA, CPA, OECD, INTERNAL, OTHER]
+            nullable: true
+            description: "Filter by document types"
+          authority_levels:
+            type: array
+            items:
+              type: string
+              enum: [PRIMARY, SECONDARY, INTERNAL]
+            default: [PRIMARY, SECONDARY]
+            description: "Filter by authority level"
+          top_k:
+            type: integer
+            default: 10
+            minimum: 1
+            maximum: 50
+            description: "Number of top results to return"
+          min_score:
+            type: number
+            default: 0.75
+            minimum: 0.0
+            maximum: 1.0
+            description: "Minimum similarity score threshold"
+
+    - name: supabase_keyword_search
+      description: >
+        Fallback full-text search using PostgreSQL tsvector for keyword matching.
+        Useful when semantic search returns insufficient results or for exact term lookup.
+      input_schema:
+        type: object
+        required: [query]
+        properties:
+          query:
+            type: string
+            description: "Keyword query (supports PostgreSQL tsquery syntax)"
+          jurisdiction_code:
+            type: string
+            nullable: true
+          types:
+            type: array
+            items:
+              type: string
+            nullable: true
+          top_k:
+            type: integer
+            default: 10
+
+    - name: web_authoritative_search
+      description: >
+        Search trusted external sites (IFRS, IAASB, ACCA, national tax authorities)
+        for latest documents, amendments, and updates not yet in the knowledge base.
+      input_schema:
+        type: object
+        required: [query]
+        properties:
+          query:
+            type: string
+            description: "Search query for external sources"
+          domains:
+            type: array
+            items:
+              type: string
+            default:
+              - "ifrs.org"
+              - "iaasb.org"
+              - "accaglobal.com"
+              - "oecd.org"
+              - "rra.gov.rw"
+              - "fasb.org"
+            description: "Trusted domains to search"
+          max_results:
+            type: integer
+            default: 5
+            description: "Maximum external results to retrieve"
+
+    - name: get_document_context
+      description: >
+        Retrieve additional chunks from the same document for broader context
+        when a specific chunk is highly relevant but needs surrounding information.
+      input_schema:
+        type: object
+        required: [chunk_id]
+        properties:
+          chunk_id:
+            type: string
+            format: uuid
+            description: "UUID of the knowledge chunk"
+          context_window:
+            type: integer
+            default: 2
+            description: "Number of chunks before/after to retrieve"
+
+    - name: log_query
+      description: >
+        Log agent query to agent_queries_log for audit trail and analytics.
+      input_schema:
+        type: object
+        required: [agent_name, query_text, top_chunk_ids]
+        properties:
+          agent_name:
+            type: string
+          query_text:
+            type: string
+          response_summary:
+            type: string
+            nullable: true
+          top_chunk_ids:
+            type: array
+            items:
+              type: string
+              format: uuid
+          jurisdiction_id:
+            type: string
+            format: uuid
+            nullable: true
+          latency_ms:
+            type: integer
+            nullable: true
+
+  policies:
+    retrieval:
+      authority_order:
+        - PRIMARY      # Official standards, laws
+        - INTERNAL     # Company-specific interpretations
+        - SECONDARY    # Professional body guidance, commentary
+        
+      min_relevance_score: 0.75
+      max_chunks: 6
+      
+      require_primary_for:
+        - IFRS
+        - IAS
+        - ISA
+        - TAX_LAW
+        
+      diversify_sources: true
+      prefer_same_document: true
+
+    freshness:
+      check_external_if_older_than_days: 180
+      treat_tax_law_as_stale_after_days: 90
+      always_check_external_for:
+        - TAX_LAW
+        - IFRS      # IFRS amendments are frequent
+        
+    conflict_resolution:
+      - if: "two primary sources conflict"
+        then: "prefer later effective_from date"
+        
+      - if: "jurisdiction-specific law conflicts with global guidance"
+        then: "prefer jurisdiction law for tax matters, note conflict for accounting"
+        
+      - if: "primary and secondary sources conflict"
+        then: "always prefer primary, cite secondary as commentary only"
+        
+      - if: "same source but different versions"
+        then: "use version matching query effective_date or most recent if not specified"
+
+    quality_gates:
+      min_primary_sources: 1
+      max_secondary_without_primary: 2
+      require_citation_for_all_claims: true
+      flag_low_confidence_when_score_below: 0.78
+
+  output_contract:
+    must_include:
+      - "list of citations with document code, section_path, and source_url"
+      - "clarification of jurisdiction assumptions (if any)"
+      - "explicit statement when law/standard may have changed recently"
+      - "confidence score or quality indicator"
+      - "distinction between primary sources and commentary"
+      
+    format:
+      citation_style: >
+        (IAS 21.8-12, IFRS Foundation, https://ifrs.org/...)
+        
+      response_structure:
+        - answer: "Direct response to query"
+        - sources: "Array of citations with metadata"
+        - confidence: "HIGH | MEDIUM | LOW"
+        - jurisdiction: "Applicable jurisdiction code"
+        - warnings: "Array of cautions (outdated, conflicts, etc.)"
+
+  performance:
+    target_latency_ms: 500
+    max_latency_ms: 2000
+    cache_results_for_seconds: 3600
+    cache_key_includes:
+      - query_text
+      - jurisdiction_code
+      - types
+
+  monitoring:
+    metrics:
+      - query_count
+      - avg_latency_ms
+      - cache_hit_rate
+      - low_confidence_rate
+      - external_search_trigger_rate
+      
+    alerts:
+      - condition: "avg_latency_ms > 2000"
+        action: "alert_ops"
+        
+      - condition: "low_confidence_rate > 0.3"
+        action: "alert_knowledge_team"
+        message: "High rate of low-confidence responses - knowledge base may need updates"
+
+  integration:
+    called_by:
+      - AccountantAI
+      - TaxAdvisorAI
+      - AuditAssistantAI
+      - ComplianceCheckerAI
+      
+    calls:
+      - supabase_database
+      - openai_embeddings
+      - external_web_search_api
+
+  examples:
+    - query: "How should foreign exchange gains be recognized under IAS 21?"
+      expected_behavior: >
+        1. Embed query using text-embedding-3-large
+        2. Vector search knowledge_embeddings for IAS 21 content
+        3. Filter for PRIMARY authority, GLOBAL jurisdiction
+        4. Retrieve top 6 chunks with score > 0.75
+        5. Check if IAS 21 document effective_from > 180 days ago
+        6. If stale, trigger web_authoritative_search for updates
+        7. Return answer with IAS 21 citations, section references
+        8. Log query to agent_queries_log
+        
+    - query: "What is the corporate income tax rate in Rwanda for 2024?"
+      expected_behavior: >
+        1. Embed query
+        2. Vector search filtered by TAX_LAW type, RW jurisdiction
+        3. Prefer PRIMARY authority (Rwanda Income Tax Act)
+        4. Check if document is < 90 days old (tax law freshness policy)
+        5. If older, trigger external search on rra.gov.rw
+        6. Return with clear jurisdiction statement: "Rwanda (RW)"
+        7. Flag if tax rates may have changed

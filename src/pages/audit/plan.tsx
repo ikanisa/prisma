@@ -8,7 +8,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/components/ui/use-toast';
-import { useAppStore } from '@/stores/mock-data';
+import { useOrganizations } from '@/hooks/use-organizations';
+import { useEngagements } from '@/hooks/use-engagements';
 import {
   decidePlanApproval,
   fetchAuditPlanSnapshot,
@@ -57,7 +58,8 @@ function getStatusBadge(status: AuditPlanStatus | null) {
 
 export function AuditPlanPage() {
   const { engagementId } = useParams<{ engagementId: string }>();
-  const { currentOrg, getOrgEngagements } = useAppStore();
+  const { currentOrg } = useOrganizations();
+  const { data: engagements = [] } = useEngagements(currentOrg?.id ?? undefined);
   const { toast } = useToast();
 
   const [loading, setLoading] = useState(false);
@@ -80,8 +82,8 @@ export function AuditPlanPage() {
 
   const selectedEngagement = useMemo(() => {
     if (!currentOrg || !engagementId) return null;
-    return getOrgEngagements(currentOrg.id).find((eng) => eng.id === engagementId) ?? null;
-  }, [currentOrg, engagementId, getOrgEngagements]);
+    return engagements.find((eng) => eng.id === engagementId) ?? null;
+  }, [currentOrg, engagementId, engagements]);
 
   const canUseSupabase = isSupabaseConfigured;
 
