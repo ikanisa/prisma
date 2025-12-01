@@ -10,6 +10,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
+    "@prisma-glow/lib": "workspace:*",
     "zod": "^3.22.4"
   },
   "devDependencies": {
