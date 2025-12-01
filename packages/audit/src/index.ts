@@ -2,14 +2,17 @@
  * @prisma-glow/audit-agents
  * AI-Powered ISA-Compliant Audit Specialist Agents
  * 
- * Complete suite of 10 specialized audit agents covering the full audit lifecycle:
+ * Complete suite of 18 specialized audit agents covering the full audit lifecycle:
  * - Planning & Risk Assessment
  * - Substantive Testing & Controls
  * - Fraud Detection & Analytics
  * - Group Audits & Completion
  * - Quality Review & Reporting
+ * - Materiality & Sampling
+ * - Documentation & Independence
+ * - IT Audit & Specialized Domains
  * 
- * @version 1.0.0
+ * @version 1.1.0
  * @license MIT
  */
 
@@ -24,6 +27,14 @@ import { handleGroupAuditRequest } from './agents/group-audit';
 import { handleCompletionRequest } from './agents/completion';
 import { handleQualityReviewRequest } from './agents/quality-review';
 import { handleReportRequest } from './agents/report';
+import { handleMaterialitySamplingRequest } from './agents/materiality-sampling';
+import { handleDocumentationRequest } from './agents/documentation';
+import { handleIndependenceEthicsRequest } from './agents/independence-ethics';
+import { handleITAuditRequest } from './agents/it-systems';
+import { handleInternalAuditRequest } from './agents/internal-audit';
+import { handleESGRequest } from './agents/esg-assurance';
+import { handleForensicRequest } from './agents/forensic';
+import { handlePublicSectorRequest } from './agents/public-sector';
 import type { AgentResponse } from './types';
 
 // Agent Configurations
@@ -114,6 +125,112 @@ export {
   type ReportRequest,
 } from './agents/report';
 
+// New Agent Exports - Methodological Agents
+export {
+  MATERIALITY_SAMPLING_AGENT_CONFIG,
+  handleMaterialitySamplingRequest,
+  calculateMaterialityThresholds,
+  calculateSampleSize as calculateMaterialitySampleSize,
+  projectSampleMisstatement as projectMaterialityMisstatement,
+  type MaterialityRequest,
+  type SampleDesign,
+  type ProjectedMisstatement,
+} from './agents/materiality-sampling';
+
+export {
+  DOCUMENTATION_AGENT_CONFIG,
+  handleDocumentationRequest,
+  getWorkpaperTemplate,
+  reviewDocumentation,
+  rollforwardWorkpapers,
+  type DocumentationRequest,
+  type WorkpaperTemplate,
+  type DocumentationReview,
+  type RollforwardResult,
+} from './agents/documentation';
+
+export {
+  INDEPENDENCE_ETHICS_AGENT_CONFIG,
+  handleIndependenceEthicsRequest,
+  assessThreat,
+  evaluateNonAuditService,
+  checkPartnerRotation,
+  type IndependenceRequest,
+  type ThreatAssessment,
+  type IndependenceCheck,
+  type NASAssessment,
+  type RotationCheck,
+} from './agents/independence-ethics';
+
+export {
+  IT_SYSTEMS_AGENT_CONFIG,
+  handleITAuditRequest,
+  assessITEnvironment,
+  testITGC,
+  reviewUserAccess,
+  assessCybersecurity,
+  type ITAuditRequest,
+  type ITGCAssessment,
+  type AppControlAssessment,
+  type AccessReviewResult,
+  type CybersecurityAssessment,
+} from './agents/it-systems';
+
+export {
+  INTERNAL_AUDIT_AGENT_CONFIG,
+  handleInternalAuditRequest,
+  developAuditPlan,
+  assessRisks as assessInternalAuditRisks,
+  createEngagementPlan,
+  conductComplianceReview,
+  type InternalAuditRequest,
+  type AuditPlanEntry,
+  type RiskAssessmentMatrix,
+  type EngagementPlan,
+  type ComplianceReview,
+} from './agents/internal-audit';
+
+export {
+  ESG_ASSURANCE_AGENT_CONFIG,
+  handleESGRequest,
+  planESGAssurance,
+  assessMateriality,
+  testKPI,
+  type ESGRequest,
+  type ESGAssurancePlan,
+  type MaterialityAssessment,
+  type KPITestResult,
+  type DisclosureEvaluation,
+} from './agents/esg-assurance';
+
+export {
+  FORENSIC_AGENT_CONFIG,
+  handleForensicRequest,
+  planInvestigation,
+  traceTransaction,
+  developHypothesis,
+  analyzeIndicators,
+  type ForensicRequest,
+  type InvestigationPlan,
+  type TransactionTrace,
+  type FraudHypothesis,
+  type IndicatorAnalysis,
+} from './agents/forensic';
+
+export {
+  PUBLIC_SECTOR_AGENT_CONFIG,
+  handlePublicSectorRequest,
+  planFinancialAudit,
+  planPerformanceAudit,
+  evaluateBudget,
+  assessCompliance,
+  type PublicSectorRequest,
+  type PublicSectorAuditPlan,
+  type PerformanceAuditPlan,
+  type BudgetEvaluation,
+  type ComplianceAssessment,
+} from './agents/public-sector';
+
 // Types
 export type {
   AgentConfig,
@@ -142,7 +259,7 @@ export type {
 // Utilities
 export {
   calculateMateriality,
-  calculateSampleSize,
+  calculateSampleSize as calculateUtilSampleSize,
   calculateCombinedRisk,
   isSignificantRisk,
   projectMisstatement,
@@ -150,9 +267,10 @@ export {
 } from './utils';
 
 /**
- * Agent Registry - All 10 Audit Specialists
+ * Agent Registry - All 18 Audit Specialists
  */
 export const AUDIT_AGENTS = [
+  // Original 10 agents
   { id: 'audit-plan-012', name: 'Audit Planning Specialist' },
   { id: 'audit-risk-013', name: 'Risk Assessment Specialist' },
   { id: 'audit-subst-014', name: 'Substantive Testing Specialist' },
@@ -163,6 +281,15 @@ export const AUDIT_AGENTS = [
   { id: 'audit-complete-019', name: 'Audit Completion Specialist' },
   { id: 'audit-quality-020', name: 'Engagement Quality Reviewer' },
   { id: 'audit-report-021', name: 'Audit Report Specialist' },
+  // New 8 agents
+  { id: 'audit-matsampling-043', name: 'Materiality & Sampling Specialist' },
+  { id: 'audit-doc-044', name: 'Audit Documentation Specialist' },
+  { id: 'audit-ethics-045', name: 'Independence & Ethics Specialist' },
+  { id: 'audit-it-046', name: 'IT & Systems Audit Specialist' },
+  { id: 'audit-internal-047', name: 'Internal Audit & Compliance Specialist' },
+  { id: 'audit-esg-048', name: 'ESG & Sustainability Assurance Specialist' },
+  { id: 'audit-forensic-049', name: 'Forensic & Investigation Specialist' },
+  { id: 'audit-public-050', name: 'Public Sector Audit Specialist' },
 ] as const;
 
 /**
@@ -170,6 +297,7 @@ export const AUDIT_AGENTS = [
  */
 export function getAuditAgentHandler(agentId: string): ((request: any) => Promise<AgentResponse<any>>) | null {
   const handlers: Record<string, (request: any) => Promise<AgentResponse<any>>> = {
+    // Original handlers
     'audit-plan-012': handlePlanningRequest,
     'audit-risk-013': handleRiskRequest,
     'audit-subst-014': handleSubstantiveRequest,
@@ -180,6 +308,15 @@ export function getAuditAgentHandler(agentId: string): ((request: any) => Promis
     'audit-complete-019': handleCompletionRequest,
     'audit-quality-020': handleQualityReviewRequest,
     'audit-report-021': handleReportRequest,
+    // New handlers
+    'audit-matsampling-043': handleMaterialitySamplingRequest,
+    'audit-doc-044': handleDocumentationRequest,
+    'audit-ethics-045': handleIndependenceEthicsRequest,
+    'audit-it-046': handleITAuditRequest,
+    'audit-internal-047': handleInternalAuditRequest,
+    'audit-esg-048': handleESGRequest,
+    'audit-forensic-049': handleForensicRequest,
+    'audit-public-050': handlePublicSectorRequest,
   };
 
   return handlers[agentId] || null;
