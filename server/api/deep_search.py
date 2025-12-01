@@ -22,7 +22,7 @@ from fastapi import APIRouter, HTTPException, Query, Depends
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
 from datetime import datetime
-from uuid import UUID
+from uuid import UUID, uuid4
 from enum import Enum
 import asyncio
 from dataclasses import dataclass
@@ -488,7 +488,7 @@ async def log_reasoning_trace(
     - Guardrails evaluated
     """
     # In production, this would insert into agent_reasoning_traces table
-    trace_id = str(UUID(int=0))  # Mock UUID
+    trace_id = str(uuid4())  # Generate unique ID
 
     return {
         "trace_id": trace_id,

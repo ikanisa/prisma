@@ -264,11 +264,31 @@ export async function performDeepSearch(request: DeepSearchRequest): Promise<Dee
 
   // If no cache hits, perform live search
   if (results.length === 0) {
-    // Use OpenAI web search if available
-    const openai = await import('./openai-chat-completions.js');
-
     try {
-      const response = await openai.createChatCompletion({
+      // Use OpenAI web search if available
+      // Dynamic import wrapped in try-catch for graceful error handling
+      let openaiModule;
+      try {
+        openaiModule = await import('./openai-chat-completions.js');
+      } catch (importError) {
+        console.warn('OpenAI module not available for Deep Search:', importError);
+        // Return empty results if module is not available
+        return {
+          results: [],
+          totalResults: 0,
+          sourcesQueried: [],
+          hasAuthoritativeSources: false,
+          requiresUpdate: true,
+          meta: {
+            queryTime: Date.now() - startTime,
+            cacheHitRate: 0,
+            primarySourceCount: 0,
+            secondarySourceCount: 0,
+          },
+        };
+      }
+
+      const response = await openaiModule.createChatCompletion({
         model: process.env.OPENAI_DOMAIN_MODEL ?? 'gpt-4o-mini',
         messages: [
           {

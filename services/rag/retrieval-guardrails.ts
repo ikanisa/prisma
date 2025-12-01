@@ -193,7 +193,8 @@ function evaluateSourceVerification(
   // Check if any required topic lacks primary source
   const hasPrimary = request.sources.some((s) => s.verificationLevel === 'primary');
 
-  if (!hasPrimary && requirePrimaryFor.some((topic) => request.domain.includes(topic))) {
+  // Use exact matching instead of substring matching to avoid false positives
+  if (!hasPrimary && requirePrimaryFor.some((topic) => request.domain === topic)) {
     return {
       ...baseResult,
       passed: false,
