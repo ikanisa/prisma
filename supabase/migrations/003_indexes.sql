@@ -23,8 +23,13 @@ BEGIN
     SELECT 1 FROM pg_catalog.pg_tables
     WHERE schemaname = 'public' AND tablename = 'agent_sessions'
   ) THEN
-    -- Specify operator class for pgvector hnsw
-    EXECUTE 'CREATE INDEX IF NOT EXISTS agent_sessions_embedding_hnsw ON public.agent_sessions USING hnsw (embedding vector_l2_ops)';
+    -- Check if embedding column exists before creating index
+    IF EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = 'agent_sessions' AND column_name = 'embedding'
+    ) THEN
+      EXECUTE 'CREATE INDEX IF NOT EXISTS agent_sessions_embedding_hnsw ON public.agent_sessions USING hnsw (embedding vector_l2_ops)';
+    END IF;
     EXECUTE 'CREATE INDEX IF NOT EXISTS agent_sessions_org_created_at_idx ON public.agent_sessions (org_id, created_at)';
   END IF;
 
