@@ -30,7 +30,16 @@ BEGIN
     ) THEN
       EXECUTE 'CREATE INDEX IF NOT EXISTS agent_sessions_embedding_hnsw ON public.agent_sessions USING hnsw (embedding vector_l2_ops)';
     END IF;
-    EXECUTE 'CREATE INDEX IF NOT EXISTS agent_sessions_org_created_at_idx ON public.agent_sessions (org_id, created_at)';
+    -- Check if org_id and created_at columns exist
+    IF EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = 'agent_sessions' AND column_name = 'org_id'
+    ) AND EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = 'agent_sessions' AND column_name = 'created_at'
+    ) THEN
+      EXECUTE 'CREATE INDEX IF NOT EXISTS agent_sessions_org_created_at_idx ON public.agent_sessions (org_id, created_at)';
+    END IF;
   END IF;
 
   IF EXISTS (
