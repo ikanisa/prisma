@@ -23,7 +23,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - uses: ./.github/actions/setup-pnpm
         with:
@@ -93,7 +93,7 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Wait for Postgres
         run: |
@@ -144,7 +144,7 @@ jobs:
       matrix:
         node-version: [20.19.4]
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - uses: ./.github/actions/setup-pnpm
         with:
@@ -191,7 +191,7 @@ jobs:
       DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/postgres
       SKIP_HEALTHCHECK_DB: 'true'
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - uses: ./.github/actions/setup-pnpm
         with:
@@ -220,7 +220,7 @@ jobs:
       matrix:
         node-version: [20.19.4]
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - uses: ./.github/actions/setup-pnpm
         with:
@@ -249,7 +249,7 @@ jobs:
       matrix:
         node-version: [20.19.4]
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - uses: ./.github/actions/setup-pnpm
         with:
@@ -277,7 +277,7 @@ jobs:
       matrix:
         node-version: [20.19.4]
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - uses: ./.github/actions/setup-pnpm
         with:
@@ -313,7 +313,7 @@ jobs:
       PERF_ENGAGEMENT_ID: ${{ secrets.PERF_ENGAGEMENT_ID }}
       PERF_BEARER_TOKEN: ${{ secrets.PERF_BEARER_TOKEN }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - uses: pnpm/action-setup@v4
         with:
@@ -388,7 +388,7 @@ jobs:
       ENVIRONMENT: test
       SERVICE_VERSION: ${{ github.sha }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - uses: actions/setup-python@v5
         with:
@@ -425,7 +425,7 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && secrets.PERF_BASE_URL != '' && secrets.PERF_SERVICE_TOKEN != '' }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - uses: pnpm/action-setup@v4
         with:

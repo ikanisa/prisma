@@ -116,11 +116,12 @@ export function isSignificantRisk(
   }
 ): boolean {
   // Significant risk indicators per ISA 315
-  const hasIndicator =
+  const hasIndicator = Boolean(
     factors.involvesFraud ||
     factors.significantRelatedParty ||
     factors.subjectiveOrComplex ||
-    factors.outsideNormalBusiness;
+    factors.outsideNormalBusiness
+  );
 
   return inherentRisk === 'high' || (inherentRisk === 'significant' && hasIndicator);
 }

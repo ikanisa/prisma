@@ -12,6 +12,7 @@ import type {
   AuditProcedure,
   AuditEvidence,
   Misstatement,
+  AssertionType,
 } from '../types';
 import { calculateSampleSize, projectMisstatement, evaluateMateriality } from '../utils';
 
@@ -83,44 +84,44 @@ export async function designSubstantiveProcedure(
   riskLevel: 'low' | 'moderate' | 'significant' | 'high'
 ): Promise<AgentResponse<AuditProcedure>> {
   try {
-    const procedureTypes = {
+    const procedureTypes: Record<string, { type: 'test_of_details'; description: string; expectedEvidence: string[]; assertions: AssertionType[] }> = {
       'Cash and Bank': {
-        type: 'test_of_details' as const,
+        type: 'test_of_details',
         description: 'Obtain bank confirmations for all material bank accounts and reconcile to general ledger',
         expectedEvidence: ['Bank confirmation responses', 'Bank reconciliations', 'Year-end bank statements'],
         assertions: ['existence', 'rights_obligations', 'completeness', 'valuation_allocation'],
       },
       'Accounts Receivable': {
-        type: 'test_of_details' as const,
+        type: 'test_of_details',
         description: 'Send confirmation requests to customers and perform alternative procedures for non-responses',
         expectedEvidence: ['Customer confirmations', 'Subsequent cash receipts', 'Sales invoices', 'Shipping documents'],
         assertions: ['existence', 'rights_obligations', 'valuation_allocation'],
       },
       'Inventory': {
-        type: 'test_of_details' as const,
+        type: 'test_of_details',
         description: 'Attend physical inventory count and test valuation calculations',
         expectedEvidence: ['Count sheets', 'Valuation calculations', 'Cost records', 'Aging analysis'],
         assertions: ['existence', 'completeness', 'valuation_allocation', 'rights_obligations'],
       },
       'Revenue': {
-        type: 'test_of_details' as const,
+        type: 'test_of_details',
         description: 'Test revenue transactions for occurrence and cutoff, including detailed testing near period end',
         expectedEvidence: ['Sales contracts', 'Invoices', 'Shipping documents', 'Customer acceptance'],
         assertions: ['occurrence', 'cutoff', 'accuracy', 'completeness'],
       },
       'Fixed Assets': {
-        type: 'test_of_details' as const,
+        type: 'test_of_details',
         description: 'Verify existence of major additions and test depreciation calculations',
         expectedEvidence: ['Purchase invoices', 'Physical inspection', 'Depreciation schedules', 'Asset register'],
         assertions: ['existence', 'rights_obligations', 'valuation_allocation'],
       },
     };
 
-    const template = procedureTypes[account as keyof typeof procedureTypes] || {
+    const template = procedureTypes[account] || {
       type: 'test_of_details' as const,
       description: `Perform substantive testing of ${account}`,
       expectedEvidence: ['Supporting documentation', 'Third-party evidence'],
-      assertions: assertions as any[],
+      assertions: assertions as AssertionType[],
     };
 
     // Adjust sample size based on risk
@@ -254,7 +255,7 @@ export async function evaluateTestResults(
   misstatementAmount: number,
   populationSize: number,
   materiality: number
-): Promise<AgentResponse<{ conclusion: string; further ProceduresNeeded: boolean }>> {
+): Promise<AgentResponse<{ conclusion: string; furtherProceduresNeeded: boolean }>> {
   try {
     const errorRate = (errors / tested) * 100;
     const projected = projectMisstatement(misstatementAmount, tested, populationSize);

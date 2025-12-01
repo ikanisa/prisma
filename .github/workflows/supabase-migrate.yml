@@ -28,7 +28,7 @@ jobs:
       # Resolve DATABASE_URL from selected target
       DATABASE_URL: ${{ inputs.target == 'production' && secrets.PRODUCTION_DATABASE_URL || secrets.STAGING_DATABASE_URL }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Verify DATABASE_URL provided
         run: |

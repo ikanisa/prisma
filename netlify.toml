@@ -1,24 +1,13 @@
-# Netlify deployment configuration
+# Netlify deployment configuration for Unified PWA
 [build]
-  command = "pnpm run build:netlify"
-  publish = "dist"
+  command = "pnpm --filter @prisma-glow/web build"
+  publish = "apps/web/out"
   environment = { NODE_VERSION = "22.12.0", PNPM_VERSION = "9.12.3" }
 
-# Client PWA routing
+# SPA fallback - all routes to index.html
 [[redirects]]
-  from = "/"
-  to = "/client/index.html"
-  status = 200
-
-[[redirects]]
-  from = "/client/*"
-  to = "/client/index.html"
-  status = 200
-
-# Admin PWA routing
-[[redirects]]
-  from = "/admin/*"
-  to = "/admin/index.html"
+  from = "/*"
+  to = "/index.html"
   status = 200
 
 # API proxy to Supabase Edge Functions
@@ -26,14 +15,7 @@
   from = "/api/*"
   to = "https://:SUPABASE_PROJECT_ID.supabase.co/functions/v1/:splat"
   status = 200
-  headers = {X-Custom-Header = "Netlify-Proxy"}
-
-# Plugins
-[[plugins]]
-  package = "@netlify/plugin-nextjs"
-
-[[plugins]]
-  package = "netlify-plugin-cache-nextjs"
+  force = true
 
 # Security Headers
 [[headers]]
@@ -45,15 +27,28 @@
     Referrer-Policy = "strict-origin-when-cross-origin"
     Permissions-Policy = "camera=(), microphone=(), geolocation=()"
 
-# PWA headers
+# PWA manifest header
 [[headers]]
   for = "/manifest.json"
   [headers.values]
     Content-Type = "application/manifest+json"
-    Cache-Control = "public, max-age=3600"
+    Cache-Control = "public, max-age=86400"
 
+# Service worker header
 [[headers]]
   for = "/sw.js"
   [headers.values]
-    Cache-Control = "no-cache"
+    Cache-Control = "no-cache, no-store, must-revalidate"
     Service-Worker-Allowed = "/"
+
+# PWA icons - long cache
+[[headers]]
+  for = "/icons/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# Static assets - long cache
+[[headers]]
+  for = "/_next/static/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"

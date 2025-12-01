@@ -59,7 +59,7 @@ export interface RiskRequest extends AgentRequest {
       complexity?: 'low' | 'moderate' | 'high';
       judgment?: 'low' | 'moderate' | 'high';
       volatility?: 'low' | 'moderate' | 'high';
-      fraud Susceptibility?: 'low' | 'moderate' | 'high';
+      fraudSusceptibility?: 'low' | 'moderate' | 'high';
       relatedParty?: boolean;
       nonRoutine?: boolean;
       outsideNormalCourse?: boolean;

@@ -51,13 +51,8 @@ export const ExecutionFiltersSchema = z.object({
 
 export type ExecutionFilters = z.infer<typeof ExecutionFiltersSchema>;
 
-// Paginated result
-export interface PaginatedResult<T> {
-  items: T[];
-  total: number;
-  page: number;
-  page_size: number;
-}
+// Import PaginatedResult from shared
+export { PaginatedResult } from './shared.js';
 
 // Execution feedback
 export const ExecutionFeedbackSchema = z.object({

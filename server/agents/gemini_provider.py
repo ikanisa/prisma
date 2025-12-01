@@ -3,12 +3,24 @@ Google Gemini Provider Implementation with ADK
 
 Implements agent functionality using Google's Generative AI SDK with
 support for Gemini models, Google Search grounding, and Live API.
+
+For the enhanced ADK integration with handoffs, guardrails, and tracing,
+see the gemini_adk.py module.
 """
 import os
 from typing import Any, Dict, List, Optional, AsyncGenerator
 import google.generativeai as genai
 
-from .base import BaseAgentProvider, AgentToolDefinition, AgentResponse, AgentProvider
+from .base import (
+    BaseAgentProvider,
+    AgentToolDefinition,
+    AgentResponse,
+    AgentProvider,
+    StreamingAgentEvent,
+    StreamingEventType,
+    AgentHandoff,
+    Guardrail,
+)
 
 
 class GeminiAgentProvider(BaseAgentProvider):
@@ -37,7 +49,9 @@ class GeminiAgentProvider(BaseAgentProvider):
         name: str,
         instructions: str,
         tools: List[AgentToolDefinition],
-        model: str = "gemini-2.0-flash-exp"
+        model: str = "gemini-2.0-flash-exp",
+        handoffs: Optional[List[AgentHandoff]] = None,
+        guardrails: Optional[List[Guardrail]] = None
     ) -> str:
         """Create a Gemini agent configuration"""
         agent_id = f"gemini_agent_{len(self.agents) + 1}"
@@ -137,7 +151,7 @@ class GeminiAgentProvider(BaseAgentProvider):
         agent_id: str,
         input_text: str,
         context: Optional[Dict[str, Any]] = None
-    ) -> AsyncGenerator[AgentResponse, None]:
+    ) -> AsyncGenerator[StreamingAgentEvent, None]:
         """Stream Gemini agent responses"""
         agent = self.agents.get(agent_id)
         if not agent:
@@ -157,13 +171,17 @@ class GeminiAgentProvider(BaseAgentProvider):
 
         async for chunk in response:
             if hasattr(chunk, 'text') and chunk.text:
-                yield AgentResponse(
+                yield StreamingAgentEvent(
+                    type=StreamingEventType.TEXT,
                     content=chunk.text,
-                    tool_calls=[],
-                    usage={},
-                    provider=AgentProvider.GEMINI,
-                    metadata={"event_type": "content_delta"}
+                    metadata={}
                 )
+
+        yield StreamingAgentEvent(
+            type=StreamingEventType.DONE,
+            content="",
+            metadata={}
+        )
 
     async def run_with_grounding(
         self,

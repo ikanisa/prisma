@@ -115,13 +115,8 @@ export interface ToolTestResult {
   latency_ms: number;
 }
 
-// Paginated result
-export interface PaginatedResult<T> {
-  items: T[];
-  total: number;
-  page: number;
-  page_size: number;
-}
+// Import PaginatedResult from shared
+export { PaginatedResult } from './shared.js';
 
 // Tool assignment input
 export const ToolAssignmentInputSchema = z.object({

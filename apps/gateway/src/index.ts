@@ -4,7 +4,7 @@
  * Express.js API gateway for AI Agent operations.
  */
 
-import express, { Request, Response, NextFunction } from 'express';
+import express, { Request, Response, NextFunction, Express } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import { createClient } from '@supabase/supabase-js';
@@ -37,7 +37,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
 });
 
 // Create Express app
-const app = express();
+const app: Express = express();
 
 // Middleware
 app.use(helmet());

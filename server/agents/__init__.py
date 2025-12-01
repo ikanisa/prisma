@@ -18,9 +18,13 @@ from .registry import (
     AgentDomain,
     AgentCapability,
     get_registry,
+    get_agent_registry,
+    list_all_agents,
+    discover_agents,
 )
 
 __all__ = [
+    # Base classes
     "AgentProvider",
     "AgentToolDefinition",
     "AgentResponse",
@@ -31,4 +35,11 @@ __all__ = [
     "AgentDomain",
     "AgentCapability",
     "get_registry",
+    # Registry
+    "AgentRegistry",
+    "AgentMetadata",
+    "AgentDomain",
+    "get_agent_registry",
+    "list_all_agents",
+    "discover_agents",
 ]
