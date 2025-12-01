@@ -207,7 +207,7 @@ export async function getSourceDetail(sourceId: string): Promise<SourceDetail | 
     created_at: source.created_at,
     last_sync_at: source.last_sync_at,
     page_count: pages.length,
-    chunk_count: pages.reduce((sum, p) => sum + p.chunk_count, 0),
+    chunk_count: pages.reduce((sum: number, p: { chunk_count: number }) => sum + p.chunk_count, 0),
     pages,
     sync_history: [], // TODO: implement sync_log table
   };
