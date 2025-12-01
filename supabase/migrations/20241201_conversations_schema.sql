@@ -27,10 +27,11 @@ CREATE INDEX IF NOT EXISTS conversation_messages_conversation_id_idx ON public.c
 CREATE INDEX IF NOT EXISTS conversation_messages_created_at_idx ON public.conversation_messages(created_at);
 
 -- Updated_at trigger for conversations
+DROP TRIGGER IF EXISTS conversations_updated_at_trigger ON public.conversations CASCADE;
 CREATE TRIGGER conversations_updated_at_trigger
   BEFORE UPDATE ON public.conversations
   FOR EACH ROW
-  EXECUTE FUNCTION public.update_kb_documents_updated_at();
+  EXECUTE FUNCTION public.update_updated_at();
 
 -- Auto-update conversation updated_at when message is added
 CREATE OR REPLACE FUNCTION public.update_conversation_on_message()
