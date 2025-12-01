@@ -57,6 +57,11 @@ class ExecutionListResponse(BaseModel):
     page_size: int
 
 
+class ExecutionFeedback(BaseModel):
+    rating: int = Field(..., ge=1, le=5, description="Rating 1-5")
+    feedback: Optional[str] = Field(None, description="Optional feedback text")
+
+
 # Repository instances
 agent_repo = get_agent_repository()
 execution_repo = get_execution_repository()
@@ -350,8 +355,7 @@ async def cancel_execution(execution_id: UUID):
 @router.post("/{execution_id}/feedback")
 async def submit_feedback(
     execution_id: UUID,
-    rating: int = Field(..., ge=1, le=5, description="Rating 1-5"),
-    feedback: Optional[str] = Field(None, description="Optional feedback text")
+    payload: ExecutionFeedback,
 ):
     """
     Submit user feedback for an execution.
@@ -372,7 +376,7 @@ async def submit_feedback(
     return {
         "message": "Feedback submitted successfully",
         "execution_id": execution_id,
-        "rating": rating
+        "rating": payload.rating
     }
 
 
@@ -499,4 +503,3 @@ async def execute_agent_streaming(
             "Connection": "keep-alive",
         }
     )
-

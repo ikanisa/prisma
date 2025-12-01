@@ -27,7 +27,8 @@
     "@prisma-glow/core": "workspace:*",
     "@prisma-glow/types": "workspace:*",
     "js-yaml": "^4.1.0",
-    "openai": "^4.104.0"
+    "openai": "^4.104.0",
+    "@google/generative-ai": "^0.21.0"
   },
   "devDependencies": {
     "@types/js-yaml": "^4.0.9",

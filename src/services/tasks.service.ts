@@ -19,6 +19,7 @@ export interface TaskRecord {
 }
 
 type TaskRow = Database['public']['Tables']['tasks']['Row'];
+type AppStoreState = ReturnType<typeof useAppStore.getState>;
 
 const friendlyId = () => {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
@@ -77,4 +78,122 @@ export async function getTasks(orgId?: string | null): Promise<TaskRecord[]> {
   }
 
   return (data ?? []).map(mapTaskRow);
+}
+
+export interface CreateTaskInput {
+  orgId: string;
+  engagementId: string | null;
+  title: string;
+  description?: string | null;
+  dueDate?: string | null;
+  assigneeId?: string | null;
+  status: TaskStatus;
+  priority: TaskPriority;
+}
+
+export interface UpdateTaskInput {
+  id: string;
+  orgId: string;
+  updates: Partial<CreateTaskInput>;
+}
+
+const setMockTasks = (updater: (tasks: AppStoreState['tasks']) => AppStoreState['tasks']) => {
+  const store = useAppStore.getState();
+  const next = updater(store.tasks);
+  store.setTasks(next);
+};
+
+export async function createTask(input: CreateTaskInput): Promise<TaskRecord> {
+  if (!input.orgId) {
+    throw new Error('Organization is required to create a task.');
+  }
+
+  if (!isSupabaseConfigured) {
+    const record: TaskRecord = {
+      id: friendlyId(),
+      orgId: input.orgId,
+      engagementId: input.engagementId,
+      title: input.title,
+      description: input.description ?? null,
+      dueDate: input.dueDate ?? null,
+      assigneeId: input.assigneeId ?? null,
+      status: input.status,
+      priority: input.priority,
+      createdAt: new Date().toISOString(),
+    };
+    setMockTasks((tasks) => [...tasks, record]);
+    return record;
+  }
+
+  const { data, error } = await supabase
+    .from('tasks')
+    .insert({
+      org_id: input.orgId,
+      engagement_id: input.engagementId,
+      title: input.title,
+      description: input.description,
+      due_date: input.dueDate,
+      assigned_to: input.assigneeId,
+      status: input.status,
+      priority: input.priority,
+    })
+    .select('*')
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return mapTaskRow(data);
+}
+
+export async function updateTask(input: UpdateTaskInput): Promise<TaskRecord> {
+  if (!input.orgId || !input.id) {
+    throw new Error('Task id and organization are required to update a task.');
+  }
+
+  if (!isSupabaseConfigured) {
+    const next = useAppStore
+      .getState()
+      .tasks.map((task) =>
+        task.id === input.id
+          ? {
+              ...task,
+              ...input.updates,
+            }
+          : task,
+      ) as AppStoreState['tasks'];
+    setMockTasks(() => next);
+    const updated = next.find((item) => item.id === input.id);
+    if (!updated) {
+      throw new Error('Task not found.');
+    }
+    return updated as TaskRecord;
+  }
+
+  const updatePayload: Record<string, unknown> = {
+    updated_at: new Date().toISOString(),
+  };
+
+  if (input.updates.title !== undefined) updatePayload.title = input.updates.title;
+  if (input.updates.description !== undefined) updatePayload.description = input.updates.description;
+  if (input.updates.dueDate !== undefined) updatePayload.due_date = input.updates.dueDate;
+  if (input.updates.assigneeId !== undefined) updatePayload.assigned_to = input.updates.assigneeId;
+  if (input.updates.status !== undefined) updatePayload.status = input.updates.status;
+  if (input.updates.priority !== undefined) updatePayload.priority = input.updates.priority;
+  if (input.updates.engagementId !== undefined) updatePayload.engagement_id = input.updates.engagementId;
+
+  const { data, error } = await supabase
+    .from('tasks')
+    .update(updatePayload)
+    .eq('id', input.id)
+    .eq('org_id', input.orgId)
+    .select('*')
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return mapTaskRow(data);
 }

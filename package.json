@@ -26,7 +26,7 @@
     "db:generate": "node scripts/db-generate.mjs",
     "db:migrate": "node scripts/db-migrate.mjs",
     "db:seed": "tsx packages/database/seed.ts",
-    "sync:knowledge-web-sources": "tsx scripts/syncKnowledgeWebSourcesFromYaml.ts",
+    "sync:knowledge-web-sources": "node scripts/syncKnowledgeWebSourcesFromYaml.mjs",
     "ingest:accounting-kb": "tsx scripts/accounting-kb/ingest.ts",
     "analyze": "turbo run analyze",
     "lighthouse": "lighthouse https://prisma-glow.netlify.app --output html --view",

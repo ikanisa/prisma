@@ -371,6 +371,8 @@ Implementation plan:
 2. Execute the sync script (or equivalent CI step) to compare YAML vs. database and apply changes.
 3. Keep the YAML as the review-friendly source of truth and treat the database as a replica populated from Git.
 
+If your database enforces `UNIQUE (url)` the script automatically skips any duplicate URLs from the YAML and lists them in the output so you can decide whether to adjust the registry or relax the constraint.
+
 Example TypeScript snippet:
 
 ```ts

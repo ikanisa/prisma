@@ -1,126 +1,128 @@
-// CRUD operations hook - placeholder for Supabase integration
-import { useState } from 'react';
-import { useAppStore, Client, Engagement, Task } from '@/stores/mock-data';
+// Supabase-backed CRUD helper
+import { useCallback } from 'react';
 import { toast } from '@/hooks/use-toast';
+import { useOrganizations } from '@/hooks/use-organizations';
+import { useCreateClient, useDeleteClient, useUpdateClient, type ClientRecord } from '@/hooks/use-clients';
+import {
+  useCreateEngagement,
+  useUpdateEngagement,
+  type EngagementRecord,
+} from '@/hooks/use-engagements';
+import { useCreateTask, useUpdateTask, type TaskRecord } from '@/hooks/use-tasks';
 
 export function useCrud() {
-  const { 
-    clients, setClients, 
-    engagements, setEngagements, 
-    tasks, setTasks,
-    currentOrg 
-  } = useAppStore();
-  const [loading, setLoading] = useState(false);
+  const { currentOrg } = useOrganizations();
+  const createClientMutation = useCreateClient();
+  const updateClientMutation = useUpdateClient();
+  const deleteClientMutation = useDeleteClient();
+  const createEngagementMutation = useCreateEngagement();
+  const updateEngagementMutation = useUpdateEngagement();
+  const createTaskMutation = useCreateTask();
+  const updateTaskMutation = useUpdateTask();
 
-  // Client operations
-  const createClient = async (data: Omit<Client, 'id' | 'createdAt' | 'orgId'>) => {
-    setLoading(true);
-    // Placeholder: In real app, this would call Supabase API
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    const newClient: Client = {
-      ...data,
-      id: Math.random().toString(),
-      orgId: currentOrg?.id || '',
-      createdAt: new Date().toISOString()
-    };
-    
-    setClients([...clients, newClient]);
-    toast({ title: "Client created successfully" });
-    setLoading(false);
+  const ensureOrg = useCallback(() => {
+    if (!currentOrg?.id) {
+      throw new Error('Select an organization before performing this action.');
+    }
+    return currentOrg.id;
+  }, [currentOrg?.id]);
+
+  const handleError = (error: unknown, fallback: string) => {
+    const description = error instanceof Error ? error.message : fallback;
+    toast({
+      variant: 'destructive',
+      title: 'Operation failed',
+      description,
+    });
   };
 
-  const updateClient = async (id: string, data: Partial<Client>) => {
-    setLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    const updatedClients = clients.map(c => 
-      c.id === id ? { ...c, ...data } : c
-    );
-    setClients(updatedClients);
-    toast({ title: "Client updated successfully" });
-    setLoading(false);
+  const createClient = async (data: Omit<ClientRecord, 'id' | 'createdAt' | 'orgId'>) => {
+    try {
+      const orgId = ensureOrg();
+      await createClientMutation.mutateAsync({ orgId, ...data });
+      toast({ title: 'Client created successfully' });
+    } catch (error) {
+      handleError(error, 'Unable to create client.');
+    }
+  };
+
+  const updateClient = async (id: string, data: Partial<ClientRecord>) => {
+    try {
+      const orgId = ensureOrg();
+      await updateClientMutation.mutateAsync({ id, orgId, updates: data });
+      toast({ title: 'Client updated successfully' });
+    } catch (error) {
+      handleError(error, 'Unable to update client.');
+    }
   };
 
   const deleteClient = async (id: string) => {
-    setLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    const filteredClients = clients.filter(c => c.id !== id);
-    setClients(filteredClients);
-    toast({ title: "Client deleted successfully" });
-    setLoading(false);
+    try {
+      const orgId = ensureOrg();
+      await deleteClientMutation.mutateAsync({ id, orgId });
+      toast({ title: 'Client deleted successfully' });
+    } catch (error) {
+      handleError(error, 'Unable to delete client.');
+    }
   };
 
-  // Engagement operations
-  const createEngagement = async (data: Omit<Engagement, 'id' | 'createdAt' | 'orgId'>) => {
-    setLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    const newEngagement: Engagement = {
-      ...data,
-      id: Math.random().toString(),
-      orgId: currentOrg?.id || '',
-      createdAt: new Date().toISOString()
-    };
-    
-    setEngagements([...engagements, newEngagement]);
-    toast({ title: "Engagement created successfully" });
-    setLoading(false);
+  const createEngagement = async (data: Omit<EngagementRecord, 'id' | 'createdAt' | 'orgId'>) => {
+    try {
+      const orgId = ensureOrg();
+      await createEngagementMutation.mutateAsync({ orgId, ...data });
+      toast({ title: 'Engagement created successfully' });
+    } catch (error) {
+      handleError(error, 'Unable to create engagement.');
+    }
   };
 
-  const updateEngagement = async (id: string, data: Partial<Engagement>) => {
-    setLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    const updatedEngagements = engagements.map(e => 
-      e.id === id ? { ...e, ...data } : e
-    );
-    setEngagements(updatedEngagements);
-    toast({ title: "Engagement updated successfully" });
-    setLoading(false);
+  const updateEngagement = async (id: string, data: Partial<EngagementRecord>) => {
+    try {
+      const orgId = ensureOrg();
+      await updateEngagementMutation.mutateAsync({ id, orgId, updates: data });
+      toast({ title: 'Engagement updated successfully' });
+    } catch (error) {
+      handleError(error, 'Unable to update engagement.');
+    }
   };
 
-  // Task operations
-  const createTask = async (data: Omit<Task, 'id' | 'createdAt' | 'orgId'>) => {
-    setLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    const newTask: Task = {
-      ...data,
-      id: Math.random().toString(),
-      orgId: currentOrg?.id || '',
-      createdAt: new Date().toISOString()
-    };
-    
-    setTasks([...tasks, newTask]);
-    toast({ title: "Task created successfully" });
-    setLoading(false);
+  const createTask = async (data: Omit<TaskRecord, 'id' | 'createdAt' | 'orgId'>) => {
+    try {
+      const orgId = ensureOrg();
+      await createTaskMutation.mutateAsync({ orgId, ...data });
+      toast({ title: 'Task created successfully' });
+    } catch (error) {
+      handleError(error, 'Unable to create task.');
+    }
   };
 
-  const updateTask = async (id: string, data: Partial<Task>) => {
-    setLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    const updatedTasks = tasks.map(t => 
-      t.id === id ? { ...t, ...data } : t
-    );
-    setTasks(updatedTasks);
-    toast({ title: "Task updated successfully" });
-    setLoading(false);
+  const updateTask = async (id: string, data: Partial<TaskRecord>) => {
+    try {
+      const orgId = ensureOrg();
+      await updateTaskMutation.mutateAsync({ id, orgId, updates: data });
+      toast({ title: 'Task updated successfully' });
+    } catch (error) {
+      handleError(error, 'Unable to update task.');
+    }
   };
+
+  const loading =
+    createClientMutation.isPending ||
+    updateClientMutation.isPending ||
+    deleteClientMutation.isPending ||
+    createEngagementMutation.isPending ||
+    updateEngagementMutation.isPending ||
+    createTaskMutation.isPending ||
+    updateTaskMutation.isPending;
 
   return {
     loading,
-    // Client operations
     createClient,
     updateClient,
     deleteClient,
-    // Engagement operations
     createEngagement,
     updateEngagement,
-    // Task operations
     createTask,
-    updateTask
+    updateTask,
   };
 }

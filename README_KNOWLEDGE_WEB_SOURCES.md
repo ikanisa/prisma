@@ -46,6 +46,8 @@
 
 This keeps the YAML as the reviewable source of truth and the table as its deployed replica.
 
+> Note: If your Supabase project enforces a `UNIQUE (url)` constraint, the sync script will skip any duplicate URLs in the YAML and emit a warning so you can reconcile them manually.
+
 ## Quick Start
 
 ### Step 1: Apply Migration

@@ -7,7 +7,7 @@
  * @module knowledge-web-sources
  */
 
-import { createClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 // ============================================================================
 // TYPES
@@ -15,6 +15,25 @@ import { createClient } from '@supabase/supabase-js';
 
 export type AuthorityLevel = 'PRIMARY' | 'SECONDARY' | 'INTERNAL';
 export type SourceStatus = 'ACTIVE' | 'INACTIVE';
+
+// Database schema type for Supabase client
+export interface Database {
+  public: {
+    Tables: {
+      knowledge_web_sources: {
+        Row: KnowledgeWebSource;
+        Insert: Omit<KnowledgeWebSource, 'id' | 'created_at' | 'updated_at'> & {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Omit<KnowledgeWebSource, 'id' | 'created_at'>> & {
+          updated_at?: string;
+        };
+      };
+    };
+  };
+}
 
 export interface KnowledgeWebSource {
   id: string;
@@ -79,7 +98,7 @@ export interface UpdateSourceInput {
  * Returns sources ordered by priority (ascending) and name.
  */
 export async function getActiveSources(
-  supabase: ReturnType<typeof createClient>,
+  supabase: SupabaseClient<Database>,
   filters?: SourceFilters
 ): Promise<KnowledgeWebSource[]> {
   let query = supabase

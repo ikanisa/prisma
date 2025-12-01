@@ -203,17 +203,24 @@ const main = async () => {
       'SELECT id, name, url, domain, category, jurisdiction_code, authority_level, status, priority, tags, notes FROM knowledge_web_sources',
     );
     const existing = existingResult.rows.map(normalizeDbRow);
-    const existingByUrl = new Map(existing.map((row) => [row.url, row]));
-    const seenUrls = new Set();
+    const urlsSeen = new Set(existing.map((row) => row.url));
+    const existingByName = new Map(existing.map((row) => [row.name, row]));
+    const seenNames = new Set();
+    const skippedDuplicates = [];
 
     const inserts = [];
     const updates = [];
 
     for (const source of registry) {
-      const current = existingByUrl.get(source.url);
-      seenUrls.add(source.url);
+      const current = existingByName.get(source.name);
+      seenNames.add(source.name);
       if (!current) {
+        if (urlsSeen.has(source.url)) {
+          skippedDuplicates.push(source);
+          continue;
+        }
         inserts.push(source);
+        urlsSeen.add(source.url);
         continue;
       }
       if (!recordsEqual(source, current)) {
@@ -221,7 +228,7 @@ const main = async () => {
       }
     }
 
-    const missing = existing.filter((row) => !seenUrls.has(row.url));
+    const missing = existing.filter((row) => !seenNames.has(row.name));
 
     if (inserts.length === 0 && updates.length === 0) {
       console.log('All sources already up to date.');
@@ -240,6 +247,14 @@ const main = async () => {
 
     if (missing.length > 0) {
       console.warn(`Warning: ${missing.length} sources exist in DB but not in YAML. They were left untouched.`);
+    }
+    if (skippedDuplicates.length > 0) {
+      console.warn(
+        `Skipped ${skippedDuplicates.length} YAML entries because the remote database enforces unique URLs. First few: ${skippedDuplicates
+          .slice(0, 5)
+          .map((item) => item.name)
+          .join(', ')}`,
+      );
     }
 
     console.log(
