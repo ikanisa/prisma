@@ -1,0 +1,175 @@
+name: Deploy Supabase Edge Functions
+
+on:
+  push:
+    branches: [main, staging]
+    paths:
+      - 'supabase/functions/**'
+      - '.github/workflows/supabase-functions.yml'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options: ['staging', 'production']
+      function_name:
+        description: 'Function name (leave empty to deploy all)'
+        required: false
+        default: ''
+        type: string
+
+concurrency:
+  group: supabase-functions-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy Edge Functions
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment || (github.ref == 'refs/heads/main' && 'production' || 'staging') }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v1
+        with:
+          deno-version: v1.x
+
+      - name: Install Supabase CLI
+        run: |
+          curl -fsSL https://sup.supabase.com/install.sh | sh
+          echo "$HOME/.supabase/bin" >> $GITHUB_PATH
+
+      - name: Verify Supabase CLI
+        run: supabase --version
+
+      - name: Set environment variables
+        run: |
+          if [ "${{ github.ref }}" == "refs/heads/main" ] || [ "${{ inputs.environment }}" == "production" ]; then
+            echo "SUPABASE_PROJECT_REF=${{ secrets.SUPABASE_PROJECT_REF_PROD }}" >> $GITHUB_ENV
+            echo "SUPABASE_ACCESS_TOKEN=${{ secrets.SUPABASE_ACCESS_TOKEN_PROD }}" >> $GITHUB_ENV
+            echo "ENV_NAME=production" >> $GITHUB_ENV
+          else
+            echo "SUPABASE_PROJECT_REF=${{ secrets.SUPABASE_PROJECT_REF_STAGING }}" >> $GITHUB_ENV
+            echo "SUPABASE_ACCESS_TOKEN=${{ secrets.SUPABASE_ACCESS_TOKEN_STAGING }}" >> $GITHUB_ENV
+            echo "ENV_NAME=staging" >> $GITHUB_ENV
+          fi
+
+      - name: Link Supabase project
+        run: |
+          supabase link --project-ref $SUPABASE_PROJECT_REF
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ env.SUPABASE_ACCESS_TOKEN }}
+
+      - name: Set secrets (production only)
+        if: env.ENV_NAME == 'production'
+        run: |
+          echo "Setting production secrets..."
+          supabase secrets set \
+            OPENAI_API_KEY="${{ secrets.OPENAI_API_KEY }}" \
+            --project-ref $SUPABASE_PROJECT_REF
+          
+          # Optional secrets (only if set)
+          if [ -n "${{ secrets.DATABASE_URL }}" ]; then
+            supabase secrets set DATABASE_URL="${{ secrets.DATABASE_URL }}" --project-ref $SUPABASE_PROJECT_REF
+          fi
+          
+          if [ -n "${{ secrets.REDIS_URL }}" ]; then
+            supabase secrets set REDIS_URL="${{ secrets.REDIS_URL }}" --project-ref $SUPABASE_PROJECT_REF
+          fi
+          
+          if [ -n "${{ secrets.SENTRY_DSN }}" ]; then
+            supabase secrets set SENTRY_DSN="${{ secrets.SENTRY_DSN }}" --project-ref $SUPABASE_PROJECT_REF
+          fi
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ env.SUPABASE_ACCESS_TOKEN }}
+
+      - name: Set secrets (staging)
+        if: env.ENV_NAME == 'staging'
+        run: |
+          echo "Setting staging secrets..."
+          supabase secrets set \
+            OPENAI_API_KEY="${{ secrets.OPENAI_API_KEY_STAGING }}" \
+            --project-ref $SUPABASE_PROJECT_REF
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ env.SUPABASE_ACCESS_TOKEN }}
+
+      - name: Deploy specific function
+        if: inputs.function_name != ''
+        run: |
+          echo "Deploying function: ${{ inputs.function_name }}"
+          supabase functions deploy ${{ inputs.function_name }} \
+            --project-ref $SUPABASE_PROJECT_REF \
+            --no-verify-jwt
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ env.SUPABASE_ACCESS_TOKEN }}
+
+      - name: Deploy all functions
+        if: inputs.function_name == ''
+        run: |
+          echo "Deploying all edge functions..."
+          for func_dir in supabase/functions/*/; do
+            func_name=$(basename "$func_dir")
+            echo "Deploying: $func_name"
+            supabase functions deploy "$func_name" \
+              --project-ref $SUPABASE_PROJECT_REF \
+              --no-verify-jwt
+          done
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ env.SUPABASE_ACCESS_TOKEN }}
+
+      - name: Test health endpoint
+        run: |
+          sleep 5  # Wait for deployment to propagate
+          
+          if [ "$ENV_NAME" == "production" ]; then
+            BASE_URL="https://${{ secrets.SUPABASE_PROJECT_REF_PROD }}.supabase.co"
+          else
+            BASE_URL="https://${{ secrets.SUPABASE_PROJECT_REF_STAGING }}.supabase.co"
+          fi
+          
+          echo "Testing: $BASE_URL/functions/v1/api/health"
+          
+          RESPONSE=$(curl -s -w "\n%{http_code}" "$BASE_URL/functions/v1/api/health")
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+          
+          echo "Response code: $HTTP_CODE"
+          echo "Response body: $BODY"
+          
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "❌ Health check failed"
+            exit 1
+          fi
+          
+          if echo "$BODY" | grep -q '"status":"ok"'; then
+            echo "✅ Health check passed"
+          else
+            echo "❌ Unexpected response body"
+            exit 1
+          fi
+
+      - name: View function logs (on failure)
+        if: failure()
+        run: |
+          echo "Fetching function logs..."
+          supabase functions logs api --project-ref $SUPABASE_PROJECT_REF
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ env.SUPABASE_ACCESS_TOKEN }}
+
+      - name: Summary
+        if: success()
+        run: |
+          echo "✅ Edge functions deployed successfully to $ENV_NAME"
+          echo ""
+          echo "Functions URL: https://$SUPABASE_PROJECT_REF.supabase.co/functions/v1"
+          echo ""
+          echo "Available endpoints:"
+          echo "  - GET  /api/health"
+          echo "  - POST /api/chat"
+          echo "  - POST /api/rag"
+          echo "  - POST /api/analytics"
