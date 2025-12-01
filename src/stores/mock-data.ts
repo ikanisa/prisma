@@ -423,3 +423,27 @@ export const useAppStore = create<AppStore>((set, get) => ({
   setTasks: (tasks) => set({ tasks }),
   addDocument: (document) => set((state) => ({ documents: [...state.documents, document] })),
 }));
+
+export function getDemoClients() {
+  return useAppStore.getState().clients;
+}
+
+export function setDemoClients(clients: Client[]) {
+  useAppStore.getState().setClients(clients);
+}
+
+export function getDemoEngagements() {
+  return useAppStore.getState().engagements;
+}
+
+export function setDemoEngagements(engagements: Engagement[]) {
+  useAppStore.getState().setEngagements(engagements);
+}
+
+export function getDemoTasks() {
+  return useAppStore.getState().tasks;
+}
+
+export function setDemoTasks(tasks: Task[]) {
+  useAppStore.getState().setTasks(tasks);
+}

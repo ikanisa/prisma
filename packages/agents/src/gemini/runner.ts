@@ -1,5 +1,6 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import type { GeminiAgentConfig } from "./factory.js";
+import { toolsToGeminiFunctions, executeTool } from "../tools/index.js";
 
 export type GeminiRunOptions = {
   input: string;
@@ -35,9 +36,13 @@ export async function runGeminiAgent(
   try {
     // Use gemini-1.5-pro as default (more stable quota)
     const modelName = process.env.GEMINI_MODEL || "gemini-1.5-pro";
-    
+
+    // Convert agent tools to Gemini function declarations
+    const tools = toolsToGeminiFunctions(config.tools);
+
     const model = genAI.getGenerativeModel({
       model: modelName,
+      tools: tools.length > 0 ? [{ functionDeclarations: tools }] : undefined,
     });
 
     // Build prompt with system instructions and user input
@@ -53,20 +58,77 @@ export async function runGeminiAgent(
     // Generate content
     const result = await model.generateContent(prompt);
     const response = result.response;
-    const text = response.text();
 
-    // Extract function calls if present
+    // Check for function calls
     const functionCalls = response.functionCalls();
-    const toolCalls = functionCalls?.map((call) => ({
-      tool: call.name,
-      input: call.args,
-      output: null, // Would be populated after tool execution
-    }));
+
+    if (functionCalls && functionCalls.length > 0) {
+      // Execute function calls
+      const executedToolCalls: Array<{
+        tool: string;
+        input: unknown;
+        output: unknown;
+      }> = [];
+
+      for (const call of functionCalls) {
+        const toolResult = await executeTool(call.name, call.args, {
+          jurisdictionCode: options.metadata?.jurisdictionCode,
+          userId: options.metadata?.userId,
+          sessionId: options.metadata?.sessionId,
+        });
+
+        executedToolCalls.push({
+          tool: call.name,
+          input: call.args,
+          output: toolResult,
+        });
+      }
+
+      // Continue conversation with function results
+      const chat = model.startChat({
+        history: [
+          {
+            role: "user",
+            parts: [{ text: prompt }],
+          },
+          {
+            role: "model",
+            parts: response.candidates?.[0]?.content?.parts || [],
+          },
+        ],
+      });
+
+      // Send function responses
+      const functionResponseParts = executedToolCalls.map((tc) => ({
+        functionResponse: {
+          name: tc.tool,
+          response: tc.output,
+        },
+      }));
+
+      const finalResult = await chat.sendMessage(functionResponseParts);
+      const finalText = finalResult.response.text();
+
+      return {
+        agentId: config.entry.id,
+        output: finalText || "[No response after tool execution]",
+        toolCalls: executedToolCalls,
+        metadata: {
+          model: modelName,
+          candidates: finalResult.response.candidates?.length || 0,
+          usageMetadata: finalResult.response.usageMetadata,
+          toolCallsCount: executedToolCalls.length,
+        },
+      };
+    }
+
+    // No function calls - return direct response
+    const text = response.text();
 
     return {
       agentId: config.entry.id,
       output: text || "[No response]",
-      toolCalls,
+      toolCalls: undefined,
       metadata: {
         model: modelName,
         candidates: response.candidates?.length || 0,
@@ -75,58 +137,16 @@ export async function runGeminiAgent(
     };
   } catch (error) {
     console.error(`Gemini agent execution failed for ${config.entry.id}:`, error);
-    
+
     // Check for quota errors and provide helpful message
     if (error instanceof Error && error.message.includes("quota")) {
       throw new Error(
         `Gemini API quota exceeded. Please check your API key quota at https://ai.dev/usage. Error: ${error.message}`
       );
     }
-    
+
     throw new Error(
       `Agent execution failed: ${error instanceof Error ? error.message : "Unknown error"}`
     );
-  }
-}
-
-/**
- * Execute a Gemini tool call
- * This integrates with actual tool implementations (DeepSearch, Supabase, etc.)
- */
-export async function executeGeminiToolCall(params: {
-  name: string;
-  args: Record<string, unknown>;
-}): Promise<{
-  functionResponseName: string;
-  response: unknown;
-}> {
-  try {
-    // Tool execution will be implemented when tool executors are ready
-    // For now, return a structured response
-    console.log(`Executing tool: ${params.name} with args:`, params.args);
-
-    // TODO: Route to actual tool implementations:
-    // - semantic_supabase_search -> Supabase semantic search
-    // - keyword_supabase_search -> Supabase keyword search
-    // - deepsearch -> RAG service DeepSearch
-    // - calculator -> Safe math evaluation
-
-    return {
-      functionResponseName: params.name,
-      response: {
-        status: "pending_implementation",
-        message: `Tool ${params.name} ready for integration`,
-        args: params.args,
-      },
-    };
-  } catch (error) {
-    console.error(`Tool execution failed for ${params.name}:`, error);
-    return {
-      functionResponseName: params.name,
-      response: {
-        status: "error",
-        message: error instanceof Error ? error.message : "Unknown error",
-      },
-    };
   }
 }

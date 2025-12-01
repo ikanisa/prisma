@@ -1,6 +1,6 @@
 import { supabase, isSupabaseConfigured } from '@/integrations/supabase/client';
 import type { Database } from '@/integrations/supabase/types';
-import { useAppStore } from '@/stores/mock-data';
+import { getDemoClients, setDemoClients } from '@/stores/mock-data';
 
 export interface ClientRecord {
   id: string;
@@ -54,16 +54,12 @@ const mapClientRow = (row: ClientRow): ClientRecord => ({
   createdAt: row?.created_at ?? new Date().toISOString(),
 });
 
-type AppStoreState = ReturnType<typeof useAppStore.getState>;
-
 const getMockClients = (orgId: string): ClientRecord[] => {
-  const store = useAppStore.getState();
-  return store.clients.filter((client) => client.orgId === orgId);
+  return getDemoClients().filter((client) => client.orgId === orgId);
 };
 
 const setMockClients = (nextClients: ClientRecord[]) => {
-  const store = useAppStore.getState();
-  store.setClients(nextClients as AppStoreState['clients']);
+  setDemoClients(nextClients as any);
 };
 
 export async function getClients(orgId: string): Promise<ClientRecord[]> {
@@ -105,8 +101,7 @@ export async function createClient(payload: CreateClientInput): Promise<ClientRe
       contactEmail: payload.contactEmail,
       createdAt: new Date().toISOString(),
     };
-    const store = useAppStore.getState();
-    setMockClients([...store.clients, record]);
+    setMockClients([...getDemoClients(), record]);
     return record;
   }
 
@@ -139,8 +134,7 @@ export async function updateClient(payload: UpdateClientInput): Promise<ClientRe
   }
 
   if (!isSupabaseConfigured) {
-    const store = useAppStore.getState();
-    const next = store.clients.map((client) => {
+    const next = getDemoClients().map((client) => {
       if (client.id !== payload.id) {
         return client;
       }
@@ -194,8 +188,7 @@ export async function deleteClient(payload: DeleteClientInput): Promise<void> {
   }
 
   if (!isSupabaseConfigured) {
-    const store = useAppStore.getState();
-    const next = store.clients.filter((client) => client.id !== payload.id);
+    const next = getDemoClients().filter((client) => client.id !== payload.id);
     setMockClients(next);
     return;
   }

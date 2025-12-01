@@ -1609,15 +1609,15 @@ sources:
     tags: ['misc']
     notes: ''
   # S. Transfer Pricing specialization (160-163)
-  - name: 'OECD - Transfer Pricing (again, direct link)'
-    url: 'https://www.oecd.org/tax/transfer-pricing/'
+  - name: 'OECD - Transfer Pricing Guidelines'
+    url: 'https://www.oecd.org/tax/transfer-pricing/oecd-transfer-pricing-guidelines.htm'
     domain: 'oecd.org'
     category: 'TAX'
     jurisdiction_code: 'GLOBAL'
     authority_level: 'PRIMARY'
     status: 'ACTIVE'
     priority: 1
-    tags: ['transfer-pricing']
+    tags: ['transfer-pricing', 'guidelines']
     notes: ''
   - name: 'Tax Foundation'
     url: 'https://taxfoundation.org'
@@ -1762,15 +1762,15 @@ sources:
     priority: 4
     tags: ['finance']
     notes: ''
-  - name: 'Journal of Accountancy (again direct)'
-    url: 'https://www.journalofaccountancy.com'
+  - name: 'Journal of Accountancy - News'
+    url: 'https://www.journalofaccountancy.com/news.html'
     domain: 'journalofaccountancy.com'
     category: 'KNOWLEDGE'
     jurisdiction_code: 'US'
     authority_level: 'SECONDARY'
     status: 'ACTIVE'
     priority: 3
-    tags: ['magazine']
+    tags: ['magazine', 'news']
     notes: ''
   # W. Fair value / valuation (176-180)
   - name: 'PwC Canada - Valuation'
@@ -1864,15 +1864,15 @@ sources:
     priority: 2
     tags: ['sec', 'filings']
     notes: ''
-  - name: 'ESMA - again as markets regulator'
-    url: 'https://www.esma.europa.eu'
+  - name: 'ESMA - Markets Supervision'
+    url: 'https://www.esma.europa.eu/markets'
     domain: 'esma.europa.eu'
     category: 'REG'
     jurisdiction_code: 'EU'
     authority_level: 'PRIMARY'
     status: 'ACTIVE'
     priority: 2
-    tags: ['markets-regulator']
+    tags: ['markets-regulation']
     notes: ''
   # Y. Example financial statements (186-189)
   - name: 'Deloitte - IFRS Model Financial Statements'

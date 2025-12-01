@@ -1,6 +1,6 @@
 import { supabase, isSupabaseConfigured } from '@/integrations/supabase/client';
 import type { Database } from '@/integrations/supabase/types';
-import { useAppStore } from '@/stores/mock-data';
+import { getDemoTasks, setDemoTasks } from '@/stores/mock-data';
 
 export type TaskStatus = 'TODO' | 'IN_PROGRESS' | 'REVIEW' | 'COMPLETED';
 export type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
@@ -19,8 +19,6 @@ export interface TaskRecord {
 }
 
 type TaskRow = Database['public']['Tables']['tasks']['Row'];
-type AppStoreState = ReturnType<typeof useAppStore.getState>;
-
 const friendlyId = () => {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
     return crypto.randomUUID();
@@ -63,8 +61,7 @@ export async function getTasks(orgId?: string | null): Promise<TaskRecord[]> {
   }
 
   if (!isSupabaseConfigured) {
-    const appStore = useAppStore.getState();
-    return appStore.getOrgTasks(orgId) as TaskRecord[];
+    return getDemoTasks().filter((task) => task.orgId === orgId) as TaskRecord[];
   }
 
   const { data, error } = await supabase
@@ -97,10 +94,8 @@ export interface UpdateTaskInput {
   updates: Partial<CreateTaskInput>;
 }
 
-const setMockTasks = (updater: (tasks: AppStoreState['tasks']) => AppStoreState['tasks']) => {
-  const store = useAppStore.getState();
-  const next = updater(store.tasks);
-  store.setTasks(next);
+const setMockTasks = (next: any) => {
+  setDemoTasks(next);
 };
 
 export async function createTask(input: CreateTaskInput): Promise<TaskRecord> {
@@ -121,7 +116,7 @@ export async function createTask(input: CreateTaskInput): Promise<TaskRecord> {
       priority: input.priority,
       createdAt: new Date().toISOString(),
     };
-    setMockTasks((tasks) => [...tasks, record]);
+    setMockTasks([...getDemoTasks(), record]);
     return record;
   }
 
@@ -153,17 +148,15 @@ export async function updateTask(input: UpdateTaskInput): Promise<TaskRecord> {
   }
 
   if (!isSupabaseConfigured) {
-    const next = useAppStore
-      .getState()
-      .tasks.map((task) =>
-        task.id === input.id
-          ? {
-              ...task,
-              ...input.updates,
-            }
-          : task,
-      ) as AppStoreState['tasks'];
-    setMockTasks(() => next);
+    const next = getDemoTasks().map((task) =>
+      task.id === input.id
+        ? {
+            ...task,
+            ...input.updates,
+          }
+        : task,
+    );
+    setMockTasks(next);
     const updated = next.find((item) => item.id === input.id);
     if (!updated) {
       throw new Error('Task not found.');

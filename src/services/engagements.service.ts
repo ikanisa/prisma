@@ -1,6 +1,6 @@
 import { supabase, isSupabaseConfigured } from '@/integrations/supabase/client';
 import type { Database } from '@/integrations/supabase/types';
-import { useAppStore } from '@/stores/mock-data';
+import { getDemoEngagements, setDemoEngagements } from '@/stores/mock-data';
 
 export type EngagementType = 'ACCOUNTING' | 'AUDIT' | 'TAX';
 export type EngagementStatus = 'PLANNING' | 'IN_PROGRESS' | 'REVIEW' | 'COMPLETED';
@@ -19,8 +19,6 @@ export interface EngagementRecord {
 }
 
 type EngagementRow = Database['public']['Tables']['engagements']['Row'];
-
-type AppStoreState = ReturnType<typeof useAppStore.getState>;
 
 const friendlyId = () => {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
@@ -48,8 +46,7 @@ export async function getEngagements(orgId?: string | null): Promise<EngagementR
   }
 
   if (!isSupabaseConfigured) {
-    const appStore = useAppStore.getState();
-    return appStore.getOrgEngagements(orgId) as EngagementRecord[];
+    return getDemoEngagements().filter((engagement) => engagement.orgId === orgId) as EngagementRecord[];
   }
 
   const { data, error } = await supabase
@@ -82,10 +79,8 @@ export interface UpdateEngagementInput {
   updates: Partial<Omit<CreateEngagementInput, 'orgId'>>;
 }
 
-const setMockEngagements = (updater: (engagements: AppStoreState['engagements']) => AppStoreState['engagements']) => {
-  const store = useAppStore.getState();
-  const next = updater(store.engagements);
-  store.setEngagements(next);
+const setMockEngagements = (next: any) => {
+  setDemoEngagements(next);
 };
 
 export async function createEngagement(input: CreateEngagementInput): Promise<EngagementRecord> {
@@ -106,7 +101,7 @@ export async function createEngagement(input: CreateEngagementInput): Promise<En
       managerId: input.managerId,
       createdAt: new Date().toISOString(),
     };
-    setMockEngagements((engagements) => [...engagements, record]);
+    setMockEngagements([...getDemoEngagements(), record]);
     return record;
   }
 
@@ -138,12 +133,10 @@ export async function updateEngagement(input: UpdateEngagementInput): Promise<En
   }
 
   if (!isSupabaseConfigured) {
-    const next = useAppStore
-      .getState()
-      .engagements.map((engagement) =>
-        engagement.id === input.id ? { ...engagement, ...input.updates } : engagement,
-      ) as AppStoreState['engagements'];
-    setMockEngagements(() => next);
+    const next = getDemoEngagements().map((engagement) =>
+      engagement.id === input.id ? { ...engagement, ...input.updates } : engagement,
+    );
+    setMockEngagements(next);
     const updated = next.find((item) => item.id === input.id);
     if (!updated) {
       throw new Error('Engagement not found.');

@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import type { Agent } from "./factory.js";
+import { toolsToOpenAIFunctions, executeTool } from "../tools/index.js";
 
 export type RunOptions = {
   input: string;
@@ -55,14 +56,16 @@ export async function runOpenAIAgent(
       });
     }
 
+    // Convert agent tools to OpenAI function format
+    const tools = toolsToOpenAIFunctions(agent.tools);
+
     // Call OpenAI with function calling enabled
     const completion = await openai.chat.completions.create({
       model: process.env.OPENAI_MODEL || "gpt-4o-mini",
       messages,
       temperature: 0.7,
       max_tokens: 2000,
-      // Tools will be added here when tool executors are implemented
-      // tools: agent.tools.map(tool => toolToOpenAIFunction(tool)),
+      tools: tools.length > 0 ? tools : undefined,
     });
 
     const response = completion.choices[0]?.message;
@@ -71,17 +74,72 @@ export async function runOpenAIAgent(
       throw new Error("No response from OpenAI");
     }
 
-    // Extract tool calls if any
-    const toolCalls = response.tool_calls?.map((call) => ({
-      tool: call.function.name,
-      input: JSON.parse(call.function.arguments),
-      output: null, // Would be populated after tool execution
-    }));
+    // Handle tool calls if present
+    const executedToolCalls: Array<{
+      tool: string;
+      input: unknown;
+      output: unknown;
+    }> = [];
+
+    if (response.tool_calls && response.tool_calls.length > 0) {
+      // Execute each tool call
+      for (const toolCall of response.tool_calls) {
+        const toolName = toolCall.function.name;
+        const toolArgs = JSON.parse(toolCall.function.arguments);
+
+        const result = await executeTool(toolName, toolArgs, {
+          jurisdictionCode: options.metadata?.jurisdictionCode,
+          userId: options.metadata?.userId,
+          sessionId: options.metadata?.sessionId,
+        });
+
+        executedToolCalls.push({
+          tool: toolName,
+          input: toolArgs,
+          output: result,
+        });
+
+        // Add tool result to messages
+        messages.push({
+          role: "assistant",
+          content: null,
+          tool_calls: [toolCall],
+        });
+
+        messages.push({
+          role: "tool",
+          tool_call_id: toolCall.id,
+          content: JSON.stringify(result),
+        });
+      }
+
+      // Get final response with tool results
+      const finalCompletion = await openai.chat.completions.create({
+        model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+        messages,
+        temperature: 0.7,
+        max_tokens: 2000,
+      });
+
+      const finalResponse = finalCompletion.choices[0]?.message;
+
+      return {
+        agentId: agent.id,
+        output: finalResponse?.content || "[No response after tool execution]",
+        toolCalls: executedToolCalls,
+        metadata: {
+          model: completion.model,
+          usage: finalCompletion.usage,
+          finishReason: finalCompletion.choices[0]?.finish_reason,
+          toolCallsCount: executedToolCalls.length,
+        },
+      };
+    }
 
     return {
       agentId: agent.id,
       output: response.content || "[No response]",
-      toolCalls,
+      toolCalls: undefined,
       metadata: {
         model: completion.model,
         usage: completion.usage,
