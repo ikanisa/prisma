@@ -6,3 +6,13 @@ export {
   ComplianceCalendarAgent,
   CorporateRestructuringAgent,
 } from './additional-agents';
+
+// New Corporate Services Agents
+export { KYCAMLAgent } from './kyc-aml.agent';
+export { BoardMeetingsAgent } from './board-meetings.agent';
+export {
+  LicensingRegulatoryAgent,
+  ShareCapitalAgent,
+  HRPayrollCorporateAgent,
+  EntityMigrationAgent,
+} from './new-agents';

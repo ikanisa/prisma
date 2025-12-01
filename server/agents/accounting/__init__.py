@@ -14,8 +14,19 @@ from .specialists import (
     InventoryAgent,
     FixedAssetsAgent
 )
+from .additional_specialists import (
+    FinancialInstrumentsAgent,
+    IncomeTaxesAgent,
+    EmployeeBenefitsAgent,
+    ProvisionsAgent,
+    ImpairmentFairValueAgent,
+    FXHyperinflationAgent,
+    ShareBasedPaymentsAgent,
+    AgricultureAgent
+)
 
 ACCOUNTING_AGENTS: Dict[str, Type[BaseAccountingAgent]] = {
+    # Original 8 agents
     "acct-revenue-001": RevenueRecognitionAgent,
     "acct-lease-001": LeaseAccountingAgent,
     "acct-finstat-001": FinancialStatementsAgent,
@@ -24,6 +35,15 @@ ACCOUNTING_AGENTS: Dict[str, Type[BaseAccountingAgent]] = {
     "acct-cost-001": CostAccountingAgent,
     "acct-inventory-001": InventoryAgent,
     "acct-ppe-001": FixedAssetsAgent,
+    # New 8 agents
+    "acct-fininst-001": FinancialInstrumentsAgent,
+    "acct-tax-001": IncomeTaxesAgent,
+    "acct-emp-001": EmployeeBenefitsAgent,
+    "acct-prov-001": ProvisionsAgent,
+    "acct-impair-001": ImpairmentFairValueAgent,
+    "acct-fx-001": FXHyperinflationAgent,
+    "acct-sbp-001": ShareBasedPaymentsAgent,
+    "acct-agri-001": AgricultureAgent,
 }
 
 
@@ -54,6 +74,7 @@ __all__ = [
     "list_accounting_agents",
     "ACCOUNTING_AGENTS",
     "BaseAccountingAgent",
+    # Original specialists
     "RevenueRecognitionAgent",
     "LeaseAccountingAgent",
     "FinancialStatementsAgent",
@@ -62,4 +83,13 @@ __all__ = [
     "CostAccountingAgent",
     "InventoryAgent",
     "FixedAssetsAgent",
+    # New specialists
+    "FinancialInstrumentsAgent",
+    "IncomeTaxesAgent",
+    "EmployeeBenefitsAgent",
+    "ProvisionsAgent",
+    "ImpairmentFairValueAgent",
+    "FXHyperinflationAgent",
+    "ShareBasedPaymentsAgent",
+    "AgricultureAgent",
 ]
