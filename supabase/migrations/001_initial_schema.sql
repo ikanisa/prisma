@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS profiles (
 
 -- Organizations
 CREATE TABLE IF NOT EXISTS organizations (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
   slug TEXT UNIQUE NOT NULL,
   settings JSONB DEFAULT '{}',
@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS organizations (
 
 -- Documents for RAG
 CREATE TABLE IF NOT EXISTS documents (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
   title TEXT NOT NULL,
   content TEXT NOT NULL,
@@ -41,7 +41,7 @@ CREATE TABLE IF NOT EXISTS documents (
 
 -- Chat sessions
 CREATE TABLE IF NOT EXISTS chat_sessions (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
   organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
   title TEXT,
@@ -52,7 +52,7 @@ CREATE TABLE IF NOT EXISTS chat_sessions (
 
 -- Chat messages
 CREATE TABLE IF NOT EXISTS chat_messages (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   session_id UUID REFERENCES chat_sessions(id) ON DELETE CASCADE,
   role TEXT CHECK (role IN ('user', 'assistant', 'system')),
   content TEXT NOT NULL,
@@ -62,7 +62,7 @@ CREATE TABLE IF NOT EXISTS chat_messages (
 
 -- Analytics events
 CREATE TABLE IF NOT EXISTS analytics_events (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   event TEXT NOT NULL,
   properties JSONB DEFAULT '{}',
   user_id UUID REFERENCES profiles(id) ON DELETE SET NULL,
