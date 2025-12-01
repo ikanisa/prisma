@@ -1,0 +1,288 @@
+pipeline:
+  name: accounting_knowledge_ingest
+  version: "1.0"
+  description: >
+    Ingest IFRS/IAS/ISA/GAAP/Tax Laws/ACCA/CPA resources into Supabase
+    as chunked documents with embeddings for DeepSearch agent retrieval.
+    
+  config:
+    embedding_model: "text-embedding-3-large"
+    embedding_dimension: 1536
+    chunk_max_chars: 1500
+    chunk_overlap_chars: 200
+    batch_size: 50
+    retry_attempts: 3
+    timeout_seconds: 300
+
+  steps:
+    - id: discover_sources
+      type: static_list
+      description: "Define knowledge sources to ingest"
+      outputs:
+        sources:
+          # IFRS/IAS Standards (Global)
+          - name: "IFRS Foundation - IAS 21"
+            type: "IAS"
+            jurisdiction_code: "GLOBAL"
+            authority_level: "PRIMARY"
+            url: "https://www.ifrs.org/issued-standards/list-of-standards/ias-21/"
+            description: "The Effects of Changes in Foreign Exchange Rates"
+            
+          - name: "IFRS Foundation - IFRS 15"
+            type: "IFRS"
+            jurisdiction_code: "GLOBAL"
+            authority_level: "PRIMARY"
+            url: "https://www.ifrs.org/issued-standards/list-of-standards/ifrs-15/"
+            description: "Revenue from Contracts with Customers"
+            
+          - name: "IFRS Foundation - IAS 16"
+            type: "IAS"
+            jurisdiction_code: "GLOBAL"
+            authority_level: "PRIMARY"
+            url: "https://www.ifrs.org/issued-standards/list-of-standards/ias-16/"
+            description: "Property, Plant and Equipment"
+            
+          - name: "IFRS Foundation - IFRS 9"
+            type: "IFRS"
+            jurisdiction_code: "GLOBAL"
+            authority_level: "PRIMARY"
+            url: "https://www.ifrs.org/issued-standards/list-of-standards/ifrs-9/"
+            description: "Financial Instruments"
+
+          # Audit Standards (Global)
+          - name: "IAASB - ISA 315"
+            type: "ISA"
+            jurisdiction_code: "GLOBAL"
+            authority_level: "PRIMARY"
+            url: "https://www.iaasb.org/publications/isa-315-revised-2019"
+            description: "Identifying and Assessing the Risks of Material Misstatement"
+            
+          - name: "IAASB - ISA 330"
+            type: "ISA"
+            jurisdiction_code: "GLOBAL"
+            authority_level: "PRIMARY"
+            url: "https://www.iaasb.org/publications/isa-330"
+            description: "The Auditor's Responses to Assessed Risks"
+
+          # Rwanda Tax Laws
+          - name: "Rwanda Income Tax Act 2023"
+            type: "TAX_LAW"
+            jurisdiction_code: "RW"
+            authority_level: "PRIMARY"
+            url: "https://www.rra.gov.rw/en/laws-and-regulations/tax-laws"
+            description: "Rwanda Direct Taxation Framework"
+            
+          - name: "Rwanda VAT Act 2022"
+            type: "TAX_LAW"
+            jurisdiction_code: "RW"
+            authority_level: "PRIMARY"
+            url: "https://www.rra.gov.rw/en/laws-and-regulations/vat"
+            description: "Value Added Tax Regulations"
+
+          # Professional Bodies (Secondary Guidance)
+          - name: "ACCA Technical Articles - Revenue Recognition"
+            type: "ACCA"
+            jurisdiction_code: "GLOBAL"
+            authority_level: "SECONDARY"
+            url: "https://www.accaglobal.com/uk/en/technical-activities/technical-resources-search/2021/june/ifrs-15-revenue-from-contracts-with-customers.html"
+            description: "ACCA guidance on IFRS 15 implementation"
+            
+          - name: "ACCA Technical Articles - Foreign Exchange"
+            type: "ACCA"
+            jurisdiction_code: "GLOBAL"
+            authority_level: "SECONDARY"
+            url: "https://www.accaglobal.com/uk/en/technical-activities/technical-resources-search.html"
+            description: "ACCA guidance on IAS 21 application"
+
+    - id: ensure_jurisdictions
+      type: supabase_upsert
+      description: "Create or update jurisdictions in database"
+      input: sources
+      config:
+        table: jurisdictions
+        key_field: code
+        mapping:
+          code: jurisdiction_code
+          name:
+            transform: "jurisdiction_name_from_code"  # RW → Rwanda, etc.
+
+    - id: ensure_sources
+      type: supabase_upsert
+      description: "Create or update knowledge sources"
+      input: sources
+      config:
+        table: knowledge_sources
+        key_fields: [name, type]
+        mapping:
+          name: name
+          type: type
+          authority_level: authority_level
+          url: url
+          description: description
+          jurisdiction_id:
+            lookup:
+              table: jurisdictions
+              by_field: code
+              from_input: jurisdiction_code
+
+    - id: download_documents
+      type: http_fetch
+      description: "Download PDFs and HTML from source URLs"
+      input: sources
+      config:
+        timeout_seconds: 120
+        user_agent: "PrismaGlow-KnowledgeBot/1.0"
+        follow_redirects: true
+      outputs:
+        downloaded_files:
+          - source_name: name
+            url: url
+            local_path: "/tmp/kb_ingest/{{ name | slugify }}.pdf"
+            content_type: "<detected_mime_type>"
+
+    - id: parse_documents
+      type: pdf_to_text
+      description: "Extract text from PDFs using pdf-parse"
+      input: downloaded_files
+      config:
+        preserve_layout: true
+        extract_metadata: true
+      outputs:
+        parsed_docs:
+          - source_name: source_name
+            url: url
+            local_path: local_path
+            text: "<full_text>"
+            pages: "<page_count>"
+            metadata: "<pdf_metadata>"
+
+    - id: create_documents
+      type: supabase_insert
+      description: "Insert knowledge_documents records"
+      input: parsed_docs
+      config:
+        table: knowledge_documents
+        mapping:
+          source_id:
+            lookup:
+              table: knowledge_sources
+              by_field: name
+              from_input: source_name
+          title: source_name
+          code:
+            transform: "extract_code_from_title"  # Extract "IAS 21" from title
+          metadata:
+            url: url
+            local_path: local_path
+            page_count: pages
+
+    - id: chunk_documents
+      type: text_chunker
+      description: "Split documents into RAG-sized chunks"
+      input: parsed_docs
+      config:
+        max_chars: 1500
+        overlap_chars: 200
+        split_on:
+          - "\n\n"        # Paragraph breaks
+          - "\n"          # Line breaks
+          - ". "          # Sentences
+        preserve_structure: true
+      outputs:
+        chunks:
+          - document_title: source_name
+            chunk_index: "<index>"
+            section_path: "<derived_section>"
+            heading: "<extracted_heading>"
+            content: "<chunk_text>"
+            tokens: "<estimated_tokens>"
+
+    - id: insert_chunks
+      type: supabase_insert
+      description: "Insert knowledge_chunks records"
+      input: chunks
+      config:
+        table: knowledge_chunks
+        mapping:
+          document_id:
+            lookup:
+              table: knowledge_documents
+              by_field: title
+              from_input: document_title
+          chunk_index: chunk_index
+          section_path: section_path
+          heading: heading
+          content: content
+          tokens: tokens
+
+    - id: embed_chunks
+      type: embeddings
+      description: "Generate vector embeddings using OpenAI"
+      model: "text-embedding-3-large"
+      input: chunks
+      config:
+        batch_size: 50
+        retry_on_rate_limit: true
+        dimensions: 1536
+      outputs:
+        embeddings:
+          - chunk_ref:
+              document_title: document_title
+              chunk_index: chunk_index
+            embedding: "<vector>"
+            model: "text-embedding-3-large"
+
+    - id: insert_embeddings
+      type: supabase_insert
+      description: "Insert knowledge_embeddings records"
+      input: embeddings
+      config:
+        table: knowledge_embeddings
+        mapping:
+          chunk_id:
+            lookup:
+              table: knowledge_chunks
+              by_fields:
+                document_id:
+                  lookup:
+                    table: knowledge_documents
+                    by_field: title
+                    from_input: chunk_ref.document_title
+                chunk_index: chunk_ref.chunk_index
+          embedding: embedding
+
+    - id: update_job_stats
+      type: supabase_update
+      description: "Record ingestion job statistics"
+      config:
+        table: ingestion_jobs
+        stats:
+          total_sources: "{{ sources | length }}"
+          total_files: "{{ downloaded_files | length }}"
+          total_chunks: "{{ chunks | length }}"
+          total_embeddings: "{{ embeddings | length }}"
+          completed_at: "{{ now() }}"
+
+  error_handling:
+    on_download_failure:
+      action: "skip_and_continue"
+      log_level: "warning"
+      
+    on_parse_failure:
+      action: "skip_and_continue"
+      log_level: "error"
+      
+    on_embedding_failure:
+      action: "retry"
+      max_retries: 3
+      log_level: "error"
+
+  notifications:
+    on_completion:
+      - type: "log"
+        message: "Knowledge ingestion completed: {{ stats.total_chunks }} chunks, {{ stats.total_embeddings }} embeddings"
+    
+    on_failure:
+      - type: "log"
+        level: "error"
+        message: "Knowledge ingestion failed: {{ error_message }}"

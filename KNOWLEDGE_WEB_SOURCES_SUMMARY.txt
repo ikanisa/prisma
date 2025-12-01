@@ -1,0 +1,293 @@
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                    KNOWLEDGE WEB SOURCES - COMPLETE                         ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+✅ WHAT WAS CREATED
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. DATABASE MIGRATION (33KB)
+   📄 supabase/migrations/20251201_knowledge_web_sources_200_urls.sql
+   
+   ✓ Creates knowledge_web_sources table
+   ✓ Seeds 200 curated URLs across 12 categories
+   ✓ 6 performance indexes
+   ✓ Check constraints on authority_level and status
+   
+   Categories seeded:
+   • 12 IFRS Foundation URLs (ifrs.org)
+   • 14 IAASB/IESBA/IFAC URLs (iaasb.org, ethicsboard.org, ifac.org)
+   • 24 Big4 URLs (KPMG, PwC, Deloitte/IAS Plus, EY)
+   • 8 OECD Tax URLs (oecd.org)
+   • 19 Malta URLs (CFR, MBR, MFSA, FIAU)
+   • 15 Rwanda URLs (RRA, RDB, BNR, Parliament)
+   • 108 additional global sources (tax authorities, professional bodies, etc.)
+
+2. TYPESCRIPT HELPERS (14KB)
+   📄 packages/lib/src/knowledge-web-sources.ts
+   
+   ✓ Type-safe interfaces for all operations
+   ✓ 10 query helpers (getActiveSources, getPrimarySources, etc.)
+   ✓ 6 mutation helpers (createSource, updateSource, toggleStatus, etc.)
+   ✓ 3 analytics helpers (getCrawlStats, category/jurisdiction counts)
+   ✓ Full JSDoc documentation
+   
+   Example usage:
+   ```typescript
+   import { getActiveDomains } from '@/packages/lib/src/knowledge-web-sources';
+   const domains = await getActiveDomains(supabase);
+   // Returns: ['ifrs.org', 'iaasb.org', 'kpmg.com', ...]
+   ```
+
+3. INTEGRATION GUIDE (13KB)
+   📄 docs/KNOWLEDGE_WEB_SOURCES_GUIDE.md
+   
+   ✓ Complete setup instructions
+   ✓ Usage examples for DeepSearch, admin panel, crawler
+   ✓ API endpoint templates
+   ✓ Maintenance queries
+   ✓ Best practices and troubleshooting
+   ✓ RLS policy examples
+
+4. QUICK START README (8KB)
+   📄 README_KNOWLEDGE_WEB_SOURCES.md
+   
+   ✓ Quick start instructions
+   ✓ Schema documentation
+   ✓ Common operations
+   ✓ Integration points
+   ✓ Verification queries
+
+5. VERIFICATION SCRIPT (5KB)
+   📄 scripts/verify-knowledge-sources.sh
+   
+   ✓ Checks table exists
+   ✓ Verifies row count (200)
+   ✓ Tests indexes
+   ✓ Runs sample queries
+   ✓ Outputs summary report
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🚀 QUICK START
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+STEP 1: Apply Migration
+────────────────────────────────────────────────────────────────────────────
+
+Option A (Recommended): Direct psql
+  $ export DATABASE_URL='postgresql://user:pass@host:port/dbname'
+  $ psql "$DATABASE_URL" -f supabase/migrations/20251201_knowledge_web_sources_200_urls.sql
+
+Option B: Supabase CLI
+  $ supabase db push
+
+Option C: Supabase Studio
+  → Upload SQL file in SQL Editor
+  → Execute
+
+
+STEP 2: Verify Installation
+────────────────────────────────────────────────────────────────────────────
+
+Run verification script:
+  $ ./scripts/verify-knowledge-sources.sh
+
+Or manually check:
+  $ psql "$DATABASE_URL" -c "SELECT COUNT(*) FROM knowledge_web_sources;"
+  # Should return: 200
+
+
+STEP 3: Integrate with Your Code
+────────────────────────────────────────────────────────────────────────────
+
+TypeScript example:
+  import { getActiveDomains, getPrimarySources } from '@/packages/lib/src/knowledge-web-sources';
+  
+  // Get domains for crawler whitelist
+  const domains = await getActiveDomains(supabase);
+  
+  // Get IFRS primary sources
+  const ifrs = await getPrimarySources(supabase, { category: 'IFRS' });
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📊 DATA SUMMARY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Total URLs:           200
+Unique domains:       ~80-90
+Authority levels:
+  • PRIMARY:          ~70-80 (official standards bodies)
+  • SECONDARY:        ~120-130 (interpretive guidance)
+  • INTERNAL:         0 (reserved for future use)
+
+Categories:
+  IFRS               ~30    IFRS Foundation, IAS Plus, Big4 IFRS
+  TAX                ~60    OECD, Malta CFR, Rwanda RRA, global authorities
+  ISA                ~14    IAASB audit standards
+  BIG4               ~24    KPMG, PwC, Deloitte, EY insights
+  PRO                ~11    ACCA, AICPA, CPA Canada, ICAEW
+  REG                ~15    MFSA, ESMA, SEC, PCAOB, FRC
+  ETHICS             ~4     IESBA Code of Ethics
+  RESEARCH           ~5     Google Scholar, JSTOR, SSRN
+  Others             ~37    ESG, Law, Banking, Insurance, Tech
+
+Jurisdictions:
+  GLOBAL             140    International standards, Big4
+  MT (Malta)         19     CFR, MBR, MFSA, FIAU
+  RW (Rwanda)        15     RRA, RDB, BNR, Parliament
+  US/UK/CA/AU/EU     26     Tax authorities, regulators
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔧 TABLE SCHEMA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+CREATE TABLE knowledge_web_sources (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    name text NOT NULL,                  -- "IFRS - Issued Standards"
+    url text NOT NULL,                   -- "https://www.ifrs.org/issued-standards/"
+    domain text NOT NULL,                -- "ifrs.org"
+    category text NOT NULL,              -- "IFRS", "TAX", "ISA", etc.
+    jurisdiction_code text DEFAULT 'GLOBAL',  -- "GLOBAL", "RW", "MT"
+    authority_level text NOT NULL DEFAULT 'SECONDARY'
+        CHECK (authority_level IN ('PRIMARY', 'SECONDARY', 'INTERNAL')),
+    status text NOT NULL DEFAULT 'ACTIVE'
+        CHECK (status IN ('ACTIVE', 'INACTIVE')),
+    priority int NOT NULL DEFAULT 1,     -- 1=core, higher=less important
+    tags text[] DEFAULT '{}',            -- ['ifrs', 'standards']
+    notes text,
+    last_crawled_at timestamptz,
+    created_by uuid,
+    updated_by uuid,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+Indexes:
+  • idx_kws_domain
+  • idx_kws_category
+  • idx_kws_jurisdiction
+  • idx_kws_status
+  • idx_kws_authority_level
+  • idx_kws_priority
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+💡 COMMON USE CASES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. DeepSearch Integration
+   ──────────────────────────────────────────────────────────────────────
+   Query active domains for web search whitelist:
+   
+   const domains = await getActiveDomains(supabase);
+   // Use in your search configuration
+
+2. Admin Panel
+   ──────────────────────────────────────────────────────────────────────
+   List/edit sources:
+   
+   const sources = await getActiveSources(supabase, { category: 'TAX' });
+   await toggleSourceStatus(supabase, sourceId);
+
+3. Crawler Pipeline
+   ──────────────────────────────────────────────────────────────────────
+   Get sources needing crawl:
+   
+   const batch = await getSourcesNeedingCrawl(supabase, 7, 100);
+   for (const source of batch) {
+     await crawlUrl(source.url);
+     await markSourceCrawled(supabase, source.id);
+   }
+
+4. RAG Ingestion
+   ──────────────────────────────────────────────────────────────────────
+   Prioritize official sources:
+   
+   const coreSources = await getPrimarySources(supabase, { priority: 1 });
+   // Ingest these first
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📚 DOCUMENTATION FILES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. README_KNOWLEDGE_WEB_SOURCES.md
+   Quick start guide with examples
+
+2. docs/KNOWLEDGE_WEB_SOURCES_GUIDE.md
+   Complete integration guide with:
+   • Setup instructions
+   • Usage examples (DeepSearch, admin, crawler)
+   • API endpoint templates
+   • Maintenance queries
+   • Best practices
+   • Troubleshooting
+
+3. packages/lib/src/knowledge-web-sources.ts
+   TypeScript helper module with:
+   • Type-safe interfaces
+   • Query helpers (10 functions)
+   • Mutation helpers (6 functions)
+   • Analytics helpers (3 functions)
+   • Full JSDoc documentation
+
+4. scripts/verify-knowledge-sources.sh
+   Automated verification script
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ VERIFICATION CHECKLIST
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+□ Migration file created (20251201_knowledge_web_sources_200_urls.sql)
+□ TypeScript helpers created (packages/lib/src/knowledge-web-sources.ts)
+□ Documentation created (docs/, README_KNOWLEDGE_WEB_SOURCES.md)
+□ Verification script created (scripts/verify-knowledge-sources.sh)
+
+Next steps:
+□ Apply migration to database
+□ Run verification script
+□ Integrate with DeepSearch
+□ Build admin panel UI
+□ Configure crawler
+□ Set up RLS policies (optional)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🎯 KEY BENEFITS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✓ Centralized source management
+  → All 200 URLs in one table
+  → Easy to add/edit/deactivate sources
+
+✓ Dynamic configuration
+  → No hardcoded URLs in code
+  → Query sources by category, jurisdiction, priority
+
+✓ Crawl tracking
+  → Track last_crawled_at timestamps
+  → Identify sources needing refresh
+
+✓ Type-safe operations
+  → TypeScript helpers with full types
+  → JSDoc documentation
+
+✓ Admin-friendly
+  → Simple CRUD operations
+  → Toggle active/inactive status
+  → Bulk updates
+
+✓ Flexible filtering
+  → By category (IFRS, TAX, ISA, etc.)
+  → By jurisdiction (GLOBAL, RW, MT, etc.)
+  → By authority level (PRIMARY, SECONDARY)
+  → By tags (array search)
+  → By priority (1=core, 2=important, etc.)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Created: 2025-12-01
+Status: ✅ Ready to apply
+Migration: 20251201_knowledge_web_sources_200_urls.sql
+
+For questions or issues, see:
+  • docs/KNOWLEDGE_WEB_SOURCES_GUIDE.md → Troubleshooting
+  • README_KNOWLEDGE_WEB_SOURCES.md → Quick Start
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

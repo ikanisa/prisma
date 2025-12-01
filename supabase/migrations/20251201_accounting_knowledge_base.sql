@@ -1,0 +1,219 @@
+-- Accounting Knowledge Base Migration
+-- Supports IFRS/IAS/ISA/GAAP/Tax Laws/ACCA/CPA resources with embeddings for RAG
+
+-- 1) Enable pgvector (if not already enabled)
+create extension if not exists vector;
+
+-- 2) Jurisdictions table
+create table if not exists jurisdictions (
+    id uuid primary key default gen_random_uuid(),
+    code text not null unique,         -- e.g. "RW", "EU", "US", "GLOBAL"
+    name text not null,                -- e.g. "Rwanda", "European Union"
+    created_at timestamptz not null default now()
+);
+
+comment on table jurisdictions is 'Geographic/regulatory jurisdictions for accounting standards and tax laws';
+comment on column jurisdictions.code is 'ISO-style code or custom identifier (RW, EU, US, GLOBAL)';
+
+-- 3) Knowledge sources (IFRS, IAS, ISA, GAAP, Tax laws, etc.)
+create table if not exists knowledge_sources (
+    id uuid primary key default gen_random_uuid(),
+    name text not null,                         -- e.g. "IFRS Foundation", "RRA Tax Laws"
+    type text not null check (
+        type in (
+            'IFRS', 'IAS', 'ISA', 'GAAP', 'TAX_LAW',
+            'ACCA', 'CPA', 'OECD', 'INTERNAL', 'OTHER'
+        )
+    ),
+    jurisdiction_id uuid references jurisdictions(id),
+    authority_level text not null default 'SECONDARY' check (
+        authority_level in ('PRIMARY', 'SECONDARY', 'INTERNAL')
+    ),
+    url text,
+    description text,
+    version text,                               -- e.g. "2023", "Rev. 2"
+    effective_from date,
+    effective_to date,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz not null default now()
+);
+
+comment on table knowledge_sources is 'Authoritative sources of accounting and tax knowledge';
+comment on column knowledge_sources.type is 'Classification: IFRS, IAS, ISA, GAAP, TAX_LAW, ACCA, CPA, OECD, INTERNAL, OTHER';
+comment on column knowledge_sources.authority_level is 'PRIMARY (official standards/laws), SECONDARY (guidance/commentary), INTERNAL (company-specific)';
+
+create index if not exists idx_knowledge_sources_jurisdiction
+    on knowledge_sources (jurisdiction_id);
+
+create index if not exists idx_knowledge_sources_type
+    on knowledge_sources (type);
+
+-- 4) Knowledge documents (individual standards/laws/guides)
+create table if not exists knowledge_documents (
+    id uuid primary key default gen_random_uuid(),
+    source_id uuid not null references knowledge_sources(id) on delete cascade,
+    title text not null,                        -- e.g. "IAS 21: The Effects of Changes in Foreign Exchange Rates"
+    code text,                                  -- e.g. "IAS 21", "IFRS 15", "RW-VAT-2022"
+    language_code text default 'en',           -- e.g. "en", "fr", "rw"
+    status text not null default 'ACTIVE' check (
+        status in ('ACTIVE', 'DEPRECATED', 'DRAFT')
+    ),
+    version text,
+    effective_from date,
+    effective_to date,
+    metadata jsonb default '{}'::jsonb,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz not null default now()
+);
+
+comment on table knowledge_documents is 'Individual accounting standards, tax laws, or guidance documents';
+comment on column knowledge_documents.code is 'Standard identifier (IAS 21, IFRS 15, etc.)';
+comment on column knowledge_documents.metadata is 'Additional context: url, file_path, page_count, etc.';
+
+create index if not exists idx_knowledge_documents_source
+    on knowledge_documents (source_id);
+
+create index if not exists idx_knowledge_documents_code
+    on knowledge_documents (code);
+
+create index if not exists idx_knowledge_documents_status
+    on knowledge_documents (status);
+
+-- 5) Knowledge chunks (RAG-optimized text units)
+create table if not exists knowledge_chunks (
+    id uuid primary key default gen_random_uuid(),
+    document_id uuid not null references knowledge_documents(id) on delete cascade,
+    chunk_index integer not null,                          -- order within document
+    section_path text,                                     -- e.g. "IAS 21.8-12", "Section 4.2.3"
+    heading text,                                          -- local section heading if any
+    content text not null,                                 -- the chunk's plain text
+    tokens integer,                                        -- approximate token count
+    jurisdiction_override_id uuid references jurisdictions(id),
+    effective_from date,
+    effective_to date,
+    metadata jsonb default '{}'::jsonb,
+    created_at timestamptz not null default now()
+);
+
+comment on table knowledge_chunks is 'Chunked text units for RAG retrieval, sized for embedding models';
+comment on column knowledge_chunks.section_path is 'Hierarchical reference within document (e.g., IAS 21.8-12)';
+comment on column knowledge_chunks.tokens is 'Approximate token count for LLM context management';
+
+create unique index if not exists idx_chunks_doc_chunkindex
+    on knowledge_chunks (document_id, chunk_index);
+
+create index if not exists idx_chunks_doc
+    on knowledge_chunks (document_id);
+
+create index if not exists idx_chunks_section_path
+    on knowledge_chunks (section_path);
+
+-- 6) Knowledge embeddings (vector storage)
+-- Dimension set to 1536 (OpenAI text-embedding-3-small/large)
+-- Adjust if using different embedding model
+create table if not exists knowledge_embeddings (
+    id bigserial primary key,
+    chunk_id uuid not null unique references knowledge_chunks(id) on delete cascade,
+    embedding vector(1536) not null,
+    created_at timestamptz not null default now()
+);
+
+comment on table knowledge_embeddings is 'Vector embeddings for semantic search over knowledge chunks';
+comment on column knowledge_embeddings.embedding is 'Vector dimension: 1536 (OpenAI text-embedding-3-small/large compatible)';
+
+-- Create IVFFlat index for efficient vector similarity search
+-- Lists parameter tuned for expected dataset size
+create index if not exists idx_embeddings_vector
+    on knowledge_embeddings
+    using ivfflat (embedding vector_cosine_ops)
+    with (lists = 100);
+
+-- 7) Ingestion jobs (track pipeline runs)
+create table if not exists ingestion_jobs (
+    id uuid primary key default gen_random_uuid(),
+    source_id uuid references knowledge_sources(id) on delete set null,
+    status text not null default 'PENDING' check (
+        status in ('PENDING', 'RUNNING', 'COMPLETED', 'FAILED')
+    ),
+    started_at timestamptz,
+    finished_at timestamptz,
+    stats jsonb default '{}'::jsonb,        -- e.g. {"files":10,"chunks":230,"tokens":120000}
+    error_message text,
+    created_at timestamptz not null default now()
+);
+
+comment on table ingestion_jobs is 'Audit trail for knowledge ingestion pipeline runs';
+comment on column ingestion_jobs.stats is 'Pipeline metrics: files processed, chunks created, tokens embedded, etc.';
+
+create index if not exists idx_ingestion_jobs_status
+    on ingestion_jobs (status, created_at desc);
+
+-- 8) Ingestion files (per PDF/HTML/document)
+create table if not exists ingestion_files (
+    id uuid primary key default gen_random_uuid(),
+    job_id uuid not null references ingestion_jobs(id) on delete cascade,
+    uri text not null,                         -- e.g. "https://ifrs.org/ias21.pdf"
+    status text not null default 'PENDING' check (
+        status in ('PENDING', 'DOWNLOADING', 'PARSING', 'CHUNKING', 'EMBEDDING', 'COMPLETED', 'FAILED')
+    ),
+    page_count integer,
+    metadata jsonb default '{}'::jsonb,
+    error_message text,
+    created_at timestamptz not null default now()
+);
+
+comment on table ingestion_files is 'Individual file tracking within ingestion jobs';
+comment on column ingestion_files.uri is 'Source URL or file path';
+
+create index if not exists idx_ingestion_files_job
+    on ingestion_files (job_id);
+
+create index if not exists idx_ingestion_files_status
+    on ingestion_files (status);
+
+-- 9) Agent queries log (auditability & debugging)
+create table if not exists agent_queries_log (
+    id bigserial primary key,
+    agent_name text not null,                 -- e.g. "AccountantAI", "DeepSearch"
+    user_id uuid,
+    query_text text not null,
+    response_summary text,
+    top_chunk_ids uuid[],                     -- chunks used in response
+    jurisdiction_id uuid references jurisdictions(id),
+    created_at timestamptz not null default now(),
+    latency_ms integer,
+    metadata jsonb default '{}'::jsonb
+);
+
+comment on table agent_queries_log is 'Audit trail of AI agent knowledge queries and retrievals';
+comment on column agent_queries_log.top_chunk_ids is 'Array of knowledge_chunks.id used in response generation';
+comment on column agent_queries_log.latency_ms is 'Total query execution time in milliseconds';
+
+create index if not exists idx_agent_queries_agent
+    on agent_queries_log (agent_name, created_at desc);
+
+create index if not exists idx_agent_queries_user
+    on agent_queries_log (user_id, created_at desc);
+
+-- Seed default jurisdictions
+insert into jurisdictions (code, name) values
+    ('GLOBAL', 'Global / International'),
+    ('RW', 'Rwanda'),
+    ('EU', 'European Union'),
+    ('US', 'United States'),
+    ('UK', 'United Kingdom')
+on conflict (code) do nothing;
+
+-- Grant permissions (adjust based on your RLS policies)
+-- Example: grant select to authenticated users, insert/update to service role
+-- alter table jurisdictions enable row level security;
+-- alter table knowledge_sources enable row level security;
+-- alter table knowledge_documents enable row level security;
+-- alter table knowledge_chunks enable row level security;
+-- alter table knowledge_embeddings enable row level security;
+
+-- Example RLS policy (authenticated users can read)
+-- create policy "Users can read jurisdictions"
+--     on jurisdictions for select
+--     to authenticated
+--     using (true);

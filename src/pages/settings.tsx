@@ -24,9 +24,36 @@ export function Settings() {
   const [taskReminders, setTaskReminders] = useState(true);
   const [weeklyDigest, setWeeklyDigest] = useState(false);
   const emailIngest = useEmailIngestSettings();
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSaveProfile = () => {
-    toast({ title: "Profile updated successfully" });
+  // Profile state
+  const [firstName, setFirstName] = useState(currentUser?.name.split(' ')[0] || '');
+  const [lastName, setLastName] = useState(currentUser?.name.split(' ')[1] || '');
+  const [email, setEmail] = useState(currentUser?.email || '');
+  const [jobTitle, setJobTitle] = useState('Senior Consultant');
+  const [bio, setBio] = useState('Experienced professional services consultant with expertise in financial advisory and strategic planning.');
+
+  const handleSaveProfile = async () => {
+    setIsLoading(true);
+    try {
+      const displayName = `${firstName} ${lastName}`.trim();
+      await import('@/lib/iam').then(m => m.updateProfile({
+        displayName,
+        orgId: currentOrg?.id,
+        // Note: email update usually requires re-verification, so we might want to handle that separately
+        // For now, we'll just update the display name and other fields
+      }));
+      toast({ title: "Profile updated successfully" });
+    } catch (error) {
+      console.error('Failed to update profile:', error);
+      toast({
+        title: "Failed to update profile",
+        description: error instanceof Error ? error.message : "Unknown error",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleExportData = () => {
@@ -69,35 +96,54 @@ export function Settings() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="firstName">First Name</Label>
-                  <Input id="firstName" defaultValue={currentUser?.name.split(' ')[0]} />
+                  <Input
+                    id="firstName"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="lastName">Last Name</Label>
-                  <Input id="lastName" defaultValue={currentUser?.name.split(' ')[1]} />
+                  <Input
+                    id="lastName"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                  />
                 </div>
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="email">Email Address</Label>
-                <Input id="email" type="email" defaultValue={currentUser?.email} />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="title">Job Title</Label>
-                <Input id="title" defaultValue="Senior Consultant" />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="bio">Bio</Label>
-                <Textarea 
-                  id="bio" 
-                  placeholder="Tell us about yourself..."
-                  defaultValue="Experienced professional services consultant with expertise in financial advisory and strategic planning."
+                <Input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  disabled // Email update usually requires specific flow
                 />
               </div>
-              
-              <Button onClick={handleSaveProfile} variant="gradient">
-                Save Changes
+
+              <div className="space-y-2">
+                <Label htmlFor="title">Job Title</Label>
+                <Input
+                  id="title"
+                  value={jobTitle}
+                  onChange={(e) => setJobTitle(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="bio">Bio</Label>
+                <Textarea
+                  id="bio"
+                  placeholder="Tell us about yourself..."
+                  value={bio}
+                  onChange={(e) => setBio(e.target.value)}
+                />
+              </div>
+
+              <Button onClick={handleSaveProfile} variant="gradient" disabled={isLoading}>
+                {isLoading ? 'Saving...' : 'Save Changes'}
               </Button>
             </CardContent>
           </Card>
@@ -114,17 +160,17 @@ export function Settings() {
                 <Label htmlFor="currentPassword">Current Password</Label>
                 <Input id="currentPassword" type="password" />
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="newPassword">New Password</Label>
                 <Input id="newPassword" type="password" />
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="confirmPassword">Confirm New Password</Label>
                 <Input id="confirmPassword" type="password" />
               </div>
-              
+
               <Button variant="outline">Update Password</Button>
             </CardContent>
           </Card>
@@ -148,14 +194,14 @@ export function Settings() {
                     Receive notifications via email
                   </div>
                 </div>
-                <Switch 
+                <Switch
                   checked={emailNotifications}
                   onCheckedChange={setEmailNotifications}
                 />
               </div>
-              
+
               <Separator />
-              
+
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
                   <div className="text-sm font-medium">Push Notifications</div>
@@ -163,14 +209,14 @@ export function Settings() {
                     Get push notifications in your browser
                   </div>
                 </div>
-                <Switch 
+                <Switch
                   checked={pushNotifications}
                   onCheckedChange={setPushNotifications}
                 />
               </div>
-              
+
               <Separator />
-              
+
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
                   <div className="text-sm font-medium">Task Reminders</div>
@@ -178,14 +224,14 @@ export function Settings() {
                     Get reminded about upcoming due dates
                   </div>
                 </div>
-                <Switch 
+                <Switch
                   checked={taskReminders}
                   onCheckedChange={setTaskReminders}
                 />
               </div>
-              
+
               <Separator />
-              
+
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
                   <div className="text-sm font-medium">Weekly Digest</div>
@@ -193,7 +239,7 @@ export function Settings() {
                     Receive a weekly summary of your activities
                   </div>
                 </div>
-                <Switch 
+                <Switch
                   checked={weeklyDigest}
                   onCheckedChange={setWeeklyDigest}
                 />
@@ -239,7 +285,7 @@ export function Settings() {
                   </SelectContent>
                 </Select>
               </div>
-              
+
               <div className="space-y-2">
                 <Label>Language</Label>
                 <Select defaultValue="en">
@@ -254,7 +300,7 @@ export function Settings() {
                   </SelectContent>
                 </Select>
               </div>
-              
+
               <div className="space-y-2">
                 <Label>Timezone</Label>
                 <Select defaultValue="utc-5">
@@ -284,20 +330,20 @@ export function Settings() {
                 <Label htmlFor="orgName">Organization Name</Label>
                 <Input id="orgName" defaultValue={currentOrg?.name} />
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="orgDomain">Domain</Label>
                 <Input id="orgDomain" defaultValue="prismaglow.com" />
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="orgAddress">Address</Label>
-                <Textarea 
-                  id="orgAddress" 
+                <Textarea
+                  id="orgAddress"
                   defaultValue="123 Business Ave, Suite 400&#10;New York, NY 10001"
                 />
               </div>
-              
+
               <Button variant="gradient">Save Organization Settings</Button>
             </CardContent>
           </Card>
@@ -340,9 +386,9 @@ export function Settings() {
                     Export All Data
                   </Button>
                 </div>
-                
+
                 <Separator />
-                
+
                 <div>
                   <h4 className="font-medium mb-2">Import Data</h4>
                   <p className="text-sm text-muted-foreground mb-4">
@@ -353,9 +399,9 @@ export function Settings() {
                     Import Data
                   </Button>
                 </div>
-                
+
                 <Separator />
-                
+
                 <div>
                   <h4 className="font-medium mb-2 text-destructive">Danger Zone</h4>
                   <p className="text-sm text-muted-foreground mb-4">

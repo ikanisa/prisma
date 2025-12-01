@@ -18,15 +18,29 @@ import {
   createKnowledgeRouter,
   createAgentKnowledgeRouter,
 } from './routes/index.js';
+import { verifySupabaseToken } from './middleware/auth.js';
+import { apiLimiter } from './middleware/rateLimit.js';
 
 // Environment variables
 const PORT = process.env.PORT || 3001;
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || '';
+const NODE_ENV = process.env.NODE_ENV || 'development';
+
+// CORS origins configuration
+const ALLOWED_ORIGINS = process.env.GATEWAY_ALLOWED_ORIGINS
+  ? process.env.GATEWAY_ALLOWED_ORIGINS.split(',').map(o => o.trim())
+  : NODE_ENV === 'production'
+  ? [] // Must be explicitly configured in production
+  : ['http://localhost:3000', 'http://localhost:5173', 'http://127.0.0.1:3000', 'http://127.0.0.1:5173'];
 
 // Validate environment
 if (!SUPABASE_URL) {
   console.warn('Warning: SUPABASE_URL not set. Database operations will fail.');
+}
+
+if (NODE_ENV === 'production' && ALLOWED_ORIGINS.length === 0) {
+  throw new Error('GATEWAY_ALLOWED_ORIGINS must be set in production');
 }
 
 // Create Supabase client
@@ -41,7 +55,21 @@ const app: Express = express();
 
 // Middleware
 app.use(helmet());
-app.use(cors());
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    if (ALLOWED_ORIGINS.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID'],
+}));
 app.use(express.json({ limit: '10mb' }));
 
 // Request logging
@@ -61,6 +89,13 @@ app.get('/health', (req: Request, res: Response) => {
 
 // API v1 routes
 const apiV1 = express.Router();
+
+// Apply rate limiting to all API routes
+apiV1.use(apiLimiter);
+
+// Apply authentication middleware to all API routes
+// This ensures all requests are authenticated before reaching route handlers
+apiV1.use(verifySupabaseToken);
 
 // Agent routes
 apiV1.use('/agents', createAgentRouter(supabase));

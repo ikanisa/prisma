@@ -29,9 +29,15 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     console.error('ErrorBoundary caught an error:', error, errorInfo);
     
-    // Log to error reporting service (e.g., Sentry)
-    if (import.meta.env.PROD) {
-      // window.Sentry?.captureException(error, { extra: errorInfo });
+    // Log to error reporting service (Sentry)
+    if (import.meta.env.PROD && typeof window !== 'undefined' && window.Sentry) {
+      window.Sentry.captureException(error, { 
+        extra: errorInfo,
+        tags: {
+          errorBoundary: true,
+          component: 'ErrorBoundary'
+        }
+      });
     }
   }
 

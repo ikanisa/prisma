@@ -1,0 +1,183 @@
+pipeline:
+  name: accounting_knowledge_ingest
+  description: >
+    Ingest IFRS/IAS/ISA/GAAP/Tax Laws/ACCA/CPA resources into Supabase
+    as chunked documents with embeddings for DeepSearch.
+
+  steps:
+    - id: discover_sources
+      type: static_list
+      outputs:
+        sources:
+          - name: "IFRS Foundation - IAS 21"
+            type: "IAS"
+            jurisdiction_code: "GLOBAL"
+            authority_level: "PRIMARY"
+            url: "https://www.ifrs.org/issued-standards/list-of-standards/ias-21/"
+          
+          - name: "IFRS Foundation - IFRS 15"
+            type: "IFRS"
+            jurisdiction_code: "GLOBAL"
+            authority_level: "PRIMARY"
+            url: "https://www.ifrs.org/issued-standards/list-of-standards/ifrs-15/"
+          
+          - name: "IFRS Foundation - IFRS 9"
+            type: "IFRS"
+            jurisdiction_code: "GLOBAL"
+            authority_level: "PRIMARY"
+            url: "https://www.ifrs.org/issued-standards/list-of-standards/ifrs-9/"
+          
+          - name: "Rwanda Income Tax Act 2023"
+            type: "TAX_LAW"
+            jurisdiction_code: "RW"
+            authority_level: "PRIMARY"
+            url: "https://www.rra.gov.rw/fileadmin/user_upload/Income_Tax_Law_2023.pdf"
+          
+          - name: "Rwanda VAT Act 2022"
+            type: "TAX_LAW"
+            jurisdiction_code: "RW"
+            authority_level: "PRIMARY"
+            url: "https://www.rra.gov.rw/fileadmin/user_upload/VAT_Law_2022.pdf"
+          
+          - name: "ACCA Technical Articles - Revenue Recognition"
+            type: "ACCA"
+            jurisdiction_code: "GLOBAL"
+            authority_level: "SECONDARY"
+            url: "https://www.accaglobal.com/gb/en/technical-activities/technical-resources-search.html"
+          
+          - name: "ISA 315 - Identifying and Assessing Risks"
+            type: "ISA"
+            jurisdiction_code: "GLOBAL"
+            authority_level: "PRIMARY"
+            url: "https://www.iaasb.org/publications/isa-315-revised-2019"
+          
+          - name: "US GAAP - ASC 606 Revenue"
+            type: "GAAP"
+            jurisdiction_code: "US"
+            authority_level: "PRIMARY"
+            url: "https://fasb.org/page/PageContent?pageId=/standards/asc606.html"
+
+    - id: ensure_jurisdictions
+      type: supabase_upsert
+      input: sources
+      config:
+        table: jurisdictions
+        key_field: code
+        mapping:
+          code: jurisdiction_code
+          name: "AUTO_FROM_CODE"    # your code converts RW → "Rwanda", etc.
+
+    - id: ensure_sources
+      type: supabase_upsert
+      input: sources
+      config:
+        table: knowledge_sources
+        key_fields: [name, type]
+        mapping:
+          name: name
+          type: type
+          authority_level: authority_level
+          url: url
+          jurisdiction_id:
+            lookup:
+              table: jurisdictions
+              by_field: code
+              from_input: jurisdiction_code
+
+    - id: download_documents
+      type: http_fetch
+      input: sources
+      outputs:
+        downloaded_files:
+          - source_name: name
+            url: url
+            local_path: "/tmp/{{ name | slugify }}.pdf"
+
+    - id: parse_documents
+      type: pdf_to_text
+      input: downloaded_files
+      outputs:
+        parsed_docs:
+          - source_name: source_name
+            url: url
+            local_path: local_path
+            text: "<full_text>"
+            pages: "<page_count>"
+
+    - id: create_documents
+      type: supabase_insert
+      input: parsed_docs
+      config:
+        table: knowledge_documents
+        mapping:
+          source_id:
+            lookup:
+              table: knowledge_sources
+              by_field: name
+              from_input: source_name
+          title: source_name
+          code: "AUTO_FROM_TITLE"   # e.g. extract "IAS 21" from title
+          metadata:
+            url: url
+            local_path: local_path
+
+    - id: chunk_documents
+      type: text_chunker
+      input: parsed_docs
+      config:
+        max_chars: 1500
+        overlap_chars: 200
+      outputs:
+        chunks:
+          - document_title: source_name
+            chunk_index: "<index>"
+            section_path: "<derived_section>"   # optional
+            heading: "<heading>"
+            content: "<chunk_text>"
+            tokens: "<estimated_tokens>"
+
+    - id: insert_chunks
+      type: supabase_insert
+      input: chunks
+      config:
+        table: knowledge_chunks
+        mapping:
+          document_id:
+            lookup:
+              table: knowledge_documents
+              by_field: title
+              from_input: document_title
+          chunk_index: chunk_index
+          section_path: section_path
+          heading: heading
+          content: content
+          tokens: tokens
+
+    - id: embed_chunks
+      type: embeddings
+      model: "text-embedding-3-large"   # or whatever you use
+      input: chunks
+      outputs:
+        embeddings:
+          - chunk_ref:
+              document_title: document_title
+              chunk_index: chunk_index
+            embedding: "<vector>"
+
+    - id: insert_embeddings
+      type: supabase_insert
+      input: embeddings
+      config:
+        table: knowledge_embeddings
+        mapping:
+          chunk_id:
+            lookup:
+              table: knowledge_chunks
+              by_fields:
+                document_id:
+                  lookup:
+                    table: knowledge_documents
+                    by_field: title
+                    from_input: chunk_ref.document_title
+                chunk_index: chunk_ref.chunk_index
+          embedding: embedding

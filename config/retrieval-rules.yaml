@@ -1,0 +1,346 @@
+retrieval_rules:
+  version: 1.0
+  description: >
+    Logic rules for DeepSearch and AccountantAI agents when combining
+    retrieved knowledge and generating responses. Ensures high-quality,
+    citation-backed, authority-aware answers.
+
+  ranking:
+    description: "How to score and rank retrieved knowledge chunks"
+    
+    base_metric: "cosine_similarity"
+    
+    composite_score:
+      formula: >
+        final_score = (
+          embedding_score * 0.50 +
+          authority_weight * 0.25 +
+          recency_weight * 0.15 +
+          jurisdiction_match_weight * 0.10
+        )
+    
+    fields:
+      - embedding_score:
+          source: "cosine_similarity from vector search"
+          range: [0.0, 1.0]
+          weight: 0.50
+          
+      - authority_weight:
+          source: "knowledge_sources.authority_level"
+          mapping:
+            PRIMARY: 1.0
+            INTERNAL: 0.9
+            SECONDARY: 0.7
+          weight: 0.25
+          
+      - recency_weight:
+          source: "document age vs. freshness policy"
+          calculation: |
+            days_old = today - document.effective_from
+            decay = exp(-days_old / decay_half_life_days)
+            recency_weight = decay
+          decay_half_life_days: 365
+          weight: 0.15
+          
+      - jurisdiction_match_weight:
+          source: "query jurisdiction vs. document jurisdiction"
+          mapping:
+            exact_match: 1.0
+            global_for_unspecified: 0.95
+            related_jurisdiction: 0.8
+            no_match: 0.5
+          weight: 0.10
+
+  thresholds:
+    description: "Quality gates for retrieved chunks"
+    
+    min_score_for_use: 0.75
+    min_primary_score_for_standards: 0.78
+    max_chunks_per_response: 6
+    min_chunks_for_high_confidence: 3
+    
+    confidence_levels:
+      HIGH:
+        conditions:
+          - "at least 3 chunks with score >= 0.85"
+          - "at least 2 PRIMARY sources"
+          - "no conflicts between sources"
+          
+      MEDIUM:
+        conditions:
+          - "at least 2 chunks with score >= 0.75"
+          - "at least 1 PRIMARY source"
+          - "minor conflicts or gaps"
+          
+      LOW:
+        conditions:
+          - "1-2 chunks with score >= 0.70"
+          - "or only SECONDARY sources"
+          - "or significant gaps"
+
+  selection_strategy:
+    description: "How to choose which chunks to include in context"
+    
+    steps:
+      - step: "filter_by_threshold"
+        description: "Remove chunks below min_score_for_use"
+        
+      - step: "group_by_document"
+        description: >
+          Prefer multiple chunks from the same relevant document to maintain
+          coherent context. If top chunk is from IAS 21, prioritize other
+          IAS 21 chunks if they're above threshold.
+        
+      - step: "enforce_primary_requirement"
+        description: >
+          For IFRS/IAS/ISA/TAX_LAW queries, require at least one PRIMARY source.
+          If no PRIMARY chunks above threshold, flag LOW confidence.
+        
+      - step: "diversify_sources"
+        description: >
+          If multiple documents are similarly relevant, include at least one
+          SECONDARY commentary for practical explanation (e.g., ACCA guidance
+          alongside IFRS standard).
+        
+      - step: "limit_to_max_chunks"
+        description: "Select top N chunks (default 6) to fit context window"
+        
+      - step: "preserve_section_continuity"
+        description: >
+          If chunk 5 from a document is selected, prefer chunks 4 and 6
+          for context continuity.
+
+  fallback_logic:
+    description: "What to do when retrieval fails or is insufficient"
+    
+    scenarios:
+      - condition: "no_chunk_above_threshold"
+        action: "ask_user_for_more_context"
+        message: >
+          I couldn't find sufficiently relevant information in the knowledge base.
+          Could you provide more details about your question?
+        
+      - condition: "primary_sources_found_but_outdated"
+        action: "trigger_external_freshness_check"
+        description: >
+          If document.effective_from > freshness_policy_days, search external
+          authoritative sites for updates before responding.
+        
+      - condition: "conflicting_primary_sources"
+        action: "rank_by_effective_date_and_jurisdiction"
+        description: >
+          Prefer source with later effective_from date. If same date, prefer
+          jurisdiction-specific over GLOBAL for tax matters.
+        
+      - condition: "only_secondary_sources_available"
+        action: "flag_low_confidence_and_respond"
+        message: >
+          Note: This response is based on professional commentary rather than
+          primary standards. Consult official standards for definitive guidance.
+        
+      - condition: "cross_jurisdiction_conflict"
+        action: "present_both_treatments"
+        description: >
+          If Rwanda tax law conflicts with IFRS, present both and clarify
+          which applies for tax vs. financial reporting.
+
+  citation_policy:
+    description: "How to format and present citations"
+    
+    minimum_citations: 2
+    maximum_citations_displayed: 8
+    
+    preferred_citation_fields:
+      - document_code          # e.g. "IAS 21"
+      - section_path           # e.g. "IAS 21.8-12"
+      - source_url            # Direct link
+      - authority_level       # PRIMARY/SECONDARY
+      - effective_from        # Version date
+      
+    format_template: |
+      ({{ document_code }}.{{ section_path }}, {{ source_name }}, {{ url }})
+      
+    examples:
+      - "(IAS 21.28, IFRS Foundation, https://ifrs.org/ias-21)"
+      - "(Rwanda Income Tax Act 2023, Section 8, RRA, https://rra.gov.rw/...)"
+      
+    in_response:
+      inline: true
+      footnotes: false
+      bibliography_section: true
+
+  conflict_resolution:
+    description: "How to handle conflicts between sources"
+    
+    rules:
+      - scenario: "Two PRIMARY sources conflict on same topic"
+        resolution:
+          - "Prefer source with later effective_from date"
+          - "If dates equal, prefer jurisdiction-specific for tax/legal"
+          - "If dates equal, prefer GLOBAL for accounting standards"
+          - "Always disclose the conflict to user"
+          
+      - scenario: "Jurisdiction-specific law conflicts with global guidance"
+        resolution:
+          - "For tax matters: prefer jurisdiction law"
+          - "For financial reporting: prefer IFRS unless local GAAP specified"
+          - "Clearly state which applies for what purpose"
+          
+      - scenario: "PRIMARY and SECONDARY sources conflict"
+        resolution:
+          - "Always prefer PRIMARY"
+          - "Cite SECONDARY as commentary only"
+          - "Note the divergence if significant"
+          
+      - scenario: "Same source but different versions/amendments"
+        resolution:
+          - "Use version matching query effective_date if specified"
+          - "Otherwise use most recent version"
+          - "Flag if recent amendments may affect answer"
+          
+      - scenario: "No clear resolution possible"
+        resolution:
+          - "Present both views"
+          - "Flag LOW confidence"
+          - "Recommend professional judgment / human expert review"
+
+  jurisdiction_handling:
+    description: "How to manage jurisdiction-specific queries"
+    
+    default_jurisdiction: "GLOBAL"
+    
+    inference_rules:
+      - if: "query mentions 'Rwanda' or 'RRA' or 'RWF'"
+        then: "set jurisdiction to RW"
+        
+      - if: "query mentions 'EU' or 'European'"
+        then: "set jurisdiction to EU"
+        
+      - if: "query mentions 'US' or 'United States' or 'USD tax'"
+        then: "set jurisdiction to US"
+        
+      - if: "query about IFRS/IAS without jurisdiction"
+        then: "set jurisdiction to GLOBAL"
+        
+    multi_jurisdiction:
+      when: "query involves cross-border transactions"
+      approach:
+        - "Retrieve chunks for all relevant jurisdictions"
+        - "Present treatments separately per jurisdiction"
+        - "Highlight differences and conflicts"
+        - "Recommend jurisdiction-specific expert if complex"
+
+  freshness_validation:
+    description: "When to check if knowledge is up-to-date"
+    
+    policies:
+      - document_type: "TAX_LAW"
+        stale_after_days: 90
+        action: "trigger_external_search"
+        message: "Tax law may have changed recently. Verifying latest information..."
+        
+      - document_type: "IFRS"
+        stale_after_days: 180
+        action: "trigger_external_search"
+        message: "Checking for recent IFRS amendments..."
+        
+      - document_type: "IAS"
+        stale_after_days: 180
+        action: "trigger_external_search"
+        
+      - document_type: "ISA"
+        stale_after_days: 365
+        action: "warn_user"
+        message: "ISA may have been updated. Consider checking IAASB website."
+        
+      - document_type: "ACCA"
+        stale_after_days: 365
+        action: "note_in_response"
+        message: "Based on guidance dated {{ document.effective_from }}."
+        
+      - document_type: "INTERNAL"
+        stale_after_days: 180
+        action: "warn_user"
+        message: "Internal guidance may need review. Last updated {{ document.updated_at }}."
+
+  quality_gates:
+    description: "Pre-response validation checks"
+    
+    required:
+      - at_least_one_citation: true
+      - at_least_one_primary_for_standards: true
+      - jurisdiction_stated_if_relevant: true
+      - confidence_level_assigned: true
+      
+    recommended:
+      - multiple_citations_from_different_sections: true
+      - mix_of_primary_and_secondary_if_available: true
+      - context_chunks_for_continuity: true
+      
+    blocking:
+      - fabricated_standard_references: false  # MUST NOT be true
+      - zero_citations: false                  # MUST NOT be true
+      - conflicting_sources_unresolved: false  # MUST NOT be true
+
+  error_handling:
+    scenarios:
+      - error: "embedding_service_unavailable"
+        fallback: "use_keyword_search"
+        
+      - error: "no_results_from_vector_search"
+        fallback: "use_keyword_search"
+        
+      - error: "external_search_timeout"
+        action: "proceed_with_internal_only"
+        warning: "Could not verify latest external updates"
+        
+      - error: "chunk_retrieval_error"
+        action: "retry_with_reduced_top_k"
+        
+      - error: "all_fallbacks_failed"
+        action: "return_error_to_user"
+        message: >
+          I'm unable to retrieve information right now. Please try again
+          or consult official standards directly.
+
+  performance_optimization:
+    caching:
+      enabled: true
+      cache_duration_seconds: 3600
+      cache_key_includes:
+        - query_text_normalized
+        - jurisdiction_code
+        - document_types
+        
+    query_rewriting:
+      enabled: true
+      techniques:
+        - expand_acronyms: true        # "FX" → "foreign exchange"
+        - add_synonyms: true            # "revenue" → "revenue | income"
+        - extract_key_entities: true    # "IAS 21" → boost IAS 21 chunks
+        
+    early_stopping:
+      if: "top_chunk_score > 0.95 and PRIMARY source"
+      then: "return top 3 chunks without full ranking"
+      reasoning: "Very high confidence match, no need to rank all"
+
+  monitoring:
+    metrics_to_track:
+      - avg_composite_score
+      - primary_source_usage_rate
+      - external_search_trigger_rate
+      - conflict_detection_rate
+      - low_confidence_response_rate
+      
+    alerts:
+      - condition: "primary_source_usage_rate < 0.6"
+        severity: "warning"
+        message: "Too many responses without primary sources"
+        
+      - condition: "low_confidence_response_rate > 0.3"
+        severity: "critical"
+        message: "Knowledge base may need updates"
+        
+      - condition: "external_search_trigger_rate > 0.4"
+        severity: "warning"
+        message: "High staleness rate - schedule knowledge refresh"

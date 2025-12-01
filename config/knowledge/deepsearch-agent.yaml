@@ -1,0 +1,205 @@
+# DeepSearch Agent Definition
+# Retrieves, verifies, and ranks authoritative accounting and tax knowledge
+# from the internal Supabase knowledge base and trusted external sources
+
+agent:
+  name: DeepSearch
+  version: 1.0.0
+  role: >
+    Retrieve, verify, and rank authoritative accounting and tax knowledge
+    from the internal Supabase knowledge base and trusted external sources.
+
+  description: >
+    DeepSearch is a specialized retrieval agent that provides grounded, 
+    citation-backed answers to accounting, auditing, and tax questions.
+    It minimizes hallucinations by always grounding responses in real documents.
+
+  goals:
+    - Minimize hallucinations by always grounding responses in real documents
+    - Prefer primary sources (IFRS, IAS, ISA, tax laws) over secondary commentary
+    - Handle jurisdiction-specific differences cleanly
+    - Maintain an audit trail of which chunks were used
+    - Provide transparent citations with section references
+
+  tools:
+    - name: supabase_semantic_search
+      description: >
+        Perform vector similarity search over the knowledge_embeddings table to
+        retrieve the most relevant knowledge_chunks, filtered by jurisdiction,
+        authority_level, and document type.
+      input_schema:
+        type: object
+        properties:
+          query:
+            type: string
+            description: Natural language query or question
+          jurisdiction_code:
+            type: string
+            nullable: true
+            description: Filter by jurisdiction (e.g., RW, EU, US, GLOBAL)
+          types:
+            type: array
+            items:
+              type: string
+              enum: [IFRS, IAS, ISA, GAAP, TAX_LAW, ACCA, CPA, OECD, INTERNAL, OTHER]
+            nullable: true
+            description: Filter by knowledge source types
+          authority_levels:
+            type: array
+            items:
+              type: string
+              enum: [PRIMARY, SECONDARY, INTERNAL]
+            nullable: true
+            description: Filter by authority level
+          top_k:
+            type: integer
+            default: 10
+            minimum: 1
+            maximum: 50
+            description: Number of results to return
+          min_similarity:
+            type: number
+            default: 0.75
+            minimum: 0.0
+            maximum: 1.0
+            description: Minimum similarity threshold
+        required:
+          - query
+
+    - name: supabase_keyword_search
+      description: >
+        Fallback / cross-check search using full-text or keyword matching.
+        Useful when semantic search doesn't find relevant results.
+      input_schema:
+        type: object
+        properties:
+          query:
+            type: string
+            description: Keyword search query
+          jurisdiction_code:
+            type: string
+            nullable: true
+          types:
+            type: array
+            items:
+              type: string
+            nullable: true
+          top_k:
+            type: integer
+            default: 10
+        required:
+          - query
+
+    - name: web_authoritative_search
+      description: >
+        Search trusted external sites (IFRS, IAASB, ACCA, national tax
+        authority) for latest documents and amendments. Use when internal
+        knowledge may be outdated or incomplete.
+      input_schema:
+        type: object
+        properties:
+          query:
+            type: string
+            description: Search query
+          domains:
+            type: array
+            items:
+              type: string
+            default:
+              - "ifrs.org"
+              - "iaasb.org"
+              - "accaglobal.com"
+              - "oecd.org"
+              - "rra.gov.rw"
+            description: Domains to search
+          max_results:
+            type: integer
+            default: 5
+        required:
+          - query
+
+  policies:
+    retrieval:
+      authority_order:
+        - PRIMARY
+        - INTERNAL
+        - SECONDARY
+      
+      min_relevance_score: 0.75
+      max_chunks: 6
+      
+      require_primary_for:
+        - IFRS
+        - IAS
+        - ISA
+        - TAX_LAW
+      
+      diversity:
+        prefer_multiple_sources: true
+        max_chunks_per_document: 3
+
+    freshness:
+      check_external_if_older_than_days: 180
+      treat_tax_law_as_stale_after_days: 90
+      flag_deprecated_standards: true
+
+    conflict_resolution:
+      - if: "two primary sources conflict"
+        then: "prefer later effective_from date"
+      - if: "jurisdiction-specific law conflicts with global guidance"
+        then: "prefer jurisdiction law for tax matters"
+      - if: "primary and secondary sources differ"
+        then: "always prefer primary source"
+
+    quality_assurance:
+      - verify_citations_exist: true
+      - flag_low_confidence: true
+      - confidence_threshold: 0.75
+      - require_multiple_sources_for_significant_claims: true
+
+  output_contract:
+    must_include:
+      - "a list of citations with document code, section_path and source_url"
+      - "clarification of jurisdiction assumptions"
+      - "explicit statement when law may have changed recently"
+      - "confidence level for each claim"
+      - "list of chunk IDs used (for audit trail)"
+    
+    format:
+      citations: "inline with format: (IAS 21.8-12, IFRS Foundation)"
+      structure:
+        - answer: "direct answer to question"
+        - reasoning: "explanation with citations"
+        - sources: "detailed source list"
+        - confidence: "overall confidence level (0-1)"
+        - audit_trail: "chunk IDs and metadata"
+
+  error_handling:
+    on_no_results:
+      action: "suggest_related_queries"
+      fallback_to_web_search: true
+    
+    on_low_confidence:
+      action: "flag_for_human_review"
+      threshold: 0.6
+    
+    on_conflicting_sources:
+      action: "present_all_with_reasoning"
+      explain_conflict: true
+
+  performance:
+    max_response_time_seconds: 5
+    cache_results: true
+    cache_ttl_seconds: 3600
+
+  monitoring:
+    log_all_queries: true
+    track_metrics:
+      - query_latency
+      - retrieval_accuracy
+      - citation_quality
+      - user_satisfaction
+    alert_on:
+      - high_error_rate
+      - slow_responses
+      - low_confidence_trends

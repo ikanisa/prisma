@@ -1,0 +1,213 @@
+# Retrieval Rules for Accounting Knowledge System
+# Logic rules for combining DeepSearch results and answering queries
+
+retrieval_rules:
+  version: 1.0.0
+  
+  description: >
+    Rules for ranking, filtering, and selecting knowledge chunks when
+    answering accounting, auditing, and tax questions.
+
+  ranking:
+    base_metric: "cosine_similarity"
+    
+    fields:
+      - name: embedding_score
+        weight: 0.50
+        description: "Vector similarity score"
+      
+      - name: authority_weight
+        weight: 0.25
+        description: "Authority level of source"
+      
+      - name: recency_weight
+        weight: 0.15
+        description: "How recent the document is"
+      
+      - name: jurisdiction_match_weight
+        weight: 0.10
+        description: "Whether jurisdiction matches query"
+
+    authority_weights:
+      PRIMARY: 1.0      # IFRS, IAS, ISA, Tax Laws
+      INTERNAL: 0.9     # Company policies, internal guidance
+      SECONDARY: 0.7    # ACCA, CPA commentary
+
+    recency:
+      decay_half_life_days: 365
+      description: >
+        Documents decay in relevance over time. Half-life of 365 days means
+        a document loses 50% of its recency weight after 1 year.
+      
+      exceptions:
+        - type: IFRS
+          decay_half_life_days: 1825  # 5 years - standards change slowly
+        - type: TAX_LAW
+          decay_half_life_days: 180   # 6 months - tax laws change frequently
+
+    jurisdiction:
+      exact_match_bonus: 0.15
+      global_fallback_bonus: 0.05
+      description: >
+        Prefer jurisdiction-specific sources when available, but allow
+        global sources as fallback.
+
+  thresholds:
+    min_score_for_use: 0.75
+    min_primary_score_for_standards: 0.78
+    max_chunks: 6
+    
+    description: >
+      Minimum similarity score to use a chunk, and maximum number of
+      chunks to return in a single response.
+
+  selection_strategy:
+    - step: "group_by_document"
+      description: >
+        Prefer multiple chunks from the same relevant document to maintain
+        context and coherence.
+      config:
+        max_chunks_per_document: 3
+        min_chunks_per_document: 1
+
+    - step: "diversify_sources"
+      description: >
+        If multiple documents are similarly relevant, include at least one
+        secondary commentary for explanation and practical guidance.
+      config:
+        min_primary_sources: 1
+        prefer_secondary_if_available: true
+
+    - step: "prioritize_by_authority"
+      description: >
+        Always prioritize PRIMARY sources over SECONDARY when both are
+        available and relevant.
+
+    - step: "respect_effective_dates"
+      description: >
+        Filter out chunks with effective_to dates in the past, unless
+        explicitly querying historical information.
+
+  fallback_logic:
+    - condition: "no_chunk_above_threshold"
+      action: "ask_user_for_more_context"
+      message: >
+        I couldn't find relevant information in my knowledge base. Could you
+        provide more details or rephrase your question?
+
+    - condition: "primary_sources_found_but_outdated"
+      action: "trigger_external_freshness_check"
+      message: >
+        The information I found may be outdated. Let me check external sources
+        for the latest version.
+
+    - condition: "conflicting_primary_sources"
+      action: "rank_by_effective_date_and_jurisdiction"
+      message: >
+        I found multiple sources with different guidance. I'll present both
+        and explain the differences.
+
+    - condition: "only_secondary_sources_available"
+      action: "flag_lack_of_primary_source"
+      message: >
+        My answer is based on commentary sources. I couldn't find the primary
+        standard or law. Consider verifying with authoritative sources.
+
+  filtering:
+    exclude_deprecated: true
+    exclude_draft: true
+    exclude_inactive: true
+    
+    jurisdiction_fallback:
+      - requested: "RW"
+        fallback_order: ["GLOBAL", "EAC"]
+      - requested: "KE"
+        fallback_order: ["GLOBAL", "EAC"]
+      - requested: "US"
+        fallback_order: ["GLOBAL"]
+      - requested: null
+        fallback_order: ["GLOBAL"]
+
+  citation_policy:
+    minimum_citations: 2
+    
+    preferred_citation_fields:
+      - document_code       # e.g., "IAS 21"
+      - section_path        # e.g., "IAS 21.8-12"
+      - source_url          # Link to full document
+      - effective_from      # When the guidance became effective
+    
+    format: >
+      Use in-text references like: (IAS 21.8-12, IFRS Foundation, effective 2005).
+      
+      Provide a full bibliography at the end with:
+      - Document code and title
+      - Authority level
+      - URL
+      - Date accessed
+
+  quality_assurance:
+    - name: "verify_citation_accuracy"
+      description: "Ensure all cited documents exist in knowledge base"
+      action: "validate_chunk_ids"
+
+    - name: "check_jurisdiction_consistency"
+      description: "Ensure all sources match stated jurisdiction"
+      action: "validate_jurisdiction_ids"
+
+    - name: "flag_confidence_issues"
+      description: "Flag low-confidence answers for review"
+      threshold: 0.7
+
+    - name: "detect_hallucinations"
+      description: "Detect when LLM generates content not in retrieved chunks"
+      action: "compare_response_to_chunks"
+
+  edge_cases:
+    - case: "user_asks_about_multiple_jurisdictions"
+      strategy: "retrieve_for_each_jurisdiction_separately"
+      combine: "present_side_by_side_comparison"
+
+    - case: "user_asks_historical_question"
+      strategy: "include_deprecated_and_superseded_standards"
+      flag: "mark_as_historical"
+
+    - case: "user_asks_about_proposed_changes"
+      strategy: "search_for_exposure_drafts_and_proposals"
+      flag: "mark_as_proposed_not_effective"
+
+    - case: "conflicting_standards"
+      strategy: "present_both_with_reconciliation"
+      explain: "when_each_applies"
+
+  performance_optimization:
+    cache_common_queries: true
+    cache_ttl_seconds: 3600
+    
+    pre_compute_embeddings: true
+    
+    index_strategy:
+      - type: "ivfflat"
+        lists: 100
+        probes: 10
+    
+    batch_retrieval: true
+    batch_size: 50
+
+  monitoring:
+    log_all_retrievals: true
+    
+    track_metrics:
+      - retrieval_latency
+      - chunks_per_query
+      - average_similarity_score
+      - primary_vs_secondary_ratio
+      - citation_accuracy
+    
+    alerts:
+      - condition: "average_similarity_score < 0.7"
+        action: "alert_low_quality_retrievals"
+      - condition: "retrieval_latency > 2000ms"
+        action: "alert_slow_retrievals"
+      - condition: "citation_errors > 5%"
+        action: "alert_citation_problems"

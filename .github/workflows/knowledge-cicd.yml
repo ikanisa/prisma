@@ -1,0 +1,306 @@
+name: Knowledge Base CI/CD
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'scripts/knowledge/**'
+      - 'config/knowledge/**'
+      - 'supabase/migrations/*accounting_knowledge_base*'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'scripts/knowledge/**'
+      - 'config/knowledge/**'
+
+env:
+  NODE_VERSION: '20.19.4'
+  PNPM_VERSION: '9.12.3'
+
+jobs:
+  # Lint and type check
+  lint:
+    name: Lint & Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      
+      - name: Install pnpm
+        run: npm install -g pnpm@${{ env.PNPM_VERSION }}
+      
+      - name: Install dependencies
+        working-directory: scripts/knowledge
+        run: pnpm install --frozen-lockfile
+      
+      - name: Run ESLint
+        run: pnpm run lint
+      
+      - name: Type check
+        working-directory: scripts/knowledge
+        run: pnpm exec tsc --noEmit
+
+  # Database migration test
+  migration-test:
+    name: Database Migration Test
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: ankane/pgvector:latest
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: knowledge_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Apply migration
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/knowledge_test
+        run: |
+          psql $DATABASE_URL -f supabase/migrations/20251201170000_accounting_knowledge_base.sql
+      
+      - name: Verify tables
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/knowledge_test
+        run: |
+          psql $DATABASE_URL -c "\dt" | grep jurisdictions
+          psql $DATABASE_URL -c "\dt" | grep knowledge_sources
+          psql $DATABASE_URL -c "\dt" | grep knowledge_documents
+          psql $DATABASE_URL -c "\dt" | grep knowledge_chunks
+          psql $DATABASE_URL -c "\dt" | grep knowledge_embeddings
+
+  # Unit tests
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    needs: [lint, migration-test]
+    
+    services:
+      postgres:
+        image: ankane/pgvector:latest
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: knowledge_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      
+      - name: Install pnpm
+        run: npm install -g pnpm@${{ env.PNPM_VERSION }}
+      
+      - name: Install dependencies
+        working-directory: scripts/knowledge
+        run: pnpm install --frozen-lockfile
+      
+      - name: Apply migration
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/knowledge_test
+        run: |
+          psql $DATABASE_URL -f supabase/migrations/20251201170000_accounting_knowledge_base.sql
+      
+      - name: Run test suite
+        working-directory: scripts/knowledge
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/knowledge_test
+        run: pnpm tsx test-suite.ts
+
+  # Docker build test
+  docker-build:
+    name: Docker Build Test
+    runs-on: ubuntu-latest
+    needs: [test]
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: scripts/knowledge/Dockerfile
+          push: false
+          tags: prisma-knowledge-api:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # Security scan
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: 'scripts/knowledge'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+      
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  # Deploy to staging
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: [test, docker-build, security-scan]
+    if: github.ref == 'refs/heads/develop'
+    environment: staging
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      
+      - name: Install pnpm
+        run: npm install -g pnpm@${{ env.PNPM_VERSION }}
+      
+      - name: Install dependencies
+        working-directory: scripts/knowledge
+        run: pnpm install --frozen-lockfile --prod
+      
+      - name: Deploy to staging server
+        env:
+          DEPLOY_HOST: ${{ secrets.STAGING_HOST }}
+          DEPLOY_USER: ${{ secrets.STAGING_USER }}
+          DEPLOY_KEY: ${{ secrets.STAGING_SSH_KEY }}
+        run: |
+          echo "$DEPLOY_KEY" > deploy_key
+          chmod 600 deploy_key
+          
+          rsync -avz -e "ssh -i deploy_key -o StrictHostKeyChecking=no" \
+            --exclude node_modules \
+            --exclude .git \
+            scripts/knowledge/ \
+            $DEPLOY_USER@$DEPLOY_HOST:/opt/prisma-glow/knowledge/
+          
+          ssh -i deploy_key -o StrictHostKeyChecking=no \
+            $DEPLOY_USER@$DEPLOY_HOST \
+            "cd /opt/prisma-glow/knowledge && pnpm install --prod && sudo systemctl restart knowledge-api"
+      
+      - name: Verify deployment
+        run: |
+          sleep 10
+          curl -f https://staging-knowledge-api.yourdomain.com/health || exit 1
+
+  # Deploy to production
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [test, docker-build, security-scan]
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+      
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: scripts/knowledge/Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.DOCKER_USERNAME }}/prisma-knowledge-api:latest
+            ${{ secrets.DOCKER_USERNAME }}/prisma-knowledge-api:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      
+      - name: Deploy to Kubernetes
+        env:
+          KUBECONFIG_DATA: ${{ secrets.KUBECONFIG }}
+        run: |
+          echo "$KUBECONFIG_DATA" | base64 -d > kubeconfig
+          export KUBECONFIG=kubeconfig
+          
+          kubectl set image deployment/knowledge-api \
+            knowledge-api=${{ secrets.DOCKER_USERNAME }}/prisma-knowledge-api:${{ github.sha }} \
+            -n prisma-glow
+          
+          kubectl rollout status deployment/knowledge-api -n prisma-glow
+      
+      - name: Verify production deployment
+        run: |
+          sleep 30
+          curl -f https://knowledge-api.yourdomain.com/health || exit 1
+      
+      - name: Run smoke tests
+        working-directory: scripts/knowledge
+        env:
+          API_URL: https://knowledge-api.yourdomain.com
+        run: |
+          curl -X POST $API_URL/api/knowledge/search \
+            -H "Content-Type: application/json" \
+            -d '{"query":"test","topK":1}' | jq '.success' | grep true
+
+  # Notify on failure
+  notify-failure:
+    name: Notify on Failure
+    runs-on: ubuntu-latest
+    needs: [lint, migration-test, test, docker-build, security-scan]
+    if: failure()
+    
+    steps:
+      - name: Send Slack notification
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          text: 'Knowledge Base CI/CD failed!'
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+        if: always()

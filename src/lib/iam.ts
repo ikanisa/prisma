@@ -115,3 +115,23 @@ export async function removeTeamMember(payload: { orgId: string; teamId: string;
   });
   await parseResponse(response);
 }
+
+export interface UpdateProfilePayload {
+  displayName?: string;
+  phoneE164?: string | null;
+  whatsappE164?: string | null;
+  avatarUrl?: string | null;
+  locale?: string | null;
+  timezone?: string | null;
+  orgId?: string;
+  theme?: 'SYSTEM' | 'LIGHT' | 'DARK';
+  notifications?: Record<string, any>;
+}
+
+export async function updateProfile(payload: UpdateProfilePayload): Promise<void> {
+  const response = await authorizedFetch('/api/iam/profile/update', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+  await parseResponse(response);
+}

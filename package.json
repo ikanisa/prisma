@@ -60,6 +60,7 @@
   "dependencies": {
     "@types/react-window": "^2.0.0",
     "react-virtualized-auto-sizer": "^1.0.26",
-    "react-window": "^2.2.3"
+    "react-window": "^2.2.3",
+    "tauri-plugin-store-api": "^0.0.0"
   }
 }
