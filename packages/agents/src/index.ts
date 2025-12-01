@@ -29,3 +29,6 @@ export {
   type GeminiAgent,
   type GeminiAgentConfig,
 } from './gemini-agent-factory';
+
+export * from './integrations';
+export * from './ui';

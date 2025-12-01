@@ -6,8 +6,8 @@
 import { Router, Request, Response, NextFunction } from "express";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
-import { classifyByHeuristic } from "@/classification/heuristic";
-import type { WebSourceClassification } from "@/classification/types";
+import { classifyByHeuristic } from "../classification/heuristic.js";
+import type { WebSourceClassification } from "../classification/types.js";
 
 // Validation schemas
 const CreateWebSourceSchema = z.object({

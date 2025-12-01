@@ -19,6 +19,7 @@ import {
   createKnowledgeRouter,
   createAgentKnowledgeRouter,
   createSpecialistAgentsRouter,
+  createWebSourcesRouter,
 } from './routes/index.js';
 import { verifySupabaseToken } from './middleware/auth.js';
 import { apiLimiter } from './middleware/rateLimit.js';
@@ -159,6 +160,7 @@ apiV1.use('/agents/:agentId/knowledge', createAgentKnowledgeRouter(supabase));
 apiV1.use('/personas', createStandalonePersonaRouter(supabase));
 apiV1.use('/tools', createToolRouter(supabase));
 apiV1.use('/knowledge-sources', createKnowledgeRouter(supabase));
+apiV1.use('/web-sources', createWebSourcesRouter(supabase));
 
 // Mount API v1
 app.use('/api/v1', apiV1);

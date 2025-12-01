@@ -34,7 +34,7 @@ agents:
         temperature: 0.1
         tools: [deep_search_kb]
       gemini:
-        model: gemini-1.5-pro
+        model: gemini-2.5-pro
         temperature: 0.1
         tools: [deep_search_kb]
     persona: |
@@ -65,7 +65,7 @@ agents:
         temperature: 0.1
         tools: [deep_search_kb]
       gemini:
-        model: gemini-1.5-pro
+        model: gemini-2.5-pro
         temperature: 0.1
         tools: [deep_search_kb]
     persona: |
@@ -92,7 +92,7 @@ agents:
         temperature: 0.1
         tools: [deep_search_kb]
       gemini:
-        model: gemini-1.5-pro
+        model: gemini-2.5-pro
         temperature: 0.1
         tools: [deep_search_kb]
     persona: |
@@ -118,7 +118,7 @@ agents:
         temperature: 0.1
         tools: [deep_search_kb]
       gemini:
-        model: gemini-1.5-pro
+        model: gemini-2.5-pro
         temperature: 0.1
         tools: [deep_search_kb]
     persona: |
@@ -144,7 +144,7 @@ agents:
         temperature: 0.1
         tools: [deep_search_kb]
       gemini:
-        model: gemini-1.5-pro
+        model: gemini-2.5-pro
         temperature: 0.1
         tools: [deep_search_kb]
     persona: |
@@ -170,7 +170,7 @@ agents:
         temperature: 0.05
         tools: [deep_search_kb]
       gemini:
-        model: gemini-1.5-pro
+        model: gemini-2.5-pro
         temperature: 0.05
         tools: [deep_search_kb]
     persona: |
@@ -197,7 +197,7 @@ agents:
         temperature: 0.1
         tools: [deep_search_kb]
       gemini:
-        model: gemini-1.5-pro
+        model: gemini-2.5-pro
         temperature: 0.1
         tools: [deep_search_kb]
     persona: |
@@ -225,7 +225,7 @@ agents:
         temperature: 0.1
         tools: [deep_search_kb]
       gemini:
-        model: gemini-1.5-pro
+        model: gemini-2.5-pro
         temperature: 0.1
         tools: [deep_search_kb]
     persona: |
@@ -252,7 +252,7 @@ agents:
         temperature: 0.15
         tools: [deep_search_kb]
       gemini:
-        model: gemini-1.5-pro
+        model: gemini-2.5-pro
         temperature: 0.15
         tools: [deep_search_kb]
     persona: |
@@ -280,7 +280,7 @@ agents:
         temperature: 0.05
         tools: [deep_search_kb]
       gemini:
-        model: gemini-1.5-pro
+        model: gemini-2.5-pro
         temperature: 0.05
         tools: [deep_search_kb]
     persona: |
@@ -318,7 +318,7 @@ agents:
         temperature: 0.1
         tools: [deep_search_kb]
       gemini:
-        model: gemini-1.5-pro
+        model: gemini-2.5-pro
         temperature: 0.1
         tools: [deep_search_kb]
     persona: |
@@ -351,7 +351,7 @@ agents:
         temperature: 0.2
         tools: [deep_search_kb]
       gemini:
-        model: gemini-1.5-flash
+        model: gemini-2.5-flash
         temperature: 0.2
         tools: [deep_search_kb]
     persona: |
@@ -384,7 +384,7 @@ agents:
         temperature: 0.1
         tools: [deep_search_kb]
       gemini:
-        model: gemini-1.5-pro
+        model: gemini-2.5-pro
         temperature: 0.1
         tools: [deep_search_kb]
     persona: |
@@ -409,7 +409,7 @@ agents:
         temperature: 0.1
         tools: [deep_search_kb]
       gemini:
-        model: gemini-1.5-pro
+        model: gemini-2.5-pro
         temperature: 0.1
         tools: [deep_search_kb]
     persona: |
@@ -434,7 +434,7 @@ agents:
         temperature: 0.1
         tools: [deep_search_kb]
       gemini:
-        model: gemini-1.5-pro
+        model: gemini-2.5-pro
         temperature: 0.1
         tools: [deep_search_kb]
     persona: |
@@ -459,7 +459,7 @@ agents:
         temperature: 0.1
         tools: [deep_search_kb]
       gemini:
-        model: gemini-1.5-pro
+        model: gemini-2.5-pro
         temperature: 0.1
         tools: [deep_search_kb]
     persona: |
@@ -491,7 +491,7 @@ agents:
         temperature: 0.1
         tools: [deep_search_kb]
       gemini:
-        model: gemini-1.5-pro
+        model: gemini-2.5-pro
         temperature: 0.1
         tools: [deep_search_kb]
     persona: |
@@ -516,7 +516,7 @@ agents:
         temperature: 0.15
         tools: [deep_search_kb]
       gemini:
-        model: gemini-1.5-flash
+        model: gemini-2.5-flash
         temperature: 0.15
         tools: [deep_search_kb]
     persona: |
@@ -541,7 +541,7 @@ agents:
         temperature: 0.1
         tools: [deep_search_kb]
       gemini:
-        model: gemini-1.5-pro
+        model: gemini-2.5-pro
         temperature: 0.1
         tools: [deep_search_kb]
     persona: |
@@ -566,7 +566,7 @@ agents:
         temperature: 0.1
         tools: [deep_search_kb]
       gemini:
-        model: gemini-1.5-pro
+        model: gemini-2.5-pro
         temperature: 0.1
         tools: [deep_search_kb]
     persona: |
@@ -591,7 +591,7 @@ agents:
         temperature: 0.05
         tools: [deep_search_kb]
       gemini:
-        model: gemini-1.5-pro
+        model: gemini-2.5-pro
         temperature: 0.05
         tools: [deep_search_kb]
     persona: |
@@ -622,7 +622,7 @@ agents:
         temperature: 0.1
         tools: [deep_search_kb]
       gemini:
-        model: gemini-1.5-pro
+        model: gemini-2.5-pro
         temperature: 0.1
         tools: [deep_search_kb]
     persona: |
@@ -657,7 +657,7 @@ agents:
         temperature: 0.05
         tools: [deep_search_kb]
       gemini:
-        model: gemini-1.5-pro
+        model: gemini-2.5-pro
         temperature: 0.05
         tools: [deep_search_kb]
     persona: |
@@ -687,7 +687,7 @@ agents:
         temperature: 0.05
         tools: [deep_search_kb]
       gemini:
-        model: gemini-1.5-pro
+        model: gemini-2.5-pro
         temperature: 0.05
         tools: [deep_search_kb]
     persona: |
@@ -717,7 +717,7 @@ agents:
         temperature: 0.05
         tools: [deep_search_kb]
       gemini:
-        model: gemini-1.5-pro
+        model: gemini-2.5-pro
         temperature: 0.05
         tools: [deep_search_kb]
     persona: |
@@ -748,7 +748,7 @@ agents:
         temperature: 0.05
         tools: [deep_search_kb]
       gemini:
-        model: gemini-1.5-pro
+        model: gemini-2.5-pro
         temperature: 0.05
         tools: [deep_search_kb]
     persona: |
@@ -778,7 +778,7 @@ agents:
         temperature: 0.05
         tools: [deep_search_kb]
       gemini:
-        model: gemini-1.5-pro
+        model: gemini-2.5-pro
         temperature: 0.05
         tools: [deep_search_kb]
     persona: |
@@ -808,7 +808,7 @@ agents:
         temperature: 0.1
         tools: [deep_search_kb]
       gemini:
-        model: gemini-1.5-pro
+        model: gemini-2.5-pro
         temperature: 0.1
         tools: [deep_search_kb]
     persona: |
@@ -838,7 +838,7 @@ agents:
         temperature: 0.05
         tools: [deep_search_kb]
       gemini:
-        model: gemini-1.5-pro
+        model: gemini-2.5-pro
         temperature: 0.05
         tools: [deep_search_kb]
     persona: |
@@ -867,7 +867,7 @@ agents:
         temperature: 0.05
         tools: [deep_search_kb]
       gemini:
-        model: gemini-1.5-pro
+        model: gemini-2.5-pro
         temperature: 0.05
         tools: [deep_search_kb]
     persona: |
@@ -901,7 +901,7 @@ agents:
         temperature: 0.1
         tools: [deep_search_kb]
       gemini:
-        model: gemini-1.5-pro
+        model: gemini-2.5-pro
         temperature: 0.1
         tools: [deep_search_kb]
     persona: |
@@ -933,7 +933,7 @@ agents:
         temperature: 0.1
         tools: [deep_search_kb]
       gemini:
-        model: gemini-1.5-pro
+        model: gemini-2.5-pro
         temperature: 0.1
         tools: [deep_search_kb]
     persona: |
@@ -963,7 +963,7 @@ agents:
         temperature: 0.1
         tools: [deep_search_kb]
       gemini:
-        model: gemini-1.5-pro
+        model: gemini-2.5-pro
         temperature: 0.1
         tools: [deep_search_kb]
     persona: |
@@ -987,7 +987,7 @@ agents:
         temperature: 0.1
         tools: [deep_search_kb]
       gemini:
-        model: gemini-1.5-pro
+        model: gemini-2.5-pro
         temperature: 0.1
         tools: [deep_search_kb]
     persona: |
@@ -1011,7 +1011,7 @@ agents:
         temperature: 0.15
         tools: [deep_search_kb]
       gemini:
-        model: gemini-1.5-flash
+        model: gemini-2.5-flash
         temperature: 0.15
         tools: [deep_search_kb]
     persona: |
@@ -1044,7 +1044,7 @@ agents:
         temperature: 0.1
         tools: [deep_search_kb]
       gemini:
-        model: gemini-1.5-pro
+        model: gemini-2.5-pro
         temperature: 0.1
         tools: [deep_search_kb]
     persona: |
