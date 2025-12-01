@@ -4,6 +4,8 @@
 
 The `knowledge_web_sources` table stores 200 curated, trusted URLs for AI agent learning across accounting, tax, audit, and regulatory domains.
 
+The same dataset now lives in Git as `config/knowledge_web_sources.yaml`, making it easy to propose edits, review diffs, or bootstrap future sync scripts that compare the YAML registry with the live database.
+
 ## Quick Start
 
 ### 1. Apply the Migration
@@ -358,6 +360,67 @@ UPDATE knowledge_web_sources
 SET tags = array_append(tags, 'malta-gov'), updated_at = NOW()
 WHERE jurisdiction_code = 'MT';
 ```
+
+### Git Registry Sync (YAML)
+
+Run `DATABASE_URL=postgres://... pnpm sync:knowledge-web-sources` to load the YAML registry and apply inserts/updates idempotently. Pass `--dry-run` to preview changes without touching the database.
+
+Implementation plan:
+
+1. Edit `config/knowledge_web_sources.yaml` to add/remove/update sources with full metadata (name, URL, category, tags, etc.).
+2. Execute the sync script (or equivalent CI step) to compare YAML vs. database and apply changes.
+3. Keep the YAML as the review-friendly source of truth and treat the database as a replica populated from Git.
+
+Example TypeScript snippet:
+
+```ts
+import fs from 'node:fs';
+import yaml from 'js-yaml';
+import { createClient } from '@supabase/supabase-js';
+
+type Registry = {
+  version: number;
+  sources: Array<{
+    name: string;
+    url: string;
+    domain: string;
+    category: string;
+    jurisdiction_code: string;
+    authority_level: string;
+    status: string;
+    priority: number;
+    tags: string[];
+    notes: string;
+  }>;
+};
+
+async function main() {
+  const registry = yaml.load(fs.readFileSync('config/knowledge_web_sources.yaml', 'utf8')) as Registry;
+  const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+
+  for (const source of registry.sources) {
+    await supabase.from('knowledge_web_sources').upsert({
+      name: source.name,
+      url: source.url,
+      domain: source.domain,
+      category: source.category,
+      jurisdiction_code: source.jurisdiction_code,
+      authority_level: source.authority_level,
+      status: source.status,
+      priority: source.priority,
+      tags: source.tags,
+      notes: source.notes,
+    }, { onConflict: 'name' });
+  }
+}
+
+main().catch((error) => {
+  console.error('Failed to sync knowledge web sources', error);
+  process.exitCode = 1;
+});
+```
+
+> Tip: wrap the upsert in a transaction and log deletions if the YAML ever drops an entry.
 
 ### Analytics Queries
 

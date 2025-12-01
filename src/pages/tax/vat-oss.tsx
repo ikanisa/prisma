@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/enhanced-button';
 import { Badge } from '@/components/ui/badge';
-import { useAppStore } from '@/stores/mock-data';
+import { useOrganizations } from '@/hooks/use-organizations';
 import { isSupabaseConfigured } from '@/integrations/supabase/client';
 import { computeVatReturn, listVatFilings, type VatFiling } from '@prisma-glow/tax-mt-service';
 import { logger } from '@/lib/logger';
@@ -35,7 +35,7 @@ const defaultForm: VatFormState = {
 };
 
 export default function VatOssPage() {
-  const { currentOrg } = useAppStore();
+  const { currentOrg } = useOrganizations();
   const { toast } = useToast();
 
   const [taxEntityId, setTaxEntityId] = useState('');

@@ -11,14 +11,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
 import { useTheme } from 'next-themes';
-import { useAppStore } from '@/stores/mock-data';
+import { useAuth } from '@/hooks/use-auth';
+import { useOrganizations } from '@/hooks/use-organizations';
 import { toast } from '@/hooks/use-toast';
 import { WhatsappMfaCard } from '@/components/settings/whatsapp-mfa-card';
 import { useEmailIngestSettings } from '@/lib/system-config';
 
 export function Settings() {
   const { theme, setTheme } = useTheme();
-  const { currentUser, currentOrg } = useAppStore();
+  const { user: currentUser } = useAuth();
+  const { currentOrg } = useOrganizations();
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [pushNotifications, setPushNotifications] = useState(true);
   const [taskReminders, setTaskReminders] = useState(true);
@@ -27,8 +29,11 @@ export function Settings() {
   const [isLoading, setIsLoading] = useState(false);
 
   // Profile state
-  const [firstName, setFirstName] = useState(currentUser?.name.split(' ')[0] || '');
-  const [lastName, setLastName] = useState(currentUser?.name.split(' ')[1] || '');
+  const displayName = currentUser?.user_metadata?.name ?? currentUser?.email ?? '';
+  const initialFirst = displayName.split(' ')[0] ?? '';
+  const initialLast = displayName.split(' ').slice(1).join(' ');
+  const [firstName, setFirstName] = useState(initialFirst);
+  const [lastName, setLastName] = useState(initialLast);
   const [email, setEmail] = useState(currentUser?.email || '');
   const [jobTitle, setJobTitle] = useState('Senior Consultant');
   const [bio, setBio] = useState('Experienced professional services consultant with expertise in financial advisory and strategic planning.');

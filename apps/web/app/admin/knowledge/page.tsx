@@ -1,10 +1,17 @@
-import { BookOpen, Plus, Search, FileText, Database, RefreshCw, Trash2 } from 'lucide-react';
+import Link from 'next/link';
+import { BookOpen, Plus, Search, FileText, Database, RefreshCw, Trash2, Globe, ExternalLink } from 'lucide-react';
 
 const knowledgeSources = [
   { id: 1, name: 'Tax Regulations 2024', type: 'document', size: '12.5 MB', lastUpdated: '2024-01-15', status: 'indexed' },
   { id: 2, name: 'Audit Standards', type: 'document', size: '8.2 MB', lastUpdated: '2024-01-10', status: 'indexed' },
   { id: 3, name: 'Company Policies', type: 'document', size: '3.1 MB', lastUpdated: '2024-01-08', status: 'pending' },
   { id: 4, name: 'Client FAQ', type: 'database', size: '256 KB', lastUpdated: '2024-01-20', status: 'indexed' },
+];
+
+const quickLinks = [
+  { name: 'Web Sources', href: '/admin/knowledge/sources', icon: Globe, description: '200 curated web sources' },
+  { name: 'Documents', href: '/admin/knowledge/documents', icon: FileText, description: 'Uploaded files & PDFs' },
+  { name: 'Embeddings', href: '/admin/knowledge/embeddings', icon: Database, description: 'Vector database' },
 ];
 
 const stats = [
@@ -30,6 +37,35 @@ export default function KnowledgePage() {
           <Plus className="h-4 w-4" />
           Add Source
         </button>
+      </div>
+
+      {/* Quick Links */}
+      <div className="grid gap-4 sm:grid-cols-3">
+        {quickLinks.map((link) => {
+          const Icon = link.icon;
+          return (
+            <Link
+              key={link.href}
+              href={link.href}
+              className="group rounded-lg border border-border bg-card p-6 transition-all hover:border-primary hover:shadow-md"
+            >
+              <div className="flex items-center gap-3">
+                <div className="rounded-lg bg-primary/10 p-3 transition-colors group-hover:bg-primary/20">
+                  <Icon className="h-6 w-6 text-primary" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors">
+                    {link.name}
+                  </h3>
+                  <p className="text-sm text-muted-foreground mt-0.5">
+                    {link.description}
+                  </p>
+                </div>
+                <ExternalLink className="h-4 w-4 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+              </div>
+            </Link>
+          );
+        })}
       </div>
 
       {/* Stats */}

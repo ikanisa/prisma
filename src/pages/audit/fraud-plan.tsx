@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { useAppStore } from '@/stores/mock-data';
+import { useOrganizations } from '@/hooks/use-organizations';
+import { useEngagements } from '@/hooks/use-engagements';
 import { useToast } from '@/components/ui/use-toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -61,7 +62,8 @@ const DEFAULT_JE_STATE: JeState = {
 
 export default function FraudPlanPage() {
   const { engagementId } = useParams<{ engagementId: string }>();
-  const { currentOrg, getOrgEngagements } = useAppStore();
+  const { currentOrg } = useOrganizations();
+  const { data: engagements = [] } = useEngagements(currentOrg?.id ?? undefined);
   const { toast } = useToast();
 
   const [loading, setLoading] = useState(false);
@@ -81,8 +83,8 @@ export default function FraudPlanPage() {
 
   const engagement = useMemo(() => {
     if (!currentOrg || !engagementId) return null;
-    return getOrgEngagements(currentOrg.id).find((item) => item.id === engagementId) ?? null;
-  }, [currentOrg, engagementId, getOrgEngagements]);
+    return engagements.find((item) => item.id === engagementId) ?? null;
+  }, [currentOrg, engagementId, engagements]);
 
   const loadData = useCallback(async () => {
     if (!canUseSupabase || !orgSlug || !engagementId) return;

@@ -1,314 +1,238 @@
-"""
-Agent Management API Endpoints
+"""Agent Management API Endpoints backed by Supabase."""
 
-Provides CRUD operations for AI agents, including creation, retrieval,
-updating, and deletion of agent configurations.
-"""
-
-from fastapi import APIRouter, HTTPException, Depends, Query
-from pydantic import BaseModel, Field
-from typing import List, Optional
 from datetime import datetime
-from uuid import UUID, uuid4
+from typing import Any, Dict, List, Optional
+from uuid import UUID
 
-router = APIRouter(prefix="/api/agents", tags=["agents"])
+from fastapi import APIRouter, HTTPException, Query, status
+from pydantic import BaseModel, Field
+import structlog
+
+from server.repositories.agent_repository import get_agent_repository
+
+router = APIRouter(prefix="/api/v1/agents", tags=["agents"])
+logger = structlog.get_logger(__name__)
+agent_repo = get_agent_repository()
 
 
-# Pydantic Models
 class AgentBase(BaseModel):
-    slug: str = Field(..., description="Unique agent identifier (e.g., tax-corp-eu-022)")
-    name: str = Field(..., description="Human-readable agent name")
+    slug: str = Field(..., description="Unique identifier (e.g. tax-corp-eu-022)")
+    name: str = Field(..., description="Display name")
     description: Optional[str] = Field(None, description="Agent description")
-    category: str = Field(..., description="Agent category (tax, accounting, audit, etc.)")
-    type: str = Field(..., description="Agent type (assistant, specialist, orchestrator, etc.)")
-    is_active: bool = Field(True, description="Whether agent is active")
-    config: Optional[dict] = Field(None, description="Agent configuration JSON")
+    category: Optional[str] = Field(None, description="Business domain")
+    type: str = Field(..., description="Agent classification")
+    status: str = Field("draft", description="Lifecycle status")
+    is_public: bool = Field(False, description="Whether agent is visible to all org members")
+    avatar_url: Optional[str] = Field(None, description="Avatar URL for dashboards")
 
 
 class AgentCreate(AgentBase):
-    organization_id: UUID = Field(..., description="Organization ID that owns this agent")
+    organization_id: UUID = Field(..., description="Owning organization ID")
+    version: str = Field("1.0.0", description="Semantic version string")
+    created_by: Optional[UUID] = Field(None, description="User who created the agent")
+    parent_version_id: Optional[UUID] = Field(
+        None, description="Parent agent version for rollups"
+    )
 
 
 class AgentUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
-    is_active: Optional[bool] = None
-    config: Optional[dict] = None
+    category: Optional[str] = None
+    type: Optional[str] = None
+    status: Optional[str] = None
+    is_public: Optional[bool] = None
+    avatar_url: Optional[str] = None
+    version: Optional[str] = None
+    parent_version_id: Optional[UUID] = None
 
 
 class AgentResponse(AgentBase):
     id: UUID
     organization_id: UUID
-    version: int
+    version: str
+    parent_version_id: Optional[UUID] = None
+    created_by: Optional[UUID] = None
     created_at: datetime
     updated_at: datetime
-    
-    class Config:
-        from_attributes = True
+    published_at: Optional[datetime] = None
+    is_active: bool = Field(True, description="Derived flag from status")
 
 
-# Mock database (will be replaced with actual Supabase queries)
-_agents_db: dict[UUID, dict] = {}
+class AgentListResponse(BaseModel):
+    agents: List[AgentResponse]
+    total: int
+    page: int
+    page_size: int
 
 
-@router.get("", response_model=List[AgentResponse])
+def _status_is_active(status: Optional[str]) -> bool:
+    return (status or "").lower() in {"active", "testing"}
+
+
+def _map_agent(record: Dict[str, Any]) -> AgentResponse:
+    return AgentResponse(
+        id=record["id"],
+        organization_id=record["organization_id"],
+        slug=record.get("slug"),
+        name=record.get("name"),
+        description=record.get("description"),
+        category=record.get("category"),
+        type=record.get("type"),
+        status=record.get("status", "draft"),
+        is_public=bool(record.get("is_public")),
+        avatar_url=record.get("avatar_url"),
+        version=str(record.get("version") or "1.0.0"),
+        parent_version_id=record.get("parent_version_id"),
+        created_by=record.get("created_by"),
+        created_at=record.get("created_at", datetime.utcnow()),
+        updated_at=record.get("updated_at", datetime.utcnow()),
+        published_at=record.get("published_at"),
+        is_active=_status_is_active(record.get("status")),
+    )
+
+
+@router.get("", response_model=AgentListResponse)
 async def list_agents(
-    organization_id: Optional[UUID] = Query(None, description="Filter by organization"),
+    organization_id: Optional[UUID] = Query(
+        None, description="Filter agents to a specific organization"
+    ),
     category: Optional[str] = Query(None, description="Filter by category"),
-    type: Optional[str] = Query(None, description="Filter by type"),
-    is_active: Optional[bool] = Query(None, description="Filter by active status"),
-    skip: int = Query(0, ge=0, description="Number of records to skip"),
-    limit: int = Query(100, ge=1, le=1000, description="Max records to return")
+    agent_type: Optional[str] = Query(None, alias="type", description="Filter by type"),
+    lifecycle_status: Optional[str] = Query(None, alias="status", description="Filter by lifecycle status"),
+    search: Optional[str] = Query(
+        None, description="Filter by partial name match (case-insensitive)"
+    ),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
 ):
-    """
-    List all agents with optional filters.
-    
-    Supports filtering by:
-    - Organization ID
-    - Category (tax, accounting, audit, etc.)
-    - Type (assistant, specialist, orchestrator, etc.)
-    - Active status
-    
-    Returns paginated results.
-    """
-    # TODO: Replace with actual Supabase query
-    # For now, return mock data
-    
-    agents = []
-    
-    # Add all 12 tax agents as mock data
-    tax_agents = [
-        {"slug": "tax-corp-eu-022", "name": "EU Corporate Tax Specialist", "category": "tax"},
-        {"slug": "tax-corp-us-023", "name": "US Corporate Tax Specialist", "category": "tax"},
-        {"slug": "tax-corp-uk-024", "name": "UK Corporate Tax Specialist", "category": "tax"},
-        {"slug": "tax-corp-ca-025", "name": "Canadian Corporate Tax Specialist", "category": "tax"},
-        {"slug": "tax-corp-mt-026", "name": "Malta Corporate Tax Specialist", "category": "tax"},
-        {"slug": "tax-corp-rw-027", "name": "Rwanda Corporate Tax Specialist", "category": "tax"},
-        {"slug": "tax-vat-028", "name": "VAT/GST Specialist", "category": "tax"},
-        {"slug": "tax-tp-029", "name": "Transfer Pricing Specialist", "category": "tax"},
-        {"slug": "tax-personal-030", "name": "Personal Tax Specialist", "category": "tax"},
-        {"slug": "tax-provision-031", "name": "Tax Provision Specialist", "category": "tax"},
-        {"slug": "tax-contro-032", "name": "Tax Controversy Specialist", "category": "tax"},
-        {"slug": "tax-research-033", "name": "Tax Research Specialist", "category": "tax"},
-    ]
-    
-    for agent_data in tax_agents:
-        if category and agent_data["category"] != category:
-            continue
-            
-        agents.append(AgentResponse(
-            id=uuid4(),
-            organization_id=organization_id or uuid4(),
-            slug=agent_data["slug"],
-            name=agent_data["name"],
-            description=f"Specialized AI agent for {agent_data['name'].lower()}",
-            category=agent_data["category"],
-            type="specialist",
-            is_active=True,
-            version=1,
-            config={},
-            created_at=datetime.now(),
-            updated_at=datetime.now()
-        ))
-    
-    return agents[skip:skip+limit]
+    """List agents with pagination and filtering support."""
+
+    offset = (page - 1) * page_size
+    org_id = str(organization_id) if organization_id else None
+
+    try:
+        records, total = await agent_repo.get_all_agents(
+            organization_id=org_id,
+            category=category,
+            agent_type=agent_type,
+            status=lifecycle_status,
+            search=search,
+            limit=page_size,
+            offset=offset,
+            include_count=True,
+        )
+    except Exception as exc:  # pragma: no cover - handled upstream
+        logger.error("agents.list_failed", error=str(exc))
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Failed to load agents") from exc
+
+    return AgentListResponse(
+        agents=[_map_agent(agent) for agent in records],
+        total=total,
+        page=page,
+        page_size=page_size,
+    )
 
 
 @router.get("/{slug}", response_model=AgentResponse)
-async def get_agent(slug: str):
-    """
-    Get agent details by slug.
-    
-    Returns complete agent configuration including:
-    - Metadata (name, description, category, type)
-    - Configuration
-    - Version information
-    - Timestamps
-    """
-    # TODO: Replace with actual Supabase query
-    # SELECT * FROM agents WHERE slug = $1 AND organization_id = $2
-    
-    # Mock response
-    agent_names = {
-        "tax-corp-eu-022": "EU Corporate Tax Specialist",
-        "tax-corp-us-023": "US Corporate Tax Specialist",
-        "tax-corp-uk-024": "UK Corporate Tax Specialist",
-        "tax-corp-ca-025": "Canadian Corporate Tax Specialist",
-        "tax-corp-mt-026": "Malta Corporate Tax Specialist",
-        "tax-corp-rw-027": "Rwanda Corporate Tax Specialist",
-        "tax-vat-028": "VAT/GST Specialist",
-        "tax-tp-029": "Transfer Pricing Specialist",
-        "tax-personal-030": "Personal Tax Specialist",
-        "tax-provision-031": "Tax Provision Specialist",
-        "tax-contro-032": "Tax Controversy Specialist",
-        "tax-research-033": "Tax Research Specialist",
-    }
-    
-    if slug not in agent_names:
+async def get_agent(slug: str, organization_id: Optional[UUID] = Query(None)):
+    """Return a single agent by slug."""
+
+    try:
+        agent = await agent_repo.get_agent_by_slug(
+            slug, organization_id=str(organization_id) if organization_id else None
+        )
+    except Exception as exc:  # pragma: no cover
+        logger.error("agents.fetch_failed", slug=slug, error=str(exc))
+        raise HTTPException(status_code=502, detail="Failed to fetch agent") from exc
+
+    if not agent:
         raise HTTPException(status_code=404, detail=f"Agent not found: {slug}")
-    
-    return AgentResponse(
-        id=uuid4(),
-        organization_id=uuid4(),
-        slug=slug,
-        name=agent_names[slug],
-        description=f"Specialized AI agent for {agent_names[slug].lower()}",
-        category="tax",
-        type="specialist",
-        is_active=True,
-        version=1,
-        config={
-            "model": "gpt-4",
-            "temperature": 0.7,
-            "max_tokens": 2000
-        },
-        created_at=datetime.now(),
-        updated_at=datetime.now()
-    )
+
+    return _map_agent(agent)
 
 
 @router.post("", response_model=AgentResponse, status_code=201)
 async def create_agent(agent: AgentCreate):
-    """
-    Create a new agent.
-    
-    Required fields:
-    - slug: Unique identifier
-    - name: Human-readable name
-    - organization_id: Owner organization
-    - category: Agent category
-    - type: Agent type
-    
-    Returns the created agent with generated ID and timestamps.
-    """
-    # TODO: Replace with actual Supabase insert
-    # INSERT INTO agents (...) VALUES (...) RETURNING *
-    
-    # Check if slug already exists
-    # This would be a database constraint in production
-    for existing_agent in _agents_db.values():
-        if existing_agent.get("slug") == agent.slug:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Agent with slug '{agent.slug}' already exists"
-            )
-    
-    agent_id = uuid4()
-    now = datetime.now()
-    
-    new_agent = AgentResponse(
-        id=agent_id,
-        organization_id=agent.organization_id,
-        slug=agent.slug,
-        name=agent.name,
-        description=agent.description,
-        category=agent.category,
-        type=agent.type,
-        is_active=agent.is_active,
-        version=1,
-        config=agent.config or {},
-        created_at=now,
-        updated_at=now
-    )
-    
-    _agents_db[agent_id] = new_agent.model_dump()
-    
-    return new_agent
+    """Create a new agent record in Supabase."""
+
+    payload: Dict[str, Any] = agent.model_dump()
+    payload["organization_id"] = str(agent.organization_id)
+    if agent.created_by:
+        payload["created_by"] = str(agent.created_by)
+    if agent.parent_version_id:
+        payload["parent_version_id"] = str(agent.parent_version_id)
+
+    try:
+        created = await agent_repo.create_agent(payload)
+    except Exception as exc:  # pragma: no cover
+        logger.error("agents.create_failed", slug=agent.slug, error=str(exc))
+        raise HTTPException(status_code=502, detail="Failed to create agent") from exc
+
+    return _map_agent(created)
 
 
 @router.put("/{agent_id}", response_model=AgentResponse)
 async def update_agent(agent_id: UUID, updates: AgentUpdate):
-    """
-    Update an existing agent.
-    
-    Supports partial updates of:
-    - name
-    - description
-    - is_active
-    - config
-    
-    Version number is automatically incremented.
-    """
-    # TODO: Replace with actual Supabase update
-    # UPDATE agents SET ... WHERE id = $1 AND organization_id = $2 RETURNING *
-    
-    if agent_id not in _agents_db:
-        raise HTTPException(status_code=404, detail="Agent not found")
-    
-    agent_data = _agents_db[agent_id]
-    
-    # Apply updates
+    """Update an existing agent."""
+
     update_data = updates.model_dump(exclude_unset=True)
-    for field, value in update_data.items():
-        agent_data[field] = value
-    
-    # Increment version and update timestamp
-    agent_data["version"] = agent_data.get("version", 1) + 1
-    agent_data["updated_at"] = datetime.now()
-    
-    return AgentResponse(**agent_data)
+    if updates.parent_version_id is not None:
+        update_data["parent_version_id"] = str(updates.parent_version_id)
+
+    try:
+        updated = await agent_repo.update_agent(str(agent_id), update_data)
+    except Exception as exc:  # pragma: no cover
+        logger.error("agents.update_failed", agent_id=str(agent_id), error=str(exc))
+        raise HTTPException(status_code=502, detail="Failed to update agent") from exc
+
+    if not updated:
+        raise HTTPException(status_code=404, detail="Agent not found")
+
+    return _map_agent(updated)
 
 
 @router.delete("/{agent_id}", status_code=204)
 async def delete_agent(agent_id: UUID):
-    """
-    Delete an agent (soft delete).
-    
-    Sets is_active to False and adds deleted_at timestamp.
-    Agent data is retained for audit purposes.
-    """
-    # TODO: Replace with actual Supabase soft delete
-    # UPDATE agents SET is_active = false, deleted_at = NOW() 
-    # WHERE id = $1 AND organization_id = $2
-    
-    if agent_id not in _agents_db:
+    """Soft-delete an agent by marking it archived."""
+
+    try:
+        deleted = await agent_repo.delete_agent(str(agent_id))
+    except Exception as exc:  # pragma: no cover
+        logger.error("agents.delete_failed", agent_id=str(agent_id), error=str(exc))
+        raise HTTPException(status_code=502, detail="Failed to delete agent") from exc
+
+    if not deleted:
         raise HTTPException(status_code=404, detail="Agent not found")
-    
-    agent_data = _agents_db[agent_id]
-    agent_data["is_active"] = False
-    agent_data["deleted_at"] = datetime.now()
-    
-    return None
 
 
 @router.get("/{slug}/capabilities")
 async def get_agent_capabilities(slug: str):
-    """
-    Get agent capabilities and supported features.
-    
-    Returns:
-    - List of capabilities
-    - Supported jurisdictions (for tax agents)
-    - Available tools/functions
-    - Integration points
-    """
-    # TODO: This would query the TypeScript agent directly
-    # or retrieve from a cached capabilities table
-    
+    """Temporary capabilities endpoint until capability store lands."""
+
     capabilities_map = {
         "tax-corp-eu-022": [
             "EU-27 corporate tax rates and regulations",
             "ATAD I/II compliance checking",
             "DAC6 mandatory disclosure guidance",
             "Transfer pricing within EU",
-            "EU tax directive interpretation"
+            "EU tax directive interpretation",
         ],
         "tax-corp-us-023": [
             "Federal corporate income tax (IRC)",
             "State corporate taxes (all 50 states)",
             "TCJA compliance and planning",
             "International tax (GILTI, FDII, Subpart F)",
-            "Tax credits (R&D, foreign, energy)"
+            "Tax credits (R&D, foreign, energy)",
         ],
-        # Add more as needed
     }
-    
+
     if slug not in capabilities_map:
         raise HTTPException(status_code=404, detail="Agent not found")
-    
+
     return {
         "slug": slug,
         "capabilities": capabilities_map.get(slug, []),
         "status": "active",
-        "version": "1.0.0"
+        "version": "1.0.0",
     }

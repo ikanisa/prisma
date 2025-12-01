@@ -32,6 +32,20 @@
 - ✅ Maintenance queries
 - ✅ Best practices and troubleshooting
 
+### 4. Git YAML Registry
+**File**: `config/knowledge_web_sources.yaml`
+- ✅ Canonical copy of all 200 sources in YAML format (mirrors the SQL seed)
+- ✅ Easy diffing/review for future additions or edits
+- ✅ Ready for future sync tooling (parse YAML → upsert DB rows)
+- ✅ Includes section headers to match the migration groups
+
+### Implementation Plan (YAML → DB Sync)
+1. **Edit YAML in Git** – Update `config/knowledge_web_sources.yaml` for any source changes.
+2. **Sync to Supabase** – Run `pnpm sync:knowledge-web-sources` (requires `DATABASE_URL`) to insert/update rows idempotently.
+3. **Verify** – Re-run `./scripts/verify-knowledge-sources.sh` or `SELECT COUNT(*) FROM knowledge_web_sources;`.
+
+This keeps the YAML as the reviewable source of truth and the table as its deployed replica.
+
 ## Quick Start
 
 ### Step 1: Apply Migration
@@ -58,6 +72,9 @@ SELECT category, jurisdiction_code, COUNT(*)
 FROM knowledge_web_sources 
 GROUP BY category, jurisdiction_code 
 ORDER BY category;
+
+-- Or use the Git-driven sync script (after editing YAML)
+DATABASE_URL=postgres://... pnpm sync:knowledge-web-sources
 ```
 
 ### Step 3: Use in Your Code

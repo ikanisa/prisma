@@ -2,9 +2,29 @@
 
 Modern AI-powered operations suite with Supabase, FastAPI, and multi-app pnpm workspace tooling.
 
-## 🎉 NEW: AI Agent Learning System
+## 🎉 NEW: Knowledge Web Sources System
 
-**The AI Agent Learning System is now production-ready!** This comprehensive system enables your AI agents to learn from feedback, optimize automatically, and continuously improve.
+**A production-ready knowledge management system is now available!** Manage 200 curated web sources for AI agent learning with dynamic domain whitelisting, crawl tracking, and beautiful admin UI.
+
+**⭐ Quick Start**: Read [KNOWLEDGE_WEB_SOURCES.md](./KNOWLEDGE_WEB_SOURCES.md) for a 5-minute setup guide.
+
+**📚 Full Documentation**: See [KNOWLEDGE_WEB_SOURCES_COMPLETE.md](./KNOWLEDGE_WEB_SOURCES_COMPLETE.md) for complete details.
+
+**Key Features**:
+- ✅ 200 curated URLs (IFRS, Tax, Audit, Big4, Professional bodies)
+- ✅ Dynamic domain whitelisting for DeepSearch
+- ✅ Admin panel at `/admin/knowledge/sources`
+- ✅ Type-safe TypeScript API (`@prisma-glow/lib`)
+- ✅ Crawl tracking and scheduling
+- ✅ Category & jurisdiction filtering
+
+**Admin Panel**: `/admin/knowledge/sources` | **API**: `import { getActiveDomains } from '@prisma-glow/lib';`
+
+---
+
+## 🤖 AI Agent Learning System
+
+**The AI Agent Learning System is production-ready!** This comprehensive system enables your AI agents to learn from feedback, optimize automatically, and continuously improve.
 
 **⭐ Quick Start**: Read [LEARNING_SYSTEM_READY.md](./LEARNING_SYSTEM_READY.md) for a 30-minute deployment guide.
 

@@ -116,6 +116,75 @@ class DatabaseService:
                 error=str(e)
             )
             raise
+
+    async def query_with_count(
+        self,
+        table: str,
+        select: str = "*",
+        filters: Optional[Dict[str, Any]] = None,
+        order: Optional[str] = None,
+        limit: Optional[int] = None,
+        offset: Optional[int] = None,
+    ) -> tuple[List[Dict[str, Any]], int]:
+        """Query records and return results with an exact row count."""
+        url = f"{self.base_url}/{table}"
+        params = {"select": select}
+
+        if filters:
+            for key, value in filters.items():
+                if isinstance(value, dict):
+                    op, val = next(iter(value.items()))
+                    params[key] = f"{op}.{val}"
+                else:
+                    params[key] = f"eq.{value}"
+
+        if order:
+            params["order"] = order
+
+        if limit is not None:
+            params["limit"] = str(limit)
+        if offset is not None:
+            params["offset"] = str(offset)
+
+        headers = self.headers.copy()
+        prefer_values = ["count=exact"]
+        if "Prefer" in headers:
+            prefer_values.append(headers["Prefer"])
+        headers["Prefer"] = ",".join(prefer_values)
+
+        try:
+            response = await self.client.get(url, params=params, headers=headers)
+            response.raise_for_status()
+
+            total = self._extract_total_count(response)
+            return response.json(), total
+        except httpx.HTTPStatusError as e:
+            logger.error(
+                "database_query_with_count_failed",
+                table=table,
+                status_code=e.response.status_code,
+                error=str(e)
+            )
+            raise
+
+    @staticmethod
+    def _extract_total_count(response: httpx.Response) -> int:
+        """Parse total row count from Supabase response headers."""
+        content_range = response.headers.get("content-range")
+        if content_range and "/" in content_range:
+            try:
+                return int(content_range.split("/")[-1])
+            except (TypeError, ValueError):
+                pass
+
+        try:
+            payload = response.json()
+        except ValueError:
+            return 0
+
+        if isinstance(payload, list):
+            return len(payload)
+        return 0
     
     async def insert(
         self,

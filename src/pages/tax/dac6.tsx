@@ -6,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/enhanced-button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useAppStore } from '@/stores/mock-data';
+import { useOrganizations } from '@/hooks/use-organizations';
 import { isSupabaseConfigured } from '@/integrations/supabase/client';
 import { createDac6Arrangement, listDac6Arrangements, type Dac6Arrangement } from '@prisma-glow/tax-mt-service';
 import { logger } from '@/lib/logger';
@@ -44,7 +44,7 @@ const defaultParticipant = (): ParticipantInput => ({
 });
 
 export default function Dac6Page() {
-  const { currentOrg } = useAppStore();
+  const { currentOrg } = useOrganizations();
   const { toast } = useToast();
 
   const [taxEntityId, setTaxEntityId] = useState('');

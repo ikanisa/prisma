@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -21,7 +20,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/enhanced-button";
 import { useToast } from "@/hooks/use-toast";
-import { useAppStore, Client } from "@/stores/mock-data";
+import { useOrganizations } from "@/hooks/use-organizations";
+import { useCreateClient, useUpdateClient, type ClientRecord } from "@/hooks/use-clients";
 
 const clientSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
@@ -37,12 +37,14 @@ type ClientFormData = z.infer<typeof clientSchema>;
 interface ClientFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  client?: Client | null;
+  client?: ClientRecord | null;
 }
 
 export function ClientForm({ open, onOpenChange, client }: ClientFormProps) {
-  const [loading, setLoading] = useState(false);
-  const { currentOrg, clients, setClients } = useAppStore();
+  const { currentOrg } = useOrganizations();
+  const createClientMutation = useCreateClient();
+  const updateClientMutation = useUpdateClient();
+  const loading = createClientMutation.isPending || updateClientMutation.isPending;
   const { toast } = useToast();
 
   const form = useForm<ClientFormData>({
@@ -58,51 +60,48 @@ export function ClientForm({ open, onOpenChange, client }: ClientFormProps) {
   });
 
   const onSubmit = async (data: ClientFormData) => {
-    if (!currentOrg) return;
-    
-    setLoading(true);
-    
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    if (client) {
-      // Update existing client
-      const updatedClients = clients.map(c => 
-        c.id === client.id 
-          ? { ...c, ...data }
-          : c
-      );
-      setClients(updatedClients);
-      
+    if (!currentOrg?.id) {
       toast({
-        title: "Client updated",
-        description: `${data.name} has been updated successfully.`,
+        variant: "destructive",
+        title: "Select an organization",
+        description: "Choose an organization before creating client records.",
       });
-    } else {
-      // Create new client
-      const newClient: Client = {
-        id: Math.random().toString(36).substr(2, 9),
-        orgId: currentOrg.id,
-        name: data.name,
-        industry: data.industry,
-        country: data.country,
-        fiscalYearEnd: data.fiscalYearEnd,
-        contactName: data.contactName,
-        contactEmail: data.contactEmail,
-        createdAt: new Date().toISOString(),
-      };
-      
-      setClients([...clients, newClient]);
-      
+      return;
+    }
+
+    try {
+      if (client) {
+        await updateClientMutation.mutateAsync({
+          id: client.id,
+          orgId: currentOrg.id,
+          updates: data,
+        });
+        toast({
+          title: "Client updated",
+          description: `${data.name} has been updated successfully.`,
+        });
+      } else {
+        await createClientMutation.mutateAsync({
+          orgId: currentOrg.id,
+          ...data,
+        });
+        toast({
+          title: "Client created",
+          description: `${data.name} has been added successfully.`,
+        });
+      }
+
+      onOpenChange(false);
+      form.reset();
+    } catch (error) {
+      const description =
+        error instanceof Error ? error.message : "The agent could not save this client.";
       toast({
-        title: "Client created",
-        description: `${data.name} has been added successfully.`,
+        variant: "destructive",
+        title: "Unable to save client",
+        description,
       });
     }
-    
-    setLoading(false);
-    onOpenChange(false);
-    form.reset();
   };
 
   const handleClose = () => {

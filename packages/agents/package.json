@@ -24,16 +24,17 @@
     "lint:fix": "eslint src --ext .ts,.tsx --fix"
   },
   "dependencies": {
-    "@prisma-glow/types": "workspace:*",
     "@prisma-glow/core": "workspace:*",
-    "js-yaml": "^4.1.0"
+    "@prisma-glow/types": "workspace:*",
+    "js-yaml": "^4.1.0",
+    "openai": "^4.104.0"
   },
   "devDependencies": {
-    "@types/node": "^20.0.0",
     "@types/js-yaml": "^4.0.9",
-    "typescript": "^5.3.0",
-    "vitest": "^1.0.0",
-    "eslint": "^8.0.0"
+    "@types/node": "^20.19.25",
+    "eslint": "^8.57.1",
+    "typescript": "^5.9.3",
+    "vitest": "^1.6.1"
   },
   "keywords": [
     "ai-agents",

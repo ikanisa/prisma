@@ -6,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/enhanced-button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { useAppStore } from '@/stores/mock-data';
+import { useOrganizations } from '@/hooks/use-organizations';
 import { isSupabaseConfigured, supabase } from '@/integrations/supabase/client';
 import type { Database } from '@/integrations/supabase/types';
 import type { PostgrestError } from '@supabase/supabase-js';
@@ -113,7 +113,7 @@ const defaultJurisdictions = (): JurisdictionRow[] => [
 
 export default function PillarTwoPage() {
   const { toast } = useToast();
-  const { currentOrg } = useAppStore();
+  const { currentOrg } = useOrganizations();
 
   const [rootTaxEntityId, setRootTaxEntityId] = useState('');
   const [period, setPeriod] = useState('2025');
