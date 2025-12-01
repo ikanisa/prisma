@@ -142,7 +142,7 @@ CREATE TRIGGER update_profiles_updated_at
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at();
 
-DROP TRIGGER IF EXISTS update_organizations_updated_at ON profiles CASCADE;
+DROP TRIGGER IF EXISTS update_organizations_updated_at ON organizations CASCADE;
 CREATE TRIGGER update_organizations_updated_at
   BEFORE UPDATE ON organizations
   FOR EACH ROW
