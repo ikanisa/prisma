@@ -1,3 +1,4 @@
+"""FastAPI routers package"""
 """
 FastAPI Router modules for the Prisma Glow API.
 
