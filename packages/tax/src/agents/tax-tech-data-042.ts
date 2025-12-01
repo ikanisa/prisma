@@ -40,6 +40,12 @@ export interface ReconciliationResult {
   explanations: string[];
 }
 
+// Configuration thresholds
+const VALIDATION_THRESHOLDS = {
+  /** Error rate below which validation is considered 'warning' vs 'fail' */
+  ERROR_RATE_WARNING: 0.05,
+};
+
 export interface TaxDataValidation {
   validationType: string;
   recordsChecked: number;
@@ -304,7 +310,7 @@ export class TaxTechDataAgent {
       }
     }
 
-    const overallStatus = errors.length === 0 ? 'pass' : errors.length < records.length * 0.05 ? 'warning' : 'fail';
+    const overallStatus = errors.length === 0 ? 'pass' : errors.length < records.length * VALIDATION_THRESHOLDS.ERROR_RATE_WARNING ? 'warning' : 'fail';
 
     return {
       validationType: dataType,

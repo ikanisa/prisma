@@ -198,6 +198,14 @@ export function calculateMaterialityThresholds(
   };
 }
 
+// Sampling configuration thresholds
+const SAMPLING_THRESHOLDS = {
+  /** Maximum expected misstatement factor (EM/TM ratio cap) */
+  MAX_EXPECTED_MISSTATEMENT_FACTOR: 0.5,
+  /** Minimum sample size regardless of calculation */
+  MIN_SAMPLE_SIZE: 20,
+};
+
 /**
  * Calculate audit sample size
  */
@@ -222,8 +230,10 @@ export function calculateSampleSize(
   };
   const riskFactor = riskFactors[assessedRisk];
 
-  // Expected misstatement factor
-  const emFactor = expectedMisstatement > 0 ? Math.min(expectedMisstatement / tolerableMisstatement, 0.5) : 0;
+  // Expected misstatement factor (capped at maximum threshold)
+  const emFactor = expectedMisstatement > 0 
+    ? Math.min(expectedMisstatement / tolerableMisstatement, SAMPLING_THRESHOLDS.MAX_EXPECTED_MISSTATEMENT_FACTOR) 
+    : 0;
 
   // Calculate sample size using simplified formula
   // n = (Population Value * Risk Factor) / (Tolerable Misstatement * (1 - EM Factor))
@@ -232,7 +242,7 @@ export function calculateSampleSize(
   );
 
   // Apply minimum and maximum bounds
-  sampleSize = Math.max(20, Math.min(sampleSize, populationSize));
+  sampleSize = Math.max(SAMPLING_THRESHOLDS.MIN_SAMPLE_SIZE, Math.min(sampleSize, populationSize));
 
   // Determine selection method
   const method = sampleSize > 50 ? 'statistical' : 'non_statistical';

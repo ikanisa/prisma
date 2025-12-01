@@ -447,15 +447,3 @@ and agricultural activity recognition.""",
     
     def get_standards(self) -> List[str]:
         return ["IAS 41", "ASC 905"]
-    
-    def _suggest_actions(
-        self,
-        query: str,
-        context: Dict[str, Any] = None
-    ) -> List[str]:
-        return [
-            "Identify all biological assets and their classification",
-            "Determine if fair value can be measured reliably",
-            "Consider bearer plant vs consumable biological asset distinction",
-            "Review government grants related to agricultural activity"
-        ]

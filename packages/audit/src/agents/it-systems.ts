@@ -73,6 +73,15 @@ export interface ITAuditRequest extends AgentRequest {
   };
 }
 
+// IT Security policy thresholds
+const IT_SECURITY_THRESHOLDS = {
+  /** Maximum acceptable ratio of privileged users to total users */
+  MAX_PRIVILEGED_USER_RATIO: 10,
+  /** Termination exception rate thresholds */
+  TERMINATION_EXCEPTION_HIGH: 10,
+  TERMINATION_EXCEPTION_MEDIUM: 5,
+};
+
 export interface ITGCAssessment {
   controlArea: string;
   controlsIdentified: {
@@ -358,7 +367,7 @@ export function reviewUserAccess(
 
   // Assess privileged user ratio
   const privilegedRatio = (privilegedUsers / userCount) * 100;
-  if (privilegedRatio > 10) {
+  if (privilegedRatio > IT_SECURITY_THRESHOLDS.MAX_PRIVILEGED_USER_RATIO) {
     findings.push(`High ratio of privileged users (${privilegedRatio.toFixed(1)}%)`);
     recommendations.push('Review and reduce privileged access assignments');
     severity = 'medium';
@@ -367,10 +376,10 @@ export function reviewUserAccess(
   }
 
   // Assess termination exceptions
-  if (exceptionRate > 5) {
+  if (exceptionRate > IT_SECURITY_THRESHOLDS.TERMINATION_EXCEPTION_MEDIUM) {
     findings.push(`${exceptionsFound} terminated users retained access (${exceptionRate.toFixed(1)}% exception rate)`);
     recommendations.push('Implement automated termination workflow integration');
-    severity = exceptionRate > 10 ? 'high' : 'medium';
+    severity = exceptionRate > IT_SECURITY_THRESHOLDS.TERMINATION_EXCEPTION_HIGH ? 'high' : 'medium';
   }
 
   if (findings.length === 0) {
