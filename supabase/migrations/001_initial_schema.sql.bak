@@ -73,12 +73,12 @@ CREATE TABLE IF NOT EXISTS analytics_events (
 );
 
 -- Indexes
-CREATE INDEX IF NOT EXISTS idx_documents_embedding ON documents USING ivfflat (embedding vector_cosine_ops);
-CREATE INDEX IF NOT EXISTS idx_documents_organization ON documents(organization_id);
-CREATE INDEX IF NOT EXISTS idx_chat_sessions_user ON chat_sessions(user_id);
-CREATE INDEX IF NOT EXISTS idx_chat_messages_session ON chat_messages(session_id);
-CREATE INDEX IF NOT EXISTS idx_analytics_events_timestamp ON analytics_events(timestamp DESC);
-CREATE INDEX IF NOT EXISTS idx_documents_content ON documents USING gin(to_tsvector('english', content));
+CREATE INDEX idx_documents_embedding ON documents USING ivfflat (embedding vector_cosine_ops);
+CREATE INDEX idx_documents_organization ON documents(organization_id);
+CREATE INDEX idx_chat_sessions_user ON chat_sessions(user_id);
+CREATE INDEX idx_chat_messages_session ON chat_messages(session_id);
+CREATE INDEX idx_analytics_events_timestamp ON analytics_events(timestamp DESC);
+CREATE INDEX idx_documents_content ON documents USING gin(to_tsvector('english', content));
 
 -- Enable RLS
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
@@ -89,11 +89,9 @@ ALTER TABLE chat_messages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE analytics_events ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies
-DROP POLICY IF EXISTS "Users can view own profile" ON profiles;
 CREATE POLICY "Users can view own profile" ON profiles
   FOR SELECT USING (auth.uid() = id);
 
-DROP POLICY IF EXISTS "Users can update own profile" ON profiles;
 CREATE POLICY "Users can update own profile" ON profiles
   FOR UPDATE USING (auth.uid() = id);
 
@@ -136,13 +134,11 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-DROP TRIGGER IF EXISTS update_profiles_updated_at ON profiles CASCADE;
 CREATE TRIGGER update_profiles_updated_at
   BEFORE UPDATE ON profiles
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at();
 
-DROP TRIGGER IF EXISTS update_organizations_updated_at ON profiles CASCADE;
 CREATE TRIGGER update_organizations_updated_at
   BEFORE UPDATE ON organizations
   FOR EACH ROW
