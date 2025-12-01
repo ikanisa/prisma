@@ -16,12 +16,7 @@ CREATE TABLE IF NOT EXISTS public.conversation_messages (
   role TEXT NOT NULL CHECK (role IN ('user', 'assistant', 'system')),
   content TEXT NOT NULL,
   metadata JSONB DEFAULT '{}'::jsonb,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  
-  CONSTRAINT conversation_messages_conversation_id_fkey 
-    FOREIGN KEY (conversation_id) 
-    REFERENCES public.conversations(id) 
-    ON DELETE CASCADE
+  created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Create indexes
