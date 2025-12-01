@@ -246,13 +246,24 @@ class OpenAIAgentsSDKProvider(BaseAgentProvider):
                 native_tools = []
                 for tool in tools:
                     if tool.handler:
-                        # Wrap the handler with function_tool decorator
-                        @function_tool
-                        async def tool_func(**kwargs):
-                            return await tool.handler(**kwargs) if hasattr(tool.handler, '__await__') else tool.handler(**kwargs)
-                        tool_func.__name__ = tool.name
-                        tool_func.__doc__ = tool.description
-                        native_tools.append(tool_func)
+                        # Create a closure that properly captures the tool's handler
+                        tool_handler = tool.handler  # Capture in local variable
+                        tool_name = tool.name
+                        tool_desc = tool.description
+                        
+                        def make_tool_func(handler):
+                            @function_tool
+                            async def tool_func(**kwargs):
+                                result = handler(**kwargs)
+                                if hasattr(result, '__await__'):
+                                    return await result
+                                return result
+                            return tool_func
+                        
+                        wrapped_tool = make_tool_func(tool_handler)
+                        wrapped_tool.__name__ = tool_name
+                        wrapped_tool.__doc__ = tool_desc
+                        native_tools.append(wrapped_tool)
                 
                 native_agent = Agent(
                     name=name,
@@ -325,10 +336,17 @@ class OpenAIAgentsSDKProvider(BaseAgentProvider):
             # Try native SDK execution first
             if AGENTS_SDK_AVAILABLE and agent_id in self._native_agents:
                 try:
-                    result = await Runner.run(
+                    # Runner.run may return a coroutine or a result directly
+                    run_result = Runner.run(
                         self._native_agents[agent_id],
                         processed_input
                     )
+                    # Await if it's a coroutine
+                    if hasattr(run_result, '__await__'):
+                        result = await run_result
+                    else:
+                        result = run_result
+                        
                     content = result.final_output if hasattr(result, 'final_output') else str(result)
                     
                     # Apply output guardrails

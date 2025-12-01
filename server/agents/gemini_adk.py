@@ -620,16 +620,21 @@ class GeminiADKProvider(BaseAgentProvider):
                 candidate = response.candidates[0]
                 if hasattr(candidate, 'grounding_metadata'):
                     gm = candidate.grounding_metadata
-                    grounding_metadata = {
-                        "grounding_chunks": [
-                            {
+                    grounding_chunks = []
+                    for chunk in (getattr(gm, 'grounding_chunks', []) or []):
+                        web_info = getattr(chunk, 'web', None)
+                        if web_info:
+                            grounding_chunks.append({
                                 "web": {
-                                    "uri": getattr(getattr(chunk, 'web', None), 'uri', None),
-                                    "title": getattr(getattr(chunk, 'web', None), 'title', None)
+                                    "uri": getattr(web_info, 'uri', None),
+                                    "title": getattr(web_info, 'title', None)
                                 }
-                            }
-                            for chunk in (getattr(gm, 'grounding_chunks', []) or [])
-                        ],
+                            })
+                        else:
+                            grounding_chunks.append({"web": {"uri": None, "title": None}})
+                    
+                    grounding_metadata = {
+                        "grounding_chunks": grounding_chunks,
                         "web_search_queries": list(getattr(gm, 'web_search_queries', []) or [])
                     }
             

@@ -361,8 +361,12 @@ export function AgentStreamingChat({
 
       {/* Input */}
       <form onSubmit={handleSubmit} className="p-4 border-t border-gray-200 dark:border-gray-700">
+        <label htmlFor="agent-chat-input" className="sr-only">
+          Message input
+        </label>
         <div className="flex items-end gap-2">
           <textarea
+            id="agent-chat-input"
             ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -370,12 +374,18 @@ export function AgentStreamingChat({
             placeholder={placeholder}
             rows={1}
             disabled={isLoading}
+            aria-label="Enter your message"
+            aria-describedby="chat-input-hint"
             className="flex-1 resize-none rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2 text-gray-900 dark:text-white placeholder-gray-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
           />
+          <span id="chat-input-hint" className="sr-only">
+            Press Enter to send or Shift+Enter for a new line
+          </span>
           {isLoading && streaming ? (
             <button
               type="button"
               onClick={stopStreaming}
+              aria-label="Stop streaming"
               className="p-2 rounded-lg bg-red-500 text-white hover:bg-red-600 transition-colors"
             >
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
@@ -390,6 +400,7 @@ export function AgentStreamingChat({
             <button
               type="submit"
               disabled={!input.trim() || isLoading}
+              aria-label="Send message"
               className="p-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
