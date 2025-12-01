@@ -7835,3 +7835,8 @@ from server.api.knowledge import router as knowledge_router
 app.include_router(personas_router)
 app.include_router(tools_router)
 app.include_router(knowledge_router)
+
+# Agents SDK Router (OpenAI Agents SDK & Gemini ADK)
+from server.api.agents_sdk import router as agents_sdk_router
+
+app.include_router(agents_sdk_router)
