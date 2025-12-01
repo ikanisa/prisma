@@ -4,12 +4,24 @@ OpenAI Provider Implementation with Agents SDK
 Note: This uses the standard OpenAI SDK. The official openai-agents package
 is still in beta. This implementation provides the core functionality needed
 for agent orchestration, tool calling, and streaming.
+
+For the enhanced Agents SDK integration with handoffs, guardrails, and tracing,
+see the openai_agents_sdk.py module.
 """
 from typing import Any, Dict, List, Optional, AsyncGenerator
 import os
 from openai import AsyncOpenAI
 
-from .base import BaseAgentProvider, AgentToolDefinition, AgentResponse, AgentProvider
+from .base import (
+    BaseAgentProvider,
+    AgentToolDefinition,
+    AgentResponse,
+    AgentProvider,
+    StreamingAgentEvent,
+    StreamingEventType,
+    AgentHandoff,
+    Guardrail,
+)
 
 
 class OpenAIAgentProvider(BaseAgentProvider):
@@ -39,7 +51,9 @@ class OpenAIAgentProvider(BaseAgentProvider):
         name: str,
         instructions: str,
         tools: List[AgentToolDefinition],
-        model: str = "gpt-4o"
+        model: str = "gpt-4o",
+        handoffs: Optional[List[AgentHandoff]] = None,
+        guardrails: Optional[List[Guardrail]] = None
     ) -> str:
         """Create an agent configuration"""
         agent_id = f"agent_{len(self.agents) + 1}"
@@ -126,7 +140,7 @@ class OpenAIAgentProvider(BaseAgentProvider):
         agent_id: str,
         input_text: str,
         context: Optional[Dict[str, Any]] = None
-    ) -> AsyncGenerator[AgentResponse, None]:
+    ) -> AsyncGenerator[StreamingAgentEvent, None]:
         """Stream agent responses using OpenAI streaming"""
         agent = self.agents.get(agent_id)
         if not agent:
@@ -153,30 +167,28 @@ class OpenAIAgentProvider(BaseAgentProvider):
                 delta = chunk.choices[0].delta
 
                 if delta.content:
-                    yield AgentResponse(
+                    yield StreamingAgentEvent(
+                        type=StreamingEventType.TEXT,
                         content=delta.content,
-                        tool_calls=[],
-                        usage={},
-                        provider=AgentProvider.OPENAI,
-                        metadata={"event_type": "content_delta"}
+                        metadata={}
                     )
 
                 if delta.tool_calls:
-                    import json
-                    tool_calls = []
                     for tool_call in delta.tool_calls:
                         if tool_call.function:
-                            tool_calls.append({
-                                "id": tool_call.id,
-                                "name": tool_call.function.name,
-                                "arguments": tool_call.function.arguments
-                            })
+                            yield StreamingAgentEvent(
+                                type=StreamingEventType.TOOL_CALL,
+                                content=tool_call.function.name or "",
+                                tool_call_id=tool_call.id,
+                                tool_name=tool_call.function.name,
+                                tool_arguments=None,  # Arguments streamed incrementally
+                                metadata={}
+                            )
 
-                    if tool_calls:
-                        yield AgentResponse(
-                            content="",
-                            tool_calls=tool_calls,
-                            usage={},
-                            provider=AgentProvider.OPENAI,
-                            metadata={"event_type": "tool_call"}
-                        )
+                # Check for stream end
+                if chunk.choices[0].finish_reason:
+                    yield StreamingAgentEvent(
+                        type=StreamingEventType.DONE,
+                        content="",
+                        metadata={"finish_reason": chunk.choices[0].finish_reason}
+                    )
