@@ -37,6 +37,7 @@ apps/web/.next/
 apps/web/out/
 apps/web/public/sw.js
 apps/web/public/workbox-*.js
+apps/web/public/swe-worker-*.js
 
 # Misc
 *.swp

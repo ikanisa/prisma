@@ -1,0 +1,25 @@
+# Development files
+*.md
+*.txt
+.github/
+docs/
+tests/
+coverage/
+.vscode/
+.idea/
+
+# Other apps (not deployed to Netlify)
+apps/admin/
+apps/client/
+apps/gateway/
+server/
+services/
+
+# Build artifacts from other workspaces
+packages/*/dist/
+packages/*/node_modules/
+
+# Test files
+**/*.test.ts
+**/*.spec.ts
+**/__tests__/
