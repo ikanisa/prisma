@@ -1,0 +1,418 @@
+╔═══════════════════════════════════════════════════════════════════════════════╗
+║                 PRISMA GLOW DESKTOP APP - AUDIT SUMMARY                       ║
+║                           2025-12-02                                           ║
+╚═══════════════════════════════════════════════════════════════════════════════╝
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          OVERALL READINESS: 40%                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+COMPONENT STATUS MATRIX
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Component                    Status          Readiness    Priority
+  ────────────────────────────────────────────────────────────────────
+  Tauri Infrastructure         ⚠️  DUPLICATE      60%      🔴 CRITICAL
+  Frontend Integration         ❌ STATIC HTML     30%      🔴 CRITICAL  
+  Rust Backend                 ✅ STRONG          75%      🟡 MEDIUM
+  Database/Offline Sync        ⚠️  UNTESTED       45%      🔴 CRITICAL
+  Code Signing                 ❌ NO CERTS        10%      🔴 CRITICAL
+  CI/CD Pipeline               ✅ READY           80%      🟢 LOW
+  Testing                      ❌ NONE             5%      🔴 CRITICAL
+  Documentation                ✅ COMPLETE        90%      🟢 LOW
+
+CRITICAL ISSUES (BLOCKERS)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔴 ISSUE #1: Duplicate Tauri Structures
+   ┌────────────────────────────────────────────────────────────────┐
+   │  src-tauri/              │  desktop-app/src-tauri/             │
+   │  - Tauri 1.6             │  - Tauri 2.0                        │
+   │  - Full implementation   │  - Static HTML                      │
+   │  - 95 lines main.rs      │  - Minimal config                   │
+   │  - Points to client app  │  - Points to HTML files             │
+   └────────────────────────────────────────────────────────────────┘
+   Impact: Build confusion, version conflicts, deployment uncertainty
+   Solution: Consolidate to single Tauri 2.0 project
+
+🔴 ISSUE #2: React Not Integrated
+   ┌────────────────────────────────────────────────────────────────┐
+   │ Current:  desktop-app/index.html (static HTML)                 │
+   │                                                                 │
+   │ Should:   dist/ (React Vite build)                             │
+   │                                                                 │
+   │ Desktop components exist but NEVER IMPORTED:                   │
+   │   ├── DesktopFeatures.tsx   (117 lines) ❌                     │
+   │   ├── SystemTrayMenu.tsx               ❌                     │
+   │   └── TitleBar.tsx                     ❌                     │
+   └────────────────────────────────────────────────────────────────┘
+   Impact: No feature parity with web app, static demo only
+   Solution: Point Tauri to Vite build, import desktop components
+
+🔴 ISSUE #3: No Testing
+   ┌────────────────────────────────────────────────────────────────┐
+   │ find tests/ -name "*desktop*" -o -name "*tauri*"               │
+   │ → No results                                                    │
+   │                                                                 │
+   │ grep -r "useTauri" tests/                                      │
+   │ → No results                                                    │
+   └────────────────────────────────────────────────────────────────┘
+   Impact: No confidence in desktop features
+   Solution: Add unit tests (Vitest), E2E tests (Playwright), Rust tests
+
+🔴 ISSUE #4: Code Signing Not Configured
+   ┌────────────────────────────────────────────────────────────────┐
+   │ ./scripts/list_identities.sh                                   │
+   │ → 0 valid identities found                                     │
+   │                                                                 │
+   │ Required:                                                       │
+   │  ❌ Apple Developer Program ($99/year)                         │
+   │  ❌ Developer ID Application certificate                       │
+   │  ❌ Notarization                                               │
+   │  ❌ Hardened Runtime                                           │
+   └────────────────────────────────────────────────────────────────┘
+   Impact: Gatekeeper warnings, cannot distribute via DMG
+   Solution: Enroll in Apple Developer Program, configure CI/CD
+
+ARCHITECTURE DIAGRAM (CURRENT MESS)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Repository Root
+├─── src-tauri/  ◄────────────────┐
+│    │                             │
+│    ├─ Cargo.toml (tauri@1.6)    │  TWO TAURI
+│    ├─ tauri.conf.json           │  PROJECTS
+│    │  - devPath: :3000          │  (CONFLICT!)
+│    │  - distDir: apps/client    │
+│    │                             │
+│    └─ src/                       │
+│       ├─ main.rs (95 lines)     │
+│       └─ commands/               │
+│          ├─ database.rs ✅       │
+│          ├─ window.rs            │
+│          └─ file_system.rs       │
+│                                  │
+├─── desktop-app/  ◄──────────────┘
+│    │
+│    ├─ index.html (STATIC!)
+│    ├─ client-portal.html
+│    │
+│    └─ src-tauri/
+│       ├─ Cargo.toml (tauri@2.0)
+│       └─ tauri.conf.json
+│          - frontendDist: ".."  ◄── POINTS TO HTML!
+│
+└─── src/components/desktop/  ◄── ISOLATED (never imported)
+     ├─ DesktopFeatures.tsx
+     ├─ SystemTrayMenu.tsx
+     └─ TitleBar.tsx
+
+ARCHITECTURE DIAGRAM (RECOMMENDED)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Repository Root
+├─── src-tauri/  ◄──── SINGLE TAURI 2.0 PROJECT
+│    │
+│    ├─ Cargo.toml (tauri@2.0)
+│    ├─ tauri.conf.json
+│    │  - devPath: http://localhost:5173  (Vite)
+│    │  - distDir: ../dist                (React build)
+│    │  - allowlist: { fs, dialog, shell, updater }
+│    │  - updater: { active: true }
+│    │  - bundle: { macOS: { signing, notarization } }
+│    │
+│    └─ src/
+│       ├─ main.rs
+│       └─ commands/
+│          ├─ database.rs   (keep)
+│          ├─ window.rs     (keep)
+│          ├─ file_system.rs (keep)
+│          ├─ updater.rs    (keep)
+│          └─ macos.rs      (NEW: vibrancy, dock, etc.)
+│
+├─── src/  ◄──── UNIFIED REACT APP
+│    │
+│    ├─ main.tsx
+│    │  - Add Tauri detection
+│    │  - Initialize offline sync
+│    │
+│    ├─ App.tsx
+│    │  {isTauri && <TitleBar />}  ◄── INTEGRATE DESKTOP UI
+│    │
+│    ├─ components/
+│    │  └─ desktop/
+│    │     ├─ TitleBar.tsx        ◄── USE IN APP
+│    │     ├─ SystemTrayMenu.tsx  ◄── INTEGRATE
+│    │     └─ DesktopFeatures.tsx
+│    │
+│    ├─ hooks/
+│    │  ├─ useTauri.ts       (keep)
+│    │  ├─ useFileSystem.ts  (keep)
+│    │  └─ useOfflineSync.ts (NEW)
+│    │
+│    └─ services/
+│       └─ sync.ts  (NEW: OfflineSyncService)
+│
+└─── (DELETE desktop-app/ entirely)
+
+BACKEND ANALYSIS (Rust Commands)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+File: src-tauri/src/commands/database.rs (272 lines)
+
+  ✅ SQLite integration (rusqlite)
+  ✅ Schema creation:
+     - documents (id, title, content, doc_type, synced_at, is_dirty)
+     - tasks (id, title, description, status, due_date, synced_at, is_dirty)
+     - cache (key, value, expires_at)
+     - sync_metadata (id, last_sync_at, last_sync_status)
+
+  ✅ Commands implemented:
+     - init_local_db()      → Create tables
+     - sync_to_local()      → Server → Local
+     - sync_from_local()    → Local → Server (dirty tracking)
+     - get_offline_data()   → Query cached data
+
+  ❌ Missing:
+     - No TypeScript integration (no caller in src/)
+     - No encryption at rest (plaintext SQLite)
+     - No conflict resolution UI
+     - No migration strategy
+     - Zero tests
+
+Frontend: SHOULD EXIST BUT DOESN'T
+  ┌────────────────────────────────────────────────────────────────┐
+  │ // src/services/sync.ts  ◄── FILE MISSING                      │
+  │                                                                 │
+  │ export class OfflineSyncService {                              │
+  │   async syncToServer() {                                       │
+  │     const changes = await invoke('sync_from_local', { dbPath })│
+  │     await api.post('/sync', changes)                           │
+  │   }                                                             │
+  │                                                                 │
+  │   async syncFromServer() {                                     │
+  │     const data = await api.get('/sync')                        │
+  │     await invoke('sync_to_local', { dbPath, data })            │
+  │   }                                                             │
+  │ }                                                               │
+  └────────────────────────────────────────────────────────────────┘
+
+CI/CD PIPELINE STATUS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+File: .github/workflows/desktop-build-sign.yml (267 lines)
+
+  ✅ Good:
+     - Multi-platform (macOS, Windows, Linux)
+     - Rust toolchain setup
+     - Certificate import logic
+     - Artifact uploads
+
+  ❌ Missing:
+     - Universal binary (Intel + Apple Silicon)
+     - Notarization
+     - Stapling
+     - DMG creation
+
+  ❌ Required Secrets (NOT SET):
+     - MACOS_CERT_P12
+     - MACOS_CERT_PASSWORD
+     - APPLE_ID
+     - APPLE_TEAM_ID
+     - APPLE_APP_SPECIFIC_PASSWORD
+     - TAURI_PRIVATE_KEY
+     - TAURI_KEY_PASSWORD
+
+SECURITY AUDIT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ✅ Strengths:
+     - Allowlist model (deny by default)
+     - File system scoped to $HOME, $DOCUMENT
+     - CSP configured (in src-tauri/)
+
+  🔴 Vulnerabilities:
+     1. desktop-app/tauri.conf.json:
+        "csp": "default-src 'self' 'unsafe-inline' 'unsafe-eval'"
+                                     ^^^^^^^^^^^^^^  ^^^^^^^^^^^^ DANGEROUS!
+
+     2. No encryption at rest:
+        SQLite stores content in plaintext
+
+     3. No keychain integration:
+        Credentials not stored securely
+
+     4. No command guards:
+        Any page can call invoke('init_local_db')
+
+  Recommendations:
+     1. Add @tauri-apps/plugin-keyring
+     2. Encrypt database with SQLCipher
+     3. Implement command guards (check window origin)
+
+TIMELINE & ROADMAP
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Aggressive: 6 weeks          Conservative: 10 weeks
+
+Week 1: Infrastructure       Week 1-2: Infrastructure + buffer
+  - Consolidate Tauri        - Consolidate Tauri
+  - Upgrade to 2.0           - Upgrade to 2.0
+  - Delete desktop-app/      - Thorough testing
+
+Week 2: Core Features        Week 3-4: Core Features + buffer
+  - Offline sync             - Offline sync
+  - Auto-updater             - Auto-updater
+  - Network detection        - Conflict resolution
+
+Week 3: macOS Native         Week 5-6: macOS Native + signing
+  - Universal binary         - Universal binary
+  - DMG installer            - DMG installer
+  - Touch Bar, vibrancy      - Code signing setup
+
+Week 3-4: Code Signing       Week 7-8: Testing
+  - Apple Developer Program  - Unit tests
+  - Certificates             - E2E tests
+  - Notarization             - Performance tests
+
+Week 4-5: Testing            Week 9-10: Polish & deployment
+  - Unit tests               - Beta release
+  - E2E tests                - User feedback
+  - Rust tests               - Final adjustments
+
+Week 5-6: Polish
+  - Accessibility
+  - Analytics
+  - Documentation
+
+RESOURCE REQUIREMENTS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Team:
+  - 1x Rust developer (Tauri backend)
+  - 1x TypeScript/React developer (frontend integration)
+  - 1x DevOps engineer (CI/CD, signing)
+  - 0.5x QA engineer (testing)
+
+Budget:
+  - Apple Developer Program: $99/year
+  - CI/CD runners: ~$50/month
+  - Total: ~$150 first year, $50/year ongoing
+
+IMMEDIATE NEXT STEPS (7 DAYS)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Day 1-2: Decision & Planning
+  [ ] Choose Tauri version (Recommendation: 2.0)
+  [ ] Assign team roles
+  [ ] Create GitHub issues
+
+Day 3-4: Consolidation
+  [ ] Backup desktop-app/ configs
+  [ ] Delete desktop-app/
+  [ ] Upgrade src-tauri/ to Tauri 2.0
+  [ ] Test build: pnpm tauri build
+
+Day 5-6: Integration
+  [ ] Import TitleBar in App.tsx
+  [ ] Add Tauri detection in main.tsx
+  [ ] Test desktop app with React UI
+  [ ] Verify routing works
+
+Day 7: Validation
+  [ ] Manual testing on macOS
+  [ ] Document blockers
+  [ ] Update timeline
+
+CRITICAL FILES CHECKLIST
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ✅ Exists & Good:
+     src-tauri/Cargo.toml
+     src-tauri/tauri.conf.json
+     src-tauri/src/main.rs
+     src-tauri/src/commands/database.rs
+     src-tauri/src/commands/window.rs
+     src-tauri/src/commands/file_system.rs
+     src/hooks/useTauri.ts
+     src/components/desktop/TitleBar.tsx
+     .github/workflows/desktop-build-sign.yml
+
+  ⚠️  Exists but Issues:
+     desktop-app/  (DELETE ENTIRE DIR)
+     desktop-app/src-tauri/tauri.conf.json (insecure CSP)
+
+  ❌ Missing:
+     src/services/sync.ts
+     src/hooks/useOfflineSync.ts
+     tests/unit/hooks/useTauri.test.ts
+     tests/e2e/desktop/
+     src-tauri/entitlements.plist
+     docs/USER_GUIDE_DESKTOP.md
+
+BUNDLE SIZE TARGETS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Current (demo):   8 KB   ⚠️  Not real build
+  Target:          40 MB   📦 Aggressive
+  Expected:     40-60 MB   ✅ Realistic (Tauri 2.0)
+  Electron:   120-150 MB   ❌ Avoid
+
+  Optimizations needed:
+    [profile.release]
+    opt-level = "z"      # Size optimization
+    lto = true           # Link-time optimization
+    strip = true         # Remove debug symbols
+
+KEY METRICS (PRODUCTION READINESS)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Metric                        Target       Current      Status
+  ──────────────────────────────────────────────────────────────────
+  App launch time               < 2s         Unknown      ⚠️
+  Memory usage (idle)           < 150MB      Unknown      ⚠️
+  Bundle size (macOS)           < 40MB       8KB demo     ❌
+  Test coverage (desktop)       > 80%        0%           ❌
+  Code signing                  Yes          No           ❌
+  Notarization                  Yes          No           ❌
+  Universal binary              Yes          No           ❌
+  Offline sync                  Works        Not tested   ⚠️
+  Auto-update                   Works        Not tested   ⚠️
+
+CONCLUSION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Current State: 40% Production Ready
+
+  ✅ Strengths:
+     - Rust backend well-structured
+     - Offline database implemented
+     - CI/CD workflows configured
+     - Comprehensive documentation
+     - React desktop components exist
+
+  🔴 Critical Gaps:
+     - Duplicate Tauri structures (confusion)
+     - React not integrated (static HTML only)
+     - No testing (0% coverage)
+     - Code signing not configured
+     - Frontend sync service missing
+
+  Recommendation:
+     - Week 1: Consolidate to single Tauri 2.0 project
+     - Week 2: Integrate React, implement sync service
+     - Week 3: Code signing setup
+     - Week 4-5: Testing
+     - Week 6: Production beta
+
+  Risk Level: MEDIUM
+     - Infrastructure exists, needs consolidation
+     - Clear path to production
+     - Budget minimal ($150/year)
+     - Timeline achievable (6-10 weeks)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Report generated: 2025-12-02
+Full audit: DESKTOP_APP_FULL_STACK_AUDIT.md
+

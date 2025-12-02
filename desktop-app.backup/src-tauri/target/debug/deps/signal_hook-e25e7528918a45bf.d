@@ -1,0 +1,9 @@
+/Users/jeanbosco/workspace/prisma/desktop-app/src-tauri/target/debug/deps/signal_hook-e25e7528918a45bf.d: /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/signal-hook-0.3.18/src/lib.rs /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/signal-hook-0.3.18/src/flag.rs /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/signal-hook-0.3.18/src/low_level/mod.rs /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/signal-hook-0.3.18/src/low_level/pipe.rs /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/signal-hook-0.3.18/src/low_level/signal_details.rs
+
+/Users/jeanbosco/workspace/prisma/desktop-app/src-tauri/target/debug/deps/libsignal_hook-e25e7528918a45bf.rmeta: /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/signal-hook-0.3.18/src/lib.rs /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/signal-hook-0.3.18/src/flag.rs /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/signal-hook-0.3.18/src/low_level/mod.rs /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/signal-hook-0.3.18/src/low_level/pipe.rs /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/signal-hook-0.3.18/src/low_level/signal_details.rs
+
+/Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/signal-hook-0.3.18/src/lib.rs:
+/Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/signal-hook-0.3.18/src/flag.rs:
+/Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/signal-hook-0.3.18/src/low_level/mod.rs:
+/Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/signal-hook-0.3.18/src/low_level/pipe.rs:
+/Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/signal-hook-0.3.18/src/low_level/signal_details.rs:

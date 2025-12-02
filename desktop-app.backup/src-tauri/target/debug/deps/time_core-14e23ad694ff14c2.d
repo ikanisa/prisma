@@ -1,0 +1,10 @@
+/Users/jeanbosco/workspace/prisma/desktop-app/src-tauri/target/debug/deps/time_core-14e23ad694ff14c2.d: /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/time-core-0.1.6/src/lib.rs /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/time-core-0.1.6/src/convert.rs /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/time-core-0.1.6/src/hint.rs /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/time-core-0.1.6/src/util.rs
+
+/Users/jeanbosco/workspace/prisma/desktop-app/src-tauri/target/debug/deps/libtime_core-14e23ad694ff14c2.rlib: /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/time-core-0.1.6/src/lib.rs /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/time-core-0.1.6/src/convert.rs /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/time-core-0.1.6/src/hint.rs /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/time-core-0.1.6/src/util.rs
+
+/Users/jeanbosco/workspace/prisma/desktop-app/src-tauri/target/debug/deps/libtime_core-14e23ad694ff14c2.rmeta: /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/time-core-0.1.6/src/lib.rs /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/time-core-0.1.6/src/convert.rs /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/time-core-0.1.6/src/hint.rs /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/time-core-0.1.6/src/util.rs
+
+/Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/time-core-0.1.6/src/lib.rs:
+/Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/time-core-0.1.6/src/convert.rs:
+/Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/time-core-0.1.6/src/hint.rs:
+/Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/time-core-0.1.6/src/util.rs:

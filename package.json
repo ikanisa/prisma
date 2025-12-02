@@ -29,7 +29,12 @@
     "ingest:web": "tsx scripts/ingestKnowledgeFromWeb.ts",
     "analyze": "turbo run analyze",
     "lighthouse": "lighthouse https://prisma-glow.pages.dev --output html --view",
-    "setup": "node scripts/setup.js"
+    "setup": "node scripts/setup.js",
+    "dev:desktop-ui": "vite",
+    "build:desktop-ui": "vite build",
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
@@ -39,6 +44,7 @@
     "@google/generative-ai": "^0.21.0",
     "@googlemaps/google-maps-services-js": "^3.4.0",
     "@supabase/supabase-js": "^2.39.0",
+    "@tauri-apps/cli": "^2.0.0",
     "@types/dompurify": "^3.2.0",
     "@types/js-yaml": "^4.0.9",
     "@types/jsdom": "^21.1.6",
@@ -68,6 +74,10 @@
     "vitest": "^2.1.8"
   },
   "dependencies": {
+    "@tauri-apps/api": "^2.0.0",
+    "@tauri-apps/plugin-dialog": "^2.0.0",
+    "@tauri-apps/plugin-fs": "^2.0.0",
+    "@tauri-apps/plugin-shell": "^2.0.0",
     "@types/react-window": "^2.0.0",
     "react-virtualized-auto-sizer": "^1.0.26",
     "react-window": "^2.2.3",

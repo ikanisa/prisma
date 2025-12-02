@@ -4,6 +4,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
+import { isDesktop } from '../lib/platform';
 
 interface TauriHook {
   /** Whether we're running in a Tauri environment */
@@ -17,37 +18,32 @@ interface TauriHook {
 }
 
 export function useTauri(): TauriHook {
-  const [isTauri, setIsTauri] = useState(false);
+  const [isTauriEnv, setIsTauriEnv] = useState(false);
 
   useEffect(() => {
-    // Check if we're in a Tauri environment
-    const checkTauri = () => {
-      // @ts-expect-error - __TAURI__ is injected by Tauri
-      return typeof window !== 'undefined' && typeof window.__TAURI__ !== 'undefined';
-    };
-    setIsTauri(checkTauri());
+    setIsTauriEnv(isDesktop());
   }, []);
 
   const invoke = useCallback(async <T,>(cmd: string, args?: Record<string, unknown>): Promise<T> => {
-    if (!isTauri) {
+    if (!isDesktop()) {
       console.warn(`Tauri command '${cmd}' called but not in Tauri environment`);
       throw new Error('Not in Tauri environment');
     }
 
     try {
-      const { invoke: tauriInvoke } = await import('@tauri-apps/api/tauri');
+      const { invoke: tauriInvoke } = await import('@tauri-apps/api/core');
       return await tauriInvoke<T>(cmd, args);
     } catch (error) {
       console.error(`Failed to invoke Tauri command '${cmd}':`, error);
       throw error;
     }
-  }, [isTauri]);
+  }, []);
 
   const listen = useCallback(async <T,>(
     event: string,
     callback: (event: { payload: T }) => void
   ): Promise<() => void> => {
-    if (!isTauri) {
+    if (!isDesktop()) {
       console.warn(`Tauri event '${event}' listener registered but not in Tauri environment`);
       return () => {};
     }
@@ -59,10 +55,10 @@ export function useTauri(): TauriHook {
       console.error(`Failed to listen to Tauri event '${event}':`, error);
       return () => {};
     }
-  }, [isTauri]);
+  }, []);
 
   const emit = useCallback(async (event: string, payload?: unknown): Promise<void> => {
-    if (!isTauri) {
+    if (!isDesktop()) {
       console.warn(`Tauri event '${event}' emitted but not in Tauri environment`);
       return;
     }
@@ -73,10 +69,10 @@ export function useTauri(): TauriHook {
     } catch (error) {
       console.error(`Failed to emit Tauri event '${event}':`, error);
     }
-  }, [isTauri]);
+  }, []);
 
   return {
-    isTauri,
+    isTauri: isTauriEnv,
     invoke,
     listen,
     emit,

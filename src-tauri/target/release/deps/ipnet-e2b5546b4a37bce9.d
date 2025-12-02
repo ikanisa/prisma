@@ -1,0 +1,11 @@
+/Users/jeanbosco/workspace/prisma/src-tauri/target/release/deps/ipnet-e2b5546b4a37bce9.d: /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ipnet-2.11.0/src/lib.rs /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ipnet-2.11.0/src/ipext.rs /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ipnet-2.11.0/src/ipnet.rs /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ipnet-2.11.0/src/parser.rs /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ipnet-2.11.0/src/mask.rs
+
+/Users/jeanbosco/workspace/prisma/src-tauri/target/release/deps/libipnet-e2b5546b4a37bce9.rlib: /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ipnet-2.11.0/src/lib.rs /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ipnet-2.11.0/src/ipext.rs /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ipnet-2.11.0/src/ipnet.rs /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ipnet-2.11.0/src/parser.rs /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ipnet-2.11.0/src/mask.rs
+
+/Users/jeanbosco/workspace/prisma/src-tauri/target/release/deps/libipnet-e2b5546b4a37bce9.rmeta: /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ipnet-2.11.0/src/lib.rs /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ipnet-2.11.0/src/ipext.rs /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ipnet-2.11.0/src/ipnet.rs /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ipnet-2.11.0/src/parser.rs /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ipnet-2.11.0/src/mask.rs
+
+/Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ipnet-2.11.0/src/lib.rs:
+/Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ipnet-2.11.0/src/ipext.rs:
+/Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ipnet-2.11.0/src/ipnet.rs:
+/Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ipnet-2.11.0/src/parser.rs:
+/Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ipnet-2.11.0/src/mask.rs:

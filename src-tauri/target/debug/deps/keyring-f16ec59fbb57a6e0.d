@@ -1,0 +1,11 @@
+/Users/jeanbosco/workspace/prisma/src-tauri/target/debug/deps/keyring-f16ec59fbb57a6e0.d: /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/keyring-2.3.3/src/lib.rs /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/keyring-2.3.3/src/mock.rs /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/keyring-2.3.3/src/macos.rs /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/keyring-2.3.3/src/credential.rs /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/keyring-2.3.3/src/error.rs
+
+/Users/jeanbosco/workspace/prisma/src-tauri/target/debug/deps/libkeyring-f16ec59fbb57a6e0.rlib: /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/keyring-2.3.3/src/lib.rs /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/keyring-2.3.3/src/mock.rs /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/keyring-2.3.3/src/macos.rs /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/keyring-2.3.3/src/credential.rs /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/keyring-2.3.3/src/error.rs
+
+/Users/jeanbosco/workspace/prisma/src-tauri/target/debug/deps/libkeyring-f16ec59fbb57a6e0.rmeta: /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/keyring-2.3.3/src/lib.rs /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/keyring-2.3.3/src/mock.rs /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/keyring-2.3.3/src/macos.rs /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/keyring-2.3.3/src/credential.rs /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/keyring-2.3.3/src/error.rs
+
+/Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/keyring-2.3.3/src/lib.rs:
+/Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/keyring-2.3.3/src/mock.rs:
+/Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/keyring-2.3.3/src/macos.rs:
+/Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/keyring-2.3.3/src/credential.rs:
+/Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/keyring-2.3.3/src/error.rs:

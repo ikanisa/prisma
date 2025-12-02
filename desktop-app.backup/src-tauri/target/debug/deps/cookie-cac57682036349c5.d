@@ -1,0 +1,12 @@
+/Users/jeanbosco/workspace/prisma/desktop-app/src-tauri/target/debug/deps/cookie-cac57682036349c5.d: /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cookie-0.18.1/src/lib.rs /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cookie-0.18.1/src/builder.rs /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cookie-0.18.1/src/parse.rs /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cookie-0.18.1/src/jar.rs /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cookie-0.18.1/src/delta.rs /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cookie-0.18.1/src/same_site.rs /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cookie-0.18.1/src/expiration.rs /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cookie-0.18.1/src/prefix.rs
+
+/Users/jeanbosco/workspace/prisma/desktop-app/src-tauri/target/debug/deps/libcookie-cac57682036349c5.rmeta: /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cookie-0.18.1/src/lib.rs /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cookie-0.18.1/src/builder.rs /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cookie-0.18.1/src/parse.rs /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cookie-0.18.1/src/jar.rs /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cookie-0.18.1/src/delta.rs /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cookie-0.18.1/src/same_site.rs /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cookie-0.18.1/src/expiration.rs /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cookie-0.18.1/src/prefix.rs
+
+/Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cookie-0.18.1/src/lib.rs:
+/Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cookie-0.18.1/src/builder.rs:
+/Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cookie-0.18.1/src/parse.rs:
+/Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cookie-0.18.1/src/jar.rs:
+/Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cookie-0.18.1/src/delta.rs:
+/Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cookie-0.18.1/src/same_site.rs:
+/Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cookie-0.18.1/src/expiration.rs:
+/Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cookie-0.18.1/src/prefix.rs:

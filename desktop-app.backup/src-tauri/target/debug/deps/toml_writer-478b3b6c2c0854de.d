@@ -1,0 +1,10 @@
+/Users/jeanbosco/workspace/prisma/desktop-app/src-tauri/target/debug/deps/toml_writer-478b3b6c2c0854de.d: /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/toml_writer-1.0.4/src/lib.rs /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/toml_writer-1.0.4/src/integer.rs /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/toml_writer-1.0.4/src/key.rs /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/toml_writer-1.0.4/src/string.rs /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/toml_writer-1.0.4/src/value.rs /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/toml_writer-1.0.4/src/write.rs
+
+/Users/jeanbosco/workspace/prisma/desktop-app/src-tauri/target/debug/deps/libtoml_writer-478b3b6c2c0854de.rmeta: /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/toml_writer-1.0.4/src/lib.rs /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/toml_writer-1.0.4/src/integer.rs /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/toml_writer-1.0.4/src/key.rs /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/toml_writer-1.0.4/src/string.rs /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/toml_writer-1.0.4/src/value.rs /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/toml_writer-1.0.4/src/write.rs
+
+/Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/toml_writer-1.0.4/src/lib.rs:
+/Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/toml_writer-1.0.4/src/integer.rs:
+/Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/toml_writer-1.0.4/src/key.rs:
+/Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/toml_writer-1.0.4/src/string.rs:
+/Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/toml_writer-1.0.4/src/value.rs:
+/Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/toml_writer-1.0.4/src/write.rs:

@@ -10,6 +10,8 @@ import { NpsPrompt } from "@/components/nps/nps-prompt";
 import { useShellThemeTokens } from "@/lib/system-config";
 import { cn } from "@/lib/utils";
 import { AutonomyHud } from "@/components/autonomy/autonomy-hud";
+import { TitleBar } from "@/components/desktop/TitleBar";
+import { isDesktop } from "@/lib/platform";
 
 export function AppShell() {
   const { user, loading: authLoading } = useAuth();
@@ -55,11 +57,15 @@ export function AppShell() {
   }
 
   return (
-    <div
-      className={cn('min-h-screen flex w-full', shellTheme.backgroundClass)}
-      data-shell-theme={shellTheme.id}
-      data-shell-motion={shellTheme.motion}
-    >
+    <>
+      {/* Desktop TitleBar - only renders in Tauri */}
+      {isDesktop() && <TitleBar title="Prisma Glow" showSync={false} />}
+      
+      <div
+        className={cn('min-h-screen flex w-full', shellTheme.backgroundClass)}
+        data-shell-theme={shellTheme.id}
+        data-shell-motion={shellTheme.motion}
+      >
       <div className={sidebarCollapsed ? "w-16" : "w-64"} style={{ transition: "width 0.2s ease" }}>
         <Sidebar
           collapsed={sidebarCollapsed}
@@ -84,5 +90,6 @@ export function AppShell() {
       <AssistantDock />
       <NpsPrompt />
     </div>
+    </>
   );
 }

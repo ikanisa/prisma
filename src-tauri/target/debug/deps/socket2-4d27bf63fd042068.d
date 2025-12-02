@@ -1,0 +1,11 @@
+/Users/jeanbosco/workspace/prisma/src-tauri/target/debug/deps/socket2-4d27bf63fd042068.d: /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/socket2-0.6.1/src/lib.rs /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/socket2-0.6.1/src/sockaddr.rs /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/socket2-0.6.1/src/socket.rs /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/socket2-0.6.1/src/sockref.rs /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/socket2-0.6.1/src/sys/unix.rs
+
+/Users/jeanbosco/workspace/prisma/src-tauri/target/debug/deps/libsocket2-4d27bf63fd042068.rlib: /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/socket2-0.6.1/src/lib.rs /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/socket2-0.6.1/src/sockaddr.rs /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/socket2-0.6.1/src/socket.rs /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/socket2-0.6.1/src/sockref.rs /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/socket2-0.6.1/src/sys/unix.rs
+
+/Users/jeanbosco/workspace/prisma/src-tauri/target/debug/deps/libsocket2-4d27bf63fd042068.rmeta: /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/socket2-0.6.1/src/lib.rs /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/socket2-0.6.1/src/sockaddr.rs /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/socket2-0.6.1/src/socket.rs /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/socket2-0.6.1/src/sockref.rs /Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/socket2-0.6.1/src/sys/unix.rs
+
+/Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/socket2-0.6.1/src/lib.rs:
+/Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/socket2-0.6.1/src/sockaddr.rs:
+/Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/socket2-0.6.1/src/socket.rs:
+/Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/socket2-0.6.1/src/sockref.rs:
+/Users/jeanbosco/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/socket2-0.6.1/src/sys/unix.rs:

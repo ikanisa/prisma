@@ -4,7 +4,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { Minus, Square, X, Menu, RefreshCw } from 'lucide-react';
+import { Minus, Square, X, Menu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useTauri } from '@/hooks/useTauri';
 
@@ -13,19 +13,13 @@ interface TitleBarProps {
   title?: string;
   /** Whether to show the sync button */
   showSync?: boolean;
-  /** Callback when sync is requested */
-  onSync?: () => void;
-  /** Whether sync is in progress */
-  isSyncing?: boolean;
 }
 
 export function TitleBar({
   title = 'Prisma Glow',
-  showSync = true,
-  onSync,
-  isSyncing = false,
+  showSync = false,
 }: TitleBarProps) {
-  const { isTauri, invoke } = useTauri();
+  const { isTauri } = useTauri();
   const [isMaximized, setIsMaximized] = useState(false);
 
   useEffect(() => {
@@ -34,7 +28,8 @@ export function TitleBar({
     // Check initial maximized state
     const checkMaximized = async () => {
       try {
-        const { appWindow } = await import('@tauri-apps/api/window');
+        const { getCurrentWindow } = await import('@tauri-apps/api/window');
+        const appWindow = getCurrentWindow();
         setIsMaximized(await appWindow.isMaximized());
       } catch {
         // Not in Tauri environment
@@ -46,7 +41,8 @@ export function TitleBar({
     // Listen for resize events
     const setupListener = async () => {
       try {
-        const { appWindow } = await import('@tauri-apps/api/window');
+        const { getCurrentWindow } = await import('@tauri-apps/api/window');
+        const appWindow = getCurrentWindow();
         const unlisten = await appWindow.onResized(() => {
           checkMaximized();
         });
@@ -65,7 +61,9 @@ export function TitleBar({
 
   const handleMinimize = async () => {
     try {
-      await invoke('minimize_window');
+      const { getCurrentWindow } = await import('@tauri-apps/api/window');
+      const appWindow = getCurrentWindow();
+      await appWindow.minimize();
     } catch (error) {
       console.error('Failed to minimize window:', error);
     }
@@ -73,7 +71,10 @@ export function TitleBar({
 
   const handleMaximize = async () => {
     try {
-      await invoke('maximize_window');
+      const { getCurrentWindow } = await import('@tauri-apps/api/window');
+      const appWindow = getCurrentWindow();
+      await appWindow.toggleMaximize();
+      setIsMaximized(!isMaximized);
     } catch (error) {
       console.error('Failed to maximize window:', error);
     }
@@ -81,7 +82,9 @@ export function TitleBar({
 
   const handleClose = async () => {
     try {
-      await invoke('close_window');
+      const { getCurrentWindow } = await import('@tauri-apps/api/window');
+      const appWindow = getCurrentWindow();
+      await appWindow.close();
     } catch (error) {
       console.error('Failed to close window:', error);
     }
@@ -95,7 +98,7 @@ export function TitleBar({
   return (
     <div
       data-tauri-drag-region
-      className="h-8 flex items-center justify-between bg-background/95 backdrop-blur border-b border-border select-none"
+      className="h-8 flex items-center justify-between bg-background/95 backdrop-blur border-b border-border select-none sticky top-0 z-50"
     >
       {/* Left: App Menu & Title */}
       <div className="flex items-center gap-2 px-3" data-tauri-drag-region>
@@ -113,25 +116,8 @@ export function TitleBar({
         {/* Reserved for future use */}
       </div>
 
-      {/* Right: Actions & Window Controls */}
+      {/* Right: Window Controls */}
       <div className="flex items-center">
-        {/* Sync button */}
-        {showSync && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 w-8 rounded-none hover:bg-muted"
-            onClick={onSync}
-            disabled={isSyncing}
-            title="Sync"
-          >
-            <RefreshCw
-              className={`w-3 h-3 ${isSyncing ? 'animate-spin' : ''}`}
-            />
-          </Button>
-        )}
-
-        {/* Window controls */}
         <Button
           variant="ghost"
           size="sm"

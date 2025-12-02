@@ -1,0 +1,43 @@
+{
+  "$schema": "https://schema.tauri.app/config/2.0",
+  "productName": "Prisma Glow",
+  "version": "1.0.0",
+  "identifier": "com.prismaglow.desktop",
+  "build": {
+    "beforeDevCommand": "cd ../../apps/web && pnpm dev",
+    "beforeBuildCommand": "cd ../../apps/web && pnpm build",
+    "devPath": "http://localhost:3000",
+    "frontendDist": "../../apps/web/out"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "title": "Prisma Glow",
+        "width": 1400,
+        "height": 900,
+        "minWidth": 1000,
+        "minHeight": 700,
+        "resizable": true,
+        "fullscreen": false,
+        "decorations": true,
+        "center": true,
+        "url": "index.html"
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://api.prisma-glow.com https://*.supabase.co wss://*.supabase.co; img-src 'self' data: https:; font-src 'self' data:;"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["dmg", "app"],
+    "identifier": "com.prismaglow.desktop",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ]
+  }
+}

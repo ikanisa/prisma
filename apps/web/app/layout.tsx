@@ -1,6 +1,9 @@
 import type { Metadata, Viewport } from 'next';
 import { Providers } from './providers';
 import { Toaster } from '@/components/ui/toaster';
+import { TitleBar } from './components/desktop/TitleBar';
+import { SyncStatusBar } from './components/desktop/SyncManager';
+import { MenuEventsProvider } from './components/desktop/MenuEventsProvider';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -52,8 +55,12 @@ export default function RootLayout({
         className="min-h-screen bg-background font-sans text-foreground antialiased"
       >
         <Providers>
-          {children}
-          <Toaster />
+          <MenuEventsProvider>
+            <TitleBar />
+            <SyncStatusBar />
+            {children}
+            <Toaster />
+          </MenuEventsProvider>
         </Providers>
       </body>
     </html>
