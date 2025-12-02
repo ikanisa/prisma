@@ -43,6 +43,11 @@ export interface MaterialityCalculation {
   basis: string;
   percentage: number;
   rationale: string;
+  benchmark?: string;
+  benchmarkAmount?: number;
+  percentageApplied?: number;
+  ragGuidance?: string;
+  citations?: string;
 }
 
 // Risk Assessment

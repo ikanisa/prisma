@@ -30,6 +30,7 @@ slowapi>=0.1.9,<1
 redis>=5.0.0,<6
 rq-scheduler>=0.13
 prometheus-client>=0.19
+supabase>=2.4.0
 
 # OpenAI Agents SDK (optional - provides enhanced agent functionality)
 # Note: Package is still in beta, uncomment when stable release is available

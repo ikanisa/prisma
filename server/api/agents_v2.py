@@ -11,6 +11,7 @@ from server.agents.base import AgentProvider, AgentToolDefinition, AgentOrchestr
 from server.agents.openai_provider import OpenAIAgentProvider
 from server.agents.gemini_provider import GeminiAgentProvider
 from server.agents.registry import get_registry, AgentDomain, AgentCapability
+from server.agents.tool_registry import get_tool_handler
 from server.agents.registry import (
     get_agent_registry,
     AgentDomain,
@@ -153,7 +154,8 @@ async def create_agent(request: CreateAgentRequest):
             AgentToolDefinition(
                 name=t["name"],
                 description=t["description"],
-                parameters=t["parameters"]
+                parameters=t.get("parameters", {}),
+                handler=get_tool_handler(t["name"])
             )
             for t in request.tools
         ]
@@ -238,7 +240,7 @@ async def list_agents(
 ):
     """
     List all registered agents with optional filters.
-    
+
     Returns comprehensive agent metadata including capabilities,
     jurisdictions, and supported standards.
     """
@@ -253,7 +255,7 @@ async def list_agents(
                     status_code=400,
                     detail=f"Invalid domain: {domain}. Valid values: tax, accounting, audit, corporate"
                 )
-        
+
         agents = list_all_agents(
             domain=domain_enum,
             category=category,
@@ -261,9 +263,9 @@ async def list_agents(
             capability=capability,
             is_active=is_active,
         )
-        
+
         registry = get_agent_registry()
-        
+
         return {
             "agents": agents,
             "total": len(agents),
@@ -284,7 +286,7 @@ async def list_agents(
 async def discover_agents(request: DiscoverAgentsRequest):
     """
     Discover agents based on natural language query.
-    
+
     Analyzes the query text and returns matching agents
     sorted by relevance. Supports optional jurisdiction
     and domain filters.
@@ -299,13 +301,13 @@ async def discover_agents(request: DiscoverAgentsRequest):
                     status_code=400,
                     detail=f"Invalid domain: {request.domain}. Valid values: tax, accounting, audit, corporate"
                 )
-        
+
         agents = discover_agents_fn(
             query=request.query,
             jurisdiction=request.jurisdiction,
             domain=domain_enum,
         )
-        
+
         return {
             "query": request.query,
             "agents": agents,
@@ -321,17 +323,17 @@ async def discover_agents(request: DiscoverAgentsRequest):
 async def get_agent(agent_id: str):
     """
     Get detailed information about a specific agent.
-    
+
     Returns complete agent metadata including capabilities,
     jurisdictions, and supported standards.
     """
     try:
         registry = get_agent_registry()
         agent = registry.get_agent(agent_id)
-        
+
         if not agent:
             raise HTTPException(status_code=404, detail=f"Agent not found: {agent_id}")
-        
+
         return {"agent": agent.to_dict()}
     except HTTPException:
         raise
@@ -343,7 +345,7 @@ async def get_agent(agent_id: str):
 async def list_agents_by_domain(domain: str):
     """
     List all agents in a specific domain.
-    
+
     Valid domains: tax, accounting, audit, corporate
     """
     try:
@@ -354,9 +356,9 @@ async def list_agents_by_domain(domain: str):
                 status_code=400,
                 detail=f"Invalid domain: {domain}. Valid values: tax, accounting, audit, corporate"
             )
-        
+
         agents = list_all_agents(domain=domain_enum)
-        
+
         return {
             "domain": domain,
             "agents": agents,
@@ -372,12 +374,12 @@ async def list_agents_by_domain(domain: str):
 async def list_agents_by_jurisdiction(jurisdiction: str):
     """
     List all agents that support a specific jurisdiction.
-    
+
     Examples: US, UK, MT (Malta), RW (Rwanda), EU
     """
     try:
         agents = list_all_agents(jurisdiction=jurisdiction.upper())
-        
+
         return {
             "jurisdiction": jurisdiction.upper(),
             "agents": agents,

@@ -7,7 +7,7 @@ from datetime import datetime
 from uuid import UUID
 import structlog
 
-from server.db import get_supabase
+from server.db import get_supabase_client
 
 logger = structlog.get_logger().bind(component="agent_persistence")
 
@@ -18,7 +18,7 @@ class AgentPersistence:
     def __init__(self, org_id: str, user_id: str):
         self.org_id = org_id
         self.user_id = user_id
-        self.supabase = get_supabase()
+        self.supabase = get_supabase_client()
 
     async def create_execution(
         self,

@@ -234,7 +234,7 @@ ${JSON.stringify(auditScope, null, 2)}`,
       controlReliance: 'Limited',
       ragGuidance: guidance,
       citations: ragContext.citations,
-      relevantStandards: [...new Set(ragContext.chunks.map((c) => c.source_name))],
+      relevantStandards: [...new Set(ragContext.chunks.map((c: any) => c.source_name as string))],
     } as any;
   }
 

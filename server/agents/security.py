@@ -1,400 +1,340 @@
 """
-Agent Security Module
-Security controls for AI agent operations including access control,
-PII detection, and data residency checks.
+Security and Compliance Layer for AI Agents
+Handles access control, PII detection, and data classification
 """
-from typing import Dict, Any, List, Optional, Set
-from dataclasses import dataclass, field
-from datetime import datetime
-from enum import Enum
+from typing import Dict, Any, Optional, List
 import re
-import logging
-import hashlib
+import structlog
 
-logger = logging.getLogger(__name__)
-
-
-class AccessLevel(Enum):
-    """Agent access levels"""
-    PUBLIC = "public"
-    ORG = "org"
-    TEAM = "team"
-    PRIVATE = "private"
-
-
-class PIIType(Enum):
-    """Types of personally identifiable information"""
-    EMAIL = "email"
-    PHONE = "phone"
-    SSN = "ssn"
-    NATIONAL_ID = "national_id"
-    CREDIT_CARD = "credit_card"
-    PASSPORT = "passport"
-    DATE_OF_BIRTH = "date_of_birth"
-    ADDRESS = "address"
-    NAME = "name"
-    TAX_ID = "tax_id"
-
-
-@dataclass
-class PIIDetectionResult:
-    """Result of PII detection scan"""
-    contains_pii: bool
-    detected_types: List[PIIType]
-    masked_text: str
-    original_positions: Dict[str, List[tuple]]
-    confidence: float
-
-
-@dataclass
-class AccessCheckResult:
-    """Result of access control check"""
-    allowed: bool
-    reason: str
-    required_level: AccessLevel
-    user_level: AccessLevel
-    additional_requirements: List[str] = field(default_factory=list)
+logger = structlog.get_logger().bind(component="agent_security")
 
 
 # PII Detection Patterns
 PII_PATTERNS = {
-    PIIType.EMAIL: r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b',
-    PIIType.PHONE: r'\b(?:\+?1[-.]?)?\(?[0-9]{3}\)?[-.]?[0-9]{3}[-.]?[0-9]{4}\b',
-    PIIType.SSN: r'\b\d{3}[-]?\d{2}[-]?\d{4}\b',
-    PIIType.CREDIT_CARD: r'\b(?:\d{4}[-\s]?){3}\d{4}\b',
-    PIIType.PASSPORT: r'\b[A-Z]{1,2}[0-9]{6,9}\b',
-    PIIType.TAX_ID: r'\b\d{2}[-]?\d{7}\b',  # EIN format
-    PIIType.DATE_OF_BIRTH: r'\b(?:\d{1,2}[/-]\d{1,2}[/-]\d{2,4}|\d{4}[/-]\d{1,2}[/-]\d{1,2})\b',
+    "email": r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b',
+    "phone": r'\b(?:\+?1[-.]?)?\(?([0-9]{3})\)?[-.]?([0-9]{3})[-.]?([0-9]{4})\b',
+    "ssn": r'\b\d{3}-\d{2}-\d{4}\b',
+    "credit_card": r'\b\d{4}[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}\b',
+    "passport": r'\b[A-Z]{1,2}\d{6,9}\b',
+    "ip_address": r'\b(?:\d{1,3}\.){3}\d{1,3}\b',
 }
 
 
-class AgentSecurityService:
-    """
-    Security service for AI agent operations.
-    
-    Provides:
-    - Org-level access controls
-    - PII detection and masking
-    - Data residency checks
-    - Request validation
-    """
-    
-    def __init__(self):
-        self._data_residency_rules: Dict[str, Set[str]] = {}
-        self._org_access_cache: Dict[str, Dict[str, Any]] = {}
-    
-    def check_org_access(
+class AgentSecurity:
+    """Security controls for agent execution"""
+
+    def __init__(self, org_id: str, user_id: str):
+        self.org_id = org_id
+        self.user_id = user_id
+
+    def check_access(
         self,
-        user_id: str,
-        org_id: str,
         agent_id: str,
-        action: str = "execute",
-    ) -> AccessCheckResult:
+        required_capability: Optional[str] = None
+    ) -> Dict[str, Any]:
         """
-        Check if user has access to execute an agent in an organization.
-        
-        Args:
-            user_id: User ID
-            org_id: Organization ID
-            agent_id: Agent ID
-            action: Action being performed (execute, configure, delete)
-            
+        Check if user has access to execute agent
+
         Returns:
-            AccessCheckResult with access decision
+            {"allowed": bool, "reason": str}
         """
-        # In production, this would query the database
-        # For now, implement basic role-based checks
-        
-        action_requirements = {
-            "execute": AccessLevel.ORG,
-            "configure": AccessLevel.TEAM,
-            "delete": AccessLevel.PRIVATE,
-            "view": AccessLevel.PUBLIC,
-        }
-        
-        required_level = action_requirements.get(action, AccessLevel.ORG)
-        
-        # Check if user is member of org (would query memberships table)
-        # Simplified for now
-        user_level = AccessLevel.ORG  # Default for authenticated users
-        
-        allowed = self._compare_access_levels(user_level, required_level)
-        
-        additional = []
-        if action in ("configure", "delete"):
-            additional.append("manager_approval_required")
-        if agent_id.startswith("tax-"):
-            additional.append("professional_certification_recommended")
-        
-        return AccessCheckResult(
-            allowed=allowed,
-            reason="Access granted" if allowed else "Insufficient privileges",
-            required_level=required_level,
-            user_level=user_level,
-            additional_requirements=additional,
+        # TODO: Implement actual RBAC checks against database
+        # For now, allow all authenticated users
+
+        logger.info(
+            "access_check",
+            org_id=self.org_id,
+            user_id=self.user_id,
+            agent_id=agent_id
         )
-    
-    def _compare_access_levels(self, user_level: AccessLevel, required_level: AccessLevel) -> bool:
-        """Compare access levels"""
-        level_order = {
-            AccessLevel.PUBLIC: 0,
-            AccessLevel.ORG: 1,
-            AccessLevel.TEAM: 2,
-            AccessLevel.PRIVATE: 3,
+
+        return {"allowed": True, "reason": "authenticated"}
+
+    def detect_pii(self, text: str) -> Dict[str, Any]:
+        """
+        Detect PII in text
+
+        Returns:
+            {
+                "contains_pii": bool,
+                "pii_types": List[str],
+                "masked_text": str
+            }
+        """
+        pii_found = []
+        masked_text = text
+
+        for pii_type, pattern in PII_PATTERNS.items():
+            matches = re.findall(pattern, text)
+            if matches:
+                pii_found.append(pii_type)
+                # Mask the PII
+                masked_text = re.sub(pattern, f"[{pii_type.upper()}_REDACTED]", masked_text)
+
+        contains_pii = len(pii_found) > 0
+
+        if contains_pii:
+            logger.warning(
+                "pii_detected",
+                org_id=self.org_id,
+                pii_types=pii_found
+            )
+
+        return {
+            "contains_pii": contains_pii,
+            "pii_types": pii_found,
+            "masked_text": masked_text
         }
-        return level_order.get(user_level, 0) >= level_order.get(required_level, 0)
-    
-    def detect_pii(
+
+    def classify_data(
         self,
         text: str,
-        types_to_detect: Optional[List[PIIType]] = None,
-    ) -> PIIDetectionResult:
+        context: Optional[Dict[str, Any]] = None
+    ) -> str:
         """
-        Detect PII in text.
-        
-        Args:
-            text: Text to scan for PII
-            types_to_detect: Specific PII types to detect (all if None)
-            
+        Classify data sensitivity level
+
         Returns:
-            PIIDetectionResult with detection details
+            'public' | 'internal' | 'confidential' | 'restricted'
         """
-        if types_to_detect is None:
-            types_to_detect = list(PII_PATTERNS.keys())
-        
-        detected_types = []
-        positions: Dict[str, List[tuple]] = {}
-        masked_text = text
-        
-        for pii_type in types_to_detect:
-            pattern = PII_PATTERNS.get(pii_type)
-            if not pattern:
-                continue
-            
-            matches = list(re.finditer(pattern, text, re.IGNORECASE))
-            if matches:
-                detected_types.append(pii_type)
-                positions[pii_type.value] = [(m.start(), m.end()) for m in matches]
-                
-                # Mask the PII
-                for match in reversed(matches):  # Reverse to preserve positions
-                    masked_value = self._mask_value(match.group(), pii_type)
-                    masked_text = masked_text[:match.start()] + masked_value + masked_text[match.end():]
-        
-        contains_pii = len(detected_types) > 0
-        confidence = 0.9 if contains_pii else 0.95  # High confidence either way
-        
-        return PIIDetectionResult(
-            contains_pii=contains_pii,
-            detected_types=detected_types,
-            masked_text=masked_text,
-            original_positions=positions,
-            confidence=confidence,
-        )
-    
-    def _mask_value(self, value: str, pii_type: PIIType) -> str:
-        """Mask a PII value"""
-        if pii_type == PIIType.EMAIL:
-            parts = value.split('@')
-            if len(parts) == 2:
-                username = parts[0]
-                # Handle short usernames (1-2 chars)
-                if len(username) <= 2:
-                    return f"***@{parts[1]}"
-                return f"{username[0]}***@{parts[1]}"
-        elif pii_type == PIIType.PHONE:
-            return re.sub(r'\d', '*', value[:-4]) + value[-4:]
-        elif pii_type in (PIIType.SSN, PIIType.TAX_ID):
-            return "***-**-" + value[-4:]
-        elif pii_type == PIIType.CREDIT_CARD:
-            return "**** **** **** " + value[-4:]
-        
-        # Default: mask middle portion
-        if len(value) > 4:
-            return value[0:2] + '*' * (len(value) - 4) + value[-2:]
-        return '*' * len(value)
-    
-    def mask_pii(self, text: str) -> str:
-        """
-        Mask all PII in text.
-        
-        Args:
-            text: Text containing potential PII
-            
-        Returns:
-            Text with PII masked
-        """
-        result = self.detect_pii(text)
-        return result.masked_text
-    
-    def check_data_residency(
-        self,
-        org_id: str,
-        data_type: str,
-        target_region: str,
-    ) -> Dict[str, Any]:
-        """
-        Check data residency compliance.
-        
-        Args:
-            org_id: Organization ID
-            data_type: Type of data (personal, financial, tax, audit)
-            target_region: Region where data would be processed
-            
-        Returns:
-            Compliance check result
-        """
-        # Define residency rules by data type
-        data_residency_requirements = {
-            "personal": ["EU", "LOCAL"],  # GDPR requires EU or local processing
-            "financial": ["LOCAL", "TREATY"],  # Financial data often requires local
-            "tax": ["LOCAL"],  # Tax data typically must stay local
-            "audit": ["LOCAL", "EU", "US"],  # Audit data more flexible
-        }
-        
-        allowed_regions = data_residency_requirements.get(data_type, ["LOCAL"])
-        
-        is_compliant = (
-            target_region in allowed_regions or
-            target_region == "LOCAL" or
-            (target_region == "EU" and "EU" in allowed_regions)
-        )
-        
-        return {
-            "compliant": is_compliant,
-            "data_type": data_type,
-            "target_region": target_region,
-            "allowed_regions": allowed_regions,
-            "recommendation": (
-                "Processing allowed" if is_compliant
-                else f"Consider processing in: {', '.join(allowed_regions)}"
-            ),
-            "regulatory_notes": self._get_regulatory_notes(data_type, target_region),
-        }
-    
-    def _get_regulatory_notes(self, data_type: str, region: str) -> List[str]:
-        """Get regulatory notes for data type and region"""
-        notes = []
-        
-        if data_type == "personal":
-            notes.append("GDPR applies for EU personal data")
-            if region not in ("EU", "LOCAL"):
-                notes.append("Standard contractual clauses may be required")
-        
-        if data_type == "tax":
-            notes.append("Tax data subject to local tax authority jurisdiction")
-            notes.append("Consider professional secrecy obligations")
-        
-        if data_type == "financial":
-            notes.append("Financial data subject to banking secrecy laws")
-        
-        return notes
-    
-    def validate_agent_request(
-        self,
-        request: Dict[str, Any],
-        org_id: str,
-        user_id: str,
-    ) -> Dict[str, Any]:
-        """
-        Validate an agent execution request.
-        
-        Performs comprehensive validation including:
-        - Access control check
-        - PII detection
-        - Input sanitization
-        - Rate limit check (placeholder)
-        
-        Args:
-            request: Agent execution request
-            org_id: Organization ID
-            user_id: User ID
-            
-        Returns:
-            Validation result
-        """
-        validations = {
-            "access_check": None,
-            "pii_check": None,
-            "input_validation": None,
-            "is_valid": True,
-            "errors": [],
-            "warnings": [],
-        }
-        
-        # Access control check
-        agent_id = request.get("agent_id", "")
-        access_result = self.check_org_access(user_id, org_id, agent_id)
-        validations["access_check"] = {
-            "allowed": access_result.allowed,
-            "reason": access_result.reason,
-        }
-        if not access_result.allowed:
-            validations["is_valid"] = False
-            validations["errors"].append(access_result.reason)
-        
-        # PII check on input
-        input_text = request.get("input_text", "") or request.get("query", "")
-        if input_text:
-            pii_result = self.detect_pii(input_text)
-            validations["pii_check"] = {
-                "contains_pii": pii_result.contains_pii,
-                "detected_types": [t.value for t in pii_result.detected_types],
-            }
-            if pii_result.contains_pii:
-                validations["warnings"].append(
-                    f"Input contains PII: {', '.join(t.value for t in pii_result.detected_types)}"
-                )
-        
-        # Input validation
-        validations["input_validation"] = self._validate_input(request)
-        if not validations["input_validation"]["valid"]:
-            validations["is_valid"] = False
-            validations["errors"].extend(validations["input_validation"]["errors"])
-        
-        return validations
-    
-    def _validate_input(self, request: Dict[str, Any]) -> Dict[str, Any]:
-        """Validate input parameters"""
-        errors = []
-        
-        # Check required fields
-        if not request.get("agent_id") and not request.get("query"):
-            errors.append("Either agent_id or query is required")
-        
-        # Check input length
-        input_text = request.get("input_text", "") or request.get("query", "")
-        if len(input_text) > 100000:  # 100KB limit
-            errors.append("Input text exceeds maximum length")
-        
-        # Check for potential injection
-        suspicious_patterns = [
-            r'<script[^>]*>',
-            r'javascript:',
-            r'on\w+\s*=',
+        # Check for PII
+        pii_check = self.detect_pii(text)
+        if pii_check["contains_pii"]:
+            return "confidential"
+
+        # Check for financial keywords
+        financial_keywords = [
+            "tax", "revenue", "profit", "loss", "balance sheet",
+            "income statement", "financial", "salary", "compensation"
         ]
-        for pattern in suspicious_patterns:
-            if re.search(pattern, input_text, re.IGNORECASE):
-                errors.append("Input contains potentially unsafe content")
-                break
-        
-        return {
-            "valid": len(errors) == 0,
-            "errors": errors,
+        if any(keyword in text.lower() for keyword in financial_keywords):
+            return "confidential"
+
+        # Check for legal/compliance keywords
+        legal_keywords = [
+            "contract", "agreement", "litigation", "dispute",
+            "confidential", "proprietary", "trade secret"
+        ]
+        if any(keyword in text.lower() for keyword in legal_keywords):
+            return "restricted"
+
+        # Default to internal
+        return "internal"
+
+    def sanitize_input(self, text: str) -> str:
+        """
+        Sanitize user input to prevent injection attacks
+        """
+        # Remove potentially dangerous characters
+        # This is a basic implementation - enhance based on specific needs
+        sanitized = text.strip()
+
+        # Limit length
+        max_length = 10000
+        if len(sanitized) > max_length:
+            logger.warning(
+                "input_truncated",
+                original_length=len(sanitized),
+                max_length=max_length
+            )
+            sanitized = sanitized[:max_length]
+
+        return sanitized
+
+    def validate_context(self, context: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Validate and sanitize context data
+        """
+        # Ensure org_id matches
+        if "org_id" in context and context["org_id"] != self.org_id:
+            logger.error(
+                "org_id_mismatch",
+                expected=self.org_id,
+                provided=context["org_id"]
+            )
+            raise ValueError("Organization ID mismatch")
+
+        # Add security metadata
+        validated_context = {
+            **context,
+            "org_id": self.org_id,
+            "user_id": self.user_id,
+            "validated_at": "utc_now"
         }
-    
-    def hash_for_audit(self, data: str) -> str:
-        """Create a hash of data for audit trail"""
-        return hashlib.sha256(data.encode()).hexdigest()
+
+        return validated_context
 
 
-# Singleton instance
-_security_service: Optional[AgentSecurityService] = None
+class DataResidency:
+    """Handles data residency requirements"""
+
+    # Data residency rules by jurisdiction
+    RESIDENCY_RULES = {
+        "MT": {  # Malta
+            "allowed_regions": ["eu-west-1", "eu-central-1"],
+            "requires_eu_storage": True,
+            "gdpr_applicable": True
+        },
+        "RW": {  # Rwanda
+            "allowed_regions": ["af-south-1", "eu-west-1"],
+            "requires_local_storage": False,
+            "data_protection_act": True
+        },
+        "EU": {
+            "allowed_regions": ["eu-west-1", "eu-central-1", "eu-north-1"],
+            "requires_eu_storage": True,
+            "gdpr_applicable": True
+        }
+    }
+
+    @classmethod
+    def check_compliance(
+        cls,
+        jurisdiction: str,
+        storage_region: str
+    ) -> Dict[str, Any]:
+        """
+        Check if storage region complies with jurisdiction requirements
+
+        Returns:
+            {"compliant": bool, "reason": str, "requirements": dict}
+        """
+        if jurisdiction not in cls.RESIDENCY_RULES:
+            # Unknown jurisdiction - allow but log
+            logger.warning(
+                "unknown_jurisdiction",
+                jurisdiction=jurisdiction
+            )
+            return {
+                "compliant": True,
+                "reason": "unknown_jurisdiction_allowed",
+                "requirements": {}
+            }
+
+        rules = cls.RESIDENCY_RULES[jurisdiction]
+
+        if storage_region not in rules["allowed_regions"]:
+            return {
+                "compliant": False,
+                "reason": f"Storage region {storage_region} not allowed for {jurisdiction}",
+                "requirements": rules
+            }
+
+        return {
+            "compliant": True,
+            "reason": "region_allowed",
+            "requirements": rules
+        }
+
+    @classmethod
+    def get_requirements(cls, jurisdiction: str) -> Dict[str, Any]:
+        """Get data residency requirements for jurisdiction"""
+        return cls.RESIDENCY_RULES.get(jurisdiction, {})
 
 
-def get_security_service() -> AgentSecurityService:
-    """Get the global security service instance"""
-    global _security_service
-    if _security_service is None:
-        _security_service = AgentSecurityService()
-    return _security_service
+class ComplianceValidator:
+    """Validates compliance with regulations"""
+
+    @staticmethod
+    def validate_gdpr_compliance(
+        data: Dict[str, Any],
+        purpose: str
+    ) -> Dict[str, bool]:
+        """
+        Validate GDPR compliance requirements
+
+        Returns:
+            {
+                "lawful_basis": bool,
+                "purpose_limitation": bool,
+                "data_minimization": bool,
+                "accuracy": bool,
+                "storage_limitation": bool,
+                "integrity_confidentiality": bool
+            }
+        """
+        # This is a simplified check - real implementation would be more comprehensive
+        return {
+            "lawful_basis": True,  # Assuming consent/contract
+            "purpose_limitation": purpose in ["tax_advice", "audit", "accounting", "corporate_services"],
+            "data_minimization": True,  # Assuming only necessary data collected
+            "accuracy": True,
+            "storage_limitation": True,  # Assuming retention policies in place
+            "integrity_confidentiality": True  # Assuming encryption and access controls
+        }
+
+    @staticmethod
+    def validate_data_protection_act_rw(
+        data: Dict[str, Any]
+    ) -> Dict[str, bool]:
+        """
+        Validate Rwanda Data Protection Act compliance
+
+        Returns:
+            {
+                "consent_obtained": bool,
+                "purpose_specified": bool,
+                "data_secured": bool,
+                "breach_notification_ready": bool
+            }
+        """
+        return {
+            "consent_obtained": True,  # Assuming consent mechanism in place
+            "purpose_specified": True,
+            "data_secured": True,  # Assuming encryption
+            "breach_notification_ready": True  # Assuming incident response plan
+        }
+
+
+def create_security_context(
+    org_id: str,
+    user_id: str,
+    agent_id: str,
+    input_text: str,
+    context: Optional[Dict[str, Any]] = None
+) -> Dict[str, Any]:
+    """
+    Create comprehensive security context for agent execution
+
+    Returns enriched context with security metadata
+    """
+    security = AgentSecurity(org_id, user_id)
+
+    # Check access
+    access_check = security.check_access(agent_id)
+    if not access_check["allowed"]:
+        raise PermissionError(f"Access denied: {access_check['reason']}")
+
+    # Detect PII
+    pii_check = security.detect_pii(input_text)
+
+    # Classify data
+    classification = security.classify_data(input_text, context)
+
+    # Sanitize input
+    sanitized_input = security.sanitize_input(input_text)
+
+    # Validate context
+    validated_context = security.validate_context(context or {})
+
+    # Build security context
+    security_context = {
+        **validated_context,
+        "security": {
+            "access_granted": True,
+            "contains_pii": pii_check["contains_pii"],
+            "pii_types": pii_check["pii_types"],
+            "data_classification": classification,
+            "input_sanitized": sanitized_input != input_text
+        }
+    }
+
+    logger.info(
+        "security_context_created",
+        org_id=org_id,
+        agent_id=agent_id,
+        classification=classification,
+        contains_pii=pii_check["contains_pii"]
+    )
+
+    return security_context

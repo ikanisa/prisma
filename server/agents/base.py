@@ -9,7 +9,9 @@ Supports multiple AI agent providers including:
 - Anthropic
 """
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Dict, List, Optional, AsyncGenerator, Union
+from typing import List, Dict, Any, Optional, AsyncGenerator, Callable
+from pydantic import BaseModel
+from server.agents.monitoring import monitor
 from enum import Enum
 from dataclasses import dataclass, field
 
