@@ -87,8 +87,8 @@ jobs:
       - name: Import code signing certificate
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
-          MACOS_CERT_BASE64: ${{ secrets.MACOS_CERTIFICATE_BASE64 }}
-          MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+          MACOS_CERT_BASE64: ${{ secrets.MACOS_CERT_P12 }}
+          MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
         run: |
           if [ -n "$MACOS_CERT_BASE64" ]; then
             echo "$MACOS_CERT_BASE64" | base64 --decode > cert.p12
@@ -113,9 +113,9 @@ jobs:
       - name: Sign desktop apps
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
-          SIGNING_IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY || 'Inhouse Dev Signing' }}
+          SIGNING_IDENTITY: ${{ secrets.MACOS_CERT_IDENTITY || 'Inhouse Dev Signing' }}
         run: |
-          if [ -n "${{ secrets.MACOS_CERTIFICATE_BASE64 }}" ]; then
+          if [ -n "${{ secrets.MACOS_CERT_P12 }}" ]; then
             chmod +x scripts/sign_all_apps.sh
             ./scripts/sign_all_apps.sh
           else
@@ -170,7 +170,7 @@ jobs:
           echo "- Path: \`dist/mac/ClientPortal.app\`" >> $GITHUB_STEP_SUMMARY
           echo "- Size: $(du -sh dist/mac/ClientPortal.app | cut -f1)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          if [ -n "${{ secrets.MACOS_CERTIFICATE_BASE64 }}" ]; then
+          if [ -n "${{ secrets.MACOS_CERT_P12 }}" ]; then
             echo "**Code Signing**: ✅ Signed" >> $GITHUB_STEP_SUMMARY
           else
             echo "**Code Signing**: ⚠️ Not configured" >> $GITHUB_STEP_SUMMARY
