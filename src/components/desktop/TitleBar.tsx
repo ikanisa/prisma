@@ -54,16 +54,23 @@ export function TitleBar({
     fetchWindowState();
 
     // Listen for window events to update maximized state
+    // Note: The event name differs between Tauri versions
+    // We try multiple event patterns to ensure compatibility
     let unlistenResize: (() => void) | undefined;
     
     const setupListener = async () => {
       try {
-        // In Tauri v2, we can listen for window events
-        unlistenResize = await listen('tauri://resize', () => {
+        // Try window-resized event (works in most Tauri versions)
+        unlistenResize = await listen('window-resized', () => {
           fetchWindowState();
         });
       } catch {
-        // Fallback: poll for state changes
+        // Fallback: use interval polling for state changes
+        const intervalId = setInterval(() => {
+          fetchWindowState();
+        }, 1000);
+        
+        unlistenResize = () => clearInterval(intervalId);
       }
     };
 

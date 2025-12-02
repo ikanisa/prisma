@@ -66,22 +66,22 @@ export function isWeb(): boolean {
 }
 
 /**
- * Get Tauri API module if available
+ * Get Tauri invoke function if available
  * Returns null if not in Tauri environment
+ * @deprecated Use invokeCommand directly instead
  */
-export async function getTauriApi() {
+export async function getTauriApi(): Promise<{ invoke: <T>(cmd: string, args?: Record<string, unknown>) => Promise<T> } | null> {
   if (!isDesktop()) {
     return null;
   }
 
   try {
-    const tauriCore = await import('@tauri-apps/api/core');
-    return tauriCore;
+    const { invoke } = await import('@tauri-apps/api/core');
+    return { invoke };
   } catch {
-    // Fallback for Tauri v1 API
     try {
-      const tauriLegacy = await import('@tauri-apps/api/tauri');
-      return tauriLegacy;
+      const { invoke } = await import('@tauri-apps/api/tauri');
+      return { invoke };
     } catch {
       return null;
     }
@@ -100,21 +100,19 @@ export async function invokeCommand<T>(
     return null;
   }
 
-  const api = await getTauriApi();
-  if (!api) {
-    console.error('Failed to load Tauri API');
-    return null;
-  }
-
   try {
-    // Tauri v2 uses 'invoke' from @tauri-apps/api/core
-    if ('invoke' in api) {
-      return await api.invoke<T>(command, args);
+    // Try Tauri v2 API first
+    const { invoke } = await import('@tauri-apps/api/core');
+    return await invoke<T>(command, args);
+  } catch {
+    try {
+      // Fallback to Tauri v1 API
+      const { invoke } = await import('@tauri-apps/api/tauri');
+      return await invoke<T>(command, args);
+    } catch (error) {
+      console.error(`Failed to invoke Tauri command '${command}':`, error);
+      throw error;
     }
-    return null;
-  } catch (error) {
-    console.error(`Failed to invoke Tauri command '${command}':`, error);
-    throw error;
   }
 }
 

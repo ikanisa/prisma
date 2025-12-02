@@ -92,13 +92,13 @@ fn main() {
             if let WindowEvent::CloseRequested { api, .. } = event {
                 #[cfg(not(target_os = "macos"))]
                 {
-                    window.hide().unwrap();
+                    let _ = window.hide();
                     api.prevent_close();
                 }
                 #[cfg(target_os = "macos")]
                 {
                     // On macOS, hide the window but keep the app running
-                    tauri::AppHandle::hide(window.app_handle()).unwrap();
+                    let _ = window.hide();
                     api.prevent_close();
                 }
             }

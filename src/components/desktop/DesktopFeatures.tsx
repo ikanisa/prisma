@@ -56,9 +56,10 @@ export function DesktopFeatures() {
       if (file && file.content) {
         setSelectedFile(file.path);
         setFileContents(file.content);
+        const fileName = file.name || file.path.split(/[/\\]/).pop() || 'file';
         toast({
           title: 'File loaded',
-          description: `Successfully loaded ${file.name}`,
+          description: `Successfully loaded ${fileName}`,
         });
       }
     } catch (error) {
