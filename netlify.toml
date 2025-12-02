@@ -1,7 +1,8 @@
 # Netlify deployment configuration for Prisma Glow
 [build]
-  command = "pnpm --filter @prisma-glow/web build"
-  publish = "apps/web/.next"
+  base = "apps/web"
+  command = "cd ../.. && pnpm --filter @prisma-glow/web build"
+  publish = ".next"
 
 [build.environment]
   NODE_VERSION = "22.12.0"
