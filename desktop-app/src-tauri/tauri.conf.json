@@ -4,10 +4,9 @@
   "version": "1.0.0",
   "identifier": "com.prismaglow.desktop",
   "build": {
-    "beforeDevCommand": "cd .. && pnpm dev",
-    "beforeBuildCommand": "cd .. && pnpm build",
-    "devUrl": "http://localhost:5173",
-    "frontendDist": "../dist"
+    "beforeDevCommand": "",
+    "beforeBuildCommand": "",
+    "frontendDist": ".."
   },
   "app": {
     "withGlobalTauri": true,
