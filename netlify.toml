@@ -15,14 +15,14 @@
   status = 200
 
 # API proxy to Supabase Edge Functions
-[[redirects]]
-  from = "/api/*"
-  to = "https://:splat"
-  status = 200
-  force = true
-  conditions = {Cookie = ["sb-access-token"]}
-  [redirects.headers]
-    X-Forwarded-Host = "supabase.co"
+# Note: Configure SUPABASE_PROJECT_ID in Netlify environment variables
+# then update the 'to' URL to: https://YOUR_PROJECT_ID.supabase.co/functions/v1/:splat
+# Or use Netlify Edge Functions for dynamic proxy with environment variables
+# [[redirects]]
+#   from = "/api/*"
+#   to = "https://YOUR_PROJECT_ID.supabase.co/functions/v1/:splat"
+#   status = 200
+#   force = true
 
 # SPA fallback - all routes to index.html (must be last)
 [[redirects]]
@@ -67,18 +67,7 @@
   [headers.values]
     Cache-Control = "public, max-age=31536000, immutable"
 
-# JS/CSS chunks - immutable cache
-[[headers]]
-  for = "/*.js"
-  [headers.values]
-    Cache-Control = "public, max-age=31536000, immutable"
-
-[[headers]]
-  for = "/*.css"
-  [headers.values]
-    Cache-Control = "public, max-age=31536000, immutable"
-
-# Next.js static assets - long cache
+# Next.js static assets - long cache (includes hashed JS/CSS chunks)
 [[headers]]
   for = "/_next/static/*"
   [headers.values]
