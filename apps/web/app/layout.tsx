@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   description: 'AI-powered audit, tax, and accounting operations platform',
   manifest: '/manifest.json',
   metadataBase: new URL(
-    process.env.NEXT_PUBLIC_APP_URL || 'https://prisma-glow.netlify.app'
+    process.env.NEXT_PUBLIC_APP_URL || 'https://prisma-glow.pages.dev'
   ),
   appleWebApp: {
     capable: true,
@@ -18,7 +18,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'Prisma Glow',
     description: 'AI-powered audit, tax, and accounting operations platform',
-    url: process.env.NEXT_PUBLIC_APP_URL || 'https://prisma-glow.netlify.app',
+    url: process.env.NEXT_PUBLIC_APP_URL || 'https://prisma-glow.pages.dev',
     siteName: 'Prisma Glow',
     type: 'website',
   },
