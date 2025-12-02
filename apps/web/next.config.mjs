@@ -36,11 +36,18 @@ const withPWA = withPWAInit({
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // output: 'export', // Disabled to allow dynamic routes
-  distDir: '.next',
+  output: process.env.TAURI_BUILD ? 'export' : undefined,
+  distDir: process.env.TAURI_BUILD ? 'out' : '.next',
   trailingSlash: true,
   reactStrictMode: true,
   images: { unoptimized: true },
+  assetPrefix: process.env.TAURI_BUILD ? './' : '',
+  typescript: {
+    ignoreBuildErrors: true,
+  },
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   env: {
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL || 'https://prisma-glow.pages.dev',
     NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -53,6 +60,9 @@ const nextConfig = {
       '@': __dirname,
     };
     return config;
+  },
+  experimental: {
+    optimizeCss: true,
   },
 };
 

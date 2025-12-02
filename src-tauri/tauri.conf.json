@@ -26,7 +26,17 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://api.prisma-glow.com https://*.supabase.co wss://*.supabase.co; img-src 'self' data: https:; font-src 'self' data:;"
+      "csp": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://api.prisma-glow.com https://*.supabase.co wss://*.supabase.co; img-src 'self' data: https://*.supabase.co; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self';"
+    }
+  },
+  "plugins": {
+    "updater": {
+      "active": true,
+      "dialog": true,
+      "pubkey": "UPDATE_PUBKEY_PLACEHOLDER",
+      "endpoints": [
+        "https://releases.prisma-glow.com/{{target}}/{{arch}}/{{current_version}}"
+      ]
     }
   },
   "bundle": {
@@ -34,6 +44,30 @@
     "targets": ["dmg", "app"],
     "icon": [
       "icons/icon.png"
-    ]
+    ],
+    "macOS": {
+      "minimumSystemVersion": "10.15",
+      "entitlements": "entitlements.plist",
+      "exceptionDomain": "",
+      "frameworks": [],
+      "providerShortName": null,
+      "signingIdentity": null,
+      "hardenedRuntime": true,
+      "dmg": {
+        "appPosition": {
+          "x": 180,
+          "y": 170
+        },
+        "applicationFolderPosition": {
+          "x": 480,
+          "y": 170
+        },
+        "windowSize": {
+          "width": 660,
+          "height": 400
+        },
+        "license": "../LICENSE"
+      }
+    }
   }
 }

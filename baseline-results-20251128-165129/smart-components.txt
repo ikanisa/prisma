@@ -1,5 +1,0 @@
-================================
-src/components/ui/SmartInput.tsx
-src/components/smart/SmartSearch.tsx
-src/components/smart/SmartCommandPalette.tsx
-Total Smart components:        3

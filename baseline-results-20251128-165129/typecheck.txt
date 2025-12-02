@@ -1,4 +1,0 @@
-===================================
-Need to install the following packages:
-turbo@2.6.1
-Ok to proceed? (y) 

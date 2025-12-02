@@ -34,7 +34,10 @@
     "build:desktop-ui": "vite build",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build"
+    "tauri:build": "tauri build",
+    "tauri:build:macos": "TAURI_BUILD=true pnpm --filter @prisma-glow/web build && tauri build --target universal-apple-darwin",
+    "desktop:dev": "tauri dev",
+    "desktop:build": "TAURI_BUILD=true pnpm --filter @prisma-glow/web build && tauri build"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",

@@ -2,6 +2,10 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod sync_commands;
+mod config;
+mod error;
+mod db_migrations;
+
 #[cfg(test)]
 mod tests;
 
@@ -9,6 +13,9 @@ use tauri::Manager;
 use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
 use sync_commands::*;
+use config::{init_config, get_config};
+use error::{AppError, AppResult};
+use db_migrations::run_migrations;
 
 // ============================================================================
 // DATA STRUCTURES
@@ -45,47 +52,42 @@ impl Default for AppState {
 // ============================================================================
 
 #[tauri::command]
-async fn login(email: String, password: String) -> Result<(User, AuthToken), String> {
-    // Get Supabase URL from environment or config
-    let supabase_url = std::env::var("NEXT_PUBLIC_SUPABASE_URL")
-        .unwrap_or_else(|_| "YOUR_SUPABASE_URL".to_string());
-    let supabase_key = std::env::var("NEXT_PUBLIC_SUPABASE_ANON_KEY")
-        .unwrap_or_else(|_| "YOUR_SUPABASE_KEY".to_string());
-
+async fn login(email: String, password: String) -> AppResult<(User, AuthToken)> {
+    let config = get_config();
+    
     // Call Supabase auth API
     let client = reqwest::Client::new();
-    let auth_url = format!("{}/auth/v1/token?grant_type=password", supabase_url);
+    let auth_url = format!("{}/auth/v1/token?grant_type=password", config.supabase_url);
     
     let response = client
         .post(&auth_url)
-        .header("apikey", &supabase_key)
+        .header("apikey", &config.supabase_anon_key)
         .json(&serde_json::json!({
             "email": email,
             "password": password
         }))
         .send()
-        .await
-        .map_err(|e| format!("Network error: {}", e))?;
+        .await?;
 
     if !response.status().is_success() {
         let status = response.status();
         let error_text = response.text().await.unwrap_or_default();
-        return Err(format!("Login failed ({}): {}", status, error_text));
+        return Err(AppError::new(
+            "AUTH_FAILED",
+            format!("Login failed ({}): {}", status, error_text)
+        ));
     }
 
-    let auth_data: serde_json::Value = response
-        .json()
-        .await
-        .map_err(|e| format!("Failed to parse response: {}", e))?;
+    let auth_data: serde_json::Value = response.json().await?;
 
     // Extract tokens
     let access_token = auth_data["access_token"]
         .as_str()
-        .ok_or("No access token")?
+        .ok_or(AppError::new("AUTH_ERROR", "No access token"))?
         .to_string();
     let refresh_token = auth_data["refresh_token"]
         .as_str()
-        .ok_or("No refresh token")?
+        .ok_or(AppError::new("AUTH_ERROR", "No refresh token"))?
         .to_string();
     let expires_in = auth_data["expires_in"].as_i64().unwrap_or(3600);
     let expires_at = chrono::Utc::now().timestamp() + expires_in;
@@ -100,25 +102,21 @@ async fn login(email: String, password: String) -> Result<(User, AuthToken), Str
     #[cfg(target_os = "macos")]
     {
         let entry = keyring::Entry::new("com.prismaglow.desktop", "auth_token")
-            .map_err(|e| format!("Keychain error: {}", e))?;
+            .map_err(|e| AppError::new("KEYCHAIN_ERROR", format!("Keychain error: {}", e)))?;
         entry
             .set_password(&serde_json::to_string(&token).unwrap())
-            .map_err(|e| format!("Failed to store token: {}", e))?;
+            .map_err(|e| AppError::new("KEYCHAIN_ERROR", format!("Failed to store token: {}", e)))?;
     }
 
     // Fetch user profile
     let user_response = client
-        .get(format!("{}/auth/v1/user", supabase_url))
-        .header("apikey", &supabase_key)
+        .get(format!("{}/auth/v1/user", config.supabase_url))
+        .header("apikey", &config.supabase_anon_key)
         .bearer_auth(&access_token)
         .send()
-        .await
-        .map_err(|e| format!("Failed to fetch user: {}", e))?;
+        .await?;
 
-    let user_data: serde_json::Value = user_response
-        .json()
-        .await
-        .map_err(|e| format!("Failed to parse user: {}", e))?;
+    let user_data: serde_json::Value = user_response.json().await?;
 
     let user = User {
         id: user_data["id"].as_str().unwrap_or("").to_string(),
@@ -174,53 +172,28 @@ async fn get_stored_token() -> Result<Option<AuthToken>, String> {
 // ============================================================================
 
 #[tauri::command]
-async fn init_local_db(app_handle: tauri::AppHandle, state: tauri::State<'_, AppState>) -> Result<(), String> {
+async fn init_local_db(app_handle: tauri::AppHandle, state: tauri::State<'_, AppState>) -> AppResult<()> {
     let app_data_dir = app_handle
         .path()
         .app_data_dir()
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| AppError::new("PATH_ERROR", e.to_string()))?;
     
-    std::fs::create_dir_all(&app_data_dir).map_err(|e| e.to_string())?;
+    std::fs::create_dir_all(&app_data_dir)
+        .map_err(|e| AppError::new("FS_ERROR", e.to_string()))?;
     
     let db_path = app_data_dir.join("prisma.db");
+    println!("📂 Opening database at: {:?}", db_path);
+    
     let conn = rusqlite::Connection::open(&db_path)
-        .map_err(|e| format!("Failed to open database: {}", e))?;
+        .map_err(|e| AppError::new("DB_ERROR", format!("Failed to open database: {}", e)))?;
 
-    // Create tables
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS documents (
-            id TEXT PRIMARY KEY,
-            title TEXT NOT NULL,
-            content TEXT,
-            user_id TEXT,
-            created_at INTEGER NOT NULL,
-            updated_at INTEGER NOT NULL,
-            synced_at INTEGER NOT NULL,
-            is_dirty INTEGER DEFAULT 0
-        )",
-        [],
-    )
-    .map_err(|e| format!("Failed to create documents table: {}", e))?;
-
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS sync_metadata (
-            id INTEGER PRIMARY KEY CHECK (id = 1),
-            last_sync_at INTEGER,
-            last_sync_status TEXT
-        )",
-        [],
-    )
-    .map_err(|e| format!("Failed to create sync_metadata table: {}", e))?;
-
-    conn.execute(
-        "INSERT OR IGNORE INTO sync_metadata (id, last_sync_at, last_sync_status) VALUES (1, 0, 'never')",
-        [],
-    )
-    .map_err(|e| format!("Failed to insert sync metadata: {}", e))?;
+    // Run migrations
+    run_migrations(&conn).map_err(|e| AppError::new("MIGRATION_ERROR", e))?;
 
     // Store connection in state
     *state.db_conn.lock().unwrap() = Some(conn);
 
+    println!("✅ Database initialized successfully");
     Ok(())
 }
 
@@ -325,6 +298,13 @@ fn get_platform() -> String {
 // ============================================================================
 
 fn main() {
+    // Initialize configuration
+    if let Err(e) = init_config() {
+        eprintln!("❌ Configuration error: {}", e);
+        eprintln!("Please ensure NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY are set.");
+        std::process::exit(1);
+    }
+
     tauri::Builder::default()
         .setup(|app| {
             // Open DevTools in debug mode

@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!-- Network access for API calls -->
+  <key>com.apple.security.network.client</key>
+  <true/>
+  
+  <!-- Allow outgoing network connections (HTTP/HTTPS) -->
+  <key>com.apple.security.network.server</key>
+  <true/>
+  
+  <!-- File system access -->
+  <key>com.apple.security.files.user-selected.read-write</key>
+  <true/>
+  
+  <!-- Allow access to Downloads folder -->
+  <key>com.apple.security.files.downloads.read-write</key>
+  <true/>
+  
+  <!-- Hardened Runtime (required for notarization) -->
+  <key>com.apple.security.cs.allow-jit</key>
+  <true/>
+  
+  <!-- Allow unsigned executable memory (for JIT in WebView) -->
+  <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+  <true/>
+  
+  <!-- Allow DYLD environment variables -->
+  <key>com.apple.security.cs.allow-dyld-environment-variables</key>
+  <true/>
+  
+  <!-- Disable library validation for plugins -->
+  <key>com.apple.security.cs.disable-library-validation</key>
+  <true/>
+  
+  <!-- Camera access (if needed for future features) -->
+  <!-- <key>com.apple.security.device.camera</key>
+  <true/> -->
+  
+  <!-- Microphone access (if needed for future features) -->
+  <!-- <key>com.apple.security.device.microphone</key>
+  <true/> -->
+  
+  <!-- USB access (if needed) -->
+  <!-- <key>com.apple.security.device.usb</key>
+  <true/> -->
+  
+  <!-- Bluetooth access (if needed) -->
+  <!-- <key>com.apple.security.device.bluetooth</key>
+  <true/> -->
+  
+  <!-- Calendar access (if needed) -->
+  <!-- <key>com.apple.security.personal-information.calendars</key>
+  <true/> -->
+  
+  <!-- Contacts access (if needed) -->
+  <!-- <key>com.apple.security.personal-information.addressbook</key>
+  <true/> -->
+  
+  <!-- Location services (if needed) -->
+  <!-- <key>com.apple.security.personal-information.location</key>
+  <true/> -->
+  
+  <!-- Photos library access (if needed) -->
+  <!-- <key>com.apple.security.personal-information.photos-library</key>
+  <true/> -->
+</dict>
+</plist>
