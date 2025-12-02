@@ -89,6 +89,16 @@ export default defineConfig({
       testDir: './apps/admin/tests/pwa',
       use: { ...devices['Desktop Chrome'] },
     },
+    {
+      name: 'desktop-e2e',
+      testDir: './tests/desktop',
+      testMatch: '**/e2e.spec.ts',
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 1280, height: 720 },
+      },
+      timeout: 60000,
+    },
   ],
   webServer: webServerConfig,
 });
