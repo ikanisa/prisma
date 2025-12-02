@@ -41,6 +41,7 @@
     "@google/generative-ai": "^0.21.0",
     "@googlemaps/google-maps-services-js": "^3.4.0",
     "@netlify/build": "^29.0.0",
+    "@netlify/functions": "^5.1.0",
     "@netlify/plugin-nextjs": "^5.0.0",
     "@supabase/supabase-js": "^2.39.0",
     "@types/dompurify": "^3.2.0",
