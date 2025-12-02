@@ -1,6 +1,6 @@
 # Cloudflare Pages configuration for Prisma Glow
 name = "prisma-glow"
-compatibility_date = "2024-01-01"
+compatibility_date = "2024-12-01"
 pages_build_output_dir = "apps/web/.next"
 
 [env.production]

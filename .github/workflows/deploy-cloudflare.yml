@@ -11,6 +11,9 @@ concurrency:
   group: cloudflare-deploy-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  CLOUDFLARE_PROJECT_NAME: prisma-glow
+
 jobs:
   deploy:
     name: Deploy to Cloudflare Pages
@@ -20,7 +23,7 @@ jobs:
       deployments: write
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -28,7 +31,7 @@ jobs:
           version: 9.12.3
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 22.12.0
           cache: 'pnpm'
@@ -52,7 +55,7 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy apps/web/.next --project-name=prisma-glow --branch=main
+          command: pages deploy apps/web/.next --project-name=${{ env.CLOUDFLARE_PROJECT_NAME }} --branch=main
 
       - name: Deploy to Cloudflare Pages (Preview)
         if: github.event_name == 'pull_request'
@@ -60,4 +63,4 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy apps/web/.next --project-name=prisma-glow --branch=${{ github.head_ref }}
+          command: pages deploy apps/web/.next --project-name=${{ env.CLOUDFLARE_PROJECT_NAME }} --branch=${{ github.head_ref }}
