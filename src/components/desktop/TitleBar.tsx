@@ -3,10 +3,18 @@
  * Provides window controls (minimize, maximize, close) and drag region.
  */
 
-import { useEffect, useState } from 'react';
-import { Minus, Square, X, Menu, RefreshCw } from 'lucide-react';
+import { useEffect, useState, useCallback } from 'react';
+import { Minus, Square, X, Menu, RefreshCw, Copy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useTauri } from '@/hooks/useTauri';
+
+interface WindowState {
+  is_maximized: boolean;
+  is_fullscreen: boolean;
+  is_minimized: boolean;
+  is_visible: boolean;
+  is_focused: boolean;
+}
 
 interface TitleBarProps {
   /** Title to display in the title bar */
@@ -25,43 +33,46 @@ export function TitleBar({
   onSync,
   isSyncing = false,
 }: TitleBarProps) {
-  const { isTauri, invoke } = useTauri();
+  const { isTauri, invoke, listen } = useTauri();
   const [isMaximized, setIsMaximized] = useState(false);
+
+  // Fetch window state
+  const fetchWindowState = useCallback(async () => {
+    if (!isTauri) return;
+    try {
+      const state = await invoke<WindowState>('get_window_state');
+      setIsMaximized(state.is_maximized);
+    } catch {
+      // Command might not be available yet
+    }
+  }, [isTauri, invoke]);
 
   useEffect(() => {
     if (!isTauri) return;
 
-    // Check initial maximized state
-    const checkMaximized = async () => {
-      try {
-        const { appWindow } = await import('@tauri-apps/api/window');
-        setIsMaximized(await appWindow.isMaximized());
-      } catch {
-        // Not in Tauri environment
-      }
-    };
+    // Check initial state
+    fetchWindowState();
 
-    checkMaximized();
-
-    // Listen for resize events
+    // Listen for window events to update maximized state
+    let unlistenResize: (() => void) | undefined;
+    
     const setupListener = async () => {
       try {
-        const { appWindow } = await import('@tauri-apps/api/window');
-        const unlisten = await appWindow.onResized(() => {
-          checkMaximized();
+        // In Tauri v2, we can listen for window events
+        unlistenResize = await listen('tauri://resize', () => {
+          fetchWindowState();
         });
-        return unlisten;
       } catch {
-        return undefined;
+        // Fallback: poll for state changes
       }
     };
 
-    const unlistenPromise = setupListener();
+    setupListener();
 
     return () => {
-      unlistenPromise.then((unlisten) => unlisten?.());
+      unlistenResize?.();
     };
-  }, [isTauri]);
+  }, [isTauri, listen, fetchWindowState]);
 
   const handleMinimize = async () => {
     try {
@@ -74,6 +85,8 @@ export function TitleBar({
   const handleMaximize = async () => {
     try {
       await invoke('maximize_window');
+      // Update state after action
+      setTimeout(fetchWindowState, 100);
     } catch (error) {
       console.error('Failed to maximize window:', error);
     }
@@ -148,7 +161,11 @@ export function TitleBar({
           onClick={handleMaximize}
           title={isMaximized ? 'Restore' : 'Maximize'}
         >
-          <Square className="w-3 h-3" />
+          {isMaximized ? (
+            <Copy className="w-3 h-3" />
+          ) : (
+            <Square className="w-3 h-3" />
+          )}
         </Button>
         <Button
           variant="ghost"

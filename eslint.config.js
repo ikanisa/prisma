@@ -73,6 +73,18 @@ export default tseslint.config(
     },
   },
   {
+    // Desktop/Tauri related files need console for environment detection and debugging
+    files: [
+      "src/hooks/useTauri.ts",
+      "src/hooks/useFileSystem.ts",
+      "src/lib/platform.ts",
+      "src/components/desktop/**/*.{ts,tsx}",
+    ],
+    rules: {
+      "no-console": "off",
+    },
+  },
+  {
     files: ["packages/**/*.{ts,tsx,js,jsx}", "scripts/**/*.{ts,tsx,js,jsx}", "tests/**/*.{ts,tsx,js,jsx}"],
     rules: {
       "no-console": "off",

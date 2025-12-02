@@ -1,20 +1,26 @@
 {
   "name": "@prisma-glow/desktop",
-  "version": "1.0.0",
-  "description": "Prisma Glow Desktop Application",
+  "version": "2.0.0",
+  "description": "Prisma Glow Desktop Application - AI-powered operations platform for modern teams",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "tauri dev",
     "build": "tauri build",
     "build:debug": "tauri build --debug",
-    "tauri": "tauri"
+    "build:universal": "tauri build --target universal-apple-darwin",
+    "tauri": "tauri",
+    "icon": "tauri icon public/icon.png"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.0.0",
     "@tauri-apps/plugin-dialog": "^2.0.0",
     "@tauri-apps/plugin-fs": "^2.0.0",
-    "@tauri-apps/plugin-shell": "^2.0.0"
+    "@tauri-apps/plugin-notification": "^2.0.0",
+    "@tauri-apps/plugin-os": "^2.0.0",
+    "@tauri-apps/plugin-process": "^2.0.0",
+    "@tauri-apps/plugin-shell": "^2.0.0",
+    "@tauri-apps/plugin-updater": "^2.0.0"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.0.0"

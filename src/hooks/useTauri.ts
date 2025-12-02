@@ -1,6 +1,7 @@
 /**
  * Hook to detect Tauri environment and provide access to Tauri APIs.
  * Falls back gracefully in web environments.
+ * Supports both Tauri v1 and v2 APIs.
  */
 
 import { useCallback, useEffect, useState } from 'react';
@@ -16,16 +17,22 @@ interface TauriHook {
   emit: (event: string, payload?: unknown) => Promise<void>;
 }
 
+/**
+ * Check if we're running in a Tauri environment
+ */
+function checkIsTauri(): boolean {
+  return (
+    typeof window !== 'undefined' &&
+    '__TAURI__' in window &&
+    typeof (window as Record<string, unknown>).__TAURI__ !== 'undefined'
+  );
+}
+
 export function useTauri(): TauriHook {
   const [isTauri, setIsTauri] = useState(false);
 
   useEffect(() => {
-    // Check if we're in a Tauri environment
-    const checkTauri = () => {
-      // @ts-expect-error - __TAURI__ is injected by Tauri
-      return typeof window !== 'undefined' && typeof window.__TAURI__ !== 'undefined';
-    };
-    setIsTauri(checkTauri());
+    setIsTauri(checkIsTauri());
   }, []);
 
   const invoke = useCallback(async <T,>(cmd: string, args?: Record<string, unknown>): Promise<T> => {
@@ -35,11 +42,18 @@ export function useTauri(): TauriHook {
     }
 
     try {
-      const { invoke: tauriInvoke } = await import('@tauri-apps/api/tauri');
+      // Try Tauri v2 API first
+      const { invoke: tauriInvoke } = await import('@tauri-apps/api/core');
       return await tauriInvoke<T>(cmd, args);
-    } catch (error) {
-      console.error(`Failed to invoke Tauri command '${cmd}':`, error);
-      throw error;
+    } catch {
+      try {
+        // Fallback to Tauri v1 API
+        const { invoke: tauriInvoke } = await import('@tauri-apps/api/tauri');
+        return await tauriInvoke<T>(cmd, args);
+      } catch (error) {
+        console.error(`Failed to invoke Tauri command '${cmd}':`, error);
+        throw error;
+      }
     }
   }, [isTauri]);
 
