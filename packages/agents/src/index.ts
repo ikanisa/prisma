@@ -10,25 +10,25 @@ export {
   type KBScope,
   type RuntimeConfig,
   type ToolDefinition,
-} from './registry-loader';
+} from './registry-loader.js';
 
 export {
   DeepSearchWrapper,
   type DeepSearchParams,
   type DeepSearchResult,
-} from './deep-search-wrapper';
+} from './deep-search-wrapper.js';
 
 export {
   OpenAIAgentFactory,
   type OpenAIAgent,
   type OpenAIAgentConfig,
-} from './openai-agent-factory';
+} from './openai-agent-factory.js';
 
 export {
   GeminiAgentFactory,
   type GeminiAgent,
   type GeminiAgentConfig,
-} from './gemini-agent-factory';
+} from './gemini-agent-factory.js';
 
-export * from './integrations';
-export * from './ui';
+export * from './integrations/index.js';
+// export * from './ui/index.js'; // Excluded from build

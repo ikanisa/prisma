@@ -8,12 +8,15 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
-import { getActiveDomains, getPrimarySources, getSourcesByCategory } from '@/packages/lib/src/knowledge-web-sources';
+import { createBrowserClient } from '@supabase/ssr';
+import { getActiveDomains, getPrimarySources, getSourcesByCategory } from '@prisma-glow/lib';
 import { Search, Globe, Check } from 'lucide-react';
 
 export function DeepSearchIntegration() {
-  const supabase = createClientComponentClient();
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
   
   const [domains, setDomains] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);

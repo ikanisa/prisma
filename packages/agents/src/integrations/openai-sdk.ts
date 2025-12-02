@@ -1,6 +1,6 @@
 import OpenAI from 'openai';
-import { AgentRegistryLoader } from '../registry-loader';
-import { DeepSearchWrapper } from '../deep-search-wrapper';
+import { AgentRegistryLoader } from '../registry-loader.js';
+import { DeepSearchWrapper } from '../deep-search-wrapper.js';
 
 export interface OpenAIAgentRuntime {
   client: OpenAI;
@@ -42,7 +42,7 @@ export class OpenAIAgentSDKIntegration {
     }
 
     const config = this.registry.getOpenAIConfig(agentId);
-    const tools: OpenAI.Beta.AssistantCreateParams.AssistantToolsFunction[] = [];
+    const tools: any[] = [];
     
     if (config.tools.includes('deep_search_kb')) {
       const toolDef = this.registry.getTool('deep_search_kb');
@@ -138,7 +138,7 @@ export class OpenAIAgentSDKIntegration {
       }
     }
 
-    return { runId: run.id, status: run.status, error: run.last_error?.message };
+    return { runId: run.id, status: run.status as any, error: run.last_error?.message };
   }
 
   private async handleToolCall(agentId: string, functionName: string, args: Record<string, unknown>): Promise<string> {

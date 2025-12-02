@@ -7,11 +7,11 @@
 
 import { Router, Request, Response, NextFunction } from 'express';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { loadAgentsRegistry } from '@prisma-glow/agents/registry/loader.js';
-import { createOpenAIAgentFromRegistry } from '@prisma-glow/agents/openai/factory.js';
-import { createGeminiConfigFromRegistry } from '@prisma-glow/agents/gemini/factory.js';
-import { runOpenAIAgent } from '@prisma-glow/agents/openai/runner.js';
-import { runGeminiAgent } from '@prisma-glow/agents/gemini/runner.js';
+import { loadAgentsRegistry } from '@prisma-glow/agents/registry';
+import { createOpenAIAgentFromRegistry } from '@prisma-glow/agents/openai';
+import { createGeminiConfigFromRegistry } from '@prisma-glow/agents/gemini';
+import { runOpenAIAgent } from '@prisma-glow/agents/openai';
+import { runGeminiAgent } from '@prisma-glow/agents/gemini';
 import { z } from 'zod';
 
 // Request validation schemas
@@ -50,12 +50,12 @@ export function createSpecialistAgentsRouter(supabase: SupabaseClient): Router {
 
     // Filter by category if provided
     if (category && typeof category === 'string') {
-      agents = agents.filter(a => a.category === category);
+      agents = agents.filter((a: any) => a.category === category);
     }
 
     // Filter by jurisdiction if provided
     if (jurisdiction && typeof jurisdiction === 'string') {
-      agents = agents.filter(a => 
+      agents = agents.filter((a: any) => 
         a.jurisdictions.includes(jurisdiction) || 
         a.jurisdictions.includes('GLOBAL')
       );
@@ -63,7 +63,7 @@ export function createSpecialistAgentsRouter(supabase: SupabaseClient): Router {
 
     res.json({
       count: agents.length,
-      agents: agents.map(a => ({
+      agents: agents.map((a: any) => ({
         id: a.id,
         category: a.category,
         name: a.name,
@@ -82,7 +82,7 @@ export function createSpecialistAgentsRouter(supabase: SupabaseClient): Router {
    */
   router.get('/:agentId', asyncHandler(async (req: Request, res: Response) => {
     const { agentId } = req.params;
-    const agent = registry.find(a => a.id === agentId);
+    const agent = registry.find((a: any) => a.id === agentId);
 
     if (!agent) {
       res.status(404).json({ error: 'Agent not found' });
@@ -112,7 +112,7 @@ export function createSpecialistAgentsRouter(supabase: SupabaseClient): Router {
     const { message, jurisdictionCode, sessionId } = parseResult.data;
 
     // Find agent in registry
-    const agentEntry = registry.find(a => a.id === agentId);
+    const agentEntry = registry.find((a: any) => a.id === agentId);
     if (!agentEntry) {
       res.status(404).json({ error: 'Agent not found' });
       return;
@@ -208,22 +208,22 @@ export function createSpecialistAgentsRouter(supabase: SupabaseClient): Router {
 
     // Tax keywords
     if (messageLower.match(/tax|vat|compliance|return|filing|paye|payroll/)) {
-      selectedAgent = registry.find(a => 
+      selectedAgent = registry.find((a: any) => 
         a.category === 'tax' && 
         (!context?.jurisdictionCode || a.jurisdictions.includes(context.jurisdictionCode))
       );
     }
     // Audit keywords
     else if (messageLower.match(/audit|assurance|materiality|risk|isa|ifrs/)) {
-      selectedAgent = registry.find(a => a.category === 'audit');
+      selectedAgent = registry.find((a: any) => a.category === 'audit');
     }
     // Accounting keywords
     else if (messageLower.match(/accounting|ifrs|gaap|financial statement|depreciation/)) {
-      selectedAgent = registry.find(a => a.category === 'accounting');
+      selectedAgent = registry.find((a: any) => a.category === 'accounting');
     }
     // Corporate keywords
     else if (messageLower.match(/corporate|company|director|shareholder|kyc|licence/)) {
-      selectedAgent = registry.find(a => a.category === 'corporate');
+      selectedAgent = registry.find((a: any) => a.category === 'corporate');
     }
 
     if (!selectedAgent) {

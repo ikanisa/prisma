@@ -1,5 +1,5 @@
-import type { AgentRegistryLoader } from './registry-loader';
-import type { DeepSearchWrapper } from './deep-search-wrapper';
+import { AgentRegistryLoader } from './registry-loader.js';
+import { DeepSearchWrapper } from './deep-search-wrapper.js';
 
 export interface OpenAIAgentConfig {
   apiKey: string;

@@ -1,8 +1,8 @@
-import express, { Request, Response } from "express";
+import express, { Request, Response, Router } from "express";
 import { agentRouter } from "@prisma-glow/agents";
 import type { UnifiedRunOptions } from "@prisma-glow/agents";
 
-const router = express.Router();
+const router: Router = express.Router();
 
 router.get("/agents", async (_req: Request, res: Response) => {
   try {

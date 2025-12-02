@@ -60,6 +60,8 @@
     "test": "vitest"
   },
   "dependencies": {
+    "@prisma-glow/core": "workspace:*",
+    "@prisma-glow/lib": "workspace:*",
     "@prisma-glow/types": "workspace:*",
     "openai": "^4.67.3",
     "zod": "^3.23.8"

@@ -1,7 +1,7 @@
 # Netlify deployment configuration for Prisma Glow
 [build]
-  command = "corepack enable pnpm && pnpm install --frozen-lockfile && pnpm --filter @prisma-glow/web build"
-  publish = "apps/web/out"
+  command = "pnpm --filter @prisma-glow/web build"
+  publish = "apps/web/.next"
 
 [build.environment]
   NODE_VERSION = "22.12.0"

@@ -1,5 +1,5 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import type { DeepSearchParams, DeepSearchResult } from '../deep-search-wrapper';
+import type { DeepSearchParams, DeepSearchResult } from '../deep-search-wrapper.js';
 
 export interface SupabaseDeepSearchConfig {
   url: string;

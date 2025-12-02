@@ -31,8 +31,8 @@ const withPWA = withPWAInit({
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'export',
-  distDir: 'out',
+  // output: 'export', // Disabled to allow dynamic routes
+  distDir: '.next',
   trailingSlash: true,
   reactStrictMode: true,
   images: { unoptimized: true },

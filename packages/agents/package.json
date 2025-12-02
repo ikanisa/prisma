@@ -4,14 +4,29 @@
   "private": true,
   "type": "module",
   "description": "Agent registry and routing system for multi-engine AI agents",
-  "main": "./src/index.ts",
-  "types": "./src/index.ts",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
-    ".": "./src/index.ts",
-    "./registry": "./src/registry/index.ts",
-    "./openai": "./src/openai/index.ts",
-    "./gemini": "./src/gemini/index.ts",
-    "./router": "./src/router.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./registry": {
+      "types": "./dist/registry/index.d.ts",
+      "import": "./dist/registry/index.js"
+    },
+    "./openai": {
+      "types": "./dist/openai/index.d.ts",
+      "import": "./dist/openai/index.js"
+    },
+    "./gemini": {
+      "types": "./dist/gemini/index.d.ts",
+      "import": "./dist/gemini/index.js"
+    },
+    "./router": {
+      "types": "./dist/router.d.ts",
+      "import": "./dist/router.js"
+    }
   },
   "scripts": {
     "dev": "tsc --watch",

@@ -1,0 +1,4 @@
+- Dependencies: 27
+- Dev dependencies: 10
+- Next.js version: 14.2.18
+- React version: ^18.3.1

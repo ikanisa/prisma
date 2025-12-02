@@ -1,6 +1,6 @@
-import { GoogleGenerativeAI, FunctionDeclarationSchemaType, Tool } from '@google/generative-ai';
-import { AgentRegistryLoader } from '../registry-loader';
-import { DeepSearchWrapper } from '../deep-search-wrapper';
+import { GoogleGenerativeAI, SchemaType, Tool } from '@google/generative-ai';
+import { AgentRegistryLoader } from '../registry-loader.js';
+import { DeepSearchWrapper } from '../deep-search-wrapper.js';
 
 export interface GeminiAgentRuntime {
   apiKey: string;
@@ -37,10 +37,10 @@ export class GeminiSDKIntegration {
             name: toolDef.implementation.gemini.function_name,
             description: toolDef.description,
             parameters: {
-              type: FunctionDeclarationSchemaType.OBJECT,
+              type: SchemaType.OBJECT,
               properties: {
                 query: {
-                  type: FunctionDeclarationSchemaType.STRING,
+                  type: SchemaType.STRING,
                   description: 'Search query for the knowledge base',
                 },
               },
@@ -75,7 +75,7 @@ export class GeminiSDKIntegration {
       const functionResults = [];
 
       for (const call of functionCalls) {
-        const output = await this.handleFunctionCall(agentId, call.name, call.args);
+        const output = await this.handleFunctionCall(agentId, call.name, call.args as Record<string, unknown>);
         functionResults.push({
           functionResponse: { name: call.name, response: { result: output } },
         });
@@ -112,7 +112,7 @@ export class GeminiSDKIntegration {
           const functionResults = [];
 
           for (const call of functionCalls) {
-            const output = await this.handleFunctionCall(agentId, call.name, call.args);
+            const output = await this.handleFunctionCall(agentId, call.name, call.args as Record<string, unknown>);
             functionResults.push({
               functionResponse: { name: call.name, response: { result: output } },
             });

@@ -177,10 +177,12 @@ ${JSON.stringify(riskFactors, null, 2)}`,
       overallMateriality,
       performanceMateriality,
       trivialThreshold,
+      basis: financialData?.revenue ? 'Revenue' : 'Total Assets',
+      percentage: percentageRate * 100,
+      rationale: guidance,
       benchmark: financialData?.revenue ? 'Revenue' : 'Total Assets',
       benchmarkAmount: benchmark,
       percentageApplied: percentageRate * 100,
-      rationale: guidance,
       ragGuidance: guidance,
       citations: ragContext.citations,
     };
@@ -346,7 +348,7 @@ Industry: ${riskFactors?.industry || 'General'}`,
     return {
       procedures: [],
       citations: ragContext.citations,
-      relevantStandards: [...new Set(ragContext.chunks.map((c) => c.source_name))],
+      relevantStandards: [...new Set(ragContext.chunks.map((c: any) => c.source_name as string))],
     };
   }
 }

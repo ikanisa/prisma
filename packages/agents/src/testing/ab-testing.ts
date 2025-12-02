@@ -5,7 +5,7 @@
  * model changes, and other optimizations.
  */
 
-import { logger } from '@prisma-glow/logger';
+import { logger } from '@prisma-glow/core/logger';
 import crypto from 'crypto';
 
 export interface ABTest {
@@ -85,7 +85,7 @@ export class ABTestingFramework {
       secondary_metrics?: MetricType[];
     }
   ): Promise<ABTest> {
-    logger.info('Creating A/B test', { agentId, name: config.name });
+    // logger.info('Creating A/B test', { agentId, name: config.name });
 
     const test: ABTest = {
       id: crypto.randomUUID(),
@@ -102,7 +102,7 @@ export class ABTestingFramework {
     };
     
     await this.saveTest(test);
-    logger.info('A/B test created', { testId: test.id });
+    // logger.info('A/B test created', { testId: test.id });
     
     return test;
   }
@@ -111,7 +111,7 @@ export class ABTestingFramework {
    * Start test
    */
   async startTest(testId: string): Promise<void> {
-    logger.info('Starting A/B test', { testId });
+    // logger.info('Starting A/B test', { testId });
     
     await this.db.ab_tests.update({
       where: { id: testId },
@@ -164,7 +164,7 @@ export class ABTestingFramework {
    * Analyze test results
    */
   async analyzeResults(testId: string): Promise<TestResults> {
-    logger.info('Analyzing A/B test results', { testId });
+    // logger.info('Analyzing A/B test results', { testId });
     
     const test = await this.getTest(testId);
     const executions = await this.getTestExecutions(testId);
@@ -236,7 +236,7 @@ export class ABTestingFramework {
         await this.deployTreatment(test);
       }
       
-      logger.info('A/B test concluded', {
+      // logger.info('A/B test concluded', {
         testId: test.id,
         recommendation: results.recommendation
       });
@@ -247,7 +247,7 @@ export class ABTestingFramework {
    * Deploy treatment variant as new default
    */
   async deployTreatment(test: ABTest): Promise<void> {
-    logger.info('Deploying treatment variant', {
+    // logger.info('Deploying treatment variant', {
       testId: test.id,
       agentId: test.agent_id
     });

@@ -1,4 +1,4 @@
-import type { KBScope } from './registry-loader';
+import type { KBScope } from './registry-loader.js';
 
 export interface DeepSearchParams {
   query: string;

@@ -38,11 +38,11 @@ export async function runGeminiAgent(
     const modelName = process.env.GEMINI_MODEL || "gemini-1.5-pro";
 
     // Convert agent tools to Gemini function declarations
-    const tools = toolsToGeminiFunctions(config.tools);
+    const tools = toolsToGeminiFunctions((config.tools || []) as string[]);
 
     const model = genAI.getGenerativeModel({
       model: modelName,
-      tools: tools.length > 0 ? [{ functionDeclarations: tools }] : undefined,
+      tools: tools.length > 0 ? [{ functionDeclarations: tools }] as any : undefined,
     });
 
     // Build prompt with system instructions and user input
@@ -106,7 +106,7 @@ export async function runGeminiAgent(
         },
       }));
 
-      const finalResult = await chat.sendMessage(functionResponseParts);
+      const finalResult = await chat.sendMessage(functionResponseParts as any);
       const finalText = finalResult.response.text();
 
       return {

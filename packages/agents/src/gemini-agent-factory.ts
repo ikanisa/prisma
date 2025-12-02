@@ -1,5 +1,5 @@
-import type { AgentRegistryLoader } from './registry-loader';
-import type { DeepSearchWrapper } from './deep-search-wrapper';
+import { AgentRegistryLoader } from './registry-loader.js';
+import { DeepSearchWrapper } from './deep-search-wrapper.js';
 
 export interface GeminiAgentConfig {
   apiKey: string;
@@ -97,7 +97,7 @@ export class GeminiAgentFactory {
   }
 
   listAvailableAgents(): Array<{ id: string; label: string; group: string }> {
-    return this.registry.getAllAgents().map(agent => ({
+    return this.registry.getAllAgents().map((agent: any) => ({
       id: agent.id,
       label: agent.label,
       group: agent.group,
@@ -105,6 +105,6 @@ export class GeminiAgentFactory {
   }
 
   getAgentsByGroup(group: string): string[] {
-    return this.registry.getAgentsByGroup(group).map(a => a.id);
+    return this.registry.getAgentsByGroup(group).map((a: any) => a.id);
   }
 }

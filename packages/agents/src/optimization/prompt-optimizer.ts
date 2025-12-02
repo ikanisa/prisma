@@ -5,7 +5,7 @@
  * caching, and intelligent model selection.
  */
 
-import { logger } from '@prisma-glow/logger';
+import { logger } from '@prisma-glow/core/logger';
 
 export interface PromptVersion {
   id: string;
@@ -57,7 +57,7 @@ export class PromptOptimizer {
     agentId: string,
     timeRange: { start: Date; end: Date }
   ): Promise<PromptAnalysis> {
-    logger.info('Analyzing prompt performance', { agentId, timeRange });
+    // logger.info('Analyzing prompt performance', { agentId, timeRange });
 
     const executions = await this.getExecutions(agentId, timeRange);
     
@@ -78,7 +78,7 @@ export class PromptOptimizer {
     basePrompt: string,
     optimizationGoals: OptimizationGoal[]
   ): Promise<PromptVariation[]> {
-    logger.info('Generating prompt variations', { 
+    // logger.info('Generating prompt variations', { 
       promptLength: basePrompt.length,
       goals: optimizationGoals.map(g => g.type)
     });
