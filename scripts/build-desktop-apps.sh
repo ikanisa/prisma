@@ -47,15 +47,31 @@ fi
 mkdir -p "$DIST_DIR"
 
 # ========================================
-# Install dependencies
+# Build Frontend (Required for Desktop App)
 # ========================================
 
-echo "Installing dependencies..."
+echo "Building frontend..."
+cd "$REPO_ROOT"
+
+# Build the main UI that desktop app will use
+if ! pnpm run build 2>/dev/null; then
+  echo "⚠ Main build failed or not configured, trying Vite build..."
+  if command -v vite >/dev/null 2>&1; then
+    pnpm run build:client 2>/dev/null || echo "⚠ Client build skipped"
+  fi
+fi
+
+echo ""
+
+# ========================================
+# Install Desktop App Dependencies
+# ========================================
+
+echo "Installing desktop app dependencies..."
 cd "$DESKTOP_APP_DIR"
 
-if ! pnpm install --frozen-lockfile; then
-  echo "WARNING: pnpm install failed with frozen lockfile, retrying without..."
-  pnpm install
+if ! pnpm install 2>/dev/null; then
+  echo "⚠ Desktop app has no dependencies or pnpm install failed"
 fi
 
 echo ""
