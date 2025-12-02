@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2.0",
-  "productName": "Prisma Glow",
+  "productName": "Prisma Glow - Admin Panel",
   "version": "1.0.0",
-  "identifier": "com.prismaglow.desktop",
+  "identifier": "com.prismaglow.admin",
   "build": {
     "beforeDevCommand": "",
     "beforeBuildCommand": "",
@@ -12,7 +12,7 @@
     "withGlobalTauri": true,
     "windows": [
       {
-        "title": "Prisma Glow",
+        "title": "Prisma Glow - Admin Panel",
         "width": 1200,
         "height": 800,
         "minWidth": 800,
@@ -20,60 +20,12 @@
         "resizable": true,
         "fullscreen": false,
         "decorations": true,
-        "center": true
+        "center": true,
+        "url": "index.html"
       }
     ],
     "security": {
-      "csp": "default-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self' http://localhost:* https://api.prismaglow.com; img-src 'self' data: https:; font-src 'self' data:; style-src 'self' 'unsafe-inline'"
-    }
-  },
-  "bundle": {
-    "active": true,
-    "targets": "all",
-    "icon": [
-      "icons/32x32.png",
-      "icons/128x128.png",
-      "icons/128x128@2x.png",
-      "icons/icon.icns",
-      "icons/icon.ico"
-    ],
-    "publisher": "Prisma Glow",
-    "copyright": "Copyright © 2025 Prisma Glow",
-    "category": "BusinessApp",
-    "shortDescription": "AI-powered operations suite",
-    "longDescription": "Prisma Glow is a comprehensive AI-powered platform for accounting, tax, and audit operations with agent orchestration capabilities.",
-    "resources": [],
-    "windows": {
-      "certificateThumbprint": null,
-      "digestAlgorithm": "sha256",
-      "timestampUrl": ""
-    },
-    "macOS": {
-      "frameworks": [],
-      "minimumSystemVersion": "10.15",
-      "entitlements": null,
-      "exceptionDomain": ""
-    }
-  },
-  "plugins": {
-    "shell": {
-      "open": true
-    },
-    "dialog": {
-      "all": true,
-      "ask": true,
-      "confirm": true,
-      "message": true,
-      "open": true,
-      "save": true
-    },
-    "fs": {
-      "scope": [
-        "$APPDATA/*",
-        "$DOWNLOAD/*",
-        "$DOCUMENT/*",
-        "$DESKTOP/*"
-      ]
+      "csp": "default-src 'self' 'unsafe-inline' 'unsafe-eval'"
     }
   }
 }
