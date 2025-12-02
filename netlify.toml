@@ -1,6 +1,6 @@
 # Netlify deployment configuration for Prisma Glow
 [build]
-  command = "bash verify-files.sh && pnpm --filter @prisma-glow/web build"
+  command = "pnpm install --frozen-lockfile && bash verify-files.sh && pnpm --filter @prisma-glow/web build"
   publish = "apps/web/.next"
 
 [build.environment]
