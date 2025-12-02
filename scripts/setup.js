@@ -8,7 +8,7 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.join(__dirname, '..');
 
-console.log('🚀 Prisma Glow Setup for Netlify + Supabase');
+console.log('🚀 Prisma Glow Setup for Cloudflare Pages + Supabase');
 console.log('============================================');
 
 // Step 1: Clean existing files
@@ -91,5 +91,5 @@ console.log('\n✅ Setup complete!');
 console.log('\n📋 Next steps:');
 console.log('  1. Configure your .env.local with Supabase credentials');
 console.log('  2. Run: pnpm dev to start development');
-console.log('  3. Run: pnpm build:netlify to build for production');
-console.log('  4. Deploy to Netlify!');
+console.log('  3. Run: pnpm build to build for production');
+console.log('  4. Deploy to Cloudflare Pages!');

@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   title: 'Prisma Glow',
   description: 'AI-powered operations suite',
   manifest: '/manifest.json',
-  metadataBase: new URL('https://prisma-glow.netlify.app'),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'https://prisma-glow.pages.dev'),
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
