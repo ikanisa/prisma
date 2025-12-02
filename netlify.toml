@@ -1,6 +1,6 @@
 # Netlify deployment configuration for Prisma Glow
 [build]
-  command = "pnpm --filter @prisma-glow/web build"
+  command = "bash verify-files.sh && pnpm --filter @prisma-glow/web build"
   publish = "apps/web/.next"
 
 [build.environment]
