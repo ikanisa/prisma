@@ -4,11 +4,12 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, Query, Request, status
 from pydantic import BaseModel, Field
 import structlog
 
 from server.repositories.agent_repository import get_agent_repository
+from server.rate_limiter import rate_limit
 
 router = APIRouter(prefix="/api/v1/agents", tags=["agents"])
 logger = structlog.get_logger(__name__)
@@ -153,7 +154,8 @@ async def get_agent(slug: str, organization_id: Optional[UUID] = Query(None)):
 
 
 @router.post("", response_model=AgentResponse, status_code=201)
-async def create_agent(agent: AgentCreate):
+@rate_limit("create")
+async def create_agent(request: Request, agent: AgentCreate):
     """Create a new agent record in Supabase."""
 
     payload: Dict[str, Any] = agent.model_dump()
@@ -173,7 +175,8 @@ async def create_agent(agent: AgentCreate):
 
 
 @router.put("/{agent_id}", response_model=AgentResponse)
-async def update_agent(agent_id: UUID, updates: AgentUpdate):
+@rate_limit("create")
+async def update_agent(request: Request, agent_id: UUID, updates: AgentUpdate):
     """Update an existing agent."""
 
     update_data = updates.model_dump(exclude_unset=True)
@@ -193,7 +196,8 @@ async def update_agent(agent_id: UUID, updates: AgentUpdate):
 
 
 @router.delete("/{agent_id}", status_code=204)
-async def delete_agent(agent_id: UUID):
+@rate_limit("create")
+async def delete_agent(request: Request, agent_id: UUID):
     """Soft-delete an agent by marking it archived."""
 
     try:
