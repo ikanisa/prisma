@@ -7,7 +7,7 @@ Fails fast if critical configuration is missing in production.
 
 import os
 import sys
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any
 import structlog
 
 logger = structlog.get_logger(__name__)
@@ -104,7 +104,7 @@ class EnvValidator:
         
         return True
     
-    def validate(self, strict: bool = None) -> Dict[str, any]:
+    def validate(self, strict: bool = None) -> Dict[str, Any]:
         """
         Validate all required environment variables.
         
@@ -210,7 +210,7 @@ class EnvValidator:
         print("=" * 70 + "\n")
 
 
-def validate_config(strict: bool = None) -> Dict[str, any]:
+def validate_config(strict: bool = None) -> Dict[str, Any]:
     """
     Convenience function to validate configuration.
     
