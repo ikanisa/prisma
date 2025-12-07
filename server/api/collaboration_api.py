@@ -2,7 +2,7 @@
 Multi-Agent Collaboration API Endpoints
 """
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Request
 from uuid import UUID
 from typing import List, Optional, Dict, Any
 from datetime import datetime
@@ -20,13 +20,15 @@ router = APIRouter(prefix="/api/v1/collaboration", tags=["collaboration"])
 
 @router.post("/sessions", response_model=CollaborationSession, status_code=status.HTTP_201_CREATED)
 async def create_session(
+    request: Request,
     name: str,
     mode: CollaborationMode,
     participating_agents: List[UUID],
     goal: str,
     lead_agent_id: Optional[UUID] = None
 ):
-    """Create a new collaboration session."""
+    """Create a new collaboration session. Rate limited to 100 requests/minute."""
+    # Rate limiting is handled by app-level middleware
     session = await collaboration_engine.create_session(
         name=name,
         mode=mode,

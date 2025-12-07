@@ -52,8 +52,8 @@ async def ingest(request: IngestRequest) -> Dict[str, Any]:
     - Use existing server/rag.py functions
     """
     raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Endpoint not yet migrated from main.py"
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail="Feature under development - endpoint migration in progress"
     )
 
 
@@ -67,8 +67,8 @@ async def search(request: SearchRequest) -> Dict[str, Any]:
     TODO: Migrate from main.py line ~4413
     """
     raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Endpoint not yet migrated from main.py"
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail="Feature under development - endpoint migration in progress"
     )
 
 
@@ -82,6 +82,6 @@ async def reembed(request: ReembedRequest) -> Dict[str, Any]:
     TODO: Migrate from main.py line ~4447
     """
     raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Endpoint not yet migrated from main.py"
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail="Feature under development - endpoint migration in progress"
     )

@@ -47,8 +47,8 @@ async def list_controls() -> List[Dict[str, Any]]:
     TODO: Migrate from main.py
     """
     raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Endpoint not yet migrated from main.py"
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail="Feature under development - endpoint migration in progress"
     )
 
 
@@ -60,8 +60,8 @@ async def create_control(request: ControlCreate) -> Dict[str, Any]:
     TODO: Migrate from main.py
     """
     raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Endpoint not yet migrated from main.py"
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail="Feature under development - endpoint migration in progress"
     )
 
 
@@ -73,8 +73,8 @@ async def run_control_test(request: ControlTestRun) -> Dict[str, Any]:
     TODO: Migrate from main.py
     """
     raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Endpoint not yet migrated from main.py"
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail="Feature under development - endpoint migration in progress"
     )
 
 
@@ -86,8 +86,8 @@ async def control_walkthrough(request: ControlWalkthrough) -> Dict[str, Any]:
     TODO: Migrate from main.py
     """
     raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Endpoint not yet migrated from main.py"
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail="Feature under development - endpoint migration in progress"
     )
 
 
@@ -106,6 +106,6 @@ async def list_audit_logs(
     TODO: Migrate from main.py
     """
     raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Endpoint not yet migrated from main.py"
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail="Feature under development - endpoint migration in progress"
     )
