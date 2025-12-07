@@ -53,9 +53,10 @@ def rate_limit_error_handler(request: Request, exc: RateLimitExceeded):
     Custom error handler for rate limit exceeded errors.
     Returns 429 status with informative error message.
     """
-    return HTTPException(
+    from fastapi.responses import JSONResponse
+    return JSONResponse(
         status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-        detail={
+        content={
             "error": "rate_limit_exceeded",
             "message": "Too many requests. Please try again later.",
             "retry_after": exc.detail,

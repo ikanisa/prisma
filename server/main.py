@@ -307,35 +307,6 @@ async def apply_security_headers(request, call_next):
             response.headers[header] = value
     return response
 
-
-@app.middleware("http")
-async def rate_limit_write_endpoints(request: Request, call_next):
-    """
-    Apply rate limiting to write endpoints (POST, PUT, PATCH, DELETE).
-    Limits to 100 requests per minute per IP for write operations.
-    """
-    if request.method in ["POST", "PUT", "PATCH", "DELETE"]:
-        # Get rate limiter from app state
-        limiter = getattr(request.app.state, "limiter", None)
-        if limiter:
-            try:
-                # Apply rate limit
-                await limiter.check_rate_limit(
-                    request, 
-                    endpoint=f"{request.method}:{request.url.path}",
-                    limit_type="create"
-                )
-            except HTTPException as e:
-                # Return rate limit error response
-                return JSONResponse(
-                    status_code=e.status_code,
-                    content=e.detail if isinstance(e.detail, dict) else {"error": str(e.detail)},
-                    headers=e.headers or {}
-                )
-    
-    response = await call_next(request)
-    return response
-
 structlog.configure(
     processors=[
         structlog.contextvars.merge_contextvars,
@@ -374,17 +345,46 @@ ALLOWED_ORIGINS = normalise_allowed_origins(os.getenv("API_ALLOWED_ORIGINS"))
 redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 redis_conn = redis.from_url(redis_url)
 
-# Apply security middleware (CORS is already configured above)
 # Import rate limiting middleware
 from .security_middleware import setup_rate_limiting
-from .middleware.rate_limit import limiter as rate_limiter
 from .rate_limiter import RateLimiter
 
-# Setup rate limiting
-limiter = setup_rate_limiting(app)
-# Initialize Redis-backed rate limiter for write endpoints
+# Initialize Redis-backed rate limiter for write endpoints BEFORE middleware
 write_endpoint_limiter = RateLimiter(redis_client=redis_conn)
 app.state.limiter = write_endpoint_limiter
+
+# Setup slowapi rate limiting
+limiter = setup_rate_limiting(app)
+
+
+# Define rate limiting middleware AFTER initializing the limiter
+@app.middleware("http")
+async def rate_limit_write_endpoints(request: Request, call_next):
+    """
+    Apply rate limiting to write endpoints (POST, PUT, PATCH, DELETE).
+    Limits to 100 requests per minute per IP for write operations.
+    """
+    if request.method in ["POST", "PUT", "PATCH", "DELETE"]:
+        # Get rate limiter from app state
+        limiter = getattr(request.app.state, "limiter", None)
+        if limiter:
+            try:
+                # Apply rate limit
+                await limiter.check_rate_limit(
+                    request, 
+                    endpoint=f"{request.method}:{request.url.path}",
+                    limit_type="create"
+                )
+            except HTTPException as e:
+                # Return rate limit error response
+                return JSONResponse(
+                    status_code=e.status_code,
+                    content=e.detail if isinstance(e.detail, dict) else {"error": str(e.detail)},
+                    headers=e.headers or {}
+                )
+    
+    response = await call_next(request)
+    return response
 
 app.add_middleware(
     CORSMiddleware,
