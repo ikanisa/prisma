@@ -345,16 +345,12 @@ ALLOWED_ORIGINS = normalise_allowed_origins(os.getenv("API_ALLOWED_ORIGINS"))
 redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 redis_conn = redis.from_url(redis_url)
 
-# Import rate limiting middleware
-from .security_middleware import setup_rate_limiting
+# Import rate limiting classes
 from .rate_limiter import RateLimiter
 
-# Initialize Redis-backed rate limiter for write endpoints BEFORE middleware
+# Initialize Redis-backed rate limiter for write endpoints
 write_endpoint_limiter = RateLimiter(redis_client=redis_conn)
 app.state.limiter = write_endpoint_limiter
-
-# Setup slowapi rate limiting
-limiter = setup_rate_limiting(app)
 
 
 # Define rate limiting middleware AFTER initializing the limiter
@@ -369,11 +365,12 @@ async def rate_limit_write_endpoints(request: Request, call_next):
         limiter = getattr(request.app.state, "limiter", None)
         if limiter:
             try:
-                # Apply rate limit
+                # Apply rate limit - using 'create' for POST, 'default' for others
+                limit_type = "create" if request.method == "POST" else "default"
                 await limiter.check_rate_limit(
                     request, 
                     endpoint=f"{request.method}:{request.url.path}",
-                    limit_type="create"
+                    limit_type=limit_type
                 )
             except HTTPException as e:
                 # Return rate limit error response
