@@ -2,9 +2,11 @@
 Workflows & Controls API Router
 Handles control testing, walkthroughs, and audit logs
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from pydantic import BaseModel
 from typing import Dict, Any, List, Optional
+
+from server.rate_limiter import rate_limit
 
 router = APIRouter(prefix="/api", tags=["workflows", "controls"])
 
@@ -48,12 +50,14 @@ async def list_controls() -> List[Dict[str, Any]]:
     """
     raise HTTPException(
         status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail="Controls management service is coming soon. This feature is currently under development and will be available in a future release."
         detail="Feature under development - endpoint migration in progress"
     )
 
 
 @router.post("/controls")
-async def create_control(request: ControlCreate) -> Dict[str, Any]:
+@rate_limit("create")
+async def create_control(request: Request, control_request: ControlCreate) -> Dict[str, Any]:
     """
     Create a new control
     
@@ -61,12 +65,14 @@ async def create_control(request: ControlCreate) -> Dict[str, Any]:
     """
     raise HTTPException(
         status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail="Controls management service is coming soon. This feature is currently under development and will be available in a future release."
         detail="Feature under development - endpoint migration in progress"
     )
 
 
 @router.post("/controls/test/run")
-async def run_control_test(request: ControlTestRun) -> Dict[str, Any]:
+@rate_limit("create")
+async def run_control_test(request: Request, test_request: ControlTestRun) -> Dict[str, Any]:
     """
     Execute a control test
     
@@ -74,12 +80,14 @@ async def run_control_test(request: ControlTestRun) -> Dict[str, Any]:
     """
     raise HTTPException(
         status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail="Control testing service is coming soon. This feature is currently under development and will be available in a future release."
         detail="Feature under development - endpoint migration in progress"
     )
 
 
 @router.post("/controls/walkthrough")
-async def control_walkthrough(request: ControlWalkthrough) -> Dict[str, Any]:
+@rate_limit("create")
+async def control_walkthrough(request: Request, walkthrough_request: ControlWalkthrough) -> Dict[str, Any]:
     """
     Perform control walkthrough
     
@@ -87,6 +95,7 @@ async def control_walkthrough(request: ControlWalkthrough) -> Dict[str, Any]:
     """
     raise HTTPException(
         status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail="Control walkthrough service is coming soon. This feature is currently under development and will be available in a future release."
         detail="Feature under development - endpoint migration in progress"
     )
 
@@ -107,5 +116,6 @@ async def list_audit_logs(
     """
     raise HTTPException(
         status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail="Audit log service is coming soon. This feature is currently under development and will be available in a future release."
         detail="Feature under development - endpoint migration in progress"
     )
