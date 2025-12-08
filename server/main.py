@@ -89,10 +89,46 @@ from .routers.organization import router as organization_router
 from .routers.iam import router as iam_router
 from server.api.documents import router as ada_router
 
+
+def validate_required_env_vars():
+    """
+    Validate required environment variables at startup.
+    Fail fast with clear error messages if critical config is missing.
+    """
+    required_vars = {
+        "SUPABASE_URL": "Supabase project URL (e.g., https://xxx.supabase.co)",
+        "SUPABASE_SERVICE_ROLE_KEY": "Supabase service role key for backend operations",
+        "SUPABASE_JWT_SECRET": "Supabase JWT secret for token validation",
+    }
+    
+    missing_vars = []
+    for var_name, description in required_vars.items():
+        value = os.getenv(var_name)
+        if not value or not value.strip():
+            missing_vars.append(f"  - {var_name}: {description}")
+    
+    if missing_vars:
+        error_msg = (
+            "Missing required environment variables:\n"
+            + "\n".join(missing_vars)
+            + "\n\nPlease set these variables in your .env file or environment."
+        )
+        raise RuntimeError(error_msg)
+
+
 @contextlib.asynccontextmanager
 async def lifespan(app: FastAPI):
     """Manage application lifespan - startup and shutdown"""
     logger = structlog.get_logger(__name__)
+    
+    # Validate environment variables first
+    try:
+        validate_required_env_vars()
+        logger.info("Environment validation passed")
+    except RuntimeError as e:
+        logger.error("Environment validation failed", error=str(e))
+        raise
+    
     # Startup: Initialize cache
     cache = get_cache()
     await cache.connect()
@@ -305,12 +341,47 @@ def _load_permission_map() -> Dict[str, str]:
 
 ALLOWED_ORIGINS = normalise_allowed_origins(os.getenv("API_ALLOWED_ORIGINS"))
 
-# Apply security middleware (CORS is already configured above)
-# Import rate limiting middleware
-from .security_middleware import setup_rate_limiting
+# Initialize Redis connection (used by rate limiting and job queue)
+redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+redis_conn = redis.from_url(redis_url)
 
-# Setup rate limiting
-limiter = setup_rate_limiting(app)
+# Import rate limiting classes
+from .rate_limiter import RateLimiter
+
+# Initialize Redis-backed rate limiter for write endpoints
+write_endpoint_limiter = RateLimiter(redis_client=redis_conn)
+app.state.limiter = write_endpoint_limiter
+
+
+# Define rate limiting middleware AFTER initializing the limiter
+@app.middleware("http")
+async def rate_limit_write_endpoints(request: Request, call_next):
+    """
+    Apply rate limiting to write endpoints (POST, PUT, PATCH, DELETE).
+    Limits to 100 requests per minute per IP for write operations.
+    """
+    if request.method in ["POST", "PUT", "PATCH", "DELETE"]:
+        # Get rate limiter from app state
+        limiter = getattr(request.app.state, "limiter", None)
+        if limiter:
+            try:
+                # Apply rate limit - using 'create' for POST, 'default' for others
+                limit_type = "create" if request.method == "POST" else "default"
+                await limiter.check_rate_limit(
+                    request, 
+                    endpoint=f"{request.method}:{request.url.path}",
+                    limit_type=limit_type
+                )
+            except HTTPException as e:
+                # Return rate limit error response
+                return JSONResponse(
+                    status_code=e.status_code,
+                    content=e.detail if isinstance(e.detail, dict) else {"error": str(e.detail)},
+                    headers=e.headers or {}
+                )
+    
+    response = await call_next(request)
+    return response
 
 app.add_middleware(
     CORSMiddleware,
@@ -320,8 +391,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
-redis_conn = redis.from_url(redis_url)
 queue = Queue("reembed", connection=redis_conn)
 
 JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET")
@@ -6389,6 +6458,12 @@ app.include_router(websocket_api_router)
 app.include_router(collaboration_api_router)
 # Agents SDK Router (OpenAI Agents SDK & Gemini ADK)
 from server.api.agents_sdk import router as agents_sdk_router
+from server.api.rag import router as rag_router
+from server.api.workflows import router as workflows_router
+from server.api.health import router as health_router
 
 app.include_router(agents_sdk_router)
 app.include_router(deep_search_router)
+app.include_router(rag_router)
+app.include_router(workflows_router)
+app.include_router(health_router)
