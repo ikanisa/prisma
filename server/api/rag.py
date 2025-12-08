@@ -57,6 +57,7 @@ async def ingest(request: Request, ingest_request: IngestRequest) -> Dict[str, A
     raise HTTPException(
         status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
         detail="RAG ingestion service is coming soon. This feature is currently under development and will be available in a future release."
+        detail="Feature under development - endpoint migration in progress"
     )
 
 
@@ -73,6 +74,7 @@ async def search(request: Request, search_request: SearchRequest) -> Dict[str, A
     raise HTTPException(
         status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
         detail="RAG search service is coming soon. This feature is currently under development and will be available in a future release."
+        detail="Feature under development - endpoint migration in progress"
     )
 
 
@@ -89,4 +91,5 @@ async def reembed(request: Request, reembed_request: ReembedRequest) -> Dict[str
     raise HTTPException(
         status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
         detail="RAG re-embedding service is coming soon. This feature is currently under development and will be available in a future release."
+        detail="Feature under development - endpoint migration in progress"
     )

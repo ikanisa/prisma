@@ -51,6 +51,7 @@ async def list_controls() -> List[Dict[str, Any]]:
     raise HTTPException(
         status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
         detail="Controls management service is coming soon. This feature is currently under development and will be available in a future release."
+        detail="Feature under development - endpoint migration in progress"
     )
 
 
@@ -65,6 +66,7 @@ async def create_control(request: Request, control_request: ControlCreate) -> Di
     raise HTTPException(
         status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
         detail="Controls management service is coming soon. This feature is currently under development and will be available in a future release."
+        detail="Feature under development - endpoint migration in progress"
     )
 
 
@@ -79,6 +81,7 @@ async def run_control_test(request: Request, test_request: ControlTestRun) -> Di
     raise HTTPException(
         status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
         detail="Control testing service is coming soon. This feature is currently under development and will be available in a future release."
+        detail="Feature under development - endpoint migration in progress"
     )
 
 
@@ -93,6 +96,7 @@ async def control_walkthrough(request: Request, walkthrough_request: ControlWalk
     raise HTTPException(
         status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
         detail="Control walkthrough service is coming soon. This feature is currently under development and will be available in a future release."
+        detail="Feature under development - endpoint migration in progress"
     )
 
 
@@ -113,4 +117,5 @@ async def list_audit_logs(
     raise HTTPException(
         status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
         detail="Audit log service is coming soon. This feature is currently under development and will be available in a future release."
+        detail="Feature under development - endpoint migration in progress"
     )
