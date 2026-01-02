@@ -90,11 +90,13 @@ ALTER TABLE analytics_events ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies
 DROP POLICY IF EXISTS "Users can view own profile" ON profiles;
-CREATE POLICY "Users can view own profile" ON profiles
+DROP POLICY IF EXISTS "Users can view own profile" ON profiles CASCADE;
+CREATE POLICY "Users can view own profile"
   FOR SELECT USING (auth.uid() = id);
 
 DROP POLICY IF EXISTS "Users can update own profile" ON profiles;
-CREATE POLICY "Users can update own profile" ON profiles
+DROP POLICY IF EXISTS "Users can update own profile" ON profiles CASCADE;
+CREATE POLICY "Users can update own profile"
   FOR UPDATE USING (auth.uid() = id);
 
 -- Vector search function
@@ -137,13 +139,13 @@ END;
 $$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS update_profiles_updated_at ON profiles CASCADE;
+DROP TRIGGER IF EXISTS update_profiles_updated_at ON profiles CASCADE;
 CREATE TRIGGER update_profiles_updated_at
-  BEFORE UPDATE ON profiles
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at();
 
 DROP TRIGGER IF EXISTS update_organizations_updated_at ON organizations CASCADE;
+DROP TRIGGER IF EXISTS update_organizations_updated_at ON organizations CASCADE;
 CREATE TRIGGER update_organizations_updated_at
-  BEFORE UPDATE ON organizations
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at();

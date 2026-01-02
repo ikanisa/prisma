@@ -9,27 +9,27 @@ BEGIN;
 -- ============================================================================
 
 -- Composite index for organization + created_at queries (most common)
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_documents_org_created
+CREATE INDEX IF NOT EXISTS CONCURRENTLY IF NOT EXISTS idx_documents_org_created
   ON documents(organization_id, created_at DESC)
   WHERE deleted_at IS NULL;
 
 -- Index for status filtering
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_documents_status
+CREATE INDEX IF NOT EXISTS CONCURRENTLY IF NOT EXISTS idx_documents_status
   ON documents(status)
   WHERE deleted_at IS NULL;
 
 -- Composite index for organization + type + status
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_documents_org_type_status
+CREATE INDEX IF NOT EXISTS CONCURRENTLY IF NOT EXISTS idx_documents_org_type_status
   ON documents(organization_id, document_type, status)
   WHERE deleted_at IS NULL;
 
 -- Full-text search index on content
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_documents_content_search
+CREATE INDEX IF NOT EXISTS CONCURRENTLY IF NOT EXISTS idx_documents_content_search
   ON documents USING gin(to_tsvector('english', content))
   WHERE deleted_at IS NULL;
 
 -- Index for document owner queries
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_documents_created_by
+CREATE INDEX IF NOT EXISTS CONCURRENTLY IF NOT EXISTS idx_documents_created_by
   ON documents(created_by, created_at DESC)
   WHERE deleted_at IS NULL;
 
@@ -38,24 +38,24 @@ CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_documents_created_by
 -- ============================================================================
 
 -- Composite index for assignee + status + due date
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_tasks_assignee_status_due
+CREATE INDEX IF NOT EXISTS CONCURRENTLY IF NOT EXISTS idx_tasks_assignee_status_due
   ON tasks(assignee_id, status, due_date)
   WHERE deleted_at IS NULL;
 
 -- Index for active tasks only (partial index for performance)
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_tasks_active
+CREATE INDEX IF NOT EXISTS CONCURRENTLY IF NOT EXISTS idx_tasks_active
   ON tasks(organization_id, status, due_date)
   WHERE deleted_at IS NULL AND status != 'COMPLETED';
 
 -- Index for overdue tasks
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_tasks_overdue
+CREATE INDEX IF NOT EXISTS CONCURRENTLY IF NOT EXISTS idx_tasks_overdue
   ON tasks(organization_id, due_date)
   WHERE deleted_at IS NULL 
     AND status NOT IN ('COMPLETED', 'CANCELLED')
     AND due_date < CURRENT_DATE;
 
 -- Index for task creator queries
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_tasks_created_by
+CREATE INDEX IF NOT EXISTS CONCURRENTLY IF NOT EXISTS idx_tasks_created_by
   ON tasks(created_by, created_at DESC)
   WHERE deleted_at IS NULL;
 
@@ -64,19 +64,19 @@ CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_tasks_created_by
 -- ============================================================================
 
 -- Composite index for entity lookups
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_activity_events_entity
+CREATE INDEX IF NOT EXISTS CONCURRENTLY IF NOT EXISTS idx_activity_events_entity
   ON activity_events(entity_type, entity_id, created_at DESC);
 
 -- Index for organization activity feed
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_activity_events_org_created
+CREATE INDEX IF NOT EXISTS CONCURRENTLY IF NOT EXISTS idx_activity_events_org_created
   ON activity_events(organization_id, created_at DESC);
 
 -- Index for user activity
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_activity_events_user
+CREATE INDEX IF NOT EXISTS CONCURRENTLY IF NOT EXISTS idx_activity_events_user
   ON activity_events(user_id, created_at DESC);
 
 -- Index for event type filtering
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_activity_events_type
+CREATE INDEX IF NOT EXISTS CONCURRENTLY IF NOT EXISTS idx_activity_events_type
   ON activity_events(event_type, created_at DESC);
 
 -- ============================================================================
@@ -84,19 +84,19 @@ CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_activity_events_type
 -- ============================================================================
 
 -- Composite index for engagement lookups
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_audit_responses_engagement
+CREATE INDEX IF NOT EXISTS CONCURRENTLY IF NOT EXISTS idx_audit_responses_engagement
   ON audit_responses(engagement_id, control_id);
 
 -- Index for organization audit queries
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_audit_responses_org
+CREATE INDEX IF NOT EXISTS CONCURRENTLY IF NOT EXISTS idx_audit_responses_org
   ON audit_responses(organization_id, created_at DESC);
 
 -- Index for response status
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_audit_responses_status
+CREATE INDEX IF NOT EXISTS CONCURRENTLY IF NOT EXISTS idx_audit_responses_status
   ON audit_responses(status, updated_at DESC);
 
 -- Index for creator queries
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_audit_responses_created_by
+CREATE INDEX IF NOT EXISTS CONCURRENTLY IF NOT EXISTS idx_audit_responses_created_by
   ON audit_responses(created_by, created_at DESC);
 
 -- ============================================================================
@@ -113,7 +113,7 @@ CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_audit_responses_created_by
 --   WHERE deleted_at IS NULL;
 
 -- Additional index for knowledge document search
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_knowledge_docs_title_search
+CREATE INDEX IF NOT EXISTS CONCURRENTLY IF NOT EXISTS idx_knowledge_docs_title_search
   ON knowledge_documents USING gin(to_tsvector('english', title || ' ' || COALESCE(description, '')))
   WHERE deleted_at IS NULL;
 
@@ -131,7 +131,7 @@ CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_knowledge_docs_title_search
 --   WHERE deleted_at IS NULL;
 
 -- Additional index for member lookups by email
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_org_members_email
+CREATE INDEX IF NOT EXISTS CONCURRENTLY IF NOT EXISTS idx_org_members_email
   ON organization_members(email)
   WHERE deleted_at IS NULL;
 
@@ -140,7 +140,7 @@ CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_org_members_email
 -- ============================================================================
 
 -- Index for organization name search
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_organizations_name
+CREATE INDEX IF NOT EXISTS CONCURRENTLY IF NOT EXISTS idx_organizations_name
   ON organizations(name)
   WHERE deleted_at IS NULL;
 
@@ -154,12 +154,12 @@ CREATE UNIQUE INDEX CONCURRENTLY IF NOT EXISTS idx_organizations_slug_unique
 -- ============================================================================
 
 -- Index for organization tax returns
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_tax_returns_org_year
+CREATE INDEX IF NOT EXISTS CONCURRENTLY IF NOT EXISTS idx_tax_returns_org_year
   ON tax_returns(organization_id, tax_year DESC)
   WHERE deleted_at IS NULL;
 
 -- Index for tax return status
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_tax_returns_status
+CREATE INDEX IF NOT EXISTS CONCURRENTLY IF NOT EXISTS idx_tax_returns_status
   ON tax_returns(status, due_date)
   WHERE deleted_at IS NULL;
 
@@ -168,7 +168,7 @@ CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_tax_returns_status
 -- ============================================================================
 
 -- Index for organization financial reports
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_financial_reports_org_period
+CREATE INDEX IF NOT EXISTS CONCURRENTLY IF NOT EXISTS idx_financial_reports_org_period
   ON financial_reports(organization_id, period_start DESC)
   WHERE deleted_at IS NULL;
 

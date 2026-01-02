@@ -14,6 +14,8 @@ BEGIN
   'ESTIMATE',
   'OTHER'
   );
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
 EXCEPTION
   WHEN duplicate_object THEN NULL;
 END;
@@ -25,6 +27,8 @@ BEGIN
   CREATE TYPE public.risk_rating AS ENUM (
 'LOW', 'MODERATE', 'HIGH', 'SIGNIFICANT'
   );
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
 EXCEPTION
   WHEN duplicate_object THEN NULL;
 END;
@@ -35,6 +39,8 @@ BEGIN
   CREATE TYPE public.risk_status AS ENUM (
 'OPEN', 'MONITORED', 'CLOSED'
   );
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
 EXCEPTION
   WHEN duplicate_object THEN NULL;
 END;
@@ -99,8 +105,8 @@ CREATE TABLE IF NOT EXISTS public.audit_risk_activity (
 
 CREATE INDEX IF NOT EXISTS idx_audit_risk_activity_risk ON public.audit_risk_activity(risk_id);
 
+DROP TRIGGER IF EXISTS trg_audit_risks_touch ON audit_risks CASCADE;
 CREATE TRIGGER trg_audit_risks_touch
-  BEFORE UPDATE ON public.audit_risks
   FOR EACH ROW
   EXECUTE FUNCTION app.touch_updated_at();
 

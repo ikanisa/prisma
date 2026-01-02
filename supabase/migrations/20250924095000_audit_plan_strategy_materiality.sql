@@ -54,13 +54,13 @@ CREATE TABLE IF NOT EXISTS public.plan_change_log (
 CREATE INDEX IF NOT EXISTS idx_plan_change_log_plan ON public.plan_change_log(plan_id);
 CREATE INDEX IF NOT EXISTS idx_plan_change_log_engagement ON public.plan_change_log(engagement_id);
 
+DROP TRIGGER IF EXISTS trg_audit_plans_touch ON audit_plans CASCADE;
 CREATE TRIGGER trg_audit_plans_touch
-  BEFORE UPDATE ON public.audit_plans
   FOR EACH ROW
   EXECUTE FUNCTION app.touch_updated_at();
 
+DROP TRIGGER IF EXISTS trg_materiality_sets_touch ON materiality_sets CASCADE;
 CREATE TRIGGER trg_materiality_sets_touch
-  BEFORE UPDATE ON public.materiality_sets
   FOR EACH ROW
   EXECUTE FUNCTION app.touch_updated_at();
 

@@ -47,8 +47,14 @@ CREATE POLICY learning_metrics_write ON public.learning_metrics
   FOR ALL USING (public.has_min_role(org_id, 'MANAGER'::public.role_level));
 
 CREATE TYPE public.learning_job_status AS ENUM ('PENDING', 'READY', 'IN_PROGRESS', 'APPLIED', 'FAILED', 'ROLLED_BACK');
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
 CREATE TYPE public.learning_job_kind AS ENUM ('query_hint_add', 'guardrail_tune', 'canonicalizer_update', 'denylist_update', 'rollback_policy');
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
 CREATE TYPE public.denylist_action AS ENUM ('deny', 'deboost');
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
 
 CREATE TABLE IF NOT EXISTS public.agent_policy_versions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

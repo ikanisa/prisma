@@ -30,9 +30,9 @@ BEGIN
     WHERE tgname = 'trg_tax_entity_relationships_touch'
       AND tgrelid = 'public.tax_entity_relationships'::regclass
   ) THEN
-    CREATE TRIGGER trg_tax_entity_relationships_touch
-      BEFORE UPDATE ON public.tax_entity_relationships
-      FOR EACH ROW EXECUTE FUNCTION app.touch_updated_at();
+    DROP TRIGGER IF EXISTS trg_tax_entity_relationships_touch ON tax_entity_relationships CASCADE;
+DROP TRIGGER IF EXISTS trg_tax_entity_relationships_touch ON app CASCADE;
+CREATE TRIGGER trg_tax_entity_relationships_touch.touch_updated_at();
   END IF;
 END;
 $$;
@@ -70,9 +70,9 @@ BEGIN
     WHERE tgname = 'trg_pillar_two_computations_touch'
       AND tgrelid = 'public.pillar_two_computations'::regclass
   ) THEN
-    CREATE TRIGGER trg_pillar_two_computations_touch
-      BEFORE UPDATE ON public.pillar_two_computations
-      FOR EACH ROW EXECUTE FUNCTION app.touch_updated_at();
+    DROP TRIGGER IF EXISTS trg_pillar_two_computations_touch ON pillar_two_computations CASCADE;
+DROP TRIGGER IF EXISTS trg_pillar_two_computations_touch ON app CASCADE;
+CREATE TRIGGER trg_pillar_two_computations_touch.touch_updated_at();
   END IF;
 END;
 $$;

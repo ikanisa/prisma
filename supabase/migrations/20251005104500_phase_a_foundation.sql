@@ -10,6 +10,8 @@ BEGIN
     WHERE n.nspname = 'public' AND t.typname = 'autonomy_level'
   ) THEN
     CREATE TYPE public.autonomy_level AS ENUM ('L0', 'L1', 'L2', 'L3');
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
   END IF;
 END $$;
 

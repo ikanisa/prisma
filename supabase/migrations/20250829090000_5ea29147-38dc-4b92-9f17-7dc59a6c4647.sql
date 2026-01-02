@@ -19,16 +19,20 @@ BEGIN
 
     ALTER TABLE public.transactions ENABLE ROW LEVEL SECURITY;
 
-    CREATE POLICY "transactions_read" ON public.transactions
+    DROP POLICY IF EXISTS "transactions_read" ON transactions CASCADE;
+CREATE POLICY "transactions_read"
       FOR SELECT USING (public.is_member_of(org_id));
 
-    CREATE POLICY "transactions_insert" ON public.transactions
+    DROP POLICY IF EXISTS "transactions_insert" ON transactions CASCADE;
+CREATE POLICY "transactions_insert"
       FOR INSERT WITH CHECK (public.is_member_of(org_id));
 
-    CREATE POLICY "transactions_update" ON public.transactions
+    DROP POLICY IF EXISTS "transactions_update" ON transactions CASCADE;
+CREATE POLICY "transactions_update"
       FOR UPDATE USING (public.has_min_role(org_id, 'MANAGER'::public.role_level));
 
-    CREATE POLICY "transactions_delete" ON public.transactions
+    DROP POLICY IF EXISTS "transactions_delete" ON transactions CASCADE;
+CREATE POLICY "transactions_delete"
       FOR DELETE USING (
         EXISTS (SELECT 1 FROM public.users u WHERE u.id = auth.uid() AND u.is_system_admin = true)
       );

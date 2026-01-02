@@ -37,8 +37,8 @@ BEGIN
     WHERE tgname = 'trg_nid_computations_touch'
       AND tgrelid = 'public.nid_computations'::regclass
   ) THEN
-    CREATE TRIGGER trg_nid_computations_touch
-      BEFORE UPDATE ON public.nid_computations
+    DROP TRIGGER IF EXISTS trg_nid_computations_touch ON nid_computations CASCADE;
+CREATE TRIGGER trg_nid_computations_touch
       FOR EACH ROW
       EXECUTE FUNCTION app.touch_updated_at();
   END IF;
@@ -81,8 +81,8 @@ BEGIN
     WHERE tgname = 'trg_patent_box_computations_touch'
       AND tgrelid = 'public.patent_box_computations'::regclass
   ) THEN
-    CREATE TRIGGER trg_patent_box_computations_touch
-      BEFORE UPDATE ON public.patent_box_computations
+    DROP TRIGGER IF EXISTS trg_patent_box_computations_touch ON patent_box_computations CASCADE;
+CREATE TRIGGER trg_patent_box_computations_touch
       FOR EACH ROW
       EXECUTE FUNCTION app.touch_updated_at();
   END IF;

@@ -5,6 +5,8 @@ DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'us_overlay_type') THEN
     CREATE TYPE public.us_overlay_type AS ENUM ('GILTI', '163J', 'CAMT', 'EXCISE_4501');
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
   END IF;
 END;
 $$;
@@ -36,8 +38,8 @@ BEGIN
     WHERE tgname = 'trg_us_tax_overlay_touch'
       AND tgrelid = 'public.us_tax_overlay_calculations'::regclass
   ) THEN
-    CREATE TRIGGER trg_us_tax_overlay_touch
-      BEFORE UPDATE ON public.us_tax_overlay_calculations
+    DROP TRIGGER IF EXISTS trg_us_tax_overlay_touch ON us_tax_overlay_calculations CASCADE;
+CREATE TRIGGER trg_us_tax_overlay_touch
       FOR EACH ROW EXECUTE FUNCTION app.touch_updated_at();
   END IF;
 END;

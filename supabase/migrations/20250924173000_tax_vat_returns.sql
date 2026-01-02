@@ -35,8 +35,8 @@ BEGIN
     WHERE tgname = 'trg_vat_filings_touch'
       AND tgrelid = 'public.vat_filings'::regclass
   ) THEN
-    CREATE TRIGGER trg_vat_filings_touch
-      BEFORE UPDATE ON public.vat_filings
+    DROP TRIGGER IF EXISTS trg_vat_filings_touch ON vat_filings CASCADE;
+CREATE TRIGGER trg_vat_filings_touch
       FOR EACH ROW
       EXECUTE FUNCTION app.touch_updated_at();
   END IF;

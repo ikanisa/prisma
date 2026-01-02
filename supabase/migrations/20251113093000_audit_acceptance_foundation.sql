@@ -11,6 +11,8 @@ BEGIN
     WHERE n.nspname = 'public' AND t.typname = 'background_risk_rating'
   ) THEN
     CREATE TYPE public.background_risk_rating AS ENUM ('LOW','MEDIUM','HIGH','UNKNOWN');
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
   END IF;
 END $$;
 
@@ -23,6 +25,8 @@ BEGIN
     WHERE n.nspname = 'public' AND t.typname = 'independence_conclusion'
   ) THEN
     CREATE TYPE public.independence_conclusion AS ENUM ('OK','SAFEGUARDS_REQUIRED','PROHIBITED');
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
   END IF;
 END $$;
 
@@ -35,6 +39,8 @@ BEGIN
     WHERE n.nspname = 'public' AND t.typname = 'acceptance_decision'
   ) THEN
     CREATE TYPE public.acceptance_decision AS ENUM ('ACCEPT','DECLINE');
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
   END IF;
 END $$;
 
@@ -47,6 +53,8 @@ BEGIN
     WHERE n.nspname = 'public' AND t.typname = 'acceptance_status'
   ) THEN
     CREATE TYPE public.acceptance_status AS ENUM ('DRAFT','APPROVED','REJECTED');
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
   END IF;
 END $$;
 
@@ -59,6 +67,8 @@ BEGIN
     WHERE n.nspname = 'public' AND t.typname = 'approval_status'
   ) THEN
     CREATE TYPE public.approval_status AS ENUM ('PENDING','APPROVED','REJECTED','CANCELLED');
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
   END IF;
 END $$;
 
@@ -71,6 +81,8 @@ BEGIN
     WHERE n.nspname = 'public' AND t.typname = 'approval_stage'
   ) THEN
     CREATE TYPE public.approval_stage AS ENUM ('MANAGER','PARTNER','EQR');
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
   END IF;
 END $$;
 
@@ -155,16 +167,16 @@ CREATE INDEX IF NOT EXISTS idx_approval_queue_stage
   ON public.approval_queue(stage);
 
 -- Triggers ---------------------------------------------------------------
+DROP TRIGGER IF EXISTS trg_independence_assessments_touch ON independence_assessments CASCADE;
 CREATE TRIGGER trg_independence_assessments_touch
-  BEFORE UPDATE ON public.independence_assessments
   FOR EACH ROW EXECUTE FUNCTION app.touch_updated_at();
 
+DROP TRIGGER IF EXISTS trg_acceptance_decisions_touch ON acceptance_decisions CASCADE;
 CREATE TRIGGER trg_acceptance_decisions_touch
-  BEFORE UPDATE ON public.acceptance_decisions
   FOR EACH ROW EXECUTE FUNCTION app.touch_updated_at();
 
+DROP TRIGGER IF EXISTS trg_approval_queue_touch ON approval_queue CASCADE;
 CREATE TRIGGER trg_approval_queue_touch
-  BEFORE UPDATE ON public.approval_queue
   FOR EACH ROW EXECUTE FUNCTION app.touch_updated_at();
 
 -- Data migration ---------------------------------------------------------

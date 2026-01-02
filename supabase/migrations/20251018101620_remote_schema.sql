@@ -4563,7 +4563,7 @@ drop extension if exists "vector";
 
 CREATE UNIQUE INDEX _prisma_migrations_pkey ON public._prisma_migrations USING btree (id);
 
-CREATE INDEX agent_sessions_embedding_hnsw ON public.agent_sessions USING hnsw (embedding extensions.vector_l2_ops);
+CREATE INDEX IF NOT EXISTS agent_sessions_embedding_hnsw ON public.agent_sessions USING hnsw (embedding extensions.vector_l2_ops);
 
 alter table "public"."_prisma_migrations" add constraint "_prisma_migrations_pkey" PRIMARY KEY using index "_prisma_migrations_pkey";
 

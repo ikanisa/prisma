@@ -335,8 +335,9 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trigger_update_knowledge_sources_updated_at ON knowledge_sources;
+DROP TRIGGER IF EXISTS trigger_update_knowledge_sources_updated_at ON knowledge_sources CASCADE;
 CREATE TRIGGER trigger_update_knowledge_sources_updated_at
-    BEFORE UPDATE ON knowledge_sources
     FOR EACH ROW
     EXECUTE FUNCTION update_knowledge_sources_updated_at();
 
@@ -363,8 +364,9 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trigger_update_stats_on_chunk_change ON knowledge_chunks;
+DROP TRIGGER IF EXISTS trigger_update_stats_on_chunk_change ON knowledge_chunks CASCADE;
 CREATE TRIGGER trigger_update_stats_on_chunk_change
-    AFTER INSERT OR UPDATE OR DELETE ON knowledge_chunks
     FOR EACH ROW
     EXECUTE FUNCTION update_knowledge_source_stats();
 

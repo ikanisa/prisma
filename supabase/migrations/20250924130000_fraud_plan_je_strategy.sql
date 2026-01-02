@@ -6,6 +6,8 @@ BEGIN
   CREATE TYPE public.fraud_plan_status AS ENUM (
 'DRAFT', 'READY_FOR_APPROVAL', 'LOCKED'
   );
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
 EXCEPTION
   WHEN duplicate_object THEN NULL;
 END;
@@ -62,13 +64,13 @@ CREATE TABLE IF NOT EXISTS public.journal_entry_strategies (
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_je_strategy_engagement ON public.journal_entry_strategies(engagement_id);
 
+DROP TRIGGER IF EXISTS trg_fraud_plans_touch ON fraud_plans CASCADE;
 CREATE TRIGGER trg_fraud_plans_touch
-  BEFORE UPDATE ON public.fraud_plans
   FOR EACH ROW
   EXECUTE FUNCTION app.touch_updated_at();
 
+DROP TRIGGER IF EXISTS trg_je_strategies_touch ON journal_entry_strategies CASCADE;
 CREATE TRIGGER trg_je_strategies_touch
-  BEFORE UPDATE ON public.journal_entry_strategies
   FOR EACH ROW
   EXECUTE FUNCTION app.touch_updated_at();
 

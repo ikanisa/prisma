@@ -38,8 +38,8 @@ BEGIN
     WHERE tgname = 'trg_interest_limitation_touch'
       AND tgrelid = 'public.interest_limitation_computations'::regclass
   ) THEN
-    CREATE TRIGGER trg_interest_limitation_touch
-      BEFORE UPDATE ON public.interest_limitation_computations
+    DROP TRIGGER IF EXISTS trg_interest_limitation_touch ON interest_limitation_computations CASCADE;
+CREATE TRIGGER trg_interest_limitation_touch
       FOR EACH ROW
       EXECUTE FUNCTION app.touch_updated_at();
   END IF;
@@ -80,8 +80,8 @@ BEGIN
     WHERE tgname = 'trg_cfc_inclusions_touch'
       AND tgrelid = 'public.cfc_inclusions'::regclass
   ) THEN
-    CREATE TRIGGER trg_cfc_inclusions_touch
-      BEFORE UPDATE ON public.cfc_inclusions
+    DROP TRIGGER IF EXISTS trg_cfc_inclusions_touch ON cfc_inclusions CASCADE;
+CREATE TRIGGER trg_cfc_inclusions_touch
       FOR EACH ROW
       EXECUTE FUNCTION app.touch_updated_at();
   END IF;

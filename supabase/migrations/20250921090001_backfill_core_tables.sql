@@ -14,14 +14,16 @@ CREATE TABLE IF NOT EXISTS public.agent_sessions (
 );
 ALTER TABLE public.agent_sessions ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "agent_sessions_read" ON public.agent_sessions;
-CREATE POLICY "agent_sessions_read" ON public.agent_sessions
+DROP POLICY IF EXISTS "agent_sessions_read" ON agent_sessions CASCADE;
+CREATE POLICY "agent_sessions_read"
   FOR SELECT USING (public.is_member_of(org_id));
 DROP POLICY IF EXISTS "agent_sessions_write" ON public.agent_sessions;
-CREATE POLICY "agent_sessions_write" ON public.agent_sessions
+DROP POLICY IF EXISTS "agent_sessions_write" ON agent_sessions CASCADE;
+CREATE POLICY "agent_sessions_write"
   FOR ALL USING (public.has_min_role(org_id, 'MANAGER'::public.role_level));
 DROP TRIGGER IF EXISTS set_agent_sessions_updated_at ON public.agent_sessions;
+DROP TRIGGER IF EXISTS set_agent_sessions_updated_at ON agent_sessions CASCADE;
 CREATE TRIGGER set_agent_sessions_updated_at
-  BEFORE UPDATE ON public.agent_sessions
   FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
 -- Audit log table with policies
 CREATE TABLE IF NOT EXISTS public.audit (
@@ -37,10 +39,12 @@ CREATE TABLE IF NOT EXISTS public.audit (
 );
 ALTER TABLE public.audit ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "audit_read" ON public.audit;
-CREATE POLICY "audit_read" ON public.audit
+DROP POLICY IF EXISTS "audit_read" ON audit CASCADE;
+CREATE POLICY "audit_read"
   FOR SELECT USING (public.is_member_of(org_id));
 DROP POLICY IF EXISTS "audit_insert" ON public.audit;
-CREATE POLICY "audit_insert" ON public.audit
+DROP POLICY IF EXISTS "audit_insert" ON audit CASCADE;
+CREATE POLICY "audit_insert"
   FOR INSERT WITH CHECK (public.is_member_of(org_id));
 -- Accounting entries table with trigger
 CREATE TABLE IF NOT EXISTS public.accounting (
@@ -55,14 +59,16 @@ CREATE TABLE IF NOT EXISTS public.accounting (
 );
 ALTER TABLE public.accounting ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "accounting_read" ON public.accounting;
-CREATE POLICY "accounting_read" ON public.accounting
+DROP POLICY IF EXISTS "accounting_read" ON accounting CASCADE;
+CREATE POLICY "accounting_read"
   FOR SELECT USING (public.is_member_of(org_id));
 DROP POLICY IF EXISTS "accounting_write" ON public.accounting;
-CREATE POLICY "accounting_write" ON public.accounting
+DROP POLICY IF EXISTS "accounting_write" ON accounting CASCADE;
+CREATE POLICY "accounting_write"
   FOR ALL USING (public.has_min_role(org_id, 'MANAGER'::public.role_level));
 DROP TRIGGER IF EXISTS set_accounting_updated_at ON public.accounting;
+DROP TRIGGER IF EXISTS set_accounting_updated_at ON accounting CASCADE;
 CREATE TRIGGER set_accounting_updated_at
-  BEFORE UPDATE ON public.accounting
   FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
 -- Tax rules table with policies
 CREATE TABLE IF NOT EXISTS public.tax (
@@ -76,10 +82,12 @@ CREATE TABLE IF NOT EXISTS public.tax (
 );
 ALTER TABLE public.tax ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "tax_read" ON public.tax;
-CREATE POLICY "tax_read" ON public.tax
+DROP POLICY IF EXISTS "tax_read" ON tax CASCADE;
+CREATE POLICY "tax_read"
   FOR SELECT USING (org_id IS NULL OR public.is_member_of(org_id));
 DROP POLICY IF EXISTS "tax_write" ON public.tax;
-CREATE POLICY "tax_write" ON public.tax
+DROP POLICY IF EXISTS "tax_write" ON tax CASCADE;
+CREATE POLICY "tax_write"
   FOR ALL USING (public.has_min_role(org_id, 'MANAGER'::public.role_level));
 -- Ensure indexes exist now that tables are in place
 DO $$

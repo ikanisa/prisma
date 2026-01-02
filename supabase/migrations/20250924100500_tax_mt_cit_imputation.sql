@@ -16,6 +16,8 @@ BEGIN
       'FTA',
       'UA'
     );
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
   END IF;
 END;
 $$;
@@ -34,6 +36,8 @@ BEGIN
       '2_3',
       'NONE'
     );
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
   END IF;
 END;
 $$;
@@ -125,8 +129,8 @@ BEGIN
     WHERE tgname = 'trg_tax_entities_touch'
       AND tgrelid = 'public.tax_entities'::regclass
   ) THEN
-    CREATE TRIGGER trg_tax_entities_touch
-      BEFORE UPDATE ON public.tax_entities
+    DROP TRIGGER IF EXISTS trg_tax_entities_touch ON tax_entities CASCADE;
+CREATE TRIGGER trg_tax_entities_touch
       FOR EACH ROW EXECUTE FUNCTION app.touch_updated_at();
   END IF;
 END;
@@ -139,8 +143,8 @@ BEGIN
     WHERE tgname = 'trg_tax_accounts_touch'
       AND tgrelid = 'public.tax_accounts'::regclass
   ) THEN
-    CREATE TRIGGER trg_tax_accounts_touch
-      BEFORE UPDATE ON public.tax_accounts
+    DROP TRIGGER IF EXISTS trg_tax_accounts_touch ON tax_accounts CASCADE;
+CREATE TRIGGER trg_tax_accounts_touch
       FOR EACH ROW EXECUTE FUNCTION app.touch_updated_at();
   END IF;
 END;
@@ -153,8 +157,8 @@ BEGIN
     WHERE tgname = 'trg_cit_computations_touch'
       AND tgrelid = 'public.cit_computations'::regclass
   ) THEN
-    CREATE TRIGGER trg_cit_computations_touch
-      BEFORE UPDATE ON public.cit_computations
+    DROP TRIGGER IF EXISTS trg_cit_computations_touch ON cit_computations CASCADE;
+CREATE TRIGGER trg_cit_computations_touch
       FOR EACH ROW EXECUTE FUNCTION app.touch_updated_at();
   END IF;
 END;

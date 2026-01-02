@@ -298,7 +298,8 @@ ALTER TABLE agent_guardrail_assignments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE agent_versions ENABLE ROW LEVEL SECURITY;
 
 -- Agents policies
-CREATE POLICY "Users can view agents in their organization" ON agents
+DROP POLICY IF EXISTS "Users can view agents in their organization" ON agents CASCADE;
+CREATE POLICY "Users can view agents in their organization"
     FOR SELECT USING (
         organization_id IN (
             SELECT organization_id FROM organization_members 
@@ -307,7 +308,8 @@ CREATE POLICY "Users can view agents in their organization" ON agents
         OR is_public = true
     );
 
-CREATE POLICY "Users can create agents in their organization" ON agents
+DROP POLICY IF EXISTS "Users can create agents in their organization" ON agents CASCADE;
+CREATE POLICY "Users can create agents in their organization"
     FOR INSERT WITH CHECK (
         organization_id IN (
             SELECT organization_id FROM organization_members 
@@ -315,7 +317,8 @@ CREATE POLICY "Users can create agents in their organization" ON agents
         )
     );
 
-CREATE POLICY "Users can update agents in their organization" ON agents
+DROP POLICY IF EXISTS "Users can update agents in their organization" ON agents CASCADE;
+CREATE POLICY "Users can update agents in their organization"
     FOR UPDATE USING (
         organization_id IN (
             SELECT organization_id FROM organization_members 
@@ -323,7 +326,8 @@ CREATE POLICY "Users can update agents in their organization" ON agents
         )
     );
 
-CREATE POLICY "Users can delete agents in their organization" ON agents
+DROP POLICY IF EXISTS "Users can delete agents in their organization" ON agents CASCADE;
+CREATE POLICY "Users can delete agents in their organization"
     FOR DELETE USING (
         organization_id IN (
             SELECT organization_id FROM organization_members 
@@ -332,7 +336,8 @@ CREATE POLICY "Users can delete agents in their organization" ON agents
     );
 
 -- Personas policies (inherit from agent)
-CREATE POLICY "Users can manage personas for their agents" ON agent_personas
+DROP POLICY IF EXISTS "Users can manage personas for their agents" ON agent_personas CASCADE;
+CREATE POLICY "Users can manage personas for their agents"
     FOR ALL USING (
         agent_id IN (
             SELECT id FROM agents WHERE organization_id IN (
@@ -343,7 +348,8 @@ CREATE POLICY "Users can manage personas for their agents" ON agent_personas
     );
 
 -- Tools policies
-CREATE POLICY "Users can view tools" ON agent_tools
+DROP POLICY IF EXISTS "Users can view tools" ON agent_tools CASCADE;
+CREATE POLICY "Users can view tools"
     FOR SELECT USING (
         organization_id IS NULL 
         OR organization_id IN (
@@ -352,7 +358,8 @@ CREATE POLICY "Users can view tools" ON agent_tools
         )
     );
 
-CREATE POLICY "Users can manage org tools" ON agent_tools
+DROP POLICY IF EXISTS "Users can manage org tools" ON agent_tools CASCADE;
+CREATE POLICY "Users can manage org tools"
     FOR ALL USING (
         organization_id IN (
             SELECT organization_id FROM organization_members 
@@ -361,7 +368,8 @@ CREATE POLICY "Users can manage org tools" ON agent_tools
     );
 
 -- Tool assignments policies
-CREATE POLICY "Users can manage tool assignments" ON agent_tool_assignments
+DROP POLICY IF EXISTS "Users can manage tool assignments" ON agent_tool_assignments CASCADE;
+CREATE POLICY "Users can manage tool assignments"
     FOR ALL USING (
         agent_id IN (
             SELECT id FROM agents WHERE organization_id IN (
@@ -372,7 +380,8 @@ CREATE POLICY "Users can manage tool assignments" ON agent_tool_assignments
     );
 
 -- Knowledge sources policies
-CREATE POLICY "Users can manage knowledge sources" ON knowledge_sources
+DROP POLICY IF EXISTS "Users can manage knowledge sources" ON knowledge_sources CASCADE;
+CREATE POLICY "Users can manage knowledge sources"
     FOR ALL USING (
         organization_id IN (
             SELECT organization_id FROM organization_members 
@@ -381,7 +390,8 @@ CREATE POLICY "Users can manage knowledge sources" ON knowledge_sources
     );
 
 -- Knowledge assignments policies
-CREATE POLICY "Users can manage knowledge assignments" ON agent_knowledge_assignments
+DROP POLICY IF EXISTS "Users can manage knowledge assignments" ON agent_knowledge_assignments CASCADE;
+CREATE POLICY "Users can manage knowledge assignments"
     FOR ALL USING (
         agent_id IN (
             SELECT id FROM agents WHERE organization_id IN (
@@ -392,7 +402,8 @@ CREATE POLICY "Users can manage knowledge assignments" ON agent_knowledge_assign
     );
 
 -- Executions policies
-CREATE POLICY "Users can view executions in their organization" ON agent_executions
+DROP POLICY IF EXISTS "Users can view executions in their organization" ON agent_executions CASCADE;
+CREATE POLICY "Users can view executions in their organization"
     FOR SELECT USING (
         organization_id IN (
             SELECT organization_id FROM organization_members 
@@ -401,14 +412,17 @@ CREATE POLICY "Users can view executions in their organization" ON agent_executi
         OR user_id = auth.uid()
     );
 
-CREATE POLICY "Users can create executions" ON agent_executions
+DROP POLICY IF EXISTS "Users can create executions" ON agent_executions CASCADE;
+CREATE POLICY "Users can create executions"
     FOR INSERT WITH CHECK (true);
 
-CREATE POLICY "Users can update their own executions" ON agent_executions
+DROP POLICY IF EXISTS "Users can update their own executions" ON agent_executions CASCADE;
+CREATE POLICY "Users can update their own executions"
     FOR UPDATE USING (user_id = auth.uid());
 
 -- Learning examples policies
-CREATE POLICY "Users can manage learning examples" ON agent_learning_examples
+DROP POLICY IF EXISTS "Users can manage learning examples" ON agent_learning_examples CASCADE;
+CREATE POLICY "Users can manage learning examples"
     FOR ALL USING (
         agent_id IN (
             SELECT id FROM agents WHERE organization_id IN (
@@ -419,7 +433,8 @@ CREATE POLICY "Users can manage learning examples" ON agent_learning_examples
     );
 
 -- Guardrails policies
-CREATE POLICY "Users can manage guardrails" ON agent_guardrails
+DROP POLICY IF EXISTS "Users can manage guardrails" ON agent_guardrails CASCADE;
+CREATE POLICY "Users can manage guardrails"
     FOR ALL USING (
         organization_id IS NULL
         OR organization_id IN (
@@ -429,7 +444,8 @@ CREATE POLICY "Users can manage guardrails" ON agent_guardrails
     );
 
 -- Guardrail assignments policies
-CREATE POLICY "Users can manage guardrail assignments" ON agent_guardrail_assignments
+DROP POLICY IF EXISTS "Users can manage guardrail assignments" ON agent_guardrail_assignments CASCADE;
+CREATE POLICY "Users can manage guardrail assignments"
     FOR ALL USING (
         agent_id IN (
             SELECT id FROM agents WHERE organization_id IN (
@@ -440,7 +456,8 @@ CREATE POLICY "Users can manage guardrail assignments" ON agent_guardrail_assign
     );
 
 -- Versions policies
-CREATE POLICY "Users can view agent versions" ON agent_versions
+DROP POLICY IF EXISTS "Users can view agent versions" ON agent_versions CASCADE;
+CREATE POLICY "Users can view agent versions"
     FOR SELECT USING (
         agent_id IN (
             SELECT id FROM agents WHERE organization_id IN (
@@ -450,7 +467,8 @@ CREATE POLICY "Users can view agent versions" ON agent_versions
         )
     );
 
-CREATE POLICY "Users can create agent versions" ON agent_versions
+DROP POLICY IF EXISTS "Users can create agent versions" ON agent_versions CASCADE;
+CREATE POLICY "Users can create agent versions"
     FOR INSERT WITH CHECK (
         agent_id IN (
             SELECT id FROM agents WHERE organization_id IN (
@@ -472,28 +490,28 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Apply trigger to tables with updated_at
+DROP TRIGGER IF EXISTS update_agents_updated_at ON agents CASCADE;
 CREATE TRIGGER update_agents_updated_at
-    BEFORE UPDATE ON agents
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_agent_personas_updated_at ON agent_personas CASCADE;
 CREATE TRIGGER update_agent_personas_updated_at
-    BEFORE UPDATE ON agent_personas
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_agent_tools_updated_at ON agent_tools CASCADE;
 CREATE TRIGGER update_agent_tools_updated_at
-    BEFORE UPDATE ON agent_tools
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_knowledge_sources_updated_at ON knowledge_sources CASCADE;
 CREATE TRIGGER update_knowledge_sources_updated_at
-    BEFORE UPDATE ON knowledge_sources
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_agent_guardrails_updated_at ON agent_guardrails CASCADE;
 CREATE TRIGGER update_agent_guardrails_updated_at
-    BEFORE UPDATE ON agent_guardrails
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
 

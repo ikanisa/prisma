@@ -2290,7 +2290,7 @@ alter table "public"."chunks" alter column "last_embedded_at" drop not null;
 
 CREATE UNIQUE INDEX chunks_org_id_content_hash_key ON public.chunks USING btree (org_id, content_hash);
 
-CREATE INDEX activity_log_org_created_at_idx ON public.activity_log USING btree (org_id, created_at);
+CREATE INDEX IF NOT EXISTS activity_log_org_created_at_idx ON public.activity_log USING btree (org_id, created_at);
 
 alter table "public"."chunks" add constraint "chunks_org_id_content_hash_key" UNIQUE using index "chunks_org_id_content_hash_key";
 

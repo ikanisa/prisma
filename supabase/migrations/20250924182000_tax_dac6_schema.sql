@@ -8,6 +8,8 @@ BEGIN
 
   'A', 'B', 'C', 'D', 'E'
   );
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
 EXCEPTION
   WHEN duplicate_object THEN NULL;
 END;
@@ -20,6 +22,8 @@ BEGIN
 
   'DRAFT', 'READY_FOR_SUBMISSION', 'SUBMITTED', 'REJECTED'
   );
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
 EXCEPTION
   WHEN duplicate_object THEN NULL;
 END;
@@ -88,8 +92,8 @@ BEGIN
     WHERE tgname = 'trg_dac6_arrangements_touch'
       AND tgrelid = 'public.dac6_arrangements'::regclass
   ) THEN
-    CREATE TRIGGER trg_dac6_arrangements_touch
-      BEFORE UPDATE ON public.dac6_arrangements
+    DROP TRIGGER IF EXISTS trg_dac6_arrangements_touch ON dac6_arrangements CASCADE;
+CREATE TRIGGER trg_dac6_arrangements_touch
       FOR EACH ROW
       EXECUTE FUNCTION app.touch_updated_at();
   END IF;

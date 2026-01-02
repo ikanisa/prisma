@@ -79,8 +79,8 @@ DROP POLICY IF EXISTS "knowledge_documents_delete_policy" ON knowledge_documents
 ALTER TABLE knowledge_documents ENABLE ROW LEVEL SECURITY;
 
 -- SELECT: Users can view documents in their organizations
-CREATE POLICY "knowledge_documents_select_policy" 
-  ON knowledge_documents
+DROP POLICY IF EXISTS "knowledge_documents_select_policy" ON knowledge_documents CASCADE;
+CREATE POLICY "knowledge_documents_select_policy"
   FOR SELECT
   TO authenticated
   USING (
@@ -92,8 +92,8 @@ CREATE POLICY "knowledge_documents_select_policy"
   );
 
 -- INSERT: Members and above can create documents
+DROP POLICY IF EXISTS "knowledge_documents_insert_policy" ON knowledge_documents CASCADE;
 CREATE POLICY "knowledge_documents_insert_policy"
-  ON knowledge_documents
   FOR INSERT
   TO authenticated
   WITH CHECK (
@@ -105,8 +105,8 @@ CREATE POLICY "knowledge_documents_insert_policy"
   );
 
 -- UPDATE: Members can update their own documents, admins can update all
+DROP POLICY IF EXISTS "knowledge_documents_update_policy" ON knowledge_documents CASCADE;
 CREATE POLICY "knowledge_documents_update_policy"
-  ON knowledge_documents
   FOR UPDATE
   TO authenticated
   USING (
@@ -126,8 +126,8 @@ CREATE POLICY "knowledge_documents_update_policy"
   );
 
 -- DELETE: Only admins and above can delete documents
+DROP POLICY IF EXISTS "knowledge_documents_delete_policy" ON knowledge_documents CASCADE;
 CREATE POLICY "knowledge_documents_delete_policy"
-  ON knowledge_documents
   FOR DELETE
   TO authenticated
   USING (
@@ -152,8 +152,8 @@ DROP POLICY IF EXISTS "tasks_delete_policy" ON tasks;
 ALTER TABLE tasks ENABLE ROW LEVEL SECURITY;
 
 -- SELECT: Users can view tasks in their organizations or assigned to them
+DROP POLICY IF EXISTS "tasks_select_policy" ON tasks CASCADE;
 CREATE POLICY "tasks_select_policy"
-  ON tasks
   FOR SELECT
   TO authenticated
   USING (
@@ -170,8 +170,8 @@ CREATE POLICY "tasks_select_policy"
   );
 
 -- INSERT: Members and above can create tasks
+DROP POLICY IF EXISTS "tasks_insert_policy" ON tasks CASCADE;
 CREATE POLICY "tasks_insert_policy"
-  ON tasks
   FOR INSERT
   TO authenticated
   WITH CHECK (
@@ -183,8 +183,8 @@ CREATE POLICY "tasks_insert_policy"
   );
 
 -- UPDATE: Assignees and creators can update, admins can update all
+DROP POLICY IF EXISTS "tasks_update_policy" ON tasks CASCADE;
 CREATE POLICY "tasks_update_policy"
-  ON tasks
   FOR UPDATE
   TO authenticated
   USING (
@@ -201,8 +201,8 @@ CREATE POLICY "tasks_update_policy"
   );
 
 -- DELETE: Only admins can delete tasks (soft delete)
+DROP POLICY IF EXISTS "tasks_delete_policy" ON tasks CASCADE;
 CREATE POLICY "tasks_delete_policy"
-  ON tasks
   FOR DELETE
   TO authenticated
   USING (
@@ -225,8 +225,8 @@ DROP POLICY IF EXISTS "activity_events_insert_policy" ON activity_events;
 ALTER TABLE activity_events ENABLE ROW LEVEL SECURITY;
 
 -- SELECT: Users can view events in their organizations
+DROP POLICY IF EXISTS "activity_events_select_policy" ON activity_events CASCADE;
 CREATE POLICY "activity_events_select_policy"
-  ON activity_events
   FOR SELECT
   TO authenticated
   USING (
@@ -238,8 +238,8 @@ CREATE POLICY "activity_events_select_policy"
   );
 
 -- INSERT: System and authenticated users can create events
+DROP POLICY IF EXISTS "activity_events_insert_policy" ON activity_events CASCADE;
 CREATE POLICY "activity_events_insert_policy"
-  ON activity_events
   FOR INSERT
   TO authenticated
   WITH CHECK (
@@ -265,8 +265,8 @@ DROP POLICY IF EXISTS "audit_responses_update_policy" ON audit_responses;
 ALTER TABLE audit_responses ENABLE ROW LEVEL SECURITY;
 
 -- SELECT: Organization members can view audit responses
+DROP POLICY IF EXISTS "audit_responses_select_policy" ON audit_responses CASCADE;
 CREATE POLICY "audit_responses_select_policy"
-  ON audit_responses
   FOR SELECT
   TO authenticated
   USING (
@@ -278,8 +278,8 @@ CREATE POLICY "audit_responses_select_policy"
   );
 
 -- INSERT: Members and above can create responses
+DROP POLICY IF EXISTS "audit_responses_insert_policy" ON audit_responses CASCADE;
 CREATE POLICY "audit_responses_insert_policy"
-  ON audit_responses
   FOR INSERT
   TO authenticated
   WITH CHECK (
@@ -291,8 +291,8 @@ CREATE POLICY "audit_responses_insert_policy"
   );
 
 -- UPDATE: Creators and admins can update responses
+DROP POLICY IF EXISTS "audit_responses_update_policy" ON audit_responses CASCADE;
 CREATE POLICY "audit_responses_update_policy"
-  ON audit_responses
   FOR UPDATE
   TO authenticated
   USING (
@@ -318,8 +318,8 @@ DROP POLICY IF EXISTS "organization_members_delete_policy" ON organization_membe
 ALTER TABLE organization_members ENABLE ROW LEVEL SECURITY;
 
 -- SELECT: Users can view members of organizations they belong to
+DROP POLICY IF EXISTS "organization_members_select_policy" ON organization_members CASCADE;
 CREATE POLICY "organization_members_select_policy"
-  ON organization_members
   FOR SELECT
   TO authenticated
   USING (
@@ -335,8 +335,8 @@ CREATE POLICY "organization_members_select_policy"
   );
 
 -- INSERT: Only admins can add members
+DROP POLICY IF EXISTS "organization_members_insert_policy" ON organization_members CASCADE;
 CREATE POLICY "organization_members_insert_policy"
-  ON organization_members
   FOR INSERT
   TO authenticated
   WITH CHECK (
@@ -348,8 +348,8 @@ CREATE POLICY "organization_members_insert_policy"
   );
 
 -- UPDATE: Only admins can update member roles
+DROP POLICY IF EXISTS "organization_members_update_policy" ON organization_members CASCADE;
 CREATE POLICY "organization_members_update_policy"
-  ON organization_members
   FOR UPDATE
   TO authenticated
   USING (
@@ -361,8 +361,8 @@ CREATE POLICY "organization_members_update_policy"
   );
 
 -- DELETE: Only admins can remove members
+DROP POLICY IF EXISTS "organization_members_delete_policy" ON organization_members CASCADE;
 CREATE POLICY "organization_members_delete_policy"
-  ON organization_members
   FOR DELETE
   TO authenticated
   USING (
@@ -378,36 +378,36 @@ CREATE POLICY "organization_members_delete_policy"
 -- ============================================================================
 
 -- Create indexes to support RLS policies
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_knowledge_documents_org_created
+CREATE INDEX IF NOT EXISTS CONCURRENTLY IF NOT EXISTS idx_knowledge_documents_org_created
   ON knowledge_documents(organization_id, created_at DESC)
   WHERE deleted_at IS NULL;
 
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_knowledge_documents_created_by
+CREATE INDEX IF NOT EXISTS CONCURRENTLY IF NOT EXISTS idx_knowledge_documents_created_by
   ON knowledge_documents(created_by)
   WHERE deleted_at IS NULL;
 
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_tasks_org_status_assignee
+CREATE INDEX IF NOT EXISTS CONCURRENTLY IF NOT EXISTS idx_tasks_org_status_assignee
   ON tasks(organization_id, status, assignee_id)
   WHERE deleted_at IS NULL;
 
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_tasks_assignee_created
+CREATE INDEX IF NOT EXISTS CONCURRENTLY IF NOT EXISTS idx_tasks_assignee_created
   ON tasks(assignee_id, created_at DESC)
   WHERE deleted_at IS NULL;
 
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_activity_events_org_created
+CREATE INDEX IF NOT EXISTS CONCURRENTLY IF NOT EXISTS idx_activity_events_org_created
   ON activity_events(organization_id, created_at DESC);
 
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_audit_responses_org_created
+CREATE INDEX IF NOT EXISTS CONCURRENTLY IF NOT EXISTS idx_audit_responses_org_created
   ON audit_responses(organization_id, created_at DESC);
 
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_audit_responses_created_by
+CREATE INDEX IF NOT EXISTS CONCURRENTLY IF NOT EXISTS idx_audit_responses_created_by
   ON audit_responses(created_by);
 
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_org_members_user_org
+CREATE INDEX IF NOT EXISTS CONCURRENTLY IF NOT EXISTS idx_org_members_user_org
   ON organization_members(user_id, organization_id)
   WHERE deleted_at IS NULL;
 
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_org_members_org_role
+CREATE INDEX IF NOT EXISTS CONCURRENTLY IF NOT EXISTS idx_org_members_org_role
   ON organization_members(organization_id, role)
   WHERE deleted_at IS NULL;
 

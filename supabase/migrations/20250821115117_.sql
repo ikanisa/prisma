@@ -1,8 +1,11 @@
 -- Create necessary enums and types
-CREATE TYPE public.role_level AS ENUM ('EMPLOYEE', 'MANAGER', 'SYSTEM_ADMIN');
+DO $$ BEGIN
+  CREATE TYPE public.role_level AS ENUM ('EMPLOYEE', 'MANAGER', 'SYSTEM_ADMIN');
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
 
 -- Create users table linked to auth.users
-CREATE TABLE public.users (
+CREATE TABLE IF NOT EXISTS public.users (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   email TEXT UNIQUE NOT NULL,
   name TEXT,
@@ -13,7 +16,7 @@ CREATE TABLE public.users (
 );
 
 -- Create organizations table
-CREATE TABLE public.organizations (
+CREATE TABLE IF NOT EXISTS public.organizations (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
   slug TEXT UNIQUE NOT NULL,
@@ -25,7 +28,7 @@ CREATE TABLE public.organizations (
 );
 
 -- Create memberships table (links users to organizations with roles)
-CREATE TABLE public.memberships (
+CREATE TABLE IF NOT EXISTS public.memberships (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   org_id UUID NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -36,7 +39,7 @@ CREATE TABLE public.memberships (
 );
 
 -- Create clients table
-CREATE TABLE public.clients (
+CREATE TABLE IF NOT EXISTS public.clients (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   org_id UUID NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
@@ -51,7 +54,7 @@ CREATE TABLE public.clients (
 );
 
 -- Create engagements table
-CREATE TABLE public.engagements (
+CREATE TABLE IF NOT EXISTS public.engagements (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   org_id UUID NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
   client_id UUID NOT NULL REFERENCES public.clients(id) ON DELETE CASCADE,
@@ -72,7 +75,7 @@ CREATE TABLE public.engagements (
 );
 
 -- Create tasks table
-CREATE TABLE public.tasks (
+CREATE TABLE IF NOT EXISTS public.tasks (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   org_id UUID NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
   engagement_id UUID REFERENCES public.engagements(id) ON DELETE CASCADE,
@@ -88,7 +91,7 @@ CREATE TABLE public.tasks (
 );
 
 -- Create documents table
-CREATE TABLE public.documents (
+CREATE TABLE IF NOT EXISTS public.documents (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   org_id UUID NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
   engagement_id UUID REFERENCES public.engagements(id) ON DELETE CASCADE,
@@ -101,8 +104,22 @@ CREATE TABLE public.documents (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
+-- Ensure org_id column exists (for existing tables)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public'
+    AND table_name = 'documents'
+    AND column_name = 'org_id'
+  ) THEN
+    ALTER TABLE public.documents ADD COLUMN org_id UUID REFERENCES public.organizations(id) ON DELETE CASCADE;
+    -- For existing rows, we can't set NOT NULL, but new inserts will require it
+  END IF;
+END $$;
+
 -- Create notifications table
-CREATE TABLE public.notifications (
+CREATE TABLE IF NOT EXISTS public.notifications (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   org_id UUID NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -114,7 +131,7 @@ CREATE TABLE public.notifications (
 );
 
 -- Create activity_log table
-CREATE TABLE public.activity_log (
+CREATE TABLE IF NOT EXISTS public.activity_log (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   org_id UUID NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -168,134 +185,169 @@ AS $$
       WHEN (SELECT role FROM my_role) = 'SYSTEM_ADMIN' THEN true
       WHEN (SELECT role FROM my_role) = 'MANAGER' AND min IN ('EMPLOYEE', 'MANAGER') THEN true
       WHEN (SELECT role FROM my_role) = 'EMPLOYEE' AND min = 'EMPLOYEE' THEN true
-      ELSE false 
+      ELSE false
     END),
     false
   );
 $$;
 
 -- RLS Policies for users table
-CREATE POLICY "users_self_read" ON public.users 
-  FOR SELECT USING (id = auth.uid());
+DROP POLICY IF EXISTS "users_self_read" ON public.users CASCADE;
+CREATE POLICY "users_self_read" ON public.users FOR SELECT USING (id = auth.uid());
 
-CREATE POLICY "users_self_update" ON public.users 
-  FOR UPDATE USING (id = auth.uid());
+DROP POLICY IF EXISTS "users_self_update" ON public.users CASCADE;
+CREATE POLICY "users_self_update" ON public.users FOR UPDATE USING (id = auth.uid());
 
-CREATE POLICY "users_admin_read" ON public.users 
-  FOR SELECT USING (
+DROP POLICY IF EXISTS "users_admin_read" ON users CASCADE;
+CREATE POLICY "users_admin_read" ON public.users FOR SELECT USING (
     EXISTS (SELECT 1 FROM public.users u WHERE u.id = auth.uid() AND u.is_system_admin = true)
   );
 
 -- RLS Policies for organizations table
-CREATE POLICY "org_read" ON public.organizations 
-  FOR SELECT USING (
-    public.is_member_of(id) OR 
+DROP POLICY IF EXISTS "org_read" ON organizations CASCADE;
+CREATE POLICY "org_read" ON public.organizations FOR SELECT USING (
+    public.is_member_of(id) OR
     EXISTS (SELECT 1 FROM public.users u WHERE u.id = auth.uid() AND u.is_system_admin = true)
   );
 
-CREATE POLICY "org_write" ON public.organizations 
-  FOR ALL USING (
+DROP POLICY IF EXISTS "org_write" ON organizations CASCADE;
+CREATE POLICY "org_write" ON public.organizations FOR ALL USING (
     EXISTS (SELECT 1 FROM public.users u WHERE u.id = auth.uid() AND u.is_system_admin = true)
   );
 
 -- RLS Policies for memberships table
-CREATE POLICY "memberships_read" ON public.memberships 
-  FOR SELECT USING (
+DROP POLICY IF EXISTS "memberships_read" ON memberships CASCADE;
+CREATE POLICY "memberships_read" ON public.memberships FOR SELECT USING (
     user_id = auth.uid() OR
     public.has_min_role(org_id, 'MANAGER'::public.role_level) OR
     EXISTS (SELECT 1 FROM public.users u WHERE u.id = auth.uid() AND u.is_system_admin = true)
   );
 
-CREATE POLICY "memberships_write" ON public.memberships 
-  FOR ALL USING (
+DROP POLICY IF EXISTS "memberships_write" ON memberships CASCADE;
+CREATE POLICY "memberships_write" ON public.memberships FOR ALL USING (
     public.has_min_role(org_id, 'MANAGER'::public.role_level) OR
     EXISTS (SELECT 1 FROM public.users u WHERE u.id = auth.uid() AND u.is_system_admin = true)
   );
 
 -- RLS Policies for clients table
-CREATE POLICY "clients_read" ON public.clients 
-  FOR SELECT USING (public.is_member_of(org_id));
+DROP POLICY IF EXISTS "clients_read" ON clients CASCADE;
+CREATE POLICY "clients_read" ON public.clients FOR SELECT USING (public.is_member_of(org_id));
 
-CREATE POLICY "clients_insert" ON public.clients 
-  FOR INSERT WITH CHECK (public.has_min_role(org_id, 'MANAGER'::public.role_level));
+DROP POLICY IF EXISTS "clients_insert" ON clients CASCADE;
+CREATE POLICY "clients_insert" ON public.clients FOR INSERT WITH CHECK (public.has_min_role(org_id, 'MANAGER'::public.role_level));
 
-CREATE POLICY "clients_update" ON public.clients 
-  FOR UPDATE USING (public.has_min_role(org_id, 'MANAGER'::public.role_level));
+DROP POLICY IF EXISTS "clients_update" ON clients CASCADE;
+CREATE POLICY "clients_update" ON public.clients FOR UPDATE USING (public.has_min_role(org_id, 'MANAGER'::public.role_level));
 
-CREATE POLICY "clients_delete" ON public.clients 
-  FOR DELETE USING (
+DROP POLICY IF EXISTS "clients_delete" ON clients CASCADE;
+CREATE POLICY "clients_delete" ON public.clients FOR DELETE USING (
     EXISTS (SELECT 1 FROM public.users u WHERE u.id = auth.uid() AND u.is_system_admin = true)
   );
 
 -- RLS Policies for engagements table
-CREATE POLICY "engagements_read" ON public.engagements 
-  FOR SELECT USING (public.is_member_of(org_id));
+DROP POLICY IF EXISTS "engagements_read" ON engagements CASCADE;
+CREATE POLICY "engagements_read" ON public.engagements FOR SELECT USING (public.is_member_of(org_id));
 
-CREATE POLICY "engagements_insert" ON public.engagements 
-  FOR INSERT WITH CHECK (public.has_min_role(org_id, 'MANAGER'::public.role_level));
+DROP POLICY IF EXISTS "engagements_insert" ON engagements CASCADE;
+CREATE POLICY "engagements_insert" ON public.engagements FOR INSERT WITH CHECK (public.has_min_role(org_id, 'MANAGER'::public.role_level));
 
-CREATE POLICY "engagements_update" ON public.engagements 
-  FOR UPDATE USING (public.has_min_role(org_id, 'MANAGER'::public.role_level));
+DROP POLICY IF EXISTS "engagements_update" ON engagements CASCADE;
+CREATE POLICY "engagements_update" ON public.engagements FOR UPDATE USING (public.has_min_role(org_id, 'MANAGER'::public.role_level));
 
-CREATE POLICY "engagements_delete" ON public.engagements 
-  FOR DELETE USING (
+DROP POLICY IF EXISTS "engagements_delete" ON engagements CASCADE;
+CREATE POLICY "engagements_delete" ON public.engagements FOR DELETE USING (
     EXISTS (SELECT 1 FROM public.users u WHERE u.id = auth.uid() AND u.is_system_admin = true)
   );
 
 -- RLS Policies for tasks table
-CREATE POLICY "tasks_read" ON public.tasks 
-  FOR SELECT USING (public.is_member_of(org_id));
+DROP POLICY IF EXISTS "tasks_read" ON tasks CASCADE;
+CREATE POLICY "tasks_read" ON public.tasks FOR SELECT USING (public.is_member_of(org_id));
 
-CREATE POLICY "tasks_insert" ON public.tasks 
-  FOR INSERT WITH CHECK (public.is_member_of(org_id));
+DROP POLICY IF EXISTS "tasks_insert" ON tasks CASCADE;
+CREATE POLICY "tasks_insert" ON public.tasks FOR INSERT WITH CHECK (public.is_member_of(org_id));
 
-CREATE POLICY "tasks_update" ON public.tasks 
-  FOR UPDATE USING (
-    public.is_member_of(org_id) AND 
+DROP POLICY IF EXISTS "tasks_update" ON tasks CASCADE;
+CREATE POLICY "tasks_update" ON public.tasks FOR UPDATE USING (
+    public.is_member_of(org_id) AND
     (assigned_to = auth.uid() OR public.has_min_role(org_id, 'MANAGER'::public.role_level))
   );
 
-CREATE POLICY "tasks_delete" ON public.tasks 
-  FOR DELETE USING (public.has_min_role(org_id, 'MANAGER'::public.role_level));
+DROP POLICY IF EXISTS "tasks_delete" ON tasks CASCADE;
+CREATE POLICY "tasks_delete" ON public.tasks FOR DELETE USING (public.has_min_role(org_id, 'MANAGER'::public.role_level));
 
 -- RLS Policies for documents table
-CREATE POLICY "documents_read" ON public.documents 
-  FOR SELECT USING (public.is_member_of(org_id));
-
-CREATE POLICY "documents_insert" ON public.documents 
-  FOR INSERT WITH CHECK (public.is_member_of(org_id) AND uploaded_by = auth.uid());
-
-CREATE POLICY "documents_update" ON public.documents 
-  FOR UPDATE USING (
-    public.is_member_of(org_id) AND 
-    (uploaded_by = auth.uid() OR public.has_min_role(org_id, 'MANAGER'::public.role_level))
+DROP POLICY IF EXISTS "documents_read" ON public.documents CASCADE;
+CREATE POLICY "documents_read" ON public.documents FOR SELECT USING (
+    org_id IS NOT NULL AND EXISTS (
+      SELECT 1 FROM public.organizations o
+      JOIN public.memberships m ON m.org_id = o.id
+      WHERE o.id = documents.org_id AND m.user_id = auth.uid()
+    )
+    OR org_id IS NULL
   );
 
-CREATE POLICY "documents_delete" ON public.documents 
-  FOR DELETE USING (
-    public.is_member_of(org_id) AND 
-    (uploaded_by = auth.uid() OR public.has_min_role(org_id, 'MANAGER'::public.role_level))
+DROP POLICY IF EXISTS "documents_insert" ON public.documents CASCADE;
+CREATE POLICY "documents_insert" ON public.documents FOR INSERT WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM public.organizations o
+      JOIN public.memberships m ON m.org_id = o.id
+      WHERE o.id = public.documents.org_id AND m.user_id = auth.uid()
+    ) AND public.documents.uploaded_by = auth.uid()
+  );
+
+DROP POLICY IF EXISTS "documents_update" ON public.documents CASCADE;
+CREATE POLICY "documents_update" ON public.documents FOR UPDATE USING (
+    EXISTS (
+      SELECT 1 FROM public.organizations o
+      JOIN public.memberships m ON m.org_id = o.id
+      WHERE o.id = public.documents.org_id AND m.user_id = auth.uid()
+    ) AND (
+      public.documents.uploaded_by = auth.uid() OR
+      EXISTS (
+        SELECT 1 FROM public.memberships m2
+        WHERE m2.org_id = public.documents.org_id
+        AND m2.user_id = auth.uid()
+        AND m2.role IN ('MANAGER', 'SYSTEM_ADMIN')
+      )
+    )
+  );
+
+DROP POLICY IF EXISTS "documents_delete" ON public.documents CASCADE;
+CREATE POLICY "documents_delete" ON public.documents FOR DELETE USING (
+    EXISTS (
+      SELECT 1 FROM public.organizations o
+      JOIN public.memberships m ON m.org_id = o.id
+      WHERE o.id = public.documents.org_id AND m.user_id = auth.uid()
+    ) AND (
+      public.documents.uploaded_by = auth.uid() OR
+      EXISTS (
+        SELECT 1 FROM public.memberships m2
+        WHERE m2.org_id = public.documents.org_id
+        AND m2.user_id = auth.uid()
+        AND m2.role IN ('MANAGER', 'SYSTEM_ADMIN')
+      )
+    )
   );
 
 -- RLS Policies for notifications table
-CREATE POLICY "notifications_read" ON public.notifications 
-  FOR SELECT USING (user_id = auth.uid());
+DROP POLICY IF EXISTS "notifications_read" ON notifications CASCADE;
+CREATE POLICY "notifications_read" ON public.notifications FOR SELECT USING (user_id = auth.uid());
 
-CREATE POLICY "notifications_insert" ON public.notifications 
-  FOR INSERT WITH CHECK (public.is_member_of(org_id));
+DROP POLICY IF EXISTS "notifications_insert" ON notifications CASCADE;
+CREATE POLICY "notifications_insert" ON public.notifications FOR INSERT WITH CHECK (public.is_member_of(org_id));
 
-CREATE POLICY "notifications_update" ON public.notifications 
-  FOR UPDATE USING (user_id = auth.uid());
+DROP POLICY IF EXISTS "notifications_update" ON notifications CASCADE;
+CREATE POLICY "notifications_update" ON public.notifications FOR UPDATE USING (user_id = auth.uid());
 
-CREATE POLICY "notifications_delete" ON public.notifications 
-  FOR DELETE USING (user_id = auth.uid());
+DROP POLICY IF EXISTS "notifications_delete" ON notifications CASCADE;
+CREATE POLICY "notifications_delete" ON public.notifications FOR DELETE USING (user_id = auth.uid());
 
 -- RLS Policies for activity_log table
-CREATE POLICY "activity_log_read" ON public.activity_log 
-  FOR SELECT USING (public.is_member_of(org_id));
+DROP POLICY IF EXISTS "activity_log_read" ON activity_log CASCADE;
+CREATE POLICY "activity_log_read" ON public.activity_log FOR SELECT USING (public.is_member_of(org_id));
 
-CREATE POLICY "activity_log_insert" ON public.activity_log 
-  FOR INSERT WITH CHECK (public.is_member_of(org_id) AND user_id = auth.uid());
+DROP POLICY IF EXISTS "activity_log_insert" ON activity_log CASCADE;
+CREATE POLICY "activity_log_insert" ON public.activity_log FOR INSERT WITH CHECK (public.is_member_of(org_id) AND user_id = auth.uid());
 
 -- Create updated_at trigger function
 CREATE OR REPLACE FUNCTION public.handle_updated_at()
@@ -310,22 +362,34 @@ END;
 $$;
 
 -- Add updated_at triggers to all tables with updated_at columns
-CREATE TRIGGER set_users_updated_at BEFORE UPDATE ON public.users 
+DROP TRIGGER IF EXISTS set_users_updated_at ON public.users CASCADE;
+CREATE TRIGGER set_users_updated_at
+  BEFORE UPDATE ON public.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
 
-CREATE TRIGGER set_organizations_updated_at BEFORE UPDATE ON public.organizations 
+DROP TRIGGER IF EXISTS set_organizations_updated_at ON public.organizations CASCADE;
+CREATE TRIGGER set_organizations_updated_at
+  BEFORE UPDATE ON public.organizations
   FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
 
-CREATE TRIGGER set_memberships_updated_at BEFORE UPDATE ON public.memberships 
+DROP TRIGGER IF EXISTS set_memberships_updated_at ON public.memberships CASCADE;
+CREATE TRIGGER set_memberships_updated_at
+  BEFORE UPDATE ON public.memberships
   FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
 
-CREATE TRIGGER set_clients_updated_at BEFORE UPDATE ON public.clients 
+DROP TRIGGER IF EXISTS set_clients_updated_at ON public.clients CASCADE;
+CREATE TRIGGER set_clients_updated_at
+  BEFORE UPDATE ON public.clients
   FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
 
-CREATE TRIGGER set_engagements_updated_at BEFORE UPDATE ON public.engagements 
+DROP TRIGGER IF EXISTS set_engagements_updated_at ON public.engagements CASCADE;
+CREATE TRIGGER set_engagements_updated_at
+  BEFORE UPDATE ON public.engagements
   FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
 
-CREATE TRIGGER set_tasks_updated_at BEFORE UPDATE ON public.tasks 
+DROP TRIGGER IF EXISTS set_tasks_updated_at ON public.tasks CASCADE;
+CREATE TRIGGER set_tasks_updated_at
+  BEFORE UPDATE ON public.tasks
   FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
 
 -- Create function to automatically create user profile on signup
@@ -347,6 +411,7 @@ END;
 $$;
 
 -- Trigger to create user profile on auth signup
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users CASCADE;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
-  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();;
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();

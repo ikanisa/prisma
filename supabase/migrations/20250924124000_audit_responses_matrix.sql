@@ -6,6 +6,8 @@ BEGIN
   CREATE TYPE public.response_type AS ENUM (
 'CONTROL', 'SUBSTANTIVE', 'ANALYTICS', 'SAMPLING', 'OTHER'
   );
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
 EXCEPTION
   WHEN duplicate_object THEN NULL;
 END;
@@ -16,6 +18,8 @@ BEGIN
   CREATE TYPE public.response_status AS ENUM (
 'PLANNED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'
   );
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
 EXCEPTION
   WHEN duplicate_object THEN NULL;
 END;
@@ -60,8 +64,8 @@ CREATE TABLE IF NOT EXISTS public.audit_response_checks (
 
 CREATE INDEX IF NOT EXISTS idx_audit_response_checks_response ON public.audit_response_checks(response_id);
 
+DROP TRIGGER IF EXISTS trg_audit_responses_touch ON audit_responses CASCADE;
 CREATE TRIGGER trg_audit_responses_touch
-  BEFORE UPDATE ON public.audit_responses
   FOR EACH ROW
   EXECUTE FUNCTION app.touch_updated_at();
 

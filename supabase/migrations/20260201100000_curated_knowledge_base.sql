@@ -42,6 +42,8 @@ CREATE TYPE public.knowledge_source_priority AS ENUM (
     'interpretive',   -- Can be cited but not as final authority
     'supplementary'   -- Background/context only
 );
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
 
 -- ============================================
 -- CURATED KNOWLEDGE BASE TABLE
@@ -621,18 +623,18 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trigger_ckb_updated_at ON curated_knowledge_base CASCADE;
 CREATE TRIGGER trigger_ckb_updated_at
-    BEFORE UPDATE ON public.curated_knowledge_base
     FOR EACH ROW
     EXECUTE FUNCTION public.update_ckb_updated_at();
 
+DROP TRIGGER IF EXISTS trigger_guardrails_updated_at ON retrieval_guardrails CASCADE;
 CREATE TRIGGER trigger_guardrails_updated_at
-    BEFORE UPDATE ON public.retrieval_guardrails
     FOR EACH ROW
     EXECUTE FUNCTION public.update_ckb_updated_at();
 
+DROP TRIGGER IF EXISTS trigger_deep_search_sources_updated_at ON deep_search_sources CASCADE;
 CREATE TRIGGER trigger_deep_search_sources_updated_at
-    BEFORE UPDATE ON public.deep_search_sources
     FOR EACH ROW
     EXECUTE FUNCTION public.update_ckb_updated_at();
 

@@ -5,6 +5,8 @@ DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'tax_dispute_status') THEN
     CREATE TYPE public.tax_dispute_status AS ENUM ('OPEN', 'IN_PROGRESS', 'SUBMITTED', 'RESOLVED', 'CLOSED');
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
   END IF;
 END;
 $$;
@@ -41,8 +43,8 @@ BEGIN
     WHERE tgname = 'trg_treaty_wht_touch'
       AND tgrelid = 'public.treaty_wht_calculations'::regclass
   ) THEN
-    CREATE TRIGGER trg_treaty_wht_touch
-      BEFORE UPDATE ON public.treaty_wht_calculations
+    DROP TRIGGER IF EXISTS trg_treaty_wht_touch ON treaty_wht_calculations CASCADE;
+CREATE TRIGGER trg_treaty_wht_touch
       FOR EACH ROW EXECUTE FUNCTION app.touch_updated_at();
   END IF;
 END;
@@ -79,8 +81,8 @@ BEGIN
     WHERE tgname = 'trg_tax_dispute_cases_touch'
       AND tgrelid = 'public.tax_dispute_cases'::regclass
   ) THEN
-    CREATE TRIGGER trg_tax_dispute_cases_touch
-      BEFORE UPDATE ON public.tax_dispute_cases
+    DROP TRIGGER IF EXISTS trg_tax_dispute_cases_touch ON tax_dispute_cases CASCADE;
+CREATE TRIGGER trg_tax_dispute_cases_touch
       FOR EACH ROW EXECUTE FUNCTION app.touch_updated_at();
   END IF;
 END;

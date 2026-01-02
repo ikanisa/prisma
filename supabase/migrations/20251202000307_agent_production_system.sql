@@ -193,18 +193,18 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Apply triggers
+DROP TRIGGER IF EXISTS update_agent_executions_updated_at ON agent_executions CASCADE;
 CREATE TRIGGER update_agent_executions_updated_at
-    BEFORE UPDATE ON agent_executions
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_agent_conversations_updated_at ON agent_conversations CASCADE;
 CREATE TRIGGER update_agent_conversations_updated_at
-    BEFORE UPDATE ON agent_conversations
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_agent_quotas_updated_at ON agent_usage_quotas CASCADE;
 CREATE TRIGGER update_agent_quotas_updated_at
-    BEFORE UPDATE ON agent_usage_quotas
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
 

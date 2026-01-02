@@ -10,11 +10,15 @@ DO $$ BEGIN
     'NEW', 'EXTRACTING', 'EXTRACTED', 'ENRICHING', 'ENRICHED', 
     'CHUNKING', 'CHUNKED', 'EMBEDDING', 'READY', 'FAILED', 'OCR_REQUIRED'
   );
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
 DO $$ BEGIN
   CREATE TYPE public.kb_confidentiality AS ENUM ('PUBLIC', 'INTERNAL', 'RESTRICTED');
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
@@ -22,6 +26,8 @@ DO $$ BEGIN
   CREATE TYPE public.kb_standard AS ENUM (
     'IFRS', 'ISA', 'GAAP', 'TAX', 'AUDIT_METHODOLOGY', 'COMPANY_LAW', 'OTHER'
   );
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
@@ -30,11 +36,15 @@ DO $$ BEGIN
     'LAW', 'REGULATION', 'STANDARD', 'GUIDANCE', 'TEMPLATE', 
     'CHECKLIST', 'CASE', 'BOOK', 'MOCK', 'INTERNAL_POLICY', 'OTHER'
   );
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
 DO $$ BEGIN
   CREATE TYPE public.kb_run_status AS ENUM ('QUEUED', 'RUNNING', 'COMPLETED', 'FAILED', 'CANCELLED');
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 

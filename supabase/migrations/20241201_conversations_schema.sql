@@ -44,7 +44,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-DROP TRIGGER IF EXISTS conversation_messages_update_conversation_trigger ON public.conversation_messages;
+DROP TRIGGER IF EXISTS conversation_messages_update_conversation_trigger ON public.conversation_messages CASCADE;
 CREATE TRIGGER conversation_messages_update_conversation_trigger
   AFTER INSERT ON public.conversation_messages
   FOR EACH ROW
@@ -76,7 +76,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-DROP TRIGGER IF EXISTS conversation_auto_title_trigger ON public.conversation_messages;
+DROP TRIGGER IF EXISTS conversation_auto_title_trigger ON public.conversation_messages CASCADE;
 CREATE TRIGGER conversation_auto_title_trigger
   AFTER INSERT ON public.conversation_messages
   FOR EACH ROW
@@ -87,34 +87,29 @@ ALTER TABLE public.conversations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.conversation_messages ENABLE ROW LEVEL SECURITY;
 
 -- Conversations policies
-DROP POLICY IF EXISTS "Users can view their own conversations" ON public.conversations;
-CREATE POLICY "Users can view their own conversations"
-  ON public.conversations FOR SELECT
+DROP POLICY IF EXISTS "Users can view their own conversations" ON public.conversations CASCADE;
+CREATE POLICY "Users can view their own conversations" ON public.conversations FOR SELECT
   TO authenticated
   USING (auth.uid() = user_id);
 
-DROP POLICY IF EXISTS "Users can create their own conversations" ON public.conversations;
-CREATE POLICY "Users can create their own conversations"
-  ON public.conversations FOR INSERT
+DROP POLICY IF EXISTS "Users can create their own conversations" ON public.conversations CASCADE;
+CREATE POLICY "Users can create their own conversations" ON public.conversations FOR INSERT
   TO authenticated
   WITH CHECK (auth.uid() = user_id);
 
-DROP POLICY IF EXISTS "Users can update their own conversations" ON public.conversations;
-CREATE POLICY "Users can update their own conversations"
-  ON public.conversations FOR UPDATE
+DROP POLICY IF EXISTS "Users can update their own conversations" ON public.conversations CASCADE;
+CREATE POLICY "Users can update their own conversations" ON public.conversations FOR UPDATE
   TO authenticated
   USING (auth.uid() = user_id);
 
-DROP POLICY IF EXISTS "Users can delete their own conversations" ON public.conversations;
-CREATE POLICY "Users can delete their own conversations"
-  ON public.conversations FOR DELETE
+DROP POLICY IF EXISTS "Users can delete their own conversations" ON public.conversations CASCADE;
+CREATE POLICY "Users can delete their own conversations" ON public.conversations FOR DELETE
   TO authenticated
   USING (auth.uid() = user_id);
 
 -- Messages policies
-DROP POLICY IF EXISTS "Users can view messages in their conversations" ON public.conversation_messages;
-CREATE POLICY "Users can view messages in their conversations"
-  ON public.conversation_messages FOR SELECT
+DROP POLICY IF EXISTS "Users can view messages in their conversations" ON public.conversation_messages CASCADE;
+CREATE POLICY "Users can view messages in their conversations" ON public.conversation_messages FOR SELECT
   TO authenticated
   USING (
     EXISTS (
@@ -124,9 +119,8 @@ CREATE POLICY "Users can view messages in their conversations"
     )
   );
 
-DROP POLICY IF EXISTS "Users can create messages in their conversations" ON public.conversation_messages;
-CREATE POLICY "Users can create messages in their conversations"
-  ON public.conversation_messages FOR INSERT
+DROP POLICY IF EXISTS "Users can create messages in their conversations" ON public.conversation_messages CASCADE;
+CREATE POLICY "Users can create messages in their conversations" ON public.conversation_messages FOR INSERT
   TO authenticated
   WITH CHECK (
     EXISTS (

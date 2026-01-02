@@ -2,14 +2,14 @@
 
 -- First, create RLS policies for users table
 DROP POLICY IF EXISTS "Users can view their own profile" ON public.users;
+DROP POLICY IF EXISTS "Users can view their own profile" ON users CASCADE;
 CREATE POLICY "Users can view their own profile" 
-ON public.users 
 FOR ALL 
 USING (auth.uid() = id);
 -- Create RLS policies for organizations table
 DROP POLICY IF EXISTS "Members can view their organizations" ON public.organizations;
+DROP POLICY IF EXISTS "Members can view their organizations" ON organizations CASCADE;
 CREATE POLICY "Members can view their organizations" 
-ON public.organizations 
 FOR SELECT 
 USING (
   EXISTS (
@@ -20,13 +20,13 @@ USING (
 );
 -- Create RLS policies for memberships table (this is the critical one)
 DROP POLICY IF EXISTS "Users can view their own memberships" ON public.memberships;
+DROP POLICY IF EXISTS "Users can view their own memberships" ON memberships CASCADE;
 CREATE POLICY "Users can view their own memberships" 
-ON public.memberships 
 FOR SELECT 
 USING (user_id = auth.uid());
 DROP POLICY IF EXISTS "Users can insert their own memberships" ON public.memberships;
+DROP POLICY IF EXISTS "Users can insert their own memberships" ON memberships CASCADE;
 CREATE POLICY "Users can insert their own memberships" 
-ON public.memberships 
 FOR INSERT 
 WITH CHECK (user_id = auth.uid());
 -- Create a demo organization and membership for the user who just signed in
