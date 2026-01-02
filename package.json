@@ -42,7 +42,12 @@
     "tauri:build": "tauri build",
     "tauri:build:macos": "TAURI_BUILD=true pnpm --filter @prisma-glow/web build && tauri build --target universal-apple-darwin",
     "desktop:dev": "tauri dev",
-    "desktop:build": "TAURI_BUILD=true pnpm --filter @prisma-glow/web build && tauri build"
+    "desktop:build": "TAURI_BUILD=true pnpm --filter @prisma-glow/web build && tauri build",
+    "kb:sync": "tsx scripts/kb-cli.ts sync",
+    "kb:backfill": "tsx scripts/kb-cli.ts backfill",
+    "kb:reindex": "tsx scripts/kb-cli.ts reindex",
+    "kb:verify": "tsx scripts/kb-cli.ts verify",
+    "eval:kb": "tsx scripts/eval-kb.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",

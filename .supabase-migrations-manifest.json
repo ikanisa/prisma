@@ -1,0 +1,1367 @@
+{
+  "projectRef": "rcocfusrqrornukrnkln",
+  "supabaseUrl": "https://rcocfusrqrornukrnkln.supabase.co",
+  "generatedAt": "2026-01-02T22:50:55Z",
+  "totalMigrations": 151,
+  "migrations": [
+    {
+      "index": 1,
+      "filename": "001_initial_schema.sql",
+      "version": "001_initial_schema",
+      "path": "supabase/migrations/001_initial_schema.sql",
+      "lines": 149,
+      "size": 4740,
+      "description": "Enable required extensions"
+    },
+    {
+      "index": 2,
+      "filename": "002_vat_rules_seed.sql",
+      "version": "002_vat_rules_seed",
+      "path": "supabase/migrations/002_vat_rules_seed.sql",
+      "lines": 13,
+      "size": 361,
+      "description": "DO $$"
+    },
+    {
+      "index": 3,
+      "filename": "003_indexes.sql",
+      "version": "003_indexes",
+      "path": "supabase/migrations/003_indexes.sql",
+      "lines": 73,
+      "size": 3058,
+      "description": "Performance indexes guarded to avoid errors when base tables are missing."
+    },
+    {
+      "index": 4,
+      "filename": "20241201120000_kb_documents_schema.sql",
+      "version": "20241201120000_kb_documents_schema",
+      "path": "supabase/migrations/20241201120000_kb_documents_schema.sql",
+      "lines": 129,
+      "size": 4106,
+      "description": "Enable required extensions"
+    },
+    {
+      "index": 5,
+      "filename": "20241201_conversations_schema.sql",
+      "version": "20241201_conversations_schema",
+      "path": "supabase/migrations/20241201_conversations_schema.sql",
+      "lines": 136,
+      "size": 4808,
+      "description": "Conversations table for chat history persistence"
+    },
+    {
+      "index": 6,
+      "filename": "20250115000000_agent_knowledge_system.sql",
+      "version": "20250115000000_agent_knowledge_system",
+      "path": "supabase/migrations/20250115000000_agent_knowledge_system.sql",
+      "lines": 493,
+      "size": 17439,
+      "description": "============================================"
+    },
+    {
+      "index": 7,
+      "filename": "20250212180000_agent_orchestration_dependency_indexes.sql",
+      "version": "20250212180000_agent_orchestration_dependency_indexes",
+      "path": "supabase/migrations/20250212180000_agent_orchestration_dependency_indexes.sql",
+      "lines": 7,
+      "size": 306,
+      "description": "Optimise orchestration dependency lookups for batch scheduling"
+    },
+    {
+      "index": 8,
+      "filename": "20250821115117_.sql",
+      "version": "20250821115117_",
+      "path": "supabase/migrations/20250821115117_.sql",
+      "lines": 352,
+      "size": 11865,
+      "description": "Create necessary enums and types"
+    },
+    {
+      "index": 9,
+      "filename": "20250821115118_c8efec61-c52e-4db8-ac92-82c3ca0a7579.sql",
+      "version": "20250821115118_c8efec61-c52e-4db8-ac92-82c3ca0a7579",
+      "path": "supabase/migrations/20250821115118_c8efec61-c52e-4db8-ac92-82c3ca0a7579.sql",
+      "lines": 346,
+      "size": 14379,
+      "description": "Create necessary enums and types"
+    },
+    {
+      "index": 10,
+      "filename": "20250821115348_878f265d-a747-47a8-aade-2f2d66847d8c.sql",
+      "version": "20250821115348_878f265d-a747-47a8-aade-2f2d66847d8c",
+      "path": "supabase/migrations/20250821115348_878f265d-a747-47a8-aade-2f2d66847d8c.sql",
+      "lines": 65,
+      "size": 1501,
+      "description": "Fix search_path security warnings for all functions"
+    },
+    {
+      "index": 11,
+      "filename": "20250821115406_.sql",
+      "version": "20250821115406_",
+      "path": "supabase/migrations/20250821115406_.sql",
+      "lines": 66,
+      "size": 1476,
+      "description": "Fix search_path security warnings by recreating functions with proper settings"
+    },
+    {
+      "index": 12,
+      "filename": "20250821115407_50fe85e1-e606-4424-960d-acc41a893410.sql",
+      "version": "20250821115407_50fe85e1-e606-4424-960d-acc41a893410",
+      "path": "supabase/migrations/20250821115407_50fe85e1-e606-4424-960d-acc41a893410.sql",
+      "lines": 63,
+      "size": 1472,
+      "description": "Fix search_path security warnings by recreating functions with proper settings"
+    },
+    {
+      "index": 13,
+      "filename": "20250824073858_.sql",
+      "version": "20250824073858_",
+      "path": "supabase/migrations/20250824073858_.sql",
+      "lines": 16,
+      "size": 610,
+      "description": "Fix infinite recursion in users table RLS policies"
+    },
+    {
+      "index": 14,
+      "filename": "20250824073859_c20167a1-9343-4056-b103-4f304e6e26eb.sql",
+      "version": "20250824073859_c20167a1-9343-4056-b103-4f304e6e26eb",
+      "path": "supabase/migrations/20250824073859_c20167a1-9343-4056-b103-4f304e6e26eb.sql",
+      "lines": 15,
+      "size": 608,
+      "description": "Fix infinite recursion in users table RLS policies"
+    },
+    {
+      "index": 15,
+      "filename": "20250824085632_c57fe3ce-db8b-4f21-863e-e37b10dab301.sql",
+      "version": "20250824085632_c57fe3ce-db8b-4f21-863e-e37b10dab301",
+      "path": "supabase/migrations/20250824085632_c57fe3ce-db8b-4f21-863e-e37b10dab301.sql",
+      "lines": 150,
+      "size": 6037,
+      "description": "Create Prisma Glow organization"
+    },
+    {
+      "index": 16,
+      "filename": "20250824085652_.sql",
+      "version": "20250824085652_",
+      "path": "supabase/migrations/20250824085652_.sql",
+      "lines": 92,
+      "size": 2476,
+      "description": "Create Prisma Glow organization"
+    },
+    {
+      "index": 17,
+      "filename": "20250824085654_4fe24341-a008-498b-b4f5-7743d2a57904.sql",
+      "version": "20250824085654_4fe24341-a008-498b-b4f5-7743d2a57904",
+      "path": "supabase/migrations/20250824085654_4fe24341-a008-498b-b4f5-7743d2a57904.sql",
+      "lines": 91,
+      "size": 2463,
+      "description": "Create Prisma Glow organization"
+    },
+    {
+      "index": 18,
+      "filename": "20250825140114_857b5b5b-3328-448c-b83b-a9aca978a9d6.sql",
+      "version": "20250825140114_857b5b5b-3328-448c-b83b-a9aca978a9d6",
+      "path": "supabase/migrations/20250825140114_857b5b5b-3328-448c-b83b-a9aca978a9d6.sql",
+      "lines": 742,
+      "size": 30145,
+      "description": "========================="
+    },
+    {
+      "index": 19,
+      "filename": "20250829090000_5ea29147-38dc-4b92-9f17-7dc59a6c4647.sql",
+      "version": "20250829090000_5ea29147-38dc-4b92-9f17-7dc59a6c4647",
+      "path": "supabase/migrations/20250829090000_5ea29147-38dc-4b92-9f17-7dc59a6c4647.sql",
+      "lines": 36,
+      "size": 1227,
+      "description": "DO $$"
+    },
+    {
+      "index": 20,
+      "filename": "20250830125235_4127fb8d-0f84-4062-a3cc-b5d8933cb1ad.sql",
+      "version": "20250830125235_4127fb8d-0f84-4062-a3cc-b5d8933cb1ad",
+      "path": "supabase/migrations/20250830125235_4127fb8d-0f84-4062-a3cc-b5d8933cb1ad.sql",
+      "lines": 592,
+      "size": 27864,
+      "description": "(BEGIN 0001_aat_bootstrap.sql)"
+    },
+    {
+      "index": 21,
+      "filename": "20250830125452_e57a401c-384b-4441-8bbe-327d78068c55.sql",
+      "version": "20250830125452_e57a401c-384b-4441-8bbe-327d78068c55",
+      "path": "supabase/migrations/20250830125452_e57a401c-384b-4441-8bbe-327d78068c55.sql",
+      "lines": 13,
+      "size": 773,
+      "description": "Drop the problematic trigger first"
+    },
+    {
+      "index": 22,
+      "filename": "20250830125628_64a6aad4-6a40-4125-bb4e-b62341ab9a29.sql",
+      "version": "20250830125628_64a6aad4-6a40-4125-bb4e-b62341ab9a29",
+      "path": "supabase/migrations/20250830125628_64a6aad4-6a40-4125-bb4e-b62341ab9a29.sql",
+      "lines": 13,
+      "size": 773,
+      "description": "Drop the problematic trigger first"
+    },
+    {
+      "index": 23,
+      "filename": "20250830125648_f73e809f-f983-405f-9ed8-e17d84d48869.sql",
+      "version": "20250830125648_f73e809f-f983-405f-9ed8-e17d84d48869",
+      "path": "supabase/migrations/20250830125648_f73e809f-f983-405f-9ed8-e17d84d48869.sql",
+      "lines": 46,
+      "size": 1101,
+      "description": "Create the app schema first"
+    },
+    {
+      "index": 24,
+      "filename": "20250830125703_5bf2f541-dcd5-4c5e-a182-de2328149a5f.sql",
+      "version": "20250830125703_5bf2f541-dcd5-4c5e-a182-de2328149a5f",
+      "path": "supabase/migrations/20250830125703_5bf2f541-dcd5-4c5e-a182-de2328149a5f.sql",
+      "lines": 46,
+      "size": 1101,
+      "description": "Create the app schema first"
+    },
+    {
+      "index": 25,
+      "filename": "20250830125719_.sql",
+      "version": "20250830125719_",
+      "path": "supabase/migrations/20250830125719_.sql",
+      "lines": 20,
+      "size": 681,
+      "description": "First create all required extensions and types"
+    },
+    {
+      "index": 26,
+      "filename": "20250830125720_1b779663-4991-4f79-83e6-f963458284ae.sql",
+      "version": "20250830125720_1b779663-4991-4f79-83e6-f963458284ae",
+      "path": "supabase/migrations/20250830125720_1b779663-4991-4f79-83e6-f963458284ae.sql",
+      "lines": 16,
+      "size": 676,
+      "description": "First create all required extensions and types"
+    },
+    {
+      "index": 27,
+      "filename": "20250830125735_.sql",
+      "version": "20250830125735_",
+      "path": "supabase/migrations/20250830125735_.sql",
+      "lines": 21,
+      "size": 676,
+      "description": "Create required extensions"
+    },
+    {
+      "index": 28,
+      "filename": "20250830125736_e118852a-6ecd-46c6-9c5d-53935d524f61.sql",
+      "version": "20250830125736_e118852a-6ecd-46c6-9c5d-53935d524f61",
+      "path": "supabase/migrations/20250830125736_e118852a-6ecd-46c6-9c5d-53935d524f61.sql",
+      "lines": 17,
+      "size": 671,
+      "description": "Create required extensions"
+    },
+    {
+      "index": 29,
+      "filename": "20250830125756_a814a60a-2361-4a22-86ab-243f73b901ba.sql",
+      "version": "20250830125756_a814a60a-2361-4a22-86ab-243f73b901ba",
+      "path": "supabase/migrations/20250830125756_a814a60a-2361-4a22-86ab-243f73b901ba.sql",
+      "lines": 26,
+      "size": 950,
+      "description": "Core tables first (organizations, app_users, members)"
+    },
+    {
+      "index": 30,
+      "filename": "20250830125839_.sql",
+      "version": "20250830125839_",
+      "path": "supabase/migrations/20250830125839_.sql",
+      "lines": 79,
+      "size": 1937,
+      "description": "Create helper functions now that tables exist"
+    },
+    {
+      "index": 31,
+      "filename": "20250830125841_9195bd32-1de7-41d9-ac3c-d017d0dbe16a.sql",
+      "version": "20250830125841_9195bd32-1de7-41d9-ac3c-d017d0dbe16a",
+      "path": "supabase/migrations/20250830125841_9195bd32-1de7-41d9-ac3c-d017d0dbe16a.sql",
+      "lines": 68,
+      "size": 1939,
+      "description": "Create helper functions now that tables exist"
+    },
+    {
+      "index": 32,
+      "filename": "20250901062854_.sql",
+      "version": "20250901062854_",
+      "path": "supabase/migrations/20250901062854_.sql",
+      "lines": 152,
+      "size": 5299,
+      "description": "Now create the essential tables needed for demo seeding"
+    },
+    {
+      "index": 33,
+      "filename": "20250901062855_139c4e89-6510-4395-988c-25ffdf993c21.sql",
+      "version": "20250901062855_139c4e89-6510-4395-988c-25ffdf993c21",
+      "path": "supabase/migrations/20250901062855_139c4e89-6510-4395-988c-25ffdf993c21.sql",
+      "lines": 140,
+      "size": 5286,
+      "description": "Now create the essential tables needed for demo seeding"
+    },
+    {
+      "index": 34,
+      "filename": "20250901063007_ebc6d971-3a9c-401b-adc0-7724a804337f.sql",
+      "version": "20250901063007_ebc6d971-3a9c-401b-adc0-7724a804337f",
+      "path": "supabase/migrations/20250901063007_ebc6d971-3a9c-401b-adc0-7724a804337f.sql",
+      "lines": 137,
+      "size": 9151,
+      "description": "Apply the demo seed data (0002_aat_seed_demo.sql)"
+    },
+    {
+      "index": 35,
+      "filename": "20250901063516_7f4819a8-9228-40f0-bf32-0d505706a781.sql",
+      "version": "20250901063516_7f4819a8-9228-40f0-bf32-0d505706a781",
+      "path": "supabase/migrations/20250901063516_7f4819a8-9228-40f0-bf32-0d505706a781.sql",
+      "lines": 100,
+      "size": 5798,
+      "description": "Fix the organizations table to match the expected schema"
+    },
+    {
+      "index": 36,
+      "filename": "20250901063531_d0005ee4-6492-4483-95b9-3667e8add347.sql",
+      "version": "20250901063531_d0005ee4-6492-4483-95b9-3667e8add347",
+      "path": "supabase/migrations/20250901063531_d0005ee4-6492-4483-95b9-3667e8add347.sql",
+      "lines": 34,
+      "size": 1363,
+      "description": "Add missing columns to engagements table "
+    },
+    {
+      "index": 37,
+      "filename": "20250901063555_b1189972-8c30-46ba-bce4-a3ef9d6da79a.sql",
+      "version": "20250901063555_b1189972-8c30-46ba-bce4-a3ef9d6da79a",
+      "path": "supabase/migrations/20250901063555_b1189972-8c30-46ba-bce4-a3ef9d6da79a.sql",
+      "lines": 34,
+      "size": 1363,
+      "description": "Add missing columns to engagements table "
+    },
+    {
+      "index": 38,
+      "filename": "20250901063818_.sql",
+      "version": "20250901063818_",
+      "path": "supabase/migrations/20250901063818_.sql",
+      "lines": 10,
+      "size": 415,
+      "description": "First check and fix the organizations table structure"
+    },
+    {
+      "index": 39,
+      "filename": "20250901063819_ee277649-5eb7-4b4c-95f7-f2acb23209dc.sql",
+      "version": "20250901063819_ee277649-5eb7-4b4c-95f7-f2acb23209dc",
+      "path": "supabase/migrations/20250901063819_ee277649-5eb7-4b4c-95f7-f2acb23209dc.sql",
+      "lines": 8,
+      "size": 412,
+      "description": "First check and fix the organizations table structure"
+    },
+    {
+      "index": 40,
+      "filename": "20250902094731_.sql",
+      "version": "20250902094731_",
+      "path": "supabase/migrations/20250902094731_.sql",
+      "lines": 56,
+      "size": 1665,
+      "description": "Fix RLS policies for core authentication tables"
+    },
+    {
+      "index": 41,
+      "filename": "20250902094733_6d37821e-f5a7-4a21-8a7c-ff8c208c2d2a.sql",
+      "version": "20250902094733_6d37821e-f5a7-4a21-8a7c-ff8c208c2d2a",
+      "path": "supabase/migrations/20250902094733_6d37821e-f5a7-4a21-8a7c-ff8c208c2d2a.sql",
+      "lines": 56,
+      "size": 1990,
+      "description": "Fix RLS policies for core authentication tables"
+    },
+    {
+      "index": 42,
+      "filename": "20250902094839_.sql",
+      "version": "20250902094839_",
+      "path": "supabase/migrations/20250902094839_.sql",
+      "lines": 11,
+      "size": 477,
+      "description": "Ensure demo user has proper membership"
+    },
+    {
+      "index": 43,
+      "filename": "20250902094840_6ab1627f-247f-4a0b-98d0-d2e86d4c0dcb.sql",
+      "version": "20250902094840_6ab1627f-247f-4a0b-98d0-d2e86d4c0dcb",
+      "path": "supabase/migrations/20250902094840_6ab1627f-247f-4a0b-98d0-d2e86d4c0dcb.sql",
+      "lines": 11,
+      "size": 477,
+      "description": "Ensure demo user has proper membership"
+    },
+    {
+      "index": 44,
+      "filename": "20250921090000_org_indexes.sql",
+      "version": "20250921090000_org_indexes",
+      "path": "supabase/migrations/20250921090000_org_indexes.sql",
+      "lines": 18,
+      "size": 875,
+      "description": "Indexes to improve multi-tenant queries"
+    },
+    {
+      "index": 45,
+      "filename": "20250921090001_backfill_core_tables.sql",
+      "version": "20250921090001_backfill_core_tables",
+      "path": "supabase/migrations/20250921090001_backfill_core_tables.sql",
+      "lines": 120,
+      "size": 6494,
+      "description": "Ensure core operational tables exist even when earlier migrations were skipped in production."
+    },
+    {
+      "index": 46,
+      "filename": "20250923093000_agent_learning_tables.sql",
+      "version": "20250923093000_agent_learning_tables",
+      "path": "supabase/migrations/20250923093000_agent_learning_tables.sql",
+      "lines": 198,
+      "size": 8118,
+      "description": "Agent learning schema extensions: personas, corpora, sources, runs, events, feedback."
+    },
+    {
+      "index": 47,
+      "filename": "20250923095000_web_knowledge_sources.sql",
+      "version": "20250923095000_web_knowledge_sources",
+      "path": "supabase/migrations/20250923095000_web_knowledge_sources.sql",
+      "lines": 155,
+      "size": 21128,
+      "description": "Catalog of authoritative web resources for Malta-focused agent learning."
+    },
+    {
+      "index": 48,
+      "filename": "20250923114622_.sql",
+      "version": "20250923114622_",
+      "path": "supabase/migrations/20250923114622_.sql",
+      "lines": 28,
+      "size": 785,
+      "description": "Create membership for the current user in the demo organization"
+    },
+    {
+      "index": 49,
+      "filename": "20250923234623_42c1555f-baf3-4228-a6c4-93cbd60ffda8.sql",
+      "version": "20250923234623_42c1555f-baf3-4228-a6c4-93cbd60ffda8",
+      "path": "supabase/migrations/20250923234623_42c1555f-baf3-4228-a6c4-93cbd60ffda8.sql",
+      "lines": 27,
+      "size": 783,
+      "description": "Create membership for the current user in the demo organization"
+    },
+    {
+      "index": 50,
+      "filename": "20250924014606_remote_schema.sql",
+      "version": "20250924014606_remote_schema",
+      "path": "supabase/migrations/20250924014606_remote_schema.sql",
+      "lines": 2367,
+      "size": 77627,
+      "description": "set check_function_bodies = off;"
+    },
+    {
+      "index": 51,
+      "filename": "20250924095000_audit_plan_strategy_materiality.sql",
+      "version": "20250924095000_audit_plan_strategy_materiality",
+      "path": "supabase/migrations/20250924095000_audit_plan_strategy_materiality.sql",
+      "lines": 67,
+      "size": 2984,
+      "description": "Audit planning strategy & materiality schema (AP-PLAN-1)"
+    },
+    {
+      "index": 52,
+      "filename": "20250924095001_audit_plan_strategy_materiality_rls.sql",
+      "version": "20250924095001_audit_plan_strategy_materiality_rls",
+      "path": "supabase/migrations/20250924095001_audit_plan_strategy_materiality_rls.sql",
+      "lines": 44,
+      "size": 1860,
+      "description": "Audit planning strategy & materiality RLS policies (AP-PLAN-1)"
+    },
+    {
+      "index": 53,
+      "filename": "20250924100500_tax_mt_cit_imputation.sql",
+      "version": "20250924100500_tax_mt_cit_imputation",
+      "path": "supabase/migrations/20250924100500_tax_mt_cit_imputation.sql",
+      "lines": 163,
+      "size": 5101,
+      "description": "Malta CIT & tax accounts schema (T-1A)"
+    },
+    {
+      "index": 54,
+      "filename": "20250924100501_tax_mt_cit_imputation_rls.sql",
+      "version": "20250924100501_tax_mt_cit_imputation_rls",
+      "path": "supabase/migrations/20250924100501_tax_mt_cit_imputation_rls.sql",
+      "lines": 54,
+      "size": 2961,
+      "description": "BEGIN;"
+    },
+    {
+      "index": 55,
+      "filename": "20250924103000_accounting_close_gl.sql",
+      "version": "20250924103000_accounting_close_gl",
+      "path": "supabase/migrations/20250924103000_accounting_close_gl.sql",
+      "lines": 303,
+      "size": 10541,
+      "description": "BEGIN;"
+    },
+    {
+      "index": 56,
+      "filename": "20250924103001_accounting_close_gl_rls.sql",
+      "version": "20250924103001_accounting_close_gl_rls",
+      "path": "supabase/migrations/20250924103001_accounting_close_gl_rls.sql",
+      "lines": 134,
+      "size": 7536,
+      "description": "BEGIN;"
+    },
+    {
+      "index": 57,
+      "filename": "20250924112000_activity_log_enrichment.sql",
+      "version": "20250924112000_activity_log_enrichment",
+      "path": "supabase/migrations/20250924112000_activity_log_enrichment.sql",
+      "lines": 99,
+      "size": 6760,
+      "description": "ActivityLog enrichment and event catalog (GOV-CORE)"
+    },
+    {
+      "index": 58,
+      "filename": "20250924113000_telemetry_schema.sql",
+      "version": "20250924113000_telemetry_schema",
+      "path": "supabase/migrations/20250924113000_telemetry_schema.sql",
+      "lines": 52,
+      "size": 1875,
+      "description": "Telemetry schema for coverage, SLA, and refusal metrics (GOV-CORE)"
+    },
+    {
+      "index": 59,
+      "filename": "20250924113001_telemetry_schema_rls.sql",
+      "version": "20250924113001_telemetry_schema_rls",
+      "path": "supabase/migrations/20250924113001_telemetry_schema_rls.sql",
+      "lines": 46,
+      "size": 2170,
+      "description": "RLS policies for telemetry schema (GOV-CORE)"
+    },
+    {
+      "index": 60,
+      "filename": "20250924120000_audit_risk_register.sql",
+      "version": "20250924120000_audit_risk_register",
+      "path": "supabase/migrations/20250924120000_audit_risk_register.sql",
+      "lines": 107,
+      "size": 3603,
+      "description": "Audit risk register & analytics harness schema (AP-PLAN-2)"
+    },
+    {
+      "index": 61,
+      "filename": "20250924120001_audit_risk_register_rls.sql",
+      "version": "20250924120001_audit_risk_register_rls",
+      "path": "supabase/migrations/20250924120001_audit_risk_register_rls.sql",
+      "lines": 44,
+      "size": 1885,
+      "description": "RLS policies for audit risk register (AP-PLAN-2)"
+    },
+    {
+      "index": 62,
+      "filename": "20250924124000_audit_responses_matrix.sql",
+      "version": "20250924124000_audit_responses_matrix",
+      "path": "supabase/migrations/20250924124000_audit_responses_matrix.sql",
+      "lines": 68,
+      "size": 2474,
+      "description": "Audit responses matrix schema (AP-PLAN-3)"
+    },
+    {
+      "index": 63,
+      "filename": "20250924124001_audit_responses_matrix_rls.sql",
+      "version": "20250924124001_audit_responses_matrix_rls",
+      "path": "supabase/migrations/20250924124001_audit_responses_matrix_rls.sql",
+      "lines": 31,
+      "size": 1275,
+      "description": "RLS policies for audit responses (AP-PLAN-3)"
+    },
+    {
+      "index": 64,
+      "filename": "20250924130000_fraud_plan_je_strategy.sql",
+      "version": "20250924130000_fraud_plan_je_strategy",
+      "path": "supabase/migrations/20250924130000_fraud_plan_je_strategy.sql",
+      "lines": 75,
+      "size": 2983,
+      "description": "Fraud plan & journal entry strategy schema (AP-PLAN-4)"
+    },
+    {
+      "index": 65,
+      "filename": "20250924130001_fraud_plan_je_strategy_rls.sql",
+      "version": "20250924130001_fraud_plan_je_strategy_rls",
+      "path": "supabase/migrations/20250924130001_fraud_plan_je_strategy_rls.sql",
+      "lines": 44,
+      "size": 1883,
+      "description": "RLS policies for fraud plan & JE strategy (AP-PLAN-4)"
+    },
+    {
+      "index": 66,
+      "filename": "20250924134000_activity_log_catalog_audit_modules.sql",
+      "version": "20250924134000_activity_log_catalog_audit_modules",
+      "path": "supabase/migrations/20250924134000_activity_log_catalog_audit_modules.sql",
+      "lines": 28,
+      "size": 2455,
+      "description": "ActivityLog catalog entries for audit fieldwork modules"
+    },
+    {
+      "index": 67,
+      "filename": "20250924135000_audit_kam_schema.sql",
+      "version": "20250924135000_audit_kam_schema",
+      "path": "supabase/migrations/20250924135000_audit_kam_schema.sql",
+      "lines": 246,
+      "size": 10248,
+      "description": "set check_function_bodies = off;"
+    },
+    {
+      "index": 68,
+      "filename": "20250924135001_audit_kam_rls.sql",
+      "version": "20250924135001_audit_kam_rls",
+      "path": "supabase/migrations/20250924135001_audit_kam_rls.sql",
+      "lines": 115,
+      "size": 5996,
+      "description": "Row level security policies for KAM workflow tables"
+    },
+    {
+      "index": 69,
+      "filename": "20250924141000_tax_mt_nid_patent_box.sql",
+      "version": "20250924141000_tax_mt_nid_patent_box",
+      "path": "supabase/migrations/20250924141000_tax_mt_nid_patent_box.sql",
+      "lines": 92,
+      "size": 3410,
+      "description": "Malta tax calculators (T-1B) schema additions for NID & Patent Box"
+    },
+    {
+      "index": 70,
+      "filename": "20250924141001_tax_mt_nid_patent_box_rls.sql",
+      "version": "20250924141001_tax_mt_nid_patent_box_rls",
+      "path": "supabase/migrations/20250924141001_tax_mt_nid_patent_box_rls.sql",
+      "lines": 39,
+      "size": 1390,
+      "description": "RLS policies for Malta tax calculators (T-1B)"
+    },
+    {
+      "index": 71,
+      "filename": "20250924152000_tax_mt_atad_ilr_cfc.sql",
+      "version": "20250924152000_tax_mt_atad_ilr_cfc",
+      "path": "supabase/migrations/20250924152000_tax_mt_atad_ilr_cfc.sql",
+      "lines": 91,
+      "size": 3375,
+      "description": "ATAD ILR & CFC schema (T-1C)"
+    },
+    {
+      "index": 72,
+      "filename": "20250924152001_tax_mt_atad_ilr_cfc_rls.sql",
+      "version": "20250924152001_tax_mt_atad_ilr_cfc_rls",
+      "path": "supabase/migrations/20250924152001_tax_mt_atad_ilr_cfc_rls.sql",
+      "lines": 16,
+      "size": 693,
+      "description": "RLS policies for ATAD ILR & CFC tables"
+    },
+    {
+      "index": 73,
+      "filename": "20250924164000_tax_mt_fiscal_unity.sql",
+      "version": "20250924164000_tax_mt_fiscal_unity",
+      "path": "supabase/migrations/20250924164000_tax_mt_fiscal_unity.sql",
+      "lines": 46,
+      "size": 1591,
+      "description": "Fiscal unity computations (T-1D)"
+    },
+    {
+      "index": 74,
+      "filename": "20250924164001_tax_mt_fiscal_unity_rls.sql",
+      "version": "20250924164001_tax_mt_fiscal_unity_rls",
+      "path": "supabase/migrations/20250924164001_tax_mt_fiscal_unity_rls.sql",
+      "lines": 9,
+      "size": 360,
+      "description": "RLS for fiscal unity computations"
+    },
+    {
+      "index": 75,
+      "filename": "20250924173000_tax_vat_returns.sql",
+      "version": "20250924173000_tax_vat_returns",
+      "path": "supabase/migrations/20250924173000_tax_vat_returns.sql",
+      "lines": 46,
+      "size": 1518,
+      "description": "VAT / OSS return storage (T-2A)"
+    },
+    {
+      "index": 76,
+      "filename": "20250924173001_tax_vat_returns_rls.sql",
+      "version": "20250924173001_tax_vat_returns_rls",
+      "path": "supabase/migrations/20250924173001_tax_vat_returns_rls.sql",
+      "lines": 9,
+      "size": 302,
+      "description": "RLS for VAT filings"
+    },
+    {
+      "index": 77,
+      "filename": "20250924182000_tax_dac6_schema.sql",
+      "version": "20250924182000_tax_dac6_schema",
+      "path": "supabase/migrations/20250924182000_tax_dac6_schema.sql",
+      "lines": 99,
+      "size": 3037,
+      "description": "DAC6 hallmark & submission schema (T-2B)"
+    },
+    {
+      "index": 78,
+      "filename": "20250924182001_tax_dac6_rls.sql",
+      "version": "20250924182001_tax_dac6_rls",
+      "path": "supabase/migrations/20250924182001_tax_dac6_rls.sql",
+      "lines": 66,
+      "size": 2006,
+      "description": "RLS rules for DAC6 tables"
+    },
+    {
+      "index": 79,
+      "filename": "20250924200000_tax_pillar_two_schema.sql",
+      "version": "20250924200000_tax_pillar_two_schema",
+      "path": "supabase/migrations/20250924200000_tax_pillar_two_schema.sql",
+      "lines": 90,
+      "size": 3600,
+      "description": "Pillar Two schema (T-2C)"
+    },
+    {
+      "index": 80,
+      "filename": "20250924200001_tax_pillar_two_rls.sql",
+      "version": "20250924200001_tax_pillar_two_rls",
+      "path": "supabase/migrations/20250924200001_tax_pillar_two_rls.sql",
+      "lines": 21,
+      "size": 732,
+      "description": "RLS policies for Pillar Two schema"
+    },
+    {
+      "index": 81,
+      "filename": "20250924210000_tax_treaty_wht.sql",
+      "version": "20250924210000_tax_treaty_wht",
+      "path": "supabase/migrations/20250924210000_tax_treaty_wht.sql",
+      "lines": 114,
+      "size": 4341,
+      "description": "Treaty WHT computations and dispute tracking (T-3A)"
+    },
+    {
+      "index": 82,
+      "filename": "20250924210001_tax_treaty_wht_rls.sql",
+      "version": "20250924210001_tax_treaty_wht_rls",
+      "path": "supabase/migrations/20250924210001_tax_treaty_wht_rls.sql",
+      "lines": 29,
+      "size": 1020,
+      "description": "RLS policies for treaty WHT & dispute tracking"
+    },
+    {
+      "index": 83,
+      "filename": "20250924213000_tax_us_overlays.sql",
+      "version": "20250924213000_tax_us_overlays",
+      "path": "supabase/migrations/20250924213000_tax_us_overlays.sql",
+      "lines": 58,
+      "size": 2349,
+      "description": "US tax overlays (T-3B)"
+    },
+    {
+      "index": 84,
+      "filename": "20250924213001_tax_us_overlays_rls.sql",
+      "version": "20250924213001_tax_us_overlays_rls",
+      "path": "supabase/migrations/20250924213001_tax_us_overlays_rls.sql",
+      "lines": 13,
+      "size": 400,
+      "description": "RLS for US tax overlays"
+    },
+    {
+      "index": 85,
+      "filename": "20250924214000_archive_manifest_event.sql",
+      "version": "20250924214000_archive_manifest_event",
+      "path": "supabase/migrations/20250924214000_archive_manifest_event.sql",
+      "lines": 14,
+      "size": 563,
+      "description": "Activity catalog entry for archive manifest updates"
+    },
+    {
+      "index": 86,
+      "filename": "20250924225000_idempotency_keys.sql",
+      "version": "20250924225000_idempotency_keys",
+      "path": "supabase/migrations/20250924225000_idempotency_keys.sql",
+      "lines": 24,
+      "size": 826,
+      "description": "drop table if exists public.idempotency_keys cascade;"
+    },
+    {
+      "index": 87,
+      "filename": "20250924231000_rate_limits.sql",
+      "version": "20250924231000_rate_limits",
+      "path": "supabase/migrations/20250924231000_rate_limits.sql",
+      "lines": 42,
+      "size": 1388,
+      "description": "create table if not exists public.rate_limits ("
+    },
+    {
+      "index": 88,
+      "filename": "20250925220000_app_is_member_of_wrapper.sql",
+      "version": "20250925220000_app_is_member_of_wrapper",
+      "path": "supabase/migrations/20250925220000_app_is_member_of_wrapper.sql",
+      "lines": 13,
+      "size": 332,
+      "description": "Ensure legacy RLS helpers resolve against the new org-role helpers"
+    },
+    {
+      "index": 89,
+      "filename": "20250925221000_idempotency_keys_patch.sql",
+      "version": "20250925221000_idempotency_keys_patch",
+      "path": "supabase/migrations/20250925221000_idempotency_keys_patch.sql",
+      "lines": 93,
+      "size": 3102,
+      "description": "Align idempotency storage with the new contract used by the app layer"
+    },
+    {
+      "index": 90,
+      "filename": "20250925222000_rate_limits_policy_patch.sql",
+      "version": "20250925222000_rate_limits_policy_patch",
+      "path": "supabase/migrations/20250925222000_rate_limits_policy_patch.sql",
+      "lines": 15,
+      "size": 556,
+      "description": "Normalise service-role access for rate limit tracking"
+    },
+    {
+      "index": 91,
+      "filename": "20250926090000_tasks_documents_notifications.sql",
+      "version": "20250926090000_tasks_documents_notifications",
+      "path": "supabase/migrations/20250926090000_tasks_documents_notifications.sql",
+      "lines": 456,
+      "size": 21308,
+      "description": "Tasks, Documents, Notifications core tables with RLS and indexes"
+    },
+    {
+      "index": 92,
+      "filename": "20250926181500_activity_event_catalog_rls.sql",
+      "version": "20250926181500_activity_event_catalog_rls",
+      "path": "supabase/migrations/20250926181500_activity_event_catalog_rls.sql",
+      "lines": 21,
+      "size": 938,
+      "description": "Harden activity_event_catalog with RLS policies (SEC-104)"
+    },
+    {
+      "index": 93,
+      "filename": "20250927100000_documents_storage_policy.sql",
+      "version": "20250927100000_documents_storage_policy",
+      "path": "supabase/migrations/20250927100000_documents_storage_policy.sql",
+      "lines": 47,
+      "size": 2049,
+      "description": "Enforce private storage access for documents bucket"
+    },
+    {
+      "index": 94,
+      "filename": "20250927113000_gdrive_ingestion_tables.sql",
+      "version": "20250927113000_gdrive_ingestion_tables",
+      "path": "supabase/migrations/20250927113000_gdrive_ingestion_tables.sql",
+      "lines": 122,
+      "size": 4701,
+      "description": "Google Drive ingestion tables to support connector state and manual change processing (P0)"
+    },
+    {
+      "index": 95,
+      "filename": "20250927114500_learning_loop_tables.sql",
+      "version": "20250927114500_learning_loop_tables",
+      "path": "supabase/migrations/20250927114500_learning_loop_tables.sql",
+      "lines": 178,
+      "size": 7926,
+      "description": "Learning loop foundational tables (signals, metrics, jobs, policies)"
+    },
+    {
+      "index": 96,
+      "filename": "20250930120000_nps_responses.sql",
+      "version": "20250930120000_nps_responses",
+      "path": "supabase/migrations/20250930120000_nps_responses.sql",
+      "lines": 34,
+      "size": 1460,
+      "description": "NPS responses table for capturing user feedback"
+    },
+    {
+      "index": 97,
+      "filename": "20251004112226_e845fcd6-6600-469d-91ac-00f716b13d33.sql",
+      "version": "20251004112226_e845fcd6-6600-469d-91ac-00f716b13d33",
+      "path": "supabase/migrations/20251004112226_e845fcd6-6600-469d-91ac-00f716b13d33.sql",
+      "lines": 118,
+      "size": 3659,
+      "description": "Fix critical security issues for production readiness"
+    },
+    {
+      "index": 98,
+      "filename": "20251005104500_phase_a_foundation.sql",
+      "version": "20251005104500_phase_a_foundation",
+      "path": "supabase/migrations/20251005104500_phase_a_foundation.sql",
+      "lines": 109,
+      "size": 3688,
+      "description": "Phase A foundation & governance migration"
+    },
+    {
+      "index": 99,
+      "filename": "20251007180000_engagement_independence.sql",
+      "version": "20251007180000_engagement_independence",
+      "path": "supabase/migrations/20251007180000_engagement_independence.sql",
+      "lines": 10,
+      "size": 539,
+      "description": "ALTER TABLE public.engagements"
+    },
+    {
+      "index": 100,
+      "filename": "20251018101620_remote_schema.sql",
+      "version": "20251018101620_remote_schema",
+      "path": "supabase/migrations/20251018101620_remote_schema.sql",
+      "lines": 4827,
+      "size": 171340,
+      "description": "set check_function_bodies = off;"
+    },
+    {
+      "index": 101,
+      "filename": "20251018133000_phase1_rls_hardening.sql",
+      "version": "20251018133000_phase1_rls_hardening",
+      "path": "supabase/migrations/20251018133000_phase1_rls_hardening.sql",
+      "lines": 25,
+      "size": 905,
+      "description": "Phase 1 stabilization: tighten access to Prisma migrations and system settings tables"
+    },
+    {
+      "index": 102,
+      "filename": "20251018133100_storage_bucket_lockdown.sql",
+      "version": "20251018133100_storage_bucket_lockdown",
+      "path": "supabase/migrations/20251018133100_storage_bucket_lockdown.sql",
+      "lines": 63,
+      "size": 2146,
+      "description": "Phase 1 stabilization: ensure pay/documents storage buckets are private with restrictive policies"
+    },
+    {
+      "index": 103,
+      "filename": "20251018133250_lock_public_role.sql",
+      "version": "20251018133250_lock_public_role",
+      "path": "supabase/migrations/20251018133250_lock_public_role.sql",
+      "lines": 22,
+      "size": 572,
+      "description": "Phase 2 security hardening: remove write access granted to the PUBLIC role"
+    },
+    {
+      "index": 104,
+      "filename": "20251018133340_function_search_path.sql",
+      "version": "20251018133340_function_search_path",
+      "path": "supabase/migrations/20251018133340_function_search_path.sql",
+      "lines": 15,
+      "size": 810,
+      "description": "Phase 2 hardening: enforce explicit search_path on app schema functions"
+    },
+    {
+      "index": 105,
+      "filename": "20251111090000_audit_ctrl1_ada1_rec1.sql",
+      "version": "20251111090000_audit_ctrl1_ada1_rec1",
+      "path": "supabase/migrations/20251111090000_audit_ctrl1_ada1_rec1.sql",
+      "lines": 478,
+      "size": 18326,
+      "description": "Autonomous Finance Suite outstanding modules (CTRL-1 / ADA-1 / REC-1)"
+    },
+    {
+      "index": 106,
+      "filename": "20251113093000_audit_acceptance_foundation.sql",
+      "version": "20251113093000_audit_acceptance_foundation",
+      "path": "supabase/migrations/20251113093000_audit_acceptance_foundation.sql",
+      "lines": 254,
+      "size": 11118,
+      "description": "Align acceptance and independence tables with remote schema"
+    },
+    {
+      "index": 107,
+      "filename": "20251115090000_notification_fanout.sql",
+      "version": "20251115090000_notification_fanout",
+      "path": "supabase/migrations/20251115090000_notification_fanout.sql",
+      "lines": 81,
+      "size": 3210,
+      "description": "create table if not exists public.notification_dispatch_queue ("
+    },
+    {
+      "index": 108,
+      "filename": "20251115093000_agent_hitl_extensions.sql",
+      "version": "20251115093000_agent_hitl_extensions",
+      "path": "supabase/migrations/20251115093000_agent_hitl_extensions.sql",
+      "lines": 237,
+      "size": 10538,
+      "description": "set check_function_bodies = off;"
+    },
+    {
+      "index": 109,
+      "filename": "20251115100000_openai_debug_events.sql",
+      "version": "20251115100000_openai_debug_events",
+      "path": "supabase/migrations/20251115100000_openai_debug_events.sql",
+      "lines": 32,
+      "size": 1398,
+      "description": "OpenAI debug events table for logging request metadata"
+    },
+    {
+      "index": 110,
+      "filename": "20251115104500_agent_openai_columns.sql",
+      "version": "20251115104500_agent_openai_columns",
+      "path": "supabase/migrations/20251115104500_agent_openai_columns.sql",
+      "lines": 15,
+      "size": 517,
+      "description": "set check_function_bodies = off;"
+    },
+    {
+      "index": 111,
+      "filename": "20251115110000_agent_mcp_schema.sql",
+      "version": "20251115110000_agent_mcp_schema",
+      "path": "supabase/migrations/20251115110000_agent_mcp_schema.sql",
+      "lines": 141,
+      "size": 6876,
+      "description": "set check_function_bodies = off;"
+    },
+    {
+      "index": 112,
+      "filename": "20251115113000_chatkit_sessions.sql",
+      "version": "20251115113000_chatkit_sessions",
+      "path": "supabase/migrations/20251115113000_chatkit_sessions.sql",
+      "lines": 26,
+      "size": 1478,
+      "description": "set check_function_bodies = off;"
+    },
+    {
+      "index": 113,
+      "filename": "20251115114000_system_settings.sql",
+      "version": "20251115114000_system_settings",
+      "path": "supabase/migrations/20251115114000_system_settings.sql",
+      "lines": 19,
+      "size": 747,
+      "description": "set check_function_bodies = off;"
+    },
+    {
+      "index": 114,
+      "filename": "20251115114500_chatkit_turn_config.sql",
+      "version": "20251115114500_chatkit_turn_config",
+      "path": "supabase/migrations/20251115114500_chatkit_turn_config.sql",
+      "lines": 8,
+      "size": 330,
+      "description": "set check_function_bodies = off;"
+    },
+    {
+      "index": 115,
+      "filename": "20251115121500_chatkit_session_transcripts.sql",
+      "version": "20251115121500_chatkit_session_transcripts",
+      "path": "supabase/migrations/20251115121500_chatkit_session_transcripts.sql",
+      "lines": 54,
+      "size": 1808,
+      "description": "set check_function_bodies = off;"
+    },
+    {
+      "index": 116,
+      "filename": "20251115122000_web_fetch_cache.sql",
+      "version": "20251115122000_web_fetch_cache",
+      "path": "supabase/migrations/20251115122000_web_fetch_cache.sql",
+      "lines": 38,
+      "size": 1240,
+      "description": "Cache fetched web content for reuse during web harvest processing."
+    },
+    {
+      "index": 117,
+      "filename": "20251115123000_web_fetch_cache_retention.sql",
+      "version": "20251115123000_web_fetch_cache_retention",
+      "path": "supabase/migrations/20251115123000_web_fetch_cache_retention.sql",
+      "lines": 33,
+      "size": 1368,
+      "description": "Enhance web fetch cache observability and retention hygiene."
+    },
+    {
+      "index": 118,
+      "filename": "20251128000000_comprehensive_rls_policies.sql",
+      "version": "20251128000000_comprehensive_rls_policies",
+      "path": "supabase/migrations/20251128000000_comprehensive_rls_policies.sql",
+      "lines": 456,
+      "size": 12672,
+      "description": "RLS Policy Enhancements Migration"
+    },
+    {
+      "index": 119,
+      "filename": "20251128000001_database_function_security_patch.sql",
+      "version": "20251128000001_database_function_security_patch",
+      "path": "supabase/migrations/20251128000001_database_function_security_patch.sql",
+      "lines": 360,
+      "size": 9917,
+      "description": "Database Function Security Patch"
+    },
+    {
+      "index": 120,
+      "filename": "20251128100000_performance_indexes.sql",
+      "version": "20251128100000_performance_indexes",
+      "path": "supabase/migrations/20251128100000_performance_indexes.sql",
+      "lines": 207,
+      "size": 7877,
+      "description": "Performance Indexes Migration"
+    },
+    {
+      "index": 121,
+      "filename": "20251201000000_accounting_kb_comprehensive.sql",
+      "version": "20251201000000_accounting_kb_comprehensive",
+      "path": "supabase/migrations/20251201000000_accounting_kb_comprehensive.sql",
+      "lines": 193,
+      "size": 8125,
+      "description": "Comprehensive Accounting Knowledge Base Schema"
+    },
+    {
+      "index": 122,
+      "filename": "20251201000001_accounting_kb_functions.sql",
+      "version": "20251201000001_accounting_kb_functions",
+      "path": "supabase/migrations/20251201000001_accounting_kb_functions.sql",
+      "lines": 273,
+      "size": 6954,
+      "description": "Helper functions for accounting knowledge base queries"
+    },
+    {
+      "index": 123,
+      "filename": "20251201090000_analytics_events.sql",
+      "version": "20251201090000_analytics_events",
+      "path": "supabase/migrations/20251201090000_analytics_events.sql",
+      "lines": 36,
+      "size": 1368,
+      "description": "Central analytics events table for cross-service telemetry"
+    },
+    {
+      "index": 124,
+      "filename": "20251201170000_accounting_knowledge_base.sql",
+      "version": "20251201170000_accounting_knowledge_base",
+      "path": "supabase/migrations/20251201170000_accounting_knowledge_base.sql",
+      "lines": 268,
+      "size": 9966,
+      "description": "Accounting Knowledge Base for DeepSearch Agent"
+    },
+    {
+      "index": 125,
+      "filename": "20251201180000_accounting_kb_comprehensive.sql",
+      "version": "20251201180000_accounting_kb_comprehensive",
+      "path": "supabase/migrations/20251201180000_accounting_kb_comprehensive.sql",
+      "lines": 319,
+      "size": 13296,
+      "description": "Accounting Knowledge Base - Comprehensive Schema"
+    },
+    {
+      "index": 126,
+      "filename": "20251201210000_accounting_kb.sql",
+      "version": "20251201210000_accounting_kb",
+      "path": "supabase/migrations/20251201210000_accounting_kb.sql",
+      "lines": 155,
+      "size": 6102,
+      "description": "Accounting Knowledge Base Schema"
+    },
+    {
+      "index": 127,
+      "filename": "20251201213700_match_knowledge_chunks_rpc.sql",
+      "version": "20251201213700_match_knowledge_chunks_rpc",
+      "path": "supabase/migrations/20251201213700_match_knowledge_chunks_rpc.sql",
+      "lines": 61,
+      "size": 1716,
+      "description": "Deep Search RPC: Vector similarity search for knowledge chunks"
+    },
+    {
+      "index": 128,
+      "filename": "20251201_accounting_kb.sql",
+      "version": "20251201_accounting_kb",
+      "path": "supabase/migrations/20251201_accounting_kb.sql",
+      "lines": 187,
+      "size": 7421,
+      "description": "Accounting Knowledge Base Schema Migration"
+    },
+    {
+      "index": 129,
+      "filename": "20251201_accounting_kb_functions.sql",
+      "version": "20251201_accounting_kb_functions",
+      "path": "supabase/migrations/20251201_accounting_kb_functions.sql",
+      "lines": 281,
+      "size": 8992,
+      "description": "Semantic Search Function for Knowledge Base"
+    },
+    {
+      "index": 130,
+      "filename": "20251201_accounting_knowledge_base.sql",
+      "version": "20251201_accounting_knowledge_base",
+      "path": "supabase/migrations/20251201_accounting_knowledge_base.sql",
+      "lines": 219,
+      "size": 9747,
+      "description": "Accounting Knowledge Base Migration"
+    },
+    {
+      "index": 131,
+      "filename": "20251201_add_unique_url_to_knowledge_web_sources.sql",
+      "version": "20251201_add_unique_url_to_knowledge_web_sources",
+      "path": "supabase/migrations/20251201_add_unique_url_to_knowledge_web_sources.sql",
+      "lines": 3,
+      "size": 182,
+      "description": "Adds a unique constraint to ensure each knowledge_web_sources row has a unique URL."
+    },
+    {
+      "index": 132,
+      "filename": "20251201_knowledge_web_sources_200_urls.sql",
+      "version": "20251201_knowledge_web_sources_200_urls",
+      "path": "supabase/migrations/20251201_knowledge_web_sources_200_urls.sql",
+      "lines": 362,
+      "size": 33541,
+      "description": "Migration: Knowledge Web Sources - 200 Trusted URLs"
+    },
+    {
+      "index": 133,
+      "filename": "20251202000307_agent_production_system.sql",
+      "version": "20251202000307_agent_production_system",
+      "path": "supabase/migrations/20251202000307_agent_production_system.sql",
+      "lines": 267,
+      "size": 9759,
+      "description": "Agent Execution Tracking Migration"
+    },
+    {
+      "index": 134,
+      "filename": "20251202000308_fix_agent_rls_policies.sql",
+      "version": "20251202000308_fix_agent_rls_policies",
+      "path": "supabase/migrations/20251202000308_fix_agent_rls_policies.sql",
+      "lines": 57,
+      "size": 1862,
+      "description": "Fix RLS Policies for Agent Tables"
+    },
+    {
+      "index": 135,
+      "filename": "20251202000309_fix_agent_rls_final.sql",
+      "version": "20251202000309_fix_agent_rls_final",
+      "path": "supabase/migrations/20251202000309_fix_agent_rls_final.sql",
+      "lines": 66,
+      "size": 2188,
+      "description": "Fix RLS Policies for Agent Tables"
+    },
+    {
+      "index": 136,
+      "filename": "20251202120000_extensions_schema_reset.sql",
+      "version": "20251202120000_extensions_schema_reset",
+      "path": "supabase/migrations/20251202120000_extensions_schema_reset.sql",
+      "lines": 62,
+      "size": 1686,
+      "description": "Move extension-managed objects into the dedicated `extensions` schema."
+    },
+    {
+      "index": 137,
+      "filename": "20251202121000_role_search_path_extensions.sql",
+      "version": "20251202121000_role_search_path_extensions",
+      "path": "supabase/migrations/20251202121000_role_search_path_extensions.sql",
+      "lines": 60,
+      "size": 1521,
+      "description": "Ensure core Supabase roles resolve functions from the `extensions` schema."
+    },
+    {
+      "index": 138,
+      "filename": "20251215120000_notification_dispatch_queue_system_settings_rls.sql",
+      "version": "20251215120000_notification_dispatch_queue_system_settings_rls",
+      "path": "supabase/migrations/20251215120000_notification_dispatch_queue_system_settings_rls.sql",
+      "lines": 20,
+      "size": 914,
+      "description": "RLS remediation following audit of Supabase + Prisma schemas"
+    },
+    {
+      "index": 139,
+      "filename": "20251218120000_agent_manifest_lookup_indexes.sql",
+      "version": "20251218120000_agent_manifest_lookup_indexes",
+      "path": "supabase/migrations/20251218120000_agent_manifest_lookup_indexes.sql",
+      "lines": 2,
+      "size": 119,
+      "description": "create index if not exists idx_agent_manifests_key_created_at"
+    },
+    {
+      "index": 140,
+      "filename": "20251220150000_resolver_indexes.sql",
+      "version": "20251220150000_resolver_indexes",
+      "path": "supabase/migrations/20251220150000_resolver_indexes.sql",
+      "lines": 5,
+      "size": 480,
+      "description": "Indexes supporting batched resolver patterns introduced for the RAG service"
+    },
+    {
+      "index": 141,
+      "filename": "20260128000000_ai_agent_system_comprehensive.sql",
+      "version": "20260128000000_ai_agent_system_comprehensive",
+      "path": "supabase/migrations/20260128000000_ai_agent_system_comprehensive.sql",
+      "lines": 564,
+      "size": 19291,
+      "description": "============================================"
+    },
+    {
+      "index": 142,
+      "filename": "20260128100000_agent_learning_system_comprehensive.sql",
+      "version": "20260128100000_agent_learning_system_comprehensive",
+      "path": "supabase/migrations/20260128100000_agent_learning_system_comprehensive.sql",
+      "lines": 715,
+      "size": 25232,
+      "description": "============================================"
+    },
+    {
+      "index": 143,
+      "filename": "20260201000000_comprehensive_agent_portal.sql",
+      "version": "20260201000000_comprehensive_agent_portal",
+      "path": "supabase/migrations/20260201000000_comprehensive_agent_portal.sql",
+      "lines": 524,
+      "size": 19338,
+      "description": "Comprehensive AI Agent System Migration"
+    },
+    {
+      "index": 144,
+      "filename": "20260201100000_curated_knowledge_base.sql",
+      "version": "20260201100000_curated_knowledge_base",
+      "path": "supabase/migrations/20260201100000_curated_knowledge_base.sql",
+      "lines": 650,
+      "size": 26960,
+      "description": "============================================"
+    },
+    {
+      "index": 145,
+      "filename": "20260201120000_auto_classification_columns.sql",
+      "version": "20260201120000_auto_classification_columns",
+      "path": "supabase/migrations/20260201120000_auto_classification_columns.sql",
+      "lines": 60,
+      "size": 3320,
+      "description": "============================================"
+    },
+    {
+      "index": 146,
+      "filename": "20260201150000_accounting_kb_comprehensive.sql",
+      "version": "20260201150000_accounting_kb_comprehensive",
+      "path": "supabase/migrations/20260201150000_accounting_kb_comprehensive.sql",
+      "lines": 159,
+      "size": 6259,
+      "description": "Comprehensive Accounting Knowledge Base Schema"
+    },
+    {
+      "index": 147,
+      "filename": "20260201160000_rag_ingestion_pipeline.sql",
+      "version": "20260201160000_rag_ingestion_pipeline",
+      "path": "supabase/migrations/20260201160000_rag_ingestion_pipeline.sql",
+      "lines": 204,
+      "size": 7594,
+      "description": "RAG Ingestion Pipeline: knowledge_web_pages + knowledge_chunks + pgvector"
+    },
+    {
+      "index": 148,
+      "filename": "20260201170000_agent_analytics_schema.sql",
+      "version": "20260201170000_agent_analytics_schema",
+      "path": "supabase/migrations/20260201170000_agent_analytics_schema.sql",
+      "lines": 521,
+      "size": 17270,
+      "description": "Agent Analytics & Monitoring Schema"
+    },
+    {
+      "index": 149,
+      "filename": "20260201170000_specialist_agent_executions.sql",
+      "version": "20260201170000_specialist_agent_executions",
+      "path": "supabase/migrations/20260201170000_specialist_agent_executions.sql",
+      "lines": 76,
+      "size": 2702,
+      "description": "Agent Executions Logging Table"
+    },
+    {
+      "index": 150,
+      "filename": "20260201180000_agent_feedback_loop.sql",
+      "version": "20260201180000_agent_feedback_loop",
+      "path": "supabase/migrations/20260201180000_agent_feedback_loop.sql",
+      "lines": 575,
+      "size": 18321,
+      "description": "Agent Feedback Loop Schema"
+    },
+    {
+      "index": 151,
+      "filename": "20260201190000_agent_testing_schema.sql",
+      "version": "20260201190000_agent_testing_schema",
+      "path": "supabase/migrations/20260201190000_agent_testing_schema.sql",
+      "lines": 35,
+      "size": 975,
+      "description": "Agent Testing Framework Schema"
+    }
+  ]
+}

@@ -64,9 +64,9 @@ CREATE TABLE IF NOT EXISTS knowledge_sources (
     UNIQUE(organization_id, slug)
 );
 
-CREATE INDEX idx_knowledge_sources_org_status ON knowledge_sources(organization_id, status);
-CREATE INDEX idx_knowledge_sources_next_sync ON knowledge_sources(next_sync_at) WHERE auto_sync = true;
-CREATE INDEX idx_knowledge_sources_tags ON knowledge_sources USING GIN(tags);
+CREATE INDEX IF NOT EXISTS idx_knowledge_sources_org_status ON knowledge_sources(organization_id, status);
+CREATE INDEX IF NOT EXISTS idx_knowledge_sources_next_sync ON knowledge_sources(next_sync_at) WHERE auto_sync = true;
+CREATE INDEX IF NOT EXISTS idx_knowledge_sources_tags ON knowledge_sources USING GIN(tags);
 
 -- Documents (Knowledge Source Items)
 CREATE TABLE IF NOT EXISTS knowledge_documents (
@@ -107,9 +107,9 @@ CREATE TABLE IF NOT EXISTS knowledge_documents (
     UNIQUE(knowledge_source_id, external_id)
 );
 
-CREATE INDEX idx_knowledge_documents_source ON knowledge_documents(knowledge_source_id, status);
-CREATE INDEX idx_knowledge_documents_org ON knowledge_documents(organization_id);
-CREATE INDEX idx_knowledge_documents_hash ON knowledge_documents(content_hash);
+CREATE INDEX IF NOT EXISTS idx_knowledge_documents_source ON knowledge_documents(knowledge_source_id, status);
+CREATE INDEX IF NOT EXISTS idx_knowledge_documents_org ON knowledge_documents(organization_id);
+CREATE INDEX IF NOT EXISTS idx_knowledge_documents_hash ON knowledge_documents(content_hash);
 
 -- Chunks (Vector Embeddings) - Enhanced version
 CREATE TABLE IF NOT EXISTS knowledge_chunks (
@@ -150,9 +150,9 @@ CREATE INDEX IF NOT EXISTS idx_knowledge_chunks_embedding ON knowledge_chunks
     WITH (m = 16, ef_construction = 64);
 
 -- Additional indexes
-CREATE INDEX idx_knowledge_chunks_org_index ON knowledge_chunks(organization_id, index_name);
-CREATE INDEX idx_knowledge_chunks_source ON knowledge_chunks(knowledge_source_id);
-CREATE INDEX idx_knowledge_chunks_tags ON knowledge_chunks USING GIN(tags);
+CREATE INDEX IF NOT EXISTS idx_knowledge_chunks_org_index ON knowledge_chunks(organization_id, index_name);
+CREATE INDEX IF NOT EXISTS idx_knowledge_chunks_source ON knowledge_chunks(knowledge_source_id);
+CREATE INDEX IF NOT EXISTS idx_knowledge_chunks_tags ON knowledge_chunks USING GIN(tags);
 
 -- Agent-Knowledge Source Assignments
 CREATE TABLE IF NOT EXISTS agent_knowledge_assignments (
@@ -184,8 +184,8 @@ CREATE TABLE IF NOT EXISTS agent_knowledge_assignments (
     UNIQUE(agent_id, knowledge_source_id)
 );
 
-CREATE INDEX idx_agent_knowledge_agent ON agent_knowledge_assignments(agent_id, is_enabled);
-CREATE INDEX idx_agent_knowledge_source ON agent_knowledge_assignments(knowledge_source_id);
+CREATE INDEX IF NOT EXISTS idx_agent_knowledge_agent ON agent_knowledge_assignments(agent_id, is_enabled);
+CREATE INDEX IF NOT EXISTS idx_agent_knowledge_source ON agent_knowledge_assignments(knowledge_source_id);
 
 -- Knowledge Sync Jobs
 CREATE TABLE IF NOT EXISTS knowledge_sync_jobs (
@@ -230,8 +230,8 @@ CREATE TABLE IF NOT EXISTS knowledge_sync_jobs (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_knowledge_sync_jobs_source ON knowledge_sync_jobs(knowledge_source_id, created_at DESC);
-CREATE INDEX idx_knowledge_sync_jobs_status ON knowledge_sync_jobs(status, started_at);
+CREATE INDEX IF NOT EXISTS idx_knowledge_sync_jobs_source ON knowledge_sync_jobs(knowledge_source_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_knowledge_sync_jobs_status ON knowledge_sync_jobs(status, started_at);
 
 -- Search History & Analytics
 CREATE TABLE IF NOT EXISTS knowledge_search_analytics (
@@ -269,9 +269,9 @@ CREATE TABLE IF NOT EXISTS knowledge_search_analytics (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_knowledge_search_org_date ON knowledge_search_analytics(organization_id, created_at DESC);
-CREATE INDEX idx_knowledge_search_agent ON knowledge_search_analytics(agent_id);
-CREATE INDEX idx_knowledge_search_embedding ON knowledge_search_analytics 
+CREATE INDEX IF NOT EXISTS idx_knowledge_search_org_date ON knowledge_search_analytics(organization_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_knowledge_search_agent ON knowledge_search_analytics(agent_id);
+CREATE INDEX IF NOT EXISTS idx_knowledge_search_embedding ON knowledge_search_analytics 
     USING hnsw (query_embedding vector_cosine_ops)
     WITH (m = 16, ef_construction = 64);
 

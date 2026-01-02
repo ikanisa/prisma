@@ -39,6 +39,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS kb_documents_updated_at_trigger ON public.kb_documents;
 CREATE TRIGGER kb_documents_updated_at_trigger
   BEFORE UPDATE ON public.kb_documents
   FOR EACH ROW
@@ -105,21 +106,25 @@ GRANT EXECUTE ON FUNCTION public.match_kb_documents TO anon, authenticated;
 -- Add RLS policies
 ALTER TABLE public.kb_documents ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "KB documents are viewable by everyone" ON public.kb_documents;
 CREATE POLICY "KB documents are viewable by everyone"
   ON public.kb_documents FOR SELECT
   TO anon, authenticated
   USING (true);
 
+DROP POLICY IF EXISTS "Authenticated users can insert KB documents" ON public.kb_documents;
 CREATE POLICY "Authenticated users can insert KB documents"
   ON public.kb_documents FOR INSERT
   TO authenticated
   WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Authenticated users can update KB documents" ON public.kb_documents;
 CREATE POLICY "Authenticated users can update KB documents"
   ON public.kb_documents FOR UPDATE
   TO authenticated
   USING (true);
 
+DROP POLICY IF EXISTS "Authenticated users can delete KB documents" ON public.kb_documents;
 CREATE POLICY "Authenticated users can delete KB documents"
   ON public.kb_documents FOR DELETE
   TO authenticated
