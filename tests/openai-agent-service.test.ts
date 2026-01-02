@@ -46,7 +46,7 @@ describe('openai-agent-service', () => {
 
     await syncAgentToolsFromRegistry({
       supabase,
-      openAiApiKey: 'sk-test',
+      openAiApiKey: process.env.OPENAI_API_KEY ?? 'test-mock-key',
       logError: vi.fn(),
       logInfo: vi.fn(),
     });

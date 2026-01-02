@@ -27,7 +27,7 @@ describe('createRealtimeSession', () => {
     );
 
     const logInfo = vi.fn();
-    const result = await createRealtimeSession({ openAiApiKey: 'sk-test', logError: vi.fn(), logInfo });
+    const result = await createRealtimeSession({ openAiApiKey: process.env.OPENAI_API_KEY ?? 'test-mock-key', logError: vi.fn(), logInfo });
 
     expect(result.client_secret?.value).toBe('secret');
     expect(logInfo).toHaveBeenCalledWith('openai.realtime_session_created', {

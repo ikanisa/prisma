@@ -267,10 +267,11 @@ export default defineConfig({
         'tests/**',
       ],
       thresholds: {
-        statements: Number(process.env.VITEST_COVERAGE_STATEMENTS ?? '45'),
-        branches: Number(process.env.VITEST_COVERAGE_BRANCHES ?? '80'),
-        functions: Number(process.env.VITEST_COVERAGE_FUNCTIONS ?? '45'),
-        lines: Number(process.env.VITEST_COVERAGE_LINES ?? '85'),
+        // P0 FIX: Aligned thresholds with CI requirements (previously 45%/80%/45%/85%)
+        statements: Number(process.env.VITEST_COVERAGE_STATEMENTS ?? '80'),
+        branches: Number(process.env.VITEST_COVERAGE_BRANCHES ?? '75'),
+        functions: Number(process.env.VITEST_COVERAGE_FUNCTIONS ?? '80'),
+        lines: Number(process.env.VITEST_COVERAGE_LINES ?? '80'),
       },
     },
   },

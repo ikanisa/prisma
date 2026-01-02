@@ -29,11 +29,11 @@ export default function DesktopLoginPage() {
       }
 
       const { invoke } = await import('@tauri-apps/api/core');
-      
-      const [user, token] = await invoke('login', { email, password });
+
+      const result = await invoke<{ user: unknown; token: unknown }>('login', { email, password });
       await invoke('init_local_db');
-      
-      console.log('✅ Logged in:', user);
+
+      console.log('✅ Logged in:', result);
       router.push('/client');
     } catch (err: any) {
       console.error('Login error:', err);
@@ -65,7 +65,7 @@ export default function DesktopLoginPage() {
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
-            
+
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -79,7 +79,7 @@ export default function DesktopLoginPage() {
                 autoFocus
               />
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
               <Input
@@ -92,13 +92,13 @@ export default function DesktopLoginPage() {
                 disabled={loading}
               />
             </div>
-            
+
             <Button type="submit" className="w-full" disabled={loading}>
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {loading ? 'Signing in...' : 'Sign In'}
             </Button>
           </form>
-          
+
           <div className="mt-6 text-center text-sm text-muted-foreground">
             <p>Desktop App Version 1.0.0</p>
           </div>

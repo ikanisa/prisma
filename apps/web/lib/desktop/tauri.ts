@@ -26,19 +26,19 @@ export const isTauri = (): boolean => {
 export const desktopAuth = {
   login: async (email: string, password: string) => {
     if (!isTauri()) throw new Error('Not in Tauri');
-    const { invoke } = await import('@tauri-apps/api/tauri');
+    const { invoke } = await import('@tauri-apps/api/core');
     return await invoke('login', { email, password });
   },
-  
+
   logout: async () => {
     if (!isTauri()) return;
-    const { invoke } = await import('@tauri-apps/api/tauri');
+    const { invoke } = await import('@tauri-apps/api/core');
     return await invoke('logout');
   },
-  
+
   getStoredToken: async () => {
     if (!isTauri()) return null;
-    const { invoke } = await import('@tauri-apps/api/tauri');
+    const { invoke } = await import('@tauri-apps/api/core');
     return await invoke('get_stored_token');
   },
 };

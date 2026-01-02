@@ -14,6 +14,7 @@
     "@prisma-glow/types": "workspace:*"
   },
   "scripts": {
-    "test": "echo \"No tests\""
+    "test": "vitest run",
+    "test:watch": "vitest"
   }
 }

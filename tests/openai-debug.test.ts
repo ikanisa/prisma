@@ -65,7 +65,7 @@ describe('createOpenAiDebugLogger', () => {
 
     const logger = createOpenAiDebugLogger({
       supabase,
-      apiKey: 'sk-test',
+      apiKey: process.env.OPENAI_API_KEY ?? 'test-mock-key',
       enabled: true,
       fetchDetails: true,
       logError: vi.fn(),

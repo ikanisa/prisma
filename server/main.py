@@ -186,9 +186,12 @@ SENTRY_DSN = os.getenv("SENTRY_DSN")
 SENTRY_ENABLED = bool(SENTRY_DSN)
 
 if SENTRY_ENABLED:
+    # Reduced sample rate from 1.0 to 0.2 for production cost optimization
+    # 20% sampling provides sufficient visibility while reducing costs
+    traces_sample_rate = float(os.getenv("SENTRY_TRACES_SAMPLE_RATE", "0.2"))
     sentry_sdk.init(
         dsn=SENTRY_DSN,
-        traces_sample_rate=1.0,
+        traces_sample_rate=traces_sample_rate,
         release=SENTRY_RELEASE,
         environment=SENTRY_ENVIRONMENT,
     )

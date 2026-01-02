@@ -12,20 +12,20 @@ export function TitleBar({ title = 'Prisma Glow' }: { title?: string }) {
   if (!isTauri) return null;
 
   const handleMinimize = async () => {
-    const { getCurrent } = await import('@tauri-apps/api/window');
-    await getCurrent().minimize();
+    const { getCurrentWindow } = await import('@tauri-apps/api/window');
+    await getCurrentWindow().minimize();
   };
 
   const handleMaximize = async () => {
-    const { getCurrent } = await import('@tauri-apps/api/window');
-    const window = getCurrent();
+    const { getCurrentWindow } = await import('@tauri-apps/api/window');
+    const window = getCurrentWindow();
     const isMax = await window.isMaximized();
     await (isMax ? window.unmaximize() : window.maximize());
   };
 
   const handleClose = async () => {
-    const { getCurrent } = await import('@tauri-apps/api/window');
-    await getCurrent().close();
+    const { getCurrentWindow } = await import('@tauri-apps/api/window');
+    await getCurrentWindow().close();
   };
 
   return (

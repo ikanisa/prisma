@@ -43,8 +43,8 @@ export function useSyncManager() {
     setStatus(prev => ({ ...prev, isSyncing: true, error: null }));
 
     try {
-      const { invoke } = await import('@tauri-apps/api/tauri');
-      
+      const { invoke } = await import('@tauri-apps/api/core');
+
       // Get auth token
       const token: any = await invoke('get_stored_token');
       if (!token) {
@@ -85,12 +85,11 @@ export function SyncStatusBar() {
 
   return (
     <div className="flex items-center gap-2 px-4 py-2 bg-muted/50 text-xs">
-      <div className={`w-2 h-2 rounded-full ${
-        status.isSyncing ? 'bg-blue-500 animate-pulse' :
-        status.error ? 'bg-red-500' :
-        'bg-green-500'
-      }`} />
-      
+      <div className={`w-2 h-2 rounded-full ${status.isSyncing ? 'bg-blue-500 animate-pulse' :
+          status.error ? 'bg-red-500' :
+            'bg-green-500'
+        }`} />
+
       {status.isSyncing && <span>Syncing...</span>}
       {status.error && <span className="text-destructive">{status.error}</span>}
       {!status.isSyncing && !status.error && status.lastSync && (

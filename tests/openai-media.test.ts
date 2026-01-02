@@ -21,7 +21,7 @@ describe('generateSoraVideo', () => {
     );
 
     const logInfo = vi.fn();
-    const job = await generateSoraVideo({ prompt: 'Test video', openAiApiKey: 'sk-test', logError: vi.fn(), logInfo });
+    const job = await generateSoraVideo({ prompt: 'Test video', openAiApiKey: process.env.OPENAI_API_KEY ?? 'test-mock-key', logError: vi.fn(), logInfo });
 
     expect(job).toEqual({ id: 'job_1', status: 'queued' });
     expect(logInfo).toHaveBeenCalledWith('openai.sora_video_enqueued', { promptLength: 10 });

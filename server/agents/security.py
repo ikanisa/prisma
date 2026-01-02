@@ -34,21 +34,141 @@ class AgentSecurity:
     ) -> Dict[str, Any]:
         """
         Check if user has access to execute agent
+        
+        P0 FIX: Implements actual RBAC checks against database.
+        Queries organization_members to verify user role and permissions.
 
         Returns:
-            {"allowed": bool, "reason": str}
+            {"allowed": bool, "reason": str, "role": str}
         """
-        # TODO: Implement actual RBAC checks against database
-        # For now, allow all authenticated users
-
-        logger.info(
-            "access_check",
-            org_id=self.org_id,
-            user_id=self.user_id,
-            agent_id=agent_id
-        )
-
-        return {"allowed": True, "reason": "authenticated"}
+        # Role hierarchy (higher index = more permissions)
+        ROLE_HIERARCHY = {
+            "READONLY": 0,
+            "CLIENT": 1,
+            "VIEWER": 1,
+            "EMPLOYEE": 2,
+            "MEMBER": 2,
+            "MANAGER": 3,
+            "ADMIN": 4,
+            "EQR": 4,
+            "PARTNER": 5,
+            "OWNER": 5,
+            "SYSTEM_ADMIN": 6,
+            "SERVICE_ACCOUNT": 6,
+        }
+        
+        # Permission requirements for agent capabilities
+        CAPABILITY_MIN_ROLE = {
+            "agents.execute": "EMPLOYEE",
+            "agents.execute.tax": "EMPLOYEE",
+            "agents.execute.audit": "EMPLOYEE",
+            "agents.execute.accounting": "EMPLOYEE",
+            "journals.post": "MANAGER",
+            "tax.return.submit": "MANAGER",
+            "close.lock": "PARTNER",
+            "audit.plan.freeze": "PARTNER",
+            "audit.report.release": "PARTNER",
+            "eqr.signoff": "EQR",
+            "policy.pack.edit": "SYSTEM_ADMIN",
+        }
+        
+        try:
+            # Import here to avoid circular imports
+            from .supabase_client import get_supabase_client
+            
+            supabase = get_supabase_client()
+            
+            # Query organization membership
+            result = supabase.table("organization_members").select(
+                "role, deleted_at"
+            ).eq(
+                "user_id", self.user_id
+            ).eq(
+                "organization_id", self.org_id
+            ).is_(
+                "deleted_at", "null"
+            ).single().execute()
+            
+            if not result.data:
+                logger.warning(
+                    "access_denied_not_member",
+                    org_id=self.org_id,
+                    user_id=self.user_id,
+                    agent_id=agent_id
+                )
+                return {
+                    "allowed": False, 
+                    "reason": "not_a_member",
+                    "role": None
+                }
+            
+            user_role = result.data.get("role", "READONLY")
+            user_role_level = ROLE_HIERARCHY.get(user_role, 0)
+            
+            # Check capability requirement if specified
+            if required_capability:
+                min_role = CAPABILITY_MIN_ROLE.get(required_capability, "EMPLOYEE")
+                min_role_level = ROLE_HIERARCHY.get(min_role, 2)
+                
+                if user_role_level < min_role_level:
+                    logger.warning(
+                        "access_denied_insufficient_role",
+                        org_id=self.org_id,
+                        user_id=self.user_id,
+                        agent_id=agent_id,
+                        user_role=user_role,
+                        required_role=min_role,
+                        capability=required_capability
+                    )
+                    return {
+                        "allowed": False,
+                        "reason": f"insufficient_role: requires {min_role}, user has {user_role}",
+                        "role": user_role
+                    }
+            
+            # Default: require at least EMPLOYEE level for agent execution
+            if user_role_level < ROLE_HIERARCHY.get("EMPLOYEE", 2):
+                logger.warning(
+                    "access_denied_below_employee",
+                    org_id=self.org_id,
+                    user_id=self.user_id,
+                    agent_id=agent_id,
+                    user_role=user_role
+                )
+                return {
+                    "allowed": False,
+                    "reason": f"insufficient_role: requires EMPLOYEE, user has {user_role}",
+                    "role": user_role
+                }
+            
+            logger.info(
+                "access_granted",
+                org_id=self.org_id,
+                user_id=self.user_id,
+                agent_id=agent_id,
+                role=user_role
+            )
+            
+            return {
+                "allowed": True, 
+                "reason": "authorized",
+                "role": user_role
+            }
+            
+        except Exception as e:
+            # Log error but fail closed (deny access on error)
+            logger.error(
+                "access_check_error",
+                org_id=self.org_id,
+                user_id=self.user_id,
+                agent_id=agent_id,
+                error=str(e)
+            )
+            return {
+                "allowed": False,
+                "reason": f"access_check_error: {str(e)}",
+                "role": None
+            }
 
     def detect_pii(self, text: str) -> Dict[str, Any]:
         """

@@ -16,6 +16,9 @@ import {
 const fetchMock = vi.fn();
 vi.stubGlobal('fetch', fetchMock);
 
+// P1 FIX: Use env var or safe mock value instead of hardcoded sk-test
+const TEST_API_KEY = process.env.OPENAI_API_KEY ?? 'test-mock-key';
+
 function successResponse(payload: unknown) {
   return new Response(JSON.stringify(payload), { status: 200 });
 }
@@ -43,7 +46,7 @@ describe('openai conversations service', () => {
   it('omits request body when no metadata or items provided', async () => {
     fetchMock.mockResolvedValue(successResponse({ id: 'conv_empty', object: 'conversation', created_at: 1 }));
     await createConversation({
-      openAiApiKey: 'sk-test',
+      openAiApiKey: TEST_API_KEY,
       logError: vi.fn(),
       logInfo: vi.fn(),
     });
@@ -60,7 +63,7 @@ describe('openai conversations service', () => {
     );
     const logInfo = vi.fn();
     const conversation = await createConversation({
-      openAiApiKey: 'sk-test',
+      openAiApiKey: TEST_API_KEY,
       metadata: { topic: 'demo' },
       logError: vi.fn(),
       logInfo,
@@ -72,7 +75,7 @@ describe('openai conversations service', () => {
     expect(url).toBe('https://api.openai.com/v1/conversations');
     expect(init.method).toBe('POST');
     expect(init.headers).toMatchObject({
-      Authorization: 'Bearer sk-test',
+      Authorization: `Bearer ${TEST_API_KEY}`,
       'Content-Type': 'application/json',
     });
     expect(init.body).toBe(JSON.stringify({ metadata: { topic: 'demo' } }));
@@ -86,7 +89,7 @@ describe('openai conversations service', () => {
 
     await getConversation({
       conversationId: 'conv_1',
-      openAiApiKey: 'sk-test',
+      openAiApiKey: TEST_API_KEY,
       logError: vi.fn(),
       logInfo: vi.fn(),
     });
@@ -97,7 +100,7 @@ describe('openai conversations service', () => {
     await updateConversation({
       conversationId: 'conv_1',
       metadata: { stage: 'qa' },
-      openAiApiKey: 'sk-test',
+      openAiApiKey: TEST_API_KEY,
       logError: vi.fn(),
       logInfo: vi.fn(),
     });
@@ -118,7 +121,7 @@ describe('openai conversations service', () => {
       limit: 10,
       order: 'asc',
       include: ['message.output_text.logprobs', 'code_interpreter_call.outputs'],
-      openAiApiKey: 'sk-test',
+      openAiApiKey: TEST_API_KEY,
       logError: vi.fn(),
       logInfo,
     });
@@ -155,7 +158,7 @@ describe('openai conversations service', () => {
     const response = await listConversations({
       limit: 25,
       order: 'asc',
-      openAiApiKey: 'sk-test',
+      openAiApiKey: TEST_API_KEY,
       logError: vi.fn(),
       logInfo,
     });
@@ -178,7 +181,7 @@ describe('openai conversations service', () => {
       conversationId: 'conv_item',
       itemId: 'item_2',
       include: ['message.output_text.logprobs'],
-      openAiApiKey: 'sk-test',
+      openAiApiKey: TEST_API_KEY,
       logError: vi.fn(),
       logInfo: vi.fn(),
     });
@@ -202,7 +205,7 @@ describe('openai conversations service', () => {
       conversationId: 'conv_items',
       items,
       include: ['message.output_text.logprobs'],
-      openAiApiKey: 'sk-test',
+      openAiApiKey: TEST_API_KEY,
       logError: vi.fn(),
       logInfo: vi.fn(),
     });
@@ -215,7 +218,7 @@ describe('openai conversations service', () => {
     await deleteConversationItem({
       conversationId: 'conv_items',
       itemId: 'item_1',
-      openAiApiKey: 'sk-test',
+      openAiApiKey: TEST_API_KEY,
       logError: vi.fn(),
       logInfo: vi.fn(),
     });
@@ -229,7 +232,7 @@ describe('openai conversations service', () => {
     fetchMock.mockResolvedValue(successResponse({ id: 'conv_del', object: 'conversation.deleted', deleted: true }));
     await deleteConversation({
       conversationId: 'conv_del',
-      openAiApiKey: 'sk-test',
+      openAiApiKey: TEST_API_KEY,
       logError: vi.fn(),
       logInfo: vi.fn(),
     });
@@ -246,7 +249,7 @@ describe('openai conversations service', () => {
     await expect(
       getConversation({
         conversationId: 'conv_err',
-        openAiApiKey: 'sk-test',
+        openAiApiKey: TEST_API_KEY,
         logError,
       }),
     ).rejects.toThrow(/failed with status 500/);
