@@ -211,72 +211,62 @@
 - ✅ Primary keys on all tables
 - ✅ Foreign keys with CASCADE
 - ✅ NOT NULL on critical columns
-- ⚠️ Some CHECK constraints missing
-- ⚠️ Missing indexes on some query paths
+- ✅ 155 migrations well-organized
+- ✅ Extensive use of *_rls.sql policy files (50+)
+- ⚠️ Some CHECK constraints missing on money columns
+- ⚠️ Migration consolidation recommended (many small files)
 
-### Security
-- ✅ RLS enabled on sensitive tables
-- ✅ Tenant isolation via tenant_id
-- ✅ Role-based access functions
-- ⚠️ Some tables missing RLS
+### Security (RLS)
+RLS policies found in 50+ migration files:
+- ✅ `comprehensive_rls_policies.sql` - Base policies
+- ✅ `phase1_rls_hardening.sql` - Production hardening
+- ✅ `storage_bucket_lockdown.sql` - Storage security
+- ✅ `database_function_security_patch.sql` - Function security
+- ✅ `lock_public_role.sql` - Public role restrictions
+- ✅ Tax tables: VAT, CIT, DAC6, Pillar Two, Treaty WHT
+- ✅ Audit tables: Risk register, KAM, responses matrix
+- ✅ Accounting: GL close, idempotency keys
+
+### Key Tables Coverage
+| Domain | Tables | RLS |
+|--------|--------|-----|
+| Knowledge Base | kb_* | ✅ |
+| Agents | agents, agent_* | ✅ |
+| Tax | tax_*, vat_* | ✅ |
+| Audit | audit_* | ✅ |
+| Organizations | organizations, org_members | ✅ |
 
 ### Migrations
-- ✅ 153 organized migrations
-- ⚠️ Some have destructive changes
-- ⚠️ No rollback scripts
-
----
-
-## AI/Agent Findings
-
-### Components
-- ✅ Agent registry (37 agents defined)
-- ✅ OpenAI + Gemini integration
-- ✅ Knowledge Factory implemented
-- ✅ RAG retrieval with citations
-
-### Safety
-- ✅ Grounded answers required
-- ✅ Audit trail logging
-- ⚠️ Prompt injection tests needed
-- ⚠️ Tool authorization not fully RBAC-gated
+- ✅ 155 organized migrations
+- ✅ Idempotent with IF NOT EXISTS
+- ✅ Guarded with DO $$ blocks
+- ⚠️ No explicit rollback scripts
+- ⚠️ Could benefit from squashing older migrations
 
 ---
 
 ## Security Findings
 
+### Implemented Security Controls
+- ✅ RLS enabled on sensitive tables (50+ policies)
+- ✅ JWT verification in gateway middleware
+- ✅ Rate limiting (`rate_limits.sql`, apiLimiter)
+- ✅ Idempotency keys for financial ops
+- ✅ Storage bucket lockdown
+- ✅ Function search path security
+- ✅ Gitleaks secret scanning configured
+- ✅ Security headers in `_headers` file
+- ✅ CORS properly configured
+
 ### Secrets Management
 - ✅ No hardcoded secrets found
-- ✅ .env.example provided
-- ✅ Gitleaks configured
-- ⚠️ Some .env patterns may leak in logs
-
-### Authentication
-- ✅ Supabase Auth (secure)
-- ✅ JWT validation
-- ✅ Session management
-- ⚠️ Token refresh timing untested
+- ✅ `.env.example` provided
+- ✅ `.gitleaks.toml` configured
+- ⚠️ Ensure service role key never in logs
 
 ### Dependencies
-- ⚠️ npm audit needed
-- ⚠️ pip-audit needed
-
----
-
-## DevOps Findings
-
-### CI/CD
-- ✅ 31 GitHub Actions workflows
-- ✅ Build, lint, test gates
-- ✅ Secret scanning
-- ✅ CodeQL analysis
-- ⚠️ No staging environment documented
-
-### Observability
-- ✅ Structured logging (partial)
-- ✅ Sentry integration (configured)
-- ⚠️ Metrics collection incomplete
-- ⚠️ No distributed tracing
+- ⚠️ npm audit not run (pnpm workspace)
+- ⚠️ Next.js 14.2.18 deprecated (upgrade to 15.x)
 
 ---
 
