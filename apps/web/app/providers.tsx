@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from 'next-themes';
 import { useState, type ReactNode } from 'react';
 import { AuthProvider } from '@/components/features/auth/auth-provider';
+import { CommandProvider, CommandPalette, CommandKeyListener } from '@/components/features/command';
 
 interface ProvidersProps {
   children: ReactNode;
@@ -30,8 +31,15 @@ export function Providers({ children }: ProvidersProps) {
         enableSystem
         disableTransitionOnChange
       >
-        <AuthProvider>{children}</AuthProvider>
+        <AuthProvider>
+          <CommandProvider>
+            <CommandKeyListener />
+            <CommandPalette />
+            {children}
+          </CommandProvider>
+        </AuthProvider>
       </ThemeProvider>
     </QueryClientProvider>
   );
 }
+
