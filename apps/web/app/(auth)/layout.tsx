@@ -3,7 +3,7 @@
 import { type ReactNode, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { createBrowserClient } from '@supabase/ssr';
+import { createClient } from '@/lib/supabase/client';
 import {
   Home,
   FileText,
@@ -39,10 +39,15 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const checkRole = async () => {
-      const supabase = createBrowserClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      );
+      // Only run on client side
+      if (typeof window === 'undefined') return;
+      
+      let supabase;
+      try {
+        supabase = createClient();
+      } catch {
+        return; // Supabase not configured
+      }
 
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {

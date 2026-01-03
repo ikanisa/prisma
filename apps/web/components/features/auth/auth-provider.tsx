@@ -1,8 +1,8 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { createBrowserClient } from '@supabase/ssr';
-import type { User, AuthError, Session } from '@supabase/supabase-js';
+import { createContext, useContext, useEffect, useState, useRef, ReactNode } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import type { User, AuthError, Session, SupabaseClient } from '@supabase/supabase-js';
 
 type AppRole = 'SYSTEM_ADMIN' | 'STAFF';
 type UserStatus = 'INVITED' | 'ACTIVE' | 'SUSPENDED' | 'DEACTIVATED';
@@ -37,15 +37,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const supabaseRef = useRef<SupabaseClient | null>(null);
 
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
+  // Lazy initialize Supabase client
+  const getSupabase = () => {
+    if (!supabaseRef.current) {
+      supabaseRef.current = createClient();
+    }
+    return supabaseRef.current;
+  };
 
   // Fetch user profile
   const fetchProfile = async (userId: string) => {
     try {
+      const supabase = getSupabase();
       const { data, error } = await supabase
         .from('user_profiles')
         .select('*')
@@ -66,6 +71,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Initialize auth state
   useEffect(() => {
+    // Only run on client side
+    if (typeof window === 'undefined') {
+      setIsLoading(false);
+      return;
+    }
+
+    let supabase: SupabaseClient;
+    try {
+      supabase = getSupabase();
+    } catch (err) {
+      console.error('Failed to initialize Supabase:', err);
+      setIsLoading(false);
+      return;
+    }
+
     const initAuth = async () => {
       try {
         const { data: { session: currentSession } } = await supabase.auth.getSession();
@@ -105,9 +125,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       subscription.unsubscribe();
     };
-  }, [supabase]);
+  }, []);
 
   const signIn = async (email: string, password: string) => {
+    const supabase = getSupabase();
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -116,6 +137,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signUp = async (email: string, password: string) => {
+    const supabase = getSupabase();
     const { error } = await supabase.auth.signUp({
       email,
       password,
@@ -127,6 +149,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
+    const supabase = getSupabase();
     await supabase.auth.signOut();
     setUser(null);
     setSession(null);
@@ -134,6 +157,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const resetPassword = async (email: string) => {
+    const supabase = getSupabase();
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/reset-password`,
     });
@@ -141,6 +165,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const updatePassword = async (password: string) => {
+    const supabase = getSupabase();
     const { error } = await supabase.auth.updateUser({ password });
     return { error };
   };

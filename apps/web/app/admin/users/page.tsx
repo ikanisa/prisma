@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { createBrowserClient } from '@supabase/ssr';
+import { useState, useEffect, useCallback } from 'react';
+import { createClient } from '@/lib/supabase/client';
 import {
     Users, UserPlus, Mail, Shield, ShieldCheck,
     MoreHorizontal, Search, RefreshCw, AlertCircle,
@@ -76,17 +76,20 @@ export default function UserManagementPage() {
     const [isInviting, setIsInviting] = useState(false);
     const [inviteSuccess, setInviteSuccess] = useState(false);
 
-    const supabase = createBrowserClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
-
     // Fetch users and invitations
-    useEffect(() => {
-        fetchData();
-    }, []);
-
-    const fetchData = async () => {
+    const fetchData = useCallback(async () => {
+        // Only run on client side
+        if (typeof window === 'undefined') return;
+        
+        let supabase;
+        try {
+            supabase = createClient();
+        } catch {
+            setError('Supabase not configured');
+            setIsLoading(false);
+            return;
+        }
+        
         setIsLoading(true);
         setError(null);
 
@@ -114,7 +117,11 @@ export default function UserManagementPage() {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, []);
+
+    useEffect(() => {
+        fetchData();
+    }, [fetchData]);
 
     const handleInviteUser = async () => {
         if (!inviteEmail) return;
@@ -123,6 +130,8 @@ export default function UserManagementPage() {
         setError(null);
 
         try {
+            const supabase = createClient();
+            
             // Get current user
             const { data: { user } } = await supabase.auth.getUser();
 
@@ -166,6 +175,7 @@ export default function UserManagementPage() {
 
     const handleChangeRole = async (userId: string, newRole: UserRole) => {
         try {
+            const supabase = createClient();
             const { error } = await supabase
                 .from('user_profiles')
                 .update({ role: newRole })
@@ -180,6 +190,7 @@ export default function UserManagementPage() {
 
     const handleSuspendUser = async (userId: string) => {
         try {
+            const supabase = createClient();
             const { data: { user } } = await supabase.auth.getUser();
 
             const { error } = await supabase
@@ -200,6 +211,7 @@ export default function UserManagementPage() {
 
     const handleActivateUser = async (userId: string) => {
         try {
+            const supabase = createClient();
             const { error } = await supabase
                 .from('user_profiles')
                 .update({
@@ -219,6 +231,7 @@ export default function UserManagementPage() {
 
     const handleRevokeInvitation = async (invitationId: string) => {
         try {
+            const supabase = createClient();
             const { error } = await supabase
                 .from('user_invitations')
                 .update({ status: 'REVOKED' })
