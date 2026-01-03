@@ -1,15 +1,19 @@
 # =============================================================================
-# Cloudflare Pages Local Development Variables
+# Cloudflare Development Variables - DO NOT COMMIT ACTUAL VALUES
 # =============================================================================
-# Copy this file to .dev.vars (which is gitignored)
-# These variables are used by `wrangler pages dev`
+# Copy this file to .dev.vars and fill in your actual values
+# This file is used by wrangler for local development
+# =============================================================================
 
 # Supabase Configuration
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.your-anon-key
 
-# Application URL
+# App Configuration
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 
-# Optional: Sentry Error Tracking
-# NEXT_PUBLIC_SENTRY_DSN=https://xxx@sentry.io/yyy
+# Sentry (optional - for error tracking)
+NEXT_PUBLIC_SENTRY_DSN=https://your-dsn@sentry.io/project-id
+
+# Node version for build
+NODE_VERSION=22

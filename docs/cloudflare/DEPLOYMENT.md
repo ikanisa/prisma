@@ -1,17 +1,49 @@
 # Cloudflare Pages Deployment Guide
 
-## Overview
+> **Last Updated**: January 2026  
+> **Status**: Production Ready ✅
 
-Prisma Glow deploys to **Cloudflare Pages** as an SSR Next.js 15 application with PWA support.
+## Executive Summary
+
+Prisma Glow deploys to **Cloudflare Pages** as an SSR Next.js 15 application with PWA support. The application uses Supabase as the backend database and authentication provider.
 
 | Component | Technology |
 |-----------|------------|
 | **Platform** | Cloudflare Pages |
 | **Framework** | Next.js 15.5.9 (standalone mode) |
-| **Build** | pnpm monorepo |
-| **Database** | Supabase (external) |
-| **Auth** | Supabase Auth |
-| **PWA** | Workbox via next-pwa |
+| **Build** | pnpm 9.x monorepo with Turborepo |
+| **Database** | Supabase PostgreSQL (external) |
+| **Auth** | Supabase Auth with middleware RBAC |
+| **PWA** | Workbox via @ducanh2912/next-pwa |
+| **Monitoring** | Sentry for error tracking |
+
+---
+
+## Deployment Decision: Cloudflare Pages
+
+### Why Cloudflare Pages (not Workers)
+
+| Consideration | Pages | Workers |
+|---------------|-------|---------|
+| **SSR Next.js support** | ✅ Built-in | ⚠️ Requires custom setup |
+| **Git integration** | ✅ Automatic | ❌ Manual |
+| **Preview deployments** | ✅ Automatic per PR | ❌ Manual |
+| **Static asset serving** | ✅ Optimized CDN | ⚠️ Requires configuration |
+| **Build caching** | ✅ Turbo-friendly | ❌ Manual |
+
+**Decision**: Use **Cloudflare Pages** for the web app due to:
+1. Native Git integration with automatic deploys
+2. Built-in preview deployments for PRs
+3. Optimized static asset serving
+4. Simpler configuration for Next.js SSR
+
+### Gateway API (apps/gateway)
+
+The Express.js gateway API is **not deployed to Cloudflare**. It:
+- Runs on a separate Node.js server (e.g., Railway, Fly.io, or VPS)
+- Uses Express.js with Redis for rate limiting
+- Connects to Supabase for database operations
+- Requires full Node.js runtime for AI model integrations
 
 ---
 
@@ -24,6 +56,7 @@ Prisma Glow deploys to **Cloudflare Pages** as an SSR Next.js 15 application wit
 | **Project name** | `prisma-glow` |
 | **Production branch** | `main` |
 | **Preview branches** | All non-production branches |
+| **Framework preset** | Next.js |
 | **Build command** | `pnpm install --frozen-lockfile && pnpm --filter @prisma-glow/web build` |
 | **Build output directory** | `apps/web/.next` |
 | **Root directory** | `/` (repo root) |
@@ -31,110 +64,245 @@ Prisma Glow deploys to **Cloudflare Pages** as an SSR Next.js 15 application wit
 
 ### Framework Preset
 
-Select **Next.js** in the Cloudflare Pages dashboard - this automatically handles:
-- SSR function bundling
-- Static asset serving
+Select **Next.js** in the Cloudflare Pages dashboard. This automatically handles:
+- SSR function bundling via Pages Functions
+- Static asset serving with optimal caching
 - Middleware routing
+- API routes (if any)
 
 ---
 
 ## Environment Variables
 
-Set these in: **Cloudflare Dashboard > Pages > prisma-glow > Settings > Environment variables**
+Set in: **Cloudflare Dashboard > Pages > prisma-glow > Settings > Environment variables**
 
 ### Required (Production & Preview)
 
 | Variable | Type | Description |
 |----------|------|-------------|
 | `NEXT_PUBLIC_SUPABASE_URL` | Plain text | Supabase project URL |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Secret | Supabase anon/public key |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | **Encrypt** | Supabase anon/public key |
 | `NEXT_PUBLIC_APP_URL` | Plain text | `https://prisma-glow.pages.dev` |
-| `NEXT_PUBLIC_SENTRY_DSN` | Secret | Sentry DSN for error tracking |
+| `NODE_VERSION` | Plain text | `22` |
 
-### Optional
+### Optional (Recommended for Production)
 
 | Variable | Type | Description |
 |----------|------|-------------|
-| `NODE_ENV` | Plain text | `production` (auto-set) |
-| `CI` | Plain text | `true` (auto-set) |
+| `NEXT_PUBLIC_SENTRY_DSN` | **Encrypt** | Sentry DSN for error tracking |
+| `NEXT_PUBLIC_APP_VERSION` | Plain text | Git SHA or version number |
+
+See [ENVIRONMENT_VARIABLES.md](./ENVIRONMENT_VARIABLES.md) for the complete reference.
 
 ---
 
 ## Deployment Strategy
 
 ### Production (main branch)
-- Auto-deploys on push to `main`
-- URL: `https://prisma-glow.pages.dev`
-- Custom domain: Configure in Cloudflare DNS
+
+- **Trigger**: Auto-deploys on push to `main`
+- **URL**: `https://prisma-glow.pages.dev`
+- **Custom domain**: Configure in Cloudflare DNS
 
 ### Preview (PR branches)
-- Auto-deploys for all pull requests
-- URL: `https://<branch>.prisma-glow.pages.dev`
 
-### Staging
-- Create a `staging` branch for dedicated staging environment
-- URL: `https://staging.prisma-glow.pages.dev`
+- **Trigger**: Auto-deploys for all pull requests
+- **URL**: `https://<commit-hash>.prisma-glow.pages.dev`
+- **GitHub comment**: Deployment URL posted automatically
 
----
+### Staging Environment
 
-## Rollback Plan
-
-### Via Dashboard
-1. Go to **Cloudflare Dashboard > Pages > prisma-glow > Deployments**
-2. Find the last known good deployment
-3. Click the three dots menu → **Rollback to this deployment**
-
-### Via CLI
-```bash
-wrangler pages deployment rollback --project-name=prisma-glow
-```
+1. Create a `staging` branch in GitHub
+2. Cloudflare Pages will auto-deploy to: `https://staging.prisma-glow.pages.dev`
+3. Set staging-specific environment variables in Cloudflare Dashboard
 
 ---
 
 ## GitHub Actions Integration
 
 The workflow at `.github/workflows/deploy-cloudflare.yml` handles:
-1. Install dependencies
-2. Run typecheck
-3. Build for production
-4. Deploy to Cloudflare Pages
 
-### Required Secrets (GitHub Repository Settings)
+1. ✅ Install dependencies (`pnpm install --frozen-lockfile`)
+2. ✅ Run typecheck (`pnpm typecheck`)
+3. ✅ Build for production (`pnpm --filter @prisma-glow/web build`)
+4. ✅ Deploy to Cloudflare Pages via wrangler
+
+### Required GitHub Secrets
 
 | Secret | Where to get it |
 |--------|-----------------|
-| `CLOUDFLARE_API_TOKEN` | Cloudflare Dashboard > My Profile > API Tokens |
-| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare Dashboard > Workers & Pages > Account ID |
-| `NEXT_PUBLIC_SUPABASE_URL` | Supabase Dashboard > Settings > API |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase Dashboard > Settings > API |
+| `CLOUDFLARE_API_TOKEN` | Cloudflare Dashboard > My Profile > API Tokens > Create Token > Edit Cloudflare Workers |
+| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare Dashboard > Workers & Pages > Account ID (right sidebar) |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase Dashboard > Settings > API > Project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase Dashboard > Settings > API > anon public key |
+
+### API Token Permissions
+
+When creating the Cloudflare API token, use the **Edit Cloudflare Workers** template or create a custom token with:
+
+- **Account**: Cloudflare Pages: Edit
+- **Zone**: (optional) Zone Settings: Read
 
 ---
 
 ## Local Development with Wrangler
 
 ```bash
-# Install wrangler
+# Install wrangler globally
 pnpm add -g wrangler
 
 # Login to Cloudflare
 wrangler login
 
-# Preview locally (after build)
-wrangler pages dev apps/web/.next
+# Build the web app
+pnpm --filter @prisma-glow/web build
+
+# Preview locally with Cloudflare Pages runtime
+wrangler pages dev apps/web/.next --compatibility-flags=nodejs_compat
+
+# Deploy manually (if not using GitHub Actions)
+wrangler pages deploy apps/web/.next --project-name=prisma-glow
 ```
+
+---
+
+## Rollback Plan
+
+### Via Cloudflare Dashboard (Recommended)
+
+1. Go to **Cloudflare Dashboard > Pages > prisma-glow > Deployments**
+2. Find the last known good deployment (green checkmark)
+3. Click the three dots menu → **Rollback to this deployment**
+4. Confirm the rollback
+5. Rollback is instant (< 1 second)
+
+### Via Wrangler CLI
+
+```bash
+# List recent deployments
+wrangler pages deployment list --project-name=prisma-glow
+
+# Rollback to specific deployment
+wrangler pages deployment rollback <deployment-id> --project-name=prisma-glow
+```
+
+### Emergency Rollback Contacts
+
+If rollback fails:
+1. Check Cloudflare Status: https://www.cloudflarestatus.com/
+2. Contact Cloudflare Support via Dashboard
+3. As last resort, manually re-deploy known good commit
 
 ---
 
 ## Troubleshooting
 
 ### Build Fails: "Missing environment variable"
-Ensure all `NEXT_PUBLIC_*` variables are set in Cloudflare Dashboard.
+
+**Cause**: Required `NEXT_PUBLIC_*` variables not set  
+**Fix**: 
+1. Go to Cloudflare Dashboard > Pages > prisma-glow > Settings > Environment variables
+2. Add all required variables for both Production and Preview environments
+3. Trigger a new deployment
 
 ### 500 Error on SSR Routes
-Check Cloudflare Pages function logs in the dashboard.
+
+**Cause**: Server-side code error  
+**Fix**:
+1. Check Cloudflare Pages function logs: Dashboard > Pages > prisma-glow > Functions
+2. Check Sentry for error details
+3. Common causes: missing env vars, Supabase connection issues
 
 ### PWA Not Working
-The service worker (`sw.js`) is generated during build. Ensure it's in `apps/web/public/`.
+
+**Cause**: Service worker not generated  
+**Fix**:
+1. Ensure `apps/web/public/sw.js` exists after build
+2. Clear browser cache and service workers
+3. Verify PWA is enabled in `next.config.mjs`
 
 ### Middleware Not Running
-Next.js middleware is automatically converted to Cloudflare Pages functions.
+
+**Cause**: Middleware config issue  
+**Fix**:
+1. Check `apps/web/middleware.ts` matcher config
+2. Ensure middleware doesn't use Node.js-only APIs
+3. Test locally with `wrangler pages dev`
+
+### CORS Errors
+
+**Cause**: Incorrect origin configuration  
+**Fix**:
+1. Check `apps/web/public/_headers` for CORS settings
+2. Ensure Supabase project has correct Site URL configured
+3. Verify `NEXT_PUBLIC_APP_URL` matches the deployment URL
+
+---
+
+## Performance Optimization
+
+### Enabled by Default
+
+- ✅ Tree-shaking via lucide-react modularization
+- ✅ Console logs stripped in production
+- ✅ PWA caching for static assets
+- ✅ Immutable caching for `/_next/static/*`
+
+### Cloudflare-Specific Optimizations
+
+- ✅ Edge caching for static assets
+- ✅ Brotli/gzip compression
+- ✅ HTTP/3 support
+- ✅ Early hints for faster page loads
+
+---
+
+## Security Configuration
+
+### Headers (via `_headers` file)
+
+```
+/*
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  X-XSS-Protection: 1; mode=block
+  X-Robots-Tag: noindex, nofollow
+```
+
+### Content Security Policy
+
+The CSP is configured in `apps/web/public/_headers` to allow:
+- Supabase API connections
+- Sentry error reporting
+- Self-hosted scripts and styles
+
+### Cloudflare Access (Optional)
+
+For additional security, add Cloudflare Access:
+
+1. Go to **Cloudflare Zero Trust > Access > Applications**
+2. Create new application for `prisma-glow.pages.dev`
+3. Add policy: **Allow** → **Emails** → `list of staff emails`
+
+---
+
+## Monitoring & Observability
+
+### Sentry Integration
+
+- Error tracking enabled via `@sentry/nextjs`
+- Configure DSN via `NEXT_PUBLIC_SENTRY_DSN`
+- Source maps uploaded automatically during build
+
+### Cloudflare Analytics
+
+- Enabled by default for all Pages projects
+- View in: Dashboard > Pages > prisma-glow > Analytics
+
+### Health Check
+
+After deployment, verify:
+- [ ] Homepage loads: `https://prisma-glow.pages.dev/`
+- [ ] Login works: `https://prisma-glow.pages.dev/login`
+- [ ] Supabase connection: Check network tab for successful API calls
