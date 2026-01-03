@@ -2,10 +2,10 @@ import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
 // Routes that require SYSTEM_ADMIN role
-const ADMIN_ROUTES = ['/admin'];
+const ADMIN_ROUTES = ['/app/admin'];
 
 // Routes that require authentication (any role)
-const AUTH_ROUTES = ['/dashboard', '/documents', '/tasks', '/clients', '/accounting', '/audit', '/settings', '/onboarding', '/chat'];
+const AUTH_ROUTES = ['/app'];
 
 // Public routes (no auth required)
 const PUBLIC_ROUTES = ['/', '/login', '/signup', '/auth', '/forgot-password', '/reset-password'];
