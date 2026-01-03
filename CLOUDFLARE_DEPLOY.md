@@ -1,5 +1,28 @@
 # Cloudflare Deployment Guide
 
+> **Internal App**: This PWA is for staff only, accessible by invitation from System Admin.
+
+## Access Control
+
+This app uses **invitation-only access** enforced at multiple layers:
+
+### Layer 1: Supabase Auth (Primary)
+- Users must be invited by System Admin
+- Email invitations sent via Supabase
+- No public signup allowed
+
+### Layer 2: Cloudflare Access (Optional but Recommended)
+To add network-level access control:
+
+1. Go to **Cloudflare Zero Trust** → **Access** → **Applications**
+2. Create new application for `prisma-glow.pages.dev`
+3. Add policy: **Allow** → **Emails ending in** → `@yourcompany.com`
+4. Or use: **Allow** → **Email** → `list of staff emails`
+
+This adds SSO before users even reach the app.
+
+---
+
 ## Quick Deploy
 
 ### Option 1: Cloudflare Dashboard (Recommended)

@@ -165,7 +165,7 @@ AS $$
       WHEN (SELECT role FROM my_role) = 'SYSTEM_ADMIN' THEN true
       WHEN (SELECT role FROM my_role) = 'MANAGER' AND min IN ('EMPLOYEE', 'MANAGER') THEN true
       WHEN (SELECT role FROM my_role) = 'EMPLOYEE' AND min = 'EMPLOYEE' THEN true
-      ELSE false 
+      ELSE false
     END),
     false
   );
@@ -186,7 +186,7 @@ CREATE POLICY "users_admin_read" ON public.users
 DROP POLICY IF EXISTS "org_read" ON public.organizations;
 CREATE POLICY "org_read" ON public.organizations
   FOR SELECT USING (
-    public.is_member_of(id) OR 
+    public.is_member_of(id) OR
     EXISTS (SELECT 1 FROM public.users u WHERE u.id = auth.uid() AND u.is_system_admin = true)
   );
 DROP POLICY IF EXISTS "org_write" ON public.organizations;
@@ -248,7 +248,7 @@ CREATE POLICY "tasks_insert" ON public.tasks
 DROP POLICY IF EXISTS "tasks_update" ON public.tasks;
 CREATE POLICY "tasks_update" ON public.tasks
   FOR UPDATE USING (
-    public.is_member_of(org_id) AND 
+    public.is_member_of(org_id) AND
     (assigned_to = auth.uid() OR public.has_min_role(org_id, 'MANAGER'::public.role_level))
   );
 DROP POLICY IF EXISTS "tasks_delete" ON public.tasks;
@@ -264,13 +264,13 @@ CREATE POLICY "documents_insert" ON public.documents
 DROP POLICY IF EXISTS "documents_update" ON public.documents;
 CREATE POLICY "documents_update" ON public.documents
   FOR UPDATE USING (
-    public.is_member_of(org_id) AND 
+    public.is_member_of(org_id) AND
     (uploaded_by = auth.uid() OR public.has_min_role(org_id, 'MANAGER'::public.role_level))
   );
 DROP POLICY IF EXISTS "documents_delete" ON public.documents;
 CREATE POLICY "documents_delete" ON public.documents
   FOR DELETE USING (
-    public.is_member_of(org_id) AND 
+    public.is_member_of(org_id) AND
     (uploaded_by = auth.uid() OR public.has_min_role(org_id, 'MANAGER'::public.role_level))
   );
 -- RLS Policies for notifications table

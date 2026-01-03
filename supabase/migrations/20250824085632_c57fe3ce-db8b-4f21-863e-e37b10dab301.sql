@@ -1,6 +1,9 @@
+-- Ensure pgcrypto extension is enabled for password hashing
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
 -- Create Prisma Glow organization
-INSERT INTO public.organizations (name, slug, brand_primary, brand_secondary)
-VALUES ('Prisma Glow', 'prisma-glow', '#2563eb', '#7c3aed')
+INSERT INTO public.organizations (name, slug)
+VALUES ('Prisma Glow', 'prisma-glow')
 ON CONFLICT (slug) DO NOTHING;
 -- Get the organization ID for Prisma Glow
 DO $$
