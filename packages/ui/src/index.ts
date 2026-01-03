@@ -1,21 +1,25 @@
-import * as React from 'react';
+/**
+ * @prisma-glow/ui
+ * 
+ * Shared UI components and utilities.
+ */
 
-export const Button: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement>> = ({ children, ...props }) => (
-  <button
-    style={{
-      padding: '0.75rem 1.5rem',
-      borderRadius: '9999px',
-      background: 'linear-gradient(90deg, #7C3AED, #38BDF8)',
-      color: '#fff',
-      border: 'none',
-      cursor: 'pointer',
-      fontWeight: 600,
-    }}
-    {...props}
-  >
-    {children}
-  </button>
-);
-
+// Core components
 export { VirtualList } from './VirtualList';
 export { LazyRoute } from './LazyRoute';
+
+// Lazy loading utilities
+export {
+  LazyComponent,
+  LoadingSkeleton,
+  ErrorFallback,
+  preloadComponent,
+  usePreloadOnHover,
+  usePreloadOnVisible,
+} from './LazyComponent';
+
+// Utilities
+export { cn } from './utils';
+
+// Re-export primitives for convenience
+export * from './primitives';
