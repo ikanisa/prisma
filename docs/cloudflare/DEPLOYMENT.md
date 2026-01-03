@@ -1,11 +1,20 @@
 # Cloudflare Pages Deployment Guide
 
 > **Last Updated**: January 2026  
-> **Status**: Production Ready ✅
+> **Status**: Production Ready ✅  
+> **Access**: 🔒 **Internal Staff Only** (Invitation-based)
+
+## Access Control Notice
+
+> ⚠️ **INTERNAL SYSTEM**: This application is for authorized staff only. Access is controlled through:
+> 
+> 1. **Supabase Auth** - Users must be invited by System Admin (no public signup)
+> 2. **Cloudflare Access** (Recommended) - Additional network-level protection
+> 3. **RBAC Middleware** - Role-based access to admin features
 
 ## Executive Summary
 
-Prisma Glow deploys to **Cloudflare Pages** as an SSR Next.js 15 application with PWA support. The application uses Supabase as the backend database and authentication provider.
+Prisma Glow deploys to **Cloudflare Pages** as an SSR Next.js 15 application with PWA support. This is an **internal staff application** - users can only access the system via invitation from a System Admin. The application uses Supabase as the backend database and authentication provider.
 
 | Component | Technology |
 |-----------|------------|
@@ -277,13 +286,27 @@ The CSP is configured in `apps/web/public/_headers` to allow:
 - Sentry error reporting
 - Self-hosted scripts and styles
 
-### Cloudflare Access (Optional)
+### Cloudflare Access (Highly Recommended)
 
-For additional security, add Cloudflare Access:
+Since this is an internal staff-only system, add Cloudflare Access for network-level protection:
 
-1. Go to **Cloudflare Zero Trust > Access > Applications**
-2. Create new application for `prisma-glow.pages.dev`
-3. Add policy: **Allow** → **Emails** → `list of staff emails`
+1. Go to **Cloudflare Zero Trust** → **Access** → **Applications**
+2. Click **Add an application** → **Self-hosted**
+3. Configure:
+   - **Application name**: `Prisma Glow`
+   - **Session duration**: 24 hours
+   - **Application domain**: `prisma-glow.pages.dev`
+4. Add access policy:
+   - **Policy name**: `Staff Access`
+   - **Action**: Allow
+   - **Include**: 
+     - **Emails ending in**: `@yourcompany.com` (recommended)
+     - OR **Emails**: List specific staff email addresses
+5. Save and enable
+
+This provides **two layers of protection**:
+- **Layer 1**: Cloudflare Access (network-level SSO before reaching the app)
+- **Layer 2**: Supabase Auth (application-level, invitation-only)
 
 ---
 

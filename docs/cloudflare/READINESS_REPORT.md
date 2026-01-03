@@ -2,7 +2,20 @@
 
 > **Report Date**: January 3, 2026  
 > **Assessed By**: Automated Audit  
-> **Target Platform**: Cloudflare Pages
+> **Target Platform**: Cloudflare Pages  
+> **Access Model**: 🔒 **Internal Staff Only** (Invitation-based)
+
+---
+
+## Access Control Model
+
+| Layer | Control | Description |
+|-------|---------|-------------|
+| **Network** | Cloudflare Access | SSO gate before reaching app (recommended) |
+| **Application** | Supabase Auth | Invitation-only, no public signup |
+| **Authorization** | RBAC Middleware | Role-based access (SYSTEM_ADMIN, etc.) |
+
+> **No Public Access**: Users cannot self-register. All users must be invited by a System Administrator through Supabase Auth.
 
 ---
 
@@ -118,7 +131,9 @@ Configured in `apps/web/public/_headers`:
 ### Recommendation
 
 - [ ] Rotate any Supabase keys that may have been exposed historically
-- [ ] Enable Cloudflare Access for additional protection (optional)
+- [ ] **Enable Cloudflare Access** for network-level protection (highly recommended for internal systems)
+- [ ] Verify Supabase email settings disable public signup
+- [ ] Configure allowed email domains in Cloudflare Access
 
 ---
 
