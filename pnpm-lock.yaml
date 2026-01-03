@@ -129,10 +129,10 @@ importers:
 
   apps/gateway:
     dependencies:
-      '@prisma-glow/agents':
+      '@prisma/agents':
         specifier: workspace:*
         version: link:../../packages/agents
-      '@prisma-glow/logger':
+      '@prisma/logger':
         specifier: workspace:*
         version: link:../../packages/logger
       '@supabase/supabase-js':
@@ -332,10 +332,10 @@ importers:
       '@google/generative-ai':
         specifier: ^0.21.0
         version: 0.21.0
-      '@prisma-glow/core':
+      '@prisma/core':
         specifier: workspace:*
         version: link:../core
-      '@prisma-glow/types':
+      '@prisma/types':
         specifier: workspace:*
         version: link:../types
       '@supabase/supabase-js':
@@ -363,13 +363,13 @@ importers:
 
   packages/audit:
     dependencies:
-      '@prisma-glow/core':
+      '@prisma/core':
         specifier: workspace:*
         version: link:../core
-      '@prisma-glow/lib':
+      '@prisma/lib':
         specifier: workspace:*
         version: link:../lib
-      '@prisma-glow/types':
+      '@prisma/types':
         specifier: workspace:*
         version: link:../types
       openai:
@@ -391,7 +391,7 @@ importers:
 
   packages/core:
     dependencies:
-      '@prisma-glow/lib':
+      '@prisma/lib':
         specifier: workspace:*
         version: link:../lib
       zod:
@@ -404,7 +404,7 @@ importers:
 
   packages/corporate-services:
     dependencies:
-      '@prisma-glow/core':
+      '@prisma/core':
         specifier: workspace:*
         version: link:../core
       zod:
@@ -460,7 +460,7 @@ importers:
 
   packages/supabase-client:
     dependencies:
-      '@prisma-glow/types':
+      '@prisma/types':
         specifier: workspace:*
         version: link:../types
       '@supabase/supabase-js':
@@ -469,10 +469,10 @@ importers:
 
   packages/tax:
     dependencies:
-      '@prisma-glow/core':
+      '@prisma/core':
         specifier: workspace:*
         version: link:../core
-      '@prisma-glow/types':
+      '@prisma/types':
         specifier: workspace:*
         version: link:../types
     devDependencies:
