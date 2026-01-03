@@ -224,94 +224,94 @@ CREATE POLICY "Managers can post journals"
 ### Workspace Packages (15)
 
 #### Core Packages (5)
-1. **@prisma-glow/lib** (`packages/lib`)
+1. **@prisma/lib** (`packages/lib`)
    - Shared utilities, types, constants
    - Dependencies: None (leaf package)
    - Used by: All apps and services
    - Health: ✅ Stable
 
-2. **@prisma-glow/system-config** (`packages/system-config`)
+2. **@prisma/system-config** (`packages/system-config`)
    - Configuration loader for system.yaml
    - Dependencies: yaml, zod
    - Used by: Gateway, RAG, agents
    - Health: ✅ Stable
 
-3. **@prisma-glow/api-client** (`packages/api-client`)
+3. **@prisma/api-client** (`packages/api-client`)
    - Generated TypeScript client from FastAPI OpenAPI
    - Dependencies: @openapi/typescript
    - Used by: Gateway, apps/web
    - Health: ⚠️ Needs codegen automation
 
-4. **@prisma-glow/ui** (`packages/ui`)
+4. **@prisma/ui** (`packages/ui`)
    - Shared React component library (shadcn/ui)
    - Dependencies: React, Radix UI, Tailwind
    - Used by: apps/web, apps/admin
    - Health: ⚠️ Needs design system formalization
 
-5. **@prisma-glow/types-finance** (`packages/types-finance`)
+5. **@prisma/types-finance** (`packages/types-finance`)
    - Financial domain types (IFRS, ISA, tax)
    - Dependencies: zod
    - Used by: FastAPI, apps/web, packages/tax
    - Health: ✅ Stable
 
 #### Agent Packages (3)
-6. **@prisma-glow/agents** (`packages/agents`)
+6. **@prisma/agents** (`packages/agents`)
    - Agent manifest schemas and utilities
    - Dependencies: zod, openai
    - Used by: Services/agents, scripts
    - Health: ⚠️ Overlaps with packages/prompts
 
-7. **@prisma-glow/prompts** (`packages/prompts`)
+7. **@prisma/prompts** (`packages/prompts`)
    - Agent prompt templates
    - Dependencies: None
    - Used by: Services/agents
    - Health: ⚠️ Duplicate with agents package
 
-8. **@prisma-glow/platform** (`packages/platform`)
+8. **@prisma/platform** (`packages/platform`)
    - Agent orchestration framework
-   - Dependencies: openai, @prisma-glow/agents
+   - Dependencies: openai, @prisma/agents
    - Used by: Services/agents
    - Health: ⚠️ Needs modularization
 
 #### Domain Packages (4)
-9. **@prisma-glow/tax** (`packages/tax`)
+9. **@prisma/tax** (`packages/tax`)
    - Tax computation utilities (CIT, VAT, Pillar Two)
-   - Dependencies: @prisma-glow/types-finance
+   - Dependencies: @prisma/types-finance
    - Used by: FastAPI, services/tax
    - Health: ✅ Stable
 
-10. **@prisma-glow/logger** (`packages/logger`)
+10. **@prisma/logger** (`packages/logger`)
     - Structured logging with correlation IDs
     - Dependencies: winston
     - Used by: Gateway, RAG
     - Health: ⚠️ Duplicate with packages/logging
 
-11. **@prisma-glow/logging** (`packages/logging`)
+11. **@prisma/logging** (`packages/logging`)
     - Python logging configuration
     - Dependencies: structlog
     - Used by: FastAPI
     - Health: ⚠️ Duplicate with packages/logger
 
-12. **@prisma-glow/config** (`packages/config`)
+12. **@prisma/config** (`packages/config`)
     - Legacy config loader
     - Dependencies: yaml
     - Used by: None (deprecated)
     - Health: ❌ Duplicate with system-config
 
 #### Utility Packages (3)
-13. **@prisma-glow/api** (`packages/api`)
+13. **@prisma/api** (`packages/api`)
     - Legacy API utilities
     - Dependencies: axios
     - Used by: Legacy Vite app
     - Health: ❌ To be removed
 
-14. **@prisma-glow/dev-portal** (`packages/dev-portal`)
+14. **@prisma/dev-portal** (`packages/dev-portal`)
     - API documentation portal (Backstage)
     - Dependencies: @backstage/core
     - Used by: Development only
     - Health: ⚠️ Maintenance mode
 
-15. **@prisma-glow/analytics** (`analytics/`)
+15. **@prisma/analytics** (`analytics/`)
     - Analytics service (Python)
     - Dependencies: pandas, numpy
     - Used by: Dashboard, reporting
@@ -717,8 +717,8 @@ Scheduled:
 - Average per month: 24 migrations
 
 ### Package Size Analysis
-- Smallest: @prisma-glow/types-finance (50 KB)
-- Largest: @prisma-glow/platform (2.5 MB)
+- Smallest: @prisma/types-finance (50 KB)
+- Largest: @prisma/platform (2.5 MB)
 - Total workspace: ~15 MB
 
 ### Workflow Performance

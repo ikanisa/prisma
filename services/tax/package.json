@@ -1,5 +1,5 @@
 {
-  "name": "@prisma-glow/tax-service-tests",
+  "name": "@prisma/tax-service-tests",
   "version": "0.0.1",
   "private": true,
   "type": "module",

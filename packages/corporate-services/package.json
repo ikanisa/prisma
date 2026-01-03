@@ -1,5 +1,5 @@
 {
-  "name": "@prisma-glow/corporate-services",
+  "name": "@prisma/corporate-services",
   "version": "1.0.0",
   "description": "Corporate Services Specialists - 6 Specialized Agents",
   "main": "dist/index.js",
@@ -11,7 +11,7 @@
     "test": "jest"
   },
   "dependencies": {
-    "@prisma-glow/core": "workspace:*",
+    "@prisma/core": "workspace:*",
     "zod": "^3.22.4"
   },
   "devDependencies": {

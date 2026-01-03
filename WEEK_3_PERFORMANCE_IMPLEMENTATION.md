@@ -173,7 +173,7 @@ export function VirtualList<T>({
 **Example Usage:**
 ```typescript
 // apps/client/components/documents/DocumentList.tsx
-import { VirtualList } from '@prisma-glow/ui';
+import { VirtualList } from '@prisma/ui';
 
 export function DocumentList({ documents }: { documents: Document[] }) {
   return (
@@ -402,8 +402,8 @@ export default withBundleAnalyzer(nextConfig);
 
 #### Task 5.2: Run Analysis
 ```bash
-ANALYZE=true pnpm --filter @prisma-glow/client build
-ANALYZE=true pnpm --filter @prisma-glow/admin build
+ANALYZE=true pnpm --filter @prisma/client build
+ANALYZE=true pnpm --filter @prisma/admin build
 ```
 
 #### Task 5.3: Optimize Based on Results

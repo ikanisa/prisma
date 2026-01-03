@@ -37,7 +37,7 @@ rustc --version
 
 ```bash
 # Terminal 1: Start Next.js dev server
-pnpm --filter @prisma-glow/web dev
+pnpm --filter @prisma/web dev
 
 # Terminal 2: Start Tauri in another terminal
 # (waits for Next.js to be ready on port 3000)
@@ -204,7 +204,7 @@ const platform = await invoke('get_platform'); // "macos"
 ```bash
 # Development
 pnpm desktop:dev              # Start dev server + Tauri
-pnpm --filter @prisma-glow/web dev  # Just Next.js
+pnpm --filter @prisma/web dev  # Just Next.js
 pnpm tauri:dev               # Just Tauri (requires Next.js running)
 
 # Building

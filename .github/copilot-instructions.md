@@ -38,7 +38,7 @@
 ### Workspace Commands
 - **Recursive build/lint/test**: `pnpm run ci:verify` (runs lint/test/build across all workspaces)
 - **Per-workspace**: `pnpm --filter <workspace> <command>` (e.g., `pnpm --filter web build`)
-- **Turbo**: `pnpm turbo run build --filter=@prisma-glow/gateway...` (builds with dependencies)
+- **Turbo**: `pnpm turbo run build --filter=@prisma/gateway...` (builds with dependencies)
 
 ### Python Backend
 **Setup virtualenv first** (only once per clone):
@@ -106,7 +106,7 @@ pip install -r server/requirements.txt
 - **TypeScript**: `tsconfig.*.json` (base, app, node configs per workspace)
 - **Testing**: `vitest.config.ts` (jsdom, 120s timeout, coverage thresholds from env vars)
 - **Migrations**: `supabase/migrations/*.sql`, `apps/web/prisma/schema.prisma`
-- **System config**: `config/system.yaml` (loaded by @prisma-glow/system-config)
+- **System config**: `config/system.yaml` (loaded by @prisma/system-config)
 
 ## Common Issues & Workarounds
 
@@ -161,13 +161,13 @@ pip install -r server/requirements.txt
 
 ### Testing Backend
 - **FastAPI health smoke**: `uvicorn server.health_app:app --port 8000` then `curl http://localhost:8000/health`
-- **Gateway smoke**: `pnpm --filter @prisma-glow/gateway build && node apps/gateway/dist/server.js`
+- **Gateway smoke**: `pnpm --filter @prisma/gateway build && node apps/gateway/dist/server.js`
 - **Full pytest suite**: `pytest` (60% coverage gate in CI)
 
 ### Running Locally
 - **Vite UI**: `pnpm dev` (http://localhost:5173)
 - **Next.js app**: `pnpm --filter web dev` (http://localhost:3000)
-- **Gateway**: `pnpm --filter @prisma-glow/gateway dev` (http://localhost:3001)
+- **Gateway**: `pnpm --filter @prisma/gateway dev` (http://localhost:3001)
 - **FastAPI**: `uvicorn server.main:app --reload` (http://localhost:8000)
 
 ### Docker Compose (Local Dev)

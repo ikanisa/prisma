@@ -1,6 +1,6 @@
 import express, { Request, Response, Router } from "express";
-import { agentRouter } from "@prisma-glow/agents";
-import type { UnifiedRunOptions } from "@prisma-glow/agents";
+import { agentRouter } from "@prisma/agents";
+import type { UnifiedRunOptions } from "@prisma/agents";
 
 const router: Router = express.Router();
 

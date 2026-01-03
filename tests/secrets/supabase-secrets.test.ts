@@ -4,7 +4,7 @@ import {
   getSupabaseJwtSecret,
   getSupabaseServiceRoleKey,
   resetSupabaseSecretManager,
-} from '@prisma-glow/lib/secrets/supabase';
+} from '@prisma/lib/secrets/supabase';
 
 const baseUrl = 'https://vault.prismaglow.example.com';
 const token = 'test-token';

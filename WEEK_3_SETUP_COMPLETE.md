@@ -73,7 +73,7 @@ const Dashboard = dynamic(() => import('./Dashboard'), {
 ### Days 3-4: Virtual Scrolling
 ```typescript
 // Apply to all list components
-import { VirtualList } from '@prisma-glow/ui';
+import { VirtualList } from '@prisma/ui';
 
 <VirtualList
   items={documents}
@@ -123,12 +123,12 @@ async def list_documents(org_id: str):
 
 ### Use Virtual Scrolling
 ```typescript
-import { VirtualList } from '@prisma-glow/ui';
+import { VirtualList } from '@prisma/ui';
 ```
 
 ### Use Code Splitting
 ```typescript
-import { LazyRoute } from '@prisma-glow/ui';
+import { LazyRoute } from '@prisma/ui';
 // or
 import dynamic from 'next/dynamic';
 ```

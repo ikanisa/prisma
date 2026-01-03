@@ -5,7 +5,7 @@ import {
   AgentTier,
   AgentDomain,
   generateId,
-} from '@prisma-glow/core';
+} from '@prisma/core';
 
 /**
  * Agent 035: Corporate Governance Specialist

@@ -65,7 +65,7 @@ node packages/agents/scripts/validate-registry.js --verbose --check-scopes --che
 ### 2. Run Tests
 
 ```bash
-pnpm --filter @prisma-glow/agents test
+pnpm --filter @prisma/agents test
 ```
 
 ### 3. Use OpenAI SDK
@@ -76,7 +76,7 @@ import {
   AgentRegistryLoader,
   DeepSearchWrapper,
   OpenAIAgentSDKIntegration,
-} from '@prisma-glow/agents';
+} from '@prisma/agents';
 
 const registry = AgentRegistryLoader.fromDefault();
 const deepSearch = new DeepSearchWrapper(yourSearchFunction);
@@ -100,7 +100,7 @@ import {
   AgentRegistryLoader,
   DeepSearchWrapper,
   GeminiSDKIntegration,
-} from '@prisma-glow/agents';
+} from '@prisma/agents';
 
 const registry = AgentRegistryLoader.fromDefault();
 const deepSearch = new DeepSearchWrapper(yourSearchFunction);

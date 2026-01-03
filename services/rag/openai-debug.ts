@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type OpenAI from 'openai';
 
-import { buildOpenAiUrl } from '@prisma-glow/lib/openai/url';
+import { buildOpenAiUrl } from '@prisma/lib/openai/url';
 
 export interface OpenAiDebugLoggerOptions {
   supabase: Pick<SupabaseClient, 'from'>;

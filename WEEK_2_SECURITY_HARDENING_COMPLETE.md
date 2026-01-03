@@ -146,7 +146,7 @@ async def generate_ai(request: Request):
 
 **Implementation:**
 ```typescript
-export { middleware, config } from '@prisma-glow/security/middleware';
+export { middleware, config } from '@prisma/security/middleware';
 ```
 
 **Coverage:** 100% of routes (excluding static assets)

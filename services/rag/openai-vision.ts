@@ -1,4 +1,4 @@
-import { getOpenAIClient } from '@prisma-glow/lib/openai/client';
+import { getOpenAIClient } from '@prisma/lib/openai/client';
 
 type LogFn = (message: string, meta?: Record<string, unknown>) => void;
 

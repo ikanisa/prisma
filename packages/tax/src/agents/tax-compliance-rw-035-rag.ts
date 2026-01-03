@@ -9,7 +9,7 @@
  */
 
 import type { TaxJurisdiction, FilingDeadline } from '../types';
-import { RAGEnhancedAgent, type RAGContext } from '@prisma-glow/core';
+import { RAGEnhancedAgent, type RAGContext } from '@prisma/core';
 import OpenAI from 'openai';
 
 export interface RwandaComplianceAgentConfig {

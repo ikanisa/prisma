@@ -9,7 +9,7 @@
 
 ### 1. VirtualList - For Large Lists
 ```typescript
-import { VirtualList } from '@prisma-glow/ui';
+import { VirtualList } from '@prisma/ui';
 
 <VirtualList
   items={myData}

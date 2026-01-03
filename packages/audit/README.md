@@ -1,4 +1,4 @@
-# @prisma-glow/audit-agents
+# @prisma/audit-agents
 
 ISA-compliant AI Audit Specialist Agents for Prisma Glow
 
@@ -24,8 +24,8 @@ This package contains 10 specialized AI agents that automate and enhance audit p
 ## Usage
 
 ```typescript
-import { AuditPlanningAgent } from '@prisma-glow/audit-agents/planning';
-import { RiskAssessmentAgent } from '@prisma-glow/audit-agents/risk-assessment';
+import { AuditPlanningAgent } from '@prisma/audit-agents/planning';
+import { RiskAssessmentAgent } from '@prisma/audit-agents/risk-assessment';
 
 // Initialize audit planning
 const planner = new AuditPlanningAgent({

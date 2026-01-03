@@ -7,18 +7,18 @@ import pdfParse from 'pdf-parse';
 import Tesseract from 'tesseract.js';
 import { Client } from 'pg';
 import { vector } from './vector.js';
-import { createCacheClient, resolveCacheTtl } from '@prisma-glow/cache';
+import { createCacheClient, resolveCacheTtl } from '@prisma/cache';
 import jwt, { type JwtPayload } from 'jsonwebtoken';
 import { randomUUID, createHash } from 'crypto';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import * as Sentry from '@sentry/node';
 import { context, trace, SpanStatusCode } from '@opentelemetry/api';
 import type { Attributes, Span } from '@opentelemetry/api';
-import { createAnalyticsClient } from '@prisma-glow/analytics';
+import { createAnalyticsClient } from '@prisma/analytics';
 import { HttpInstrumentation } from '@opentelemetry/instrumentation-http';
 import { ExpressInstrumentation } from '@opentelemetry/instrumentation-express';
-import { setupNodeOtel } from '@prisma-glow/otel';
-import { createLogger, setLogContextProvider } from '@prisma-glow/logging';
+import { setupNodeOtel } from '@prisma/otel';
+import { createLogger, setLogContextProvider } from '@prisma/logging';
 import {
   AnalyticsEventValidationError,
   buildAutonomyTelemetryEvent,
@@ -41,7 +41,7 @@ import type {
   ChatCompletionUpdateParams,
 } from 'openai/resources/chat/completions';
 import type { MessageListParams } from 'openai/resources/chat/completions/messages';
-import { getSignedUrlTTL } from '@prisma-glow/lib/security/signed-url-policy';
+import { getSignedUrlTTL } from '@prisma/lib/security/signed-url-policy';
 import {
   scheduleLearningRun,
   getDriveConnectorMetadata,
@@ -58,15 +58,15 @@ import {
 } from './knowledge/ingestion.js';
 import type { DriveSource } from './knowledge/drive.js';
 import { listWebSources, getWebSource, type WebSourceRow } from './knowledge/web.js';
-import { getSupabaseJwtSecret, getSupabaseServiceRoleKey } from '@prisma-glow/lib/secrets';
-import { generateAgentPlan } from '@prisma-glow/agents/runtime';
+import { getSupabaseJwtSecret, getSupabaseServiceRoleKey } from '@prisma/lib/secrets';
+import { generateAgentPlan } from '@prisma/agents/runtime';
 import {
   roleFromString,
   ROLE_PRIORITY,
   type AgentRequestContext,
   type AgentRequestTool,
   type AgentRole,
-} from '@prisma-glow/agents/types';
+} from '@prisma/agents/types';
 import {
   upsertChatkitSession,
   cancelChatkitSession,
@@ -89,9 +89,9 @@ import {
   type ApprovalEvidence,
 } from './approval-service.js';
 import { createOpenAiDebugLogger, type OpenAiClientWithDebug } from './openai-debug.js';
-import { getOpenAIClient } from '@prisma-glow/lib/openai/client';
-import { runOpenAiFileSearch } from '@prisma-glow/lib/openai/file-search';
-import { readOpenAiWorkloadEnv } from '@prisma-glow/lib/openai/workloads';
+import { getOpenAIClient } from '@prisma/lib/openai/client';
+import { runOpenAiFileSearch } from '@prisma/lib/openai/file-search';
+import { readOpenAiWorkloadEnv } from '@prisma/lib/openai/workloads';
 import {
   syncAgentToolsFromRegistry,
   isAgentPlatformEnabled,
@@ -121,10 +121,10 @@ import {
   streamChatCompletion,
   updateChatCompletion,
 } from './openai-chat-completions.js';
-import { directorAgent as legacyDirectorAgent } from '@prisma-glow/agents/director';
-import { DOMAIN_AGENT_LIST } from '@prisma-glow/agents/domain-agents';
-import type { OrchestratorContext } from '@prisma-glow/agents/types';
-import { AuditExecutionAgent } from '@prisma-glow/agents/audit-execution';
+import { directorAgent as legacyDirectorAgent } from '@prisma/agents/director';
+import { DOMAIN_AGENT_LIST } from '@prisma/agents/domain-agents';
+import type { OrchestratorContext } from '@prisma/agents/types';
+import { AuditExecutionAgent } from '@prisma/agents/audit-execution';
 import type { Database } from './types/supabase.js';
 import type { OrchestrationTaskInput } from './mcp/types.js';
 import { initialiseMcpInfrastructure } from './mcp/bootstrap.js';

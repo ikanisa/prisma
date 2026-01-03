@@ -222,7 +222,7 @@ pnpm tsx scripts/classify-existing-sources.ts --force-llm
 
 3. **Rebuild & Deploy**:
    ```bash
-   pnpm --filter @prisma-glow/rag-service build
+   pnpm --filter @prisma/rag-service build
    # Restart gateway
    ```
 
@@ -333,7 +333,7 @@ To use a newer/different model:
 
 3. Deploy:
    ```bash
-   pnpm --filter @prisma-glow/rag-service build
+   pnpm --filter @prisma/rag-service build
    ```
 
 ### Add New Source Types
@@ -420,5 +420,5 @@ psql "$DATABASE_URL" < backups/sources-YYYYMMDD.sql
 
 # Restore rules (manual: copy to heuristic.ts)
 # Then rebuild:
-pnpm --filter @prisma-glow/rag-service build
+pnpm --filter @prisma/rag-service build
 ```

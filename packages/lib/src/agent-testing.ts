@@ -388,8 +388,8 @@ export const AUDIT_PLANNING_TEST_SUITE: TestSuite = {
 /**
  * Example usage:
  * 
- * import { AgentTestRunner, RWANDA_TAX_TEST_SUITE } from '@prisma-glow/lib';
- * import { RwandaTaxComplianceAgentRAG } from '@prisma-glow/tax';
+ * import { AgentTestRunner, RWANDA_TAX_TEST_SUITE } from '@prisma/lib';
+ * import { RwandaTaxComplianceAgentRAG } from '@prisma/tax';
  * 
  * const runner = new AgentTestRunner(
  *   process.env.SUPABASE_URL!,

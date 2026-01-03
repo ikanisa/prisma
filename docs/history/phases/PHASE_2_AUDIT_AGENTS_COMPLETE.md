@@ -3,7 +3,7 @@
 
 **Completion Date**: November 28, 2024  
 **Phase Status**: ✅ 10/47 Agents (21% Complete)  
-**Package**: `@prisma-glow/audit-agents` v1.0.0
+**Package**: `@prisma/audit-agents` v1.0.0
 
 ---
 
@@ -217,7 +217,7 @@ import {
   handleSubstantiveRequest,
   handleCompletionRequest,
   handleReportRequest,
-} from '@prisma-glow/audit-agents';
+} from '@prisma/audit-agents';
 
 // 1. PLANNING PHASE
 const planningResult = await handlePlanningRequest({
@@ -430,12 +430,12 @@ Each agent includes:
 
 ### Installation
 ```bash
-pnpm add @prisma-glow/audit-agents
+pnpm add @prisma/audit-agents
 ```
 
 ### Usage
 ```typescript
-import { handlePlanningRequest } from '@prisma-glow/audit-agents';
+import { handlePlanningRequest } from '@prisma/audit-agents';
 
 const result = await handlePlanningRequest({...});
 ```
@@ -478,6 +478,6 @@ const result = await handlePlanningRequest({...});
 ---
 
 **Generated**: November 28, 2024  
-**Package**: @prisma-glow/audit-agents v1.0.0  
+**Package**: @prisma/audit-agents v1.0.0  
 **License**: MIT  
 **Author**: Prisma Glow Team

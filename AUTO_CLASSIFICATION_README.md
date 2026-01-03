@@ -125,11 +125,11 @@ psql "$DATABASE_URL" -f supabase/migrations/20260201120000_auto_classification_c
 
 # 2. Build services
 pnpm install --frozen-lockfile
-pnpm --filter @prisma-glow/rag-service build
-pnpm --filter @prisma-glow/gateway build
+pnpm --filter @prisma/rag-service build
+pnpm --filter @prisma/gateway build
 
 # 3. Test
-pnpm --filter @prisma-glow/gateway dev
+pnpm --filter @prisma/gateway dev
 curl -X POST http://localhost:3001/api/v1/web-sources \
   -d '{"name":"IFRS","base_url":"https://ifrs.org"}'
 ```
@@ -290,7 +290,7 @@ pnpm tsx scripts/generate-classification-report.ts --format=json
 | "Classification returns UNKNOWN" | Add domain rule or enable LLM (set OPENAI_API_KEY) |
 | "OpenAI API error" | Check API key is valid + quota available |
 | "Low confidence scores" | Provide page_title/page_snippet for better LLM context |
-| "Route not found" | Ensure gateway is rebuilt: `pnpm --filter @prisma-glow/gateway build` |
+| "Route not found" | Ensure gateway is rebuilt: `pnpm --filter @prisma/gateway build` |
 
 ---
 

@@ -5,7 +5,7 @@ import {
   AgentTier,
   AgentDomain,
   Jurisdiction,
-} from '@prisma-glow/core';
+} from '@prisma/core';
 
 /**
  * Agent 041: Board Meetings & Minutes Specialist

@@ -34,7 +34,7 @@ You'll see:
 ### 3. Use in Your Code
 
 ```typescript
-import { getActiveDomains, getPrimarySources } from '@prisma-glow/lib';
+import { getActiveDomains, getPrimarySources } from '@prisma/lib';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 
 const supabase = createClientComponentClient();
@@ -65,7 +65,7 @@ const rwTax = await getActiveSources(supabase, {
 - ✅ Constraints for data integrity
 - ✅ Crawl timestamp tracking
 
-### TypeScript Library (`@prisma-glow/lib`)
+### TypeScript Library (`@prisma/lib`)
 - ✅ 10 query helpers
 - ✅ 6 mutation helpers  
 - ✅ 3 analytics helpers
@@ -198,7 +198,7 @@ const jurisdictionCounts = await getSourceCountByJurisdiction(supabase);
 ### 1. DeepSearch Integration
 
 ```typescript
-import { getActiveDomains } from '@prisma-glow/lib';
+import { getActiveDomains } from '@prisma/lib';
 
 // Get domains for crawler whitelist
 const domains = await getActiveDomains(supabase);
@@ -213,7 +213,7 @@ const results = await searchWeb(query, {
 ### 2. Scheduled Crawler
 
 ```typescript
-import { getSourcesNeedingCrawl, markSourceCrawled } from '@prisma-glow/lib';
+import { getSourcesNeedingCrawl, markSourceCrawled } from '@prisma/lib';
 
 // Get sources not crawled in last 7 days
 const batch = await getSourcesNeedingCrawl(supabase, 7, 100);
@@ -233,7 +233,7 @@ for (const source of batch) {
 ### 3. RAG Ingestion Pipeline
 
 ```typescript
-import { getPrimarySources } from '@prisma-glow/lib';
+import { getPrimarySources } from '@prisma/lib';
 
 // Prioritize primary sources for RAG
 const primarySources = await getPrimarySources(supabase, {
@@ -376,7 +376,7 @@ After applying the migration:
 - [ ] Categories: `SELECT DISTINCT category FROM knowledge_web_sources ORDER BY category;`
 - [ ] Jurisdictions: `SELECT DISTINCT jurisdiction_code FROM knowledge_web_sources ORDER BY jurisdiction_code;`
 - [ ] Admin panel works: Navigate to `/admin/knowledge/sources`
-- [ ] TypeScript imports: `import { getActiveDomains } from '@prisma-glow/lib';`
+- [ ] TypeScript imports: `import { getActiveDomains } from '@prisma/lib';`
 
 ---
 
@@ -428,7 +428,7 @@ CREATE POLICY "Allow admin modify" ON knowledge_web_sources
 A: Table was already created. Check row count: `SELECT COUNT(*) FROM knowledge_web_sources;`
 
 **Q: TypeScript import errors**  
-A: Ensure `@prisma-glow/lib` is in your dependencies and run `pnpm install`
+A: Ensure `@prisma/lib` is in your dependencies and run `pnpm install`
 
 **Q: Admin panel shows "No sources found"**  
 A: Migration wasn't applied or sources have `status = 'INACTIVE'`. Check with SQL.
@@ -459,6 +459,6 @@ A: Ensure you're authenticated and have access to `/admin` routes.
 
 1. **Apply migration** → Supabase SQL Editor (5 min)
 2. **Visit admin panel** → `/admin/knowledge/sources`
-3. **Start coding** → `import { getActiveDomains } from '@prisma-glow/lib';`
+3. **Start coding** → `import { getActiveDomains } from '@prisma/lib';`
 
 **See `KNOWLEDGE_WEB_SOURCES_COMPLETE.md` for complete documentation!** 🎉

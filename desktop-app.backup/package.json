@@ -1,5 +1,5 @@
 {
-  "name": "@prisma-glow/desktop",
+  "name": "@prisma/desktop",
   "version": "1.0.0",
   "description": "Prisma Glow Desktop Application",
   "private": true,

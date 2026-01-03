@@ -85,7 +85,7 @@ A comprehensive, production-ready agent registry system has been successfully im
 ```
 agents.registry.yaml (Single Source of Truth)
             ↓
-@prisma-glow/agents Package
+@prisma/agents Package
   ├── Registry Loader (caching)
   ├── OpenAI Factory → Agent objects
   ├── Gemini Factory → Config objects
@@ -155,7 +155,7 @@ Frontend (Web, Mobile, WhatsApp)
 
 ### TypeScript SDK
 ```typescript
-import { agentRouter } from "@prisma-glow/agents";
+import { agentRouter } from "@prisma/agents";
 
 // Execute agent
 const result = await agentRouter.run({
@@ -293,19 +293,19 @@ node scripts/agent-cli.mjs export-json
 
 ```bash
 # Run all tests
-pnpm --filter @prisma-glow/agents run test
+pnpm --filter @prisma/agents run test
 
 # Validate registry
 node scripts/agent-cli.mjs validate
 
 # Typecheck
-pnpm --filter @prisma-glow/agents run typecheck
+pnpm --filter @prisma/agents run typecheck
 
 # Lint
-pnpm --filter @prisma-glow/agents run lint
+pnpm --filter @prisma/agents run lint
 
 # Coverage
-pnpm --filter @prisma-glow/agents run test:coverage
+pnpm --filter @prisma/agents run test:coverage
 ```
 
 ## 📚 Documentation Index

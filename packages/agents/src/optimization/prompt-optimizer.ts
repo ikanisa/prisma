@@ -5,7 +5,7 @@
  * caching, and intelligent model selection.
  */
 
-import { logger } from '@prisma-glow/core/logger';
+import { logger } from '@prisma/core/logger';
 
 export interface PromptVersion {
   id: string;

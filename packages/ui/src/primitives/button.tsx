@@ -2,7 +2,7 @@
  * Shared Button Component
  * 
  * This is the canonical button component for the entire application.
- * Import from @prisma-glow/ui/primitives instead of local copies.
+ * Import from @prisma/ui/primitives instead of local copies.
  */
 import * as React from "react"
 import { Slot } from "@radix-ui/react-slot"

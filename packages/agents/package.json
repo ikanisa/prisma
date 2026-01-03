@@ -1,5 +1,5 @@
 {
-  "name": "@prisma-glow/agents",
+  "name": "@prisma/agents",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -42,8 +42,8 @@
     "validate:full": "node scripts/validate-registry.js --verbose --check-scopes --check-models"
   },
   "dependencies": {
-    "@prisma-glow/core": "workspace:*",
-    "@prisma-glow/types": "workspace:*",
+    "@prisma/core": "workspace:*",
+    "@prisma/types": "workspace:*",
     "js-yaml": "^4.1.0",
     "openai": "^4.104.0",
     "@google/generative-ai": "^0.21.0",

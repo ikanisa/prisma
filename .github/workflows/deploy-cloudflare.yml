@@ -48,7 +48,7 @@ jobs:
         continue-on-error: true
 
       - name: Build for Cloudflare Pages
-        run: pnpm --filter @prisma-glow/web build
+        run: pnpm --filter @prisma/web build
         env:
           NODE_ENV: production
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}

@@ -1,10 +1,10 @@
 /**
- * Unit Tests for @prisma-glow/types package
+ * Unit Tests for @prisma/types package
  * Type validation and utility tests
  */
 import { describe, it, expect } from 'vitest';
 
-describe('@prisma-glow/types', () => {
+describe('@prisma/types', () => {
     describe('User role types', () => {
         it('role hierarchy is correctly ordered', () => {
             const roles = ['READONLY', 'CLIENT', 'EMPLOYEE', 'MANAGER', 'ADMIN', 'PARTNER', 'SYSTEM_ADMIN'];

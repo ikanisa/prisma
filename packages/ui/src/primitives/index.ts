@@ -2,7 +2,7 @@
  * Shared UI Primitives
  * 
  * These are the canonical implementations of basic UI components.
- * Import from @prisma-glow/ui/primitives for consistency.
+ * Import from @prisma/ui/primitives for consistency.
  */
 
 export { Button, buttonVariants, type ButtonProps } from './button'

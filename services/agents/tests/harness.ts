@@ -1,4 +1,4 @@
-import { verifyPromptChecksums, loadPromptById, type AgentPlanDocument, type AgentRole } from '@prisma-glow/agents';
+import { verifyPromptChecksums, loadPromptById, type AgentPlanDocument, type AgentRole } from '@prisma/agents';
 
 import { enforceToolPolicy, type ToolPolicyResult } from '../policy/tool-policy.js';
 

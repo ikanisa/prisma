@@ -1,5 +1,5 @@
 {
-  "name": "@prisma-glow/analytics",
+  "name": "@prisma/analytics",
   "version": "0.1.0",
   "private": true,
   "type": "module",

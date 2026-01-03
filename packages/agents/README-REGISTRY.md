@@ -17,7 +17,7 @@ import {
   AgentRegistryLoader,
   OpenAIAgentFactory,
   DeepSearchWrapper,
-} from '@prisma-glow/agents';
+} from '@prisma/agents';
 
 // Load the registry
 const registry = AgentRegistryLoader.fromDefault();
@@ -197,7 +197,7 @@ import {
   DeepSearchWrapper,
   type DeepSearchParams,
   type DeepSearchResult,
-} from '@prisma-glow/agents';
+} from '@prisma/agents';
 
 // Your DeepSearch implementation using Supabase vector search
 async function supabaseDeepSearch(

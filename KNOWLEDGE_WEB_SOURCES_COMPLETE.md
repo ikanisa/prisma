@@ -34,7 +34,7 @@ packages/lib/tsconfig.json
 - ✅ 6 mutation helpers (createSource, updateSource, toggleStatus, etc.)
 - ✅ 3 analytics helpers (getCrawlStats, category/jurisdiction counts)
 - ✅ Full JSDoc documentation
-- ✅ Configured as npm package `@prisma-glow/lib`
+- ✅ Configured as npm package `@prisma/lib`
 
 ---
 
@@ -169,7 +169,7 @@ Features available:
 ### Step 3: Integrate with DeepSearch
 
 ```typescript
-import { getActiveDomains, getPrimarySources } from '@prisma-glow/lib';
+import { getActiveDomains, getPrimarySources } from '@prisma/lib';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 
 const supabase = createClientComponentClient();
@@ -200,7 +200,7 @@ const results = await searchWeb(query, {
 ### Step 4: Configure Crawler
 
 ```typescript
-import { getSourcesNeedingCrawl, markSourceCrawled } from '@prisma-glow/lib';
+import { getSourcesNeedingCrawl, markSourceCrawled } from '@prisma/lib';
 
 // Get sources not crawled in last 7 days
 const batch = await getSourcesNeedingCrawl(supabase, 7, 100);

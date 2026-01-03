@@ -1,5 +1,5 @@
 {
-  "name": "@prisma-glow/gateway",
+  "name": "@prisma/gateway",
   "version": "1.0.0",
   "type": "module",
   "main": "dist/index.js",
@@ -13,8 +13,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@prisma-glow/agents": "workspace:*",
-    "@prisma-glow/logger": "workspace:*",
+    "@prisma/agents": "workspace:*",
+    "@prisma/logger": "workspace:*",
     "@supabase/supabase-js": "^2.45.0",
     "cors": "^2.8.5",
     "express": "^4.21.0",

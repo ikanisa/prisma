@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { VaultClient, VaultClientError } from '@prisma-glow/lib/secrets/vault-client';
+import { VaultClient, VaultClientError } from '@prisma/lib/secrets/vault-client';
 
 describe('VaultClient', () => {
   const baseUrl = 'https://vault.prismaglow.example.com';

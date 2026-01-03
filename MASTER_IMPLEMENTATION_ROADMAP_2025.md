@@ -402,7 +402,7 @@ This roadmap executes **three parallel tracks** to maximize team efficiency and 
 **Day 3-4: EU VAT Agent Implementation** (12 hours)
 - [ ] Create `agent/tax/eu-vat-agent.ts`
   ```typescript
-  import { Agent } from '@prisma-glow/agents';
+  import { Agent } from '@prisma/agents';
   
   export const euVATAgent = new Agent({
     slug: 'eu-vat-expert',

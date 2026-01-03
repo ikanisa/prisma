@@ -21,7 +21,7 @@ The application needs to provide AI agents and services with the ability to sear
 
 ## Considered Options
 
-1. **Create a new module in @prisma-glow/lib package** (chosen)
+1. **Create a new module in @prisma/lib package** (chosen)
    - Place types, utilities, and API function in packages/lib/src/openai/web-search.ts
    - Export from the lib package index
    - Similar pattern to existing file-search.ts module
@@ -31,17 +31,17 @@ The application needs to provide AI agents and services with the ability to sear
    - Keep utilities in services/rag/web-search-utils.ts
    - Import where needed
 
-3. **Create a separate @prisma-glow/ai-search package**
+3. **Create a separate @prisma/ai-search package**
    - New workspace package dedicated to AI search functionality
    - More modular but adds complexity
 
 ## Decision Outcome
 
-Chosen option: "Create a new module in @prisma-glow/lib package", because:
+Chosen option: "Create a new module in @prisma/lib package", because:
 
 1. **Follows existing patterns**: The lib package already has openai/file-search.ts which serves a similar purpose
 2. **Centralized types**: All web search types, utilities, and functions in one place
-3. **Easy import**: Simple `import { runWebSearch } from '@prisma-glow/lib'`
+3. **Easy import**: Simple `import { runWebSearch } from '@prisma/lib'`
 4. **Reduces duplication**: Eliminates need to copy types and utilities between services
 5. **Better testing**: Comprehensive unit tests in one location
 6. **Type safety**: Full TypeScript support with exported interfaces
@@ -108,8 +108,8 @@ Chosen option: "Create a new module in @prisma-glow/lib package", because:
 ### Usage Example
 
 ```typescript
-import { getOpenAIClient } from '@prisma-glow/lib/openai/client';
-import { runWebSearch } from '@prisma-glow/lib/openai/web-search';
+import { getOpenAIClient } from '@prisma/lib/openai/client';
+import { runWebSearch } from '@prisma/lib/openai/web-search';
 
 const client = getOpenAIClient();
 
@@ -129,7 +129,7 @@ console.log(results.sources);    // All consulted sources
 
 ## Pros and Cons of the Options
 
-### Option 1: Create module in @prisma-glow/lib (chosen)
+### Option 1: Create module in @prisma/lib (chosen)
 
 - Good, because follows existing patterns (file-search.ts)
 - Good, because centralizes all web search logic

@@ -182,7 +182,7 @@ Configured in `apps/web/public/_headers`:
 pnpm typecheck && pnpm lint && pnpm test
 
 # Build locally to verify
-pnpm --filter @prisma-glow/web build
+pnpm --filter @prisma/web build
 ```
 
 ---
@@ -255,7 +255,7 @@ pnpm --filter @prisma-glow/web build
 Copy these exactly into Cloudflare Pages dashboard:
 
 ```
-Build command:          pnpm install --frozen-lockfile && pnpm --filter @prisma-glow/web build
+Build command:          pnpm install --frozen-lockfile && pnpm --filter @prisma/web build
 Build output directory: apps/web/.next
 Root directory:         /
 Node.js version:        22

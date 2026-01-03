@@ -68,7 +68,7 @@ supabase/migrations/20251201_knowledge_web_sources_200_urls.sql
 
 ### 2. TYPESCRIPT PACKAGE (4 files)
 ```
-@prisma-glow/lib
+@prisma/lib
 ├── src/
 │   ├── knowledge-web-sources.ts (680 lines with enhancements)
 │   │   ├── 10 query helpers
@@ -231,7 +231,7 @@ scripts/verify-knowledge-sources.sh
 
 3. **Integrate with Code** (5 minutes)
    ```typescript
-   import { getActiveDomains } from '@prisma-glow/lib';
+   import { getActiveDomains } from '@prisma/lib';
    const domains = await getActiveDomains(supabase);
    ```
 
@@ -241,7 +241,7 @@ scripts/verify-knowledge-sources.sh
 - [ ] Indexes: `SELECT indexname FROM pg_indexes WHERE tablename = 'knowledge_web_sources';` → 6
 - [ ] Categories: `SELECT DISTINCT category FROM knowledge_web_sources ORDER BY category;` → 12
 - [ ] Admin panel accessible at `/admin/knowledge/sources`
-- [ ] TypeScript imports work: `import { getActiveDomains } from '@prisma-glow/lib';`
+- [ ] TypeScript imports work: `import { getActiveDomains } from '@prisma/lib';`
 
 ---
 
@@ -249,7 +249,7 @@ scripts/verify-knowledge-sources.sh
 
 ### 1. DeepSearch Integration
 ```typescript
-import { getActiveDomains, getPrimarySources } from '@prisma-glow/lib';
+import { getActiveDomains, getPrimarySources } from '@prisma/lib';
 
 // Get domains for whitelist
 const domains = await getActiveDomains(supabase);
@@ -263,7 +263,7 @@ const results = await searchWeb(query, {
 
 ### 2. Scheduled Crawler
 ```typescript
-import { getSourcesNeedingCrawl, markSourceCrawled } from '@prisma-glow/lib';
+import { getSourcesNeedingCrawl, markSourceCrawled } from '@prisma/lib';
 
 // Get sources not crawled in 7 days
 const batch = await getSourcesNeedingCrawl(supabase, 7, 100);
@@ -277,7 +277,7 @@ for (const source of batch) {
 
 ### 3. RAG Ingestion
 ```typescript
-import { getPrimarySources } from '@prisma-glow/lib';
+import { getPrimarySources } from '@prisma/lib';
 
 // Prioritize primary sources
 const primarySources = await getPrimarySources(supabase, { category: 'IFRS' });
@@ -300,7 +300,7 @@ import {
   getSourceCountByCategory,
   toggleSourceStatus,
   bulkUpdateStatus
-} from '@prisma-glow/lib';
+} from '@prisma/lib';
 
 // Dashboard
 const stats = await getCrawlStats(supabase);
@@ -312,7 +312,7 @@ await bulkUpdateStatus(supabase, { domain: 'deprecated-site.com' }, 'INACTIVE');
 
 ### 5. URL Validation (NEW)
 ```typescript
-import { validateSourceUrl } from '@prisma-glow/lib';
+import { validateSourceUrl } from '@prisma/lib';
 
 // Before adding new source
 const validation = await validateSourceUrl(supabase, 'https://new-authority.org');
@@ -326,7 +326,7 @@ await createSource(supabase, newSourceData);
 
 ### 6. Import/Export (NEW)
 ```typescript
-import { exportSourcesToJSON, importSourcesFromJSON } from '@prisma-glow/lib';
+import { exportSourcesToJSON, importSourcesFromJSON } from '@prisma/lib';
 
 // Backup IFRS sources
 const json = await exportSourcesToJSON(supabase, { category: 'IFRS' });
@@ -377,7 +377,7 @@ console.log(`Imported ${result.imported} sources`);
 
 ### Adding New Sources
 ```typescript
-import { createSource, validateSourceUrl } from '@prisma-glow/lib';
+import { createSource, validateSourceUrl } from '@prisma/lib';
 
 // Validate first
 const validation = await validateSourceUrl(supabase, url);
@@ -401,7 +401,7 @@ await createSource(supabase, {
 
 ### Bulk Operations
 ```typescript
-import { bulkUpdateStatus, bulkUpdateSources } from '@prisma-glow/lib';
+import { bulkUpdateStatus, bulkUpdateSources } from '@prisma/lib';
 
 // Deactivate all sources from deprecated domain
 await bulkUpdateStatus(supabase, { domain: 'old-site.com' }, 'INACTIVE');
@@ -416,7 +416,7 @@ await bulkUpdateSources(
 
 ### Health Monitoring
 ```typescript
-import { checkSourceHealth, getSourcesNeedingCrawl } from '@prisma-glow/lib';
+import { checkSourceHealth, getSourcesNeedingCrawl } from '@prisma/lib';
 
 // Check critical sources
 const criticalSources = await getPrimarySources(supabase, { priority: 1 });
@@ -438,7 +438,7 @@ for (const source of criticalSources) {
 **A**: Table was created previously. Verify with `SELECT COUNT(*) FROM knowledge_web_sources;`
 
 ### TypeScript Import Errors
-**Q**: `Cannot find module '@prisma-glow/lib'`  
+**Q**: `Cannot find module '@prisma/lib'`  
 **A**: Run `pnpm install --frozen-lockfile` to install the package
 
 ### Admin Panel Shows No Sources

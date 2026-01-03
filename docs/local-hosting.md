@@ -39,7 +39,7 @@ pnpm run lint
 pnpm run build
 ```
 
-The `build` script runs `tsc -b` before bundling the Vite front-end. Add `--filter <workspace>` to scope commands to services like `web`, `@prisma-glow/gateway`, or `@prisma-glow/rag-service`.
+The `build` script runs `tsc -b` before bundling the Vite front-end. Add `--filter <workspace>` to scope commands to services like `web`, `@prisma/gateway`, or `@prisma/rag-service`.
 
 ## 3. Start local servers
 
@@ -55,7 +55,7 @@ Choose the process that matches your target surface:
   ```
 - **Gateway API**:
   ```bash
-  pnpm --filter @prisma-glow/gateway dev
+  pnpm --filter @prisma/gateway dev
   ```
 - **FastAPI backend**:
   ```bash

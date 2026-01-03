@@ -12,7 +12,7 @@ This document confirms completion of the next steps from the audit fixes impleme
 **Status:** Complete
 
 ```bash
-pnpm install --filter @prisma-glow/web
+pnpm install --filter @prisma/web
 ```
 
 **Result:**

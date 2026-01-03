@@ -6,7 +6,7 @@ import {
   AgentDomain,
   Jurisdiction,
   generateId,
-} from '@prisma-glow/core';
+} from '@prisma/core';
 
 /**
  * Agent 034: Company Formation Specialist

@@ -22,7 +22,7 @@ export async function agentRegistryHealthCheck(): Promise<{
   categories: string[];
 }> {
   try {
-    const { loadAgentsRegistry } = await import("@prisma-glow/agents");
+    const { loadAgentsRegistry } = await import("@prisma/agents");
     const agents = loadAgentsRegistry();
     const categories = [...new Set(agents.map((a: any) => a.category))] as string[];
 

@@ -1,5 +1,5 @@
 {
-  "name": "@prisma-glow/core",
+  "name": "@prisma/core",
   "version": "1.0.0",
   "description": "Core framework for Prisma Glow AI agents",
   "main": "dist/index.js",
@@ -10,7 +10,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@prisma-glow/lib": "workspace:*",
+    "@prisma/lib": "workspace:*",
     "zod": "^3.22.4"
   },
   "devDependencies": {

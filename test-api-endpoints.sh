@@ -17,11 +17,11 @@ NC='\033[0m' # No Color
 API_BASE="http://localhost:3001/api/v1"
 
 echo "⏳ Building gateway..."
-pnpm --filter @prisma-glow/gateway build --silent
+pnpm --filter @prisma/gateway build --silent
 
 echo ""
 echo "🚀 Starting gateway server..."
-pnpm --filter @prisma-glow/gateway start &
+pnpm --filter @prisma/gateway start &
 GATEWAY_PID=$!
 
 echo "   Gateway PID: $GATEWAY_PID"

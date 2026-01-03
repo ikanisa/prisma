@@ -60,7 +60,7 @@
 - [ ] Verify no secrets committed to git
 
 #### Local Testing (15 min)
-- [ ] Start gateway: `pnpm --filter @prisma-glow/gateway dev`
+- [ ] Start gateway: `pnpm --filter @prisma/gateway dev`
 - [ ] Test unauthenticated: `curl http://localhost:3001/api/v1/agents`
   - Expected: `401 Unauthorized` ✅
 - [ ] Get valid JWT from Supabase (sign in via UI)
@@ -69,7 +69,7 @@
 - [ ] Test rate limiting (make 105 requests, last few should return 429)
 
 #### Staging Deployment (30 min)
-- [ ] Build: `pnpm --filter @prisma-glow/gateway build`
+- [ ] Build: `pnpm --filter @prisma/gateway build`
 - [ ] Deploy: `docker-compose -f docker-compose.staging.yml up -d gateway`
 - [ ] Health check: `curl https://staging-api.prismaglow.com/health`
   - Expected: `{"status":"ok"}` ✅

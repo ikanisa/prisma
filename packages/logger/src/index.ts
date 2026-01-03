@@ -1,5 +1,5 @@
 /**
- * @prisma-glow/logger
+ * @prisma/logger
  * 
  * Unified structured logging for Prisma Glow applications.
  * Uses Pino-style API (context first, message last) for structured logging.

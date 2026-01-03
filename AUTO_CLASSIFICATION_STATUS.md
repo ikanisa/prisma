@@ -46,8 +46,8 @@
 ### Option 2: Code Only (No Database)
 ```bash
 pnpm install --frozen-lockfile
-pnpm --filter @prisma-glow/rag-service build
-pnpm --filter @prisma-glow/gateway build
+pnpm --filter @prisma/rag-service build
+pnpm --filter @prisma/gateway build
 ```
 **Time**: 5-10 minutes  
 **Use**: If DATABASE_URL not available yet
@@ -90,8 +90,8 @@ pnpm run typecheck
 pnpm run typecheck
 
 # OR full build (slower but comprehensive)
-pnpm --filter @prisma-glow/rag-service build
-pnpm --filter @prisma-glow/gateway build
+pnpm --filter @prisma/rag-service build
+pnpm --filter @prisma/gateway build
 ```
 
 **Expected**: No TypeScript errors
@@ -99,7 +99,7 @@ pnpm --filter @prisma-glow/gateway build
 ### Step 2: API Testing (20 min)
 ```bash
 # Start gateway
-pnpm --filter @prisma-glow/gateway dev
+pnpm --filter @prisma/gateway dev
 
 # In another terminal, test endpoints:
 
@@ -274,7 +274,7 @@ export OPENAI_API_KEY="sk-..."
 
 ### For Development
 1. Build TypeScript in watch mode: `pnpm run build --watch`
-2. Use hot reload for gateway: `pnpm --filter @prisma-glow/gateway dev`
+2. Use hot reload for gateway: `pnpm --filter @prisma/gateway dev`
 3. Test with curl or Postman
 4. Review logs for classification details
 

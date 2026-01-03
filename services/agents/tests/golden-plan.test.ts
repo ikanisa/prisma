@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { AgentPlanDocument } from '@prisma-glow/agents';
+import type { AgentPlanDocument } from '@prisma/agents';
 
 import { AgentGuardrailHarness } from './harness.js';
 

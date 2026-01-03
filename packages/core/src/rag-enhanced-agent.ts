@@ -5,7 +5,7 @@
  * Provides semantic search over knowledge base with category/jurisdiction filtering.
  */
 
-import { getRAGHelper, type RAGSearchParams, type RAGChunk } from '@prisma-glow/lib';
+import { getRAGHelper, type RAGSearchParams, type RAGChunk } from '@prisma/lib';
 
 export interface RAGContext {
   context: string;

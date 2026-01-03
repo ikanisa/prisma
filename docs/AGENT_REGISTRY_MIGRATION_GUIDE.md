@@ -82,14 +82,14 @@ export const taxCorpMT = {
 
 **Before:**
 ```typescript
-import { taxCorpMT } from "@prisma-glow/tax/agents/tax-corp-mt-026";
+import { taxCorpMT } from "@prisma/tax/agents/tax-corp-mt-026";
 
 const result = await taxCorpMT.execute(query);
 ```
 
 **After:**
 ```typescript
-import { agentRouter } from "@prisma-glow/agents";
+import { agentRouter } from "@prisma/agents";
 
 const result = await agentRouter.run({
   agentId: "tax-compliance-mt-034",
@@ -190,7 +190,7 @@ export const taxCorpMT = {
 };
 
 // Usage:
-import { taxCorpMT } from "@prisma-glow/tax/agents/tax-corp-mt-026";
+import { taxCorpMT } from "@prisma/tax/agents/tax-corp-mt-026";
 const result = await taxCorpMT.execute("Calculate tax");
 ```
 
@@ -205,7 +205,7 @@ const result = await taxCorpMT.execute("Calculate tax");
 
 ```typescript
 // Usage:
-import { agentRouter } from "@prisma-glow/agents";
+import { agentRouter } from "@prisma/agents";
 const result = await agentRouter.run({
   agentId: "tax-compliance-mt-034",
   input: "Calculate tax"

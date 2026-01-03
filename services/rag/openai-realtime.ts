@@ -1,4 +1,4 @@
-import { buildOpenAiUrl } from '@prisma-glow/lib/openai/url';
+import { buildOpenAiUrl } from '@prisma/lib/openai/url';
 
 interface CreateRealtimeSessionOptions {
   openAiApiKey?: string;

@@ -1,13 +1,13 @@
 # Web Search Module - Usage Guide
 
-The `@prisma-glow/lib` package provides comprehensive support for OpenAI's web search functionality through the Responses API. This guide shows how to use the web search module in your application.
+The `@prisma/lib` package provides comprehensive support for OpenAI's web search functionality through the Responses API. This guide shows how to use the web search module in your application.
 
 ## Installation
 
-The web search module is part of the `@prisma-glow/lib` package:
+The web search module is part of the `@prisma/lib` package:
 
 ```typescript
-import { runWebSearch, createWebSearchTool, extractWebSearchResults } from '@prisma-glow/lib';
+import { runWebSearch, createWebSearchTool, extractWebSearchResults } from '@prisma/lib';
 ```
 
 ## Quick Start
@@ -17,8 +17,8 @@ import { runWebSearch, createWebSearchTool, extractWebSearchResults } from '@pri
 The simplest way to perform a web search:
 
 ```typescript
-import { getOpenAIClient } from '@prisma-glow/lib/openai/client';
-import { runWebSearch } from '@prisma-glow/lib/openai/web-search';
+import { getOpenAIClient } from '@prisma/lib/openai/client';
+import { runWebSearch } from '@prisma/lib/openai/web-search';
 
 const client = getOpenAIClient();
 
@@ -135,8 +135,8 @@ const results = await runWebSearch({
 For more control, you can build tools manually:
 
 ```typescript
-import { createWebSearchTool, createUserLocation } from '@prisma-glow/lib/openai/web-search';
-import { getOpenAIClient } from '@prisma-glow/lib/openai/client';
+import { createWebSearchTool, createUserLocation } from '@prisma/lib/openai/web-search';
+import { getOpenAIClient } from '@prisma/lib/openai/client';
 
 const client = getOpenAIClient();
 
@@ -169,7 +169,7 @@ import {
   extractUrlCitations,
   extractWebSearchSources,
   extractWebSearchResults,
-} from '@prisma-glow/lib/openai/web-search';
+} from '@prisma/lib/openai/web-search';
 
 // Get just the text
 const text = extractTextFromWebSearchResponse(response);
@@ -202,7 +202,7 @@ import {
   validateDomainFormat,
   normalizeDomain,
   normalizeAllowedDomains,
-} from '@prisma-glow/lib/openai/web-search';
+} from '@prisma/lib/openai/web-search';
 
 // Validate a domain format
 if (validateDomainFormat('example.com')) {
@@ -235,7 +235,7 @@ import type {
   ExtractedWebSearchResults,
   ReasoningEffortLevel,
   VerbosityLevel,
-} from '@prisma-glow/lib/openai/web-search';
+} from '@prisma/lib/openai/web-search';
 ```
 
 ## Complete Example
@@ -243,8 +243,8 @@ import type {
 Here's a complete example combining multiple features:
 
 ```typescript
-import { getOpenAIClient } from '@prisma-glow/lib/openai/client';
-import { runWebSearch } from '@prisma-glow/lib/openai/web-search';
+import { getOpenAIClient } from '@prisma/lib/openai/client';
+import { runWebSearch } from '@prisma/lib/openai/web-search';
 
 async function searchFinancialReports(query: string) {
   const client = getOpenAIClient();

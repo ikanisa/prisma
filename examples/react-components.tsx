@@ -4,7 +4,7 @@
 
 import { useState } from "react";
 import { runAgentAction, searchAgentsAction } from "@/actions/agents";
-import type { AgentRegistryEntry } from "@prisma-glow/agents";
+import type { AgentRegistryEntry } from "@prisma/agents";
 
 export function AgentChatInterface() {
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);

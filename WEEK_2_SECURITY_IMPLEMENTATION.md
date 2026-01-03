@@ -104,7 +104,7 @@ pnpm run lighthouse --only-categories=best-practices
 
 ```json
 {
-  "name": "@prisma-glow/security",
+  "name": "@prisma/security",
   "version": "1.0.0",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -384,7 +384,7 @@ async def search_knowledge(request: Request, q: str):
 **File:** `apps/gateway/src/middleware/rate-limit.ts`
 
 ```typescript
-import { SecurityMiddleware } from '@prisma-glow/security';
+import { SecurityMiddleware } from '@prisma/security';
 import type { Express } from 'express';
 
 export function setupRateLimiting(app: Express) {
@@ -425,7 +425,7 @@ export function setupRateLimiting(app: Express) {
 ```typescript
 import express from 'express';
 import { setupRateLimiting } from './middleware/rate-limit';
-import { SecurityMiddleware } from '@prisma-glow/security';
+import { SecurityMiddleware } from '@prisma/security';
 
 const app = express();
 const security = new SecurityMiddleware();

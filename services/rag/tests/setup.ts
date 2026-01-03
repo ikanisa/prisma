@@ -184,27 +184,27 @@ vi.mock('@supabase/supabase-js', () => ({
   createClient: vi.fn(() => supabaseMock.client),
 }));
 
-vi.mock('@prisma-glow/lib/secrets', () => ({
+vi.mock('@prisma/lib/secrets', () => ({
   getSupabaseJwtSecret: vi.fn(async () => process.env.SUPABASE_JWT_SECRET ?? 'test-jwt-secret'),
   getSupabaseServiceRoleKey: vi.fn(async () => process.env.SUPABASE_SERVICE_ROLE_KEY ?? 'service-role-key'),
 }));
 
-vi.mock('@prisma-glow/analytics', () => ({
+vi.mock('@prisma/analytics', () => ({
   createAnalyticsClient: vi.fn(() => ({
     track: vi.fn(),
     flush: vi.fn(),
   })),
 }));
 
-vi.mock('@prisma-glow/lib/security/signed-url-policy', () => ({
+vi.mock('@prisma/lib/security/signed-url-policy', () => ({
   getSignedUrlTTL: () => 60,
 }));
 
-vi.mock('@prisma-glow/agents/runtime', () => ({
+vi.mock('@prisma/agents/runtime', () => ({
   generateAgentPlan: vi.fn(async () => ({ steps: [] })),
 }));
 
-vi.mock('@prisma-glow/agents/types', () => ({
+vi.mock('@prisma/agents/types', () => ({
   roleFromString: (role: string) => role,
   ROLE_PRIORITY: {
     SYSTEM_ADMIN: 3,
@@ -221,15 +221,15 @@ const createOpenAiProxy = () =>
     apply: () => Promise.resolve({}),
   });
 
-vi.mock('@prisma-glow/lib/openai/client', () => ({
+vi.mock('@prisma/lib/openai/client', () => ({
   getOpenAIClient: vi.fn(() => createOpenAiProxy()),
 }));
 
-vi.mock('@prisma-glow/lib/openai/file-search', () => ({
+vi.mock('@prisma/lib/openai/file-search', () => ({
   runOpenAiFileSearch: vi.fn(async () => ({ results: [] })),
 }));
 
-vi.mock('@prisma-glow/lib/openai/workloads', () => ({
+vi.mock('@prisma/lib/openai/workloads', () => ({
   readOpenAiWorkloadEnv: vi.fn(() => ({ workload: 'standard', requestTags: [] })),
 }));
 

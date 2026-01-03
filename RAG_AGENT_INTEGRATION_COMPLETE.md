@@ -72,7 +72,7 @@ Grounded Response with Citations
 ### Basic Example: Rwanda Tax Agent
 
 ```typescript
-import { RwandaTaxComplianceAgentRAG } from '@prisma-glow/tax';
+import { RwandaTaxComplianceAgentRAG } from '@prisma/tax';
 
 // Initialize agent
 const agent = new RwandaTaxComplianceAgentRAG({
@@ -101,7 +101,7 @@ console.log('Stats:', response.ragStats);
 ### Advanced Example: Custom RAG Configuration
 
 ```typescript
-import { RAGEnhancedAgent } from '@prisma-glow/core';
+import { RAGEnhancedAgent } from '@prisma/core';
 import OpenAI from 'openai';
 
 class CustomAgent extends RAGEnhancedAgent {
@@ -150,7 +150,7 @@ class CustomAgent extends RAGEnhancedAgent {
 ### Audit Planning Example
 
 ```typescript
-import { AuditPlanningAgentRAG } from '@prisma-glow/audit';
+import { AuditPlanningAgentRAG } from '@prisma/audit';
 
 const agent = new AuditPlanningAgentRAG(process.env.OPENAI_API_KEY);
 
@@ -234,7 +234,7 @@ Smart tag extraction from queries:
 
 #### Step 1: Import RAG Mixin
 ```typescript
-import { RAGEnhancedAgent } from '@prisma-glow/core';
+import { RAGEnhancedAgent } from '@prisma/core';
 ```
 
 #### Step 2: Extend RAG Mixin
@@ -266,7 +266,7 @@ async answerQuery(query: string): Promise<string> {
 
 ```typescript
 import { describe, it, expect } from 'vitest';
-import { RwandaTaxComplianceAgentRAG } from '@prisma-glow/tax';
+import { RwandaTaxComplianceAgentRAG } from '@prisma/tax';
 
 describe('Rwanda Tax Agent (RAG)', () => {
   const agent = new RwandaTaxComplianceAgentRAG({

@@ -84,7 +84,7 @@ Complete documentation of the API architecture covering layered design (Client â
 ```typescript
 // apps/web/app/documents/page.tsx
 import { useQuery } from '@tanstack/react-query';
-import { apiClient } from '@prisma-glow/api-client';
+import { apiClient } from '@prisma/api-client';
 
 export default function DocumentsPage() {
   const { data, isLoading } = useQuery({
@@ -239,7 +239,7 @@ See `config/agents.yaml` for full 30+ tool whitelist.
 ```typescript
 // apps/gateway/src/routers/tool-proxy.ts
 import { Router } from 'express';
-import { loadConfig } from '@prisma-glow/system-config';
+import { loadConfig } from '@prisma/system-config';
 
 const router = Router();
 const config = await loadConfig();
@@ -346,7 +346,7 @@ export default router;
 
 ```typescript
 // apps/gateway/src/middleware/rbac.ts
-import { loadConfig } from '@prisma-glow/system-config';
+import { loadConfig } from '@prisma/system-config';
 
 export function requirePermission(permission: string) {
   return async (req, res, next) => {

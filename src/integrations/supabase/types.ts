@@ -1,1 +1,1 @@
-export * from '@prisma-glow/platform/supabase/types';
+export * from '@prisma/platform/supabase/types';

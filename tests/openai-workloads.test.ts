@@ -5,7 +5,7 @@ import {
   readOpenAiWorkloadEnv,
   resolveFinanceWorkloadKey,
   type OpenAiWorkloadKey,
-} from '@prisma-glow/lib/openai/workloads';
+} from '@prisma/lib/openai/workloads';
 
 afterEach(() => {
   vi.unstubAllEnvs();

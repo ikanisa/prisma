@@ -61,7 +61,7 @@ This playbook implements a systematic approach to production-readiness for multi
 - 15 packages inventoried with dependency graph
 - 3 duplicates identified: logger/logging, config/system-config, prompts/agents
 - Improvement roadmap for ui, api-client, system-config, platform, agents
-- New @prisma-glow/schemas package proposed for shared validation
+- New @prisma/schemas package proposed for shared validation
 
 **Gate:** Package health assessed, duplicates documented, improvement plan approved
 

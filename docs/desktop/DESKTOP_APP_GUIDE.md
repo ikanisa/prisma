@@ -42,7 +42,7 @@ This script will:
 pnpm install
 
 # Build Next.js app
-pnpm --filter @prisma-glow/web build
+pnpm --filter @prisma/web build
 
 # Run desktop app
 pnpm desktop:dev

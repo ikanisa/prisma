@@ -26,7 +26,7 @@ pnpm install
 
 ### Step 3: Try Building Again
 ```bash
-pnpm --filter @prisma-glow/gateway build
+pnpm --filter @prisma/gateway build
 ```
 
 ---
@@ -47,13 +47,13 @@ pnpm --filter @prisma-glow/gateway build
 
 #### Category 2: Agent Module Issues (10 errors)
 ```
-❌ Cannot find module '@prisma-glow/agents' or its corresponding type declarations
-❌ Cannot find module '@prisma-glow/agents/registry/loader.js'
-❌ Cannot find module '@prisma-glow/agents/openai/factory.js'
+❌ Cannot find module '@prisma/agents' or its corresponding type declarations
+❌ Cannot find module '@prisma/agents/registry/loader.js'
+❌ Cannot find module '@prisma/agents/openai/factory.js'
 ```
 
 **Fix**: Either:
-1. Build @prisma-glow/agents first: `pnpm --filter @prisma-glow/agents build`
+1. Build @prisma/agents first: `pnpm --filter @prisma/agents build`
 2. Or comment out agent routes temporarily
 
 #### Category 3: Type Safety Issues (10 errors)
@@ -142,7 +142,7 @@ Once gateway builds successfully:
 
 ### 1. Start Gateway (1 min)
 ```bash
-pnpm --filter @prisma-glow/gateway dev
+pnpm --filter @prisma/gateway dev
 ```
 
 ### 2. Test API (5 min)

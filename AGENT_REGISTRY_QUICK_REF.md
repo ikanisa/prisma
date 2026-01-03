@@ -3,7 +3,7 @@
 ## 🚀 Quick Start
 
 ```typescript
-import { agentRouter } from "@prisma-glow/agents";
+import { agentRouter } from "@prisma/agents";
 
 // Run an agent
 const result = await agentRouter.run({
@@ -173,13 +173,13 @@ type AgentRegistryEntry = {
 
 ```bash
 # Run tests
-pnpm --filter @prisma-glow/agents test
+pnpm --filter @prisma/agents test
 
 # Typecheck
-pnpm --filter @prisma-glow/agents typecheck
+pnpm --filter @prisma/agents typecheck
 
 # Lint
-pnpm --filter @prisma-glow/agents lint
+pnpm --filter @prisma/agents lint
 ```
 
 ## 📊 Jurisdictions

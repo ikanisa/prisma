@@ -4,7 +4,7 @@ import type {
   AgentPlanToolIntent,
   AgentRequestContext,
   AgentRole,
-} from '@prisma-glow/agents';
+} from '@prisma/agents';
 
 import { getAllowListEntry } from './allow-list.js';
 import { emitGuardrailTelemetry, type GuardrailTelemetryOptions } from './telemetry.js';

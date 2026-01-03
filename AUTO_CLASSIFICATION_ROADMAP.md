@@ -47,8 +47,8 @@ Overall:     100% complete
 # Option 2: Manual
 psql "$DATABASE_URL" -f supabase/migrations/20260201120000_auto_classification_columns.sql
 pnpm install --frozen-lockfile
-pnpm --filter @prisma-glow/rag-service build
-pnpm --filter @prisma-glow/gateway build
+pnpm --filter @prisma/rag-service build
+pnpm --filter @prisma/gateway build
 ```
 
 **Validation**:
@@ -60,7 +60,7 @@ pnpm --filter @prisma-glow/gateway build
 #### 2.2 Test API Endpoints (20 min)
 ```bash
 # Start gateway
-pnpm --filter @prisma-glow/gateway dev
+pnpm --filter @prisma/gateway dev
 
 # Test 1: Create with auto-classification
 curl -X POST http://localhost:3001/api/v1/web-sources \

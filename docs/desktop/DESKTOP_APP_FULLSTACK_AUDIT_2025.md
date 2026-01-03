@@ -75,8 +75,8 @@ This comprehensive audit evaluates the macOS desktop app implementation across a
 // RECOMMENDED
 {
   "build": {
-    "beforeDevCommand": "pnpm --filter @prisma-glow/web dev",
-    "beforeBuildCommand": "pnpm --filter @prisma-glow/web build",
+    "beforeDevCommand": "pnpm --filter @prisma/web dev",
+    "beforeBuildCommand": "pnpm --filter @prisma/web build",
     "devUrl": "http://localhost:3000",
     "frontendDist": "../apps/web/out"  // Next.js static export
   }
@@ -464,8 +464,8 @@ fn generate_typescript_types() {
 {
   "tauri:dev": "tauri dev",
   "tauri:build": "tauri build",
-  "tauri:build:macos": "pnpm --filter @prisma-glow/web build && tauri build --target universal-apple-darwin",
-  "desktop:dev": "concurrently \"pnpm --filter @prisma-glow/web dev\" \"wait-on http://localhost:3000 && tauri dev\"",
+  "tauri:build:macos": "pnpm --filter @prisma/web build && tauri build --target universal-apple-darwin",
+  "desktop:dev": "concurrently \"pnpm --filter @prisma/web dev\" \"wait-on http://localhost:3000 && tauri dev\"",
   "desktop:bundle": "pnpm tauri:build:macos && scripts/notarize-macos.sh"
 }
 ```
@@ -774,7 +774,7 @@ jobs:
         run: pnpm install --frozen-lockfile
       
       - name: Build Next.js
-        run: pnpm --filter @prisma-glow/web build
+        run: pnpm --filter @prisma/web build
       
       - name: Build Desktop App
         run: pnpm tauri build --target universal-apple-darwin

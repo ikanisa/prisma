@@ -37,7 +37,7 @@
     },
     {
       "name": "gateway",
-      "workspace": "@prisma-glow/gateway",
+      "workspace": "@prisma/gateway",
       "path": "apps/gateway",
       "framework": {
         "name": "Express",
@@ -45,9 +45,9 @@
         "bundler": "tsc"
       },
       "scripts": {
-        "build": "pnpm --filter @prisma-glow/gateway build",
-        "lint": "pnpm --filter @prisma-glow/gateway lint",
-        "test": "pnpm --filter @prisma-glow/gateway test"
+        "build": "pnpm --filter @prisma/gateway build",
+        "lint": "pnpm --filter @prisma/gateway lint",
+        "test": "pnpm --filter @prisma/gateway test"
       },
       "additional": {
         "notes": "Proxies API traffic to FastAPI service; depends on OTEL + Redis + PostgreSQL"
@@ -55,7 +55,7 @@
     },
     {
       "name": "rag-service",
-      "workspace": "@prisma-glow/rag-service",
+      "workspace": "@prisma/rag-service",
       "path": "services/rag",
       "framework": {
         "name": "Node.js",
@@ -63,8 +63,8 @@
         "language": "TypeScript"
       },
       "scripts": {
-        "build": "pnpm --filter @prisma-glow/rag-service build",
-        "lint": "pnpm --filter @prisma-glow/rag-service lint"
+        "build": "pnpm --filter @prisma/rag-service build",
+        "lint": "pnpm --filter @prisma/rag-service lint"
       },
       "additional": {
         "notes": "Handles RAG pipelines, OpenAI integrations, Supabase persistence"
@@ -73,20 +73,20 @@
   ],
   "packages": [
     {
-      "name": "@prisma-glow/ui",
+      "name": "@prisma/ui",
       "path": "packages/ui",
-      "build": "pnpm --filter @prisma-glow/ui build",
+      "build": "pnpm --filter @prisma/ui build",
       "description": "Shared React component library built with tsup"
     },
     {
-      "name": "@prisma-glow/api-client",
+      "name": "@prisma/api-client",
       "path": "packages/api-client",
-      "build": "pnpm --filter @prisma-glow/api-client build",
-      "test": "pnpm --filter @prisma-glow/api-client test",
+      "build": "pnpm --filter @prisma/api-client build",
+      "test": "pnpm --filter @prisma/api-client test",
       "description": "Typed REST API client generated from OpenAPI"
     },
     {
-      "name": "@prisma-glow/system-config",
+      "name": "@prisma/system-config",
       "path": "packages/system-config",
       "description": "YAML configuration loader shared between services"
     }

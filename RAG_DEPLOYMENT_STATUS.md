@@ -201,7 +201,7 @@ See: `RAG_AGENT_INTEGRATION_GUIDE.md`
 
 Example for Rwanda Tax Agent:
 ```typescript
-import { getRAGHelper } from '@prisma-glow/lib';
+import { getRAGHelper } from '@prisma/lib';
 
 const rag = getRAGHelper();
 

@@ -1,5 +1,5 @@
 /**
- * @prisma-glow/ui
+ * @prisma/ui
  * 
  * Shared UI components and utilities.
  */

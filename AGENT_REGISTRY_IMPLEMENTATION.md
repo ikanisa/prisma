@@ -85,7 +85,7 @@ agents:
 
 ### Agent Router API
 ```typescript
-import { agentRouter } from "@prisma-glow/agents";
+import { agentRouter } from "@prisma/agents";
 
 // Run agent
 const result = await agentRouter.run({
@@ -128,7 +128,7 @@ curl "http://localhost:3001/api/agents/search?tags=compliance,returns"
 
 ### Example 3: TypeScript Integration
 ```typescript
-import { agentRouter } from "@prisma-glow/agents";
+import { agentRouter } from "@prisma/agents";
 
 // Malta tax compliance
 const maltaTax = await agentRouter.run({
@@ -309,16 +309,16 @@ await trackAgentExecution({
 
 ```bash
 # Run all tests
-pnpm --filter @prisma-glow/agents run test
+pnpm --filter @prisma/agents run test
 
 # Run with coverage
-pnpm --filter @prisma-glow/agents run test:coverage
+pnpm --filter @prisma/agents run test:coverage
 
 # Typecheck
-pnpm --filter @prisma-glow/agents run typecheck
+pnpm --filter @prisma/agents run typecheck
 
 # Lint
-pnpm --filter @prisma-glow/agents run lint
+pnpm --filter @prisma/agents run lint
 ```
 
 ## 🚀 Deployment Checklist
@@ -330,7 +330,7 @@ pnpm --filter @prisma-glow/agents run lint
   - `GEMINI_API_KEY`
   - `SUPABASE_URL`
   - `SUPABASE_KEY`
-- [ ] Build agents package: `pnpm --filter @prisma-glow/agents run build`
+- [ ] Build agents package: `pnpm --filter @prisma/agents run build`
 - [ ] Update gateway to import agent routes
 - [ ] Test agent endpoints
 - [ ] Monitor agent execution metrics

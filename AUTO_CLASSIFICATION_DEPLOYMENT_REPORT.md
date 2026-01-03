@@ -96,7 +96,7 @@ pnpm add -D @types/express @types/cors @types/helmet @types/express-rate-limit
 ```
 
 ### Issue 2: Agent Registry Import Issues
-Need to verify `@prisma-glow/agents` package is built and exported correctly.
+Need to verify `@prisma/agents` package is built and exported correctly.
 
 ### Issue 3: pnpm Lockfile Out of Sync
 ```bash
@@ -161,7 +161,7 @@ pnpm add -D @types/express @types/cors @types/helmet @types/express-rate-limit
 pnpm install
 
 # Try building again
-pnpm --filter @prisma-glow/gateway build
+pnpm --filter @prisma/gateway build
 ```
 
 #### Path 2: Test Classification Engine (Quick)
@@ -251,7 +251,7 @@ Our code is self-contained and can be used immediately:
    - Update lockfile
 
 2. **Build gateway successfully**
-   - `pnpm --filter @prisma-glow/gateway build`
+   - `pnpm --filter @prisma/gateway build`
 
 3. **Test classification API**
    - Start gateway

@@ -1,4 +1,4 @@
-import type { AgentRole } from '@prisma-glow/agents';
+import type { AgentRole } from '@prisma/agents';
 
 export interface ToolAllowListEntry {
   key: string;

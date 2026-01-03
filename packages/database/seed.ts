@@ -1,4 +1,4 @@
-import { supabase } from '@prisma-glow/supabase-client';
+import { supabase } from '@prisma/supabase-client';
 
 async function main() {
   console.log('Seeding database...');

@@ -1,1 +1,1 @@
-export * from '@prisma-glow/tax/calculators'
+export * from '@prisma/tax/calculators'

@@ -138,7 +138,7 @@ Add `SET search_path = public` to 11 database functions:
 
 **Implementation:**
 ```typescript
-export { middleware, config } from '@prisma-glow/security/middleware';
+export { middleware, config } from '@prisma/security/middleware';
 ```
 
 ### 10. ❌ Update FastAPI main.py
@@ -249,10 +249,10 @@ CSP_REPORT_URI=https://csp-report.prisma-glow.com
 1. **Create middleware file:**
 ```bash
 # apps/client/middleware.ts
-export { middleware, config } from '@prisma-glow/security/middleware';
+export { middleware, config } from '@prisma/security/middleware';
 
 # apps/admin/middleware.ts
-export { middleware, config } from '@prisma-glow/security/middleware';
+export { middleware, config } from '@prisma/security/middleware';
 ```
 
 2. **Update next.config.js:**

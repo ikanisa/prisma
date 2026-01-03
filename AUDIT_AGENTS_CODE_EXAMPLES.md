@@ -3,7 +3,7 @@
 ## Installation
 
 ```bash
-pnpm add @prisma-glow/audit-agents
+pnpm add @prisma/audit-agents
 ```
 
 ## Basic Import
@@ -16,13 +16,13 @@ import {
   handleFraudRequest,
   handleCompletionRequest,
   handleReportRequest,
-} from '@prisma-glow/audit-agents';
+} from '@prisma/audit-agents';
 ```
 
 ## 1. Calculate Materiality
 
 ```typescript
-import { calculateAuditMateriality } from '@prisma-glow/audit-agents';
+import { calculateAuditMateriality } from '@prisma/audit-agents';
 
 const context = {
   engagementId: 'ENG-2024-001',
@@ -57,7 +57,7 @@ console.log(result.data);
 ## 2. Assess Account Risk
 
 ```typescript
-import { assessAccountRisk } from '@prisma-glow/audit-agents';
+import { assessAccountRisk } from '@prisma/audit-agents';
 
 const result = await assessAccountRisk(
   context,
@@ -92,7 +92,7 @@ console.log(result.data);
 ## 3. Design Substantive Procedure
 
 ```typescript
-import { designSubstantiveProcedure } from '@prisma-glow/audit-agents';
+import { designSubstantiveProcedure } from '@prisma/audit-agents';
 
 const result = await designSubstantiveProcedure(
   'Accounts Receivable',
@@ -119,7 +119,7 @@ console.log(result.data);
 ## 4. Calculate Sample Size
 
 ```typescript
-import { calculateAuditSample } from '@prisma-glow/audit-agents';
+import { calculateAuditSample } from '@prisma/audit-agents';
 
 const result = await calculateAuditSample(
   10000,  // Population size
@@ -140,7 +140,7 @@ console.log(result.data);
 ## 5. Analyze Journal Entries for Fraud
 
 ```typescript
-import { analyzeJournalEntries } from '@prisma-glow/audit-agents';
+import { analyzeJournalEntries } from '@prisma/audit-agents';
 
 const entries = [
   {
@@ -187,7 +187,7 @@ console.log(result.data);
 ## 6. Benford's Law Analysis
 
 ```typescript
-import { performBenfordAnalysis } from '@prisma-glow/audit-agents';
+import { performBenfordAnalysis } from '@prisma/audit-agents';
 
 const values = [123, 456, 789, 1234, 5678, 9012, 234, 567, 890];
 
@@ -205,7 +205,7 @@ console.log(result.data);
 ## 7. Classify Group Component
 
 ```typescript
-import { classifyComponent } from '@prisma-glow/audit-agents';
+import { classifyComponent } from '@prisma/audit-agents';
 
 const result = await classifyComponent(
   'Subsidiary ABC',
@@ -234,7 +234,7 @@ console.log(result.data);
 ## 8. Assess Going Concern
 
 ```typescript
-import { assessGoingConcern } from '@prisma-glow/audit-agents';
+import { assessGoingConcern } from '@prisma/audit-agents';
 
 const result = await assessGoingConcern(
   '2024-12-31',
@@ -271,7 +271,7 @@ console.log(result.data);
 ## 9. Formulate Audit Opinion
 
 ```typescript
-import { formulateOpinion } from '@prisma-glow/audit-agents';
+import { formulateOpinion } from '@prisma/audit-agents';
 
 const result = await formulateOpinion(
   150000,     // Total uncorrected misstatements
@@ -295,7 +295,7 @@ console.log(result.data);
 ## 10. Prepare Complete Audit Report
 
 ```typescript
-import { prepareAuditReport } from '@prisma-glow/audit-agents';
+import { prepareAuditReport } from '@prisma/audit-agents';
 
 const opinion = {
   opinionType: 'unmodified',
@@ -357,7 +357,7 @@ import {
   handleSubstantiveRequest,
   handleCompletionRequest,
   handleReportRequest,
-} from '@prisma-glow/audit-agents';
+} from '@prisma/audit-agents';
 
 // Step 1: Planning
 const planning = await handlePlanningRequest({
@@ -432,7 +432,7 @@ console.log(report.data!.report);
 ## 12. Get Agent Handler by ID
 
 ```typescript
-import { getAuditAgentHandler, AUDIT_AGENTS } from '@prisma-glow/audit-agents';
+import { getAuditAgentHandler, AUDIT_AGENTS } from '@prisma/audit-agents';
 
 // List all agents
 console.log(AUDIT_AGENTS);
@@ -472,7 +472,7 @@ import type {
   GroupComponent,
   AuditOpinion,
   KeyAuditMatter,
-} from '@prisma-glow/audit-agents';
+} from '@prisma/audit-agents';
 ```
 
 ## Utility Functions
@@ -485,7 +485,7 @@ import {
   isSignificantRisk,
   projectMisstatement,
   evaluateMateriality,
-} from '@prisma-glow/audit-agents';
+} from '@prisma/audit-agents';
 
 // Direct utility usage
 const mat = calculateMateriality(5000000, 'profit_before_tax');

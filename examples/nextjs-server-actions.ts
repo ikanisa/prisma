@@ -2,8 +2,8 @@
  * Example: Using Agent Registry in Next.js Server Actions
  */
 
-import { agentRouter } from "@prisma-glow/agents";
-import type { UnifiedRunOptions } from "@prisma-glow/agents";
+import { agentRouter } from "@prisma/agents";
+import type { UnifiedRunOptions } from "@prisma/agents";
 
 /**
  * Server action to run an agent

@@ -4,7 +4,7 @@ Complete integration guide for using the Agent Registry with OpenAI Agents SDK a
 
 ## 📦 Packages
 
-All SDK integrations are available from `@prisma-glow/agents`:
+All SDK integrations are available from `@prisma/agents`:
 
 ```typescript
 import {
@@ -19,7 +19,7 @@ import {
   // Gemini Integration
   GeminiSDKIntegration,
   type GeminiAgentRuntime,
-} from '@prisma-glow/agents';
+} from '@prisma/agents';
 ```
 
 ## 🤖 OpenAI Agents SDK Integration
@@ -32,7 +32,7 @@ import {
   AgentRegistryLoader,
   DeepSearchWrapper,
   OpenAIAgentSDKIntegration,
-} from '@prisma-glow/agents';
+} from '@prisma/agents';
 
 // 1. Load registry
 const registry = AgentRegistryLoader.fromDefault();
@@ -130,7 +130,7 @@ import {
   AgentRegistryLoader,
   DeepSearchWrapper,
   GeminiSDKIntegration,
-} from '@prisma-glow/agents';
+} from '@prisma/agents';
 
 const registry = AgentRegistryLoader.fromDefault();
 const deepSearch = new DeepSearchWrapper(yourSearchFunction);

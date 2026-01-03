@@ -14,7 +14,7 @@ import {
   type DriveChangeQueueRow,
   type ManifestEntry,
 } from './drive.js';
-import { getSupabaseServiceRoleKey } from '@prisma-glow/lib/secrets';
+import { getSupabaseServiceRoleKey } from '@prisma/lib/secrets';
 
 let cachedSupabase: SupabaseClient | null = null;
 

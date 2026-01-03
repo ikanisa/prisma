@@ -1,5 +1,5 @@
 {
-  "name": "@prisma-glow/cache",
+  "name": "@prisma/cache",
   "version": "0.1.0",
   "private": true,
   "type": "module",

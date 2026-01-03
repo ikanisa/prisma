@@ -8,7 +8,7 @@ import express, { Request, Response, NextFunction, Express } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import { createClient } from '@supabase/supabase-js';
-import { logger } from '@prisma-glow/logger';
+import { logger } from '@prisma/logger';
 import { validateEnv, getSafeEnvConfig } from './config/env.js';
 
 import {

@@ -107,7 +107,7 @@ agent_daily_stats (
 ### Example 1: Manual Logging
 
 ```typescript
-import { getAgentAnalyticsLogger } from '@prisma-glow/lib';
+import { getAgentAnalyticsLogger } from '@prisma/lib';
 
 const logger = getAgentAnalyticsLogger();
 
@@ -171,7 +171,7 @@ try {
 ### Example 2: Using Decorator
 
 ```typescript
-import { withAnalytics } from '@prisma-glow/lib';
+import { withAnalytics } from '@prisma/lib';
 
 class RwandaTaxAgent {
   @withAnalytics('tax-rw-035', 'Rwanda Tax Agent', '2.0.0', 'TAX')
@@ -305,7 +305,7 @@ psql "$DATABASE_URL" -f supabase/migrations/20260201170000_agent_analytics_schem
 ### Step 2: Update Agents to Log
 
 ```typescript
-import { getAgentAnalyticsLogger } from '@prisma-glow/lib';
+import { getAgentAnalyticsLogger } from '@prisma/lib';
 
 // In your agent class
 async answerQuery(query: string): Promise<any> {

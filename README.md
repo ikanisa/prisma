@@ -14,11 +14,11 @@ Modern AI-powered operations suite with Supabase, FastAPI, and multi-app pnpm wo
 - ✅ 200 curated URLs (IFRS, Tax, Audit, Big4, Professional bodies)
 - ✅ Dynamic domain whitelisting for DeepSearch
 - ✅ Admin panel at `/admin/knowledge/sources`
-- ✅ Type-safe TypeScript API (`@prisma-glow/lib`)
+- ✅ Type-safe TypeScript API (`@prisma/lib`)
 - ✅ Crawl tracking and scheduling
 - ✅ Category & jurisdiction filtering
 
-**Admin Panel**: `/admin/knowledge/sources` | **API**: `import { getActiveDomains } from '@prisma-glow/lib';`
+**Admin Panel**: `/admin/knowledge/sources` | **API**: `import { getActiveDomains } from '@prisma/lib';`
 
 ---
 
@@ -73,7 +73,7 @@ Modern AI-powered operations suite with Supabase, FastAPI, and multi-app pnpm wo
 6. **Start developing**
    - Web (Vite) shell: `pnpm dev`
    - Next.js app: `pnpm --filter web dev`
-   - Gateway service: `pnpm --filter @prisma-glow/gateway dev`
+   - Gateway service: `pnpm --filter @prisma/gateway dev`
 
 More context on running the stack locally, including reverse-proxy plans, lives in [docs/local-hosting.md](docs/local-hosting.md).
 
@@ -149,7 +149,7 @@ Required variables:
 - `pnpm run build` – build shared packages and the Vite bundle (`tsc -b` runs first).
 - `pnpm run preview` – serve the production bundle locally.
 - `pnpm --filter <workspace>` – scope commands to a specific app (e.g. `pnpm --filter web build`).
-- `pnpm --filter @prisma-glow/gateway dev` – start the Express gateway for local API smoke tests.
+- `pnpm --filter @prisma/gateway dev` – start the Express gateway for local API smoke tests.
 
 Git hooks, CI, and deployment workflows now rely on pnpm exclusively; make sure your local environment mirrors the lockfile versions.
 
@@ -259,7 +259,7 @@ and cache results for 60 seconds.
 
 The repository now uses a pnpm workspace (see `pnpm-workspace.yaml`). Packages live under:
 
-- `apps/gateway` – Express edge service (depends on `@prisma-glow/system-config`)
+- `apps/gateway` – Express edge service (depends on `@prisma/system-config`)
 - `apps/web` – Front-end (Vite/React)
 - `services/rag` – Node agent/RAG runtime
 - `packages/system-config` – Shared configuration helper for system.yaml
@@ -467,7 +467,7 @@ curl -I http://localhost:8000/ratelimit/test
 
 ### Workspace Package Build Issues
 
-If you encounter errors with workspace packages (especially `@prisma-glow/logger` or other packages) not being found or resolved:
+If you encounter errors with workspace packages (especially `@prisma/logger` or other packages) not being found or resolved:
 
 1. **Clean install approach:**
    ```bash
@@ -484,7 +484,7 @@ If you encounter errors with workspace packages (especially `@prisma-glow/logger
 2. **Build individual packages:**
    ```bash
    # If only a specific package is missing (e.g., logger)
-   pnpm --filter @prisma-glow/logger build
+   pnpm --filter @prisma/logger build
    
    # For the web app
    pnpm --filter web build
@@ -502,7 +502,7 @@ If you encounter errors with workspace packages (especially `@prisma-glow/logger
 
 ### Common Issues
 
-- **"Cannot find module '@prisma-glow/logger'"**: The logger package needs to be built before dependent packages can use it. Run `pnpm --filter @prisma-glow/logger build`.
+- **"Cannot find module '@prisma/logger'"**: The logger package needs to be built before dependent packages can use it. Run `pnpm --filter @prisma/logger build`.
 - **"workspace:* unsupported protocol"**: You're using npm instead of pnpm. Always use `pnpm` for this workspace.
 - **Sentry CLI download failures**: Network issue during postinstall. This is non-fatal and doesn't affect local development.
 - **Node version warnings**: The project expects Node.js 22.12.0. CI uses 20.19.5, but local development works best with 22.12.0.

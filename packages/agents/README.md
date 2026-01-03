@@ -79,7 +79,7 @@ agents:
 ### 3. Use the Agent Router
 
 ```typescript
-import { agentRouter } from "@prisma-glow/agents";
+import { agentRouter } from "@prisma/agents";
 
 // Run an agent
 const result = await agentRouter.run({
@@ -248,7 +248,7 @@ The system creates OpenAI-compatible agents with:
 - Handoff capabilities
 
 ```typescript
-import { createOpenAIAgentFromRegistry } from "@prisma-glow/agents/openai";
+import { createOpenAIAgentFromRegistry } from "@prisma/agents/openai";
 
 const agent = createOpenAIAgentFromRegistry(entry);
 ```
@@ -261,7 +261,7 @@ The system creates Gemini-compatible configs with:
 - Tool call handling
 
 ```typescript
-import { createGeminiAgentFromRegistry } from "@prisma-glow/agents/gemini";
+import { createGeminiAgentFromRegistry } from "@prisma/agents/gemini";
 
 const config = createGeminiAgentFromRegistry(entry);
 ```
@@ -292,7 +292,7 @@ Edit `agents.registry.yaml`:
 The registry is cached in memory. Restart the service or reload:
 
 ```typescript
-import { loadAgentsRegistry } from "@prisma-glow/agents";
+import { loadAgentsRegistry } from "@prisma/agents";
 
 // Force reload (clear cache first if needed)
 const agents = loadAgentsRegistry();
@@ -330,13 +330,13 @@ Tools are automatically mapped to function declarations for both OpenAI and Gemi
 
 ```bash
 # Typecheck
-pnpm --filter @prisma-glow/agents run typecheck
+pnpm --filter @prisma/agents run typecheck
 
 # Run tests
-pnpm --filter @prisma-glow/agents run test
+pnpm --filter @prisma/agents run test
 
 # Lint
-pnpm --filter @prisma-glow/agents run lint
+pnpm --filter @prisma/agents run lint
 ```
 
 ## Troubleshooting
@@ -374,7 +374,7 @@ export const taxCorpMT = { /* agent definition */ };
 After:
 Add to `agents.registry.yaml` and use the router:
 ```typescript
-import { agentRouter } from "@prisma-glow/agents";
+import { agentRouter } from "@prisma/agents";
 const result = await agentRouter.run({
   agentId: "tax-compliance-mt-034",
   input: "...",

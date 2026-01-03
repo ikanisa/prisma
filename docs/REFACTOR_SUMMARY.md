@@ -38,9 +38,9 @@ This document summarizes the comprehensive refactoring work completed to prepare
 - Automated vulnerability detection and reporting
 
 ### 5. ✅ Package Documentation
-- Documented `@prisma-glow/api-client` (5.5KB) - OpenAPI type generation
-- Documented `@prisma-glow/system-config` (7.6KB) - Configuration management
-- Documented `@prisma-glow/logger` (11KB) - Structured logging
+- Documented `@prisma/api-client` (5.5KB) - OpenAPI type generation
+- Documented `@prisma/system-config` (7.6KB) - Configuration management
+- Documented `@prisma/logger` (11KB) - Structured logging
 
 ### 6. ✅ Migration Support
 - Created comprehensive migration guide (13KB)

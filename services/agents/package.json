@@ -1,5 +1,5 @@
 {
-  "name": "@prisma-glow/agent-service",
+  "name": "@prisma/agent-service",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -10,6 +10,6 @@
   },
   "dependencies": {
     "@opentelemetry/api": "^1.9.0",
-    "@prisma-glow/agents": "workspace:*"
+    "@prisma/agents": "workspace:*"
   }
 }

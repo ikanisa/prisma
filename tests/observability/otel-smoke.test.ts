@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { setupNodeOtel, withSpan, shutdownNodeOtel } from '@prisma-glow/otel';
+import { setupNodeOtel, withSpan, shutdownNodeOtel } from '@prisma/otel';
 import { trace } from '@opentelemetry/api';
 
 const TEST_EXPORTER_ENDPOINT = 'http://localhost:4318/v1/traces';

@@ -1,10 +1,10 @@
 /**
- * Unit Tests for @prisma-glow/database package
+ * Unit Tests for @prisma/database package
  * Database client and query builder tests
  */
 import { describe, it, expect } from 'vitest';
 
-describe('@prisma-glow/database', () => {
+describe('@prisma/database', () => {
     describe('Query builder', () => {
         it('select query structure is valid', () => {
             const selectQuery = {

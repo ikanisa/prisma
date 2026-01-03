@@ -263,9 +263,9 @@ Full list: See `.env.example` (130+ variables)
 | Component | Dev Command | Build Command |
 |-----------|-------------|---------------|
 | Web App | `pnpm dev:web` | `pnpm build:web` |
-| Client | `pnpm dev:client` | `pnpm --filter @prisma-glow/client build` |
-| Admin | `pnpm dev:admin` | `pnpm --filter @prisma-glow/admin build` |
-| Gateway | `pnpm --filter @prisma-glow/gateway dev` | - |
+| Client | `pnpm dev:client` | `pnpm --filter @prisma/client build` |
+| Admin | `pnpm dev:admin` | `pnpm --filter @prisma/admin build` |
+| Gateway | `pnpm --filter @prisma/gateway dev` | - |
 | Backend | `cd server && uvicorn main:app` | Docker |
 | Desktop | `pnpm tauri:dev` | `pnpm tauri:build` |
 | All | `pnpm dev` | `pnpm build` |

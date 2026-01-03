@@ -225,7 +225,7 @@ supabase start
 
 **Start gateway:**
 ```bash
-pnpm --filter @prisma-glow/gateway dev
+pnpm --filter @prisma/gateway dev
 ```
 
 **Test create with auto-classification:**
@@ -470,7 +470,7 @@ psql "$DATABASE_URL" -f supabase/migrations/20260201120000_auto_classification_c
 
 ### Start Gateway
 ```bash
-pnpm --filter @prisma-glow/gateway dev
+pnpm --filter @prisma/gateway dev
 ```
 
 ### Classify Existing Sources

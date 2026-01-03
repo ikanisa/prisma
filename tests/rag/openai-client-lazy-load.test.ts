@@ -68,7 +68,7 @@ describe('RAG service OpenAI client lazy loading', () => {
     vi.unmock('pg');
     vi.unmock('@supabase/supabase-js');
     vi.unmock('../../analytics/events/node.js');
-    vi.unmock('@prisma-glow/lib/openai/client');
+    vi.unmock('@prisma/lib/openai/client');
     vi.resetModules();
   });
 
@@ -77,7 +77,7 @@ describe('RAG service OpenAI client lazy loading', () => {
       throw new Error('OpenAI client should not be constructed during import');
     });
 
-    vi.doMock('@prisma-glow/lib/openai/client', () => ({
+    vi.doMock('@prisma/lib/openai/client', () => ({
       __esModule: true,
       getOpenAIClient,
     }));

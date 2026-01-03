@@ -1,5 +1,5 @@
 {
-  "name": "@prisma-glow/knowledge-base",
+  "name": "@prisma/knowledge-base",
   "version": "1.1.0",
   "description": "Accounting Knowledge Base System for Prisma Glow",
   "private": true,

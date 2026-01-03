@@ -19,7 +19,7 @@
 ### 3. Dependencies
 - [ ] All npm packages installed: `pnpm install --frozen-lockfile`
 - [ ] js-yaml package available
-- [ ] @prisma-glow/agents package built
+- [ ] @prisma/agents package built
 - [ ] Gateway routes integrated
 
 ### 4. Infrastructure
@@ -128,8 +128,8 @@ pnpm install --frozen-lockfile
 pnpm run build
 
 # Build specific packages
-pnpm --filter @prisma-glow/agents run build
-pnpm --filter @prisma-glow/gateway run build
+pnpm --filter @prisma/agents run build
+pnpm --filter @prisma/gateway run build
 ```
 
 #### Step 3: Configure Environment

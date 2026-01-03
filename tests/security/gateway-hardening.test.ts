@@ -3,7 +3,7 @@ import type { Express } from 'express';
 import request from 'supertest';
 import { createGatewayServer } from '../../apps/gateway/src/server.js';
 
-vi.mock('@prisma-glow/api-client', () => {
+vi.mock('@prisma/api-client', () => {
   return {
     default: class MockClient {
       async getAutonomyStatus(orgSlug: string) {

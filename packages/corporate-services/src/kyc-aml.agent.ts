@@ -5,7 +5,7 @@ import {
   AgentTier,
   AgentDomain,
   Jurisdiction,
-} from '@prisma-glow/core';
+} from '@prisma/core';
 
 /**
  * Agent 040: KYC/AML & Beneficial Ownership Specialist

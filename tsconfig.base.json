@@ -12,11 +12,11 @@
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
     "paths": {
-      "@prisma-glow/types": ["./packages/types/src/index.ts"],
-      "@prisma-glow/types/*": ["./packages/types/src/*.ts"],
-      "@prisma-glow/supabase-client": ["./packages/supabase-client/src/index.ts"],
-      "@prisma-glow/database": ["./packages/database/types.ts"],
-      "@prisma-glow/ui": ["./packages/ui/src/index.ts"]
+      "@prisma/types": ["./packages/types/src/index.ts"],
+      "@prisma/types/*": ["./packages/types/src/*.ts"],
+      "@prisma/supabase-client": ["./packages/supabase-client/src/index.ts"],
+      "@prisma/database": ["./packages/database/types.ts"],
+      "@prisma/ui": ["./packages/ui/src/index.ts"]
     }
   },
   "references": [

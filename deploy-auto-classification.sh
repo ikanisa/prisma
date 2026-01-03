@@ -102,7 +102,7 @@ echo ""
 echo "🔨 Step 3: Building RAG service..."
 echo ""
 
-pnpm --filter @prisma-glow/rag-service build
+pnpm --filter @prisma/rag-service build
 echo -e "${GREEN}✓${NC} RAG service built"
 
 echo ""
@@ -113,7 +113,7 @@ echo ""
 echo "🔨 Step 4: Building gateway..."
 echo ""
 
-pnpm --filter @prisma-glow/gateway build
+pnpm --filter @prisma/gateway build
 echo -e "${GREEN}✓${NC} Gateway built"
 
 echo ""
@@ -158,7 +158,7 @@ echo ""
 echo "📚 Next Steps:"
 echo ""
 echo "1. Start the gateway:"
-echo "   $ pnpm --filter @prisma-glow/gateway dev"
+echo "   $ pnpm --filter @prisma/gateway dev"
 echo ""
 echo "2. Test the API:"
 echo "   $ curl -X POST http://localhost:3001/api/v1/web-sources \\"

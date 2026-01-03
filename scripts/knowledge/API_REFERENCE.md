@@ -346,15 +346,15 @@ Check for stale documents that may need updating.
 ### Installation
 
 ```bash
-npm install @prisma-glow/knowledge-sdk
+npm install @prisma/knowledge-sdk
 # or
-pnpm add @prisma-glow/knowledge-sdk
+pnpm add @prisma/knowledge-sdk
 ```
 
 ### Usage
 
 ```typescript
-import { KnowledgeClient } from '@prisma-glow/knowledge-sdk';
+import { KnowledgeClient } from '@prisma/knowledge-sdk';
 
 const client = new KnowledgeClient({
   baseUrl: 'https://knowledge-api.yourdomain.com',

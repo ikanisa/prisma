@@ -326,7 +326,7 @@ try {
 - [ ] **Test locally**
   ```bash
   # Start gateway
-  pnpm --filter @prisma-glow/gateway dev
+  pnpm --filter @prisma/gateway dev
   
   # Test unauthenticated (should fail)
   curl http://localhost:3001/api/v1/agents
@@ -337,7 +337,7 @@ try {
 
 - [ ] **Build gateway**
   ```bash
-  pnpm --filter @prisma-glow/gateway run build
+  pnpm --filter @prisma/gateway run build
   ```
 
 ### Before Production (Week 3)

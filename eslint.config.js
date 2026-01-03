@@ -53,7 +53,7 @@ export default tseslint.config(
           "patterns": [
             {
               group: ["packages/*", "**/packages/*"],
-              message: "Use the workspace package alias (e.g. @prisma-glow/…) rather than relative paths into packages.",
+              message: "Use the workspace package alias (e.g. @prisma/…) rather than relative paths into packages.",
             },
           ],
         },
@@ -99,7 +99,7 @@ export default tseslint.config(
                 "../packages/*",
                 "../../../packages/*",
               ],
-              message: "Use the workspace alias (e.g. @prisma-glow/pkg) instead of relative paths into packages.",
+              message: "Use the workspace alias (e.g. @prisma/pkg) instead of relative paths into packages.",
             },
           ],
         },

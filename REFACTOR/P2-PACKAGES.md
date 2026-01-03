@@ -14,7 +14,7 @@ Comprehensive audit of all 15 workspace packages covering dependency analysis, h
 - 15 packages audited across apps/, packages/, services/, analytics/
 - 3 duplicates identified requiring consolidation
 - 5 packages requiring improvement
-- 1 new package proposed (@prisma-glow/schemas)
+- 1 new package proposed (@prisma/schemas)
 - Clear dependency graph established
 
 ---
@@ -23,7 +23,7 @@ Comprehensive audit of all 15 workspace packages covering dependency analysis, h
 
 ### Core Packages (5)
 
-#### 1. @prisma-glow/lib
+#### 1. @prisma/lib
 **Location:** `packages/lib`  
 **Version:** 0.0.1  
 **Description:** Shared utilities, types, and constants
@@ -61,7 +61,7 @@ Comprehensive audit of all 15 workspace packages covering dependency analysis, h
 
 ---
 
-#### 2. @prisma-glow/system-config
+#### 2. @prisma/system-config
 **Location:** `packages/system-config`  
 **Version:** 0.0.1  
 **Description:** Configuration loader for system.yaml with validation
@@ -92,11 +92,11 @@ Comprehensive audit of all 15 workspace packages covering dependency analysis, h
 - Add config hot-reloading for development
 - Generate TypeScript types from schema
 
-**Duplicate Alert:** ⚠️ Overlaps with deprecated `@prisma-glow/config`
+**Duplicate Alert:** ⚠️ Overlaps with deprecated `@prisma/config`
 
 ---
 
-#### 3. @prisma-glow/api-client
+#### 3. @prisma/api-client
 **Location:** `packages/api-client`  
 **Version:** 0.0.1  
 **Description:** Generated TypeScript client from FastAPI OpenAPI schema
@@ -139,7 +139,7 @@ packages/api-client/
 
 ---
 
-#### 4. @prisma-glow/ui
+#### 4. @prisma/ui
 **Location:** `packages/ui`  
 **Version:** 0.0.1  
 **Description:** Shared React component library (shadcn/ui + custom)
@@ -201,7 +201,7 @@ packages/ui/src/
 
 ---
 
-#### 5. @prisma-glow/types-finance
+#### 5. @prisma/types-finance
 **Location:** `packages/types-finance`  
 **Version:** 0.1.0  
 **Description:** Financial domain types (IFRS, ISA, tax)
@@ -213,7 +213,7 @@ packages/ui/src/
 - FastAPI (Python side via JSON schema)
 - Next.js app (`apps/web`)
 - Tax service (`services/tax`)
-- `@prisma-glow/tax`
+- `@prisma/tax`
 
 **Exports:**
 ```typescript
@@ -241,7 +241,7 @@ packages/ui/src/
 
 ### Agent Packages (3)
 
-#### 6. @prisma-glow/agents
+#### 6. @prisma/agents
 **Location:** `packages/agents`  
 **Version:** 0.0.1  
 **Description:** Agent manifest schemas and utilities
@@ -267,10 +267,10 @@ packages/ui/src/
 
 **Health:** ⚠️ **Needs Improvement**  
 **Issues:**
-- Overlaps with `@prisma-glow/prompts`
+- Overlaps with `@prisma/prompts`
 - No clear separation of schemas vs. prompts
 
-**Duplicate Alert:** ⚠️ Consider merging with `@prisma-glow/prompts`
+**Duplicate Alert:** ⚠️ Consider merging with `@prisma/prompts`
 
 **Recommendations:**
 1. **Merge with prompts package** or **clarify boundaries:**
@@ -283,7 +283,7 @@ packages/ui/src/
 
 ---
 
-#### 7. @prisma-glow/prompts
+#### 7. @prisma/prompts
 **Location:** `packages/prompts`  
 **Version:** None (no package.json)  
 **Description:** Agent prompt templates
@@ -309,30 +309,30 @@ packages/prompts/
 - Plain text files (no templating)
 - Versioning unclear
 
-**Duplicate Alert:** ⚠️ Overlaps with `@prisma-glow/agents`
+**Duplicate Alert:** ⚠️ Overlaps with `@prisma/agents`
 
 **Recommendations:**
 1. **Convert to proper package** with package.json
 
 2. **Add templating support:**
    ```typescript
-   import { compilePrompt } from '@prisma-glow/prompts';
+   import { compilePrompt } from '@prisma/prompts';
    const prompt = compilePrompt('accounting-agent', { orgName, period });
    ```
 
-3. **Merge into `@prisma-glow/agents`** (recommended)
+3. **Merge into `@prisma/agents`** (recommended)
 
 ---
 
-#### 8. @prisma-glow/platform
+#### 8. @prisma/platform
 **Location:** `packages/platform`  
 **Version:** 0.0.1  
 **Description:** Agent orchestration framework
 
 **Dependencies:**
 - `openai` ^6.6.0
-- `@prisma-glow/agents`
-- `@prisma-glow/system-config`
+- `@prisma/agents`
+- `@prisma/system-config`
 
 **Used By:**
 - Agent service (`services/agents`)
@@ -357,9 +357,9 @@ packages/prompts/
 **Recommendations:**
 1. **Split into sub-packages:**
    ```
-   @prisma-glow/platform-orchestrator
-   @prisma-glow/platform-tool-proxy
-   @prisma-glow/platform-approvals
+   @prisma/platform-orchestrator
+   @prisma/platform-tool-proxy
+   @prisma/platform-approvals
    ```
 
 2. **Extract OpenAI adapter pattern:**
@@ -377,13 +377,13 @@ packages/prompts/
 
 ### Domain Packages (4)
 
-#### 9. @prisma-glow/tax
+#### 9. @prisma/tax
 **Location:** `packages/tax`  
 **Version:** 0.0.1  
 **Description:** Tax computation utilities (CIT, VAT, Pillar Two)
 
 **Dependencies:**
-- `@prisma-glow/types-finance`
+- `@prisma/types-finance`
 - `decimal.js` (for precise calculations)
 
 **Used By:**
@@ -413,7 +413,7 @@ packages/prompts/
 
 ---
 
-#### 10. @prisma-glow/logger
+#### 10. @prisma/logger
 **Location:** `packages/logger`  
 **Version:** 0.0.1  
 **Description:** Structured logging for Node.js services (winston)
@@ -434,7 +434,7 @@ packages/prompts/
 
 **Health:** ⚠️ **Needs Standardization**  
 **Issues:**
-- Separate from Python logging (`@prisma-glow/logging`)
+- Separate from Python logging (`@prisma/logging`)
 - No correlation ID support (critical for distributed tracing)
 
 **Duplicate Alert:** ⚠️ Separate Node/Python logging packages
@@ -451,7 +451,7 @@ packages/prompts/
 
 ---
 
-#### 11. @prisma-glow/logging
+#### 11. @prisma/logging
 **Location:** `packages/logging`  
 **Version:** 0.0.1  
 **Description:** Structured logging for Python services (structlog)
@@ -470,7 +470,7 @@ logger = get_logger(__name__)
 
 **Health:** ⚠️ **Needs Standardization**  
 **Issues:**
-- Separate from Node logging (`@prisma-glow/logger`)
+- Separate from Node logging (`@prisma/logger`)
 
 **Duplicate Alert:** ⚠️ Separate Node/Python logging packages
 
@@ -483,7 +483,7 @@ logger = get_logger(__name__)
 
 ---
 
-#### 12. @prisma-glow/config
+#### 12. @prisma/config
 **Location:** `packages/config`  
 **Version:** 0.0.1  
 **Description:** **DEPRECATED** - Legacy config loader
@@ -492,10 +492,10 @@ logger = get_logger(__name__)
 - `yaml` ^2.8.1
 
 **Used By:**
-- None (replaced by `@prisma-glow/system-config`)
+- None (replaced by `@prisma/system-config`)
 
 **Health:** ❌ **Deprecated**  
-**Duplicate Alert:** ❌ **Duplicate of @prisma-glow/system-config**
+**Duplicate Alert:** ❌ **Duplicate of @prisma/system-config**
 
 **Recommendations:**
 1. **Remove package** from workspace
@@ -505,7 +505,7 @@ logger = get_logger(__name__)
 **Removal Plan:**
 ```bash
 # Step 1: Verify no usage
-grep -r "@prisma-glow/config" apps/ services/ packages/
+grep -r "@prisma/config" apps/ services/ packages/
 
 # Step 2: Remove from pnpm-workspace.yaml
 # Step 3: Delete directory
@@ -518,7 +518,7 @@ rm -rf packages/config
 
 ### Utility Packages (3)
 
-#### 13. @prisma-glow/api
+#### 13. @prisma/api
 **Location:** `packages/api`  
 **Version:** 0.0.1  
 **Description:** **DEPRECATED** - Legacy API utilities
@@ -532,11 +532,11 @@ rm -rf packages/config
 **Health:** ❌ **To Be Removed**  
 **Recommendations:**
 - Remove after Vite app migration to Next.js
-- Migrate consumers to `@prisma-glow/api-client`
+- Migrate consumers to `@prisma/api-client`
 
 ---
 
-#### 14. @prisma-glow/dev-portal
+#### 14. @prisma/dev-portal
 **Location:** `packages/dev-portal`  
 **Version:** 0.1.0  
 **Description:** API documentation portal (Backstage)
@@ -586,8 +586,8 @@ rm -rf packages/config
 
 ### 1. Logger/Logging (Keep Separate)
 **Packages:**
-- `@prisma-glow/logger` (Node.js/winston)
-- `@prisma-glow/logging` (Python/structlog)
+- `@prisma/logger` (Node.js/winston)
+- `@prisma/logging` (Python/structlog)
 
 **Analysis:**
 Different runtime requirements justify separate packages. However, log format should be standardized.
@@ -603,16 +603,16 @@ Different runtime requirements justify separate packages. However, log format sh
 
 ### 2. Config/System-Config (Consolidate)
 **Packages:**
-- `@prisma-glow/config` (deprecated)
-- `@prisma-glow/system-config` (active)
+- `@prisma/config` (deprecated)
+- `@prisma/system-config` (active)
 
 **Analysis:**
 `config` package is unused and superseded by `system-config`.
 
-**Recommendation:** Remove `@prisma-glow/config`
+**Recommendation:** Remove `@prisma/config`
 
 **Action Items:**
-1. Verify no usages: `grep -r "@prisma-glow/config"`
+1. Verify no usages: `grep -r "@prisma/config"`
 2. Remove from `pnpm-workspace.yaml`
 3. Delete `packages/config/`
 4. Update migration docs
@@ -623,13 +623,13 @@ Different runtime requirements justify separate packages. However, log format sh
 
 ### 3. Prompts/Agents (Merge)
 **Packages:**
-- `@prisma-glow/prompts` (templates)
-- `@prisma-glow/agents` (schemas + templates)
+- `@prisma/prompts` (templates)
+- `@prisma/agents` (schemas + templates)
 
 **Analysis:**
 Unclear boundary between packages. Both deal with agent configuration.
 
-**Recommendation:** Merge into `@prisma-glow/agents`
+**Recommendation:** Merge into `@prisma/agents`
 
 **Proposed Structure:**
 ```
@@ -661,7 +661,7 @@ packages/agents/
 
 ## Proposed New Package
 
-### @prisma-glow/schemas
+### @prisma/schemas
 **Purpose:** Generic validation schemas used across packages
 
 **Rationale:**
@@ -677,9 +677,9 @@ export * from './address';      // Address, Country, PostalCode
 ```
 
 **Used By:**
-- `@prisma-glow/lib`
-- `@prisma-glow/types-finance`
-- `@prisma-glow/tax`
+- `@prisma/lib`
+- `@prisma/types-finance`
+- `@prisma/tax`
 - `apps/web`
 - FastAPI (via JSON Schema export)
 
@@ -788,7 +788,7 @@ export * from './address';      // Address, Country, PostalCode
    - Add CI workflow
    - Implement drift detection
 
-3. **Create @prisma-glow/schemas:**
+3. **Create @prisma/schemas:**
    - Extract common schemas
    - Update dependencies
 
@@ -861,17 +861,17 @@ New packages require:
 
 ### Package Size Analysis
 ```
-@prisma-glow/lib          : 150 KB
-@prisma-glow/system-config: 50 KB
-@prisma-glow/api-client   : 200 KB
-@prisma-glow/ui           : 1.2 MB (with dependencies)
-@prisma-glow/types-finance: 80 KB
-@prisma-glow/agents       : 120 KB
-@prisma-glow/prompts      : 30 KB
-@prisma-glow/platform     : 2.5 MB (largest)
-@prisma-glow/tax          : 100 KB
-@prisma-glow/logger       : 40 KB
-@prisma-glow/logging      : 30 KB (Python)
+@prisma/lib          : 150 KB
+@prisma/system-config: 50 KB
+@prisma/api-client   : 200 KB
+@prisma/ui           : 1.2 MB (with dependencies)
+@prisma/types-finance: 80 KB
+@prisma/agents       : 120 KB
+@prisma/prompts      : 30 KB
+@prisma/platform     : 2.5 MB (largest)
+@prisma/tax          : 100 KB
+@prisma/logger       : 40 KB
+@prisma/logging      : 30 KB (Python)
 ```
 
 ### Maintainers

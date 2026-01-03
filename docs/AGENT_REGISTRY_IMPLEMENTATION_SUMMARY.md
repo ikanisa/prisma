@@ -183,7 +183,7 @@ packages/agents/scripts/
 ### Basic Usage
 
 ```typescript
-import { AgentRegistryLoader, OpenAIAgentFactory, DeepSearchWrapper } from '@prisma-glow/agents';
+import { AgentRegistryLoader, OpenAIAgentFactory, DeepSearchWrapper } from '@prisma/agents';
 
 // 1. Load registry
 const registry = AgentRegistryLoader.fromDefault();
@@ -213,26 +213,26 @@ const response = await factory.handleToolCall(
 
 ```bash
 # Quick validation
-pnpm --filter @prisma-glow/agents run validate:registry
+pnpm --filter @prisma/agents run validate:registry
 
 # Verbose output
-pnpm --filter @prisma-glow/agents run validate:verbose
+pnpm --filter @prisma/agents run validate:verbose
 
 # Full analysis
-pnpm --filter @prisma-glow/agents run validate:full
+pnpm --filter @prisma/agents run validate:full
 ```
 
 ### Testing
 
 ```bash
 # Run all tests
-pnpm --filter @prisma-glow/agents test
+pnpm --filter @prisma/agents test
 
 # With coverage
-pnpm --filter @prisma-glow/agents test:coverage
+pnpm --filter @prisma/agents test:coverage
 
 # Watch mode
-pnpm --filter @prisma-glow/agents test:watch
+pnpm --filter @prisma/agents test:watch
 ```
 
 ## 🎯 Key Features

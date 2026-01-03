@@ -5,7 +5,7 @@ import {
   AgentTier,
   AgentDomain,
   Jurisdiction,
-} from '@prisma-glow/core';
+} from '@prisma/core';
 
 /**
  * Agent 042: Licensing & Regulatory Filings Specialist

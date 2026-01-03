@@ -1,2 +1,2 @@
-export { logger } from '@prisma-glow/logger';
-export type { Logger } from '@prisma-glow/logger';
+export { logger } from '@prisma/logger';
+export type { Logger } from '@prisma/logger';

@@ -311,7 +311,7 @@ curl http://localhost:8000/agents/v2/create -X POST \
 pnpm run build
 # Should succeed if turbo is installed
 
-pnpm --filter @prisma-glow/admin dev
+pnpm --filter @prisma/admin dev
 # Admin panel should start on port 3000
 ```
 

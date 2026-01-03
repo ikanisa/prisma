@@ -7,8 +7,8 @@ import { Resource } from '@opentelemetry/resources';
 import { SemanticResourceAttributes } from '@opentelemetry/semantic-conventions';
 import { registerInstrumentations } from '@opentelemetry/instrumentation';
 import type { Instrumentation } from '@opentelemetry/instrumentation';
-import { getTelemetryConfig, resolveTraceExporter } from '@prisma-glow/system-config';
-import { createLogger, type Logger } from '@prisma-glow/logging';
+import { getTelemetryConfig, resolveTraceExporter } from '@prisma/system-config';
+import { createLogger, type Logger } from '@prisma/logging';
 
 type Headers = Record<string, string>;
 

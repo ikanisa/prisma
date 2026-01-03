@@ -1,5 +1,5 @@
 {
-  "name": "@prisma-glow/ledger-service-tests",
+  "name": "@prisma/ledger-service-tests",
   "version": "0.0.1",
   "private": true,
   "type": "module",

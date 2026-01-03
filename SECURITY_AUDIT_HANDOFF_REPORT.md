@@ -441,7 +441,7 @@ done | grep -c "429"
 
 ```bash
 # 1. Build gateway
-pnpm --filter @prisma-glow/gateway run build
+pnpm --filter @prisma/gateway run build
 
 # 2. Update staging environment
 cat >> .env.staging << 'ENVEOF'

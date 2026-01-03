@@ -86,7 +86,7 @@ console.log('Raw results:', results.results);
 For JSON-formatted structured results:
 
 ```typescript
-import { runOpenAiFileSearch } from '@prisma-glow/lib/openai/file-search';
+import { runOpenAiFileSearch } from '@prisma/lib/openai/file-search';
 import OpenAI from 'openai';
 
 const client = new OpenAI();
@@ -114,7 +114,7 @@ result.items.forEach((item) => {
 Use RAG types for validation and the lib wrapper for execution:
 
 ```typescript
-import { runOpenAiFileSearch } from '@prisma-glow/lib/openai/file-search';
+import { runOpenAiFileSearch } from '@prisma/lib/openai/file-search';
 import { validateVectorStoreId, isSupportedFileFormat } from '@/services/rag/file-search-utils';
 import OpenAI from 'openai';
 
@@ -151,7 +151,7 @@ Create REST endpoints that leverage both layers:
 ```typescript
 // apps/web/app/api/agent/domain-tools/file-search-enhanced/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { runOpenAiFileSearch } from '@prisma-glow/lib/openai/file-search';
+import { runOpenAiFileSearch } from '@prisma/lib/openai/file-search';
 import {
   validateVectorStoreId,
   createFileSearchFilter,
@@ -274,7 +274,7 @@ Use file search in domain agents:
 
 ```typescript
 // packages/agents/src/finance-agent.ts
-import { runOpenAiFileSearch } from '@prisma-glow/lib/openai/file-search';
+import { runOpenAiFileSearch } from '@prisma/lib/openai/file-search';
 import { validateVectorStoreId } from '@/services/rag/file-search-utils';
 
 export class FinanceAgent {
@@ -346,7 +346,7 @@ describe('File Search Tool Creation', () => {
 
 ```typescript
 import { describe, expect, it, vi } from 'vitest';
-import { runOpenAiFileSearch } from '@prisma-glow/lib/openai/file-search';
+import { runOpenAiFileSearch } from '@prisma/lib/openai/file-search';
 
 describe('File Search Integration', () => {
   it('searches and returns structured results', async () => {

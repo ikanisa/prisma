@@ -1,10 +1,10 @@
 /**
- * Unit Tests for @prisma-glow/web app
+ * Unit Tests for @prisma/web app
  * Main web application tests
  */
 import { describe, it, expect } from 'vitest';
 
-describe('@prisma-glow/web', () => {
+describe('@prisma/web', () => {
     describe('Authentication', () => {
         it('login form validation rules are defined', () => {
             const validationRules = {

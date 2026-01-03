@@ -1,10 +1,10 @@
 /**
- * Unit Tests for @prisma-glow/supabase-client package
+ * Unit Tests for @prisma/supabase-client package
  * Supabase client configuration and utilities
  */
 import { describe, it, expect } from 'vitest';
 
-describe('@prisma-glow/supabase-client', () => {
+describe('@prisma/supabase-client', () => {
     describe('Client configuration', () => {
         it('required environment variables are defined', () => {
             const requiredVars = ['SUPABASE_URL', 'SUPABASE_ANON_KEY'];

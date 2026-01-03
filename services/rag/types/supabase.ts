@@ -1,1 +1,1 @@
-export type { Database, Json } from '@prisma-glow/platform/supabase/types';
+export type { Database, Json } from '@prisma/platform/supabase/types';

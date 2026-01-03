@@ -1,5 +1,5 @@
 {
-  "name": "@prisma-glow/rag-service",
+  "name": "@prisma/rag-service",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -10,7 +10,7 @@
     "test:integration": "vitest run --config tests/vitest.config.ts"
   },
   "dependencies": {
-    "@prisma-glow/analytics": "file:../../analytics",
+    "@prisma/analytics": "file:../../analytics",
     "@prisma/client": "^5.22.0",
     "@googleapis/drive": "^4.0.0",
     "@opentelemetry/api": "^1.9.0",
@@ -23,10 +23,10 @@
     "@opentelemetry/sdk-trace-node": "^1.9.0",
     "@opentelemetry/semantic-conventions": "^1.9.0",
     "ajv": "^8.17.1",
-    "@prisma-glow/agents": "workspace:*",
-    "@prisma-glow/cache": "workspace:*",
-    "@prisma-glow/lib": "workspace:*",
-    "@prisma-glow/system-config": "file:../../packages/system-config",
+    "@prisma/agents": "workspace:*",
+    "@prisma/cache": "workspace:*",
+    "@prisma/lib": "workspace:*",
+    "@prisma/system-config": "file:../../packages/system-config",
     "@sentry/node": "^7.120.0",
     "@supabase/supabase-js": "^2.55.0",
     "dataloader": "^2.2.3",

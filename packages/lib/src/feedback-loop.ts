@@ -492,7 +492,7 @@ export async function runFeedbackLoopAnalysis(): Promise<void> {
  * Example usage:
  * 
  * // In a cron job or scheduled task
- * import { runFeedbackLoopAnalysis } from '@prisma-glow/lib';
+ * import { runFeedbackLoopAnalysis } from '@prisma/lib';
  * 
  * // Run every hour
  * setInterval(async () => {

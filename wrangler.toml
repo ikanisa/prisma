@@ -41,7 +41,7 @@ name = "prisma-staging"
 # These settings are used when deploying via GitHub integration
 # or via `wrangler pages deploy`
 [build]
-command = "pnpm install --frozen-lockfile && pnpm --filter @prisma-glow/web build"
+command = "pnpm install --frozen-lockfile && pnpm --filter @prisma/web build"
 
 [build.environment]
 CI = "true"

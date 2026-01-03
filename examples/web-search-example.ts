@@ -2,20 +2,20 @@
  * Example script demonstrating web search functionality
  * 
  * This script shows various ways to use the web search module
- * from @prisma-glow/lib package.
+ * from @prisma/lib package.
  * 
  * Usage:
  *   ts-node examples/web-search-example.ts
  */
 
-import { getOpenAIClient } from '@prisma-glow/lib/openai/client';
+import { getOpenAIClient } from '@prisma/lib/openai/client';
 import {
   runWebSearch,
   createWebSearchTool,
   createUserLocation,
   normalizeDomain,
   type WebSearchUserLocation,
-} from '@prisma-glow/lib/openai/web-search';
+} from '@prisma/lib/openai/web-search';
 
 // Example 1: Basic web search
 async function basicWebSearch() {

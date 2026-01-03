@@ -427,14 +427,14 @@ mkdir -p packages/tax/src/{agents,tools,prompts,types,utils,tests}
 cd packages/tax
 cat > package.json << 'EOF'
 {
-  "name": "@prisma-glow/tax",
+  "name": "@prisma/tax",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "main": "./src/index.ts",
   "dependencies": {
-    "@prisma-glow/types": "workspace:*",
-    "@prisma-glow/core": "workspace:*"
+    "@prisma/types": "workspace:*",
+    "@prisma/core": "workspace:*"
   }
 }
 EOF

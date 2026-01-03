@@ -173,7 +173,7 @@ export function getRAGHelper(): RAGHelper {
 **File**: `apps/gateway/src/agents/rwanda-tax-agent.ts`
 
 ```typescript
-import { getRAGHelper } from '@prisma-glow/lib';
+import { getRAGHelper } from '@prisma/lib';
 import OpenAI from 'openai';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -232,7 +232,7 @@ async function main() {
 **File**: `apps/gateway/src/agents/ifrs-audit-agent.ts`
 
 ```typescript
-import { getRAGHelper } from '@prisma-glow/lib';
+import { getRAGHelper } from '@prisma/lib';
 import OpenAI from 'openai';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -310,7 +310,7 @@ async function main() {
 **File**: `apps/gateway/src/agents/agent-router.ts`
 
 ```typescript
-import { getRAGHelper } from '@prisma-glow/lib';
+import { getRAGHelper } from '@prisma/lib';
 
 interface AgentConfig {
   name: string;
@@ -378,7 +378,7 @@ ${citations}`;
 For better UX, stream the LLM response:
 
 ```typescript
-import { getRAGHelper } from '@prisma-glow/lib';
+import { getRAGHelper } from '@prisma/lib';
 import OpenAI from 'openai';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -453,7 +453,7 @@ app.get('/api/agent/stream', async (req, res) => {
 
 ```typescript
 import { describe, it, expect } from 'vitest';
-import { getRAGHelper } from '@prisma-glow/lib';
+import { getRAGHelper } from '@prisma/lib';
 
 describe('RAG Integration', () => {
   const rag = getRAGHelper();

@@ -72,7 +72,7 @@ Successfully implemented the Full-Stack Refactor Playbook—a systematic approac
   2. config/system-config (deprecated config)
   3. prompts/agents (merge recommended)
 - Improvement roadmap for 5 packages (api-client, ui, platform, logger/logging)
-- Proposed new @prisma-glow/schemas package
+- Proposed new @prisma/schemas package
 - Health assessment: 5 stable, 7 need improvement, 2 to be removed
 - Package dependency graph (4 levels)
 
@@ -344,11 +344,11 @@ Successfully implemented the Full-Stack Refactor Playbook—a systematic approac
 **Audit Results:**
 - ✅ 15 packages audited
 - ⚠️ 3 duplicates identified:
-  1. `@prisma-glow/logger` / `@prisma-glow/logging` (Node/Python)
-  2. `@prisma-glow/config` / `@prisma-glow/system-config` (deprecated vs. active)
-  3. `@prisma-glow/prompts` / `@prisma-glow/agents` (merge recommended)
+  1. `@prisma/logger` / `@prisma/logging` (Node/Python)
+  2. `@prisma/config` / `@prisma/system-config` (deprecated vs. active)
+  3. `@prisma/prompts` / `@prisma/agents` (merge recommended)
 - 📋 Improvement roadmap established for 5 packages
-- 🆕 New package proposed: `@prisma-glow/schemas` for shared validation
+- 🆕 New package proposed: `@prisma/schemas` for shared validation
 
 **Package Health Summary:**
 - **Stable (5):** lib, system-config, types-finance, tax, analytics
@@ -393,8 +393,8 @@ Successfully implemented the Full-Stack Refactor Playbook—a systematic approac
 
 1. **Structured Logging:**
    - Format: JSON with correlation IDs
-   - Node: winston (`@prisma-glow/logger`)
-   - Python: structlog (`@prisma-glow/logging`)
+   - Node: winston (`@prisma/logger`)
+   - Python: structlog (`@prisma/logging`)
 
 2. **Error Tracking:**
    - Tool: Sentry

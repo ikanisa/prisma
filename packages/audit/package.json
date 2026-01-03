@@ -1,5 +1,5 @@
 {
-  "name": "@prisma-glow/audit-agents",
+  "name": "@prisma/audit-agents",
   "version": "1.0.0",
   "description": "AI Audit Specialist Agents for Prisma Glow - ISA-compliant audit automation",
   "type": "module",
@@ -60,9 +60,9 @@
     "test": "vitest"
   },
   "dependencies": {
-    "@prisma-glow/core": "workspace:*",
-    "@prisma-glow/lib": "workspace:*",
-    "@prisma-glow/types": "workspace:*",
+    "@prisma/core": "workspace:*",
+    "@prisma/lib": "workspace:*",
+    "@prisma/types": "workspace:*",
     "openai": "^4.67.3",
     "zod": "^3.23.8"
   },

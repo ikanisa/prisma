@@ -57,7 +57,7 @@ pnpm run typecheck
 pnpm run build
 
 # Run tests
-pnpm --filter @prisma-glow/agents test
+pnpm --filter @prisma/agents test
 ```
 
 ## 🚀 Deployment Steps
@@ -81,7 +81,7 @@ supabase migration list
 ### Step 2: Load Knowledge Base
 
 ```typescript
-import { SupabaseDeepSearch } from '@prisma-glow/agents';
+import { SupabaseDeepSearch } from '@prisma/agents';
 
 const search = new SupabaseDeepSearch({
   url: process.env.SUPABASE_URL,

@@ -296,7 +296,7 @@ mkdir -p src/agents src/types src/utils tests
 **Template:**
 ```typescript
 // packages/accounting/src/agents/financial-reporting.ts
-import { BaseAgent } from '@prisma-glow/agents';
+import { BaseAgent } from '@prisma/agents';
 
 export class FinancialReportingAgent extends BaseAgent {
   name = 'Financial Reporting Agent';

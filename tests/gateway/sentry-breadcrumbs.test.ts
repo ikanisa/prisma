@@ -2,14 +2,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AddressInfo } from 'node:net';
 
-vi.mock('@prisma-glow/system-config', () => ({
+vi.mock('@prisma/system-config', () => ({
   DEFAULT_ROLE_HIERARCHY: ['ADMIN', 'MANAGER', 'USER'],
   createSystemConfigAccessor: () => ({
     withConfig: async (handler: (config: Record<string, unknown>) => unknown) => handler({}),
   }),
 }));
 
-vi.mock('@prisma-glow/analytics', () => ({
+vi.mock('@prisma/analytics', () => ({
   createAnalyticsClient: () => ({ track: vi.fn(), identify: vi.fn() }),
 }));
 

@@ -5,7 +5,7 @@
  * model changes, and other optimizations.
  */
 
-import { logger } from '@prisma-glow/core/logger';
+import { logger } from '@prisma/core/logger';
 import crypto from 'crypto';
 
 export interface ABTest {

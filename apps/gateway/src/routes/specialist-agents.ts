@@ -7,11 +7,11 @@
 
 import { Router, Request, Response, NextFunction } from 'express';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { loadAgentsRegistry } from '@prisma-glow/agents/registry';
-import { createOpenAIAgentFromRegistry } from '@prisma-glow/agents/openai';
-import { createGeminiAgentFromRegistry } from '@prisma-glow/agents/gemini';
-import { runOpenAIAgent } from '@prisma-glow/agents/openai';
-import { runGeminiAgent } from '@prisma-glow/agents/gemini';
+import { loadAgentsRegistry } from '@prisma/agents/registry';
+import { createOpenAIAgentFromRegistry } from '@prisma/agents/openai';
+import { createGeminiAgentFromRegistry } from '@prisma/agents/gemini';
+import { runOpenAIAgent } from '@prisma/agents/openai';
+import { runGeminiAgent } from '@prisma/agents/gemini';
 import { z } from 'zod';
 
 // Request validation schemas

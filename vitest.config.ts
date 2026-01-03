@@ -318,7 +318,7 @@ export default defineConfig({
         replacement: path.resolve(__dirname, './tests/stubs/google-auth-library.ts'),
       },
       {
-        find: '@prisma-glow/api-client',
+        find: '@prisma/api-client',
         replacement: path.resolve(__dirname, './packages/api-client/index.ts'),
       },
       {
@@ -337,39 +337,39 @@ export default defineConfig({
         },
       },
       {
-        find: '@prisma-glow/lib',
+        find: '@prisma/lib',
         replacement: path.resolve(__dirname, './packages/lib/dist/index.js'),
       },
       {
-        find: '@prisma-glow/logger',
+        find: '@prisma/logger',
         replacement: path.resolve(__dirname, './packages/logger/src/index.ts'),
       },
       {
-        find: '@prisma-glow/logging',
+        find: '@prisma/logging',
         replacement: path.resolve(__dirname, './packages/logging/src/index.ts'),
       },
       {
-        find: '@prisma-glow/otel',
+        find: '@prisma/otel',
         replacement: path.resolve(__dirname, './services/otel/src/index.ts'),
       },
       {
-        find: '@prisma-glow/system-config',
+        find: '@prisma/system-config',
         replacement: path.resolve(__dirname, './packages/system-config/src/index.ts'),
       },
       {
-        find: '@prisma-glow/agents',
+        find: '@prisma/agents',
         replacement: path.resolve(__dirname, './packages/agents/src'),
       },
       {
-        find: '@prisma-glow/api/schemas',
+        find: '@prisma/api/schemas',
         replacement: path.resolve(__dirname, './packages/api/src/schemas/index.ts'),
       },
       {
-        find: '@prisma-glow/api',
+        find: '@prisma/api',
         replacement: path.resolve(__dirname, './packages/api/src/index.ts'),
       },
       {
-        find: '@prisma-glow/config/env/security',
+        find: '@prisma/config/env/security',
         replacement: path.resolve(__dirname, './config/env/security.ts'),
       },
     ],

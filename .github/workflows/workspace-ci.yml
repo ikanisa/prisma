@@ -46,11 +46,11 @@ jobs:
           node-version: ${{ matrix.node-version }}
 
       - name: Build gateway
-        run: pnpm turbo run build --filter=@prisma-glow/gateway...
+        run: pnpm turbo run build --filter=@prisma/gateway...
       - name: Lint gateway
-        run: pnpm turbo run lint --filter=@prisma-glow/gateway
+        run: pnpm turbo run lint --filter=@prisma/gateway
       - name: Gateway tests
-        run: pnpm turbo run test --filter=@prisma-glow/gateway
+        run: pnpm turbo run test --filter=@prisma/gateway
 
   workspace-pipelines:
     name: Workspace lint/test/build
@@ -84,9 +84,9 @@ jobs:
           node-version: ${{ matrix.node-version }}
 
       - name: Build RAG service
-        run: pnpm turbo run build --filter=@prisma-glow/rag-service...
+        run: pnpm turbo run build --filter=@prisma/rag-service...
       - name: Lint RAG service
-        run: pnpm turbo run lint --filter=@prisma-glow/rag-service
+        run: pnpm turbo run lint --filter=@prisma/rag-service
 
   web-tests:
     name: Frontend lint/tests
@@ -122,8 +122,8 @@ jobs:
           node-version: ${{ matrix.node-version }}
       - name: Build shared packages
         run: |
-          pnpm --filter @prisma-glow/system-config build || true
-          pnpm --filter @prisma-glow/api-client build || true
+          pnpm --filter @prisma/system-config build || true
+          pnpm --filter @prisma/api-client build || true
 
   supabase-functions-tests:
     name: Supabase functions tests (Deno)
@@ -157,8 +157,8 @@ jobs:
           node-version: ${{ matrix.node-version }}
       - name: Build gateway
         run: |
-          pnpm --filter @prisma-glow/system-config build || true
-          pnpm --filter @prisma-glow/gateway build
+          pnpm --filter @prisma/system-config build || true
+          pnpm --filter @prisma/gateway build
       - name: Start gateway
         working-directory: apps/gateway
         run: |
@@ -178,9 +178,9 @@ jobs:
         run: |
           if [ -f gateway.pid ]; then kill $(cat gateway.pid) || true; fi
       - name: Test api-client
-        run: pnpm --filter @prisma-glow/api-client test
+        run: pnpm --filter @prisma/api-client test
       - name: Test gateway
-        run: pnpm --filter @prisma-glow/gateway test
+        run: pnpm --filter @prisma/gateway test
 
   observability-smoke:
     name: Observability OTEL smoke tests
@@ -395,7 +395,7 @@ jobs:
         run: pnpm -w run codegen:api
 
       - name: Build API client
-        run: pnpm --filter @prisma-glow/api-client build
+        run: pnpm --filter @prisma/api-client build
 
       - name: Enforce OpenAPI/types drift-free
         run: |

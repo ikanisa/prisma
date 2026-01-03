@@ -1,4 +1,4 @@
-# @prisma-glow/tax
+# @prisma/tax
 
 Tax agent specialists for multi-jurisdiction tax compliance and advisory.
 
@@ -25,13 +25,13 @@ This package contains 12 specialized AI tax agents covering multiple jurisdictio
 ## Installation
 
 ```bash
-pnpm install @prisma-glow/tax
+pnpm install @prisma/tax
 ```
 
 ## Usage
 
 ```typescript
-import { EUCorporateTaxAgent } from '@prisma-glow/tax';
+import { EUCorporateTaxAgent } from '@prisma/tax';
 
 const agent = new EUCorporateTaxAgent({
   organizationId: 'org-123',

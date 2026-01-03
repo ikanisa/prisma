@@ -4,7 +4,7 @@ export type {
   GoogleDriveSettings,
   SystemConfigAccessor,
   UrlSourceSettings,
-} from '@prisma-glow/system-config';
+} from '@prisma/system-config';
 
 export {
   DEFAULT_BEFORE_ASKING_SEQUENCE,
@@ -22,4 +22,4 @@ export {
   clearSystemConfigCache as __clearSystemConfigCache,
   getResolvedConfigPath as __getResolvedConfigPath,
   refreshSystemConfig as __refreshSystemConfig,
-} from '@prisma-glow/system-config';
+} from '@prisma/system-config';

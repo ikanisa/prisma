@@ -181,7 +181,7 @@ jobs:
 
       - name: Build API client
         run: |
-          pnpm --filter @prisma-glow/api-client run build || true
+          pnpm --filter @prisma/api-client run build || true
 
       - name: Enforce OpenAPI/types drift-free
         run: |

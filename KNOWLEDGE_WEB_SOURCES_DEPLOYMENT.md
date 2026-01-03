@@ -89,21 +89,21 @@ psql "$DATABASE_URL" -c "SELECT COUNT(*) FROM knowledge_web_sources;"
 ```bash
 cd /Users/jeanbosco/workspace/prisma
 
-# Install dependencies for @prisma-glow/lib package
+# Install dependencies for @prisma/lib package
 pnpm install --frozen-lockfile
 
 # Verify package is available
-pnpm --filter @prisma-glow/lib run typecheck
+pnpm --filter @prisma/lib run typecheck
 
 # Build the package (if needed)
-pnpm --filter @prisma-glow/lib build
+pnpm --filter @prisma/lib build
 ```
 
 **Verification**:
 ```bash
 # Should complete without errors
 node -e "console.log(require('./packages/lib/package.json').name)"
-# Output: @prisma-glow/lib
+# Output: @prisma/lib
 ```
 
 ---
@@ -161,7 +161,7 @@ import {
   getPrimarySources,
   getCrawlStats,
   getSourceCountByCategory 
-} from '@prisma-glow/lib';
+} from '@prisma/lib';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -239,7 +239,7 @@ First 5: ['ifrs.org', 'iaasb.org', 'ethicsboard.org', ...]
 Create file: `test-deepsearch-integration.tsx`
 
 ```typescript
-import { getActiveDomains, getPrimarySources } from '@prisma-glow/lib';
+import { getActiveDomains, getPrimarySources } from '@prisma/lib';
 
 // Test in a React component
 export function TestDeepSearch() {
@@ -261,7 +261,7 @@ export function TestDeepSearch() {
 #### B. Crawler Integration Test
 
 ```typescript
-import { getSourcesNeedingCrawl, markSourceCrawled } from '@prisma-glow/lib';
+import { getSourcesNeedingCrawl, markSourceCrawled } from '@prisma/lib';
 
 async function testCrawler() {
   // Get sources needing crawl (never crawled)
@@ -390,7 +390,7 @@ All items must be ✅ before marking as deployed:
 - [ ] Sample queries return expected data
 
 ### TypeScript Package
-- [ ] `@prisma-glow/lib` package builds without errors
+- [ ] `@prisma/lib` package builds without errors
 - [ ] All helper functions work correctly
 - [ ] Types are exported and available
 - [ ] JSDoc documentation displays in IDE
@@ -427,7 +427,7 @@ All items must be ✅ before marking as deployed:
 
 ### Issue 2: TypeScript Import Errors
 
-**Symptom**: `Cannot find module '@prisma-glow/lib'`  
+**Symptom**: `Cannot find module '@prisma/lib'`  
 **Cause**: Package not installed or not built  
 **Resolution**: Run `pnpm install --frozen-lockfile`
 
@@ -475,7 +475,7 @@ DROP TABLE IF EXISTS knowledge_web_sources CASCADE;
 
 ```bash
 # Remove from dependencies
-# Edit package.json and remove @prisma-glow/lib references
+# Edit package.json and remove @prisma/lib references
 
 # Clean node_modules
 rm -rf node_modules packages/lib/node_modules

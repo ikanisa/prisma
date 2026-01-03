@@ -43,8 +43,8 @@ psql "$DATABASE_URL" -f supabase/migrations/20260201120000_auto_classification_c
 pnpm install --frozen-lockfile
 
 # 3. Build services
-pnpm --filter @prisma-glow/rag-service build
-pnpm --filter @prisma-glow/gateway build
+pnpm --filter @prisma/rag-service build
+pnpm --filter @prisma/gateway build
 ```
 
 **Validation**:
@@ -56,7 +56,7 @@ pnpm --filter @prisma-glow/gateway build
 ### Step 2: Start & Test API (20 min)
 ```bash
 # Start gateway
-pnpm --filter @prisma-glow/gateway dev
+pnpm --filter @prisma/gateway dev
 ```
 
 **Test Cases**:
@@ -296,7 +296,7 @@ pnpm tsx scripts/manage-domain-rules.ts [add|list|test|export]
 pnpm tsx scripts/generate-classification-report.ts [--format=markdown|csv|json]
 
 # Start gateway
-pnpm --filter @prisma-glow/gateway dev
+pnpm --filter @prisma/gateway dev
 ```
 
 ### Files

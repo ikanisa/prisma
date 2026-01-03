@@ -379,7 +379,7 @@ cd packages/tax
 # Initialize package.json
 cat > package.json << 'EOF'
 {
-  "name": "@prisma-glow/tax",
+  "name": "@prisma/tax",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -390,8 +390,8 @@ cat > package.json << 'EOF'
     "build": "tsc"
   },
   "dependencies": {
-    "@prisma-glow/types": "workspace:*",
-    "@prisma-glow/core": "workspace:*"
+    "@prisma/types": "workspace:*",
+    "@prisma/core": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

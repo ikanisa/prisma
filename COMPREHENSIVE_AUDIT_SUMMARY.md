@@ -247,7 +247,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 
 ```bash
 # 1. Create security middleware package
-pnpm --filter @prisma-glow/security init
+pnpm --filter @prisma/security init
 
 # 2. Install security dependencies
 pnpm add helmet @fastify/rate-limit slowapi

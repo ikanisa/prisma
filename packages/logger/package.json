@@ -1,5 +1,5 @@
 {
-  "name": "@prisma-glow/logger",
+  "name": "@prisma/logger",
   "version": "1.0.0",
   "type": "module",
   "main": "dist/index.js",

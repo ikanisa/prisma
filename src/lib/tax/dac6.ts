@@ -1,1 +1,1 @@
-export * from '@prisma-glow/tax/dac6'
+export * from '@prisma/tax/dac6'

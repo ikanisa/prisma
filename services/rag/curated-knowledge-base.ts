@@ -10,7 +10,7 @@
  */
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { getSupabaseServiceRoleKey } from '@prisma-glow/lib/secrets';
+import { getSupabaseServiceRoleKey } from '@prisma/lib/secrets';
 import type {
   CuratedKnowledgeEntry,
   CreateKnowledgeEntryRequest,

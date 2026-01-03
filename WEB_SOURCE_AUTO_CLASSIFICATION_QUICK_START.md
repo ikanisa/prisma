@@ -58,7 +58,7 @@ app.use('/api/v1/web-sources', createWebSourcesRouter(supabase));
 ## Step 5: Start Gateway (1 min)
 
 ```bash
-pnpm --filter @prisma-glow/gateway dev
+pnpm --filter @prisma/gateway dev
 ```
 
 Gateway should start on `http://localhost:3001`.
@@ -229,7 +229,7 @@ psql "$DATABASE_URL" -f supabase/migrations/20260201100000_curated_knowledge_bas
 ### ❌ "Cannot find module 'services/rag/knowledge/classification'"
 Build the RAG service:
 ```bash
-pnpm --filter @prisma-glow/rag-service build
+pnpm --filter @prisma/rag-service build
 ```
 
 ### ❌ "Classification returns UNKNOWN"

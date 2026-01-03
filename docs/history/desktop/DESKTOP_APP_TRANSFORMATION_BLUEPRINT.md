@@ -315,7 +315,7 @@ pub fn close_window(window: Window) {
 import { useEffect, useState } from 'react';
 import { appWindow } from '@tauri-apps/api/window';
 import { Minimize, Maximize, X, Menu } from 'lucide-react';
-import { Button } from '@prisma-glow/ui';
+import { Button } from '@prisma/ui';
 
 export function TitleBar() {
   const [isMaximized, setIsMaximized] = useState(false);

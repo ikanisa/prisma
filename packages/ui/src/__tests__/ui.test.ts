@@ -1,10 +1,10 @@
 /**
- * Unit Tests for @prisma-glow/ui components
+ * Unit Tests for @prisma/ui components
  * Basic smoke tests for UI component exports
  */
 import { describe, it, expect } from 'vitest';
 
-describe('@prisma-glow/ui', () => {
+describe('@prisma/ui', () => {
     describe('Module exports', () => {
         it('exports are defined', () => {
             // Basic smoke test - module loads without errors

@@ -105,7 +105,7 @@ packages/agents/
 
 ```typescript
 import OpenAI from 'openai';
-import { OpenAIAgentSDKIntegration } from '@prisma-glow/agents';
+import { OpenAIAgentSDKIntegration } from '@prisma/agents';
 
 const integration = new OpenAIAgentSDKIntegration({
   client: new OpenAI({ apiKey: process.env.OPENAI_API_KEY }),
@@ -152,7 +152,7 @@ const result = await integration.runAgent('acct-revenue-001', threadId);
 ### Usage
 
 ```typescript
-import { GeminiSDKIntegration } from '@prisma-glow/agents';
+import { GeminiSDKIntegration } from '@prisma/agents';
 
 const integration = new GeminiSDKIntegration({
   apiKey: process.env.GEMINI_API_KEY,
@@ -287,7 +287,7 @@ import {
   DeepSearchWrapper,
   OpenAIAgentSDKIntegration,
   GeminiSDKIntegration,
-} from '@prisma-glow/agents';
+} from '@prisma/agents';
 
 const registry = AgentRegistryLoader.fromDefault();
 const deepSearch = new DeepSearchWrapper(supabaseDeepSearch);

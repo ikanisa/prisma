@@ -32,7 +32,7 @@ This adds SSO before users even reach the app.
 3. Select your GitHub repo: `ikanisa/prisma`
 4. Configure build:
    - **Framework preset**: None
-   - **Build command**: `pnpm install && pnpm --filter @prisma-glow/web build`
+   - **Build command**: `pnpm install && pnpm --filter @prisma/web build`
    - **Build output directory**: `apps/web/.next`
    - **Root directory**: `/`
 
@@ -57,7 +57,7 @@ npm install -g wrangler
 wrangler login
 
 # Build the project
-pnpm --filter @prisma-glow/web build
+pnpm --filter @prisma/web build
 
 # Deploy
 wrangler pages deploy apps/web/.next --project-name=prisma-glow

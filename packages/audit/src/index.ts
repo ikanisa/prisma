@@ -1,5 +1,5 @@
 /**
- * @prisma-glow/audit-agents
+ * @prisma/audit-agents
  * AI-Powered ISA-Compliant Audit Specialist Agents
  * 
  * Complete suite of 18 specialized audit agents covering the full audit lifecycle:
