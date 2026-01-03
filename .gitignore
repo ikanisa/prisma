@@ -7,10 +7,12 @@ supabase/config.toml.bak
 # Env & logs
 .env
 .env.*
+.dev.vars
 !.env.example
 !**/.env.example
 !**/.env.*.example
 !.env.template
+!.dev.vars.example
 *.log
 .logs/
 .logs/*.pid
