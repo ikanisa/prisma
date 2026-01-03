@@ -66,7 +66,7 @@ The Express.js gateway API is **not deployed to Cloudflare**. It:
 | **Production branch** | `main` |
 | **Preview branches** | All non-production branches |
 | **Framework preset** | Next.js |
-| **Build command** | `pnpm install --frozen-lockfile && pnpm --filter @prisma/web build` |
+| **Build command** | `pnpm install --frozen-lockfile && pnpm --filter @prisma-glow/web build` |
 | **Build output directory** | `apps/web/.next` |
 | **Root directory** | `/` (repo root) |
 | **Node.js version** | 22 |
@@ -133,7 +133,7 @@ The workflow at `.github/workflows/deploy-cloudflare.yml` handles:
 
 1. ✅ Install dependencies (`pnpm install --frozen-lockfile`)
 2. ✅ Run typecheck (`pnpm typecheck`)
-3. ✅ Build for production (`pnpm --filter @prisma/web build`)
+3. ✅ Build for production (`pnpm --filter @prisma-glow/web build`)
 4. ✅ Deploy to Cloudflare Pages via wrangler
 
 ### Required GitHub Secrets
@@ -164,7 +164,7 @@ pnpm add -g wrangler
 wrangler login
 
 # Build the web app
-pnpm --filter @prisma/web build
+pnpm --filter @prisma-glow/web build
 
 # Preview locally with Cloudflare Pages runtime
 wrangler pages dev apps/web/.next --compatibility-flags=nodejs_compat

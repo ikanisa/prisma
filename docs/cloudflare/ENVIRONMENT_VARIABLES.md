@@ -127,7 +127,7 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000
 
 Then run:
 ```bash
-pnpm --filter @prisma/web dev
+pnpm --filter @prisma-glow/web dev
 ```
 
 ---
