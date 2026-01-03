@@ -10,74 +10,17 @@ name = "prisma"
 compatibility_date = "2025-01-03"
 compatibility_flags = ["nodejs_compat"]
 
-# Build output directory (Next.js standalone build)
-# For Cloudflare Pages, this is set in the dashboard
-# For local wrangler dev, use: wrangler pages dev .vercel/output/static
+# Build output directory for @cloudflare/next-on-pages
 pages_build_output_dir = "apps/web/.vercel/output/static"
 
 # -----------------------------------------------------------------------------
-# Production Environment
+# Environment Variables (set in Cloudflare Dashboard)
 # -----------------------------------------------------------------------------
-[env.production]
-name = "prisma"
-
-# Production environment variables are set in Cloudflare Dashboard:
-# - NEXT_PUBLIC_SUPABASE_URL
-# - NEXT_PUBLIC_SUPABASE_ANON_KEY
-# - NEXT_PUBLIC_APP_URL
-# - NEXT_PUBLIC_SENTRY_DSN
-
-# -----------------------------------------------------------------------------
-# Staging Environment
-# -----------------------------------------------------------------------------
-[env.staging]
-name = "prisma-staging"
-
-# Staging environment variables are set in Cloudflare Dashboard
-
-# -----------------------------------------------------------------------------
-# Build Configuration
-# -----------------------------------------------------------------------------
-# These settings are used when deploying via GitHub integration
-# or via `wrangler pages deploy`
-[build]
-command = "pnpm install --frozen-lockfile && pnpm --filter @prisma/web pages:build"
-
-[build.environment]
-CI = "true"
-NODE_VERSION = "22"
-
-# -----------------------------------------------------------------------------
-# Bindings (Optional - Uncomment if using Cloudflare services)
-# -----------------------------------------------------------------------------
-
-# KV Namespaces
-# [[kv_namespaces]]
-# binding = "CACHE"
-# id = "your-kv-namespace-id"
-
-# R2 Buckets
-# [[r2_buckets]]
-# binding = "ASSETS"
-# bucket_name = "prisma-assets"
-
-# Durable Objects
-# [[durable_objects.bindings]]
-# name = "SESSIONS"
-# class_name = "SessionDO"
-
-# D1 Database (if migrating from Supabase)
-# [[d1_databases]]
-# binding = "DB"
-# database_name = "prisma-db"
-# database_id = "your-d1-database-id"
-
-# Queues (for background jobs)
-# [[queues.producers]]
-# queue = "prisma-queue"
-# binding = "QUEUE"
-
-# [[queues.consumers]]
-# queue = "prisma-queue"
-# max_batch_size = 10
-# max_batch_timeout = 30
+# Production:
+#   - NEXT_PUBLIC_SUPABASE_URL
+#   - NEXT_PUBLIC_SUPABASE_ANON_KEY
+#   - NEXT_PUBLIC_APP_URL
+#   - NEXT_PUBLIC_SENTRY_DSN
+#
+# Preview:
+#   - Same as production but with staging Supabase project
