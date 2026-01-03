@@ -47,7 +47,8 @@
     "kb:backfill": "tsx scripts/kb-cli.ts backfill",
     "kb:reindex": "tsx scripts/kb-cli.ts reindex",
     "kb:verify": "tsx scripts/kb-cli.ts verify",
-    "eval:kb": "tsx scripts/eval-kb.ts"
+    "eval:kb": "tsx scripts/eval-kb.ts",
+    "validate:env": "tsx scripts/validate-environment.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",

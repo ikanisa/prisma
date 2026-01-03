@@ -1,15 +1,108 @@
-# Documentation Overview
+# Prisma Glow Documentation
 
-This directory houses the reference material, runbooks, and decision records for the prisma-glow-15 project. Content is grouped by domain so engineering, audit, and compliance teams can quickly locate the relevant guidance.
+Welcome to the Prisma Glow documentation. This directory contains all project documentation organized by category.
 
-- `DECISIONS.md` tracks the log of architectural decisions with links to individual ADRs.
-- `ADR_TEMPLATE.md` is the starting point for new decision records; copy it into `docs/` (or a subfolder) when drafting an ADR.
-- `LEARNING_OVERVIEW.md`, `LEARNING_POLICY_GUARDRAILS.md`, and `LEARNING_RUNBOOK_ROLLBACK.md` document the Reinforced RAG learning loop, guardrails, and rollback procedure.
-- `GDRIVE_INGESTION_RUNBOOK.md` captures the operational steps for the Google Drive ingestion pipeline.
-- `openai-retrieval.md` outlines semantic search concepts, vector store management, and grounding responses with the Retrieval API.
-- `iam/USER_MANAGEMENT.md` outlines the IAM-1 organization directory, API surfaces, and admin UI workflows.
-- `iam/PERMISSION_ENFORCEMENT_NOTES.md` summarises how the IAM-2 permission matrix is enforced across backend and UI layers.
-- `openai-file-search.md` documents how to wire the hosted file search retrieval tool into Responses API workflows.
-- Topical guides (for example security, telemetry, and tax) live in subdirectories to keep operational runbooks and regulatory evidence organized.
+## 📚 Documentation Structure
 
-Follow the guardrails in `agent/policies/GUARDRAILS.md` when contributing new documentation.
+### Getting Started
+- **[README.md](../README.md)** - Main project README
+- **[START_HERE.md](../START_HERE.md)** - Quick start guide
+- **[ARCHITECTURE.md](../ARCHITECTURE.md)** - System architecture overview
+
+### Deployment
+- **[deployment/DEPLOYMENT_GUIDE.md](./deployment/DEPLOYMENT_GUIDE.md)** - Complete deployment guide
+- **[operations/PRODUCTION_OPERATIONS.md](./operations/PRODUCTION_OPERATIONS.md)** - Production operations and readiness
+- **[CLOUDFLARE_DEPLOY.md](../CLOUDFLARE_DEPLOY.md)** - Cloudflare Pages deployment
+
+### Development
+- **[CONTRIBUTING.md](../CONTRIBUTING.md)** - Contribution guidelines
+- **[CODING-STANDARDS.md](../CODING-STANDARDS.md)** - Coding standards
+- **[ENV_GUIDE.md](../ENV_GUIDE.md)** - Environment variable guide
+
+### Features
+- **[PWA Guide](../pwa-offline-sync-checklist.md)** - PWA implementation checklist
+- **[desktop/DESKTOP_APP_GUIDE.md](./desktop/DESKTOP_APP_GUIDE.md)** - Desktop application guide
+- **[AGENT_SYSTEM_INDEX.md](../AGENT_SYSTEM_INDEX.md)** - AI Agent system documentation
+- **[KNOWLEDGE_WEB_SOURCES.md](../KNOWLEDGE_WEB_SOURCES.md)** - Knowledge base system
+- **[LEARNING_SYSTEM_READY.md](../LEARNING_SYSTEM_READY.md)** - Agent learning system
+
+### Operations
+- **[operations/PRODUCTION_OPERATIONS.md](./operations/PRODUCTION_OPERATIONS.md)** - Production operations
+- **[MONITORING_AND_OBSERVABILITY.md](../MONITORING_AND_OBSERVABILITY.md)** - Monitoring setup
+- **[SECURITY.md](../SECURITY.md)** - Security guidelines
+- **[RUNBOOK.md](../RUNBOOK.md)** - Operational runbooks
+
+### Historical
+- **[history/phases/](./history/phases/)** - Archived phase documentation (19 files)
+- **[history/desktop/](./history/desktop/)** - Archived desktop app documentation (20 files)
+
+## 🚀 Quick Links
+
+### For Developers
+1. Start with [START_HERE.md](../START_HERE.md)
+2. Read [ARCHITECTURE.md](../ARCHITECTURE.md)
+3. Follow [CODING-STANDARDS.md](../CODING-STANDARDS.md)
+
+### For DevOps
+1. Read [deployment/DEPLOYMENT_GUIDE.md](./deployment/DEPLOYMENT_GUIDE.md)
+2. Review [operations/PRODUCTION_OPERATIONS.md](./operations/PRODUCTION_OPERATIONS.md)
+3. Check [MONITORING_AND_OBSERVABILITY.md](../MONITORING_AND_OBSERVABILITY.md)
+
+### For Product/Business
+1. Review [ARCHITECTURE.md](../ARCHITECTURE.md)
+2. Check feature documentation in root directory
+3. See [LEARNING_SYSTEM_READY.md](../LEARNING_SYSTEM_READY.md)
+
+## 📖 Documentation Categories
+
+### Core Documentation (Root)
+- Main guides and indexes
+- Feature documentation
+- Quick start guides
+
+### Deployment (`deployment/`)
+- Deployment procedures
+- Platform-specific guides
+- Configuration guides
+
+### Operations (`operations/`)
+- Production operations
+- Monitoring and observability
+- Incident response
+
+### History (`history/`)
+- Archived documentation
+- Phase implementation history
+- Historical reports
+
+## 🔍 Finding Documentation
+
+### I need to...
+- **Deploy the application** → [deployment/DEPLOYMENT_GUIDE.md](./deployment/DEPLOYMENT_GUIDE.md)
+- **Understand the architecture** → [ARCHITECTURE.md](../ARCHITECTURE.md)
+- **Set up development environment** → [START_HERE.md](../START_HERE.md)
+- **Configure PWA features** → [pwa-offline-sync-checklist.md](../pwa-offline-sync-checklist.md)
+- **Understand agents** → [AGENT_SYSTEM_INDEX.md](../AGENT_SYSTEM_INDEX.md)
+- **Monitor production** → [MONITORING_AND_OBSERVABILITY.md](../MONITORING_AND_OBSERVABILITY.md)
+- **Respond to incidents** → [RUNBOOK.md](../RUNBOOK.md)
+
+## 📝 Documentation Standards
+
+- All documentation is in Markdown format
+- Use clear headings and structure
+- Include code examples where helpful
+- Keep documentation up-to-date with code changes
+- Archive historical documentation to `history/`
+
+## 🔄 Documentation Updates
+
+When updating documentation:
+1. Update the relevant file
+2. Update this index if structure changes
+3. Archive old versions to `history/` if major changes
+4. Update cross-references
+
+---
+
+**Last Updated:** January 2025  
+**Maintained By:** Development Team

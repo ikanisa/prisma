@@ -45,7 +45,7 @@ Detailed tasks for ground truth verification (Jan 29 - Feb 2).
 ### 3. **MASTER_IMPLEMENTATION_PLAN_JAN_2025.md**
 Complete 12-week implementation plan with code examples.
 
-**All other .md files are ARCHIVED** - focus on these 3!
+**Documentation:** See [docs/README.md](docs/README.md) for organized documentation structure.
 
 ---
 

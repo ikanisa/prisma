@@ -13,6 +13,9 @@ const withPWA = withPWAInit({
   cacheOnFrontEndNav: true,
   reloadOnOnline: true,
   workboxOptions: {
+    cleanupOutdatedCaches: true,
+    clientsClaim: true,
+    precacheManifest: true,
     runtimeCaching: [
       {
         urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
@@ -20,6 +23,7 @@ const withPWA = withPWAInit({
         options: {
           cacheName: 'supabase-api',
           expiration: { maxEntries: 64, maxAgeSeconds: 3600 },
+          networkTimeoutSeconds: 10,
         },
       },
       {
@@ -28,6 +32,30 @@ const withPWA = withPWAInit({
         options: {
           cacheName: 'images',
           expiration: { maxEntries: 100, maxAgeSeconds: 2592000 },
+        },
+      },
+      {
+        urlPattern: /\.(?:woff|woff2|ttf|otf|eot)$/i,
+        handler: 'CacheFirst',
+        options: {
+          cacheName: 'fonts',
+          expiration: { maxEntries: 50, maxAgeSeconds: 31536000 },
+        },
+      },
+      {
+        urlPattern: /^https:\/\/.*\/api\/.*/i,
+        handler: 'StaleWhileRevalidate',
+        options: {
+          cacheName: 'api-cache',
+          expiration: { maxEntries: 50, maxAgeSeconds: 300 },
+        },
+      },
+      {
+        urlPattern: /^https:\/\/.*\/_next\/static\/.*/i,
+        handler: 'CacheFirst',
+        options: {
+          cacheName: 'next-static',
+          expiration: { maxEntries: 200, maxAgeSeconds: 31536000 },
         },
       },
     ],

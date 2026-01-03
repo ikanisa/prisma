@@ -67,6 +67,22 @@ ENABLE_CACHING=true
 ENABLE_RATE_LIMITING=true
 ```
 
+### 4. Validate Environment
+Before deploying, validate your environment variables:
+
+```bash
+# Validate environment configuration
+pnpm run validate:env
+
+# Or with custom env file
+ENV_FILE=.env.production pnpm run validate:env
+```
+
+This will check:
+- All required variables are set
+- Variable formats are correct
+- No missing critical configuration
+
 ---
 
 ## Build Process

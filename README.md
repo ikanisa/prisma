@@ -77,6 +77,15 @@ Modern AI-powered operations suite with Supabase, FastAPI, and multi-app pnpm wo
 
 More context on running the stack locally, including reverse-proxy plans, lives in [docs/local-hosting.md](docs/local-hosting.md).
 
+## Documentation
+
+For complete documentation, see [docs/README.md](docs/README.md).
+
+- **Deployment:**** [docs/deployment/DEPLOYMENT_GUIDE_CONSOLIDATED.md](docs/deployment/DEPLOYMENT_GUIDE_CONSOLIDATED.md)
+- **Production Operations:** [docs/operations/PRODUCTION_OPERATIONS.md](docs/operations/PRODUCTION_OPERATIONS.md)
+- **Troubleshooting:** [docs/deployment/TROUBLESHOOTING.md](docs/deployment/TROUBLESHOOTING.md)
+- **Desktop App:** [docs/desktop/DESKTOP_APP_GUIDE.md](docs/desktop/DESKTOP_APP_GUIDE.md)
+
 ## Environment Variables
 
 The project loads configuration from `.env.local` for local runs and GitHub Actions/Compose secrets in automation. Copy the template first:
