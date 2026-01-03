@@ -5,7 +5,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 const ADMIN_ROUTES = ['/admin'];
 
 // Routes that require authentication (any role)
-const AUTH_ROUTES = ['/dashboard', '/documents', '/tasks', '/clients', '/accounting', '/audit', '/settings', '/onboarding'];
+const AUTH_ROUTES = ['/dashboard', '/documents', '/tasks', '/clients', '/accounting', '/audit', '/settings', '/onboarding', '/chat'];
 
 // Public routes (no auth required)
 const PUBLIC_ROUTES = ['/', '/login', '/signup', '/auth', '/forgot-password', '/reset-password'];

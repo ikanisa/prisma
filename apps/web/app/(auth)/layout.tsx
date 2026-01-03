@@ -13,6 +13,7 @@ import {
   ClipboardCheck,
   Settings,
   Shield,
+  MessageSquare,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -24,6 +25,7 @@ interface NavItem {
 
 const navigation: NavItem[] = [
   { label: 'Dashboard', href: '/dashboard', icon: Home },
+  { label: 'AI Chat', href: '/chat', icon: MessageSquare },
   { label: 'Documents', href: '/documents', icon: FileText },
   { label: 'Tasks', href: '/tasks', icon: CheckSquare },
   { label: 'Clients', href: '/clients', icon: Users },
@@ -41,7 +43,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
     const checkRole = async () => {
       // Only run on client side
       if (typeof window === 'undefined') return;
-      
+
       let supabase;
       try {
         supabase = createClient();
@@ -85,8 +87,8 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
                 key={item.href}
                 href={item.href}
                 className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${isActive
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
                   }`}
               >
                 <Icon className="h-5 w-5" />
