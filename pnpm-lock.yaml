@@ -132,6 +132,9 @@ importers:
       '@prisma-glow/agents':
         specifier: workspace:*
         version: link:../../packages/agents
+      '@prisma-glow/logger':
+        specifier: workspace:*
+        version: link:../../packages/logger
       '@supabase/supabase-js':
         specifier: ^2.45.0
         version: 2.80.0
@@ -437,6 +440,12 @@ importers:
         version: 20.19.25
       typescript:
         specifier: ^5.3.3
+        version: 5.9.3
+
+  packages/logger:
+    devDependencies:
+      typescript:
+        specifier: ^5.9.3
         version: 5.9.3
 
   packages/security:

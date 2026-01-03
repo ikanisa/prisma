@@ -8,6 +8,7 @@ import express, { Request, Response, NextFunction, Express } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import { createClient } from '@supabase/supabase-js';
+import { logger } from '@prisma-glow/logger';
 import { validateEnv, getSafeEnvConfig } from './config/env.js';
 
 import {
@@ -29,9 +30,9 @@ import { agentExecutionLimiter, autoRouteLimiter } from './middleware/agentRateL
 try {
   validateEnv();
   const safeConfig = getSafeEnvConfig();
-  console.log('📋 Configuration:', safeConfig);
+  logger.info({ config: safeConfig }, 'Gateway configuration loaded');
 } catch (error) {
-  console.error('Failed to start gateway:', error);
+  logger.error({ error }, 'Failed to start gateway');
   process.exit(1);
 }
 
@@ -50,7 +51,7 @@ const ALLOWED_ORIGINS = process.env.GATEWAY_ALLOWED_ORIGINS
 
 // Validate environment
 if (!SUPABASE_URL) {
-  console.warn('Warning: SUPABASE_URL not set. Database operations will fail.');
+  logger.warn('SUPABASE_URL not set - database operations will fail');
 }
 
 if (NODE_ENV === 'production' && ALLOWED_ORIGINS.length === 0) {
@@ -86,12 +87,21 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '10mb' }));
 
-// Request logging
+// Request logging with structured output
 app.use((req: Request, res: Response, next: NextFunction) => {
   const start = Date.now();
+  const requestId = req.headers['x-request-id'] as string || crypto.randomUUID();
+  res.setHeader('x-request-id', requestId);
+  
   res.on('finish', () => {
     const duration = Date.now() - start;
-    console.log(`${req.method} ${req.path} ${res.statusCode} ${duration}ms`);
+    logger.info({
+      requestId,
+      method: req.method,
+      path: req.path,
+      status: res.statusCode,
+      duration,
+    }, 'Request completed');
   });
   next();
 });
@@ -171,8 +181,8 @@ app.use((req: Request, res: Response) => {
 });
 
 // Error handler
-app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
-  console.error('Error:', err.message);
+app.use((err: Error, req: Request, res: Response, _next: NextFunction) => {
+  logger.error({ error: err.message, stack: err.stack }, 'Unhandled error');
   res.status(500).json({
     error: 'Internal server error',
     message: process.env.NODE_ENV === 'development' ? err.message : undefined,
@@ -182,8 +192,8 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
 // Start server
 if (process.env.NODE_ENV !== 'test') {
   app.listen(PORT, () => {
-    console.log(`Gateway API server running on http://localhost:${PORT}`);
-    console.log(`Health check: http://localhost:${PORT}/health`);
+    logger.info({ port: PORT }, 'Gateway API server started');
+    logger.info({ endpoint: `http://localhost:${PORT}/health` }, 'Health check available');
   });
 }
 
