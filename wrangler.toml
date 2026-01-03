@@ -6,7 +6,7 @@
 # Documentation: /docs/cloudflare/DEPLOYMENT.md
 # =============================================================================
 
-name = "prisma-glow"
+name = "prisma"
 compatibility_date = "2025-01-03"
 compatibility_flags = ["nodejs_compat"]
 
@@ -19,7 +19,7 @@ pages_build_output_dir = "apps/web/.next"
 # Production Environment
 # -----------------------------------------------------------------------------
 [env.production]
-name = "prisma-glow"
+name = "prisma"
 
 # Production environment variables are set in Cloudflare Dashboard:
 # - NEXT_PUBLIC_SUPABASE_URL
@@ -31,7 +31,7 @@ name = "prisma-glow"
 # Staging Environment
 # -----------------------------------------------------------------------------
 [env.staging]
-name = "prisma-glow-staging"
+name = "prisma-staging"
 
 # Staging environment variables are set in Cloudflare Dashboard
 

@@ -182,7 +182,7 @@ Configured in `apps/web/public/_headers`:
 pnpm typecheck && pnpm lint && pnpm test
 
 # Build locally to verify
-pnpm --filter @prisma-glow/web build
+pnpm --filter @prisma/web build
 ```
 
 ---
@@ -228,7 +228,7 @@ pnpm --filter @prisma-glow/web build
 
 - [ ] Push to `main` branch (or merge PR)
 - [ ] Verify GitHub Action completes successfully
-- [ ] Check deployment URL: `https://prisma-glow.pages.dev`
+- [ ] Check deployment URL: `https://prisma.pages.dev`
 
 ### Post-Deploy Verification
 
@@ -255,7 +255,7 @@ pnpm --filter @prisma-glow/web build
 Copy these exactly into Cloudflare Pages dashboard:
 
 ```
-Build command:          pnpm install --frozen-lockfile && pnpm --filter @prisma-glow/web build
+Build command:          pnpm install --frozen-lockfile && pnpm --filter @prisma/web build
 Build output directory: apps/web/.next
 Root directory:         /
 Node.js version:        22
@@ -266,7 +266,7 @@ Node.js version:        22
 ```
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<your-anon-key>  (Encrypt ✓)
-NEXT_PUBLIC_APP_URL=https://prisma-glow.pages.dev
+NEXT_PUBLIC_APP_URL=https://prisma.pages.dev
 NODE_VERSION=22
 ```
 
@@ -283,7 +283,7 @@ NEXT_PUBLIC_APP_VERSION=<git-sha>
 
 ### Quick Rollback (< 1 minute)
 
-1. Go to Cloudflare Dashboard > Pages > prisma-glow > Deployments
+1. Go to Cloudflare Dashboard > Pages > prisma > Deployments
 2. Find previous working deployment (green checkmark)
 3. Click ⋮ menu → "Rollback to this deployment"
 4. Confirm
@@ -291,8 +291,8 @@ NEXT_PUBLIC_APP_VERSION=<git-sha>
 ### CLI Rollback
 
 ```bash
-wrangler pages deployment list --project-name=prisma-glow
-wrangler pages deployment rollback <deployment-id> --project-name=prisma-glow
+wrangler pages deployment list --project-name=prisma
+wrangler pages deployment rollback <deployment-id> --project-name=prisma
 ```
 
 ---

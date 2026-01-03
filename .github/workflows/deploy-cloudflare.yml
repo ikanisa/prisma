@@ -12,7 +12,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  CLOUDFLARE_PROJECT_NAME: prisma-glow
+  CLOUDFLARE_PROJECT_NAME: prisma
 
 jobs:
   # ==========================================================================
@@ -53,7 +53,7 @@ jobs:
           NODE_ENV: production
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-          NEXT_PUBLIC_APP_URL: ${{ github.ref == 'refs/heads/main' && 'https://prisma-glow.pages.dev' || github.ref == 'refs/heads/staging' && 'https://staging.prisma-glow.pages.dev' || format('https://{0}.prisma-glow.pages.dev', github.head_ref) }}
+          NEXT_PUBLIC_APP_URL: ${{ github.ref == 'refs/heads/main' && 'https://prisma.pages.dev' || github.ref == 'refs/heads/staging' && 'https://staging.prisma.pages.dev' || format('https://{0}.prisma.pages.dev', github.head_ref) }}
           NEXT_PUBLIC_SENTRY_DSN: ${{ secrets.NEXT_PUBLIC_SENTRY_DSN }}
 
       # ------------------------------------------------------------------------
@@ -96,7 +96,7 @@ jobs:
         with:
           script: |
             const branch = context.payload.pull_request.head.ref;
-            const previewUrl = `https://${branch}.prisma-glow.pages.dev`;
+            const previewUrl = `https://${branch}.prisma.pages.dev`;
             const body = `## 🚀 Preview Deployment Ready\n\n**Preview URL:** ${previewUrl}\n\n_Deployed via Cloudflare Pages_`;
             
             // Find existing comment
@@ -140,7 +140,7 @@ jobs:
 
       - name: Health check
         run: |
-          response=$(curl -s -o /dev/null -w "%{http_code}" https://prisma-glow.pages.dev/)
+          response=$(curl -s -o /dev/null -w "%{http_code}" https://prisma.pages.dev/)
           if [ "$response" != "200" ]; then
             echo "❌ Health check failed with status $response"
             exit 1

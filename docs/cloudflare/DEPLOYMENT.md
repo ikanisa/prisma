@@ -62,11 +62,11 @@ The Express.js gateway API is **not deployed to Cloudflare**. It:
 
 | Setting | Value |
 |---------|-------|
-| **Project name** | `prisma-glow` |
+| **Project name** | `prisma` |
 | **Production branch** | `main` |
 | **Preview branches** | All non-production branches |
 | **Framework preset** | Next.js |
-| **Build command** | `pnpm install --frozen-lockfile && pnpm --filter @prisma-glow/web build` |
+| **Build command** | `pnpm install --frozen-lockfile && pnpm --filter @prisma/web build` |
 | **Build output directory** | `apps/web/.next` |
 | **Root directory** | `/` (repo root) |
 | **Node.js version** | 22 |
@@ -83,7 +83,7 @@ Select **Next.js** in the Cloudflare Pages dashboard. This automatically handles
 
 ## Environment Variables
 
-Set in: **Cloudflare Dashboard > Pages > prisma-glow > Settings > Environment variables**
+Set in: **Cloudflare Dashboard > Pages > prisma > Settings > Environment variables**
 
 ### Required (Production & Preview)
 
@@ -91,7 +91,7 @@ Set in: **Cloudflare Dashboard > Pages > prisma-glow > Settings > Environment va
 |----------|------|-------------|
 | `NEXT_PUBLIC_SUPABASE_URL` | Plain text | Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | **Encrypt** | Supabase anon/public key |
-| `NEXT_PUBLIC_APP_URL` | Plain text | `https://prisma-glow.pages.dev` |
+| `NEXT_PUBLIC_APP_URL` | Plain text | `https://prisma.pages.dev` |
 | `NODE_VERSION` | Plain text | `22` |
 
 ### Optional (Recommended for Production)
@@ -110,19 +110,19 @@ See [ENVIRONMENT_VARIABLES.md](./ENVIRONMENT_VARIABLES.md) for the complete refe
 ### Production (main branch)
 
 - **Trigger**: Auto-deploys on push to `main`
-- **URL**: `https://prisma-glow.pages.dev`
+- **URL**: `https://prisma.pages.dev`
 - **Custom domain**: Configure in Cloudflare DNS
 
 ### Preview (PR branches)
 
 - **Trigger**: Auto-deploys for all pull requests
-- **URL**: `https://<commit-hash>.prisma-glow.pages.dev`
+- **URL**: `https://<commit-hash>.prisma.pages.dev`
 - **GitHub comment**: Deployment URL posted automatically
 
 ### Staging Environment
 
 1. Create a `staging` branch in GitHub
-2. Cloudflare Pages will auto-deploy to: `https://staging.prisma-glow.pages.dev`
+2. Cloudflare Pages will auto-deploy to: `https://staging.prisma.pages.dev`
 3. Set staging-specific environment variables in Cloudflare Dashboard
 
 ---
@@ -133,7 +133,7 @@ The workflow at `.github/workflows/deploy-cloudflare.yml` handles:
 
 1. ✅ Install dependencies (`pnpm install --frozen-lockfile`)
 2. ✅ Run typecheck (`pnpm typecheck`)
-3. ✅ Build for production (`pnpm --filter @prisma-glow/web build`)
+3. ✅ Build for production (`pnpm --filter @prisma/web build`)
 4. ✅ Deploy to Cloudflare Pages via wrangler
 
 ### Required GitHub Secrets
@@ -164,13 +164,13 @@ pnpm add -g wrangler
 wrangler login
 
 # Build the web app
-pnpm --filter @prisma-glow/web build
+pnpm --filter @prisma/web build
 
 # Preview locally with Cloudflare Pages runtime
 wrangler pages dev apps/web/.next --compatibility-flags=nodejs_compat
 
 # Deploy manually (if not using GitHub Actions)
-wrangler pages deploy apps/web/.next --project-name=prisma-glow
+wrangler pages deploy apps/web/.next --project-name=prisma
 ```
 
 ---
@@ -179,7 +179,7 @@ wrangler pages deploy apps/web/.next --project-name=prisma-glow
 
 ### Via Cloudflare Dashboard (Recommended)
 
-1. Go to **Cloudflare Dashboard > Pages > prisma-glow > Deployments**
+1. Go to **Cloudflare Dashboard > Pages > prisma > Deployments**
 2. Find the last known good deployment (green checkmark)
 3. Click the three dots menu → **Rollback to this deployment**
 4. Confirm the rollback
@@ -189,10 +189,10 @@ wrangler pages deploy apps/web/.next --project-name=prisma-glow
 
 ```bash
 # List recent deployments
-wrangler pages deployment list --project-name=prisma-glow
+wrangler pages deployment list --project-name=prisma
 
 # Rollback to specific deployment
-wrangler pages deployment rollback <deployment-id> --project-name=prisma-glow
+wrangler pages deployment rollback <deployment-id> --project-name=prisma
 ```
 
 ### Emergency Rollback Contacts
@@ -210,7 +210,7 @@ If rollback fails:
 
 **Cause**: Required `NEXT_PUBLIC_*` variables not set  
 **Fix**: 
-1. Go to Cloudflare Dashboard > Pages > prisma-glow > Settings > Environment variables
+1. Go to Cloudflare Dashboard > Pages > prisma > Settings > Environment variables
 2. Add all required variables for both Production and Preview environments
 3. Trigger a new deployment
 
@@ -218,7 +218,7 @@ If rollback fails:
 
 **Cause**: Server-side code error  
 **Fix**:
-1. Check Cloudflare Pages function logs: Dashboard > Pages > prisma-glow > Functions
+1. Check Cloudflare Pages function logs: Dashboard > Pages > prisma > Functions
 2. Check Sentry for error details
 3. Common causes: missing env vars, Supabase connection issues
 
@@ -295,7 +295,7 @@ Since this is an internal staff-only system, add Cloudflare Access for network-l
 3. Configure:
    - **Application name**: `Prisma Glow`
    - **Session duration**: 24 hours
-   - **Application domain**: `prisma-glow.pages.dev`
+   - **Application domain**: `prisma.pages.dev`
 4. Add access policy:
    - **Policy name**: `Staff Access`
    - **Action**: Allow
@@ -321,11 +321,11 @@ This provides **two layers of protection**:
 ### Cloudflare Analytics
 
 - Enabled by default for all Pages projects
-- View in: Dashboard > Pages > prisma-glow > Analytics
+- View in: Dashboard > Pages > prisma > Analytics
 
 ### Health Check
 
 After deployment, verify:
-- [ ] Homepage loads: `https://prisma-glow.pages.dev/`
-- [ ] Login works: `https://prisma-glow.pages.dev/login`
+- [ ] Homepage loads: `https://prisma.pages.dev/`
+- [ ] Login works: `https://prisma.pages.dev/login`
 - [ ] Supabase connection: Check network tab for successful API calls

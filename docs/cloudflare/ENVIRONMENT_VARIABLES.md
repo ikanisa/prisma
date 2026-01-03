@@ -23,7 +23,7 @@ These variables are embedded in the client bundle during build. **Must use `NEXT
 |------|----------|-----|------|------------|---------|------------|
 | `NEXT_PUBLIC_SUPABASE_URL` | ✅ Yes | All | Plain text | Supabase client (`lib/supabase/client.ts`) | `https://xxx.supabase.co` | Dashboard > Environment variables |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | ✅ Yes | All | **Secret** | Supabase client | `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...` | Dashboard > Environment variables (Encrypt) |
-| `NEXT_PUBLIC_APP_URL` | ✅ Yes | All | Plain text | CORS, redirects, PWA | `https://prisma-glow.pages.dev` | Dashboard > Environment variables |
+| `NEXT_PUBLIC_APP_URL` | ✅ Yes | All | Plain text | CORS, redirects, PWA | `https://prisma.pages.dev` | Dashboard > Environment variables |
 | `NEXT_PUBLIC_SENTRY_DSN` | Optional | Prod | **Secret** | Error tracking (`sentry.client.config.ts`) | `https://xxx@sentry.io/yyy` | Dashboard > Environment variables (Encrypt) |
 | `NEXT_PUBLIC_APP_VERSION` | Optional | Prod | Plain text | Sentry release tracking | `1.2.3` or `abc123` | Dashboard > Environment variables |
 
@@ -46,7 +46,7 @@ These are used by the Express.js gateway (`apps/gateway`) running on a separate 
 | `OPENAI_API_KEY` | AI features | **Secret** | AI agents | `sk-...` |
 | `GEMINI_API_KEY` | AI features | **Secret** | Gemini agents | `AIza...` |
 | `RAG_SERVICE_URL` | AI features | Plain text | RAG integration | `https://rag.example.com` |
-| `GATEWAY_ALLOWED_ORIGINS` | ✅ Prod | Plain text | CORS config | `https://prisma-glow.pages.dev` |
+| `GATEWAY_ALLOWED_ORIGINS` | ✅ Prod | Plain text | CORS config | `https://prisma.pages.dev` |
 | `PORT` | Optional | Plain text | Server port | `3001` |
 | `NODE_ENV` | Optional | Plain text | Environment | `production` |
 | `REDIS_URL` | Rate limiting | **Secret** | Rate limiter | `redis://...` |
@@ -70,7 +70,7 @@ These are automatically set by Cloudflare Pages during build.
 
 ### Via Dashboard (Recommended)
 
-1. Go to **Cloudflare Dashboard** → **Pages** → **prisma-glow**
+1. Go to **Cloudflare Dashboard** → **Pages** → **prisma**
 2. Click **Settings** → **Environment variables**
 3. Add variables for each environment:
    - **Production**: Used for `main` branch deployments
@@ -81,18 +81,18 @@ These are automatically set by Cloudflare Pages during build.
 
 ```bash
 # Set a plain text variable
-wrangler pages secret put NEXT_PUBLIC_SUPABASE_URL --project-name=prisma-glow
+wrangler pages secret put NEXT_PUBLIC_SUPABASE_URL --project-name=prisma
 # (prompts for value interactively)
 
 # List current secrets
-wrangler pages secret list --project-name=prisma-glow
+wrangler pages secret list --project-name=prisma
 ```
 
 ### Environment-Specific Values
 
 | Variable | Production | Preview/Staging |
 |----------|------------|-----------------|
-| `NEXT_PUBLIC_APP_URL` | `https://prisma-glow.pages.dev` | `https://staging.prisma-glow.pages.dev` |
+| `NEXT_PUBLIC_APP_URL` | `https://prisma.pages.dev` | `https://staging.prisma.pages.dev` |
 | `NEXT_PUBLIC_SUPABASE_URL` | Production Supabase | Staging Supabase |
 | Sentry DSN | Production project | Staging project |
 
@@ -127,7 +127,7 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000
 
 Then run:
 ```bash
-pnpm --filter @prisma-glow/web dev
+pnpm --filter @prisma/web dev
 ```
 
 ---
