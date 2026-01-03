@@ -10,7 +10,8 @@ import { Button } from '@/components/ui/button';
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { user, role, signOut } = useAuth();
+  const { user, profile, signOut } = useAuth();
+  const role = profile?.role;
   const navigation = getNavigationForRole(role);
 
   return (
@@ -19,14 +20,14 @@ export function Sidebar() {
         <Link href="/" className="text-xl font-bold text-primary">
           Prisma Glow
         </Link>
-        {role === 'admin' && (
+        {role === 'SYSTEM_ADMIN' && (
           <span className="ml-2 rounded bg-destructive px-2 py-0.5 text-xs font-medium text-destructive-foreground">
             Admin
           </span>
         )}
-        {role === 'client' && (
+        {role === 'STAFF' && (
           <span className="ml-2 rounded bg-secondary px-2 py-0.5 text-xs font-medium text-secondary-foreground">
-            Client
+            Staff
           </span>
         )}
       </div>

@@ -15,8 +15,8 @@ interface MobileSidebarProps {
 
 export function MobileSidebar({ isOpen, onClose }: MobileSidebarProps) {
   const pathname = usePathname();
-  const { role } = useAuth();
-  const navigation = getNavigationForRole(role);
+  const { profile } = useAuth();
+  const navigation = getNavigationForRole(profile?.role);
 
   if (!isOpen) return null;
 

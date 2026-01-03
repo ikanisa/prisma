@@ -3,7 +3,7 @@
  * Provides structured offline storage for PWA functionality
  */
 
-import { openDB, DBSchema, IDBPDatabase } from 'idb';
+import { openDB, type IDBPDatabase } from 'idb';
 
 export interface OfflineDocument {
   id: string;
@@ -38,21 +38,29 @@ export interface OfflineCache {
   expiresAt: number;
 }
 
-interface PrismaGlowDB extends DBSchema {
+interface PrismaGlowDB {
   documents: {
     key: string;
     value: OfflineDocument;
-    indexes: { 'by-synced': boolean; 'by-updated': number };
+    indexes: {
+      'by-synced': boolean;
+      'by-updated': number;
+    };
   };
   actions: {
     key: string;
     value: OfflineAction;
-    indexes: { 'by-timestamp': number; 'by-retries': number };
+    indexes: {
+      'by-timestamp': number;
+      'by-retries': number;
+    };
   };
   cache: {
     key: string;
     value: OfflineCache;
-    indexes: { 'by-expires': number };
+    indexes: {
+      'by-expires': number;
+    };
   };
 }
 
@@ -133,7 +141,8 @@ export const documents = {
 
   async getUnsynced(): Promise<OfflineDocument[]> {
     const db = await getDB();
-    return db.getAllFromIndex('documents', 'by-synced', false);
+    const all = await db.getAll('documents');
+    return all.filter((doc) => !doc.synced);
   },
 
   async delete(id: string): Promise<void> {
@@ -228,7 +237,7 @@ export const cache = {
     const tx = db.transaction('cache', 'readwrite');
     const index = tx.store.index('by-expires');
     const range = IDBKeyRange.upperBound(now);
-    
+
     for await (const cursor of index.iterate(range)) {
       await cursor.delete();
     }

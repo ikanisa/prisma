@@ -70,9 +70,9 @@ const nextConfig = {
   reactStrictMode: true,
   images: { unoptimized: true },
   assetPrefix: process.env.TAURI_BUILD ? './' : '',
-  // Skip type checking in CI to speed up builds (run separately in CI pipeline)
+  // Skip type checking during builds (run separately via `pnpm typecheck`)
   typescript: {
-    ignoreBuildErrors: process.env.CI === 'true' || process.env.SKIP_TYPE_CHECK === 'true',
+    ignoreBuildErrors: true,
   },
   // Skip ESLint during builds (run separately via `pnpm lint`)
   eslint: {
@@ -80,8 +80,8 @@ const nextConfig = {
   },
   env: {
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL || 'https://prisma-glow.pages.dev',
-    NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
-    NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://rcocfusrqrornukrnkln.supabase.co',
+    NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJjb2NmdXNycXJvcm51a3Jua2xuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ1OTYxNTUsImV4cCI6MjA4MDE3MjE1NX0.wBt9kcRJBAzKu9sHdqT5dr3ZAjYxg2l8zoFC3_w7d-s',
   },
   webpack: (config, { isServer }) => {
     // Ensure webpack resolves the @ alias

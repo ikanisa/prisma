@@ -13,7 +13,8 @@ import {
   BookOpen,
   type LucideIcon,
 } from 'lucide-react';
-import type { UserRole } from '@/components/features/auth/auth-provider';
+
+type AppRole = 'SYSTEM_ADMIN' | 'STAFF' | undefined | null;
 
 export interface NavItem {
   label: string;
@@ -46,17 +47,15 @@ export const clientNavigation: NavItem[] = [
   { label: 'Requests', href: '/portal/requests', icon: CheckSquare },
 ];
 
-export function getNavigationForRole(role: UserRole): {
+export function getNavigationForRole(role: AppRole): {
   main: NavItem[];
   admin?: NavItem[];
 } {
   switch (role) {
-    case 'admin':
+    case 'SYSTEM_ADMIN':
       return { main: staffNavigation, admin: adminNavigation };
-    case 'staff':
+    case 'STAFF':
       return { main: staffNavigation };
-    case 'client':
-      return { main: clientNavigation };
     default:
       return { main: staffNavigation };
   }

@@ -11,8 +11,6 @@
   "scripts": {
     "dev": "turbo dev --filter=!@prisma-glow/docs",
     "dev:web": "pnpm --filter @prisma-glow/web dev",
-    "dev:client": "pnpm --filter @prisma-glow/client dev",
-    "dev:admin": "pnpm --filter @prisma-glow/admin dev",
     "dev:tauri": "cd src-tauri && cargo tauri dev",
     "build": "turbo build",
     "build:web": "pnpm --filter @prisma-glow/web build",

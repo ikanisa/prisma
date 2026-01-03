@@ -1,8 +1,9 @@
 'use client';
 
-import { type ReactNode } from 'react';
+import { type ReactNode, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { createBrowserClient } from '@supabase/ssr';
 import {
   Home,
   FileText,
@@ -11,6 +12,7 @@ import {
   Calculator,
   ClipboardCheck,
   Settings,
+  Shield,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -32,6 +34,32 @@ const navigation: NavItem[] = [
 
 export default function AuthLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+
+  useEffect(() => {
+    const checkRole = async () => {
+      const supabase = createBrowserClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      );
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setUserEmail(user.email ?? null);
+
+        const { data: profile } = await supabase
+          .from('user_profiles')
+          .select('role')
+          .eq('id', user.id)
+          .single();
+
+        setIsAdmin(profile?.role === 'SYSTEM_ADMIN');
+      }
+    };
+
+    checkRole();
+  }, []);
 
   return (
     <div className="flex min-h-screen">
@@ -51,11 +79,10 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                  isActive
+                className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${isActive
                     ? 'bg-primary text-primary-foreground'
                     : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-                }`}
+                  }`}
               >
                 <Icon className="h-5 w-5" />
                 {item.label}
@@ -64,14 +91,18 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
           })}
         </nav>
 
-        <div className="mt-auto border-t border-border p-4">
-          <Link
-            href="/admin"
-            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
-          >
-            Admin Console →
-          </Link>
-        </div>
+        {/* Admin Console link - only show for admins */}
+        {isAdmin && (
+          <div className="mt-auto border-t border-border p-4">
+            <Link
+              href="/admin"
+              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+            >
+              <Shield className="h-4 w-4" />
+              Admin Console →
+            </Link>
+          </div>
+        )}
       </aside>
 
       {/* Main content */}
@@ -80,7 +111,14 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
         <header className="flex h-16 items-center justify-between border-b border-border bg-card px-6">
           <h1 className="text-lg font-semibold text-foreground">Dashboard</h1>
           <div className="flex items-center gap-4">
-            <span className="text-sm text-muted-foreground">Staff User</span>
+            <span className="text-sm text-muted-foreground">
+              {userEmail ?? 'Loading...'}
+            </span>
+            {isAdmin && (
+              <span className="rounded bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700">
+                Admin
+              </span>
+            )}
           </div>
         </header>
 
@@ -90,3 +128,4 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
     </div>
   );
 }
+

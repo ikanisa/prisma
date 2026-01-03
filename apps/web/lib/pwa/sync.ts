@@ -84,7 +84,7 @@ export async function syncOfflineActions(): Promise<SyncResult> {
 
   try {
     const pending = await actions.getPending();
-    
+
     for (const action of pending) {
       const success = await processAction(action);
       if (success) {
@@ -170,9 +170,8 @@ export async function queueAction(
 /**
  * Clear expired cache entries
  */
-export async function cleanupCache(): Promise<number> {
-  const before = (await cache.clearExpired()).length;
-  return before;
+export async function cleanupCache(): Promise<void> {
+  await cache.clearExpired();
 }
 
 /**
