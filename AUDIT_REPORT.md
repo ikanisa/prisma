@@ -270,6 +270,70 @@ RLS policies found in 50+ migration files:
 
 ---
 
+## AI/Agent Findings
+
+### Agent Registry
+- **27 agents** across 4 categories:
+  - Tax: 8 agents (Malta, Rwanda, WHT, Excise, Incentives)
+  - Audit: 8 agents (Materiality, Documentation, Ethics, IT, Internal, ESG, Forensic, Public Sector)
+  - Accounting: 8 agents (Financial Instruments, Income Taxes, Employee Benefits, Provisions, Impairment, FX, Share-based, Agriculture)
+  - Corporate: 6 agents (KYC/AML, Board, Licensing, Share Capital, HR, Migration)
+
+### Security Controls (security.py - 461 lines)
+- ✅ `AgentSecurity.check_access` - RBAC checks against database
+- ✅ `AgentSecurity.detect_pii` - PII detection (email, phone, SSN, credit cards)
+- ✅ `AgentSecurity.classify_data` - Data sensitivity classification
+- ✅ `AgentSecurity.sanitize_input` - Injection prevention
+- ✅ `DataResidency` - EU/RW data residency compliance
+- ✅ `ComplianceValidator.validate_gdpr_compliance` - GDPR checks
+- ✅ `ComplianceValidator.validate_data_protection_act_rw` - Rwanda DPA
+
+### Audit Logging (audit_logger.py - 505 lines)
+- ✅ `log_agent_execution` - Agent runs with token usage
+- ✅ `log_tool_invocation` - Tool calls with args/results
+- ✅ `log_access_decision` - Access allowed/denied
+- ✅ `log_pii_detection` - PII detected events
+- ✅ `log_rate_limit` - Rate limit exceeded
+- ✅ `log_configuration_change` - Agent config changes
+
+### Agent Safety
+- ✅ Dual engine support (OpenAI + Gemini fallback)
+- ✅ Tool registry with deepsearch, semantic search, calculator
+- ✅ Knowledge base scopes per agent
+- ⚠️ Prompt injection tests needed (add to CI)
+
+---
+
+## DevOps Findings
+
+### CI/CD (31 workflows)
+| Workflow | Purpose | Status |
+|----------|---------|--------|
+| `ci.yml` | Main CI (typecheck, lint, test, build) | ✅ |
+| `codeql.yml` | Security analysis | ✅ |
+| `gitleaks.yml` | Secret scanning | ✅ |
+| `security.yml` | Security checks | ✅ |
+| `desktop-app-release.yml` | Desktop builds | ✅ |
+| `supabase-migrate.yml` | DB migrations | ✅ |
+
+### Coverage Targets (in ci.yml)
+- Statements: 85%
+- Branches: 80%
+- Functions: 85%
+- Lines: 85%
+
+### Bundle Budgets
+- Max main gzip: 300KB
+- Max chunk gzip: 250KB
+
+### Observability
+- ✅ Structured logging (structlog in Python)
+- ✅ Sentry integration configured
+- ✅ Request ID tracking
+- ⚠️ Distributed tracing not implemented
+
+---
+
 ## Remediation Summary
 
 ### Immediate Actions (24-48h)

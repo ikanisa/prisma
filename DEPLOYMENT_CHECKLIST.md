@@ -1,375 +1,196 @@
-# Netlify + Supabase Deployment Checklist
+# Deployment Checklist - Consolidation Migrations
 
-This checklist ensures successful deployment of Prisma Glow to Netlify with Supabase backend.
-
-## Pre-Deployment Steps
-
-### ✅ Code Quality
-- [x] Run `pnpm install --frozen-lockfile` - Dependencies installed
-- [x] Run `pnpm run typecheck` - TypeScript validation passes
-- [x] Run `pnpm run lint` - Code style validated (ESLint may need fixing)
-- [ ] Run `pnpm run test` - All tests pass
-- [ ] Run `pnpm run build:netlify` - Production build succeeds
-- [x] All changes committed to git
-- [x] ADR created and documented
-
-### ✅ Configuration Files
-- [x] `netlify.toml` exists and is configured
-- [ ] `.env.production` configured locally (not committed)
-- [x] `.env.example` updated with required variables
-- [ ] `supabase/config.toml` configured
-- [x] GitHub workflow `deploy-netlify.yml` created
-
-### ✅ Documentation
-- [x] Architecture documentation updated
-- [x] Deployment guide created (`docs/deployment/netlify-supabase.md`)
-- [x] Migration script created (`scripts/migrate-to-netlify.sh`)
-- [x] ADR 003 created and approved
-- [x] Old documentation removed/updated
-
-## Netlify Setup
-
-### Account & Project Setup
-- [ ] Netlify account created at https://app.netlify.com
-- [ ] GitHub repository connected
-- [ ] New site created or existing site configured
-- [ ] Site ID obtained and saved
-
-### Build Configuration
-- [ ] Build command set to: `pnpm run build:netlify`
-- [ ] Publish directory set to: `dist`
-- [ ] Base directory: (leave empty)
-- [ ] Node version set to: `20`
-- [ ] Build environment variables configured
-
-### Environment Variables (Netlify Dashboard)
-- [ ] `NEXT_PUBLIC_SUPABASE_URL` set
-- [ ] `NEXT_PUBLIC_SUPABASE_ANON_KEY` set
-- [ ] `SUPABASE_SERVICE_ROLE_KEY` set (sensitive)
-- [ ] `SUPABASE_PROJECT_ID` set
-- [ ] `NODE_ENV` set to `production`
-- [ ] `PNPM_VERSION` set to `9.12.3`
-- [ ] `NEXT_PUBLIC_SENTRY_DSN` set (optional)
-- [ ] `SENTRY_AUTH_TOKEN` set (optional, sensitive)
-
-### Deployment Settings
-- [ ] Automatic deploys enabled for main branch
-- [ ] Deploy previews enabled for pull requests
-- [ ] Branch deploys configured (optional)
-- [ ] Deploy notifications configured
-
-### Domain & SSL
-- [ ] Custom domain added (optional)
-- [ ] DNS records configured (if custom domain)
-- [ ] SSL certificate provisioned (automatic)
-- [ ] HTTPS redirect enabled
-- [ ] Domain verified and active
-
-## Supabase Setup
-
-### Project Creation
-- [ ] Supabase account created at https://app.supabase.com
-- [ ] New project created
-- [ ] Project name: `prisma-glow-prod`
-- [ ] Region selected (closest to users)
-- [ ] Database password saved securely
-- [ ] Project URL noted: `https://YOUR_PROJECT_REF.supabase.co`
-
-### Database Configuration
-- [ ] Supabase CLI installed: `npm install -g supabase`
-- [ ] CLI authenticated: `supabase login`
-- [ ] Project linked: `supabase link --project-ref YOUR_PROJECT_REF`
-- [ ] Database migrations applied: `supabase db push`
-- [ ] Schema validated
-- [ ] Test data seeded (optional)
-
-### Row Level Security (RLS)
-- [ ] RLS enabled on all tables: `ALTER TABLE tablename ENABLE ROW LEVEL SECURITY;`
-- [ ] Read policies created and tested
-- [ ] Write policies created and tested
-- [ ] Delete policies created and tested
-- [ ] Admin bypass policies created (if needed)
-- [ ] Policies tested with different user roles
-
-### Authentication Setup
-- [ ] Email/Password provider enabled
-- [ ] Email confirmation configured (optional)
-- [ ] Password reset flow configured
-- [ ] Site URL set to Netlify domain
-- [ ] Redirect URLs configured:
-  - [ ] `https://your-site.netlify.app/auth/callback`
-  - [ ] `http://localhost:3000/auth/callback` (dev)
-- [ ] OAuth providers enabled (optional):
-  - [ ] Google OAuth configured
-  - [ ] GitHub OAuth configured
-  - [ ] Provider credentials saved
-
-### Edge Functions
-- [ ] Edge Functions created in `supabase/functions/`
-- [ ] Functions deployed: `supabase functions deploy`
-- [ ] Function environment variables set
-- [ ] CORS headers configured
-- [ ] Functions tested with curl/Postman
-- [ ] Function logs reviewed
-
-### Storage
-- [ ] Storage buckets created
-- [ ] Bucket policies configured
-- [ ] Public access configured (if needed)
-- [ ] File upload tested
-- [ ] CDN enabled for storage
-- [ ] File size limits configured
-
-### API Keys & Secrets
-- [ ] Anon key obtained from Supabase dashboard
-- [ ] Service role key obtained (keep secure!)
-- [ ] JWT secret noted (for verification)
-- [ ] Database connection string obtained
-- [ ] Keys added to Netlify environment variables
-
-## GitHub Actions Setup
-
-### Repository Secrets
-- [ ] `NETLIFY_AUTH_TOKEN` added to GitHub secrets
-- [ ] `NETLIFY_SITE_ID` added to GitHub secrets
-- [ ] `NETLIFY_STAGING_SITE_ID` added (optional)
-- [ ] `NEXT_PUBLIC_SUPABASE_URL` added
-- [ ] `NEXT_PUBLIC_SUPABASE_ANON_KEY` added
-- [ ] `SUPABASE_SERVICE_ROLE_KEY` added
-
-### Workflow Validation
-- [ ] `.github/workflows/deploy-netlify.yml` exists
-- [ ] Workflow syntax validated
-- [ ] Workflow triggers configured correctly
-- [ ] Workflow permissions set appropriately
-
-### Netlify Personal Access Token
-- [ ] Token created in Netlify: User settings → Applications → New access token
-- [ ] Token name: `GitHub Actions`
-- [ ] Token saved to GitHub secrets as `NETLIFY_AUTH_TOKEN`
-
-## First Deployment
-
-### Pre-Deploy Validation
-- [ ] All code changes committed
-- [ ] All tests passing locally
-- [ ] Build succeeds locally: `pnpm run build:netlify`
-- [ ] No sensitive data in code
-- [ ] `.env` files not committed
-
-### Deploy to Production
-- [ ] Create deployment branch or merge to main
-- [ ] Push to GitHub: `git push origin main`
-- [ ] Monitor GitHub Actions workflow
-- [ ] Monitor Netlify deploy log
-- [ ] Wait for deployment completion (~5-10 minutes)
-
-### Initial Deployment Checks
-- [ ] Deployment succeeded (green checkmark in Netlify)
-- [ ] No build errors in Netlify logs
-- [ ] No deployment errors in GitHub Actions
-- [ ] Site accessible at deployment URL
-- [ ] No console errors in browser DevTools
-
-## Post-Deployment Verification
-
-### Functional Testing
-- [ ] Site loads correctly
-- [ ] All pages accessible
-- [ ] Navigation works
-- [ ] Forms submit successfully
-- [ ] API calls succeed
-
-### Authentication Testing
-- [ ] Registration flow works
-- [ ] Login flow works
-- [ ] Logout works
-- [ ] Password reset works
-- [ ] OAuth login works (if configured)
-- [ ] Protected routes require authentication
-- [ ] JWT tokens generated correctly
-
-### Database Testing
-- [ ] Database queries succeed
-- [ ] Data displays correctly
-- [ ] CRUD operations work
-- [ ] RLS policies enforced
-- [ ] No unauthorized data access
-
-### PWA Testing
-#### Desktop
-- [ ] PWA install prompt appears
-- [ ] App installs successfully
-- [ ] Installed app opens in standalone window
-- [ ] App icon displays correctly
-- [ ] Service worker registered
-- [ ] Offline mode works
-- [ ] Cache updates correctly
-
-#### Mobile
-- [ ] Open site in mobile browser
-- [ ] "Add to Home Screen" option available
-- [ ] App installs successfully
-- [ ] App icon on home screen
-- [ ] Splash screen displays
-- [ ] Offline mode works
-- [ ] Push notifications work (if implemented)
-
-### Performance Testing
-- [ ] Lighthouse audit run (Chrome DevTools → Lighthouse)
-- [ ] Performance score ≥90
-- [ ] Accessibility score ≥95
-- [ ] Best Practices score ≥95
-- [ ] SEO score ≥90
-- [ ] PWA score = 100
-- [ ] First Contentful Paint (FCP) <1.8s
-- [ ] Time to Interactive (TTI) <3.8s
-- [ ] Total Blocking Time (TBT) <300ms
-- [ ] Cumulative Layout Shift (CLS) <0.1
-
-### Load Testing
-- [ ] k6 performance tests run: `pnpm run test:performance`
-- [ ] Artillery load tests run: `pnpm run load:test`
-- [ ] Test results reviewed
-- [ ] No errors under load
-- [ ] Response times acceptable
-- [ ] Edge Functions handle concurrent requests
-
-### Security Testing
-- [ ] HTTPS enabled and forced
-- [ ] Security headers present (check in browser Network tab)
-- [ ] No mixed content warnings
-- [ ] XSS protection active
-- [ ] CSRF protection active
-- [ ] RLS policies tested with different users
-- [ ] No sensitive data in client bundle
-- [ ] API keys not exposed in frontend
-
-### Edge Function Testing
-- [ ] All Edge Functions respond correctly
-- [ ] CORS headers present
-- [ ] Error handling works
-- [ ] Rate limiting enforced (if implemented)
-- [ ] Logs available in Supabase dashboard
-- [ ] Function performance acceptable
-
-## Monitoring & Observability
-
-### Netlify Monitoring
-- [ ] Netlify Analytics enabled (optional, $9/month)
-- [ ] Deploy notifications configured:
-  - [ ] Email notifications
-  - [ ] Slack notifications (optional)
-- [ ] Custom alerts configured
-- [ ] Build logs accessible
-
-### Supabase Monitoring
-- [ ] Database monitoring dashboard reviewed
-- [ ] API usage metrics checked
-- [ ] Edge Function logs reviewed
-- [ ] Connection pool utilization checked
-- [ ] Storage usage monitored
-
-### Sentry Error Tracking
-- [ ] Sentry project created
-- [ ] Sentry DSN configured
-- [ ] Source maps uploaded
-- [ ] Error tracking active
-- [ ] Alerts configured for critical errors
-- [ ] Release tracking configured
-
-### Uptime Monitoring (Optional)
-- [ ] External uptime monitor configured:
-  - [ ] Pingdom, UptimeRobot, or Better Uptime
-- [ ] Check interval: 1-5 minutes
-- [ ] Alert email configured
-- [ ] Alert SMS/Slack configured (optional)
-- [ ] Status page created (optional)
-
-## Rollback Plan
-
-### Netlify Rollback
-- [ ] Previous deploy ID noted
-- [ ] Rollback tested in staging
-- [ ] Rollback command ready: `netlify deploy:rollback DEPLOY_ID`
-- [ ] Team notified of rollback procedure
-- [ ] Communication plan in place
-
-### Database Rollback
-- [ ] Database backup verified
-- [ ] Rollback SQL scripts prepared
-- [ ] Rollback tested in staging
-- [ ] Downtime communication plan ready
-
-## Documentation Updates
-
-### Internal Documentation
-- [ ] Deployment guide updated
-- [ ] Architecture diagrams updated
-- [ ] API documentation updated
-- [ ] Environment variable docs updated
-- [ ] Troubleshooting guide updated
-
-### Team Communication
-- [ ] Team notified of deployment
-- [ ] Deployment notes shared
-- [ ] Known issues documented
-- [ ] Support contact information shared
-- [ ] Incident response plan reviewed
-
-## Ongoing Maintenance
-
-### Daily Tasks
-- [ ] Monitor error rates
-- [ ] Check build status
-- [ ] Review performance metrics
-- [ ] Monitor uptime
-
-### Weekly Tasks
-- [ ] Review Lighthouse scores
-- [ ] Check dependency updates
-- [ ] Review security alerts
-- [ ] Backup verification
-
-### Monthly Tasks
-- [ ] Database backup verification
-- [ ] Load testing
-- [ ] SSL certificate renewal check (automatic on Netlify)
-- [ ] Access token rotation
-- [ ] Cost review
-
-## Success Criteria
-
-- [x] Phase 1 Complete: Infrastructure cleaned up
-- [ ] Deployment successful
-- [ ] All tests passing
-- [ ] Performance targets met
-- [ ] Security scan passed
-- [ ] PWA scores 100
-- [ ] No critical errors in monitoring
-- [ ] Team trained on new architecture
-- [ ] Documentation complete
-
-## Emergency Contacts
-
-- **Primary On-Call**: [Name/Contact]
-- **Secondary On-Call**: [Name/Contact]
-- **Netlify Support**: https://www.netlify.com/support/
-- **Supabase Support**: https://supabase.com/support
-- **Team Slack Channel**: [Channel name]
-
-## Additional Resources
-
-- **Deployment Guide**: `docs/deployment/netlify-supabase.md`
-- **Migration Script**: `scripts/migrate-to-netlify.sh`
-- **ADR 003**: `docs/adr/003-netlify-supabase-migration.md`
-- **Netlify Docs**: https://docs.netlify.com
-- **Supabase Docs**: https://supabase.com/docs
-- **Netlify Status**: https://netlifystatus.com
-- **Supabase Status**: https://status.supabase.com
+**Date:** 2025-01-03  
+**Migrations to Deploy:**
+- `20250103000000_core_functions_consolidation.sql`
+- `20250103000001_enums_consolidation.sql`
 
 ---
 
-**Checklist Version**: 1.0.0  
-**Last Updated**: 2025-11-07  
-**Status**: Phase 1 Complete (Infrastructure Cleanup)
+## Pre-Deployment Checklist
+
+### ✅ Code Review
+- [x] Migration files reviewed
+- [x] Syntax validated
+- [x] Documentation verified
+- [x] Security best practices confirmed (SECURITY DEFINER, search_path)
+
+### ⏳ Pre-Deployment Steps
+
+- [ ] **Backup Database**
+  ```bash
+  # Create backup before deployment
+  pg_dump "$DATABASE_URL" > backup_before_consolidation_$(date +%Y%m%d_%H%M%S).sql
+  ```
+
+- [ ] **Verify Current State**
+  ```sql
+  -- Check existing functions
+  SELECT proname, pronamespace::regnamespace as schema
+  FROM pg_proc
+  WHERE proname IN ('is_member_of', 'has_min_role', 'touch_updated_at', 'handle_new_user', 'current_user_id')
+  ORDER BY proname, schema;
+  
+  -- Check existing enums
+  SELECT typname, typnamespace::regnamespace as schema
+  FROM pg_type
+  WHERE typname IN ('org_role', 'role_level', 'engagement_status', 'severity_level', 
+                    'reconciliation_type', 'reconciliation_item_category')
+  ORDER BY typname, schema;
+  ```
+
+- [ ] **Check Migration Status**
+  ```bash
+  supabase migration list --linked
+  ```
+
+---
+
+## Staging Deployment
+
+### Step 1: Deploy to Staging
+
+```bash
+# Connect to staging database
+supabase db push --linked
+```
+
+### Step 2: Verify Functions
+
+```sql
+-- Verify functions exist and are correct
+SELECT 
+  p.proname as function_name,
+  pg_get_function_arguments(p.oid) as arguments,
+  pg_get_function_result(p.oid) as return_type,
+  p.prosecdef as security_definer,
+  p.proconfig as search_path_config
+FROM pg_proc p
+JOIN pg_namespace n ON p.pronamespace = n.oid
+WHERE n.nspname = 'public'
+  AND p.proname IN ('is_member_of', 'has_min_role', 'touch_updated_at', 
+                    'handle_new_user', 'current_user_id')
+ORDER BY p.proname;
+```
+
+### Step 3: Verify Enums
+
+```sql
+-- Verify enums exist
+SELECT 
+  t.typname as enum_name,
+  array_agg(e.enumlabel ORDER BY e.enumsortorder) as enum_values
+FROM pg_type t
+JOIN pg_enum e ON t.oid = e.enumtypid
+WHERE t.typname IN ('org_role', 'role_level', 'engagement_status', 'severity_level',
+                    'reconciliation_type', 'reconciliation_item_category')
+GROUP BY t.typname
+ORDER BY t.typname;
+```
+
+### Step 4: Test RLS Policies
+
+```sql
+-- Test that RLS functions work
+SELECT public.is_member_of('00000000-0000-0000-0000-000000000000'::uuid);
+SELECT public.has_min_role('00000000-0000-0000-0000-000000000000'::uuid, 'EMPLOYEE'::public.org_role);
+SELECT public.current_user_id();
+```
+
+### Step 5: Test Application Functionality
+
+- [ ] User authentication works
+- [ ] RLS policies function correctly
+- [ ] Organization access control works
+- [ ] Role-based permissions work
+- [ ] No application errors in logs
+
+---
+
+## Production Deployment
+
+### Pre-Production Checklist
+
+- [ ] Staging tests passed
+- [ ] Application functionality verified
+- [ ] Performance verified (no degradation)
+- [ ] Backup created
+- [ ] Rollback plan prepared
+- [ ] Maintenance window scheduled (if needed)
+
+### Step 1: Deploy to Production
+
+```bash
+# Connect to production database
+supabase db push --linked
+```
+
+### Step 2: Verify Deployment
+
+Run the same verification queries as staging.
+
+### Step 3: Monitor
+
+- [ ] Monitor application logs for errors
+- [ ] Monitor database performance
+- [ ] Verify user functionality
+- [ ] Check for any RLS policy issues
+
+### Step 4: Post-Deployment Verification
+
+- [ ] All functions working correctly
+- [ ] All enums available
+- [ ] RLS policies functioning
+- [ ] Application working normally
+- [ ] No performance issues
+
+---
+
+## Rollback Procedure
+
+If issues occur:
+
+```sql
+-- Functions will be reverted by previous migrations
+-- Enums are idempotent (DO blocks with exception handling)
+-- No manual rollback needed - migrations are safe
+```
+
+However, if needed:
+
+```bash
+# Restore from backup
+pg_restore --clean --if-exists \
+  --dbname="$DATABASE_URL" \
+  backup_before_consolidation_*.sql
+```
+
+---
+
+## Success Criteria
+
+- ✅ Migrations applied successfully
+- ✅ All functions exist and work correctly
+- ✅ All enums exist with correct values
+- ✅ RLS policies function correctly
+- ✅ Application functionality maintained
+- ✅ No performance degradation
+- ✅ No errors in logs
+
+---
+
+## Notes
+
+- Migrations are **idempotent** (safe to run multiple times)
+- Migrations use `CREATE OR REPLACE` for functions (safe)
+- Migrations use `DO $$ BEGIN ... EXCEPTION` for enums (safe)
+- **No data changes** - only function/enum definitions
+- **Backward compatible** - legacy enums maintained
+- **Low risk** - can be safely deployed
+
+---
+
+**Status:** Ready for Deployment  
+**Risk Level:** LOW  
+**Estimated Downtime:** None (functions/enums only)
+

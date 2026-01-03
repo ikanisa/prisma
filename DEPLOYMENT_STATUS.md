@@ -1,143 +1,121 @@
-# 🚀 Supabase Deployment Status
+# Deployment Status - Consolidation Migrations
 
-## ✅ Completed
+**Date:** 2025-01-03  
+**Status:** ✅ MIGRATIONS READY (Migration History Sync Required)
 
-### 1. Migration Manifest Generated
-- **Status**: ✅ Complete
-- **File**: `.supabase-migrations-manifest.json`
-- **Total Migrations**: 151 files
-- **Statistics**:
-  - Total Lines: 25,877
-  - Total Size: ~970 KB
-  - First: `001_initial_schema.sql`
-  - Last: `20260201190000_agent_testing_schema.sql`
+---
 
-### 2. Deployment Scripts Created
-- **Main Script**: `scripts/deploy-supabase-all.sh` ✅
-- **Preparation Script**: `scripts/apply-all-migrations-via-mcp.sh` ✅
-- **TypeScript Tool**: `scripts/deploy-supabase-mcp.ts` ✅
+## Migration Files Ready
 
-### 3. Documentation Created
-- **Quick Start**: `README_SUPABASE_DEPLOYMENT.md` ✅
-- **Detailed Guide**: `SUPABASE_DEPLOYMENT_MCP.md` ✅
+### 1. Enums Consolidation
+**File:** `supabase/migrations/20250103000000_enums_consolidation.sql`  
+**Status:** ✅ Ready  
+**Order:** First (runs before functions)
 
-### 4. Health Endpoint Verified
-- **Status**: ✅ Working
-- **URL**: `https://rcocfusrqrornukrnkln.supabase.co/functions/v1/api/health`
-- **Response**: `{"status":"ok","timestamp":"2026-01-02T22:57:02.738Z"}`
+### 2. Core Functions Consolidation
+**File:** `supabase/migrations/20250103000001_core_functions_consolidation.sql`  
+**Status:** ✅ Ready  
+**Order:** Second (runs after enums)
 
-## ⚠️ Current Issues
+---
 
-### 1. Migration History Mismatch
-- **Issue**: Remote database has migration `20241201` that doesn't exist in local directory
-- **Local has**: `20241201120000` and `20241201_conversations_schema.sql`
-- **Impact**: Prevents `supabase db push` from working
-- **Status**: Repaired `20241201` but still conflicts remain
+## Fixes Applied
 
-### 2. MCP Server Project Mismatch
-- **MCP Connected To**: `lhbowpbcpwoiparwnwgt` (different project)
-- **Target Project**: `rcocfusrqrornukrnkln`
-- **Impact**: Can't use MCP tools directly for this deployment
-- **Solution**: Use Supabase CLI with PAT instead
+1. ✅ **Parameter Names:** Updated to match existing function signatures
+   - `is_member_of(org UUID)` - matches existing
+   - `has_min_role(org UUID, min org_role)` - matches existing
 
-### 3. Migration Push Challenges
-- `supabase db push --linked` fails due to migration history mismatch
-- Remote migrations don't match local migration files
+2. ✅ **Migration Order:** Enums migration runs first (timestamp 20250103000000)
 
-## 📋 Next Steps
-
-### Option 1: Manual Migration Application (Recommended for Now)
-Since there's a migration history mismatch, apply remaining migrations manually:
-
-1. **Check Current Status**:
-   ```bash
-   supabase migration list --linked
+3. ✅ **Enum Type Handling:** Cast `m.role` to text in CASE statement to handle enum type mismatch
+   ```sql
+   CASE m.role::text
+     WHEN 'SYSTEM_ADMIN' THEN 100
+     WHEN 'PARTNER' THEN 90
+     ...
    ```
 
-2. **Apply Missing Migrations via SQL Editor**:
-   - Go to: https://supabase.com/dashboard/project/rcocfusrqrornukrnkln
-   - Navigate to SQL Editor
-   - Apply migrations that are missing from remote
+4. ✅ **Syntax Validation:** All SQL syntax validated
 
-### Option 2: Reset Migration History
-If you can accept resetting migration tracking:
+---
 
-```bash
-# Mark all local migrations as applied
-for file in supabase/migrations/*.sql; do
-  version=$(basename "$file" .sql)
-  supabase migration repair --status applied "$version" --linked
-done
+## Current Blocker
 
-# Then push any remaining changes
-supabase db push --linked
-```
+**Migration History Mismatch**
 
-### Option 3: Use Direct SQL Application
-Apply migrations directly via SQL:
+The remote database has migrations that are not in the local migrations directory. This needs to be resolved before deployment.
 
-```bash
-# Connect and apply migrations
-export PGPASSWORD="your_db_password"
-psql "postgresql://postgres:password@db.rcocfusrqrornukrnkln.supabase.co:5432/postgres" \
-  -f supabase/migrations/[migration_file].sql
-```
+**Options to Resolve:**
+1. `supabase migration repair --status reverted <migration_id>` - Mark remote migrations as reverted
+2. `supabase db pull` - Pull remote migrations to local (if appropriate)
+3. Sync git repository if migrations are in remote repo
 
-## 🔍 Validation Results
+---
 
-### ✅ Health Endpoint
-```bash
-$ curl https://rcocfusrqrornukrnkln.supabase.co/functions/v1/api/health
-{"status":"ok","timestamp":"2026-01-02T22:57:02.738Z"}
-```
+## Deployment Steps (After History Sync)
 
-### ⚠️ Migration Status
-- Migration history shows conflicts
-- Some migrations already applied on remote
-- Need to sync local/remote history
-
-## 📊 Project Information
-
-- **Project ID**: `rcocfusrqrornukrnkln`
-- **URL**: `https://rcocfusrqrornukrnkln.supabase.co`
-- **PAT**: Configured (sbp_0bcb6e5564364a7979aaf07eb719b41cd727ff3c)
-- **Total Local Migrations**: 151
-- **Edge Functions**: API function exists (health endpoint working)
-
-## 🎯 Summary
-
-**What's Working**:
-- ✅ All deployment scripts created
-- ✅ Migration manifest generated
-- ✅ Health endpoint responding
-- ✅ PAT authentication working
-- ✅ Project linked successfully
-
-**What Needs Attention**:
-- ⚠️ Migration history sync required
-- ⚠️ Need to apply remaining local migrations to remote
-- ⚠️ MCP server connected to different project (not blocking)
-
-## 🔧 Recommended Action
-
-1. **Review Migration Status**:
+1. **Sync Migration History**
    ```bash
-   supabase migration list --linked > migration-status.txt
+   # Option 1: Repair history (if remote migrations should be ignored)
+   supabase migration repair --status reverted 20241201 --linked
+   
+   # Option 2: Pull remote migrations
+   supabase db pull
    ```
 
-2. **Apply Missing Migrations**:
-   - Use Supabase Dashboard SQL Editor, OR
-   - Use direct psql connection, OR
-   - Continue repairing migration history and retry push
-
-3. **Deploy Edge Functions** (if needed):
+2. **Deploy Migrations**
    ```bash
-   export SUPABASE_ACCESS_TOKEN=sbp_0bcb6e5564364a7979aaf07eb719b41cd727ff3c
-   supabase functions deploy api --project-ref rcocfusrqrornukrnkln
+   supabase db push --linked
+   ```
+
+3. **Verify Deployment**
+   ```sql
+   -- Check functions
+   SELECT proname FROM pg_proc 
+   WHERE proname IN ('is_member_of', 'has_min_role', 'current_user_id', 
+                     'touch_updated_at', 'handle_new_user');
+   
+   -- Check enums
+   SELECT typname FROM pg_type 
+   WHERE typname IN ('org_role', 'role_level', 'engagement_status', 
+                     'severity_level', 'reconciliation_type', 
+                     'reconciliation_item_category');
    ```
 
 ---
 
-**Last Updated**: 2026-01-02
-**Status**: Scripts Ready, Migration Sync Needed
+## Validation Results
 
+- ✅ Migration syntax: Valid
+- ✅ Security practices: SECURITY DEFINER + search_path
+- ✅ Documentation: Comprehensive COMMENT statements
+- ✅ Idempotent operations: CREATE OR REPLACE + DO blocks
+- ✅ Backward compatibility: Legacy enum support maintained
+- ✅ Transaction blocks: Proper BEGIN/COMMIT structure
+
+---
+
+## Risk Assessment
+
+**Risk Level:** LOW ✅
+
+**Reasons:**
+- Idempotent migrations (safe to run multiple times)
+- No data changes (functions/enums only)
+- Backward compatible (legacy support maintained)
+- CREATE OR REPLACE (functions are replaced, not dropped)
+- DO blocks with exception handling (enums are idempotent)
+
+**Estimated Downtime:** None
+
+---
+
+## Documentation
+
+- `DEPLOYMENT_CHECKLIST.md` - Detailed deployment checklist
+- `DEPLOYMENT_READY.md` - Quick reference guide
+- Migration files include comprehensive inline documentation
+
+---
+
+**Next Action Required:** Resolve migration history mismatch, then deploy.

@@ -89,6 +89,8 @@ COMMENT ON FUNCTION public.is_member_of(UUID) IS
 -- ============================================================================
 
 -- Primary function using org_role (recommended)
+-- Note: This function works with memberships.role which may be role_level or org_role
+-- Maps org_role requirements to current role system for comparison
 CREATE OR REPLACE FUNCTION public.has_min_role(org UUID, min public.org_role)
 RETURNS BOOLEAN
 LANGUAGE SQL
@@ -98,14 +100,16 @@ SET search_path = public
 AS $$
   WITH current_user_role AS (
     SELECT 
-      m.role,
-      CASE m.role
+      m.role::text as role_text,
+      CASE m.role::text
+        -- Map role_level values (current memberships.role type)
         WHEN 'SYSTEM_ADMIN' THEN 100
+        WHEN 'MANAGER' THEN 70
+        WHEN 'EMPLOYEE' THEN 40
+        -- Map org_role values (if memberships.role has been migrated)
         WHEN 'PARTNER' THEN 90
         WHEN 'EQR' THEN 85
-        WHEN 'MANAGER' THEN 70
         WHEN 'SERVICE_ACCOUNT' THEN 45
-        WHEN 'EMPLOYEE' THEN 40
         WHEN 'CLIENT' THEN 30
         WHEN 'READONLY' THEN 20
         ELSE 0
