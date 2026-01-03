@@ -293,6 +293,7 @@ create table if not exists risks(
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+drop trigger if exists trg_risks_touch on risks;
 create trigger trg_risks_touch before update on risks
   for each row execute function app.touch_updated_at();
 create index if not exists idx_risks_org_eng on risks(org_id, engagement_id);
@@ -307,6 +308,7 @@ create table if not exists controls(
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+drop trigger if exists trg_controls_touch on controls;
 create trigger trg_controls_touch before update on controls
   for each row execute function app.touch_updated_at();
 create table if not exists tests(
@@ -320,6 +322,7 @@ create table if not exists tests(
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+drop trigger if exists trg_tests_touch on tests;
 create trigger trg_tests_touch before update on tests
   for each row execute function app.touch_updated_at();
 create table if not exists samples(
@@ -333,6 +336,7 @@ create table if not exists samples(
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+drop trigger if exists trg_samples_touch on samples;
 create trigger trg_samples_touch before update on samples
   for each row execute function app.touch_updated_at();
 create table if not exists materiality_sets(
@@ -513,6 +517,7 @@ create table if not exists pbc_requests(
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+drop trigger if exists trg_pbcr_touch on pbc_requests;
 create trigger trg_pbcr_touch before update on pbc_requests
   for each row execute function app.touch_updated_at();
 create table if not exists pbc_items(
@@ -526,6 +531,7 @@ create table if not exists pbc_items(
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+drop trigger if exists trg_pbci_touch on pbc_items;
 create trigger trg_pbci_touch before update on pbc_items
   for each row execute function app.touch_updated_at();
 -- =========================
