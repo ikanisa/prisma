@@ -92,8 +92,9 @@ BEGIN
     WHERE tgname = 'trg_dac6_arrangements_touch'
       AND tgrelid = 'public.dac6_arrangements'::regclass
   ) THEN
-    DROP TRIGGER IF EXISTS trg_dac6_arrangements_touch ON dac6_arrangements CASCADE;
+    DROP TRIGGER IF EXISTS trg_dac6_arrangements_touch ON dac6_arrangements;
 CREATE TRIGGER trg_dac6_arrangements_touch
+      BEFORE UPDATE ON dac6_arrangements
       FOR EACH ROW
       EXECUTE FUNCTION app.touch_updated_at();
   END IF;

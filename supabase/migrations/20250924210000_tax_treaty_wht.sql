@@ -43,8 +43,9 @@ BEGIN
     WHERE tgname = 'trg_treaty_wht_touch'
       AND tgrelid = 'public.treaty_wht_calculations'::regclass
   ) THEN
-    DROP TRIGGER IF EXISTS trg_treaty_wht_touch ON treaty_wht_calculations CASCADE;
+    DROP TRIGGER IF EXISTS trg_treaty_wht_touch ON treaty_wht_calculations;
 CREATE TRIGGER trg_treaty_wht_touch
+  BEFORE UPDATE ON treaty_wht_calculations
       FOR EACH ROW EXECUTE FUNCTION app.touch_updated_at();
   END IF;
 END;
@@ -81,8 +82,9 @@ BEGIN
     WHERE tgname = 'trg_tax_dispute_cases_touch'
       AND tgrelid = 'public.tax_dispute_cases'::regclass
   ) THEN
-    DROP TRIGGER IF EXISTS trg_tax_dispute_cases_touch ON tax_dispute_cases CASCADE;
+    DROP TRIGGER IF EXISTS trg_tax_dispute_cases_touch ON tax_dispute_cases;
 CREATE TRIGGER trg_tax_dispute_cases_touch
+  BEFORE UPDATE ON tax_dispute_cases
       FOR EACH ROW EXECUTE FUNCTION app.touch_updated_at();
   END IF;
 END;

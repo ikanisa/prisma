@@ -6,22 +6,38 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import OpenAI from 'openai';
-import {
-    retrieve,
-    formatCitations,
-    buildGroundedPrompt,
-    type RetrievalOptions,
-    type RetrievalFilters,
-    type RetrievalResult,
-} from '../../../services/rag/knowledge/retriever.js';
+
+// Types for retrieval (inlined to avoid cross-package imports)
+interface RetrievalChunk {
+    chunkId: string;
+    documentId: string;
+    documentName: string;
+    content: string;
+    headingPath: string | null;
+    pageStart: number | null;
+    pageEnd: number | null;
+    score: number;
+    standard: string | null;
+    jurisdiction: string | null;
+}
+
+interface RetrievalFilters {
+    standard?: 'IFRS' | 'ISA' | 'GAAP' | 'TAX' | 'AUDIT_METHODOLOGY' | 'COMPANY_LAW';
+    jurisdiction?: string;
+    docType?: string;
+}
+
+interface RetrievalResult {
+    chunks: RetrievalChunk[];
+    meta: {
+        totalCandidates: number;
+        durationMs: number;
+    };
+}
 
 export interface KbSearchToolInput {
     query: string;
-    filters?: {
-        standard?: 'IFRS' | 'ISA' | 'GAAP' | 'TAX' | 'AUDIT_METHODOLOGY' | 'COMPANY_LAW';
-        jurisdiction?: string;
-        docType?: string;
-    };
+    filters?: RetrievalFilters;
     topK?: number;
 }
 
@@ -97,36 +113,114 @@ IMPORTANT: For any accounting, tax, IFRS, ISA, or regulatory questions:
 };
 
 /**
+ * Execute KB search via pgvector
+ */
+async function performKbSearch(
+    query: string,
+    options: {
+        tenantId: string;
+        userRole: string;
+        filters?: RetrievalFilters;
+        topK?: number;
+    },
+    clients: { supabase: SupabaseClient; openai: OpenAI }
+): Promise<RetrievalResult> {
+    const startTime = Date.now();
+    const topK = options.topK || 5;
+
+    // Generate query embedding
+    const embeddingResponse = await clients.openai.embeddings.create({
+        model: 'text-embedding-3-small',
+        input: query,
+    });
+    const queryEmbedding = embeddingResponse.data[0].embedding;
+
+    // Build filter conditions
+    const filterConditions: string[] = [`tenant_id = '${options.tenantId}'`];
+
+    if (options.filters?.standard) {
+        filterConditions.push(`standard = '${options.filters.standard}'`);
+    }
+    if (options.filters?.jurisdiction) {
+        filterConditions.push(`jurisdiction = '${options.filters.jurisdiction}'`);
+    }
+
+    // Execute vector search via RPC
+    const { data, error } = await clients.supabase.rpc('kb_search', {
+        query_embedding: queryEmbedding,
+        match_threshold: 0.7,
+        match_count: topK * 2,
+        p_tenant_id: options.tenantId,
+        p_user_role: options.userRole,
+    });
+
+    if (error) {
+        console.error('KB search error:', error);
+        return { chunks: [], meta: { totalCandidates: 0, durationMs: Date.now() - startTime } };
+    }
+
+    // Map results to chunks
+    const chunks: RetrievalChunk[] = (data || []).slice(0, topK).map((row: Record<string, unknown>) => ({
+        chunkId: row.chunk_id as string,
+        documentId: row.document_id as string,
+        documentName: row.document_name as string,
+        content: row.content as string,
+        headingPath: row.heading_path as string | null,
+        pageStart: row.page_start as number | null,
+        pageEnd: row.page_end as number | null,
+        score: row.similarity as number,
+        standard: row.standard as string | null,
+        jurisdiction: row.jurisdiction as string | null,
+    }));
+
+    return {
+        chunks,
+        meta: {
+            totalCandidates: data?.length || 0,
+            durationMs: Date.now() - startTime,
+        },
+    };
+}
+
+/**
  * Execute KB search tool
  */
 export async function executeKbSearch(
     input: KbSearchToolInput,
     context: KbSearchToolContext
 ): Promise<KbSearchToolOutput> {
-    const options: RetrievalOptions = {
-        tenantId: context.tenantId,
-        userRole: context.userRole,
-        filters: input.filters as RetrievalFilters | undefined,
-        topK: input.topK || 5,
-    };
+    const result = await performKbSearch(
+        input.query,
+        {
+            tenantId: context.tenantId,
+            userRole: context.userRole,
+            filters: input.filters,
+            topK: input.topK || 5,
+        },
+        {
+            supabase: context.supabase,
+            openai: context.openai,
+        }
+    );
 
-    const result = await retrieve(input.query, options, {
-        supabase: context.supabase,
-        openai: context.openai,
+    // Format citations
+    const citations = result.chunks.map((chunk: RetrievalChunk) => {
+        const pages = formatPageRange(chunk.pageStart, chunk.pageEnd);
+        return `[${chunk.documentName}, ${pages}]`;
     });
 
-    const citations = formatCitations(result.chunks);
+    // Build grounded prompt
     const groundedPrompt = buildGroundedPrompt(input.query, result.chunks);
 
     return {
-        chunks: result.chunks.map(chunk => ({
+        chunks: result.chunks.map((chunk: RetrievalChunk) => ({
             documentName: chunk.documentName,
             content: chunk.content,
             pages: formatPageRange(chunk.pageStart, chunk.pageEnd),
             headingPath: chunk.headingPath,
             score: chunk.score,
         })),
-        citations: citations.map(c => `[${c.documentName}, ${c.pages}]`),
+        citations,
         groundedPrompt,
         meta: {
             totalCandidates: result.meta.totalCandidates,
@@ -145,13 +239,33 @@ function formatPageRange(start: number | null, end: number | null): string {
 }
 
 /**
+ * Build grounded prompt with context
+ */
+function buildGroundedPrompt(query: string, chunks: RetrievalChunk[]): string {
+    if (chunks.length === 0) {
+        return `No relevant documents found for: "${query}". Please acknowledge uncertainty.`;
+    }
+
+    const contextParts = chunks.map((chunk: RetrievalChunk, i: number) => {
+        const pages = formatPageRange(chunk.pageStart, chunk.pageEnd);
+        return `[${i + 1}] ${chunk.documentName} (${pages}):\n${chunk.content}`;
+    });
+
+    return `Answer based ONLY on these sources. Cite using [N] format.
+
+${contextParts.join('\n\n')}
+
+Question: ${query}`;
+}
+
+/**
  * Register KB search tool with agent system
  */
 export function registerKbSearchTool(registry: {
     register: (
         name: string,
         definition: object,
-        handler: (input: any, context: any) => Promise<any>
+        handler: (input: KbSearchToolInput, context: KbSearchToolContext) => Promise<KbSearchToolOutput>
     ) => void;
 }): void {
     registry.register(

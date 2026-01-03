@@ -1,6 +1,6 @@
 -- Create Prisma Glow organization
-INSERT INTO public.organizations (name, slug, brand_primary, brand_secondary)
-VALUES ('Prisma Glow', 'prisma-glow', '#2563eb', '#7c3aed')
+INSERT INTO public.organizations (name, slug)
+VALUES ('Prisma Glow', 'prisma-glow')
 ON CONFLICT (slug) DO NOTHING;
 -- Create sample clients
 INSERT INTO public.clients (org_id, name, contact_name, email, phone, country, industry, fiscal_year_end) 

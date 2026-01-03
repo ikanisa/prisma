@@ -303,21 +303,13 @@ CREATE TABLE IF NOT EXISTS public.variance_results (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-DROP TRIGGER IF EXISTS trg_ledger_accounts_touch ON ledger_accounts CASCADE;
-CREATE TRIGGER trg_ledger_accounts_touch FOR EACH ROW EXECUTE FUNCTION app.touch_updated_at();
-DROP TRIGGER IF EXISTS trg_journal_batches_touch ON journal_batches CASCADE;
-CREATE TRIGGER trg_journal_batches_touch FOR EACH ROW EXECUTE FUNCTION app.touch_updated_at();
-DROP TRIGGER IF EXISTS trg_close_periods_touch ON close_periods CASCADE;
-CREATE TRIGGER trg_close_periods_touch FOR EACH ROW EXECUTE FUNCTION app.touch_updated_at();
-DROP TRIGGER IF EXISTS trg_close_pbc_items_touch ON close_pbc_items CASCADE;
-CREATE TRIGGER trg_close_pbc_items_touch FOR EACH ROW EXECUTE FUNCTION app.touch_updated_at();
-DROP TRIGGER IF EXISTS trg_reconciliations_touch ON reconciliations CASCADE;
-CREATE TRIGGER trg_reconciliations_touch FOR EACH ROW EXECUTE FUNCTION app.touch_updated_at();
-DROP TRIGGER IF EXISTS trg_je_control_alerts_touch ON je_control_alerts CASCADE;
-CREATE TRIGGER trg_je_control_alerts_touch FOR EACH ROW EXECUTE FUNCTION app.touch_updated_at();
-DROP TRIGGER IF EXISTS trg_variance_rules_touch ON variance_rules CASCADE;
-CREATE TRIGGER trg_variance_rules_touch FOR EACH ROW EXECUTE FUNCTION app.touch_updated_at();
-DROP TRIGGER IF EXISTS trg_variance_results_touch ON variance_results CASCADE;
-CREATE TRIGGER trg_variance_results_touch FOR EACH ROW EXECUTE FUNCTION app.touch_updated_at();
+DROP TRIGGER IF EXISTS trg_ledger_accounts_touch ON ledger_accounts;
+DROP TRIGGER IF EXISTS trg_journal_batches_touch ON journal_batches;
+DROP TRIGGER IF EXISTS trg_close_periods_touch ON close_periods;
+DROP TRIGGER IF EXISTS trg_close_pbc_items_touch ON close_pbc_items;
+DROP TRIGGER IF EXISTS trg_reconciliations_touch ON reconciliations;
+DROP TRIGGER IF EXISTS trg_je_control_alerts_touch ON je_control_alerts;
+DROP TRIGGER IF EXISTS trg_variance_rules_touch ON variance_rules;
+DROP TRIGGER IF EXISTS trg_variance_results_touch ON variance_results;
 
 COMMIT;

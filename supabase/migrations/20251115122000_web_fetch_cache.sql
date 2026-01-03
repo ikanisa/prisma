@@ -24,8 +24,8 @@ BEGIN
           AND tablename = 'web_fetch_cache'
           AND policyname = 'Service role web fetch cache'
     ) THEN
-        EXECUTE 'DROP POLICY IF EXISTS "Service role web fetch cache" ON web_fetch_cache CASCADE;
-CREATE POLICY "Service role web fetch cache"
+        EXECUTE 'DROP POLICY IF EXISTS "web_fetch_cache" ON web_fetch_cache;
+CREATE POLICY "Service role web fetch cache" ON public.web_fetch_cache
             FOR ALL
             USING (auth.role() = ''service_role'')
             WITH CHECK (auth.role() = ''service_role'');';
@@ -33,7 +33,8 @@ CREATE POLICY "Service role web fetch cache"
 END
 $$;
 
-DROP TRIGGER IF EXISTS set_web_fetch_cache_updated_at ON web_fetch_cache CASCADE;
+DROP TRIGGER IF EXISTS set_web_fetch_cache_updated_at ON web_fetch_cache;
 CREATE TRIGGER set_web_fetch_cache_updated_at
+  BEFORE UPDATE ON web_fetch_cache
     FOR EACH ROW
     EXECUTE FUNCTION public.set_updated_at();

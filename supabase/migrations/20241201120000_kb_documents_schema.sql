@@ -40,8 +40,8 @@ END;
 $$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS kb_documents_updated_at_trigger ON public.kb_documents;
-DROP TRIGGER IF EXISTS kb_documents_updated_at_trigger ON kb_documents CASCADE;
 CREATE TRIGGER kb_documents_updated_at_trigger
+  BEFORE UPDATE ON public.kb_documents
   FOR EACH ROW
   EXECUTE FUNCTION public.update_kb_documents_updated_at();
 
@@ -107,25 +107,21 @@ GRANT EXECUTE ON FUNCTION public.match_kb_documents TO anon, authenticated;
 ALTER TABLE public.kb_documents ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "KB documents are viewable by everyone" ON public.kb_documents;
-DROP POLICY IF EXISTS "KB documents are viewable by everyone" ON kb_documents CASCADE;
 CREATE POLICY "KB documents are viewable by everyone" FOR SELECT
   TO anon, authenticated
   USING (true);
 
 DROP POLICY IF EXISTS "Authenticated users can insert KB documents" ON public.kb_documents;
-DROP POLICY IF EXISTS "Authenticated users can insert KB documents" ON kb_documents CASCADE;
 CREATE POLICY "Authenticated users can insert KB documents" FOR INSERT
   TO authenticated
   WITH CHECK (true);
 
 DROP POLICY IF EXISTS "Authenticated users can update KB documents" ON public.kb_documents;
-DROP POLICY IF EXISTS "Authenticated users can update KB documents" ON kb_documents CASCADE;
 CREATE POLICY "Authenticated users can update KB documents" FOR UPDATE
   TO authenticated
   USING (true);
 
 DROP POLICY IF EXISTS "Authenticated users can delete KB documents" ON public.kb_documents;
-DROP POLICY IF EXISTS "Authenticated users can delete KB documents" ON kb_documents CASCADE;
 CREATE POLICY "Authenticated users can delete KB documents" FOR DELETE
   TO authenticated
   USING (true);

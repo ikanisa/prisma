@@ -64,13 +64,15 @@ CREATE TABLE IF NOT EXISTS public.journal_entry_strategies (
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_je_strategy_engagement ON public.journal_entry_strategies(engagement_id);
 
-DROP TRIGGER IF EXISTS trg_fraud_plans_touch ON fraud_plans CASCADE;
+DROP TRIGGER IF EXISTS trg_fraud_plans_touch ON fraud_plans;
 CREATE TRIGGER trg_fraud_plans_touch
+  BEFORE UPDATE ON fraud_plans
   FOR EACH ROW
   EXECUTE FUNCTION app.touch_updated_at();
 
-DROP TRIGGER IF EXISTS trg_je_strategies_touch ON journal_entry_strategies CASCADE;
+DROP TRIGGER IF EXISTS trg_je_strategies_touch ON journal_entry_strategies;
 CREATE TRIGGER trg_je_strategies_touch
+  BEFORE UPDATE ON journal_entry_strategies
   FOR EACH ROW
   EXECUTE FUNCTION app.touch_updated_at();
 

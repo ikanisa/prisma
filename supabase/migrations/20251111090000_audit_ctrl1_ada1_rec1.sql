@@ -169,88 +169,68 @@ ALTER TABLE public.itgc_groups ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.deficiencies ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "controls_select" ON public.controls;
-DROP POLICY IF EXISTS "controls_select" ON controls CASCADE;
-CREATE POLICY "controls_select"
+CREATE POLICY "controls_select" ON public.controls
   FOR SELECT USING (public.is_member_of(org_id));
 DROP POLICY IF EXISTS "controls_insert" ON public.controls;
-DROP POLICY IF EXISTS "controls_insert" ON controls CASCADE;
-CREATE POLICY "controls_insert"
+CREATE POLICY "controls_insert" ON public.controls
   FOR INSERT WITH CHECK (public.has_min_role(org_id, 'MANAGER'::public.role_level));
 DROP POLICY IF EXISTS "controls_update" ON public.controls;
-DROP POLICY IF EXISTS "controls_update" ON controls CASCADE;
-CREATE POLICY "controls_update"
+CREATE POLICY "controls_update" ON public.controls
   FOR UPDATE USING (public.has_min_role(org_id, 'MANAGER'::public.role_level));
 DROP POLICY IF EXISTS "controls_delete" ON public.controls;
-DROP POLICY IF EXISTS "controls_delete" ON controls CASCADE;
-CREATE POLICY "controls_delete"
+CREATE POLICY "controls_delete" ON public.controls
   FOR DELETE USING (public.has_min_role(org_id, 'SYSTEM_ADMIN'::public.role_level));
 
 DROP POLICY IF EXISTS "control_walkthroughs_select" ON public.control_walkthroughs;
-DROP POLICY IF EXISTS "control_walkthroughs_select" ON control_walkthroughs CASCADE;
-CREATE POLICY "control_walkthroughs_select"
+CREATE POLICY "control_walkthroughs_select" ON public.control_walkthroughs
   FOR SELECT USING (public.is_member_of(org_id));
 DROP POLICY IF EXISTS "control_walkthroughs_insert" ON public.control_walkthroughs;
-DROP POLICY IF EXISTS "control_walkthroughs_insert" ON control_walkthroughs CASCADE;
-CREATE POLICY "control_walkthroughs_insert"
+CREATE POLICY "control_walkthroughs_insert" ON public.control_walkthroughs
   FOR INSERT WITH CHECK (public.has_min_role(org_id, 'EMPLOYEE'::public.role_level));
 DROP POLICY IF EXISTS "control_walkthroughs_update" ON public.control_walkthroughs;
-DROP POLICY IF EXISTS "control_walkthroughs_update" ON control_walkthroughs CASCADE;
-CREATE POLICY "control_walkthroughs_update"
+CREATE POLICY "control_walkthroughs_update" ON public.control_walkthroughs
   FOR UPDATE USING (public.has_min_role(org_id, 'MANAGER'::public.role_level));
 DROP POLICY IF EXISTS "control_walkthroughs_delete" ON public.control_walkthroughs;
-DROP POLICY IF EXISTS "control_walkthroughs_delete" ON control_walkthroughs CASCADE;
-CREATE POLICY "control_walkthroughs_delete"
+CREATE POLICY "control_walkthroughs_delete" ON public.control_walkthroughs
   FOR DELETE USING (public.has_min_role(org_id, 'MANAGER'::public.role_level));
 
 DROP POLICY IF EXISTS "control_tests_select" ON public.control_tests;
-DROP POLICY IF EXISTS "control_tests_select" ON control_tests CASCADE;
-CREATE POLICY "control_tests_select"
+CREATE POLICY "control_tests_select" ON public.control_tests
   FOR SELECT USING (public.is_member_of(org_id));
 DROP POLICY IF EXISTS "control_tests_insert" ON public.control_tests;
-DROP POLICY IF EXISTS "control_tests_insert" ON control_tests CASCADE;
-CREATE POLICY "control_tests_insert"
+CREATE POLICY "control_tests_insert" ON public.control_tests
   FOR INSERT WITH CHECK (public.has_min_role(org_id, 'EMPLOYEE'::public.role_level));
 DROP POLICY IF EXISTS "control_tests_update" ON public.control_tests;
-DROP POLICY IF EXISTS "control_tests_update" ON control_tests CASCADE;
-CREATE POLICY "control_tests_update"
+CREATE POLICY "control_tests_update" ON public.control_tests
   FOR UPDATE USING (public.has_min_role(org_id, 'MANAGER'::public.role_level));
 DROP POLICY IF EXISTS "control_tests_delete" ON public.control_tests;
-DROP POLICY IF EXISTS "control_tests_delete" ON control_tests CASCADE;
-CREATE POLICY "control_tests_delete"
+CREATE POLICY "control_tests_delete" ON public.control_tests
   FOR DELETE USING (public.has_min_role(org_id, 'MANAGER'::public.role_level));
 
 DROP POLICY IF EXISTS "itgc_groups_select" ON public.itgc_groups;
-DROP POLICY IF EXISTS "itgc_groups_select" ON itgc_groups CASCADE;
-CREATE POLICY "itgc_groups_select"
+CREATE POLICY "itgc_groups_select" ON public.itgc_groups
   FOR SELECT USING (public.is_member_of(org_id));
 DROP POLICY IF EXISTS "itgc_groups_insert" ON public.itgc_groups;
-DROP POLICY IF EXISTS "itgc_groups_insert" ON itgc_groups CASCADE;
-CREATE POLICY "itgc_groups_insert"
+CREATE POLICY "itgc_groups_insert" ON public.itgc_groups
   FOR INSERT WITH CHECK (public.has_min_role(org_id, 'MANAGER'::public.role_level));
 DROP POLICY IF EXISTS "itgc_groups_update" ON public.itgc_groups;
-DROP POLICY IF EXISTS "itgc_groups_update" ON itgc_groups CASCADE;
-CREATE POLICY "itgc_groups_update"
+CREATE POLICY "itgc_groups_update" ON public.itgc_groups
   FOR UPDATE USING (public.has_min_role(org_id, 'MANAGER'::public.role_level));
 DROP POLICY IF EXISTS "itgc_groups_delete" ON public.itgc_groups;
-DROP POLICY IF EXISTS "itgc_groups_delete" ON itgc_groups CASCADE;
-CREATE POLICY "itgc_groups_delete"
+CREATE POLICY "itgc_groups_delete" ON public.itgc_groups
   FOR DELETE USING (public.has_min_role(org_id, 'SYSTEM_ADMIN'::public.role_level));
 
 DROP POLICY IF EXISTS "deficiencies_select" ON public.deficiencies;
-DROP POLICY IF EXISTS "deficiencies_select" ON deficiencies CASCADE;
-CREATE POLICY "deficiencies_select"
+CREATE POLICY "deficiencies_select" ON public.deficiencies
   FOR SELECT USING (public.is_member_of(org_id));
 DROP POLICY IF EXISTS "deficiencies_insert" ON public.deficiencies;
-DROP POLICY IF EXISTS "deficiencies_insert" ON deficiencies CASCADE;
-CREATE POLICY "deficiencies_insert"
+CREATE POLICY "deficiencies_insert" ON public.deficiencies
   FOR INSERT WITH CHECK (public.has_min_role(org_id, 'MANAGER'::public.role_level));
 DROP POLICY IF EXISTS "deficiencies_update" ON public.deficiencies;
-DROP POLICY IF EXISTS "deficiencies_update" ON deficiencies CASCADE;
-CREATE POLICY "deficiencies_update"
+CREATE POLICY "deficiencies_update" ON public.deficiencies
   FOR UPDATE USING (public.has_min_role(org_id, 'MANAGER'::public.role_level));
 DROP POLICY IF EXISTS "deficiencies_delete" ON public.deficiencies;
-DROP POLICY IF EXISTS "deficiencies_delete" ON deficiencies CASCADE;
-CREATE POLICY "deficiencies_delete"
+CREATE POLICY "deficiencies_delete" ON public.deficiencies
   FOR DELETE USING (public.has_min_role(org_id, 'SYSTEM_ADMIN'::public.role_level));
 
 -- ADA-1: Deterministic analytics kernel
@@ -321,25 +301,20 @@ ALTER TABLE public.ada_runs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.ada_exceptions ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "ada_runs_select" ON public.ada_runs;
-DROP POLICY IF EXISTS "ada_runs_select" ON ada_runs CASCADE;
-CREATE POLICY "ada_runs_select"
+CREATE POLICY "ada_runs_select" ON public.ada_runs
   FOR SELECT USING (public.is_member_of(org_id));
 DROP POLICY IF EXISTS "ada_runs_insert" ON public.ada_runs;
-DROP POLICY IF EXISTS "ada_runs_insert" ON ada_runs CASCADE;
-CREATE POLICY "ada_runs_insert"
+CREATE POLICY "ada_runs_insert" ON public.ada_runs
   FOR INSERT WITH CHECK (public.has_min_role(org_id, 'EMPLOYEE'::public.role_level));
 DROP POLICY IF EXISTS "ada_runs_update" ON public.ada_runs;
-DROP POLICY IF EXISTS "ada_runs_update" ON ada_runs CASCADE;
-CREATE POLICY "ada_runs_update"
+CREATE POLICY "ada_runs_update" ON public.ada_runs
   FOR UPDATE USING (public.has_min_role(org_id, 'MANAGER'::public.role_level));
 DROP POLICY IF EXISTS "ada_runs_delete" ON public.ada_runs;
-DROP POLICY IF EXISTS "ada_runs_delete" ON ada_runs CASCADE;
-CREATE POLICY "ada_runs_delete"
+CREATE POLICY "ada_runs_delete" ON public.ada_runs
   FOR DELETE USING (public.has_min_role(org_id, 'MANAGER'::public.role_level));
 
 DROP POLICY IF EXISTS "ada_exceptions_select" ON public.ada_exceptions;
-DROP POLICY IF EXISTS "ada_exceptions_select" ON ada_exceptions CASCADE;
-CREATE POLICY "ada_exceptions_select"
+CREATE POLICY "ada_exceptions_select" ON public.ada_exceptions
   FOR SELECT USING (
     EXISTS (
       SELECT 1
@@ -349,8 +324,7 @@ CREATE POLICY "ada_exceptions_select"
     )
   );
 DROP POLICY IF EXISTS "ada_exceptions_insert" ON public.ada_exceptions;
-DROP POLICY IF EXISTS "ada_exceptions_insert" ON ada_exceptions CASCADE;
-CREATE POLICY "ada_exceptions_insert"
+CREATE POLICY "ada_exceptions_insert" ON public.ada_exceptions
   FOR INSERT WITH CHECK (
     EXISTS (
       SELECT 1
@@ -360,8 +334,7 @@ CREATE POLICY "ada_exceptions_insert"
     )
   );
 DROP POLICY IF EXISTS "ada_exceptions_update" ON public.ada_exceptions;
-DROP POLICY IF EXISTS "ada_exceptions_update" ON ada_exceptions CASCADE;
-CREATE POLICY "ada_exceptions_update"
+CREATE POLICY "ada_exceptions_update" ON public.ada_exceptions
   FOR UPDATE USING (
     EXISTS (
       SELECT 1
@@ -371,8 +344,7 @@ CREATE POLICY "ada_exceptions_update"
     )
   );
 DROP POLICY IF EXISTS "ada_exceptions_delete" ON public.ada_exceptions;
-DROP POLICY IF EXISTS "ada_exceptions_delete" ON ada_exceptions CASCADE;
-CREATE POLICY "ada_exceptions_delete"
+CREATE POLICY "ada_exceptions_delete" ON public.ada_exceptions
   FOR DELETE USING (
     EXISTS (
       SELECT 1
@@ -464,37 +436,34 @@ CREATE TABLE IF NOT EXISTS public.reconciliation_items (
 
 CREATE INDEX IF NOT EXISTS reconciliation_items_rec_idx ON public.reconciliation_items (reconciliation_id, category);
 
-DROP TRIGGER IF EXISTS reconciliations_updated_at ON reconciliations CASCADE;
+DROP TRIGGER IF EXISTS reconciliations_updated_at ON reconciliations;
 CREATE TRIGGER reconciliations_updated_at
+  BEFORE UPDATE ON reconciliations
   FOR EACH ROW EXECUTE FUNCTION app.touch_updated_at();
 
-DROP TRIGGER IF EXISTS reconciliation_items_updated_at ON reconciliation_items CASCADE;
+DROP TRIGGER IF EXISTS reconciliation_items_updated_at ON reconciliation_items;
 CREATE TRIGGER reconciliation_items_updated_at
+  BEFORE UPDATE ON reconciliation_items
   FOR EACH ROW EXECUTE FUNCTION app.touch_updated_at();
 
 ALTER TABLE public.reconciliations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.reconciliation_items ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "reconciliations_select" ON public.reconciliations;
-DROP POLICY IF EXISTS "reconciliations_select" ON reconciliations CASCADE;
-CREATE POLICY "reconciliations_select"
+CREATE POLICY "reconciliations_select" ON public.reconciliations
   FOR SELECT USING (public.is_member_of(org_id));
 DROP POLICY IF EXISTS "reconciliations_insert" ON public.reconciliations;
-DROP POLICY IF EXISTS "reconciliations_insert" ON reconciliations CASCADE;
-CREATE POLICY "reconciliations_insert"
+CREATE POLICY "reconciliations_insert" ON public.reconciliations
   FOR INSERT WITH CHECK (public.has_min_role(org_id, 'EMPLOYEE'::public.role_level));
 DROP POLICY IF EXISTS "reconciliations_update" ON public.reconciliations;
-DROP POLICY IF EXISTS "reconciliations_update" ON reconciliations CASCADE;
-CREATE POLICY "reconciliations_update"
+CREATE POLICY "reconciliations_update" ON public.reconciliations
   FOR UPDATE USING (public.has_min_role(org_id, 'MANAGER'::public.role_level));
 DROP POLICY IF EXISTS "reconciliations_delete" ON public.reconciliations;
-DROP POLICY IF EXISTS "reconciliations_delete" ON reconciliations CASCADE;
-CREATE POLICY "reconciliations_delete"
+CREATE POLICY "reconciliations_delete" ON public.reconciliations
   FOR DELETE USING (public.has_min_role(org_id, 'MANAGER'::public.role_level));
 
 DROP POLICY IF EXISTS "reconciliation_items_select" ON public.reconciliation_items;
-DROP POLICY IF EXISTS "reconciliation_items_select" ON reconciliation_items CASCADE;
-CREATE POLICY "reconciliation_items_select"
+CREATE POLICY "reconciliation_items_select" ON public.reconciliation_items
   FOR SELECT USING (
     EXISTS (
       SELECT 1 FROM public.reconciliations r
@@ -503,8 +472,7 @@ CREATE POLICY "reconciliation_items_select"
     )
   );
 DROP POLICY IF EXISTS "reconciliation_items_insert" ON public.reconciliation_items;
-DROP POLICY IF EXISTS "reconciliation_items_insert" ON reconciliation_items CASCADE;
-CREATE POLICY "reconciliation_items_insert"
+CREATE POLICY "reconciliation_items_insert" ON public.reconciliation_items
   FOR INSERT WITH CHECK (
     EXISTS (
       SELECT 1 FROM public.reconciliations r
@@ -513,8 +481,7 @@ CREATE POLICY "reconciliation_items_insert"
     )
   );
 DROP POLICY IF EXISTS "reconciliation_items_update" ON public.reconciliation_items;
-DROP POLICY IF EXISTS "reconciliation_items_update" ON reconciliation_items CASCADE;
-CREATE POLICY "reconciliation_items_update"
+CREATE POLICY "reconciliation_items_update" ON public.reconciliation_items
   FOR UPDATE USING (
     EXISTS (
       SELECT 1 FROM public.reconciliations r
@@ -523,8 +490,7 @@ CREATE POLICY "reconciliation_items_update"
     )
   );
 DROP POLICY IF EXISTS "reconciliation_items_delete" ON public.reconciliation_items;
-DROP POLICY IF EXISTS "reconciliation_items_delete" ON reconciliation_items CASCADE;
-CREATE POLICY "reconciliation_items_delete"
+CREATE POLICY "reconciliation_items_delete" ON public.reconciliation_items
   FOR DELETE USING (
     EXISTS (
       SELECT 1 FROM public.reconciliations r

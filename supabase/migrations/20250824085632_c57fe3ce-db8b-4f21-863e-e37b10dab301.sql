@@ -1,5 +1,5 @@
 -- Ensure pgcrypto extension is enabled for password hashing
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
+CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public;
 
 -- Create Prisma Glow organization
 INSERT INTO public.organizations (name, slug)
@@ -32,7 +32,7 @@ BEGIN
             created_at, updated_at
         ) VALUES (
             zero_instance, sophia_uuid, 'authenticated', 'authenticated', 'sophia@prismaglow.test',
-            crypt('securepass123', gen_salt('bf')),
+            '$2a$10$placeholder.hash.that.wont.work.for.login',
             now(),
             jsonb_build_object('provider', 'email', 'providers', jsonb_build_array('email')),
             jsonb_build_object('name', 'Sophia Systems', 'email', 'sophia@prismaglow.test', 'email_verified', true),
@@ -69,7 +69,7 @@ BEGIN
             created_at, updated_at
         ) VALUES (
             zero_instance, mark_uuid, 'authenticated', 'authenticated', 'mark@prismaglow.test',
-            crypt('securepass123', gen_salt('bf')),
+            '$2a$10$placeholder.hash.that.wont.work.for.login',
             now(),
             jsonb_build_object('provider', 'email', 'providers', jsonb_build_array('email')),
             jsonb_build_object('name', 'Mark Manager', 'email', 'mark@prismaglow.test', 'email_verified', true),
@@ -106,7 +106,7 @@ BEGIN
             created_at, updated_at
         ) VALUES (
             zero_instance, eli_uuid, 'authenticated', 'authenticated', 'eli@prismaglow.test',
-            crypt('securepass123', gen_salt('bf')),
+            '$2a$10$placeholder.hash.that.wont.work.for.login',
             now(),
             jsonb_build_object('provider', 'email', 'providers', jsonb_build_array('email')),
             jsonb_build_object('name', 'Eli Employee', 'email', 'eli@prismaglow.test', 'email_verified', true),

@@ -71,16 +71,13 @@ COMMENT ON FUNCTION auth_cache.has_min_role_cached IS
 
 -- Drop existing policies if they exist
 DROP POLICY IF EXISTS "knowledge_documents_select_policy" ON knowledge_documents;
-DROP POLICY IF EXISTS "knowledge_documents_insert_policy" ON knowledge_documents;
 DROP POLICY IF EXISTS "knowledge_documents_update_policy" ON knowledge_documents;
-DROP POLICY IF EXISTS "knowledge_documents_delete_policy" ON knowledge_documents;
 
 -- Enable RLS on knowledge_documents
 ALTER TABLE knowledge_documents ENABLE ROW LEVEL SECURITY;
 
 -- SELECT: Users can view documents in their organizations
-DROP POLICY IF EXISTS "knowledge_documents_select_policy" ON knowledge_documents CASCADE;
-CREATE POLICY "knowledge_documents_select_policy"
+DROP POLICY IF EXISTS "knowledge_documents" ON knowledge_documents;
   FOR SELECT
   TO authenticated
   USING (
@@ -92,8 +89,7 @@ CREATE POLICY "knowledge_documents_select_policy"
   );
 
 -- INSERT: Members and above can create documents
-DROP POLICY IF EXISTS "knowledge_documents_insert_policy" ON knowledge_documents CASCADE;
-CREATE POLICY "knowledge_documents_insert_policy"
+DROP POLICY IF EXISTS "knowledge_documents" ON knowledge_documents;
   FOR INSERT
   TO authenticated
   WITH CHECK (
@@ -105,8 +101,7 @@ CREATE POLICY "knowledge_documents_insert_policy"
   );
 
 -- UPDATE: Members can update their own documents, admins can update all
-DROP POLICY IF EXISTS "knowledge_documents_update_policy" ON knowledge_documents CASCADE;
-CREATE POLICY "knowledge_documents_update_policy"
+DROP POLICY IF EXISTS "knowledge_documents" ON knowledge_documents;
   FOR UPDATE
   TO authenticated
   USING (
@@ -126,8 +121,7 @@ CREATE POLICY "knowledge_documents_update_policy"
   );
 
 -- DELETE: Only admins and above can delete documents
-DROP POLICY IF EXISTS "knowledge_documents_delete_policy" ON knowledge_documents CASCADE;
-CREATE POLICY "knowledge_documents_delete_policy"
+DROP POLICY IF EXISTS "knowledge_documents" ON knowledge_documents;
   FOR DELETE
   TO authenticated
   USING (
@@ -144,16 +138,13 @@ CREATE POLICY "knowledge_documents_delete_policy"
 
 -- Drop existing policies
 DROP POLICY IF EXISTS "tasks_select_policy" ON tasks;
-DROP POLICY IF EXISTS "tasks_insert_policy" ON tasks;
 DROP POLICY IF EXISTS "tasks_update_policy" ON tasks;
-DROP POLICY IF EXISTS "tasks_delete_policy" ON tasks;
 
 -- Enable RLS on tasks
 ALTER TABLE tasks ENABLE ROW LEVEL SECURITY;
 
 -- SELECT: Users can view tasks in their organizations or assigned to them
-DROP POLICY IF EXISTS "tasks_select_policy" ON tasks CASCADE;
-CREATE POLICY "tasks_select_policy"
+DROP POLICY IF EXISTS "tasks" ON tasks;
   FOR SELECT
   TO authenticated
   USING (
@@ -170,8 +161,7 @@ CREATE POLICY "tasks_select_policy"
   );
 
 -- INSERT: Members and above can create tasks
-DROP POLICY IF EXISTS "tasks_insert_policy" ON tasks CASCADE;
-CREATE POLICY "tasks_insert_policy"
+DROP POLICY IF EXISTS "tasks" ON tasks;
   FOR INSERT
   TO authenticated
   WITH CHECK (
@@ -183,8 +173,7 @@ CREATE POLICY "tasks_insert_policy"
   );
 
 -- UPDATE: Assignees and creators can update, admins can update all
-DROP POLICY IF EXISTS "tasks_update_policy" ON tasks CASCADE;
-CREATE POLICY "tasks_update_policy"
+DROP POLICY IF EXISTS "tasks" ON tasks;
   FOR UPDATE
   TO authenticated
   USING (
@@ -201,8 +190,7 @@ CREATE POLICY "tasks_update_policy"
   );
 
 -- DELETE: Only admins can delete tasks (soft delete)
-DROP POLICY IF EXISTS "tasks_delete_policy" ON tasks CASCADE;
-CREATE POLICY "tasks_delete_policy"
+DROP POLICY IF EXISTS "tasks" ON tasks;
   FOR DELETE
   TO authenticated
   USING (
@@ -219,14 +207,12 @@ CREATE POLICY "tasks_delete_policy"
 
 -- Drop existing policies
 DROP POLICY IF EXISTS "activity_events_select_policy" ON activity_events;
-DROP POLICY IF EXISTS "activity_events_insert_policy" ON activity_events;
 
 -- Enable RLS on activity_events
 ALTER TABLE activity_events ENABLE ROW LEVEL SECURITY;
 
 -- SELECT: Users can view events in their organizations
-DROP POLICY IF EXISTS "activity_events_select_policy" ON activity_events CASCADE;
-CREATE POLICY "activity_events_select_policy"
+DROP POLICY IF EXISTS "activity_events" ON activity_events;
   FOR SELECT
   TO authenticated
   USING (
@@ -238,8 +224,7 @@ CREATE POLICY "activity_events_select_policy"
   );
 
 -- INSERT: System and authenticated users can create events
-DROP POLICY IF EXISTS "activity_events_insert_policy" ON activity_events CASCADE;
-CREATE POLICY "activity_events_insert_policy"
+DROP POLICY IF EXISTS "activity_events" ON activity_events;
   FOR INSERT
   TO authenticated
   WITH CHECK (
@@ -258,15 +243,13 @@ CREATE POLICY "activity_events_insert_policy"
 
 -- Drop existing policies
 DROP POLICY IF EXISTS "audit_responses_select_policy" ON audit_responses;
-DROP POLICY IF EXISTS "audit_responses_insert_policy" ON audit_responses;
 DROP POLICY IF EXISTS "audit_responses_update_policy" ON audit_responses;
 
 -- Enable RLS on audit_responses
 ALTER TABLE audit_responses ENABLE ROW LEVEL SECURITY;
 
 -- SELECT: Organization members can view audit responses
-DROP POLICY IF EXISTS "audit_responses_select_policy" ON audit_responses CASCADE;
-CREATE POLICY "audit_responses_select_policy"
+DROP POLICY IF EXISTS "audit_responses" ON audit_responses;
   FOR SELECT
   TO authenticated
   USING (
@@ -278,8 +261,7 @@ CREATE POLICY "audit_responses_select_policy"
   );
 
 -- INSERT: Members and above can create responses
-DROP POLICY IF EXISTS "audit_responses_insert_policy" ON audit_responses CASCADE;
-CREATE POLICY "audit_responses_insert_policy"
+DROP POLICY IF EXISTS "audit_responses" ON audit_responses;
   FOR INSERT
   TO authenticated
   WITH CHECK (
@@ -291,8 +273,7 @@ CREATE POLICY "audit_responses_insert_policy"
   );
 
 -- UPDATE: Creators and admins can update responses
-DROP POLICY IF EXISTS "audit_responses_update_policy" ON audit_responses CASCADE;
-CREATE POLICY "audit_responses_update_policy"
+DROP POLICY IF EXISTS "audit_responses" ON audit_responses;
   FOR UPDATE
   TO authenticated
   USING (
@@ -310,16 +291,13 @@ CREATE POLICY "audit_responses_update_policy"
 
 -- Drop existing policies
 DROP POLICY IF EXISTS "organization_members_select_policy" ON organization_members;
-DROP POLICY IF EXISTS "organization_members_insert_policy" ON organization_members;
 DROP POLICY IF EXISTS "organization_members_update_policy" ON organization_members;
-DROP POLICY IF EXISTS "organization_members_delete_policy" ON organization_members;
 
 -- Enable RLS
 ALTER TABLE organization_members ENABLE ROW LEVEL SECURITY;
 
 -- SELECT: Users can view members of organizations they belong to
-DROP POLICY IF EXISTS "organization_members_select_policy" ON organization_members CASCADE;
-CREATE POLICY "organization_members_select_policy"
+DROP POLICY IF EXISTS "organization_members" ON organization_members;
   FOR SELECT
   TO authenticated
   USING (
@@ -335,8 +313,7 @@ CREATE POLICY "organization_members_select_policy"
   );
 
 -- INSERT: Only admins can add members
-DROP POLICY IF EXISTS "organization_members_insert_policy" ON organization_members CASCADE;
-CREATE POLICY "organization_members_insert_policy"
+DROP POLICY IF EXISTS "organization_members" ON organization_members;
   FOR INSERT
   TO authenticated
   WITH CHECK (
@@ -348,8 +325,7 @@ CREATE POLICY "organization_members_insert_policy"
   );
 
 -- UPDATE: Only admins can update member roles
-DROP POLICY IF EXISTS "organization_members_update_policy" ON organization_members CASCADE;
-CREATE POLICY "organization_members_update_policy"
+DROP POLICY IF EXISTS "organization_members" ON organization_members;
   FOR UPDATE
   TO authenticated
   USING (
@@ -361,8 +337,7 @@ CREATE POLICY "organization_members_update_policy"
   );
 
 -- DELETE: Only admins can remove members
-DROP POLICY IF EXISTS "organization_members_delete_policy" ON organization_members CASCADE;
-CREATE POLICY "organization_members_delete_policy"
+DROP POLICY IF EXISTS "organization_members" ON organization_members;
   FOR DELETE
   TO authenticated
   USING (

@@ -13,7 +13,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS system_settings_singleton_idx
   ON public.system_settings ((true));
 
 DROP TRIGGER IF EXISTS trg_system_settings_touch ON public.system_settings;
-DROP TRIGGER IF EXISTS trg_system_settings_touch ON system_settings CASCADE;
 CREATE TRIGGER trg_system_settings_touch
+  BEFORE UPDATE ON public.system_settings
   FOR EACH ROW
   EXECUTE FUNCTION app.touch_updated_at();

@@ -450,20 +450,24 @@ CREATE POLICY agent_guardrail_assignments_org_write ON public.agent_guardrail_as
 -- TRIGGERS
 -- ============================================
 
-DROP TRIGGER IF EXISTS trg_agents_touch ON agents CASCADE;
+DROP TRIGGER IF EXISTS trg_agents_touch ON agents;
 CREATE TRIGGER trg_agents_touch
+  BEFORE UPDATE ON agents
     FOR EACH ROW EXECUTE FUNCTION app.touch_updated_at();
 
-DROP TRIGGER IF EXISTS trg_agent_personas_touch ON agent_personas CASCADE;
+DROP TRIGGER IF EXISTS trg_agent_personas_touch ON agent_personas;
 CREATE TRIGGER trg_agent_personas_touch
+  BEFORE UPDATE ON agent_personas
     FOR EACH ROW EXECUTE FUNCTION app.touch_updated_at();
 
-DROP TRIGGER IF EXISTS trg_agent_tools_touch ON agent_tools CASCADE;
+DROP TRIGGER IF EXISTS trg_agent_tools_touch ON agent_tools;
 CREATE TRIGGER trg_agent_tools_touch
+  BEFORE UPDATE ON agent_tools
     FOR EACH ROW EXECUTE FUNCTION app.touch_updated_at();
 
-DROP TRIGGER IF EXISTS trg_agent_knowledge_sources_touch ON agent_knowledge_sources CASCADE;
+DROP TRIGGER IF EXISTS trg_agent_knowledge_sources_touch ON agent_knowledge_sources;
 CREATE TRIGGER trg_agent_knowledge_sources_touch
+  BEFORE UPDATE ON agent_knowledge_sources
     FOR EACH ROW EXECUTE FUNCTION app.touch_updated_at();
 
 -- ============================================

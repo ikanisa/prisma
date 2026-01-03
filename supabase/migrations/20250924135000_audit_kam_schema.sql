@@ -106,9 +106,11 @@ CREATE TABLE IF NOT EXISTS public.estimate_register (
 CREATE INDEX IF NOT EXISTS idx_estimate_register_org_eng ON public.estimate_register(org_id, engagement_id);
 CREATE INDEX IF NOT EXISTS idx_estimate_register_uncertainty ON public.estimate_register(uncertainty_level);
 
-DROP TRIGGER IF EXISTS trg_estimate_register_touch ON estimate_register CASCADE;
-DROP TRIGGER IF EXISTS trg_estimate_register_touch ON app CASCADE;
-CREATE TRIGGER trg_estimate_register_touch.touch_updated_at();
+DROP TRIGGER IF EXISTS trg_estimate_register_touch ON estimate_register;
+CREATE TRIGGER trg_estimate_register_touch
+  BEFORE UPDATE ON estimate_register
+  ON touch_updated_at
+  FOR EACH ROW EXECUTE FUNCTION touch_updated_at();
 
 CREATE TABLE IF NOT EXISTS public.going_concern_worksheets (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -127,9 +129,11 @@ CREATE TABLE IF NOT EXISTS public.going_concern_worksheets (
 CREATE INDEX IF NOT EXISTS idx_gc_worksheets_org_eng ON public.going_concern_worksheets(org_id, engagement_id);
 CREATE INDEX IF NOT EXISTS idx_gc_worksheets_assessment ON public.going_concern_worksheets(assessment);
 
-DROP TRIGGER IF EXISTS trg_gc_worksheets_touch ON going_concern_worksheets CASCADE;
-DROP TRIGGER IF EXISTS trg_gc_worksheets_touch ON app CASCADE;
-CREATE TRIGGER trg_gc_worksheets_touch.touch_updated_at();
+DROP TRIGGER IF EXISTS trg_gc_worksheets_touch ON going_concern_worksheets;
+CREATE TRIGGER trg_gc_worksheets_touch
+  BEFORE UPDATE ON going_concern_worksheets
+  ON touch_updated_at
+  FOR EACH ROW EXECUTE FUNCTION touch_updated_at();
 
 CREATE TABLE IF NOT EXISTS public.audit_planned_procedures (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -149,9 +153,11 @@ CREATE TABLE IF NOT EXISTS public.audit_planned_procedures (
 CREATE INDEX IF NOT EXISTS idx_planned_procedures_org_eng ON public.audit_planned_procedures(org_id, engagement_id);
 CREATE INDEX IF NOT EXISTS idx_planned_procedures_risk ON public.audit_planned_procedures(risk_id) WHERE risk_id IS NOT NULL;
 
-DROP TRIGGER IF EXISTS trg_planned_procedures_touch ON audit_planned_procedures CASCADE;
-DROP TRIGGER IF EXISTS trg_planned_procedures_touch ON app CASCADE;
-CREATE TRIGGER trg_planned_procedures_touch.touch_updated_at();
+DROP TRIGGER IF EXISTS trg_planned_procedures_touch ON audit_planned_procedures;
+CREATE TRIGGER trg_planned_procedures_touch
+  BEFORE UPDATE ON audit_planned_procedures
+  ON touch_updated_at
+  FOR EACH ROW EXECUTE FUNCTION touch_updated_at();
 
 CREATE TABLE IF NOT EXISTS public.audit_evidence (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -172,9 +178,11 @@ CREATE TABLE IF NOT EXISTS public.audit_evidence (
 CREATE INDEX IF NOT EXISTS idx_audit_evidence_org_eng ON public.audit_evidence(org_id, engagement_id);
 CREATE INDEX IF NOT EXISTS idx_audit_evidence_procedure ON public.audit_evidence(procedure_id);
 
-DROP TRIGGER IF EXISTS trg_audit_evidence_touch ON audit_evidence CASCADE;
-DROP TRIGGER IF EXISTS trg_audit_evidence_touch ON app CASCADE;
-CREATE TRIGGER trg_audit_evidence_touch.touch_updated_at();
+DROP TRIGGER IF EXISTS trg_audit_evidence_touch ON audit_evidence;
+CREATE TRIGGER trg_audit_evidence_touch
+  BEFORE UPDATE ON audit_evidence
+  ON touch_updated_at
+  FOR EACH ROW EXECUTE FUNCTION touch_updated_at();
 
 CREATE TABLE IF NOT EXISTS public.kam_candidates (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -205,9 +213,11 @@ CREATE INDEX IF NOT EXISTS idx_kam_candidates_risk ON public.kam_candidates(risk
 CREATE INDEX IF NOT EXISTS idx_kam_candidates_estimate ON public.kam_candidates(estimate_id) WHERE estimate_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_kam_candidates_gc ON public.kam_candidates(going_concern_id) WHERE going_concern_id IS NOT NULL;
 
-DROP TRIGGER IF EXISTS trg_kam_candidates_touch ON kam_candidates CASCADE;
-DROP TRIGGER IF EXISTS trg_kam_candidates_touch ON app CASCADE;
-CREATE TRIGGER trg_kam_candidates_touch.touch_updated_at();
+DROP TRIGGER IF EXISTS trg_kam_candidates_touch ON kam_candidates;
+CREATE TRIGGER trg_kam_candidates_touch
+  BEFORE UPDATE ON kam_candidates
+  ON touch_updated_at
+  FOR EACH ROW EXECUTE FUNCTION touch_updated_at();
 
 CREATE UNIQUE INDEX IF NOT EXISTS uq_kam_candidate_risk
   ON public.kam_candidates(engagement_id, risk_id)
@@ -251,6 +261,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_kam_draft_candidate ON public.kam_drafts(ca
 CREATE INDEX IF NOT EXISTS idx_kam_drafts_org_eng ON public.kam_drafts(org_id, engagement_id);
 CREATE INDEX IF NOT EXISTS idx_kam_drafts_status ON public.kam_drafts(status);
 
-DROP TRIGGER IF EXISTS trg_kam_drafts_touch ON kam_drafts CASCADE;
-DROP TRIGGER IF EXISTS trg_kam_drafts_touch ON app CASCADE;
-CREATE TRIGGER trg_kam_drafts_touch.touch_updated_at();
+DROP TRIGGER IF EXISTS trg_kam_drafts_touch ON kam_drafts;
+CREATE TRIGGER trg_kam_drafts_touch
+  BEFORE UPDATE ON kam_drafts
+  FOR EACH ROW EXECUTE FUNCTION app.touch_updated_at();

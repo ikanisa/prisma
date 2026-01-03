@@ -1,14 +1,12 @@
 -- Fix RLS policies for core authentication tables
 
 -- First, create RLS policies for users table
-DROP POLICY IF EXISTS "Users can view their own profile" ON users CASCADE;
-CREATE POLICY "Users can view their own profile" 
+DROP POLICY IF EXISTS "users" ON users;
 FOR ALL 
 USING (auth.uid() = id);
 
 -- Create RLS policies for organizations table
-DROP POLICY IF EXISTS "Members can view their organizations" ON organizations CASCADE;
-CREATE POLICY "Members can view their organizations" 
+DROP POLICY IF EXISTS "organizations" ON organizations;
 FOR SELECT 
 USING (
   EXISTS (
@@ -19,13 +17,11 @@ USING (
 );
 
 -- Create RLS policies for memberships table (this is the critical one)
-DROP POLICY IF EXISTS "Users can view their own memberships" ON memberships CASCADE;
-CREATE POLICY "Users can view their own memberships" 
+DROP POLICY IF EXISTS "memberships" ON memberships;
 FOR SELECT 
 USING (user_id = auth.uid());
 
-DROP POLICY IF EXISTS "Users can insert their own memberships" ON memberships CASCADE;
-CREATE POLICY "Users can insert their own memberships" 
+DROP POLICY IF EXISTS "memberships" ON memberships;
 FOR INSERT 
 WITH CHECK (user_id = auth.uid());
 

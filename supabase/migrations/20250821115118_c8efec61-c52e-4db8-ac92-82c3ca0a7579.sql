@@ -172,126 +172,97 @@ AS $$
 $$;
 -- RLS Policies for users table
 DROP POLICY IF EXISTS "users_self_read" ON public.users;
-CREATE POLICY "users_self_read" ON public.users
   FOR SELECT USING (id = auth.uid());
 DROP POLICY IF EXISTS "users_self_update" ON public.users;
-CREATE POLICY "users_self_update" ON public.users
   FOR UPDATE USING (id = auth.uid());
 DROP POLICY IF EXISTS "users_admin_read" ON public.users;
-CREATE POLICY "users_admin_read" ON public.users
   FOR SELECT USING (
     EXISTS (SELECT 1 FROM public.users u WHERE u.id = auth.uid() AND u.is_system_admin = true)
   );
 -- RLS Policies for organizations table
 DROP POLICY IF EXISTS "org_read" ON public.organizations;
-CREATE POLICY "org_read" ON public.organizations
   FOR SELECT USING (
     public.is_member_of(id) OR
     EXISTS (SELECT 1 FROM public.users u WHERE u.id = auth.uid() AND u.is_system_admin = true)
   );
 DROP POLICY IF EXISTS "org_write" ON public.organizations;
-CREATE POLICY "org_write" ON public.organizations
   FOR ALL USING (
     EXISTS (SELECT 1 FROM public.users u WHERE u.id = auth.uid() AND u.is_system_admin = true)
   );
 -- RLS Policies for memberships table
 DROP POLICY IF EXISTS "memberships_read" ON public.memberships;
-CREATE POLICY "memberships_read" ON public.memberships
   FOR SELECT USING (
     user_id = auth.uid() OR
     public.has_min_role(org_id, 'MANAGER'::public.role_level) OR
     EXISTS (SELECT 1 FROM public.users u WHERE u.id = auth.uid() AND u.is_system_admin = true)
   );
 DROP POLICY IF EXISTS "memberships_write" ON public.memberships;
-CREATE POLICY "memberships_write" ON public.memberships
   FOR ALL USING (
     public.has_min_role(org_id, 'MANAGER'::public.role_level) OR
     EXISTS (SELECT 1 FROM public.users u WHERE u.id = auth.uid() AND u.is_system_admin = true)
   );
 -- RLS Policies for clients table
 DROP POLICY IF EXISTS "clients_read" ON public.clients;
-CREATE POLICY "clients_read" ON public.clients
   FOR SELECT USING (public.is_member_of(org_id));
 DROP POLICY IF EXISTS "clients_insert" ON public.clients;
-CREATE POLICY "clients_insert" ON public.clients
   FOR INSERT WITH CHECK (public.has_min_role(org_id, 'MANAGER'::public.role_level));
 DROP POLICY IF EXISTS "clients_update" ON public.clients;
-CREATE POLICY "clients_update" ON public.clients
   FOR UPDATE USING (public.has_min_role(org_id, 'MANAGER'::public.role_level));
 DROP POLICY IF EXISTS "clients_delete" ON public.clients;
-CREATE POLICY "clients_delete" ON public.clients
   FOR DELETE USING (
     EXISTS (SELECT 1 FROM public.users u WHERE u.id = auth.uid() AND u.is_system_admin = true)
   );
 -- RLS Policies for engagements table
 DROP POLICY IF EXISTS "engagements_read" ON public.engagements;
-CREATE POLICY "engagements_read" ON public.engagements
   FOR SELECT USING (public.is_member_of(org_id));
 DROP POLICY IF EXISTS "engagements_insert" ON public.engagements;
-CREATE POLICY "engagements_insert" ON public.engagements
   FOR INSERT WITH CHECK (public.has_min_role(org_id, 'MANAGER'::public.role_level));
 DROP POLICY IF EXISTS "engagements_update" ON public.engagements;
-CREATE POLICY "engagements_update" ON public.engagements
   FOR UPDATE USING (public.has_min_role(org_id, 'MANAGER'::public.role_level));
 DROP POLICY IF EXISTS "engagements_delete" ON public.engagements;
-CREATE POLICY "engagements_delete" ON public.engagements
   FOR DELETE USING (
     EXISTS (SELECT 1 FROM public.users u WHERE u.id = auth.uid() AND u.is_system_admin = true)
   );
 -- RLS Policies for tasks table
 DROP POLICY IF EXISTS "tasks_read" ON public.tasks;
-CREATE POLICY "tasks_read" ON public.tasks
   FOR SELECT USING (public.is_member_of(org_id));
 DROP POLICY IF EXISTS "tasks_insert" ON public.tasks;
-CREATE POLICY "tasks_insert" ON public.tasks
   FOR INSERT WITH CHECK (public.is_member_of(org_id));
 DROP POLICY IF EXISTS "tasks_update" ON public.tasks;
-CREATE POLICY "tasks_update" ON public.tasks
   FOR UPDATE USING (
     public.is_member_of(org_id) AND
     (assigned_to = auth.uid() OR public.has_min_role(org_id, 'MANAGER'::public.role_level))
   );
 DROP POLICY IF EXISTS "tasks_delete" ON public.tasks;
-CREATE POLICY "tasks_delete" ON public.tasks
   FOR DELETE USING (public.has_min_role(org_id, 'MANAGER'::public.role_level));
 -- RLS Policies for documents table
 DROP POLICY IF EXISTS "documents_read" ON public.documents;
-CREATE POLICY "documents_read" ON public.documents
   FOR SELECT USING (public.is_member_of(org_id));
 DROP POLICY IF EXISTS "documents_insert" ON public.documents;
-CREATE POLICY "documents_insert" ON public.documents
   FOR INSERT WITH CHECK (public.is_member_of(org_id) AND uploaded_by = auth.uid());
 DROP POLICY IF EXISTS "documents_update" ON public.documents;
-CREATE POLICY "documents_update" ON public.documents
   FOR UPDATE USING (
     public.is_member_of(org_id) AND
     (uploaded_by = auth.uid() OR public.has_min_role(org_id, 'MANAGER'::public.role_level))
   );
 DROP POLICY IF EXISTS "documents_delete" ON public.documents;
-CREATE POLICY "documents_delete" ON public.documents
   FOR DELETE USING (
     public.is_member_of(org_id) AND
     (uploaded_by = auth.uid() OR public.has_min_role(org_id, 'MANAGER'::public.role_level))
   );
 -- RLS Policies for notifications table
 DROP POLICY IF EXISTS "notifications_read" ON public.notifications;
-CREATE POLICY "notifications_read" ON public.notifications
   FOR SELECT USING (user_id = auth.uid());
 DROP POLICY IF EXISTS "notifications_insert" ON public.notifications;
-CREATE POLICY "notifications_insert" ON public.notifications
   FOR INSERT WITH CHECK (public.is_member_of(org_id));
 DROP POLICY IF EXISTS "notifications_update" ON public.notifications;
-CREATE POLICY "notifications_update" ON public.notifications
   FOR UPDATE USING (user_id = auth.uid());
 DROP POLICY IF EXISTS "notifications_delete" ON public.notifications;
-CREATE POLICY "notifications_delete" ON public.notifications
   FOR DELETE USING (user_id = auth.uid());
 -- RLS Policies for activity_log table
 DROP POLICY IF EXISTS "activity_log_read" ON public.activity_log;
-CREATE POLICY "activity_log_read" ON public.activity_log
   FOR SELECT USING (public.is_member_of(org_id));
 DROP POLICY IF EXISTS "activity_log_insert" ON public.activity_log;
-CREATE POLICY "activity_log_insert" ON public.activity_log
   FOR INSERT WITH CHECK (public.is_member_of(org_id) AND user_id = auth.uid());
 -- Create updated_at trigger function
 CREATE OR REPLACE FUNCTION public.handle_updated_at()
@@ -306,27 +277,21 @@ END;
 $$;
 -- Add updated_at triggers to all tables with updated_at columns
 DROP TRIGGER IF EXISTS set_users_updated_at ON public.users;
-CREATE TRIGGER set_users_updated_at
   BEFORE UPDATE ON public.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
 DROP TRIGGER IF EXISTS set_organizations_updated_at ON public.organizations;
-CREATE TRIGGER set_organizations_updated_at
   BEFORE UPDATE ON public.organizations
   FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
 DROP TRIGGER IF EXISTS set_memberships_updated_at ON public.memberships;
-CREATE TRIGGER set_memberships_updated_at
   BEFORE UPDATE ON public.memberships
   FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
 DROP TRIGGER IF EXISTS set_clients_updated_at ON public.clients;
-CREATE TRIGGER set_clients_updated_at
   BEFORE UPDATE ON public.clients
   FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
 DROP TRIGGER IF EXISTS set_engagements_updated_at ON public.engagements;
-CREATE TRIGGER set_engagements_updated_at
   BEFORE UPDATE ON public.engagements
   FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
 DROP TRIGGER IF EXISTS set_tasks_updated_at ON public.tasks;
-CREATE TRIGGER set_tasks_updated_at
   BEFORE UPDATE ON public.tasks
   FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
 -- Create function to automatically create user profile on signup
@@ -348,6 +313,5 @@ END;
 $$;
 -- Trigger to create user profile on auth signup
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
-CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();

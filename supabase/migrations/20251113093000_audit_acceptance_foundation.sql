@@ -167,16 +167,19 @@ CREATE INDEX IF NOT EXISTS idx_approval_queue_stage
   ON public.approval_queue(stage);
 
 -- Triggers ---------------------------------------------------------------
-DROP TRIGGER IF EXISTS trg_independence_assessments_touch ON independence_assessments CASCADE;
+DROP TRIGGER IF EXISTS trg_independence_assessments_touch ON independence_assessments;
 CREATE TRIGGER trg_independence_assessments_touch
+  BEFORE UPDATE ON independence_assessments
   FOR EACH ROW EXECUTE FUNCTION app.touch_updated_at();
 
-DROP TRIGGER IF EXISTS trg_acceptance_decisions_touch ON acceptance_decisions CASCADE;
+DROP TRIGGER IF EXISTS trg_acceptance_decisions_touch ON acceptance_decisions;
 CREATE TRIGGER trg_acceptance_decisions_touch
+  BEFORE UPDATE ON acceptance_decisions
   FOR EACH ROW EXECUTE FUNCTION app.touch_updated_at();
 
-DROP TRIGGER IF EXISTS trg_approval_queue_touch ON approval_queue CASCADE;
+DROP TRIGGER IF EXISTS trg_approval_queue_touch ON approval_queue;
 CREATE TRIGGER trg_approval_queue_touch
+  BEFORE UPDATE ON approval_queue
   FOR EACH ROW EXECUTE FUNCTION app.touch_updated_at();
 
 -- Data migration ---------------------------------------------------------

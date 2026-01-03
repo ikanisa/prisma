@@ -687,8 +687,8 @@ END;
 $$;
 
 DROP TRIGGER IF EXISTS trigger_dataset_examples_stats ON public.dataset_examples;
-DROP TRIGGER IF EXISTS trigger_dataset_examples_stats ON dataset_examples CASCADE;
 CREATE TRIGGER trigger_dataset_examples_stats
+  ON public.dataset_examples
     FOR EACH ROW
     EXECUTE FUNCTION public.trigger_update_dataset_stats();
 

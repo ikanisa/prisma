@@ -85,9 +85,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idempotency_keys_unique
 
 ALTER TABLE public.idempotency_keys ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "idem_rw" ON public.idempotency_keys;
-DROP POLICY IF EXISTS "Allow service role idempotency access" ON public.idempotency_keys;
-DROP POLICY IF EXISTS "Allow service role idempotency access" ON idempotency_keys CASCADE;
-CREATE POLICY "Allow service role idempotency access"
+DROP POLICY IF EXISTS "idempotency_keys" ON idempotency_keys;
   FOR ALL
   USING (auth.role() = 'service_role')
   WITH CHECK (auth.role() = 'service_role');

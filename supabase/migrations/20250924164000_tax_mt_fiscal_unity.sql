@@ -35,8 +35,9 @@ BEGIN
     WHERE tgname = 'trg_fiscal_unity_touch'
       AND tgrelid = 'public.fiscal_unity_computations'::regclass
   ) THEN
-    DROP TRIGGER IF EXISTS trg_fiscal_unity_touch ON fiscal_unity_computations CASCADE;
+    DROP TRIGGER IF EXISTS trg_fiscal_unity_touch ON fiscal_unity_computations;
 CREATE TRIGGER trg_fiscal_unity_touch
+  BEFORE UPDATE ON fiscal_unity_computations
       FOR EACH ROW
       EXECUTE FUNCTION app.touch_updated_at();
   END IF;

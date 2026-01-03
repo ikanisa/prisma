@@ -105,8 +105,9 @@ CREATE TABLE IF NOT EXISTS public.audit_risk_activity (
 
 CREATE INDEX IF NOT EXISTS idx_audit_risk_activity_risk ON public.audit_risk_activity(risk_id);
 
-DROP TRIGGER IF EXISTS trg_audit_risks_touch ON audit_risks CASCADE;
+DROP TRIGGER IF EXISTS trg_audit_risks_touch ON audit_risks;
 CREATE TRIGGER trg_audit_risks_touch
+  BEFORE UPDATE ON audit_risks
   FOR EACH ROW
   EXECUTE FUNCTION app.touch_updated_at();
 

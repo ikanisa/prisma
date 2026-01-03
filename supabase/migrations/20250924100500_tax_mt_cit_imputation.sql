@@ -129,8 +129,9 @@ BEGIN
     WHERE tgname = 'trg_tax_entities_touch'
       AND tgrelid = 'public.tax_entities'::regclass
   ) THEN
-    DROP TRIGGER IF EXISTS trg_tax_entities_touch ON tax_entities CASCADE;
+    DROP TRIGGER IF EXISTS trg_tax_entities_touch ON tax_entities;
 CREATE TRIGGER trg_tax_entities_touch
+  BEFORE UPDATE ON tax_entities
       FOR EACH ROW EXECUTE FUNCTION app.touch_updated_at();
   END IF;
 END;
@@ -143,8 +144,9 @@ BEGIN
     WHERE tgname = 'trg_tax_accounts_touch'
       AND tgrelid = 'public.tax_accounts'::regclass
   ) THEN
-    DROP TRIGGER IF EXISTS trg_tax_accounts_touch ON tax_accounts CASCADE;
+    DROP TRIGGER IF EXISTS trg_tax_accounts_touch ON tax_accounts;
 CREATE TRIGGER trg_tax_accounts_touch
+  BEFORE UPDATE ON tax_accounts
       FOR EACH ROW EXECUTE FUNCTION app.touch_updated_at();
   END IF;
 END;
@@ -157,8 +159,9 @@ BEGIN
     WHERE tgname = 'trg_cit_computations_touch'
       AND tgrelid = 'public.cit_computations'::regclass
   ) THEN
-    DROP TRIGGER IF EXISTS trg_cit_computations_touch ON cit_computations CASCADE;
+    DROP TRIGGER IF EXISTS trg_cit_computations_touch ON cit_computations;
 CREATE TRIGGER trg_cit_computations_touch
+  BEFORE UPDATE ON cit_computations
       FOR EACH ROW EXECUTE FUNCTION app.touch_updated_at();
   END IF;
 END;

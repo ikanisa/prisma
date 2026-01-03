@@ -9,7 +9,7 @@ BEGIN
   ) THEN
     EXECUTE 'ALTER TABLE public.rate_limits ENABLE ROW LEVEL SECURITY';
     EXECUTE 'DROP POLICY IF EXISTS "Service role rate limits" ON public.rate_limits';
-    EXECUTE 'DROP POLICY IF EXISTS "Service role rate limits" ON rate_limits CASCADE;
+    EXECUTE 'DROP POLICY IF EXISTS "rate_limits" ON rate_limits;
 CREATE POLICY "Service role rate limits" FOR ALL USING (auth.role() = ''service_role'') WITH CHECK (auth.role() = ''service_role'')';
   END IF;
 END

@@ -91,8 +91,8 @@ END;
 $$;
 
 DROP TRIGGER IF EXISTS trg_activity_log_enrich ON public.activity_log;
-DROP TRIGGER IF EXISTS trg_activity_log_enrich ON activity_log CASCADE;
 CREATE TRIGGER trg_activity_log_enrich
+  ON public.activity_log
   FOR EACH ROW
   EXECUTE FUNCTION app.activity_log_enrich();
 

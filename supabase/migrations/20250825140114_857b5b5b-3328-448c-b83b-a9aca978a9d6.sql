@@ -265,6 +265,7 @@ create table if not exists engagements(
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+drop trigger if exists trg_engagements_touch on engagements;
 create trigger trg_engagements_touch before update on engagements
   for each row execute function app.touch_updated_at();
 

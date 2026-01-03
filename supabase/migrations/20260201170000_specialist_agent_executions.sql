@@ -28,22 +28,19 @@ CREATE INDEX IF NOT EXISTS idx_agent_executions_engine ON agent_executions(engin
 ALTER TABLE agent_executions ENABLE ROW LEVEL SECURITY;
 
 -- Users can read their own executions
-DROP POLICY IF EXISTS "Users can read own executions" ON agent_executions CASCADE;
-CREATE POLICY "Users can read own executions"
+DROP POLICY IF EXISTS "agent_executions" ON agent_executions;
   FOR SELECT
   TO authenticated
   USING (auth.uid() = user_id);
 
 -- Service role can insert executions
-DROP POLICY IF EXISTS "Service role can insert executions" ON agent_executions CASCADE;
-CREATE POLICY "Service role can insert executions"
+DROP POLICY IF EXISTS "agent_executions" ON agent_executions;
   FOR INSERT
   TO service_role
   WITH CHECK (true);
 
 -- Admins can read all executions
-DROP POLICY IF EXISTS "Admins can read all executions" ON agent_executions CASCADE;
-CREATE POLICY "Admins can read all executions"
+DROP POLICY IF EXISTS "agent_executions" ON agent_executions;
   FOR SELECT
   TO authenticated
   USING (

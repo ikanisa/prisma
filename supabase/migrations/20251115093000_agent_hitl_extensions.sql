@@ -82,8 +82,8 @@ CREATE POLICY agent_runs_delete ON public.agent_runs
   FOR DELETE USING (public.has_min_role(org_id, 'MANAGER'::public.role_level));
 
 DROP TRIGGER IF EXISTS trg_agent_runs_touch ON public.agent_runs;
-DROP TRIGGER IF EXISTS trg_agent_runs_touch ON agent_runs CASCADE;
 CREATE TRIGGER trg_agent_runs_touch
+  BEFORE UPDATE ON public.agent_runs
   FOR EACH ROW EXECUTE FUNCTION app.touch_updated_at();
 
 CREATE TABLE IF NOT EXISTS public.agent_actions (
@@ -128,8 +128,8 @@ CREATE POLICY agent_actions_delete ON public.agent_actions
   FOR DELETE USING (public.has_min_role(org_id, 'MANAGER'::public.role_level));
 
 DROP TRIGGER IF EXISTS trg_agent_actions_touch ON public.agent_actions;
-DROP TRIGGER IF EXISTS trg_agent_actions_touch ON agent_actions CASCADE;
 CREATE TRIGGER trg_agent_actions_touch
+  BEFORE UPDATE ON public.agent_actions
   FOR EACH ROW EXECUTE FUNCTION app.touch_updated_at();
 
 CREATE TABLE IF NOT EXISTS public.agent_traces (
@@ -196,8 +196,8 @@ CREATE POLICY tool_registry_write ON public.tool_registry
   WITH CHECK (org_id IS NULL OR public.has_min_role(org_id, 'MANAGER'::public.role_level));
 
 DROP TRIGGER IF EXISTS trg_tool_registry_touch ON public.tool_registry;
-DROP TRIGGER IF EXISTS trg_tool_registry_touch ON tool_registry CASCADE;
 CREATE TRIGGER trg_tool_registry_touch
+  BEFORE UPDATE ON public.tool_registry
   FOR EACH ROW EXECUTE FUNCTION app.touch_updated_at();
 
 -- Approval queue extensions ----------------------------------------------

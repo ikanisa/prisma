@@ -623,18 +623,21 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-DROP TRIGGER IF EXISTS trigger_ckb_updated_at ON curated_knowledge_base CASCADE;
+DROP TRIGGER IF EXISTS trigger_ckb_updated_at ON curated_knowledge_base;
 CREATE TRIGGER trigger_ckb_updated_at
+  BEFORE UPDATE ON curated_knowledge_base
     FOR EACH ROW
     EXECUTE FUNCTION public.update_ckb_updated_at();
 
-DROP TRIGGER IF EXISTS trigger_guardrails_updated_at ON retrieval_guardrails CASCADE;
+DROP TRIGGER IF EXISTS trigger_guardrails_updated_at ON retrieval_guardrails;
 CREATE TRIGGER trigger_guardrails_updated_at
+  BEFORE UPDATE ON retrieval_guardrails
     FOR EACH ROW
     EXECUTE FUNCTION public.update_ckb_updated_at();
 
-DROP TRIGGER IF EXISTS trigger_deep_search_sources_updated_at ON deep_search_sources CASCADE;
+DROP TRIGGER IF EXISTS trigger_deep_search_sources_updated_at ON deep_search_sources;
 CREATE TRIGGER trigger_deep_search_sources_updated_at
+  BEFORE UPDATE ON deep_search_sources
     FOR EACH ROW
     EXECUTE FUNCTION public.update_ckb_updated_at();
 

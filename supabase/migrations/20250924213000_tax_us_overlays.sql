@@ -38,8 +38,9 @@ BEGIN
     WHERE tgname = 'trg_us_tax_overlay_touch'
       AND tgrelid = 'public.us_tax_overlay_calculations'::regclass
   ) THEN
-    DROP TRIGGER IF EXISTS trg_us_tax_overlay_touch ON us_tax_overlay_calculations CASCADE;
+    DROP TRIGGER IF EXISTS trg_us_tax_overlay_touch ON us_tax_overlay_calculations;
 CREATE TRIGGER trg_us_tax_overlay_touch
+  BEFORE UPDATE ON us_tax_overlay_calculations
       FOR EACH ROW EXECUTE FUNCTION app.touch_updated_at();
   END IF;
 END;

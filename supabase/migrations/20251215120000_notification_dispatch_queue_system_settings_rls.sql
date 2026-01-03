@@ -6,8 +6,7 @@
 ALTER TABLE public.notification_dispatch_queue ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Service role notification dispatch queue" ON public.notification_dispatch_queue;
-DROP POLICY IF EXISTS "Service role notification dispatch queue" ON notification_dispatch_queue CASCADE;
-CREATE POLICY "Service role notification dispatch queue"
+CREATE POLICY "Service role notification dispatch queue" ON public.notification_dispatch_queue
   FOR ALL
   USING (auth.role() = 'service_role')
   WITH CHECK (auth.role() = 'service_role');
@@ -15,8 +14,7 @@ CREATE POLICY "Service role notification dispatch queue"
 ALTER TABLE public.system_settings ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "system_settings_service_role" ON public.system_settings;
-DROP POLICY IF EXISTS "system_settings_service_role" ON system_settings CASCADE;
-CREATE POLICY "system_settings_service_role"
+CREATE POLICY "system_settings_service_role" ON public.system_settings
   FOR ALL
   USING (auth.role() = 'service_role')
   WITH CHECK (auth.role() = 'service_role');

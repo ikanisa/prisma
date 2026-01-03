@@ -1,6 +1,6 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { parse } from 'yaml';
+import { load as parseYaml } from 'js-yaml';
 
 export interface ToolDefinition {
   id: string;
@@ -61,12 +61,12 @@ export class AgentRegistryLoader {
 
   constructor(registryPath: string) {
     const content = readFileSync(registryPath, 'utf-8');
-    this.registry = parse(content) as AgentRegistry;
-    
+    this.registry = parseYaml(content) as AgentRegistry;
+
     this.agentMap = new Map(
       this.registry.agents.map(agent => [agent.id, agent])
     );
-    
+
     this.toolMap = new Map(
       this.registry.tools.map(tool => [tool.id, tool])
     );
