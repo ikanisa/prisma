@@ -175,13 +175,13 @@ pnpm --filter web exec prisma validate
 
 ```bash
 # Check application health
-curl https://prisma-glow.pages.dev/api/health
+curl https://prisma.pages.dev/api/health
 
 # Check readiness
-curl https://prisma-glow.pages.dev/api/ready
+curl https://prisma.pages.dev/api/ready
 
 # Check metrics
-curl https://prisma-glow.pages.dev/api/metrics
+curl https://prisma.pages.dev/api/metrics
 ```
 
 ### Verification Checklist

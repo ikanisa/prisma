@@ -2,7 +2,7 @@
 # Cloudflare Pages Configuration for Prisma Glow
 # =============================================================================
 # Deployment: Connects to GitHub repo, builds on push to main
-# Production URL: https://prisma-glow.pages.dev
+# Production URL: https://prisma.pages.dev
 # Documentation: /docs/cloudflare/DEPLOYMENT.md
 # =============================================================================
 
@@ -59,7 +59,7 @@ NODE_VERSION = "22"
 # R2 Buckets
 # [[r2_buckets]]
 # binding = "ASSETS"
-# bucket_name = "prisma-glow-assets"
+# bucket_name = "prisma-assets"
 
 # Durable Objects
 # [[durable_objects.bindings]]
@@ -69,15 +69,15 @@ NODE_VERSION = "22"
 # D1 Database (if migrating from Supabase)
 # [[d1_databases]]
 # binding = "DB"
-# database_name = "prisma-glow-db"
+# database_name = "prisma-db"
 # database_id = "your-d1-database-id"
 
 # Queues (for background jobs)
 # [[queues.producers]]
-# queue = "prisma-glow-queue"
+# queue = "prisma-queue"
 # binding = "QUEUE"
 
 # [[queues.consumers]]
-# queue = "prisma-glow-queue"
+# queue = "prisma-queue"
 # max_batch_size = 10
 # max_batch_timeout = 30

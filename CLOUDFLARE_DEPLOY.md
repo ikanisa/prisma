@@ -15,7 +15,7 @@ This app uses **invitation-only access** enforced at multiple layers:
 To add network-level access control:
 
 1. Go to **Cloudflare Zero Trust** → **Access** → **Applications**
-2. Create new application for `prisma-glow.pages.dev`
+2. Create new application for `prisma.pages.dev`
 3. Add policy: **Allow** → **Emails ending in** → `@yourcompany.com`
 4. Or use: **Allow** → **Email** → `list of staff emails`
 
@@ -40,7 +40,7 @@ This adds SSO before users even reach the app.
    ```
    NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
    NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
-   NEXT_PUBLIC_APP_URL=https://prisma-glow.pages.dev
+   NEXT_PUBLIC_APP_URL=https://prisma.pages.dev
    NEXT_PUBLIC_SENTRY_DSN=your-sentry-dsn
    NODE_VERSION=20
    ```
@@ -60,7 +60,7 @@ wrangler login
 pnpm --filter @prisma/web build
 
 # Deploy
-wrangler pages deploy apps/web/.next --project-name=prisma-glow
+wrangler pages deploy apps/web/.next --project-name=prisma
 ```
 
 ---
@@ -71,7 +71,7 @@ wrangler pages deploy apps/web/.next --project-name=prisma-glow
 |----------|-------------|---------|
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL | `https://xxx.supabase.co` |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Public anon key | `eyJ...` |
-| `NEXT_PUBLIC_APP_URL` | Production app URL | `https://prisma-glow.pages.dev` |
+| `NEXT_PUBLIC_APP_URL` | Production app URL | `https://prisma.pages.dev` |
 | `NEXT_PUBLIC_SENTRY_DSN` | Sentry DSN | `https://xxx@sentry.io/xxx` |
 | `NODE_VERSION` | Node.js version for build | `20` |
 
@@ -90,7 +90,7 @@ wrangler pages deploy apps/web/.next --project-name=prisma-glow
 ## Preview Deployments
 
 Every PR gets a unique preview URL:
-- Format: `<commit-hash>.prisma-glow.pages.dev`
+- Format: `<commit-hash>.prisma.pages.dev`
 - Automatic deployment on push
 - Comment with preview URL on PR
 
@@ -118,8 +118,8 @@ Every PR gets a unique preview URL:
 
 ```bash
 # List recent deployments
-wrangler pages deployment list --project-name=prisma-glow
+wrangler pages deployment list --project-name=prisma
 
 # Rollback to specific deployment
-wrangler pages deployment rollback <deployment-id> --project-name=prisma-glow
+wrangler pages deployment rollback <deployment-id> --project-name=prisma
 ```
