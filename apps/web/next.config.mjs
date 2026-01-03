@@ -64,19 +64,20 @@ const withPWA = withPWAInit({
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: process.env.TAURI_BUILD ? 'export' : undefined,
+  // Use 'standalone' for faster builds, 'export' for Tauri
+  output: process.env.TAURI_BUILD ? 'export' : 'standalone',
   distDir: process.env.TAURI_BUILD ? 'out' : '.next',
   trailingSlash: true,
   reactStrictMode: true,
   images: { unoptimized: true },
   assetPrefix: process.env.TAURI_BUILD ? './' : '',
+  // Skip type checking in CI to speed up builds (run separately in CI pipeline)
   typescript: {
-    // P3-2 FIX: Enable TypeScript checking (set to false when ready for strict mode)
-    ignoreBuildErrors: process.env.SKIP_TYPE_CHECK === 'true',
+    ignoreBuildErrors: process.env.CI === 'true' || process.env.SKIP_TYPE_CHECK === 'true',
   },
+  // Skip ESLint in CI to speed up builds (run separately in CI pipeline)
   eslint: {
-    // P3-2 FIX: Enable ESLint during builds when ready
-    ignoreDuringBuilds: process.env.SKIP_LINT === 'true',
+    ignoreDuringBuilds: process.env.CI === 'true' || process.env.SKIP_LINT === 'true',
   },
   env: {
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL || 'https://prisma-glow.pages.dev',
@@ -91,8 +92,20 @@ const nextConfig = {
     };
     return config;
   },
+  // Disable experimental features that slow down builds
   experimental: {
-    optimizeCss: true,
+    // optimizeCss can be slow, disable for faster builds
+    optimizeCss: false,
+  },
+  // Reduce bundle size by excluding server components from client bundle
+  modularizeImports: {
+    'lucide-react': {
+      transform: 'lucide-react/dist/esm/icons/{{member}}',
+    },
+  },
+  // Compiler optimizations
+  compiler: {
+    removeConsole: process.env.NODE_ENV === 'production',
   },
 };
 

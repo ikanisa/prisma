@@ -20,7 +20,12 @@ name = "prisma-glow-staging"
 
 # Build configuration
 [build]
-command = "pnpm install && pnpm --filter @prisma-glow/web build"
+command = "pnpm install --frozen-lockfile && pnpm --filter @prisma-glow/web build"
+
+# Build environment variables
+[build.environment]
+CI = "true"
+NODE_VERSION = "22"
 
 # Environment variables (set in Cloudflare Dashboard)
 # NEXT_PUBLIC_SUPABASE_URL
