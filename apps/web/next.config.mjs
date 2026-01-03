@@ -43,10 +43,12 @@ const nextConfig = {
   images: { unoptimized: true },
   assetPrefix: process.env.TAURI_BUILD ? './' : '',
   typescript: {
-    ignoreBuildErrors: true,
+    // P3-2 FIX: Enable TypeScript checking (set to false when ready for strict mode)
+    ignoreBuildErrors: process.env.SKIP_TYPE_CHECK === 'true',
   },
   eslint: {
-    ignoreDuringBuilds: true,
+    // P3-2 FIX: Enable ESLint during builds when ready
+    ignoreDuringBuilds: process.env.SKIP_LINT === 'true',
   },
   env: {
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL || 'https://prisma-glow.pages.dev',
