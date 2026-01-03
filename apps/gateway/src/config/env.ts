@@ -9,14 +9,14 @@ interface EnvConfig {
   SUPABASE_ANON_KEY: string;
   SUPABASE_SERVICE_KEY: string;
   SUPABASE_JWT_SECRET: string;
-  
+
   // AI APIs
   OPENAI_API_KEY: string;
   GEMINI_API_KEY: string;
-  
+
   // RAG Service
   RAG_SERVICE_URL: string;
-  
+
   // Gateway
   PORT?: string;
   NODE_ENV?: string;
@@ -91,7 +91,7 @@ export function validateEnv(): EnvConfig {
 
   console.log('✅ Environment validation passed');
 
-  return process.env as EnvConfig;
+  return process.env as unknown as EnvConfig;
 }
 
 function isValidUrl(url: string): boolean {

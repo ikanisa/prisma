@@ -23,6 +23,8 @@ interface JWTPayload {
     provider?: string;
   };
   user_metadata?: Record<string, any>;
+  /** Alias for sub - maps to user ID, required by Express Request['user'] */
+  id: string;
 }
 
 export interface AuthenticatedRequest extends Request {
@@ -43,7 +45,7 @@ export async function verifySupabaseToken(
   try {
     // Extract token from Authorization header
     const authHeader = req.headers.authorization;
-    
+
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       res.status(401).json({
         error: 'Unauthorized',
@@ -68,18 +70,18 @@ export async function verifySupabaseToken(
       audience: JWT_AUDIENCE,
     }) as JWTPayload;
 
-    // Attach user info to request
-    req.user = decoded;
+    // Attach user info to request (id is alias for sub)
+    req.user = { ...decoded, id: decoded.sub };
     req.userId = decoded.sub;
 
     // Optionally fetch organization context from Supabase
     // This ensures proper tenant isolation
     if (SUPABASE_URL && SUPABASE_ANON_KEY) {
       const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-      
+
       // Set the user's auth context
       const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-      
+
       if (userError || !user) {
         res.status(401).json({
           error: 'Unauthorized',

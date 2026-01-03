@@ -9,7 +9,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { loadAgentsRegistry } from '@prisma-glow/agents/registry';
 import { createOpenAIAgentFromRegistry } from '@prisma-glow/agents/openai';
-import { createGeminiConfigFromRegistry } from '@prisma-glow/agents/gemini';
+import { createGeminiAgentFromRegistry } from '@prisma-glow/agents/gemini';
 import { runOpenAIAgent } from '@prisma-glow/agents/openai';
 import { runGeminiAgent } from '@prisma-glow/agents/gemini';
 import { z } from 'zod';
@@ -55,8 +55,8 @@ export function createSpecialistAgentsRouter(supabase: SupabaseClient): Router {
 
     // Filter by jurisdiction if provided
     if (jurisdiction && typeof jurisdiction === 'string') {
-      agents = agents.filter((a: any) => 
-        a.jurisdictions.includes(jurisdiction) || 
+      agents = agents.filter((a: any) =>
+        a.jurisdictions.includes(jurisdiction) ||
         a.jurisdictions.includes('GLOBAL')
       );
     }
@@ -98,7 +98,7 @@ export function createSpecialistAgentsRouter(supabase: SupabaseClient): Router {
    */
   router.post('/:agentId/execute', asyncHandler(async (req: Request, res: Response) => {
     const { agentId } = req.params;
-    
+
     // Validate request body
     const parseResult = ExecuteAgentSchema.safeParse(req.body);
     if (!parseResult.success) {
@@ -139,7 +139,7 @@ export function createSpecialistAgentsRouter(supabase: SupabaseClient): Router {
           },
         });
       } else {
-        const config = createGeminiConfigFromRegistry(agentEntry);
+        const config = createGeminiAgentFromRegistry(agentEntry);
         result = await runGeminiAgent(config, {
           input: message,
           metadata: {
@@ -176,7 +176,7 @@ export function createSpecialistAgentsRouter(supabase: SupabaseClient): Router {
       });
     } catch (error) {
       console.error(`Agent execution failed for ${agentId}:`, error);
-      
+
       res.status(500).json({
         error: 'Agent execution failed',
         message: error instanceof Error ? error.message : 'Unknown error',
@@ -203,13 +203,13 @@ export function createSpecialistAgentsRouter(supabase: SupabaseClient): Router {
 
     // Simple keyword-based routing (can be enhanced with ML later)
     const messageLower = message.toLowerCase();
-    
+
     let selectedAgent = null;
 
     // Tax keywords
     if (messageLower.match(/tax|vat|compliance|return|filing|paye|payroll/)) {
-      selectedAgent = registry.find((a: any) => 
-        a.category === 'tax' && 
+      selectedAgent = registry.find((a: any) =>
+        a.category === 'tax' &&
         (!context?.jurisdictionCode || a.jurisdictions.includes(context.jurisdictionCode))
       );
     }

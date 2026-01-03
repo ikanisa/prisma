@@ -45,8 +45,8 @@ const NODE_ENV = process.env.NODE_ENV || 'development';
 const ALLOWED_ORIGINS = process.env.GATEWAY_ALLOWED_ORIGINS
   ? process.env.GATEWAY_ALLOWED_ORIGINS.split(',').map(o => o.trim())
   : NODE_ENV === 'production'
-  ? [] // Must be explicitly configured in production
-  : ['http://localhost:3000', 'http://localhost:5173', 'http://127.0.0.1:3000', 'http://127.0.0.1:5173'];
+    ? [] // Must be explicitly configured in production
+    : ['http://localhost:3000', 'http://localhost:5173', 'http://127.0.0.1:3000', 'http://127.0.0.1:5173'];
 
 // Validate environment
 if (!SUPABASE_URL) {
@@ -73,7 +73,7 @@ app.use(cors({
   origin: (origin, callback) => {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
-    
+
     if (ALLOWED_ORIGINS.includes(origin)) {
       callback(null, true);
     } else {
@@ -140,7 +140,7 @@ apiV1.use(apiLimiter);
 
 // Apply authentication middleware to all API routes
 // This ensures all requests are authenticated before reaching route handlers
-apiV1.use(verifySupabaseToken);
+apiV1.use(verifySupabaseToken as express.RequestHandler);
 
 // Specialist agents routes (new AI-powered agents with tool calling)
 const specialistAgentsRouter = createSpecialistAgentsRouter(supabase);
