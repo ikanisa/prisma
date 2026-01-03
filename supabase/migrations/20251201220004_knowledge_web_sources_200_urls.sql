@@ -329,7 +329,8 @@ values
 -- AB. EU tax/customs (198–200)
 ('EU Taxation & Customs', 'https://ec.europa.eu/taxation_customs', 'ec.europa.eu', 'TAX', 'EU', 'PRIMARY', 'ACTIVE', 2, '{eu-tax}'),
 ('European Commission - Info', 'https://ec.europa.eu/info/index_en', 'ec.europa.eu', 'GOV', 'EU', 'SECONDARY', 'ACTIVE', 3, '{eu-info}'),
-('EU Tax & Customs - Portal', 'https://taxation-customs.ec.europa.eu', 'taxation-customs.ec.europa.eu', 'TAX', 'EU', 'PRIMARY', 'ACTIVE', 2, '{tax,customs}');
+('EU Tax & Customs - Portal', 'https://taxation-customs.ec.europa.eu', 'taxation-customs.ec.europa.eu', 'TAX', 'EU', 'PRIMARY', 'ACTIVE', 2, '{tax,customs}')
+ON CONFLICT (url) DO NOTHING;
 
 -- ============================================================================
 -- COMMENTS FOR FUTURE USE
