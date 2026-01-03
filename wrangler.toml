@@ -12,8 +12,8 @@ compatibility_flags = ["nodejs_compat"]
 
 # Build output directory (Next.js standalone build)
 # For Cloudflare Pages, this is set in the dashboard
-# For local wrangler dev, use: wrangler pages dev apps/web/.next
-pages_build_output_dir = "apps/web/.next"
+# For local wrangler dev, use: wrangler pages dev .vercel/output/static
+pages_build_output_dir = "apps/web/.vercel/output/static"
 
 # -----------------------------------------------------------------------------
 # Production Environment
@@ -41,7 +41,7 @@ name = "prisma-staging"
 # These settings are used when deploying via GitHub integration
 # or via `wrangler pages deploy`
 [build]
-command = "pnpm install --frozen-lockfile && pnpm --filter @prisma/web build"
+command = "pnpm install --frozen-lockfile && pnpm --filter @prisma/web pages:build"
 
 [build.environment]
 CI = "true"

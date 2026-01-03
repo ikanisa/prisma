@@ -1,5 +1,9 @@
 'use client';
 
+// Required for Cloudflare Pages via @cloudflare/next-on-pages
+export const runtime = 'edge';
+export const dynamic = 'force-dynamic';
+
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
@@ -20,7 +24,7 @@ import { getSourceDetail, triggerSourceSync, updateSourceStatus, type SourceDeta
 export default function SourceDetailPage() {
   const params = useParams();
   const sourceId = params.id as string;
-  
+
   const [source, setSource] = useState<SourceDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
@@ -151,11 +155,10 @@ export default function SourceDetailPage() {
             <span className="text-sm font-medium">Status</span>
           </div>
           <span
-            className={`mt-2 inline-flex rounded-full px-3 py-1 text-sm font-medium ${
-              source.status === 'ACTIVE'
+            className={`mt-2 inline-flex rounded-full px-3 py-1 text-sm font-medium ${source.status === 'ACTIVE'
                 ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
                 : 'bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400'
-            }`}
+              }`}
           >
             {source.status}
           </span>
@@ -183,12 +186,12 @@ export default function SourceDetailPage() {
           <p className="mt-2 text-sm">
             {source.last_sync_at
               ? new Date(source.last_sync_at).toLocaleDateString('en-US', {
-                  year: 'numeric',
-                  month: 'short',
-                  day: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+              })
               : 'Never'}
           </p>
         </div>
@@ -267,11 +270,10 @@ export default function SourceDetailPage() {
                       <td className="px-6 py-4 text-sm">{page.chunk_count.toLocaleString()}</td>
                       <td className="px-6 py-4">
                         <span
-                          className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
-                            page.status === 'ACTIVE'
+                          className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${page.status === 'ACTIVE'
                               ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
                               : 'bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400'
-                          }`}
+                            }`}
                         >
                           {page.status}
                         </span>
@@ -279,11 +281,11 @@ export default function SourceDetailPage() {
                       <td className="px-6 py-4 text-sm">
                         {page.last_scraped_at
                           ? new Date(page.last_scraped_at).toLocaleDateString('en-US', {
-                              month: 'short',
-                              day: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })
                           : '-'}
                       </td>
                     </tr>

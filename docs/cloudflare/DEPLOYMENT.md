@@ -66,10 +66,13 @@ The Express.js gateway API is **not deployed to Cloudflare**. It:
 | **Production branch** | `main` |
 | **Preview branches** | All non-production branches |
 | **Framework preset** | Next.js |
-| **Build command** | `pnpm install --frozen-lockfile && pnpm --filter @prisma/web build` |
-| **Build output directory** | `apps/web/.next` |
+| **Build command** | `pnpm install --frozen-lockfile && pnpm --filter @prisma/web pages:build` |
+| **Build output directory** | `apps/web/.vercel/output/static` |
 | **Root directory** | `/` (repo root) |
 | **Node.js version** | 22 |
+| **Deploy command** | **LEAVE EMPTY** (Cloudflare handles this automatically) |
+
+> ⚠️ **Critical**: Do NOT set a "Deploy command" (e.g., `wrangler deploy`) in the dashboard. This will cause the build to fail. Cloudflare Pages automatically deploys the output directory specified above.
 
 ### Framework Preset
 

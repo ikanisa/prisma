@@ -63,13 +63,12 @@ const withPWA = withPWAInit({
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Use 'standalone' for faster builds, 'export' for Tauri
-  output: process.env.TAURI_BUILD ? 'export' : 'standalone',
-  distDir: process.env.TAURI_BUILD ? 'out' : '.next',
+  // For Tauri desktop builds, use 'export'. For Cloudflare Pages, use default (no output specified).
+  // @cloudflare/next-on-pages does NOT support 'standalone' mode.
+  ...(process.env.TAURI_BUILD ? { output: 'export', distDir: 'out', assetPrefix: './' } : {}),
   trailingSlash: true,
   reactStrictMode: true,
   images: { unoptimized: true },
-  assetPrefix: process.env.TAURI_BUILD ? './' : '',
   // Skip type checking during builds (run separately via `pnpm typecheck`)
   typescript: {
     ignoreBuildErrors: true,
