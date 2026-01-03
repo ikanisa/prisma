@@ -38,11 +38,31 @@ create table if not exists knowledge_sources (
     updated_at timestamptz not null default now()
 );
 
-create index if not exists idx_knowledge_sources_jurisdiction
-    on knowledge_sources (jurisdiction_id);
+-- Only create index if jurisdiction_id column exists
+DO $$ 
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'knowledge_sources' 
+        AND column_name = 'jurisdiction_id'
+    ) THEN
+        CREATE INDEX IF NOT EXISTS idx_knowledge_sources_jurisdiction
+            ON knowledge_sources (jurisdiction_id);
+    END IF;
+END $$;
 
-create index if not exists idx_knowledge_sources_type
-    on knowledge_sources (type);
+-- Only create index if type column exists
+DO $$ 
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'knowledge_sources' 
+        AND column_name = 'type'
+    ) THEN
+        CREATE INDEX IF NOT EXISTS idx_knowledge_sources_type
+            ON knowledge_sources (type);
+    END IF;
+END $$;
 
 comment on table knowledge_sources is 'Authoritative sources like IFRS Foundation, national tax authorities';
 
@@ -64,14 +84,36 @@ create table if not exists knowledge_documents (
     updated_at timestamptz not null default now()
 );
 
-create index if not exists idx_knowledge_documents_source
-    on knowledge_documents (source_id);
-
-create index if not exists idx_knowledge_documents_code
-    on knowledge_documents (code);
-
-create index if not exists idx_knowledge_documents_status
-    on knowledge_documents (status);
+-- Only create indexes if columns exist
+DO $$ 
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'knowledge_documents' 
+        AND column_name = 'source_id'
+    ) THEN
+        CREATE INDEX IF NOT EXISTS idx_knowledge_documents_source
+            ON knowledge_documents (source_id);
+    END IF;
+    
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'knowledge_documents' 
+        AND column_name = 'code'
+    ) THEN
+        CREATE INDEX IF NOT EXISTS idx_knowledge_documents_code
+            ON knowledge_documents (code);
+    END IF;
+    
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'knowledge_documents' 
+        AND column_name = 'status'
+    ) THEN
+        CREATE INDEX IF NOT EXISTS idx_knowledge_documents_status
+            ON knowledge_documents (status);
+    END IF;
+END $$;
 
 comment on table knowledge_documents is 'Individual standards, laws, or guidance documents';
 

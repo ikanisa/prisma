@@ -15,7 +15,6 @@ const withPWA = withPWAInit({
   workboxOptions: {
     cleanupOutdatedCaches: true,
     clientsClaim: true,
-    precacheManifest: true,
     runtimeCaching: [
       {
         urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
@@ -75,9 +74,9 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: process.env.CI === 'true' || process.env.SKIP_TYPE_CHECK === 'true',
   },
-  // Skip ESLint in CI to speed up builds (run separately in CI pipeline)
+  // Skip ESLint during builds (run separately via `pnpm lint`)
   eslint: {
-    ignoreDuringBuilds: process.env.CI === 'true' || process.env.SKIP_LINT === 'true',
+    ignoreDuringBuilds: true,
   },
   env: {
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL || 'https://prisma-glow.pages.dev',

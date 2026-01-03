@@ -14,9 +14,9 @@ from functools import wraps
 
 # Rate limit configurations by endpoint category
 RATE_LIMITS = {
-    "default": {"requests": 100, "window": 60},  # 100 req/min
+    "default": {"requests": 200, "window": 60},  # 200 req/min for GET endpoints
     "auth": {"requests": 5, "window": 60},  # 5 req/min (login, register)
-    "create": {"requests": 10, "window": 60},  # 10 req/min (POST operations)
+    "create": {"requests": 100, "window": 60},  # 100 req/min (POST operations)
     "search": {"requests": 30, "window": 60},  # 30 req/min (search operations)
     "upload": {"requests": 5, "window": 300},  # 5 req/5min (file uploads)
 }

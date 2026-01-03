@@ -15,9 +15,12 @@ import structlog
 
 from server.repositories.agent_repository import get_agent_repository
 from server.repositories.execution_repository import get_execution_repository
+from server.agents.audit_logger import get_audit_logger
+import time
 
 logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/api/executions", tags=["executions"])
+audit_logger = get_audit_logger()
 
 
 class ExecutionStatus(str, Enum):
@@ -108,8 +111,34 @@ async def execute_agent(
     execution = await execution_repo.create_execution(execution_data)
     execution_id = UUID(execution["id"])
     
+    # Get organization_id from agent for audit logging
+    org_id = str(agent.get("organization_id", "unknown"))
+    user_id_str = str(request.user_id) if request.user_id else "anonymous"
+    agent_id_str = str(agent["id"])
+    
+    # Log execution start to audit trail
+    try:
+        audit_logger.log_agent_execution(
+            org_id=org_id,
+            user_id=user_id_str,
+            agent_id=agent_id_str,
+            input_text=request.query,
+            output_text="",  # Will be updated on completion
+            success=True,
+            duration_ms=0,
+            request_id=str(execution_id),
+            metadata={
+                "status": "pending",
+                "slug": slug,
+                "stream": request.stream
+            }
+        )
+    except Exception as e:
+        # Don't fail execution if audit logging fails
+        logger.warning("audit_log_failed", error=str(e), execution_id=str(execution_id))
+    
     # Schedule async execution
-    background_tasks.add_task(_execute_agent_async, execution_id, slug, request)
+    background_tasks.add_task(_execute_agent_async, execution_id, slug, request, org_id, user_id_str, agent_id_str)
     
     # Return response
     return ExecutionResponse(
@@ -128,7 +157,14 @@ async def execute_agent(
     )
 
 
-async def _execute_agent_async(execution_id: UUID, slug: str, request: ExecuteAgentRequest):
+async def _execute_agent_async(
+    execution_id: UUID, 
+    slug: str, 
+    request: ExecuteAgentRequest,
+    org_id: str,
+    user_id: str,
+    agent_id: str
+):
     """
     Background task to actually execute the agent with real OpenAI.
     
@@ -138,8 +174,11 @@ async def _execute_agent_async(execution_id: UUID, slug: str, request: ExecuteAg
     3. Execute agent with real OpenAI API
     4. Store results in database
     5. Update execution record with results or error
+    6. Log to audit trail
     """
     from server.services.openai_service import get_openai_service, AgentExecutionConfig
+    
+    start_time = time.time()
     
     try:
         # Update status to running
@@ -199,6 +238,31 @@ async def _execute_agent_async(execution_id: UUID, slug: str, request: ExecuteAg
             cost=result.cost_usd
         )
         
+        # Log successful execution to audit trail
+        try:
+            duration_ms = int((time.time() - start_time) * 1000)
+            audit_logger.log_agent_execution(
+                org_id=org_id,
+                user_id=user_id,
+                agent_id=agent_id,
+                input_text=request.query,
+                output_text=result.answer or "",
+                success=True,
+                duration_ms=duration_ms,
+                token_usage={"total": result.tokens_used} if result.tokens_used else None,
+                request_id=str(execution_id),
+                metadata={
+                    "status": "completed",
+                    "slug": slug,
+                    "tokens_used": result.tokens_used,
+                    "cost_usd": result.cost_usd,
+                    "model": result.model
+                }
+            )
+        except Exception as audit_error:
+            # Don't fail execution if audit logging fails
+            logger.warning("audit_log_failed", error=str(audit_error), execution_id=str(execution_id))
+        
     except Exception as e:
         # Update execution with error in database
         await execution_repo.update_execution_status(
@@ -213,6 +277,28 @@ async def _execute_agent_async(execution_id: UUID, slug: str, request: ExecuteAg
             error=str(e),
             exc_info=True
         )
+        
+        # Log failed execution to audit trail
+        try:
+            duration_ms = int((time.time() - start_time) * 1000)
+            audit_logger.log_agent_execution(
+                org_id=org_id,
+                user_id=user_id,
+                agent_id=agent_id,
+                input_text=request.query,
+                output_text="",
+                success=False,
+                duration_ms=duration_ms,
+                request_id=str(execution_id),
+                error_message=str(e),
+                metadata={
+                    "status": "failed",
+                    "slug": slug
+                }
+            )
+        except Exception as audit_error:
+            # Don't fail execution if audit logging fails
+            logger.warning("audit_log_failed", error=str(audit_error), execution_id=str(execution_id))
 
 
 @router.get("", response_model=ExecutionListResponse)
@@ -458,16 +544,41 @@ async def execute_agent_streaming(
     """
     from server.services.openai_service import get_openai_service, AgentExecutionConfig
     
-    # Validate agent exists
-    valid_agents = [
-        "tax-corp-eu-022", "tax-corp-us-023", "tax-corp-uk-024",
-        "tax-corp-ca-025", "tax-corp-mt-026", "tax-corp-rw-027",
-        "tax-vat-028", "tax-tp-029", "tax-personal-030",
-        "tax-provision-031", "tax-contro-032", "tax-research-033"
-    ]
-    
-    if slug not in valid_agents:
+    # Validate agent exists in database
+    agent = await agent_repo.get_agent_by_slug(slug)
+    if not agent:
         raise HTTPException(status_code=404, detail=f"Agent not found: {slug}")
+    
+    if not agent.get("is_active", True):
+        raise HTTPException(status_code=400, detail=f"Agent is not active: {slug}")
+    
+    # Get context for audit logging
+    org_id = str(agent.get("organization_id", "unknown"))
+    user_id_str = str(request.user_id) if request.user_id else "anonymous"
+    agent_id_str = str(agent["id"])
+    execution_id_str = str(uuid4())
+    start_time = time.time()
+    collected_output = []
+    total_tokens = 0
+    
+    # Log streaming execution start
+    try:
+        audit_logger.log_agent_execution(
+            org_id=org_id,
+            user_id=user_id_str,
+            agent_id=agent_id_str,
+            input_text=request.query,
+            output_text="",  # Will be updated on completion
+            success=True,
+            duration_ms=0,
+            request_id=execution_id_str,
+            metadata={
+                "status": "streaming",
+                "slug": slug
+            }
+        )
+    except Exception as e:
+        logger.warning("audit_log_failed", error=str(e), execution_id=execution_id_str)
     
     async def generate():
         """Generate SSE stream"""
@@ -486,14 +597,66 @@ async def execute_agent_streaming(
                 context=request.context,
                 config=config
             ):
+                # Collect output for audit logging
+                if isinstance(chunk, dict) and "content" in chunk:
+                    collected_output.append(chunk.get("content", ""))
+                if isinstance(chunk, dict) and "tokens" in chunk:
+                    total_tokens = chunk.get("tokens", 0)
+                
                 # Send as Server-Sent Event
                 yield f"data: {chunk}\n\n"
             
             # Send completion marker
             yield "data: [DONE]\n\n"
             
+            # Log successful streaming execution to audit trail
+            try:
+                duration_ms = int((time.time() - start_time) * 1000)
+                output_text = "".join(collected_output)
+                audit_logger.log_agent_execution(
+                    org_id=org_id,
+                    user_id=user_id_str,
+                    agent_id=agent_id_str,
+                    input_text=request.query,
+                    output_text=output_text[:1000] if output_text else "",  # Limit length
+                    success=True,
+                    duration_ms=duration_ms,
+                    token_usage={"total": total_tokens} if total_tokens else None,
+                    request_id=execution_id_str,
+                    metadata={
+                        "status": "completed",
+                        "slug": slug,
+                        "streaming": True,
+                        "tokens_used": total_tokens
+                    }
+                )
+            except Exception as audit_error:
+                logger.warning("audit_log_failed", error=str(audit_error), execution_id=execution_id_str)
+            
         except Exception as e:
             yield f"data: [ERROR] {str(e)}\n\n"
+            
+            # Log failed streaming execution to audit trail
+            try:
+                duration_ms = int((time.time() - start_time) * 1000)
+                audit_logger.log_agent_execution(
+                    org_id=org_id,
+                    user_id=user_id_str,
+                    agent_id=agent_id_str,
+                    input_text=request.query,
+                    output_text="",
+                    success=False,
+                    duration_ms=duration_ms,
+                    request_id=execution_id_str,
+                    error_message=str(e),
+                    metadata={
+                        "status": "failed",
+                        "slug": slug,
+                        "streaming": True
+                    }
+                )
+            except Exception as audit_error:
+                logger.warning("audit_log_failed", error=str(audit_error), execution_id=execution_id_str)
     
     return StreamingResponse(
         generate(),

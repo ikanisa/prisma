@@ -21,8 +21,15 @@ from server.agents.base import (
     StreamingEventType,
 )
 from server.agents.orchestrator import get_orchestrator, UnifiedAgentOrchestrator
+from server.repositories.agent_repository import get_agent_repository
+from server.agents.audit_logger import get_audit_logger
+import time
+import structlog
 
 router = APIRouter(prefix="/api/v3/agents", tags=["agents-sdk"])
+agent_repo = get_agent_repository()
+audit_logger = get_audit_logger()
+logger = structlog.get_logger(__name__)
 
 
 # ============================================
@@ -236,6 +243,36 @@ async def run_agent(agent_id: str, request: RunAgentRequest):
     Uses the provider that was specified during agent creation.
     Optionally supports A/B testing between providers.
     """
+    # Get agent details for audit logging
+    agent = await agent_repo.get_agent_by_id(agent_id)
+    if not agent:
+        raise HTTPException(status_code=404, detail=f"Agent not found: {agent_id}")
+    
+    org_id = str(agent.get("organization_id", "unknown"))
+    user_id_str = "anonymous"  # SDK endpoints may not have user context
+    start_time = time.time()
+    execution_id_str = str(uuid4())
+    
+    # Log execution start
+    try:
+        audit_logger.log_agent_execution(
+            org_id=org_id,
+            user_id=user_id_str,
+            agent_id=agent_id,
+            input_text=request.input_text,
+            output_text="",  # Will be updated on completion
+            success=True,
+            duration_ms=0,
+            request_id=execution_id_str,
+            metadata={
+                "status": "pending",
+                "provider": "orchestrator",
+                "ab_test": request.ab_test_name
+            }
+        )
+    except Exception as e:
+        logger.warning("audit_log_failed", error=str(e), execution_id=execution_id_str)
+    
     try:
         orchestrator = get_orchestrator()
         
@@ -245,6 +282,29 @@ async def run_agent(agent_id: str, request: RunAgentRequest):
             context=request.context,
             ab_test_name=request.ab_test_name
         )
+        
+        # Log successful execution
+        try:
+            duration_ms = int((time.time() - start_time) * 1000)
+            audit_logger.log_agent_execution(
+                org_id=org_id,
+                user_id=user_id_str,
+                agent_id=agent_id,
+                input_text=request.input_text,
+                output_text=result.content[:1000] if result.content else "",  # Limit length
+                success=True,
+                duration_ms=duration_ms,
+                token_usage=result.usage,
+                request_id=execution_id_str,
+                metadata={
+                    "status": "completed",
+                    "provider": result.provider.value,
+                    "ab_test": request.ab_test_name,
+                    "trace_id": result.trace.trace_id if result.trace else None
+                }
+            )
+        except Exception as audit_error:
+            logger.warning("audit_log_failed", error=str(audit_error), execution_id=execution_id_str)
         
         return AgentResponseModel(
             content=result.content,
@@ -256,8 +316,42 @@ async def run_agent(agent_id: str, request: RunAgentRequest):
         )
         
     except ValueError as e:
+        # Log failed execution
+        try:
+            duration_ms = int((time.time() - start_time) * 1000)
+            audit_logger.log_agent_execution(
+                org_id=org_id,
+                user_id=user_id_str,
+                agent_id=agent_id,
+                input_text=request.input_text,
+                output_text="",
+                success=False,
+                duration_ms=duration_ms,
+                request_id=execution_id_str,
+                error_message=str(e),
+                metadata={"status": "failed", "error_type": "ValueError"}
+            )
+        except Exception as audit_error:
+            logger.warning("audit_log_failed", error=str(audit_error), execution_id=execution_id_str)
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
+        # Log failed execution
+        try:
+            duration_ms = int((time.time() - start_time) * 1000)
+            audit_logger.log_agent_execution(
+                org_id=org_id,
+                user_id=user_id_str,
+                agent_id=agent_id,
+                input_text=request.input_text,
+                output_text="",
+                success=False,
+                duration_ms=duration_ms,
+                request_id=execution_id_str,
+                error_message=str(e),
+                metadata={"status": "failed", "error_type": type(e).__name__}
+            )
+        except Exception as audit_error:
+            logger.warning("audit_log_failed", error=str(audit_error), execution_id=execution_id_str)
         raise HTTPException(status_code=500, detail=f"Execution failed: {str(e)}")
 
 
@@ -274,6 +368,37 @@ async def stream_agent(agent_id: str, request: RunAgentRequest):
     - done: Stream completion signal
     - error: Error notifications
     """
+    # Get agent details for audit logging
+    agent = await agent_repo.get_agent_by_id(agent_id)
+    if not agent:
+        raise HTTPException(status_code=404, detail=f"Agent not found: {agent_id}")
+    
+    org_id = str(agent.get("organization_id", "unknown"))
+    user_id_str = "anonymous"  # SDK endpoints may not have user context
+    start_time = time.time()
+    execution_id_str = str(uuid4())
+    collected_output = []
+    total_tokens = 0
+    
+    # Log streaming execution start
+    try:
+        audit_logger.log_agent_execution(
+            org_id=org_id,
+            user_id=user_id_str,
+            agent_id=agent_id,
+            input_text=request.input_text,
+            output_text="",  # Will be updated on completion
+            success=True,
+            duration_ms=0,
+            request_id=execution_id_str,
+            metadata={
+                "status": "streaming",
+                "provider": "orchestrator"
+            }
+        )
+    except Exception as e:
+        logger.warning("audit_log_failed", error=str(e), execution_id=execution_id_str)
+    
     async def generate_sse():
         try:
             orchestrator = get_orchestrator()
@@ -283,6 +408,11 @@ async def stream_agent(agent_id: str, request: RunAgentRequest):
                 input_text=request.input_text,
                 context=request.context
             ):
+                # Collect output for audit logging
+                if event.content:
+                    collected_output.append(event.content)
+                if event.metadata and "tokens" in event.metadata:
+                    total_tokens = event.metadata.get("tokens", 0)
                 event_data = {
                     "type": event.type.value,
                     "content": event.content,
@@ -301,8 +431,52 @@ async def stream_agent(agent_id: str, request: RunAgentRequest):
                 yield f"data: {json.dumps(event_data)}\n\n"
                 
                 if event.type == StreamingEventType.DONE:
+                    # Log successful streaming execution
+                    try:
+                        duration_ms = int((time.time() - start_time) * 1000)
+                        output_text = "".join(collected_output)
+                        audit_logger.log_agent_execution(
+                            org_id=org_id,
+                            user_id=user_id_str,
+                            agent_id=agent_id,
+                            input_text=request.input_text,
+                            output_text=output_text[:1000] if output_text else "",  # Limit length
+                            success=True,
+                            duration_ms=duration_ms,
+                            token_usage={"total": total_tokens} if total_tokens else None,
+                            request_id=execution_id_str,
+                            metadata={
+                                "status": "completed",
+                                "provider": "orchestrator",
+                                "streaming": True,
+                                "tokens_used": total_tokens
+                            }
+                        )
+                    except Exception as audit_error:
+                        logger.warning("audit_log_failed", error=str(audit_error), execution_id=execution_id_str)
                     break
                 if event.type == StreamingEventType.ERROR:
+                    # Log failed streaming execution
+                    try:
+                        duration_ms = int((time.time() - start_time) * 1000)
+                        audit_logger.log_agent_execution(
+                            org_id=org_id,
+                            user_id=user_id_str,
+                            agent_id=agent_id,
+                            input_text=request.input_text,
+                            output_text="",
+                            success=False,
+                            duration_ms=duration_ms,
+                            request_id=execution_id_str,
+                            error_message=event.content or "Streaming error",
+                            metadata={
+                                "status": "failed",
+                                "provider": "orchestrator",
+                                "streaming": True
+                            }
+                        )
+                    except Exception as audit_error:
+                        logger.warning("audit_log_failed", error=str(audit_error), execution_id=execution_id_str)
                     break
                     
         except Exception as e:
@@ -312,6 +486,29 @@ async def stream_agent(agent_id: str, request: RunAgentRequest):
                 "metadata": {"error": True}
             }
             yield f"data: {json.dumps(error_data)}\n\n"
+            
+            # Log failed streaming execution
+            try:
+                duration_ms = int((time.time() - start_time) * 1000)
+                audit_logger.log_agent_execution(
+                    org_id=org_id,
+                    user_id=user_id_str,
+                    agent_id=agent_id,
+                    input_text=request.input_text,
+                    output_text="",
+                    success=False,
+                    duration_ms=duration_ms,
+                    request_id=execution_id_str,
+                    error_message=str(e),
+                    metadata={
+                        "status": "failed",
+                        "provider": "orchestrator",
+                        "streaming": True,
+                        "error_type": type(e).__name__
+                    }
+                )
+            except Exception as audit_error:
+                logger.warning("audit_log_failed", error=str(audit_error), execution_id=execution_id_str)
     
     return StreamingResponse(
         generate_sse(),

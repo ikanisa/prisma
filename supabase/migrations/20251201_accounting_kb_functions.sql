@@ -3,64 +3,88 @@
 
 -- Function: match_knowledge_chunks
 -- Performs vector similarity search with filters
-create or replace function match_knowledge_chunks(
-  query_embedding vector(1536),
-  match_threshold float default 0.75,
-  match_count int default 10,
-  filter_jurisdiction text default null,
-  filter_types text[] default null,
-  filter_authority_levels text[] default null
-)
-returns table (
-  chunk_id uuid,
-  document_id uuid,
-  content text,
-  section_path text,
-  heading text,
-  similarity float,
-  document_code text,
-  document_title text,
-  source_type text,
-  source_name text,
-  authority_level text,
-  jurisdiction_code text,
-  effective_from date,
-  effective_to date
-)
-language plpgsql
-as $$
-begin
-  return query
-  select
-    c.id as chunk_id,
-    c.document_id,
-    c.content,
-    c.section_path,
-    c.heading,
-    (1 - (e.embedding <=> query_embedding))::float as similarity,
-    d.code as document_code,
-    d.title as document_title,
-    s.type as source_type,
-    s.name as source_name,
-    s.authority_level,
-    j.code as jurisdiction_code,
-    coalesce(c.effective_from, d.effective_from) as effective_from,
-    coalesce(c.effective_to, d.effective_to) as effective_to
-  from knowledge_embeddings e
-  join knowledge_chunks c on c.id = e.chunk_id
-  join knowledge_documents d on d.id = c.document_id
-  join knowledge_sources s on s.id = d.source_id
-  join jurisdictions j on j.id = s.jurisdiction_id
-  where
-    (1 - (e.embedding <=> query_embedding)) > match_threshold
-    and (filter_jurisdiction is null or j.code = filter_jurisdiction)
-    and (filter_types is null or s.type = any(filter_types))
-    and (filter_authority_levels is null or s.authority_level = any(filter_authority_levels))
-    and d.status = 'ACTIVE'
-  order by e.embedding <=> query_embedding
-  limit match_count;
-end;
-$$;
+-- Only create if required columns exist
+-- Drop all overloads of the function first (handle gracefully)
+DO $$ 
+BEGIN
+    -- Drop function with all possible signatures
+    DROP FUNCTION IF EXISTS match_knowledge_chunks(vector, float, int, text, text[], text[]) CASCADE;
+EXCEPTION WHEN OTHERS THEN
+    -- Ignore errors if function doesn't exist or has different signature
+    NULL;
+END $$;
+
+DO $$ 
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'knowledge_documents' 
+        AND column_name = 'source_id'
+    ) AND EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'knowledge_sources' 
+        AND column_name = 'jurisdiction_id'
+    ) THEN
+        EXECUTE 'CREATE OR REPLACE FUNCTION match_knowledge_chunks(
+          query_embedding vector(1536),
+          match_threshold float DEFAULT 0.75,
+          match_count int DEFAULT 10,
+          filter_jurisdiction text DEFAULT NULL,
+          filter_types text[] DEFAULT NULL,
+          filter_authority_levels text[] DEFAULT NULL
+        )
+        RETURNS TABLE (
+          chunk_id uuid,
+          document_id uuid,
+          content text,
+          section_path text,
+          heading text,
+          similarity float,
+          document_code text,
+          document_title text,
+          source_type text,
+          source_name text,
+          authority_level text,
+          jurisdiction_code text,
+          effective_from date,
+          effective_to date
+        )
+        LANGUAGE plpgsql
+        AS $func$
+        BEGIN
+          RETURN QUERY
+          SELECT
+            c.id AS chunk_id,
+            c.document_id,
+            c.content,
+            c.section_path,
+            c.heading,
+            (1 - (e.embedding <=> query_embedding))::float AS similarity,
+            d.code AS document_code,
+            d.title AS document_title,
+            s.type AS source_type,
+            s.name AS source_name,
+            COALESCE(s.authority_level, ''UNKNOWN'') AS authority_level,
+            j.code AS jurisdiction_code,
+            COALESCE(c.effective_from, d.effective_from) AS effective_from,
+            COALESCE(c.effective_to, d.effective_to) AS effective_to
+          FROM knowledge_embeddings e
+          JOIN knowledge_chunks c ON c.id = e.chunk_id
+          JOIN knowledge_documents d ON d.id = c.document_id
+          JOIN knowledge_sources s ON s.id = d.source_id
+          JOIN jurisdictions j ON j.id = s.jurisdiction_id
+          WHERE
+            (1 - (e.embedding <=> query_embedding)) > match_threshold
+            AND (filter_jurisdiction IS NULL OR j.code = filter_jurisdiction)
+            AND (filter_types IS NULL OR s.type = ANY(filter_types))
+            AND (filter_authority_levels IS NULL OR COALESCE(s.authority_level, ''UNKNOWN'') = ANY(filter_authority_levels))
+            AND d.status = ''ACTIVE''
+          ORDER BY e.embedding <=> query_embedding
+          LIMIT match_count;
+        END;
+        $func$';
+    END IF;
+END $$;
 
 -- Example usage:
 -- select * from match_knowledge_chunks(
@@ -183,18 +207,41 @@ $$;
 
 -- View: knowledge_base_stats
 -- Summary statistics for monitoring
-create or replace view knowledge_base_stats as
-select
-  (select count(*) from jurisdictions) as total_jurisdictions,
-  (select count(*) from knowledge_sources) as total_sources,
-  (select count(*) from knowledge_documents) as total_documents,
-  (select count(*) from knowledge_chunks) as total_chunks,
-  (select count(*) from knowledge_embeddings) as total_embeddings,
-  (select count(*) from knowledge_sources where authority_level = 'PRIMARY') as primary_sources,
-  (select count(*) from knowledge_sources where authority_level = 'SECONDARY') as secondary_sources,
-  (select count(*) from knowledge_documents where status = 'ACTIVE') as active_documents,
-  (select count(*) from agent_queries_log where created_at > now() - interval '24 hours') as queries_last_24h,
-  (select avg(latency_ms)::int from agent_queries_log where created_at > now() - interval '24 hours') as avg_latency_ms_24h;
+-- Only create if required columns exist
+DO $$ 
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'knowledge_sources' 
+        AND column_name = 'authority_level'
+    ) THEN
+        EXECUTE 'CREATE OR REPLACE VIEW knowledge_base_stats AS
+        SELECT
+          (SELECT count(*) FROM jurisdictions) AS total_jurisdictions,
+          (SELECT count(*) FROM knowledge_sources) AS total_sources,
+          (SELECT count(*) FROM knowledge_documents) AS total_documents,
+          (SELECT count(*) FROM knowledge_chunks) AS total_chunks,
+          (SELECT count(*) FROM knowledge_embeddings) AS total_embeddings,
+          (SELECT count(*) FROM knowledge_sources WHERE authority_level = ''PRIMARY'') AS primary_sources,
+          (SELECT count(*) FROM knowledge_sources WHERE authority_level = ''SECONDARY'') AS secondary_sources,
+          (SELECT count(*) FROM knowledge_documents WHERE status = ''ACTIVE'') AS active_documents,
+          (SELECT count(*) FROM agent_queries_log WHERE created_at > now() - interval ''24 hours'') AS queries_last_24h,
+          (SELECT avg(latency_ms)::int FROM agent_queries_log WHERE created_at > now() - interval ''24 hours'') AS avg_latency_ms_24h';
+    ELSE
+        EXECUTE 'CREATE OR REPLACE VIEW knowledge_base_stats AS
+        SELECT
+          (SELECT count(*) FROM jurisdictions) AS total_jurisdictions,
+          (SELECT count(*) FROM knowledge_sources) AS total_sources,
+          (SELECT count(*) FROM knowledge_documents) AS total_documents,
+          (SELECT count(*) FROM knowledge_chunks) AS total_chunks,
+          (SELECT count(*) FROM knowledge_embeddings) AS total_embeddings,
+          0 AS primary_sources,
+          0 AS secondary_sources,
+          (SELECT count(*) FROM knowledge_documents WHERE status = ''ACTIVE'') AS active_documents,
+          (SELECT count(*) FROM agent_queries_log WHERE created_at > now() - interval ''24 hours'') AS queries_last_24h,
+          (SELECT avg(latency_ms)::int FROM agent_queries_log WHERE created_at > now() - interval ''24 hours'') AS avg_latency_ms_24h';
+    END IF;
+END $$;
 
 -- Example usage:
 -- select * from knowledge_base_stats;
@@ -202,29 +249,43 @@ select
 
 -- View: stale_documents
 -- Identifies documents that may need refreshing
-create or replace view stale_documents as
-select
-  d.id as document_id,
-  d.title,
-  d.code,
-  s.type as source_type,
-  s.name as source_name,
-  j.code as jurisdiction_code,
-  d.effective_from,
-  now()::date - d.effective_from::date as days_old,
-  case
-    when s.type = 'TAX_LAW' and (now()::date - d.effective_from::date) > 90 then 'STALE'
-    when s.type in ('IFRS', 'IAS') and (now()::date - d.effective_from::date) > 180 then 'STALE'
-    when s.type = 'ISA' and (now()::date - d.effective_from::date) > 365 then 'STALE'
-    when s.type in ('ACCA', 'CPA') and (now()::date - d.effective_from::date) > 365 then 'STALE'
-    else 'FRESH'
-  end as freshness_status
-from knowledge_documents d
-join knowledge_sources s on s.id = d.source_id
-join jurisdictions j on j.id = s.jurisdiction_id
-where d.status = 'ACTIVE'
-  and d.effective_from is not null
-order by days_old desc;
+-- Only create if required columns exist
+DO $$ 
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'knowledge_documents' 
+        AND column_name = 'source_id'
+    ) AND EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'knowledge_sources' 
+        AND column_name = 'jurisdiction_id'
+    ) THEN
+        EXECUTE 'CREATE OR REPLACE VIEW stale_documents AS
+        SELECT
+          d.id AS document_id,
+          d.title,
+          d.code,
+          s.type AS source_type,
+          s.name AS source_name,
+          j.code AS jurisdiction_code,
+          d.effective_from,
+          now()::date - d.effective_from::date AS days_old,
+          CASE
+            WHEN s.type = ''TAX_LAW'' AND (now()::date - d.effective_from::date) > 90 THEN ''STALE''
+            WHEN s.type IN (''IFRS'', ''IAS'') AND (now()::date - d.effective_from::date) > 180 THEN ''STALE''
+            WHEN s.type = ''ISA'' AND (now()::date - d.effective_from::date) > 365 THEN ''STALE''
+            WHEN s.type IN (''ACCA'', ''CPA'') AND (now()::date - d.effective_from::date) > 365 THEN ''STALE''
+            ELSE ''FRESH''
+          END AS freshness_status
+        FROM knowledge_documents d
+        JOIN knowledge_sources s ON s.id = d.source_id
+        JOIN jurisdictions j ON j.id = s.jurisdiction_id
+        WHERE d.status = ''ACTIVE''
+          AND d.effective_from IS NOT NULL
+        ORDER BY days_old DESC';
+    END IF;
+END $$;
 
 -- Example usage:
 -- select * from stale_documents where freshness_status = 'STALE';
@@ -253,14 +314,41 @@ order by query_date desc, agent_name;
 
 
 -- Index optimization
-create index if not exists idx_agent_queries_log_agent_date
-  on agent_queries_log (agent_name, date(created_at));
+-- Note: date() function is not immutable, so we index on created_at directly
+-- The view can still use date(created_at) in queries
+CREATE INDEX IF NOT EXISTS idx_agent_queries_log_agent_created
+  ON agent_queries_log (agent_name, created_at);
 
-create index if not exists idx_knowledge_documents_effective_from
-  on knowledge_documents (effective_from) where status = 'ACTIVE';
+-- Only create index if columns exist
+DO $$ 
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'knowledge_documents' 
+        AND column_name = 'effective_from'
+    ) AND EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'knowledge_documents' 
+        AND column_name = 'status'
+    ) THEN
+        CREATE INDEX IF NOT EXISTS idx_knowledge_documents_effective_from
+            ON knowledge_documents (effective_from) WHERE status = 'ACTIVE';
+    END IF;
+END $$;
 
-create index if not exists idx_knowledge_sources_type_authority
-  on knowledge_sources (type, authority_level);
+-- Only create index if both columns exist
+DO $$ 
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'knowledge_sources' 
+        AND column_name IN ('type', 'authority_level')
+        HAVING count(*) = 2
+    ) THEN
+        CREATE INDEX IF NOT EXISTS idx_knowledge_sources_type_authority
+            ON knowledge_sources (type, authority_level);
+    END IF;
+END $$;
 
 
 -- Grant permissions (adjust based on your RLS setup)
@@ -272,10 +360,59 @@ create index if not exists idx_knowledge_sources_type_authority
 -- grant select on agent_performance to authenticated;
 
 
--- Comments for documentation
-comment on function match_knowledge_chunks is 'Semantic search over knowledge chunks using vector similarity with filters';
-comment on function get_document_context is 'Retrieve surrounding chunks for context around a target chunk';
-comment on function log_agent_query is 'Log agent query to audit trail';
-comment on view knowledge_base_stats is 'Summary statistics for knowledge base monitoring';
-comment on view stale_documents is 'Documents that may need refreshing based on age';
-comment on view agent_performance is 'Agent query performance metrics over time';
+-- Comments for documentation (only if functions/views exist)
+DO $$ 
+BEGIN
+    -- Only add comments if the function exists with the expected signature
+    IF EXISTS (
+        SELECT 1 FROM pg_proc p
+        JOIN pg_namespace n ON p.pronamespace = n.oid
+        WHERE n.nspname = 'public'
+        AND p.proname = 'match_knowledge_chunks'
+        AND pg_get_function_arguments(p.oid) LIKE '%vector(1536)%'
+    ) THEN
+        EXECUTE 'COMMENT ON FUNCTION match_knowledge_chunks(vector, float, int, text, text[], text[]) IS ''Semantic search over knowledge chunks using vector similarity with filters''';
+    END IF;
+    
+    IF EXISTS (
+        SELECT 1 FROM pg_proc p
+        JOIN pg_namespace n ON p.pronamespace = n.oid
+        WHERE n.nspname = 'public'
+        AND p.proname = 'get_document_context'
+    ) THEN
+        EXECUTE 'COMMENT ON FUNCTION get_document_context(uuid, int) IS ''Retrieve surrounding chunks for context around a target chunk''';
+    END IF;
+    
+    IF EXISTS (
+        SELECT 1 FROM pg_proc p
+        JOIN pg_namespace n ON p.pronamespace = n.oid
+        WHERE n.nspname = 'public'
+        AND p.proname = 'log_agent_query'
+    ) THEN
+        EXECUTE 'COMMENT ON FUNCTION log_agent_query(text, uuid, text, text, uuid[], uuid, int, jsonb) IS ''Log agent query to audit trail''';
+    END IF;
+    
+    IF EXISTS (
+        SELECT 1 FROM information_schema.views
+        WHERE table_schema = 'public'
+        AND table_name = 'knowledge_base_stats'
+    ) THEN
+        EXECUTE 'COMMENT ON VIEW knowledge_base_stats IS ''Summary statistics for knowledge base monitoring''';
+    END IF;
+    
+    IF EXISTS (
+        SELECT 1 FROM information_schema.views
+        WHERE table_schema = 'public'
+        AND table_name = 'stale_documents'
+    ) THEN
+        EXECUTE 'COMMENT ON VIEW stale_documents IS ''Documents that may need refreshing based on age''';
+    END IF;
+    
+    IF EXISTS (
+        SELECT 1 FROM information_schema.views
+        WHERE table_schema = 'public'
+        AND table_name = 'agent_performance'
+    ) THEN
+        EXECUTE 'COMMENT ON VIEW agent_performance IS ''Agent query performance metrics over time''';
+    END IF;
+END $$;

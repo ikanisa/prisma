@@ -90,10 +90,13 @@ from .routers.iam import router as iam_router
 from server.api.documents import router as ada_router
 
 
-def validate_required_env_vars():
+def validate_required_env_vars() -> None:
     """
     Validate required environment variables at startup.
     Fail fast with clear error messages if critical config is missing.
+    
+    Raises:
+        RuntimeError: If required environment variables are missing
     """
     required_vars = {
         "SUPABASE_URL": "Supabase project URL (e.g., https://xxx.supabase.co)",
@@ -280,7 +283,17 @@ def get_current_request_id() -> Optional[str]:
 
 
 @app.middleware("http")
-async def add_request_id(request: Request, call_next):
+async def add_request_id(request: Request, call_next: Any) -> Any:
+    """
+    Middleware to add request ID to all requests.
+    
+    Args:
+        request: FastAPI request object
+        call_next: Next middleware/route handler
+        
+    Returns:
+        Response with X-Request-ID header
+    """
     incoming = request.headers.get(REQUEST_ID_HEADER) or request.headers.get(REQUEST_ID_HEADER.lower())
     request_id = (incoming or "").strip() or str(uuid.uuid4())
 
@@ -303,7 +316,17 @@ async def add_request_id(request: Request, call_next):
 
 
 @app.middleware("http")
-async def apply_security_headers(request, call_next):
+async def apply_security_headers(request: Request, call_next: Any) -> Any:
+    """
+    Middleware to apply security headers to all responses.
+    
+    Args:
+        request: FastAPI request object
+        call_next: Next middleware/route handler
+        
+    Returns:
+        Response with security headers
+    """
     response = await call_next(request)
     for header, value in SECURITY_HEADERS.items():
         if header not in response.headers:
@@ -358,30 +381,53 @@ app.state.limiter = write_endpoint_limiter
 
 # Define rate limiting middleware AFTER initializing the limiter
 @app.middleware("http")
-async def rate_limit_write_endpoints(request: Request, call_next):
+async def rate_limit_endpoints(request: Request, call_next: Any) -> Any:
     """
-    Apply rate limiting to write endpoints (POST, PUT, PATCH, DELETE).
-    Limits to 100 requests per minute per IP for write operations.
+    Apply rate limiting to all endpoints.
+    - Write endpoints (POST, PUT, PATCH, DELETE): 100 req/min
+    - Read endpoints (GET): 200 req/min
+    - Search endpoints: 30 req/min (more restrictive)
+    - Auth endpoints: 5 req/min (very restrictive)
+    
+    Args:
+        request: FastAPI request object
+        call_next: Next middleware/route handler
+        
+    Returns:
+        Response or rate limit error
     """
-    if request.method in ["POST", "PUT", "PATCH", "DELETE"]:
-        # Get rate limiter from app state
-        limiter = getattr(request.app.state, "limiter", None)
-        if limiter:
-            try:
-                # Apply rate limit - using 'create' for POST, 'default' for others
+    # Get rate limiter from app state
+    limiter = getattr(request.app.state, "limiter", None)
+    if limiter:
+        try:
+            # Determine limit type based on method and path
+            path = request.url.path.lower()
+            
+            # Auth endpoints (most restrictive)
+            if "/auth" in path or "/login" in path or "/register" in path:
+                limit_type = "auth"
+            # Search endpoints
+            elif "/search" in path or "/query" in path or request.method == "GET" and ("/api/knowledge" in path or "/api/rag" in path):
+                limit_type = "search"
+            # Write endpoints
+            elif request.method in ["POST", "PUT", "PATCH", "DELETE"]:
                 limit_type = "create" if request.method == "POST" else "default"
-                await limiter.check_rate_limit(
-                    request, 
-                    endpoint=f"{request.method}:{request.url.path}",
-                    limit_type=limit_type
-                )
-            except HTTPException as e:
-                # Return rate limit error response
-                return JSONResponse(
-                    status_code=e.status_code,
-                    content=e.detail if isinstance(e.detail, dict) else {"error": str(e.detail)},
-                    headers=e.headers or {}
-                )
+            # Read endpoints (GET)
+            else:
+                limit_type = "default"  # 100 req/min for GET
+            
+            await limiter.check_rate_limit(
+                request, 
+                endpoint=f"{request.method}:{request.url.path}",
+                limit_type=limit_type
+            )
+        except HTTPException as e:
+            # Return rate limit error response
+            return JSONResponse(
+                status_code=e.status_code,
+                content=e.detail if isinstance(e.detail, dict) else {"error": str(e.detail)},
+                headers=e.headers or {}
+            )
     
     response = await call_next(request)
     return response
@@ -505,6 +551,18 @@ def _validate_reconciliation_item_category(value: str) -> str:
 
 
 def _to_decimal(value: Optional[Any]) -> Decimal:
+    """
+    Convert value to Decimal, handling None and invalid inputs.
+    
+    Args:
+        value: Value to convert (Decimal, str, int, float, or None)
+        
+    Returns:
+        Decimal representation of value
+        
+    Raises:
+        HTTPException: If value cannot be converted to Decimal
+    """
     if isinstance(value, Decimal):
         return value
     if value is None:
@@ -516,6 +574,15 @@ def _to_decimal(value: Optional[Any]) -> Decimal:
 
 
 def _decimal_to_str(value: Decimal) -> str:
+    """
+    Convert Decimal to string with 2 decimal places.
+    
+    Args:
+        value: Decimal value to convert
+        
+    Returns:
+        String representation with 2 decimal places
+    """
     try:
         quantised = value.quantize(Decimal('0.01'))
     except Exception:
@@ -573,12 +640,30 @@ if not JWT_SECRET:
 
 
 class UserRateLimiter:
+    """In-memory rate limiter for API requests."""
+    
     def __init__(self, limit: int, window: float = 60.0) -> None:
+        """
+        Initialize rate limiter.
+        
+        Args:
+            limit: Maximum number of requests allowed
+            window: Time window in seconds
+        """
         self.limit = limit
         self.window = window
         self.calls: Dict[str, List[float]] = {}
 
     def allow(self, key: str) -> bool:
+        """
+        Check if request is allowed.
+        
+        Args:
+            key: Unique identifier for the requester
+            
+        Returns:
+            True if request is allowed, False otherwise
+        """
         now = time.time()
         window_start = now - self.window
         timestamps = [ts for ts in self.calls.get(key, []) if ts > window_start]
@@ -597,11 +682,31 @@ api_rate_limiter = UserRateLimiter(
 
 
 class ScopedRateLimiter:
-    def __init__(self, redis_client: Optional[redis.Redis]):
+    """Redis-backed rate limiter with local fallback."""
+    
+    def __init__(self, redis_client: Optional[redis.Redis]) -> None:
+        """
+        Initialize scoped rate limiter.
+        
+        Args:
+            redis_client: Redis client instance (optional)
+        """
         self.redis = redis_client
         self.local_buckets: Dict[str, List[float]] = defaultdict(list)
 
     def check(self, scope: str, key: str, limit: int, window: int) -> Tuple[bool, Optional[int]]:
+        """
+        Check if request is within rate limit.
+        
+        Args:
+            scope: Rate limit scope (e.g., 'api', 'auth')
+            key: Unique identifier for the requester
+            limit: Maximum number of requests allowed
+            window: Time window in seconds
+            
+        Returns:
+            Tuple of (allowed, retry_after_seconds)
+        """
         if limit <= 0:
             return True, None
 
@@ -650,6 +755,18 @@ async def enforce_rate_limit(scope: str, user_id: str, *, limit: int, window: in
 
 
 def verify_supabase_jwt(token: str) -> Dict[str, Any]:
+    """
+    Verify and decode Supabase JWT token.
+    
+    Args:
+        token: JWT token string
+        
+    Returns:
+        Decoded token payload
+        
+    Raises:
+        HTTPException: If token is invalid
+    """
     try:
         return jwt.decode(token, JWT_SECRET, algorithms=["HS256"], audience=JWT_AUDIENCE)
     except jwt.PyJWTError as exc:
@@ -658,6 +775,18 @@ def verify_supabase_jwt(token: str) -> Dict[str, Any]:
 
 
 async def require_auth(authorization: str = Header(...)) -> Dict[str, Any]:
+    """
+    FastAPI dependency to require authentication.
+    
+    Args:
+        authorization: Bearer token from Authorization header
+        
+    Returns:
+        Decoded JWT payload
+        
+    Raises:
+        HTTPException: If authentication fails or rate limit exceeded
+    """
     if not authorization.startswith("Bearer "):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authorization header missing Bearer token")
 
