@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { Loader2, Mail, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Loader2, Mail, Lock, Eye, EyeOff, AlertCircle, UserPlus, ShieldAlert } from 'lucide-react';
 import { useAuth } from '@/components/features/auth/auth-provider';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,7 +19,7 @@ import {
 import { PasswordStrength } from '@/components/ui/password-strength';
 import { validatePassword } from '@/lib/password-validation';
 
-export default function SignUpPage() {
+function SignUpPageContent() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -28,12 +28,35 @@ export default function SignUpPage() {
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [invitationToken, setInvitationToken] = useState<string | null>(null);
+  const [invitedEmail, setInvitedEmail] = useState<string | null>(null);
   const { signUp } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Check for invitation token in URL
+  useEffect(() => {
+    const token = searchParams.get('token');
+    const inviteEmail = searchParams.get('email');
+
+    if (token) {
+      setInvitationToken(token);
+    }
+    if (inviteEmail) {
+      setInvitedEmail(inviteEmail);
+      setEmail(inviteEmail);
+    }
+  }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    // For invitation-only app, require token
+    if (!invitationToken && !invitedEmail) {
+      setError('This application requires an invitation. Please contact your administrator.');
+      return;
+    }
 
     if (!acceptTerms) {
       setError('Please accept the Terms of Service and Privacy Policy');
@@ -70,14 +93,48 @@ export default function SignUpPage() {
 
   const { valid: isPasswordValid } = validatePassword(password);
   const passwordsMatch = password === confirmPassword;
-  const canSubmit = email && isPasswordValid && passwordsMatch && acceptTerms;
+  const canSubmit = email && isPasswordValid && passwordsMatch && acceptTerms && (invitationToken || invitedEmail);
+
+  // No invitation - show blocked message
+  if (!invitationToken && !invitedEmail && !searchParams.get('token')) {
+    return (
+      <Card className="max-w-md">
+        <CardHeader className="space-y-1 text-center">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-amber-100">
+            <ShieldAlert className="h-6 w-6 text-amber-600" />
+          </div>
+          <CardTitle className="text-2xl font-bold">Invitation Required</CardTitle>
+          <CardDescription>
+            This is a private application for authorized staff only
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="rounded-lg bg-muted p-4 text-center text-sm text-muted-foreground">
+            <p>Access to Prisma Glow requires an invitation from a System Administrator.</p>
+            <p className="mt-2">If you've received an invitation email, please click the link in that email to create your account.</p>
+          </div>
+        </CardContent>
+        <CardFooter className="flex flex-col gap-4">
+          <p className="text-center text-sm text-muted-foreground">
+            Already have an account?{' '}
+            <Link href="/login" className="text-primary hover:underline">
+              Sign in
+            </Link>
+          </p>
+        </CardFooter>
+      </Card>
+    );
+  }
 
   return (
     <Card>
       <CardHeader className="space-y-1 text-center">
-        <CardTitle className="text-2xl font-bold">Create an account</CardTitle>
+        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+          <UserPlus className="h-6 w-6 text-primary" />
+        </div>
+        <CardTitle className="text-2xl font-bold">Complete Your Account</CardTitle>
         <CardDescription>
-          Get started with Prisma Glow today
+          You've been invited to join Prisma Glow
         </CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit}>
@@ -88,6 +145,14 @@ export default function SignUpPage() {
               {error}
             </div>
           )}
+
+          {invitedEmail && (
+            <div className="rounded-lg bg-primary/5 p-3 text-center text-sm">
+              <span className="text-muted-foreground">Invited as: </span>
+              <span className="font-medium text-primary">{invitedEmail}</span>
+            </div>
+          )}
+
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
             <div className="relative">
@@ -99,7 +164,7 @@ export default function SignUpPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                disabled={isLoading}
+                disabled={isLoading || !!invitedEmail}
                 className="pl-10"
               />
             </div>
@@ -186,9 +251,9 @@ export default function SignUpPage() {
           </div>
         </CardContent>
         <CardFooter className="flex flex-col gap-4">
-          <Button 
-            type="submit" 
-            className="w-full" 
+          <Button
+            type="submit"
+            className="w-full"
             disabled={isLoading || !canSubmit}
           >
             {isLoading ? (
@@ -197,7 +262,7 @@ export default function SignUpPage() {
                 Creating account...
               </>
             ) : (
-              'Create account'
+              'Complete Setup'
             )}
           </Button>
           <p className="text-center text-sm text-muted-foreground">
@@ -209,5 +274,23 @@ export default function SignUpPage() {
         </CardFooter>
       </form>
     </Card>
+  );
+}
+
+export default function SignUpPage() {
+  return (
+    <Suspense fallback={
+      <Card>
+        <CardHeader className="space-y-1 text-center">
+          <CardTitle className="text-2xl font-bold">Complete Your Account</CardTitle>
+          <CardDescription>Loading invitation details...</CardDescription>
+        </CardHeader>
+        <CardContent className="flex justify-center py-8">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </CardContent>
+      </Card>
+    }>
+      <SignUpPageContent />
+    </Suspense>
   );
 }
