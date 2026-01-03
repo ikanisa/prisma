@@ -5,8 +5,11 @@
 -- Date: 2025-01-03
 -- Risk Level: LOW (CREATE OR REPLACE is idempotent and safe)
 -- 
--- This migration consolidates 17+ duplicate function definitions into
+-- This migration consolidates duplicate function definitions into
 -- single, well-documented, authoritative implementations.
+-- 
+-- NOTE: Enum consolidation deferred due to enum value mismatch.
+-- Only functions that work with existing schema are included.
 -- ============================================================================
 
 BEGIN;
@@ -80,66 +83,17 @@ COMMENT ON FUNCTION public.is_member_of(UUID) IS
 'Returns TRUE if the current user is a member of the specified organization. Used extensively in RLS policies. Parameter name: org (matches existing function signature).';
 
 -- ============================================================================
--- 4. HAS MIN ROLE FUNCTION (Unified Implementation)
+-- 4. HAS MIN ROLE FUNCTION (Legacy role_level support only)
 -- ============================================================================
 -- Check if current user has minimum required role in organization
--- Supports both org_role and legacy role_level enums
--- Usage: SELECT has_min_role(org, 'MANAGER'::org_role);
+-- NOTE: org_role enum version skipped due to enum value mismatch
+-- (existing enum has lowercase values, function expects uppercase)
+-- This will be addressed in a future enum migration
+-- Usage: SELECT has_min_role(org, 'MANAGER'::role_level);
 -- Returns: BOOLEAN
 -- ============================================================================
 
--- Primary function using org_role (recommended)
-CREATE OR REPLACE FUNCTION public.has_min_role(org UUID, min public.org_role)
-RETURNS BOOLEAN
-LANGUAGE SQL
-STABLE
-SECURITY DEFINER
-SET search_path = public
-AS $$
-  WITH current_user_role AS (
-    SELECT 
-      m.role,
-      CASE m.role
-        WHEN 'SYSTEM_ADMIN' THEN 100
-        WHEN 'PARTNER' THEN 90
-        WHEN 'EQR' THEN 85
-        WHEN 'MANAGER' THEN 70
-        WHEN 'SERVICE_ACCOUNT' THEN 45
-        WHEN 'EMPLOYEE' THEN 40
-        WHEN 'CLIENT' THEN 30
-        WHEN 'READONLY' THEN 20
-        ELSE 0
-      END AS precedence
-    FROM public.memberships m
-    WHERE m.org_id = org 
-      AND m.user_id = auth.uid()
-    ORDER BY m.created_at DESC
-    LIMIT 1
-  ),
-  required_role AS (
-    SELECT CASE min
-      WHEN 'SYSTEM_ADMIN' THEN 100
-      WHEN 'PARTNER' THEN 90
-      WHEN 'EQR' THEN 85
-      WHEN 'MANAGER' THEN 70
-      WHEN 'SERVICE_ACCOUNT' THEN 45
-      WHEN 'EMPLOYEE' THEN 40
-      WHEN 'CLIENT' THEN 30
-      WHEN 'READONLY' THEN 20
-      ELSE 0
-    END AS precedence
-  )
-  SELECT COALESCE(
-    (SELECT cur.precedence >= rr.precedence 
-     FROM current_user_role cur, required_role rr),
-    false
-  );
-$$;
-
-COMMENT ON FUNCTION public.has_min_role(UUID, public.org_role) IS 
-'Returns TRUE if the current user has at least the minimum required role in the organization. Uses org_role enum. Role hierarchy: SYSTEM_ADMIN > PARTNER > EQR > MANAGER > SERVICE_ACCOUNT > EMPLOYEE > CLIENT > READONLY';
-
--- Backward compatibility: Support legacy role_level enum
+-- Support legacy role_level enum (backward compatible)
 CREATE OR REPLACE FUNCTION public.has_min_role(org UUID, min public.role_level)
 RETURNS BOOLEAN
 LANGUAGE SQL
@@ -147,17 +101,25 @@ STABLE
 SECURITY DEFINER
 SET search_path = public
 AS $$
-  -- Map role_level to org_role and call primary function
-  SELECT public.has_min_role(org, CASE min
-    WHEN 'SYSTEM_ADMIN' THEN 'SYSTEM_ADMIN'::public.org_role
-    WHEN 'MANAGER' THEN 'MANAGER'::public.org_role
-    WHEN 'EMPLOYEE' THEN 'EMPLOYEE'::public.org_role
-    ELSE 'EMPLOYEE'::public.org_role
-  END);
+  WITH my_role AS (
+    SELECT m.role
+    FROM public.memberships m
+    WHERE m.org_id = org AND m.user_id = auth.uid()
+    LIMIT 1
+  )
+  SELECT COALESCE(
+    (SELECT CASE
+      WHEN (SELECT role FROM my_role) = 'SYSTEM_ADMIN' THEN true
+      WHEN (SELECT role FROM my_role) = 'MANAGER' AND min IN ('EMPLOYEE', 'MANAGER') THEN true
+      WHEN (SELECT role FROM my_role) = 'EMPLOYEE' AND min = 'EMPLOYEE' THEN true
+      ELSE false 
+    END),
+    false
+  );
 $$;
 
 COMMENT ON FUNCTION public.has_min_role(UUID, public.role_level) IS 
-'Legacy compatibility function for role_level enum. Maps to org_role and calls primary function. DEPRECATED: Use org_role version instead.';
+'Legacy compatibility function for role_level enum. Returns TRUE if current user has minimum required role. Role hierarchy: SYSTEM_ADMIN > MANAGER > EMPLOYEE';
 
 -- ============================================================================
 -- 5. HANDLE NEW USER TRIGGER FUNCTION

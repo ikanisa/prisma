@@ -203,6 +203,23 @@ export async function executeKbSearch(
         }
     );
 
+    // P1-5 FIX: Log to audit trail for compliance
+    try {
+        await context.supabase.from('kb_audit_trail').insert({
+            tenant_id: context.tenantId,
+            user_role: context.userRole,
+            query: input.query,
+            filters: input.filters || {},
+            result_count: result.chunks.length,
+            top_document_ids: result.chunks.slice(0, 3).map((c: RetrievalChunk) => c.documentId),
+            duration_ms: result.meta.durationMs,
+            created_at: new Date().toISOString(),
+        });
+    } catch (auditError) {
+        console.error('KB audit trail insert failed:', auditError);
+        // Non-blocking - don't fail search if audit fails
+    }
+
     // Format citations
     const citations = result.chunks.map((chunk: RetrievalChunk) => {
         const pages = formatPageRange(chunk.pageStart, chunk.pageEnd);
