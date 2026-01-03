@@ -65,6 +65,8 @@ export interface FilingDeadline {
     maxDays?: number;
     conditions?: string;
   };
+  /** RAG-generated guidance from knowledge base (optional) */
+  ragGuidance?: string;
 }
 
 export interface TransferPricingAnalysis {
