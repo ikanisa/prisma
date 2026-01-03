@@ -3,42 +3,81 @@
 # =============================================================================
 # Deployment: Connects to GitHub repo, builds on push to main
 # Production URL: https://prisma-glow.pages.dev
+# Documentation: /docs/cloudflare/DEPLOYMENT.md
+# =============================================================================
 
 name = "prisma-glow"
-compatibility_date = "2024-12-01"
+compatibility_date = "2025-01-03"
+compatibility_flags = ["nodejs_compat"]
 
-# Build output directory (Next.js static export)
+# Build output directory (Next.js standalone build)
+# For Cloudflare Pages, this is set in the dashboard
+# For local wrangler dev, use: wrangler pages dev apps/web/.next
 pages_build_output_dir = "apps/web/.next"
 
-# Production environment
+# -----------------------------------------------------------------------------
+# Production Environment
+# -----------------------------------------------------------------------------
 [env.production]
 name = "prisma-glow"
 
-# Staging environment
+# Production environment variables are set in Cloudflare Dashboard:
+# - NEXT_PUBLIC_SUPABASE_URL
+# - NEXT_PUBLIC_SUPABASE_ANON_KEY
+# - NEXT_PUBLIC_APP_URL
+# - NEXT_PUBLIC_SENTRY_DSN
+
+# -----------------------------------------------------------------------------
+# Staging Environment
+# -----------------------------------------------------------------------------
 [env.staging]
 name = "prisma-glow-staging"
 
-# Build configuration
+# Staging environment variables are set in Cloudflare Dashboard
+
+# -----------------------------------------------------------------------------
+# Build Configuration
+# -----------------------------------------------------------------------------
+# These settings are used when deploying via GitHub integration
+# or via `wrangler pages deploy`
 [build]
 command = "pnpm install --frozen-lockfile && pnpm --filter @prisma-glow/web build"
 
-# Build environment variables
 [build.environment]
 CI = "true"
 NODE_VERSION = "22"
 
-# Environment variables (set in Cloudflare Dashboard)
-# NEXT_PUBLIC_SUPABASE_URL
-# NEXT_PUBLIC_SUPABASE_ANON_KEY
-# NEXT_PUBLIC_SENTRY_DSN
-# NEXT_PUBLIC_APP_URL
+# -----------------------------------------------------------------------------
+# Bindings (Optional - Uncomment if using Cloudflare services)
+# -----------------------------------------------------------------------------
 
-# KV namespaces (if using Cloudflare KV)
+# KV Namespaces
 # [[kv_namespaces]]
 # binding = "CACHE"
 # id = "your-kv-namespace-id"
 
-# Durable Objects (if using)
+# R2 Buckets
+# [[r2_buckets]]
+# binding = "ASSETS"
+# bucket_name = "prisma-glow-assets"
+
+# Durable Objects
 # [[durable_objects.bindings]]
 # name = "SESSIONS"
 # class_name = "SessionDO"
+
+# D1 Database (if migrating from Supabase)
+# [[d1_databases]]
+# binding = "DB"
+# database_name = "prisma-glow-db"
+# database_id = "your-d1-database-id"
+
+# Queues (for background jobs)
+# [[queues.producers]]
+# queue = "prisma-glow-queue"
+# binding = "QUEUE"
+
+# [[queues.consumers]]
+# queue = "prisma-glow-queue"
+# max_batch_size = 10
+# max_batch_timeout = 30
