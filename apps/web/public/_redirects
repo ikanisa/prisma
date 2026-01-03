@@ -1,0 +1,11 @@
+# Cloudflare Pages Redirects
+
+# SPA fallback for dynamic routes
+/*    /index.html   200
+
+# Auth callback (keep as-is)
+/auth/callback    /auth/callback/   200
+
+# Legacy redirects
+/app/*    /:splat   301
+/old-dashboard    /dashboard   301

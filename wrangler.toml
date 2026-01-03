@@ -1,14 +1,39 @@
-# Cloudflare Pages configuration for Prisma Glow
+# =============================================================================
+# Cloudflare Pages Configuration for Prisma Glow
+# =============================================================================
+# Deployment: Connects to GitHub repo, builds on push to main
+# Production URL: https://prisma-glow.pages.dev
+
 name = "prisma-glow"
 compatibility_date = "2024-12-01"
+
+# Build output directory (Next.js static export)
 pages_build_output_dir = "apps/web/.next"
 
+# Production environment
 [env.production]
 name = "prisma-glow"
 
+# Staging environment
 [env.staging]
 name = "prisma-glow-staging"
 
 # Build configuration
 [build]
-command = "pnpm install --frozen-lockfile && pnpm --filter @prisma-glow/web build"
+command = "pnpm install && pnpm --filter @prisma-glow/web build"
+
+# Environment variables (set in Cloudflare Dashboard)
+# NEXT_PUBLIC_SUPABASE_URL
+# NEXT_PUBLIC_SUPABASE_ANON_KEY
+# NEXT_PUBLIC_SENTRY_DSN
+# NEXT_PUBLIC_APP_URL
+
+# KV namespaces (if using Cloudflare KV)
+# [[kv_namespaces]]
+# binding = "CACHE"
+# id = "your-kv-namespace-id"
+
+# Durable Objects (if using)
+# [[durable_objects.bindings]]
+# name = "SESSIONS"
+# class_name = "SessionDO"
