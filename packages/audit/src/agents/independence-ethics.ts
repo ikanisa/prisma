@@ -366,7 +366,7 @@ export async function handleIndependenceEthicsRequest(
     case 'review_rotation':
       return checkPartnerRotation(parameters.engagement);
 
-    case 'check_independence':
+    case 'check_independence': {
       // Comprehensive independence check
       const checks: ThreatAssessment[] = [];
 
@@ -398,6 +398,7 @@ export async function handleIndependenceEthicsRequest(
             : ['Lead Engagement Partner'],
         } as IndependenceCheck,
       };
+    }
 
     default:
       return { success: false, error: `Unknown task: ${task}` };

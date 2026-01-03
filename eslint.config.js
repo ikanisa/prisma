@@ -73,13 +73,21 @@ export default tseslint.config(
     },
   },
   {
-    files: ["packages/**/*.{ts,tsx,js,jsx}", "scripts/**/*.{ts,tsx,js,jsx}", "tests/**/*.{ts,tsx,js,jsx}"],
+    files: [
+      "packages/**/*.{ts,tsx,js,jsx}",
+      "scripts/**/*.{ts,tsx,js,jsx}",
+      "tests/**/*.{ts,tsx,js,jsx}",
+      "apps/**/*.{ts,tsx}",
+      "**/apps/**/*.{ts,tsx}",
+      "src/**/*.{ts,tsx}",
+      "**/src/**/*.{ts,tsx}",
+    ],
     rules: {
       "no-console": "off",
     },
   },
   {
-    files: ["apps/**/*.{ts,tsx}"],
+    files: ["apps/**/*.{ts,tsx}", "**/apps/**/*.{ts,tsx}"],
     rules: {
       "no-restricted-imports": [
         "error",

@@ -79,9 +79,9 @@ export class PromptOptimizer {
     optimizationGoals: OptimizationGoal[]
   ): Promise<PromptVariation[]> {
     // logger.info('Generating prompt variations', { 
-      promptLength: basePrompt.length,
-      goals: optimizationGoals.map(g => g.type)
-    });
+    //   promptLength: basePrompt.length,
+    //   goals: optimizationGoals.map(g => g.type)
+    // });
 
     const variations: PromptVariation[] = [];
     

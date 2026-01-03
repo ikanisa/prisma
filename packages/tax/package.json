@@ -13,8 +13,8 @@
     "test": "vitest",
     "test:watch": "vitest --watch",
     "test:coverage": "vitest --coverage",
-    "lint": "eslint src",
-    "lint:fix": "eslint src --fix"
+    "lint": "eslint src --config ../../eslint.config.js",
+    "lint:fix": "eslint src --config ../../eslint.config.js --fix"
   },
   "dependencies": {
     "@prisma-glow/types": "workspace:*",
@@ -23,8 +23,7 @@
   "devDependencies": {
     "@types/node": "^20.0.0",
     "typescript": "^5.3.0",
-    "vitest": "^1.0.0",
-    "eslint": "^8.0.0"
+    "vitest": "^1.0.0"
   },
   "keywords": [
     "tax",

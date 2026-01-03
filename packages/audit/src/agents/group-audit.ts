@@ -135,7 +135,7 @@ export async function handleGroupAuditRequest(request: GroupAuditRequest): Promi
         parameters.groupAssets
       );
 
-    case 'allocate_materiality':
+    case 'allocate_materiality': {
       if (!parameters.groupMateriality || !parameters.componentRevenue || !parameters.groupRevenue) {
         return { success: false, error: 'Group materiality and component percentage required' };
       }
@@ -145,6 +145,7 @@ export async function handleGroupAuditRequest(request: GroupAuditRequest): Promi
         percentage,
         percentage > 15
       );
+    }
 
     default:
       return { success: false, error: `Unknown task: ${task}` };

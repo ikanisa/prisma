@@ -56,7 +56,7 @@
     "dev": "tsc -b --watch",
     "clean": "rm -rf dist",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint .",
+    "lint": "eslint . --config ../../eslint.config.js",
     "test": "vitest"
   },
   "dependencies": {

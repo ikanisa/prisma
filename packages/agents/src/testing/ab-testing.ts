@@ -237,9 +237,9 @@ export class ABTestingFramework {
       }
       
       // logger.info('A/B test concluded', {
-        testId: test.id,
-        recommendation: results.recommendation
-      });
+      //   testId: test.id,
+      //   recommendation: results.recommendation
+      // });
     }
   }
 
@@ -248,9 +248,9 @@ export class ABTestingFramework {
    */
   async deployTreatment(test: ABTest): Promise<void> {
     // logger.info('Deploying treatment variant', {
-      testId: test.id,
-      agentId: test.agent_id
-    });
+    //   testId: test.id,
+    //   agentId: test.agent_id
+    // });
     
     await this.db.agent_configurations.update({
       where: { agent_id: test.agent_id },
