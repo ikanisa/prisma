@@ -2,73 +2,152 @@
  * MCP Server API Route
  * 
  * Handles Model Context Protocol requests
+ * 
+ * Uses the centralized tools registry from @prisma/tools
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { MCPServer, createPrismaGlowMCPServer } from '@prisma/lib/openai/mcp-server';
+import { createMCPServerWithHandlers } from '@prisma/lib/openai/mcp-server';
+import { toolRegistry } from '@prisma/tools';
+import type { ToolContext, UserRole } from '@prisma/tools';
+import { withRateLimit, RateLimitConfigs } from '@/lib/rate-limit/rate-limiter';
+import { metrics, MetricNames } from '@/lib/observability/metrics';
+import { tracer } from '@/lib/observability/tracing';
 
-// Initialize MCP server
-const mcpServer = new MCPServer(createPrismaGlowMCPServer());
+// Context extractor for MCP requests
+async function extractMCPContext(request: NextRequest): Promise<ToolContext | null> {
+  return extractContext(request);
+}
 
-// Register tool handlers
-mcpServer.registerTool('file_search', async (args) => {
-  const { query, maxResults = 10 } = args;
-  // In production, this would call your actual file search service
-  return {
-    content: [
-      {
-        type: 'text',
-        text: `File search results for "${query}" (max ${maxResults} results)`,
-      },
-    ],
-  };
-});
+// Initialize MCP server with all registered tools and context extractor
+const mcpServer = createMCPServerWithHandlers(extractMCPContext);
 
-mcpServer.registerTool('web_search', async (args) => {
-  const { query } = args;
-  // In production, this would call your actual web search service
-  return {
-    content: [
-      {
-        type: 'text',
-        text: `Web search results for "${query}"`,
-      },
-    ],
-  };
-});
+/**
+ * Extract user context from request
+ * Extracts from Supabase JWT token in Authorization header
+ */
+import { extractContextFromJWT } from '@prisma/tools';
 
-mcpServer.registerTool('calculate_tax', async (args) => {
-  const { amount, jurisdiction, taxType = 'VAT' } = args;
-  // In production, this would call your actual tax calculation service
-  return {
-    content: [
-      {
-        type: 'text',
-        text: `Tax calculation for ${amount} in ${jurisdiction} (${taxType})`,
-      },
-    ],
-  };
-});
-
-mcpServer.registerTool('get_audit_guidance', async (args) => {
-  const { topic, jurisdiction } = args;
-  // In production, this would call your actual audit guidance service
-  return {
-    content: [
-      {
-        type: 'text',
-        text: `Audit guidance for ${topic}${jurisdiction ? ` in ${jurisdiction}` : ''}`,
-      },
-    ],
-  };
-});
-
-export async function POST(request: NextRequest) {
+async function extractContext(request: NextRequest): Promise<ToolContext | null> {
+  const authHeader = request.headers.get('authorization');
+  
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return null;
+  }
+  
+  const token = authHeader.substring(7);
+  const requestId = request.headers.get('x-request-id') || undefined;
+  
   try {
+    const context = await extractContextFromJWT(token);
+    
+    if (!context) {
+      return null;
+    }
+    
+    // Add request ID to context
+    return {
+      ...context,
+      requestId,
+    };
+  } catch (error) {
+    console.error('Failed to extract context:', error);
+    return null;
+  }
+}
+
+async function handleMCPRequest(request: NextRequest) {
+  const traceContext = tracer.startSpan('mcp.request');
+  const startTime = Date.now();
+
+  try {
+    metrics.increment(MetricNames.API_REQUESTS_TOTAL, 1, { endpoint: '/api/mcp' });
+    
     const body = await request.json();
+    
+    // If this is a tool call, we need to use the tools registry
+    if (body.method === 'tools/call') {
+      const { name, arguments: args } = body.params || {};
+      const context = await extractContext(request);
+      
+      if (!context) {
+        metrics.increment(MetricNames.API_REQUESTS_ERRORS, 1, { endpoint: '/api/mcp', error: 'unauthorized' });
+        tracer.endSpan(traceContext.spanId, 'error', new Error('Authentication required'));
+        
+        return NextResponse.json(
+          {
+            error: {
+              code: -32000,
+              message: 'Authentication required',
+            },
+          },
+          { status: 401 }
+        );
+      }
+      
+      // Execute tool through registry (includes permission checks and audit logging)
+      const toolTraceContext = tracer.startSpan(`tool.${name}`, traceContext);
+      const toolStartTime = Date.now();
+      
+      const result = await toolRegistry.execute(name, args || {}, context);
+      
+      const toolDuration = Date.now() - toolStartTime;
+      metrics.histogram(MetricNames.TOOL_CALLS_DURATION, toolDuration, { tool: name });
+      
+      if (result.success) {
+        metrics.increment(MetricNames.TOOL_CALLS_TOTAL, 1, { tool: name });
+        tracer.endSpan(toolTraceContext.spanId, 'ok');
+      } else {
+        metrics.increment(MetricNames.TOOL_CALLS_ERRORS, 1, { tool: name });
+        tracer.endSpan(toolTraceContext.spanId, 'error', new Error(result.error?.message));
+      }
+      
+      // Convert to MCP response format
+      if (result.success) {
+        const duration = Date.now() - startTime;
+        metrics.histogram(MetricNames.API_REQUESTS_DURATION, duration, { endpoint: '/api/mcp' });
+        tracer.endSpan(traceContext.spanId, 'ok');
+        
+        return NextResponse.json({
+          result: {
+            content: [
+              {
+                type: 'text',
+                text: JSON.stringify(result.data, null, 2),
+              },
+            ],
+            isError: false,
+          },
+        });
+      } else {
+        const duration = Date.now() - startTime;
+        metrics.histogram(MetricNames.API_REQUESTS_DURATION, duration, { endpoint: '/api/mcp', error: 'tool_failed' });
+        tracer.endSpan(traceContext.spanId, 'error', new Error(result.error?.message));
+        
+        return NextResponse.json({
+          error: {
+            code: -32603,
+            message: result.error?.message || 'Tool execution failed',
+            data: result.error,
+          },
+        });
+      }
+    }
+    
+    // For other MCP methods, use the server handler
     const response = await mcpServer.handleRequest(body);
+    
+    const duration = Date.now() - startTime;
+    metrics.histogram(MetricNames.API_REQUESTS_DURATION, duration, { endpoint: '/api/mcp' });
+    tracer.endSpan(traceContext.spanId, 'ok');
+    
     return NextResponse.json(response);
   } catch (error) {
+    const duration = Date.now() - startTime;
+    metrics.increment(MetricNames.API_REQUESTS_ERRORS, 1, { endpoint: '/api/mcp', error: 'internal' });
+    metrics.histogram(MetricNames.API_REQUESTS_DURATION, duration, { endpoint: '/api/mcp', error: 'internal' });
+    tracer.endSpan(traceContext.spanId, 'error', error as Error);
+    
     console.error('MCP Server error:', error);
     return NextResponse.json(
       {
@@ -81,6 +160,8 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+export const POST = withRateLimit(RateLimitConfigs.MCP_REQUESTS, handleMCPRequest);
 
 export async function GET(request: NextRequest) {
   // Return server capabilities

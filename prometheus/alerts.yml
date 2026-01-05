@@ -1,0 +1,88 @@
+groups:
+  - name: prisma_glow_alerts
+    interval: 30s
+    rules:
+      # High Error Rate Alert
+      - alert: HighErrorRate
+        expr: rate(api_requests_total{status=~"5.."}[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: critical
+          service: prisma-glow
+        annotations:
+          summary: "High error rate detected in Prisma Glow"
+          description: "Error rate is {{ $value }} errors/second for endpoint {{ $labels.endpoint }}"
+          runbook_url: "https://docs.prisma-glow.com/runbooks/high-error-rate"
+
+      # High Tool Call Latency Alert
+      - alert: HighToolCallLatency
+        expr: histogram_quantile(0.95, tool_calls_duration_seconds) > 5
+        for: 5m
+        labels:
+          severity: warning
+          service: prisma-glow
+        annotations:
+          summary: "High tool call latency detected"
+          description: "95th percentile latency is {{ $value }} seconds for tool {{ $labels.tool }}"
+          runbook_url: "https://docs.prisma-glow.com/runbooks/high-latency"
+
+      # Rate Limit Exceeded Alert
+      - alert: RateLimitExceeded
+        expr: rate(rate_limit_exceeded_total[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+          service: prisma-glow
+        annotations:
+          summary: "Rate limit exceeded frequently"
+          description: "Rate limit exceeded {{ $value }} times/minute for endpoint {{ $labels.endpoint }}"
+          runbook_url: "https://docs.prisma-glow.com/runbooks/rate-limit"
+
+      # High API Latency Alert
+      - alert: HighAPILatency
+        expr: histogram_quantile(0.95, api_requests_duration_seconds) > 2
+        for: 5m
+        labels:
+          severity: warning
+          service: prisma-glow
+        annotations:
+          summary: "High API latency detected"
+          description: "95th percentile latency is {{ $value }} seconds for {{ $labels.endpoint }}"
+          runbook_url: "https://docs.prisma-glow.com/runbooks/high-api-latency"
+
+      # Agent Request Failures Alert
+      - alert: AgentRequestFailures
+        expr: rate(agent_requests_total{status="error"}[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          service: prisma-glow
+        annotations:
+          summary: "High agent request failure rate"
+          description: "Agent request failure rate is {{ $value }} failures/second for agent {{ $labels.agent }}"
+          runbook_url: "https://docs.prisma-glow.com/runbooks/agent-failures"
+
+      # Tool Call Failures Alert
+      - alert: ToolCallFailures
+        expr: rate(tool_calls_errors_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          service: prisma-glow
+        annotations:
+          summary: "High tool call failure rate"
+          description: "Tool call failure rate is {{ $value }} failures/second for tool {{ $labels.tool }}"
+          runbook_url: "https://docs.prisma-glow.com/runbooks/tool-failures"
+
+      # High Active Sessions Alert
+      - alert: HighActiveSessions
+        expr: active_sessions > 1000
+        for: 5m
+        labels:
+          severity: info
+          service: prisma-glow
+        annotations:
+          summary: "High number of active sessions"
+          description: "{{ $value }} active sessions detected"
+          runbook_url: "https://docs.prisma-glow.com/runbooks/high-sessions"
+

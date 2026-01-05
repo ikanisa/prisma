@@ -154,6 +154,8 @@ export function getChatKitIcon(name: ChatKitIconName): LucideIcon {
 
 /**
  * Render a ChatKit icon
+ * Note: This function returns a component, not JSX directly
+ * Use it like: const Icon = ChatKitIcon({ name: 'agent' }); <Icon />
  */
 export function ChatKitIcon({ 
   name, 
@@ -165,6 +167,7 @@ export function ChatKitIcon({
   className?: string;
 }) {
   const IconComponent = getChatKitIcon(name);
-  return <IconComponent size={size} className={className} />;
+  // Return component props instead of JSX
+  return { Component: IconComponent, size: size as number, className };
 }
 

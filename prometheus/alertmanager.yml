@@ -1,0 +1,63 @@
+global:
+  resolve_timeout: 5m
+
+# Route configuration
+route:
+  receiver: 'default'
+  group_by: ['alertname', 'severity', 'service']
+  group_wait: 10s
+  group_interval: 10s
+  repeat_interval: 12h
+  routes:
+    # Critical alerts
+    - match:
+        severity: critical
+      receiver: 'critical-alerts'
+      continue: true
+    
+    # Warning alerts
+    - match:
+        severity: warning
+      receiver: 'warning-alerts'
+      continue: true
+
+# Receivers
+receivers:
+  # Default receiver (logs to console)
+  - name: 'default'
+    webhook_configs:
+      - url: 'http://host.docker.internal:5001/webhook'
+        send_resolved: true
+
+  # Critical alerts
+  - name: 'critical-alerts'
+    webhook_configs:
+      - url: 'http://host.docker.internal:5001/webhook/critical'
+        send_resolved: true
+    # Uncomment to add Slack integration:
+    # slack_configs:
+    #   - api_url: 'YOUR_SLACK_WEBHOOK_URL'
+    #     channel: '#alerts-critical'
+    #     title: '🚨 Critical Alert: {{ .GroupLabels.alertname }}'
+    #     text: '{{ .CommonAnnotations.summary }}\n\n{{ .CommonAnnotations.description }}'
+
+  # Warning alerts
+  - name: 'warning-alerts'
+    webhook_configs:
+      - url: 'http://host.docker.internal:5001/webhook/warning'
+        send_resolved: true
+    # Uncomment to add Slack integration:
+    # slack_configs:
+    #   - api_url: 'YOUR_SLACK_WEBHOOK_URL'
+    #     channel: '#alerts-warning'
+    #     title: '⚠️ Warning: {{ .GroupLabels.alertname }}'
+    #     text: '{{ .CommonAnnotations.summary }}\n\n{{ .CommonAnnotations.description }}'
+
+# Inhibition rules (suppress alerts when others are firing)
+inhibit_rules:
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'service']
+

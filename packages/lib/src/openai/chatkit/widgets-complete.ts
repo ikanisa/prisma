@@ -595,25 +595,6 @@ export function createChart(props: Omit<Chart, "type">): Chart {
   };
 }
 
-export function createSelect(props: Omit<Select, "type">): Select {
-  return {
-    type: "Select",
-    variant: "outline",
-    size: "md",
-    ...props,
-  };
-}
-
-export function createInput(props: Omit<Input, "type">): Input {
-  return {
-    type: "Input",
-    inputType: "text",
-    variant: "outline",
-    size: "md",
-    ...props,
-  };
-}
-
 export function createTextarea(props: Omit<Textarea, "type">): Textarea {
   return {
     type: "Textarea",

@@ -1,5 +1,7 @@
 'use client';
 
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useCommand } from '@/components/features/command';
 import {
     Briefcase,
@@ -83,7 +85,13 @@ const exceptions = [
 ];
 
 export default function AIWorkspaceHome() {
+    const router = useRouter();
     const { open } = useCommand();
+
+    // Redirect to Command Center (chat-first interface) on mount
+    useEffect(() => {
+        router.push('/app/command-center');
+    }, [router]);
 
     return (
         <div className="space-y-8">

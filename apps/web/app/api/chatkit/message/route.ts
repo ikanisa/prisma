@@ -2,10 +2,15 @@
  * ChatKit Message API Route
  * 
  * Handles sending messages and receiving responses with widgets
+ * Uses agent router and tool registry for AI-first interactions
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { agentRouter, toolRegistry } from '@prisma/tools';
+import { extractContextFromJWT } from '@prisma/tools';
+import type { ToolContext } from '@prisma/tools';
+import { createWidgetFromToolResult } from '@/lib/chatkit/widget-factory';
 
 export async function POST(request: NextRequest) {
   try {
@@ -103,7 +108,21 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Non-streaming response
+    // Extract context for tool execution
+    const authHeader = request.headers.get('authorization');
+    let toolContext: ToolContext | null = null;
+    
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.substring(7);
+      toolContext = await extractContextFromJWT(token);
+    }
+
+    // Route message to appropriate agent
+    const route = toolContext ? agentRouter.route(message, toolContext) : null;
+    const selectedAgentId = agentType || route?.agentId || 'general-agent';
+
+    // For now, use backend agent system
+    // In production, this would use the tool registry directly
     const backendUrl = process.env.NEXT_PUBLIC_API_URL || process.env.API_BASE_URL || 'http://localhost:8000';
     const response = await fetch(`${backendUrl}/api/agent/respond`, {
       method: 'POST',
@@ -114,7 +133,7 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify({
         orgSlug,
         request: message,
-        agentType,
+        agentType: selectedAgentId,
         context,
       }),
     });
@@ -125,7 +144,14 @@ export async function POST(request: NextRequest) {
     }
 
     const data = await response.json();
-    return NextResponse.json(data);
+    
+    // Enhance response with widgets if tool results are present
+    // In production, this would parse tool calls and create widgets
+    return NextResponse.json({
+      ...data,
+      agentId: selectedAgentId,
+      agentName: route?.agentName || 'General Assistant',
+    });
   } catch (error) {
     console.error('ChatKit message error:', error);
     return NextResponse.json(

@@ -7,7 +7,13 @@
   "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
-    "./knowledge-web-sources": "./src/knowledge-web-sources.ts"
+    "./knowledge-web-sources": "./src/knowledge-web-sources.ts",
+    "./openai/agent-builder": "./src/openai/agent-builder/index.ts",
+    "./openai/mcp-server": "./src/openai/mcp-server/index.ts",
+    "./openai/apps-sdk": "./src/openai/apps-sdk/index.ts",
+    "./openai/apps-sdk/auth": "./src/openai/apps-sdk/auth.ts",
+    "./openai/chatkit": "./src/openai/chatkit/index.ts",
+    "./openai/chatkit/widgets-complete": "./src/openai/chatkit/widgets-complete.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

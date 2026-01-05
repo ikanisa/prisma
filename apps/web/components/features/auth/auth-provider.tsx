@@ -24,9 +24,12 @@ interface AuthContextType {
   isSystemAdmin: boolean;
   signIn: (email: string, password: string) => Promise<{ error: AuthError | null }>;
   signUp: (email: string, password: string) => Promise<{ error: AuthError | null }>;
+  signInWithMagicLink: (email: string) => Promise<{ error: AuthError | null }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: AuthError | null }>;
   updatePassword: (password: string) => Promise<{ error: AuthError | null }>;
+  resendVerificationEmail: (email: string) => Promise<{ error: AuthError | null }>;
+  verifyEmail: (token: string) => Promise<{ error: AuthError | null }>;
   refreshProfile: () => Promise<void>;
 }
 
@@ -170,6 +173,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error };
   };
 
+  const signInWithMagicLink = async (email: string) => {
+    const supabase = getSupabase();
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
+    return { error };
+  };
+
+  const resendVerificationEmail = async (email: string) => {
+    const supabase = getSupabase();
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email,
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
+    return { error };
+  };
+
+  const verifyEmail = async (token: string) => {
+    const supabase = getSupabase();
+    const { error } = await supabase.auth.verifyOtp({
+      token_hash: token,
+      type: 'email',
+    });
+    return { error };
+  };
+
   const refreshProfile = async () => {
     if (user) {
       const userProfile = await fetchProfile(user.id);
@@ -185,9 +220,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isSystemAdmin: profile?.role === 'SYSTEM_ADMIN',
     signIn,
     signUp,
+    signInWithMagicLink,
     signOut,
     resetPassword,
     updatePassword,
+    resendVerificationEmail,
+    verifyEmail,
     refreshProfile,
   };
 

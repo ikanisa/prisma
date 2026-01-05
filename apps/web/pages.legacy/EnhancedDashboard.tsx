@@ -30,7 +30,7 @@ import {
 } from '@prisma/lib/openai/chatkit/widgets-complete';
 import { useChatKitTheme } from '@/lib/theme';
 
-export function EnhancedDashboard() {
+export default function EnhancedDashboard() {
   const { currentOrg } = useOrganizations();
   const activeOrgId = currentOrg?.id ?? null;
   const { data: clients = [], isLoading: clientsLoading } = useClients(activeOrgId ?? undefined);
