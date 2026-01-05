@@ -40,3 +40,6 @@ export async function createServerSupabaseClient() {
         }
     );
 }
+
+// Alias for convenience
+export const createClient = createServerSupabaseClient;

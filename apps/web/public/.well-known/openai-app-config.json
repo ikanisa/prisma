@@ -1,0 +1,58 @@
+{
+  "name": "Prisma Glow",
+  "description": "AI-powered audit, tax, and accounting operations platform with intelligent agents, knowledge management, and automated workflows",
+  "version": "3.0.0",
+  "author": "Prisma Glow",
+  "homepage_url": "https://prisma-glow.pages.dev",
+  "support_url": "https://prisma-glow.pages.dev/support",
+  "privacy_url": "https://prisma-glow.pages.dev/privacy",
+  "terms_url": "https://prisma-glow.pages.dev/terms",
+  "icon_url": "https://prisma-glow.pages.dev/icons/icon-512.png",
+  "categories": ["business", "productivity", "finance", "accounting"],
+  "tags": ["accounting", "audit", "tax", "ai", "automation", "compliance", "financial-reporting"],
+  "features": [
+    "AI-powered audit workflows",
+    "Tax calculation and compliance",
+    "Knowledge base management",
+    "Document processing",
+    "Multi-agent orchestration",
+    "Real-time collaboration",
+    "RAG-enhanced search",
+    "Automated reporting"
+  ],
+  "capabilities": {
+    "file_search": true,
+    "web_search": true,
+    "function_calling": true,
+    "streaming": true,
+    "realtime": true,
+    "chatkit_widgets": true,
+    "multi_agent": true
+  },
+  "oauth": {
+    "client_id": "${OPENAI_APP_OAUTH_CLIENT_ID}",
+    "scopes": ["openid", "profile", "email"]
+  },
+  "api_endpoints": {
+    "base_url": "https://prisma-glow.pages.dev/api",
+    "auth": "/auth/openai/callback",
+    "chat": "/api/agent/chat",
+    "stream": "/api/agent/stream",
+    "realtime": "/api/agent/realtime/session",
+    "files": "/api/files",
+    "knowledge": "/api/knowledge"
+  },
+  "ui": {
+    "theme": "light",
+    "primary_color": "#4A90E2",
+    "background_color": "#ffffff",
+    "text_color": "#1a1a1a"
+  },
+  "metadata": {
+    "min_api_version": "1.0.0",
+    "supported_models": ["gpt-4", "gpt-4-turbo", "gpt-4o", "gpt-4o-mini"],
+    "requires_auth": true,
+    "supports_team_workspaces": true,
+    "supports_webhooks": true
+  }
+}

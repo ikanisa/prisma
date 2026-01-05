@@ -1,0 +1,83 @@
+/**
+ * OpenAI OAuth Token Exchange
+ * 
+ * Exchanges authorization code for access tokens
+ * 
+ * This route handles the server-side token exchange to protect client secrets
+ */
+
+import { NextRequest, NextResponse } from 'next/server';
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { code, redirect_uri, state } = body;
+
+    if (!code) {
+      return NextResponse.json(
+        { error: 'Authorization code is required' },
+        { status: 400 }
+      );
+    }
+
+    const clientId = process.env.OPENAI_APP_OAUTH_CLIENT_ID;
+    const clientSecret = process.env.OPENAI_APP_OAUTH_CLIENT_SECRET;
+
+    if (!clientId || !clientSecret) {
+      console.error('OAuth credentials not configured');
+      return NextResponse.json(
+        { error: 'OAuth credentials not configured' },
+        { status: 500 }
+      );
+    }
+
+    // Exchange code for tokens with OpenAI
+    // Note: Adjust the endpoint URL based on OpenAI's actual OAuth implementation
+    // The actual endpoint will be provided by OpenAI when you register your app
+    const tokenEndpoint =
+      process.env.OPENAI_OAUTH_TOKEN_URL || 'https://api.openai.com/v1/oauth/token';
+
+    const tokenResponse = await fetch(tokenEndpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        grant_type: 'authorization_code',
+        code,
+        redirect_uri: redirect_uri || `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/openai/callback`,
+        client_id: clientId,
+        client_secret: clientSecret,
+      }),
+    });
+
+    if (!tokenResponse.ok) {
+      const errorData = await tokenResponse.json().catch(() => ({}));
+      console.error('Token exchange failed:', errorData);
+      return NextResponse.json(
+        { 
+          error: errorData.error_description || errorData.error || 'Token exchange failed',
+          error_code: errorData.error,
+        },
+        { status: tokenResponse.status }
+      );
+    }
+
+    const tokens = await tokenResponse.json();
+
+    return NextResponse.json({
+      access_token: tokens.access_token,
+      refresh_token: tokens.refresh_token,
+      expires_in: tokens.expires_in || 3600,
+      token_type: tokens.token_type || 'Bearer',
+      scope: tokens.scope,
+      state,
+    });
+  } catch (error) {
+    console.error('Token exchange error:', error);
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}

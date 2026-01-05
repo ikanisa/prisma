@@ -4,3 +4,7 @@ export * from './agent-analytics';
 export * from './feedback-loop';
 export * from './agent-testing';
 export * from './cache';
+
+// OpenAI Apps SDK integration
+export * from './openai/apps-sdk';
+export * from './openai/chatkit';

@@ -1,0 +1,76 @@
+/**
+ * OpenAI OAuth Token Refresh
+ * 
+ * This is an example implementation. Copy this file to route.ts and configure.
+ * 
+ * Refreshes expired access tokens using refresh token
+ */
+
+import { NextRequest, NextResponse } from 'next/server';
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { refresh_token } = body;
+
+    if (!refresh_token) {
+      return NextResponse.json(
+        { error: 'Refresh token is required' },
+        { status: 400 }
+      );
+    }
+
+    const clientId = process.env.OPENAI_APP_OAUTH_CLIENT_ID;
+    const clientSecret = process.env.OPENAI_APP_OAUTH_CLIENT_SECRET;
+
+    if (!clientId || !clientSecret) {
+      return NextResponse.json(
+        { error: 'OAuth credentials not configured' },
+        { status: 500 }
+      );
+    }
+
+    // Refresh token with OpenAI
+    // Note: Adjust the endpoint URL based on OpenAI's actual OAuth implementation
+    const tokenEndpoint =
+      process.env.OPENAI_OAUTH_TOKEN_URL || 'https://api.openai.com/v1/oauth/token';
+
+    const tokenResponse = await fetch(tokenEndpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        grant_type: 'refresh_token',
+        refresh_token,
+        client_id: clientId,
+        client_secret: clientSecret,
+      }),
+    });
+
+    if (!tokenResponse.ok) {
+      const errorData = await tokenResponse.json().catch(() => ({}));
+      console.error('Token refresh failed:', errorData);
+      return NextResponse.json(
+        { error: errorData.error_description || errorData.error || 'Token refresh failed' },
+        { status: tokenResponse.status }
+      );
+    }
+
+    const tokens = await tokenResponse.json();
+
+    return NextResponse.json({
+      access_token: tokens.access_token,
+      refresh_token: tokens.refresh_token || refresh_token, // Use new refresh token if provided
+      expires_in: tokens.expires_in || 3600,
+      token_type: tokens.token_type || 'Bearer',
+      scope: tokens.scope,
+    });
+  } catch (error) {
+    console.error('Token refresh error:', error);
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
