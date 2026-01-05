@@ -48,7 +48,9 @@ jobs:
         continue-on-error: true
 
       - name: Build for Cloudflare Pages
-        run: pnpm --filter @prisma/web build
+        run: |
+          pnpm --filter @prisma/web build
+          pnpm --filter @prisma/web pages:build
         env:
           NODE_ENV: production
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
@@ -65,7 +67,7 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy apps/web/.next --project-name=${{ env.CLOUDFLARE_PROJECT_NAME }} --branch=main
+          command: pages deploy apps/web/.vercel/output/static --project-name=${{ env.CLOUDFLARE_PROJECT_NAME }} --branch=main
 
       # ------------------------------------------------------------------------
       # Staging Deployment (staging branch)
@@ -76,7 +78,7 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy apps/web/.next --project-name=${{ env.CLOUDFLARE_PROJECT_NAME }} --branch=staging
+          command: pages deploy apps/web/.vercel/output/static --project-name=${{ env.CLOUDFLARE_PROJECT_NAME }} --branch=staging
 
       # ------------------------------------------------------------------------
       # Preview Deployment (Pull Requests)
@@ -88,7 +90,7 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy apps/web/.next --project-name=${{ env.CLOUDFLARE_PROJECT_NAME }} --branch=${{ github.head_ref }}
+          command: pages deploy apps/web/.vercel/output/static --project-name=${{ env.CLOUDFLARE_PROJECT_NAME }} --branch=${{ github.head_ref }}
 
       - name: Comment Preview URL on PR
         if: github.event_name == 'pull_request'

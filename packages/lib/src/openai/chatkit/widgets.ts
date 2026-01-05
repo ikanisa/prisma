@@ -13,7 +13,14 @@ export type WidgetType =
   | 'form'
   | 'card'
   | 'table'
-  | 'chart';
+  | 'chart'
+  | 'list'
+  | 'accordion'
+  | 'calendar'
+  | 'map'
+  | 'video'
+  | 'audio'
+  | 'code';
 
 export interface WidgetAction {
   type: 'submit' | 'navigate' | 'callback' | 'open_url';
@@ -98,7 +105,7 @@ export interface TableWidget extends BaseWidget {
 
 export interface ChartWidget extends BaseWidget {
   type: 'chart';
-  chartType: 'line' | 'bar' | 'pie' | 'area';
+  chartType: 'line' | 'bar' | 'pie' | 'area' | 'doughnut' | 'radar' | 'scatter';
   data: {
     labels: string[];
     datasets: Array<{
@@ -111,6 +118,95 @@ export interface ChartWidget extends BaseWidget {
   options?: Record<string, unknown>;
 }
 
+export interface ListWidget extends BaseWidget {
+  type: 'list';
+  items: Array<{
+    id?: string;
+    title: string;
+    description?: string;
+    icon?: string;
+    image?: string;
+    badge?: string;
+    metadata?: Record<string, unknown>;
+  }>;
+  layout?: 'vertical' | 'horizontal';
+  selectable?: boolean;
+  multiSelect?: boolean;
+}
+
+export interface AccordionWidget extends BaseWidget {
+  type: 'accordion';
+  items: Array<{
+    id?: string;
+    title: string;
+    content: Widget[];
+    defaultOpen?: boolean;
+  }>;
+  allowMultiple?: boolean;
+}
+
+export interface CalendarWidget extends BaseWidget {
+  type: 'calendar';
+  mode?: 'single' | 'range' | 'multiple';
+  selectedDates?: string[];
+  minDate?: string;
+  maxDate?: string;
+  disabledDates?: string[];
+  events?: Array<{
+    date: string;
+    title: string;
+    description?: string;
+    color?: string;
+  }>;
+}
+
+export interface MapWidget extends BaseWidget {
+  type: 'map';
+  center: { lat: number; lng: number };
+  zoom?: number;
+  markers?: Array<{
+    id?: string;
+    position: { lat: number; lng: number };
+    title?: string;
+    description?: string;
+    icon?: string;
+  }>;
+  mapType?: 'roadmap' | 'satellite' | 'hybrid' | 'terrain';
+}
+
+export interface VideoWidget extends BaseWidget {
+  type: 'video';
+  url: string;
+  thumbnail?: string;
+  autoplay?: boolean;
+  controls?: boolean;
+  loop?: boolean;
+  muted?: boolean;
+  width?: number;
+  height?: number;
+}
+
+export interface AudioWidget extends BaseWidget {
+  type: 'audio';
+  url: string;
+  title?: string;
+  artist?: string;
+  thumbnail?: string;
+  autoplay?: boolean;
+  controls?: boolean;
+  loop?: boolean;
+}
+
+export interface CodeWidget extends BaseWidget {
+  type: 'code';
+  code: string;
+  language?: string;
+  theme?: 'light' | 'dark';
+  readOnly?: boolean;
+  showLineNumbers?: boolean;
+  highlightLines?: number[];
+}
+
 export type Widget = 
   | ButtonWidget 
   | TextWidget 
@@ -119,7 +215,14 @@ export type Widget =
   | FormWidget 
   | CardWidget 
   | TableWidget 
-  | ChartWidget;
+  | ChartWidget
+  | ListWidget
+  | AccordionWidget
+  | CalendarWidget
+  | MapWidget
+  | VideoWidget
+  | AudioWidget
+  | CodeWidget;
 
 export interface WidgetMessage {
   role: 'assistant' | 'user' | 'system';
@@ -213,6 +316,94 @@ export function createChartWidget(options: Omit<ChartWidget, 'type'>): ChartWidg
 }
 
 /**
+ * Create a list widget
+ */
+export function createListWidget(options: Omit<ListWidget, 'type'>): ListWidget {
+  return {
+    type: 'list',
+    layout: 'vertical',
+    selectable: false,
+    multiSelect: false,
+    ...options,
+  };
+}
+
+/**
+ * Create an accordion widget
+ */
+export function createAccordionWidget(options: Omit<AccordionWidget, 'type'>): AccordionWidget {
+  return {
+    type: 'accordion',
+    allowMultiple: false,
+    ...options,
+  };
+}
+
+/**
+ * Create a calendar widget
+ */
+export function createCalendarWidget(options: Omit<CalendarWidget, 'type'>): CalendarWidget {
+  return {
+    type: 'calendar',
+    mode: 'single',
+    ...options,
+  };
+}
+
+/**
+ * Create a map widget
+ */
+export function createMapWidget(options: Omit<MapWidget, 'type'>): MapWidget {
+  return {
+    type: 'map',
+    zoom: 10,
+    mapType: 'roadmap',
+    ...options,
+  };
+}
+
+/**
+ * Create a video widget
+ */
+export function createVideoWidget(options: Omit<VideoWidget, 'type'>): VideoWidget {
+  return {
+    type: 'video',
+    autoplay: false,
+    controls: true,
+    loop: false,
+    muted: false,
+    ...options,
+  };
+}
+
+/**
+ * Create an audio widget
+ */
+export function createAudioWidget(options: Omit<AudioWidget, 'type'>): AudioWidget {
+  return {
+    type: 'audio',
+    autoplay: false,
+    controls: true,
+    loop: false,
+    ...options,
+  };
+}
+
+/**
+ * Create a code widget
+ */
+export function createCodeWidget(options: Omit<CodeWidget, 'type'>): CodeWidget {
+  return {
+    type: 'code',
+    language: 'javascript',
+    theme: 'light',
+    readOnly: true,
+    showLineNumbers: true,
+    ...options,
+  };
+}
+
+/**
  * Validate widget structure
  */
 export function validateWidget(widget: Widget): { valid: boolean; errors: string[] } {
@@ -267,6 +458,39 @@ export function validateWidget(widget: Widget): { valid: boolean; errors: string
     case 'chart':
       if (!('data' in widget) || !widget.data) {
         errors.push('Chart widget requires data');
+      }
+      break;
+    case 'list':
+      if (!('items' in widget) || !Array.isArray(widget.items) || widget.items.length === 0) {
+        errors.push('List widget requires at least one item');
+      }
+      break;
+    case 'accordion':
+      if (!('items' in widget) || !Array.isArray(widget.items) || widget.items.length === 0) {
+        errors.push('Accordion widget requires at least one item');
+      }
+      break;
+    case 'calendar':
+      // Calendar widget validation is optional
+      break;
+    case 'map':
+      if (!('center' in widget) || !widget.center) {
+        errors.push('Map widget requires center coordinates');
+      }
+      break;
+    case 'video':
+      if (!('url' in widget) || !widget.url) {
+        errors.push('Video widget requires a URL');
+      }
+      break;
+    case 'audio':
+      if (!('url' in widget) || !widget.url) {
+        errors.push('Audio widget requires a URL');
+      }
+      break;
+    case 'code':
+      if (!('code' in widget) || !widget.code) {
+        errors.push('Code widget requires code content');
       }
       break;
   }

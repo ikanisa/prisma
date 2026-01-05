@@ -17,6 +17,13 @@ import type {
   CardWidget,
   TableWidget,
   ChartWidget,
+  ListWidget,
+  AccordionWidget,
+  CalendarWidget,
+  MapWidget,
+  VideoWidget,
+  AudioWidget,
+  CodeWidget,
 } from '@prisma/lib/openai/chatkit';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -48,6 +55,20 @@ export function WidgetRenderer({ widget, onAction }: WidgetRendererProps) {
       return <TableWidgetRenderer widget={widget} />;
     case 'chart':
       return <ChartWidgetRenderer widget={widget} />;
+    case 'list':
+      return <ListWidgetRenderer widget={widget} onAction={onAction} />;
+    case 'accordion':
+      return <AccordionWidgetRenderer widget={widget} onAction={onAction} />;
+    case 'calendar':
+      return <CalendarWidgetRenderer widget={widget} onAction={onAction} />;
+    case 'map':
+      return <MapWidgetRenderer widget={widget} />;
+    case 'video':
+      return <VideoWidgetRenderer widget={widget} />;
+    case 'audio':
+      return <AudioWidgetRenderer widget={widget} />;
+    case 'code':
+      return <CodeWidgetRenderer widget={widget} />;
     default:
       return (
         <div className="rounded-lg border border-muted bg-muted/50 p-4 text-sm text-muted-foreground">
@@ -359,6 +380,274 @@ function ChartWidgetRenderer({ widget }: { widget: ChartWidget }) {
           <br />
           <span className="text-xs">Install a charting library (e.g., recharts) for full implementation</span>
         </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function ListWidgetRenderer({
+  widget,
+  onAction,
+}: {
+  widget: ListWidget;
+  onAction?: WidgetRendererProps['onAction'];
+}) {
+  const handleItemClick = (item: ListWidget['items'][0]) => {
+    if (widget.selectable && onAction) {
+      onAction({
+        type: 'callback',
+        callback: 'list_item_selected',
+        data: { item },
+      });
+    }
+  };
+
+  return (
+    <Card>
+      {widget.title && (
+        <CardHeader>
+          <CardTitle>{widget.title}</CardTitle>
+          {widget.description && <CardDescription>{widget.description}</CardDescription>}
+        </CardHeader>
+      )}
+      <CardContent>
+        <div className={`space-y-2 ${widget.layout === 'horizontal' ? 'flex flex-wrap gap-2' : ''}`}>
+          {widget.items.map((item, index) => (
+            <div
+              key={item.id || index}
+              className={`flex items-center gap-3 rounded-lg border p-3 ${
+                widget.selectable ? 'cursor-pointer hover:bg-muted' : ''
+              }`}
+              onClick={() => handleItemClick(item)}
+            >
+              {item.image && (
+                <img src={item.image} alt={item.title} className="h-10 w-10 rounded object-cover" />
+              )}
+              {item.icon && !item.image && (
+                <div className="flex h-10 w-10 items-center justify-center rounded bg-primary/10">
+                  <span className="text-lg">{item.icon}</span>
+                </div>
+              )}
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate">{item.title}</p>
+                {item.description && (
+                  <p className="text-xs text-muted-foreground line-clamp-2">{item.description}</p>
+                )}
+              </div>
+              {item.badge && (
+                <span className="rounded-full bg-primary/10 px-2 py-1 text-xs font-medium text-primary">
+                  {item.badge}
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function AccordionWidgetRenderer({
+  widget,
+  onAction,
+}: {
+  widget: AccordionWidget;
+  onAction?: WidgetRendererProps['onAction'];
+}) {
+  const [openItems, setOpenItems] = React.useState<Set<string>>(
+    new Set(widget.items.filter((item) => item.defaultOpen).map((item) => item.id || ''))
+  );
+
+  const toggleItem = (itemId: string) => {
+    setOpenItems((prev) => {
+      const next = new Set(prev);
+      if (widget.allowMultiple) {
+        if (next.has(itemId)) {
+          next.delete(itemId);
+        } else {
+          next.add(itemId);
+        }
+      } else {
+        next.clear();
+        if (!next.has(itemId)) {
+          next.add(itemId);
+        }
+      }
+      return next;
+    });
+  };
+
+  return (
+    <Card>
+      {widget.title && (
+        <CardHeader>
+          <CardTitle>{widget.title}</CardTitle>
+          {widget.description && <CardDescription>{widget.description}</CardDescription>}
+        </CardHeader>
+      )}
+      <CardContent>
+        <div className="space-y-2">
+          {widget.items.map((item, index) => {
+            const itemId = item.id || `item-${index}`;
+            const isOpen = openItems.has(itemId);
+            return (
+              <div key={itemId} className="border rounded-lg">
+                <button
+                  type="button"
+                  onClick={() => toggleItem(itemId)}
+                  className="w-full flex items-center justify-between p-4 text-left hover:bg-muted/50 transition-colors"
+                >
+                  <span className="font-medium">{item.title}</span>
+                  <span className="text-muted-foreground">{isOpen ? '−' : '+'}</span>
+                </button>
+                {isOpen && (
+                  <div className="px-4 pb-4 space-y-3 border-t">
+                    {item.content.map((childWidget, childIndex) => (
+                      <WidgetRenderer
+                        key={childWidget.id || childIndex}
+                        widget={childWidget}
+                        onAction={onAction}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function CalendarWidgetRenderer({
+  widget,
+  onAction,
+}: {
+  widget: CalendarWidget;
+  onAction?: WidgetRendererProps['onAction'];
+}) {
+  // Placeholder implementation - in production, use a calendar library
+  return (
+    <Card>
+      {widget.title && (
+        <CardHeader>
+          <CardTitle>{widget.title}</CardTitle>
+          {widget.description && <CardDescription>{widget.description}</CardDescription>}
+        </CardHeader>
+      )}
+      <CardContent>
+        <div className="h-64 flex items-center justify-center text-muted-foreground border rounded-lg">
+          Calendar widget
+          <br />
+          <span className="text-xs">Install a calendar library (e.g., react-calendar) for full implementation</span>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function MapWidgetRenderer({ widget }: { widget: MapWidget }) {
+  // Placeholder implementation - in production, use a map library like Google Maps or Mapbox
+  return (
+    <Card>
+      {widget.title && (
+        <CardHeader>
+          <CardTitle>{widget.title}</CardTitle>
+          {widget.description && <CardDescription>{widget.description}</CardDescription>}
+        </CardHeader>
+      )}
+      <CardContent>
+        <div className="h-64 flex items-center justify-center text-muted-foreground border rounded-lg">
+          Map widget (center: {widget.center.lat}, {widget.center.lng})
+          <br />
+          <span className="text-xs">Install a map library (e.g., react-map-gl) for full implementation</span>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function VideoWidgetRenderer({ widget }: { widget: VideoWidget }) {
+  return (
+    <Card>
+      {widget.title && (
+        <CardHeader>
+          <CardTitle>{widget.title}</CardTitle>
+          {widget.description && <CardDescription>{widget.description}</CardDescription>}
+        </CardHeader>
+      )}
+      <CardContent>
+        <div className="rounded-lg overflow-hidden border">
+          <video
+            src={widget.url}
+            poster={widget.thumbnail}
+            controls={widget.controls !== false}
+            autoPlay={widget.autoplay}
+            loop={widget.loop}
+            muted={widget.muted}
+            width={widget.width}
+            height={widget.height}
+            className="w-full h-auto"
+          >
+            Your browser does not support the video tag.
+          </video>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function AudioWidgetRenderer({ widget }: { widget: AudioWidget }) {
+  return (
+    <Card>
+      <CardContent className="pt-6">
+        <div className="flex items-center gap-4">
+          {widget.thumbnail && (
+            <img src={widget.thumbnail} alt={widget.title || 'Audio'} className="h-16 w-16 rounded object-cover" />
+          )}
+          <div className="flex-1 min-w-0">
+            {widget.title && <p className="text-sm font-medium truncate">{widget.title}</p>}
+            {widget.artist && <p className="text-xs text-muted-foreground truncate">{widget.artist}</p>}
+            <audio
+              src={widget.url}
+              controls={widget.controls !== false}
+              autoPlay={widget.autoplay}
+              loop={widget.loop}
+              className="w-full mt-2"
+            >
+              Your browser does not support the audio tag.
+            </audio>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function CodeWidgetRenderer({ widget }: { widget: CodeWidget }) {
+  // Placeholder implementation - in production, use a code highlighting library like Prism or highlight.js
+  return (
+    <Card>
+      {widget.title && (
+        <CardHeader>
+          <CardTitle>{widget.title}</CardTitle>
+          {widget.description && <CardDescription>{widget.description}</CardDescription>}
+        </CardHeader>
+      )}
+      <CardContent>
+        <div
+          className={`rounded-lg border p-4 font-mono text-sm overflow-x-auto ${
+            widget.theme === 'dark' ? 'bg-gray-900 text-gray-100' : 'bg-gray-50 text-gray-900'
+          }`}
+        >
+          <pre>
+            <code>{widget.code}</code>
+          </pre>
+        </div>
+        {widget.language && (
+          <p className="text-xs text-muted-foreground mt-2">Language: {widget.language}</p>
+        )}
       </CardContent>
     </Card>
   );

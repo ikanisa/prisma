@@ -18,7 +18,11 @@
     "Multi-agent orchestration",
     "Real-time collaboration",
     "RAG-enhanced search",
-    "Automated reporting"
+    "Automated reporting",
+    "Agent Builder workflows",
+    "ChatKit widgets",
+    "File search integration",
+    "Web search capabilities"
   ],
   "capabilities": {
     "file_search": true,
@@ -27,11 +31,15 @@
     "streaming": true,
     "realtime": true,
     "chatkit_widgets": true,
-    "multi_agent": true
+    "multi_agent": true,
+    "agent_builder": true,
+    "mcp_server": true
   },
   "oauth": {
     "client_id": "${OPENAI_APP_OAUTH_CLIENT_ID}",
-    "scopes": ["openid", "profile", "email"]
+    "scopes": ["openid", "profile", "email"],
+    "authorization_url": "https://auth.openai.com/oauth/authorize",
+    "token_url": "https://api.openai.com/v1/oauth/token"
   },
   "api_endpoints": {
     "base_url": "https://prisma-glow.pages.dev/api",
@@ -39,20 +47,48 @@
     "chat": "/api/agent/chat",
     "stream": "/api/agent/stream",
     "realtime": "/api/agent/realtime/session",
+    "chatkit": "/api/agent/chatkit/session",
+    "agent_builder": "/api/agent/builder",
     "files": "/api/files",
-    "knowledge": "/api/knowledge"
+    "knowledge": "/api/knowledge",
+    "widgets": "/api/widgets",
+    "mcp": "/api/mcp"
   },
   "ui": {
     "theme": "light",
     "primary_color": "#4A90E2",
     "background_color": "#ffffff",
-    "text_color": "#1a1a1a"
+    "text_color": "#1a1a1a",
+    "iframe_compatible": true,
+    "mobile_responsive": true,
+    "accessibility": {
+      "wcag_aa": true,
+      "keyboard_navigation": true,
+      "screen_reader_support": true
+    }
   },
   "metadata": {
     "min_api_version": "1.0.0",
-    "supported_models": ["gpt-4", "gpt-4-turbo", "gpt-4o", "gpt-4o-mini"],
+    "supported_models": ["gpt-4", "gpt-4-turbo", "gpt-4o", "gpt-4o-mini", "gpt-4o-realtime-preview"],
     "requires_auth": true,
     "supports_team_workspaces": true,
-    "supports_webhooks": true
+    "supports_webhooks": true,
+    "supports_state_management": true,
+    "rate_limits": {
+      "chat": "20/min",
+      "stream": "10/min",
+      "realtime": "10/min",
+      "file_search": "30/min"
+    }
+  },
+  "widgets": {
+    "supported_types": ["button", "text", "image", "file", "form", "card", "table", "chart", "list", "accordion"],
+    "action_types": ["submit", "navigate", "callback", "open_url"]
+  },
+  "agent_builder": {
+    "enabled": true,
+    "workflow_export": true,
+    "template_support": true,
+    "preview_mode": true
   }
 }
