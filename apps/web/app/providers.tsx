@@ -2,6 +2,7 @@
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from 'next-themes';
+import { ThemeProvider as ChatKitThemeProvider } from '@/lib/theme';
 import { useState, type ReactNode } from 'react';
 import { AuthProvider } from '@/components/features/auth/auth-provider';
 import { CommandProvider, CommandPalette, CommandKeyListener } from '@/components/features/command';
@@ -31,15 +32,16 @@ export function Providers({ children }: ProvidersProps) {
         enableSystem
         disableTransitionOnChange
       >
-        <AuthProvider>
-          <CommandProvider>
-            <CommandKeyListener />
-            <CommandPalette />
-            {children}
-          </CommandProvider>
-        </AuthProvider>
+        <ChatKitThemeProvider>
+          <AuthProvider>
+            <CommandProvider>
+              <CommandKeyListener />
+              <CommandPalette />
+              {children}
+            </CommandProvider>
+          </AuthProvider>
+        </ChatKitThemeProvider>
       </ThemeProvider>
     </QueryClientProvider>
   );
 }
-
