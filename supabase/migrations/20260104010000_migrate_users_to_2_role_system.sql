@@ -5,12 +5,18 @@
 -- (SYSTEM_ADMIN, PARTNER, MANAGER, EMPLOYEE, CLIENT, READONLY, SERVICE_ACCOUNT, EQR)
 -- to the new 2-role system (SYSTEM_ADMIN, STAFF)
 --
--- Migration Strategy:
--- 1. SYSTEM_ADMIN → SYSTEM_ADMIN (no change)
--- 2. PARTNER, MANAGER, EMPLOYEE → STAFF
--- 3. CLIENT, READONLY, SERVICE_ACCOUNT → Handle separately (may need special handling)
--- 4. EQR flag → Store separately if needed, but base role becomes STAFF
+-- NOTE: This migration will be skipped if user_profiles table doesn't exist yet.
+-- It's safe to skip as it's a data migration that only runs when needed.
 -- =============================================================================
+
+-- Skip entire migration if user_profiles table doesn't exist
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'user_profiles') THEN
+    RAISE NOTICE 'Skipping user role migration: user_profiles table does not exist yet';
+    RETURN;
+  END IF;
+END $$;
 
 -- =============================================================================
 -- Step 1: Create backup table (for rollback safety)

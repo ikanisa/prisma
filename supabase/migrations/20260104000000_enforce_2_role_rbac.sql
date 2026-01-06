@@ -5,10 +5,25 @@
 -- the 2-role system (SYSTEM_ADMIN, STAFF) instead of the old 8-role system
 --
 -- Migration Strategy:
--- 1. Update helper functions to use app_role
--- 2. Update RLS policies for core tables
--- 3. Ensure all policies check app_role from user_profiles
+-- 1. Ensure app_role enum exists
+-- 2. Update helper functions to use app_role
+-- 3. Update RLS policies for core tables
+-- 4. Ensure all policies check app_role from user_profiles
 -- =============================================================================
+
+-- =============================================================================
+-- Ensure app_role enum exists (in case user_management_roles migration hasn't run)
+-- =============================================================================
+DO $$ BEGIN
+  CREATE TYPE public.app_role AS ENUM ('SYSTEM_ADMIN', 'STAFF');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+-- Ensure user_status enum exists
+DO $$ BEGIN
+  CREATE TYPE public.user_status AS ENUM ('INVITED', 'ACTIVE', 'SUSPENDED', 'DEACTIVATED');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- =============================================================================
 -- Helper Functions (Updated for 2-role system)
@@ -18,8 +33,13 @@
 CREATE OR REPLACE FUNCTION public.is_system_admin()
 RETURNS BOOLEAN AS $$
 BEGIN
+  -- Only check if user_profiles table exists
+  IF NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'user_profiles') THEN
+    RETURN FALSE;
+  END IF;
+
   RETURN EXISTS (
-    SELECT 1 FROM public.user_profiles 
+    SELECT 1 FROM public.user_profiles
     WHERE id = auth.uid() AND role = 'SYSTEM_ADMIN'
   );
 END;
@@ -31,10 +51,10 @@ RETURNS public.app_role AS $$
 DECLARE
   user_role public.app_role;
 BEGIN
-  SELECT role INTO user_role 
-  FROM public.user_profiles 
+  SELECT role INTO user_role
+  FROM public.user_profiles
   WHERE id = auth.uid();
-  
+
   RETURN COALESCE(user_role, 'STAFF');
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
@@ -50,12 +70,12 @@ BEGIN
   IF min_role = 'STAFF' THEN
     RETURN TRUE; -- All authenticated users have STAFF-level access
   END IF;
-  
+
   -- For SYSTEM_ADMIN requirement, check if user is SYSTEM_ADMIN
   IF min_role = 'SYSTEM_ADMIN' THEN
     RETURN public.is_system_admin();
   END IF;
-  
+
   RETURN FALSE;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
@@ -70,46 +90,55 @@ BEGIN
   IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'engagements') THEN
     -- Enable RLS
     ALTER TABLE public.engagements ENABLE ROW LEVEL SECURITY;
-    
-    -- Staff can see engagements assigned to them or in their organization
+
+    -- Staff can see engagements in their organization (using org_id which exists)
     DROP POLICY IF EXISTS engagements_staff_select ON public.engagements;
-    CREATE POLICY engagements_staff_select ON public.engagements
-      FOR SELECT USING (
-        -- Staff can see engagements assigned to them
-        assigned_staff_id = auth.uid()
-        OR
-        -- Or engagements in their organization
-        (organization_id IN (
-          SELECT organization_id FROM public.user_profiles WHERE id = auth.uid()
-        ))
-        OR
-        -- System admins can see all
-        public.is_system_admin()
-      );
-    
+    -- Only create policy if user_profiles table exists
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'user_profiles') THEN
+      CREATE POLICY engagements_staff_select ON public.engagements
+        FOR SELECT USING (
+          org_id IN (SELECT organization_id FROM public.user_profiles WHERE id = auth.uid())
+          OR
+          public.is_system_admin()
+        );
+    ELSE
+      -- Fallback: allow all authenticated users if user_profiles doesn't exist yet
+      CREATE POLICY engagements_staff_select ON public.engagements
+        FOR SELECT USING (auth.uid() IS NOT NULL OR public.is_system_admin());
+    END IF;
+
     -- Staff can create engagements in their organization
     DROP POLICY IF EXISTS engagements_staff_insert ON public.engagements;
-    CREATE POLICY engagements_staff_insert ON public.engagements
-      FOR INSERT WITH CHECK (
-        organization_id IN (
-          SELECT organization_id FROM public.user_profiles WHERE id = auth.uid()
-        )
-        OR
-        public.is_system_admin()
-      );
-    
-    -- Staff can update engagements assigned to them
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'user_profiles') THEN
+      CREATE POLICY engagements_staff_insert ON public.engagements
+        FOR INSERT WITH CHECK (
+          org_id IN (SELECT organization_id FROM public.user_profiles WHERE id = auth.uid())
+          OR
+          public.is_system_admin()
+        );
+    ELSE
+      CREATE POLICY engagements_staff_insert ON public.engagements
+        FOR INSERT WITH CHECK (auth.uid() IS NOT NULL OR public.is_system_admin());
+    END IF;
+
+    -- Staff can update engagements in their organization
     DROP POLICY IF EXISTS engagements_staff_update ON public.engagements;
-    CREATE POLICY engagements_staff_update ON public.engagements
-      FOR UPDATE USING (
-        assigned_staff_id = auth.uid()
-        OR
-        public.is_system_admin()
-      ) WITH CHECK (
-        assigned_staff_id = auth.uid()
-        OR
-        public.is_system_admin()
-      );
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'user_profiles') THEN
+      CREATE POLICY engagements_staff_update ON public.engagements
+        FOR UPDATE USING (
+          org_id IN (SELECT organization_id FROM public.user_profiles WHERE id = auth.uid())
+          OR
+          public.is_system_admin()
+        ) WITH CHECK (
+          org_id IN (SELECT organization_id FROM public.user_profiles WHERE id = auth.uid())
+          OR
+          public.is_system_admin()
+        );
+    ELSE
+      CREATE POLICY engagements_staff_update ON public.engagements
+        FOR UPDATE USING (auth.uid() IS NOT NULL OR public.is_system_admin())
+        WITH CHECK (auth.uid() IS NOT NULL OR public.is_system_admin());
+    END IF;
   END IF;
 END $$;
 
@@ -121,38 +150,46 @@ DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'documents') THEN
     ALTER TABLE public.documents ENABLE ROW LEVEL SECURITY;
-    
+
     -- Staff can see documents in engagements they have access to
     DROP POLICY IF EXISTS documents_staff_select ON public.documents;
-    CREATE POLICY documents_staff_select ON public.documents
-      FOR SELECT USING (
-        -- If engagement_id exists, check engagement access
-        (engagement_id IS NULL OR engagement_id IN (
-          SELECT id FROM public.engagements e
-          WHERE e.assigned_staff_id = auth.uid()
-          OR e.organization_id IN (
-            SELECT organization_id FROM public.user_profiles WHERE id = auth.uid()
-          )
-        ))
-        OR
-        -- System admins can see all
-        public.is_system_admin()
-      );
-    
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'user_profiles') THEN
+      CREATE POLICY documents_staff_select ON public.documents
+        FOR SELECT USING (
+          -- If engagement_id exists, check engagement access using org_id
+          (engagement_id IS NULL OR engagement_id IN (
+            SELECT id FROM public.engagements e
+            WHERE e.org_id IN (
+              SELECT organization_id FROM public.user_profiles WHERE id = auth.uid()
+            )
+          ))
+          OR
+          -- System admins can see all
+          public.is_system_admin()
+        );
+    ELSE
+      CREATE POLICY documents_staff_select ON public.documents
+        FOR SELECT USING (auth.uid() IS NOT NULL OR public.is_system_admin());
+    END IF;
+
     -- Staff can upload documents to engagements they have access to
     DROP POLICY IF EXISTS documents_staff_insert ON public.documents;
-    CREATE POLICY documents_staff_insert ON public.documents
-      FOR INSERT WITH CHECK (
-        (engagement_id IS NULL OR engagement_id IN (
-          SELECT id FROM public.engagements e
-          WHERE e.assigned_staff_id = auth.uid()
-          OR e.organization_id IN (
-            SELECT organization_id FROM public.user_profiles WHERE id = auth.uid()
-          )
-        ))
-        OR
-        public.is_system_admin()
-      );
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'user_profiles') THEN
+      CREATE POLICY documents_staff_insert ON public.documents
+        FOR INSERT WITH CHECK (
+          (engagement_id IS NULL OR engagement_id IN (
+            SELECT id FROM public.engagements e
+            WHERE e.org_id IN (
+              SELECT organization_id FROM public.user_profiles WHERE id = auth.uid()
+            )
+          ))
+          OR
+          public.is_system_admin()
+        );
+    ELSE
+      CREATE POLICY documents_staff_insert ON public.documents
+        FOR INSERT WITH CHECK (auth.uid() IS NOT NULL OR public.is_system_admin());
+    END IF;
   END IF;
 END $$;
 
@@ -164,7 +201,7 @@ DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'tasks') THEN
     ALTER TABLE public.tasks ENABLE ROW LEVEL SECURITY;
-    
+
     -- Staff can see tasks assigned to them
     DROP POLICY IF EXISTS tasks_staff_select ON public.tasks;
     CREATE POLICY tasks_staff_select ON public.tasks
@@ -175,7 +212,7 @@ BEGIN
         OR
         public.is_system_admin()
       );
-    
+
     -- Staff can create tasks
     DROP POLICY IF EXISTS tasks_staff_insert ON public.tasks;
     CREATE POLICY tasks_staff_insert ON public.tasks
@@ -184,7 +221,7 @@ BEGIN
         OR
         public.is_system_admin()
       );
-    
+
     -- Staff can update tasks assigned to them
     DROP POLICY IF EXISTS tasks_staff_update ON public.tasks;
     CREATE POLICY tasks_staff_update ON public.tasks
@@ -212,18 +249,23 @@ DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'organizations') THEN
     ALTER TABLE public.organizations ENABLE ROW LEVEL SECURITY;
-    
+
     -- Staff can see organizations they belong to
     DROP POLICY IF EXISTS organizations_staff_select ON public.organizations;
-    CREATE POLICY organizations_staff_select ON public.organizations
-      FOR SELECT USING (
-        id IN (
-          SELECT organization_id FROM public.user_profiles WHERE id = auth.uid()
-        )
-        OR
-        public.is_system_admin()
-      );
-    
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'user_profiles') THEN
+      CREATE POLICY organizations_staff_select ON public.organizations
+        FOR SELECT USING (
+          id IN (
+            SELECT organization_id FROM public.user_profiles WHERE id = auth.uid()
+          )
+          OR
+          public.is_system_admin()
+        );
+    ELSE
+      CREATE POLICY organizations_staff_select ON public.organizations
+        FOR SELECT USING (auth.uid() IS NOT NULL OR public.is_system_admin());
+    END IF;
+
     -- Only system admins can create/update/delete organizations
     DROP POLICY IF EXISTS organizations_admin_all ON public.organizations;
     CREATE POLICY organizations_admin_all ON public.organizations
