@@ -1,0 +1,53 @@
+{
+    "name": "@prisma/ai-engine",
+    "version": "0.1.0",
+    "description": "Unified AI engine for autonomous transaction processing, anomaly detection, and intelligent categorization",
+    "type": "module",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "import": "./dist/index.js",
+            "types": "./dist/index.d.ts"
+        },
+        "./core": {
+            "import": "./dist/core/index.js",
+            "types": "./dist/core/index.d.ts"
+        },
+        "./services": {
+            "import": "./dist/services/index.js",
+            "types": "./dist/services/index.d.ts"
+        }
+    },
+    "scripts": {
+        "build": "tsc -b",
+        "clean": "rm -rf dist tsconfig.tsbuildinfo",
+        "typecheck": "tsc --noEmit",
+        "test": "vitest run",
+        "test:watch": "vitest"
+    },
+    "dependencies": {
+        "@prisma/db": "workspace:*",
+        "openai": "^4.0.0",
+        "zod": "^3.22.4"
+    },
+    "devDependencies": {
+        "@types/node": "^20.10.0",
+        "typescript": "^5.3.0",
+        "vitest": "^1.0.0"
+    },
+    "peerDependencies": {
+        "openai": "^4.0.0"
+    },
+    "files": [
+        "dist",
+        "src"
+    ],
+    "keywords": [
+        "ai",
+        "accounting",
+        "transaction-processing",
+        "anomaly-detection",
+        "machine-learning"
+    ]
+}
