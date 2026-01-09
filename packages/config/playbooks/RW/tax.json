@@ -1,0 +1,162 @@
+{
+    "jurisdiction": "RW",
+    "engagementType": "tax",
+    "version": "1.0.0",
+    "phases": [
+        {
+            "id": "data_collection",
+            "name": "Data Collection",
+            "order": 1,
+            "reviewGate": null,
+            "requiredForCompletion": true
+        },
+        {
+            "id": "computation",
+            "name": "Tax Computation",
+            "order": 2,
+            "reviewGate": "MANAGER",
+            "requiredForCompletion": true
+        },
+        {
+            "id": "filing",
+            "name": "Filing & Submission",
+            "order": 3,
+            "reviewGate": "PARTNER",
+            "requiredForCompletion": true
+        }
+    ],
+    "taskTemplates": [
+        {
+            "id": "tax-1",
+            "phaseId": "data_collection",
+            "title": "Gather EBM reports",
+            "description": "Collect EBM sales and purchase reports from RRA portal",
+            "assigneeRole": "STAFF",
+            "estimatedHours": 2,
+            "dependencies": []
+        },
+        {
+            "id": "tax-2",
+            "phaseId": "data_collection",
+            "title": "Gather payroll data",
+            "description": "Collect payroll records and RSSB declarations",
+            "assigneeRole": "STAFF",
+            "estimatedHours": 2,
+            "dependencies": []
+        },
+        {
+            "id": "tax-3",
+            "phaseId": "computation",
+            "title": "VAT return computation",
+            "description": "Calculate monthly/quarterly VAT return (18% standard rate)",
+            "assigneeRole": "STAFF",
+            "estimatedHours": 4,
+            "dependencies": [
+                "tax-1"
+            ]
+        },
+        {
+            "id": "tax-4",
+            "phaseId": "computation",
+            "title": "PAYE computation",
+            "description": "Calculate Pay As You Earn per RRA brackets",
+            "assigneeRole": "STAFF",
+            "estimatedHours": 3,
+            "dependencies": [
+                "tax-2"
+            ]
+        },
+        {
+            "id": "tax-5",
+            "phaseId": "computation",
+            "title": "Corporate income tax computation",
+            "description": "Calculate CIT at 30% (or applicable SME rates)",
+            "assigneeRole": "STAFF",
+            "estimatedHours": 6,
+            "dependencies": [
+                "tax-3"
+            ]
+        },
+        {
+            "id": "tax-6",
+            "phaseId": "computation",
+            "title": "Withholding tax reconciliation",
+            "description": "Reconcile WHT deducted on payments",
+            "assigneeRole": "STAFF",
+            "estimatedHours": 3,
+            "dependencies": []
+        },
+        {
+            "id": "tax-7",
+            "phaseId": "filing",
+            "title": "Prepare VAT return for filing",
+            "description": "Format VAT return for RRA e-Tax submission",
+            "assigneeRole": "STAFF",
+            "estimatedHours": 2,
+            "dependencies": [
+                "tax-3"
+            ]
+        },
+        {
+            "id": "tax-8",
+            "phaseId": "filing",
+            "title": "Manager review",
+            "description": "Manager review of all tax computations",
+            "assigneeRole": "MANAGER",
+            "estimatedHours": 3,
+            "dependencies": [
+                "tax-5",
+                "tax-6",
+                "tax-7"
+            ]
+        },
+        {
+            "id": "tax-9",
+            "phaseId": "filing",
+            "title": "Partner approval and filing",
+            "description": "Partner sign-off and submission to RRA",
+            "assigneeRole": "PARTNER",
+            "estimatedHours": 2,
+            "dependencies": [
+                "tax-8"
+            ]
+        }
+    ],
+    "docRequestTemplates": [
+        {
+            "id": "doc-1",
+            "docType": "ebm_report",
+            "description": "EBM sales and purchase reports",
+            "required": true,
+            "phaseId": "data_collection"
+        },
+        {
+            "id": "doc-2",
+            "docType": "payroll",
+            "description": "Payroll records and employee list",
+            "required": true,
+            "phaseId": "data_collection"
+        },
+        {
+            "id": "doc-3",
+            "docType": "trial_balance",
+            "description": "Trial balance for tax period",
+            "required": true,
+            "phaseId": "computation"
+        },
+        {
+            "id": "doc-4",
+            "docType": "contract",
+            "description": "Contracts with WHT implications",
+            "required": false,
+            "phaseId": "computation"
+        }
+    ],
+    "mandatoryWorkpapers": [
+        "vat_computation",
+        "paye_computation",
+        "cit_computation",
+        "wht_reconciliation",
+        "tax_return_draft"
+    ]
+}

@@ -1,0 +1,140 @@
+{
+    "jurisdiction": "MT",
+    "engagementType": "accounting",
+    "version": "1.0.0",
+    "phases": [
+        {
+            "id": "planning",
+            "name": "Planning",
+            "order": 1,
+            "reviewGate": null,
+            "requiredForCompletion": true
+        },
+        {
+            "id": "processing",
+            "name": "Transaction Processing",
+            "order": 2,
+            "reviewGate": "MANAGER",
+            "requiredForCompletion": true
+        },
+        {
+            "id": "close",
+            "name": "Period Close",
+            "order": 3,
+            "reviewGate": "MANAGER",
+            "requiredForCompletion": true
+        },
+        {
+            "id": "reporting",
+            "name": "Financial Reporting",
+            "order": 4,
+            "reviewGate": "PARTNER",
+            "requiredForCompletion": true
+        }
+    ],
+    "taskTemplates": [
+        {
+            "id": "acc-1",
+            "phaseId": "planning",
+            "title": "Review prior period financials",
+            "description": "Analyze previous year FS per GAPSME/IFRS",
+            "assigneeRole": "STAFF",
+            "estimatedHours": 4,
+            "dependencies": []
+        },
+        {
+            "id": "acc-2",
+            "phaseId": "processing",
+            "title": "Process bank transactions",
+            "description": "Import and categorize bank transactions",
+            "assigneeRole": "STAFF",
+            "estimatedHours": 8,
+            "dependencies": [
+                "acc-1"
+            ]
+        },
+        {
+            "id": "acc-3",
+            "phaseId": "processing",
+            "title": "Process invoices",
+            "description": "Record supplier and customer invoices",
+            "assigneeRole": "STAFF",
+            "estimatedHours": 8,
+            "dependencies": []
+        },
+        {
+            "id": "acc-4",
+            "phaseId": "close",
+            "title": "VAT reconciliation",
+            "description": "Reconcile VAT at 18% Malta rate",
+            "assigneeRole": "STAFF",
+            "estimatedHours": 4,
+            "dependencies": [
+                "acc-3"
+            ]
+        },
+        {
+            "id": "acc-5",
+            "phaseId": "close",
+            "title": "Trial balance",
+            "description": "Prepare adjusted trial balance",
+            "assigneeRole": "STAFF",
+            "estimatedHours": 4,
+            "dependencies": [
+                "acc-2",
+                "acc-4"
+            ]
+        },
+        {
+            "id": "acc-6",
+            "phaseId": "reporting",
+            "title": "Draft financial statements",
+            "description": "Prepare FS per GAPSME or full IFRS",
+            "assigneeRole": "STAFF",
+            "estimatedHours": 8,
+            "dependencies": [
+                "acc-5"
+            ]
+        },
+        {
+            "id": "acc-7",
+            "phaseId": "reporting",
+            "title": "Partner review",
+            "description": "Partner review and sign-off",
+            "assigneeRole": "PARTNER",
+            "estimatedHours": 4,
+            "dependencies": [
+                "acc-6"
+            ]
+        }
+    ],
+    "docRequestTemplates": [
+        {
+            "id": "doc-1",
+            "docType": "bank_statement",
+            "description": "Bank statements for all accounts",
+            "required": true,
+            "phaseId": "processing"
+        },
+        {
+            "id": "doc-2",
+            "docType": "invoice",
+            "description": "Sales and purchase invoices",
+            "required": true,
+            "phaseId": "processing"
+        },
+        {
+            "id": "doc-3",
+            "docType": "trial_balance",
+            "description": "Prior period trial balance",
+            "required": true,
+            "phaseId": "planning"
+        }
+    ],
+    "mandatoryWorkpapers": [
+        "bank_reconciliation",
+        "vat_reconciliation",
+        "trial_balance",
+        "financial_statements"
+    ]
+}

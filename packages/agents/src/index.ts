@@ -1,34 +1,14 @@
-export * from "./registry/index.js";
-export * from "./openai/index.js";
-export * from "./gemini/index.js";
-export * from "./router.js";
+/**
+ * Prisma Core Agent System
+ * 
+ * AI-first agent orchestration for Accounting, Audit, and Tax.
+ * Routes requests to the appropriate specialist agent based on engagement type.
+ */
 
-export {
-  AgentRegistryLoader,
-  type AgentDefinition,
-  type AgentRegistry,
-  type KBScope,
-  type RuntimeConfig,
-  type ToolDefinition,
-} from './registry-loader.js';
-
-export {
-  DeepSearchWrapper,
-  type DeepSearchParams,
-  type DeepSearchResult,
-} from './deep-search-wrapper.js';
-
-export {
-  OpenAIAgentFactory,
-  type OpenAIAgent,
-  type OpenAIAgentConfig,
-} from './openai-agent-factory.js';
-
-export {
-  GeminiAgentFactory,
-  type GeminiAgent,
-  type GeminiAgentConfig,
-} from './gemini-agent-factory.js';
-
-export * from './integrations/index.js';
-// export * from './ui/index.js'; // Excluded from build
+export { Orchestrator, type AgentContext, type AgentResponse } from './orchestrator.js';
+export { AccountingAgent } from './agents/accounting.js';
+export { AuditAgent } from './agents/audit.js';
+export { TaxAgent } from './agents/tax.js';
+export * from './tools/index.js';
+export * from './schemas/index.js';
+export * from './services/index.js';

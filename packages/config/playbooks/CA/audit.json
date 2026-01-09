@@ -1,0 +1,147 @@
+{
+    "jurisdiction": "CA",
+    "engagementType": "audit",
+    "version": "1.0.0",
+    "phases": [
+        {
+            "id": "planning",
+            "name": "Audit Planning",
+            "order": 1,
+            "reviewGate": "MANAGER",
+            "requiredForCompletion": true
+        },
+        {
+            "id": "fieldwork",
+            "name": "Fieldwork",
+            "order": 2,
+            "reviewGate": "MANAGER",
+            "requiredForCompletion": true
+        },
+        {
+            "id": "completion",
+            "name": "Completion",
+            "order": 3,
+            "reviewGate": "PARTNER",
+            "requiredForCompletion": true
+        }
+    ],
+    "taskTemplates": [
+        {
+            "id": "aud-1",
+            "phaseId": "planning",
+            "title": "Engagement acceptance",
+            "description": "Independence and acceptance per CPA Canada",
+            "assigneeRole": "MANAGER",
+            "estimatedHours": 2,
+            "dependencies": []
+        },
+        {
+            "id": "aud-2",
+            "phaseId": "planning",
+            "title": "Risk assessment",
+            "description": "Risk assessment per CAS 315",
+            "assigneeRole": "STAFF",
+            "estimatedHours": 6,
+            "dependencies": [
+                "aud-1"
+            ]
+        },
+        {
+            "id": "aud-3",
+            "phaseId": "planning",
+            "title": "Materiality calculation",
+            "description": "Determine materiality per CAS",
+            "assigneeRole": "STAFF",
+            "estimatedHours": 2,
+            "dependencies": [
+                "aud-2"
+            ]
+        },
+        {
+            "id": "aud-4",
+            "phaseId": "fieldwork",
+            "title": "Test of controls",
+            "description": "Test operating effectiveness",
+            "assigneeRole": "STAFF",
+            "estimatedHours": 16,
+            "dependencies": [
+                "aud-3"
+            ]
+        },
+        {
+            "id": "aud-5",
+            "phaseId": "fieldwork",
+            "title": "Substantive testing",
+            "description": "Substantive procedures per CAS",
+            "assigneeRole": "STAFF",
+            "estimatedHours": 20,
+            "dependencies": [
+                "aud-4"
+            ]
+        },
+        {
+            "id": "aud-6",
+            "phaseId": "completion",
+            "title": "Evaluate misstatements",
+            "description": "Misstatement summary per CAS 450",
+            "assigneeRole": "MANAGER",
+            "estimatedHours": 4,
+            "dependencies": [
+                "aud-5"
+            ]
+        },
+        {
+            "id": "aud-7",
+            "phaseId": "completion",
+            "title": "Draft audit report",
+            "description": "Prepare report per CAS 700",
+            "assigneeRole": "MANAGER",
+            "estimatedHours": 6,
+            "dependencies": [
+                "aud-6"
+            ]
+        },
+        {
+            "id": "aud-8",
+            "phaseId": "completion",
+            "title": "Partner approval",
+            "description": "Partner sign-off",
+            "assigneeRole": "PARTNER",
+            "estimatedHours": 4,
+            "dependencies": [
+                "aud-7"
+            ]
+        }
+    ],
+    "docRequestTemplates": [
+        {
+            "id": "doc-1",
+            "docType": "financial_statement",
+            "description": "Draft FS per ASPE/IFRS",
+            "required": true,
+            "phaseId": "planning"
+        },
+        {
+            "id": "doc-2",
+            "docType": "trial_balance",
+            "description": "Year-end trial balance",
+            "required": true,
+            "phaseId": "planning"
+        },
+        {
+            "id": "doc-3",
+            "docType": "bank_statement",
+            "description": "Bank statements and reconciliations",
+            "required": true,
+            "phaseId": "fieldwork"
+        }
+    ],
+    "mandatoryWorkpapers": [
+        "engagement_letter",
+        "risk_assessment",
+        "materiality_memo",
+        "control_testing",
+        "substantive_testing",
+        "audit_report"
+    ]
+}

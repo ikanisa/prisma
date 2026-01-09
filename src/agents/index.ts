@@ -7,7 +7,6 @@ export { accountantIfrsAgent } from './accountantIfrsAgent';
 export { taxRwandaAgent } from './taxRwandaAgent';
 export { taxMaltaAgent } from './taxMaltaAgent';
 export { auditIsaAgent } from './auditIsaAgent';
-export { corpMaltaAgent } from './corpMaltaAgent';
 
 export { deepSearchTool } from './tools/deepSearchTool';
 

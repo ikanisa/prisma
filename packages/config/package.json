@@ -1,0 +1,15 @@
+{
+    "name": "@prisma/config",
+    "version": "1.0.0",
+    "private": true,
+    "type": "module",
+    "main": "./src/index.ts",
+    "exports": {
+        ".": "./src/index.ts",
+        "./playbooks/*": "./playbooks/*"
+    },
+    "devDependencies": {
+        "@types/node": "^22.12.0",
+        "typescript": "^5.9.3"
+    }
+}

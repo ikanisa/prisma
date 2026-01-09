@@ -1,0 +1,137 @@
+{
+    "jurisdiction": "MT",
+    "engagementType": "tax",
+    "version": "1.0.0",
+    "phases": [
+        {
+            "id": "data_collection",
+            "name": "Data Collection",
+            "order": 1,
+            "reviewGate": null,
+            "requiredForCompletion": true
+        },
+        {
+            "id": "computation",
+            "name": "Tax Computation",
+            "order": 2,
+            "reviewGate": "MANAGER",
+            "requiredForCompletion": true
+        },
+        {
+            "id": "filing",
+            "name": "Filing & Submission",
+            "order": 3,
+            "reviewGate": "PARTNER",
+            "requiredForCompletion": true
+        }
+    ],
+    "taskTemplates": [
+        {
+            "id": "tax-1",
+            "phaseId": "data_collection",
+            "title": "Gather accounting records",
+            "description": "Collect trial balance and workings",
+            "assigneeRole": "STAFF",
+            "estimatedHours": 2,
+            "dependencies": []
+        },
+        {
+            "id": "tax-2",
+            "phaseId": "computation",
+            "title": "Corporate tax computation",
+            "description": "Calculate CIT at 35% with imputation credits",
+            "assigneeRole": "STAFF",
+            "estimatedHours": 8,
+            "dependencies": [
+                "tax-1"
+            ]
+        },
+        {
+            "id": "tax-3",
+            "phaseId": "computation",
+            "title": "NID calculation",
+            "description": "Calculate Notional Interest Deduction",
+            "assigneeRole": "STAFF",
+            "estimatedHours": 4,
+            "dependencies": [
+                "tax-2"
+            ]
+        },
+        {
+            "id": "tax-4",
+            "phaseId": "computation",
+            "title": "VAT return computation",
+            "description": "Prepare VAT return at 18%",
+            "assigneeRole": "STAFF",
+            "estimatedHours": 4,
+            "dependencies": [
+                "tax-1"
+            ]
+        },
+        {
+            "id": "tax-5",
+            "phaseId": "computation",
+            "title": "Refund entitlement",
+            "description": "Calculate 6/7ths or 5/7ths refund entitlements",
+            "assigneeRole": "STAFF",
+            "estimatedHours": 4,
+            "dependencies": [
+                "tax-2"
+            ]
+        },
+        {
+            "id": "tax-6",
+            "phaseId": "filing",
+            "title": "Manager review",
+            "description": "Review all computations",
+            "assigneeRole": "MANAGER",
+            "estimatedHours": 3,
+            "dependencies": [
+                "tax-3",
+                "tax-4",
+                "tax-5"
+            ]
+        },
+        {
+            "id": "tax-7",
+            "phaseId": "filing",
+            "title": "CFR submission",
+            "description": "Submit to Commissioner for Revenue",
+            "assigneeRole": "PARTNER",
+            "estimatedHours": 2,
+            "dependencies": [
+                "tax-6"
+            ]
+        }
+    ],
+    "docRequestTemplates": [
+        {
+            "id": "doc-1",
+            "docType": "trial_balance",
+            "description": "Trial balance for tax period",
+            "required": true,
+            "phaseId": "data_collection"
+        },
+        {
+            "id": "doc-2",
+            "docType": "financial_statement",
+            "description": "Audited or management accounts",
+            "required": true,
+            "phaseId": "data_collection"
+        },
+        {
+            "id": "doc-3",
+            "docType": "shareholder_register",
+            "description": "Shareholder register for refund claims",
+            "required": true,
+            "phaseId": "computation"
+        }
+    ],
+    "mandatoryWorkpapers": [
+        "cit_computation",
+        "nid_calculation",
+        "vat_computation",
+        "refund_calculation",
+        "tax_return_draft"
+    ]
+}

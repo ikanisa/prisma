@@ -1,0 +1,136 @@
+{
+    "jurisdiction": "CA",
+    "engagementType": "tax",
+    "version": "1.0.0",
+    "phases": [
+        {
+            "id": "data_collection",
+            "name": "Data Collection",
+            "order": 1,
+            "reviewGate": null,
+            "requiredForCompletion": true
+        },
+        {
+            "id": "computation",
+            "name": "Tax Computation",
+            "order": 2,
+            "reviewGate": "MANAGER",
+            "requiredForCompletion": true
+        },
+        {
+            "id": "filing",
+            "name": "Filing & Submission",
+            "order": 3,
+            "reviewGate": "PARTNER",
+            "requiredForCompletion": true
+        }
+    ],
+    "taskTemplates": [
+        {
+            "id": "tax-1",
+            "phaseId": "data_collection",
+            "title": "Gather accounting records",
+            "description": "Collect trial balance and T-slips",
+            "assigneeRole": "STAFF",
+            "estimatedHours": 2,
+            "dependencies": []
+        },
+        {
+            "id": "tax-2",
+            "phaseId": "computation",
+            "title": "Corporate tax computation",
+            "description": "Calculate federal and provincial CIT",
+            "assigneeRole": "STAFF",
+            "estimatedHours": 8,
+            "dependencies": [
+                "tax-1"
+            ]
+        },
+        {
+            "id": "tax-3",
+            "phaseId": "computation",
+            "title": "GST/HST return",
+            "description": "Prepare GST/HST return for CRA",
+            "assigneeRole": "STAFF",
+            "estimatedHours": 4,
+            "dependencies": [
+                "tax-1"
+            ]
+        },
+        {
+            "id": "tax-4",
+            "phaseId": "computation",
+            "title": "Payroll reconciliation",
+            "description": "Reconcile T4 summaries and remittances",
+            "assigneeRole": "STAFF",
+            "estimatedHours": 4,
+            "dependencies": [
+                "tax-1"
+            ]
+        },
+        {
+            "id": "tax-5",
+            "phaseId": "computation",
+            "title": "SRED credits",
+            "description": "Evaluate SR&ED eligibility if applicable",
+            "assigneeRole": "STAFF",
+            "estimatedHours": 6,
+            "dependencies": [
+                "tax-2"
+            ]
+        },
+        {
+            "id": "tax-6",
+            "phaseId": "filing",
+            "title": "Manager review",
+            "description": "Review all computations",
+            "assigneeRole": "MANAGER",
+            "estimatedHours": 3,
+            "dependencies": [
+                "tax-2",
+                "tax-3",
+                "tax-4"
+            ]
+        },
+        {
+            "id": "tax-7",
+            "phaseId": "filing",
+            "title": "CRA submission",
+            "description": "Submit T2 and GST/HST returns to CRA",
+            "assigneeRole": "PARTNER",
+            "estimatedHours": 2,
+            "dependencies": [
+                "tax-6"
+            ]
+        }
+    ],
+    "docRequestTemplates": [
+        {
+            "id": "doc-1",
+            "docType": "trial_balance",
+            "description": "Trial balance for tax period",
+            "required": true,
+            "phaseId": "data_collection"
+        },
+        {
+            "id": "doc-2",
+            "docType": "t_slips",
+            "description": "T4, T4A, T5 slips",
+            "required": true,
+            "phaseId": "data_collection"
+        },
+        {
+            "id": "doc-3",
+            "docType": "financial_statement",
+            "description": "Year-end financial statements",
+            "required": true,
+            "phaseId": "data_collection"
+        }
+    ],
+    "mandatoryWorkpapers": [
+        "cit_computation",
+        "gst_hst_return",
+        "payroll_reconciliation",
+        "tax_return_draft"
+    ]
+}

@@ -1,1 +1,0 @@
-Safety rules go here.

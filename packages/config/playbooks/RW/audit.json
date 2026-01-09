@@ -1,0 +1,198 @@
+{
+    "jurisdiction": "RW",
+    "engagementType": "audit",
+    "version": "1.0.0",
+    "phases": [
+        {
+            "id": "planning",
+            "name": "Audit Planning",
+            "order": 1,
+            "reviewGate": "MANAGER",
+            "requiredForCompletion": true
+        },
+        {
+            "id": "fieldwork",
+            "name": "Fieldwork",
+            "order": 2,
+            "reviewGate": "MANAGER",
+            "requiredForCompletion": true
+        },
+        {
+            "id": "completion",
+            "name": "Completion",
+            "order": 3,
+            "reviewGate": "PARTNER",
+            "requiredForCompletion": true
+        }
+    ],
+    "taskTemplates": [
+        {
+            "id": "aud-1",
+            "phaseId": "planning",
+            "title": "Engagement acceptance",
+            "description": "Evaluate independence and engagement acceptance criteria",
+            "assigneeRole": "MANAGER",
+            "estimatedHours": 2,
+            "dependencies": []
+        },
+        {
+            "id": "aud-2",
+            "phaseId": "planning",
+            "title": "Risk assessment",
+            "description": "Assess inherent and control risks per ISA 315",
+            "assigneeRole": "STAFF",
+            "estimatedHours": 6,
+            "dependencies": [
+                "aud-1"
+            ]
+        },
+        {
+            "id": "aud-3",
+            "phaseId": "planning",
+            "title": "Materiality calculation",
+            "description": "Determine planning and performance materiality",
+            "assigneeRole": "STAFF",
+            "estimatedHours": 2,
+            "dependencies": [
+                "aud-2"
+            ]
+        },
+        {
+            "id": "aud-4",
+            "phaseId": "planning",
+            "title": "Audit strategy memo",
+            "description": "Document overall audit strategy per ISA 300",
+            "assigneeRole": "MANAGER",
+            "estimatedHours": 4,
+            "dependencies": [
+                "aud-3"
+            ]
+        },
+        {
+            "id": "aud-5",
+            "phaseId": "fieldwork",
+            "title": "Test of controls",
+            "description": "Test operating effectiveness of key controls",
+            "assigneeRole": "STAFF",
+            "estimatedHours": 16,
+            "dependencies": [
+                "aud-4"
+            ]
+        },
+        {
+            "id": "aud-6",
+            "phaseId": "fieldwork",
+            "title": "Substantive procedures - Revenue",
+            "description": "Substantive testing of revenue transactions",
+            "assigneeRole": "STAFF",
+            "estimatedHours": 12,
+            "dependencies": [
+                "aud-5"
+            ]
+        },
+        {
+            "id": "aud-7",
+            "phaseId": "fieldwork",
+            "title": "Substantive procedures - Expenses",
+            "description": "Substantive testing of expense transactions",
+            "assigneeRole": "STAFF",
+            "estimatedHours": 12,
+            "dependencies": [
+                "aud-5"
+            ]
+        },
+        {
+            "id": "aud-8",
+            "phaseId": "fieldwork",
+            "title": "Bank confirmations",
+            "description": "Send and evaluate external bank confirmations",
+            "assigneeRole": "STAFF",
+            "estimatedHours": 4,
+            "dependencies": [
+                "aud-4"
+            ]
+        },
+        {
+            "id": "aud-9",
+            "phaseId": "completion",
+            "title": "Evaluate misstatements",
+            "description": "Summarize and evaluate identified misstatements per ISA 450",
+            "assigneeRole": "MANAGER",
+            "estimatedHours": 4,
+            "dependencies": [
+                "aud-6",
+                "aud-7",
+                "aud-8"
+            ]
+        },
+        {
+            "id": "aud-10",
+            "phaseId": "completion",
+            "title": "Draft audit report",
+            "description": "Prepare audit report per ISA 700",
+            "assigneeRole": "MANAGER",
+            "estimatedHours": 6,
+            "dependencies": [
+                "aud-9"
+            ]
+        },
+        {
+            "id": "aud-11",
+            "phaseId": "completion",
+            "title": "Partner review and sign-off",
+            "description": "Partner review and approval of audit deliverables",
+            "assigneeRole": "PARTNER",
+            "estimatedHours": 4,
+            "dependencies": [
+                "aud-10"
+            ]
+        }
+    ],
+    "docRequestTemplates": [
+        {
+            "id": "doc-1",
+            "docType": "financial_statement",
+            "description": "Draft financial statements",
+            "required": true,
+            "phaseId": "planning"
+        },
+        {
+            "id": "doc-2",
+            "docType": "trial_balance",
+            "description": "Trial balance as of year end",
+            "required": true,
+            "phaseId": "planning"
+        },
+        {
+            "id": "doc-3",
+            "docType": "bank_statement",
+            "description": "Bank statements and reconciliations",
+            "required": true,
+            "phaseId": "fieldwork"
+        },
+        {
+            "id": "doc-4",
+            "docType": "invoice",
+            "description": "Sample sales and purchase invoices",
+            "required": true,
+            "phaseId": "fieldwork"
+        },
+        {
+            "id": "doc-5",
+            "docType": "contract",
+            "description": "Significant contracts and agreements",
+            "required": true,
+            "phaseId": "fieldwork"
+        }
+    ],
+    "mandatoryWorkpapers": [
+        "engagement_letter",
+        "risk_assessment",
+        "materiality_memo",
+        "audit_strategy",
+        "control_testing",
+        "substantive_testing",
+        "misstatement_summary",
+        "audit_report"
+    ]
+}

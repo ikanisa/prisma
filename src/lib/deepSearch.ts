@@ -77,7 +77,4 @@ export const deepSearchPresets = {
 
   isa: (query: string, matchCount = 10) =>
     deepSearch({ query, category: 'ISA', jurisdictionCode: 'GLOBAL', matchCount }),
-
-  corpMalta: (query: string, matchCount = 10) =>
-    deepSearch({ query, category: 'CORP', jurisdictionCode: 'MT', matchCount }),
 };

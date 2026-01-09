@@ -1,0 +1,181 @@
+{
+    "jurisdiction": "RW",
+    "engagementType": "accounting",
+    "version": "1.0.0",
+    "phases": [
+        {
+            "id": "planning",
+            "name": "Planning",
+            "order": 1,
+            "reviewGate": null,
+            "requiredForCompletion": true
+        },
+        {
+            "id": "processing",
+            "name": "Transaction Processing",
+            "order": 2,
+            "reviewGate": "MANAGER",
+            "requiredForCompletion": true
+        },
+        {
+            "id": "close",
+            "name": "Period Close",
+            "order": 3,
+            "reviewGate": "MANAGER",
+            "requiredForCompletion": true
+        },
+        {
+            "id": "reporting",
+            "name": "Financial Reporting",
+            "order": 4,
+            "reviewGate": "PARTNER",
+            "requiredForCompletion": true
+        }
+    ],
+    "taskTemplates": [
+        {
+            "id": "acc-1",
+            "phaseId": "planning",
+            "title": "Review prior period financials",
+            "description": "Analyze previous year financial statements and management accounts",
+            "assigneeRole": "STAFF",
+            "estimatedHours": 4,
+            "dependencies": []
+        },
+        {
+            "id": "acc-2",
+            "phaseId": "planning",
+            "title": "Chart of accounts review",
+            "description": "Review and update chart of accounts per RRA requirements",
+            "assigneeRole": "STAFF",
+            "estimatedHours": 2,
+            "dependencies": []
+        },
+        {
+            "id": "acc-3",
+            "phaseId": "processing",
+            "title": "Process bank transactions",
+            "description": "Import and categorize bank transactions",
+            "assigneeRole": "STAFF",
+            "estimatedHours": 8,
+            "dependencies": [
+                "acc-1"
+            ]
+        },
+        {
+            "id": "acc-4",
+            "phaseId": "processing",
+            "title": "Process purchase invoices",
+            "description": "Record and validate supplier invoices with EBM compliance",
+            "assigneeRole": "STAFF",
+            "estimatedHours": 6,
+            "dependencies": [
+                "acc-2"
+            ]
+        },
+        {
+            "id": "acc-5",
+            "phaseId": "processing",
+            "title": "Process sales invoices",
+            "description": "Record and validate customer invoices with EBM compliance",
+            "assigneeRole": "STAFF",
+            "estimatedHours": 6,
+            "dependencies": [
+                "acc-2"
+            ]
+        },
+        {
+            "id": "acc-6",
+            "phaseId": "close",
+            "title": "Bank reconciliation",
+            "description": "Reconcile all bank accounts",
+            "assigneeRole": "STAFF",
+            "estimatedHours": 4,
+            "dependencies": [
+                "acc-3"
+            ]
+        },
+        {
+            "id": "acc-7",
+            "phaseId": "close",
+            "title": "VAT reconciliation",
+            "description": "Reconcile VAT per RRA requirements (18% standard rate)",
+            "assigneeRole": "STAFF",
+            "estimatedHours": 4,
+            "dependencies": [
+                "acc-4",
+                "acc-5"
+            ]
+        },
+        {
+            "id": "acc-8",
+            "phaseId": "close",
+            "title": "Trial balance preparation",
+            "description": "Prepare adjusted trial balance",
+            "assigneeRole": "STAFF",
+            "estimatedHours": 4,
+            "dependencies": [
+                "acc-6",
+                "acc-7"
+            ]
+        },
+        {
+            "id": "acc-9",
+            "phaseId": "reporting",
+            "title": "Draft financial statements",
+            "description": "Prepare FS per IFRS for SMEs",
+            "assigneeRole": "STAFF",
+            "estimatedHours": 8,
+            "dependencies": [
+                "acc-8"
+            ]
+        },
+        {
+            "id": "acc-10",
+            "phaseId": "reporting",
+            "title": "Manager review",
+            "description": "Manager review of financial statements",
+            "assigneeRole": "MANAGER",
+            "estimatedHours": 4,
+            "dependencies": [
+                "acc-9"
+            ]
+        }
+    ],
+    "docRequestTemplates": [
+        {
+            "id": "doc-1",
+            "docType": "bank_statement",
+            "description": "Bank statements for all accounts covering the period",
+            "required": true,
+            "phaseId": "processing"
+        },
+        {
+            "id": "doc-2",
+            "docType": "invoice",
+            "description": "Sales and purchase invoices with EBM receipts",
+            "required": true,
+            "phaseId": "processing"
+        },
+        {
+            "id": "doc-3",
+            "docType": "payroll",
+            "description": "Payroll records and RSSB declarations",
+            "required": true,
+            "phaseId": "processing"
+        },
+        {
+            "id": "doc-4",
+            "docType": "trial_balance",
+            "description": "Prior period trial balance",
+            "required": true,
+            "phaseId": "planning"
+        }
+    ],
+    "mandatoryWorkpapers": [
+        "bank_reconciliation",
+        "vat_reconciliation",
+        "trial_balance",
+        "financial_statements"
+    ]
+}
