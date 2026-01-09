@@ -25,6 +25,17 @@ export * from './agents/tax-incentives-040';
 export * from './agents/tax-risk-governance-041';
 export * from './agents/tax-tech-data-042';
 
+// Phase 2 Core Agents
+export { NexusMonitoringAgent, nexusMonitoringAgent, type NexusMonitoringConfig, type NexusStudyRequest } from './agents/nexus-monitoring-agent';
+export {
+    TransferPricingAgent as TPAgent,
+    transferPricingAgent as tpAgent,
+    type TransferPricingAgentConfig as TPAgentConfig
+} from './agents/transfer-pricing-agent';
+
+// Service exports
+export { NexusRulesEngine, nexusRulesEngine } from './services/nexus-rules-engine';
+
 // Type exports
 export * from './types';
 

@@ -23,6 +23,23 @@ export {
     type ApprovalEvent,
 } from './hitl-manager.js';
 
+// Agent Message Bus
+export {
+    AgentMessageBus,
+    agentMessageBus,
+    createAgentMessage,
+    type AgentMessage,
+    type AgentMessageInput,
+    type AgentMessageContext,
+    type AgentMessageFilter,
+    type AgentMessageHandler,
+    type AgentMessageDispatchResult,
+    type AgentMessageDispatchError,
+    type AgentTaskType,
+    type AgentPriority,
+    type AgentAutonomyLevel,
+} from './agent-message-bus.js';
+
 // Types
 export type {
     // Task types

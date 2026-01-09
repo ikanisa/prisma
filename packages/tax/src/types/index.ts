@@ -87,3 +87,9 @@ export interface TransferPricingAnalysis {
     cbcr: boolean;  // Country-by-Country Reporting
   };
 }
+
+// Nexus types
+export * from './nexus.js';
+
+// Transfer pricing types
+export * from './transfer-pricing.js';
