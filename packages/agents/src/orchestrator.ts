@@ -14,6 +14,7 @@ import { AccountingAgent } from './agents/accounting.js';
 import { AuditAgent } from './agents/audit.js';
 import { TaxAgent } from './agents/tax.js';
 import { eligibilityCheck } from './tools/eligibility-check.js';
+import { agentMessageBus, createAgentMessage } from './core/agent-message-bus.js';
 
 // ============================================================================
 // TYPES
@@ -104,6 +105,11 @@ export class Orchestrator {
             timestamp: new Date().toISOString(),
             payload: { engagementId: context.engagementId, agentType: context.engagementType },
         });
+        await this.publishOrchestrationEvent(context, 'orchestrator_start', {
+            engagementId: context.engagementId,
+            agentType: context.engagementType,
+            message,
+        });
 
         try {
             // Step 1: Eligibility check
@@ -117,6 +123,10 @@ export class Orchestrator {
             });
 
             if (!eligibility.eligible) {
+                await this.publishOrchestrationEvent(context, 'eligibility_failed', {
+                    engagementId: context.engagementId,
+                    reason: eligibility.reason ?? 'Client is not eligible',
+                }, 'HIGH');
                 return {
                     runId,
                     traceId,
@@ -138,6 +148,10 @@ export class Orchestrator {
             const agent = this.agents.get(context.engagementType);
 
             if (!agent) {
+                await this.publishOrchestrationEvent(context, 'agent_missing', {
+                    engagementId: context.engagementId,
+                    agentType: context.engagementType,
+                }, 'HIGH');
                 throw new Error(`No agent registered for type: ${context.engagementType}`);
             }
 
@@ -145,6 +159,11 @@ export class Orchestrator {
                 eventType: 'agent_selected',
                 timestamp: new Date().toISOString(),
                 payload: { agentName: agent.name, agentType: agent.type },
+            });
+            await this.publishOrchestrationEvent(context, 'agent_selected', {
+                engagementId: context.engagementId,
+                agentName: agent.name,
+                agentType: agent.type,
             });
 
             // Step 3: Execute agent
@@ -158,6 +177,10 @@ export class Orchestrator {
                 timestamp: new Date().toISOString(),
                 payload: { status: response.status },
                 durationMs: Date.now() - startTime,
+            });
+            await this.publishOrchestrationEvent(context, 'orchestrator_complete', {
+                engagementId: context.engagementId,
+                status: response.status,
             });
 
             return {
@@ -174,6 +197,10 @@ export class Orchestrator {
                 payload: { error: String(error) },
                 durationMs: Date.now() - startTime,
             });
+            await this.publishOrchestrationEvent(context, 'orchestrator_error', {
+                engagementId: context.engagementId,
+                error: error instanceof Error ? error.message : String(error),
+            }, 'HIGH');
 
             return {
                 runId,
@@ -190,6 +217,38 @@ export class Orchestrator {
                     message: error instanceof Error ? error.message : String(error),
                 },
             };
+        }
+    }
+
+    private async publishOrchestrationEvent(
+        context: AgentContext,
+        event: string,
+        data: Record<string, unknown>,
+        priority: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' = 'LOW'
+    ): Promise<void> {
+        try {
+            await agentMessageBus.publish(
+                createAgentMessage({
+                    agentId: 'orchestrator',
+                    taskType: 'ORCHESTRATION',
+                    context: {
+                        clientId: context.clientId,
+                        fiscalYear: String(new Date().getFullYear()),
+                        jurisdiction: context.jurisdiction,
+                        engagementId: context.engagementId,
+                    },
+                    data: {
+                        event,
+                        ...data,
+                    },
+                    priority,
+                    autonomyLevel: 'ADVISORY',
+                    traceId: context.engagementId,
+                    correlationId: context.engagementId,
+                })
+            );
+        } catch (error) {
+            console.warn('Failed to publish orchestration event', error);
         }
     }
 

@@ -3,6 +3,8 @@ import { deepsearchTool } from "./deepsearch.js";
 import { semanticSearchTool, keywordSearchTool } from "./supabase-search.js";
 import { calculatorTool } from "./calculator.js";
 import { computeVatReturnTool } from "./compute-vat-tool.js";
+import { computeIncomeTaxTool } from "./compute-income-tax-tool.js";
+import { computeWithholdingTaxTool } from "./compute-withholding-tax-tool.js";
 import { createAgentMessage, agentMessageBus } from "../core/agent-message-bus.js";
 import { validateDeterministicManifest, type DeterministicManifest } from "./deterministic-manifest.js";
 
@@ -15,6 +17,8 @@ export const toolRegistry: Record<string, Tool> = {
   supabase_keyword_search: keywordSearchTool,
   calculator: calculatorTool,
   compute_vat_return: computeVatReturnTool,
+  compute_income_tax: computeIncomeTaxTool,
+  compute_withholding_tax: computeWithholdingTaxTool,
 };
 
 /**
@@ -284,6 +288,108 @@ export function toolsToOpenAIFunctions(toolNames: string[]) {
             },
           };
 
+        case "compute_income_tax":
+          return {
+            type: "function" as const,
+            function: {
+              name: "compute_income_tax",
+              description: tool.description,
+              parameters: {
+                type: "object",
+                properties: {
+                  jurisdiction: {
+                    type: "string",
+                    description: "Jurisdiction code (e.g., MT, RW, CA)",
+                  },
+                  taxYear: {
+                    type: "number",
+                    description: "Tax year (YYYY)",
+                  },
+                  taxableIncome: {
+                    type: "number",
+                    description: "Taxable income before adjustments",
+                  },
+                  adjustments: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        description: { type: "string" },
+                        amount: { type: "number" },
+                        type: { type: "string", enum: ["add", "deduct"] },
+                      },
+                      required: ["description", "amount", "type"],
+                    },
+                  },
+                  credits: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        description: { type: "string" },
+                        amount: { type: "number" },
+                        refundable: { type: "boolean" },
+                      },
+                      required: ["description", "amount"],
+                    },
+                  },
+                  rateOverride: {
+                    type: "number",
+                    description: "Override corporate tax rate as decimal (e.g., 0.3)",
+                  },
+                  evidenceIds: {
+                    type: "array",
+                    items: { type: "string" },
+                  },
+                },
+                required: ["jurisdiction", "taxYear", "taxableIncome"],
+              },
+            },
+          };
+
+        case "compute_withholding_tax":
+          return {
+            type: "function" as const,
+            function: {
+              name: "compute_withholding_tax",
+              description: tool.description,
+              parameters: {
+                type: "object",
+                properties: {
+                  jurisdiction: {
+                    type: "string",
+                    description: "Jurisdiction code (e.g., MT, RW, CA)",
+                  },
+                  paymentType: {
+                    type: "string",
+                    description: "Payment type (dividends, interest, royalties, services, fees)",
+                  },
+                  grossAmount: {
+                    type: "number",
+                    description: "Gross payment amount",
+                  },
+                  domesticRate: {
+                    type: "number",
+                    description: "Domestic withholding rate (decimal)",
+                  },
+                  treatyRate: {
+                    type: "number",
+                    description: "Treaty withholding rate (decimal)",
+                  },
+                  applyTreaty: {
+                    type: "boolean",
+                    description: "Apply treaty rate if provided",
+                  },
+                  evidenceIds: {
+                    type: "array",
+                    items: { type: "string" },
+                  },
+                },
+                required: ["jurisdiction", "paymentType", "grossAmount"],
+              },
+            },
+          };
+
         default:
           return null;
       }
@@ -474,6 +580,102 @@ export function toolsToGeminiFunctions(toolNames: string[]) {
                 },
               },
               required: ["jurisdiction", "period", "sales", "purchases"],
+            },
+          };
+
+        case "compute_income_tax":
+          return {
+            name: "compute_income_tax",
+            description: tool.description,
+            parameters: {
+              type: "OBJECT" as const,
+              properties: {
+                jurisdiction: {
+                  type: "STRING" as const,
+                  description: "Jurisdiction code (e.g., MT, RW, CA)",
+                },
+                taxYear: {
+                  type: "NUMBER" as const,
+                  description: "Tax year (YYYY)",
+                },
+                taxableIncome: {
+                  type: "NUMBER" as const,
+                  description: "Taxable income before adjustments",
+                },
+                adjustments: {
+                  type: "ARRAY" as const,
+                  items: {
+                    type: "OBJECT" as const,
+                    properties: {
+                      description: { type: "STRING" as const },
+                      amount: { type: "NUMBER" as const },
+                      type: { type: "STRING" as const },
+                    },
+                    required: ["description", "amount", "type"],
+                  },
+                },
+                credits: {
+                  type: "ARRAY" as const,
+                  items: {
+                    type: "OBJECT" as const,
+                    properties: {
+                      description: { type: "STRING" as const },
+                      amount: { type: "NUMBER" as const },
+                      refundable: { type: "BOOLEAN" as const },
+                    },
+                    required: ["description", "amount"],
+                  },
+                },
+                rateOverride: {
+                  type: "NUMBER" as const,
+                  description: "Override corporate tax rate as decimal (e.g., 0.3)",
+                },
+                evidenceIds: {
+                  type: "ARRAY" as const,
+                  items: { type: "STRING" as const },
+                },
+              },
+              required: ["jurisdiction", "taxYear", "taxableIncome"],
+            },
+          };
+
+        case "compute_withholding_tax":
+          return {
+            name: "compute_withholding_tax",
+            description: tool.description,
+            parameters: {
+              type: "OBJECT" as const,
+              properties: {
+                jurisdiction: {
+                  type: "STRING" as const,
+                  description: "Jurisdiction code (e.g., MT, RW, CA)",
+                },
+                paymentType: {
+                  type: "STRING" as const,
+                  description: "Payment type (dividends, interest, royalties, services, fees)",
+                },
+                grossAmount: {
+                  type: "NUMBER" as const,
+                  description: "Gross payment amount",
+                },
+                domesticRate: {
+                  type: "NUMBER" as const,
+                  description: "Domestic withholding rate (decimal)",
+                },
+                treatyRate: {
+                  type: "NUMBER" as const,
+                  description: "Treaty withholding rate (decimal)",
+                },
+                applyTreaty: {
+                  type: "BOOLEAN" as const,
+                  description: "Apply treaty rate if provided",
+                },
+                evidenceIds: {
+                  type: "ARRAY" as const,
+                  items: { type: "STRING" as const },
+                },
+              },
+              required: ["jurisdiction", "paymentType", "grossAmount"],
             },
           };
 

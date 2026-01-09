@@ -14,7 +14,8 @@ export type AgentTaskType =
     | 'WORKPAPER'
     | 'RESEARCH'
     | 'INTEGRATION_SYNC'
-    | 'AUTONOMY_ALERT';
+    | 'AUTONOMY_ALERT'
+    | 'ORCHESTRATION';
 
 export type AgentPriority = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
 

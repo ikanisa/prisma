@@ -19,3 +19,16 @@ export {
 export { computeVatReturnTool } from './compute-vat-tool.js';
 export { createDeterministicManifest, validateDeterministicManifest } from './deterministic-manifest.js';
 export type { DeterministicManifest, ManifestValidationResult } from './deterministic-manifest.js';
+export {
+    computeIncomeTax,
+    type IncomeTaxInput,
+    type IncomeTaxResult,
+} from './compute-income-tax.js';
+export { computeIncomeTaxTool } from './compute-income-tax-tool.js';
+export {
+    computeWithholdingTax,
+    type WithholdingTaxInput,
+    type WithholdingTaxResult,
+    type WithholdingPaymentType,
+} from './compute-withholding-tax.js';
+export { computeWithholdingTaxTool } from './compute-withholding-tax-tool.js';

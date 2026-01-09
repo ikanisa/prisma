@@ -22,6 +22,9 @@ Autonomous accounting agents accelerate reconciliations and reviews but must ope
 | `journal.post` | Create/update journal entries | Tenant financial records | Requires idempotency key and balanced entry validation |
 | `evidence.attach` | Upload supporting documents | Object storage (per-tenant) | Sanitizes metadata; PII redaction required |
 | `notify.review` | Send alerts to humans | Email/Slack endpoints | Logs template, recipients, and trace_id |
+| `compute_vat_return` | Deterministic VAT/GST calculations | Tenant tax data | Emits manifest hash + evidence IDs |
+| `compute_income_tax` | Deterministic corporate income tax calculations | Tenant tax data | Requires rate overrides for non-default jurisdictions |
+| `compute_withholding_tax` | Deterministic withholding tax calculations | Tenant tax data | Treaty rates must be explicit; emits manifest hash |
 
 Any new tool must undergo STRIDE threat modeling and be added to this allow-list with documented scopes.
 

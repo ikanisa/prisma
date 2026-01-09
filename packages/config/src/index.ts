@@ -29,3 +29,15 @@ export {
     checkRateLimit,
     getSecurityHeaders,
 } from './security-middleware.js';
+
+// Phase 4: Enterprise Integration
+
+// SSO Integration
+export * from './sso/index.js';
+
+// API Gateway
+export * from './gateway/index.js';
+
+// Audit Logging
+export * from './audit/index.js';
+
