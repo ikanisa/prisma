@@ -21,4 +21,19 @@ export {
     type Discrepancy,
     type MatchingRule,
 } from './reconciliation-engine.js';
-
+export {
+    HybridSearchEngine,
+    hybridSearch,
+    type SearchResult,
+    type SearchOptions,
+    type SearchMetadata,
+    type IndexType,
+} from './hybrid-search.js';
+export {
+    CitationTracker,
+    citationTracker,
+    type Citation,
+    type CitationSource,
+    type CitationSummary,
+    type FormattedResponse,
+} from './citation-tracker.js';

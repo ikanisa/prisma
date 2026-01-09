@@ -3,3 +3,4 @@
  */
 
 export * from './audit-calculations';
+export * from './statistical-analysis';

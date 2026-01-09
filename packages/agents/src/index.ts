@@ -12,3 +12,4 @@ export { TaxAgent } from './agents/tax.js';
 export * from './tools/index.js';
 export * from './schemas/index.js';
 export * from './services/index.js';
+export * from './core/index.js';
