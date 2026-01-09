@@ -2,6 +2,9 @@ import type { Tool } from "./types.js";
 import { deepsearchTool } from "./deepsearch.js";
 import { semanticSearchTool, keywordSearchTool } from "./supabase-search.js";
 import { calculatorTool } from "./calculator.js";
+import { computeVatReturnTool } from "./compute-vat-tool.js";
+import { createAgentMessage, agentMessageBus } from "../core/agent-message-bus.js";
+import { validateDeterministicManifest, type DeterministicManifest } from "./deterministic-manifest.js";
 
 /**
  * Registry of all available tools
@@ -11,6 +14,7 @@ export const toolRegistry: Record<string, Tool> = {
   supabase_semantic_search: semanticSearchTool,
   supabase_keyword_search: keywordSearchTool,
   calculator: calculatorTool,
+  compute_vat_return: computeVatReturnTool,
 };
 
 /**
@@ -36,7 +40,46 @@ export async function executeTool(
     };
   }
 
-  return tool.execute(params, context);
+  const result = await tool.execute(params, context);
+
+  if (tool.requiresManifest) {
+    const manifest =
+      result.metadata && "manifest" in result.metadata
+        ? (result.metadata.manifest as DeterministicManifest | undefined)
+        : undefined;
+    const validation = validateDeterministicManifest(manifest);
+
+    if (!validation.valid) {
+      result.metadata = {
+        ...(result.metadata ?? {}),
+        manifestMissing: true,
+        manifestError: validation.reason,
+        manifestComputedHash: validation.computedHash ?? null,
+      };
+
+      await agentMessageBus.publish(
+        createAgentMessage({
+          agentId: tool.name,
+          taskType: "AUTONOMY_ALERT",
+          context: {
+            clientId: context?.userId ?? "unknown",
+            fiscalYear: String(new Date().getFullYear()),
+            jurisdiction: context?.jurisdictionCode,
+          },
+          data: {
+            tool: tool.name,
+            reason: validation.reason,
+          },
+          priority: "HIGH",
+          autonomyLevel: "HUMAN_REVIEW",
+          traceId: context?.sessionId,
+          correlationId: context?.sessionId,
+        })
+      );
+    }
+  }
+
+  return result;
 }
 
 /**
@@ -171,6 +214,76 @@ export function toolsToOpenAIFunctions(toolNames: string[]) {
             },
           };
 
+        case "compute_vat_return":
+          return {
+            type: "function" as const,
+            function: {
+              name: "compute_vat_return",
+              description: tool.description,
+              parameters: {
+                type: "object",
+                properties: {
+                  jurisdiction: {
+                    type: "string",
+                    description: "Jurisdiction code (e.g., MT, RW, CA)",
+                  },
+                  period: {
+                    type: "object",
+                    properties: {
+                      start: { type: "string", description: "Period start date (YYYY-MM-DD)" },
+                      end: { type: "string", description: "Period end date (YYYY-MM-DD)" },
+                    },
+                    required: ["start", "end"],
+                  },
+                  evidenceIds: {
+                    type: "array",
+                    items: { type: "string" },
+                    description: "Evidence document IDs supporting the computation",
+                  },
+                  sales: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        description: { type: "string" },
+                        grossAmount: { type: "number" },
+                        vatRate: { type: "number" },
+                        isExempt: { type: "boolean" },
+                      },
+                      required: ["description", "grossAmount", "vatRate"],
+                    },
+                  },
+                  purchases: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        description: { type: "string" },
+                        grossAmount: { type: "number" },
+                        vatRate: { type: "number" },
+                        isDeductible: { type: "boolean" },
+                      },
+                      required: ["description", "grossAmount", "vatRate"],
+                    },
+                  },
+                  adjustments: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        type: { type: "string" },
+                        amount: { type: "number" },
+                        isOutput: { type: "boolean" },
+                      },
+                      required: ["type", "amount", "isOutput"],
+                    },
+                  },
+                },
+                required: ["jurisdiction", "period", "sales", "purchases"],
+              },
+            },
+          };
+
         default:
           return null;
       }
@@ -294,6 +407,73 @@ export function toolsToGeminiFunctions(toolNames: string[]) {
                 },
               },
               required: ["expression"],
+            },
+          };
+
+        case "compute_vat_return":
+          return {
+            name: "compute_vat_return",
+            description: tool.description,
+            parameters: {
+              type: "OBJECT" as const,
+              properties: {
+                jurisdiction: {
+                  type: "STRING" as const,
+                  description: "Jurisdiction code (e.g., MT, RW, CA)",
+                },
+                period: {
+                  type: "OBJECT" as const,
+                  properties: {
+                    start: { type: "STRING" as const, description: "Period start date (YYYY-MM-DD)" },
+                    end: { type: "STRING" as const, description: "Period end date (YYYY-MM-DD)" },
+                  },
+                  required: ["start", "end"],
+                },
+                evidenceIds: {
+                  type: "ARRAY" as const,
+                  items: { type: "STRING" as const },
+                  description: "Evidence document IDs supporting the computation",
+                },
+                sales: {
+                  type: "ARRAY" as const,
+                  items: {
+                    type: "OBJECT" as const,
+                    properties: {
+                      description: { type: "STRING" as const },
+                      grossAmount: { type: "NUMBER" as const },
+                      vatRate: { type: "NUMBER" as const },
+                      isExempt: { type: "BOOLEAN" as const },
+                    },
+                    required: ["description", "grossAmount", "vatRate"],
+                  },
+                },
+                purchases: {
+                  type: "ARRAY" as const,
+                  items: {
+                    type: "OBJECT" as const,
+                    properties: {
+                      description: { type: "STRING" as const },
+                      grossAmount: { type: "NUMBER" as const },
+                      vatRate: { type: "NUMBER" as const },
+                      isDeductible: { type: "BOOLEAN" as const },
+                    },
+                    required: ["description", "grossAmount", "vatRate"],
+                  },
+                },
+                adjustments: {
+                  type: "ARRAY" as const,
+                  items: {
+                    type: "OBJECT" as const,
+                    properties: {
+                      type: { type: "STRING" as const },
+                      amount: { type: "NUMBER" as const },
+                      isOutput: { type: "BOOLEAN" as const },
+                    },
+                    required: ["type", "amount", "isOutput"],
+                  },
+                },
+              },
+              required: ["jurisdiction", "period", "sales", "purchases"],
             },
           };
 

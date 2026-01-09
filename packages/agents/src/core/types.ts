@@ -42,6 +42,7 @@ export interface TaskNode {
     result?: AgentResponse;
     error?: TaskError;
     timing?: TaskTiming;
+    approvalRequestId?: string;
     retryCount: number;
     maxRetries: number;
 }

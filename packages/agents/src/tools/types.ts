@@ -46,5 +46,6 @@ export type CalculatorParams = {
 export interface Tool {
   name: string;
   description: string;
+  requiresManifest?: boolean;
   execute(params: unknown, context?: ToolExecutionContext): Promise<ToolResult>;
 }

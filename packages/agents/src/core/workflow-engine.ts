@@ -14,6 +14,11 @@
 
 import type { AgentContext, AgentResponse, AgentRequest } from '../orchestrator.js';
 import { orchestrator } from '../orchestrator.js';
+import { agentMessageBus } from './agent-message-bus.js';
+import type { AgentMessageBus } from './agent-message-bus.js';
+import { createAgentMessage } from './agent-message-bus.js';
+import { hitlManager } from './hitl-manager.js';
+import type { HITLManager } from './hitl-manager.js';
 import type {
     WorkflowDefinition,
     WorkflowInstance,
@@ -24,6 +29,7 @@ import type {
     TaskNode,
     TaskStatus,
     TaskError,
+    ApprovalContext,
 } from './types.js';
 
 // ============================================================================
@@ -34,6 +40,9 @@ export class WorkflowEngine {
     private instances: Map<string, WorkflowInstance> = new Map();
     private definitions: Map<string, WorkflowDefinition> = new Map();
     private checkpointStore: Map<string, WorkflowCheckpoint[]> = new Map();
+    private hitlManager: HITLManager;
+    private messageBus: AgentMessageBus;
+    private executor: (request: AgentRequest) => Promise<AgentResponse>;
 
     constructor(private options: WorkflowEngineOptions = {}) {
         this.options = {
@@ -42,6 +51,9 @@ export class WorkflowEngine {
             checkpointInterval: options.checkpointInterval ?? 30000, // 30 seconds
             persistCheckpoints: options.persistCheckpoints ?? true,
         };
+        this.hitlManager = options.hitlManager ?? hitlManager;
+        this.messageBus = options.messageBus ?? agentMessageBus;
+        this.executor = options.executor ?? ((request) => orchestrator.run(request));
     }
 
     // ========================================================================
@@ -90,6 +102,7 @@ export class WorkflowEngine {
                 ...task,
                 status: 'pending',
                 retryCount: 0,
+                approvalRequestId: undefined,
             });
         }
 
@@ -222,6 +235,68 @@ export class WorkflowEngine {
     }
 
     /**
+     * Approve a workflow task and resume execution if needed.
+     */
+    async approveTask(
+        instanceId: string,
+        approvalRequestId: string,
+        userId: string,
+        comment?: string,
+        modifications?: Record<string, unknown>
+    ): Promise<WorkflowResult> {
+        const approval = await this.hitlManager.approve(approvalRequestId, userId, comment, modifications);
+        const instance = this.requireInstance(instanceId);
+        const task = this.findTaskByApproval(instance, approvalRequestId);
+
+        task.status = 'pending';
+        this.emitEvent(instance, 'approval_granted', {
+            taskId: task.id,
+            approvalRequestId,
+            riskLevel: approval.riskLevel,
+        });
+        await this.publishApprovalMessage(instance, task, approvalRequestId, 'approved');
+
+        if (instance.status === 'awaiting_approval') {
+            instance.status = 'running';
+            return this.run(instanceId);
+        }
+
+        return this.buildResult(instance);
+    }
+
+    /**
+     * Deny a workflow task approval and mark the workflow as failed.
+     */
+    async denyTask(
+        instanceId: string,
+        approvalRequestId: string,
+        userId: string,
+        reason: string
+    ): Promise<WorkflowResult> {
+        const approval = await this.hitlManager.deny(approvalRequestId, userId, reason);
+        const instance = this.requireInstance(instanceId);
+        const task = this.findTaskByApproval(instance, approvalRequestId);
+
+        task.status = 'failed';
+        task.error = {
+            code: 'APPROVAL_DENIED',
+            message: reason,
+            retryable: false,
+            timestamp: new Date(),
+        };
+
+        instance.status = 'failed';
+        this.emitEvent(instance, 'approval_denied', {
+            taskId: task.id,
+            approvalRequestId,
+            riskLevel: approval.riskLevel,
+        });
+        await this.publishApprovalMessage(instance, task, approvalRequestId, 'denied');
+
+        return this.buildResult(instance);
+    }
+
+    /**
      * Pause a running workflow
      */
     async pause(instanceId: string): Promise<void> {
@@ -271,14 +346,8 @@ export class WorkflowEngine {
 
         // Check if approval is required
         if (task.config.requiresApproval) {
-            const shouldAutoApprove = await this.checkAutoApproval(instance, task);
-            if (!shouldAutoApprove) {
-                task.status = 'awaiting_approval';
-                instance.status = 'awaiting_approval';
-                this.emitEvent(instance, 'approval_requested', {
-                    taskId: task.id,
-                    riskLevel: task.config.riskLevel
-                });
+            const approval = await this.requestApproval(instance, task);
+            if (approval.status !== 'approved') {
                 return;
             }
         }
@@ -301,7 +370,7 @@ export class WorkflowEngine {
 
             // Execute via orchestrator
             const response = await this.executeWithTimeout(
-                () => orchestrator.run(request),
+                () => this.executor(request),
                 task.config.timeout ?? this.options.defaultTimeout!
             );
 
@@ -532,19 +601,109 @@ export class WorkflowEngine {
         return '';
     }
 
-    private async checkAutoApproval(instance: WorkflowInstance, task: TaskNode): Promise<boolean> {
-        // Auto-approve low-risk tasks
-        if (task.config.riskLevel === 'low') {
-            return true;
+    private async requestApproval(
+        instance: WorkflowInstance,
+        task: TaskNode
+    ) {
+        const approvalContext = this.buildApprovalContext(instance, task);
+        const approval = await this.hitlManager.requestApproval({
+            workflowInstanceId: instance.instanceId,
+            taskId: task.id,
+            taskName: task.name,
+            requestedBy: instance.metadata.createdBy,
+            riskLevel: task.config.riskLevel,
+            context: approvalContext,
+        });
+
+        task.approvalRequestId = approval.id;
+
+        if (approval.status === 'approved') {
+            this.emitEvent(instance, 'approval_granted', {
+                taskId: task.id,
+                approvalRequestId: approval.id,
+                riskLevel: task.config.riskLevel,
+            });
+            await this.publishApprovalMessage(instance, task, approval.id, 'approved');
+            return approval;
         }
 
-        // Check confidence threshold
-        if (task.config.autoApproveThreshold) {
-            // Would check model confidence here
-            return false;
-        }
+        task.status = 'awaiting_approval';
+        instance.status = 'awaiting_approval';
+        this.emitEvent(instance, 'approval_requested', {
+            taskId: task.id,
+            approvalRequestId: approval.id,
+            riskLevel: task.config.riskLevel,
+        });
+        await this.publishApprovalMessage(instance, task, approval.id, 'pending');
+        return approval;
+    }
 
-        return false;
+    private buildApprovalContext(instance: WorkflowInstance, task: TaskNode): ApprovalContext {
+        return {
+            summary: `Approval required for ${task.name}`,
+            reasoning: [
+                `Risk level: ${task.config.riskLevel}`,
+                `Agent type: ${task.agentType}`,
+            ],
+            data: {
+                taskId: task.id,
+                workflowInstanceId: instance.instanceId,
+                engagementId: instance.context.engagementId,
+                tools: task.config.tools ?? [],
+                description: task.description,
+            },
+            recommendations: ['Review evidence and approve or deny this task.'],
+            relatedDocuments: [],
+        };
+    }
+
+    private async publishApprovalMessage(
+        instance: WorkflowInstance,
+        task: TaskNode,
+        approvalRequestId: string,
+        status: 'pending' | 'approved' | 'denied'
+    ): Promise<void> {
+        await this.messageBus.publish(
+            createAgentMessage({
+                agentId: task.agentType,
+                taskType: 'AUTONOMY_ALERT',
+                context: {
+                    clientId: instance.context.clientId,
+                    fiscalYear: String(new Date().getFullYear()),
+                    engagementId: instance.context.engagementId,
+                    jurisdiction: instance.context.jurisdiction,
+                },
+                data: {
+                    workflowInstanceId: instance.instanceId,
+                    taskId: task.id,
+                    taskName: task.name,
+                    approvalRequestId,
+                    status,
+                    riskLevel: task.config.riskLevel,
+                },
+                priority: status === 'denied' ? 'CRITICAL' : 'HIGH',
+                autonomyLevel: 'HUMAN_REVIEW',
+                traceId: instance.context.engagementId,
+                correlationId: instance.instanceId,
+            })
+        );
+    }
+
+    private findTaskByApproval(instance: WorkflowInstance, approvalRequestId: string): TaskNode {
+        for (const task of instance.tasks.values()) {
+            if (task.approvalRequestId === approvalRequestId) {
+                return task;
+            }
+        }
+        throw new Error(`Task not found for approval request: ${approvalRequestId}`);
+    }
+
+    private requireInstance(instanceId: string): WorkflowInstance {
+        const instance = this.instances.get(instanceId);
+        if (!instance) {
+            throw new Error(`Workflow instance not found: ${instanceId}`);
+        }
+        return instance;
     }
 
     private resolveVariable(instance: WorkflowInstance, ref: string): unknown {
@@ -661,6 +820,9 @@ export interface WorkflowEngineOptions {
     defaultTimeout?: number;
     checkpointInterval?: number;
     persistCheckpoints?: boolean;
+    hitlManager?: HITLManager;
+    messageBus?: AgentMessageBus;
+    executor?: (request: AgentRequest) => Promise<AgentResponse>;
 }
 
 // Export singleton

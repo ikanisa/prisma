@@ -9,4 +9,13 @@ export { getEngagementContext, type EngagementContext } from './get-engagement-c
 export { createOrUpdateWorkpaper, type WorkpaperInput } from './create-workpaper.js';
 export { createTasks, type TaskInput } from './create-tasks.js';
 export { computeMateriality, type MaterialityInput, type MaterialityResult } from './compute-materiality.js';
-export { computeVatReturn, type VatInput, type VatResult } from './compute-vat.js';
+export {
+    computeVatReturn,
+    computeVatReturnWithManifest,
+    type VatInput,
+    type VatResult,
+    type VatComputationWithManifest,
+} from './compute-vat.js';
+export { computeVatReturnTool } from './compute-vat-tool.js';
+export { createDeterministicManifest, validateDeterministicManifest } from './deterministic-manifest.js';
+export type { DeterministicManifest, ManifestValidationResult } from './deterministic-manifest.js';

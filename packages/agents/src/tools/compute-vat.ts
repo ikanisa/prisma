@@ -6,6 +6,8 @@
  */
 
 import type { Jurisdiction } from '@prisma/db';
+import type { DeterministicManifest } from './deterministic-manifest.js';
+import { createDeterministicManifest } from './deterministic-manifest.js';
 
 export interface VatInput {
     jurisdiction: Jurisdiction;
@@ -13,6 +15,7 @@ export interface VatInput {
         start: string;
         end: string;
     };
+    evidenceIds?: string[];
     sales: Array<{
         description: string;
         grossAmount: number;
@@ -68,6 +71,11 @@ export interface VatResult {
     }>;
 }
 
+export interface VatComputationWithManifest {
+    result: VatResult;
+    manifest: DeterministicManifest<VatInput, VatResult>;
+}
+
 /**
  * Standard VAT rates by jurisdiction
  */
@@ -82,7 +90,6 @@ const VAT_RATES: Record<Jurisdiction, { standard: number; reduced?: number[]; na
  */
 export function computeVatReturn(input: VatInput): VatResult {
     const { jurisdiction, period, sales, purchases, adjustments = [] } = input;
-    const vatInfo = VAT_RATES[jurisdiction];
 
     // Calculate output VAT from sales
     let taxableSales = 0;
@@ -177,6 +184,18 @@ export function computeVatReturn(input: VatInput): VatResult {
         netPayable: round(netPayable),
         summaryByRate,
     };
+}
+
+export function computeVatReturnWithManifest(input: VatInput): VatComputationWithManifest {
+    const result = computeVatReturn(input);
+    const manifest = createDeterministicManifest({
+        tool: 'compute_vat_return',
+        inputs: input,
+        outputs: result,
+        evidenceIds: input.evidenceIds ?? [],
+    });
+
+    return { result, manifest };
 }
 
 function round(value: number): number {
