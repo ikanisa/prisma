@@ -1,6 +1,6 @@
 -- pgTAP tests for RLS policies
 BEGIN;
-SELECT plan(108);
+SELECT plan(113);
 
 -- Phase A: ensure autonomy metadata columns exist
 SELECT ok(
@@ -251,6 +251,47 @@ SELECT ok(
           AND policyname = 'telemetry_alerts_update'
     ),
     'telemetry_alerts_update policy exists'
+);
+
+SELECT ok(
+    (SELECT relrowsecurity FROM pg_class WHERE oid = 'public.autonomy_telemetry_events'::regclass),
+    'RLS enabled on autonomy_telemetry_events table'
+);
+SELECT ok(
+    EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE schemaname = 'public'
+          AND tablename = 'autonomy_telemetry_events'
+          AND policyname = 'autonomy_telemetry_events_select'
+    ),
+    'autonomy_telemetry_events_select policy exists'
+);
+SELECT ok(
+    EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE schemaname = 'public'
+          AND tablename = 'autonomy_telemetry_events'
+          AND policyname = 'autonomy_telemetry_events_insert'
+    ),
+    'autonomy_telemetry_events_insert policy exists'
+);
+SELECT ok(
+    EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE schemaname = 'public'
+          AND tablename = 'autonomy_telemetry_events'
+          AND policyname = 'autonomy_telemetry_events_update'
+    ),
+    'autonomy_telemetry_events_update policy exists'
+);
+SELECT ok(
+    EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE schemaname = 'public'
+          AND tablename = 'autonomy_telemetry_events'
+          AND policyname = 'autonomy_telemetry_events_delete'
+    ),
+    'autonomy_telemetry_events_delete policy exists'
 );
 
 -- RLS should be enabled on users

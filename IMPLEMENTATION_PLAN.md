@@ -1,8 +1,9 @@
 # Implementation Plan — Autonomous Audit, Tax, Accounting AI
 
-This plan operationalizes the Prisma Repository Enhancement Report and aligns it to the existing repository architecture, guardrails, and data model. It is written to be actionable (phases, epics, user stories) and to reconcile current repo constraints with the new direction.
+This plan operationalizes the Prisma Repository Enhancement Report (`docs/PRISMA_AI_ENHANCEMENT_REPORT.md`) and aligns it to the existing repository architecture, guardrails, and data model. It is written to be actionable (phases, epics, user stories) and to reconcile current repo constraints with the new direction.
 
 ## Alignment Notes (Existing Docs)
+- Report baseline: `docs/PRISMA_AI_ENHANCEMENT_REPORT.md`
 - Architecture baseline: `ARCHITECTURE.md`
 - Data model + RLS expectations: `DATA_MODEL.md`
 - Agent design + orchestration roadmap: `docs/agents/architecture.md`
@@ -10,6 +11,8 @@ This plan operationalizes the Prisma Repository Enhancement Report and aligns it
 - Discovery gaps: `docs/phase-one-discovery.md`
 - Guardrails + HITL policy: `AGENT-GUARDRAILS.md`
 - Definition of Done (jurisdiction and scope constraints): `docs/definition-of-done.md`
+- OpenAI phase guides & toggles: `docs/openai-phase0.md` → `docs/openai-phase4.md`
+- Telemetry/ops runbooks: `docs/telemetry.md`, `docs/observability.md`, `docs/UAT/autonomy-uat-guide.md`
 
 ### Document Gaps to Resolve
 The following references appear in docs but are missing in the repo. Track them as Phase 1 backlog items.
@@ -17,11 +20,21 @@ The following references appear in docs but are missing in the repo. Track them 
 - `IMPLEMENTATION_PLAN.md` (this file now fills the gap)
 - References to `server/` FastAPI files in older plans
 
+### Phase 1 Gap Backlog (Repo Hygiene)
+- `/v1/autonomy/status` endpoint referenced by UI/tests but missing in current runtime.
+- `telemetry_alerts` and `autonomy_telemetry_events` tables referenced in telemetry runbooks but absent in tracked migrations.
+- Analytics event helpers referenced by the RAG service (`analytics/events/node.js`) are missing.
+
 ## Phase Crosswalk (Report -> Repo)
 - Report Phase 1 (Months 1-4) == `docs/autonomous-finance-suite-plan.md` Phases A/B
 - Report Phase 2 (Months 5-8) == `docs/autonomous-finance-suite-plan.md` Phase C
 - Report Phase 3 (Months 9-12) == `docs/autonomous-finance-suite-plan.md` Phase D + Phase 5 ops runbook
 - Report Phase 4 (Months 13-18) == Post-Phase D innovation + market expansion
+
+## Tri-Country Priorities (MT/CA/RW)
+- Malta: VAT SME thresholds, OSS/IOSS, Intrastat, and ViDA readiness.
+- Canada: GST/HST provincial logic, ITC validation, and CRA e-filing readiness.
+- Rwanda: EBM real-time sync, DST/tourism levy, and mobile money reconciliation.
 
 ## Phase 1 — Foundation & Orchestration (Months 1-4)
 Goal: Ship the multi-agent foundation, autonomy controls, deterministic evidence contracts, and MVP automation flows.

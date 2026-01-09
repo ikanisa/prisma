@@ -49,7 +49,8 @@ shared helper functions:
 
 ## Telemetry & governance instrumentation
 
-- Telemetry tables (`telemetry_service_levels`, `telemetry_coverage_metrics`,
+- Telemetry tables (`telemetry_alerts`, `autonomy_telemetry_events`,
+  `telemetry_service_levels`, `telemetry_coverage_metrics`,
   `telemetry_refusal_events`) allow read access to organisation members and to
   firmwide rows with `org_id IS NULL`. Inserts/updates require membership; hard
   deletes additionally demand Manager+ privileges to avoid silent loss of audit

@@ -21,6 +21,8 @@ export type UnifiedRunOptions = {
     jurisdictionCode?: string;
     userId?: string;
     sessionId?: string;
+    orgId?: string;
+    orgSlug?: string;
   };
   forceEngine?: "openai" | "gemini";
 };

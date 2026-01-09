@@ -38,6 +38,7 @@ Any new tool must undergo STRIDE threat modeling and be added to this allow-list
 - **Rate Limits:** Default 60 requests/minute per agent per tenant; override requires security approval.
 - **Circuit Breakers:** Automatic disable when error rate exceeds 5% over 5 minutes or when policy denies exceed 3 in a row.
 - **Observation Hooks:** Emit structured logs `{ trace_id, agent_id, tool, cost_usd, latency_ms, outcome }` via OpenTelemetry spans.
+- **Deterministic Manifest Alerts:** Missing or invalid manifests emit `DETERMINISTIC_MANIFEST_MISSING` into `telemetry_alerts` and surface in the Autonomy HUD.
 
 ## Monitoring & Evaluation
 - Golden task suite stored in `agents/evals` with expected outputs.

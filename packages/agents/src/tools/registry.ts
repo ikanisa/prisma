@@ -69,6 +69,8 @@ export async function executeTool(
             clientId: context?.userId ?? "unknown",
             fiscalYear: String(new Date().getFullYear()),
             jurisdiction: context?.jurisdictionCode,
+            orgId: context?.orgId,
+            orgSlug: context?.orgSlug,
           },
           data: {
             tool: tool.name,

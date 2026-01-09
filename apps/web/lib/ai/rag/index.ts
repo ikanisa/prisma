@@ -60,6 +60,7 @@ import type { DriveSource } from './knowledge/drive.js';
 import { listWebSources, getWebSource, type WebSourceRow } from './knowledge/web.js';
 import { getSupabaseJwtSecret, getSupabaseServiceRoleKey } from '@prisma/lib/secrets';
 import { generateAgentPlan } from '@prisma/agents/runtime';
+import { agentMessageBus, type AgentMessage } from '@prisma/agents';
 import {
   roleFromString,
   ROLE_PRIORITY,
@@ -112,6 +113,7 @@ import { AgentConversationRecorder } from './agent-conversation-recorder.js';
 import { createRealtimeSession, getRealtimeTurnServers } from './openai-realtime.js';
 import { generateSoraVideo } from './openai-media.js';
 import { transcribeAudioBuffer, synthesizeSpeech } from './openai-audio.js';
+import { buildAutonomyStatusSnapshot } from './autonomy-status.js';
 import {
   createChatCompletion,
   deleteChatCompletion,
@@ -2492,6 +2494,59 @@ const taskDependencyLoader = createTaskDependencyLoader({
 
 startNotificationFanoutWorker({ supabase: supabaseService, logInfo, logError });
 
+let autonomyAlertSubscription: (() => void) | null = null;
+
+function ensureAutonomyAlertSubscription() {
+  if (autonomyAlertSubscription) {
+    return;
+  }
+
+  autonomyAlertSubscription = agentMessageBus.subscribe({ taskType: 'AUTONOMY_ALERT' }, async (message: AgentMessage) => {
+    const payload = message.data && typeof message.data === 'object' ? (message.data as Record<string, unknown>) : {};
+    const tool = typeof payload.tool === 'string' ? payload.tool : message.agentId;
+    const reason = typeof payload.reason === 'string' ? payload.reason : 'Missing deterministic manifest';
+    const context = {
+      tool,
+      reason,
+      traceId: message.traceId ?? null,
+      correlationId: message.correlationId ?? null,
+      autonomyLevel: message.autonomyLevel ?? null,
+      jurisdiction: message.context?.jurisdiction ?? null,
+      fiscalYear: message.context?.fiscalYear ?? null,
+      clientId: message.context?.clientId ?? null,
+      orgId: message.context?.orgId ?? null,
+      orgSlug: message.context?.orgSlug ?? null,
+    } satisfies Record<string, unknown>;
+
+    let alertEvent;
+    try {
+      alertEvent = buildTelemetryAlertEvent({
+        alertType: 'DETERMINISTIC_MANIFEST_MISSING',
+        severity: 'CRITICAL',
+        message: `${tool}: ${reason}`,
+        orgId: message.context?.orgId ?? null,
+        context,
+      });
+    } catch (error) {
+      if (error instanceof AnalyticsEventValidationError) {
+        logError('telemetry.manifest_alert_invalid', error, context);
+        return;
+      }
+      throw error;
+    }
+
+    recordEventOnSpan(alertEvent, toSpanAdapter(trace.getActiveSpan()));
+
+    try {
+      await supabaseService.from('telemetry_alerts').insert(telemetryAlertRowFromEvent(alertEvent));
+    } catch (error) {
+      logError('telemetry.manifest_alert_insert_failed', error, context);
+    }
+  });
+}
+
+ensureAutonomyAlertSubscription();
+
 const OPENAI_DEBUG_LOGGING = (process.env.OPENAI_DEBUG_LOGGING ?? 'false').toLowerCase() === 'true';
 const OPENAI_DEBUG_FETCH_DETAILS =
   (process.env.OPENAI_DEBUG_FETCH_DETAILS ?? 'false').toLowerCase() === 'true';
@@ -3007,6 +3062,41 @@ function toNullableString(value: unknown): string | null {
   }
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
+}
+
+function isMissingTableError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+  const record = error as Record<string, unknown>;
+  const code = typeof record.code === 'string' ? record.code : '';
+  const message = typeof record.message === 'string' ? record.message : '';
+  if (code === '42P01') {
+    return true;
+  }
+  const lowerMessage = message.toLowerCase();
+  return lowerMessage.includes('does not exist') || lowerMessage.includes('schema cache');
+}
+
+async function safeSupabaseSelect<T>(options: {
+  table: string;
+  query: Promise<{ data: T | null; error: unknown; count?: number | null }>;
+  fallback: T;
+}): Promise<{ data: T; count: number | null }> {
+  const result = await options.query;
+  if (result.error && isMissingTableError(result.error)) {
+    const record = result.error as Record<string, unknown>;
+    logInfo('db.table_missing', {
+      table: options.table,
+      error: typeof record.message === 'string' ? record.message : undefined,
+      code: typeof record.code === 'string' ? record.code : undefined,
+    });
+    return { data: options.fallback, count: 0 };
+  }
+  if (result.error) {
+    throw result.error;
+  }
+  return { data: (result.data ?? options.fallback) as T, count: result.count ?? null };
 }
 
 type NonAuditService = {
@@ -8927,6 +9017,91 @@ app.get('/api/agent/telemetry', async (req: AuthenticatedRequest, res) => {
   } catch (err) {
     logError('agent.telemetry_failed', err, { userId: req.user?.sub });
     return res.status(500).json({ error: 'telemetry_failed' });
+  }
+});
+
+app.get('/v1/autonomy/status', async (req: AuthenticatedRequest, res) => {
+  try {
+    const userId = req.user?.sub;
+    const orgSlug = typeof req.query.orgSlug === 'string' ? (req.query.orgSlug as string) : undefined;
+
+    if (!userId) {
+      return res.status(401).json({ error: 'invalid session' });
+    }
+    if (!orgSlug) {
+      return res.status(400).json({ error: 'orgSlug query param required' });
+    }
+
+    const orgContext = await resolveOrgForUser(userId, orgSlug);
+
+    const [orgResponse, membershipResponse, telemetryResponse, approvalsResponse, jobsResponse] = await Promise.all([
+      supabaseService
+        .from('organizations')
+        .select('id, autonomy_level')
+        .eq('id', orgContext.orgId)
+        .maybeSingle(),
+      supabaseService
+        .from('memberships')
+        .select('autonomy_floor, autonomy_ceiling')
+        .eq('org_id', orgContext.orgId)
+        .eq('user_id', userId)
+        .maybeSingle(),
+      safeSupabaseSelect({
+        table: 'telemetry_alerts',
+        query: supabaseService
+          .from('telemetry_alerts')
+          .select('id, alert_type, severity, message, created_at', { count: 'exact' })
+          .or(`org_id.eq.${orgContext.orgId},org_id.is.null`)
+          .is('resolved_at', null)
+          .order('created_at', { ascending: false })
+          .limit(5),
+        fallback: [],
+      }),
+      safeSupabaseSelect({
+        table: 'approval_queue',
+        query: supabaseService
+          .from('approval_queue')
+          .select('id, kind, status, requested_by_user_id, requested_at, created_at, context_json', { count: 'exact' })
+          .eq('org_id', orgContext.orgId)
+          .eq('status', 'PENDING')
+          .order('requested_at', { ascending: false })
+          .limit(5),
+        fallback: [],
+      }),
+      safeSupabaseSelect({
+        table: 'jobs',
+        query: supabaseService
+          .from('jobs')
+          .select('id, kind, status, scheduled_at, created_at, payload')
+          .eq('org_id', orgContext.orgId)
+          .order('scheduled_at', { ascending: true })
+          .limit(25),
+        fallback: [],
+      }),
+    ]);
+
+    if (orgResponse.error) {
+      throw orgResponse.error;
+    }
+    if (membershipResponse.error) {
+      throw membershipResponse.error;
+    }
+
+    const status = buildAutonomyStatusSnapshot({
+      orgAutonomyLevel: orgResponse.data?.autonomy_level ?? null,
+      autonomyFloor: membershipResponse.data?.autonomy_floor ?? null,
+      autonomyCeiling: membershipResponse.data?.autonomy_ceiling ?? null,
+      telemetryAlerts: telemetryResponse.data ?? [],
+      telemetryTotal: telemetryResponse.count ?? null,
+      approvals: approvalsResponse.data ?? [],
+      approvalsTotal: approvalsResponse.count ?? null,
+      jobs: jobsResponse.data ?? [],
+    });
+
+    return res.json(status);
+  } catch (err) {
+    logError('autonomy.status_failed', err, { userId: req.user?.sub });
+    return res.status(500).json({ error: 'autonomy_status_failed' });
   }
 });
 

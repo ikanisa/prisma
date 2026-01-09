@@ -6,6 +6,8 @@ export type ToolExecutionContext = {
   userId?: string;
   sessionId?: string;
   jurisdictionCode?: string;
+  orgId?: string;
+  orgSlug?: string;
 };
 
 export type ToolResult = {

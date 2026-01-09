@@ -108,6 +108,8 @@ The following tables are defined in migrations. Each bullet lists the primary ke
 
 ### Analytics & Telemetry
 
+- **`telemetry_alerts`** (`id` PK) — Alert stream for SLA, autonomy, rate-limit, and system warnings. **PII:** Sensitive.
+- **`autonomy_telemetry_events`** (`id` PK) — Autonomy decision telemetry with metrics payloads. **PII:** Sensitive.
 - **`analytics_events`** (`id` PK) — Central analytics and telemetry payloads. **PII:** Identifiers.【F:supabase/migrations/20251201090000_analytics_events.sql†L1-L34】
 - **`nps_responses`** (`id` PK) — NPS survey scores and feedback. **PII:** Identifiers, Sensitive.【F:supabase/migrations/20250930120000_nps_responses.sql†L1-L26】
 - **`web_fetch_cache`** (`id` PK) — Cached web harvest content and metadata. **PII:** None.【F:supabase/migrations/20251115122000_web_fetch_cache.sql†L1-L34】

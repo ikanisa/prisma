@@ -2,6 +2,8 @@
 
 | Table | Purpose |
 | --- | --- |
+| `telemetry_alerts` | Alert stream for SLA, autonomy, rate-limit, and system warnings (used by release controls and Autonomy HUD). |
+| `autonomy_telemetry_events` | Autonomy decisions and metrics emitted by agents and deterministic tools. |
 | `telemetry_service_levels` | Tracks SLA targets and breach status for workflow events (e.g., MAP case response time). |
 | `telemetry_coverage_metrics` | Stores coverage ratios for practice monitoring (e.g., treaty WHT and US overlay computations per engagement). |
 | `telemetry_refusal_events` | Captures refusal/decline events (e.g., independence refusals, partner rejections, edge-function errors) with severity and counts. |

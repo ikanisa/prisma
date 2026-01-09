@@ -8,6 +8,8 @@ export type RunOptions = {
     jurisdictionCode?: string;
     userId?: string;
     sessionId?: string;
+    orgId?: string;
+    orgSlug?: string;
   };
 };
 
@@ -91,6 +93,8 @@ export async function runOpenAIAgent(
           jurisdictionCode: options.metadata?.jurisdictionCode,
           userId: options.metadata?.userId,
           sessionId: options.metadata?.sessionId,
+          orgId: options.metadata?.orgId,
+          orgSlug: options.metadata?.orgSlug,
         });
 
         executedToolCalls.push({

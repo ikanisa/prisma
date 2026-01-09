@@ -29,6 +29,8 @@ export interface AgentMessageContext {
     materialityThreshold?: number;
     periodStart?: string;
     periodEnd?: string;
+    orgId?: string;
+    orgSlug?: string;
 }
 
 export interface AgentMessage {
