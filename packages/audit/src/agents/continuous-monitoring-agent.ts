@@ -53,7 +53,7 @@ export interface MonitoringRule {
 
     // Configuration
     enabled: boolean;
-    frequency: 'realtime' | 'hourly' | 'daily' | 'weekly';
+    frequency: 'realtime' | 'hourly' | 'daily' | 'weekly' | 'monthly';
     cooldownMinutes?: number;  // Prevent alert flooding
 }
 
@@ -245,6 +245,273 @@ const DEFAULT_RULES: MonitoringRule[] = [
         frequency: 'daily',
     },
 ];
+
+// ============================================================================
+// MALTA JURISDICTION RULES
+// ============================================================================
+
+const MALTA_RULES: MonitoringRule[] = [
+    {
+        id: 'mt-rule-001',
+        name: 'Malta VAT Threshold Approach',
+        description: 'Turnover approaching Article 10 VAT registration threshold (€35,000)',
+        category: 'compliance',
+        conditions: [
+            { field: 'cumulativeRevenue', operator: 'gt', value: 30000 },  // 85% of threshold
+            { field: 'jurisdiction', operator: 'eq', value: 'MT' },
+        ],
+        conditionOperator: 'AND',
+        thresholds: { warning: 30000, critical: 35000 },
+        severity: 'warning',
+        actions: [
+            { type: 'alert', channel: 'dashboard' },
+            { type: 'alert', channel: 'email' },
+        ],
+        enabled: true,
+        frequency: 'daily',
+    },
+    {
+        id: 'mt-rule-002',
+        name: 'Malta Article 11 SME Threshold',
+        description: 'Turnover approaching Article 11 SME exemption limit (€30,000)',
+        category: 'compliance',
+        conditions: [
+            { field: 'cumulativeRevenue', operator: 'gt', value: 25500 },  // 85% of threshold
+            { field: 'jurisdiction', operator: 'eq', value: 'MT' },
+            { field: 'registrationStatus', operator: 'eq', value: 'article_11' },
+        ],
+        conditionOperator: 'AND',
+        thresholds: { warning: 25500, critical: 30000 },
+        severity: 'warning',
+        actions: [
+            { type: 'alert', channel: 'dashboard' },
+            { type: 'escalate', to: 'tax_advisor' },
+        ],
+        enabled: true,
+        frequency: 'daily',
+    },
+    {
+        id: 'mt-rule-003',
+        name: 'Malta EU Cross-Border Threshold',
+        description: 'EU-wide turnover approaching €100,000 OSS threshold',
+        category: 'compliance',
+        conditions: [
+            { field: 'euWideTurnover', operator: 'gt', value: 85000 },
+            { field: 'jurisdiction', operator: 'eq', value: 'MT' },
+        ],
+        conditionOperator: 'AND',
+        thresholds: { warning: 85000, critical: 100000 },
+        severity: 'warning',
+        actions: [
+            { type: 'alert', channel: 'dashboard' },
+            { type: 'escalate', to: 'vat_specialist' },
+        ],
+        enabled: true,
+        frequency: 'weekly',
+    },
+    {
+        id: 'mt-rule-004',
+        name: 'Malta Intrastat Threshold',
+        description: 'EU trade volume approaching Intrastat reporting threshold (€700)',
+        category: 'compliance',
+        conditions: [
+            { field: 'euTradeVolume', operator: 'gt', value: 600 },
+            { field: 'jurisdiction', operator: 'eq', value: 'MT' },
+        ],
+        conditionOperator: 'AND',
+        thresholds: { warning: 600, critical: 700 },
+        severity: 'info',
+        actions: [{ type: 'alert', channel: 'dashboard' }],
+        enabled: true,
+        frequency: 'monthly',
+    },
+];
+
+// ============================================================================
+// CANADA JURISDICTION RULES
+// ============================================================================
+
+const CANADA_RULES: MonitoringRule[] = [
+    {
+        id: 'ca-rule-001',
+        name: 'Canada GST Registration Threshold',
+        description: 'Revenue approaching $30,000 GST registration threshold',
+        category: 'compliance',
+        conditions: [
+            { field: 'trailing4QuarterRevenue', operator: 'gt', value: 25500 },
+            { field: 'jurisdiction', operator: 'eq', value: 'CA' },
+        ],
+        conditionOperator: 'AND',
+        thresholds: { warning: 25500, critical: 30000 },
+        severity: 'warning',
+        actions: [
+            { type: 'alert', channel: 'dashboard' },
+            { type: 'escalate', to: 'tax_advisor' },
+        ],
+        enabled: true,
+        frequency: 'daily',
+    },
+    {
+        id: 'ca-rule-002',
+        name: 'Canada New Province Nexus',
+        description: 'Revenue detected in new province - potential PST/HST nexus',
+        category: 'compliance',
+        conditions: [
+            { field: 'newProvinceRevenue', operator: 'gt', value: 0 },
+            { field: 'jurisdiction', operator: 'eq', value: 'CA' },
+        ],
+        conditionOperator: 'AND',
+        severity: 'warning',
+        actions: [
+            { type: 'alert', channel: 'dashboard' },
+            { type: 'log', level: 'warn' },
+        ],
+        enabled: true,
+        frequency: 'realtime',
+    },
+    {
+        id: 'ca-rule-003',
+        name: 'Canada ITC Documentation Warning',
+        description: 'High-value expense without complete ITC documentation',
+        category: 'operational',
+        conditions: [
+            { field: 'expenseAmount', operator: 'gt', value: 5000 },
+            { field: 'itcDocumentation', operator: 'ne', value: 'complete' },
+            { field: 'jurisdiction', operator: 'eq', value: 'CA' },
+        ],
+        conditionOperator: 'AND',
+        severity: 'warning',
+        actions: [{ type: 'alert', channel: 'dashboard' }],
+        enabled: true,
+        frequency: 'realtime',
+    },
+    {
+        id: 'ca-rule-004',
+        name: 'Canada Filing Frequency Change',
+        description: 'Revenue thresholds may require GST filing frequency change',
+        category: 'compliance',
+        conditions: [
+            { field: 'annualRevenue', operator: 'gt', value: 1500000 },
+            { field: 'jurisdiction', operator: 'eq', value: 'CA' },
+            { field: 'currentFilingFrequency', operator: 'eq', value: 'annual' },
+        ],
+        conditionOperator: 'AND',
+        severity: 'info',
+        actions: [{ type: 'alert', channel: 'dashboard' }],
+        enabled: true,
+        frequency: 'monthly',
+    },
+];
+
+// ============================================================================
+// RWANDA JURISDICTION RULES
+// ============================================================================
+
+const RWANDA_RULES: MonitoringRule[] = [
+    {
+        id: 'rw-rule-001',
+        name: 'Rwanda VAT Registration Threshold',
+        description: 'Revenue approaching RWF 20M VAT registration threshold',
+        category: 'compliance',
+        conditions: [
+            { field: 'annualTurnover', operator: 'gt', value: 17000000 },  // 85% of 20M
+            { field: 'jurisdiction', operator: 'eq', value: 'RW' },
+        ],
+        conditionOperator: 'AND',
+        thresholds: { warning: 17000000, critical: 20000000 },
+        severity: 'warning',
+        actions: [
+            { type: 'alert', channel: 'dashboard' },
+            { type: 'escalate', to: 'tax_advisor' },
+        ],
+        enabled: true,
+        frequency: 'daily',
+    },
+    {
+        id: 'rw-rule-002',
+        name: 'Rwanda EBM Sync Failure',
+        description: 'EBM device has pending invoices not synced to RRA',
+        category: 'compliance',
+        conditions: [
+            { field: 'ebmPendingInvoices', operator: 'gt', value: 0 },
+            { field: 'jurisdiction', operator: 'eq', value: 'RW' },
+        ],
+        conditionOperator: 'AND',
+        severity: 'critical',
+        actions: [
+            { type: 'alert', channel: 'dashboard' },
+            { type: 'alert', channel: 'sms' },
+            { type: 'escalate', to: 'compliance_officer' },
+        ],
+        enabled: true,
+        frequency: 'hourly',
+    },
+    {
+        id: 'rw-rule-003',
+        name: 'Rwanda EBM Invoice Gap',
+        description: 'Gap detected in EBM invoice sequence',
+        category: 'fraud',
+        conditions: [
+            { field: 'ebmInvoiceGap', operator: 'eq', value: true },
+            { field: 'jurisdiction', operator: 'eq', value: 'RW' },
+        ],
+        conditionOperator: 'AND',
+        severity: 'critical',
+        actions: [
+            { type: 'alert', channel: 'dashboard' },
+            { type: 'escalate', to: 'audit_manager' },
+        ],
+        enabled: true,
+        frequency: 'realtime',
+    },
+    {
+        id: 'rw-rule-004',
+        name: 'Rwanda Withholding Tax Miss',
+        description: 'Payment to service provider without withholding tax deduction',
+        category: 'compliance',
+        conditions: [
+            { field: 'paymentType', operator: 'eq', value: 'service' },
+            { field: 'withholdingTaxApplied', operator: 'eq', value: false },
+            { field: 'paymentAmount', operator: 'gt', value: 100000 },
+            { field: 'jurisdiction', operator: 'eq', value: 'RW' },
+        ],
+        conditionOperator: 'AND',
+        severity: 'warning',
+        actions: [
+            { type: 'alert', channel: 'dashboard' },
+            { type: 'log', level: 'warn' },
+        ],
+        enabled: true,
+        frequency: 'realtime',
+    },
+    {
+        id: 'rw-rule-005',
+        name: 'Rwanda Digital Services Tax Trigger',
+        description: 'Digital service revenue detected - DST may apply (1.5%)',
+        category: 'compliance',
+        conditions: [
+            { field: 'category', operator: 'eq', value: 'digital_service' },
+            { field: 'jurisdiction', operator: 'eq', value: 'RW' },
+        ],
+        conditionOperator: 'AND',
+        severity: 'info',
+        actions: [{ type: 'log', level: 'info' }],
+        enabled: true,
+        frequency: 'realtime',
+    },
+];
+
+// ============================================================================
+// COMBINED JURISDICTION RULES
+// ============================================================================
+
+type JurisdictionCode = 'MT' | 'CA' | 'RW';
+
+const JURISDICTION_RULES: Record<JurisdictionCode, MonitoringRule[]> = {
+    MT: MALTA_RULES,
+    CA: CANADA_RULES,
+    RW: RWANDA_RULES,
+};
 
 // ============================================================================
 // CONTINUOUS MONITORING AGENT
