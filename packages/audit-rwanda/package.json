@@ -1,0 +1,36 @@
+{
+    "name": "@prisma/audit-rwanda",
+    "version": "1.0.0",
+    "description": "Rwanda Audit AI Agent System - ISA Compliant Autonomous Audit Framework",
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "type": "module",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js"
+        }
+    },
+    "scripts": {
+        "build": "tsc",
+        "dev": "tsc --watch",
+        "clean": "rm -rf dist",
+        "typecheck": "tsc --noEmit"
+    },
+    "keywords": [
+        "rwanda",
+        "audit",
+        "isa",
+        "icpar",
+        "compliance",
+        "ai-agents"
+    ],
+    "author": "Prisma",
+    "license": "MIT",
+    "dependencies": {
+        "openai": "^4.0.0"
+    },
+    "devDependencies": {
+        "typescript": "^5.4.0"
+    }
+}
