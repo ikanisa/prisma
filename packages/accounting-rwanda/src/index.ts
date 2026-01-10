@@ -142,6 +142,16 @@ export {
     type DepreciationSchedule,
 } from './agents/processing/depreciation-agent.js';
 
+export {
+    BankReconciliationAgent,
+    createBankReconciliationAgent,
+    bankReconciliationAgent,
+    type BankTransaction,
+    type BookTransaction,
+    type BankReconciliation,
+    type ReconciliationItem,
+} from './agents/processing/bank-reconciliation-agent.js';
+
 // ============================================================================
 // REPORTING AGENTS
 // ============================================================================
@@ -174,6 +184,17 @@ export {
     type AnomalyDetectionInput,
     type AnomalyDetectionResult,
 } from './agents/audit/anomaly-detection-agent.js';
+
+export {
+    AuditOpinionAgent,
+    createAuditOpinionAgent,
+    auditOpinionAgent,
+    type AuditOpinionType,
+    type KeyAuditMatter,
+    type GoingConcernAssessment,
+    type AuditOpinionReport,
+    type AuditFinding,
+} from './agents/audit/audit-opinion-agent.js';
 
 // ============================================================================
 // CONVENIENCE FUNCTIONS

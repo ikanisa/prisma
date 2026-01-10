@@ -43,3 +43,18 @@ export {
     maltaTransferPricingAgent,
     type TransferPricingAgentConfig as MaltaTPAgentConfig,
 } from './transfer-pricing-agent.js';
+
+// CIT Refund Calculation Agent
+export {
+    CITRefundCalculationAgent,
+    default as citRefundAgent,
+    type ProfitType,
+    type TaxAccountType,
+    type RefundRate,
+    type RefundCalculation,
+    type DividendDistribution,
+    type IncomeStream,
+    type TaxAccountAllocation,
+    type RefundClaimForm,
+    type SubmissionResult,
+} from './cit-refund-agent.js';
