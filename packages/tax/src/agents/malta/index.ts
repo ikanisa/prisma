@@ -58,3 +58,28 @@ export {
     type RefundClaimForm,
     type SubmissionResult,
 } from './cit-refund-agent.js';
+
+// VAT Compliance Agent (BAM II)
+export {
+    VATComplianceAgent,
+    VatClassifier,
+    VatReturnGenerator,
+    BAM2XMLGenerator,
+    default as vatComplianceAgent,
+    type VatRate,
+    type VatClassification,
+    type Transaction,
+    type VatReturnLine,
+    type VatReturn,
+} from './vat-compliance-agent.js';
+
+// PAYE & Social Security Agent
+export {
+    PAYEAgent,
+    PayeCalculator,
+    default as payeAgent,
+    type PayPeriod,
+    type Employee,
+    type PayeCalculation,
+    type FS3Reconciliation,
+} from './paye-agent.js';

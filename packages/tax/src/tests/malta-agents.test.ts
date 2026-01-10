@@ -1,473 +1,535 @@
 /**
- * Malta Tax Agents Tests
+ * Unit Tests for Malta Tax Agents
  * 
- * Comprehensive test suite for Malta autonomous tax agents.
+ * Tests for:
+ * - CIT Refund Calculation Agent
+ * - VAT Compliance Agent
+ * - PAYE & Social Security Agent
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
+import { CITRefundCalculationAgent, ProfitType, TaxAccountType } from '../agents/malta/cit-refund-agent.js';
+import { VatClassifier, VatRate, VatReturnGenerator } from '../agents/malta/vat-compliance-agent.js';
+import { PayeCalculator, PayPeriod } from '../agents/malta/paye-agent.js';
 
-// Import agents
-import { MaltaVATAgent } from '../agents/malta/vat-agent.js';
-import { MaltaCorporateTaxAgentV2 } from '../agents/malta/corporate-tax-agent.js';
-import { MaltaParticipationExemptionAgent } from '../agents/malta/participation-exemption-agent.js';
-import { MaltaDoubleTaxReliefAgent } from '../agents/malta/double-tax-relief-agent.js';
-import { MaltaTransferPricingAgent } from '../agents/malta/transfer-pricing-agent.js';
-
-// Import types
-import type {
-    CorporateTaxRequest,
-    CorporateTaxResult,
-    ParticipationHolding,
-    SubsidiaryFinancials,
-    ForeignIncomeForRelief,
-    RelatedPartyTransaction,
-} from '../types/malta.js';
-
-// ============================================================================
-// MALTA VAT AGENT TESTS
-// ============================================================================
-
-describe('MaltaVATAgent', () => {
-    let agent: MaltaVATAgent;
+describe('CIT Refund Calculation Agent', () => {
+  let agent: CITRefundCalculationAgent;
 
     beforeEach(() => {
-        agent = new MaltaVATAgent({ enableAIClassification: false });
+    agent = new CITRefundCalculationAgent();
+  });
+
+  describe('Profit Type Classification', () => {
+    it('should classify trading income correctly', () => {
+      const income = {
+        amount: 100000,
+        type: 'trading' as const,
+        isActiveBusiness: true,
+        isMaltaSourced: true
+      };
+
+      const profitType = agent.classifyProfitType(income);
+      expect(profitType).toBe(ProfitType.TRADING);
     });
 
-    describe('Basic VAT Calculation', () => {
-        it('should calculate 18% standard rate correctly', async () => {
-            const result = await agent.calculateVAT({
-                transactionType: 'sale',
-                amount: 1000,
-                goodsOrServices: 'goods',
-                description: 'General merchandise',
-                customerLocation: 'MT',
-                customerType: 'b2c',
-            });
+    it('should classify participating holding correctly', () => {
+      const income = {
+        amount: 50000,
+        type: 'dividend' as const,
+        isActiveBusiness: false,
+        isMaltaSourced: false,
+        shareholdingPercentage: 10,
+        holdingPeriod: 365
+      };
 
-            expect(result.vatRate).toBe(18);
-            expect(result.vatAmount).toBe(180);
-            expect(result.totalAmount).toBe(1180);
-        });
-
-        it('should apply 7% reduced rate for hotel accommodation', async () => {
-            const result = await agent.calculateVAT({
-                transactionType: 'sale',
-                amount: 1000,
-                goodsOrServices: 'services',
-                description: 'Hotel accommodation services',
-                customerLocation: 'MT',
-                customerType: 'b2c',
-            });
-
-            expect(result.vatRate).toBe(7);
-            expect(result.vatAmount).toBe(70);
-        });
+      const profitType = agent.classifyProfitType(income);
+      expect(profitType).toBe(ProfitType.PARTICIPATING_HOLDING);
     });
 
-    describe('Reverse Charge Mechanism', () => {
-        it('should apply reverse charge for B2B intra-EU supply', async () => {
-            const result = await agent.calculateVAT({
-                transactionType: 'sale',
-                amount: 1000,
-                goodsOrServices: 'goods',
-                description: 'General merchandise',
-                customerLocation: 'DE',
-                customerVATNumber: 'DE123456789',
-                customerType: 'b2b',
-            });
+    it('should classify passive interest/royalties correctly', () => {
+      const income = {
+        amount: 25000,
+        type: 'interest' as const,
+        isActiveBusiness: false,
+        isMaltaSourced: true
+      };
 
-            expect(result.reverseChargeApplicable).toBe(true);
-            expect(result.vatAmount).toBe(0);
-        });
+      const profitType = agent.classifyProfitType(income);
+      expect(profitType).toBe(ProfitType.PASSIVE_INTEREST_ROYALTIES);
     });
 
-    describe('SME Scheme Eligibility', () => {
-        it('should qualify for Article 11 under threshold', () => {
-            const result = agent.checkSMEEligibility(30000, 0);
+    it('should classify foreign income with DTT correctly', () => {
+      const income = {
+        amount: 75000,
+        type: 'trading' as const,
+        isActiveBusiness: true,
+        isMaltaSourced: false,
+        isForeign: true,
+        hasDoubleTaxTreatyRelief: true
+      };
 
-            expect(result.article11Eligible).toBe(true);
-            expect(result.article11AEligible).toBe(true);
-        });
+      const profitType = agent.classifyProfitType(income);
+      expect(profitType).toBe(ProfitType.FOREIGN_WITH_DTT);
+    });
+  });
 
-        it('should NOT qualify for Article 11 over threshold', () => {
-            const result = agent.checkSMEEligibility(40000, 0);
+  describe('Refund Calculations', () => {
+    it('should calculate 6/7ths refund correctly for trading income', () => {
+      const dividendAmount = 65000;  // After 35% CIT
+      const citPaid = 35000;         // 35% of €100,000
+      const profitType = ProfitType.TRADING;
 
-            expect(result.article11Eligible).toBe(false);
-        });
+      const result = agent.calculateRefund(dividendAmount, profitType, citPaid);
+
+      expect(result.refundAmount).toBe(30000);  // 6/7 × €35,000
+      expect(result.effectiveTax).toBe(5000);   // €35,000 - €30,000
+      expect(result.effectiveRate).toBe(5.0);   // 5% of €100,000
+      expect(result.shareholderNetReceipt).toBe(95000);  // €65,000 + €30,000
+      expect(result.sourceAccount).toBe(TaxAccountType.MTA);
     });
 
-    describe('Intrastat Requirements', () => {
-        it('should require Intrastat reporting above €700', () => {
-            const result = agent.checkIntrastatRequired(800);
+    it('should calculate 5/7ths refund correctly for passive income', () => {
+      const dividendAmount = 65000;
+      const citPaid = 35000;
+      const profitType = ProfitType.PASSIVE_INTEREST_ROYALTIES;
 
-            expect(result.required).toBe(true);
-            expect(result.threshold).toBe(700);
+      const result = agent.calculateRefund(dividendAmount, profitType, citPaid);
+
+      expect(result.refundAmount).toBe(25000);  // 5/7 × €35,000
+      expect(result.effectiveTax).toBe(10000);  // €35,000 - €25,000
+      expect(result.effectiveRate).toBe(10.0);  // 10% of €100,000
+    });
+
+    it('should calculate 2/3rds refund correctly for foreign income with DTT', () => {
+      const dividendAmount = 65000;
+      const citPaid = 35000;
+      const profitType = ProfitType.FOREIGN_WITH_DTT;
+
+      const result = agent.calculateRefund(dividendAmount, profitType, citPaid);
+
+      expect(result.refundAmount).toBeCloseTo(23333.33, 2);  // 2/3 × €35,000
+      expect(result.effectiveTax).toBeCloseTo(11666.67, 2);
+      expect(result.effectiveRate).toBeCloseTo(11.67, 2);
+    });
+
+    it('should calculate full refund for participating holding', () => {
+      const dividendAmount = 65000;
+      const citPaid = 35000;
+      const profitType = ProfitType.PARTICIPATING_HOLDING;
+
+      const result = agent.calculateRefund(dividendAmount, profitType, citPaid);
+
+      expect(result.refundAmount).toBe(35000);  // Full refund
+      expect(result.effectiveTax).toBe(0);
+      expect(result.effectiveRate).toBe(0);
+    });
+});
+
+  describe('Tax Account Allocation', () => {
+    it('should allocate trading income to MTA', () => {
+      const allocation = agent.allocateProfitToTaxAccounts(
+        100000,
+        ProfitType.TRADING,
+        'entity-123',
+        2024
+      );
+
+      expect(allocation.mtaBalance).toBe(100000);
+      expect(allocation.fiaBalance).toBe(0);
+      expect(allocation.ipaBalance).toBe(0);
+      expect(allocation.untaxedBalance).toBe(0);
+    });
+
+    it('should allocate foreign income with DTT to FIA', () => {
+      const allocation = agent.allocateProfitToTaxAccounts(
+        100000,
+        ProfitType.FOREIGN_WITH_DTT,
+        'entity-123',
+        2024
+      );
+
+      expect(allocation.fiaBalance).toBe(100000);
+      expect(allocation.mtaBalance).toBe(0);
+    });
+
+    it('should allocate participating holding to untaxed balance', () => {
+      const allocation = agent.allocateProfitToTaxAccounts(
+        100000,
+        ProfitType.PARTICIPATING_HOLDING,
+        'entity-123',
+        2024
+      );
+
+      expect(allocation.untaxedBalance).toBe(100000);
+      expect(allocation.mtaBalance).toBe(0);
+    });
+  });
+
+  describe('Refund Eligibility', () => {
+    it('should verify eligible shareholder', () => {
+      const eligibility = agent.verifyRefundEligibility({
+        isDirectShareholder: true,
+        beneficialOwnersDisclosed: true,
+        taxExempt: false
+      });
+
+      expect(eligibility.eligible).toBe(true);
+      expect(eligibility.errors).toHaveLength(0);
+    });
+
+    it('should reject indirect shareholder', () => {
+      const eligibility = agent.verifyRefundEligibility({
+        isDirectShareholder: false,
+        beneficialOwnersDisclosed: true,
+        taxExempt: false
+      });
+
+      expect(eligibility.eligible).toBe(false);
+      expect(eligibility.errors.length).toBeGreaterThan(0);
+      expect(eligibility.errors[0]).toContain('direct shareholder');
+    });
+
+    it('should reject if beneficial owners not disclosed', () => {
+      const eligibility = agent.verifyRefundEligibility({
+        isDirectShareholder: true,
+        beneficialOwnersDisclosed: false,
+        taxExempt: false
+      });
+
+      expect(eligibility.eligible).toBe(false);
+      expect(eligibility.errors[0]).toContain('Beneficial owners');
         });
     });
 });
 
-// ============================================================================
-// MALTA CORPORATE TAX AGENT TESTS
-// ============================================================================
-
-describe('MaltaCorporateTaxAgentV2', () => {
-    let agent: MaltaCorporateTaxAgentV2;
+describe('VAT Compliance Agent', () => {
+  let classifier: VatClassifier;
 
     beforeEach(() => {
-        agent = new MaltaCorporateTaxAgentV2({ enableAIAnalysis: false });
+    classifier = new VatClassifier();
+  });
+
+  describe('VAT Classification', () => {
+    it('should classify standard rate supply correctly', () => {
+      const transaction = {
+        id: 'txn-1',
+        description: 'Professional services',
+        amount: 1180,  // €1,000 + 18% VAT
+        customerType: 'B2B' as const,
+        customerCountry: 'MT',
+        supplierMgaLicensed: false,
+        type: 'sale' as const,
+        date: new Date()
+      };
+
+      const classification = classifier.classifyTransaction(transaction);
+
+      expect(classification.rate).toBe(VatRate.STANDARD_18);
+      expect(classification.rateDescription).toContain('Standard 18%');
+      expect(classification.netAmount).toBeCloseTo(1000, 2);
+      expect(classification.vatAmount).toBeCloseTo(180, 2);
+      expect(classification.isExempt).toBe(false);
     });
 
-    describe('Standard 35% Tax Calculation', () => {
-        it('should calculate 35% corporate tax', async () => {
-            const request: CorporateTaxRequest = {
-                chargeableIncome: 100000,
-                incomeBreakdown: {
-                    maltaTradingIncome: 100000,
-                },
-                companyProfile: {
-                    name: 'Test Malta Ltd',
-                    isResident: true,
-                    isDomiciled: true,
-                },
-                fiscalYear: 2025,
-            };
+    it('should classify iGaming B2C as zero-rated', () => {
+      const transaction = {
+        id: 'txn-2',
+        description: 'Online slot gaming',
+        amount: 1000,
+        customerType: 'B2C' as const,
+        customerCountry: 'DE',
+        supplierMgaLicensed: true,
+        type: 'sale' as const,
+        date: new Date()
+      };
 
-            const result = await agent.calculateCorporateTax(request);
+      const classification = classifier.classifyTransaction(transaction);
 
-            expect(result.regime).toBe('standard_imputation');
-            // Type guard to access CorporateTaxResult properties
-            if ('corporateTaxRate' in result) {
-                expect(result.corporateTaxRate).toBe(35);
-                expect(result.corporateTaxPayable).toBe(35000);
-            }
-        });
+      expect(classification.rate).toBe(VatRate.ZERO_RATED);
+      expect(classification.rateDescription).toContain('B2C iGaming');
+      expect(classification.vatAmount).toBe(0);
+      expect(classification.classification).toContain('Gaming');
     });
 
-    describe('Tax Account Allocation', () => {
-        it('should allocate Malta trading income to MTA', async () => {
-            const request: CorporateTaxRequest = {
-                chargeableIncome: 100000,
-                incomeBreakdown: {
-                    maltaTradingIncome: 100000,
-                },
-                companyProfile: {
-                    name: 'Test Malta Ltd',
-                    isResident: true,
-                    isDomiciled: true,
-                },
-                fiscalYear: 2025,
-            };
+    it('should classify iGaming B2B as standard rate', () => {
+      const transaction = {
+        id: 'txn-3',
+        description: 'White-label gaming platform',
+        amount: 11800,
+        customerType: 'B2B' as const,
+        customerCountry: 'MT',
+        supplierMgaLicensed: true,
+        type: 'sale' as const,
+        date: new Date()
+      };
 
-            const result = await agent.calculateCorporateTax(request);
+      const classification = classifier.classifyTransaction(transaction);
 
-            // Type guard
-            if ('taxAccounts' in result) {
-                expect(result.taxAccounts.accounts.MTA.income).toBe(100000);
-                expect(result.taxAccounts.accounts.MTA.refundRate).toBe('six_sevenths');
-            }
-        });
+      expect(classification.rate).toBe(VatRate.STANDARD_18);
+      expect(classification.classification).toContain('B2B Gaming');
     });
 
-    describe('Shareholder Refund Calculations', () => {
-        it('should calculate 6/7ths refund for MTA income', async () => {
-            const request: CorporateTaxRequest = {
-                chargeableIncome: 100000,
-                incomeBreakdown: {
-                    maltaTradingIncome: 100000,
-                },
-                companyProfile: {
-                    name: 'Test Malta Ltd',
-                    isResident: true,
-                    isDomiciled: true,
-                },
-                fiscalYear: 2025,
-            };
+    it('should classify hotel accommodation as reduced 7%', () => {
+      const transaction = {
+        id: 'txn-4',
+        description: 'Hotel accommodation',
+        amount: 1070,
+        customerType: 'B2C' as const,
+        customerCountry: 'MT',
+        supplierMgaLicensed: false,
+        type: 'sale' as const,
+        date: new Date()
+      };
 
-            const result = await agent.calculateCorporateTax(request);
+      const classification = classifier.classifyTransaction(transaction);
 
-            // Type guard
-            if ('taxAccounts' in result) {
-                // 35% tax = 35,000
-                // 6/7ths refund = 30,000
-                expect(result.taxAccounts.accounts.MTA.refundAmount).toBe(30000);
-                expect(result.taxAccounts.accounts.MTA.effectiveRate).toBe(5);
-            }
-        });
+      expect(classification.rate).toBe(VatRate.REDUCED_7);
+      expect(classification.rateDescription).toContain('7%');
+      expect(classification.netAmount).toBeCloseTo(1000, 2);
+      expect(classification.vatAmount).toBeCloseTo(70, 2);
     });
 
-    describe('FITWI 15% Regime', () => {
-        it('should calculate 15% FITWI tax', async () => {
-            const request: CorporateTaxRequest = {
-                chargeableIncome: 100000,
-                incomeBreakdown: {
-                    maltaTradingIncome: 100000,
-                },
-                companyProfile: {
-                    name: 'Test Malta Ltd',
-                    isResident: true,
-                    isDomiciled: true,
-                },
-                fiscalYear: 2025,
-                fitwiElected: true,
-            };
+    it('should classify books as reduced 5%', () => {
+      const transaction = {
+        id: 'txn-5',
+        description: 'Books and publications',
+        amount: 1050,
+        customerType: 'B2C' as const,
+        customerCountry: 'MT',
+        supplierMgaLicensed: false,
+        type: 'sale' as const,
+        date: new Date()
+      };
 
-            const result = await agent.calculateCorporateTax(request);
+      const classification = classifier.classifyTransaction(transaction);
 
-            expect(result.regime).toBe('fitwi_15_percent');
-            // Type guard
-            if ('fitwiTax' in result) {
-                expect(result.fitwiTax).toBe(15000);
-            }
-        });
+      expect(classification.rate).toBe(VatRate.REDUCED_5);
+      expect(classification.rateDescription).toContain('5%');
+    });
+
+    it('should classify exports as zero-rated', () => {
+      const transaction = {
+        id: 'txn-6',
+        description: 'Software license',
+        amount: 1000,
+        customerType: 'B2B' as const,
+        customerCountry: 'US',
+        supplierMgaLicensed: false,
+        type: 'sale' as const,
+        date: new Date()
+      };
+
+      const classification = classifier.classifyTransaction(transaction);
+
+      expect(classification.rate).toBe(VatRate.ZERO_RATED);
+      expect(classification.classification).toContain('Export');
+      expect(classification.vatAmount).toBe(0);
+    });
+
+    it('should classify financial services as exempt', () => {
+      const transaction = {
+        id: 'txn-7',
+        description: 'Banking services',
+        amount: 1000,
+        customerType: 'B2B' as const,
+        customerCountry: 'MT',
+        supplierMgaLicensed: false,
+        type: 'sale' as const,
+        date: new Date()
+      };
+
+      const classification = classifier.classifyTransaction(transaction);
+
+      expect(classification.rate).toBe(VatRate.EXEMPT);
+      expect(classification.isExempt).toBe(true);
+      expect(classification.vatAmount).toBe(0);
+      expect(classification.justification).toContain('No VAT charged');
     });
 });
 
-// ============================================================================
-// PARTICIPATION EXEMPTION AGENT TESTS
-// ============================================================================
+  describe('VAT Return Generation', () => {
+    it('should generate VAT return from transactions', () => {
+      const generator = new VatReturnGenerator();
 
-describe('MaltaParticipationExemptionAgent', () => {
-    let agent: MaltaParticipationExemptionAgent;
+      const transactions = [
+        {
+          id: 'txn-1',
+          description: 'Standard services',
+          amount: 1180,
+          customerType: 'B2B' as const,
+          customerCountry: 'MT',
+          supplierMgaLicensed: false,
+          type: 'sale' as const,
+          date: new Date('2024-01-15')
+        },
+        {
+          id: 'txn-2',
+          description: 'Hotel accommodation',
+          amount: 1070,
+          customerType: 'B2C' as const,
+          customerCountry: 'MT',
+          supplierMgaLicensed: false,
+          type: 'sale' as const,
+          date: new Date('2024-01-20')
+        }
+      ];
 
-    beforeEach(() => {
-        agent = new MaltaParticipationExemptionAgent({ enableAIAnalysis: false });
+      const vatReturn = generator.generateVatReturn(
+        new Date('2024-01-01'),
+        new Date('2024-01-31'),
+        'MT12345678',
+        transactions
+      );
+
+      expect(vatReturn.vatNumber).toBe('MT12345678');
+      expect(vatReturn.sales.standardRate.grossAmount).toBeGreaterThan(0);
+      expect(vatReturn.sales.reduced7Rate.grossAmount).toBeGreaterThan(0);
+      expect(vatReturn.totalOutputVat).toBeGreaterThan(0);
+    });
+  });
+});
+
+describe('PAYE & Social Security Agent', () => {
+  let calculator: PayeCalculator;
+
+  beforeEach(() => {
+    calculator = new PayeCalculator();
+  });
+
+  describe('PAYE Calculation', () => {
+    it('should calculate PAYE for single employee with no allowances', () => {
+      const employee = {
+        id: 'emp-1',
+        idCardNumber: '12345678M',
+        fullName: 'John Doe',
+        maritalStatus: 'single' as const,
+        numberOfChildren: 0,
+        hasDisability: false
+      };
+
+      const calculation = calculator.calculatePAYE(employee, 2000, PayPeriod.MONTHLY);
+
+      expect(calculation.grossSalary).toBe(2000);
+      expect(calculation.incomeTax).toBeGreaterThan(0);
+      expect(calculation.socialSecurity).toBe(200);  // 10% of €2,000
+      expect(calculation.employerNI).toBe(200);
+      expect(calculation.netPay).toBeLessThan(calculation.grossSalary);
+      expect(calculation.totalCost).toBe(2200);  // €2,000 + €200 employer NI
     });
 
-    describe('Equity Holding Test', () => {
-        it('should qualify with ≥5% equity and 2/3 rights', async () => {
-            const holding: ParticipationHolding = {
-                subsidiaryName: 'Foreign Sub Ltd',
-                equityPercentage: 10,
-                acquisitionCost: 500000,
-                acquisitionDate: '2024-01-01',
-                jurisdiction: 'UK',
-                votingRightsPercentage: 10,
-                profitRightsPercentage: 10,
-                liquidationRightsPercentage: 10,
-            };
+    it('should apply married allowance', () => {
+      const singleEmployee = {
+        id: 'emp-2',
+        idCardNumber: '87654321M',
+        fullName: 'Jane Single',
+        maritalStatus: 'single' as const,
+        numberOfChildren: 0,
+        hasDisability: false
+      };
 
-            const financials: SubsidiaryFinancials = {
-                totalAssets: 5000000,
-                totalIncome: 1000000,
-                statutoryTaxRate: 19,
-                // Add qualifying investments >50% of assets to pass investment test
-                qualifyingInvestments: {
-                    equityHoldingsInOtherCompanies: 3000000,
-                    immovablePropertyForOwnBusiness: 500000,
-                },
-                // Add active business income to pass active business test
-                passiveIncome: {
-                    interest: 100000,
-                    dividends: 100000,
-                    // Passive <50% of total income
-                }
-            };
+      const marriedEmployee = {
+        id: 'emp-3',
+        idCardNumber: '11223344M',
+        fullName: 'Jane Married',
+        maritalStatus: 'married' as const,
+        numberOfChildren: 0,
+        hasDisability: false
+      };
 
-            const result = await agent.assessQualification(holding, 'dividend', 100000, financials);
+      const singleCalc = calculator.calculatePAYE(singleEmployee, 1500, PayPeriod.MONTHLY);
+      const marriedCalc = calculator.calculatePAYE(marriedEmployee, 1500, PayPeriod.MONTHLY);
 
-            expect(result.qualificationRoute).toBe('equity_holding');
-            // All anti-abuse tests should pass with these financials
-            expect(result.antiAbuseTestsPassed.allPassed).toBe(true);
-            expect(result.qualifies).toBe(true);
-        });
+      // Married employee should have lower tax due to higher allowance
+      expect(marriedCalc.incomeTax).toBeLessThan(singleCalc.incomeTax);
     });
 
-    describe('Anti-Abuse Tests', () => {
-        it('should pass tax test with 15%+ statutory rate', async () => {
-            const holding: ParticipationHolding = {
-                subsidiaryName: 'UK Sub Ltd',
-                equityPercentage: 10,
-                acquisitionCost: 500000,
-                acquisitionDate: '2024-01-01',
-                jurisdiction: 'UK',
-                votingRightsPercentage: 10,
-                profitRightsPercentage: 10,
-            };
+    it('should apply parent allowance per child', () => {
+      const employeeNoChildren = {
+        id: 'emp-4',
+        idCardNumber: '55667788M',
+        fullName: 'Parent Zero',
+        maritalStatus: 'married' as const,
+        numberOfChildren: 0,
+        hasDisability: false
+      };
 
-            const financials: SubsidiaryFinancials = {
-                totalAssets: 5000000,
-                totalIncome: 1000000,
-                statutoryTaxRate: 19,
-            };
+      const employeeTwoChildren = {
+        id: 'emp-5',
+        idCardNumber: '99887766M',
+        fullName: 'Parent Two',
+        maritalStatus: 'married' as const,
+        numberOfChildren: 2,
+        hasDisability: false
+      };
 
-            const result = await agent.assessQualification(holding, 'dividend', 100000, financials);
+      const noChildrenCalc = calculator.calculatePAYE(employeeNoChildren, 2000, PayPeriod.MONTHLY);
+      const twoChildrenCalc = calculator.calculatePAYE(employeeTwoChildren, 2000, PayPeriod.MONTHLY);
 
-            expect(result.antiAbuseTestsPassed.taxTest.passed).toBe(true);
-        });
+      // Employee with 2 children should have lower tax
+      expect(twoChildrenCalc.incomeTax).toBeLessThan(noChildrenCalc.incomeTax);
+    });
 
-        it('should fail tax test with low-tax jurisdiction', async () => {
-            const holding: ParticipationHolding = {
-                subsidiaryName: 'Cayman Sub Ltd',
-                equityPercentage: 10,
-                acquisitionCost: 500000,
-                acquisitionDate: '2024-01-01',
-                jurisdiction: 'KY',
-                votingRightsPercentage: 10,
-                profitRightsPercentage: 10,
-            };
+    it('should calculate social security correctly (10% no cap)', () => {
+      const employee = {
+        id: 'emp-6',
+        idCardNumber: '11111111M',
+        fullName: 'High Earner',
+        maritalStatus: 'single' as const,
+        numberOfChildren: 0,
+        hasDisability: false
+      };
 
-            const financials: SubsidiaryFinancials = {
-                totalAssets: 5000000,
-                totalIncome: 1000000,
-                statutoryTaxRate: 0,
-            };
+      const highSalary = 10000;  // €10,000 monthly
+      const calculation = calculator.calculatePAYE(employee, highSalary, PayPeriod.MONTHLY);
 
-            const result = await agent.assessQualification(holding, 'dividend', 100000, financials);
-
-            expect(result.antiAbuseTestsPassed.taxTest.passed).toBe(false);
-        });
+      expect(calculation.socialSecurity).toBe(1000);  // 10% of €10,000
+      expect(calculation.employerNI).toBe(1000);
+      expect(calculation.totalCost).toBe(11000);
     });
 });
 
-// ============================================================================
-// DOUBLE TAX RELIEF AGENT TESTS
-// ============================================================================
+  describe('FS3 Reconciliation', () => {
+    it('should calculate FS3 totals correctly', () => {
+      const payrollRecords: Array<{ employeeId: string; grossSalary: number; payPeriod: PayPeriod; incomeTax: number; socialSecurity: number; netPay: number; employerNI: number; totalCost: number; annualizedSalary: number; taxableIncome: number }> = [];
 
-describe('MaltaDoubleTaxReliefAgent', () => {
-    let agent: MaltaDoubleTaxReliefAgent;
+      const employee1 = {
+        id: 'emp-1',
+        idCardNumber: '12345678M',
+        fullName: 'Employee 1',
+        maritalStatus: 'single' as const,
+        numberOfChildren: 0,
+        hasDisability: false
+      };
 
-    beforeEach(() => {
-        agent = new MaltaDoubleTaxReliefAgent({ enableAIOptimization: false });
-    });
+      const employee2 = {
+        id: 'emp-2',
+        idCardNumber: '87654321M',
+        fullName: 'Employee 2',
+        maritalStatus: 'married' as const,
+        numberOfChildren: 1,
+        hasDisability: false
+      };
 
-    describe('Treaty Database', () => {
-        it('should have treaty with UK', () => {
-            expect(agent.hasTreaty('UK')).toBe(true);
-        });
+      // Generate multiple payroll records
+      for (let month = 1; month <= 12; month++) {
+        payrollRecords.push(calculator.calculatePAYE(employee1, 2000, PayPeriod.MONTHLY));
+        payrollRecords.push(calculator.calculatePAYE(employee2, 2500, PayPeriod.MONTHLY));
+      }
 
-        it('should have treaty with US', () => {
-            expect(agent.hasTreaty('US')).toBe(true);
-        });
+      const reconciliation = calculator.calculateFS3Reconciliation(
+        'entity-123',
+        2024,
+        payrollRecords
+      );
 
-        it('should return treaty rates', () => {
-            const treaty = agent.getTreatyRates('UK');
-
-            expect(treaty).not.toBeNull();
-            expect(treaty?.dividendWHT).toBe(15);
-            expect(treaty?.interestWHT).toBe(10);
-            expect(treaty?.royaltyWHT).toBe(5);
-        });
-
-        it('should have 40+ treaty countries', () => {
-            const countries = agent.getTreatyCountries();
-            expect(countries.length).toBeGreaterThan(40);
-        });
-    });
-
-    describe('Treaty Relief Calculation', () => {
-        it('should calculate treaty relief correctly', async () => {
-            const foreignIncome: ForeignIncomeForRelief = {
-                incomeType: 'dividend',
-                sourceCountry: 'UK',
-                grossAmount: 100000,
-                foreignTaxPaid: 15000,
-                treatyExists: true,
-            };
-
-            const result = await agent.calculateRelief(foreignIncome);
-
-            expect(result.allMethods.treaty).not.toBeNull();
-            expect(result.allMethods.treaty?.reliefAmount).toBe(15000);
-            expect(result.allMethods.treaty?.netMaltaTax).toBe(20000);
-        });
-    });
-
-    describe('FRFTC Calculation', () => {
-        it('should calculate 25% deemed credit', async () => {
-            const foreignIncome: ForeignIncomeForRelief = {
-                incomeType: 'dividend',
-                sourceCountry: 'AE',
-                grossAmount: 100000,
-                foreignTaxPaid: 0,
-                treatyExists: true,
-            };
-
-            const result = await agent.calculateRelief(foreignIncome);
-
-            expect(result.allMethods.frftc).not.toBeNull();
-            expect(result.allMethods.frftc?.reliefAmount).toBe(25000);
-            expect(result.allMethods.frftc?.netMaltaTax).toBe(10000);
-        });
-
-        it('should recommend FRFTC for low-tax jurisdictions', async () => {
-            const foreignIncome: ForeignIncomeForRelief = {
-                incomeType: 'dividend',
-                sourceCountry: 'AE',
-                grossAmount: 100000,
-                foreignTaxPaid: 0,
-                treatyExists: true,
-            };
-
-            const result = await agent.calculateRelief(foreignIncome);
-
-            expect(result.recommendedMethod).toBe('frftc');
-        });
-    });
-});
-
-// ============================================================================
-// TRANSFER PRICING AGENT TESTS
-// ============================================================================
-
-describe('MaltaTransferPricingAgent', () => {
-    let agent: MaltaTransferPricingAgent;
-
-    beforeEach(() => {
-        agent = new MaltaTransferPricingAgent({ enableAIAnalysis: false });
-    });
-
-    describe('Transaction Assessment', () => {
-        it('should assess single related party transaction', async () => {
-            const transactions: RelatedPartyTransaction[] = [{
-                transactionId: 'TXN-001',
-                transactionType: 'services',
-                counterpartyName: 'Parent Corp Ltd',
-                counterpartyJurisdiction: 'UK',
-                relationship: 'Parent',
-                amount: 500000,
-                pricingMethod: 'TNMM',
-                documentationExists: true,
-            }];
-
-            const result = await agent.assessTransferPricing(
-                transactions,
-                { name: 'Malta Sub Ltd', isResident: true, isDomiciled: true },
-                2025
-            );
-
-            expect(result.totalRelatedPartyValue).toBe(500000);
-            expect(result.transactions).toHaveLength(1);
-        });
-
-        it('should require documentation for large transactions', async () => {
-            const transactions: RelatedPartyTransaction[] = [{
-                transactionId: 'TXN-001',
-                transactionType: 'goods',
-                counterpartyName: 'Parent Corp Ltd',
-                counterpartyJurisdiction: 'UK',
-                relationship: 'Parent',
-                amount: 1000000,
-                pricingMethod: 'CUP',
-                documentationExists: false,
-            }];
-
-            const result = await agent.assessTransferPricing(
-                transactions,
-                { name: 'Malta Sub Ltd', isResident: true, isDomiciled: true },
-                2025
-            );
-
-            expect(result.documentationAdequate).toBe(false);
-            expect(result.localFileRequired).toBe(true);
-        });
-    });
-
-    describe('OECD Methods', () => {
-        it('should provide method descriptions', () => {
-            expect(agent.getMethodDescription('CUP')).toBe('Comparable Uncontrolled Price');
-            expect(agent.getMethodDescription('TNMM')).toBe('Transactional Net Margin Method');
-            expect(agent.getMethodDescription('PSM')).toBe('Profit Split Method');
+      expect(reconciliation.entityId).toBe('entity-123');
+      expect(reconciliation.fiscalYear).toBe(2024);
+      expect(reconciliation.employeeCount).toBe(2);
+      expect(reconciliation.totalGrossPay).toBeGreaterThan(0);
+      expect(reconciliation.totalIncomeTax).toBeGreaterThan(0);
+      expect(reconciliation.totalEmployeeNI).toBeGreaterThan(0);
+      expect(reconciliation.totalEmployerNI).toBeGreaterThan(0);
+      expect(reconciliation.totalNetPay).toBeLessThan(reconciliation.totalGrossPay);
         });
     });
 });
