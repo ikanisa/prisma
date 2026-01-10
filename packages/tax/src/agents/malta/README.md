@@ -191,13 +191,197 @@ Run tests with:
 pnpm --filter @prisma/tax test -- --run src/tests/malta-agents.test.ts
 ```
 
+---
+
+### 6. CIT Refund Agent (`cit-refund-agent.ts`)
+
+Automates Malta's unique shareholder refund mechanism.
+
+**Features:**
+- 6/7ths, 5/7ths, 2/3rds, and full refund calculations
+- Tax account allocation (MTA, FIA, IPA)
+- FS4 refund claim form generation
+- Profit type classification
+
+---
+
+### 7. VAT Compliance Agent (`vat-compliance-agent.ts`)
+
+BAM II integration for VAT filing automation.
+
+**Features:**
+- Transaction classification (18%, 7%, 5%, 0%, exempt)
+- iGaming B2C zero-rating
+- VAT return generation with XML output
+- BAM II submission automation
+
+---
+
+### 8. PAYE Agent (`paye-agent.ts`)
+
+Real-time payroll tax compliance.
+
+**Features:**
+- Progressive PAYE calculation
+- Social security contributions (10% employee + 10% employer)
+- FS3 annual reconciliation
+- BAM II real-time reporting
+
+---
+
+### 9. DAC6/CRS Agent (`dac6-crs-agent.ts`)
+
+International tax reporting for cross-border arrangements.
+
+**Features:**
+- Hallmark detection (A, B, C, D, E categories) with AI classification
+- Cross-border arrangement analysis
+- CRS financial account reporting (OECD standard)
+- 30-day filing deadline tracking
+- XML generation for CFR submission
+- FATCA interoperability (IGA Model 1)
+
+**Legal Basis:** S.L. 584.23 (DAC6 Malta Implementation)
+
+**Usage:**
+```typescript
+import { DAC6CRSAgent } from '@prisma/tax';
+
+const agent = new DAC6CRSAgent({ enableAIHallmarkDetection: true });
+
+const result = await agent.analyzeArrangement({
+  description: 'Cross-border IP licensing arrangement',
+  participants: [...],
+  transactionDetails: 'Royalty payments to low-tax jurisdiction',
+});
+// Result: Hallmarks detected, reporting deadline, recommendations
+```
+
+---
+
+### 10. iGaming Compliance Agent (`igaming-compliance-agent.ts`)
+
+MGA-licensed gaming operator compliance.
+
+**Features:**
+- GGR (Gross Gaming Revenue) calculation: Stakes - Payouts
+- Gaming duty computation (5% of GGR)
+- Player liability reconciliation
+- Player fund segregation verification
+- Progressive jackpot liability tracking (IFRS 15)
+- B2C VAT zero-rating classification
+- AML transaction monitoring
+- MGA monthly reporting automation
+
+**Legal Basis:** Gaming Act (Cap. 583), Gaming Authorisations Regulations (S.L. 583.05)
+
+**Usage:**
+```typescript
+import { iGamingComplianceAgent } from '@prisma/tax';
+
+const agent = new iGamingComplianceAgent({ mgaLicenseNumber: 'MGA/B2C/123' });
+
+// Calculate GGR
+const ggr = agent.calculateGGR(transactions, periodStart, periodEnd);
+
+// Calculate gaming duty
+const duty = agent.calculateGamingDuty(ggr);
+// Result: 5% of GGR
+
+// Monitor for AML
+const alerts = agent.monitorTransactions(transactions);
+```
+
+---
+
+### 11. MFSA Pillar 3 Agent (`mfsa-pillar3-agent.ts`)
+
+Basel III regulatory disclosures for MFSA-regulated entities.
+
+**Features:**
+- Capital adequacy ratios (CET1, Tier 1, Total Capital)
+- Risk-weighted asset calculations (credit, market, operational)
+- Liquidity Coverage Ratio (LCR) calculation
+- Net Stable Funding Ratio (NSFR) calculation
+- Leverage ratio monitoring
+- AIFMD risk disclosures for alternative investment funds
+- Pillar 3 disclosure document generation
+
+**Legal Basis:** Investment Services Act (Cap. 370), EU Regulation 575/2013 (CRR)
+
+**Usage:**
+```typescript
+import { MFSAPillar3Agent } from '@prisma/tax';
+
+const agent = new MFSAPillar3Agent();
+
+// Generate full Pillar 3 disclosure
+const disclosure = agent.generatePillar3Disclosure(
+  'Malta Investment Ltd',
+  'INVESTMENT_FIRM_CLASS_2',
+  new Date(),
+  capitalComponents,
+  exposures,
+  liquidityData,
+  totalExposure
+);
+
+// Generate document
+const document = agent.generateDisclosureDocument(disclosure);
+```
+
+---
+
+## Configuration
+
+All agents support the following configuration:
+
+```typescript
+interface AgentConfig {
+  openaiApiKey?: string;        // OpenAI API key for AI features
+  organizationId?: string;      // OpenAI organization ID
+  userId?: string;              // User ID for tracking
+  enableAIClassification?: boolean;  // Enable/disable AI features
+}
+```
+
+Set `OPENAI_API_KEY` environment variable for AI features, or pass it directly.
+
+## Types
+
+Malta-specific types are defined in `packages/tax/src/types/malta.ts`:
+
+- `MaltaTaxAccountType` - Tax account types (MTA, FIA, IPA, FTA, UA)
+- `MaltaRefundRateType` - Refund rates (6/7, 5/7, 2/3)
+- `CorporateTaxRequest` / `CorporateTaxResult`
+- `ParticipationHolding` / `SubsidiaryFinancials`
+- `ForeignIncomeForRelief` / `DoubleTaxReliefResult`
+- `RelatedPartyTransaction` / `TransferPricingAssessment`
+- `HallmarkCategory` / `CrossBorderArrangement` - DAC6 types
+- `GamingTransaction` / `GGRCalculation` - iGaming types
+- `CapitalRatios` / `LiquidityMetrics` - Pillar 3 types
+
+## Tests
+
+Run tests with:
+
+```bash
+pnpm --filter @prisma/tax test -- --run src/tests/malta-agents.test.ts
+```
+
 ## Legal References
 
 - Income Tax Act (Cap. 123)
 - VAT Act (Act XXIII of 1998)
 - Income Tax Management Act (Cap. 372)
+- Gaming Act (Cap. 583)
+- Investment Services Act (Cap. 370)
+- S.L. 584.23 - DAC6 Implementation
+- EU Regulation 575/2013 (CRR)
+- OECD CRS Standard
 - CFR Guidelines and Rulings
 
 ## Support
 
 For questions about Malta tax legislation, consult the Commissioner for Revenue (CFR) guidelines or a qualified Malta tax advisor.
+

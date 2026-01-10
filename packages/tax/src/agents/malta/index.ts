@@ -83,3 +83,54 @@ export {
     type PayeCalculation,
     type FS3Reconciliation,
 } from './paye-agent.js';
+
+// DAC6/CRS International Tax Agent
+export {
+    DAC6CRSAgent,
+    createDAC6CRSAgent,
+    dac6crsAgent,
+    type HallmarkCategory,
+    type Hallmark,
+    type CrossBorderArrangement,
+    type ArrangementParticipant,
+    type DAC6Disclosure,
+    type CRSReportingEntity,
+    type CRSReportableAccount,
+    type CRSAccountHolder,
+    type CRSReport,
+    type DAC6CRSAgentConfig,
+} from './dac6-crs-agent.js';
+
+// iGaming Compliance Agent (MGA)
+export {
+    iGamingComplianceAgent,
+    createiGamingComplianceAgent,
+    igamingComplianceAgent,
+    type GameType,
+    type LicenseType,
+    type GamingTransaction,
+    type GGRCalculation,
+    type GamingDutyCalculation,
+    type PlayerLiability,
+    type PlayerFundSegregation,
+    type ProgressiveJackpot,
+    type AMLAlert,
+    type MGAMonthlyReport,
+    type iGamingAgentConfig,
+} from './igaming-compliance-agent.js';
+
+// MFSA Pillar 3 Reporting Agent
+export {
+    MFSAPillar3Agent,
+    createMFSAPillar3Agent,
+    mfsaPillar3Agent,
+    type EntityType,
+    type CapitalComponents,
+    type RiskWeightedAssets,
+    type CapitalRatios,
+    type LiquidityMetrics,
+    type AIFMDRiskDisclosure,
+    type RiskLevel,
+    type Pillar3Disclosure,
+    type Pillar3AgentConfig,
+} from './mfsa-pillar3-agent.js';
