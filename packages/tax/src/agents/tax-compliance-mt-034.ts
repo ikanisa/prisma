@@ -8,6 +8,8 @@
  */
 
 import type { TaxJurisdiction, FilingDeadline } from '../types';
+import { MaltaVATEngine, type MaltaVATEngineConfig } from '../services/malta-vat-engine.js';
+import type { MaltaVATCalculation, MaltaVATRateType, MaltaSMESchemeCheck } from '../types/jurisdictions.js';
 
 export interface MaltaComplianceAgentConfig {
   organizationId: string;
@@ -26,11 +28,15 @@ export interface FilingTask {
 export class MaltaTaxComplianceAgent {
   public readonly slug = 'tax-compliance-mt-034';
   public readonly name = 'Malta Tax Compliance & Filing Specialist';
-  public readonly version = '1.0.0';
+  public readonly version = '2.0.0';  // Upgraded with VAT engine
   public readonly category = 'tax';
   public readonly type = 'specialist';
 
-  constructor(private config: MaltaComplianceAgentConfig) {}
+  private vatEngine: MaltaVATEngine;
+
+  constructor(private config: MaltaComplianceAgentConfig) {
+    this.vatEngine = new MaltaVATEngine({ organizationId: config.organizationId, userId: config.userId });
+  }
 
   async getFilingDeadlines(taxYear: number): Promise<FilingDeadline[]> {
     const baseYear = taxYear;
@@ -143,6 +149,45 @@ export class MaltaTaxComplianceAgent {
       'Penalty calculation and avoidance',
       'Extension request preparation',
       'Tax payment scheduling',
+      'VAT calculation (18%, 12%, 7%, 5%, 0% rates)',
+      'SME scheme eligibility (Article 11/11A/11B)',
+      'EU reverse charge detection',
     ];
+  }
+
+  // =========================================================================
+  // VAT ENGINE INTEGRATION
+  // =========================================================================
+
+  /**
+   * Calculate VAT for a transaction
+   */
+  calculateVAT(
+    netAmount: number,
+    rateType: MaltaVATRateType = 'standard',
+    options?: { customerVATNumber?: string; customerCountry?: string; isB2B?: boolean }
+  ): MaltaVATCalculation {
+    return this.vatEngine.calculateVAT(netAmount, rateType, options);
+  }
+
+  /**
+   * Check SME scheme eligibility
+   */
+  checkSMESchemeEligibility(domesticTurnover: number, euWideTurnover: number = 0): MaltaSMESchemeCheck {
+    return this.vatEngine.checkSMESchemeEligibility(domesticTurnover, euWideTurnover);
+  }
+
+  /**
+   * Check VAT registration requirements
+   */
+  checkVATRegistrationRequired(turnover: number, supplyType: 'goods' | 'services' = 'services') {
+    return this.vatEngine.checkRegistrationRequired(turnover, supplyType);
+  }
+
+  /**
+   * Get all available VAT rates
+   */
+  getVATRates() {
+    return this.vatEngine.getAllRates();
   }
 }

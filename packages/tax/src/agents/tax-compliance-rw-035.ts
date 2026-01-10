@@ -8,10 +8,13 @@
  */
 
 import type { TaxJurisdiction, FilingDeadline } from '../types';
+import { RwandaEBMService, type RwandaEBMServiceConfig } from '../services/rwanda-ebm-service.js';
+import type { RwandaVATCalculation, RwandaEBMInvoice, RwandaEBMInvoiceItem } from '../types/jurisdictions.js';
 
 export interface RwandaComplianceAgentConfig {
   organizationId: string;
   userId: string;
+  ebmSerialNumber?: string;
 }
 
 export interface RRAFilingTask {
@@ -27,11 +30,19 @@ export interface RRAFilingTask {
 export class RwandaTaxComplianceAgent {
   public readonly slug = 'tax-compliance-rw-035';
   public readonly name = 'Rwanda Tax Compliance & Filing Specialist';
-  public readonly version = '1.0.0';
+  public readonly version = '2.0.0';  // Upgraded with EBM Service
   public readonly category = 'tax';
   public readonly type = 'specialist';
 
-  constructor(private config: RwandaComplianceAgentConfig) {}
+  private ebmService: RwandaEBMService;
+
+  constructor(private config: RwandaComplianceAgentConfig) {
+    this.ebmService = new RwandaEBMService({
+      organizationId: config.organizationId,
+      userId: config.userId,
+      ebmSerialNumber: config.ebmSerialNumber,
+    });
+  }
 
   async getFilingDeadlines(taxYear: number): Promise<FilingDeadline[]> {
     const baseYear = taxYear;
@@ -162,6 +173,62 @@ export class RwandaTaxComplianceAgent {
       'Penalty calculation and avoidance',
       'TIN registration assistance',
       'EAC regional compliance considerations',
+      'EBM invoice creation and validation',
+      'VAT calculation (18% standard rate)',
+      'Digital Services Tax (1.5%)',
+      'Withholding tax calculations',
     ];
+  }
+
+  // =========================================================================
+  // EBM SERVICE INTEGRATION
+  // =========================================================================
+
+  /**
+   * Calculate VAT for a transaction
+   */
+  calculateVAT(netAmount: number): RwandaVATCalculation {
+    return this.ebmService.calculateVAT(netAmount);
+  }
+
+  /**
+   * Create and validate EBM invoice
+   */
+  createEBMInvoice(invoiceData: {
+    invoiceNumber: string;
+    taxpayerTIN: string;
+    customerName: string;
+    customerTIN?: string;
+    items: Omit<RwandaEBMInvoiceItem, 'vatAmount'>[];
+  }): RwandaEBMInvoice {
+    return this.ebmService.createEBMInvoice(invoiceData);
+  }
+
+  /**
+   * Validate EBM invoice format
+   */
+  validateEBMInvoice(invoice: RwandaEBMInvoice) {
+    return this.ebmService.validateEBMInvoice(invoice);
+  }
+
+  /**
+   * Check VAT registration requirements
+   */
+  checkVATRegistrationRequired(annualTurnover: number, quarterlyTurnover?: number) {
+    return this.ebmService.checkVATRegistrationRequired(annualTurnover, quarterlyTurnover);
+  }
+
+  /**
+   * Calculate Digital Services Tax (1.5%)
+   */
+  calculateDigitalServicesTax(grossRevenue: number) {
+    return this.ebmService.calculateDigitalServicesTax(grossRevenue);
+  }
+
+  /**
+   * Calculate withholding tax
+   */
+  calculateWithholdingTax(amount: number, type: 'services' | 'dividends' | 'rent') {
+    return this.ebmService.calculateWithholdingTax(amount, type);
   }
 }
