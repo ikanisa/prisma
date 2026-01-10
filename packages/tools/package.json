@@ -13,12 +13,9 @@
   },
   "dependencies": {
     "@prisma/core": "workspace:*",
-    "@prisma/types": "workspace:*",
-    "@prisma/logger": "workspace:*",
     "@supabase/supabase-js": "^2.39.0"
   },
   "devDependencies": {
     "typescript": "^5.9.3"
   }
 }
-
