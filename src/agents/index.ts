@@ -6,6 +6,7 @@
 export { accountantIfrsAgent } from './accountantIfrsAgent';
 export { taxRwandaAgent } from './taxRwandaAgent';
 export { taxMaltaAgent } from './taxMaltaAgent';
+export { taxCanadaAgent } from './taxCanadaAgent';
 export { auditIsaAgent } from './auditIsaAgent';
 
 export { deepSearchTool } from './tools/deepSearchTool';
@@ -18,6 +19,9 @@ export { deepSearchTool } from './tools/deepSearchTool';
  *
  * Tax Malta:
  *   category: TAX, jurisdiction: MT (fallback: EU, GLOBAL)
+ *
+ * Tax Canada:
+ *   category: TAX, jurisdiction: CA (fallback: GLOBAL)
  *
  * Audit ISA:
  *   category: ISA, jurisdiction: GLOBAL (also ETHICS for independence)

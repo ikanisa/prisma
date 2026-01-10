@@ -30,10 +30,22 @@
             "id": "tax-1",
             "phaseId": "data_collection",
             "title": "Gather EBM reports",
-            "description": "Collect EBM sales and purchase reports from RRA portal",
+            "description": "Collect EBM sales and purchase reports from RRA portal and confirm sync status",
             "assigneeRole": "STAFF",
             "estimatedHours": 2,
             "dependencies": []
+        },
+        {
+            "id": "tax-10",
+            "phaseId": "data_collection",
+            "title": "Mobile money reconciliation",
+            "description": "Reconcile MTN/Airtel/M-Pesa statements with EBM sales (if applicable)",
+            "assigneeRole": "STAFF",
+            "estimatedHours": 3,
+            "dependencies": [
+                "tax-1"
+            ],
+            "optional": true
         },
         {
             "id": "tax-2",
@@ -48,12 +60,36 @@
             "id": "tax-3",
             "phaseId": "computation",
             "title": "VAT return computation",
-            "description": "Calculate monthly/quarterly VAT return (18% standard rate)",
+            "description": "Calculate VAT return (18% standard rate) with EBM reconciliation and levy checks as applicable",
             "assigneeRole": "STAFF",
             "estimatedHours": 4,
             "dependencies": [
                 "tax-1"
             ]
+        },
+        {
+            "id": "tax-11",
+            "phaseId": "computation",
+            "title": "Digital services tax computation",
+            "description": "Calculate DST on gross revenue where applicable",
+            "assigneeRole": "STAFF",
+            "estimatedHours": 2,
+            "dependencies": [
+                "tax-3"
+            ],
+            "optional": true
+        },
+        {
+            "id": "tax-12",
+            "phaseId": "computation",
+            "title": "Tourism levy computation",
+            "description": "Compute accommodation/tourism levy where applicable",
+            "assigneeRole": "STAFF",
+            "estimatedHours": 2,
+            "dependencies": [
+                "tax-3"
+            ],
+            "optional": true
         },
         {
             "id": "tax-4",
@@ -81,7 +117,7 @@
             "id": "tax-6",
             "phaseId": "computation",
             "title": "Withholding tax reconciliation",
-            "description": "Reconcile WHT deducted on payments",
+            "description": "Reconcile WHT deducted on payments and required WHT certificates",
             "assigneeRole": "STAFF",
             "estimatedHours": 3,
             "dependencies": []
@@ -148,6 +184,34 @@
             "id": "doc-4",
             "docType": "contract",
             "description": "Contracts with WHT implications",
+            "required": false,
+            "phaseId": "computation"
+        },
+        {
+            "id": "doc-5",
+            "docType": "ebm_certificate",
+            "description": "EBM device registration certificate (if applicable)",
+            "required": false,
+            "phaseId": "data_collection"
+        },
+        {
+            "id": "doc-6",
+            "docType": "mobile_money_statements",
+            "description": "Mobile money statements (MTN/Airtel/M-Pesa) for reconciliation",
+            "required": false,
+            "phaseId": "data_collection"
+        },
+        {
+            "id": "doc-7",
+            "docType": "dst_contracts",
+            "description": "Digital services contracts/invoices (if applicable)",
+            "required": false,
+            "phaseId": "computation"
+        },
+        {
+            "id": "doc-8",
+            "docType": "tourism_ledger",
+            "description": "Accommodation/tourism revenue ledger (if applicable)",
             "required": false,
             "phaseId": "computation"
         }

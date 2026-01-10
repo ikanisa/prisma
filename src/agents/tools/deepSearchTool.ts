@@ -17,7 +17,7 @@ Results include content snippets plus source name and URL for citations.
 Categories:
 - IFRS: International Financial Reporting Standards
 - ISA: International Standards on Auditing
-- TAX: Tax laws and regulations (Rwanda, Malta, OECD)
+- TAX: Tax laws and regulations (Rwanda, Malta, Canada, OECD)
 - ETHICS: Professional ethics codes
 - CORP: Corporate law and governance
 - REG: Regulatory frameworks
@@ -29,6 +29,7 @@ Jurisdictions:
 - GLOBAL: International/universal standards
 - RW: Rwanda
 - MT: Malta
+- CA: Canada
 - EU, US, etc.
 `.trim(),
   parameters: z.object({

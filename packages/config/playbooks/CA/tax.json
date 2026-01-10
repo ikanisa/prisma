@@ -30,10 +30,22 @@
             "id": "tax-1",
             "phaseId": "data_collection",
             "title": "Gather accounting records",
-            "description": "Collect trial balance and T-slips",
+            "description": "Collect trial balance, T-slips, and sales by province where applicable",
             "assigneeRole": "STAFF",
             "estimatedHours": 2,
             "dependencies": []
+        },
+        {
+            "id": "tax-8",
+            "phaseId": "data_collection",
+            "title": "Provincial nexus assessment",
+            "description": "Assess GST/HST/PST/QST nexus by province and confirm registrations",
+            "assigneeRole": "STAFF",
+            "estimatedHours": 2,
+            "dependencies": [
+                "tax-1"
+            ],
+            "optional": true
         },
         {
             "id": "tax-2",
@@ -50,12 +62,36 @@
             "id": "tax-3",
             "phaseId": "computation",
             "title": "GST/HST return",
-            "description": "Prepare GST/HST return for CRA",
+            "description": "Prepare GST/HST return for CRA, validate provincial treatment, and document ITCs",
             "assigneeRole": "STAFF",
             "estimatedHours": 4,
             "dependencies": [
                 "tax-1"
             ]
+        },
+        {
+            "id": "tax-9",
+            "phaseId": "computation",
+            "title": "ITC documentation review",
+            "description": "Validate ITC eligibility and supporting documentation",
+            "assigneeRole": "STAFF",
+            "estimatedHours": 3,
+            "dependencies": [
+                "tax-3"
+            ],
+            "optional": true
+        },
+        {
+            "id": "tax-10",
+            "phaseId": "computation",
+            "title": "Aboriginal exemption review",
+            "description": "Review GST/HST exemptions for Indigenous/Aboriginal transactions where applicable",
+            "assigneeRole": "STAFF",
+            "estimatedHours": 2,
+            "dependencies": [
+                "tax-3"
+            ],
+            "optional": true
         },
         {
             "id": "tax-4",
@@ -124,6 +160,27 @@
             "docType": "financial_statement",
             "description": "Year-end financial statements",
             "required": true,
+            "phaseId": "data_collection"
+        },
+        {
+            "id": "doc-4",
+            "docType": "sales_by_province",
+            "description": "Sales by province/territory (for GST/HST/PST/QST assessment)",
+            "required": false,
+            "phaseId": "data_collection"
+        },
+        {
+            "id": "doc-5",
+            "docType": "itc_supporting_docs",
+            "description": "Supporting invoices for ITC claims (if applicable)",
+            "required": false,
+            "phaseId": "data_collection"
+        },
+        {
+            "id": "doc-6",
+            "docType": "provincial_registrations",
+            "description": "Provincial registration details (PST/QST/HST as applicable)",
+            "required": false,
             "phaseId": "data_collection"
         }
     ],

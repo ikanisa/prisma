@@ -30,10 +30,34 @@
             "id": "tax-1",
             "phaseId": "data_collection",
             "title": "Gather accounting records",
-            "description": "Collect trial balance and workings",
+            "description": "Collect trial balance, workings, and EU sales/trade data where applicable",
             "assigneeRole": "STAFF",
             "estimatedHours": 2,
             "dependencies": []
+        },
+        {
+            "id": "tax-8",
+            "phaseId": "data_collection",
+            "title": "Collect EU cross-border sales data",
+            "description": "Gather EU B2C/B2B sales for OSS/IOSS assessment",
+            "assigneeRole": "STAFF",
+            "estimatedHours": 2,
+            "dependencies": [
+                "tax-1"
+            ],
+            "optional": true
+        },
+        {
+            "id": "tax-9",
+            "phaseId": "data_collection",
+            "title": "Collect Intrastat trade data",
+            "description": "Compile EU arrivals/dispatches for Intrastat",
+            "assigneeRole": "STAFF",
+            "estimatedHours": 2,
+            "dependencies": [
+                "tax-1"
+            ],
+            "optional": true
         },
         {
             "id": "tax-2",
@@ -61,12 +85,48 @@
             "id": "tax-4",
             "phaseId": "computation",
             "title": "VAT return computation",
-            "description": "Prepare VAT return at 18%",
+            "description": "Prepare VAT return at 18%, including OSS/IOSS and SME scheme checks where applicable",
             "assigneeRole": "STAFF",
             "estimatedHours": 4,
             "dependencies": [
                 "tax-1"
             ]
+        },
+        {
+            "id": "tax-10",
+            "phaseId": "computation",
+            "title": "SME scheme eligibility check",
+            "description": "Assess Article 10/11/11A/11B thresholds and VAT registration status",
+            "assigneeRole": "STAFF",
+            "estimatedHours": 2,
+            "dependencies": [
+                "tax-1"
+            ],
+            "optional": true
+        },
+        {
+            "id": "tax-11",
+            "phaseId": "computation",
+            "title": "OSS/IOSS return draft",
+            "description": "Prepare OSS/IOSS VAT draft based on EU sales data",
+            "assigneeRole": "STAFF",
+            "estimatedHours": 3,
+            "dependencies": [
+                "tax-8"
+            ],
+            "optional": true
+        },
+        {
+            "id": "tax-12",
+            "phaseId": "computation",
+            "title": "Intrastat declaration draft",
+            "description": "Prepare Intrastat declarations for EU trade",
+            "assigneeRole": "STAFF",
+            "estimatedHours": 3,
+            "dependencies": [
+                "tax-9"
+            ],
+            "optional": true
         },
         {
             "id": "tax-5",
@@ -91,6 +151,32 @@
                 "tax-4",
                 "tax-5"
             ]
+        },
+        {
+            "id": "tax-13",
+            "phaseId": "filing",
+            "title": "OSS/IOSS submission",
+            "description": "Submit OSS/IOSS returns where required",
+            "assigneeRole": "MANAGER",
+            "estimatedHours": 2,
+            "dependencies": [
+                "tax-6",
+                "tax-11"
+            ],
+            "optional": true
+        },
+        {
+            "id": "tax-14",
+            "phaseId": "filing",
+            "title": "Intrastat submission",
+            "description": "Submit Intrastat declarations",
+            "assigneeRole": "MANAGER",
+            "estimatedHours": 2,
+            "dependencies": [
+                "tax-6",
+                "tax-12"
+            ],
+            "optional": true
         },
         {
             "id": "tax-7",
@@ -125,6 +211,27 @@
             "description": "Shareholder register for refund claims",
             "required": true,
             "phaseId": "computation"
+        },
+        {
+            "id": "doc-4",
+            "docType": "eu_sales_ledger",
+            "description": "EU cross-border sales ledger for OSS/IOSS (if applicable)",
+            "required": false,
+            "phaseId": "data_collection"
+        },
+        {
+            "id": "doc-5",
+            "docType": "intrastat_trade_data",
+            "description": "EU arrivals/dispatches data for Intrastat (if applicable)",
+            "required": false,
+            "phaseId": "data_collection"
+        },
+        {
+            "id": "doc-6",
+            "docType": "vat_registration_certificate",
+            "description": "CFR VAT registration certificate (if applicable)",
+            "required": false,
+            "phaseId": "data_collection"
         }
     ],
     "mandatoryWorkpapers": [

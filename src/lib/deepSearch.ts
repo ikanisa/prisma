@@ -34,7 +34,7 @@ export type DeepSearchParams = {
 /**
  * Semantic search over curated knowledge base
  * Uses text-embedding-3-large for query encoding
- * Filters by category (IFRS, TAX, etc.) and jurisdiction (RW, MT, GLOBAL)
+ * Filters by category (IFRS, TAX, etc.) and jurisdiction (RW, MT, CA, GLOBAL)
  */
 export async function deepSearch(params: DeepSearchParams): Promise<DeepSearchResult[]> {
   const { query, matchCount = 10, category = null, jurisdictionCode = null } = params;
@@ -74,6 +74,9 @@ export const deepSearchPresets = {
 
   taxMalta: (query: string, matchCount = 10) =>
     deepSearch({ query, category: 'TAX', jurisdictionCode: 'MT', matchCount }),
+
+  taxCanada: (query: string, matchCount = 10) =>
+    deepSearch({ query, category: 'TAX', jurisdictionCode: 'CA', matchCount }),
 
   isa: (query: string, matchCount = 10) =>
     deepSearch({ query, category: 'ISA', jurisdictionCode: 'GLOBAL', matchCount }),

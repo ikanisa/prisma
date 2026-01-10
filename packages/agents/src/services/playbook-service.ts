@@ -168,15 +168,16 @@ export class PlaybookService {
         const tasks: GeneratedTask[] = [];
 
         for (const template of playbook.taskTemplates) {
-            // Skip optional tasks if requested
-            // (All tasks in our playbooks are required for now)
+            if (skipOptional && template.optional) {
+                continue;
+            }
 
             tasks.push({
                 id: crypto.randomUUID(),
                 templateKey: template.id,
                 title: template.title,
                 description: template.description,
-                phase: template.phase as EngagementPhase,
+                phase: template.phaseId as EngagementPhase,
                 assignedRole: template.assigneeRole,
                 estimatedHours: template.estimatedHours,
                 dependencies: template.dependencies,

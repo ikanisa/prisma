@@ -28,6 +28,7 @@ export interface TaskTemplate {
     assigneeRole: 'STAFF' | 'MANAGER' | 'PARTNER';
     estimatedHours: number;
     dependencies: string[];
+    optional?: boolean;
 }
 
 export interface DocRequestTemplate {

@@ -1,0 +1,432 @@
+version: 1
+
+agents:
+  - id: tax-compliance-mt-034
+    category: tax
+    name: Malta Tax Compliance Agent
+    description: Handles Malta corporate and VAT compliance, filing readiness, and CFR guidance.
+    jurisdictions: [MT]
+    standards:
+      tax_laws: [MT-CIT, MT-VAT]
+      frameworks: [EU-Directives]
+    kb_scopes: [tax:mt:compliance, tax:mt:vat]
+    tools: [deep_search_kb]
+    engine_preferences:
+      primary: openai
+      fallback: gemini
+    routing_tags: [malta, compliance, returns]
+
+  - id: tax-compliance-rw-035
+    category: tax
+    name: Rwanda Tax Compliance Agent
+    description: Supports Rwanda VAT, PAYE, and CIT compliance with RRA guidance.
+    jurisdictions: [RW]
+    standards:
+      tax_laws: [RW-VAT, RW-CIT]
+      frameworks: [EAC]
+    kb_scopes: [tax:rw:compliance, tax:rw:vat]
+    tools: [deep_search_kb]
+    engine_preferences:
+      primary: openai
+      fallback: gemini
+    routing_tags: [rwanda, compliance, returns]
+
+  - id: tax-payroll-mt-036
+    category: tax
+    name: Malta Payroll & Social Security Agent
+    description: Provides Malta PAYE and social security guidance.
+    jurisdictions: [MT]
+    standards:
+      tax_laws: [MT-PAYE]
+    kb_scopes: [tax:mt:payroll]
+    tools: [deep_search_kb]
+    engine_preferences:
+      primary: openai
+      fallback: gemini
+    routing_tags: [malta, payroll, paye]
+
+  - id: tax-payroll-rw-037
+    category: tax
+    name: Rwanda Payroll & Social Security Agent
+    description: Provides Rwanda PAYE and RSSB guidance.
+    jurisdictions: [RW]
+    standards:
+      tax_laws: [RW-PAYE]
+    kb_scopes: [tax:rw:payroll]
+    tools: [deep_search_kb]
+    engine_preferences:
+      primary: openai
+      fallback: gemini
+    routing_tags: [rwanda, payroll, paye]
+
+  - id: tax-wht-xborder-038
+    category: tax
+    name: Withholding Tax & Cross-Border Agent
+    description: Handles withholding tax and treaty considerations for cross-border payments.
+    jurisdictions: [GLOBAL]
+    standards:
+      tax_laws: [WHT]
+      frameworks: [OECD]
+    kb_scopes: [tax:wht, tax:treaty]
+    tools: [deep_search_kb]
+    engine_preferences:
+      primary: openai
+      fallback: gemini
+    routing_tags: [withholding, treaty, cross-border]
+
+  - id: tax-excise-customs-039
+    category: tax
+    name: Excise & Customs Agent
+    description: Advises on excise duties and customs procedures.
+    jurisdictions: [GLOBAL]
+    standards:
+      tax_laws: [EXCISE]
+    kb_scopes: [tax:excise, tax:customs]
+    tools: [deep_search_kb]
+    engine_preferences:
+      primary: openai
+      fallback: gemini
+    routing_tags: [excise, customs]
+
+  - id: tax-incentives-040
+    category: tax
+    name: Tax Incentives & Investment Agent
+    description: Covers tax incentives, grants, and investment regimes.
+    jurisdictions: [GLOBAL]
+    standards:
+      tax_laws: [INCENTIVES]
+    kb_scopes: [tax:incentives]
+    tools: [deep_search_kb]
+    engine_preferences:
+      primary: openai
+      fallback: gemini
+    routing_tags: [incentives, investment]
+
+  - id: tax-risk-governance-041
+    category: tax
+    name: Tax Risk & Governance Agent
+    description: Supports tax control frameworks and governance documentation.
+    jurisdictions: [GLOBAL]
+    standards:
+      frameworks: [OECD]
+    kb_scopes: [tax:governance, tax:controls]
+    tools: [deep_search_kb]
+    engine_preferences:
+      primary: openai
+      fallback: gemini
+    routing_tags: [risk, governance]
+
+  - id: audit-materiality-050
+    category: audit
+    name: Materiality & Sampling Agent
+    description: Sets audit materiality and sampling approaches under ISA 320 and ISA 530.
+    jurisdictions: [GLOBAL]
+    standards:
+      isa: [ISA-320, ISA-530]
+    kb_scopes: [audit:materiality, audit:sampling]
+    tools: [deep_search_kb]
+    engine_preferences:
+      primary: openai
+      fallback: gemini
+    routing_tags: [materiality, sampling]
+
+  - id: audit-documentation-051
+    category: audit
+    name: Audit Documentation Agent
+    description: Provides audit documentation guidance under ISA 230.
+    jurisdictions: [GLOBAL]
+    standards:
+      isa: [ISA-230]
+    kb_scopes: [audit:documentation]
+    tools: [deep_search_kb]
+    engine_preferences:
+      primary: openai
+      fallback: gemini
+    routing_tags: [documentation, workpapers]
+
+  - id: audit-independence-052
+    category: audit
+    name: Independence & Ethics Agent
+    description: Covers independence requirements and ethics codes.
+    jurisdictions: [GLOBAL]
+    standards:
+      ethics: [IESBA]
+    kb_scopes: [audit:independence, ethics:iesba]
+    tools: [deep_search_kb]
+    engine_preferences:
+      primary: openai
+      fallback: gemini
+    routing_tags: [independence, ethics]
+
+  - id: audit-it-systems-053
+    category: audit
+    name: IT & Systems Audit Agent
+    description: Provides guidance on IT controls and systems audit procedures.
+    jurisdictions: [GLOBAL]
+    standards:
+      frameworks: [COSO]
+    kb_scopes: [audit:it-controls]
+    tools: [deep_search_kb]
+    engine_preferences:
+      primary: openai
+      fallback: gemini
+    routing_tags: [it, controls]
+
+  - id: audit-internal-054
+    category: audit
+    name: Internal Audit & Compliance Agent
+    description: Supports internal audit planning and compliance testing.
+    jurisdictions: [GLOBAL]
+    standards:
+      frameworks: [COSO]
+    kb_scopes: [audit:internal]
+    tools: [deep_search_kb]
+    engine_preferences:
+      primary: openai
+      fallback: gemini
+    routing_tags: [internal, compliance]
+
+  - id: audit-esg-055
+    category: audit
+    name: ESG & Sustainability Assurance Agent
+    description: Provides ESG assurance and sustainability reporting guidance.
+    jurisdictions: [GLOBAL]
+    standards:
+      frameworks: [ISSB]
+    kb_scopes: [audit:esg]
+    tools: [deep_search_kb]
+    engine_preferences:
+      primary: openai
+      fallback: gemini
+    routing_tags: [esg, sustainability]
+
+  - id: audit-forensic-056
+    category: audit
+    name: Forensic & Investigations Agent
+    description: Supports forensic procedures and investigations.
+    jurisdictions: [GLOBAL]
+    standards:
+      frameworks: [ACFE]
+    kb_scopes: [audit:forensic]
+    tools: [deep_search_kb]
+    engine_preferences:
+      primary: openai
+      fallback: gemini
+    routing_tags: [forensic, investigations]
+
+  - id: audit-public-sector-057
+    category: audit
+    name: Public Sector Audit Agent
+    description: Covers public sector audit standards and practices.
+    jurisdictions: [GLOBAL]
+    standards:
+      frameworks: [INTOSAI]
+    kb_scopes: [audit:public-sector]
+    tools: [deep_search_kb]
+    engine_preferences:
+      primary: openai
+      fallback: gemini
+    routing_tags: [public-sector, audit]
+
+  - id: acct-fininst-001
+    category: accounting
+    name: Financial Instruments Agent
+    description: Provides IFRS 9 and ASC 815 guidance on financial instruments.
+    jurisdictions: [GLOBAL]
+    standards:
+      ifrs: [IFRS-9]
+      us_gaap: [ASC-815]
+    kb_scopes: [accounting:financial-instruments]
+    tools: [deep_search_kb]
+    engine_preferences:
+      primary: openai
+      fallback: gemini
+    routing_tags: [financial-instruments, ifrs9]
+
+  - id: acct-tax-001
+    category: accounting
+    name: Income Taxes Accounting Agent
+    description: Covers IAS 12 and ASC 740 for income tax accounting.
+    jurisdictions: [GLOBAL]
+    standards:
+      ifrs: [IAS-12]
+      us_gaap: [ASC-740]
+    kb_scopes: [accounting:income-taxes]
+    tools: [deep_search_kb]
+    engine_preferences:
+      primary: openai
+      fallback: gemini
+    routing_tags: [income-taxes, deferred-tax]
+
+  - id: acct-emp-001
+    category: accounting
+    name: Employee Benefits Agent
+    description: Covers IAS 19 and ASC 715 for employee benefits.
+    jurisdictions: [GLOBAL]
+    standards:
+      ifrs: [IAS-19]
+      us_gaap: [ASC-715]
+    kb_scopes: [accounting:employee-benefits]
+    tools: [deep_search_kb]
+    engine_preferences:
+      primary: openai
+      fallback: gemini
+    routing_tags: [benefits, pensions]
+
+  - id: acct-prov-001
+    category: accounting
+    name: Provisions & Contingencies Agent
+    description: Covers IAS 37 and ASC 450 for provisions and contingencies.
+    jurisdictions: [GLOBAL]
+    standards:
+      ifrs: [IAS-37]
+      us_gaap: [ASC-450]
+    kb_scopes: [accounting:provisions]
+    tools: [deep_search_kb]
+    engine_preferences:
+      primary: openai
+      fallback: gemini
+    routing_tags: [provisions, contingencies]
+
+  - id: acct-impair-001
+    category: accounting
+    name: Impairment & Fair Value Agent
+    description: Covers IAS 36 and ASC 360 for impairment and fair value guidance.
+    jurisdictions: [GLOBAL]
+    standards:
+      ifrs: [IAS-36]
+      us_gaap: [ASC-360]
+    kb_scopes: [accounting:impairment]
+    tools: [deep_search_kb]
+    engine_preferences:
+      primary: openai
+      fallback: gemini
+    routing_tags: [impairment, fair-value]
+
+  - id: acct-fx-001
+    category: accounting
+    name: FX & Hyperinflation Agent
+    description: Covers IAS 21 and ASC 830 for foreign exchange and hyperinflation.
+    jurisdictions: [GLOBAL]
+    standards:
+      ifrs: [IAS-21]
+      us_gaap: [ASC-830]
+    kb_scopes: [accounting:fx]
+    tools: [deep_search_kb]
+    engine_preferences:
+      primary: openai
+      fallback: gemini
+    routing_tags: [fx, hyperinflation]
+
+  - id: acct-sbp-001
+    category: accounting
+    name: Share-based Payments Agent
+    description: Covers IFRS 2 and ASC 718 for share-based payments.
+    jurisdictions: [GLOBAL]
+    standards:
+      ifrs: [IFRS-2]
+      us_gaap: [ASC-718]
+    kb_scopes: [accounting:share-based-payments]
+    tools: [deep_search_kb]
+    engine_preferences:
+      primary: openai
+      fallback: gemini
+    routing_tags: [share-based-payments]
+
+  - id: acct-agri-001
+    category: accounting
+    name: Agriculture & Biological Assets Agent
+    description: Covers IAS 41 for agriculture and biological assets.
+    jurisdictions: [GLOBAL]
+    standards:
+      ifrs: [IAS-41]
+    kb_scopes: [accounting:agriculture]
+    tools: [deep_search_kb]
+    engine_preferences:
+      primary: openai
+      fallback: gemini
+    routing_tags: [agriculture, biological-assets]
+
+  - id: corp-kyc-040
+    category: corporate
+    name: KYC / AML & Beneficial Ownership Agent
+    description: Supports KYC, AML, and beneficial ownership compliance.
+    jurisdictions: [GLOBAL]
+    standards:
+      aml: [FATF]
+    kb_scopes: [corp:kyc, corp:aml]
+    tools: [deep_search_kb]
+    engine_preferences:
+      primary: openai
+      fallback: gemini
+    routing_tags: [kyc, aml]
+
+  - id: corp-board-041
+    category: corporate
+    name: Board Meetings & Minutes Agent
+    description: Guides board meeting minutes and corporate governance documentation.
+    jurisdictions: [GLOBAL]
+    standards:
+      corp: [Governance]
+    kb_scopes: [corp:board, corp:minutes]
+    tools: [deep_search_kb]
+    engine_preferences:
+      primary: openai
+      fallback: gemini
+    routing_tags: [board, minutes]
+
+  - id: corp-lic-042
+    category: corporate
+    name: Licensing & Regulatory Filings Agent
+    description: Supports licensing and regulatory filings.
+    jurisdictions: [GLOBAL]
+    standards:
+      reg: [Licensing]
+    kb_scopes: [corp:licensing]
+    tools: [deep_search_kb]
+    engine_preferences:
+      primary: openai
+      fallback: gemini
+    routing_tags: [licensing, regulatory]
+
+  - id: corp-share-043
+    category: corporate
+    name: Share Capital & Corporate Actions Agent
+    description: Guides share capital changes and corporate actions.
+    jurisdictions: [GLOBAL]
+    standards:
+      corp: [Share-Capital]
+    kb_scopes: [corp:share-capital]
+    tools: [deep_search_kb]
+    engine_preferences:
+      primary: openai
+      fallback: gemini
+    routing_tags: [shares, capital]
+
+  - id: corp-hr-044
+    category: corporate
+    name: HR & Payroll Corporate Services Agent
+    description: Supports HR and payroll corporate services workflows.
+    jurisdictions: [GLOBAL]
+    standards:
+      corp: [HR]
+    kb_scopes: [corp:hr, corp:payroll]
+    tools: [deep_search_kb]
+    engine_preferences:
+      primary: openai
+      fallback: gemini
+    routing_tags: [hr, payroll]
+
+  - id: corp-migration-045
+    category: corporate
+    name: Entity Migration & Cross-border Agent
+    description: Supports entity migrations and cross-border restructuring.
+    jurisdictions: [GLOBAL]
+    standards:
+      corp: [Migration]
+    kb_scopes: [corp:migration]
+    tools: [deep_search_kb]
+    engine_preferences:
+      primary: openai
+      fallback: gemini
+    routing_tags: [migration, cross-border]

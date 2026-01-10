@@ -3099,6 +3099,111 @@ async function safeSupabaseSelect<T>(options: {
   return { data: (result.data ?? options.fallback) as T, count: result.count ?? null };
 }
 
+const CLIENT_ALLOWED_REPOS = ['02_Tax/PBC', '03_Accounting/PBC', '05_Payroll/PBC'];
+
+type DocumentExtractionSummary = {
+  status?: string | null;
+  fields: Record<string, unknown>;
+  confidence?: number | null;
+  provenance?: Array<Record<string, unknown>>;
+  extractorName?: string | null;
+  updated_at?: string | null;
+  documentType?: string | null;
+  summary?: string | null;
+};
+
+const tableColumnCache = new Map<string, Set<string>>();
+
+function isClientRole(role: AgentRole) {
+  return role === 'CLIENT' || role === 'READONLY';
+}
+
+function isMissingColumnError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+  const record = error as Record<string, unknown>;
+  const code = typeof record.code === 'string' ? record.code : '';
+  const message = typeof record.message === 'string' ? record.message : '';
+  if (code === '42703' || code === 'PGRST204') {
+    return true;
+  }
+  const lowerMessage = message.toLowerCase();
+  return lowerMessage.includes('column') && lowerMessage.includes('does not exist');
+}
+
+async function loadTableColumns(table: string): Promise<Set<string>> {
+  const cached = tableColumnCache.get(table);
+  if (cached) {
+    return cached;
+  }
+  try {
+    const { rows } = await db.query(
+      `SELECT column_name
+         FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = $1`,
+      [table],
+    );
+    const columns = new Set(rows.map((row: { column_name: string }) => row.column_name));
+    tableColumnCache.set(table, columns);
+    return columns;
+  } catch (error) {
+    logError('db.column_lookup_failed', error, { table });
+    const fallback = new Set<string>();
+    tableColumnCache.set(table, fallback);
+    return fallback;
+  }
+}
+
+function filterPayloadWithColumns(columns: Set<string>, payload: Record<string, unknown>): Record<string, unknown> {
+  if (columns.size === 0) {
+    return payload;
+  }
+  const filtered: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(payload)) {
+    if (columns.has(key)) {
+      filtered[key] = value;
+    }
+  }
+  return filtered;
+}
+
+async function filterPayloadForTable(table: string, payload: Record<string, unknown>): Promise<Record<string, unknown>> {
+  if (!payload || Object.keys(payload).length === 0) {
+    return {};
+  }
+  const columns = await loadTableColumns(table);
+  return filterPayloadWithColumns(columns, payload);
+}
+
+function normalizeExtractionFields(raw: unknown): Record<string, unknown> {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    return {};
+  }
+  return raw as Record<string, unknown>;
+}
+
+function normalizeExtractionProvenance(raw: unknown): Array<Record<string, unknown>> | undefined {
+  if (!Array.isArray(raw)) {
+    return undefined;
+  }
+  return raw.filter((entry) => entry && typeof entry === 'object') as Array<Record<string, unknown>>;
+}
+
+function mapDocumentExtractionSummary(row: Record<string, unknown>): DocumentExtractionSummary {
+  return {
+    status: typeof row.status === 'string' ? row.status : null,
+    fields: normalizeExtractionFields(row.fields),
+    confidence: typeof row.confidence === 'number' ? row.confidence : null,
+    provenance: normalizeExtractionProvenance(row.provenance),
+    extractorName: typeof row.extractor_name === 'string' ? row.extractor_name : null,
+    updated_at: typeof row.updated_at === 'string' ? row.updated_at : null,
+    documentType: typeof row.document_type === 'string' ? row.document_type : null,
+    summary: typeof row.summary === 'string' ? row.summary : null,
+  };
+}
+
 type NonAuditService = {
   service: string;
   prohibited: boolean;
