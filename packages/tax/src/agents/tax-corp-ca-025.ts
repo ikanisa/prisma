@@ -5,12 +5,14 @@
  * compliance, planning, and advisory services.
  * 
  * Jurisdiction Coverage: Federal + all provinces/territories
- * Expertise: Income Tax Act (ITA), provincial taxes, SR&ED, tax treaties
+ * Expertise: Income Tax Act (ITA), provincial taxes, SR&ED, tax treaties, GST/HST
  * 
  * @module tax-corp-ca-025
  */
 
 import type { TaxJurisdiction, TaxRate, ComplianceCheck, FilingDeadline } from '../types';
+import { CanadaGSTEngine, type CanadaGSTEngineConfig } from '../services/canada-gst-engine.js';
+import type { CanadaGSTHSTCalculation, CanadianProvince, CanadaITC, CanadaNexusStatus } from '../types/jurisdictions.js';
 
 export interface CanadianCorporateTaxAgentConfig {
   organizationId: string;
@@ -46,23 +48,25 @@ export interface CanadianTaxResponse {
  * - Capital Cost Allowance (CCA)
  * - Foreign tax credits
  * - Tax treaties
- * - GST/HST compliance
+ * - GST/HST compliance (all 13 provinces)
  */
 export class CanadianCorporateTaxAgent {
   private config: CanadianCorporateTaxAgentConfig;
-  
+  private gstEngine: CanadaGSTEngine;
+
   public readonly slug = 'tax-corp-ca-025';
   public readonly name = 'Canadian Corporate Tax Specialist';
-  public readonly version = '1.0.0';
+  public readonly version = '2.0.0';  // Upgraded with GST/HST engine
   public readonly category = 'tax';
   public readonly type = 'specialist';
 
-  private readonly provinces = [
+  private readonly provinces: CanadianProvince[] = [
     'AB', 'BC', 'MB', 'NB', 'NL', 'NS', 'NT', 'NU', 'ON', 'PE', 'QC', 'SK', 'YT'
   ];
 
   constructor(config: CanadianCorporateTaxAgentConfig) {
     this.config = config;
+    this.gstEngine = new CanadaGSTEngine({ organizationId: config.organizationId, userId: config.userId });
   }
 
   async execute(query: CanadianTaxQuery): Promise<CanadianTaxResponse> {
@@ -97,7 +101,7 @@ export class CanadianCorporateTaxAgent {
       'NS': 2.5, 'ON': 3.2, 'PE': 3, 'QC': 3.2, 'SK': 0
     };
 
-    const rate = isCCPC 
+    const rate = isCCPC
       ? ccpcSmallBusinessRates[jurisdiction.code] || 9
       : provincialRates[jurisdiction.code] || 15;
 
@@ -113,7 +117,7 @@ export class CanadianCorporateTaxAgent {
   private buildSystemPrompt(query: CanadianTaxQuery): string {
     const year = query.taxYear || new Date().getFullYear();
     const ccpc = query.ccpcStatus ? 'CCPC' : 'non-CCPC';
-    
+
     return `You are an expert Canadian Corporate Tax Specialist with deep knowledge of:
 
 1. Federal Corporate Income Tax (ITA)
@@ -166,13 +170,13 @@ Always cite specific ITA sections and CRA guidance.`;
 
   private generateWarnings(query: CanadianTaxQuery): string[] {
     const warnings: string[] = [];
-    
+
     if (!query.ccpcStatus) {
       warnings.push('CCPC status not specified - assuming non-CCPC for tax rate purposes.');
     }
-    
+
     warnings.push('File T2 return within 6 months of fiscal year-end.');
-    
+
     return warnings;
   }
 
@@ -186,7 +190,12 @@ Always cite specific ITA sections and CRA guidance.`;
       'Foreign tax credits',
       'Transfer pricing',
       'Tax treaty application',
-      'GST/HST compliance'
+      'GST/HST compliance (all 13 provinces)',
+      'HST calculation (ON, NS, NB, NL, PE)',
+      'GST+PST calculation (BC, SK, MB)',
+      'GST+QST calculation (Quebec)',
+      'Input Tax Credit optimization',
+      'Multi-province nexus monitoring',
     ];
   }
 
@@ -210,5 +219,71 @@ Always cite specific ITA sections and CRA guidance.`;
       'SK': 'Saskatchewan', 'YT': 'Yukon'
     };
     return names[code] || code;
+  }
+
+  // =========================================================================
+  // GST/HST ENGINE INTEGRATION
+  // =========================================================================
+
+  /**
+   * Calculate GST/HST/PST for a transaction in any province
+   */
+  calculateGSTHST(
+    netAmount: number,
+    province: CanadianProvince,
+    options?: { supplyType?: 'taxable' | 'zero_rated' | 'exempt'; indigenousExempt?: boolean }
+  ): CanadaGSTHSTCalculation {
+    return this.gstEngine.calculateTax(netAmount, province, options);
+  }
+
+  /**
+   * Calculate Input Tax Credits for expenses
+   */
+  calculateITC(
+    expenses: { amount: number; gstHstPaid: number; documentation: 'complete' | 'incomplete' | 'missing' }[],
+    claimPeriod: string
+  ): CanadaITC {
+    return this.gstEngine.calculateITC(expenses, claimPeriod);
+  }
+
+  /**
+   * Check nexus status across provinces
+   */
+  checkNexusStatus(
+    physicalPresenceProvinces: CanadianProvince[],
+    revenueByProvince: Partial<Record<CanadianProvince, number>>
+  ): CanadaNexusStatus {
+    return this.gstEngine.checkNexusStatus(
+      physicalPresenceProvinces,
+      revenueByProvince as Record<CanadianProvince, number>
+    );
+  }
+
+  /**
+   * Check GST/HST registration requirements
+   */
+  checkGSTRegistrationRequired(trailing4QuarterRevenue: number) {
+    return this.gstEngine.checkRegistrationRequired(trailing4QuarterRevenue);
+  }
+
+  /**
+   * Get filing frequency based on annual revenue
+   */
+  getGSTFilingFrequency(annualRevenue: number): 'annual' | 'quarterly' | 'monthly' {
+    return this.gstEngine.getFilingFrequency(annualRevenue);
+  }
+
+  /**
+   * Get provincial rates for a specific province
+   */
+  getProvincialGSTRates(province: CanadianProvince) {
+    return this.gstEngine.getProvincialRates(province);
+  }
+
+  /**
+   * Get all provincial GST/HST rates
+   */
+  getAllProvincialRates() {
+    return this.gstEngine.getAllProvincialRates();
   }
 }
