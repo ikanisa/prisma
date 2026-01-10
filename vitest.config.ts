@@ -244,6 +244,10 @@ export default defineConfig({
       'apps/web/**/*.{test,spec}.{js,ts,jsx,tsx}',
       'packages/lib/src/**/*.{test,spec}.{js,ts}',
       'packages/platform/src/**/*.{test,spec}.{js,ts}',
+      'packages/tax/src/**/*.{test,spec}.{js,ts}',
+      'packages/audit/src/**/*.{test,spec}.{js,ts}',
+      'packages/agents/src/**/*.{test,spec}.{js,ts}',
+      'packages/core/src/**/*.{test,spec}.{js,ts}',
       'services/**/*.{test,spec}.{js,ts}',
       'tests/**/*.{test,spec}.{js,ts,jsx,tsx}',
     ],
@@ -371,6 +375,18 @@ export default defineConfig({
       {
         find: '@prisma/config/env/security',
         replacement: path.resolve(__dirname, './config/env/security.ts'),
+      },
+      {
+        find: '@prisma/tax',
+        replacement: path.resolve(__dirname, './packages/tax/src/index.ts'),
+      },
+      {
+        find: '@prisma/audit-agents',
+        replacement: path.resolve(__dirname, './packages/audit/src/index.ts'),
+      },
+      {
+        find: '@prisma/core',
+        replacement: path.resolve(__dirname, './packages/core/src/index.ts'),
       },
     ],
   },

@@ -66,7 +66,8 @@ describe('MaltaVATEngine', () => {
         it('should detect exceeded domestic threshold', () => {
             const result = engine.checkSMESchemeEligibility(40000, 0);
             expect(result.article11Eligible).toBe(false);
-            expect(result.nextAction).toBe('REGISTER_ARTICLE_10');
+            // When domestic exceeded but EU not exceeded, EU SME scheme may apply
+            expect(result.nextAction).toBe('REGISTER_ARTICLE_11A');
         });
     });
 });
