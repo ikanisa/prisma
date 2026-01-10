@@ -93,3 +93,6 @@ export * from './nexus.js';
 
 // Transfer pricing types
 export * from './transfer-pricing.js';
+
+// Multi-jurisdiction types (Malta, Canada, Rwanda)
+export * from './jurisdictions.js';

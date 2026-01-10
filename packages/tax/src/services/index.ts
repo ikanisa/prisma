@@ -40,3 +40,30 @@ export {
     type SubmissionResult,
     type FilingCalendarEntry,
 } from './tax-filing-automation.js';
+
+// Malta VAT Engine
+export {
+    MaltaVATEngine,
+    createMaltaVATEngine,
+    MALTA_VAT_RATES,
+    type MaltaVATEngineConfig,
+} from './malta-vat-engine.js';
+
+// Canada GST/HST Engine
+export {
+    CanadaGSTEngine,
+    createCanadaGSTEngine,
+    CANADA_PROVINCIAL_RATES,
+    HST_PROVINCES,
+    PST_PROVINCES,
+    GST_ONLY_PROVINCES,
+    type CanadaGSTEngineConfig,
+} from './canada-gst-engine.js';
+
+// Rwanda EBM Service
+export {
+    RwandaEBMService,
+    createRwandaEBMService,
+    RWANDA_TAX_RATES,
+    type RwandaEBMServiceConfig,
+} from './rwanda-ebm-service.js';
