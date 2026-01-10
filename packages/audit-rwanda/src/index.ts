@@ -47,6 +47,25 @@ export {
     type GoingConcernResult,
 } from './agents/going-concern/rwanda-going-concern-agent.js';
 
+// Anomaly Detection Agent - ISA 240/520
+export {
+    RwandaAnomalyDetectionAgent,
+    createRwandaAnomalyDetectionAgent,
+    rwandaAnomalyDetectionAgent,
+    type TransactionForAnalysis,
+    type AnomalyDetectionInput,
+    type AnomalyDetectionResult,
+} from './agents/anomaly/anomaly-detection-agent.js';
+
+// Audit Opinion Agent - ISA 700/701/705/706
+export {
+    RwandaAuditOpinionAgent,
+    createRwandaAuditOpinionAgent,
+    rwandaAuditOpinionAgent,
+    type AuditOpinionInput,
+    type OpinionDetermination,
+} from './agents/reporting/audit-opinion-agent.js';
+
 // ============================================================================
 // CONVENIENCE FUNCTIONS
 // ============================================================================
@@ -54,6 +73,8 @@ export {
 import { rwandaPlanningAgent } from './agents/planning/rwanda-planning-agent.js';
 import { rwandaRiskAssessmentAgent } from './agents/risk/risk-assessment-agent.js';
 import { rwandaGoingConcernAgent } from './agents/going-concern/rwanda-going-concern-agent.js';
+import { rwandaAnomalyDetectionAgent } from './agents/anomaly/anomaly-detection-agent.js';
+import { rwandaAuditOpinionAgent } from './agents/reporting/audit-opinion-agent.js';
 
 /**
  * Initialize all Rwanda Audit agents.
@@ -66,6 +87,8 @@ export function initializeRwandaAuditSystem(_options?: {
         planning: rwandaPlanningAgent.instance(),
         riskAssessment: rwandaRiskAssessmentAgent.instance(),
         goingConcern: rwandaGoingConcernAgent.instance(),
+        anomalyDetection: rwandaAnomalyDetectionAgent.instance(),
+        auditOpinion: rwandaAuditOpinionAgent.instance(),
     };
 }
 
