@@ -36,8 +36,25 @@ export {
 // Service exports
 export { NexusRulesEngine, nexusRulesEngine } from './services/nexus-rules-engine';
 
+// Malta Autonomous Tax Agents
+export * from './agents/malta/index.js';
+
+// Malta Tax Knowledge Base
+export {
+    MaltaTaxKnowledgeBase,
+    createMaltaTaxKnowledgeBase,
+    maltaTaxKnowledgeBase,
+    type KnowledgeDocument,
+    type DocumentMetadata,
+    type SearchResult,
+    type KnowledgeBaseConfig,
+} from './services/malta-knowledge-base.js';
+
 // Type exports
 export * from './types';
+
+// Malta-specific types
+export * from './types/malta.js';
 
 // Utility exports
 export * from './utils';
