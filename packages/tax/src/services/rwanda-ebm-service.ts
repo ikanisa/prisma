@@ -28,18 +28,41 @@ import {
 } from '../utils/currency.js';
 
 // ============================================================================
-// RWANDA TAX RATES (2024-2025)
+// RWANDA TAX RATES (2026)
+// Updated: CIT reduced from 30% to 28%, added RSSB rates
 // ============================================================================
 
 export const RWANDA_TAX_RATES = {
+    // VAT
     VAT_STANDARD: 18,
-    CORPORATE_INCOME_TAX: 30,
+    VAT_ZERO_RATED: 0,
+
+    // Corporate Income Tax (updated 2024)
+    CORPORATE_INCOME_TAX: 28,          // Standard rate (reduced from 30%)
+    CIT_LISTED_40_PERCENT: 20,          // Listed with 40%+ public shareholding
+    CIT_LISTED_30_PERCENT: 25,          // Listed with 30%+ public shareholding
+    CIT_HOLDING_COMPANY: 3,             // Pure holding/IP companies
+    CIT_MICROFINANCE_COOP: 0,           // First 5 years
+
+    // Withholding Tax
     WITHHOLDING_TAX_SERVICES: 15,
     WITHHOLDING_TAX_DIVIDENDS: 15,
     WITHHOLDING_TAX_RENT: 15,
+
+    // Digital Services Tax
     DIGITAL_SERVICES_TAX: 1.5,
+
+    // Tourism
     TOURISM_LEVY: 3,
+
+    // RSSB (2026 rates - transitioning to 20% by 2030)
+    RSSB_PENSION_EMPLOYER: 6,
+    RSSB_PENSION_EMPLOYEE: 6,
+    RSSB_PENSION_TOTAL: 12,
+    RSSB_OCCUPATIONAL_HAZARD: 2,
+    RSSB_MATERNITY_BENEFIT: 0.3,
 } as const;
+
 
 // ============================================================================
 // RWANDA EBM SERVICE

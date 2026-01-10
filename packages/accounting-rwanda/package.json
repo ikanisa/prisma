@@ -1,0 +1,49 @@
+{
+    "name": "@prisma/accounting-rwanda",
+    "version": "1.0.0",
+    "description": "Rwanda Accounting Autonomous AI Agent System - IFRS compliant accounting, audit, and tax automation for Rwanda",
+    "type": "module",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js"
+        }
+    },
+    "scripts": {
+        "build": "tsc",
+        "dev": "tsc --watch",
+        "test": "vitest run",
+        "test:watch": "vitest",
+        "lint": "eslint src",
+        "typecheck": "tsc --noEmit"
+    },
+    "dependencies": {
+        "openai": "^4.72.0",
+        "date-fns": "^3.6.0",
+        "zod": "^3.23.8"
+    },
+    "devDependencies": {
+        "@types/node": "^22.12.0",
+        "typescript": "^5.9.3",
+        "vitest": "^2.1.8"
+    },
+    "peerDependencies": {
+        "@supabase/supabase-js": "^2.39.0"
+    },
+    "keywords": [
+        "rwanda",
+        "accounting",
+        "ifrs",
+        "isa",
+        "icpar",
+        "rra",
+        "rssb",
+        "ai-agents",
+        "autonomous",
+        "big-four"
+    ],
+    "author": "Prisma Core",
+    "license": "MIT"
+}

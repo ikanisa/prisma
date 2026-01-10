@@ -1,0 +1,51 @@
+{
+    "name": "@prisma/audit-malta",
+    "version": "1.0.0",
+    "description": "Malta Audit AI Agent System - Big 4-Level ISA Compliant Autonomous Audit",
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "type": "module",
+    "scripts": {
+        "build": "tsc",
+        "dev": "tsc --watch",
+        "test": "vitest run",
+        "test:watch": "vitest",
+        "test:integration": "vitest run --config vitest.integration.config.ts",
+        "lint": "eslint src/",
+        "typecheck": "tsc --noEmit"
+    },
+    "dependencies": {
+        "@prisma/accounting-malta": "workspace:*",
+        "openai": "^4.0.0",
+        "zod": "^3.22.0"
+    },
+    "devDependencies": {
+        "@types/node": "^20.0.0",
+        "typescript": "^5.3.0",
+        "vitest": "^1.0.0"
+    },
+    "exports": {
+        ".": {
+            "import": "./dist/index.js",
+            "types": "./dist/index.d.ts"
+        },
+        "./agents/*": {
+            "import": "./dist/agents/*.js",
+            "types": "./dist/agents/*.d.ts"
+        }
+    },
+    "files": [
+        "dist",
+        "README.md"
+    ],
+    "keywords": [
+        "malta",
+        "audit",
+        "isa",
+        "companies-act",
+        "ln-139-2025",
+        "ai-agents",
+        "statutory-audit"
+    ],
+    "license": "MIT"
+}
