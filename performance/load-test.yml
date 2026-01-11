@@ -1,0 +1,116 @@
+# Artillery Load Testing Configuration
+# 
+# Addresses: Audit Blocker #9 - Load testing with production-like data
+# 
+# Run: npx artillery run performance/load-test.yml
+# Report: npx artillery run performance/load-test.yml --output report.json
+#         npx artillery report report.json
+
+config:
+  target: "{{ $processEnvironment.TARGET_URL }}"
+  phases:
+    # Warm-up phase
+    - duration: 60
+      arrivalRate: 5
+      name: "Warm up"
+    
+    # Ramp-up phase
+    - duration: 60
+      arrivalRate: 5
+      rampTo: 50
+      name: "Ramp up"
+    
+    # Sustained load (100 concurrent users target)
+    - duration: 300
+      arrivalRate: 50
+      name: "Sustained load"
+    
+    # Cool down
+    - duration: 60
+      arrivalRate: 50
+      rampTo: 5
+      name: "Cool down"
+
+  defaults:
+    headers:
+      accept: "application/json"
+      content-type: "application/json"
+
+  variables:
+    testUserId: "test-user-id"
+
+  # Performance thresholds
+  ensure:
+    p95: 500      # p95 latency must be under 500ms
+    p99: 1000     # p99 latency must be under 1000ms
+    maxErrorRate: 1  # Max 1% error rate
+
+scenarios:
+  # ========================================
+  # Scenario 1: Health Check (baseline)
+  # ========================================
+  - name: "Health Check"
+    weight: 10
+    flow:
+      - get:
+          url: "/api/health"
+          expect:
+            - statusCode: 200
+
+  # ========================================
+  # Scenario 2: Dashboard Flow
+  # ========================================
+  - name: "Dashboard Flow"
+    weight: 30
+    flow:
+      - get:
+          url: "/login"
+          expect:
+            - statusCode: 200
+      - think: 1
+      - get:
+          url: "/app"
+          expect:
+            - statusCode:
+                - 200
+                - 302  # May redirect if not authenticated
+
+  # ========================================
+  # Scenario 3: API Endpoints
+  # ========================================
+  - name: "AI Status Check"
+    weight: 20
+    flow:
+      - get:
+          url: "/api/ai/status"
+          expect:
+            - statusCode: 200
+
+  # ========================================
+  # Scenario 4: Metrics Endpoint
+  # ========================================
+  - name: "Metrics Check"
+    weight: 10
+    flow:
+      - get:
+          url: "/api/metrics"
+          expect:
+            - statusCode: 200
+
+  # ========================================
+  # Scenario 5: Static Assets
+  # ========================================
+  - name: "Static Assets"
+    weight: 30
+    flow:
+      - get:
+          url: "/"
+          expect:
+            - statusCode:
+                - 200
+                - 302
+      - think: 0.5
+      - get:
+          url: "/login"
+          expect:
+            - statusCode: 200
