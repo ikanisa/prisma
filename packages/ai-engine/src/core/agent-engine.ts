@@ -23,6 +23,7 @@ import {
     type AIEngineConfig,
     DEFAULT_CONFIG,
 } from '../types.js';
+import { getOpenAIClient } from './openai-client.js';
 
 // ============================================================================
 // PRECISION MODEL - Pattern Matching for Known Cases
@@ -121,15 +122,39 @@ class PrecisionModel {
 // ============================================================================
 
 class PredictiveModel {
-    private openai: OpenAI;
+    private openai: OpenAI | null = null;
     private modelId: string;
+    private initAttempted = false;
 
     constructor(modelId: string = 'gpt-4') {
-        this.openai = new OpenAI();
         this.modelId = modelId;
+        // Lazy initialization - client created on first predict() call
+    }
+
+    private getClient(): OpenAI | null {
+        if (!this.initAttempted) {
+            this.initAttempted = true;
+            const result = getOpenAIClient();
+            this.openai = result.client;
+            if (!result.available) {
+                console.warn('[PredictiveModel] OpenAI unavailable:', result.error);
+            }
+        }
+        return this.openai;
     }
 
     async predict(tx: NormalizedTransaction): Promise<Prediction> {
+        // Check if OpenAI is available
+        const client = this.getClient();
+        if (!client) {
+            return {
+                category: 'Uncategorized',
+                confidence: 0.0,
+                model: 'predictive',
+                reasoning: 'OpenAI API not available. Configure OPENAI_API_KEY for AI-powered categorization.',
+            };
+        }
+
         const systemPrompt = `You are an expert accountant categorizing financial transactions.
 Given a transaction, determine the most appropriate expense/income category.
 
@@ -166,7 +191,7 @@ Date: ${tx.date.toISOString().split('T')[0]}
 ${tx.lineItems ? `Line Items: ${JSON.stringify(tx.lineItems)}` : ''}`;
 
         try {
-            const response = await this.openai.chat.completions.create({
+            const response = await client.chat.completions.create({
                 model: this.modelId,
                 messages: [
                     { role: 'system', content: systemPrompt },

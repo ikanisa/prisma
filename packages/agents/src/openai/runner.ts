@@ -24,10 +24,29 @@ export type RunResult = {
   metadata?: Record<string, unknown>;
 };
 
-// Initialize OpenAI client
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+// Lazy OpenAI client initialization
+let _openaiClient: OpenAI | null = null;
+let _initError: Error | null = null;
+
+function getOpenAI(): OpenAI {
+  if (_initError) {
+    throw _initError;
+  }
+  if (!_openaiClient) {
+    try {
+      const apiKey = process.env.OPENAI_API_KEY;
+      if (!apiKey) {
+        _initError = new Error('OPENAI_API_KEY is required for running OpenAI agents');
+        throw _initError;
+      }
+      _openaiClient = new OpenAI({ apiKey });
+    } catch (error) {
+      _initError = error instanceof Error ? error : new Error('Failed to initialize OpenAI');
+      throw _initError;
+    }
+  }
+  return _openaiClient;
+}
 
 /**
  * Run an OpenAI agent with the given input
@@ -62,6 +81,7 @@ export async function runOpenAIAgent(
     const tools = toolsToOpenAIFunctions(agent.tools);
 
     // Call OpenAI with function calling enabled
+    const openai = getOpenAI();
     const completion = await openai.chat.completions.create({
       model: process.env.OPENAI_MODEL || "gpt-4o-mini",
       messages,
@@ -118,7 +138,7 @@ export async function runOpenAIAgent(
       }
 
       // Get final response with tool results
-      const finalCompletion = await openai.chat.completions.create({
+      const finalCompletion = await getOpenAI().chat.completions.create({
         model: process.env.OPENAI_MODEL || "gpt-4o-mini",
         messages,
         temperature: 0.7,

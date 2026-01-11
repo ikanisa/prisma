@@ -35,6 +35,18 @@ export {
     type RetrainJob,
 } from './core/index.js';
 
+// OpenAI client utilities
+export {
+    getOpenAIClient,
+    createOpenAIClient,
+    isOpenAIAvailable,
+    resetOpenAIClient,
+    type OpenAIClientOptions,
+    type OpenAIClientResult,
+    OPENAI_MODELS,
+    DEFAULT_MODEL,
+} from './core/openai-client.js';
+
 // Services exports
 export {
     AnomalyDetector,
