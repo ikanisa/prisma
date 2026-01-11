@@ -1,6 +1,8 @@
 import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 
+export const runtime = 'edge';
+
 export default async function HomePage() {
   // Check if user might be authenticated (cookie exists)
   // Actual auth check happens in middleware
