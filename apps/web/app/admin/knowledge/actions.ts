@@ -241,15 +241,18 @@ export async function testDeepSearch(
   category: string | null,
   jurisdiction: string | null
 ) {
-  // Import deepSearch from src/lib
-  const { deepSearch } = await import('../../../../../src/lib/deepSearch');
+  // NOTE: deepSearch was in legacy src/lib and has been removed
+  // This function now returns a stub response
+  // TODO: Implement proper search using packages/tools or Supabase vector search
 
-  const results = await deepSearch({
+  console.warn('[testDeepSearch] Legacy deepSearch module removed, returning stub');
+
+  return {
     query,
     category,
-    jurisdictionCode: jurisdiction,
-    matchCount: 10,
-  });
-
-  return results;
+    jurisdiction,
+    results: [],
+    message: 'Deep search functionality pending migration to new architecture',
+  };
 }
+
