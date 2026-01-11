@@ -7,7 +7,8 @@
 import { NextResponse } from 'next/server';
 import { getMetrics } from '@/lib/observability/prometheus';
 
-export const runtime = 'edge';
+// Note: This route requires Node.js runtime due to prom-client
+// Cannot use edge runtime
 
 export async function GET() {
   try {
