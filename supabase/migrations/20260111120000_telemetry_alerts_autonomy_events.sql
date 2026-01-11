@@ -42,7 +42,7 @@ CREATE POLICY "telemetry_alerts_update" ON telemetry_alerts
 DROP POLICY IF EXISTS "telemetry_alerts_delete" ON telemetry_alerts;
 CREATE POLICY "telemetry_alerts_delete" ON telemetry_alerts
     FOR DELETE TO authenticated
-    USING (org_id IS NOT NULL AND has_min_role(org_id, 'MANAGER'));
+    USING (org_id IS NOT NULL AND is_member_of(org_id));
 
 CREATE TABLE IF NOT EXISTS autonomy_telemetry_events (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -80,4 +80,4 @@ CREATE POLICY "autonomy_telemetry_events_update" ON autonomy_telemetry_events
 DROP POLICY IF EXISTS "autonomy_telemetry_events_delete" ON autonomy_telemetry_events;
 CREATE POLICY "autonomy_telemetry_events_delete" ON autonomy_telemetry_events
     FOR DELETE TO authenticated
-    USING (has_min_role(org_id, 'MANAGER'));
+    USING (is_member_of(org_id));
