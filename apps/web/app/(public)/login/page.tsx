@@ -16,6 +16,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { MagicLinkLogin } from '@/components/features/auth/magic-link-login';
 
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutes
@@ -39,7 +40,7 @@ function LoginPageContent() {
     const registered = searchParams.get('registered');
     const passwordReset = searchParams.get('password_reset');
     const errorParam = searchParams.get('error');
-    
+
     if (registered) {
       setSuccessMessage('Account created! Please check your email to verify your account.');
     } else if (passwordReset) {
@@ -53,7 +54,7 @@ function LoginPageContent() {
   useEffect(() => {
     const storedLockout = localStorage.getItem('loginLockoutUntil');
     const storedAttempts = localStorage.getItem('loginAttempts');
-    
+
     if (storedLockout) {
       const lockoutTime = parseInt(storedLockout, 10);
       if (Date.now() < lockoutTime) {
@@ -63,15 +64,15 @@ function LoginPageContent() {
         localStorage.removeItem('loginAttempts');
       }
     }
-    
+
     if (storedAttempts) {
       setLoginAttempts(parseInt(storedAttempts, 10));
     }
   }, []);
 
   const isLockedOut = Boolean(lockoutUntil && Date.now() < lockoutUntil);
-  const remainingLockoutMinutes = lockoutUntil 
-    ? Math.ceil((lockoutUntil - Date.now()) / 60000) 
+  const remainingLockoutMinutes = lockoutUntil
+    ? Math.ceil((lockoutUntil - Date.now()) / 60000)
     : 0;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -215,7 +216,7 @@ function LoginPageContent() {
               'Sign in'
             )}
           </Button>
-          
+
           {/* Magic Link / Passwordless Login */}
           <div className="relative">
             <div className="absolute inset-0 flex items-center">
@@ -225,9 +226,9 @@ function LoginPageContent() {
               <span className="bg-card px-2 text-muted-foreground">Or</span>
             </div>
           </div>
-          
+
           <MagicLinkLogin email={email} setEmail={setEmail} />
-          
+
           <p className="text-center text-sm text-muted-foreground">
             Don&apos;t have an account?{' '}
             <Link href="/signup" className="text-primary hover:underline">
