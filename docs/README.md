@@ -9,10 +9,14 @@ Welcome to the Prisma Glow documentation. This directory contains all project do
 - **[START_HERE.md](../START_HERE.md)** - Quick start guide
 - **[ARCHITECTURE.md](../ARCHITECTURE.md)** - System architecture overview
 
-### Deployment
-- **[deployment/DEPLOYMENT_GUIDE.md](./deployment/DEPLOYMENT_GUIDE.md)** - Complete deployment guide
+### Operations
 - **[operations/PRODUCTION_OPERATIONS.md](./operations/PRODUCTION_OPERATIONS.md)** - Production operations and readiness
 - **[CLOUDFLARE_DEPLOY.md](../CLOUDFLARE_DEPLOY.md)** - Cloudflare Pages deployment
+
+### Runbooks
+- **[runbooks/disaster-recovery.md](./runbooks/disaster-recovery.md)** - Database and application recovery (RTO: 4h, RPO: 1h)
+- **[runbooks/incident-response.md](./runbooks/incident-response.md)** - Incident classification and response
+- **[runbooks/deployment-rollback.md](./runbooks/deployment-rollback.md)** - Rollback procedures for Cloudflare, Git, Database
 
 ### Development
 - **[CONTRIBUTING.md](../CONTRIBUTING.md)** - Contribution guidelines
@@ -26,11 +30,11 @@ Welcome to the Prisma Glow documentation. This directory contains all project do
 - **[KNOWLEDGE_WEB_SOURCES.md](../KNOWLEDGE_WEB_SOURCES.md)** - Knowledge base system
 - **[LEARNING_SYSTEM_READY.md](../LEARNING_SYSTEM_READY.md)** - Agent learning system
 
-### Operations
+### Old Operations (To Migrate)
 - **[operations/PRODUCTION_OPERATIONS.md](./operations/PRODUCTION_OPERATIONS.md)** - Production operations
 - **[MONITORING_AND_OBSERVABILITY.md](../MONITORING_AND_OBSERVABILITY.md)** - Monitoring setup
 - **[SECURITY.md](../SECURITY.md)** - Security guidelines
-- **[RUNBOOK.md](../RUNBOOK.md)** - Operational runbooks
+- **[RUNBOOK.md](../RUNBOOK.md)** - Operational runbooks (legacy)
 
 ### Historical
 - **[history/phases/](./history/phases/)** - Archived phase documentation (19 files)
