@@ -15,17 +15,16 @@ import {
 // Mock NextRequest
 function createMockRequest(pathname: string, ip = '127.0.0.1'): NextRequest {
     const url = new URL(`http://localhost${pathname}`);
+    const headersMap = new Map([
+        ['x-forwarded-for', ip],
+    ]);
+
     const request = {
         nextUrl: { pathname: url.pathname },
-        headers: new Map([
-            ['x-forwarded-for', ip],
-        ]),
+        headers: {
+            get: (key: string) => headersMap.get(key) ?? null,
+        },
     } as unknown as NextRequest;
-
-    // Add headers.get method
-    (request.headers as Map<string, string>).get = function (key: string) {
-        return this.get(key);
-    }.bind(request.headers);
 
     return request;
 }

@@ -3,6 +3,9 @@
  * 
  * End-to-end test scenarios for production validation.
  * Addresses: Phase 4 - Pre-Production UAT requirements
+ * 
+ * NOTE: These tests require a running server at UAT_BASE_URL.
+ * Set UAT_RUN_TESTS=true to enable them.
  */
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
@@ -11,6 +14,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 const UAT_CONFIG = {
     baseUrl: process.env.UAT_BASE_URL || 'http://localhost:3000',
     timeout: 30000,
+    enabled: process.env.UAT_RUN_TESTS === 'true',
     users: {
         orgA: { email: 'user-a@test.com', orgId: 'org-a' },
         orgB: { email: 'user-b@test.com', orgId: 'org-b' },
@@ -18,7 +22,10 @@ const UAT_CONFIG = {
     },
 };
 
-describe('UAT Scenarios', () => {
+// Use describe.skipIf to skip when server not available
+const describeUAT = UAT_CONFIG.enabled ? describe : describe.skip;
+
+describeUAT('UAT Scenarios', () => {
     beforeAll(() => {
         // Setup: Ensure test environment is ready
         console.log(`Running UAT against: ${UAT_CONFIG.baseUrl}`);
