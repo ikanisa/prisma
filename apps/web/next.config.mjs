@@ -12,6 +12,8 @@ const withPWA = withPWAInit({
   disable: process.env.NODE_ENV === 'development',
   cacheOnFrontEndNav: true,
   reloadOnOnline: true,
+  // Exclude Cloudflare Pages config files from precaching (they return 404 when accessed as URLs)
+  publicExcludes: ['!_headers', '!_redirects'],
   workboxOptions: {
     cleanupOutdatedCaches: true,
     clientsClaim: true,
