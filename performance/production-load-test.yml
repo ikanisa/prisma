@@ -1,0 +1,173 @@
+# Test Data Generator for Load Testing
+# 
+# Generates production-scale test data for Artillery load tests
+# Addresses: Audit Blocker #9 - Production-scale test data
+
+config:
+  target: "{{ $processEnvironment.TARGET_URL }}"
+  phases:
+    # Full production-scale test
+    - duration: 60
+      arrivalRate: 5
+      name: "Warm up"
+    - duration: 120
+      arrivalRate: 5
+      rampTo: 100
+      name: "Ramp to 100 users"
+    - duration: 300
+      arrivalRate: 100
+      name: "Sustained 100 users"
+    - duration: 60
+      arrivalRate: 100
+      rampTo: 10
+      name: "Cool down"
+
+  defaults:
+    headers:
+      accept: "application/json"
+      content-type: "application/json"
+
+  # Performance thresholds (SLOs)
+  ensure:
+    p50: 100      # p50 < 100ms
+    p95: 500      # p95 < 500ms (SLO)
+    p99: 1000     # p99 < 1000ms
+    maxErrorRate: 1  # < 1% errors
+
+  # Variables for realistic test data
+  variables:
+    userIds:
+      - "user-001"
+      - "user-002"
+      - "user-003"
+      - "user-004"
+      - "user-005"
+    
+    transactionTypes:
+      - "invoice"
+      - "payment"
+      - "expense"
+      - "transfer"
+
+scenarios:
+  # ========================================
+  # Critical Path: Health Check (10%)
+  # Validates system availability
+  # ========================================
+  - name: "Health Check"
+    weight: 10
+    flow:
+      - get:
+          url: "/api/health"
+          expect:
+            - statusCode: 200
+            - contentType: "application/json"
+          capture:
+            - json: "$.status"
+              as: "healthStatus"
+      - log: "Health status: {{ healthStatus }}"
+
+  # ========================================
+  # Critical Path: Dashboard Load (25%)
+  # Simulates user browsing dashboard
+  # ========================================
+  - name: "Dashboard Flow"
+    weight: 25
+    flow:
+      - get:
+          url: "/login"
+          expect:
+            - statusCode: 200
+      - think: 1
+      - get:
+          url: "/app"
+          expect:
+            - statusCode:
+                - 200
+                - 302
+      - think: 2
+      - get:
+          url: "/app/agents"
+          expect:
+            - statusCode:
+                - 200
+                - 302
+
+  # ========================================
+  # Critical Path: AI Status (15%)
+  # Checks AI service availability
+  # ========================================
+  - name: "AI Status Check"
+    weight: 15
+    flow:
+      - get:
+          url: "/api/ai/status"
+          expect:
+            - statusCode: 200
+
+  # ========================================
+  # API Endpoint: Metrics (10%)
+  # ========================================
+  - name: "Metrics Endpoint"
+    weight: 10
+    flow:
+      - get:
+          url: "/api/metrics"
+          expect:
+            - statusCode: 200
+
+  # ========================================
+  # Static Assets: Login Page (20%)
+  # ========================================
+  - name: "Static Assets"
+    weight: 20
+    flow:
+      - get:
+          url: "/"
+          expect:
+            - statusCode:
+                - 200
+                - 302
+      - think: 0.5
+      - get:
+          url: "/login"
+          expect:
+            - statusCode: 200
+      - think: 0.5
+      - get:
+          url: "/signup"
+          expect:
+            - statusCode: 200
+
+  # ========================================
+  # Knowledge Base: Pages (10%)
+  # ========================================
+  - name: "Knowledge Pages"
+    weight: 10
+    flow:
+      - get:
+          url: "/admin/knowledge"
+          expect:
+            - statusCode:
+                - 200
+                - 302
+      - think: 1
+      - get:
+          url: "/admin/knowledge/sources"
+          expect:
+            - statusCode:
+                - 200
+                - 302
+
+  # ========================================
+  # Settings & Profile (10%)
+  # ========================================
+  - name: "Settings Flow"
+    weight: 10
+    flow:
+      - get:
+          url: "/app/settings"
+          expect:
+            - statusCode:
+                - 200
+                - 302

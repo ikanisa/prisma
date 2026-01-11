@@ -94,3 +94,35 @@ Add to GitHub Actions workflow:
     name: artillery-report
     path: report.json
 ```
+
+---
+
+## Production-Scale Testing
+
+For full production-scale validation (100 concurrent users):
+
+```bash
+# Run production load test
+TARGET_URL=https://prisma.ikanisa.com npx artillery run performance/production-load-test.yml
+
+# This test includes:
+# - 100 concurrent users sustained
+# - p50 < 100ms, p95 < 500ms, p99 < 1000ms thresholds
+# - Full scenario coverage (dashboard, AI, settings)
+# - 5+ minute sustained load phase
+```
+
+### Bottleneck Identification
+
+After running load tests, analyze:
+1. **Response time distribution** - Identify slow endpoints
+2. **Error rates by endpoint** - Find failing routes
+3. **Resource utilization** - Check CPU/memory in Cloudflare
+4. **Database query times** - Monitor Supabase dashboard
+
+### Optimization Checklist
+
+- [ ] Enable edge caching for static assets
+- [ ] Optimize database queries (add indexes)
+- [ ] Implement response caching where appropriate
+- [ ] Review rate limits for production scale
