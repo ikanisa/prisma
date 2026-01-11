@@ -43,7 +43,7 @@ export function initializeOpenTelemetry(): void {
   }
 
   sdk = new NodeSDK({
-    resource: new Resource({
+    resource: resourceFromAttributes({
       [SemanticResourceAttributes.SERVICE_NAME]: serviceName,
       [SemanticResourceAttributes.SERVICE_VERSION]: serviceVersion,
       [SemanticResourceAttributes.DEPLOYMENT_ENVIRONMENT]: process.env.NODE_ENV || 'development',
