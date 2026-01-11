@@ -9,6 +9,8 @@ import { agentOrchestrator, agentRouter } from '@prisma/tools';
 import { extractContextFromJWT } from '@prisma/tools';
 import type { ToolContext } from '@prisma/tools';
 
+export const runtime = 'edge';
+
 /**
  * POST /api/agent/orchestrator
  * Execute an agent workflow or route a message to an agent
@@ -29,7 +31,7 @@ export async function POST(request: NextRequest) {
 
     const token = authHeader.substring(7);
     const context = await extractContextFromJWT(token);
-    
+
     if (!context) {
       return NextResponse.json(
         { error: 'Invalid token' },

@@ -12,6 +12,8 @@ import { extractContextFromJWT } from '@prisma/tools';
 import type { ToolContext } from '@prisma/tools';
 import { createWidgetFromToolResult } from '@/lib/chatkit/widget-factory';
 
+export const runtime = 'edge';
+
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createServerSupabaseClient();
@@ -111,7 +113,7 @@ export async function POST(request: NextRequest) {
     // Extract context for tool execution
     const authHeader = request.headers.get('authorization');
     let toolContext: ToolContext | null = null;
-    
+
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.substring(7);
       toolContext = await extractContextFromJWT(token);
@@ -144,7 +146,7 @@ export async function POST(request: NextRequest) {
     }
 
     const data = await response.json();
-    
+
     // Enhance response with widgets if tool results are present
     // In production, this would parse tool calls and create widgets
     return NextResponse.json({

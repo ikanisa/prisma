@@ -7,6 +7,8 @@
 import { NextResponse } from 'next/server';
 import { getMetrics } from '@/lib/observability/prometheus';
 
+export const runtime = 'edge';
+
 export async function GET() {
   try {
     const metrics = await getMetrics();

@@ -8,6 +8,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 
+export const runtime = 'edge';
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -53,7 +55,7 @@ export async function POST(request: NextRequest) {
       const errorData = await tokenResponse.json().catch(() => ({}));
       console.error('Token refresh failed:', errorData);
       return NextResponse.json(
-        { 
+        {
           error: errorData.error_description || errorData.error || 'Token refresh failed',
           error_code: errorData.error,
         },

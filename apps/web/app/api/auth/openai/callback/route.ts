@@ -9,6 +9,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { exchangeCodeForTokens } from '@prisma/lib/openai/apps-sdk/auth';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 
+export const runtime = 'edge';
+
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;

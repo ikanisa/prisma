@@ -1,11 +1,9 @@
 # Cloudflare Pages Redirects
-
-# SPA fallback for dynamic routes
-/*    /index.html   200
+# Note: Next.js SSR handles routing via Pages Functions, so SPA fallback is not needed.
 
 # Auth callback (keep as-is)
 /auth/callback    /auth/callback/   200
 
-# Legacy redirects
+# Legacy redirects (if still needed)
 /app/*    /:splat   301
 /old-dashboard    /dashboard   301
