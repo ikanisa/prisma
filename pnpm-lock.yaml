@@ -454,6 +454,9 @@ importers:
 
   packages/audit-canada:
     dependencies:
+      '@prisma/accounting-canada':
+        specifier: workspace:*
+        version: link:../accounting-canada
       openai:
         specifier: ^4.77.0
         version: 4.104.0(ws@8.18.3)(zod@3.25.76)
@@ -552,6 +555,9 @@ importers:
 
   packages/tax-canada:
     dependencies:
+      '@prisma/accounting-canada':
+        specifier: workspace:*
+        version: link:../accounting-canada
       openai:
         specifier: ^4.77.0
         version: 4.104.0(ws@8.18.3)(zod@3.25.76)

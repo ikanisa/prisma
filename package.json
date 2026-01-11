@@ -9,7 +9,9 @@
     "pnpm": ">=9.12.3"
   },
   "scripts": {
-    "dev": "turbo dev --filter=!@prisma/docs",
+    "dev": "turbo dev --filter=@prisma/web",
+    "deploy": "pnpm --filter @prisma/web build && pnpm --filter @prisma/web pages:build && npx wrangler pages deploy apps/web/.vercel/output/static --project-name=prisma-glow --branch=main",
+    "deploy:preview": "pnpm --filter @prisma/web build && pnpm --filter @prisma/web pages:build && npx wrangler pages deploy apps/web/.vercel/output/static --project-name=prisma-glow --branch=preview",
     "dev:web": "pnpm --filter @prisma/web dev",
     "dev:tauri": "cd src-tauri && cargo tauri dev",
     "build": "pnpm --filter @prisma/web build",
