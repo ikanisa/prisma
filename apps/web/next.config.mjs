@@ -70,7 +70,7 @@ const nextConfig = {
   reactStrictMode: true,
   images: { unoptimized: true },
   // Transpile workspace packages
-  transpilePackages: ['@prisma/lib', '@prisma/tools', '@prisma/core', '@prisma/types', '@prisma/logger'],
+  transpilePackages: ['@prisma/tools', '@prisma/core'],
   // Skip type checking during builds (run separately via `pnpm typecheck`)
   typescript: {
     ignoreBuildErrors: true,
