@@ -8,9 +8,11 @@ compatibility_flags = ["nodejs_compat"]
 # Pages build output directory (set by @cloudflare/next-on-pages)
 pages_build_output_dir = "apps/web/.vercel/output/static"
 
-# Build configuration for Cloudflare Pages
-[build]
-command = "pnpm install --frozen-lockfile && pnpm --filter @prisma/web build && pnpm --filter @prisma/web pages:build"
+# Note: [build] section is NOT supported for Pages projects
+# Build configuration must be set in Cloudflare Dashboard:
+#   Build command:          pnpm install --frozen-lockfile && pnpm --filter @prisma/web build && pnpm --filter @prisma/web pages:build
+#   Build output directory: apps/web/.vercel/output/static
+#   Root directory:         /
 
 # Production environment (main branch)
 [env.production]
@@ -25,3 +27,4 @@ vars = { NODE_ENV = "staging" }
 # - NEXT_PUBLIC_SUPABASE_ANON_KEY (encrypted)
 # - NEXT_PUBLIC_APP_URL
 # - NEXT_PUBLIC_SENTRY_DSN (optional, encrypted)
+
